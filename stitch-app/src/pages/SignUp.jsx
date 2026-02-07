@@ -1,0 +1,95 @@
+import React from 'react';
+import { Link } from 'react-router-dom';
+import { useAuth } from '../contexts/AuthContext';
+
+const SignUp = () => {
+    const { signInWithGoogle } = useAuth();
+    const [loading, setLoading] = React.useState(false);
+
+    const handleGoogleSignIn = async () => {
+        setLoading(true);
+        await signInWithGoogle();
+        setLoading(false);
+    };
+
+    return (
+        <div className="relative min-h-screen flex flex-col bg-background-light dark:bg-background-dark font-body antialiased overflow-hidden">
+            {/* ... (background effects remain same) */}
+            <div className="fixed inset-0 bg-mesh-light dark:bg-mesh-dark pointer-events-none"></div>
+            <div className="fixed top-[-20%] left-[-20%] w-[60%] h-[60%] bg-primary/12 rounded-full blur-[150px] pointer-events-none animate-float-slow"></div>
+            <div className="fixed bottom-[-20%] right-[-20%] w-[50%] h-[50%] bg-accent-cyan/10 rounded-full blur-[120px] pointer-events-none animate-float-slow animate-delay-500"></div>
+            <div className="fixed top-[40%] right-[10%] w-[30%] h-[30%] bg-secondary/8 rounded-full blur-[100px] pointer-events-none animate-pulse-subtle"></div>
+
+            <div className="relative z-10 flex flex-1 flex-col items-center justify-center px-6 py-10">
+                <div className="w-full max-w-[420px] animate-fade-in-up">
+                    {/* ... (Logo and Header remain same) */}
+                    <div className="mb-8 flex justify-center">
+                        <Link to="/" className="group flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-primary to-secondary text-white shadow-button hover:shadow-button-hover hover:scale-105 transition-all">
+                            <span className="material-symbols-outlined text-[32px] filled group-hover:rotate-12 transition-transform">school</span>
+                        </Link>
+                    </div>
+
+                    <div className="mb-10 text-center">
+                        <h1 className="text-3xl font-display font-bold tracking-tight text-text-main-light dark:text-text-main-dark mb-3">
+                            Create your account
+                        </h1>
+                        <p className="text-base font-medium text-text-sub-light dark:text-text-sub-dark">
+                            Join your campus community today to discover resources and study groups.
+                        </p>
+                    </div>
+
+                    {/* Auth Buttons */}
+                    <div className="flex flex-col gap-3">
+                        <button onClick={handleGoogleSignIn} disabled={loading} className="group flex h-14 w-full cursor-pointer items-center justify-center gap-3 rounded-2xl bg-white dark:bg-neutral-900 border-2 border-neutral-200 dark:border-neutral-800 px-6 transition-all hover:border-primary/30 hover:shadow-card-hover active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed">
+                            <svg className="h-5 w-5 group-hover:scale-110 transition-transform" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                                <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"></path>
+                                <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"></path>
+                                <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"></path>
+                                <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"></path>
+                            </svg>
+                            <span className="text-base font-bold text-text-main-light dark:text-text-main-dark">
+                                {loading ? 'Connect...' : 'Continue with Google'}
+                            </span>
+                        </button>
+
+                        <button className="group flex h-14 w-full cursor-pointer items-center justify-center gap-3 rounded-2xl bg-white dark:bg-neutral-900 border-2 border-neutral-200 dark:border-neutral-800 px-6 transition-all hover:border-primary/30 hover:shadow-card-hover active:scale-[0.98]">
+                            <svg className="h-5 w-5 fill-current group-hover:scale-110 transition-transform" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                                <path d="M17.05 20.28c-.98.95-2.05.8-3.08.35-1.09-.46-2.09-.48-3.24 0-1.44.62-2.2.44-3.06-.35C2.79 15.25 3.51 7.59 9.05 7.31c1.35.07 2.29.74 3.08.74 1.18 0 2.45-1.01 3.94-.88 2.37.18 3.52 1.34 3.52 1.34s-1.92 1.2-1.95 3.55c-.02 2.68 2.22 3.69 2.22 3.69s-1.6 4.25-2.81 4.53zM15.34 3.29c-1.32 1.62-3.11 1.5-3.11 1.5s-.35-2.73 2.13-4.22c1.34-1.12 3.51-.77 3.51-.77s.19 2.16-2.53 3.49z"></path>
+                            </svg>
+                            <span className="text-base font-bold text-text-main-light dark:text-text-main-dark">Continue with Apple</span>
+                        </button>
+
+                        {/* Divider */}
+                        <div className="relative my-4 flex items-center justify-center">
+                            <div aria-hidden="true" className="absolute inset-0 flex items-center">
+                                <div className="w-full border-t border-neutral-200 dark:border-neutral-800"></div>
+                            </div>
+                            <div className="relative flex justify-center bg-background-light dark:bg-background-dark px-4">
+                                <span className="text-xs font-bold uppercase tracking-wider text-neutral-400">or</span>
+                            </div>
+                        </div>
+
+                        <Link to="/onboarding/name" className="group btn-primary h-14 flex items-center justify-center gap-3 text-base">
+                            <span className="material-symbols-outlined text-[22px] group-hover:scale-110 transition-transform">mail</span>
+                            <span>Continue with Email</span>
+                        </Link>
+                    </div>
+                </div>
+            </div>
+
+            {/* Footer */}
+            <div className="relative z-10 w-full py-6 text-center">
+                <p className="text-sm font-medium text-text-sub-light dark:text-text-sub-dark">
+                    Already have an account?
+                    <Link to="/login" className="font-bold text-primary hover:text-primary-dark transition-colors ml-1 animated-underline">Log in</Link>
+                </p>
+                <div className="mt-6 flex justify-center gap-6">
+                    <a className="text-xs font-medium text-neutral-400 hover:text-primary transition-colors animated-underline" href="#">Terms of Service</a>
+                    <a className="text-xs font-medium text-neutral-400 hover:text-primary transition-colors animated-underline" href="#">Privacy Policy</a>
+                </div>
+            </div>
+        </div>
+    );
+};
+
+export default SignUp;
