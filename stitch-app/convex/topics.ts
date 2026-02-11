@@ -1,5 +1,6 @@
 import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
+import { resolveIllustrationUrl } from "./lib/illustrationUrl";
 
 // Get all topics for a course
 export const getTopicsByCourse = query({
@@ -11,7 +12,22 @@ export const getTopicsByCourse = query({
             .order("asc")
             .collect();
 
-        return topics;
+        const topicsWithIllustrations = await Promise.all(
+            topics.map(async (topic) => {
+                if (!topic.illustrationStorageId) return topic;
+                const freshIllustrationUrl = await resolveIllustrationUrl({
+                    illustrationStorageId: topic.illustrationStorageId,
+                    getUrl: (storageId) => ctx.storage.getUrl(storageId),
+                });
+                return {
+                    ...topic,
+                    // Convex storage URLs are signed and can expire; refresh on each read.
+                    illustrationUrl: freshIllustrationUrl || undefined,
+                };
+            })
+        );
+
+        return topicsWithIllustrations;
     },
 });
 
@@ -22,6 +38,15 @@ export const getTopicWithQuestions = query({
         const topic = await ctx.db.get(args.topicId);
         if (!topic) return null;
 
+        let freshIllustrationUrl: string | undefined = topic.illustrationUrl;
+        if (topic.illustrationStorageId) {
+            freshIllustrationUrl =
+                (await resolveIllustrationUrl({
+                    illustrationStorageId: topic.illustrationStorageId,
+                    getUrl: (storageId) => ctx.storage.getUrl(storageId),
+                })) || undefined;
+        }
+
         const questions = await ctx.db
             .query("questions")
             .withIndex("by_topicId", (q) => q.eq("topicId", args.topicId))
@@ -29,6 +54,7 @@ export const getTopicWithQuestions = query({
 
         return {
             ...topic,
+            illustrationUrl: freshIllustrationUrl,
             questions,
         };
     },
@@ -55,6 +81,8 @@ export const createTopic = mutation({
         title: v.string(),
         description: v.optional(v.string()),
         content: v.optional(v.string()),
+        illustrationStorageId: v.optional(v.id("_storage")),
+        illustrationUrl: v.optional(v.string()),
         orderIndex: v.number(),
         isLocked: v.boolean(),
     },
@@ -64,11 +92,34 @@ export const createTopic = mutation({
             title: args.title,
             description: args.description,
             content: args.content,
+            illustrationStorageId: args.illustrationStorageId,
+            illustrationUrl: args.illustrationUrl,
             orderIndex: args.orderIndex,
             isLocked: args.isLocked,
         });
 
         return topicId;
+    },
+});
+
+export const updateTopicIllustration = mutation({
+    args: {
+        topicId: v.id("topics"),
+        illustrationStorageId: v.optional(v.id("_storage")),
+        illustrationUrl: v.optional(v.string()),
+    },
+    handler: async (ctx, args) => {
+        const topic = await ctx.db.get(args.topicId);
+        if (!topic) {
+            throw new Error("Topic not found");
+        }
+
+        await ctx.db.patch(args.topicId, {
+            illustrationStorageId: args.illustrationStorageId,
+            illustrationUrl: args.illustrationUrl,
+        });
+
+        return { success: true };
     },
 });
 
