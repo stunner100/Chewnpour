@@ -5,6 +5,10 @@ import { api } from '../../convex/_generated/api';
 import { useAuth } from '../contexts/AuthContext';
 import { useVoicePlayback } from '../lib/useVoicePlayback';
 import {
+    EXAM_PREWARM_MIN_QUESTION_COUNT,
+    shouldPrewarmExamQuestions,
+} from '../lib/examQuestionPrewarm';
+import {
     SECTION_TITLE_PATTERN,
     SECTION_TITLES_SET,
     cleanDisplayLine,
@@ -33,8 +37,10 @@ const TopicDetail = () => {
     const [scrollProgress, setScrollProgress] = useState(0);
     const [showScrollActions, setShowScrollActions] = useState(false);
     const [shouldAnimateBlocks, setShouldAnimateBlocks] = useState(false);
+    const [prewarmingQuestions, setPrewarmingQuestions] = useState(false);
     const contentRef = useRef(null);
     const lastProgressRef = useRef(-1);
+    const prewarmedTopicIdsRef = useRef(new Set());
     const navigate = useNavigate();
     const topicData = useQuery(
         api.topics.getTopicWithQuestions,
@@ -257,6 +263,39 @@ const TopicDetail = () => {
     const cleanInline = (text) => cleanInlineText(text);
 
     const cleanLine = (text) => cleanDisplayLine(text);
+
+    useEffect(() => {
+        if (
+            !shouldPrewarmExamQuestions({
+                topicId,
+                topicData,
+                questionCount: questions.length,
+                alreadyTriggered: prewarmedTopicIdsRef.current.has(topicId),
+            })
+        ) {
+            return;
+        }
+
+        prewarmedTopicIdsRef.current.add(topicId);
+        let cancelled = false;
+        setPrewarmingQuestions(true);
+        generateQuestions({ topicId })
+            .catch((error) => {
+                if (!cancelled) {
+                    console.warn('Background question prewarm failed:', error);
+                }
+            })
+            .finally(() => {
+                if (!cancelled) {
+                    setPrewarmingQuestions(false);
+                }
+            });
+
+        return () => {
+            cancelled = true;
+        };
+    }, [topicId, topicData, questions.length, generateQuestions]);
+
     const sanitizeTopicTitle = (value) => {
         return cleanLine(value || '')
             .replace(/\s*[•|]\s.*$/, '')
@@ -993,6 +1032,16 @@ const TopicDetail = () => {
                         {startExamError && (
                             <div className="mt-6 max-w-5xl mx-auto rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-medium text-amber-800">
                                 {startExamError}
+                            </div>
+                        )}
+                        {prewarmingQuestions && (
+                            <div className="mt-6 max-w-5xl mx-auto rounded-2xl border border-blue-200 bg-blue-50 px-4 py-3 text-sm font-medium text-blue-700">
+                                Preparing exam questions in the background so start is faster when you are ready.
+                            </div>
+                        )}
+                        {!prewarmingQuestions && questions.length > 0 && questions.length < EXAM_PREWARM_MIN_QUESTION_COUNT && (
+                            <div className="mt-6 max-w-5xl mx-auto rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-medium text-slate-600">
+                                {questions.length} questions are ready. More are still generating in the background.
                             </div>
                         )}
                         <div className="absolute -bottom-24 -right-24 w-64 h-64 bg-primary/5 rounded-full blur-3xl pointer-events-none"></div>
