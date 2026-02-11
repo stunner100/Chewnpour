@@ -8,11 +8,6 @@ import {
     calculateRemainingTopicProgress,
     normalizeGeneratedTopicCount,
 } from "./lib/topicGenerationProgress";
-import {
-    isDoctraSupportedMimeType,
-    isDoctraSupportedUploadFileType,
-    parseDoctraExtractionPayload,
-} from "./lib/doctraExtraction";
 
 // Qwen API configuration (OpenAI-compatible)
 const QWEN_BASE_URL = process.env.QWEN_BASE_URL || "https://dashscope.aliyuncs.com/compatible-mode/v1";
@@ -41,9 +36,6 @@ const MAX_QUESTION_GENERATION_ROUNDS = 80;
 const GEMINI_BASE_URL = process.env.GEMINI_BASE_URL || "https://generativelanguage.googleapis.com/v1beta";
 const GEMINI_IMAGE_MODEL = process.env.GEMINI_IMAGE_MODEL || "gemini-2.0-flash-exp-image-generation";
 const GEMINI_TIMEOUT_MS = Number(process.env.GEMINI_TIMEOUT_MS || 45000);
-const DOCTRA_PARSER_URL = process.env.DOCTRA_PARSER_URL || "";
-const DOCTRA_API_KEY = process.env.DOCTRA_API_KEY || "";
-const DOCTRA_TIMEOUT_MS = Number(process.env.DOCTRA_TIMEOUT_MS || 120000);
 const MIN_EXTRACTED_TEXT_LENGTH = 200;
 
 interface Message {
@@ -598,56 +590,6 @@ const callAzureDocIntelRead = async (fileBuffer: ArrayBuffer, contentType: strin
     }
 
     throw new Error("Azure OCR timed out");
-};
-
-const callDoctraExtract = async (args: {
-    fileBuffer: ArrayBuffer;
-    contentType: string;
-    fileName: string;
-}) => {
-    const contentType = String(args.contentType || "").toLowerCase();
-    if (!DOCTRA_PARSER_URL || !isDoctraSupportedMimeType(contentType)) {
-        return "";
-    }
-
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), DOCTRA_TIMEOUT_MS);
-    try {
-        const headers: Record<string, string> = {};
-        if (DOCTRA_API_KEY) {
-            headers.Authorization = `Bearer ${DOCTRA_API_KEY}`;
-        }
-
-        const formData = new FormData();
-        const fileBlob = new Blob([Buffer.from(args.fileBuffer)], {
-            type: contentType || "application/octet-stream",
-        });
-        formData.append("file", fileBlob, args.fileName || "document");
-        formData.append("contentType", contentType);
-
-        const response = await fetch(DOCTRA_PARSER_URL, {
-            method: "POST",
-            headers,
-            body: formData,
-            signal: controller.signal,
-        });
-
-        if (!response.ok) {
-            const errorText = await response.text();
-            throw new Error(`Doctra parser error: ${response.status} - ${errorText}`);
-        }
-
-        const responseContentType = String(response.headers.get("content-type") || "").toLowerCase();
-        if (responseContentType.includes("application/json")) {
-            const payload = await response.json();
-            return parseDoctraExtractionPayload(payload);
-        }
-
-        const rawText = await response.text();
-        return parseDoctraExtractionPayload({ text: rawText });
-    } finally {
-        clearTimeout(timeoutId);
-    }
 };
 
 const isSupportedAssignmentMimeType = (fileType: string) => {
@@ -1569,31 +1511,9 @@ export const processUploadedFile = action({
                 processingProgress: 20,
             });
 
-            // Extract text using parser/OCR fallbacks before topic generation.
+            // Extract text using Azure OCR before topic generation.
             let extractedText = (providedText || "").trim();
             const uploadFileType = String(upload.fileType || "").toLowerCase();
-
-            if (
-                (!extractedText || extractedText.length < MIN_EXTRACTED_TEXT_LENGTH) &&
-                isDoctraSupportedUploadFileType(uploadFileType)
-            ) {
-                checkTimeout();
-                try {
-                    const doctraContentType = uploadFileType === "docx"
-                        ? ASSIGNMENT_DOCX_MIME
-                        : "application/pdf";
-                    const doctraText = await callDoctraExtract({
-                        fileBuffer,
-                        contentType: doctraContentType,
-                        fileName: upload.fileName || "document",
-                    });
-                    if (doctraText && doctraText.length >= MIN_EXTRACTED_TEXT_LENGTH) {
-                        extractedText = doctraText;
-                    }
-                } catch (doctraError) {
-                    console.error("Doctra extraction failed:", doctraError);
-                }
-            }
 
             if (uploadFileType === "pdf" || uploadFileType === "docx") {
                 if (!extractedText || extractedText.length < MIN_EXTRACTED_TEXT_LENGTH) {
@@ -1776,18 +1696,6 @@ export const processAssignmentThread = action({
             }
 
             let extractedText = normalizeAssignmentText(args.extractedText || "");
-            if (extractedText.length < ASSIGNMENT_MIN_EXTRACTED_TEXT_LENGTH && isDoctraSupportedMimeType(fileType)) {
-                try {
-                    const doctraText = await callDoctraExtract({
-                        fileBuffer,
-                        contentType: fileType,
-                        fileName: thread.fileName || "assignment",
-                    });
-                    extractedText = normalizeAssignmentText(doctraText || extractedText);
-                } catch (doctraError) {
-                    console.error("Assignment Doctra extraction failed:", doctraError);
-                }
-            }
             if (extractedText.length < ASSIGNMENT_MIN_EXTRACTED_TEXT_LENGTH) {
                 if (!AZURE_DOCINTEL_ENDPOINT || !AZURE_DOCINTEL_KEY) {
                     return await failThread(
