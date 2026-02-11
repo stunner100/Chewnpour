@@ -20,7 +20,7 @@ export default defineSchema({
         userId: v.string(),
         fileName: v.string(),
         fileUrl: v.string(),
-        fileType: v.optional(v.string()), // 'pdf', 'pptx'
+        fileType: v.optional(v.string()), // 'pdf', 'pptx', 'docx'
         fileSize: v.optional(v.number()),
         status: v.string(), // 'processing', 'ready', 'error'
         storageId: v.optional(v.id("_storage")),

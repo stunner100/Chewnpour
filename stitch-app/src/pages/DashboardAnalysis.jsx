@@ -66,9 +66,13 @@ const DashboardAnalysis = () => {
         }
 
         // Validate file type
-        const validTypes = ['application/pdf', 'application/vnd.openxmlformats-officedocument.presentationml.presentation'];
+        const validTypes = [
+            'application/pdf',
+            'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+            'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+        ];
         if (!validTypes.includes(file.type)) {
-            setUploadError('Please upload a PDF or PPTX file');
+            setUploadError('Please upload a PDF, PPTX, or DOCX file');
             return;
         }
 
@@ -98,7 +102,11 @@ const DashboardAnalysis = () => {
             const uploadId = await createUpload({
                 userId,
                 fileName: file.name,
-                fileType: file.type.includes('pdf') ? 'pdf' : 'pptx',
+                fileType: file.type.includes('pdf')
+                    ? 'pdf'
+                    : file.type.includes('wordprocessingml.document')
+                        ? 'docx'
+                        : 'pptx',
                 fileSize: file.size,
                 storageId,
             });
@@ -106,7 +114,7 @@ const DashboardAnalysis = () => {
             // Step 4: Create a course from this upload
             const courseId = await createCourse({
                 userId,
-                title: file.name.replace(/\.(pdf|pptx)$/i, ''),
+                title: file.name.replace(/\.(pdf|pptx|docx)$/i, ''),
                 description: 'Processing your study materials...',
                 uploadId,
             });
@@ -240,7 +248,7 @@ const DashboardAnalysis = () => {
                                         <span className="text-transparent bg-clip-text bg-gradient-to-r from-primary to-purple-600 animate-gradient">Clear Lessons and Interactive Quizzes</span>
                                     </h1>
                                     <p className="text-slate-500 dark:text-slate-400 text-lg font-medium leading-relaxed max-w-xl">
-                                        Upload any PDF or PPTX. Our AI extracts key concepts and generates clear, detailed lessons.
+                                        Upload any PDF, PPTX, or DOCX. Our AI extracts key concepts and generates clear, detailed lessons.
                                     </p>
                                     <div className="pt-2">
                                         {uploadError && (
@@ -251,7 +259,7 @@ const DashboardAnalysis = () => {
                                         <input
                                             ref={fileInputRef}
                                             type="file"
-                                            accept=".pdf,.pptx"
+                                            accept=".pdf,.pptx,.docx"
                                             className="hidden"
                                             onChange={handleFileSelect}
                                         />
