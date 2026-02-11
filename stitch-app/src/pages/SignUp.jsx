@@ -16,9 +16,9 @@ const SignUp = () => {
         <div className="relative min-h-screen flex flex-col bg-background-light dark:bg-background-dark font-body antialiased overflow-hidden">
             {/* ... (background effects remain same) */}
             <div className="fixed inset-0 bg-mesh-light dark:bg-mesh-dark pointer-events-none"></div>
-            <div className="fixed top-[-20%] left-[-20%] w-[60%] h-[60%] bg-primary/12 rounded-full blur-[150px] pointer-events-none animate-float-slow"></div>
-            <div className="fixed bottom-[-20%] right-[-20%] w-[50%] h-[50%] bg-accent-cyan/10 rounded-full blur-[120px] pointer-events-none animate-float-slow animate-delay-500"></div>
-            <div className="fixed top-[40%] right-[10%] w-[30%] h-[30%] bg-secondary/8 rounded-full blur-[100px] pointer-events-none animate-pulse-subtle"></div>
+            <div className="fixed top-[-20%] left-[-20%] w-[40%] md:w-[60%] h-[40%] md:h-[60%] bg-primary/12 rounded-full blur-[150px] pointer-events-none animate-float-slow"></div>
+            <div className="fixed bottom-[-20%] right-[-20%] w-[35%] md:w-[50%] h-[35%] md:h-[50%] bg-accent-cyan/10 rounded-full blur-[120px] pointer-events-none animate-float-slow animate-delay-500"></div>
+            <div className="fixed top-[40%] right-[10%] w-[25%] md:w-[30%] h-[25%] md:h-[30%] bg-secondary/8 rounded-full blur-[100px] pointer-events-none animate-pulse-subtle"></div>
 
             <div className="relative z-10 flex flex-1 flex-col items-center justify-center px-6 py-10">
                 <div className="w-full max-w-[420px] animate-fade-in-up">
@@ -30,7 +30,7 @@ const SignUp = () => {
                     </div>
 
                     <div className="mb-10 text-center">
-                        <h1 className="text-3xl font-display font-bold tracking-tight text-text-main-light dark:text-text-main-dark mb-3">
+                        <h1 className="text-2xl md:text-3xl font-display font-bold tracking-tight text-text-main-light dark:text-text-main-dark mb-3">
                             Create your account
                         </h1>
                         <p className="text-base font-medium text-text-sub-light dark:text-text-sub-dark">
@@ -50,13 +50,6 @@ const SignUp = () => {
                             <span className="text-base font-bold text-text-main-light dark:text-text-main-dark">
                                 {loading ? 'Connect...' : 'Continue with Google'}
                             </span>
-                        </button>
-
-                        <button className="group flex h-14 w-full cursor-pointer items-center justify-center gap-3 rounded-2xl bg-white dark:bg-neutral-900 border-2 border-neutral-200 dark:border-neutral-800 px-6 transition-all hover:border-primary/30 hover:shadow-card-hover active:scale-[0.98]">
-                            <svg className="h-5 w-5 fill-current group-hover:scale-110 transition-transform" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                                <path d="M17.05 20.28c-.98.95-2.05.8-3.08.35-1.09-.46-2.09-.48-3.24 0-1.44.62-2.2.44-3.06-.35C2.79 15.25 3.51 7.59 9.05 7.31c1.35.07 2.29.74 3.08.74 1.18 0 2.45-1.01 3.94-.88 2.37.18 3.52 1.34 3.52 1.34s-1.92 1.2-1.95 3.55c-.02 2.68 2.22 3.69 2.22 3.69s-1.6 4.25-2.81 4.53zM15.34 3.29c-1.32 1.62-3.11 1.5-3.11 1.5s-.35-2.73 2.13-4.22c1.34-1.12 3.51-.77 3.51-.77s.19 2.16-2.53 3.49z"></path>
-                            </svg>
-                            <span className="text-base font-bold text-text-main-light dark:text-text-main-dark">Continue with Apple</span>
                         </button>
 
                         {/* Divider */}

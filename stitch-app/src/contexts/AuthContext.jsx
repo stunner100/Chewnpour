@@ -1,5 +1,5 @@
-import React, { createContext, useContext } from 'react';
-import { useSession, signIn as betterSignIn, signUp as betterSignUp, signOut as betterSignOut } from '../lib/auth-client';
+import React, { createContext, useContext, useState, useEffect } from 'react';
+import { authClient, useSession, signIn as betterSignIn, signUp as betterSignUp, signOut as betterSignOut } from '../lib/auth-client';
 import { useQuery, useMutation } from 'convex/react';
 import { api } from '../../convex/_generated/api';
 import { hasConvexUrl as convexEnabled } from '../lib/convex-config';
@@ -40,7 +40,44 @@ const AuthProviderFallback = ({ children }) => {
 };
 
 const AuthProviderConvex = ({ children }) => {
-    const { data: session, isPending } = useSession();
+    const { data: session, isPending, refetch } = useSession();
+
+    // Handle OTT (One-Time Token) exchange for cross-domain auth
+    const [ottPending, setOttPending] = useState(() => {
+        if (typeof window === 'undefined') return false;
+        const params = new URLSearchParams(window.location.search);
+        return params.has('ott');
+    });
+
+    useEffect(() => {
+        const params = new URLSearchParams(window.location.search);
+        const ott = params.get('ott');
+
+        if (ott && ottPending) {
+            const verifyOtt = async () => {
+                try {
+                    const result = await authClient.crossDomain.oneTimeToken.verify({
+                        token: ott,
+                    });
+
+                    if (result.error) {
+                        throw new Error(result.error.message || 'Failed to verify one-time token');
+                    }
+
+                    await refetch();
+                } catch (error) {
+                    console.error('[AuthContext] OTT verification error:', error);
+                } finally {
+                    const url = new URL(window.location.href);
+                    url.searchParams.delete('ott');
+                    window.history.replaceState({}, '', url.toString());
+                    setOttPending(false);
+                }
+            };
+
+            verifyOtt();
+        }
+    }, [ottPending, refetch]);
 
     // The user from Better Auth session
     const user = session?.user ?? null;
@@ -50,7 +87,7 @@ const AuthProviderConvex = ({ children }) => {
     );
     const profile = profileData ?? null;
     const profileLoading = user ? profileData === undefined : false;
-    const loading = isPending || profileLoading;
+    const loading = isPending || profileLoading || ottPending;
 
     const upsertProfile = useMutation(api.profiles.upsertProfile);
 

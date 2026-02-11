@@ -45,8 +45,8 @@ const Login = () => {
         <div className="relative min-h-screen flex flex-col bg-background-light dark:bg-background-dark font-body antialiased overflow-hidden">
             {/* Background Effects */}
             <div className="fixed inset-0 bg-mesh-light dark:bg-mesh-dark pointer-events-none"></div>
-            <div className="fixed top-[-30%] right-[-20%] w-[60%] h-[60%] bg-primary/10 rounded-full blur-[150px] pointer-events-none animate-float-slow"></div>
-            <div className="fixed bottom-[-30%] left-[-20%] w-[60%] h-[60%] bg-secondary/8 rounded-full blur-[150px] pointer-events-none animate-float-slow animate-delay-500"></div>
+            <div className="fixed top-[-30%] right-[-20%] w-[40%] md:w-[60%] h-[40%] md:h-[60%] bg-primary/10 rounded-full blur-[150px] pointer-events-none animate-float-slow"></div>
+            <div className="fixed bottom-[-30%] left-[-20%] w-[40%] md:w-[60%] h-[40%] md:h-[60%] bg-secondary/8 rounded-full blur-[150px] pointer-events-none animate-float-slow animate-delay-500"></div>
 
             <div className="relative z-10 flex items-center p-4 justify-between">
                 <Link to="/" className="flex size-12 shrink-0 items-center justify-center rounded-full bg-white/80 dark:bg-neutral-900/80 backdrop-blur-sm hover:bg-primary/10 transition-all shadow-sm border border-neutral-200/50 dark:border-neutral-800/50">
@@ -59,7 +59,7 @@ const Login = () => {
                     <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-primary to-secondary flex items-center justify-center text-white shadow-button mb-6">
                         <span className="material-symbols-outlined text-[32px] filled">school</span>
                     </div>
-                    <h1 className="text-text-main-light dark:text-text-main-dark tracking-tight text-3xl font-display font-bold leading-tight mb-2">Welcome back</h1>
+                    <h1 className="text-text-main-light dark:text-text-main-dark tracking-tight text-2xl md:text-3xl font-display font-bold leading-tight mb-2">Welcome back</h1>
                     <p className="text-text-sub-light dark:text-text-sub-dark text-base font-medium">Login to your campus account</p>
                 </div>
 
@@ -81,12 +81,6 @@ const Login = () => {
                         <span className="text-text-main-light dark:text-text-main-dark">
                             {loading && !email ? 'Connecting...' : 'Login with Google'}
                         </span>
-                    </button>
-                    <button className="group relative flex w-full cursor-pointer items-center justify-center overflow-hidden rounded-2xl h-14 px-4 bg-white dark:bg-neutral-900 border-2 border-neutral-200 dark:border-neutral-800 hover:border-primary/30 hover:shadow-card-hover transition-all gap-3 text-sm font-bold">
-                        <svg className="w-5 h-5 fill-current group-hover:scale-110 transition-transform" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                            <path d="M13.6004 2.12879C12.876 2.12879 12.1827 2.49392 11.5033 2.91021C11.0267 3.20038 10.596 3.52846 10.2644 3.7335C9.76189 4.04351 9.27702 4.34185 8.78441 4.34185C8.76127 4.34185 8.73663 4.34108 8.71123 4.34108C8.72355 4.33184 8.7405 4.32183 8.75975 4.31259C8.35851 4.54284 7.90412 4.88785 7.42045 5.37842C6.35715 6.45271 5.48512 8.35775 5.48512 10.7302C5.48512 13.0652 6.43801 15.5489 8.24075 18.156C9.11244 19.4189 10.1581 20.9323 11.5834 20.9323C12.1935 20.9323 12.4338 20.7629 13.1669 20.4733C13.9117 20.1807 14.1951 20.0713 14.9391 20.0713C15.6831 20.0713 15.9357 20.1714 16.7111 20.4672C17.4704 20.7568 17.7015 20.9323 18.2868 20.9323C19.7423 20.9323 20.9404 19.2618 21.6919 18.1698C22.2571 17.3489 22.8463 16.148 23.0759 15.0221C23.1098 14.8588 23.1513 14.6124 23.1513 14.5985C23.1344 14.5939 23.102 14.5877 23.0774 14.5816C23.0512 14.577 23.0189 14.5708 22.9804 14.5585C22.0286 14.198 21.3201 13.2793 21.3201 12.0857C21.3201 10.0279 23.0066 8.87531 23.0574 8.84143L23.1498 8.77827C22.6569 8.07747 21.9052 7.55838 21.0374 7.21951C20.1548 6.87754 19.2045 6.78666 18.2437 6.94685L17.7662 7.0254L17.3996 6.79127C16.9498 6.50478 16.4954 6.22137 15.9963 6.00266C15.2278 5.66687 14.4391 5.4959 13.6266 5.4959C13.6174 5.4959 13.6128 5.4959 13.6004 5.4959V2.12879ZM16.3244 2.37832C16.3537 2.12879 16.3691 1.87926 16.3691 1.63281C16.3691 1.41101 16.3475 1.19691 16.3152 1.00283L16.2998 0.908863H16.2058C16.0087 0.925807 15.7976 0.941211 15.5866 0.941211C14.5162 0.941211 13.4372 1.48803 12.7224 2.35521C12.0169 3.20857 11.5834 4.41733 11.7513 5.6638C11.7698 5.7932 11.796 5.918 11.8314 6.03661L11.8607 6.13674H11.9654C12.1626 6.11979 12.352 6.10439 12.5483 6.10439C13.6235 6.10439 14.8875 5.5683 15.6328 4.67305C16.1427 4.06151 16.4261 3.2363 16.3244 2.37832Z"></path>
-                        </svg>
-                        <span className="text-text-main-light dark:text-text-main-dark">Login with Apple</span>
                     </button>
                 </div>
 

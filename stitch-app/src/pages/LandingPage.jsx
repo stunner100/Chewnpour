@@ -37,7 +37,7 @@ const testimonials = [
     {
         name: 'Alex Rivera',
         role: 'Med Student',
-        content: 'Stitch transformed how I handle anatomy. The AI summaries save me hours of manual note-taking every week.',
+        content: 'StudyMate transformed how I handle anatomy. The AI summaries save me hours of manual note-taking every week.',
         avatar: 'https://i.pravatar.cc/150?img=11',
     },
     {
@@ -87,9 +87,9 @@ const LandingPage = () => {
         <div className="relative min-h-screen overflow-x-hidden bg-[#0a0a0b] text-white font-sans selection:bg-indigo-500/30">
             {/* Background Blobs */}
             <div className="pointer-events-none fixed inset-0 z-0">
-                <div className="absolute top-[-10%] left-[-10%] h-[500px] w-[500px] rounded-full bg-indigo-600/20 blur-[120px]"></div>
-                <div className="absolute bottom-[-10%] right-[-10%] h-[500px] w-[500px] rounded-full bg-cyan-600/20 blur-[120px]"></div>
-                <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 h-[600px] w-[600px] rounded-full bg-violet-600/10 blur-[150px]"></div>
+                <div className="absolute top-[-10%] left-[-10%] h-[300px] w-[300px] md:h-[500px] md:w-[500px] rounded-full bg-indigo-600/20 blur-[120px]"></div>
+                <div className="absolute bottom-[-10%] right-[-10%] h-[300px] w-[300px] md:h-[500px] md:w-[500px] rounded-full bg-cyan-600/20 blur-[120px]"></div>
+                <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 h-[350px] w-[350px] md:h-[600px] md:w-[600px] rounded-full bg-violet-600/10 blur-[150px]"></div>
             </div>
 
             {/* Header */}
@@ -103,7 +103,7 @@ const LandingPage = () => {
                             <span className="material-symbols-outlined text-[20px] filled text-white">auto_awesome</span>
                         </div>
                         <h1 className="text-xl font-bold tracking-tight">
-                            Stitch<span className="text-indigo-400">.ai</span>
+                            StudyMate
                         </h1>
                     </div>
                     <nav className="hidden md:flex items-center gap-8 text-sm font-medium text-neutral-400">
@@ -135,14 +135,14 @@ const LandingPage = () => {
                         </span>
                         Next-Gen Learning Assistant
                     </div>
-                    <h2 className="text-5xl md:text-7xl font-bold leading-[1.1] tracking-tight mb-8 animate-fade-in-up">
+                    <h2 className="text-3xl sm:text-4xl md:text-7xl font-bold leading-[1.1] tracking-tight mb-6 md:mb-8 animate-fade-in-up">
                         Master any subject with <br className="hidden md:block" />
                         <span className="bg-clip-text text-transparent bg-gradient-to-r from-indigo-400 via-violet-400 to-cyan-400">
                             Your Personal AI Tutor.
                         </span>
                     </h2>
                     <p className="mx-auto max-w-2xl text-lg text-neutral-400 leading-relaxed mb-10 animate-fade-in-up animate-delay-100">
-                        Stitch uses advanced AI to synthesize your course material into manageable study paths.
+                        StudyMate uses advanced AI to synthesize your course material into manageable study paths.
                         Stop feeling overwhelmed and start excelling with personalized learning.
                     </p>
                     <div className="flex flex-col sm:flex-row items-center justify-center gap-4 animate-fade-in-up animate-delay-200">
@@ -150,7 +150,7 @@ const LandingPage = () => {
                             to="/signup"
                             className="w-full sm:w-auto inline-flex h-14 items-center justify-center rounded-2xl bg-white px-8 text-base font-bold text-black shadow-xl hover:bg-neutral-200 transition-all active:scale-95"
                         >
-                            Try Stitch for Free
+                            Try StudyMate for Free
                         </Link>
                         <a
                             href="#demo"
@@ -231,7 +231,7 @@ const LandingPage = () => {
                                         <div className="bg-white/5 border border-white/10 text-neutral-300 px-4 py-2 rounded-2xl rounded-tl-none text-sm max-w-[80%]">
                                             <div className="flex items-center gap-2 mb-2 font-bold text-indigo-400">
                                                 <span className="material-symbols-outlined text-[16px]">auto_awesome</span>
-                                                Stitch AI
+                                                StudyMate AI
                                             </div>
                                             Think of it like two magic coins: if you flip one and it shows heads, the other will always show heads, no matter how far away they are. It's what Einstein called "spooky action at a distance."
                                         </div>
@@ -252,7 +252,7 @@ const LandingPage = () => {
                 <section id="testimonials" className="mx-auto max-w-7xl px-6 lg:px-12 py-24">
                     <div className="text-center mb-16">
                         <h3 className="text-3xl md:text-5xl font-bold mb-4">Loved by students worldwide</h3>
-                        <p className="text-neutral-400">Join thousands of high-achievers using Stitch to master their courses.</p>
+                        <p className="text-neutral-400">Join thousands of high-achievers using StudyMate to master their courses.</p>
                     </div>
                     <div className="grid gap-8 md:grid-cols-3">
                         {testimonials.map((t, idx) => (
@@ -272,13 +272,13 @@ const LandingPage = () => {
 
                 {/* CTA Section */}
                 <section className="mx-auto max-w-7xl px-6 lg:px-12 py-24">
-                    <div className="relative rounded-[3rem] bg-indigo-600 p-12 lg:p-24 text-center overflow-hidden">
+                    <div className="relative rounded-[2rem] md:rounded-[3rem] bg-indigo-600 p-8 sm:p-12 lg:p-24 text-center overflow-hidden">
                         <div className="absolute top-0 left-0 w-full h-full bg-gradient-to-br from-indigo-500 to-violet-700 -z-10"></div>
                         <div className="absolute -top-10 -right-10 h-64 w-64 rounded-full bg-white/10 blur-[60px]"></div>
 
                         <h3 className="text-4xl lg:text-6xl font-bold mb-8">Ready to ace your exams?</h3>
                         <p className="text-xl text-indigo-100 mb-12 max-w-2xl mx-auto">
-                            Start using Stitch today and experience the future of personalized education. No credit card required.
+                            Start using StudyMate today and experience the future of personalized education. No credit card required.
                         </p>
                         <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
                             <Link
@@ -299,14 +299,14 @@ const LandingPage = () => {
                             <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-indigo-600 text-white shadow-lg">
                                 <span className="material-symbols-outlined text-[20px] filled">auto_awesome</span>
                             </div>
-                            <h4 className="text-xl font-bold">Stitch.ai</h4>
+                            <h4 className="text-xl font-bold">StudyMate</h4>
                         </div>
                         <nav className="flex gap-8 text-sm font-semibold text-neutral-500">
                             <a href="#features" className="hover:text-white transition-colors">Features</a>
                             <a href="#testimonials" className="hover:text-white transition-colors">Testimonials</a>
                             <a href="#" className="hover:text-white transition-colors">Contact</a>
                         </nav>
-                        <p className="text-sm text-neutral-500">© 2026 Stitch AI. Empowering the next generation of learners.</p>
+                        <p className="text-sm text-neutral-500">© 2026 StudyMate AI. Empowering the next generation of learners.</p>
                     </div>
                 </div>
             </footer>
@@ -315,4 +315,3 @@ const LandingPage = () => {
 };
 
 export default LandingPage;
-

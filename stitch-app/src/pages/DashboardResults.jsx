@@ -78,7 +78,7 @@ const DashboardResults = () => {
                     <div className="flex items-center gap-4">
                         <div className="flex flex-col">
                             <h1 className="text-xl font-bold text-gray-900 dark:text-white leading-tight">Exam Results</h1>
-                            <span className="text-sm font-medium text-gray-400 dark:text-gray-500">{attempt.topicTitle || 'Study Group Mode'}</span>
+                            <span className="text-sm font-medium text-gray-400 dark:text-gray-500">{attempt.topicTitle || 'StudyMate Mode'}</span>
                         </div>
                     </div>
                     <div className="flex items-center gap-4">
