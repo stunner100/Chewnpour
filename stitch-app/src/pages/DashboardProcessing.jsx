@@ -3,6 +3,10 @@ import { Link, useNavigate, useParams } from 'react-router-dom';
 import { useQuery } from 'convex/react';
 import { api } from '../../convex/_generated/api';
 import { useAuth } from '../contexts/AuthContext';
+import {
+    shouldAutoNavigateFromProcessing,
+    shouldShowProcessingConfirmation,
+} from '../lib/processingNavigation';
 
 // Processing steps configuration
 const PROCESSING_STEPS = [
@@ -53,7 +57,10 @@ const DashboardProcessing = () => {
     const hasTopics = topics.length > 0;
     const hasError = upload?.status === 'error';
     const isProcessing = !displayCourse || upload?.status === 'processing';
-    const isReady = upload?.status === 'ready' || hasError;
+    const shouldRenderConfirmation = shouldShowProcessingConfirmation({
+        upload,
+        hasTopics,
+    });
     const resolvedCourseId = displayCourse?._id || courseId || latestCourse?._id;
 
     // Get current processing step info
@@ -63,31 +70,37 @@ const DashboardProcessing = () => {
     const currentStepIndex = rawStepIndex >= 0 ? rawStepIndex : 0;
     const currentStepInfo = PROCESSING_STEPS[currentStepIndex];
 
-    // Show confirmation when ready
+    // Show confirmation when ready and we have at least first-topic readiness metadata.
     useEffect(() => {
-        if (isReady && !showConfirmation) {
+        if (shouldRenderConfirmation && !showConfirmation) {
             const timer = setTimeout(() => {
                 setShowConfirmation(true);
             }, 500);
             return () => clearTimeout(timer);
         }
+        if (!shouldRenderConfirmation && showConfirmation) {
+            setShowConfirmation(false);
+        }
         return undefined;
-    }, [isReady, showConfirmation]);
+    }, [shouldRenderConfirmation, showConfirmation]);
+
+    // Reset route-scoped UI state for every new processing run.
+    useEffect(() => {
+        setShowConfirmation(false);
+        setAutoNavigated(false);
+    }, [courseId]);
 
     useEffect(() => {
-        if (!resolvedCourseId || autoNavigated) return;
-        const firstTopicReadyByMetadata =
-            upload?.processingStep === 'first_topic_ready' ||
-            (typeof upload?.generatedTopicCount === 'number' && upload.generatedTopicCount >= 1);
-        const shouldAutoNavigate =
-            upload?.status === 'ready' ||
-            (upload?.status === 'processing' && (hasTopics || firstTopicReadyByMetadata)) ||
-            (upload?.status === 'error' && (hasTopics || firstTopicReadyByMetadata));
-        if (shouldAutoNavigate) {
+        if (shouldAutoNavigateFromProcessing({
+            upload,
+            hasTopics,
+            autoNavigated,
+            resolvedCourseId,
+        })) {
             setAutoNavigated(true);
             navigate(`/dashboard/course/${resolvedCourseId}`);
         }
-    }, [upload?.status, upload?.processingStep, upload?.generatedTopicCount, resolvedCourseId, autoNavigated, navigate, hasTopics]);
+    }, [upload, resolvedCourseId, autoNavigated, navigate, hasTopics]);
 
     const handleStartLearning = () => {
         if (resolvedCourseId) {
