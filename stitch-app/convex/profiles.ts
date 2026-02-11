@@ -24,6 +24,7 @@ export const upsertProfile = mutation({
         educationLevel: v.optional(v.string()),
         department: v.optional(v.string()),
         avatarUrl: v.optional(v.string()),
+        voiceModeEnabled: v.optional(v.boolean()),
         onboardingCompleted: v.optional(v.boolean()),
     },
     handler: async (ctx, args) => {
@@ -38,6 +39,7 @@ export const upsertProfile = mutation({
             if (args.educationLevel !== undefined) updates.educationLevel = args.educationLevel;
             if (args.department !== undefined) updates.department = args.department;
             if (args.avatarUrl !== undefined) updates.avatarUrl = args.avatarUrl;
+            if (args.voiceModeEnabled !== undefined) updates.voiceModeEnabled = args.voiceModeEnabled;
             if (args.onboardingCompleted !== undefined) updates.onboardingCompleted = args.onboardingCompleted;
 
             if (Object.keys(updates).length > 0) {
@@ -51,6 +53,7 @@ export const upsertProfile = mutation({
                 educationLevel: args.educationLevel,
                 department: args.department,
                 avatarUrl: args.avatarUrl,
+                voiceModeEnabled: args.voiceModeEnabled ?? false,
                 onboardingCompleted: args.onboardingCompleted ?? false,
                 streakDays: 0,
                 totalStudyHours: 0,

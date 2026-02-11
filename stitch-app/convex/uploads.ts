@@ -69,12 +69,18 @@ export const updateUploadStatus = mutation({
         status: v.string(),
         processingStep: v.optional(v.string()),
         processingProgress: v.optional(v.number()),
+        plannedTopicCount: v.optional(v.number()),
+        generatedTopicCount: v.optional(v.number()),
+        plannedTopicTitles: v.optional(v.array(v.string())),
     },
     handler: async (ctx, args) => {
         const updateData: {
             status: string;
             processingStep?: string;
             processingProgress?: number;
+            plannedTopicCount?: number;
+            generatedTopicCount?: number;
+            plannedTopicTitles?: string[];
         } = {
             status: args.status,
         };
@@ -84,6 +90,15 @@ export const updateUploadStatus = mutation({
         }
         if (args.processingProgress !== undefined) {
             updateData.processingProgress = args.processingProgress;
+        }
+        if (args.plannedTopicCount !== undefined) {
+            updateData.plannedTopicCount = args.plannedTopicCount;
+        }
+        if (args.generatedTopicCount !== undefined) {
+            updateData.generatedTopicCount = args.generatedTopicCount;
+        }
+        if (args.plannedTopicTitles !== undefined) {
+            updateData.plannedTopicTitles = args.plannedTopicTitles;
         }
 
         await ctx.db.patch(args.uploadId, updateData);

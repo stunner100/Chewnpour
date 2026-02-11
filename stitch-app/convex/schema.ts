@@ -9,6 +9,7 @@ export default defineSchema({
         educationLevel: v.optional(v.string()), // 'high_school', 'undergrad', 'postgrad', 'professional'
         department: v.optional(v.string()),
         avatarUrl: v.optional(v.string()),
+        voiceModeEnabled: v.optional(v.boolean()),
         onboardingCompleted: v.optional(v.boolean()),
         streakDays: v.optional(v.number()),
         totalStudyHours: v.optional(v.number()),
@@ -24,9 +25,36 @@ export default defineSchema({
         status: v.string(), // 'processing', 'ready', 'error'
         storageId: v.optional(v.id("_storage")),
         // Processing progress tracking
-        processingStep: v.optional(v.string()), // 'uploading', 'extracting', 'analyzing', 'generating_topics', 'generating_questions', 'ready'
+        processingStep: v.optional(v.string()), // 'uploading', 'extracting', 'analyzing', 'generating_topics', 'generating_first_topic', 'first_topic_ready', 'generating_remaining_topics', 'generating_question_bank', 'ready'
         processingProgress: v.optional(v.number()), // 0-100
+        plannedTopicCount: v.optional(v.number()),
+        generatedTopicCount: v.optional(v.number()),
+        plannedTopicTitles: v.optional(v.array(v.string())),
     }).index("by_userId", ["userId"]),
+
+    // Assignment helper threads
+    assignmentThreads: defineTable({
+        userId: v.string(),
+        title: v.string(),
+        status: v.string(), // 'processing', 'ready', 'error'
+        fileName: v.string(),
+        fileType: v.string(), // 'application/pdf', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', 'image/*'
+        fileSize: v.number(),
+        storageId: v.id("_storage"),
+        fileUrl: v.optional(v.string()),
+        extractedText: v.optional(v.string()),
+        errorMessage: v.optional(v.string()),
+        updatedAt: v.number(),
+    }).index("by_userId", ["userId"]).index("by_userId_updatedAt", ["userId", "updatedAt"]),
+
+    // Assignment helper messages
+    assignmentMessages: defineTable({
+        threadId: v.id("assignmentThreads"),
+        userId: v.string(),
+        role: v.string(), // 'user', 'assistant'
+        content: v.string(),
+        createdAt: v.number(),
+    }).index("by_threadId", ["threadId"]).index("by_threadId_createdAt", ["threadId", "createdAt"]),
 
     // AI-generated courses from uploads
     courses: defineTable({
@@ -45,6 +73,8 @@ export default defineSchema({
         title: v.string(),
         description: v.optional(v.string()),
         content: v.optional(v.string()), // AI-generated summary content
+        illustrationStorageId: v.optional(v.id("_storage")),
+        illustrationUrl: v.optional(v.string()),
         orderIndex: v.number(),
         isLocked: v.boolean(),
     }).index("by_courseId", ["courseId"]),
@@ -76,6 +106,7 @@ export default defineSchema({
         score: v.number(),
         totalQuestions: v.number(),
         timeTakenSeconds: v.number(),
+        questionIds: v.optional(v.array(v.id("questions"))),
         answers: v.optional(v.any()), // user's answers (JSON)
     }).index("by_userId", ["userId"]).index("by_topicId", ["topicId"]),
 

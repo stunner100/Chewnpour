@@ -12,6 +12,11 @@ export const createConceptAttempt = mutation({
         questionText: v.optional(v.string()),
     },
     handler: async (ctx, args) => {
+        const topic = await ctx.db.get(args.topicId);
+        if (!topic) {
+            throw new Error("Topic not found");
+        }
+
         const attemptId = await ctx.db.insert("conceptAttempts", {
             userId: args.userId,
             topicId: args.topicId,

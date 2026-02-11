@@ -132,8 +132,20 @@ export const updateCourse = mutation({
 
 // Delete course and its topics
 export const deleteCourse = mutation({
-    args: { courseId: v.id("courses") },
+    args: {
+        courseId: v.id("courses"),
+        userId: v.string(),
+    },
     handler: async (ctx, args) => {
+        const course = await ctx.db.get(args.courseId);
+        if (!course) {
+            return { success: true };
+        }
+
+        if (course.userId !== args.userId) {
+            throw new Error("You do not have permission to delete this course.");
+        }
+
         // Delete all topics in this course
         const topics = await ctx.db
             .query("topics")
@@ -141,6 +153,19 @@ export const deleteCourse = mutation({
             .collect();
 
         for (const topic of topics) {
+            if (topic.illustrationStorageId) {
+                await ctx.storage.delete(topic.illustrationStorageId);
+            }
+
+            // Delete lessons for this topic
+            const lessons = await ctx.db
+                .query("lessons")
+                .withIndex("by_topicId", (q) => q.eq("topicId", topic._id))
+                .collect();
+            for (const lesson of lessons) {
+                await ctx.db.delete(lesson._id);
+            }
+
             // Delete questions for this topic
             const questions = await ctx.db
                 .query("questions")
@@ -149,9 +174,51 @@ export const deleteCourse = mutation({
             for (const q of questions) {
                 await ctx.db.delete(q._id);
             }
+
+            // Delete exam attempts for this topic
+            const examAttempts = await ctx.db
+                .query("examAttempts")
+                .withIndex("by_topicId", (q) => q.eq("topicId", topic._id))
+                .collect();
+            for (const attempt of examAttempts) {
+                await ctx.db.delete(attempt._id);
+            }
+
+            // Delete concept attempts for this topic
+            const conceptAttempts = await ctx.db
+                .query("conceptAttempts")
+                .withIndex("by_topicId", (q) => q.eq("topicId", topic._id))
+                .collect();
+            for (const attempt of conceptAttempts) {
+                await ctx.db.delete(attempt._id);
+            }
+
             await ctx.db.delete(topic._id);
         }
 
         await ctx.db.delete(args.courseId);
+
+        if (course.uploadId) {
+            const userCourses = await ctx.db
+                .query("courses")
+                .withIndex("by_userId", (q) => q.eq("userId", args.userId))
+                .collect();
+
+            const uploadStillReferenced = userCourses.some(
+                (userCourse) => userCourse._id !== args.courseId && userCourse.uploadId === course.uploadId
+            );
+
+            if (!uploadStillReferenced) {
+                const upload = await ctx.db.get(course.uploadId);
+                if (upload) {
+                    if (upload.storageId) {
+                        await ctx.storage.delete(upload.storageId);
+                    }
+                    await ctx.db.delete(upload._id);
+                }
+            }
+        }
+
+        return { success: true };
     },
 });

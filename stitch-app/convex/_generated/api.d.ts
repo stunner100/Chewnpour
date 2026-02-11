@@ -9,6 +9,7 @@
  */
 
 import type * as ai from "../ai.js";
+import type * as assignments from "../assignments.js";
 import type * as auth from "../auth.js";
 import type * as authConfig from "../authConfig.js";
 import type * as concepts from "../concepts.js";
@@ -16,6 +17,7 @@ import type * as courses from "../courses.js";
 import type * as devAuth from "../devAuth.js";
 import type * as exams from "../exams.js";
 import type * as http from "../http.js";
+import type * as lib_illustrationUrl from "../lib/illustrationUrl.js";
 import type * as profiles from "../profiles.js";
 import type * as subscriptions from "../subscriptions.js";
 import type * as topics from "../topics.js";
@@ -29,6 +31,7 @@ import type {
 
 declare const fullApi: ApiFromModules<{
   ai: typeof ai;
+  assignments: typeof assignments;
   auth: typeof auth;
   authConfig: typeof authConfig;
   concepts: typeof concepts;
@@ -36,6 +39,7 @@ declare const fullApi: ApiFromModules<{
   devAuth: typeof devAuth;
   exams: typeof exams;
   http: typeof http;
+  "lib/illustrationUrl": typeof lib_illustrationUrl;
   profiles: typeof profiles;
   subscriptions: typeof subscriptions;
   topics: typeof topics;

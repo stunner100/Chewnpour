@@ -1,6 +1,17 @@
 import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
 
+const EXAM_QUESTION_SUBSET_SIZE = 25;
+
+const pickRandomSubset = <T>(items: T[], size: number) => {
+    const copied = [...items];
+    for (let i = copied.length - 1; i > 0; i -= 1) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [copied[i], copied[j]] = [copied[j], copied[i]];
+    }
+    return copied.slice(0, Math.max(0, size));
+};
+
 // Start a new exam attempt
 export const startExamAttempt = mutation({
     args: {
@@ -8,25 +19,37 @@ export const startExamAttempt = mutation({
         topicId: v.id("topics"),
     },
     handler: async (ctx, args) => {
+        const topic = await ctx.db.get(args.topicId);
+        if (!topic) {
+            throw new Error("Topic not found");
+        }
+
         // Get questions for this topic to count them
         const questions = await ctx.db
             .query("questions")
             .withIndex("by_topicId", (q) => q.eq("topicId", args.topicId))
             .collect();
 
+        const selectedQuestions = questions.length <= EXAM_QUESTION_SUBSET_SIZE
+            ? questions
+            : pickRandomSubset(questions, EXAM_QUESTION_SUBSET_SIZE);
+        const questionIds = selectedQuestions.map((question) => question._id);
+
         // Create a new attempt record
         const attemptId = await ctx.db.insert("examAttempts", {
             userId: args.userId,
             topicId: args.topicId,
             score: 0,
-            totalQuestions: questions.length,
+            totalQuestions: selectedQuestions.length,
             timeTakenSeconds: 0,
+            questionIds,
             answers: [],
         });
 
         return {
             attemptId,
-            totalQuestions: questions.length,
+            totalQuestions: selectedQuestions.length,
+            questions: selectedQuestions,
         };
     },
 });
@@ -44,12 +67,29 @@ export const submitExamAttempt = mutation({
         timeTakenSeconds: v.number(),
     },
     handler: async (ctx, args) => {
+        const attempt = await ctx.db.get(args.attemptId);
+        if (!attempt) {
+            throw new Error("Exam attempt not found");
+        }
+
         // Calculate score
         let correctCount = 0;
         const gradedAnswers = [];
+        const attemptQuestionIds = new Set((attempt.questionIds || []).map((id) => String(id)));
+        const enforceSubset = attemptQuestionIds.size > 0;
 
         for (const answer of args.answers) {
+            if (enforceSubset && !attemptQuestionIds.has(String(answer.questionId))) {
+                throw new Error("Submitted answers include questions outside this exam attempt.");
+            }
             const question = await ctx.db.get(answer.questionId);
+            if (!question) {
+                throw new Error("One or more submitted questions could not be found.");
+            }
+            if (question.topicId !== attempt.topicId) {
+                throw new Error("Submitted answers include questions outside this topic.");
+            }
+
             const isCorrect = question?.correctAnswer === answer.selectedAnswer;
             if (isCorrect) correctCount++;
 
@@ -69,12 +109,13 @@ export const submitExamAttempt = mutation({
         });
 
         // Get the attempt to return
-        const attempt = await ctx.db.get(args.attemptId);
+        const totalQuestions = attempt.totalQuestions || (attempt.questionIds?.length ?? args.answers.length);
+        const denominator = totalQuestions > 0 ? totalQuestions : args.answers.length || 1;
 
         return {
             score: correctCount,
-            totalQuestions: attempt?.totalQuestions || args.answers.length,
-            percentage: Math.round((correctCount / args.answers.length) * 100),
+            totalQuestions,
+            percentage: Math.round((correctCount / denominator) * 100),
             timeTakenSeconds: args.timeTakenSeconds,
             gradedAnswers,
         };
