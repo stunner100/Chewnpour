@@ -4,6 +4,10 @@ import { Buffer } from "node:buffer";
 import { action, internalAction } from "./_generated/server";
 import { v } from "convex/values";
 import { api, internal } from "./_generated/api";
+import {
+    calculateRemainingTopicProgress,
+    normalizeGeneratedTopicCount,
+} from "./lib/topicGenerationProgress";
 
 // Qwen API configuration (OpenAI-compatible)
 const QWEN_BASE_URL = process.env.QWEN_BASE_URL || "https://dashscope.aliyuncs.com/compatible-mode/v1";
@@ -23,6 +27,7 @@ const TOPIC_DETAIL_WORD_TARGET = "1800-2500";
 const MIN_TOPIC_CONTENT_WORDS = 140;
 const TOPIC_CONTEXT_CHUNK_CHARS = 1400;
 const TOPIC_CONTEXT_LIMIT = 7000;
+const BACKGROUND_SOURCE_TEXT_LIMIT = 120000;
 const QUESTION_BATCH_SIZE = 15;
 const MIN_QUESTION_BANK_TARGET = 20;
 const QUESTION_TARGET_WORD_DIVISOR = 15;
@@ -911,6 +916,212 @@ const sanitizeGeneratedTopicTitle = (value: string, fallback: string) => {
     return cleaned;
 };
 
+type PreparedTopic = {
+    title: string;
+    description: string;
+    keyPoints: string[];
+};
+
+const preparedTopicValidator = v.object({
+    title: v.string(),
+    description: v.string(),
+    keyPoints: v.array(v.string()),
+});
+
+const buildPreparedTopics = (courseOutline: any, extractedText: string, fileName: string) => {
+    const normalizedTopics = Array.isArray(courseOutline?.topics) ? [...courseOutline.topics] : [];
+    let totalTopics = normalizedTopics.length;
+
+    if (totalTopics < 3 && normalizedTopics.length > 0) {
+        const seed = normalizedTopics[0];
+        const baseKeyPoints = Array.isArray(seed?.keyPoints) ? seed.keyPoints : [];
+        const splitPoints = baseKeyPoints
+            .filter((point: any) => typeof point === "string" && point.trim())
+            .slice(0, 4)
+            .map((point: string) => ({
+                title: `Deep Dive: ${point}`,
+                description: `Focused exploration of ${point}.`,
+                keyPoints: [point],
+            }));
+        normalizedTopics.push(...splitPoints);
+    }
+
+    totalTopics = normalizedTopics.length;
+    if (totalTopics === 0) {
+        const fallback = buildFallbackOutline(extractedText, fileName);
+        normalizedTopics.push(...fallback.topics);
+    }
+
+    const preparedTopics: PreparedTopic[] = normalizedTopics.map((topicData: any, index: number) => {
+        const fallbackTitle = `Topic ${index + 1}`;
+        const safeTopicTitle = sanitizeGeneratedTopicTitle(topicData?.title, fallbackTitle);
+        const keyPoints = Array.isArray(topicData?.keyPoints)
+            ? topicData.keyPoints.filter((point: any) => typeof point === "string" && point.trim())
+            : typeof topicData?.keyPoints === "string"
+                ? topicData.keyPoints.split(/[,;\n]+/).map((point: string) => point.trim()).filter(Boolean)
+                : [];
+
+        return {
+            title: safeTopicTitle,
+            description: typeof topicData?.description === "string" ? topicData.description.trim() : "",
+            keyPoints,
+        };
+    });
+
+    return preparedTopics;
+};
+
+const getCourseTopicsSorted = async (ctx: any, courseId: any) => {
+    const courseWithTopics = await ctx.runQuery(api.courses.getCourseWithTopics, { courseId });
+    return Array.isArray(courseWithTopics?.topics)
+        ? [...courseWithTopics.topics].sort((a: any, b: any) => a.orderIndex - b.orderIndex)
+        : [];
+};
+
+const countGeneratedTopicsForCourse = async (ctx: any, courseId: any, totalTopics: number) => {
+    const topics = await getCourseTopicsSorted(ctx, courseId);
+    const uniqueOrderIndexes = new Set(
+        topics
+            .map((topic: any) => Number(topic.orderIndex))
+            .filter((orderIndex: number) => Number.isFinite(orderIndex) && orderIndex >= 0 && orderIndex < Math.max(totalTopics, 1))
+    );
+    return uniqueOrderIndexes.size;
+};
+
+const generateTopicContentForIndex = async (args: {
+    ctx: any;
+    courseId: any;
+    uploadId: any;
+    extractedText: string;
+    topicData: PreparedTopic;
+    index: number;
+}) => {
+    const { ctx, courseId, uploadId, extractedText, topicData, index } = args;
+    const existingTopics = await getCourseTopicsSorted(ctx, courseId);
+    const existingTopic = existingTopics.find((topic: any) => topic.orderIndex === index);
+    if (existingTopic?._id) {
+        return existingTopic._id;
+    }
+
+    const safeTopicTitle = topicData.title;
+    const keyPoints = Array.isArray(topicData.keyPoints)
+        ? topicData.keyPoints
+        : [];
+    const topicContext = buildTopicContextFromSource(extractedText, {
+        title: safeTopicTitle,
+        description: topicData.description,
+        keyPoints,
+    });
+    const topicStart = Date.now();
+
+    const lessonPrompt = `Create deeply detailed lesson content for this study topic.
+
+TOPIC: ${safeTopicTitle}
+DESCRIPTION: ${topicData.description}
+KEY POINTS: ${keyPoints.join(", ") || "General concepts"}
+
+CONTEXT FROM STUDY MATERIAL:
+"""
+${topicContext}
+"""
+
+Write very detailed educational content in **plain, beginner-friendly language**.
+Target length: ${TOPIC_DETAIL_WORD_TARGET} words.
+
+Include:
+1. **Simple Introduction**
+2. **Key Ideas in Plain English**
+3. **Step-by-Step Breakdown**
+4. **Worked Examples** with intermediate steps
+5. **Common Mistakes and Misconceptions**
+6. **Everyday Analogies**
+7. **Practical Use Cases**
+8. **Quick Glossary** (8-12 terms)
+9. **Summary + Self-check prompts**
+
+Format the content in clear markdown with headers and bullet points.
+Make it engaging and easy to understand while preserving technical correctness.
+
+Respond in this exact JSON format only:
+{
+  "lessonContent": "Markdown lesson content"
+}`;
+
+    let lessonData: any = null;
+    try {
+        const lessonResponse = await callQwen([
+            { role: "system", content: "You are an expert educator creating comprehensive lesson content. Always respond with valid JSON only." },
+            { role: "user", content: lessonPrompt },
+        ], DEFAULT_MODEL, { maxTokens: 4200, responseFormat: "json_object" });
+        lessonData = parseJsonFromResponse(lessonResponse, "lesson content");
+    } catch (lessonError) {
+        console.warn("[CourseGeneration] lesson_generation_fallback", {
+            courseId,
+            uploadId,
+            topicIndex: index,
+            topicTitle: safeTopicTitle,
+            message: lessonError instanceof Error ? lessonError.message : String(lessonError),
+        });
+        lessonData = {
+            lessonContent: keyPoints.map((point: string) => `- ${point}`).join("\n") || "",
+        };
+    }
+
+    const contentDraft = String(lessonData?.lessonContent || topicData.keyPoints?.join("\n• ") || "").trim();
+    const content = await ensureTopicLessonContent({
+        title: safeTopicTitle,
+        description: topicData.description,
+        keyPoints,
+        topicContext,
+        draftContent: contentDraft,
+    });
+    const topicId = await ctx.runMutation(api.topics.createTopic, {
+        courseId,
+        title: safeTopicTitle,
+        description: topicData.description,
+        content,
+        orderIndex: index,
+        isLocked: index !== 0,
+    });
+
+    await ctx.scheduler.runAfter(0, internal.ai.generateTopicIllustration, {
+        topicId,
+        title: safeTopicTitle,
+        description: topicData?.description,
+        keyPoints,
+        content: content.slice(0, 1800),
+    });
+
+    const duration = Date.now() - topicStart;
+    console.info("[CourseGeneration] topic_ready", {
+        courseId,
+        uploadId,
+        topicIndex: index,
+        topicTitle: safeTopicTitle,
+        durationMs: duration,
+        wordCount: countWords(content),
+    });
+
+    return topicId;
+};
+
+const scheduleQuestionBanksForCourse = async (ctx: any, courseId: any, uploadId: any) => {
+    const topics = await getCourseTopicsSorted(ctx, courseId);
+    for (let index = 0; index < topics.length; index += 1) {
+        const topic = topics[index];
+        await ctx.scheduler.runAfter(0, api.ai.generateQuestionsForTopic, {
+            topicId: topic._id,
+        });
+        console.info("[CourseGeneration] question_generation_scheduled", {
+            courseId,
+            uploadId,
+            topicId: topic._id,
+            topicIndex: index,
+        });
+    }
+    return topics.length;
+};
+
 export const generateTopicIllustration = internalAction({
     args: {
         topicId: v.id("topics"),
@@ -1047,45 +1258,8 @@ Respond in this exact JSON format only (no markdown, no explanation):
                 description: courseOutline.courseDescription || "AI-generated course from your study materials",
             });
 
-            const topicIds: string[] = [];
-            const normalizedTopics = Array.isArray(courseOutline.topics) ? courseOutline.topics : [];
-            let totalTopics = normalizedTopics.length;
-            if (totalTopics < 3 && normalizedTopics.length > 0) {
-                const seed = normalizedTopics[0];
-                const baseKeyPoints = Array.isArray(seed?.keyPoints) ? seed.keyPoints : [];
-                const splitPoints = baseKeyPoints
-                    .filter((p: any) => typeof p === "string" && p.trim())
-                    .slice(0, 4)
-                    .map((p: string, idx: number) => ({
-                        title: `Deep Dive: ${p}`,
-                        description: `Focused exploration of ${p}.`,
-                        keyPoints: [p],
-                    }));
-                normalizedTopics.push(...splitPoints);
-            }
-            totalTopics = normalizedTopics.length;
-            if (totalTopics === 0) {
-                const fallback = buildFallbackOutline(extractedText, fileName);
-                totalTopics = fallback.topics.length;
-                normalizedTopics.push(...fallback.topics);
-            }
-
-            const preparedTopics = normalizedTopics.map((topicData: any, index: number) => {
-                const fallbackTitle = `Topic ${index + 1}`;
-                const safeTopicTitle = sanitizeGeneratedTopicTitle(topicData?.title, fallbackTitle);
-                const keyPoints = Array.isArray(topicData?.keyPoints)
-                    ? topicData.keyPoints.filter((p: any) => typeof p === "string" && p.trim())
-                    : typeof topicData?.keyPoints === "string"
-                        ? topicData.keyPoints.split(/[,;\n]+/).map((p: string) => p.trim()).filter(Boolean)
-                        : [];
-
-                return {
-                    title: safeTopicTitle,
-                    description: typeof topicData?.description === "string" ? topicData.description.trim() : "",
-                    keyPoints,
-                };
-            });
-            totalTopics = preparedTopics.length;
+            const preparedTopics = buildPreparedTopics(courseOutline, extractedText, fileName);
+            const totalTopics = preparedTopics.length;
             const plannedTopicTitles = preparedTopics.map((topic) => topic.title);
 
             await ctx.runMutation(api.uploads.updateUploadStatus, {
@@ -1098,107 +1272,19 @@ Respond in this exact JSON format only (no markdown, no explanation):
                 plannedTopicTitles,
             });
 
-            const generateTopicContent = async (topicData: any, index: number) => {
-                const safeTopicTitle = topicData.title;
-                const keyPoints = Array.isArray(topicData.keyPoints)
-                    ? topicData.keyPoints
-                    : [];
-                const topicContext = buildTopicContextFromSource(extractedText, {
-                    title: safeTopicTitle,
-                    description: topicData.description,
-                    keyPoints,
-                });
-                const topicStart = Date.now();
-
-                const lessonPrompt = `Create deeply detailed lesson content for this study topic.
-
-TOPIC: ${safeTopicTitle}
-DESCRIPTION: ${topicData.description}
-KEY POINTS: ${keyPoints.join(", ") || "General concepts"}
-
-CONTEXT FROM STUDY MATERIAL:
-"""
-${topicContext}
-"""
-
-Write very detailed educational content in **plain, beginner-friendly language**.
-Target length: ${TOPIC_DETAIL_WORD_TARGET} words.
-
-Include:
-1. **Simple Introduction**
-2. **Key Ideas in Plain English**
-3. **Step-by-Step Breakdown**
-4. **Worked Examples** with intermediate steps
-5. **Common Mistakes and Misconceptions**
-6. **Everyday Analogies**
-7. **Practical Use Cases**
-8. **Quick Glossary** (8-12 terms)
-9. **Summary + Self-check prompts**
-
-Format the content in clear markdown with headers and bullet points.
-Make it engaging and easy to understand while preserving technical correctness.
-
-Respond in this exact JSON format only:
-{
-  "lessonContent": "Markdown lesson content"
-}`;
-
-                const lessonResponse = await callQwen([
-                    { role: "system", content: "You are an expert educator creating comprehensive lesson content. Always respond with valid JSON only." },
-                    { role: "user", content: lessonPrompt },
-                ], DEFAULT_MODEL, { maxTokens: 4200, responseFormat: "json_object" });
-
-                let lessonData: any = null;
-                try {
-                    lessonData = parseJsonFromResponse(lessonResponse, "lesson content");
-                } catch (parseError) {
-                    lessonData = {
-                        lessonContent: keyPoints.map((p: string) => `- ${p}`).join("\n") || "",
-                    };
-                }
-
-                const contentDraft = String(lessonData.lessonContent || topicData.keyPoints?.join("\n• ") || "").trim();
-                const content = await ensureTopicLessonContent({
-                    title: safeTopicTitle,
-                    description: topicData.description,
-                    keyPoints,
-                    topicContext,
-                    draftContent: contentDraft,
-                });
-                const topicId = await ctx.runMutation(api.topics.createTopic, {
-                    courseId,
-                    title: safeTopicTitle,
-                    description: topicData.description,
-                    content,
-                    orderIndex: index,
-                    isLocked: index !== 0,
-                });
-
-                // Queue illustration generation with Gemini (non-blocking).
-                await ctx.scheduler.runAfter(0, internal.ai.generateTopicIllustration, {
-                    topicId,
-                    title: safeTopicTitle,
-                    description: topicData?.description,
-                    keyPoints,
-                    content: content.slice(0, 1800),
-                });
-
-                const duration = Date.now() - topicStart;
-                console.info("[CourseGeneration] topic_ready", {
-                    courseId,
-                    uploadId,
-                    topicIndex: index,
-                    topicTitle: safeTopicTitle,
-                    durationMs: duration,
-                    wordCount: countWords(content),
-                });
-
-                return topicId;
-            };
-
             checkTimeout();
-            const firstTopicId = await generateTopicContent(preparedTopics[0], 0);
-            topicIds.push(firstTopicId);
+            await generateTopicContentForIndex({
+                ctx,
+                courseId,
+                uploadId,
+                extractedText,
+                topicData: preparedTopics[0],
+                index: 0,
+            });
+            const generatedTopicCount = normalizeGeneratedTopicCount({
+                generatedTopicCount: await countGeneratedTopicsForCourse(ctx, courseId, totalTopics),
+                totalTopics,
+            });
 
             await ctx.runMutation(api.uploads.updateUploadStatus, {
                 uploadId,
@@ -1206,7 +1292,7 @@ Respond in this exact JSON format only:
                 processingStep: "first_topic_ready",
                 processingProgress: 60,
                 plannedTopicCount: totalTopics,
-                generatedTopicCount: 1,
+                generatedTopicCount,
                 plannedTopicTitles,
             });
 
@@ -1216,55 +1302,18 @@ Respond in this exact JSON format only:
                 elapsedMs: Date.now() - startTime,
             });
 
-            for (let i = 1; i < totalTopics; i += 1) {
-                checkTimeout();
-                const topicId = await generateTopicContent(preparedTopics[i], i);
-                topicIds.push(topicId);
-
-                const generatedTopicCount = i + 1;
-                const remainingProgress = 60 + Math.floor(((generatedTopicCount - 1) / Math.max(totalTopics - 1, 1)) * 25);
-                await ctx.runMutation(api.uploads.updateUploadStatus, {
-                    uploadId,
-                    status: "processing",
-                    processingStep: "generating_remaining_topics",
-                    processingProgress: remainingProgress,
-                    plannedTopicCount: totalTopics,
-                    generatedTopicCount,
-                    plannedTopicTitles,
-                });
-            }
-
-            // Schedule question generation in the background for each topic.
-            // Questions will build up while the user reads lesson content.
-            // The ExamMode safety net will handle cases where the user starts
-            // an exam before generation finishes.
-            for (let i = 0; i < topicIds.length; i += 1) {
-                await ctx.scheduler.runAfter(0, api.ai.generateQuestionsForTopic, {
-                    topicId: topicIds[i],
-                });
-                console.info("[CourseGeneration] question_generation_scheduled", {
-                    courseId,
-                    uploadId,
-                    topicId: topicIds[i],
-                    topicIndex: i,
-                });
-            }
-
-            // Mark course as ready immediately — questions generate in the background.
-            await ctx.runMutation(api.uploads.updateUploadStatus, {
+            await ctx.scheduler.runAfter(0, internal.ai.generateRemainingTopicsInBackground, {
+                courseId,
                 uploadId,
-                status: "ready",
-                processingStep: "ready",
-                processingProgress: 100,
-                plannedTopicCount: totalTopics,
-                generatedTopicCount: totalTopics,
+                extractedText: extractedText.slice(0, BACKGROUND_SOURCE_TEXT_LIMIT),
+                preparedTopics,
                 plannedTopicTitles,
             });
 
             return {
                 success: true,
                 courseId,
-                topicCount: topicIds.length,
+                topicCount: generatedTopicCount,
             };
         } catch (error) {
             console.error("AI processing failed:", error);
@@ -1272,6 +1321,137 @@ Respond in this exact JSON format only:
             await ctx.runMutation(api.uploads.updateUploadStatus, {
                 uploadId,
                 status: "error",
+            });
+
+            throw error;
+        }
+    },
+});
+
+export const generateRemainingTopicsInBackground = internalAction({
+    args: {
+        courseId: v.id("courses"),
+        uploadId: v.id("uploads"),
+        extractedText: v.string(),
+        preparedTopics: v.array(preparedTopicValidator),
+        plannedTopicTitles: v.array(v.string()),
+    },
+    handler: async (ctx, args) => {
+        const { courseId, uploadId, extractedText, preparedTopics, plannedTopicTitles } = args;
+        const totalTopics = Math.max(1, preparedTopics.length);
+        const safeGeneratedCount = async () =>
+            normalizeGeneratedTopicCount({
+                generatedTopicCount: await countGeneratedTopicsForCourse(ctx, courseId, totalTopics),
+                totalTopics,
+            });
+
+        try {
+            let generatedTopicCount = await safeGeneratedCount();
+            if (totalTopics > 1 && generatedTopicCount < totalTopics) {
+                await ctx.runMutation(api.uploads.updateUploadStatus, {
+                    uploadId,
+                    status: "processing",
+                    processingStep: "generating_remaining_topics",
+                    processingProgress: calculateRemainingTopicProgress({
+                        generatedTopicCount,
+                        totalTopics,
+                    }),
+                    plannedTopicCount: totalTopics,
+                    generatedTopicCount,
+                    plannedTopicTitles,
+                });
+            }
+
+            for (let index = 1; index < totalTopics; index += 1) {
+                await generateTopicContentForIndex({
+                    ctx,
+                    courseId,
+                    uploadId,
+                    extractedText,
+                    topicData: preparedTopics[index],
+                    index,
+                });
+
+                generatedTopicCount = await safeGeneratedCount();
+                await ctx.runMutation(api.uploads.updateUploadStatus, {
+                    uploadId,
+                    status: "processing",
+                    processingStep: "generating_remaining_topics",
+                    processingProgress: calculateRemainingTopicProgress({
+                        generatedTopicCount,
+                        totalTopics,
+                    }),
+                    plannedTopicCount: totalTopics,
+                    generatedTopicCount,
+                    plannedTopicTitles,
+                });
+            }
+
+            generatedTopicCount = await safeGeneratedCount();
+            await ctx.runMutation(api.uploads.updateUploadStatus, {
+                uploadId,
+                status: "processing",
+                processingStep: "generating_question_bank",
+                processingProgress: 90,
+                plannedTopicCount: totalTopics,
+                generatedTopicCount,
+                plannedTopicTitles,
+            });
+
+            let scheduledQuestionTopics = 0;
+            try {
+                scheduledQuestionTopics = await scheduleQuestionBanksForCourse(ctx, courseId, uploadId);
+            } catch (questionScheduleError) {
+                console.error("[CourseGeneration] question_generation_schedule_failed", {
+                    courseId,
+                    uploadId,
+                    message: questionScheduleError instanceof Error ? questionScheduleError.message : String(questionScheduleError),
+                });
+            }
+
+            const finalGeneratedCount = normalizeGeneratedTopicCount({
+                generatedTopicCount: Math.max(generatedTopicCount, scheduledQuestionTopics),
+                totalTopics,
+            });
+
+            await ctx.runMutation(api.uploads.updateUploadStatus, {
+                uploadId,
+                status: "ready",
+                processingStep: "ready",
+                processingProgress: 100,
+                plannedTopicCount: totalTopics,
+                generatedTopicCount: finalGeneratedCount,
+                plannedTopicTitles,
+            });
+
+            return {
+                success: true,
+                courseId,
+                generatedTopicCount: finalGeneratedCount,
+                plannedTopicCount: totalTopics,
+            };
+        } catch (error) {
+            console.error("[CourseGeneration] background_generation_failed", {
+                courseId,
+                uploadId,
+                message: error instanceof Error ? error.message : String(error),
+            });
+            const generatedTopicCount = await safeGeneratedCount();
+            const statusStep = generatedTopicCount >= totalTopics
+                ? "generating_question_bank"
+                : "generating_remaining_topics";
+
+            await ctx.runMutation(api.uploads.updateUploadStatus, {
+                uploadId,
+                status: "error",
+                processingStep: statusStep,
+                processingProgress: calculateRemainingTopicProgress({
+                    generatedTopicCount,
+                    totalTopics,
+                }),
+                plannedTopicCount: totalTopics,
+                generatedTopicCount,
+                plannedTopicTitles,
             });
 
             throw error;

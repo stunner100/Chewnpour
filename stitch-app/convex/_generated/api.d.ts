@@ -19,6 +19,7 @@ import type * as exams from "../exams.js";
 import type * as http from "../http.js";
 import type * as lib_examSecurity from "../lib/examSecurity.js";
 import type * as lib_illustrationUrl from "../lib/illustrationUrl.js";
+import type * as lib_topicGenerationProgress from "../lib/topicGenerationProgress.js";
 import type * as profiles from "../profiles.js";
 import type * as subscriptions from "../subscriptions.js";
 import type * as topics from "../topics.js";
@@ -42,6 +43,7 @@ declare const fullApi: ApiFromModules<{
   http: typeof http;
   "lib/examSecurity": typeof lib_examSecurity;
   "lib/illustrationUrl": typeof lib_illustrationUrl;
+  "lib/topicGenerationProgress": typeof lib_topicGenerationProgress;
   profiles: typeof profiles;
   subscriptions: typeof subscriptions;
   topics: typeof topics;

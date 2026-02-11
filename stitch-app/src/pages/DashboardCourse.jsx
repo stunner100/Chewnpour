@@ -35,10 +35,8 @@ const DashboardCourse = () => {
         displayCourse?.uploadId ? { uploadId: displayCourse.uploadId } : 'skip'
     );
     const plannedTopicTitles = Array.isArray(upload?.plannedTopicTitles) ? upload.plannedTopicTitles : [];
-    const hasPlannedTitles = plannedTopicTitles.length > 0;
-    const plannedCount = hasPlannedTitles
-        ? Math.max(upload?.plannedTopicCount || 0, plannedTopicTitles.length, topics.length)
-        : topics.length;
+    const plannedTopicCountFromUpload = typeof upload?.plannedTopicCount === 'number' ? upload.plannedTopicCount : 0;
+    const plannedCount = Math.max(plannedTopicCountFromUpload, plannedTopicTitles.length, topics.length);
     const generatedCountBase = Math.max(
         typeof upload?.generatedTopicCount === 'number' ? upload.generatedTopicCount : 0,
         topics.length
@@ -52,7 +50,6 @@ const DashboardCourse = () => {
     const backgroundGenerationActive = Boolean(displayCourse && upload?.status === 'processing' && firstTopicReady);
     const showTopicProgress = Boolean(
         upload?.status === 'processing' &&
-        hasPlannedTitles &&
         plannedCount > 0 &&
         generatedCount < plannedCount
     );
@@ -71,21 +68,11 @@ const DashboardCourse = () => {
         return 'Course generation is still running in the background. New topics will appear automatically.';
     })();
     const syllabusItems = React.useMemo(() => {
-        if (!topics.length && !hasPlannedTitles) return [];
+        if (!topics.length && plannedCount === 0) return [];
 
         const topicsByOrder = new Map(
             [...topics].sort((a, b) => a.orderIndex - b.orderIndex).map((topic) => [topic.orderIndex, topic])
         );
-
-        if (!hasPlannedTitles) {
-            return [...topics]
-                .sort((a, b) => a.orderIndex - b.orderIndex)
-                .map((topic) => ({
-                    kind: 'ready',
-                    index: topic.orderIndex,
-                    topic,
-                }));
-        }
 
         return Array.from({ length: plannedCount }, (_, index) => {
             const topic = topicsByOrder.get(index);
@@ -102,7 +89,7 @@ const DashboardCourse = () => {
                 title: plannedTopicTitles[index] || `Topic ${index + 1}`,
             };
         });
-    }, [topics, hasPlannedTitles, plannedCount, plannedTopicTitles]);
+    }, [topics, plannedCount, plannedTopicTitles]);
     const [isProcessing, setIsProcessing] = React.useState(false);
 
     React.useEffect(() => {
