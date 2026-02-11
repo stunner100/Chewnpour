@@ -24,3 +24,6 @@ dist-ssr
 *.sw?
 .vercel
 output/
+.env
+.env.*
+!.env.example
