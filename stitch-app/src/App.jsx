@@ -19,7 +19,9 @@ import Profile from './pages/Profile';
 import PastQuestionsComingSoon from './pages/PastQuestionsComingSoon';
 import ConceptIntro from './pages/ConceptIntro';
 import ConceptBuilder from './pages/ConceptBuilder';
+import AssignmentHelper from './pages/AssignmentHelper';
 import ProtectedRoute from './components/ProtectedRoute';
+import DashboardLayout from './components/DashboardLayout';
 
 function App() {
   return (
@@ -36,32 +38,34 @@ function App() {
         <Route path="/onboarding/level" element={<ProtectedRoute><OnboardingLevel /></ProtectedRoute>} />
         <Route path="/onboarding/department" element={<ProtectedRoute><OnboardingDepartment /></ProtectedRoute>} />
 
-        {/* Protected Dashboard Routes */}
-        <Route path="/dashboard" element={<ProtectedRoute><DashboardAnalysis /></ProtectedRoute>} />
-        <Route path="/dashboard/processing" element={<ProtectedRoute><DashboardProcessing /></ProtectedRoute>} />
-        <Route path="/dashboard/processing/:courseId" element={<ProtectedRoute><DashboardProcessing /></ProtectedRoute>} />
-        <Route path="/dashboard/course/:courseId" element={<ProtectedRoute><DashboardCourse /></ProtectedRoute>} />
-        <Route path="/dashboard/topic/:topicId" element={<ProtectedRoute><TopicDetail /></ProtectedRoute>} />
-        <Route path="/dashboard/exam" element={<ProtectedRoute><PastQuestionsComingSoon /></ProtectedRoute>} />
-        <Route path="/dashboard/exam/:topicId" element={<ProtectedRoute><ExamMode /></ProtectedRoute>} />
-        <Route path="/dashboard/results" element={<ProtectedRoute><DashboardResults /></ProtectedRoute>} />
-        <Route path="/dashboard/results/:attemptId" element={<ProtectedRoute><DashboardResults /></ProtectedRoute>} />
-        <Route path="/dashboard/analysis" element={<ProtectedRoute><DashboardFullAnalysis /></ProtectedRoute>} />
+        {/* Protected Dashboard Routes — wrapped in DashboardLayout for mobile nav */}
+        <Route path="/dashboard" element={<ProtectedRoute><DashboardLayout><DashboardAnalysis /></DashboardLayout></ProtectedRoute>} />
+        <Route path="/dashboard/processing" element={<ProtectedRoute><DashboardLayout><DashboardProcessing /></DashboardLayout></ProtectedRoute>} />
+        <Route path="/dashboard/processing/:courseId" element={<ProtectedRoute><DashboardLayout><DashboardProcessing /></DashboardLayout></ProtectedRoute>} />
+        <Route path="/dashboard/course/:courseId" element={<ProtectedRoute><DashboardLayout><DashboardCourse /></DashboardLayout></ProtectedRoute>} />
+        <Route path="/dashboard/topic/:topicId" element={<ProtectedRoute><DashboardLayout><TopicDetail /></DashboardLayout></ProtectedRoute>} />
+        <Route path="/dashboard/exam" element={<ProtectedRoute><DashboardLayout><PastQuestionsComingSoon /></DashboardLayout></ProtectedRoute>} />
+        <Route path="/dashboard/exam/:topicId" element={<ProtectedRoute><DashboardLayout><ExamMode /></DashboardLayout></ProtectedRoute>} />
+        <Route path="/dashboard/results" element={<ProtectedRoute><DashboardLayout><DashboardResults /></DashboardLayout></ProtectedRoute>} />
+        <Route path="/dashboard/results/:attemptId" element={<ProtectedRoute><DashboardLayout><DashboardResults /></DashboardLayout></ProtectedRoute>} />
+        <Route path="/dashboard/analysis" element={<ProtectedRoute><DashboardLayout><DashboardFullAnalysis /></DashboardLayout></ProtectedRoute>} />
+        <Route path="/dashboard/assignment-helper" element={<ProtectedRoute><DashboardLayout><AssignmentHelper /></DashboardLayout></ProtectedRoute>} />
 
         {/* Concept Flow */}
-        <Route path="/dashboard/concept-intro" element={<ProtectedRoute><ConceptIntro /></ProtectedRoute>} />
-        <Route path="/dashboard/concept-intro/:topicId" element={<ProtectedRoute><ConceptIntro /></ProtectedRoute>} />
-        <Route path="/dashboard/concept" element={<ProtectedRoute><ConceptBuilder /></ProtectedRoute>} />
-        <Route path="/dashboard/concept/:topicId" element={<ProtectedRoute><ConceptBuilder /></ProtectedRoute>} />
+        <Route path="/dashboard/concept-intro" element={<ProtectedRoute><DashboardLayout><ConceptIntro /></DashboardLayout></ProtectedRoute>} />
+        <Route path="/dashboard/concept-intro/:topicId" element={<ProtectedRoute><DashboardLayout><ConceptIntro /></DashboardLayout></ProtectedRoute>} />
+        <Route path="/dashboard/concept" element={<ProtectedRoute><DashboardLayout><ConceptBuilder /></DashboardLayout></ProtectedRoute>} />
+        <Route path="/dashboard/concept/:topicId" element={<ProtectedRoute><DashboardLayout><ConceptBuilder /></DashboardLayout></ProtectedRoute>} />
 
         {/* Subscription Route */}
-        <Route path="/subscription" element={<ProtectedRoute><Subscription /></ProtectedRoute>} />
+        <Route path="/subscription" element={<ProtectedRoute><DashboardLayout><Subscription /></DashboardLayout></ProtectedRoute>} />
 
         {/* Profile Route */}
-        <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
+        <Route path="/profile" element={<ProtectedRoute><DashboardLayout><Profile /></DashboardLayout></ProtectedRoute>} />
       </Routes>
     </Router>
   );
 }
 
 export default App;
+

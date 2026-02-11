@@ -8,10 +8,12 @@
         -webkit-font-smoothing: antialiased;
         -moz-osx-font-smoothing: grayscale;
         font-size: 15px;
+        min-height: 100%;
     }
 
     body {
         @apply bg-background-light dark:bg-background-dark text-text-main-light dark:text-text-main-dark transition-colors duration-300;
+        min-height: 100%;
     }
 
     /* Selection color */
@@ -258,4 +260,35 @@
 
 .animated-underline:hover::after {
     @apply w-full;
+}
+
+/* ── Mobile Utilities ── */
+.mobile-safe-bottom {
+    padding-bottom: 5.5rem;
+    /* 88px — clears bottom nav */
+}
+
+.safe-area-bottom {
+    /* iOS Safari can sometimes report very large values; cap to avoid giant blank space under bottom nav */
+    padding-bottom: clamp(0px, env(safe-area-inset-bottom, 0px), 34px);
+}
+
+/* Reduce background glow intensity on mobile for readability */
+@media (max-width: 767px) {
+
+    .bg-mesh-light,
+    .bg-mesh-dark {
+        opacity: 0.5;
+    }
+}
+
+/* Use dynamic viewport units on supporting browsers to prevent mobile 100vh whitespace bugs */
+@supports (height: 100dvh) {
+    .min-h-screen {
+        min-height: 100dvh;
+    }
+
+    .h-screen {
+        height: 100dvh;
+    }
 }

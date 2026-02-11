@@ -9,8 +9,11 @@ const PROCESSING_STEPS = [
     { key: 'uploading', label: 'Uploading', icon: 'cloud_upload', description: 'Uploading your file...' },
     { key: 'extracting', label: 'Extracting', icon: 'description', description: 'Extracting content from document...' },
     { key: 'analyzing', label: 'Analyzing', icon: 'psychology', description: 'AI is analyzing your materials...' },
-    { key: 'generating_topics', label: 'Generating Topics', icon: 'auto_awesome', description: 'Creating course structure...' },
-    { key: 'generating_content', label: 'Generating Content', icon: 'menu_book', description: 'Writing your course lessons...' },
+    { key: 'generating_topics', label: 'Outline', icon: 'auto_awesome', description: 'Creating course structure...' },
+    { key: 'generating_first_topic', label: 'Topic 1', icon: 'menu_book', description: 'Writing the first detailed topic...' },
+    { key: 'first_topic_ready', label: 'First Topic Ready', icon: 'rocket_launch', description: 'Topic 1 is ready. Opening your course...' },
+    { key: 'generating_remaining_topics', label: 'Remaining Topics', icon: 'library_books', description: 'Generating the remaining topics in the background...' },
+    { key: 'generating_question_bank', label: 'Question Banks', icon: 'quiz', description: 'Building large question banks for each topic...' },
     { key: 'ready', label: 'Ready', icon: 'check_circle', description: 'Your course is ready!' },
 ];
 
@@ -20,7 +23,6 @@ const DashboardProcessing = () => {
     const userId = user?.id;
     const navigate = useNavigate();
     const [showConfirmation, setShowConfirmation] = useState(false);
-    const [stuck, setStuck] = useState(false);
     const [autoNavigated, setAutoNavigated] = useState(false);
 
     // Get course with topics
@@ -57,8 +59,9 @@ const DashboardProcessing = () => {
     // Get current processing step info
     const currentStep = upload?.processingStep || 'uploading';
     const progress = upload?.processingProgress || 0;
-    const currentStepIndex = PROCESSING_STEPS.findIndex(s => s.key === currentStep);
-    const currentStepInfo = PROCESSING_STEPS[currentStepIndex] || PROCESSING_STEPS[0];
+    const rawStepIndex = PROCESSING_STEPS.findIndex(s => s.key === currentStep);
+    const currentStepIndex = rawStepIndex >= 0 ? rawStepIndex : 0;
+    const currentStepInfo = PROCESSING_STEPS[currentStepIndex];
 
     // Show confirmation when ready
     useEffect(() => {
@@ -72,22 +75,19 @@ const DashboardProcessing = () => {
     }, [isReady, showConfirmation]);
 
     useEffect(() => {
-        if (upload?.status === 'ready' && resolvedCourseId && !autoNavigated) {
+        if (!resolvedCourseId || autoNavigated) return;
+        const firstTopicReadyByMetadata =
+            upload?.processingStep === 'first_topic_ready' ||
+            (typeof upload?.generatedTopicCount === 'number' && upload.generatedTopicCount >= 1);
+        const shouldAutoNavigate =
+            upload?.status === 'ready' ||
+            (upload?.status === 'processing' && (hasTopics || firstTopicReadyByMetadata)) ||
+            (upload?.status === 'error' && (hasTopics || firstTopicReadyByMetadata));
+        if (shouldAutoNavigate) {
             setAutoNavigated(true);
             navigate(`/dashboard/course/${resolvedCourseId}`);
         }
-    }, [upload?.status, resolvedCourseId, autoNavigated, navigate]);
-
-    useEffect(() => {
-        if (isProcessing) {
-            const timer = setTimeout(() => {
-                setStuck(true);
-            }, 60000);
-            return () => clearTimeout(timer);
-        }
-        setStuck(false);
-        return undefined;
-    }, [isProcessing]);
+    }, [upload?.status, upload?.processingStep, upload?.generatedTopicCount, resolvedCourseId, autoNavigated, navigate, hasTopics]);
 
     const handleStartLearning = () => {
         if (resolvedCourseId) {
@@ -165,24 +165,15 @@ const DashboardProcessing = () => {
 
                         {hasError && (
                             <div className="mb-8 w-full max-w-lg rounded-2xl border border-amber-200 bg-amber-50 px-5 py-4 text-left text-sm font-medium text-amber-800">
-                                Processing hit an error while generating content. Topics were created successfully, so you can continue to your course now.
+                                Processing hit an error while generating content. Redirecting you to your syllabus with available topics.
                             </div>
                         )}
 
-                        {(stuck || hasError) && resolvedCourseId && (
-                            <div className="mb-8 flex flex-col items-center gap-4">
+                        {hasError && resolvedCourseId && (
+                            <div className="mb-8 flex flex-col items-center gap-3">
                                 <p className="text-sm text-slate-400 font-medium">
-                                    {hasError
-                                        ? 'Continue to your course while we retry or refresh later if needed.'
-                                        : 'This is taking longer than expected. You can continue to your course and refresh if needed.'}
+                                    Redirecting to your syllabus with available topics...
                                 </p>
-                                <button
-                                    onClick={handleStartLearning}
-                                    className="inline-flex items-center gap-2 rounded-2xl bg-primary text-white px-6 py-3 font-bold shadow-lg shadow-primary/30 hover:shadow-primary/50 transition-all"
-                                >
-                                    Continue to Course
-                                    <span className="material-symbols-outlined text-[20px]">arrow_forward</span>
-                                </button>
                             </div>
                         )}
 

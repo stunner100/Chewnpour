@@ -1,12 +1,14 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { useQuery } from 'convex/react';
 import { api } from '../../convex/_generated/api';
 
 const Profile = () => {
-    const { user, signOut, loading: authLoading } = useAuth();
+    const { user, signOut, updateProfile, loading: authLoading } = useAuth();
     const navigate = useNavigate();
+    const [voiceSaving, setVoiceSaving] = useState(false);
+    const [voiceError, setVoiceError] = useState('');
 
     // Get userId from Better Auth session
     const userId = user?.id;
@@ -89,6 +91,17 @@ const Profile = () => {
     const displayName = profile?.fullName || user?.name || user?.email?.split('@')[0] || 'Student';
     const displayStats = stats || { topics: 0, accuracy: 0, courses: 0, studyTime: 0, streakDays: 0 };
     const displaySubscription = subscription || { plan: 'free', status: 'active' };
+    const voiceModeEnabled = Boolean(profile?.voiceModeEnabled);
+
+    const handleVoiceModeToggle = async () => {
+        setVoiceError('');
+        setVoiceSaving(true);
+        const { error } = await updateProfile({ voiceModeEnabled: !voiceModeEnabled });
+        if (error) {
+            setVoiceError(error.message || 'Unable to update voice mode setting');
+        }
+        setVoiceSaving(false);
+    };
 
     return (
         <div className="bg-background-light dark:bg-background-dark font-body antialiased text-slate-900 dark:text-slate-100 transition-colors duration-300 min-h-screen flex flex-col overflow-x-hidden">
@@ -99,7 +112,7 @@ const Profile = () => {
                 <h2 className="text-lg font-bold leading-tight tracking-tight flex-1 text-center pr-10">Student Profile</h2>
             </div>
 
-            <main className="flex-1 w-full max-w-2xl mx-auto p-6 pb-24 space-y-8 animate-slide-up">
+            <main className="flex-1 w-full max-w-2xl mx-auto p-4 md:p-6 pb-20 md:pb-8 space-y-8 animate-slide-up">
                 <div className="flex flex-col items-center gap-6">
                     <div className="relative flex items-center justify-center group">
                         <svg className="progress-ring transform -rotate-90 drop-shadow-lg" height="160" width="160">
@@ -199,6 +212,43 @@ const Profile = () => {
                     </div>
                 </div>
 
+                <div>
+                    <div className="flex items-center justify-between mb-4 px-1">
+                        <h3 className="text-lg font-bold text-slate-900 dark:text-white">Accessibility</h3>
+                    </div>
+                    <div className="p-6 rounded-[2rem] bg-white dark:bg-surface-dark border border-slate-200 dark:border-slate-800 shadow-sm">
+                        <div className="flex items-start justify-between gap-4">
+                            <div className="flex-1">
+                                <p className="font-bold text-slate-900 dark:text-white mb-1">Voice Mode</p>
+                                <p className="text-sm text-slate-500 dark:text-slate-400">
+                                    Read topic explanations aloud with browser speech.
+                                </p>
+                            </div>
+                            <button
+                                onClick={handleVoiceModeToggle}
+                                disabled={voiceSaving}
+                                className={`relative w-14 h-8 rounded-full transition-colors ${voiceModeEnabled ? 'bg-primary' : 'bg-slate-300 dark:bg-slate-700'} ${voiceSaving ? 'opacity-60 cursor-not-allowed' : ''}`}
+                                aria-label="Toggle voice mode"
+                                aria-pressed={voiceModeEnabled}
+                            >
+                                <span
+                                    className={`absolute top-1 left-1 w-6 h-6 rounded-full bg-white shadow transition-transform ${voiceModeEnabled ? 'translate-x-6' : ''}`}
+                                />
+                            </button>
+                        </div>
+                        <div className="mt-3 text-xs font-semibold">
+                            <span className="text-slate-500 dark:text-slate-400">
+                                {voiceSaving ? 'Saving...' : (voiceModeEnabled ? 'Voice mode enabled' : 'Voice mode disabled')}
+                            </span>
+                        </div>
+                        {voiceError && (
+                            <div className="mt-3 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-medium text-amber-800">
+                                {voiceError}
+                            </div>
+                        )}
+                    </div>
+                </div>
+
                 {/* Recent Activity */}
                 <div>
                     <h3 className="text-lg font-bold text-slate-900 dark:text-white mb-4 px-1">Recent Exams</h3>
@@ -240,7 +290,7 @@ const Profile = () => {
                     <h3 className="text-lg font-bold text-slate-900 dark:text-white mb-4 px-1">Recent Uploads</h3>
                     {uploads && uploads.length > 0 ? (
                         <div className="space-y-4">
-                            {uploads.slice(0, 5).map((upload, index) => (
+                            {uploads.slice(0, 5).map((upload) => (
                                 <div key={upload._id} className="flex items-center gap-4 p-4 bg-white dark:bg-surface-dark rounded-2xl border border-slate-100 dark:border-slate-800 shadow-sm hover:shadow-md transition-shadow">
                                     <div className="w-14 h-14 rounded-2xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center">
                                         <span className="material-symbols-outlined text-slate-500 text-[28px]">
@@ -254,8 +304,8 @@ const Profile = () => {
                                         </p>
                                     </div>
                                     <span className={`px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wide ${upload.status === 'ready' ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' :
-                                            upload.status === 'processing' ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400' :
-                                                'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400'
+                                        upload.status === 'processing' ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400' :
+                                            'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400'
                                         }`}>
                                         {upload.status}
                                     </span>
@@ -275,10 +325,10 @@ const Profile = () => {
             </main>
 
             {/* Logout Button */}
-            <div className="fixed bottom-0 left-0 right-0 p-6 glass border-t border-slate-200/50 dark:border-slate-800/50 flex justify-center">
+            <div className="sticky md:fixed bottom-[68px] md:bottom-0 left-0 right-0 p-4 md:p-6 glass border-t border-slate-200/50 dark:border-slate-800/50 flex justify-center z-40">
                 <button
                     onClick={handleLogout}
-                    className="w-full max-w-md flex items-center justify-center gap-2 h-14 bg-red-50 text-red-600 dark:bg-red-900/10 dark:text-red-400 rounded-2xl font-bold hover:bg-red-100 dark:hover:bg-red-900/20 transition-colors shadow-sm"
+                    className="w-full max-w-md flex items-center justify-center gap-2 h-12 md:h-14 bg-red-50 text-red-600 dark:bg-red-900/10 dark:text-red-400 rounded-2xl font-bold hover:bg-red-100 dark:hover:bg-red-900/20 transition-colors shadow-sm"
                 >
                     <span className="material-symbols-outlined">logout</span>
                     Sign Out

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { Link, useParams, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useAction } from 'convex/react';
 import { api } from '../../convex/_generated/api';
@@ -13,6 +13,8 @@ const ExamMode = () => {
     const [timeRemaining, setTimeRemaining] = useState(30 * 60); // 30 minutes
     const [examStarted, setExamStarted] = useState(false);
     const [attemptId, setAttemptId] = useState(null);
+    const [attemptQuestions, setAttemptQuestions] = useState(null);
+    const [startingExamAttempt, setStartingExamAttempt] = useState(false);
     const [startExamError, setStartExamError] = useState('');
     const [generatingQuestions, setGeneratingQuestions] = useState(false);
     const [generateQuestionsError, setGenerateQuestionsError] = useState('');
@@ -32,23 +34,100 @@ const ExamMode = () => {
     const generateQuestions = useAction(api.ai.generateQuestionsForTopic);
     const regenerateQuestions = useAction(api.ai.regenerateQuestionsForTopic);
 
-    const questions = topicData?.questions || [];
+    const MIN_EXAM_QUESTIONS = 5;
+
+    const topicQuestions = topicData?.questions || [];
+    const hasAttemptQuestions = Array.isArray(attemptQuestions) && attemptQuestions.length > 0;
+    const questions = hasAttemptQuestions ? attemptQuestions : [];
     const topic = topicData;
 
-    // Start exam on mount once questions exist
-    useEffect(() => {
-        if (topicId && userId && !examStarted && questions.length > 0) {
-            startExam({ userId, topicId })
-                .then((result) => {
-                    setAttemptId(result.attemptId);
-                    setExamStarted(true);
-                    setStartExamError('');
-                })
-                .catch(() => {
-                    setStartExamError('Unable to start the exam. Please try again.');
-                });
+    const beginExamAttempt = useCallback(async () => {
+        if (!topicId || !userId || topicQuestions.length === 0) return;
+
+        setStartExamError('');
+        setStartingExamAttempt(true);
+        try {
+            const result = await startExam({ userId, topicId });
+            const selectedQuestions = Array.isArray(result?.questions) ? result.questions : [];
+            if (selectedQuestions.length === 0) {
+                throw new Error('No questions available for this exam attempt.');
+            }
+
+            setAttemptId(result.attemptId);
+            setAttemptQuestions(selectedQuestions);
+            setCurrentQuestion(0);
+            setSelectedAnswers({});
+            setTimeRemaining(30 * 60);
+            setExamStarted(true);
+        } catch (error) {
+            console.error('Failed to start exam attempt:', error);
+            setStartExamError('Unable to start the exam. Please try again.');
+            setAttemptId(null);
+            setAttemptQuestions(null);
+            setExamStarted(false);
+        } finally {
+            setStartingExamAttempt(false);
         }
-    }, [topicId, userId, examStarted, questions.length]);
+    }, [topicId, userId, topicQuestions.length, startExam]);
+
+    // Auto-generate questions if too few exist (safety net for race condition)
+    useEffect(() => {
+        if (
+            topicId &&
+            topicData !== undefined &&
+            topicData !== null &&
+            !generatingQuestions &&
+            !examStarted &&
+            !hasAttemptQuestions &&
+            topicQuestions.length > 0 &&
+            topicQuestions.length < MIN_EXAM_QUESTIONS
+        ) {
+            let cancelled = false;
+            setGeneratingQuestions(true);
+            setGenerateQuestionsError('');
+            generateQuestions({ topicId })
+                .then((result) => {
+                    if (cancelled) return;
+                    const count = result?.count ?? 0;
+                    if (!result?.success || count === 0) {
+                        setGenerateQuestionsError('Unable to generate enough questions. Please try again.');
+                    }
+                })
+                .catch((error) => {
+                    if (cancelled) return;
+                    console.error('Auto question generation failed:', error);
+                    setGenerateQuestionsError('Failed to generate questions. Please try again.');
+                })
+                .finally(() => {
+                    if (!cancelled) setGeneratingQuestions(false);
+                });
+            return () => { cancelled = true; };
+        }
+    }, [topicId, topicData, topicQuestions.length, generatingQuestions, examStarted, hasAttemptQuestions, generateQuestions]);
+
+    // Start exam on mount once enough questions exist
+    useEffect(() => {
+        if (
+            topicId &&
+            userId &&
+            !examStarted &&
+            !startingExamAttempt &&
+            !hasAttemptQuestions &&
+            !generatingQuestions &&
+            topicQuestions.length >= MIN_EXAM_QUESTIONS
+        ) {
+            beginExamAttempt();
+        }
+    }, [
+        topicId,
+        userId,
+        examStarted,
+        startingExamAttempt,
+        hasAttemptQuestions,
+        generatingQuestions,
+        topicQuestions.length,
+        beginExamAttempt,
+    ]);
 
     // Timer
     useEffect(() => {
@@ -155,7 +234,7 @@ const ExamMode = () => {
         );
     }
 
-    if (questions.length === 0) {
+    if (topicQuestions.length === 0) {
         return (
             <div className="bg-background-light dark:bg-background-dark min-h-screen flex items-center justify-center">
                 <div className="text-center max-w-lg px-6">
@@ -187,6 +266,34 @@ const ExamMode = () => {
                     >
                         {generatingQuestions ? 'Generating...' : 'Generate Questions'}
                     </button>
+                </div>
+            </div>
+        );
+    }
+
+    if (startingExamAttempt || !examStarted || !attemptId || questions.length === 0) {
+        return (
+            <div className="bg-background-light dark:bg-background-dark min-h-screen flex items-center justify-center">
+                <div className="text-center max-w-lg px-6">
+                    <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary mx-auto mb-4"></div>
+                    <h2 className="text-xl font-bold text-slate-900 dark:text-white mb-2">Preparing your exam</h2>
+                    <p className="text-slate-500 font-medium mb-6">
+                        Building your 25-question exam set from this topic.
+                    </p>
+                    {startExamError && (
+                        <div className="mb-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-2 text-sm font-medium text-amber-800">
+                            {startExamError}
+                        </div>
+                    )}
+                    {startExamError && (
+                        <button
+                            onClick={beginExamAttempt}
+                            disabled={startingExamAttempt}
+                            className="inline-flex items-center justify-center px-6 py-3 rounded-xl bg-primary text-white font-bold shadow-lg shadow-primary/25 hover:bg-primary/90 disabled:opacity-60"
+                        >
+                            Retry
+                        </button>
+                    )}
                 </div>
             </div>
         );
@@ -481,8 +588,12 @@ const ExamMode = () => {
                                         setRegeneratingQuestions(true);
                                         try {
                                             await regenerateQuestions({ topicId });
+                                            setAttemptId(null);
+                                            setAttemptQuestions(null);
+                                            setExamStarted(false);
                                             setSelectedAnswers({});
                                             setCurrentQuestion(0);
+                                            await beginExamAttempt();
                                         } catch (error) {
                                             const message = error?.message || 'Failed to regenerate questions. Please try again.';
                                             setRegenerateQuestionsError(message);
