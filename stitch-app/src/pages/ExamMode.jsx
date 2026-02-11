@@ -494,7 +494,7 @@ const ExamMode = () => {
             const label = option.label ?? String.fromCharCode(65 + index);
             const text = cleanOptionText(option.text ?? option.value ?? '');
             if (!text) return null;
-            const value = option.value ?? option.label ?? text ?? label;
+            const value = String(label);
             return { label, value, text };
         }
         let label = String.fromCharCode(65 + index);
@@ -511,7 +511,7 @@ const ExamMode = () => {
         } else if (typeof text === 'string' && /"isCorrect"\s*:/.test(text)) {
             text = '';
         }
-        const value = textMatch ? label : (option ?? '');
+        const value = label;
         if (!text) return null;
         return { label, value, text };
     };

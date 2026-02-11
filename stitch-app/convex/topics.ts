@@ -1,5 +1,6 @@
 import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
+import { sanitizeExamQuestionForClient } from "./lib/examSecurity";
 import { resolveIllustrationUrl } from "./lib/illustrationUrl";
 
 // Get all topics for a course
@@ -51,11 +52,12 @@ export const getTopicWithQuestions = query({
             .query("questions")
             .withIndex("by_topicId", (q) => q.eq("topicId", args.topicId))
             .collect();
+        const safeQuestions = questions.map((question) => sanitizeExamQuestionForClient(question));
 
         return {
             ...topic,
             illustrationUrl: freshIllustrationUrl,
-            questions,
+            questions: safeQuestions,
         };
     },
 });
@@ -70,7 +72,9 @@ export const getQuestionsByTopic = query({
             .collect();
 
         // Shuffle questions for randomized exams
-        return questions.sort(() => Math.random() - 0.5);
+        return questions
+            .map((question) => sanitizeExamQuestionForClient(question))
+            .sort(() => Math.random() - 0.5);
     },
 });
 

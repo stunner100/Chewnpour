@@ -17,6 +17,7 @@ import type * as courses from "../courses.js";
 import type * as devAuth from "../devAuth.js";
 import type * as exams from "../exams.js";
 import type * as http from "../http.js";
+import type * as lib_examSecurity from "../lib/examSecurity.js";
 import type * as lib_illustrationUrl from "../lib/illustrationUrl.js";
 import type * as profiles from "../profiles.js";
 import type * as subscriptions from "../subscriptions.js";
@@ -39,6 +40,7 @@ declare const fullApi: ApiFromModules<{
   devAuth: typeof devAuth;
   exams: typeof exams;
   http: typeof http;
+  "lib/examSecurity": typeof lib_examSecurity;
   "lib/illustrationUrl": typeof lib_illustrationUrl;
   profiles: typeof profiles;
   subscriptions: typeof subscriptions;

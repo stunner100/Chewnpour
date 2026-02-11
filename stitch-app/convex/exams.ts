@@ -1,5 +1,11 @@
 import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
+import {
+    assertAuthorizedUser,
+    computeExamPercentage,
+    resolveAuthUserId,
+    sanitizeExamQuestionForClient,
+} from "./lib/examSecurity";
 
 const EXAM_QUESTION_SUBSET_SIZE = 25;
 
@@ -19,6 +25,13 @@ export const startExamAttempt = mutation({
         topicId: v.id("topics"),
     },
     handler: async (ctx, args) => {
+        const identity = await ctx.auth.getUserIdentity();
+        const authUserId = resolveAuthUserId(identity);
+        const effectiveUserId = assertAuthorizedUser({
+            authUserId,
+            requestedUserId: args.userId,
+        });
+
         const topic = await ctx.db.get(args.topicId);
         if (!topic) {
             throw new Error("Topic not found");
@@ -33,11 +46,15 @@ export const startExamAttempt = mutation({
         const selectedQuestions = questions.length <= EXAM_QUESTION_SUBSET_SIZE
             ? questions
             : pickRandomSubset(questions, EXAM_QUESTION_SUBSET_SIZE);
+        if (selectedQuestions.length === 0) {
+            throw new Error("No questions are available for this topic yet.");
+        }
         const questionIds = selectedQuestions.map((question) => question._id);
+        const safeQuestions = selectedQuestions.map((question) => sanitizeExamQuestionForClient(question));
 
         // Create a new attempt record
         const attemptId = await ctx.db.insert("examAttempts", {
-            userId: args.userId,
+            userId: effectiveUserId,
             topicId: args.topicId,
             score: 0,
             totalQuestions: selectedQuestions.length,
@@ -49,7 +66,7 @@ export const startExamAttempt = mutation({
         return {
             attemptId,
             totalQuestions: selectedQuestions.length,
-            questions: selectedQuestions,
+            questions: safeQuestions,
         };
     },
 });
@@ -67,10 +84,15 @@ export const submitExamAttempt = mutation({
         timeTakenSeconds: v.number(),
     },
     handler: async (ctx, args) => {
+        const identity = await ctx.auth.getUserIdentity();
+        const authUserId = resolveAuthUserId(identity);
+        assertAuthorizedUser({ authUserId });
+
         const attempt = await ctx.db.get(args.attemptId);
         if (!attempt) {
             throw new Error("Exam attempt not found");
         }
+        assertAuthorizedUser({ authUserId, resourceOwnerUserId: attempt.userId });
 
         // Calculate score
         let correctCount = 0;
@@ -110,12 +132,15 @@ export const submitExamAttempt = mutation({
 
         // Get the attempt to return
         const totalQuestions = attempt.totalQuestions || (attempt.questionIds?.length ?? args.answers.length);
-        const denominator = totalQuestions > 0 ? totalQuestions : args.answers.length || 1;
 
         return {
             score: correctCount,
             totalQuestions,
-            percentage: Math.round((correctCount / denominator) * 100),
+            percentage: computeExamPercentage({
+                score: correctCount,
+                totalQuestions,
+                fallbackTotal: args.answers.length,
+            }),
             timeTakenSeconds: args.timeTakenSeconds,
             gradedAnswers,
         };
@@ -126,11 +151,16 @@ export const submitExamAttempt = mutation({
 export const getUserExamAttempts = query({
     args: { userId: v.optional(v.string()) },
     handler: async (ctx, args) => {
-        if (!args.userId) return [];
+        const identity = await ctx.auth.getUserIdentity();
+        const authUserId = resolveAuthUserId(identity);
+        const effectiveUserId = assertAuthorizedUser({
+            authUserId,
+            requestedUserId: args.userId,
+        });
 
         const attempts = await ctx.db
             .query("examAttempts")
-            .withIndex("by_userId", (q) => q.eq("userId", args.userId))
+            .withIndex("by_userId", (q) => q.eq("userId", effectiveUserId))
             .order("desc")
             .collect();
 
@@ -156,7 +186,12 @@ export const getExamAttemptsByTopic = query({
         topicId: v.id("topics")
     },
     handler: async (ctx, args) => {
-        if (!args.userId) return [];
+        const identity = await ctx.auth.getUserIdentity();
+        const authUserId = resolveAuthUserId(identity);
+        const effectiveUserId = assertAuthorizedUser({
+            authUserId,
+            requestedUserId: args.userId,
+        });
 
         const attempts = await ctx.db
             .query("examAttempts")
@@ -165,7 +200,7 @@ export const getExamAttemptsByTopic = query({
             .collect();
 
         // Filter to only user's attempts
-        return attempts.filter((a) => a.userId === args.userId);
+        return attempts.filter((a) => a.userId === effectiveUserId);
     },
 });
 
@@ -173,8 +208,13 @@ export const getExamAttemptsByTopic = query({
 export const getExamAttempt = query({
     args: { attemptId: v.id("examAttempts") },
     handler: async (ctx, args) => {
+        const identity = await ctx.auth.getUserIdentity();
+        const authUserId = resolveAuthUserId(identity);
+        assertAuthorizedUser({ authUserId });
+
         const attempt = await ctx.db.get(args.attemptId);
         if (!attempt) return null;
+        assertAuthorizedUser({ authUserId, resourceOwnerUserId: attempt.userId });
 
         const topic = await ctx.db.get(attempt.topicId);
 
@@ -195,7 +235,11 @@ export const getExamAttempt = query({
             ...attempt,
             topicTitle: topic?.title || "Unknown Topic",
             answers: enrichedAnswers,
-            percentage: Math.round((attempt.score / attempt.totalQuestions) * 100),
+            percentage: computeExamPercentage({
+                score: attempt.score,
+                totalQuestions: attempt.totalQuestions,
+                fallbackTotal: enrichedAnswers.length,
+            }),
         };
     },
 });
