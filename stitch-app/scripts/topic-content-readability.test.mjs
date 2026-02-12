@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import {
     cleanDisplayLine,
+    isArtifactLine,
     normalizeLessonContent,
 } from '../src/lib/topicContentFormatting.js';
 
@@ -33,6 +34,23 @@ const tests = [
         assert.equal(normalizedLines.includes('>'), false, 'Expected standalone blockquote markers to be removed');
         assert.equal(normalized.includes('**Extremism** : When beliefs go too far.'), true, 'Expected definition content to remain');
         assert.equal(normalized.includes('**Critical Thinking** : Evaluate ideas carefully.'), true, 'Expected second definition content to remain');
+    },
+    () => {
+        const raw = '**Extremism**: Strong views.\\n> -\\n\\n**Critical Thinking**: Careful evaluation.';
+        const normalized = normalizeLessonContent(raw);
+        assert.equal(normalized.includes('> -'), false, 'Expected blockquote marker artifacts to be removed');
+        assert.equal(normalized.includes('**Critical Thinking**: Careful evaluation.'), true, 'Expected meaningful content to remain');
+    },
+    () => {
+        const cleaned = cleanDisplayLine('*Simple* [example] _text_ with **markers**');
+        assert.equal(cleaned.includes('*'), false, 'Expected single asterisk emphasis markers to be removed');
+        assert.equal(cleaned.includes('_'), false, 'Expected underscore emphasis markers to be removed');
+        assert.equal(cleaned, 'Simple example text with markers');
+    },
+    () => {
+        assert.equal(isArtifactLine('> -'), true, 'Expected ">" and "-" artifact line to be detected');
+        assert.equal(isArtifactLine('\\\\'), true, 'Expected standalone slash artifact to be detected');
+        assert.equal(isArtifactLine('Key Idea: Practice daily'), false, 'Expected real content line to remain');
     },
 ];
 

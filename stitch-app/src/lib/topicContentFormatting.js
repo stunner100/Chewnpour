@@ -50,6 +50,23 @@ const shouldMergeParagraphLines = (previousLine, currentLine) => {
     return true;
 };
 
+export const isArtifactLine = (value) => {
+    const raw = String(value || '').trim();
+    if (!raw) return true;
+
+    const deEscaped = raw
+        .replace(/^\\+/, '')
+        .replace(/\\+/g, '')
+        .trim();
+
+    if (!deEscaped) return true;
+    if (/^['"`]+$/.test(deEscaped)) return true;
+    if (/^(?:[-–—•*#|`])+$/u.test(deEscaped)) return true;
+    if (/^>\s*[-–—•*#|`]*$/u.test(deEscaped)) return true;
+    if (/^(?:\d+[.)]\s*)?(?:[-–—•*#|`])+$/u.test(deEscaped)) return true;
+    return false;
+};
+
 export const cleanInlineText = (text) => {
     if (!text) return '';
     return String(text)
@@ -59,10 +76,13 @@ export const cleanInlineText = (text) => {
         .replace(/\\"/g, '"')
         .replace(/\\([#*_[\]()`>~-])/g, '$1')
         .replace(/\\+/g, ' ')
+        .replace(/(^|[\s(])\*([^*\n]+)\*([\s).,!?]|$)/g, '$1$2$3')
+        .replace(/(^|[\s(])_([^_\n]+)_([\s).,!?]|$)/g, '$1$2$3')
         .replace(/\[(.*?)\]\((.*?)\)/g, '$1')
         .replace(/\[\s*([^\]]+?)\s*\]/g, '$1')
         .replace(/#{1,6}\s*/g, '')
         .replace(/`([^`]+)`/g, '$1')
+        .replace(/\s*[*_`|]+\s*/g, (match) => (/^\s*$/.test(match) ? match : ' '))
         .replace(/\s{2,}/g, ' ')
         .trim();
 };
@@ -134,9 +154,7 @@ export const normalizeLessonContent = (text) => {
         }
 
         // Drop marker-only leftovers from malformed markdown that create fake empty blocks.
-        if (/^[-–—•*]+$/.test(line)) continue;
-        if (/^>\s*$/.test(line)) continue;
-        if (/^(?:[-–—•*]\s*){2,}$/.test(line)) continue;
+        if (isArtifactLine(line)) continue;
 
         if (/^(dr|mr|mrs|ms|prof)\.?$/i.test(line)) continue;
         if (/@/.test(line) && line.length < 140) continue;

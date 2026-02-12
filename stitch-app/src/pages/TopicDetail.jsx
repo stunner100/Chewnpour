@@ -13,6 +13,7 @@ import {
     SECTION_TITLES_SET,
     cleanDisplayLine,
     cleanInlineText,
+    isArtifactLine,
     normalizeLessonContent,
     slugifyText,
 } from '../lib/topicContentFormatting';
@@ -367,9 +368,10 @@ const TopicDetail = () => {
                 continue;
             }
             previousWasSpacer = false;
+            const cleanedRaw = cleanLine(raw);
 
             // Skip malformed marker-only lines that should not render as content blocks.
-            if (/^[-–—•*]+$/.test(raw) || /^>\s*$/.test(raw)) {
+            if (isArtifactLine(raw) || !cleanedRaw) {
                 continue;
             }
 
@@ -468,7 +470,11 @@ const TopicDetail = () => {
 
             // Blockquotes
             if (raw.startsWith('> ')) {
-                blocks.push({ type: 'quote', text: raw.slice(2), key: `q-${i}` });
+                const quoteText = cleanLine(raw.slice(2));
+                if (!quoteText || isArtifactLine(quoteText)) {
+                    continue;
+                }
+                blocks.push({ type: 'quote', text: quoteText, key: `q-${i}` });
                 continue;
             }
 
