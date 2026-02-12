@@ -36,7 +36,7 @@ const SECTION_TITLE_REGEX = new RegExp(`([.!?])\\s+(${SECTION_TITLE_PATTERN})\\b
 const INLINE_SECTION_REGEX = new RegExp(`([a-z])(${SECTION_TITLE_PATTERN})`, 'g');
 
 const isStructuredLine = (line) =>
-    /^(#{1,6}\s+|[-*•]\s+|\d+[.)]\s+|>\s+)/.test(String(line || '').trim());
+    /^(#{1,6}\s+|[-*•]\s+|\d+[.)](?:\s+|$)|>\s+)/.test(String(line || '').trim());
 
 const shouldMergeParagraphLines = (previousLine, currentLine) => {
     if (!previousLine || !currentLine) return false;
@@ -161,8 +161,67 @@ export const normalizeLessonContent = (text) => {
         compactLines.push(line);
     }
 
-    const mergedLines = [];
+    const splitTrailingMarkers = [];
     for (const line of compactLines) {
+        if (!line) {
+            if (splitTrailingMarkers.length > 0 && splitTrailingMarkers[splitTrailingMarkers.length - 1] !== '') {
+                splitTrailingMarkers.push('');
+            }
+            continue;
+        }
+
+        const trailingMarker = line.match(/^(.+?)\s+(\d+)[.)]$/);
+        if (trailingMarker) {
+            const itemText = trailingMarker[1].trim();
+            if (itemText) {
+                splitTrailingMarkers.push(itemText);
+            }
+            splitTrailingMarkers.push(`${trailingMarker[2]}.`);
+            continue;
+        }
+
+        splitTrailingMarkers.push(line);
+    }
+
+    const findNextNonEmptyIndex = (lines, startIndex) => {
+        for (let index = startIndex; index < lines.length; index += 1) {
+            if (String(lines[index] || '').trim()) return index;
+        }
+        return -1;
+    };
+
+    const repairedListLines = [];
+    for (let index = 0; index < splitTrailingMarkers.length; index += 1) {
+        const line = splitTrailingMarkers[index];
+        if (!line) {
+            if (repairedListLines.length > 0 && repairedListLines[repairedListLines.length - 1] !== '') {
+                repairedListLines.push('');
+            }
+            continue;
+        }
+
+        const orphanMarker = line.match(/^(\d+)[.)]$/);
+        if (orphanMarker) {
+            const nextIndex = findNextNonEmptyIndex(splitTrailingMarkers, index + 1);
+            if (nextIndex !== -1) {
+                const nextLine = String(splitTrailingMarkers[nextIndex] || '').trim();
+                const nextLineIsContent = nextLine
+                    && !/^\d+[.)]$/.test(nextLine)
+                    && !/^[-•*]\s+/.test(nextLine)
+                    && !/^>/.test(nextLine);
+                if (nextLineIsContent) {
+                    repairedListLines.push(`${orphanMarker[1]}. ${nextLine}`);
+                    index = nextIndex;
+                    continue;
+                }
+            }
+        }
+
+        repairedListLines.push(line);
+    }
+
+    const mergedLines = [];
+    for (const line of repairedListLines) {
         if (!line) {
             if (mergedLines.length > 0 && mergedLines[mergedLines.length - 1] !== '') {
                 mergedLines.push('');

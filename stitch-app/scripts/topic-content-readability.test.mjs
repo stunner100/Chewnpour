@@ -52,6 +52,26 @@ const tests = [
         assert.equal(isArtifactLine('\\\\'), true, 'Expected standalone slash artifact to be detected');
         assert.equal(isArtifactLine('Key Idea: Practice daily'), false, 'Expected real content line to remain');
     },
+    () => {
+        const raw = `### Session Outline
+
+1.
+
+**The Concept of a Collection in an AIR** 2.
+
+**Automated Information Gathering** 3.
+
+**Automated Systems for Information Processing and Presentation** 4.
+
+**Database Technology**`;
+        const normalized = normalizeLessonContent(raw);
+        assert.equal(normalized.includes('1.\n\n**The Concept of a Collection in an AIR**'), false, 'Expected orphaned first list number to be merged with content');
+        assert.equal(normalized.includes('**The Concept of a Collection in an AIR** 2.'), false, 'Expected trailing "2." marker to be detached from prior item');
+        assert.equal(normalized.includes('1. **The Concept of a Collection in an AIR**'), true, 'Expected first list item to render on one line');
+        assert.equal(normalized.includes('2. **Automated Information Gathering**'), true, 'Expected second list item to render on one line');
+        assert.equal(normalized.includes('3. **Automated Systems for Information Processing and Presentation**'), true, 'Expected third list item to render on one line');
+        assert.equal(normalized.includes('4. **Database Technology**'), true, 'Expected fourth list item to render on one line');
+    },
 ];
 
 for (const run of tests) {
