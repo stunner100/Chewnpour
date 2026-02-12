@@ -8,6 +8,14 @@ import {
     calculateRemainingTopicProgress,
     normalizeGeneratedTopicCount,
 } from "./lib/topicGenerationProgress";
+import {
+    buildCoverageStats,
+    buildGroupSourceSnippet,
+    buildSemanticChunks,
+    deriveTargetTopicCount,
+    extractStructuredSections,
+    groupChunksIntoTopicBuckets,
+} from "./lib/topicOutlinePipeline";
 
 // Qwen API configuration (OpenAI-compatible)
 const QWEN_BASE_URL = process.env.QWEN_BASE_URL || "https://dashscope.aliyuncs.com/compatible-mode/v1";
@@ -28,6 +36,13 @@ const MIN_TOPIC_CONTENT_WORDS = 140;
 const TOPIC_CONTEXT_CHUNK_CHARS = 1400;
 const TOPIC_CONTEXT_LIMIT = 7000;
 const BACKGROUND_SOURCE_TEXT_LIMIT = 120000;
+const OUTLINE_SECTION_MIN_WORDS = 45;
+const OUTLINE_MAX_SECTIONS = 120;
+const OUTLINE_MIN_CHUNK_CHARS = 1800;
+const OUTLINE_MAX_CHUNK_CHARS = 5200;
+const OUTLINE_MAX_MAP_CHUNKS = 10;
+const OUTLINE_GROUP_SOURCE_CHAR_LIMIT = 4600;
+const OUTLINE_FALLBACK_SOURCE_CHAR_LIMIT = 22000;
 const QUESTION_BATCH_SIZE = 15;
 const MIN_QUESTION_BANK_TARGET = 20;
 const QUESTION_TARGET_WORD_DIVISOR = 15;
@@ -896,6 +911,368 @@ const buildFallbackOutline = (extractedText: string, fileName: string) => {
     };
 };
 
+const normalizeOutlineString = (value: any) =>
+    String(value || "")
+        .replace(/\r?\n/g, " ")
+        .replace(/\s+/g, " ")
+        .trim();
+
+const normalizeOutlineStringList = (value: any, maxItems = 8) => {
+    if (!Array.isArray(value)) {
+        if (typeof value !== "string") return [];
+        return value
+            .split(/[,;\n]+/)
+            .map((item) => normalizeOutlineString(item))
+            .filter(Boolean)
+            .slice(0, maxItems);
+    }
+
+    return value
+        .map((item) => normalizeOutlineString(item))
+        .filter(Boolean)
+        .slice(0, maxItems);
+};
+
+const buildOutlineLegacyPrompt = (sourceText: string) => `You are an expert educational content creator. Analyze the following study material and create a structured course outline that is easy for a layperson to understand while still being detailed.
+
+STUDY MATERIAL:
+"""
+${sourceText.slice(0, OUTLINE_FALLBACK_SOURCE_CHAR_LIMIT)}
+"""
+
+Based on this content, create 5-7 distinct topics/chapters that cover the main concepts. Each topic should be a logical unit of study and phrased in plain, beginner-friendly language.
+Only use concepts that are explicitly present in the study material. Avoid generic placeholders.
+
+Respond in this exact JSON format only (no markdown, no explanation):
+{
+  "courseTitle": "A clear, descriptive title for this course",
+  "courseDescription": "A 1-2 sentence description of what students will learn",
+  "topics": [
+    {
+      "title": "Topic title",
+      "description": "Brief description of what this topic covers",
+      "keyPoints": ["key point 1", "key point 2", "key point 3"]
+    }
+  ]
+}`;
+
+const generateLegacyCourseOutline = async (extractedText: string, fileName: string) => {
+    const outlinePrompt = buildOutlineLegacyPrompt(extractedText);
+    try {
+        const outlineResponse = await callQwen([
+            { role: "system", content: "You are a helpful educational assistant that creates structured learning content. Always respond with valid JSON only." },
+            { role: "user", content: outlinePrompt },
+        ], DEFAULT_MODEL, { maxTokens: 1200, responseFormat: "json_object" });
+
+        return parseJsonFromResponse(outlineResponse, "outline");
+    } catch (error) {
+        return buildFallbackOutline(extractedText, fileName);
+    }
+};
+
+const buildChunkSummaryFallback = (chunk: {
+    id: number;
+    text: string;
+    headingHints: string[];
+    keywords: string[];
+}) => {
+    const sentences = String(chunk.text || "")
+        .replace(/\s+/g, " ")
+        .split(/(?<=[.!?])\s+/)
+        .map((sentence) => sentence.trim())
+        .filter((sentence) => sentence.length > 30)
+        .slice(0, 2);
+    const summary = sentences.join(" ").slice(0, 260);
+    const candidateTitle = normalizeOutlineString(chunk.headingHints?.[0] || `Topic ${chunk.id + 1}`);
+    return {
+        chunkId: chunk.id,
+        summary: summary || `Covers key ideas from section ${chunk.id + 1}.`,
+        candidateTitle,
+        keyConcepts: normalizeOutlineStringList(chunk.keywords, 6),
+        keywords: normalizeOutlineStringList(chunk.keywords, 10),
+        headingHints: normalizeOutlineStringList(chunk.headingHints, 4),
+        wordCount: Number(chunk.wordCount || 0),
+    };
+};
+
+const summarizeChunkForOutlineMap = async (chunk: {
+    id: number;
+    text: string;
+    headingHints: string[];
+    keywords: string[];
+    wordCount: number;
+}) => {
+    const fallback = buildChunkSummaryFallback(chunk);
+    const prompt = `You are building a semantic map for a study-material chunk.
+
+CHUNK INDEX: ${chunk.id + 1}
+HEADING HINTS: ${(chunk.headingHints || []).join(" | ") || "none"}
+KEYWORDS: ${(chunk.keywords || []).join(", ") || "none"}
+CHUNK TEXT:
+"""
+${chunk.text.slice(0, 9000)}
+"""
+
+Return strict JSON only:
+{
+  "summary": "1-2 sentence summary of this chunk",
+  "candidateTitle": "short candidate topic title",
+  "keyConcepts": ["concept 1", "concept 2", "concept 3"],
+  "keywords": ["keyword 1", "keyword 2", "keyword 3"]
+}
+
+Rules:
+- Do not include markdown.
+- Keep candidateTitle under 80 characters.
+- Use only concepts in the chunk text.`;
+
+    try {
+        const response = await callQwen([
+            { role: "system", content: "You summarize course material chunks. Always return valid JSON." },
+            { role: "user", content: prompt },
+        ], DEFAULT_MODEL, { maxTokens: 700, responseFormat: "json_object" });
+        const parsed = parseJsonFromResponse(response, "chunk map");
+
+        const summary = normalizeOutlineString(parsed?.summary) || fallback.summary;
+        const candidateTitle = normalizeOutlineString(parsed?.candidateTitle) || fallback.candidateTitle;
+        const keyConcepts = normalizeOutlineStringList(parsed?.keyConcepts, 6);
+        const keywords = normalizeOutlineStringList(parsed?.keywords, 10);
+        const headingHints = normalizeOutlineStringList(chunk.headingHints, 4);
+
+        return {
+            chunkId: chunk.id,
+            summary: summary || fallback.summary,
+            candidateTitle: candidateTitle || fallback.candidateTitle,
+            keyConcepts: keyConcepts.length > 0 ? keyConcepts : fallback.keyConcepts,
+            keywords: keywords.length > 0 ? keywords : fallback.keywords,
+            headingHints,
+            wordCount: Number(chunk.wordCount || 0),
+        };
+    } catch (error) {
+        return fallback;
+    }
+};
+
+const buildFallbackTopicFromGroup = (
+    group: {
+        id: number;
+        chunkIds: number[];
+        headingHints: string[];
+        keywords: string[];
+    },
+    chunkSummaryById: Map<number, any>
+) => {
+    const summaries = group.chunkIds
+        .map((chunkId) => chunkSummaryById.get(chunkId))
+        .filter(Boolean);
+    const first = summaries[0] || null;
+    const mergedKeyPoints = normalizeOutlineStringList(
+        summaries.flatMap((item: any) => item?.keyConcepts || item?.keywords || []),
+        8
+    );
+    const titleCandidate = normalizeOutlineString(
+        first?.candidateTitle
+        || group.headingHints?.[0]
+        || `Topic ${group.id + 1}`
+    );
+
+    return {
+        groupIndex: group.id + 1,
+        title: titleCandidate || `Topic ${group.id + 1}`,
+        description: normalizeOutlineString(first?.summary || `Detailed exploration of topic ${group.id + 1}.`),
+        keyPoints: mergedKeyPoints.slice(0, 6),
+    };
+};
+
+const labelOutlineGroups = async (args: {
+    groups: Array<{
+        id: number;
+        chunkIds: number[];
+        headingHints: string[];
+        keywords: string[];
+    }>;
+    chunks: Array<{
+        id: number;
+        text: string;
+    }>;
+    chunkSummaries: Array<{
+        chunkId: number;
+        summary: string;
+        candidateTitle: string;
+        keyConcepts: string[];
+        keywords: string[];
+        headingHints: string[];
+    }>;
+    fileName: string;
+}) => {
+    const safeFileTitle = args.fileName.replace(/\.(pdf|pptx|docx)$/i, "") || "Generated Course";
+    const chunkSummaryById = new Map(args.chunkSummaries.map((item) => [item.chunkId, item]));
+    const groupedPayload = args.groups.map((group, index) => {
+        const summaries = group.chunkIds
+            .map((chunkId) => chunkSummaryById.get(chunkId))
+            .filter(Boolean);
+        const groupSummary = summaries
+            .map((item: any) => item.summary)
+            .filter(Boolean)
+            .join(" ")
+            .slice(0, 360);
+        return {
+            groupIndex: index + 1,
+            chunkIndexes: group.chunkIds.map((chunkId) => chunkId + 1),
+            headingHints: normalizeOutlineStringList(group.headingHints, 5),
+            keywords: normalizeOutlineStringList(group.keywords, 10),
+            mapSummary: groupSummary,
+            sourceSnippet: buildGroupSourceSnippet(group, args.chunks, {
+                maxChars: OUTLINE_GROUP_SOURCE_CHAR_LIMIT,
+            }),
+        };
+    });
+
+    const prompt = `You are converting grouped material maps into course topics.
+
+SOURCE FILE TITLE: ${safeFileTitle}
+GROUP COUNT: ${args.groups.length}
+GROUP DATA JSON:
+${JSON.stringify(groupedPayload)}
+
+Return strict JSON only:
+{
+  "courseTitle": "course title",
+  "courseDescription": "1-2 sentence course description",
+  "topics": [
+    {
+      "groupIndex": 1,
+      "title": "topic title",
+      "description": "short description",
+      "keyPoints": ["point 1", "point 2", "point 3"]
+    }
+  ]
+}
+
+Rules:
+- topics length must be exactly ${args.groups.length}.
+- preserve group order and groupIndex.
+- titles must be beginner-friendly and <= 90 chars.
+- use only concepts from each group.
+- no markdown.`;
+
+    let parsed: any = null;
+    try {
+        const response = await callQwen([
+            { role: "system", content: "You design study outlines from grouped semantic maps. Return valid JSON only." },
+            { role: "user", content: prompt },
+        ], DEFAULT_MODEL, { maxTokens: 1800, responseFormat: "json_object" });
+        parsed = parseJsonFromResponse(response, "grouped outline");
+    } catch (error) {
+        parsed = null;
+    }
+
+    const labeledTopics = Array.isArray(parsed?.topics) ? parsed.topics : [];
+    const topics = args.groups.map((group) => {
+        const llmTopic = labeledTopics.find((topic: any) => Number(topic?.groupIndex) === group.id + 1);
+        const fallback = buildFallbackTopicFromGroup(group, chunkSummaryById);
+        const keyPoints = normalizeOutlineStringList(llmTopic?.keyPoints, 8);
+        return {
+            title: normalizeOutlineString(llmTopic?.title) || fallback.title,
+            description: normalizeOutlineString(llmTopic?.description) || fallback.description,
+            keyPoints: keyPoints.length > 0 ? keyPoints : fallback.keyPoints,
+        };
+    });
+
+    return {
+        courseTitle: normalizeOutlineString(parsed?.courseTitle) || safeFileTitle,
+        courseDescription: normalizeOutlineString(parsed?.courseDescription)
+            || "AI-generated course from your study materials.",
+        topics,
+    };
+};
+
+const generateCourseOutlineWithPipeline = async (extractedText: string, fileName: string) => {
+    const source = String(extractedText || "").trim();
+    const deterministicFallback = buildFallbackOutline(extractedText, fileName);
+    if (!source) {
+        return deterministicFallback;
+    }
+
+    let cachedLegacyFallback: any | null = null;
+    const getLegacyFallback = async () => {
+        if (cachedLegacyFallback) return cachedLegacyFallback;
+        cachedLegacyFallback = await generateLegacyCourseOutline(extractedText, fileName);
+        return cachedLegacyFallback || deterministicFallback;
+    };
+
+    if (source.length < 1500) {
+        return await getLegacyFallback();
+    }
+
+    const sections = extractStructuredSections(source, {
+        minSectionWords: OUTLINE_SECTION_MIN_WORDS,
+        maxSections: OUTLINE_MAX_SECTIONS,
+    });
+
+    const chunks = buildSemanticChunks(sections, {
+        minChunkChars: OUTLINE_MIN_CHUNK_CHARS,
+        maxChunkChars: OUTLINE_MAX_CHUNK_CHARS,
+        maxChunks: OUTLINE_MAX_MAP_CHUNKS,
+    });
+
+    if (!Array.isArray(chunks) || chunks.length === 0) {
+        return await getLegacyFallback();
+    }
+
+    const chunkSummaries = [];
+    for (const chunk of chunks) {
+        const summary = await summarizeChunkForOutlineMap(chunk);
+        chunkSummaries.push(summary);
+    }
+
+    const targetTopicCount = deriveTargetTopicCount({
+        wordCount: countWords(source),
+        chunkCount: chunks.length,
+        minimum: 4,
+        maximum: 8,
+    });
+
+    const groups = groupChunksIntoTopicBuckets(
+        chunkSummaries.map((summary, index) => ({
+            id: index,
+            keywords: summary.keywords,
+            headingHints: summary.headingHints,
+            wordCount: summary.wordCount,
+            text: chunks[index]?.text || "",
+        })),
+        { targetTopicCount }
+    );
+
+    const coverage = buildCoverageStats({
+        chunkCount: chunkSummaries.length,
+        groups,
+    });
+
+    if (!coverage.isComplete || coverage.coverageRatio < 0.95 || groups.length === 0) {
+        console.warn("[CourseGeneration] outline_pipeline_coverage_fallback", {
+            chunkCount: chunkSummaries.length,
+            coveredChunkCount: coverage.coveredChunkCount,
+            coverageRatio: coverage.coverageRatio,
+        });
+        return await getLegacyFallback();
+    }
+
+    const groupedOutline = await labelOutlineGroups({
+        groups,
+        chunks,
+        chunkSummaries,
+        fileName,
+    });
+
+    const prepared = buildPreparedTopics(groupedOutline, extractedText, fileName);
+    if (!Array.isArray(prepared) || prepared.length === 0) {
+        return await getLegacyFallback();
+    }
+
+    return groupedOutline;
+};
+
 const sanitizeGeneratedTopicTitle = (value: string, fallback: string) => {
     const cleaned = String(value || "")
         .replace(/\r?\n/g, " ")
@@ -1218,40 +1595,14 @@ export const generateCourseFromText = action({
             });
 
             checkTimeout();
-            const outlinePrompt = `You are an expert educational content creator. Analyze the following study material and create a structured course outline that is easy for a layperson to understand while still being detailed.
-
-STUDY MATERIAL:
-"""
-${extractedText.slice(0, 22000)}
-"""
-
-Based on this content, create 5-7 distinct topics/chapters that cover the main concepts. Each topic should be a logical unit of study and phrased in plain, beginner-friendly language.
-Only use concepts that are explicitly present in the study material. Avoid generic placeholders.
-
-Respond in this exact JSON format only (no markdown, no explanation):
-{
-  "courseTitle": "A clear, descriptive title for this course",
-  "courseDescription": "A 1-2 sentence description of what students will learn",
-  "topics": [
-    {
-      "title": "Topic title",
-      "description": "Brief description of what this topic covers",
-      "keyPoints": ["key point 1", "key point 2", "key point 3"]
-    }
-  ]
-}`;
-
-            const outlineResponse = await callQwen([
-                { role: "system", content: "You are a helpful educational assistant that creates structured learning content. Always respond with valid JSON only." },
-                { role: "user", content: outlinePrompt },
-            ], DEFAULT_MODEL, { maxTokens: 1200, responseFormat: "json_object" });
-
-            let courseOutline;
-            try {
-                courseOutline = parseJsonFromResponse(outlineResponse, "outline");
-            } catch (parseError) {
-                courseOutline = buildFallbackOutline(extractedText, fileName);
-            }
+            const outlineStart = Date.now();
+            const courseOutline = await generateCourseOutlineWithPipeline(extractedText, fileName);
+            console.info("[CourseGeneration] outline_pipeline_ready", {
+                courseId,
+                uploadId,
+                durationMs: Date.now() - outlineStart,
+                topicCount: Array.isArray(courseOutline?.topics) ? courseOutline.topics.length : 0,
+            });
 
             await ctx.runMutation(api.courses.updateCourse, {
                 courseId,

@@ -20,6 +20,7 @@ import type * as http from "../http.js";
 import type * as lib_examSecurity from "../lib/examSecurity.js";
 import type * as lib_illustrationUrl from "../lib/illustrationUrl.js";
 import type * as lib_topicGenerationProgress from "../lib/topicGenerationProgress.js";
+import type * as lib_topicOutlinePipeline from "../lib/topicOutlinePipeline.js";
 import type * as profiles from "../profiles.js";
 import type * as subscriptions from "../subscriptions.js";
 import type * as topics from "../topics.js";
@@ -44,6 +45,7 @@ declare const fullApi: ApiFromModules<{
   "lib/examSecurity": typeof lib_examSecurity;
   "lib/illustrationUrl": typeof lib_illustrationUrl;
   "lib/topicGenerationProgress": typeof lib_topicGenerationProgress;
+  "lib/topicOutlinePipeline": typeof lib_topicOutlinePipeline;
   profiles: typeof profiles;
   subscriptions: typeof subscriptions;
   topics: typeof topics;
