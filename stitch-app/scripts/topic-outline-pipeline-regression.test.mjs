@@ -1,8 +1,10 @@
 import assert from "node:assert/strict";
 import {
+    aggregateChunksByMajorKey,
     buildCoverageStats,
     buildGroupSourceSnippet,
     buildSemanticChunks,
+    deriveStructureTopicCount,
     deriveTargetTopicCount,
     extractStructuredSections,
     groupChunksIntoTopicBuckets,
@@ -47,6 +49,9 @@ const chunks = buildSemanticChunks(sections, {
 });
 assert.ok(chunks.length >= 4, "Expected semantic chunking to split long material into multiple chunks");
 
+const structureCount = deriveStructureTopicCount(sections);
+assert.equal(structureCount >= 2, true, "Expected structure-derived topic count to be detected");
+
 const target = deriveTargetTopicCount({
     wordCount: sourceText.split(/\s+/).length,
     chunkCount: chunks.length,
@@ -55,7 +60,10 @@ const target = deriveTargetTopicCount({
 });
 assert.ok(target >= 3 && target <= 6, "Expected bounded topic target");
 
-const groups = groupChunksIntoTopicBuckets(chunks, { targetTopicCount: 3 });
+const preGrouped = aggregateChunksByMajorKey(chunks);
+const groups = preGrouped.length === 3
+    ? preGrouped
+    : groupChunksIntoTopicBuckets(preGrouped, { targetTopicCount: 3 });
 assert.equal(groups.length, 3, "Expected chunk groups to match requested topic count");
 
 const coverage = buildCoverageStats({
@@ -68,4 +76,3 @@ const snippet = buildGroupSourceSnippet(groups[0], chunks, { maxChars: 700 });
 assert.ok(snippet.length > 120, "Expected grouped snippet to include source context");
 
 console.log("topic-outline-pipeline-regression tests passed");
-

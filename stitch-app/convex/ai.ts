@@ -9,9 +9,11 @@ import {
     normalizeGeneratedTopicCount,
 } from "./lib/topicGenerationProgress";
 import {
+    aggregateChunksByMajorKey,
     buildCoverageStats,
     buildGroupSourceSnippet,
     buildSemanticChunks,
+    deriveStructureTopicCount,
     deriveTargetTopicCount,
     extractStructuredSections,
     groupChunksIntoTopicBuckets,
@@ -1220,29 +1222,40 @@ const generateCourseOutlineWithPipeline = async (extractedText: string, fileName
         return await getLegacyFallback();
     }
 
+    const structureTopicCount = deriveStructureTopicCount(sections);
+
     const chunkSummaries = [];
     for (const chunk of chunks) {
         const summary = await summarizeChunkForOutlineMap(chunk);
         chunkSummaries.push(summary);
     }
 
-    const targetTopicCount = deriveTargetTopicCount({
-        wordCount: countWords(source),
-        chunkCount: chunks.length,
-        minimum: 4,
-        maximum: 8,
-    });
+    const targetTopicCount = structureTopicCount > 0
+        ? structureTopicCount
+        : deriveTargetTopicCount({
+            wordCount: countWords(source),
+            chunkCount: chunks.length,
+            minimum: 4,
+            maximum: 8,
+        });
 
-    const groups = groupChunksIntoTopicBuckets(
-        chunkSummaries.map((summary, index) => ({
-            id: index,
-            keywords: summary.keywords,
-            headingHints: summary.headingHints,
-            wordCount: summary.wordCount,
-            text: chunks[index]?.text || "",
-        })),
-        { targetTopicCount }
-    );
+    const summaryChunks = chunkSummaries.map((summary, index) => ({
+        id: index,
+        keywords: summary.keywords,
+        headingHints: summary.headingHints,
+        wordCount: summary.wordCount,
+        text: chunks[index]?.text || "",
+        majorKeys: chunks[index]?.majorKeys || [],
+        primaryMajorKey: chunks[index]?.primaryMajorKey || "",
+    }));
+
+    const preGrouped = structureTopicCount > 0
+        ? aggregateChunksByMajorKey(summaryChunks)
+        : summaryChunks;
+
+    const groups = preGrouped.length === targetTopicCount
+        ? preGrouped
+        : groupChunksIntoTopicBuckets(preGrouped, { targetTopicCount });
 
     const coverage = buildCoverageStats({
         chunkCount: chunkSummaries.length,

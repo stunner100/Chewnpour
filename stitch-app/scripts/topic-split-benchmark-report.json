@@ -1,0 +1,120 @@
+{
+  "generatedAt": "2026-02-13T00:07:18.602Z",
+  "sampleCounts": {
+    "synthetic": 4,
+    "pdfProxyEvaluated": 1,
+    "pdfProxySkipped": 3,
+    "totalScored": 5
+  },
+  "scores": {
+    "syntheticScore": 0.9234375,
+    "pdfProxyScore": 0.23166666666666663,
+    "overallScore": 0.7850833333333334,
+    "overallAccuracyPercent": 78.51
+  },
+  "details": {
+    "syntheticResults": [
+      {
+        "name": "Synthetic_A_4_topics",
+        "sourceType": "synthetic",
+        "expectedTopics": 4,
+        "predictedTopics": 4,
+        "sections": 8,
+        "chunks": 8,
+        "coverageRatio": 1,
+        "boundaryIoU": 1,
+        "countAccuracy": 1,
+        "score": 1
+      },
+      {
+        "name": "Synthetic_B_5_topics",
+        "sourceType": "synthetic",
+        "expectedTopics": 5,
+        "predictedTopics": 5,
+        "sections": 8,
+        "chunks": 8,
+        "coverageRatio": 1,
+        "boundaryIoU": 1,
+        "countAccuracy": 1,
+        "score": 1
+      },
+      {
+        "name": "Synthetic_C_6_topics",
+        "sourceType": "synthetic",
+        "expectedTopics": 6,
+        "predictedTopics": 6,
+        "sections": 10,
+        "chunks": 10,
+        "coverageRatio": 1,
+        "boundaryIoU": 1,
+        "countAccuracy": 1,
+        "score": 1
+      },
+      {
+        "name": "Synthetic_D_8_topics",
+        "sourceType": "synthetic",
+        "expectedTopics": 8,
+        "predictedTopics": 8,
+        "sections": 8,
+        "chunks": 9,
+        "coverageRatio": 1,
+        "boundaryIoU": 0.5625,
+        "countAccuracy": 1,
+        "score": 0.69375
+      }
+    ],
+    "pdfResults": [
+      {
+        "name": "Channel Ideas Without Remotion.pdf",
+        "sourceType": "pdf_proxy",
+        "skipped": false,
+        "anchorSource": "outline",
+        "pages": 8,
+        "sections": 25,
+        "chunks": 4,
+        "expectedTopics": 6,
+        "predictedTopics": 3,
+        "coverageRatio": 1,
+        "boundaryIoU": 0.11666666666666665,
+        "countAccuracy": 0.5,
+        "score": 0.23166666666666663
+      },
+      {
+        "name": "wipo_financial_report_min.pdf",
+        "sourceType": "pdf_proxy",
+        "skipped": true,
+        "reason": "missing_outline_or_predicted_ranges",
+        "anchorSource": "page_heading_proxy",
+        "pages": 2,
+        "sections": 1,
+        "chunks": 1,
+        "predictedTopics": 1,
+        "coverageRatio": 0
+      },
+      {
+        "name": "wipo_financial_report.pdf",
+        "sourceType": "pdf_proxy",
+        "skipped": true,
+        "reason": "missing_outline_or_predicted_ranges",
+        "anchorSource": "page_heading_proxy",
+        "pages": 7,
+        "sections": 23,
+        "chunks": 4,
+        "predictedTopics": 4,
+        "coverageRatio": 1
+      },
+      {
+        "name": "wipo_doc_to_restore.pdf",
+        "sourceType": "pdf_proxy",
+        "skipped": true,
+        "reason": "missing_outline_or_predicted_ranges",
+        "anchorSource": "page_heading_proxy",
+        "pages": 3,
+        "sections": 1,
+        "chunks": 1,
+        "predictedTopics": 1,
+        "coverageRatio": 0
+      }
+    ]
+  }
+}

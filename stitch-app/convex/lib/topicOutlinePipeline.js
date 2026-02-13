@@ -30,6 +30,19 @@ const countWords = (value) =>
         .split(/\s+/)
         .filter(Boolean).length;
 
+const dedupeNumbers = (values) => {
+    const output = [];
+    const seen = new Set();
+    for (const value of values || []) {
+        const numberValue = Number(value);
+        if (!Number.isFinite(numberValue)) continue;
+        if (seen.has(numberValue)) continue;
+        seen.add(numberValue);
+        output.push(numberValue);
+    }
+    return output;
+};
+
 const uniqueStrings = (values) => {
     const seen = new Set();
     const output = [];
@@ -49,6 +62,33 @@ const cleanHeading = (value) =>
         .replace(/^[#*\-\s]+/, "")
         .replace(/\s+/g, " ")
         .trim();
+
+const detectMajorHeadingKey = (line) => {
+    const text = cleanHeading(line);
+    if (!text) return "";
+    const lower = text.toLowerCase();
+
+    const labeledMatch = lower.match(/^(chapter|section|topic|lesson|unit|module|part|week)\s+([ivxlcdm]+|\d+)/i);
+    if (labeledMatch) {
+        return `${labeledMatch[1]}-${labeledMatch[2]}`.toLowerCase();
+    }
+
+    const numberedMatch = text.match(/^(\d+)(\.\d+)*[)\-.:]?\s+/);
+    if (numberedMatch?.[1]) {
+        return `section-${numberedMatch[1]}`;
+    }
+
+    return "";
+};
+
+const detectHeadingLevel = (line) => {
+    const text = cleanHeading(line);
+    if (!text) return 0;
+    if (/^(chapter|section|topic|lesson|unit|module|part|week)\s+([ivxlcdm]+|\d+)/i.test(text)) return 1;
+    if (/^\d+(\.\d+){1,}[)\-.:]?\s+/.test(text)) return 2;
+    if (/^\d+[)\-.:]?\s+/.test(text)) return 1;
+    return 2;
+};
 
 const isLikelyHeading = (line) => {
     const text = cleanHeading(line);
@@ -182,6 +222,8 @@ export const extractStructuredSections = (text, options = {}) => {
         if (!content) return;
         rawSections.push({
             heading: currentHeading || `Section ${rawSections.length + 1}`,
+            majorKey: detectMajorHeadingKey(currentHeading),
+            headingLevel: detectHeadingLevel(currentHeading),
             content,
             wordCount: countWords(content),
         });
@@ -222,6 +264,8 @@ export const extractStructuredSections = (text, options = {}) => {
             .split(/\n{2,}/)
             .map((paragraph, index) => ({
                 heading: `Section ${index + 1}`,
+                majorKey: "",
+                headingLevel: 0,
                 content: paragraph.trim(),
                 wordCount: countWords(paragraph),
             }))
@@ -290,6 +334,7 @@ export const buildSemanticChunks = (sections, options = {}) => {
         chunkIds: [],
         sectionIds: [],
         headingHints: [],
+        majorKeys: [],
         text: "",
     };
     let nextChunkId = 0;
@@ -301,18 +346,21 @@ export const buildSemanticChunks = (sections, options = {}) => {
             chunkIds: current.chunkIds.length > 0 ? current.chunkIds : [roughChunks.length],
             sectionIds: current.sectionIds,
             headingHints: current.headingHints,
+            majorKeys: current.majorKeys,
             text,
         });
         current = {
             chunkIds: [],
             sectionIds: [],
             headingHints: [],
+            majorKeys: [],
             text: "",
         };
     };
 
     for (const section of sourceSections) {
         const heading = cleanHeading(section.heading);
+        const majorKey = section.majorKey || detectMajorHeadingKey(heading);
         const block = [heading, section.content].filter(Boolean).join("\n\n");
         const pieces = splitLargeTextBlock(block, maxChunkChars);
 
@@ -334,6 +382,7 @@ export const buildSemanticChunks = (sections, options = {}) => {
             nextChunkId += 1;
             current.sectionIds.push(String(section.id));
             if (heading) current.headingHints.push(heading);
+            if (majorKey) current.majorKeys.push(majorKey);
         }
     }
 
@@ -343,6 +392,7 @@ export const buildSemanticChunks = (sections, options = {}) => {
 
     let mergedChunks = roughChunks.map((chunk) => ({
         ...chunk,
+        primaryMajorKey: chunk.majorKeys?.[0] || "",
         wordCount: countWords(chunk.text),
     }));
 
@@ -374,6 +424,8 @@ export const buildSemanticChunks = (sections, options = {}) => {
             text: chunk.text,
             sectionIds: chunk.sectionIds,
             headingHints: uniqueStrings(chunk.headingHints).slice(0, 6),
+            majorKeys: uniqueStrings(chunk.majorKeys).slice(0, 6),
+            primaryMajorKey: chunk.primaryMajorKey || "",
             keywords,
             wordCount: chunk.wordCount,
         };
@@ -391,33 +443,17 @@ const keywordOverlapScore = (leftKeywords, rightKeywords) => {
     return overlap;
 };
 
-const buildGroupFromChunkIds = (chunkIds, chunkById) => {
-    const chunks = chunkIds
-        .map((id) => chunkById.get(id))
-        .filter(Boolean);
-
-    const text = chunks
-        .map((chunk) => chunk.text)
-        .join("\n\n")
-        .replace(/\n{3,}/g, "\n\n")
-        .trim();
-
+const mergeGroups = (left, right) => {
+    const text = `${left.text}\n\n${right.text}`.replace(/\n{3,}/g, "\n\n").trim();
     return {
         id: 0,
-        chunkIds,
-        headingHints: uniqueStrings(chunks.flatMap((chunk) => chunk.headingHints || [])).slice(0, 8),
-        keywords: uniqueStrings(chunks.flatMap((chunk) => chunk.keywords || [])).slice(0, 16),
+        chunkIds: dedupeNumbers([...(left.chunkIds || []), ...(right.chunkIds || [])]),
+        headingHints: uniqueStrings([...(left.headingHints || []), ...(right.headingHints || [])]).slice(0, 8),
+        keywords: uniqueStrings([...(left.keywords || []), ...(right.keywords || [])]).slice(0, 16),
+        majorKeys: uniqueStrings([...(left.majorKeys || []), ...(right.majorKeys || [])]).slice(0, 8),
         wordCount: countWords(text),
         text,
     };
-};
-
-const mergeGroupAtIndex = (groups, index, chunkById) => {
-    const left = groups[index];
-    const right = groups[index + 1];
-    const mergedChunkIds = [...left.chunkIds, ...right.chunkIds];
-    const mergedGroup = buildGroupFromChunkIds(mergedChunkIds, chunkById);
-    groups.splice(index, 2, mergedGroup);
 };
 
 export const deriveTargetTopicCount = (options = {}) => {
@@ -437,7 +473,6 @@ export const groupChunksIntoTopicBuckets = (chunks, options = {}) => {
     const sourceChunks = Array.isArray(chunks) ? chunks.filter((chunk) => chunk && Number.isFinite(chunk.id)) : [];
     if (sourceChunks.length === 0) return [];
 
-    const chunkById = new Map(sourceChunks.map((chunk) => [chunk.id, chunk]));
     const targetTopicCount = clamp(
         Number(options.targetTopicCount || sourceChunks.length),
         1,
@@ -445,7 +480,15 @@ export const groupChunksIntoTopicBuckets = (chunks, options = {}) => {
     );
     const idealWordsPerTopic = sourceChunks.reduce((sum, chunk) => sum + Number(chunk.wordCount || 0), 0) / targetTopicCount;
 
-    const groups = sourceChunks.map((chunk) => buildGroupFromChunkIds([chunk.id], chunkById));
+    const groups = sourceChunks.map((chunk) => ({
+        id: chunk.id,
+        chunkIds: Array.isArray(chunk.sourceChunkIds) ? dedupeNumbers(chunk.sourceChunkIds) : [chunk.id],
+        headingHints: uniqueStrings(chunk.headingHints || []).slice(0, 8),
+        keywords: uniqueStrings(chunk.keywords || []).slice(0, 16),
+        majorKeys: uniqueStrings(chunk.majorKeys || []).slice(0, 8),
+        wordCount: Number(chunk.wordCount || 0),
+        text: chunk.text || "",
+    }));
 
     while (groups.length > targetTopicCount) {
         let bestIndex = 0;
@@ -460,9 +503,13 @@ export const groupChunksIntoTopicBuckets = (chunks, options = {}) => {
                 extractOutlineKeywords(left.headingHints.join(" ")),
                 extractOutlineKeywords(right.headingHints.join(" "))
             );
+            const majorOverlap = keywordOverlapScore(left.majorKeys, right.majorKeys);
             const combinedWords = left.wordCount + right.wordCount;
             const sizePenalty = Math.abs(combinedWords - idealWordsPerTopic) / Math.max(idealWordsPerTopic, 1);
-            const score = overlap * 4 + headingOverlap * 2 - sizePenalty;
+            const structuralPenalty = left.majorKeys?.length > 0 && right.majorKeys?.length > 0 && majorOverlap === 0
+                ? 3
+                : 0;
+            const score = overlap * 4 + headingOverlap * 2 - sizePenalty - structuralPenalty;
 
             if (score > bestScore || (score === bestScore && combinedWords < bestCombinedWords)) {
                 bestScore = score;
@@ -471,7 +518,8 @@ export const groupChunksIntoTopicBuckets = (chunks, options = {}) => {
             }
         }
 
-        mergeGroupAtIndex(groups, bestIndex, chunkById);
+        const merged = mergeGroups(groups[bestIndex], groups[bestIndex + 1]);
+        groups.splice(bestIndex, 2, merged);
     }
 
     while (groups.length < targetTopicCount) {
@@ -492,12 +540,25 @@ export const groupChunksIntoTopicBuckets = (chunks, options = {}) => {
         const leftIds = candidate.chunkIds.slice(0, midpoint);
         const rightIds = candidate.chunkIds.slice(midpoint);
         if (leftIds.length === 0 || rightIds.length === 0) break;
-        groups.splice(
-            splitIndex,
-            1,
-            buildGroupFromChunkIds(leftIds, chunkById),
-            buildGroupFromChunkIds(rightIds, chunkById)
-        );
+        const left = {
+            id: groups.length,
+            chunkIds: leftIds,
+            headingHints: [...candidate.headingHints],
+            keywords: [...candidate.keywords],
+            majorKeys: [...candidate.majorKeys],
+            wordCount: Math.floor(candidate.wordCount / 2),
+            text: candidate.text,
+        };
+        const right = {
+            id: groups.length + 1,
+            chunkIds: rightIds,
+            headingHints: [...candidate.headingHints],
+            keywords: [...candidate.keywords],
+            majorKeys: [...candidate.majorKeys],
+            wordCount: candidate.wordCount - left.wordCount,
+            text: candidate.text,
+        };
+        groups.splice(splitIndex, 1, left, right);
     }
 
     return groups.map((group, index) => ({ ...group, id: index }));
@@ -522,6 +583,81 @@ export const buildCoverageStats = ({ chunkCount, groups }) => {
         coverageRatio,
         isComplete: safeChunkCount > 0 && coveredChunkCount >= safeChunkCount,
     };
+};
+
+export const deriveStructureTopicCount = (sections) => {
+    const majors = new Set();
+    for (const section of sections || []) {
+        if (!section?.majorKey) continue;
+        majors.add(section.majorKey);
+    }
+    if (majors.size >= 2) {
+        return clamp(majors.size, 2, 8);
+    }
+    return 0;
+};
+
+export const aggregateChunksByMajorKey = (chunks) => {
+    const sourceChunks = Array.isArray(chunks) ? chunks : [];
+    if (sourceChunks.length === 0) return [];
+
+    const aggregated = [];
+    let current = null;
+
+    const pushCurrent = () => {
+        if (!current) return;
+        aggregated.push(current);
+        current = null;
+    };
+
+    for (const chunk of sourceChunks) {
+        const primaryKey = chunk.primaryMajorKey || chunk.majorKeys?.[0] || "";
+        if (!current) {
+            current = {
+                id: aggregated.length,
+                sourceChunkIds: [chunk.id],
+                headingHints: [...(chunk.headingHints || [])],
+                keywords: [...(chunk.keywords || [])],
+                majorKeys: primaryKey ? [primaryKey] : [],
+                wordCount: Number(chunk.wordCount || 0),
+                text: chunk.text,
+            };
+            continue;
+        }
+
+        const currentKey = current.majorKeys?.[0] || "";
+        const sameKey = currentKey && primaryKey && currentKey === primaryKey;
+        if (sameKey || (!currentKey && !primaryKey)) {
+            current.sourceChunkIds.push(chunk.id);
+            current.headingHints.push(...(chunk.headingHints || []));
+            current.keywords.push(...(chunk.keywords || []));
+            if (primaryKey && !current.majorKeys.includes(primaryKey)) current.majorKeys.push(primaryKey);
+            current.wordCount += Number(chunk.wordCount || 0);
+            current.text = `${current.text}\n\n${chunk.text}`.trim();
+            continue;
+        }
+
+        pushCurrent();
+        current = {
+            id: aggregated.length,
+            sourceChunkIds: [chunk.id],
+            headingHints: [...(chunk.headingHints || [])],
+            keywords: [...(chunk.keywords || [])],
+            majorKeys: primaryKey ? [primaryKey] : [],
+            wordCount: Number(chunk.wordCount || 0),
+            text: chunk.text,
+        };
+    }
+
+    pushCurrent();
+    return aggregated.map((group, index) => ({
+        ...group,
+        id: index,
+        headingHints: uniqueStrings(group.headingHints).slice(0, 8),
+        keywords: uniqueStrings(group.keywords).slice(0, 16),
+        sourceChunkIds: dedupeNumbers(group.sourceChunkIds),
+        chunkIds: dedupeNumbers(group.sourceChunkIds),
+    }));
 };
 
 export const buildGroupSourceSnippet = (group, chunks, options = {}) => {
