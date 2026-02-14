@@ -249,6 +249,37 @@ const Profile = () => {
                     </div>
                 </div>
 
+                {/* Quick Access */}
+                <div>
+                    <h3 className="text-lg font-bold text-slate-900 dark:text-white mb-4 px-1">Quick Access</h3>
+                    <div className="grid grid-cols-2 gap-4">
+                        <Link to="/dashboard/assignment-helper" className="flex flex-col items-center gap-3 p-5 bg-white dark:bg-surface-dark rounded-3xl border border-slate-100 dark:border-slate-800 shadow-sm hover:shadow-md hover:border-primary/30 transition-all group">
+                            <div className="w-12 h-12 rounded-2xl bg-primary/10 text-primary flex items-center justify-center group-hover:bg-primary group-hover:text-white transition-colors">
+                                <span className="material-symbols-outlined filled text-2xl">assignment</span>
+                            </div>
+                            <p className="text-sm font-bold text-slate-900 dark:text-white">Assignment Helper</p>
+                        </Link>
+                        <Link to="/dashboard/humanizer" className="flex flex-col items-center gap-3 p-5 bg-white dark:bg-surface-dark rounded-3xl border border-slate-100 dark:border-slate-800 shadow-sm hover:shadow-md hover:border-primary/30 transition-all group">
+                            <div className="w-12 h-12 rounded-2xl bg-primary/10 text-primary flex items-center justify-center group-hover:bg-primary group-hover:text-white transition-colors">
+                                <span className="material-symbols-outlined filled text-2xl">auto_fix_high</span>
+                            </div>
+                            <p className="text-sm font-bold text-slate-900 dark:text-white">AI Humanizer</p>
+                        </Link>
+                        <Link to="/dashboard/exam" className="flex flex-col items-center gap-3 p-5 bg-white dark:bg-surface-dark rounded-3xl border border-slate-100 dark:border-slate-800 shadow-sm hover:shadow-md hover:border-primary/30 transition-all group">
+                            <div className="w-12 h-12 rounded-2xl bg-primary/10 text-primary flex items-center justify-center group-hover:bg-primary group-hover:text-white transition-colors">
+                                <span className="material-symbols-outlined filled text-2xl">quiz</span>
+                            </div>
+                            <p className="text-sm font-bold text-slate-900 dark:text-white">Practice Exams</p>
+                        </Link>
+                        <Link to="/dashboard" className="flex flex-col items-center gap-3 p-5 bg-white dark:bg-surface-dark rounded-3xl border border-slate-100 dark:border-slate-800 shadow-sm hover:shadow-md hover:border-primary/30 transition-all group">
+                            <div className="w-12 h-12 rounded-2xl bg-primary/10 text-primary flex items-center justify-center group-hover:bg-primary group-hover:text-white transition-colors">
+                                <span className="material-symbols-outlined filled text-2xl">dashboard</span>
+                            </div>
+                            <p className="text-sm font-bold text-slate-900 dark:text-white">All Courses</p>
+                        </Link>
+                    </div>
+                </div>
+
                 {/* Recent Activity */}
                 <div>
                     <h3 className="text-lg font-bold text-slate-900 dark:text-white mb-4 px-1">Recent Exams</h3>
