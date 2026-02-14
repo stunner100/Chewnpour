@@ -15,6 +15,12 @@ const tabs = [
         matchPaths: ['/dashboard/assignment-helper'],
     },
     {
+        label: 'Humanizer',
+        icon: 'auto_fix_high',
+        path: '/dashboard/humanizer',
+        matchPaths: ['/dashboard/humanizer'],
+    },
+    {
         label: 'Profile',
         icon: 'person',
         path: '/profile',

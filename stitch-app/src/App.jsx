@@ -1,5 +1,5 @@
-import React from 'react';
-import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import React, { useEffect } from 'react';
+import { BrowserRouter as Router, Routes, Route, useLocation } from 'react-router-dom';
 import LandingPage from './pages/LandingPage';
 import Login from './pages/Login';
 import SignUp from './pages/SignUp';
@@ -20,12 +20,33 @@ import PastQuestionsComingSoon from './pages/PastQuestionsComingSoon';
 import ConceptIntro from './pages/ConceptIntro';
 import ConceptBuilder from './pages/ConceptBuilder';
 import AssignmentHelper from './pages/AssignmentHelper';
+import AIHumanizer from './pages/AIHumanizer';
 import ProtectedRoute from './components/ProtectedRoute';
 import DashboardLayout from './components/DashboardLayout';
+import { addSentryBreadcrumb } from './lib/sentry';
+
+function RouteChangeTracker() {
+  const location = useLocation();
+
+  useEffect(() => {
+    addSentryBreadcrumb({
+      category: 'navigation',
+      message: 'Route changed',
+      data: {
+        pathname: location.pathname,
+        search: location.search,
+        hash: location.hash,
+      },
+    });
+  }, [location.pathname, location.search, location.hash]);
+
+  return null;
+}
 
 function App() {
   return (
     <Router>
+      <RouteChangeTracker />
       <Routes>
         {/* Public Routes */}
         <Route path="/" element={<LandingPage />} />
@@ -50,6 +71,7 @@ function App() {
         <Route path="/dashboard/results/:attemptId" element={<ProtectedRoute><DashboardLayout><DashboardResults /></DashboardLayout></ProtectedRoute>} />
         <Route path="/dashboard/analysis" element={<ProtectedRoute><DashboardLayout><DashboardFullAnalysis /></DashboardLayout></ProtectedRoute>} />
         <Route path="/dashboard/assignment-helper" element={<ProtectedRoute><DashboardLayout><AssignmentHelper /></DashboardLayout></ProtectedRoute>} />
+        <Route path="/dashboard/humanizer" element={<ProtectedRoute><DashboardLayout><AIHumanizer /></DashboardLayout></ProtectedRoute>} />
 
         {/* Concept Flow */}
         <Route path="/dashboard/concept-intro" element={<ProtectedRoute><DashboardLayout><ConceptIntro /></DashboardLayout></ProtectedRoute>} />
@@ -68,4 +90,3 @@ function App() {
 }
 
 export default App;
-

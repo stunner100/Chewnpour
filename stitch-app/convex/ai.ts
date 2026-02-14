@@ -18,6 +18,14 @@ import {
     extractStructuredSections,
     groupChunksIntoTopicBuckets,
 } from "./lib/topicOutlinePipeline";
+import { assertAuthorizedUser, resolveAuthUserId } from "./lib/examSecurity";
+import {
+    QUESTION_BANK_BACKGROUND_PROFILE,
+    QUESTION_BANK_INTERACTIVE_PROFILE,
+    calculateQuestionBankTarget as calculateQuestionBankTargetFromConfig,
+    deriveQuestionGenerationRounds,
+    resolveQuestionBankProfile,
+} from "./lib/questionBankConfig";
 
 // Qwen API configuration (OpenAI-compatible)
 const QWEN_BASE_URL = process.env.QWEN_BASE_URL || "https://dashscope.aliyuncs.com/compatible-mode/v1";
@@ -35,21 +43,16 @@ const ASSIGNMENT_DOCX_MIME = "application/vnd.openxmlformats-officedocument.word
 const ASSIGNMENT_PDF_MIME = "application/pdf";
 const TOPIC_DETAIL_WORD_TARGET = "1800-2500";
 const MIN_TOPIC_CONTENT_WORDS = 140;
-const TOPIC_CONTEXT_CHUNK_CHARS = 1400;
-const TOPIC_CONTEXT_LIMIT = 7000;
+const TOPIC_CONTEXT_CHUNK_CHARS = 1200;
+const TOPIC_CONTEXT_LIMIT = 10000;
 const BACKGROUND_SOURCE_TEXT_LIMIT = 120000;
 const OUTLINE_SECTION_MIN_WORDS = 45;
-const OUTLINE_MAX_SECTIONS = 120;
-const OUTLINE_MIN_CHUNK_CHARS = 1800;
-const OUTLINE_MAX_CHUNK_CHARS = 5200;
-const OUTLINE_MAX_MAP_CHUNKS = 10;
+const OUTLINE_MAX_SECTIONS = 200;
+const OUTLINE_MIN_CHUNK_CHARS = 1200;
+const OUTLINE_MAX_CHUNK_CHARS = 4000;
+const OUTLINE_MAX_MAP_CHUNKS = 20;
 const OUTLINE_GROUP_SOURCE_CHAR_LIMIT = 4600;
 const OUTLINE_FALLBACK_SOURCE_CHAR_LIMIT = 22000;
-const QUESTION_BATCH_SIZE = 15;
-const MIN_QUESTION_BANK_TARGET = 20;
-const QUESTION_TARGET_WORD_DIVISOR = 15;
-const MIN_QUESTION_GENERATION_ROUNDS = 20;
-const MAX_QUESTION_GENERATION_ROUNDS = 80;
 const GEMINI_BASE_URL = process.env.GEMINI_BASE_URL || "https://generativelanguage.googleapis.com/v1beta";
 const GEMINI_IMAGE_MODEL = process.env.GEMINI_IMAGE_MODEL || "gemini-2.0-flash-exp-image-generation";
 const GEMINI_TIMEOUT_MS = Number(process.env.GEMINI_TIMEOUT_MS || 45000);
@@ -661,8 +664,45 @@ const countWords = (value: string) => {
         .filter(Boolean).length;
 };
 
+/**
+ * Remove any '[' without matching ']' and any ']' without matching '['.
+ */
+const stripOrphanBracketsBackend = (str: string): string => {
+    if (!str) return str;
+    if (!str.includes('[') && !str.includes(']')) return str;
+
+    // Pass 1: strip orphaned opening brackets
+    const pass1: string[] = [];
+    let i = 0;
+    while (i < str.length) {
+        if (str[i] === '[') {
+            const close = str.indexOf(']', i + 1);
+            if (close === -1) {
+                i++;
+                continue;
+            }
+            pass1.push(str.slice(i, close + 1));
+            i = close + 1;
+        } else {
+            pass1.push(str[i]);
+            i++;
+        }
+    }
+
+    // Pass 2: strip orphaned closing brackets
+    const joined = pass1.join('');
+    return joined.replace(/](?![^[]*\[)/g, (match, offset) => {
+        const before = joined.slice(0, offset);
+        const lastOpen = before.lastIndexOf('[');
+        if (lastOpen === -1) return '';
+        const closeBetween = before.slice(lastOpen).indexOf(']');
+        if (closeBetween !== -1) return '';
+        return match;
+    });
+};
+
 const cleanLessonMarkdown = (value: string) => {
-    return String(value || "")
+    const cleaned = String(value || "")
         .replace(/\r\n/g, "\n")
         .replace(/\\r\\n/g, "\n")
         .replace(/\\n/g, "\n")
@@ -685,6 +725,21 @@ const cleanLessonMarkdown = (value: string) => {
         .replace(/\n{3,}/g, "\n\n")
         .replace(/\s*["'`>\\]+\s*$/g, "")
         .trim();
+
+    // Strip orphaned brackets, orphaned bold markers, and trailing asterisks per line
+    return cleaned
+        .split("\n")
+        .map((line) => {
+            let l = stripOrphanBracketsBackend(line);
+            // Strip orphaned opening ** (no closing **)
+            l = l.replace(/\*\*([^*]+)$/g, '$1');
+            // Strip orphaned closing ** (no opening **)
+            l = l.replace(/^([^*]*)\*\*$/g, '$1');
+            // Strip trailing asterisks
+            l = l.replace(/\s*\*\s*$/g, '');
+            return l;
+        })
+        .join("\n");
 };
 
 const parseLessonContentCandidate = (raw: string) => {
@@ -841,10 +896,14 @@ const normalizeQuestionKey = (value: string) => {
         .trim();
 };
 
-const calculateQuestionBankTarget = (topicContent: string) => {
+const calculateQuestionBankTarget = (topicContent: string, profile: any) => {
     const wordCount = countWords(topicContent);
-    const computed = Math.ceil(wordCount / QUESTION_TARGET_WORD_DIVISOR);
-    return Math.max(computed, MIN_QUESTION_BANK_TARGET);
+    return calculateQuestionBankTargetFromConfig({
+        wordCount,
+        minTarget: profile?.minTarget,
+        maxTarget: profile?.maxTarget,
+        wordDivisor: profile?.wordDivisor,
+    });
 };
 
 const buildTopicContextFromSource = (
@@ -878,7 +937,7 @@ const buildTopicContextFromSource = (
 
     const selected = scored
         .sort((a, b) => (b.score - a.score) || (a.index - b.index))
-        .slice(0, 5)
+        .slice(0, 7)
         .sort((a, b) => a.index - b.index)
         .map((item) => item.chunk.trim())
         .filter(Boolean)
@@ -1154,6 +1213,8 @@ Return strict JSON only:
 Rules:
 - topics length must be exactly ${args.groups.length}.
 - preserve group order and groupIndex.
+- every topic must be a focused, specific concept (not a broad category).
+- prefer 3-6 word titles that name the concept directly.
 - titles must be beginner-friendly and <= 90 chars.
 - use only concepts from each group.
 - no markdown.`;
@@ -1235,8 +1296,8 @@ const generateCourseOutlineWithPipeline = async (extractedText: string, fileName
         : deriveTargetTopicCount({
             wordCount: countWords(source),
             chunkCount: chunks.length,
-            minimum: 4,
-            maximum: 8,
+            minimum: 5,
+            maximum: 15,
         });
 
     const summaryChunks = chunkSummaries.map((summary, index) => ({
@@ -1323,7 +1384,7 @@ const buildPreparedTopics = (courseOutline: any, extractedText: string, fileName
     const normalizedTopics = Array.isArray(courseOutline?.topics) ? [...courseOutline.topics] : [];
     let totalTopics = normalizedTopics.length;
 
-    if (totalTopics < 3 && normalizedTopics.length > 0) {
+    if (totalTopics < 4 && normalizedTopics.length > 0) {
         const seed = normalizedTopics[0];
         const baseKeyPoints = Array.isArray(seed?.keyPoints) ? seed.keyPoints : [];
         const splitPoints = baseKeyPoints
@@ -1433,6 +1494,12 @@ Include:
 Format the content in clear markdown with headers and bullet points.
 Make it engaging and easy to understand while preserving technical correctness.
 
+IMPORTANT FORMATTING RULES:
+- Do NOT include citation brackets, reference numbers, or footnote markers like [1], [2], [3.], [*, etc.
+- Do NOT use orphaned brackets [ or ] that don't form complete markdown links.
+- Every bullet point or list item must be complete — no trailing symbols or orphaned markers.
+- Use clean, properly closed markdown only.
+
 Respond in this exact JSON format only:
 {
   "lessonContent": "Markdown lesson content"
@@ -1500,7 +1567,7 @@ const scheduleQuestionBanksForCourse = async (ctx: any, courseId: any, uploadId:
     const topics = await getCourseTopicsSorted(ctx, courseId);
     for (let index = 0; index < topics.length; index += 1) {
         const topic = topics[index];
-        await ctx.scheduler.runAfter(0, api.ai.generateQuestionsForTopic, {
+        await ctx.scheduler.runAfter(0, internal.ai.generateQuestionsForTopicInternal, {
             topicId: topic._id,
         });
         console.info("[CourseGeneration] question_generation_scheduled", {
@@ -2243,66 +2310,35 @@ ${question}`,
     },
 });
 
-// Generate quiz questions for a topic on demand
-export const generateQuestionsForTopic = action({
-    args: {
-        topicId: v.id("topics"),
-    },
-    handler: async (ctx, args) => {
-        const { topicId } = args;
+const assertTopicQuestionGenerationAccess = async (ctx: any, topicId: any) => {
+    const identity = await ctx.auth.getUserIdentity();
+    const authUserId = resolveAuthUserId(identity);
+    assertAuthorizedUser({ authUserId });
 
-        const topicWithQuestions = await ctx.runQuery(api.topics.getTopicWithQuestions, { topicId });
-        if (!topicWithQuestions) {
-            throw new Error("Topic not found");
-        }
+    const topicOwner = await ctx.runQuery(internal.topics.getTopicOwnerUserIdInternal, { topicId });
+    if (!topicOwner) {
+        throw new Error("Topic not found");
+    }
 
-        const topicContent = String(topicWithQuestions.content || "");
-        const targetCount = calculateQuestionBankTarget(topicContent);
-        const existingQuestions = topicWithQuestions.questions || [];
-        const existingQuestionKeys = new Set(
-            existingQuestions
-                .map((question: any) => normalizeQuestionKey(question?.questionText || ""))
-                .filter(Boolean)
-        );
-        const initialCount = existingQuestionKeys.size;
+    assertAuthorizedUser({
+        authUserId,
+        resourceOwnerUserId: topicOwner.userId,
+    });
+};
 
-        if (initialCount >= targetCount) {
-            return {
-                success: true,
-                alreadyGenerated: true,
-                count: initialCount,
-                added: 0,
-                targetCount,
-            };
-        }
+const buildQuestionGenerationPrompt = (args: {
+    requestedCount: number;
+    topicTitle: string;
+    topicDescription?: string;
+    topicContent: string;
+}) => `Create ${args.requestedCount} high-quality multiple-choice quiz questions in plain language.
 
-        const topicKeywords = extractTopicKeywords(
-            `${topicWithQuestions.title} ${topicWithQuestions.description || ""}`
-        );
-
-        let added = 0;
-        let noProgressRounds = 0;
-        let round = 0;
-        const estimatedRounds =
-            Math.ceil((targetCount - initialCount) / Math.max(QUESTION_BATCH_SIZE, 1)) + 4;
-        const maxRounds = clampNumber(
-            estimatedRounds,
-            MIN_QUESTION_GENERATION_ROUNDS,
-            MAX_QUESTION_GENERATION_ROUNDS
-        );
-
-        while (existingQuestionKeys.size < targetCount && noProgressRounds < 3 && round < maxRounds) {
-            round += 1;
-            const remaining = targetCount - existingQuestionKeys.size;
-            const batchSize = clampNumber(remaining, 6, QUESTION_BATCH_SIZE);
-            const prompt = `Create ${batchSize} high-quality multiple-choice quiz questions in plain language.
-
-TOPIC: ${topicWithQuestions.title}
-DESCRIPTION: ${topicWithQuestions.description || "General concepts"}
+TOPIC: ${args.topicTitle}
+DESCRIPTION: ${args.topicDescription || "General concepts"}
 
 LESSON CONTENT:
 """
-${topicContent.slice(0, 8500)}
+${args.topicContent.slice(0, 8500)}
 """
 
 Hard constraints:
@@ -2329,95 +2365,268 @@ Respond in this exact JSON format only:
   ]
 }`;
 
-            let questionsData: any = { questions: [] };
-            for (let attempt = 0; attempt < 3; attempt += 1) {
-                const response = await callQwen([
-                    {
-                        role: "system",
-                        content: "You are an expert educator creating quiz questions. Always respond with valid JSON only.",
-                    },
-                    { role: "user", content: prompt },
-                ], DEFAULT_MODEL, { maxTokens: 2400, responseFormat: "json_object" });
+const buildParallelBatchPlan = (args: {
+    batchSize: number;
+    minBatchSize: number;
+    parallelRequests: number;
+}) => {
+    const safeBatchSize = Math.max(1, Number(args.batchSize || 1));
+    const safeMinBatchSize = Math.max(1, Number(args.minBatchSize || 1));
+    const safeParallelRequests = Math.max(1, Number(args.parallelRequests || 1));
+    const maxRequestCount = Math.max(1, Math.ceil(safeBatchSize / safeMinBatchSize));
+    const requestCount = Math.min(safeParallelRequests, maxRequestCount);
 
-                questionsData = await parseQuestionsWithRepair(response);
-                if (Array.isArray(questionsData?.questions) && questionsData.questions.length > 0) {
-                    break;
-                }
-            }
+    const baseSize = Math.floor(safeBatchSize / requestCount);
+    let remainder = safeBatchSize % requestCount;
+    const plan: number[] = [];
 
-            let roundAdded = 0;
-            for (const question of questionsData.questions || []) {
-                if (!question?.questionText || typeof question.questionText !== "string") {
-                    continue;
-                }
-
-                const anchoredQuestionText = anchorTextToTopic(
-                    question.questionText,
-                    topicWithQuestions.title,
-                    topicKeywords
-                );
-                const normalizedKey = normalizeQuestionKey(anchoredQuestionText);
-                if (!normalizedKey || existingQuestionKeys.has(normalizedKey)) {
-                    continue;
-                }
-
-                let options = normalizeOptions(question.options);
-                if (options.length < 4) {
-                    const generated = await generateOptionsForQuestion(anchoredQuestionText, topicWithQuestions.title);
-                    const generatedOptions = normalizeOptions(generated?.options ?? generated);
-                    if (generatedOptions.length >= 4) {
-                        options = generatedOptions;
-                    }
-                }
-
-                options = fillOptionLabels(fillMissingOptions(options)).slice(0, 4);
-                options = ensureSingleCorrect(options);
-
-                const correctOption = options.find((o: any) => o.isCorrect);
-                const questionId = await ctx.runMutation(api.topics.createQuestion, {
-                    topicId,
-                    questionText: anchoredQuestionText,
-                    questionType: "multiple_choice",
-                    options,
-                    correctAnswer: correctOption?.label || "A",
-                    explanation: question.explanation,
-                    difficulty: question.difficulty || "medium",
-                });
-
-                if (questionId) {
-                    existingQuestionKeys.add(normalizedKey);
-                    added += 1;
-                    roundAdded += 1;
-                }
-
-                if (existingQuestionKeys.size >= targetCount) {
-                    break;
-                }
-            }
-
-            if (roundAdded === 0) {
-                noProgressRounds += 1;
-            } else {
-                noProgressRounds = 0;
-            }
-
-            console.info("[QuestionBank] batch_complete", {
-                topicId,
-                topicTitle: topicWithQuestions.title,
-                round,
-                roundAdded,
-                totalCount: existingQuestionKeys.size,
-                targetCount,
-            });
+    for (let index = 0; index < requestCount; index += 1) {
+        let size = baseSize;
+        if (remainder > 0) {
+            size += 1;
+            remainder -= 1;
         }
+        if (size > 0) {
+            plan.push(size);
+        }
+    }
 
+    return plan.length > 0 ? plan : [safeBatchSize];
+};
+
+const generateQuestionCandidatesBatch = async (args: {
+    requestedCount: number;
+    topicTitle: string;
+    topicDescription?: string;
+    topicContent: string;
+}) => {
+    const prompt = buildQuestionGenerationPrompt(args);
+    let questionsData: any = { questions: [] };
+    for (let attempt = 0; attempt < 3; attempt += 1) {
+        const response = await callQwen([
+            {
+                role: "system",
+                content: "You are an expert educator creating quiz questions. Always respond with valid JSON only.",
+            },
+            { role: "user", content: prompt },
+        ], DEFAULT_MODEL, { maxTokens: 2400, responseFormat: "json_object" });
+
+        questionsData = await parseQuestionsWithRepair(response);
+        if (Array.isArray(questionsData?.questions) && questionsData.questions.length > 0) {
+            break;
+        }
+    }
+
+    return Array.isArray(questionsData?.questions) ? questionsData.questions : [];
+};
+
+const generateQuestionBankForTopic = async (
+    ctx: any,
+    topicId: any,
+    rawProfile: any = QUESTION_BANK_BACKGROUND_PROFILE
+) => {
+    const profile = resolveQuestionBankProfile(rawProfile);
+    const topicWithQuestions = await ctx.runQuery(api.topics.getTopicWithQuestions, { topicId });
+    if (!topicWithQuestions) {
+        throw new Error("Topic not found");
+    }
+
+    const topicContent = String(topicWithQuestions.content || "");
+    const targetCount = calculateQuestionBankTarget(topicContent, profile);
+    const existingQuestions = topicWithQuestions.questions || [];
+    const existingQuestionKeys = new Set(
+        existingQuestions
+            .map((question: any) => normalizeQuestionKey(question?.questionText || ""))
+            .filter(Boolean)
+    );
+    const initialCount = existingQuestionKeys.size;
+
+    if (initialCount >= targetCount) {
         return {
             success: true,
-            alreadyGenerated: added === 0,
-            count: existingQuestionKeys.size,
-            added,
+            alreadyGenerated: true,
+            count: initialCount,
+            added: 0,
             targetCount,
         };
+    }
+
+    const topicKeywords = extractTopicKeywords(
+        `${topicWithQuestions.title} ${topicWithQuestions.description || ""}`
+    );
+
+    let added = 0;
+    let noProgressRounds = 0;
+    let round = 0;
+    const maxRounds = deriveQuestionGenerationRounds({
+        targetCount,
+        existingCount: initialCount,
+        batchSize: profile.batchSize,
+        minRounds: profile.minRounds,
+        maxRounds: profile.maxRounds,
+        bufferRounds: profile.bufferRounds,
+    });
+    const deadlineMs = Date.now() + profile.timeBudgetMs;
+
+    while (
+        existingQuestionKeys.size < targetCount
+        && noProgressRounds < profile.noProgressLimit
+        && round < maxRounds
+        && Date.now() < deadlineMs
+    ) {
+        round += 1;
+        const remaining = targetCount - existingQuestionKeys.size;
+        const batchSize = Math.min(
+            remaining,
+            clampNumber(remaining, profile.minBatchSize, profile.batchSize)
+        );
+        const batchPlan = buildParallelBatchPlan({
+            batchSize,
+            minBatchSize: profile.minBatchSize,
+            parallelRequests: profile.parallelRequests,
+        });
+        const batchSettled = await Promise.allSettled(
+            batchPlan.map((requestedCount) =>
+                generateQuestionCandidatesBatch({
+                    requestedCount,
+                    topicTitle: topicWithQuestions.title,
+                    topicDescription: topicWithQuestions.description,
+                    topicContent,
+                })
+            )
+        );
+        const candidateQuestions = [];
+        for (const [batchIndex, result] of batchSettled.entries()) {
+            if (result.status === "fulfilled") {
+                candidateQuestions.push(...result.value);
+            } else {
+                console.warn("[QuestionBank] batch_request_failed", {
+                    topicId,
+                    topicTitle: topicWithQuestions.title,
+                    round,
+                    batchIndex,
+                    requestedCount: batchPlan[batchIndex],
+                    message: result.reason instanceof Error ? result.reason.message : String(result.reason),
+                });
+            }
+        }
+
+        let roundAdded = 0;
+        for (const question of candidateQuestions) {
+            if (!question?.questionText || typeof question.questionText !== "string") {
+                continue;
+            }
+
+            const anchoredQuestionText = anchorTextToTopic(
+                question.questionText,
+                topicWithQuestions.title,
+                topicKeywords
+            );
+            const normalizedKey = normalizeQuestionKey(anchoredQuestionText);
+            if (!normalizedKey || existingQuestionKeys.has(normalizedKey)) {
+                continue;
+            }
+
+            let options = normalizeOptions(question.options);
+            if (options.length < 4) {
+                const generated = await generateOptionsForQuestion(anchoredQuestionText, topicWithQuestions.title);
+                const generatedOptions = normalizeOptions(generated?.options ?? generated);
+                if (generatedOptions.length >= 4) {
+                    options = generatedOptions;
+                }
+            }
+
+            options = fillOptionLabels(fillMissingOptions(options)).slice(0, 4);
+            options = ensureSingleCorrect(options);
+
+            const correctOption = options.find((o: any) => o.isCorrect);
+            const questionId = await ctx.runMutation(internal.topics.createQuestionInternal, {
+                topicId,
+                questionText: anchoredQuestionText,
+                questionType: "multiple_choice",
+                options,
+                correctAnswer: correctOption?.label || "A",
+                explanation: question.explanation,
+                difficulty: question.difficulty || "medium",
+            });
+
+            if (questionId) {
+                existingQuestionKeys.add(normalizedKey);
+                added += 1;
+                roundAdded += 1;
+            }
+
+            if (existingQuestionKeys.size >= targetCount) {
+                break;
+            }
+        }
+
+        if (roundAdded === 0) {
+            noProgressRounds += 1;
+        } else {
+            noProgressRounds = 0;
+        }
+
+        console.info("[QuestionBank] batch_complete", {
+            topicId,
+            topicTitle: topicWithQuestions.title,
+            round,
+            roundAdded,
+            totalCount: existingQuestionKeys.size,
+            targetCount,
+            maxRounds,
+            timeBudgetMs: profile.timeBudgetMs,
+            parallelRequests: profile.parallelRequests,
+            batchPlan,
+        });
+    }
+
+    const timedOut = Date.now() >= deadlineMs && existingQuestionKeys.size < targetCount;
+    if (timedOut) {
+        console.warn("[QuestionBank] time_budget_reached", {
+            topicId,
+            topicTitle: topicWithQuestions.title,
+            generatedCount: existingQuestionKeys.size,
+            targetCount,
+            timeBudgetMs: profile.timeBudgetMs,
+        });
+    }
+
+    return {
+        success: true,
+        alreadyGenerated: added === 0,
+        count: existingQuestionKeys.size,
+        added,
+        targetCount,
+        timedOut,
+    };
+};
+
+export const generateQuestionsForTopicInternal = internalAction({
+    args: {
+        topicId: v.id("topics"),
+    },
+    handler: async (ctx, args) => {
+        return await generateQuestionBankForTopic(
+            ctx,
+            args.topicId,
+            QUESTION_BANK_BACKGROUND_PROFILE
+        );
+    },
+});
+
+// Generate quiz questions for a topic on demand
+export const generateQuestionsForTopic = action({
+    args: {
+        topicId: v.id("topics"),
+    },
+    handler: async (ctx, args) => {
+        await assertTopicQuestionGenerationAccess(ctx, args.topicId);
+        return await generateQuestionBankForTopic(
+            ctx,
+            args.topicId,
+            QUESTION_BANK_INTERACTIVE_PROFILE
+        );
     },
 });
 
@@ -2428,15 +2637,18 @@ export const regenerateQuestionsForTopic = action({
     },
     handler: async (ctx, args) => {
         const { topicId } = args;
+        await assertTopicQuestionGenerationAccess(ctx, topicId);
+        await ctx.runMutation(internal.topics.deleteQuestionsByTopicInternal, { topicId });
+        const result = await generateQuestionBankForTopic(
+            ctx,
+            topicId,
+            QUESTION_BANK_INTERACTIVE_PROFILE
+        );
 
-        const topicWithQuestions = await ctx.runQuery(api.topics.getTopicWithQuestions, { topicId });
-        if (!topicWithQuestions) {
-            throw new Error("Topic not found");
-        }
-
-        await ctx.runMutation(api.topics.deleteQuestionsByTopic, { topicId });
-
-        const result = await ctx.runAction(api.ai.generateQuestionsForTopic, { topicId });
+        // Rebuild a larger bank in background without blocking the learner.
+        await ctx.scheduler.runAfter(0, internal.ai.generateQuestionsForTopicInternal, {
+            topicId,
+        });
 
         return { success: true, regenerated: true, count: result?.count ?? 0 };
     },
@@ -2456,14 +2668,10 @@ export const reExplainTopic = action({
         }
 
         const normalizedStyle = String(style || "").toLowerCase();
-        const isTeachLike12 =
-            normalizedStyle.includes("12") ||
-            normalizedStyle.includes("twelve") ||
-            normalizedStyle.includes("kid") ||
-            normalizedStyle.includes("child");
 
-        const styleInstruction = isTeachLike12
-            ? `Special requirements for this rewrite:
+        const getStyleInstruction = (s: string): string => {
+            if (s.includes("12") || s.includes("twelve") || s.includes("kid") || s.includes("child")) {
+                return `Special requirements for this rewrite:
 - Explain as if the learner is 12 years old and new to the topic.
 - Use very simple words and short sentences.
 - Every complex word must be explained immediately in brackets, e.g., "photosynthesis [how plants make food]".
@@ -2471,8 +2679,70 @@ export const reExplainTopic = action({
 - Include one mini worked example with simple numbers or steps.
 - Add a "Word Bank" section with 6-10 difficult words and kid-friendly meanings.
 - End with "Quick Check" containing 3 short questions and answers.
-- Keep the tone friendly, clear, and encouraging without sounding childish.`
-            : `Keep the style faithful to "${style}" while preserving technical correctness and key facts.`;
+- Keep the tone friendly, clear, and encouraging without sounding childish.`;
+            }
+
+            if (s.includes("short") || s.includes("direct")) {
+                return `Special requirements for this rewrite:
+- Be extremely concise. Target 120-200 words TOTAL.
+- Use only 1-2 short sentences per concept — no filler, no preamble, no motivational language.
+- Definitions must be single-line: "**Term**: one-sentence definition."
+- No introductions, no conclusions, no transition phrases like "Let's explore" or "In summary".
+- Use headers to organize sections, but keep each section to 2-4 bullet points maximum.
+- Every sentence must convey a fact. Delete anything that doesn't teach something new.
+- Think "flash card deck" — scannable, minimal, factual.`;
+            }
+
+            if (s.includes("story") || s.includes("analogy")) {
+                return `Special requirements for this rewrite:
+- Pick ONE vivid real-world analogy and use it CONSISTENTLY throughout the entire lesson.
+- Good analogies: running a restaurant, building a house, organizing a library, planning a road trip, coaching a sports team.
+- Open with "Imagine you are..." or "Think of it like..." to set the scene in the first paragraph.
+- Every key concept must be explained THROUGH the analogy. Example: if the analogy is a restaurant, "A database is like your recipe book — it stores all the instructions you need."
+- Include a "How the Analogy Maps" section at the end with a simple comparison list: "Recipe Book → Database, Kitchen → Server, Menu → User Interface".
+- Keep the narrative flowing like a story — use transitions like "Now that your kitchen is set up..." or "Next, your customers arrive...".
+- Avoid dry definitions. Transform every definition into a story moment.`;
+            }
+
+            if (s.includes("bullet")) {
+                return `Special requirements for this rewrite:
+- Use ONLY bullet points. No paragraphs, no flowing prose, no sentences outside of bullets.
+- Every single piece of information must be a bullet point (- or •).
+- Use headers (##, ###) to organize sections, but under each header ONLY bullets.
+- Keep each bullet to ONE line — 10-20 words maximum per bullet.
+- Use sub-bullets (indented with 2 spaces) for supporting details under a main bullet.
+- Aim for 30-50 total bullets covering all key concepts.
+- Start each bullet with the key term or action word in bold: "**Collection** — organized group of documents".
+- No introductions, no conclusions, no transition sentences.`;
+            }
+
+            if (s.includes("step")) {
+                return `Special requirements for this rewrite:
+- Structure the ENTIRE lesson as a numbered sequence: Step 1, Step 2, Step 3, etc.
+- Each step must build on the previous one — create a logical learning progression from foundational to advanced.
+- Format: "## Step N: [Action Title]" followed by 2-3 sentences explaining that step.
+- Include 8-12 steps total.
+- Each step should answer: "What do I learn here?" and "Why does this matter for the next step?"
+- Add a "Prerequisites" note at the top listing what the reader should already know.
+- End with a "You've now learned..." summary listing what each step covered.
+- Think "tutorial walkthrough" — the reader should feel guided through the material in order.`;
+            }
+
+            if (s.includes("simple") || s.includes("summary")) {
+                return `Special requirements for this rewrite:
+- Condense the entire lesson into 150-250 words maximum.
+- Open with ONE sentence that states the main idea of the entire topic.
+- Follow with a "Key Takeaways" section containing exactly 5 bullet points — each one a core fact.
+- Use plain language — no jargon. If a technical term is necessary, define it in parentheses immediately.
+- End with a single "Bottom Line" sentence that captures the most important thing to remember.
+- No examples, no analogies, no worked problems — just the essential facts distilled.
+- Think "executive summary" — someone reading this should understand 80% of the topic in 60 seconds.`;
+            }
+
+            return `Keep the style faithful to "${style}" while preserving technical correctness and key facts.`;
+        };
+
+        const styleInstruction = getStyleInstruction(normalizedStyle);
 
         const prompt = `Rewrite the lesson in the requested style while keeping all factual content.
 
@@ -2486,9 +2756,13 @@ ${(topic.content || "").slice(0, 6000)}
 
 ${styleInstruction}
 
-Return clean markdown with headings and bullet points. Keep it concise but complete.
+IMPORTANT FORMATTING RULES:
+- Return clean markdown with headings and bullet points. Keep it concise but complete.
 - Do not return JSON.
 - Do not output escaped markdown characters like \\# or \\*.
+- Every **bold** marker MUST have both an opening ** and a closing **. Never write **word without closing it as **word**.
+- Do NOT include citation brackets, reference numbers, or footnote markers like [1], [2], [3.], [*, etc.
+- Do NOT use orphaned brackets [ or ] that don't form complete markdown links.
 - Avoid bibliography-style metadata (author names, emails, affiliations) unless directly required for understanding.`;
 
         const response = await callQwen([
@@ -2499,5 +2773,96 @@ Return clean markdown with headings and bullet points. Keep it concise but compl
         const cleanedResponse = parseLessonContentCandidate(String(response || ""));
         const cleanedFallback = parseLessonContentCandidate(String(topic.content || ""));
         return { content: cleanedResponse || cleanedFallback || topic.content || "" };
+    },
+});
+
+const DETECTION_SYSTEM_PROMPT = `You are an AI text analyzer. Analyze the given text for characteristics commonly found in AI-generated content.
+
+Consider these indicators:
+1. Overly formal or robotic tone
+2. Uniform sentence structures
+3. Excessive use of transition words (furthermore, moreover, subsequently, etc.)
+4. Lack of personal anecdotes or concrete examples
+5. Very consistent vocabulary level
+6. Predictable paragraph structures
+7. Absence of colloquialisms or contractions
+8. Overuse of certain phrases like "it's important to note", "in conclusion", etc.
+
+Return your analysis in JSON format with this structure:
+{
+  "isAI": true/false,
+  "confidence": number (0-100),
+  "flags": ["list of specific patterns detected"]
+}`;
+
+const HUMANIZE_SYSTEM_PROMPT = `You are a text humanizer. Your task is to rewrite AI-generated text to sound naturally human-written.
+
+Requirements:
+- Vary sentence length (mix short punchy sentences with longer ones)
+- Use more conversational tone with contractions
+- Add natural transitions that humans actually use
+- Include slight imperfections that make writing feel authentic
+- Use varied vocabulary instead of repeating the same words
+- Remove formulaic AI phrases like "it's important to note", "in today's world", etc.
+- Add occasional parenthetical asides or informal remarks
+- Keep the SAME meaning and factual content
+- Do NOT add any new information or opinions
+- Output ONLY the rewritten text, no explanations or meta-comments`;
+
+export const detectAIText = action({
+    args: {
+        text: v.string(),
+    },
+    handler: async (ctx, args) => {
+        if (!args.text || args.text.trim().length < 50) {
+            throw new Error("Text must be at least 50 characters for accurate detection.");
+        }
+
+        const truncatedText = args.text.slice(0, 4000);
+
+        const response = await callQwen([
+            { role: "system", content: DETECTION_SYSTEM_PROMPT },
+            { role: "user", content: `Analyze this text for AI-generated characteristics:\n\n${truncatedText}` },
+        ], DEFAULT_MODEL, { maxTokens: 500, temperature: 0.2 });
+
+        try {
+            const jsonMatch = response.match(/\{[\s\S]*\}/);
+            if (jsonMatch) {
+                const parsed = JSON.parse(jsonMatch[0]);
+                return {
+                    isAI: Boolean(parsed.isAI),
+                    confidence: Number(parsed.confidence) || 50,
+                    flags: Array.isArray(parsed.flags) ? parsed.flags : [],
+                };
+            }
+        } catch (parseError) {
+            console.error("Failed to parse AI detection response:", parseError);
+        }
+
+        return {
+            isAI: false,
+            confidence: 50,
+            flags: [],
+        };
+    },
+});
+
+export const humanizeText = action({
+    args: {
+        text: v.string(),
+    },
+    handler: async (ctx, args) => {
+        if (!args.text || args.text.trim().length < 10) {
+            throw new Error("Text must be at least 10 characters to humanize.");
+        }
+
+        const truncatedText = args.text.slice(0, 6000);
+
+        const response = await callQwen([
+            { role: "system", content: HUMANIZE_SYSTEM_PROMPT },
+            { role: "user", content: `Humanize the following text:\n\n${truncatedText}` },
+        ], DEFAULT_MODEL, { maxTokens: 8000, temperature: 0.5 });
+
+        return { humanizedText: response.trim() };
     },
 });

@@ -3,6 +3,15 @@ import { Link, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useAction } from 'convex/react';
 import { api } from '../../convex/_generated/api';
 import { useAuth } from '../contexts/AuthContext';
+import {
+    createUploadObservation,
+    reportUploadFlowCompleted,
+    reportUploadFlowFailed,
+    reportUploadFlowStarted,
+    reportUploadStage,
+    reportUploadValidationRejected,
+    reportUploadWarning,
+} from '../lib/uploadObservability';
 
 let pdfWorkerInitialized = false;
 
@@ -57,11 +66,19 @@ const DashboardAnalysis = () => {
     const processUploadedFile = useAction(api.ai.processUploadedFile);
 
     const handleFileSelect = async (e) => {
+        const inputElement = e.target;
         const file = e.target.files?.[0];
         if (!file) return;
 
         if (!userId) {
             setUploadError('Please log in to upload files');
+            reportUploadValidationRejected({
+                flowType: 'study_material',
+                source: 'dashboard_analysis',
+                reason: 'missing_user',
+                userId,
+                file,
+            });
             return;
         }
 
@@ -73,32 +90,65 @@ const DashboardAnalysis = () => {
         ];
         if (!validTypes.includes(file.type)) {
             setUploadError('Please upload a PDF, PPTX, or DOCX file');
+            reportUploadValidationRejected({
+                flowType: 'study_material',
+                source: 'dashboard_analysis',
+                reason: 'unsupported_file_type',
+                userId,
+                file,
+            });
             return;
         }
 
         // Validate file size (50MB max)
         if (file.size > 50 * 1024 * 1024) {
             setUploadError('File must be less than 50MB');
+            reportUploadValidationRejected({
+                flowType: 'study_material',
+                source: 'dashboard_analysis',
+                reason: 'file_too_large',
+                userId,
+                file,
+            });
             return;
         }
 
+        const uploadObservation = createUploadObservation({
+            flowType: 'study_material',
+            source: 'dashboard_analysis',
+            userId,
+            file,
+        });
+        let currentStage = 'request_upload_url';
         setUploadError('');
         setUploading(true);
+        reportUploadFlowStarted(uploadObservation);
 
         try {
             // Step 1: Get upload URL from Convex
+            reportUploadStage(uploadObservation, currentStage);
             const uploadUrl = await generateUploadUrl();
 
             // Step 2: Upload file to Convex storage
+            currentStage = 'upload_to_storage';
+            reportUploadStage(uploadObservation, currentStage);
             const result = await fetch(uploadUrl, {
                 method: 'POST',
                 headers: { 'Content-Type': file.type },
                 body: file,
             });
+            if (!result.ok) {
+                throw new Error(`Upload storage request failed with status ${result.status}.`);
+            }
 
             const { storageId } = await result.json();
+            if (!storageId) {
+                throw new Error('Upload failed to return storage information.');
+            }
 
             // Step 3: Create upload record
+            currentStage = 'create_upload_record';
+            reportUploadStage(uploadObservation, currentStage);
             const uploadId = await createUpload({
                 userId,
                 fileName: file.name,
@@ -112,6 +162,8 @@ const DashboardAnalysis = () => {
             });
 
             // Step 4: Create a course from this upload
+            currentStage = 'create_course';
+            reportUploadStage(uploadObservation, currentStage);
             const courseId = await createCourse({
                 userId,
                 title: file.name.replace(/\.(pdf|pptx|docx)$/i, ''),
@@ -120,27 +172,57 @@ const DashboardAnalysis = () => {
             });
 
             // Navigate to processing page immediately
+            currentStage = 'navigate_processing_page';
+            reportUploadStage(uploadObservation, currentStage, { courseId, uploadId });
             navigate(`/dashboard/processing/${courseId}`);
 
             // Step 5: Trigger AI processing in the background (don't await)
             let extractedText = '';
             if (file.type.includes('pdf')) {
+                currentStage = 'extract_pdf_text_preview';
+                reportUploadStage(uploadObservation, currentStage, { uploadId, courseId });
                 try {
                     extractedText = await extractPdfTextFromFile(file);
                 } catch (pdfError) {
                     console.error('PDF extraction failed in browser:', pdfError);
+                    reportUploadWarning(
+                        uploadObservation,
+                        currentStage,
+                        'Client-side PDF text preview extraction failed',
+                        {
+                            uploadId,
+                            courseId,
+                            errorMessage: String(pdfError?.message || pdfError),
+                        }
+                    );
                 }
             }
 
-            processUploadedFile({ uploadId, courseId, userId, extractedText }).catch(err => {
+            currentStage = 'dispatch_ai_processing';
+            reportUploadStage(uploadObservation, currentStage, { uploadId, courseId });
+            processUploadedFile({ uploadId, courseId, userId, extractedText }).catch((err) => {
                 console.error('AI processing failed:', err);
+                reportUploadFlowFailed(uploadObservation, err, {
+                    stage: 'background_ai_processing',
+                    uploadId,
+                    courseId,
+                });
+            });
+            reportUploadFlowCompleted(uploadObservation, {
+                uploadId,
+                courseId,
+                processingDispatched: true,
+                extractedTextLength: extractedText.length,
             });
         } catch (error) {
-
             console.error('Upload failed:', error);
+            reportUploadFlowFailed(uploadObservation, error, { stage: currentStage });
             setUploadError('Upload failed. Please try again.');
         } finally {
             setUploading(false);
+            if (inputElement) {
+                inputElement.value = '';
+            }
         }
     };
 
@@ -307,6 +389,27 @@ const DashboardAnalysis = () => {
                             <div className="relative z-10 mt-auto">
                                 <div className="w-full h-14 bg-slate-50 dark:bg-slate-800/50 border border-slate-200/50 dark:border-slate-700/50 hover:bg-white dark:hover:bg-slate-800 hover:border-primary/30 hover:text-primary transition-all text-slate-700 dark:text-slate-200 rounded-2xl text-base font-bold flex items-center justify-between px-6 group-hover:shadow-lg">
                                     <span>Open Assignment Helper</span>
+                                    <span className="material-symbols-outlined text-[20px] group-hover:translate-x-1 transition-transform">arrow_forward</span>
+                                </div>
+                            </div>
+                        </Link>
+                        <Link to="/dashboard/humanizer" className="relative h-full flex flex-col justify-between overflow-hidden rounded-2xl md:rounded-[2rem] bg-surface-light dark:bg-surface-dark border-2 border-transparent hover:border-primary/20 p-5 sm:p-8 shadow-soft transition-all duration-300 cursor-pointer group hover:shadow-xl hover:-translate-y-1 mt-4">
+                            <div className="absolute right-[-40px] top-[-40px] h-64 w-64 rounded-full bg-gradient-to-br from-primary/10 to-transparent blur-3xl pointer-events-none transition-opacity group-hover:opacity-100 opacity-50"></div>
+                            <div className="relative z-10">
+                                <div className="w-14 h-14 rounded-2xl bg-primary/10 flex items-center justify-center text-primary mb-6 group-hover:bg-primary group-hover:text-white transition-colors duration-300 shadow-sm">
+                                    <span className="material-symbols-outlined text-[32px] filled">auto_fix_high</span>
+                                </div>
+                                <h2 className="text-2xl md:text-3xl font-display font-extrabold text-slate-900 dark:text-white tracking-tight leading-tight mb-3">
+                                    AI <br />
+                                    <span className="text-primary">Humanizer</span>
+                                </h2>
+                                <p className="text-slate-500 dark:text-slate-400 font-medium leading-relaxed mb-6">
+                                    Make AI-generated text appear naturally human-written and bypass AI detection.
+                                </p>
+                            </div>
+                            <div className="relative z-10 mt-auto">
+                                <div className="w-full h-14 bg-slate-50 dark:bg-slate-800/50 border border-slate-200/50 dark:border-slate-700/50 hover:bg-white dark:hover:bg-slate-800 hover:border-primary/30 hover:text-primary transition-all text-slate-700 dark:text-slate-200 rounded-2xl text-base font-bold flex items-center justify-between px-6 group-hover:shadow-lg">
+                                    <span>Open Humanizer</span>
                                     <span className="material-symbols-outlined text-[20px] group-hover:translate-x-1 transition-transform">arrow_forward</span>
                                 </div>
                             </div>

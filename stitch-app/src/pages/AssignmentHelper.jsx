@@ -1,8 +1,17 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { useAction, useMutation, useQuery } from 'convex/react';
 import { api } from '../../convex/_generated/api';
 import { useAuth } from '../contexts/AuthContext';
+import {
+    createUploadObservation,
+    reportUploadFlowCompleted,
+    reportUploadFlowFailed,
+    reportUploadFlowStarted,
+    reportUploadStage,
+    reportUploadValidationRejected,
+    reportUploadWarning,
+} from '../lib/uploadObservability';
 
 let pdfWorkerInitialized = false;
 
@@ -94,6 +103,7 @@ const normalizeAssistantDisplayText = (value) => {
 const AssignmentHelper = () => {
     const { user } = useAuth();
     const userId = user?.id;
+    const navigate = useNavigate();
 
     const threads = useQuery(
         api.assignments.listThreads,
@@ -175,24 +185,59 @@ const AssignmentHelper = () => {
     const handleCameraClick = () => cameraInputRef.current?.click();
 
     const uploadAndProcessFile = async (file) => {
-        if (!userId || !file) return;
+        if (!file) return;
+        if (!userId) {
+            reportUploadValidationRejected({
+                flowType: 'assignment',
+                source: 'assignment_helper',
+                reason: 'missing_user',
+                userId,
+                file,
+            });
+            return;
+        }
         setError('');
         setSuccessMessage('');
 
         if (!isSupportedFileType(file)) {
             setError('Unsupported file format. Upload a PDF, DOCX, or image file.');
+            reportUploadValidationRejected({
+                flowType: 'assignment',
+                source: 'assignment_helper',
+                reason: 'unsupported_file_type',
+                userId,
+                file,
+            });
             return;
         }
         if (file.size > MAX_FILE_SIZE_BYTES) {
             setError('File is too large. Maximum supported size is 50MB.');
+            reportUploadValidationRejected({
+                flowType: 'assignment',
+                source: 'assignment_helper',
+                reason: 'file_too_large',
+                userId,
+                file,
+            });
             return;
         }
 
+        const uploadObservation = createUploadObservation({
+            flowType: 'assignment',
+            source: 'assignment_helper',
+            userId,
+            file,
+        });
+        let currentStage = 'request_upload_url';
         setActiveUploadName(file.name || '');
         setProcessingStageIndex(0);
         setBusy(true);
+        reportUploadFlowStarted(uploadObservation);
         try {
+            reportUploadStage(uploadObservation, currentStage);
             const uploadUrl = await generateUploadUrl();
+            currentStage = 'upload_to_storage';
+            reportUploadStage(uploadObservation, currentStage);
             const uploadResult = await fetch(uploadUrl, {
                 method: 'POST',
                 headers: { 'Content-Type': file.type },
@@ -208,6 +253,8 @@ const AssignmentHelper = () => {
                 throw new Error('Upload failed to return file storage information.');
             }
 
+            currentStage = 'create_assignment_thread';
+            reportUploadStage(uploadObservation, currentStage);
             const { threadId } = await createThreadFromUpload({
                 userId,
                 fileName: file.name,
@@ -220,22 +267,40 @@ const AssignmentHelper = () => {
 
             let extractedText = '';
             if (file.type === 'application/pdf') {
+                currentStage = 'extract_pdf_text_preview';
+                reportUploadStage(uploadObservation, currentStage, { threadId });
                 try {
                     extractedText = await extractPdfTextFromFile(file);
                 } catch (pdfError) {
                     console.warn('Client-side PDF extraction failed:', pdfError);
+                    reportUploadWarning(
+                        uploadObservation,
+                        currentStage,
+                        'Client-side assignment PDF text extraction failed',
+                        {
+                            threadId,
+                            errorMessage: String(pdfError?.message || pdfError),
+                        }
+                    );
                 }
             }
 
+            currentStage = 'process_assignment_thread';
+            reportUploadStage(uploadObservation, currentStage, { threadId });
             await processAssignmentThread({
                 threadId,
                 userId,
                 extractedText: extractedText || undefined,
             });
 
+            reportUploadFlowCompleted(uploadObservation, {
+                threadId,
+                extractedTextLength: extractedText.length,
+            });
             setSuccessMessage('Assignment processed. You can ask follow-up questions now.');
         } catch (uploadError) {
             console.error('Assignment upload failed:', uploadError);
+            reportUploadFlowFailed(uploadObservation, uploadError, { stage: currentStage });
             setError(uploadError?.message || 'Could not process assignment. Please try again.');
         } finally {
             setBusy(false);
@@ -590,6 +655,16 @@ const AssignmentHelper = () => {
                                                     : 'bg-primary text-white border-primary/40'
                                                     }`}>
                                                     {displayContent}
+                                                    {isAssistant && displayContent && (
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => navigate('/dashboard/humanizer', { state: { text: displayContent } })}
+                                                            className="mt-2 inline-flex items-center gap-1 text-xs font-medium text-primary hover:text-primary/80 transition-colors"
+                                                        >
+                                                            <span className="material-symbols-outlined text-[14px]">auto_fix_high</span>
+                                                            Humanize this
+                                                        </button>
+                                                    )}
                                                 </div>
                                             </div>
                                         );
