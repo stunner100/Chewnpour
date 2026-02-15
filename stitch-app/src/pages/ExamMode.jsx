@@ -19,8 +19,7 @@ const ExamMode = () => {
     const [startExamError, setStartExamError] = useState('');
     const [generatingQuestions, setGeneratingQuestions] = useState(false);
     const [generateQuestionsError, setGenerateQuestionsError] = useState('');
-    const [regeneratingQuestions, setRegeneratingQuestions] = useState(false);
-    const [regenerateQuestionsError, setRegenerateQuestionsError] = useState('');
+
 
     // Get userId from Better Auth session
     const userId = user?.id;
@@ -785,229 +784,224 @@ const ExamMode = () => {
         : renderOptions;
 
     return (
-        <div className="bg-background-light dark:bg-background-dark font-display antialiased text-slate-900 dark:text-white h-screen w-full overflow-hidden flex flex-col md:flex-row transition-colors duration-300">
+        <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-900 dark:to-slate-800 flex flex-col md:flex-row">
             {/* Main Content Area */}
-            <main className="flex-1 h-full overflow-y-auto no-scrollbar relative flex flex-col">
-                {/* Mobile Header */}
-                <div className="md:hidden p-4 bg-white/80 dark:bg-slate-900/80 backdrop-blur-md border-b border-slate-200 dark:border-slate-800 flex justify-between items-center sticky top-0 z-30">
-                    <div className="flex items-center gap-2">
-                        <span className="font-bold text-primary text-lg">Q{currentQuestion + 1}</span>
-                        <span className="text-slate-400 text-sm font-medium">of {questions.length}</span>
+            <main className="flex-1 flex flex-col min-h-screen">
+                {/* Header */}
+                <header className="sticky top-0 z-40 bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl border-b border-slate-200 dark:border-slate-800">
+                    <div className="max-w-4xl mx-auto px-4 py-3 flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                            <Link to={`/dashboard/topic/${topicId}`} className="w-9 h-9 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-500 hover:bg-slate-200 transition-colors">
+                                <span className="material-symbols-outlined text-lg">close</span>
+                            </Link>
+                            <div>
+                                <h1 className="text-base font-semibold text-slate-900 dark:text-white">Exam</h1>
+                                <p className="text-xs text-slate-500 truncate max-w-[120px] sm:max-w-xs">{topic?.title}</p>
+                            </div>
+                        </div>
+                        <div className="flex items-center gap-3">
+                            <span className="text-sm font-medium text-slate-600 dark:text-slate-400">
+                                {currentQuestion + 1} <span className="text-slate-400">/ {questions.length}</span>
+                            </span>
+                            <div className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full font-mono font-semibold text-sm ${timeRemaining < 300 ? 'bg-red-100 text-red-700 dark:bg-red-900/20 dark:text-red-400' : 'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300'}`}>
+                                <span className="material-symbols-outlined text-base">timer</span>
+                                {formatTime(timeRemaining)}
+                            </div>
+                        </div>
                     </div>
-                    <div className="flex items-center gap-2 bg-slate-100 dark:bg-slate-800 px-3 py-1 rounded-full">
-                        <span className="material-symbols-outlined text-lg text-slate-500">timer</span>
-                        <span className="font-mono font-bold text-sm tabular-nums">{formatTime(timeRemaining)}</span>
+                    {/* Progress bar */}
+                    <div className="h-1 bg-slate-100 dark:bg-slate-800">
+                        <div className="h-full bg-gradient-to-r from-blue-500 to-indigo-600 transition-all duration-300" style={{ width: `${progress}%` }}></div>
                     </div>
-                </div>
+                </header>
 
-                <div className="flex-1 w-full max-w-5xl mx-auto p-4 md:p-10 lg:p-16 flex flex-col min-h-[calc(100vh-80px)] py-10">
+                {/* Question Content */}
+                <div className="flex-1 max-w-3xl mx-auto w-full px-4 py-6 pb-32">
                     {startExamError && (
-                        <div className="mb-6 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-medium text-amber-800">
+                        <div className="mb-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
                             {startExamError}
                         </div>
                     )}
-                    <div className="bg-white dark:bg-surface-dark rounded-[3rem] p-8 md:p-16 md:pb-24 shadow-soft border border-slate-200/50 dark:border-slate-800/50 relative animate-slide-up my-auto">
-                        {/* Decorative background blob */}
-                        <div className="absolute top-0 right-0 w-[500px] h-[500px] bg-primary/5 rounded-full blur-[120px] -translate-y-1/2 translate-x-1/2 pointer-events-none"></div>
 
-                        <div className="relative z-10">
-                            <div className="flex items-center justify-between mb-10">
-                                <span className="inline-flex items-center gap-2 text-slate-500 font-bold text-sm tracking-wide bg-slate-50 dark:bg-slate-800/50 px-4 py-2 rounded-xl border border-slate-100 dark:border-slate-800">
-                                    <span className="w-2 h-2 rounded-full bg-primary/50 animate-pulse"></span>
-                                    {topic?.title || 'Exam Session'}
-                                </span>
-                                <div className="hidden sm:block">
-                                    <span className="text-slate-400 text-sm font-medium">Question ID: #{currentQ?._id?.slice(-8)}</span>
-                                </div>
-                            </div>
-                            <div className="mb-6 flex flex-wrap items-center gap-3">
-                                <button
-                                    onClick={async () => {
-                                        if (!topicId) return;
-                                        setRegenerateQuestionsError('');
-                                        setRegeneratingQuestions(true);
-                                        addSentryBreadcrumb({
-                                            category: 'exam',
-                                            message: 'Regenerate questions requested',
-                                            data: {
-                                                topicId,
-                                                currentAttemptId: attemptId,
-                                            },
-                                        });
-                                        try {
-                                            await regenerateQuestions({ topicId });
-                                            setAttemptId(null);
-                                            setAttemptQuestions(null);
-                                            setExamStarted(false);
-                                            setSelectedAnswers({});
-                                            setCurrentQuestion(0);
-                                            await beginExamAttempt();
-                                        } catch (error) {
-                                            const message = error?.message || 'Failed to regenerate questions. Please try again.';
-                                            setRegenerateQuestionsError(message);
-                                            console.error('Regenerate questions failed:', error);
-                                            captureSentryException(error, {
-                                                level: 'warning',
-                                                tags: {
-                                                    area: 'exam',
-                                                    operation: 'regenerate_questions',
-                                                },
-                                                extras: {
-                                                    topicId,
-                                                    currentAttemptId: attemptId,
-                                                },
-                                            });
-                                        } finally {
-                                            setRegeneratingQuestions(false);
-                                        }
-                                    }}
-                                    disabled={regeneratingQuestions}
-                                    className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-slate-200 text-sm font-semibold border border-slate-200 dark:border-slate-700 hover:border-primary/40 hover:text-primary transition-colors disabled:opacity-60"
-                                >
-                                    <span className="material-symbols-outlined text-[18px]">refresh</span>
-                                    {regeneratingQuestions ? 'Regenerating...' : 'Regenerate Questions'}
-                                </button>
-                                {regenerateQuestionsError && (
-                                    <span className="text-sm font-medium text-amber-700">
-                                        {regenerateQuestionsError}
-                                    </span>
-                                )}
-                            </div>
-
-                            <h1 className="text-lg md:text-xl lg:text-2xl font-display font-bold leading-tight mb-8 text-slate-900 dark:text-white">
+                    {/* Question Card */}
+                    <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-800 p-6 md:p-8 mb-6">
+                        <div className="mb-6">
+                            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 text-xs font-medium mb-3">
+                                <span className="material-symbols-outlined text-sm">quiz</span>
+                                <span>Question {currentQuestion + 1}</span>
+                            </span>
+                            <h2 className="text-lg md:text-xl font-bold text-slate-900 dark:text-white leading-relaxed">
                                 {currentQ?.questionText}
-                            </h1>
-
-                            <div className="space-y-3 max-w-3xl">
-                                {finalOptions.length === 0 ? (
-                                    <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-medium text-amber-800">
-                                        No options available for this question yet. Try regenerating questions from the topic page.
-                                    </div>
-                                ) : (
-                                    finalOptions.map((option, index) => {
-                                        const { label, value, text } = option;
-                                        const isSelected = selectedAnswers[currentQ._id] === value;
-
-                                        return (
-                                            <button
-                                                key={index}
-                                                onClick={() => handleAnswerSelect(currentQ._id, value)}
-                                                className={`w-full text-left p-4 md:p-5 rounded-2xl border-2 transition-all duration-200 flex items-start gap-4 group ${isSelected
-                                                    ? 'border-primary bg-primary/5 shadow-inner'
-                                                    : 'border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/30 hover:border-primary/30 hover:bg-white dark:hover:bg-slate-800'
-                                                    }`}
-                                            >
-                                                <span className={`flex-shrink-0 w-7 h-7 rounded-lg font-bold text-xs flex items-center justify-center transition-all ${isSelected
-                                                    ? 'bg-primary text-white shadow-lg shadow-primary/30 scale-110'
-                                                    : 'bg-white dark:bg-slate-700 text-slate-500 border border-slate-200 dark:border-slate-600 group-hover:border-primary/50 group-hover:text-primary'
-                                                    }`}>
-                                                    {label}
-                                                </span>
-                                                <span className={`text-sm md:text-base pt-0.5 leading-relaxed font-medium ${isSelected
-                                                    ? 'text-slate-900 dark:text-white'
-                                                    : 'text-slate-600 dark:text-slate-300 group-hover:text-slate-900 dark:group-hover:text-white'
-                                                    }`}>
-                                                    {text}
-                                                </span>
-                                                {isSelected && (
-                                                    <span className="material-symbols-outlined text-primary ml-auto animate-fade-in">check_circle</span>
-                                                )}
-                                            </button>
-                                        );
-                                    })
-                                )}
-                            </div>
+                            </h2>
                         </div>
 
-                        <div className="mt-12 pt-10 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between relative z-20">
-                            <button
-                                onClick={handlePrevious}
-                                disabled={currentQuestion === 0}
-                                className="px-6 py-3 rounded-xl text-slate-500 font-bold hover:bg-slate-50 dark:hover:bg-slate-800 disabled:opacity-30 disabled:hover:bg-transparent transition-colors flex items-center gap-2"
-                            >
-                                <span className="material-symbols-outlined">arrow_back</span>
-                                Previous
-                            </button>
-
-                            {currentQuestion === questions.length - 1 ? (
-                                <button
-                                    onClick={handleSubmit}
-                                    disabled={!attemptId}
-                                    className="px-8 py-4 rounded-xl bg-green-600 text-white font-bold shadow-lg shadow-green-600/20 hover:bg-green-700 hover:shadow-green-600/30 hover:-translate-y-0.5 transition-all flex items-center gap-2 disabled:opacity-60 disabled:cursor-not-allowed disabled:hover:translate-y-0"
-                                >
-                                    Submit Exam
-                                    <span className="material-symbols-outlined">check</span>
-                                </button>
+                        {/* Options */}
+                        <div className="space-y-2">
+                            {finalOptions.length === 0 ? (
+                                <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+                                    No options available for this question.
+                                </div>
                             ) : (
-                                <button
-                                    onClick={handleNext}
-                                    className="px-8 py-4 rounded-xl bg-slate-900 dark:bg-white text-white dark:text-slate-900 font-bold shadow-xl hover:shadow-2xl hover:-translate-y-0.5 transition-all flex items-center gap-2 group"
-                                >
-                                    Next Question
-                                    <span className="material-symbols-outlined group-hover:translate-x-1 transition-transform">arrow_forward</span>
-                                </button>
+                                finalOptions.map((option, index) => {
+                                    const { label, value, text } = option;
+                                    const isSelected = selectedAnswers[currentQ._id] === value;
+
+                                    return (
+                                        <button
+                                            key={index}
+                                            onClick={() => handleAnswerSelect(currentQ._id, value)}
+                                            className={`w-full text-left p-4 rounded-xl border-2 transition-all duration-200 flex items-center gap-3 ${isSelected
+                                                ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20'
+                                                : 'border-slate-200 dark:border-slate-700 hover:border-blue-300 hover:bg-slate-50 dark:hover:bg-slate-800'
+                                                }`}
+                                        >
+                                            <span className={`flex-shrink-0 w-8 h-8 rounded-lg font-bold text-sm flex items-center justify-center transition-all ${isSelected
+                                                ? 'bg-blue-500 text-white'
+                                                : 'bg-slate-100 dark:bg-slate-800 text-slate-500'
+                                                }`}>
+                                                {label}
+                                            </span>
+                                            <span className={`flex-1 text-sm md:text-base ${isSelected ? 'text-slate-900 dark:text-white font-medium' : 'text-slate-600 dark:text-slate-300'}`}>
+                                                {text}
+                                            </span>
+                                            {isSelected && (
+                                                <span className="material-symbols-outlined text-blue-500">check_circle</span>
+                                            )}
+                                        </button>
+                                    );
+                                })
                             )}
                         </div>
+                    </div>
+
+                    {/* Question Navigator - Mobile Only */}
+                    <div className="md:hidden bg-white dark:bg-slate-900 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-800 p-4">
+                        <div className="flex items-center justify-between mb-3">
+                            <span className="text-sm font-medium text-slate-500">Question Navigator</span>
+                            <span className="text-xs text-slate-400">{Object.keys(selectedAnswers).length} of {questions.length} answered</span>
+                        </div>
+                        <div className="grid grid-cols-8 gap-1.5">
+                            {questions.map((q, index) => {
+                                const isAnswered = selectedAnswers[q._id];
+                                const isCurrent = index === currentQuestion;
+                                return (
+                                    <button
+                                        key={q._id}
+                                        onClick={() => setCurrentQuestion(index)}
+                                        className={`aspect-square rounded-lg font-bold text-xs flex items-center justify-center transition-all ${isCurrent
+                                            ? 'bg-blue-500 text-white'
+                                            : isAnswered
+                                                ? 'bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300'
+                                                : 'border border-slate-200 dark:border-slate-700 text-slate-400'
+                                            }`}
+                                    >
+                                        {index + 1}
+                                    </button>
+                                );
+                            })}
+                        </div>
+                    </div>
+                </div>
+
+                {/* Bottom Navigation */}
+                <div className="fixed bottom-0 inset-x-0 bg-white dark:bg-slate-900 border-t border-slate-200 dark:border-slate-800 p-4 safe-area-bottom">
+                    <div className="max-w-3xl mx-auto flex items-center justify-between gap-4">
+                        <button
+                            onClick={handlePrevious}
+                            disabled={currentQuestion === 0}
+                            className="px-4 py-2.5 rounded-xl text-slate-600 dark:text-slate-400 font-medium hover:bg-slate-100 dark:hover:bg-slate-800 disabled:opacity-30 disabled:hover:bg-transparent transition-colors flex items-center gap-1"
+                        >
+                            <span className="material-symbols-outlined">arrow_back</span>
+                            <span className="hidden sm:inline">Prev</span>
+                        </button>
+
+                        <div className="flex-1 text-center">
+                            <span className="text-sm text-slate-500">
+                                {Object.keys(selectedAnswers).length} <span className="text-slate-400">/ {questions.length}</span> answered
+                            </span>
+                        </div>
+
+                        {currentQuestion === questions.length - 1 ? (
+                            <button
+                                onClick={handleSubmit}
+                                disabled={!attemptId}
+                                className="px-6 py-2.5 rounded-xl bg-green-500 text-white font-semibold shadow-md hover:bg-green-600 transition-all flex items-center gap-1 disabled:opacity-60"
+                            >
+                                <span>Submit</span>
+                                <span className="material-symbols-outlined">check</span>
+                            </button>
+                        ) : (
+                            <button
+                                onClick={handleNext}
+                                className="px-6 py-2.5 rounded-xl bg-blue-500 text-white font-semibold shadow-md hover:bg-blue-600 transition-all flex items-center gap-1"
+                            >
+                                <span>Next</span>
+                                <span className="material-symbols-outlined">arrow_forward</span>
+                            </button>
+                        )}
                     </div>
                 </div>
             </main>
 
-            {/* Sidebar */}
-            <aside className="hidden md:flex w-80 lg:w-96 bg-surface-light dark:bg-surface-dark border-l border-slate-200/60 dark:border-slate-800 flex-col h-screen sticky top-0 overflow-y-auto z-20 shadow-[-10px_0_40px_-10px_rgba(0,0,0,0.05)]">
-                <div className="p-8">
-                    <div className="bg-slate-50 dark:bg-slate-900 rounded-[1.5rem] p-8 text-center border border-slate-100 dark:border-slate-800 relative overflow-hidden mb-8">
-                        <div className="absolute top-0 left-0 w-1 h-full bg-primary"></div>
-                        <span className="text-xs font-bold text-slate-400 uppercase tracking-widest block mb-2">Time Remaining</span>
-                        <div className={`text-5xl font-mono font-bold tracking-tighter tabular-nums ${timeRemaining < 300 ? 'text-red-500 animate-pulse' : 'text-slate-900 dark:text-white'
-                            }`}>
+            {/* Sidebar - Desktop Only */}
+            <aside className="hidden md:flex w-80 bg-white dark:bg-slate-900 border-l border-slate-200 dark:border-slate-800 flex-col h-screen sticky top-0">
+                <div className="p-6 flex-1 overflow-y-auto">
+                    {/* Timer */}
+                    <div className="bg-slate-50 dark:bg-slate-800 rounded-2xl p-6 text-center mb-6">
+                        <span className="text-xs font-medium text-slate-500 uppercase tracking-wide block mb-2">Time Remaining</span>
+                        <div className={`text-4xl font-mono font-bold tabular-nums ${timeRemaining < 300 ? 'text-red-500' : 'text-slate-900 dark:text-white'}`}>
                             {formatTime(timeRemaining)}
                         </div>
+                        {timeRemaining < 300 && (
+                            <p className="text-xs text-red-500 mt-1">Less than 5 minutes!</p>
+                        )}
                     </div>
 
-                    <div className="mb-8">
-                        <div className="flex justify-between items-end mb-3 px-1">
-                            <span className="text-sm font-bold text-slate-700 dark:text-slate-300">Exam Progress</span>
-                            <span className="text-xs font-bold text-primary bg-primary/10 px-2 py-1 rounded-lg">{Math.round(progress)}%</span>
+                    {/* Progress */}
+                    <div className="mb-6">
+                        <div className="flex justify-between items-center mb-2">
+                            <span className="text-sm font-medium text-slate-600 dark:text-slate-400">Progress</span>
+                            <span className="text-sm font-bold text-blue-500">{Math.round(progress)}%</span>
                         </div>
-                        <div className="w-full bg-slate-100 dark:bg-slate-800 rounded-full h-2 overflow-hidden">
-                            <div className="bg-primary h-full rounded-full transition-all duration-500 ease-out" style={{ width: `${progress}%` }}></div>
+                        <div className="w-full bg-slate-100 dark:bg-slate-800 rounded-full h-2">
+                            <div className="bg-gradient-to-r from-blue-500 to-indigo-600 h-full rounded-full transition-all duration-300" style={{ width: `${progress}%` }}></div>
                         </div>
                     </div>
 
-                    <div className="grid grid-cols-5 gap-2">
-                        {questions.map((q, index) => {
-                            const isAnswered = selectedAnswers[q._id];
-                            const isCurrent = index === currentQuestion;
-
-                            return (
-                                <button
-                                    key={q._id}
-                                    onClick={() => setCurrentQuestion(index)}
-                                    className={`aspect-square rounded-xl font-bold text-sm transition-all duration-300 flex items-center justify-center ${isCurrent
-                                        ? 'bg-primary text-white shadow-lg shadow-primary/30 ring-2 ring-primary/20 scale-110 z-10'
-                                        : isAnswered
-                                            ? 'bg-slate-100 dark:bg-slate-800 text-slate-500 hover:bg-slate-200 dark:hover:bg-slate-700'
-                                            : 'border border-slate-200 dark:border-slate-700 text-slate-300 dark:text-slate-600 hover:border-slate-300 hover:text-slate-400'
-                                        }`}
-                                >
-                                    {index + 1}
-                                </button>
-                            );
-                        })}
+                    {/* Question Grid */}
+                    <div className="mb-6">
+                        <span className="text-sm font-medium text-slate-600 dark:text-slate-400 block mb-3">Questions</span>
+                        <div className="grid grid-cols-5 gap-1.5">
+                            {questions.map((q, index) => {
+                                const isAnswered = selectedAnswers[q._id];
+                                const isCurrent = index === currentQuestion;
+                                return (
+                                    <button
+                                        key={q._id}
+                                        onClick={() => setCurrentQuestion(index)}
+                                        className={`aspect-square rounded-lg font-bold text-xs flex items-center justify-center transition-all ${isCurrent
+                                            ? 'bg-blue-500 text-white shadow-md'
+                                            : isAnswered
+                                                ? 'bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300'
+                                                : 'border border-slate-200 dark:border-slate-700 text-slate-400 hover:border-slate-300'
+                                            }`}
+                                    >
+                                        {index + 1}
+                                    </button>
+                                );
+                            })}
+                        </div>
                     </div>
                 </div>
 
-                <div className="mt-auto p-8 bg-slate-50/50 dark:bg-slate-900/20 border-t border-slate-100 dark:border-slate-800">
-                    <button className="w-full py-4 rounded-xl border-2 border-slate-200 dark:border-slate-700 text-slate-500 font-bold hover:border-amber-400 hover:text-amber-500 hover:bg-amber-50 dark:hover:bg-amber-900/10 transition-all flex items-center justify-center gap-2 mb-4 group">
-                        <span className="material-symbols-outlined group-hover:fill-1 transition-colors text-[20px]">flag</span>
-                        Flag Question
-                    </button>
+                {/* Submit Button */}
+                <div className="p-6 border-t border-slate-200 dark:border-slate-800">
                     <button
                         onClick={handleSubmit}
                         disabled={!attemptId}
-                        className="w-full py-4 rounded-xl bg-slate-900 dark:bg-white text-white dark:text-slate-900 font-bold hover:opacity-90 transition-all shadow-lg disabled:opacity-60 disabled:cursor-not-allowed"
+                        className="w-full py-3 rounded-xl bg-gradient-to-r from-blue-500 to-indigo-600 text-white font-semibold shadow-md hover:shadow-lg transition-all disabled:opacity-60"
                     >
-                        Submit Early
+                        Submit Exam
                     </button>
                 </div>
             </aside>
