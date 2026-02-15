@@ -35,12 +35,9 @@ const TopicDetail = () => {
     const [overrideContent, setOverrideContent] = useState('');
     const [cachedContent, setCachedContent] = useState('');
     const [readingMode, setReadingMode] = useState(true);
-    const [scrollProgress, setScrollProgress] = useState(0);
-    const [showScrollActions, setShowScrollActions] = useState(false);
     const [shouldAnimateBlocks, setShouldAnimateBlocks] = useState(false);
     const [prewarmingQuestions, setPrewarmingQuestions] = useState(false);
     const contentRef = useRef(null);
-    const lastProgressRef = useRef(-1);
     const prewarmedTopicIdsRef = useRef(new Set());
     const navigate = useNavigate();
     const topicData = useQuery(
@@ -222,44 +219,7 @@ const TopicDetail = () => {
         };
     }, []);
 
-    useEffect(() => {
-        const handleScroll = () => {
-            if (!contentRef.current) return;
-            const rect = contentRef.current.getBoundingClientRect();
-            const scrollTop = window.scrollY || window.pageYOffset;
-            const elementTop = scrollTop + rect.top;
-            const elementHeight = contentRef.current.offsetHeight;
-            const viewportHeight = window.innerHeight;
 
-            if (elementHeight <= viewportHeight) {
-                if (lastProgressRef.current !== 100) {
-                    lastProgressRef.current = 100;
-                    setScrollProgress(100);
-                }
-                setShowScrollActions(false);
-                return;
-            }
-
-            const maxScroll = elementHeight - viewportHeight;
-            const currentScroll = Math.min(Math.max(scrollTop - elementTop, 0), maxScroll);
-            const progress = Math.round((currentScroll / maxScroll) * 100);
-            if (progress !== lastProgressRef.current) {
-                lastProgressRef.current = progress;
-                setScrollProgress(progress);
-            }
-
-            setShowScrollActions(progress > 8 && maxScroll > 240);
-        };
-
-        const onScroll = () => requestAnimationFrame(handleScroll);
-        handleScroll();
-        window.addEventListener('scroll', onScroll, { passive: true });
-        window.addEventListener('resize', onScroll);
-        return () => {
-            window.removeEventListener('scroll', onScroll);
-            window.removeEventListener('resize', onScroll);
-        };
-    }, [normalizedContent, readingMode]);
 
     const cleanInline = (text) => cleanInlineText(text);
 
@@ -585,60 +545,38 @@ const TopicDetail = () => {
 
     return (
         <div className="bg-background-light dark:bg-background-dark font-display antialiased text-[#0d161c] dark:text-white min-h-screen flex flex-col overflow-x-hidden touch-pan-y">
-            <header className="fixed top-0 inset-x-0 z-40 flex items-center justify-between px-4 md:px-6 lg:px-10 py-3 md:py-4 bg-white/70 dark:bg-background-dark/70 backdrop-blur-xl border-b border-slate-200/50 dark:border-slate-800/50 shadow-glass">
-                <div className="flex min-w-0 items-center gap-3 md:gap-6">
-                    <Link to={courseId ? `/dashboard/course/${courseId}` : "/dashboard"} className="flex items-center gap-2 text-slate-500 dark:text-slate-400 hover:text-primary transition-all text-sm font-bold group">
-                        <div className="w-8 h-8 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center group-hover:bg-primary/10 transition-colors">
-                            <span className="material-symbols-outlined text-[18px] group-hover:-translate-x-0.5 transition-transform">arrow_back_ios_new</span>
-                        </div>
-                        <span className="hidden sm:inline">Back to Syllabus</span>
+            <header className="fixed top-0 inset-x-0 z-40 flex items-center justify-between px-4 py-3 bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl border-b border-slate-200/50 dark:border-slate-800/50">
+                <div className="flex items-center gap-3">
+                    <Link to={courseId ? `/dashboard/course/${courseId}` : "/dashboard"} className="flex items-center gap-2 text-slate-600 dark:text-slate-400 hover:text-primary transition-colors">
+                        <span className="material-symbols-outlined text-xl">arrow_back</span>
+                        <span className="hidden sm:inline text-sm font-medium">Back</span>
                     </Link>
-                    <Link to="/dashboard" className="hidden md:flex items-center gap-2 text-slate-500 dark:text-slate-400 hover:text-primary transition-all text-sm font-bold group">
-                        <div className="w-8 h-8 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center group-hover:bg-primary/10 transition-colors">
-                            <span className="material-symbols-outlined text-[18px]">dashboard</span>
-                        </div>
-                        <span className="hidden sm:inline">Dashboard</span>
-                    </Link>
-                    <div className="hidden md:block w-px h-6 bg-slate-200 dark:bg-slate-700/50"></div>
-                    <div className="hidden md:flex min-w-0 flex-col">
-                        <span className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 dark:text-slate-500">
-                            Topic
-                        </span>
-                        <span
-                            className="max-w-[40vw] truncate text-sm font-bold tracking-tight text-slate-700 dark:text-slate-200"
-                            title={headerTopicTitle}
-                        >
-                            {headerTopicTitle}
-                        </span>
-                    </div>
+                    <div className="hidden sm:block w-px h-5 bg-slate-200 dark:bg-slate-700"></div>
+                    <span className="hidden sm:block text-sm font-semibold text-slate-700 dark:text-slate-300 truncate max-w-[200px] md:max-w-md">
+                        {headerTopicTitle}
+                    </span>
                 </div>
-                <div className="flex items-center gap-2 md:gap-4">
+                <div className="flex items-center gap-2">
                     <button
                         onClick={() => setReadingMode((value) => !value)}
-                        className="hidden md:flex items-center gap-2 px-4 py-2 rounded-full border border-slate-200/60 dark:border-slate-700/60 text-xs font-bold text-slate-600 dark:text-slate-300 hover:text-primary hover:border-primary/40 hover:bg-primary/5 transition-all shadow-sm active:scale-95"
+                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+                        title={readingMode ? 'Switch to split view' : 'Switch to focus mode'}
                     >
-                        <span className="material-symbols-outlined text-[18px]">{readingMode ? 'splitscreen' : 'menu_book'}</span>
-                        {readingMode ? 'Split View' : 'Focus Mode'}
+                        <span className="material-symbols-outlined text-lg">{readingMode ? 'fullscreen' : 'splitscreen'}</span>
+                        <span className="hidden md:inline">{readingMode ? 'Focus' : 'Split'}</span>
                     </button>
-                    <div className="hidden lg:flex items-center gap-3 bg-slate-100/50 dark:bg-slate-800/50 px-4 py-2 rounded-full border border-slate-200/50 dark:border-slate-700/50">
-                        <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">Progress</span>
-                        <div className="w-24 h-1.5 bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden">
-                            <div
-                                className="h-full bg-primary rounded-full shadow-[0_0_8px_rgba(99,102,241,0.5)] transition-[width] duration-200"
-                                style={{ width: `${scrollProgress}%` }}
-                            ></div>
-                        </div>
-                    </div>
                     <button
                         onClick={() => setSettingsOpen(true)}
-                        className="w-10 h-10 flex items-center justify-center rounded-full bg-slate-100/50 dark:bg-slate-800/50 text-slate-500 hover:bg-primary hover:text-white transition-all transform hover:rotate-90"
-                        aria-label="Open lesson settings"
+                        className="w-9 h-9 flex items-center justify-center rounded-full text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+                        aria-label="Settings"
                     >
-                        <span className="material-symbols-outlined text-[22px]">settings</span>
+                        <span className="material-symbols-outlined text-xl">settings</span>
                     </button>
-                    <div className="w-10 h-10 rounded-full bg-gradient-to-br from-indigo-500 to-primary text-white flex items-center justify-center font-black text-sm shadow-lg shadow-primary/20 ring-2 ring-white dark:ring-slate-800">
-                        {profileInitial}
-                    </div>
+                    <Link to="/profile" className="w-9 h-9 rounded-full bg-gradient-to-br from-primary to-purple-500 p-0.5">
+                        <div className="w-full h-full rounded-full bg-white dark:bg-slate-900 flex items-center justify-center">
+                            <span className="text-primary font-bold text-xs">{profileInitial}</span>
+                        </div>
+                    </Link>
                 </div>
             </header>
             <main className={`flex-1 w-full mx-auto px-4 md:px-6 lg:px-10 pt-20 md:pt-24 pb-20 md:pb-8 lg:pt-28 lg:pb-12 ${readingMode ? 'max-w-4xl' : 'max-w-[1440px]'}`}>
@@ -902,17 +840,6 @@ const TopicDetail = () => {
                             </div>
                         </div>
 
-                        <div className="bg-indigo-50/50 dark:bg-slate-800/30 rounded-3xl p-8 border border-indigo-100 dark:border-slate-700 flex flex-col md:flex-row gap-6 items-start">
-                            <div className="flex-shrink-0 p-3 bg-white dark:bg-slate-700 rounded-2xl shadow-sm">
-                                <span className="material-symbols-outlined text-indigo-500 text-[28px]">swap_horiz</span>
-                            </div>
-                            <div>
-                                <h2 className="text-sm font-bold text-indigo-500 uppercase tracking-wider mb-2">Alternative View</h2>
-                                <p className="font-rounded text-lg italic leading-relaxed text-slate-700 dark:text-slate-300">
-                                    {cleanLine(topic?.description || 'Explore the topic from a different angle to deepen understanding.')}
-                                </p>
-                            </div>
-                        </div>
                     </div>
 
                     {!readingMode && (
@@ -1013,67 +940,46 @@ const TopicDetail = () => {
                 </div>
 
                 <div className="mt-12 w-full">
-                    <div className="relative rounded-[2.5rem] bg-gradient-to-br from-slate-50 to-white dark:from-surface-dark dark:to-background-dark p-8 lg:p-14 text-center border border-slate-200 dark:border-slate-800 shadow-lg group/card">
-                        <div className="absolute top-0 left-0 w-full h-2 bg-gradient-to-r from-blue-400 via-primary to-indigo-500 opacity-80"></div>
-                        <div className="relative z-10 flex flex-col lg:flex-row items-center lg:items-center justify-between gap-8 max-w-5xl mx-auto">
-                            <div className="text-center lg:text-left max-w-xl">
-                                <h3 className="text-2xl lg:text-3xl font-extrabold text-[#0d161c] dark:text-white mb-2">Ready to test yourself?</h3>
-                                <p className="text-slate-500 dark:text-slate-400 text-sm lg:text-base font-medium">Generate questions first, then take the exam when you're ready.</p>
-                            </div>
-                            <div className="flex flex-col sm:flex-row gap-4 w-full lg:w-auto items-center justify-center">
-                                <Link to={topicId ? `/dashboard/concept-intro/${topicId}` : "/dashboard/concept-intro"} className="w-full sm:w-auto px-8 py-4 bg-white dark:bg-slate-800 text-[#0d161c] dark:text-white hover:bg-slate-50 dark:hover:bg-slate-700 hover:-translate-y-1 transition-all duration-300 rounded-2xl text-sm font-bold shadow-soft flex items-center justify-center gap-2 group border border-slate-200 dark:border-slate-700">
-                                    <span>Practice Concepts</span>
-                                    <span className="material-symbols-outlined text-[20px] group-hover:translate-x-1 transition-transform">lightbulb</span>
-                                </Link>
-                                <button
-                                    onClick={handleStartExam}
-                                    disabled={startingExam}
-                                    className="w-full sm:w-auto px-8 py-4 bg-primary text-white hover:bg-primary/90 hover:-translate-y-1 transition-all duration-300 rounded-2xl text-sm font-bold shadow-xl shadow-primary/25 flex items-center justify-center gap-2 group disabled:opacity-60"
-                                >
-                                    <span>{startingExam ? 'Preparing Exam...' : 'Start Exam'}</span>
-                                    <span className="material-symbols-outlined text-[20px] group-hover:translate-x-1 transition-transform">assignment_turned_in</span>
-                                </button>
-                            </div>
+                    <div className="bg-white dark:bg-slate-900 rounded-2xl p-6 md:p-8 text-center border border-slate-200 dark:border-slate-800 shadow-sm">
+                        <h3 className="text-xl md:text-2xl font-bold text-slate-900 dark:text-white mb-2">Ready to practice?</h3>
+                        <p className="text-slate-500 dark:text-slate-400 text-sm mb-6">Test your knowledge with questions based on this lesson.</p>
+                        
+                        <div className="flex flex-col sm:flex-row gap-3 justify-center">
+                            <Link 
+                                to={topicId ? `/dashboard/concept-intro/${topicId}` : "/dashboard/concept-intro"} 
+                                className="inline-flex items-center justify-center gap-2 px-6 py-3 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 rounded-xl text-sm font-semibold hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors"
+                            >
+                                <span className="material-symbols-outlined text-lg">school</span>
+                                <span>Study Concepts</span>
+                            </Link>
+                            <button
+                                onClick={handleStartExam}
+                                disabled={startingExam}
+                                className="inline-flex items-center justify-center gap-2 px-6 py-3 bg-gradient-to-r from-blue-500 to-indigo-600 text-white rounded-xl text-sm font-semibold shadow-md shadow-blue-500/20 hover:shadow-lg hover:shadow-blue-500/30 transition-all disabled:opacity-60"
+                            >
+                                <span className="material-symbols-outlined text-lg">quiz</span>
+                                <span>{startingExam ? 'Preparing...' : 'Take Quiz'}</span>
+                            </button>
                         </div>
+                        
                         {startExamError && (
-                            <div className="mt-6 max-w-5xl mx-auto rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-medium text-amber-800">
+                            <div className="mt-4 max-w-md mx-auto rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
                                 {startExamError}
                             </div>
                         )}
                         {prewarmingQuestions && (
-                            <div className="mt-6 max-w-5xl mx-auto rounded-2xl border border-blue-200 bg-blue-50 px-4 py-3 text-sm font-medium text-blue-700">
-                                Preparing exam questions in the background so start is faster when you are ready.
+                            <div className="mt-4 max-w-md mx-auto rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
+                                Preparing questions in the background...
                             </div>
                         )}
                         {!prewarmingQuestions && questions.length > 0 && questions.length < EXAM_PREWARM_MIN_QUESTION_COUNT && (
-                            <div className="mt-6 max-w-5xl mx-auto rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-medium text-slate-600">
-                                {questions.length} questions are ready. More are still generating in the background.
+                            <div className="mt-4 text-xs text-slate-400">
+                                {questions.length} questions ready • More generating
                             </div>
                         )}
-                        <div className="absolute -bottom-24 -right-24 w-64 h-64 bg-primary/5 rounded-full blur-3xl pointer-events-none"></div>
-                        <div className="absolute -top-24 -left-24 w-64 h-64 bg-indigo-500/5 rounded-full blur-3xl pointer-events-none"></div>
                     </div>
                 </div>
             </main>
-
-            {showScrollActions && (
-                <div className="fixed right-4 bottom-6 z-30 flex flex-col gap-2 sm:right-6 sm:bottom-8">
-                    <button
-                        onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
-                        className="h-11 w-11 rounded-full bg-white/90 dark:bg-slate-800/90 border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-200 shadow-lg backdrop-blur hover:text-primary hover:border-primary/30 active:scale-95 transition-all"
-                        aria-label="Scroll to top"
-                    >
-                        <span className="material-symbols-outlined text-[20px]">arrow_upward</span>
-                    </button>
-                    <button
-                        onClick={() => window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' })}
-                        className="h-11 w-11 rounded-full bg-white/90 dark:bg-slate-800/90 border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-200 shadow-lg backdrop-blur hover:text-primary hover:border-primary/30 active:scale-95 transition-all"
-                        aria-label="Scroll to bottom"
-                    >
-                        <span className="material-symbols-outlined text-[20px]">arrow_downward</span>
-                    </button>
-                </div>
-            )}
 
             {settingsOpen && (
                 <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/40 px-4">
