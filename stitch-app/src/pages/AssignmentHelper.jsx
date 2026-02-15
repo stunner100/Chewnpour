@@ -412,7 +412,7 @@ const AssignmentHelper = () => {
                 onChange={handleFileInputChange}
             />
 
-            <main className="flex-1 w-full max-w-[1600px] mx-auto px-4 py-6 md:px-6 md:py-8">
+            <main className="flex-1 w-full max-w-[1600px] mx-auto px-4 py-6 md:px-6 md:py-8 pb-24 md:pb-8">
                 {(error || successMessage) && (
                     <div className="mb-5 space-y-2">
                         {error && (
