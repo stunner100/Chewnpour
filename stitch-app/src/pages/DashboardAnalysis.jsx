@@ -274,39 +274,39 @@ const DashboardAnalysis = () => {
             <header className="sticky top-0 z-50 w-full glass border-b border-slate-200/50 dark:border-slate-800/50">
                 <div className="max-w-[1600px] mx-auto px-4 md:px-6 h-16 md:h-20 flex items-center justify-between gap-4 md:gap-8">
                     <div className="flex items-center gap-3 shrink-0">
-                        <div className="w-10 h-10 bg-gradient-to-br from-primary to-primary-dark rounded-xl flex items-center justify-center text-white shadow-lg shadow-primary/30">
+                        <div className="w-10 h-10 bg-gradient-to-br from-primary via-purple-500 to-primary rounded-xl flex items-center justify-center text-white shadow-lg shadow-primary/30">
                             <span className="material-symbols-outlined text-[24px]">school</span>
                         </div>
                         <span className="text-xl font-display font-bold tracking-tight text-slate-900 dark:text-white hidden sm:block">StudyMate</span>
                     </div>
-                    <div className="flex-1 max-w-2xl hidden md:block">
+                    <div className="flex-1 max-w-xl hidden md:block">
                         <div className="relative group transition-all duration-300 focus-within:scale-[1.01]">
                             <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-primary transition-colors material-symbols-outlined">search</span>
                             <input
-                                className="w-full pl-12 pr-4 py-3 bg-slate-100/50 dark:bg-slate-800/50 border border-transparent focus:border-primary/20 rounded-2xl focus:ring-4 focus:ring-primary/10 focus:bg-white dark:focus:bg-slate-800 transition-all text-sm font-medium placeholder-slate-400 shadow-sm"
-                                placeholder="Search for courses, slides, or questions..."
+                                className="w-full pl-12 pr-4 py-2.5 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 focus:border-primary/30 rounded-2xl focus:ring-4 focus:ring-primary/5 transition-all text-sm font-medium placeholder-slate-400 shadow-sm"
+                                placeholder="Search courses, topics, or questions..."
                                 type="text"
                                 value={searchQuery}
                                 onChange={(event) => setSearchQuery(event.target.value)}
                             />
                         </div>
                     </div>
-                    <div className="flex items-center gap-4 shrink-0">
-                        <div className="hidden sm:flex items-center gap-2 bg-white/80 dark:bg-slate-800/80 backdrop-blur-sm px-4 py-2 rounded-full shadow-sm border border-slate-200/50 dark:border-slate-700/50 hover:border-primary/30 transition-colors cursor-default">
-                            <span className="material-symbols-outlined text-orange-500 text-[22px] filled icon-filled animate-pulse-subtle">local_fire_department</span>
-                            <div className="flex flex-col leading-none">
-                                <span className="text-slate-700 dark:text-slate-200 text-sm font-bold">
-                                    {userStats?.streakDays || 0} Day Streak
-                                </span>
-                            </div>
+                    <div className="flex items-center gap-3 shrink-0">
+                        <div className="hidden sm:flex items-center gap-2 bg-gradient-to-r from-orange-50 to-red-50 dark:from-orange-900/20 dark:to-red-900/20 backdrop-blur-sm px-3 py-1.5 rounded-full border border-orange-200 dark:border-orange-800">
+                            <span className="material-symbols-outlined text-orange-500 text-[18px] filled animate-pulse">local_fire_department</span>
+                            <span className="text-slate-700 dark:text-slate-200 text-xs font-bold">
+                                {userStats?.streakDays || 0} Day Streak
+                            </span>
                         </div>
                         <Link to="/profile" className="relative group block">
-                            <div className="h-11 w-11 rounded-full border-2 border-white dark:border-slate-700 shadow-md overflow-hidden transition-transform group-hover:scale-105 ring-2 ring-transparent group-hover:ring-primary/20">
-                                <div className="w-full h-full bg-gradient-to-br from-primary-light to-primary flex items-center justify-center text-white font-bold text-lg">
-                                    {user?.name?.[0]?.toUpperCase() || 'S'}
+                            <div className="h-10 w-10 rounded-full p-0.5 bg-gradient-to-br from-primary via-purple-500 to-primary">
+                                <div className="w-full h-full rounded-full bg-white dark:bg-slate-900 flex items-center justify-center overflow-hidden">
+                                    <span className="text-primary font-bold text-sm">
+                                        {user?.name?.[0]?.toUpperCase() || 'S'}
+                                    </span>
                                 </div>
                             </div>
-                            <div className="absolute bottom-0 right-0 w-3.5 h-3.5 bg-green-500 border-2 border-white dark:border-slate-800 rounded-full shadow-sm"></div>
+                            <div className="absolute bottom-0 right-0 w-2.5 h-2.5 bg-green-500 border-2 border-white dark:border-slate-900 rounded-full"></div>
                         </Link>
                     </div>
                 </div>
@@ -314,27 +314,27 @@ const DashboardAnalysis = () => {
             <main className="flex-1 w-full max-w-[1600px] mx-auto px-4 py-8 pb-20 md:px-6 md:py-12 md:pb-12">
                 <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
                     <div className="lg:col-span-8 flex flex-col animate-slide-up">
-                        <div className="relative w-full h-full overflow-hidden rounded-2xl md:rounded-[2rem] bg-surface-light dark:bg-surface-dark p-5 sm:p-8 md:p-12 shadow-soft border border-slate-200/60 dark:border-slate-800 group isolate">
+                        <div className="relative w-full h-full overflow-hidden rounded-3xl bg-gradient-to-br from-white via-slate-50 to-white dark:from-slate-900 dark:via-slate-800/50 dark:to-slate-900 p-6 sm:p-8 md:p-10 shadow-soft border border-slate-200/60 dark:border-slate-800 group isolate">
                             {/* Decorative background elements */}
-                            <div className="absolute top-[-20%] left-[-10%] w-[500px] h-[500px] bg-primary/5 rounded-full blur-[100px] -z-10 group-hover:bg-primary/10 transition-colors duration-700"></div>
-                            <div className="absolute bottom-[-10%] right-[-5%] w-[400px] h-[400px] bg-secondary/5 rounded-full blur-[80px] -z-10"></div>
+                            <div className="absolute top-0 right-0 w-[400px] h-[400px] bg-gradient-to-br from-primary/5 to-purple-500/5 rounded-full blur-[120px] -z-10 group-hover:opacity-70 transition-opacity duration-700"></div>
+                            <div className="absolute bottom-0 left-0 w-[300px] h-[300px] bg-gradient-to-tr from-blue-500/5 to-transparent rounded-full blur-[100px] -z-10"></div>
 
                             <div className="relative z-10 flex flex-col md:flex-row items-start md:items-center justify-between h-full gap-8">
-                                <div className="flex-1 space-y-6">
-                                    <span className="inline-flex items-center gap-2 bg-primary/10 dark:bg-primary/20 px-4 py-1.5 rounded-full border border-primary/20 dark:border-primary/30 text-primary-dark dark:text-primary-light">
-                                        <span className="material-symbols-outlined text-sm filled">auto_awesome</span>
-                                        <span className="text-xs font-bold uppercase tracking-wider">AI Powered v2.0</span>
+                                <div className="flex-1 space-y-5">
+                                    <span className="inline-flex items-center gap-2 bg-gradient-to-r from-primary/10 to-purple-500/10 dark:from-primary/20 dark:to-purple-500/20 px-3 py-1.5 rounded-full border border-primary/20 dark:border-primary/30">
+                                        <span className="material-symbols-outlined text-sm filled text-primary">auto_awesome</span>
+                                        <span className="text-xs font-bold uppercase tracking-wider text-primary">AI Powered v2.0</span>
                                     </span>
-                                    <h1 className="text-2xl sm:text-3xl md:text-5xl lg:text-6xl font-display font-extrabold text-slate-900 dark:text-white leading-[1.1] tracking-tight">
-                                        Turn Your Boring Slides into <br />
-                                        <span className="text-transparent bg-clip-text bg-gradient-to-r from-primary to-purple-600 animate-gradient">Clear Lessons and Interactive Quizzes</span>
+                                    <h1 className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-display font-extrabold text-slate-900 dark:text-white leading-[1.15] tracking-tight">
+                                        Turn Your Slides into <br />
+                                        <span className="text-transparent bg-clip-text bg-gradient-to-r from-primary via-purple-600 to-primary bg-[length:200%_auto] animate-gradient-x">Smart Lessons & Quizzes</span>
                                     </h1>
-                                    <p className="text-slate-500 dark:text-slate-400 text-lg font-medium leading-relaxed max-w-xl">
-                                        Upload any PDF, PPTX, or DOCX. Our AI extracts key concepts and generates clear, detailed lessons.
+                                    <p className="text-slate-500 dark:text-slate-400 text-base md:text-lg font-medium leading-relaxed max-w-lg">
+                                        Upload PDFs, PowerPoints, or Word docs. Our AI transforms them into bite-sized lessons with practice quizzes.
                                     </p>
                                     <div className="pt-2">
                                         {uploadError && (
-                                            <div className="mb-4 p-3 bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 rounded-xl text-sm font-medium">
+                                            <div className="mb-4 p-3 bg-red-50 dark:bg-red-900/20 border border-red-100 dark:border-red-800 text-red-600 dark:text-red-400 rounded-xl text-sm font-medium">
                                                 {uploadError}
                                             </div>
                                         )}
@@ -348,171 +348,188 @@ const DashboardAnalysis = () => {
                                         <button
                                             onClick={handleUploadClick}
                                             disabled={uploading}
-                                            className="flex items-center justify-center gap-3 bg-primary hover:bg-primary-hover active:bg-primary-dark transition-all hover:-translate-y-0.5 text-white px-6 md:px-8 h-12 md:h-14 rounded-2xl text-base md:text-lg font-bold shadow-lg shadow-primary/25 hover:shadow-primary/40 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none w-full sm:w-fit"
+                                            className="flex items-center justify-center gap-2 bg-gradient-to-r from-primary to-purple-600 hover:from-primary-hover hover:to-purple-700 active:scale-95 transition-all text-white px-6 h-12 rounded-2xl text-base font-bold shadow-lg shadow-primary/25 hover:shadow-primary/40 disabled:opacity-50 disabled:cursor-not-allowed w-full sm:w-fit"
                                         >
-                                            <span className="material-symbols-outlined text-[26px] filled">
-                                                {uploading ? 'hourglass_empty' : 'add_circle'}
+                                            <span className="material-symbols-outlined text-[22px] filled">
+                                                {uploading ? 'hourglass_empty' : 'cloud_upload'}
                                             </span>
                                             {uploading ? 'Uploading...' : 'Upload Materials'}
                                         </button>
-                                        <p className="mt-4 text-xs font-semibold text-slate-400 dark:text-slate-500 ml-1 flex items-center gap-1">
-                                            <span className="material-symbols-outlined text-[16px]">verified_user</span>
-                                            Securely processed. Supports PDF, PPTX (Max 50MB)
+                                        <p className="mt-3 text-xs font-medium text-slate-400 dark:text-slate-500 flex items-center gap-1">
+                                            <span className="material-symbols-outlined text-[14px] text-green-500">verified</span>
+                                            Secure • PDF, PPTX, DOCX • Max 50MB
                                         </p>
                                     </div>
                                 </div>
                                 <div className="hidden md:flex items-center justify-center relative w-1/3">
-                                    <div className="w-56 h-56 bg-gradient-to-tr from-surface-light to-slate-100 dark:from-surface-dark dark:to-slate-800 rounded-[2.5rem] flex items-center justify-center shadow-inner relative z-10 rotate-3 transition-transform duration-500 group-hover:rotate-6 group-hover:scale-105 border border-white/50 dark:border-white/5">
-                                        <div className="absolute inset-0 bg-gradient-to-tr from-primary/5 to-transparent rounded-[2.5rem]"></div>
-                                        <span className="material-symbols-outlined text-[80px] text-primary drop-shadow-xl" style={{ fontVariationSettings: "'wght' 600" }}>cloud_upload</span>
+                                    <div className="w-48 h-48 bg-gradient-to-br from-white to-slate-100 dark:from-slate-800 dark:to-slate-900 rounded-[2rem] flex items-center justify-center shadow-xl relative z-10 rotate-3 border border-slate-200/50 dark:border-slate-700/50">
+                                        <div className="absolute inset-2 bg-gradient-to-br from-primary/10 to-purple-500/10 rounded-[1.75rem]"></div>
+                                        <span className="material-symbols-outlined text-[64px] text-primary relative z-10" style={{ fontVariationSettings: "'FILL' 1" }}>school</span>
                                     </div>
-                                    <div className="absolute -z-10 top-6 right-6 w-56 h-56 bg-primary/20 rounded-[2.5rem] -rotate-6 blur-sm"></div>
+                                    <div className="absolute -z-10 top-4 right-4 w-48 h-48 bg-gradient-to-br from-primary/30 to-purple-500/30 rounded-[2rem] -rotate-6 blur-xl"></div>
                                 </div>
                             </div>
                         </div>
                     </div>
-                    <div className="lg:col-span-4 flex flex-col h-full animate-slide-up animate-delay-100">
-                        <Link to="/dashboard/assignment-helper" className="relative h-full flex flex-col justify-between overflow-hidden rounded-2xl md:rounded-[2rem] bg-surface-light dark:bg-surface-dark border-2 border-transparent hover:border-primary/20 p-5 sm:p-8 shadow-soft transition-all duration-300 cursor-pointer group hover:shadow-xl hover:-translate-y-1">
-                            <div className="absolute right-[-40px] top-[-40px] h-64 w-64 rounded-full bg-gradient-to-br from-primary/10 to-transparent blur-3xl pointer-events-none transition-opacity group-hover:opacity-100 opacity-50"></div>
+                    <div className="lg:col-span-4 flex flex-col h-full animate-slide-up animate-delay-100 space-y-4">
+                        <Link to="/dashboard/assignment-helper" className="relative flex-1 flex flex-col justify-between overflow-hidden rounded-2xl bg-gradient-to-br from-blue-500 to-indigo-600 p-5 sm:p-6 shadow-lg shadow-blue-500/20 transition-all duration-300 cursor-pointer group hover:shadow-xl hover:shadow-blue-500/30 hover:-translate-y-1">
+                            <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full blur-2xl -translate-y-1/2 translate-x-1/2 group-hover:scale-150 transition-transform duration-500"></div>
+                            <div className="absolute bottom-0 left-0 w-24 h-24 bg-indigo-600/30 rounded-full blur-xl translate-y-1/2 -translate-x-1/2"></div>
                             <div className="relative z-10">
-                                <div className="w-14 h-14 rounded-2xl bg-primary/10 flex items-center justify-center text-primary mb-6 group-hover:bg-primary group-hover:text-white transition-colors duration-300 shadow-sm">
-                                    <span className="material-symbols-outlined text-[32px] filled">assignment</span>
+                                <div className="w-12 h-12 rounded-xl bg-white/20 backdrop-blur-sm flex items-center justify-center text-white mb-4">
+                                    <span className="material-symbols-outlined text-[28px] filled">assignment</span>
                                 </div>
-                                <h2 className="text-2xl md:text-3xl font-display font-extrabold text-slate-900 dark:text-white tracking-tight leading-tight mb-3">
-                                    Assignment <br />
-                                    <span className="text-primary">Helper</span>
+                                <h2 className="text-xl md:text-2xl font-display font-bold text-white tracking-tight leading-tight mb-2">
+                                    Assignment Helper
                                 </h2>
-                                <p className="text-slate-500 dark:text-slate-400 font-medium leading-relaxed mb-6">
-                                    Upload your assignment sheet or a photo and get direct answers with follow-up chat.
+                                <p className="text-white/80 text-sm leading-relaxed">
+                                    Upload assignment sheets and get AI-powered answers with chat.
                                 </p>
                             </div>
-                            <div className="relative z-10 mt-auto">
-                                <div className="w-full h-14 bg-slate-50 dark:bg-slate-800/50 border border-slate-200/50 dark:border-slate-700/50 hover:bg-white dark:hover:bg-slate-800 hover:border-primary/30 hover:text-primary transition-all text-slate-700 dark:text-slate-200 rounded-2xl text-base font-bold flex items-center justify-between px-6 group-hover:shadow-lg">
-                                    <span>Open Assignment Helper</span>
-                                    <span className="material-symbols-outlined text-[20px] group-hover:translate-x-1 transition-transform">arrow_forward</span>
+                            <div className="relative z-10 mt-4">
+                                <div className="flex items-center gap-2 text-white font-semibold text-sm group-hover:gap-3 transition-all">
+                                    <span>Open</span>
+                                    <span className="material-symbols-outlined text-lg group-hover:translate-x-1 transition-transform">arrow_forward</span>
                                 </div>
                             </div>
                         </Link>
-                        <Link to="/dashboard/humanizer" className="relative h-full flex flex-col justify-between overflow-hidden rounded-2xl md:rounded-[2rem] bg-surface-light dark:bg-surface-dark border-2 border-transparent hover:border-primary/20 p-5 sm:p-8 shadow-soft transition-all duration-300 cursor-pointer group hover:shadow-xl hover:-translate-y-1 mt-4">
-                            <div className="absolute right-[-40px] top-[-40px] h-64 w-64 rounded-full bg-gradient-to-br from-primary/10 to-transparent blur-3xl pointer-events-none transition-opacity group-hover:opacity-100 opacity-50"></div>
+                        <Link to="/dashboard/humanizer" className="relative flex-1 flex flex-col justify-between overflow-hidden rounded-2xl bg-gradient-to-br from-purple-500 to-pink-600 p-5 sm:p-6 shadow-lg shadow-purple-500/20 transition-all duration-300 cursor-pointer group hover:shadow-xl hover:shadow-purple-500/30 hover:-translate-y-1">
+                            <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full blur-2xl -translate-y-1/2 translate-x-1/2 group-hover:scale-150 transition-transform duration-500"></div>
+                            <div className="absolute bottom-0 left-0 w-24 h-24 bg-pink-600/30 rounded-full blur-xl translate-y-1/2 -translate-x-1/2"></div>
                             <div className="relative z-10">
-                                <div className="w-14 h-14 rounded-2xl bg-primary/10 flex items-center justify-center text-primary mb-6 group-hover:bg-primary group-hover:text-white transition-colors duration-300 shadow-sm">
-                                    <span className="material-symbols-outlined text-[32px] filled">auto_fix_high</span>
+                                <div className="flex items-center gap-2 mb-4">
+                                    <div className="w-12 h-12 rounded-xl bg-white/20 backdrop-blur-sm flex items-center justify-center text-white">
+                                        <span className="material-symbols-outlined text-[28px] filled">auto_fix_high</span>
+                                    </div>
+                                    <span className="px-2 py-0.5 bg-white/20 backdrop-blur-sm rounded-full text-[10px] font-bold text-white uppercase tracking-wider">New</span>
                                 </div>
-                                <h2 className="text-2xl md:text-3xl font-display font-extrabold text-slate-900 dark:text-white tracking-tight leading-tight mb-3">
-                                    AI <br />
-                                    <span className="text-primary">Humanizer</span>
+                                <h2 className="text-xl md:text-2xl font-display font-bold text-white tracking-tight leading-tight mb-2">
+                                    AI Humanizer
                                 </h2>
-                                <p className="text-slate-500 dark:text-slate-400 font-medium leading-relaxed mb-6">
-                                    Make AI-generated text appear naturally human-written and bypass AI detection.
+                                <p className="text-white/80 text-sm leading-relaxed">
+                                    Make AI text sound human and bypass detection tools.
                                 </p>
                             </div>
-                            <div className="relative z-10 mt-auto">
-                                <div className="w-full h-14 bg-slate-50 dark:bg-slate-800/50 border border-slate-200/50 dark:border-slate-700/50 hover:bg-white dark:hover:bg-slate-800 hover:border-primary/30 hover:text-primary transition-all text-slate-700 dark:text-slate-200 rounded-2xl text-base font-bold flex items-center justify-between px-6 group-hover:shadow-lg">
-                                    <span>Open Humanizer</span>
-                                    <span className="material-symbols-outlined text-[20px] group-hover:translate-x-1 transition-transform">arrow_forward</span>
+                            <div className="relative z-10 mt-4">
+                                <div className="flex items-center gap-2 text-white font-semibold text-sm group-hover:gap-3 transition-all">
+                                    <span>Try it</span>
+                                    <span className="material-symbols-outlined text-lg group-hover:translate-x-1 transition-transform">arrow_forward</span>
                                 </div>
                             </div>
                         </Link>
                     </div>
-                    <div className="col-span-1 lg:col-span-12 mt-4 animate-slide-up animate-delay-200">
-                        <div className="flex items-center justify-between mb-8 px-2">
+                    <div className="col-span-1 lg:col-span-12 mt-2 animate-slide-up animate-delay-200">
+                        <div className="flex items-center justify-between mb-6 px-1">
                             <div className="flex items-center gap-3">
-                                <div className="h-8 w-1 bg-primary rounded-full"></div>
-                                <h2 className="text-2xl font-display font-bold text-slate-900 dark:text-white tracking-tight">Jump back in</h2>
+                                <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-primary to-purple-600 flex items-center justify-center text-white shadow-lg shadow-primary/20">
+                                    <span className="material-symbols-outlined text-xl filled">history</span>
+                                </div>
+                                <div>
+                                    <h2 className="text-xl md:text-2xl font-display font-bold text-slate-900 dark:text-white tracking-tight">Continue Learning</h2>
+                                    <p className="text-slate-500 dark:text-slate-400 text-sm">Pick up where you left off</p>
+                                </div>
                             </div>
-                            <a className="text-slate-500 hover:text-primary font-bold text-sm transition-colors flex items-center gap-1 group" href="#">
-                                View all history
-                                <span className="material-symbols-outlined text-[18px] group-hover:translate-x-0.5 transition-transform">chevron_right</span>
+                            <a className="hidden sm:flex items-center gap-1 px-3 py-1.5 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 rounded-full text-slate-600 dark:text-slate-300 text-xs font-bold transition-colors" href="#">
+                                View all
+                                <span className="material-symbols-outlined text-[16px]">chevron_right</span>
                             </a>
                         </div>
-                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                             {displayCourses.length > 0 ? (
-                                displayCourses.map((course, index) => (
-                                    <Link
-                                        key={course._id}
-                                        to={`/dashboard/course/${course._id}`}
-                                        className="group flex flex-col bg-surface-light dark:bg-surface-dark rounded-[1.5rem] p-3 shadow-sm border border-slate-200/50 dark:border-slate-800 hover:shadow-xl hover:shadow-slate-200/50 dark:hover:shadow-black/20 hover:-translate-y-1 transition-all duration-300 cursor-pointer h-full"
-                                    >
-                                        <div className="relative w-full aspect-[4/3] rounded-2xl overflow-hidden bg-slate-100 dark:bg-slate-800 mb-4 shadow-inner">
-                                            <button
-                                                onClick={(event) => {
-                                                    event.preventDefault();
-                                                    event.stopPropagation();
-                                                    handleDeleteCourse(course);
-                                                }}
-                                                disabled={deletingCourseId === String(course._id)}
-                                                className="absolute top-3 right-3 z-20 inline-flex h-9 w-9 items-center justify-center rounded-full bg-white/95 dark:bg-slate-900/95 border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:text-red-600 hover:border-red-200 shadow-sm disabled:opacity-60 disabled:cursor-not-allowed"
-                                                title="Delete course"
-                                                aria-label={`Delete ${course.title}`}
-                                            >
-                                                <span className="material-symbols-outlined text-[20px]">
-                                                    {deletingCourseId === String(course._id) ? 'hourglass_empty' : 'delete'}
-                                                </span>
-                                            </button>
-                                            <div className="absolute bottom-0 left-0 w-full h-1 bg-slate-200 dark:bg-slate-700 z-10">
+                                displayCourses.map((course, index) => {
+                                    const isCompleted = course.status === 'completed';
+                                    const progress = course.progress || 0;
+                                    const isExcellent = progress >= 80;
+                                    const isGood = progress >= 50;
+                                    return (
+                                        <Link
+                                            key={course._id}
+                                            to={`/dashboard/course/${course._id}`}
+                                            className="group flex flex-col bg-white dark:bg-surface-dark rounded-2xl overflow-hidden shadow-sm border border-slate-200/60 dark:border-slate-800 hover:shadow-xl hover:shadow-slate-200/30 dark:hover:shadow-black/30 hover:-translate-y-1 transition-all duration-300 cursor-pointer h-full"
+                                        >
+                                            <div className="relative w-full aspect-[16/10] overflow-hidden bg-slate-100 dark:bg-slate-800">
+                                                <button
+                                                    onClick={(event) => {
+                                                        event.preventDefault();
+                                                        event.stopPropagation();
+                                                        handleDeleteCourse(course);
+                                                    }}
+                                                    disabled={deletingCourseId === String(course._id)}
+                                                    className="absolute top-2 right-2 z-20 inline-flex h-8 w-8 items-center justify-center rounded-full bg-white/90 dark:bg-slate-900/90 border border-slate-200 dark:border-slate-700 text-slate-500 hover:text-red-500 hover:border-red-200 shadow-sm opacity-0 group-hover:opacity-100 transition-opacity disabled:opacity-60"
+                                                    title="Delete course"
+                                                    aria-label={`Delete ${course.title}`}
+                                                >
+                                                    <span className="material-symbols-outlined text-[18px]">
+                                                        {deletingCourseId === String(course._id) ? 'hourglass_empty' : 'delete'}
+                                                    </span>
+                                                </button>
                                                 <div
-                                                    className="h-full bg-green-500 rounded-r-full shadow-[0_0_10px_rgba(34,197,94,0.5)]"
-                                                    style={{ width: `${course.progress || 0}%` }}
-                                                ></div>
+                                                    className="w-full h-full flex items-center justify-center transition-transform duration-500 group-hover:scale-105"
+                                                    style={{ background: course.coverColor || gradients[index % gradients.length] }}
+                                                >
+                                                    <span className="material-symbols-outlined text-white text-4xl drop-shadow-lg" style={{ fontVariationSettings: "'FILL' 1" }}>menu_book</span>
+                                                </div>
+                                                <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
                                             </div>
-                                            <div
-                                                className="w-full h-full flex items-center justify-center transition-transform duration-700 group-hover:scale-110"
-                                                style={{ background: course.coverColor || gradients[index % gradients.length] }}
-                                            >
-                                                <span className="material-symbols-outlined text-white text-5xl drop-shadow-lg">menu_book</span>
-                                            </div>
-                                            <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors duration-300"></div>
-                                            <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-300 backdrop-blur-[2px]">
-                                                <div className="w-14 h-14 bg-white/90 rounded-full flex items-center justify-center shadow-lg backdrop-blur-md transform scale-90 group-hover:scale-100 transition-transform">
-                                                    <span className="material-symbols-outlined text-primary text-[32px] ml-1 filled">play_arrow</span>
+                                            <div className="flex flex-col p-4 gap-3">
+                                                <div className="flex items-center justify-between">
+                                                    <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider ${isCompleted
+                                                        ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400'
+                                                        : 'bg-blue-50 text-blue-700 dark:bg-blue-900/20 dark:text-blue-400'
+                                                        }`}>
+                                                        {isCompleted ? 'Completed' : 'In Progress'}
+                                                    </span>
+                                                    <span className={`text-xs font-bold ${isExcellent ? 'text-green-600' : isGood ? 'text-blue-600' : 'text-slate-400'}`}>
+                                                        {progress}%
+                                                    </span>
+                                                </div>
+                                                <div className="flex-1">
+                                                    <h3 className="text-base font-bold text-slate-900 dark:text-white leading-tight mb-1 line-clamp-1 group-hover:text-primary transition-colors">{course.title}</h3>
+                                                    <p className="text-slate-500 dark:text-slate-400 text-xs line-clamp-2">{course.description}</p>
+                                                </div>
+                                                <div className="w-full h-1.5 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
+                                                    <div
+                                                        className={`h-full rounded-full transition-all duration-500 ${isExcellent ? 'bg-green-500' : isGood ? 'bg-blue-500' : 'bg-primary'}`}
+                                                        style={{ width: `${progress}%` }}
+                                                    ></div>
                                                 </div>
                                             </div>
-                                        </div>
-                                        <div className="flex flex-col px-2 pb-3 pt-1 gap-2">
-                                            <div className="flex items-center justify-between">
-                                                <span className={`text-[10px] font-bold px-2.5 py-1 rounded-lg uppercase tracking-wider ${course.status === 'completed'
-                                                    ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400'
-                                                    : 'bg-blue-50 text-blue-700 dark:bg-blue-900/20 dark:text-blue-400'
-                                                    }`}>
-                                                    {course.status === 'completed' ? 'Completed' : 'In Progress'}
-                                                </span>
-                                                <span className="text-slate-400 text-xs font-bold">{course.progress || 0}%</span>
-                                            </div>
-                                            <div>
-                                                <h3 className="text-lg font-bold text-slate-900 dark:text-white leading-tight mb-1 line-clamp-1 group-hover:text-primary transition-colors">{course.title}</h3>
-                                                <p className="text-slate-500 dark:text-slate-400 text-sm line-clamp-2">{course.description}</p>
-                                            </div>
-                                        </div>
-                                    </Link>
-                                ))
+                                        </Link>
+                                    );
+                                })
                             ) : (
-                                <div className="col-span-full py-16 text-center rounded-[2rem] border-2 border-dashed border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/50">
-                                    <div className="w-20 h-20 bg-slate-100 dark:bg-slate-800 rounded-full flex items-center justify-center mx-auto mb-4 text-slate-300 dark:text-slate-600">
-                                        <span className="material-symbols-outlined text-4xl">school</span>
+                                <div className="col-span-full py-12 text-center rounded-2xl border border-dashed border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/30">
+                                    <div className="w-16 h-16 bg-gradient-to-br from-slate-100 to-slate-200 dark:from-slate-800 dark:to-slate-700 rounded-2xl flex items-center justify-center mx-auto mb-3 text-slate-400">
+                                        <span className="material-symbols-outlined text-3xl">school</span>
                                     </div>
-                                    <h3 className="text-lg font-bold text-slate-900 dark:text-white mb-1">
+                                    <h3 className="text-base font-bold text-slate-900 dark:text-white mb-1">
                                         {normalizedSearch ? 'No matching courses' : 'No courses yet'}
                                     </h3>
-                                    <p className="text-slate-500 dark:text-slate-400 mb-6 max-w-xs mx-auto">
+                                    <p className="text-slate-500 dark:text-slate-400 text-sm mb-4 max-w-xs mx-auto">
                                         {normalizedSearch
                                             ? 'Try a different keyword or clear your search.'
-                                            : 'Upload your first study material above to get started!'}
+                                            : 'Upload your first study material to get started!'}
                                     </p>
                                     {!normalizedSearch && (
-                                        <button onClick={handleUploadClick} className="text-primary font-bold hover:underline">Upload Now</button>
+                                        <button 
+                                            onClick={handleUploadClick} 
+                                            className="inline-flex items-center gap-1 px-4 py-2 bg-primary text-white text-sm font-bold rounded-full hover:bg-primary-hover transition-colors"
+                                        >
+                                            <span className="material-symbols-outlined text-[18px]">cloud_upload</span>
+                                            Upload Now
+                                        </button>
                                     )}
                                 </div>
                             )}
                             <div
                                 onClick={handleUploadClick}
-                                className="flex flex-col items-center justify-center bg-transparent rounded-[1.5rem] border-2 border-dashed border-slate-300 dark:border-slate-700 text-slate-400 hover:border-primary hover:bg-primary/5 hover:text-primary transition-all duration-300 cursor-pointer min-h-[260px] group h-full"
+                                className="flex flex-col items-center justify-center bg-slate-50 dark:bg-slate-800/50 rounded-2xl border-2 border-dashed border-slate-300 dark:border-slate-700 text-slate-500 hover:border-primary hover:bg-primary/5 hover:text-primary transition-all duration-300 cursor-pointer min-h-[220px] group h-full"
                             >
-                                <div className="w-16 h-16 rounded-2xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center shadow-sm mb-4 group-hover:scale-110 group-hover:rotate-90 transition-all duration-500 group-hover:bg-primary group-hover:text-white">
-                                    <span className="material-symbols-outlined text-[32px]">add</span>
+                                <div className="w-14 h-14 rounded-xl bg-white dark:bg-slate-800 shadow-sm flex items-center justify-center mb-3 group-hover:scale-110 transition-transform duration-300">
+                                    <span className="material-symbols-outlined text-2xl text-primary">add</span>
                                 </div>
-                                <span className="font-bold text-lg">Add New Course</span>
-                                <span className="text-xs font-medium opacity-60 mt-1">PDF, PPTX or Word</span>
+                                <span className="font-bold text-base">Add New Course</span>
+                                <span className="text-xs text-slate-400 mt-1">PDF, PPTX, DOCX</span>
                             </div>
                         </div>
                         {deleteError && (

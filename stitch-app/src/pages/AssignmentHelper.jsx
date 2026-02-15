@@ -64,11 +64,7 @@ const formatRelativeTime = (timestamp) => {
     return `${Math.floor(delta / day)}d ago`;
 };
 
-const statusLabelMap = {
-    processing: 'Processing',
-    ready: 'Ready',
-    error: 'Error',
-};
+
 
 const PROCESSING_STAGES = [
     {
@@ -115,17 +111,14 @@ const AssignmentHelper = () => {
     const [sending, setSending] = useState(false);
     const [error, setError] = useState('');
     const [successMessage, setSuccessMessage] = useState('');
-    const [renamingThreadId, setRenamingThreadId] = useState('');
     const [deletingThreadId, setDeletingThreadId] = useState('');
     const [processingStageIndex, setProcessingStageIndex] = useState(0);
-    const [activeUploadName, setActiveUploadName] = useState('');
     const uploadInputRef = useRef(null);
     const cameraInputRef = useRef(null);
     const endRef = useRef(null);
 
     const generateUploadUrl = useMutation(api.uploads.generateUploadUrl);
     const createThreadFromUpload = useMutation(api.assignments.createThreadFromUpload);
-    const renameThread = useMutation(api.assignments.renameThread);
     const deleteThread = useMutation(api.assignments.deleteThread);
     const processAssignmentThread = useAction(api.ai.processAssignmentThread);
     const askAssignmentFollowUp = useAction(api.ai.askAssignmentFollowUp);
@@ -229,7 +222,6 @@ const AssignmentHelper = () => {
             file,
         });
         let currentStage = 'request_upload_url';
-        setActiveUploadName(file.name || '');
         setProcessingStageIndex(0);
         setBusy(true);
         reportUploadFlowStarted(uploadObservation);
@@ -304,7 +296,6 @@ const AssignmentHelper = () => {
             setError(uploadError?.message || 'Could not process assignment. Please try again.');
         } finally {
             setBusy(false);
-            setActiveUploadName('');
         }
     };
 
@@ -312,34 +303,6 @@ const AssignmentHelper = () => {
         const file = event.target.files?.[0];
         await uploadAndProcessFile(file);
         event.target.value = '';
-    };
-
-    const handleRenameThread = async (thread) => {
-        if (!userId || !thread?._id) return;
-
-        const nextTitle = window.prompt('Rename thread', thread.title || '');
-        if (nextTitle === null) return;
-
-        const trimmed = nextTitle.trim();
-        if (!trimmed) {
-            setError('Thread title cannot be empty.');
-            return;
-        }
-
-        setRenamingThreadId(String(thread._id));
-        setError('');
-        try {
-            await renameThread({
-                userId,
-                threadId: thread._id,
-                title: trimmed,
-            });
-            setSuccessMessage('Thread renamed.');
-        } catch (renameError) {
-            setError(renameError?.message || 'Could not rename this thread.');
-        } finally {
-            setRenamingThreadId('');
-        }
     };
 
     const handleDeleteThread = async (thread) => {
@@ -398,34 +361,36 @@ const AssignmentHelper = () => {
     return (
         <div className="bg-background-light dark:bg-background-dark font-body antialiased min-h-screen flex flex-col">
             <header className="sticky top-0 z-50 w-full glass border-b border-slate-200/50 dark:border-slate-800/50">
-                <div className="max-w-[1600px] mx-auto px-4 md:px-6 h-auto md:h-20 py-3 md:py-0 flex flex-col md:flex-row items-start md:items-center justify-between gap-3 md:gap-6">
-                    <div className="flex items-center gap-4">
-                        <Link to="/dashboard" className="flex size-10 items-center justify-center rounded-full bg-slate-100 dark:bg-slate-800 text-slate-500 hover:text-primary transition-colors">
-                            <span className="material-symbols-outlined">arrow_back</span>
+                <div className="max-w-[1600px] mx-auto px-4 md:px-6 h-16 md:h-18 flex items-center justify-between gap-4">
+                    <div className="flex items-center gap-3">
+                        <Link to="/dashboard" className="flex size-9 items-center justify-center rounded-full bg-slate-100 dark:bg-slate-800 text-slate-500 hover:text-primary hover:bg-slate-200 transition-colors">
+                            <span className="material-symbols-outlined text-[20px]">arrow_back</span>
                         </Link>
-                        <div>
-                            <h1 className="text-lg md:text-xl font-display font-bold text-slate-900 dark:text-white tracking-tight">Assignment Helper</h1>
-                            <p className="text-xs md:text-sm text-slate-500 dark:text-slate-400 hidden sm:block">Upload a question sheet or photo, then chat for follow-ups.</p>
+                        <div className="flex items-center gap-2">
+                            <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-white">
+                                <span className="material-symbols-outlined text-[18px] filled">assignment</span>
+                            </div>
+                            <h1 className="text-base md:text-lg font-display font-bold text-slate-900 dark:text-white">Assignment Helper</h1>
                         </div>
                     </div>
-                    <div className="flex items-center gap-3">
+                    <div className="flex items-center gap-2">
                         <button
                             type="button"
                             onClick={handleCameraClick}
                             disabled={busy}
-                            className="inline-flex items-center gap-2 h-11 px-4 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 font-semibold hover:border-primary/40 hover:text-primary transition-colors disabled:opacity-60"
+                            className="inline-flex items-center gap-1.5 h-9 px-3 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 text-sm font-medium hover:border-primary/30 hover:text-primary transition-colors disabled:opacity-60"
                         >
-                            <span className="material-symbols-outlined text-[20px]">photo_camera</span>
-                            <span className="hidden sm:inline">Take Picture</span>
+                            <span className="material-symbols-outlined text-[18px]">photo_camera</span>
+                            <span className="hidden sm:inline">Camera</span>
                         </button>
                         <button
                             type="button"
                             onClick={handleUploadClick}
                             disabled={busy}
-                            className="inline-flex items-center gap-2 h-11 px-4 rounded-xl bg-primary text-white font-bold shadow-lg shadow-primary/20 hover:bg-primary/90 transition-colors disabled:opacity-60"
+                            className="inline-flex items-center gap-1.5 h-9 px-3 rounded-lg bg-gradient-to-r from-blue-500 to-indigo-600 text-white text-sm font-semibold shadow-md shadow-blue-500/20 hover:shadow-lg hover:shadow-blue-500/30 transition-all disabled:opacity-60"
                         >
-                            <span className="material-symbols-outlined text-[20px]">{busy ? 'hourglass_empty' : 'upload_file'}</span>
-                            <span className="hidden sm:inline">{busy ? 'Processing...' : 'Upload Assignment'}</span>
+                            <span className="material-symbols-outlined text-[18px]">{busy ? 'hourglass_empty' : 'upload_file'}</span>
+                            <span className="hidden sm:inline">{busy ? 'Processing...' : 'Upload'}</span>
                         </button>
                     </div>
                 </div>
@@ -463,77 +428,81 @@ const AssignmentHelper = () => {
                     </div>
                 )}
 
-                <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 min-h-[72vh]">
-                    <aside className="lg:col-span-4 xl:col-span-3 rounded-2xl md:rounded-3xl border border-slate-200 dark:border-slate-800 bg-surface-light dark:bg-surface-dark shadow-soft p-4 md:p-5 max-h-[40vh] lg:max-h-none overflow-y-auto">
-                        <div className="flex items-center justify-between mb-4">
-                            <h2 className="text-sm font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Threads</h2>
-                            <span className="text-xs font-semibold text-slate-400">{sortedThreads.length}</span>
+                <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 min-h-[72vh]">
+                    <aside className="lg:col-span-4 xl:col-span-3 rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-sm flex flex-col max-h-[35vh] lg:max-h-none overflow-hidden">
+                        <div className="flex items-center justify-between p-4 border-b border-slate-100 dark:border-slate-800">
+                            <div className="flex items-center gap-2">
+                                <span className="material-symbols-outlined text-slate-400 text-lg">forum</span>
+                                <h2 className="text-sm font-semibold text-slate-700 dark:text-slate-300">Conversations</h2>
+                            </div>
+                            <span className="text-xs font-medium px-2 py-0.5 bg-slate-100 dark:bg-slate-800 text-slate-500 rounded-full">{sortedThreads.length}</span>
                         </div>
-                        <div className="space-y-3 max-h-[64vh] overflow-y-auto pr-1">
+                        <div className="flex-1 overflow-y-auto p-3 space-y-2">
                             {sortedThreads.length === 0 ? (
-                                <div className="rounded-2xl border border-dashed border-slate-300 dark:border-slate-700 px-4 py-8 text-center">
-                                    <span className="material-symbols-outlined text-3xl text-slate-300 dark:text-slate-600">forum</span>
-                                    <p className="mt-2 text-sm font-medium text-slate-500 dark:text-slate-400">No threads yet</p>
-                                    <p className="text-xs text-slate-400 dark:text-slate-500 mt-1">Upload an assignment to start.</p>
+                                <div className="h-full flex flex-col items-center justify-center text-center px-4 py-8">
+                                    <div className="w-14 h-14 rounded-xl bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 flex items-center justify-center mb-3">
+                                        <span className="material-symbols-outlined text-2xl text-blue-400">chat_add_on</span>
+                                    </div>
+                                    <p className="text-sm font-semibold text-slate-700 dark:text-slate-300">No assignments yet</p>
+                                    <p className="text-xs text-slate-500 mt-1 max-w-[200px]">Upload your first assignment to get started</p>
                                 </div>
                             ) : (
                                 sortedThreads.map((thread) => {
                                     const isActive = String(selectedThreadId) === String(thread._id);
+                                    const isDeleting = deletingThreadId === String(thread._id);
                                     return (
                                         <div
                                             key={thread._id}
-                                            className={`rounded-2xl border transition-all ${isActive
-                                                ? 'border-primary/40 bg-primary/5'
-                                                : 'border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900/40 hover:border-primary/20'
-                                                }`}
+                                            className={`group rounded-xl p-3 transition-all relative ${isActive
+                                                ? 'bg-blue-50 dark:bg-blue-900/20 border-2 border-blue-500 shadow-sm'
+                                                : 'bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 hover:border-blue-300 dark:hover:border-blue-700'
+                                                } ${isDeleting ? 'opacity-50' : ''}`}
                                         >
                                             <button
                                                 type="button"
-                                                onClick={() => setSelectedThreadId(thread._id)}
-                                                className="w-full text-left px-4 pt-3 pb-2"
+                                                onClick={() => !isDeleting && setSelectedThreadId(thread._id)}
+                                                disabled={isDeleting}
+                                                className="w-full text-left"
                                             >
-                                                <div className="flex items-start justify-between gap-3">
-                                                    <div className="min-w-0">
-                                                        <h3 className="text-sm font-bold text-slate-900 dark:text-white truncate">{thread.title}</h3>
-                                                        <p className="text-xs text-slate-500 dark:text-slate-400 truncate">{thread.fileName}</p>
+                                                <div className="flex items-start gap-3">
+                                                    <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 transition-colors ${isActive ? 'bg-gradient-to-br from-blue-500 to-indigo-600 text-white shadow-md shadow-blue-500/20' : 'bg-slate-100 dark:bg-slate-800 text-slate-500'}`}>
+                                                        <span className="material-symbols-outlined text-xl">description</span>
                                                     </div>
-                                                    <span className={`text-[10px] font-bold px-2 py-1 rounded-full ${thread.status === 'ready'
-                                                        ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300'
-                                                        : thread.status === 'error'
-                                                            ? 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300'
-                                                            : 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300'
-                                                        }`}>
-                                                        {statusLabelMap[thread.status] || thread.status}
-                                                    </span>
-                                                </div>
-                                                <div className="mt-2 text-[11px] text-slate-400 dark:text-slate-500">
-                                                    Updated {formatRelativeTime(thread.updatedAt)}
+                                                    <div className="flex-1 min-w-0 pr-6">
+                                                        <div className="flex items-center gap-2">
+                                                            <h3 className={`text-sm font-semibold truncate ${isActive ? 'text-blue-700 dark:text-blue-400' : 'text-slate-900 dark:text-white'}`}>
+                                                                {thread.title}
+                                                            </h3>
+                                                        </div>
+                                                        <p className="text-xs text-slate-500 truncate mt-0.5">{thread.fileName}</p>
+                                                        <div className="flex items-center gap-2 mt-1.5">
+                                                            <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded-full ${thread.status === 'ready'
+                                                                ? 'bg-green-100 text-green-700'
+                                                                : thread.status === 'error'
+                                                                    ? 'bg-red-100 text-red-700'
+                                                                    : 'bg-amber-100 text-amber-700'
+                                                                }`}>
+                                                                {thread.status === 'ready' ? 'Ready' : thread.status === 'error' ? 'Failed' : 'Processing'}
+                                                            </span>
+                                                            <span className="text-[10px] text-slate-400">{formatRelativeTime(thread.updatedAt)}</span>
+                                                        </div>
+                                                    </div>
                                                 </div>
                                             </button>
-                                            <div className="flex items-center justify-end gap-2 px-3 pb-3">
-                                                <button
-                                                    type="button"
-                                                    onClick={() => handleRenameThread(thread)}
-                                                    disabled={renamingThreadId === String(thread._id) || deletingThreadId === String(thread._id)}
-                                                    className="h-8 w-8 inline-flex items-center justify-center rounded-full text-slate-500 hover:text-primary hover:bg-primary/10 transition-colors disabled:opacity-50"
-                                                    title="Rename thread"
-                                                >
-                                                    <span className="material-symbols-outlined text-[18px]">
-                                                        {renamingThreadId === String(thread._id) ? 'hourglass_empty' : 'edit'}
-                                                    </span>
-                                                </button>
-                                                <button
-                                                    type="button"
-                                                    onClick={() => handleDeleteThread(thread)}
-                                                    disabled={deletingThreadId === String(thread._id) || renamingThreadId === String(thread._id)}
-                                                    className="h-8 w-8 inline-flex items-center justify-center rounded-full text-slate-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors disabled:opacity-50"
-                                                    title="Delete thread"
-                                                >
-                                                    <span className="material-symbols-outlined text-[18px]">
-                                                        {deletingThreadId === String(thread._id) ? 'hourglass_empty' : 'delete'}
-                                                    </span>
-                                                </button>
-                                            </div>
+                                            <button
+                                                type="button"
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    handleDeleteThread(thread);
+                                                }}
+                                                disabled={isDeleting}
+                                                className="absolute right-2 top-2 w-7 h-7 flex items-center justify-center rounded-lg text-slate-400 hover:text-red-500 hover:bg-red-50 opacity-0 group-hover:opacity-100 transition-all"
+                                                title="Delete conversation"
+                                            >
+                                                <span className="material-symbols-outlined text-lg">
+                                                    {isDeleting ? 'hourglass_empty' : 'close'}
+                                                </span>
+                                            </button>
                                         </div>
                                     );
                                 })
@@ -541,94 +510,110 @@ const AssignmentHelper = () => {
                         </div>
                     </aside>
 
-                    <section className="lg:col-span-8 xl:col-span-9 rounded-3xl border border-slate-200 dark:border-slate-800 bg-surface-light dark:bg-surface-dark shadow-soft flex flex-col min-h-[72vh]">
+                    <section className="lg:col-span-8 xl:col-span-9 rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-sm flex flex-col min-h-[72vh] overflow-hidden">
                         {!selectedThread ? (
-                            <div className="flex-1 flex flex-col items-center justify-center text-center px-8 py-16">
-                                <div className="w-20 h-20 rounded-2xl bg-primary/10 text-primary inline-flex items-center justify-center mb-4">
-                                    <span className="material-symbols-outlined text-4xl">assignment</span>
+                            <div className="flex-1 flex flex-col items-center justify-center text-center px-6 py-16">
+                                <div className="relative mb-6">
+                                    <div className="absolute inset-0 bg-gradient-to-br from-blue-400 to-indigo-600 rounded-3xl blur-2xl opacity-20"></div>
+                                    <div className="relative w-20 h-20 rounded-2xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-white shadow-xl shadow-blue-500/30">
+                                        <span className="material-symbols-outlined text-4xl">assignment</span>
+                                    </div>
                                 </div>
-                                <h2 className="text-2xl font-display font-extrabold text-slate-900 dark:text-white">Start with an Assignment</h2>
-                                <p className="text-slate-500 dark:text-slate-400 mt-2 max-w-md">
-                                    Upload a PDF, DOCX, or assignment photo to get direct answers and continue with follow-up questions.
+                                <h2 className="text-xl font-bold text-slate-900 dark:text-white mb-2">Start with an Assignment</h2>
+                                <p className="text-slate-500 dark:text-slate-400 text-sm max-w-xs mb-8">
+                                    Upload a PDF, DOCX, or photo. Our AI will solve it and you can ask follow-up questions.
                                 </p>
-                                <div className="mt-6 flex flex-wrap items-center justify-center gap-3">
+                                <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 w-full sm:w-auto max-w-xs sm:max-w-none">
                                     <button
                                         type="button"
                                         onClick={handleUploadClick}
                                         disabled={busy}
-                                        className="inline-flex items-center gap-2 h-11 px-4 rounded-xl bg-primary text-white font-bold shadow-lg shadow-primary/20 hover:bg-primary/90 transition-colors disabled:opacity-60"
+                                        className="flex-1 sm:flex-none inline-flex items-center justify-center gap-2 h-11 px-6 rounded-xl bg-gradient-to-r from-blue-500 to-indigo-600 text-white text-sm font-semibold shadow-lg shadow-blue-500/25 hover:shadow-xl hover:shadow-blue-500/30 hover:-translate-y-0.5 active:translate-y-0 transition-all disabled:opacity-60 disabled:transform-none"
                                     >
-                                        <span className="material-symbols-outlined text-[20px]">{busy ? 'hourglass_empty' : 'upload_file'}</span>
-                                        Upload Assignment
+                                        <span className="material-symbols-outlined text-lg">{busy ? 'hourglass_empty' : 'upload_file'}</span>
+                                        Upload File
                                     </button>
                                     <button
                                         type="button"
                                         onClick={handleCameraClick}
                                         disabled={busy}
-                                        className="inline-flex items-center gap-2 h-11 px-4 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 font-semibold hover:border-primary/40 hover:text-primary transition-colors disabled:opacity-60"
+                                        className="flex-1 sm:flex-none inline-flex items-center justify-center gap-2 h-11 px-6 rounded-xl border-2 border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 text-sm font-semibold hover:border-blue-400 hover:text-blue-600 dark:hover:border-blue-500 dark:hover:text-blue-400 transition-all disabled:opacity-60"
                                     >
-                                        <span className="material-symbols-outlined text-[20px]">photo_camera</span>
-                                        Take Picture
+                                        <span className="material-symbols-outlined text-lg">photo_camera</span>
+                                        Take Photo
                                     </button>
+                                </div>
+                                <div className="mt-6 flex items-center gap-4 text-xs text-slate-400">
+                                    <span className="flex items-center gap-1">
+                                        <span className="material-symbols-outlined text-sm">check_circle</span>
+                                        PDF
+                                    </span>
+                                    <span className="flex items-center gap-1">
+                                        <span className="material-symbols-outlined text-sm">check_circle</span>
+                                        DOCX
+                                    </span>
+                                    <span className="flex items-center gap-1">
+                                        <span className="material-symbols-outlined text-sm">check_circle</span>
+                                        Images
+                                    </span>
                                 </div>
                             </div>
                         ) : (
                             <>
-                                <div className="px-6 py-5 border-b border-slate-200 dark:border-slate-800">
-                                    <div className="flex items-start justify-between gap-4">
-                                        <div>
-                                            <h2 className="text-lg md:text-xl font-display font-bold text-slate-900 dark:text-white">{selectedThread.title}</h2>
-                                            <p className="text-sm text-slate-500 dark:text-slate-400 mt-1 truncate">{selectedThread.fileName}</p>
+                                <div className="px-4 py-3 border-b border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900">
+                                    <div className="flex items-center gap-3">
+                                        <div className="w-9 h-9 rounded-lg bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-white shrink-0 shadow-md shadow-blue-500/20">
+                                            <span className="material-symbols-outlined text-lg">description</span>
                                         </div>
-                                        <span className={`text-xs font-bold px-3 py-1.5 rounded-full ${threadStatus === 'ready'
-                                            ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300'
-                                            : threadStatus === 'error'
-                                                ? 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300'
-                                                : 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300'
-                                            }`}>
-                                            {statusLabelMap[threadStatus] || threadStatus}
-                                        </span>
+                                        <div className="flex-1 min-w-0">
+                                            <h2 className="text-sm font-semibold text-slate-900 dark:text-white truncate">{selectedThread.title}</h2>
+                                            <div className="flex items-center gap-2">
+                                                <p className="text-xs text-slate-500 truncate">{selectedThread.fileName}</p>
+                                                <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded-full ${threadStatus === 'ready'
+                                                    ? 'bg-green-100 text-green-700'
+                                                    : threadStatus === 'error'
+                                                        ? 'bg-red-100 text-red-700'
+                                                        : 'bg-amber-100 text-amber-700'
+                                                    }`}>
+                                                    {threadStatus === 'ready' ? 'Ready' : threadStatus === 'error' ? 'Failed' : 'Processing'}
+                                                </span>
+                                            </div>
+                                        </div>
                                     </div>
                                 </div>
 
-                                <div className="flex-1 overflow-y-auto px-6 py-5 space-y-4">
+                                <div className="flex-1 overflow-y-auto px-4 py-4 space-y-4 bg-slate-50/50 dark:bg-slate-900/30">
                                     {isThreadProcessing && (
-                                        <div className="rounded-2xl border border-primary/20 bg-gradient-to-r from-primary/10 via-violet-50 to-sky-50 dark:from-primary/15 dark:via-slate-900 dark:to-slate-900 px-4 py-4">
+                                        <div className="rounded-xl bg-white dark:bg-slate-800 border border-blue-100 dark:border-blue-900/30 p-4 shadow-sm">
                                             <div className="flex items-start gap-3">
-                                                <div className="relative mt-0.5 flex h-10 w-10 items-center justify-center rounded-xl bg-white/70 text-primary shadow-sm">
-                                                    <span className="absolute inset-0 rounded-xl border border-primary/20 animate-ping"></span>
-                                                    <span className="material-symbols-outlined relative text-[20px]">auto_awesome</span>
+                                                <div className="relative flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-blue-500 to-indigo-600 text-white shadow-lg shadow-blue-500/25 shrink-0">
+                                                    <span className="material-symbols-outlined text-lg animate-pulse">auto_awesome</span>
                                                 </div>
-                                                <div>
-                                                    <p className="text-sm font-bold text-slate-900 dark:text-slate-100">Working on your assignment</p>
-                                                    <p className="text-xs font-medium text-slate-600 dark:text-slate-300 mt-0.5">
-                                                        {currentProcessingStage.title}: {currentProcessingStage.detail}
+                                                <div className="flex-1">
+                                                    <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">AI is solving your assignment</p>
+                                                    <p className="text-xs text-slate-500 mt-0.5">
+                                                        {currentProcessingStage.detail}
                                                     </p>
-                                                    {activeUploadName && (
-                                                        <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1">
-                                                            File: {activeUploadName}
-                                                        </p>
-                                                    )}
                                                 </div>
                                             </div>
 
-                                            <div className="mt-4 space-y-2">
+                                            <div className="mt-4 flex items-center gap-2">
                                                 {PROCESSING_STAGES.map((stage, index) => {
                                                     const isDone = index < processingStageIndex;
                                                     const isActive = index === processingStageIndex;
                                                     return (
-                                                        <div key={stage.title} className="flex items-center gap-2">
-                                                            <span className={`inline-flex h-5 w-5 items-center justify-center rounded-full border text-[11px] font-bold ${isDone
-                                                                ? 'border-emerald-300 bg-emerald-100 text-emerald-700 dark:border-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300'
+                                                        <div key={stage.title} className="flex items-center gap-1.5">
+                                                            <div className={`w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold ${isDone
+                                                                ? 'bg-green-100 text-green-600'
                                                                 : isActive
-                                                                    ? 'border-primary/40 bg-primary/15 text-primary'
-                                                                    : 'border-slate-300 bg-white/80 text-slate-400 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-500'
+                                                                    ? 'bg-blue-500 text-white animate-pulse'
+                                                                    : 'bg-slate-100 text-slate-400'
                                                                 }`}>
                                                                 {isDone ? '✓' : index + 1}
-                                                            </span>
-                                                            <span className={`text-xs font-semibold ${isActive ? 'text-slate-800 dark:text-slate-100' : 'text-slate-500 dark:text-slate-400'}`}>
-                                                                {stage.title}
-                                                            </span>
+                                                            </div>
+                                                            {index < PROCESSING_STAGES.length - 1 && (
+                                                                <div className={`w-6 h-0.5 ${isDone ? 'bg-green-200' : 'bg-slate-100'}`}></div>
+                                                            )}
                                                         </div>
                                                     );
                                                 })}
@@ -636,34 +621,75 @@ const AssignmentHelper = () => {
                                         </div>
                                     )}
                                     {messages.length === 0 && threadStatus === 'error' && (
-                                        <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-medium text-red-700">
-                                            {selectedThread.errorMessage || 'Could not process this assignment. Upload a clearer file and try again.'}
+                                        <div className="rounded-xl bg-red-50 dark:bg-red-900/10 border border-red-100 dark:border-red-900/30 px-4 py-4">
+                                            <div className="flex items-start gap-3">
+                                                <div className="w-10 h-10 rounded-full bg-red-100 flex items-center justify-center shrink-0">
+                                                    <span className="material-symbols-outlined text-red-500 text-xl">error</span>
+                                                </div>
+                                                <div>
+                                                    <p className="text-sm font-semibold text-red-700 dark:text-red-400">Processing Failed</p>
+                                                    <p className="text-xs text-red-600 dark:text-red-300 mt-1">
+                                                        {selectedThread.errorMessage || 'Could not process this assignment. Try uploading a clearer file or taking a better photo.'}
+                                                    </p>
+                                                </div>
+                                            </div>
                                         </div>
                                     )}
-                                    {messages.map((message) => {
+                                    {messages.length === 0 && threadStatus === 'processing' && (
+                                        <div className="flex flex-col items-center justify-center py-12 text-center">
+                                            <div className="w-16 h-16 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center mb-3">
+                                                <span className="material-symbols-outlined text-3xl text-slate-400 animate-pulse">hourglass_empty</span>
+                                            </div>
+                                            <p className="text-sm font-medium text-slate-600 dark:text-slate-400">Assignment is being processed</p>
+                                            <p className="text-xs text-slate-400 mt-1">Answers will appear here soon</p>
+                                        </div>
+                                    )}
+                                    {messages.map((message, index) => {
                                         const isAssistant = message.role === 'assistant';
                                         const displayContent = isAssistant
                                             ? (normalizeAssistantDisplayText(message.content) || message.content)
                                             : message.content;
+                                        const showAvatar = index === 0 || messages[index - 1].role !== message.role;
                                         return (
                                             <div
                                                 key={message._id}
-                                                className={`flex ${isAssistant ? 'justify-start' : 'justify-end'}`}
+                                                className={`flex ${isAssistant ? 'justify-start' : 'justify-end'} gap-2`}
                                             >
-                                                <div className={`max-w-[90%] md:max-w-[78%] rounded-2xl px-4 py-3 border whitespace-pre-wrap text-sm leading-relaxed ${isAssistant
-                                                    ? 'bg-slate-50 dark:bg-slate-900/60 border-slate-200 dark:border-slate-700 text-slate-800 dark:text-slate-100'
-                                                    : 'bg-primary text-white border-primary/40'
+                                                {isAssistant && showAvatar && (
+                                                    <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-white shrink-0 mt-1">
+                                                        <span className="material-symbols-outlined text-sm">smart_toy</span>
+                                                    </div>
+                                                )}
+                                                <div className={`max-w-[85%] md:max-w-[75%] rounded-2xl px-4 py-3 whitespace-pre-wrap text-sm leading-relaxed shadow-sm ${isAssistant
+                                                    ? 'bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-800 dark:text-slate-100 rounded-tl-sm'
+                                                    : 'bg-gradient-to-r from-blue-500 to-indigo-600 text-white rounded-tr-sm'
                                                     }`}>
-                                                    {displayContent}
+                                                    <div className="prose prose-sm max-w-none dark:prose-invert">
+                                                        {displayContent.split('\n').map((paragraph, i) => (
+                                                            <p key={i} className={i > 0 ? 'mt-2' : ''}>
+                                                                {paragraph}
+                                                            </p>
+                                                        ))}
+                                                    </div>
                                                     {isAssistant && displayContent && (
-                                                        <button
-                                                            type="button"
-                                                            onClick={() => navigate('/dashboard/humanizer', { state: { text: displayContent } })}
-                                                            className="mt-2 inline-flex items-center gap-1 text-xs font-medium text-primary hover:text-primary/80 transition-colors"
-                                                        >
-                                                            <span className="material-symbols-outlined text-[14px]">auto_fix_high</span>
-                                                            Humanize this
-                                                        </button>
+                                                        <div className="mt-3 pt-3 border-t border-slate-100 dark:border-slate-700 flex items-center gap-2">
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => navigate('/dashboard/humanizer', { state: { text: displayContent } })}
+                                                                className="inline-flex items-center gap-1.5 text-xs font-medium text-blue-600 hover:text-blue-700 bg-blue-50 hover:bg-blue-100 dark:bg-blue-900/20 dark:hover:bg-blue-900/30 px-3 py-1.5 rounded-lg transition-colors"
+                                                            >
+                                                                <span className="material-symbols-outlined text-[14px]">auto_fix_high</span>
+                                                                Humanize
+                                                            </button>
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => navigator.clipboard.writeText(displayContent)}
+                                                                className="inline-flex items-center gap-1.5 text-xs font-medium text-slate-500 hover:text-slate-700 bg-slate-100 hover:bg-slate-200 dark:bg-slate-700 dark:hover:bg-slate-600 px-3 py-1.5 rounded-lg transition-colors"
+                                                            >
+                                                                <span className="material-symbols-outlined text-[14px]">content_copy</span>
+                                                                Copy
+                                                            </button>
+                                                        </div>
                                                     )}
                                                 </div>
                                             </div>
@@ -671,17 +697,20 @@ const AssignmentHelper = () => {
                                     })}
                                     {sending && (
                                         <div className="flex justify-start">
-                                            <div className="max-w-[90%] md:max-w-[78%] rounded-2xl px-4 py-3 border bg-slate-50 dark:bg-slate-900/60 border-slate-200 dark:border-slate-700">
+                                            <div className="max-w-[92%] md:max-w-[80%] rounded-2xl px-4 py-3 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 shadow-sm">
                                                 <div className="flex items-center gap-2">
-                                                    <span className="text-xs font-semibold text-slate-600 dark:text-slate-300">
-                                                        StudyMate is typing
+                                                    <div className="w-6 h-6 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center">
+                                                        <span className="material-symbols-outlined text-white text-xs">smart_toy</span>
+                                                    </div>
+                                                    <span className="text-xs text-slate-500">
+                                                        AI is thinking
                                                     </span>
                                                     <div className="flex items-center gap-1">
                                                         {[0, 1, 2].map((dot) => (
                                                             <span
                                                                 key={dot}
-                                                                className="h-1.5 w-1.5 rounded-full bg-primary animate-pulse"
-                                                                style={{ animationDelay: `${dot * 180}ms` }}
+                                                                className="h-1 w-1 rounded-full bg-blue-400 animate-bounce"
+                                                                style={{ animationDelay: `${dot * 150}ms` }}
                                                             />
                                                         ))}
                                                     </div>
@@ -692,41 +721,45 @@ const AssignmentHelper = () => {
                                     <div ref={endRef} />
                                 </div>
 
-                                <div className="px-6 py-4 border-t border-slate-200 dark:border-slate-800">
+                                <div className="px-4 py-3 border-t border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900">
                                     {threadStatus === 'processing' ? (
-                                        <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3">
-                                            <p className="text-sm font-semibold text-amber-800">
-                                                {currentProcessingStage.title}: {currentProcessingStage.detail}
-                                            </p>
-                                            <p className="text-xs text-amber-700 mt-1">
-                                                Follow-up chat will unlock as soon as the first full answer is ready.
+                                        <div className="rounded-lg bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 px-3 py-3 flex items-center justify-center gap-2">
+                                            <span className="material-symbols-outlined text-slate-400 text-lg animate-spin">refresh</span>
+                                            <p className="text-xs text-slate-500">
+                                                Processing assignment... Chat will be available soon
                                             </p>
                                         </div>
                                     ) : (
-                                        <div className="space-y-3">
-                                            <textarea
-                                                rows={3}
-                                                value={followUpQuestion}
-                                                onChange={(event) => setFollowUpQuestion(event.target.value)}
-                                                onKeyDown={onComposerKeyDown}
-                                                placeholder="Ask a follow-up question about this assignment..."
-                                                disabled={!canAskFollowUp}
-                                                className="w-full resize-none rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-4 py-3 text-sm text-slate-900 dark:text-white focus:outline-none focus:ring-4 focus:ring-primary/10 focus:border-primary/40 disabled:opacity-60"
-                                            />
-                                            <div className="flex items-center justify-between gap-3">
-                                                <p className="text-xs text-slate-400 dark:text-slate-500">
-                                                    Press Enter to send, Shift+Enter for a new line.
-                                                </p>
-                                                <button
-                                                    type="button"
-                                                    onClick={handleSendFollowUp}
-                                                    disabled={!canAskFollowUp || !followUpQuestion.trim()}
-                                                    className="inline-flex items-center gap-2 h-10 px-4 rounded-xl bg-primary text-white font-bold shadow-lg shadow-primary/20 hover:bg-primary/90 disabled:opacity-60 disabled:cursor-not-allowed"
-                                                >
-                                                    <span className="material-symbols-outlined text-[18px]">{sending ? 'hourglass_empty' : 'send'}</span>
-                                                    {sending ? 'Thinking...' : 'Send'}
-                                                </button>
+                                        <div className="flex items-end gap-2">
+                                            <div className="flex-1">
+                                                <textarea
+                                                    ref={(el) => {
+                                                        if (el) {
+                                                            el.style.height = 'auto';
+                                                            el.style.height = Math.min(el.scrollHeight, 120) + 'px';
+                                                        }
+                                                    }}
+                                                    value={followUpQuestion}
+                                                    onChange={(event) => {
+                                                        setFollowUpQuestion(event.target.value);
+                                                        event.target.style.height = 'auto';
+                                                        event.target.style.height = Math.min(event.target.scrollHeight, 120) + 'px';
+                                                    }}
+                                                    onKeyDown={onComposerKeyDown}
+                                                    placeholder={canAskFollowUp ? "Ask a follow-up question..." : "Chat disabled while processing"}
+                                                    disabled={!canAskFollowUp}
+                                                    className="w-full resize-none rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 px-4 py-3 pr-12 text-sm text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500/40 disabled:opacity-50 disabled:bg-slate-100 min-h-[44px] max-h-[120px] overflow-y-auto"
+                                                    rows={1}
+                                                />
                                             </div>
+                                            <button
+                                                type="button"
+                                                onClick={handleSendFollowUp}
+                                                disabled={!canAskFollowUp || !followUpQuestion.trim() || sending}
+                                                className="flex items-center justify-center w-11 h-11 rounded-xl bg-gradient-to-r from-blue-500 to-indigo-600 text-white shadow-md shadow-blue-500/20 hover:shadow-lg hover:shadow-blue-500/30 hover:scale-105 active:scale-95 transition-all disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:scale-100 shrink-0"
+                                            >
+                                                <span className="material-symbols-outlined text-xl">{sending ? 'hourglass_empty' : 'send'}</span>
+                                            </button>
                                         </div>
                                     )}
                                 </div>
