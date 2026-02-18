@@ -3,12 +3,20 @@ import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { useQuery } from 'convex/react';
 import { api } from '../../convex/_generated/api';
+import StatsDetailModal from '../components/StatsDetailModal';
+import ExamActionModal from '../components/ExamActionModal';
+import { useShare } from '../hooks/useShare';
 
 const Profile = () => {
     const { user, signOut, updateProfile, loading: authLoading } = useAuth();
     const navigate = useNavigate();
+    const { share, shareProfile, ToastComponent } = useShare();
     const [voiceSaving, setVoiceSaving] = useState(false);
     const [voiceError, setVoiceError] = useState('');
+    
+    // Modal states
+    const [statsModal, setStatsModal] = useState({ open: false, type: null });
+    const [examModal, setExamModal] = useState({ open: false, attempt: null });
 
     // Get userId from Better Auth session
     const userId = user?.id;
@@ -111,7 +119,10 @@ const Profile = () => {
                     <span className="material-symbols-outlined">arrow_back</span>
                 </Link>
                 <h2 className="text-lg font-bold leading-tight tracking-tight">Student Profile</h2>
-                <button className="flex size-10 shrink-0 items-center justify-center rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-500 hover:text-primary transition-all">
+                <button
+                    onClick={() => navigate('/profile/edit')}
+                    className="flex size-10 shrink-0 items-center justify-center rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-500 hover:text-primary transition-all"
+                >
                     <span className="material-symbols-outlined">settings</span>
                 </button>
             </div>
@@ -162,11 +173,17 @@ const Profile = () => {
 
                         {/* Action Buttons */}
                         <div className="flex gap-3 w-full max-w-xs">
-                            <button className="flex-1 h-11 bg-primary text-white rounded-2xl text-sm font-bold shadow-lg shadow-primary/25 hover:bg-primary-hover hover:shadow-xl hover:-translate-y-0.5 transition-all active:scale-95 flex items-center justify-center gap-2">
+                            <button
+                                onClick={() => navigate('/profile/edit')}
+                                className="flex-1 h-11 bg-primary text-white rounded-2xl text-sm font-bold shadow-lg shadow-primary/25 hover:bg-primary-hover hover:shadow-xl hover:-translate-y-0.5 transition-all active:scale-95 flex items-center justify-center gap-2"
+                            >
                                 <span className="material-symbols-outlined text-[18px]">edit</span>
                                 Edit Profile
                             </button>
-                            <button className="h-11 w-11 rounded-2xl bg-white dark:bg-surface-dark border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white flex items-center justify-center hover:bg-slate-50 dark:hover:bg-slate-800 transition-all hover:-translate-y-0.5 shadow-sm">
+                            <button
+                                onClick={() => shareProfile(displayName)}
+                                className="h-11 w-11 rounded-2xl bg-white dark:bg-surface-dark border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white flex items-center justify-center hover:bg-slate-50 dark:hover:bg-slate-800 transition-all hover:-translate-y-0.5 shadow-sm"
+                            >
                                 <span className="material-symbols-outlined">share</span>
                             </button>
                         </div>
@@ -175,28 +192,40 @@ const Profile = () => {
 
                 {/* Enhanced Stats Cards */}
                 <div className="grid grid-cols-4 gap-3">
-                    <div className="flex flex-col items-center gap-2 p-4 bg-white dark:bg-surface-dark rounded-2xl border border-slate-100 dark:border-slate-800 shadow-sm hover:shadow-md hover:border-primary/20 transition-all group cursor-pointer">
+                    <div
+                        onClick={() => setStatsModal({ open: true, type: 'topics' })}
+                        className="flex flex-col items-center gap-2 p-4 bg-white dark:bg-surface-dark rounded-2xl border border-slate-100 dark:border-slate-800 shadow-sm hover:shadow-md hover:border-primary/20 transition-all group cursor-pointer"
+                    >
                         <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-500 to-blue-600 text-white flex items-center justify-center shadow-lg shadow-blue-500/25 group-hover:scale-110 transition-transform">
                             <span className="material-symbols-outlined filled text-lg">menu_book</span>
                         </div>
                         <p className="text-xl font-bold text-slate-900 dark:text-white">{displayStats.topics}</p>
                         <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Topics</p>
                     </div>
-                    <div className="flex flex-col items-center gap-2 p-4 bg-white dark:bg-surface-dark rounded-2xl border border-slate-100 dark:border-slate-800 shadow-sm hover:shadow-md hover:border-primary/20 transition-all group cursor-pointer">
+                    <div
+                        onClick={() => setStatsModal({ open: true, type: 'accuracy' })}
+                        className="flex flex-col items-center gap-2 p-4 bg-white dark:bg-surface-dark rounded-2xl border border-slate-100 dark:border-slate-800 shadow-sm hover:shadow-md hover:border-primary/20 transition-all group cursor-pointer"
+                    >
                         <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-green-500 to-emerald-600 text-white flex items-center justify-center shadow-lg shadow-green-500/25 group-hover:scale-110 transition-transform">
                             <span className="material-symbols-outlined filled text-lg">check_circle</span>
                         </div>
                         <p className="text-xl font-bold text-slate-900 dark:text-white">{displayStats.accuracy}%</p>
                         <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Accuracy</p>
                     </div>
-                    <div className="flex flex-col items-center gap-2 p-4 bg-white dark:bg-surface-dark rounded-2xl border border-slate-100 dark:border-slate-800 shadow-sm hover:shadow-md hover:border-primary/20 transition-all group cursor-pointer">
+                    <div
+                        onClick={() => setStatsModal({ open: true, type: 'courses' })}
+                        className="flex flex-col items-center gap-2 p-4 bg-white dark:bg-surface-dark rounded-2xl border border-slate-100 dark:border-slate-800 shadow-sm hover:shadow-md hover:border-primary/20 transition-all group cursor-pointer"
+                    >
                         <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-purple-500 to-violet-600 text-white flex items-center justify-center shadow-lg shadow-purple-500/25 group-hover:scale-110 transition-transform">
                             <span className="material-symbols-outlined filled text-lg">school</span>
                         </div>
                         <p className="text-xl font-bold text-slate-900 dark:text-white">{displayStats.courses}</p>
                         <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Courses</p>
                     </div>
-                    <div className="flex flex-col items-center gap-2 p-4 bg-white dark:bg-surface-dark rounded-2xl border border-slate-100 dark:border-slate-800 shadow-sm hover:shadow-md hover:border-primary/20 transition-all group cursor-pointer">
+                    <div
+                        onClick={() => setStatsModal({ open: true, type: 'hours' })}
+                        className="flex flex-col items-center gap-2 p-4 bg-white dark:bg-surface-dark rounded-2xl border border-slate-100 dark:border-slate-800 shadow-sm hover:shadow-md hover:border-primary/20 transition-all group cursor-pointer"
+                    >
                         <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-orange-500 to-red-500 text-white flex items-center justify-center shadow-lg shadow-orange-500/25 group-hover:scale-110 transition-transform">
                             <span className="material-symbols-outlined filled text-lg">schedule</span>
                         </div>
@@ -370,7 +399,11 @@ const Profile = () => {
                                 const isExcellent = scorePercent >= 80;
                                 const isGood = scorePercent >= 60;
                                 return (
-                                    <div key={attempt._id} className="flex items-center gap-4 p-4 bg-white dark:bg-surface-dark rounded-2xl border border-slate-100 dark:border-slate-800 shadow-sm hover:shadow-md transition-all group cursor-pointer">
+                                    <div 
+                                    key={attempt._id} 
+                                    onClick={() => setExamModal({ open: true, attempt })}
+                                    className="flex items-center gap-4 p-4 bg-white dark:bg-surface-dark rounded-2xl border border-slate-100 dark:border-slate-800 shadow-sm hover:shadow-md transition-all group cursor-pointer"
+                                >
                                         <div className="w-12 h-12 rounded-xl flex items-center justify-center text-white shadow-md" style={{ background: gradients[index % gradients.length] }}>
                                             <span className="material-symbols-outlined text-lg">quiz</span>
                                         </div>
@@ -415,6 +448,24 @@ const Profile = () => {
                     </button>
                 </div>
             </main>
+
+            {/* Stats Detail Modal */}
+            <StatsDetailModal
+                isOpen={statsModal.open}
+                onClose={() => setStatsModal({ open: false, type: null })}
+                type={statsModal.type}
+                userId={userId}
+            />
+
+            {/* Exam Action Modal */}
+            <ExamActionModal
+                isOpen={examModal.open}
+                onClose={() => setExamModal({ open: false, attempt: null })}
+                attempt={examModal.attempt}
+            />
+
+            {/* Toast Notification */}
+            {ToastComponent}
         </div>
     );
 };
