@@ -128,7 +128,7 @@ const Profile = () => {
                 </button>
             </div>
 
-            <main className="flex-1 w-full max-w-2xl mx-auto p-4 md:p-6 pb-20 md:pb-8 space-y-6 animate-slide-up">
+            <main className="flex-1 w-full max-w-2xl mx-auto p-4 md:p-6 pb-28 md:pb-8 space-y-6 animate-slide-up">
                 {/* Enhanced Profile Header with Stats */}
                 <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-primary/5 via-purple-500/5 to-primary/5 dark:from-primary/10 dark:via-purple-500/10 dark:to-primary/10 p-6 md:p-8">
                     {/* Background decorative elements */}
