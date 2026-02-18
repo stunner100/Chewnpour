@@ -65,22 +65,29 @@ const ExamActionModal = ({ isOpen, onClose, attempt }) => {
         }
     }, [isDragging, translateY, onClose]);
 
-    // Reset translate when modal opens and lock body scroll
+    // Lock body scroll when modal is open
     useEffect(() => {
-        if (isOpen) {
-            setTranslateY(0);
-            // Lock body scroll
-            document.body.style.overflow = 'hidden';
-            document.body.style.touchAction = 'none';
-        } else {
-            // Unlock body scroll
-            document.body.style.overflow = '';
-            document.body.style.touchAction = '';
-        }
+        if (!isOpen) return;
+        
+        // Always ensure scroll is locked when modal is open
+        setTranslateY(0);
+        document.body.style.overflow = 'hidden';
+        document.body.style.touchAction = 'none';
+        document.body.style.position = 'fixed';
+        document.body.style.width = '100%';
+        document.body.style.height = '100%';
+        
+        // Save scroll position
+        const scrollY = window.scrollY;
         
         return () => {
+            // Restore scroll
             document.body.style.overflow = '';
             document.body.style.touchAction = '';
+            document.body.style.position = '';
+            document.body.style.width = '';
+            document.body.style.height = '';
+            window.scrollTo(0, scrollY);
         };
     }, [isOpen]);
 
