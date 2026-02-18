@@ -1,8 +1,28 @@
-import React from 'react';
+import React, { useRef, useState, useEffect, useCallback } from 'react';
 import { useQuery } from 'convex/react';
 import { api } from '../../convex/_generated/api';
 
+// Haptic feedback helper
+const triggerHaptic = (type = 'light') => {
+    if (navigator.vibrate) {
+        const patterns = {
+            light: 10,
+            medium: 20,
+            heavy: 30,
+            success: [10, 50, 10],
+            error: [50, 100, 50]
+        };
+        navigator.vibrate(patterns[type] || patterns.light);
+    }
+};
+
 const StatsDetailModal = ({ isOpen, onClose, type, userId }) => {
+    const modalRef = useRef(null);
+    const [translateY, setTranslateY] = useState(0);
+    const [isDragging, setIsDragging] = useState(false);
+    const startY = useRef(0);
+    const currentTranslateY = useRef(0);
+    
     // Always call hooks first - pass 'skip' when modal is closed or no userId
     const shouldFetchCourses = isOpen && userId && type === 'courses';
     const courses = useQuery(
@@ -22,8 +42,72 @@ const StatsDetailModal = ({ isOpen, onClose, type, userId }) => {
         shouldFetchProfile ? { userId } : 'skip'
     );
 
+    // Handle touch start for swipe-to-close
+    const handleTouchStart = useCallback((e) => {
+        const target = e.target;
+        const isHeader = target.closest('.modal-header') || target.closest('.drag-handle');
+        const isBackdrop = target.classList.contains('modal-backdrop');
+        
+        if (!isHeader && !isBackdrop) return;
+        
+        setIsDragging(true);
+        startY.current = e.touches[0].clientY;
+        currentTranslateY.current = translateY;
+    }, [translateY]);
+
+    // Handle touch move
+    const handleTouchMove = useCallback((e) => {
+        if (!isDragging) return;
+        
+        const currentY = e.touches[0].clientY;
+        const diff = currentY - startY.current;
+        
+        if (diff > 0) {
+            const resistance = 0.6;
+            setTranslateY(currentTranslateY.current + (diff * resistance));
+        }
+    }, [isDragging]);
+
+    // Handle touch end
+    const handleTouchEnd = useCallback(() => {
+        if (!isDragging) return;
+        
+        setIsDragging(false);
+        
+        if (translateY > 100) {
+            triggerHaptic('light');
+            onClose();
+        } else {
+            setTranslateY(0);
+        }
+    }, [isDragging, translateY, onClose]);
+
+    // Reset translate when modal opens
+    useEffect(() => {
+        if (isOpen) {
+            setTranslateY(0);
+        }
+    }, [isOpen]);
+
+    // Add keyboard escape handler
+    useEffect(() => {
+        const handleKeyDown = (e) => {
+            if (e.key === 'Escape' && isOpen) {
+                onClose();
+            }
+        };
+        
+        window.addEventListener('keydown', handleKeyDown);
+        return () => window.removeEventListener('keydown', handleKeyDown);
+    }, [isOpen, onClose]);
+
     // Return null after all hooks are called
     if (!isOpen || !userId) return null;
+
+    const handleCloseClick = () => {
+        triggerHaptic('light');
+        onClose();
+    };
 
     const renderContent = () => {
         switch (type) {
@@ -51,28 +135,47 @@ const StatsDetailModal = ({ isOpen, onClose, type, userId }) => {
     };
 
     return (
-        <div className="fixed inset-0 z-50 flex items-end md:items-center justify-center">
+        <div 
+            className="fixed inset-0 z-50 flex items-end md:items-center justify-center"
+            onTouchStart={handleTouchStart}
+            onTouchMove={handleTouchMove}
+            onTouchEnd={handleTouchEnd}
+        >
             {/* Backdrop */}
             <div 
-                className="absolute inset-0 bg-black/50 backdrop-blur-sm"
-                onClick={onClose}
+                className="modal-backdrop absolute inset-0 bg-black/50 backdrop-blur-sm transition-opacity"
+                onClick={handleCloseClick}
+                style={{ opacity: 1 - (translateY / 500) }}
             />
             
             {/* Modal */}
-            <div className="relative w-full max-w-lg md:max-w-2xl bg-white dark:bg-surface-dark rounded-t-3xl md:rounded-3xl shadow-2xl max-h-[85vh] md:max-h-[80vh] flex flex-col">
+            <div 
+                ref={modalRef}
+                className="relative w-full max-w-lg md:max-w-2xl bg-white dark:bg-surface-dark rounded-t-3xl md:rounded-3xl shadow-2xl max-h-[85vh] md:max-h-[80vh] flex flex-col"
+                style={{ 
+                    transform: `translateY(${translateY}px)`,
+                    transition: isDragging ? 'none' : 'transform 0.3s cubic-bezier(0.4, 0, 0.2, 1)'
+                }}
+            >
+                {/* Drag Handle (Mobile Only) */}
+                <div className="drag-handle md:hidden w-full pt-3 pb-1 flex justify-center">
+                    <div className="w-12 h-1.5 bg-slate-300 dark:bg-slate-600 rounded-full"></div>
+                </div>
+                
                 {/* Header */}
-                <div className="flex items-center justify-between p-4 border-b border-slate-200 dark:border-slate-700">
+                <div className="modal-header flex items-center justify-between p-4 border-b border-slate-200 dark:border-slate-700 cursor-grab active:cursor-grabbing">
                     <h2 className="text-lg font-bold text-slate-900 dark:text-white">{getTitle()}</h2>
                     <button 
-                        onClick={onClose}
-                        className="w-10 h-10 rounded-full flex items-center justify-center hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+                        onClick={handleCloseClick}
+                        onTouchStart={(e) => e.stopPropagation()}
+                        className="w-10 h-10 rounded-full flex items-center justify-center hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors active:scale-95"
                     >
                         <span className="material-symbols-outlined text-slate-500">close</span>
                     </button>
                 </div>
 
                 {/* Content */}
-                <div className="flex-1 overflow-y-auto p-4">
+                <div className="flex-1 overflow-y-auto p-4 overscroll-contain">
                     {renderContent()}
                 </div>
             </div>
@@ -115,7 +218,8 @@ const TopicsContent = ({ examAttempts }) => {
             {topics.map((topic, index) => (
                 <div 
                     key={topic.topicId} 
-                    className="flex items-center gap-4 p-4 bg-slate-50 dark:bg-slate-800/50 rounded-2xl"
+                    className="flex items-center gap-4 p-4 bg-slate-50 dark:bg-slate-800/50 rounded-2xl active:scale-[0.98] transition-transform"
+                    onClick={() => triggerHaptic('light')}
                 >
                     <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-500 to-indigo-600 text-white flex items-center justify-center font-bold">
                         {index + 1}
@@ -190,7 +294,11 @@ const AccuracyContent = ({ examAttempts }) => {
                 </p>
                 <div className="space-y-3">
                     {topics.map((topic) => (
-                        <div key={topic.topicId} className="p-4 bg-slate-50 dark:bg-slate-800/50 rounded-2xl">
+                        <div 
+                            key={topic.topicId} 
+                            className="p-4 bg-slate-50 dark:bg-slate-800/50 rounded-2xl active:scale-[0.98] transition-transform"
+                            onClick={() => triggerHaptic('light')}
+                        >
                             <div className="flex items-center justify-between mb-2">
                                 <p className="font-bold text-slate-900 dark:text-white truncate flex-1 mr-4">
                                     {topic.title}
@@ -237,7 +345,8 @@ const CoursesContent = ({ courses }) => {
             {courses.map((course) => (
                 <div 
                     key={course._id} 
-                    className="flex items-center gap-4 p-4 bg-slate-50 dark:bg-slate-800/50 rounded-2xl"
+                    className="flex items-center gap-4 p-4 bg-slate-50 dark:bg-slate-800/50 rounded-2xl active:scale-[0.98] transition-transform"
+                    onClick={() => triggerHaptic('light')}
                 >
                     <div 
                         className="w-12 h-12 rounded-xl flex items-center justify-center text-white"
@@ -301,7 +410,8 @@ const HoursContent = ({ profile }) => {
                 {stats.map((stat) => (
                     <div 
                         key={stat.label}
-                        className="p-4 bg-slate-50 dark:bg-slate-800/50 rounded-2xl text-center"
+                        className="p-4 bg-slate-50 dark:bg-slate-800/50 rounded-2xl text-center active:scale-[0.98] transition-transform"
+                        onClick={() => triggerHaptic('light')}
                     >
                         <div className={`w-10 h-10 ${stat.color} rounded-xl flex items-center justify-center text-white mx-auto mb-2`}>
                             <span className="material-symbols-outlined filled">{stat.icon}</span>
