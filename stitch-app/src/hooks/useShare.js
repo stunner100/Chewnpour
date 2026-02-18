@@ -1,32 +1,41 @@
-import { useState, useCallback } from 'react';
+import React, { useState, useCallback } from 'react';
 
-// Custom toast hook
-export const useToast = () => {
-    const [toast, setToast] = useState(null);
-
-    const showToast = useCallback((message, duration = 3000) => {
-        setToast({ message, id: Date.now() });
-        
-        setTimeout(() => {
-            setToast(null);
-        }, duration);
-    }, []);
-
-    const ToastComponent = toast ? (
+// Toast component
+export const Toast = ({ message, onClose }) => {
+    if (!message) return null;
+    
+    return (
         <div className="fixed bottom-24 left-1/2 -translate-x-1/2 z-50 animate-slide-up">
             <div className="bg-slate-900 dark:bg-white text-white dark:text-slate-900 px-6 py-3 rounded-full shadow-lg flex items-center gap-2">
                 <span className="material-symbols-outlined text-green-400 dark:text-green-600">check_circle</span>
-                <span className="text-sm font-medium">{toast.message}</span>
+                <span className="text-sm font-medium">{message}</span>
             </div>
         </div>
-    ) : null;
+    );
+};
 
-    return { showToast, ToastComponent };
+// Custom toast hook
+export const useToast = () => {
+    const [toastMessage, setToastMessage] = useState(null);
+
+    const showToast = useCallback((message, duration = 3000) => {
+        setToastMessage(message);
+        
+        setTimeout(() => {
+            setToastMessage(null);
+        }, duration);
+    }, []);
+
+    const hideToast = useCallback(() => {
+        setToastMessage(null);
+    }, []);
+
+    return { toastMessage, showToast, hideToast };
 };
 
 // Share hook
 export const useShare = () => {
-    const { showToast, ToastComponent } = useToast();
+    const { toastMessage, showToast, hideToast } = useToast();
 
     const share = useCallback(async (options = {}) => {
         const {
@@ -75,7 +84,8 @@ export const useShare = () => {
     return { 
         share, 
         shareProfile, 
-        ToastComponent 
+        toastMessage,
+        hideToast
     };
 };
 

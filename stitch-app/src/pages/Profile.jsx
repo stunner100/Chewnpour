@@ -5,12 +5,12 @@ import { useQuery } from 'convex/react';
 import { api } from '../../convex/_generated/api';
 import StatsDetailModal from '../components/StatsDetailModal';
 import ExamActionModal from '../components/ExamActionModal';
-import { useShare } from '../hooks/useShare';
+import { useShare, Toast } from '../hooks/useShare';
 
 const Profile = () => {
     const { user, signOut, updateProfile, loading: authLoading } = useAuth();
     const navigate = useNavigate();
-    const { share, shareProfile, ToastComponent } = useShare();
+    const { share, shareProfile, toastMessage, hideToast } = useShare();
     const [voiceSaving, setVoiceSaving] = useState(false);
     const [voiceError, setVoiceError] = useState('');
     
@@ -465,7 +465,7 @@ const Profile = () => {
             />
 
             {/* Toast Notification */}
-            {ToastComponent}
+            <Toast message={toastMessage} onClose={hideToast} />
         </div>
     );
 };
