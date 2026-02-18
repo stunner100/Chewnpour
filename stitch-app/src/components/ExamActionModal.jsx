@@ -31,14 +31,8 @@ const ExamActionModal = ({ isOpen, onClose, attempt }) => {
     const startY = useRef(0);
     const currentTranslateY = useRef(0);
 
-    // Handle touch start for swipe-to-close
+    // Handle touch start for swipe-to-close (only on header/drag handle)
     const handleTouchStart = useCallback((e) => {
-        const target = e.target;
-        const isHeader = target.closest('.modal-header') || target.closest('.drag-handle');
-        const isBackdrop = target.classList.contains('modal-backdrop');
-
-        if (!isHeader && !isBackdrop) return;
-
         setIsDragging(true);
         startY.current = e.touches[0].clientY;
         currentTranslateY.current = translateY;
@@ -119,17 +113,20 @@ const ExamActionModal = ({ isOpen, onClose, attempt }) => {
         onClose();
     };
 
+    // Prevent touch events from bubbling when scrolling content
+    const handleContentTouch = useCallback((e) => {
+        e.stopPropagation();
+    }, []);
+
     return (
-        <div
-            className="fixed inset-0 z-50 flex items-center justify-center p-4"
-            onTouchStart={handleTouchStart}
-            onTouchMove={handleTouchMove}
-            onTouchEnd={handleTouchEnd}
-        >
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
             {/* Backdrop */}
             <div
                 className="modal-backdrop absolute inset-0 bg-black/50 backdrop-blur-sm transition-opacity"
                 onClick={handleCloseClick}
+                onTouchStart={handleTouchStart}
+                onTouchMove={handleTouchMove}
+                onTouchEnd={handleTouchEnd}
                 style={{ opacity: 1 - (translateY / 500) }}
             />
 
@@ -143,8 +140,13 @@ const ExamActionModal = ({ isOpen, onClose, attempt }) => {
                 }}
             >
                 {/* Drag Handle (Mobile Only) */}
-                <div className="drag-handle md:hidden w-full pt-3 pb-1 flex justify-center absolute top-0 left-0 right-0 z-20">
-                    <div className="w-12 h-1.5 bg-white/50 rounded-full"></div>
+                <div 
+                    className="drag-handle md:hidden w-full pt-3 pb-1 flex justify-center absolute top-0 left-0 right-0 z-20"
+                    onTouchStart={handleTouchStart}
+                    onTouchMove={handleTouchMove}
+                    onTouchEnd={handleTouchEnd}
+                >
+                    <div className="w-12 h-1.5 bg-white/50 rounded-full pointer-events-none"></div>
                 </div>
 
                 {/* Close Button */}
@@ -159,6 +161,9 @@ const ExamActionModal = ({ isOpen, onClose, attempt }) => {
                 <div
                     className="modal-header p-8 text-center cursor-grab active:cursor-grabbing"
                     style={{ background: gradients[0] }}
+                    onTouchStart={handleTouchStart}
+                    onTouchMove={handleTouchMove}
+                    onTouchEnd={handleTouchEnd}
                 >
                     <div className="w-20 h-20 bg-white/20 backdrop-blur-sm rounded-2xl flex items-center justify-center mx-auto mb-4">
                         <span className="material-symbols-outlined text-4xl text-white filled">quiz</span>

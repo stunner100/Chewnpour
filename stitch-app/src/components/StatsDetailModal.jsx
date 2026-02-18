@@ -42,14 +42,8 @@ const StatsDetailModal = ({ isOpen, onClose, type, userId }) => {
         shouldFetchProfile ? { userId } : 'skip'
     );
 
-    // Handle touch start for swipe-to-close
+    // Handle touch start for swipe-to-close (only on header/drag handle)
     const handleTouchStart = useCallback((e) => {
-        const target = e.target;
-        const isHeader = target.closest('.modal-header') || target.closest('.drag-handle');
-        const isBackdrop = target.classList.contains('modal-backdrop');
-        
-        if (!isHeader && !isBackdrop) return;
-        
         setIsDragging(true);
         startY.current = e.touches[0].clientY;
         currentTranslateY.current = translateY;
@@ -81,6 +75,11 @@ const StatsDetailModal = ({ isOpen, onClose, type, userId }) => {
             setTranslateY(0);
         }
     }, [isDragging, translateY, onClose]);
+    
+    // Prevent touch events from bubbling when scrolling content
+    const handleContentTouch = useCallback((e) => {
+        e.stopPropagation();
+    }, []);
 
     // Reset translate when modal opens
     useEffect(() => {
@@ -135,16 +134,14 @@ const StatsDetailModal = ({ isOpen, onClose, type, userId }) => {
     };
 
     return (
-        <div 
-            className="fixed inset-0 z-50 flex items-end md:items-center justify-center"
-            onTouchStart={handleTouchStart}
-            onTouchMove={handleTouchMove}
-            onTouchEnd={handleTouchEnd}
-        >
+        <div className="fixed inset-0 z-50 flex items-end md:items-center justify-center">
             {/* Backdrop */}
             <div 
                 className="modal-backdrop absolute inset-0 bg-black/50 backdrop-blur-sm transition-opacity"
                 onClick={handleCloseClick}
+                onTouchStart={handleTouchStart}
+                onTouchMove={handleTouchMove}
+                onTouchEnd={handleTouchEnd}
                 style={{ opacity: 1 - (translateY / 500) }}
             />
             
@@ -158,16 +155,25 @@ const StatsDetailModal = ({ isOpen, onClose, type, userId }) => {
                 }}
             >
                 {/* Drag Handle (Mobile Only) */}
-                <div className="drag-handle md:hidden w-full pt-3 pb-1 flex justify-center">
-                    <div className="w-12 h-1.5 bg-slate-300 dark:bg-slate-600 rounded-full"></div>
+                <div 
+                    className="drag-handle md:hidden w-full pt-3 pb-1 flex justify-center"
+                    onTouchStart={handleTouchStart}
+                    onTouchMove={handleTouchMove}
+                    onTouchEnd={handleTouchEnd}
+                >
+                    <div className="w-12 h-1.5 bg-slate-300 dark:bg-slate-600 rounded-full pointer-events-none"></div>
                 </div>
                 
                 {/* Header */}
-                <div className="modal-header flex items-center justify-between p-4 border-b border-slate-200 dark:border-slate-700 cursor-grab active:cursor-grabbing">
+                <div 
+                    className="modal-header flex items-center justify-between p-4 border-b border-slate-200 dark:border-slate-700 cursor-grab active:cursor-grabbing"
+                    onTouchStart={handleTouchStart}
+                    onTouchMove={handleTouchMove}
+                    onTouchEnd={handleTouchEnd}
+                >
                     <h2 className="text-lg font-bold text-slate-900 dark:text-white">{getTitle()}</h2>
                     <button 
                         onClick={handleCloseClick}
-                        onTouchStart={(e) => e.stopPropagation()}
                         className="w-10 h-10 rounded-full flex items-center justify-center hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors active:scale-95"
                     >
                         <span className="material-symbols-outlined text-slate-500">close</span>
@@ -175,7 +181,10 @@ const StatsDetailModal = ({ isOpen, onClose, type, userId }) => {
                 </div>
 
                 {/* Content */}
-                <div className="flex-1 overflow-y-auto p-4 overscroll-contain">
+                <div 
+                    className="flex-1 overflow-y-auto p-4 overscroll-contain touch-pan-y"
+                    onTouchStart={handleContentTouch}
+                >
                     {renderContent()}
                 </div>
             </div>
