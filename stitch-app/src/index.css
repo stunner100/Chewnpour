@@ -9,6 +9,8 @@
         -moz-osx-font-smoothing: grayscale;
         font-size: 15px;
         min-height: 100%;
+        /* Prevent bounce/overscroll effects that cause shake */
+        overscroll-behavior: none;
     }
 
     body {
@@ -20,6 +22,15 @@
     ::selection {
         @apply bg-primary/20 text-primary-dark;
     }
+}
+
+html.is-safari .safari-blur-heavy {
+    filter: blur(72px) !important;
+}
+
+html.is-safari .safari-backdrop {
+    -webkit-backdrop-filter: blur(8px) !important;
+    backdrop-filter: blur(8px) !important;
 }
 
 @layer components {
@@ -279,6 +290,18 @@
     .bg-mesh-light,
     .bg-mesh-dark {
         opacity: 0.5;
+    }
+
+    /* Prevent auto-zoom on iOS when focusing inputs */
+    input,
+    textarea,
+    select {
+        font-size: 16px !important;
+    }
+
+    /* Disable smooth scroll on mobile - causes jank/instability */
+    html {
+        scroll-behavior: auto;
     }
 }
 

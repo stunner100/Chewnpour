@@ -1,10 +1,9 @@
 import React, { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import { usePostHog } from '@posthog/react';
 import { useAuth } from '../contexts/AuthContext';
-import heroIllustration from '../assets/eduwebsite.png';
-import featureNotes from '../assets/feature-notes.png';
-import featureQuiz from '../assets/feature-quiz.png';
-import featureSummary from '../assets/feature-summary.png';
+import heroIllustration960 from '../assets/eduwebsite-960.jpg';
+import heroIllustration1600 from '../assets/eduwebsite-1600.jpg';
 
 const features = [
     {
@@ -38,63 +37,73 @@ const testimonials = [
         name: 'Alex Rivera',
         role: 'Med Student',
         content: 'StudyMate transformed how I handle anatomy. The AI summaries save me hours of manual note-taking every week.',
-        avatar: 'https://i.pravatar.cc/150?img=11',
+        initials: 'AR',
+        avatarClass: 'from-indigo-500 to-violet-500',
     },
     {
         name: 'Sarah Chen',
         role: 'Computer Science',
         content: "The AI tutor's ability to explain complex algorithms using analogies is a game-changer for my study sessions.",
-        avatar: 'https://i.pravatar.cc/150?img=32',
+        initials: 'SC',
+        avatarClass: 'from-cyan-500 to-blue-500',
     },
     {
         name: 'Jordan Smith',
         role: 'Law Student',
         content: 'Managing massive reading lists is finally manageable. I can quickly find the core arguments in any case.',
-        avatar: 'https://i.pravatar.cc/150?img=44',
+        initials: 'JS',
+        avatarClass: 'from-emerald-500 to-teal-500',
     },
 ];
 
 const LandingPage = () => {
-    const { user, loading } = useAuth();
+    const { user } = useAuth();
     const navigate = useNavigate();
+    const posthog = usePostHog();
     const [scrolled, setScrolled] = useState(false);
 
+    const captureLandingEvent = (eventName, properties = {}) => {
+        if (!posthog || typeof posthog.capture !== 'function') return;
+        posthog.capture(eventName, {
+            page: 'landing',
+            pathname: typeof window !== 'undefined' ? window.location.pathname : '/',
+            ...properties,
+        });
+    };
+
     useEffect(() => {
+        let ticking = false;
         const handleScroll = () => {
-            setScrolled(window.scrollY > 20);
+            if (!ticking) {
+                window.requestAnimationFrame(() => {
+                    setScrolled(window.scrollY > 20);
+                    ticking = false;
+                });
+                ticking = true;
+            }
         };
-        window.addEventListener('scroll', handleScroll);
+        window.addEventListener('scroll', handleScroll, { passive: true });
         return () => window.removeEventListener('scroll', handleScroll);
     }, []);
 
     useEffect(() => {
-        if (!loading && user) {
+        if (user) {
             navigate('/dashboard', { replace: true });
         }
-    }, [loading, user, navigate]);
-
-    if (loading) {
-        return (
-            <div className="min-h-screen flex items-center justify-center bg-[#0a0a0b]">
-                <div className="flex flex-col items-center gap-4">
-                    <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-indigo-500"></div>
-                </div>
-            </div>
-        );
-    }
+    }, [user, navigate]);
 
     return (
         <div className="relative min-h-screen overflow-x-hidden bg-[#0a0a0b] text-white font-sans selection:bg-indigo-500/30">
             {/* Background Blobs */}
             <div className="pointer-events-none fixed inset-0 z-0">
-                <div className="absolute top-[-10%] left-[-10%] h-[300px] w-[300px] md:h-[500px] md:w-[500px] rounded-full bg-indigo-600/20 blur-[120px]"></div>
-                <div className="absolute bottom-[-10%] right-[-10%] h-[300px] w-[300px] md:h-[500px] md:w-[500px] rounded-full bg-cyan-600/20 blur-[120px]"></div>
-                <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 h-[350px] w-[350px] md:h-[600px] md:w-[600px] rounded-full bg-violet-600/10 blur-[150px]"></div>
+                <div className="absolute top-[-10%] left-[-10%] h-[300px] w-[300px] md:h-[500px] md:w-[500px] rounded-full bg-indigo-600/20 blur-[120px] safari-blur-heavy"></div>
+                <div className="absolute bottom-[-10%] right-[-10%] h-[300px] w-[300px] md:h-[500px] md:w-[500px] rounded-full bg-cyan-600/20 blur-[120px] safari-blur-heavy"></div>
+                <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 h-[350px] w-[350px] md:h-[600px] md:w-[600px] rounded-full bg-violet-600/10 blur-[150px] safari-blur-heavy"></div>
             </div>
 
             {/* Header */}
             <header
-                className={`fixed top-0 z-50 w-full transition-all duration-300 ${scrolled ? 'bg-[#0a0a0b]/80 backdrop-blur-xl border-b border-white/10 py-3' : 'bg-transparent py-5'
+                className={`fixed top-0 z-50 w-full transition-all duration-300 safari-backdrop ${scrolled ? 'bg-[#0a0a0b]/80 backdrop-blur-xl border-b border-white/10 py-3' : 'bg-transparent py-5'
                     }`}
             >
                 <div className="mx-auto flex max-w-7xl items-center justify-between px-6 lg:px-12">
@@ -112,11 +121,20 @@ const LandingPage = () => {
                         <a href="#testimonials" className="hover:text-white transition-colors">Students</a>
                     </nav>
                     <div className="flex items-center gap-4">
-                        <Link to="/login" className="text-sm font-semibold hover:text-indigo-400 transition-colors">
+                        <Link
+                            to="/login"
+                            onClick={() => {
+                                captureLandingEvent('landing_cta_clicked', { cta_name: 'header_login' });
+                            }}
+                            className="text-sm font-semibold hover:text-indigo-400 transition-colors"
+                        >
                             Log in
                         </Link>
                         <Link
                             to="/signup"
+                            onClick={() => {
+                                captureLandingEvent('landing_cta_clicked', { cta_name: 'header_get_started' });
+                            }}
                             className="inline-flex items-center rounded-full bg-indigo-600 px-5 py-2 text-sm font-bold text-white shadow-lg shadow-indigo-600/20 hover:bg-indigo-500 transition-all active:scale-95"
                         >
                             Get Started
@@ -148,12 +166,18 @@ const LandingPage = () => {
                     <div className="flex flex-col sm:flex-row items-center justify-center gap-4 animate-fade-in-up animate-delay-200">
                         <Link
                             to="/signup"
+                            onClick={() => {
+                                captureLandingEvent('landing_cta_clicked', { cta_name: 'hero_try_for_free' });
+                            }}
                             className="w-full sm:w-auto inline-flex h-14 items-center justify-center rounded-2xl bg-white px-8 text-base font-bold text-black shadow-xl hover:bg-neutral-200 transition-all active:scale-95"
                         >
                             Try StudyMate for Free
                         </Link>
                         <a
                             href="#demo"
+                            onClick={() => {
+                                captureLandingEvent('landing_cta_clicked', { cta_name: 'hero_watch_demo' });
+                            }}
                             className="w-full sm:w-auto inline-flex h-14 items-center justify-center rounded-2xl border border-white/10 bg-white/5 px-8 text-base font-bold transition-colors hover:bg-white/10"
                         >
                             Watch Demo
@@ -162,14 +186,26 @@ const LandingPage = () => {
 
                     {/* Dashboard Preview */}
                     <div className="mt-20 relative animate-fade-in-up animate-delay-300">
-                        <div className="absolute inset-0 bg-indigo-600/20 blur-[100px] -z-10"></div>
+                        <div className="absolute inset-0 bg-indigo-600/20 blur-[100px] safari-blur-heavy -z-10"></div>
                         <div className="rounded-3xl border border-white/10 bg-[#121214] p-2 shadow-2xl overflow-hidden">
                             <div className="rounded-[1.4rem] overflow-hidden border border-white/5">
-                                <img
-                                    src={heroIllustration}
-                                    alt="Platform Dashboard Preview"
-                                    className="w-full h-auto opacity-90"
-                                />
+                                <picture>
+                                    <source
+                                        srcSet={`${heroIllustration960} 960w, ${heroIllustration1600} 1600w`}
+                                        sizes="(max-width: 768px) 92vw, (max-width: 1280px) 88vw, 1200px"
+                                        type="image/jpeg"
+                                    />
+                                    <img
+                                        src={heroIllustration1600}
+                                        alt="Platform Dashboard Preview"
+                                        className="w-full h-auto opacity-90"
+                                        width="1600"
+                                        height="893"
+                                        loading="lazy"
+                                        decoding="async"
+                                        fetchPriority="low"
+                                    />
+                                </picture>
                             </div>
                         </div>
                     </div>
@@ -258,7 +294,12 @@ const LandingPage = () => {
                         {testimonials.map((t, idx) => (
                             <div key={idx} className="p-8 rounded-3xl border border-white/5 bg-white/[0.02] relative">
                                 <div className="flex items-center gap-4 mb-6">
-                                    <img src={t.avatar} alt={t.name} className="h-12 w-12 rounded-full border border-white/10" />
+                                    <div
+                                        aria-hidden="true"
+                                        className={`h-12 w-12 rounded-full border border-white/10 bg-gradient-to-br ${t.avatarClass} flex items-center justify-center text-xs font-extrabold tracking-wide text-white`}
+                                    >
+                                        {t.initials}
+                                    </div>
                                     <div>
                                         <h5 className="font-bold">{t.name}</h5>
                                         <p className="text-xs text-indigo-400 font-medium uppercase tracking-wider">{t.role}</p>
@@ -274,7 +315,7 @@ const LandingPage = () => {
                 <section className="mx-auto max-w-7xl px-6 lg:px-12 py-24">
                     <div className="relative rounded-[2rem] md:rounded-[3rem] bg-indigo-600 p-8 sm:p-12 lg:p-24 text-center overflow-hidden">
                         <div className="absolute top-0 left-0 w-full h-full bg-gradient-to-br from-indigo-500 to-violet-700 -z-10"></div>
-                        <div className="absolute -top-10 -right-10 h-64 w-64 rounded-full bg-white/10 blur-[60px]"></div>
+                        <div className="absolute -top-10 -right-10 h-64 w-64 rounded-full bg-white/10 blur-[60px] safari-blur-heavy"></div>
 
                         <h3 className="text-4xl lg:text-6xl font-bold mb-8">Ready to ace your exams?</h3>
                         <p className="text-xl text-indigo-100 mb-12 max-w-2xl mx-auto">
@@ -283,6 +324,9 @@ const LandingPage = () => {
                         <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
                             <Link
                                 to="/signup"
+                                onClick={() => {
+                                    captureLandingEvent('landing_cta_clicked', { cta_name: 'footer_get_started_now' });
+                                }}
                                 className="w-full sm:w-auto inline-flex h-16 items-center justify-center rounded-2xl bg-white px-10 text-lg font-bold text-indigo-600 shadow-2xl hover:bg-neutral-100 transition-all active:scale-95"
                             >
                                 Get Started Now
