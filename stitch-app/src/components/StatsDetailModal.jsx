@@ -81,11 +81,23 @@ const StatsDetailModal = ({ isOpen, onClose, type, userId }) => {
         e.stopPropagation();
     }, []);
 
-    // Reset translate when modal opens
+    // Reset translate when modal opens and lock body scroll
     useEffect(() => {
         if (isOpen) {
             setTranslateY(0);
+            // Lock body scroll
+            document.body.style.overflow = 'hidden';
+            document.body.style.touchAction = 'none';
+        } else {
+            // Unlock body scroll
+            document.body.style.overflow = '';
+            document.body.style.touchAction = '';
         }
+        
+        return () => {
+            document.body.style.overflow = '';
+            document.body.style.touchAction = '';
+        };
     }, [isOpen]);
 
     // Add keyboard escape handler
@@ -182,7 +194,8 @@ const StatsDetailModal = ({ isOpen, onClose, type, userId }) => {
 
                 {/* Content */}
                 <div 
-                    className="flex-1 overflow-y-auto p-4 overscroll-contain touch-pan-y"
+                    className="flex-1 overflow-y-auto p-4"
+                    style={{ overscrollBehavior: 'contain' }}
                     onTouchStart={handleContentTouch}
                 >
                     {renderContent()}

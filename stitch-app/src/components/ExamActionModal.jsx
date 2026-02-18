@@ -65,11 +65,23 @@ const ExamActionModal = ({ isOpen, onClose, attempt }) => {
         }
     }, [isDragging, translateY, onClose]);
 
-    // Reset translate when modal opens
+    // Reset translate when modal opens and lock body scroll
     useEffect(() => {
         if (isOpen) {
             setTranslateY(0);
+            // Lock body scroll
+            document.body.style.overflow = 'hidden';
+            document.body.style.touchAction = 'none';
+        } else {
+            // Unlock body scroll
+            document.body.style.overflow = '';
+            document.body.style.touchAction = '';
         }
+        
+        return () => {
+            document.body.style.overflow = '';
+            document.body.style.touchAction = '';
+        };
     }, [isOpen]);
 
     // Add keyboard escape handler
@@ -133,12 +145,18 @@ const ExamActionModal = ({ isOpen, onClose, attempt }) => {
             {/* Modal */}
             <div
                 ref={modalRef}
-                className="relative w-full max-w-md bg-white dark:bg-surface-dark rounded-t-3xl md:rounded-3xl shadow-2xl overflow-hidden"
+                className="relative w-full max-w-md bg-white dark:bg-surface-dark rounded-t-3xl md:rounded-3xl shadow-2xl overflow-hidden max-h-[85vh] flex flex-col"
                 style={{
                     transform: `translateY(${translateY}px)`,
-                    transition: isDragging ? 'none' : 'transform 0.3s cubic-bezier(0.4, 0, 0.2, 1)'
+                    transition: isDragging ? 'none' : 'transform 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+                    overscrollBehavior: 'contain'
                 }}
             >
+                {/* Scrollable Content */}
+                <div 
+                    className="overflow-y-auto"
+                    style={{ overscrollBehavior: 'contain' }}
+                >
                 {/* Drag Handle (Mobile Only) */}
                 <div 
                     className="drag-handle md:hidden w-full pt-3 pb-1 flex justify-center absolute top-0 left-0 right-0 z-20"
@@ -223,6 +241,7 @@ const ExamActionModal = ({ isOpen, onClose, attempt }) => {
                         <span className="material-symbols-outlined">replay</span>
                         Retry Exam
                     </button>
+                </div>
                 </div>
             </div>
         </div>
