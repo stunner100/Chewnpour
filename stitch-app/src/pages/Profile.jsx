@@ -5,7 +5,8 @@ import { useQuery } from 'convex/react';
 import { api } from '../../convex/_generated/api';
 import StatsDetailModal from '../components/StatsDetailModal';
 import ExamActionModal from '../components/ExamActionModal';
-import { useShare, Toast } from '../hooks/useShare';
+import Toast from '../components/Toast';
+import { useShare } from '../hooks/useShare';
 
 const Profile = () => {
     const { user, signOut, updateProfile, loading: authLoading } = useAuth();
