@@ -152,7 +152,7 @@ const ExamActionModal = ({ isOpen, onClose, attempt }) => {
             {/* Modal */}
             <div
                 ref={modalRef}
-                className="relative w-full max-w-md bg-white dark:bg-surface-dark rounded-t-3xl md:rounded-3xl shadow-2xl overflow-hidden max-h-[85vh] flex flex-col"
+                className="relative w-full max-w-md bg-white dark:bg-surface-dark rounded-t-3xl md:rounded-3xl shadow-2xl overflow-hidden max-h-[75vh] md:max-h-[85vh] flex flex-col mb-safe"
                 style={{
                     transform: `translateY(${translateY}px)`,
                     transition: isDragging ? 'none' : 'transform 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
@@ -232,7 +232,7 @@ const ExamActionModal = ({ isOpen, onClose, attempt }) => {
                 </div>
 
                 {/* Action Buttons */}
-                <div className="p-6 space-y-3">
+                <div className="p-6 pb-20 md:pb-6 space-y-3">
                     <button
                         onClick={handleViewResults}
                         className="w-full h-14 rounded-2xl bg-primary text-white font-bold shadow-lg shadow-primary/25 hover:bg-primary-hover hover:shadow-xl hover:-translate-y-0.5 active:translate-y-0 active:scale-[0.98] transition-all flex items-center justify-center gap-2"

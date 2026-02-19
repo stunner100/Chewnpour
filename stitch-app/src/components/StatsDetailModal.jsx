@@ -167,7 +167,7 @@ const StatsDetailModal = ({ isOpen, onClose, type, userId }) => {
             {/* Modal */}
             <div 
                 ref={modalRef}
-                className="relative w-full max-w-lg md:max-w-2xl bg-white dark:bg-surface-dark rounded-t-3xl md:rounded-3xl shadow-2xl max-h-[85vh] md:max-h-[80vh] flex flex-col"
+                className="relative w-full max-w-lg md:max-w-2xl bg-white dark:bg-surface-dark rounded-t-3xl md:rounded-3xl shadow-2xl max-h-[75vh] md:max-h-[80vh] flex flex-col mb-safe"
                 style={{ 
                     transform: `translateY(${translateY}px)`,
                     transition: isDragging ? 'none' : 'transform 0.3s cubic-bezier(0.4, 0, 0.2, 1)'
@@ -201,7 +201,7 @@ const StatsDetailModal = ({ isOpen, onClose, type, userId }) => {
 
                 {/* Content */}
                 <div 
-                    className="flex-1 overflow-y-auto p-4"
+                    className="flex-1 overflow-y-auto p-4 pb-20 md:pb-4"
                     style={{ overscrollBehavior: 'contain' }}
                     onTouchStart={handleContentTouch}
                 >
