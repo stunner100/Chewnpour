@@ -1,8 +1,9 @@
 "use node";
 
 import { Buffer } from "node:buffer";
+import { randomBytes } from "node:crypto";
 import { action, internalAction } from "./_generated/server";
-import { v } from "convex/values";
+import { ConvexError, v } from "convex/values";
 import { api, internal } from "./_generated/api";
 import {
     calculateRemainingTopicProgress,
@@ -57,6 +58,29 @@ const GEMINI_BASE_URL = process.env.GEMINI_BASE_URL || "https://generativelangua
 const GEMINI_IMAGE_MODEL = process.env.GEMINI_IMAGE_MODEL || "gemini-2.0-flash-exp-image-generation";
 const GEMINI_TIMEOUT_MS = Number(process.env.GEMINI_TIMEOUT_MS || 45000);
 const MIN_EXTRACTED_TEXT_LENGTH = 200;
+const BACKEND_SENTRY_DSN = String(process.env.SENTRY_DSN || process.env.VITE_SENTRY_DSN || "").trim();
+const BACKEND_SENTRY_ENVIRONMENT = String(
+    process.env.SENTRY_ENVIRONMENT
+    || process.env.VITE_SENTRY_ENVIRONMENT
+    || process.env.NODE_ENV
+    || "development"
+).trim();
+const BACKEND_SENTRY_RELEASE = String(process.env.SENTRY_RELEASE || process.env.VITE_SENTRY_RELEASE || "").trim();
+const BACKEND_SENTRY_CAPTURE_TIMEOUT_MS = (() => {
+    const parsed = Number(process.env.SENTRY_CAPTURE_TIMEOUT_MS || 1500);
+    if (!Number.isFinite(parsed)) return 1500;
+    return Math.max(250, Math.round(parsed));
+})();
+const ELEVENLABS_API_BASE_URL = String(process.env.ELEVENLABS_API_BASE_URL || "https://api.elevenlabs.io").trim();
+const ELEVENLABS_API_KEY = String(process.env.ELEVENLABS_API_KEY || "").trim();
+const ELEVENLABS_DEFAULT_VOICE_ID = String(process.env.ELEVENLABS_VOICE_ID || "").trim();
+const ELEVENLABS_MODEL_ID = String(process.env.ELEVENLABS_MODEL_ID || "eleven_multilingual_v2").trim();
+const ELEVENLABS_OUTPUT_FORMAT = String(process.env.ELEVENLABS_OUTPUT_FORMAT || "mp3_44100_128").trim();
+const ELEVENLABS_MAX_TEXT_CHARS = (() => {
+    const parsed = Number(process.env.ELEVENLABS_MAX_TEXT_CHARS || 2500);
+    if (!Number.isFinite(parsed)) return 2500;
+    return Math.max(300, Math.min(5000, Math.round(parsed)));
+})();
 
 interface Message {
     role: "system" | "user" | "assistant";
@@ -88,6 +112,141 @@ interface GeminiGenerateContentResponse {
     }>;
 }
 
+interface BackendSentryEnvelopeConfig {
+    dsn: string;
+    endpoint: string;
+}
+
+type BackendSentryLevel = "debug" | "info" | "warning" | "error" | "fatal";
+
+const parseBackendSentryEnvelopeConfig = (dsn: string): BackendSentryEnvelopeConfig | null => {
+    const trimmed = String(dsn || "").trim();
+    if (!trimmed) return null;
+
+    try {
+        const parsed = new URL(trimmed);
+        const pathParts = parsed.pathname.split("/").filter(Boolean);
+        const projectId = pathParts.pop();
+        if (!projectId) return null;
+        const prefixPath = pathParts.length > 0 ? `/${pathParts.join("/")}` : "";
+        return {
+            dsn: trimmed,
+            endpoint: `${parsed.protocol}//${parsed.host}${prefixPath}/api/${projectId}/envelope/`,
+        };
+    } catch {
+        return null;
+    }
+};
+
+const BACKEND_SENTRY_ENVELOPE_CONFIG = parseBackendSentryEnvelopeConfig(BACKEND_SENTRY_DSN);
+let backendSentryFailureLogged = false;
+
+const logBackendSentryFailureOnce = (reason: string, details?: unknown) => {
+    if (backendSentryFailureLogged) return;
+    backendSentryFailureLogged = true;
+    console.warn("[BackendSentry] capture_failed", {
+        reason,
+        details: details instanceof Error ? details.message : details,
+    });
+};
+
+const sanitizeSentryTags = (tags: Record<string, unknown>) => {
+    const normalized: Record<string, string> = {};
+    for (const [key, value] of Object.entries(tags || {})) {
+        if (value === undefined || value === null || value === "") continue;
+        normalized[String(key)] = String(value).slice(0, 120);
+    }
+    return normalized;
+};
+
+const sanitizeSentryExtra = (value: unknown, depth = 0): unknown => {
+    if (depth > 4) return "[Truncated]";
+    if (value === null || value === undefined) return value;
+    if (typeof value === "string") return value.length > 2000 ? `${value.slice(0, 2000)}...` : value;
+    if (typeof value === "number" || typeof value === "boolean") return value;
+    if (Array.isArray(value)) return value.slice(0, 25).map((item) => sanitizeSentryExtra(item, depth + 1));
+    if (typeof value === "object") {
+        const normalized: Record<string, unknown> = {};
+        for (const [key, entry] of Object.entries(value as Record<string, unknown>).slice(0, 40)) {
+            normalized[String(key)] = sanitizeSentryExtra(entry, depth + 1);
+        }
+        return normalized;
+    }
+    return String(value);
+};
+
+const captureBackendSentryMessage = async (args: {
+    message: string;
+    level?: BackendSentryLevel;
+    tags?: Record<string, unknown>;
+    extras?: Record<string, unknown>;
+}) => {
+    if (!BACKEND_SENTRY_ENVELOPE_CONFIG || !args?.message) return false;
+
+    const payload: Record<string, unknown> = {
+        event_id: randomBytes(16).toString("hex"),
+        timestamp: new Date().toISOString(),
+        platform: "node",
+        logger: "convex.question_bank",
+        level: args.level || "warning",
+        message: String(args.message).slice(0, 600),
+        tags: sanitizeSentryTags({
+            area: "exam",
+            subsystem: "question_bank",
+            ...args.tags,
+        }),
+        extra: sanitizeSentryExtra(args.extras || {}),
+    };
+
+    if (BACKEND_SENTRY_ENVIRONMENT) {
+        payload.environment = BACKEND_SENTRY_ENVIRONMENT;
+    }
+    if (BACKEND_SENTRY_RELEASE) {
+        payload.release = BACKEND_SENTRY_RELEASE;
+    }
+
+    const envelopeHeader = JSON.stringify({
+        dsn: BACKEND_SENTRY_ENVELOPE_CONFIG.dsn,
+        sent_at: new Date().toISOString(),
+    });
+    const itemHeader = JSON.stringify({ type: "event" });
+    const envelopeBody = `${envelopeHeader}\n${itemHeader}\n${JSON.stringify(payload)}`;
+
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), BACKEND_SENTRY_CAPTURE_TIMEOUT_MS);
+    try {
+        const response = await fetch(BACKEND_SENTRY_ENVELOPE_CONFIG.endpoint, {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/x-sentry-envelope",
+            },
+            body: envelopeBody,
+            signal: controller.signal,
+        });
+
+        if (!response.ok) {
+            logBackendSentryFailureOnce("non_ok_response", { status: response.status });
+            return false;
+        }
+        return true;
+    } catch (error) {
+        logBackendSentryFailureOnce("request_failed", error);
+        return false;
+    } finally {
+        clearTimeout(timeoutId);
+    }
+};
+
+const resolveQuestionBankRunMode = (profile: any) => {
+    if (!profile || typeof profile !== "object") return "background";
+    const interactiveTimeBudget = Number(QUESTION_BANK_INTERACTIVE_PROFILE.timeBudgetMs || 0);
+    const profileTimeBudget = Number(profile.timeBudgetMs || 0);
+    if (interactiveTimeBudget > 0 && profileTimeBudget <= interactiveTimeBudget) {
+        return "interactive";
+    }
+    return "background";
+};
+
 async function callQwen(
     messages: Message[],
     model: string = DEFAULT_MODEL,
@@ -100,10 +259,17 @@ async function callQwen(
 
     const controller = new AbortController();
     const timeoutMs = options?.timeoutMs ?? DEFAULT_TIMEOUT_MS;
-    const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+    let timeoutId: ReturnType<typeof setTimeout> | null = null;
     let response: Response;
     try {
-        response = await fetch(`${QWEN_BASE_URL}/chat/completions`, {
+        const timeoutPromise = new Promise<never>((_, reject) => {
+            timeoutId = setTimeout(() => {
+                controller.abort();
+                reject(new Error(`Qwen request timed out after ${timeoutMs}ms`));
+            }, timeoutMs);
+        });
+
+        const requestPromise = fetch(`${QWEN_BASE_URL}/chat/completions`, {
             method: "POST",
             headers: {
                 "Content-Type": "application/json",
@@ -118,8 +284,18 @@ async function callQwen(
             }),
             signal: controller.signal,
         });
+
+        response = await Promise.race([requestPromise, timeoutPromise]);
+    } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : String(error);
+        if (errorMessage.includes("timed out") || errorMessage.includes("aborted")) {
+            throw new Error(`Qwen request timed out after ${timeoutMs}ms`);
+        }
+        throw error;
     } finally {
-        clearTimeout(timeoutId);
+        if (timeoutId) {
+            clearTimeout(timeoutId);
+        }
     }
 
     if (!response.ok) {
@@ -256,10 +432,24 @@ const parseJsonFromResponse = (raw: string, label: string) => {
     }
 };
 
-const parseQuestionsWithRepair = async (raw: string) => {
+const parseQuestionsWithRepair = async (
+    raw: string,
+    options?: { deadlineMs?: number; repairTimeoutMs?: number }
+) => {
     try {
         return parseJsonFromResponse(raw, "questions");
     } catch (error) {
+        const remainingMs = Number.isFinite(Number(options?.deadlineMs))
+            ? Number(options?.deadlineMs) - Date.now()
+            : null;
+        if (remainingMs !== null && remainingMs <= 1200) {
+            return { questions: [] };
+        }
+
+        let repairTimeoutMs = Number(options?.repairTimeoutMs || DEFAULT_TIMEOUT_MS);
+        if (remainingMs !== null) {
+            repairTimeoutMs = Math.min(repairTimeoutMs, Math.max(1000, remainingMs - 200));
+        }
         const repairPrompt = `Fix the malformed JSON-like content below and return strict JSON only.
 
 Required schema:
@@ -288,7 +478,11 @@ ${String(raw || "").slice(0, 20000)}
             const repaired = await callQwen([
                 { role: "system", content: "You are a strict JSON repair assistant. Return valid JSON only." },
                 { role: "user", content: repairPrompt },
-            ], DEFAULT_MODEL, { maxTokens: 2600, responseFormat: "json_object" });
+            ], DEFAULT_MODEL, {
+                maxTokens: 2600,
+                responseFormat: "json_object",
+                timeoutMs: repairTimeoutMs,
+            });
 
             return parseJsonFromResponse(repaired, "repaired questions");
         } catch (repairError) {
@@ -302,6 +496,32 @@ const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 const normalizeOptionText = (value: any) => {
     if (value === null || value === undefined) return "";
     return String(value).replace(/\s+/g, " ").trim();
+};
+
+const DISALLOWED_EXAM_OPTION_PATTERNS = [
+    /^none of the above$/i,
+    /^all of the above$/i,
+    /^cannot be determined from the question$/i,
+    /^not enough information$/i,
+    /^insufficient information$/i,
+    /^unknown$/i,
+    /^n\/a$/i,
+    /^[a-d]$/i,
+    /^option\s*[a-d]?$/i,
+];
+
+const normalizeOptionComparisonKey = (value: string) =>
+    String(value || "")
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, " ")
+        .trim();
+
+const isDisallowedExamOptionText = (value: string) => {
+    const normalized = normalizeOptionText(value);
+    if (!normalized) return true;
+    const comparisonKey = normalizeOptionComparisonKey(normalized);
+    if (!comparisonKey) return true;
+    return DISALLOWED_EXAM_OPTION_PATTERNS.some((pattern) => pattern.test(comparisonKey));
 };
 
 const normalizeOptions = (raw: any) => {
@@ -390,6 +610,33 @@ const normalizeOptions = (raw: any) => {
     return normalized.filter((option) => option.text);
 };
 
+const sanitizeQuestionOptions = (options: any[]) => {
+    const seen = new Set<string>();
+    const sanitized = [];
+
+    for (const option of options || []) {
+        const text = normalizeOptionText(option?.text);
+        if (!text) continue;
+        const key = normalizeOptionComparisonKey(text);
+        if (!key || seen.has(key)) continue;
+        seen.add(key);
+        sanitized.push({
+            ...option,
+            text,
+        });
+    }
+
+    return sanitized;
+};
+
+const hasUsableQuestionOptions = (options: any[]) => {
+    const candidate = (options || []).slice(0, 4);
+    if (candidate.length < 4) return false;
+    const unique = new Set(candidate.map((option) => normalizeOptionComparisonKey(option?.text || "")));
+    if (unique.size < 4) return false;
+    return candidate.every((option) => !isDisallowedExamOptionText(option?.text));
+};
+
 const ensureSingleCorrect = (options: any[]) => {
     const firstCorrect = options.findIndex((option) => option.isCorrect);
     const correctIndex = firstCorrect === -1 ? 0 : firstCorrect;
@@ -405,24 +652,6 @@ const fillOptionLabels = (options: any[]) =>
         text: option.text,
         isCorrect: option.isCorrect,
     }));
-
-const fillMissingOptions = (options: any[]) => {
-    const fallback = [
-        "None of the above",
-        "All of the above",
-        "Cannot be determined from the question",
-        "Not enough information",
-    ];
-    const used = new Set(options.map((option) => option.text));
-    const filled = [...options];
-    for (const text of fallback) {
-        if (filled.length >= 4) break;
-        if (!used.has(text)) {
-            filled.push({ text, isCorrect: false });
-        }
-    }
-    return filled;
-};
 
 const TOPIC_STOP_WORDS = new Set([
     "the",
@@ -465,13 +694,36 @@ const anchorTextToTopic = (text: string, topicTitle: string, topicKeywords: stri
     return `In ${topicTitle}, ${first}${cleaned.slice(1)}`;
 };
 
-const generateOptionsForQuestion = async (questionText: string, topicTitle: string) => {
-    const prompt = `Create exactly 4 multiple-choice answer options for the question below. Mark exactly one option as correct.\n\nQUESTION: ${questionText}\nTOPIC: ${topicTitle}\n\nReturn JSON only in this format:\n{\"options\":[{\"label\":\"A\",\"text\":\"...\",\"isCorrect\":false},{\"label\":\"B\",\"text\":\"...\",\"isCorrect\":true},{\"label\":\"C\",\"text\":\"...\",\"isCorrect\":false},{\"label\":\"D\",\"text\":\"...\",\"isCorrect\":false}]}`;
+const generateOptionsForQuestion = async (
+    questionText: string,
+    topicTitle: string,
+    options?: { timeoutMs?: number }
+) => {
+    const prompt = `Create exactly 4 high-quality multiple-choice options for the question below. Mark exactly one option as correct.
+
+Hard constraints:
+- Keep options specific to the topic and question context
+- Do not use: "All of the above", "None of the above", "Cannot be determined from the question", "Not enough information"
+- Do not use single-letter or placeholder options (like "A", "B", "Option A")
+- Avoid duplicate or near-duplicate options
+
+QUESTION: ${questionText}
+TOPIC: ${topicTitle}
+
+Return JSON only in this format:
+{"options":[{"label":"A","text":"...","isCorrect":false},{"label":"B","text":"...","isCorrect":true},{"label":"C","text":"...","isCorrect":false},{"label":"D","text":"...","isCorrect":false}]}`;
 
     const response = await callQwen([
-        { role: "system", content: "You are an expert educator. Respond with valid JSON only." },
+        {
+            role: "system",
+            content: "You are an expert educator. Create strong, specific distractors. Respond with valid JSON only.",
+        },
         { role: "user", content: prompt },
-    ], DEFAULT_MODEL, { maxTokens: 700, responseFormat: "json_object" });
+    ], DEFAULT_MODEL, {
+        maxTokens: 700,
+        responseFormat: "json_object",
+        timeoutMs: options?.timeoutMs,
+    });
 
     try {
         return parseJsonFromResponse(response, "options");
@@ -624,6 +876,41 @@ const normalizeAssignmentText = (value: string) =>
         .replace(/\s+\n/g, "\n")
         .replace(/\n{3,}/g, "\n\n")
         .trim();
+
+const ASSIGNMENT_GENERIC_PROCESSING_ERROR =
+    "Failed to process assignment right now. Please try uploading again.";
+const ASSIGNMENT_AI_UNAVAILABLE_ERROR =
+    "Assignment AI is temporarily unavailable. Please try again in a moment.";
+const ASSIGNMENT_SAFE_ERROR_PREFIXES = [
+    "Assignment thread not found.",
+    "You do not have permission to access this assignment.",
+    "File is too large. Maximum supported size is 50MB.",
+    "Unsupported file format. Upload a PDF, DOCX, or image file.",
+    "Could not access the uploaded file. Please upload again.",
+    "Failed to download the assignment file. Please upload again.",
+    "Assignment OCR is currently unavailable. Please upload a clearer file or try again later.",
+    "We could not read this assignment clearly. Please upload a clearer image/file and try again.",
+    "We could not extract enough text from this assignment. Please upload a clearer image/file.",
+];
+
+const normalizeAssignmentProcessingErrorMessage = (error: unknown) => {
+    const message =
+        error instanceof Error
+            ? String(error.message || "").trim()
+            : String(error || "").trim();
+    if (!message) return ASSIGNMENT_GENERIC_PROCESSING_ERROR;
+    if (ASSIGNMENT_SAFE_ERROR_PREFIXES.some((safePrefix) => message.startsWith(safePrefix))) {
+        return message;
+    }
+    if (
+        /qwen_api_key environment variable not set/i.test(message)
+        || /qwen request timed out/i.test(message)
+        || /qwen api error/i.test(message)
+    ) {
+        return ASSIGNMENT_AI_UNAVAILABLE_ERROR;
+    }
+    return ASSIGNMENT_GENERIC_PROCESSING_ERROR;
+};
 
 const stripMarkdownLikeFormatting = (value: string) =>
     String(value || "")
@@ -1467,6 +1754,7 @@ const generateTopicContentForIndex = async (args: {
     const topicStart = Date.now();
 
     const lessonPrompt = `Create deeply detailed lesson content for this study topic.
+Write as if you are explaining to a smart 12-year-old who has never seen this topic before.
 
 TOPIC: ${safeTopicTitle}
 DESCRIPTION: ${topicData.description}
@@ -1477,26 +1765,32 @@ CONTEXT FROM STUDY MATERIAL:
 ${topicContext}
 """
 
-Write very detailed educational content in **plain, beginner-friendly language**.
 Target length: ${TOPIC_DETAIL_WORD_TARGET} words.
 
-Include:
-1. **Simple Introduction**
-2. **Key Ideas in Plain English**
-3. **Step-by-Step Breakdown**
-4. **Worked Examples** with intermediate steps
-5. **Common Mistakes and Misconceptions**
-6. **Everyday Analogies**
-7. **Practical Use Cases**
-8. **Quick Glossary** (8-12 terms)
-9. **Summary + Self-check prompts**
+CRITICAL STYLE – "Teach me like I'm 12":
+- Use very simple, everyday words. Keep most sentences under 20 words.
+- The FIRST time you use a hard or technical word, immediately explain it in square brackets, e.g. "photosynthesis [how plants make food from sunlight]".
+- Use a warm, encouraging tone — like a friendly older sibling tutoring you.
+- NO jargon walls. If a paragraph has more than 2 technical terms, split it up and simplify.
 
-Format the content in clear markdown with headers and bullet points.
-Make it engaging and easy to understand while preserving technical correctness.
+Include ALL of these sections in order:
+1. **Big Idea** — 1-2 sentences summarizing the whole topic in the simplest words possible.
+2. **Key Ideas in Simple Words** — 6-10 bullet points, each one sentence, plain language.
+3. **Everyday Analogies** — At least 3 analogies connecting concepts to school life, games, sports, cooking, or home life. Start each with "Think of it like…" or "Imagine…".
+4. **Step-by-Step Breakdown** — Walk through the topic like a tutorial. Number each step. Each step should be 2-3 short sentences.
+5. **Mini Worked Example** — Pick one specific problem or scenario and solve it step by step using simple numbers or ideas.
+6. **Common Mistakes** — 3-5 mistakes beginners make, explained in kid-friendly language.
+7. **Word Bank** — 8-12 difficult terms from the topic. Format each as: "**Term**: simple meaning [even simpler helper in brackets]".
+8. **Quick Check** — 3 short questions with answers so the student can test themselves.
+9. **Summary** — 3-4 sentences wrapping up what was learned.
+
+Format the content in clear markdown with headers (##) and bullet points.
+Make it engaging, fun, and easy to follow while keeping all facts correct.
 
 IMPORTANT FORMATTING RULES:
 - Do NOT include citation brackets, reference numbers, or footnote markers like [1], [2], [3.], [*, etc.
 - Do NOT use orphaned brackets [ or ] that don't form complete markdown links.
+- Square brackets are ONLY for inline word explanations like [simple meaning].
 - Every bullet point or list item must be complete — no trailing symbols or orphaned markers.
 - Use clean, properly closed markdown only.
 
@@ -1508,7 +1802,7 @@ Respond in this exact JSON format only:
     let lessonData: any = null;
     try {
         const lessonResponse = await callQwen([
-            { role: "system", content: "You are an expert educator creating comprehensive lesson content. Always respond with valid JSON only." },
+            { role: "system", content: "You are a friendly, expert educator who explains topics as if talking to a smart 12-year-old. Use simple words, short sentences, fun analogies, and always explain jargon in brackets. Always respond with valid JSON only." },
             { role: "user", content: lessonPrompt },
         ], DEFAULT_MODEL, { maxTokens: 4200, responseFormat: "json_object" });
         lessonData = parseJsonFromResponse(lessonResponse, "lesson content");
@@ -2058,7 +2352,7 @@ export const processAssignmentThread = action({
         extractedText: v.optional(v.string()),
     },
     handler: async (ctx, args) => {
-        const failThread = async (message: string) => {
+        const failThread = async (message: string): Promise<never> => {
             try {
                 await ctx.runMutation(api.assignments.updateThreadStatus, {
                     userId: args.userId,
@@ -2069,7 +2363,7 @@ export const processAssignmentThread = action({
             } catch (statusError) {
                 console.error("Failed to update assignment thread status:", statusError);
             }
-            throw new Error(message);
+            throw new ConvexError(message);
         };
 
         try {
@@ -2205,10 +2499,10 @@ ${assignmentContext}
 
             return { success: true, alreadyProcessed: false };
         } catch (error) {
-            const message =
-                error instanceof Error
-                    ? error.message
-                    : "Failed to process assignment. Please try uploading again.";
+            if (error instanceof ConvexError) {
+                throw error;
+            }
+            const message = normalizeAssignmentProcessingErrorMessage(error);
             await failThread(message);
         }
     },
@@ -2326,6 +2620,118 @@ const assertTopicQuestionGenerationAccess = async (ctx: any, topicId: any) => {
     });
 };
 
+const assertTopicVoicePlaybackAccess = async (ctx: any, topicId: any) => {
+    const identity = await ctx.auth.getUserIdentity();
+    const authUserId = resolveAuthUserId(identity);
+    assertAuthorizedUser({ authUserId });
+
+    const topicOwner = await ctx.runQuery(internal.topics.getTopicOwnerUserIdInternal, { topicId });
+    if (!topicOwner) {
+        throw new Error("Topic not found");
+    }
+};
+
+export const synthesizeTopicVoice = action({
+    args: {
+        topicId: v.id("topics"),
+        text: v.string(),
+        voiceId: v.optional(v.string()),
+    },
+    handler: async (ctx, args) => {
+        await assertTopicVoicePlaybackAccess(ctx, args.topicId);
+
+        const normalizedText = String(args.text || "")
+            .replace(/\s+/g, " ")
+            .trim();
+        if (!normalizedText) {
+            throw new Error("No lesson text is available for voice playback.");
+        }
+
+        if (!ELEVENLABS_API_KEY) {
+            throw new Error("ElevenLabs voice is not configured (missing API key).");
+        }
+        const selectedVoiceId = String(args.voiceId || ELEVENLABS_DEFAULT_VOICE_ID).trim();
+        if (!selectedVoiceId) {
+            throw new Error("ElevenLabs voice is not configured (missing voice id).");
+        }
+        const truncatedText = normalizedText.slice(0, ELEVENLABS_MAX_TEXT_CHARS);
+
+        try {
+            const endpoint = `${ELEVENLABS_API_BASE_URL}/v1/text-to-speech/${encodeURIComponent(selectedVoiceId)}?output_format=${encodeURIComponent(ELEVENLABS_OUTPUT_FORMAT)}`;
+            const response = await fetch(endpoint, {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    "xi-api-key": ELEVENLABS_API_KEY,
+                    Accept: "audio/mpeg",
+                },
+                body: JSON.stringify({
+                    text: truncatedText,
+                    model_id: ELEVENLABS_MODEL_ID,
+                }),
+            });
+
+            if (!response.ok) {
+                const details = await response.text().catch(() => "");
+                const message = details
+                    ? details.slice(0, 240)
+                    : "No response body";
+                throw new Error(`ElevenLabs TTS request failed (${response.status}): ${message}`);
+            }
+
+            const audioBytes = await response.arrayBuffer();
+            const mimeType = response.headers.get("content-type") || "audio/mpeg";
+            const encodedAudio = Buffer.from(audioBytes).toString("base64");
+
+            console.info("[VoiceMode] synthesizeTopicVoice_success", {
+                topicId: args.topicId,
+                voiceId: selectedVoiceId,
+                sourceTextLength: normalizedText.length,
+                synthesizedTextLength: truncatedText.length,
+                audioBase64Length: encodedAudio.length,
+            });
+
+            return {
+                provider: "elevenlabs",
+                voiceId: selectedVoiceId,
+                mimeType,
+                audioBase64: encodedAudio,
+                truncated: truncatedText.length < normalizedText.length,
+                sourceTextLength: normalizedText.length,
+                synthesizedTextLength: truncatedText.length,
+            };
+        } catch (error) {
+            const message = error instanceof Error ? error.message : String(error);
+            console.warn("[VoiceMode] synthesizeTopicVoice_failed", {
+                topicId: args.topicId,
+                voiceId: selectedVoiceId,
+                sourceTextLength: normalizedText.length,
+                synthesizedTextLength: truncatedText.length,
+                message,
+            });
+
+            await captureBackendSentryMessage({
+                message: "voice_synthesis_failed",
+                level: "warning",
+                tags: {
+                    area: "voice",
+                    provider: "elevenlabs",
+                    operation: "synthesizeTopicVoice",
+                },
+                extras: {
+                    topicId: String(args.topicId || ""),
+                    voiceId: selectedVoiceId,
+                    sourceTextLength: normalizedText.length,
+                    synthesizedTextLength: truncatedText.length,
+                    errorMessage: message,
+                },
+            }).catch(() => { });
+
+            throw error;
+        }
+    },
+});
+
 const buildQuestionGenerationPrompt = (args: {
     requestedCount: number;
     topicTitle: string;
@@ -2347,6 +2753,9 @@ Hard constraints:
 - Cover different sub-concepts from this topic to maximize understanding
 - Avoid repeating question wording or testing the same fact in nearly identical ways
 - Use exactly 4 options per question and mark exactly one correct option
+- Do not use "All of the above", "None of the above", "Cannot be determined from the question", or "Not enough information"
+- Do not use single-letter or placeholder options (like "A", "B", "Option A")
+- Keep every option concrete, plausible, and specific to this lesson content
 
 Respond in this exact JSON format only:
 {
@@ -2399,19 +2808,43 @@ const generateQuestionCandidatesBatch = async (args: {
     topicTitle: string;
     topicDescription?: string;
     topicContent: string;
+    deadlineMs?: number;
+    requestTimeoutMs?: number;
+    repairTimeoutMs?: number;
+    maxAttempts?: number;
 }) => {
     const prompt = buildQuestionGenerationPrompt(args);
     let questionsData: any = { questions: [] };
-    for (let attempt = 0; attempt < 3; attempt += 1) {
+    const maxAttempts = Math.max(1, Math.round(Number(args.maxAttempts || 1)));
+    for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
+        const remainingMs = Number.isFinite(Number(args.deadlineMs))
+            ? Number(args.deadlineMs) - Date.now()
+            : null;
+        if (remainingMs !== null && remainingMs <= 1200) {
+            break;
+        }
+
+        const configuredTimeoutMs = Math.max(1000, Math.round(Number(args.requestTimeoutMs || DEFAULT_TIMEOUT_MS)));
+        const timeoutMs = remainingMs === null
+            ? configuredTimeoutMs
+            : Math.min(configuredTimeoutMs, Math.max(1000, remainingMs - 200));
+
         const response = await callQwen([
             {
                 role: "system",
                 content: "You are an expert educator creating quiz questions. Always respond with valid JSON only.",
             },
             { role: "user", content: prompt },
-        ], DEFAULT_MODEL, { maxTokens: 2400, responseFormat: "json_object" });
+        ], DEFAULT_MODEL, {
+            maxTokens: 2400,
+            responseFormat: "json_object",
+            timeoutMs,
+        });
 
-        questionsData = await parseQuestionsWithRepair(response);
+        questionsData = await parseQuestionsWithRepair(response, {
+            deadlineMs: args.deadlineMs,
+            repairTimeoutMs: args.repairTimeoutMs,
+        });
         if (Array.isArray(questionsData?.questions) && questionsData.questions.length > 0) {
             break;
         }
@@ -2426,6 +2859,7 @@ const generateQuestionBankForTopic = async (
     rawProfile: any = QUESTION_BANK_BACKGROUND_PROFILE
 ) => {
     const profile = resolveQuestionBankProfile(rawProfile);
+    const runMode = resolveQuestionBankRunMode(profile);
     const topicWithQuestions = await ctx.runQuery(api.topics.getTopicWithQuestions, { topicId });
     if (!topicWithQuestions) {
         throw new Error("Topic not found");
@@ -2433,7 +2867,13 @@ const generateQuestionBankForTopic = async (
 
     const topicContent = String(topicWithQuestions.content || "");
     const targetCount = calculateQuestionBankTarget(topicContent, profile);
-    const existingQuestions = topicWithQuestions.questions || [];
+    const rawExistingQuestions = topicWithQuestions.questions || [];
+    const existingQuestions = rawExistingQuestions.filter((question: any) => {
+        const normalizedKey = normalizeQuestionKey(question?.questionText || "");
+        if (!normalizedKey) return false;
+        const options = sanitizeQuestionOptions(normalizeOptions(question?.options));
+        return hasUsableQuestionOptions(options);
+    });
     const existingQuestionKeys = new Set(
         existingQuestions
             .map((question: any) => normalizeQuestionKey(question?.questionText || ""))
@@ -2466,7 +2906,30 @@ const generateQuestionBankForTopic = async (
         maxRounds: profile.maxRounds,
         bufferRounds: profile.bufferRounds,
     });
+    const generationStartedAt = Date.now();
     const deadlineMs = Date.now() + profile.timeBudgetMs;
+
+    if (runMode === "interactive") {
+        void captureBackendSentryMessage({
+            message: "Question bank generation started",
+            level: "info",
+            tags: {
+                operation: "question_bank_generation",
+                stage: "started",
+                runMode,
+            },
+            extras: {
+                topicId,
+                topicTitle: topicWithQuestions.title,
+                initialCount,
+                targetCount,
+                maxRounds,
+                timeBudgetMs: profile.timeBudgetMs,
+                batchSize: profile.batchSize,
+                parallelRequests: profile.parallelRequests,
+            },
+        });
+    }
 
     while (
         existingQuestionKeys.size < targetCount
@@ -2492,6 +2955,10 @@ const generateQuestionBankForTopic = async (
                     topicTitle: topicWithQuestions.title,
                     topicDescription: topicWithQuestions.description,
                     topicContent,
+                    deadlineMs,
+                    requestTimeoutMs: profile.requestTimeoutMs,
+                    repairTimeoutMs: profile.repairTimeoutMs,
+                    maxAttempts: profile.maxBatchAttempts,
                 })
             )
         );
@@ -2508,11 +2975,33 @@ const generateQuestionBankForTopic = async (
                     requestedCount: batchPlan[batchIndex],
                     message: result.reason instanceof Error ? result.reason.message : String(result.reason),
                 });
+                void captureBackendSentryMessage({
+                    message: "Question bank batch request failed",
+                    level: "warning",
+                    tags: {
+                        operation: "question_bank_generation",
+                        stage: "batch_request_failed",
+                        runMode,
+                    },
+                    extras: {
+                        topicId,
+                        topicTitle: topicWithQuestions.title,
+                        round,
+                        batchIndex,
+                        requestedCount: batchPlan[batchIndex],
+                        errorMessage: result.reason instanceof Error ? result.reason.message : String(result.reason),
+                        timeBudgetMs: profile.timeBudgetMs,
+                    },
+                });
             }
         }
 
         let roundAdded = 0;
         for (const question of candidateQuestions) {
+            if (Date.now() >= deadlineMs) {
+                break;
+            }
+
             if (!question?.questionText || typeof question.questionText !== "string") {
                 continue;
             }
@@ -2527,16 +3016,32 @@ const generateQuestionBankForTopic = async (
                 continue;
             }
 
-            let options = normalizeOptions(question.options);
-            if (options.length < 4) {
-                const generated = await generateOptionsForQuestion(anchoredQuestionText, topicWithQuestions.title);
-                const generatedOptions = normalizeOptions(generated?.options ?? generated);
-                if (generatedOptions.length >= 4) {
-                    options = generatedOptions;
+            let options = sanitizeQuestionOptions(normalizeOptions(question.options));
+            if (!hasUsableQuestionOptions(options)) {
+                const remainingOptionBudgetMs = deadlineMs - Date.now();
+                if (remainingOptionBudgetMs > 900) {
+                    const optionTimeoutMs = runMode === "interactive"
+                        ? Math.min(3000, Math.max(900, remainingOptionBudgetMs - 200))
+                        : Math.min(profile.requestTimeoutMs, Math.max(1000, remainingOptionBudgetMs - 200));
+                    const generated = await generateOptionsForQuestion(
+                        anchoredQuestionText,
+                        topicWithQuestions.title,
+                        { timeoutMs: optionTimeoutMs }
+                    );
+                    const generatedOptions = sanitizeQuestionOptions(
+                        normalizeOptions(generated?.options ?? generated)
+                    );
+                    if (hasUsableQuestionOptions(generatedOptions)) {
+                        options = generatedOptions;
+                    }
                 }
             }
 
-            options = fillOptionLabels(fillMissingOptions(options)).slice(0, 4);
+            if (!hasUsableQuestionOptions(options)) {
+                continue;
+            }
+
+            options = fillOptionLabels(options.slice(0, 4));
             options = ensureSingleCorrect(options);
 
             const correctOption = options.find((o: any) => o.isCorrect);
@@ -2563,6 +3068,25 @@ const generateQuestionBankForTopic = async (
 
         if (roundAdded === 0) {
             noProgressRounds += 1;
+            void captureBackendSentryMessage({
+                message: "Question bank round made no progress",
+                level: "warning",
+                tags: {
+                    operation: "question_bank_generation",
+                    stage: "round_no_progress",
+                    runMode,
+                },
+                extras: {
+                    topicId,
+                    topicTitle: topicWithQuestions.title,
+                    round,
+                    noProgressRounds,
+                    noProgressLimit: profile.noProgressLimit,
+                    totalCount: existingQuestionKeys.size,
+                    targetCount,
+                    batchPlan,
+                },
+            });
         } else {
             noProgressRounds = 0;
         }
@@ -2581,7 +3105,70 @@ const generateQuestionBankForTopic = async (
         });
     }
 
-    const timedOut = Date.now() >= deadlineMs && existingQuestionKeys.size < targetCount;
+    const incomplete = existingQuestionKeys.size < targetCount;
+    const stoppedForNoProgress = incomplete && noProgressRounds >= profile.noProgressLimit;
+    const stoppedForMaxRounds = incomplete && round >= maxRounds;
+    const timedOut = Date.now() >= deadlineMs && incomplete;
+    const elapsedMs = Date.now() - generationStartedAt;
+
+    if (stoppedForNoProgress) {
+        console.warn("[QuestionBank] no_progress_limit_reached", {
+            topicId,
+            topicTitle: topicWithQuestions.title,
+            generatedCount: existingQuestionKeys.size,
+            targetCount,
+            noProgressRounds,
+            noProgressLimit: profile.noProgressLimit,
+        });
+        void captureBackendSentryMessage({
+            message: "Question bank generation hit no-progress limit",
+            level: "warning",
+            tags: {
+                operation: "question_bank_generation",
+                stage: "no_progress_limit_reached",
+                runMode,
+            },
+            extras: {
+                topicId,
+                topicTitle: topicWithQuestions.title,
+                generatedCount: existingQuestionKeys.size,
+                targetCount,
+                noProgressRounds,
+                noProgressLimit: profile.noProgressLimit,
+                elapsedMs,
+            },
+        });
+    }
+
+    if (stoppedForMaxRounds) {
+        console.warn("[QuestionBank] max_rounds_reached", {
+            topicId,
+            topicTitle: topicWithQuestions.title,
+            generatedCount: existingQuestionKeys.size,
+            targetCount,
+            round,
+            maxRounds,
+        });
+        void captureBackendSentryMessage({
+            message: "Question bank generation hit max-round limit",
+            level: "warning",
+            tags: {
+                operation: "question_bank_generation",
+                stage: "max_rounds_reached",
+                runMode,
+            },
+            extras: {
+                topicId,
+                topicTitle: topicWithQuestions.title,
+                generatedCount: existingQuestionKeys.size,
+                targetCount,
+                round,
+                maxRounds,
+                elapsedMs,
+            },
+        });
+    }
+
     if (timedOut) {
         console.warn("[QuestionBank] time_budget_reached", {
             topicId,
@@ -2589,6 +3176,56 @@ const generateQuestionBankForTopic = async (
             generatedCount: existingQuestionKeys.size,
             targetCount,
             timeBudgetMs: profile.timeBudgetMs,
+        });
+        void captureBackendSentryMessage({
+            message: "Question bank generation hit time budget",
+            level: "warning",
+            tags: {
+                operation: "question_bank_generation",
+                stage: "time_budget_reached",
+                runMode,
+            },
+            extras: {
+                topicId,
+                topicTitle: topicWithQuestions.title,
+                generatedCount: existingQuestionKeys.size,
+                targetCount,
+                timeBudgetMs: profile.timeBudgetMs,
+                elapsedMs,
+            },
+        });
+    }
+
+    if (runMode === "interactive") {
+        const outcome = timedOut
+            ? "time_budget_reached"
+            : stoppedForNoProgress
+                ? "no_progress_limit_reached"
+                : stoppedForMaxRounds
+                    ? "max_rounds_reached"
+                    : "completed";
+        void captureBackendSentryMessage({
+            message: "Question bank generation finished",
+            level: outcome === "completed" ? "info" : "warning",
+            tags: {
+                operation: "question_bank_generation",
+                stage: "finished",
+                runMode,
+                outcome,
+            },
+            extras: {
+                topicId,
+                topicTitle: topicWithQuestions.title,
+                initialCount,
+                generatedCount: existingQuestionKeys.size,
+                added,
+                targetCount,
+                maxRounds,
+                roundsCompleted: round,
+                noProgressRounds,
+                elapsedMs,
+                timeBudgetMs: profile.timeBudgetMs,
+            },
         });
     }
 
@@ -2654,6 +3291,657 @@ export const regenerateQuestionsForTopic = action({
     },
 });
 
+const TEACH_TWELVE_STYLE_PATTERN = /(12|twelve|kid|child)/i;
+const TEACH_TWELVE_ANALOGY_CUE_PATTERN =
+    /\b(think of it like|just like|imagine|similar to|school|classroom|home|game|sport|team|cartoon|playground)\b/gi;
+const TEACH_TWELVE_STOP_WORDS = new Set([
+    ...Array.from(TOPIC_STOP_WORDS),
+    "about",
+    "after",
+    "because",
+    "between",
+    "called",
+    "different",
+    "every",
+    "first",
+    "general",
+    "great",
+    "having",
+    "important",
+    "lesson",
+    "main",
+    "many",
+    "might",
+    "other",
+    "people",
+    "their",
+    "there",
+    "these",
+    "those",
+    "through",
+    "topic",
+    "understand",
+    "using",
+    "very",
+    "what",
+    "when",
+    "where",
+    "which",
+    "while",
+    "with",
+]);
+const TEACH_TWELVE_DEFAULT_TERMS = [
+    "concept",
+    "pattern",
+    "example",
+    "evidence",
+    "context",
+    "strategy",
+    "outcome",
+    "comparison",
+];
+
+const toShortSentence = (value: string, maxWords = 22) => {
+    const normalized = normalizeOutlineString(value)
+        .replace(/[*#`_]/g, "")
+        .trim();
+    if (!normalized) return "";
+    const words = normalized.split(/\s+/).filter(Boolean);
+    const limited = words.slice(0, Math.max(6, maxWords)).join(" ");
+    return limited.replace(/\s*[,:;]\s*$/g, "").trim();
+};
+
+const countPatternMatches = (value: string, pattern: RegExp) => {
+    const matches = String(value || "").match(pattern);
+    return matches ? matches.length : 0;
+};
+
+const extractSectionLines = (content: string, sectionPattern: RegExp) => {
+    const lines = String(content || "").split("\n");
+    const collected: string[] = [];
+    let inSection = false;
+
+    for (const rawLine of lines) {
+        const line = String(rawLine || "").trim();
+        if (!line) continue;
+
+        const headingMatch = line.match(/^#{1,6}\s+(.+)$/);
+        const headingText = headingMatch ? headingMatch[1].trim() : "";
+        if (!inSection) {
+            if (headingMatch && sectionPattern.test(headingText)) {
+                inSection = true;
+                continue;
+            }
+            if (!headingMatch && line.length <= 40 && sectionPattern.test(line)) {
+                inSection = true;
+                continue;
+            }
+            continue;
+        }
+
+        if (headingMatch) break;
+        collected.push(line);
+    }
+
+    return collected;
+};
+
+const countWordBankEntries = (content: string) => {
+    const sectionLines = extractSectionLines(content, /word bank/i);
+    const listLines = sectionLines.filter((line) => /^(?:[-*]|\d+\.)\s+/.test(line));
+    if (listLines.length > 0) return listLines.length;
+    return sectionLines.filter((line) => line.includes(":")).length;
+};
+
+const countQuickCheckPairs = (content: string) => {
+    const sectionLines = extractSectionLines(content, /quick check/i);
+    if (sectionLines.length === 0) return 0;
+
+    const questionCount = sectionLines.filter((line) => {
+        return /\?/.test(line) && (/^(?:[-*]|\d+\.)\s+/.test(line) || /^\s*(?:q|question)\s*[:\-]/i.test(line));
+    }).length;
+    const answerCount = sectionLines.filter((line) => {
+        return /^\s*(?:a|answer)\s*[:\-]/i.test(line)
+            || /\bA:\s+/i.test(line)
+            || /\bAnswer:\s+/i.test(line);
+    }).length;
+    const inlinePairCount = sectionLines.filter((line) => /\?\s*(?:A:|Answer:)/i.test(line)).length;
+
+    return Math.min(questionCount, Math.max(answerCount, inlinePairCount));
+};
+
+const evaluateTeachTwelveConsistency = (content: string) => {
+    const normalized = parseLessonContentCandidate(String(content || ""));
+    const plain = stripMarkdownLikeFormatting(normalized)
+        .replace(/\[[^\]\n]{2,80}\]/g, " ")
+        .replace(/\s+/g, " ")
+        .trim();
+    const words = plain.split(/\s+/).filter(Boolean);
+    const sentences = plain
+        .split(/[.!?]+/)
+        .map((sentence) => sentence.trim())
+        .filter(Boolean);
+    const sentenceWordCounts = sentences.map((sentence) => sentence.split(/\s+/).filter(Boolean).length);
+    const averageSentenceWords = sentenceWordCounts.length > 0
+        ? sentenceWordCounts.reduce((sum, count) => sum + count, 0) / sentenceWordCounts.length
+        : 0;
+    const maxSentenceWords = sentenceWordCounts.length > 0 ? Math.max(...sentenceWordCounts) : 0;
+    const longWords = words.filter((word) => word.length >= 13).length;
+    const longWordRatio = words.length > 0 ? longWords / words.length : 0;
+
+    const wordBankEntries = countWordBankEntries(normalized);
+    const quickCheckPairs = countQuickCheckPairs(normalized);
+    const analogyCueCount = countPatternMatches(normalized, TEACH_TWELVE_ANALOGY_CUE_PATTERN);
+    const bracketDefinitionCount = countPatternMatches(normalized, /\[[^\]\n]{2,80}\]/g);
+
+    const reasons: string[] = [];
+    if (wordBankEntries < 6) reasons.push("Word Bank must include at least 6 entries.");
+    if (quickCheckPairs < 3) reasons.push("Quick Check must include at least 3 question/answer pairs.");
+    if (analogyCueCount < 3) reasons.push("Use at least 3 child-friendly analogy cues.");
+    if (bracketDefinitionCount < 3) reasons.push("Explain difficult words with bracket definitions at least 3 times.");
+    if (averageSentenceWords > 22) reasons.push("Sentences are too long on average for a 12-year-old reader.");
+    if (maxSentenceWords > 38) reasons.push("Some sentences are too long for the target reading level.");
+    if (longWordRatio > 0.08) reasons.push("Vocabulary complexity is too high for consistent 12-year-old readability.");
+
+    const score = (
+        wordBankEntries * 3
+        + quickCheckPairs * 4
+        + analogyCueCount * 2
+        + bracketDefinitionCount
+        - Math.round(Math.max(0, averageSentenceWords - 18))
+    );
+
+    return {
+        passed: reasons.length === 0,
+        reasons,
+        score,
+        metrics: {
+            wordBankEntries,
+            quickCheckPairs,
+            analogyCueCount,
+            bracketDefinitionCount,
+            averageSentenceWords: Number(averageSentenceWords.toFixed(2)),
+            maxSentenceWords,
+            longWordRatio: Number(longWordRatio.toFixed(3)),
+        },
+    };
+};
+
+const extractTeachTwelveTerms = (source: string, topicTitle: string, maxItems = 8) => {
+    const words = `${topicTitle || ""} ${source || ""}`
+        .toLowerCase()
+        .replace(/[^a-z0-9\s]/g, " ")
+        .split(/\s+/)
+        .map((word) => word.trim())
+        .filter((word) =>
+            word.length >= 6
+            && word.length <= 16
+            && !TEACH_TWELVE_STOP_WORDS.has(word)
+        );
+
+    const unique = Array.from(new Set(words));
+    const seeded = unique.slice(0, maxItems);
+    while (seeded.length < maxItems) {
+        const fallback = TEACH_TWELVE_DEFAULT_TERMS[seeded.length % TEACH_TWELVE_DEFAULT_TERMS.length];
+        if (!seeded.includes(fallback)) {
+            seeded.push(fallback);
+        } else {
+            break;
+        }
+    }
+
+    return seeded.slice(0, maxItems).map((word) => word.charAt(0).toUpperCase() + word.slice(1));
+};
+
+const normalizeTeachTwelveWordBank = (
+    rawWordBank: any,
+    fallbackTerms: string[],
+    topicTitle: string
+) => {
+    const wordBank = Array.isArray(rawWordBank) ? rawWordBank : [];
+    const normalized: Array<{ term: string; meaning: string }> = [];
+    const usedTerms = new Set<string>();
+
+    const pushEntry = (termRaw: string, meaningRaw: string) => {
+        const term = toShortSentence(termRaw, 4).replace(/[^A-Za-z0-9\s-]/g, "").trim();
+        const key = term.toLowerCase();
+        if (!term || term.length < 3 || usedTerms.has(key)) return;
+        let meaning = toShortSentence(meaningRaw, 16);
+        if (!meaning) {
+            meaning = `${term} means a key idea in ${toShortSentence(topicTitle, 6)} [simple meaning].`;
+        }
+        if (!/\[[^\]]+\]/.test(meaning)) {
+            meaning = `${meaning} [simple meaning].`;
+        }
+        normalized.push({ term, meaning });
+        usedTerms.add(key);
+    };
+
+    for (const entry of wordBank) {
+        if (typeof entry === "string") {
+            pushEntry(entry, `${entry} means an important idea in this lesson.`);
+            continue;
+        }
+        if (!entry || typeof entry !== "object") continue;
+        pushEntry(
+            String(entry.term ?? entry.word ?? entry.name ?? ""),
+            String(entry.meaning ?? entry.definition ?? entry.explanation ?? "")
+        );
+    }
+
+    for (const fallbackTerm of fallbackTerms) {
+        if (normalized.length >= 6) break;
+        pushEntry(
+            fallbackTerm,
+            `${fallbackTerm} means an important part of this topic [kid-friendly explanation].`
+        );
+    }
+
+    return normalized.slice(0, 10);
+};
+
+const isNoisyTeachTwelveBullet = (value: string) => {
+    const line = String(value || "").trim();
+    if (!line) return true;
+    if (line.includes("\\")) return true;
+    if (/\(\s*\d+\s*[-–]\s*\d+\s*min(?:ute)?s?\s*\)/i.test(line)) return true;
+    if (/^\s*(simple introduction|mini-lecture|warm-up|case study|guiding questions)\b/i.test(line)) return true;
+    return false;
+};
+
+const normalizeTeachTwelveQuickCheck = (rawQuickCheck: any, topicTitle: string) => {
+    const quickCheck = Array.isArray(rawQuickCheck) ? rawQuickCheck : [];
+    const normalized: Array<{ question: string; answer: string }> = [];
+
+    const pushPair = (questionRaw: string, answerRaw: string) => {
+        let question = toShortSentence(questionRaw, 16);
+        if (!question) return;
+        if (!question.endsWith("?")) question = `${question}?`;
+        const answer = toShortSentence(answerRaw, 16) || "This means the main idea in simple words.";
+        normalized.push({ question, answer });
+    };
+
+    for (const item of quickCheck) {
+        if (typeof item === "string") {
+            pushPair(item, "Use one short sentence to explain your answer.");
+            continue;
+        }
+        if (!item || typeof item !== "object") continue;
+        pushPair(
+            String(item.question ?? item.q ?? ""),
+            String(item.answer ?? item.a ?? "")
+        );
+    }
+
+    const safeTitle = toShortSentence(topicTitle, 8) || "this topic";
+    const defaults = [
+        {
+            question: `What does ${safeTitle} mean in one sentence?`,
+            answer: `${safeTitle} is about understanding the main idea clearly.`,
+        },
+        {
+            question: "Name one example that helps explain this topic.",
+            answer: "A simple school or game example can show how the idea works.",
+        },
+        {
+            question: "Why does this topic matter in real life?",
+            answer: "It helps you make better decisions and explain ideas clearly.",
+        },
+    ];
+
+    for (const fallback of defaults) {
+        if (normalized.length >= 3) break;
+        pushPair(fallback.question, fallback.answer);
+    }
+
+    return normalized.slice(0, 3);
+};
+
+const normalizeTeachTwelveAnalogies = (rawAnalogies: any, topicTitle: string) => {
+    const analogies = Array.isArray(rawAnalogies) ? rawAnalogies : [];
+    const normalized: Array<{ label: string; text: string }> = [];
+
+    const pushAnalogy = (labelRaw: string, textRaw: string) => {
+        const label = toShortSentence(labelRaw, 4) || "Everyday";
+        let text = toShortSentence(textRaw, 24);
+        if (!text) return;
+        if (!/\b(think of it like|just like|imagine|similar to|like)\b/i.test(text)) {
+            text = `Think of it like ${text.charAt(0).toLowerCase()}${text.slice(1)}`;
+        }
+        normalized.push({ label, text });
+    };
+
+    for (const item of analogies) {
+        if (typeof item === "string") {
+            pushAnalogy("Everyday", item);
+            continue;
+        }
+        if (!item || typeof item !== "object") continue;
+        pushAnalogy(
+            String(item.label ?? item.title ?? "Everyday"),
+            String(item.text ?? item.example ?? item.description ?? "")
+        );
+    }
+
+    const safeTitle = toShortSentence(topicTitle, 8) || "this topic";
+    const defaults = [
+        {
+            label: "School",
+            text: `Think of it like a school project where each part has a clear job in ${safeTitle}.`,
+        },
+        {
+            label: "Game",
+            text: `Just like a game plan, each step helps you reach the final goal.`,
+        },
+        {
+            label: "Home",
+            text: `Imagine organizing your room: small steps make a big task easier.`,
+        },
+    ];
+    for (const fallback of defaults) {
+        if (normalized.length >= 3) break;
+        pushAnalogy(fallback.label, fallback.text);
+    }
+
+    return normalized.slice(0, 3);
+};
+
+const buildTeachTwelveMarkdownFromStructured = (args: {
+    payload: any;
+    topicTitle: string;
+    topicDescription?: string;
+    sourceContent: string;
+}) => {
+    const payload = args.payload || {};
+    const title = toShortSentence(
+        String(payload.title || `Learn ${args.topicTitle} Like You’re 12`),
+        12
+    );
+    const bigIdea = toShortSentence(
+        String(payload.bigIdea || args.topicDescription || `This lesson explains ${args.topicTitle} in simple words.`),
+        28
+    );
+
+    const sourceBullets = String(args.sourceContent || "")
+        .replace(/\s+/g, " ")
+        .split(/(?<=[.!?])\s+/)
+        .map((line) => toShortSentence(line, 18))
+        .filter((line) => line.length > 30 && !isNoisyTeachTwelveBullet(line))
+        .slice(0, 8);
+    const requestedBullets = normalizeOutlineStringList(
+        payload.simpleExplanationBullets || payload.keyIdeas || payload.bullets,
+        10
+    )
+        .map((line) => toShortSentence(line, 18))
+        .filter((line) => !isNoisyTeachTwelveBullet(line));
+    const bulletSet = Array.from(
+        new Set(
+            [
+                ...requestedBullets,
+                ...(requestedBullets.length >= 6 ? [] : sourceBullets),
+            ]
+                .map((line) => line.trim())
+                .filter((line) => line.length > 10)
+        )
+    ).slice(0, 8);
+    while (bulletSet.length < 6) {
+        bulletSet.push("Break the idea into small steps and check each step with an example.");
+    }
+
+    const analogies = normalizeTeachTwelveAnalogies(payload.analogies, args.topicTitle);
+    const rawWorkedExample = payload.workedExample && typeof payload.workedExample === "object"
+        ? payload.workedExample
+        : {};
+    const workedTitle = toShortSentence(
+        String(rawWorkedExample.title || "Mini Worked Example"),
+        8
+    ) || "Mini Worked Example";
+    const workedSteps = normalizeOutlineStringList(
+        rawWorkedExample.steps || rawWorkedExample.examples || [],
+        5
+    )
+        .map((step) => toShortSentence(step, 18))
+        .filter((step) => step.length > 10)
+        .slice(0, 5);
+    while (workedSteps.length < 3) {
+        workedSteps.push([
+            "Start with a simple number or idea from the lesson.",
+            "Apply one clear rule and show each step slowly.",
+            "Check the final answer and explain why it makes sense.",
+        ][workedSteps.length]);
+    }
+
+    const fallbackTerms = extractTeachTwelveTerms(args.sourceContent, args.topicTitle, 8);
+    const wordBank = normalizeTeachTwelveWordBank(payload.wordBank, fallbackTerms, args.topicTitle);
+    const quickCheck = normalizeTeachTwelveQuickCheck(payload.quickCheck, args.topicTitle);
+
+    return cleanLessonMarkdown(`
+# ${title}
+
+## Big Idea
+${bigIdea}
+
+## Key Ideas in Simple Words
+${bulletSet.map((line) => `- ${line}`).join("\n")}
+
+## Everyday Analogies
+${analogies.map((entry, index) => `${index + 1}. **${entry.label}**: ${entry.text}`).join("\n")}
+
+## Mini Worked Example
+${workedTitle}
+${workedSteps.map((step, index) => `${index + 1}. ${step}`).join("\n")}
+
+## Word Bank
+${wordBank.map((entry) => `- **${entry.term}**: ${entry.meaning}`).join("\n")}
+
+## Quick Check
+${quickCheck.map((item, index) => `${index + 1}. **Q:** ${item.question}\n   **A:** ${item.answer}`).join("\n")}
+    `);
+};
+
+const buildTeachTwelveStructuredPrompt = (args: {
+    topicTitle: string;
+    topicDescription?: string;
+    topicContent: string;
+    styleLabel: string;
+    extraGuidance?: string;
+}) => `Rewrite this lesson for a 12-year-old beginner and return STRICT JSON ONLY.
+
+STYLE LABEL: ${args.styleLabel}
+TOPIC: ${args.topicTitle}
+DESCRIPTION: ${args.topicDescription || "General lesson explanation"}
+
+SOURCE LESSON:
+"""
+${String(args.topicContent || "").slice(0, 6500)}
+"""
+
+Output schema (JSON object only):
+{
+  "title": "short friendly title",
+  "bigIdea": "1-2 short sentences, simple words",
+  "simpleExplanationBullets": ["6-10 bullets, each <=18 words"],
+  "analogies": [
+    { "label": "School", "text": "child-friendly analogy sentence" },
+    { "label": "Game", "text": "child-friendly analogy sentence" },
+    { "label": "Home", "text": "child-friendly analogy sentence" }
+  ],
+  "workedExample": {
+    "title": "mini worked example title",
+    "steps": ["3-5 short steps using simple numbers when possible"]
+  },
+  "wordBank": [
+    { "term": "term", "meaning": "kid-friendly meaning with bracket helper [simple meaning]" }
+  ],
+  "quickCheck": [
+    { "question": "short question?", "answer": "short answer" },
+    { "question": "short question?", "answer": "short answer" },
+    { "question": "short question?", "answer": "short answer" }
+  ]
+}
+
+Hard requirements:
+- Keep language very simple and direct.
+- Explain difficult words with brackets in the meaning text.
+- Include exactly 3 quick-check Q/A pairs.
+- Include at least 6 word-bank terms.
+- Use at least 3 child-friendly analogies tied to school, games, sports, cartoons, or home life.
+- No markdown in JSON values.
+
+${args.extraGuidance ? `Fix these issues from the previous draft: ${args.extraGuidance}` : ""}`;
+
+const buildTeachTwelveFallbackLesson = (args: {
+    topicTitle: string;
+    topicDescription?: string;
+    topicContent: string;
+}) => {
+    const fallbackTerms = extractTeachTwelveTerms(args.topicContent, args.topicTitle, 8);
+    const fallbackWordBank = fallbackTerms.map((term) => ({
+        term,
+        meaning: `${term} means an important idea in this lesson [simple meaning].`,
+    }));
+    return buildTeachTwelveMarkdownFromStructured({
+        payload: {
+            title: `Learn ${args.topicTitle} Like You’re 12`,
+            bigIdea: args.topicDescription || `This lesson explains ${args.topicTitle} in simple words.`,
+            simpleExplanationBullets: [
+                "Start with the main idea before memorizing small details.",
+                "Break hard ideas into short, clear steps.",
+                "Use one small example to test each idea.",
+                "Compare similar words so you do not mix them up.",
+                "Check your answer and explain why it makes sense.",
+                "Review common mistakes to improve faster.",
+            ],
+            analogies: [
+                {
+                    label: "School",
+                    text: `Think of it like a school project where each part has one clear job.`,
+                },
+                {
+                    label: "Game",
+                    text: "Just like a game plan, each move builds on the move before it.",
+                },
+                {
+                    label: "Home",
+                    text: "Imagine cleaning your room: small steps make a big task easier.",
+                },
+            ],
+            workedExample: {
+                title: "Mini Worked Example",
+                steps: [
+                    "Pick one simple part of the topic.",
+                    "Apply one rule step by step with small numbers.",
+                    "Check the final answer and explain it in one short sentence.",
+                ],
+            },
+            wordBank: fallbackWordBank,
+            quickCheck: [
+                {
+                    question: `What does ${args.topicTitle} mean in one sentence?`,
+                    answer: "It is the main idea of this lesson explained in simple words.",
+                },
+                {
+                    question: "What is one example from this lesson?",
+                    answer: "Use a small real-life example and explain the key step.",
+                },
+                {
+                    question: "Why does this topic matter?",
+                    answer: "It helps you think clearly and solve related problems better.",
+                },
+            ],
+        },
+        topicTitle: args.topicTitle,
+        topicDescription: args.topicDescription,
+        sourceContent: args.topicContent,
+    });
+};
+
+const generateTeachTwelveRewrite = async (args: {
+    topicTitle: string;
+    topicDescription?: string;
+    topicContent: string;
+    styleLabel: string;
+}) => {
+    const sourceContent = parseLessonContentCandidate(String(args.topicContent || ""));
+    let bestContent = "";
+    let bestScore = Number.NEGATIVE_INFINITY;
+
+    const runAttempt = async (extraGuidance = "") => {
+        const response = await callQwen([
+            {
+                role: "system",
+                content: "You rewrite lessons for 12-year-olds. Return valid JSON only.",
+            },
+            {
+                role: "user",
+                content: buildTeachTwelveStructuredPrompt({
+                    topicTitle: args.topicTitle,
+                    topicDescription: args.topicDescription,
+                    topicContent: sourceContent,
+                    styleLabel: args.styleLabel,
+                    extraGuidance,
+                }),
+            },
+        ], DEFAULT_MODEL, {
+            maxTokens: 2600,
+            responseFormat: "json_object",
+        });
+
+        const parsed = parseJsonFromResponse(response, "teach_twelve_rewrite");
+        const markdown = buildTeachTwelveMarkdownFromStructured({
+            payload: parsed,
+            topicTitle: args.topicTitle,
+            topicDescription: args.topicDescription,
+            sourceContent,
+        });
+        const cleaned = parseLessonContentCandidate(markdown);
+        const report = evaluateTeachTwelveConsistency(cleaned);
+        return { cleaned, report };
+    };
+
+    try {
+        const first = await runAttempt();
+        if (first.cleaned && first.report.score > bestScore) {
+            bestContent = first.cleaned;
+            bestScore = first.report.score;
+        }
+        if (first.report.passed) {
+            return first.cleaned;
+        }
+
+        const second = await runAttempt(first.report.reasons.join(" "));
+        if (second.cleaned && second.report.score > bestScore) {
+            bestContent = second.cleaned;
+            bestScore = second.report.score;
+        }
+        if (second.report.passed) {
+            return second.cleaned;
+        }
+
+        const fallback = parseLessonContentCandidate(buildTeachTwelveFallbackLesson({
+            topicTitle: args.topicTitle,
+            topicDescription: args.topicDescription,
+            topicContent: sourceContent,
+        }));
+        const fallbackReport = evaluateTeachTwelveConsistency(fallback);
+        if (fallbackReport.passed) {
+            return fallback;
+        }
+
+        return bestContent || fallback || sourceContent;
+    } catch (error) {
+        console.warn("[ReExplain] teach_twelve_structured_rewrite_failed", {
+            topicTitle: args.topicTitle,
+            message: error instanceof Error ? error.message : String(error),
+        });
+        return parseLessonContentCandidate(buildTeachTwelveFallbackLesson({
+            topicTitle: args.topicTitle,
+            topicDescription: args.topicDescription,
+            topicContent: sourceContent,
+        })) || sourceContent;
+    }
+};
+
 // Re-explain a topic in a different style on demand
 export const reExplainTopic = action({
     args: {
@@ -2667,7 +3955,18 @@ export const reExplainTopic = action({
             throw new Error("Topic not found");
         }
 
-        const normalizedStyle = String(style || "").toLowerCase();
+        const requestedStyle = String(style || "Teach me like I’m 12").trim() || "Teach me like I’m 12";
+        const normalizedStyle = requestedStyle.toLowerCase();
+        if (TEACH_TWELVE_STYLE_PATTERN.test(normalizedStyle)) {
+            const teachTwelveContent = await generateTeachTwelveRewrite({
+                topicTitle: topic.title,
+                topicDescription: topic.description || "",
+                topicContent: String(topic.content || ""),
+                styleLabel: requestedStyle,
+            });
+            const cleanedFallback = parseLessonContentCandidate(String(topic.content || ""));
+            return { content: teachTwelveContent || cleanedFallback || topic.content || "" };
+        }
 
         const getStyleInstruction = (s: string): string => {
             if (s.includes("12") || s.includes("twelve") || s.includes("kid") || s.includes("child")) {
@@ -2739,14 +4038,14 @@ export const reExplainTopic = action({
 - Think "executive summary" — someone reading this should understand 80% of the topic in 60 seconds.`;
             }
 
-            return `Keep the style faithful to "${style}" while preserving technical correctness and key facts.`;
+            return `Keep the style faithful to "${requestedStyle}" while preserving technical correctness and key facts.`;
         };
 
         const styleInstruction = getStyleInstruction(normalizedStyle);
 
         const prompt = `Rewrite the lesson in the requested style while keeping all factual content.
 
-STYLE: ${style}
+STYLE: ${requestedStyle}
 TOPIC: ${topic.title}
 
 ORIGINAL LESSON:
@@ -2815,15 +4114,20 @@ export const detectAIText = action({
     },
     handler: async (ctx, args) => {
         if (!args.text || args.text.trim().length < 50) {
-            throw new Error("Text must be at least 50 characters for accurate detection.");
+            throw new ConvexError("Text must be at least 50 characters for accurate detection.");
         }
 
         const truncatedText = args.text.slice(0, 4000);
-
-        const response = await callQwen([
-            { role: "system", content: DETECTION_SYSTEM_PROMPT },
-            { role: "user", content: `Analyze this text for AI-generated characteristics:\n\n${truncatedText}` },
-        ], DEFAULT_MODEL, { maxTokens: 500, temperature: 0.2 });
+        let response = "";
+        try {
+            response = await callQwen([
+                { role: "system", content: DETECTION_SYSTEM_PROMPT },
+                { role: "user", content: `Analyze this text for AI-generated characteristics:\n\n${truncatedText}` },
+            ], DEFAULT_MODEL, { maxTokens: 500, temperature: 0.2 });
+        } catch (error) {
+            console.error("detectAIText failed:", error);
+            throw new ConvexError("Failed to analyze text right now. Please try again.");
+        }
 
         try {
             const jsonMatch = response.match(/\{[\s\S]*\}/);
@@ -2853,15 +4157,20 @@ export const humanizeText = action({
     },
     handler: async (ctx, args) => {
         if (!args.text || args.text.trim().length < 10) {
-            throw new Error("Text must be at least 10 characters to humanize.");
+            throw new ConvexError("Text must be at least 10 characters to humanize.");
         }
 
         const truncatedText = args.text.slice(0, 6000);
-
-        const response = await callQwen([
-            { role: "system", content: HUMANIZE_SYSTEM_PROMPT },
-            { role: "user", content: `Humanize the following text:\n\n${truncatedText}` },
-        ], DEFAULT_MODEL, { maxTokens: 8000, temperature: 0.5 });
+        let response = "";
+        try {
+            response = await callQwen([
+                { role: "system", content: HUMANIZE_SYSTEM_PROMPT },
+                { role: "user", content: `Humanize the following text:\n\n${truncatedText}` },
+            ], DEFAULT_MODEL, { maxTokens: 8000, temperature: 0.5 });
+        } catch (error) {
+            console.error("humanizeText failed:", error);
+            throw new ConvexError("Failed to humanize text right now. Please try again.");
+        }
 
         return { humanizedText: response.trim() };
     },
