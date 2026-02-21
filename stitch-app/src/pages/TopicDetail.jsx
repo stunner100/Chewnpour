@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { useQuery, useAction } from 'convex/react';
 import { api } from '../../convex/_generated/api';
@@ -23,10 +23,11 @@ const TopicDetail = () => {
     const { user, profile, updateProfile } = useAuth();
     const generateQuestions = useAction(api.ai.generateQuestionsForTopic);
     const reExplainTopic = useAction(api.ai.reExplainTopic);
+    const synthesizeTopicVoice = useAction(api.ai.synthesizeTopicVoice);
     const [startingExam, setStartingExam] = useState(false);
     const [startExamError, setStartExamError] = useState('');
     const [reExplainOpen, setReExplainOpen] = useState(false);
-    const [reExplainStyle, setReExplainStyle] = useState('Simple summary');
+    const [reExplainStyle, setReExplainStyle] = useState('Teach me like I’m 12');
     const [reExplainLoading, setReExplainLoading] = useState(false);
     const [reExplainError, setReExplainError] = useState('');
     const [settingsOpen, setSettingsOpen] = useState(false);
@@ -50,10 +51,23 @@ const TopicDetail = () => {
     const voiceModeEnabled = Boolean(profile?.voiceModeEnabled);
     const storageKey = topicId ? `topicOverride:${topicId}` : null;
     const contentCacheKey = topicId ? `topicContent:${topicId}` : null;
+    const synthesizeLessonVoice = useCallback(
+        async (text) => {
+            if (!topicId) {
+                throw new Error('Topic not found.');
+            }
+            return synthesizeTopicVoice({
+                topicId,
+                text,
+            });
+        },
+        [synthesizeTopicVoice, topicId]
+    );
     const {
         isSupported: isVoiceSupported,
         status: voiceStatus,
         error: voicePlaybackError,
+        playbackEngine,
         play: playVoice,
         pause: pauseVoice,
         resume: resumeVoice,
@@ -64,7 +78,9 @@ const TopicDetail = () => {
         selectedVoiceURI,
         selectedVoiceName,
         setVoicePreference,
-    } = useVoicePlayback();
+    } = useVoicePlayback({
+        remoteSynthesize: synthesizeLessonVoice,
+    });
 
     useEffect(() => {
         if (!storageKey) return;
@@ -341,8 +357,8 @@ const TopicDetail = () => {
                 const level = headerMatch[1].length;
                 let text = cleanLine(headerMatch[2]);
                 let trailingParagraph = '';
-                if (text.length > 120) {
-                    const splitMatch = text.match(/^(.{20,120}?[.!?])\s+(.+)$/);
+                if (text.length > 80) {
+                    const splitMatch = text.match(/^(.{15,250}?[.!?)]|.{15,150}?[:])\s+([A-Z].+)$/);
                     if (splitMatch) {
                         text = splitMatch[1].trim();
                         trailingParagraph = splitMatch[2].trim();
@@ -394,15 +410,19 @@ const TopicDetail = () => {
                 continue;
             }
 
-            const emphasizedDefinitionMatch = raw.match(/^\*\*([^*]{2,90})\*\*\s*:\s*(.+)$/);
+            const emphasizedDefinitionMatch = raw.match(/^\*\*([^*]{2,40})\*\*\s*:\s*(.+)$/);
             if (emphasizedDefinitionMatch) {
-                blocks.push({
-                    type: 'definition',
-                    term: cleanLine(emphasizedDefinitionMatch[1]),
-                    text: emphasizedDefinitionMatch[2],
-                    key: `d-em-${i}`
-                });
-                continue;
+                const term = cleanLine(emphasizedDefinitionMatch[1]);
+                // Prevent matching generic lists or steps that happen to use bolding
+                if (!term.toLowerCase().includes('step') && !term.startsWith('-')) {
+                    blocks.push({
+                        type: 'definition',
+                        term,
+                        text: emphasizedDefinitionMatch[2],
+                        key: `d-em-${i}`
+                    });
+                    continue;
+                }
             }
 
             // Examples
@@ -475,25 +495,15 @@ const TopicDetail = () => {
         setStartingExam(true);
 
         try {
-            const MIN_READY_QUESTIONS = 10;
-
-            if (questions.length < MIN_READY_QUESTIONS) {
-                // Wait for question generation to complete before navigating
-                const result = await generateQuestions({ topicId });
-                const availableCount = result?.count ?? 0;
-                if (!result?.success || availableCount === 0) {
-                    setStartExamError('Unable to prepare questions yet. Please try again.');
-                    return;
-                }
-            } else {
-                // Already enough questions — top up in background without blocking
-                try {
-                    generateQuestions({ topicId }).catch((error) => {
-                        console.warn('Question bank background top-up failed:', error);
-                    });
-                } catch (generationError) {
-                    console.warn('Question bank top-up failed; continuing with existing questions.', generationError);
-                }
+            const MIN_READY_QUESTIONS = 5;
+            if (questions.length < MIN_READY_QUESTIONS && !prewarmingQuestions) {
+                generateQuestions({ topicId }).catch((error) => {
+                    console.warn('Question bank warmup failed after exam start; continuing to exam page.', error);
+                });
+            } else if (questions.length >= MIN_READY_QUESTIONS) {
+                generateQuestions({ topicId }).catch((error) => {
+                    console.warn('Question bank background top-up failed:', error);
+                });
             }
 
             navigate(`/dashboard/exam/${topicId}`);
@@ -551,15 +561,20 @@ const TopicDetail = () => {
                         <span className="material-symbols-outlined text-xl">arrow_back</span>
                         <span className="hidden sm:inline text-sm font-medium">Back</span>
                     </Link>
+                    <div className="w-px h-5 bg-slate-200 dark:bg-slate-700"></div>
+                    <Link to="/dashboard" className="hidden sm:flex items-center gap-2 text-slate-600 dark:text-slate-400 hover:text-primary transition-colors">
+                        <span className="material-symbols-outlined text-xl">home</span>
+                        <span className="text-sm font-medium">Dashboard</span>
+                    </Link>
                     <div className="hidden sm:block w-px h-5 bg-slate-200 dark:bg-slate-700"></div>
-                    <span className="hidden sm:block text-sm font-semibold text-slate-700 dark:text-slate-300 truncate max-w-[200px] md:max-w-md">
+                    <span className="text-xs sm:text-sm font-semibold text-slate-700 dark:text-slate-300 truncate max-w-[130px] sm:max-w-[200px] md:max-w-md">
                         {headerTopicTitle}
                     </span>
                 </div>
                 <div className="flex items-center gap-2">
                     <button
                         onClick={() => setReadingMode((value) => !value)}
-                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+                        className="hidden lg:flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
                         title={readingMode ? 'Switch to split view' : 'Switch to focus mode'}
                     >
                         <span className="material-symbols-outlined text-lg">{readingMode ? 'fullscreen' : 'splitscreen'}</span>
@@ -623,24 +638,25 @@ const TopicDetail = () => {
                                                 <button
                                                     onClick={() => {
                                                         if (!speechText) return;
+                                                        if (voiceStatus === 'loading') return;
                                                         if (isPaused) {
                                                             resumeVoice();
                                                         } else {
                                                             playVoice(speechText);
                                                         }
                                                     }}
-                                                    disabled={!isVoiceSupported || !speechText}
-                                                    className="inline-flex items-center gap-1 px-3 py-1.5 rounded-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs font-bold text-slate-700 dark:text-slate-200 hover:border-primary/40 hover:text-primary disabled:opacity-50 disabled:cursor-not-allowed"
+                                                    disabled={!isVoiceSupported || !speechText || voiceStatus === 'loading'}
+                                                    className="inline-flex items-center gap-1 px-3 h-11 min-w-[80px] rounded-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs font-bold text-slate-700 dark:text-slate-200 hover:border-primary/40 hover:text-primary disabled:opacity-50 disabled:cursor-not-allowed"
                                                 >
                                                     <span className="material-symbols-outlined text-[16px]">
-                                                        {isPaused ? 'play_arrow' : 'volume_up'}
+                                                        {voiceStatus === 'loading' ? 'hourglass_top' : (isPaused ? 'play_arrow' : 'volume_up')}
                                                     </span>
-                                                    {isPaused ? 'Resume' : 'Play'}
+                                                    {voiceStatus === 'loading' ? 'Generating...' : (isPaused ? 'Resume' : 'Play')}
                                                 </button>
                                                 <button
                                                     onClick={pauseVoice}
                                                     disabled={!isPlaying}
-                                                    className="inline-flex items-center gap-1 px-3 py-1.5 rounded-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs font-bold text-slate-700 dark:text-slate-200 hover:border-primary/40 hover:text-primary disabled:opacity-50 disabled:cursor-not-allowed"
+                                                    className="inline-flex items-center gap-1 px-3 h-11 min-w-[72px] rounded-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs font-bold text-slate-700 dark:text-slate-200 hover:border-primary/40 hover:text-primary disabled:opacity-50 disabled:cursor-not-allowed"
                                                 >
                                                     <span className="material-symbols-outlined text-[16px]">pause</span>
                                                     Pause
@@ -648,7 +664,7 @@ const TopicDetail = () => {
                                                 <button
                                                     onClick={stopVoice}
                                                     disabled={!isPlaying && !isPaused}
-                                                    className="inline-flex items-center gap-1 px-3 py-1.5 rounded-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs font-bold text-slate-700 dark:text-slate-200 hover:border-primary/40 hover:text-primary disabled:opacity-50 disabled:cursor-not-allowed"
+                                                    className="inline-flex items-center gap-1 px-3 h-11 min-w-[68px] rounded-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs font-bold text-slate-700 dark:text-slate-200 hover:border-primary/40 hover:text-primary disabled:opacity-50 disabled:cursor-not-allowed"
                                                 >
                                                     <span className="material-symbols-outlined text-[16px]">stop</span>
                                                     Stop
@@ -670,7 +686,12 @@ const TopicDetail = () => {
                                             )}
                                             {isVoiceSupported && speechText && (
                                                 <div className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-medium text-slate-600">
-                                                    {voiceStatus === 'playing' && 'Reading explanation aloud...'}
+                                                    {voiceStatus === 'loading' && 'Generating voice audio...'}
+                                                    {voiceStatus === 'playing' && (
+                                                        playbackEngine === 'elevenlabs'
+                                                            ? 'Reading explanation aloud with ElevenLabs...'
+                                                            : 'Reading explanation aloud...'
+                                                    )}
                                                     {voiceStatus === 'paused' && 'Reading paused.'}
                                                     {(voiceStatus === 'idle' || voiceStatus === 'error') && 'Tap Play to hear this explanation.'}
                                                 </div>
@@ -725,7 +746,7 @@ const TopicDetail = () => {
                                                         <div
                                                             key={block.key}
                                                             id={block.id}
-                                                            className={`${sizes[block.level] || sizes[3]} scroll-mt-32 ${animationClass}`}
+                                                            className={`${sizes[block.level] || sizes[3]} scroll-mt-20 md:scroll-mt-32 ${animationClass}`}
                                                             style={animationStyle}
                                                         >
                                                             {icon && <span className="material-symbols-outlined text-primary/70">{icon}</span>}
@@ -943,10 +964,10 @@ const TopicDetail = () => {
                     <div className="bg-white dark:bg-slate-900 rounded-2xl p-6 md:p-8 text-center border border-slate-200 dark:border-slate-800 shadow-sm">
                         <h3 className="text-xl md:text-2xl font-bold text-slate-900 dark:text-white mb-2">Ready to practice?</h3>
                         <p className="text-slate-500 dark:text-slate-400 text-sm mb-6">Test your knowledge with questions based on this lesson.</p>
-                        
+
                         <div className="flex flex-col sm:flex-row gap-3 justify-center">
-                            <Link 
-                                to={topicId ? `/dashboard/concept-intro/${topicId}` : "/dashboard/concept-intro"} 
+                            <Link
+                                to={topicId ? `/dashboard/concept-intro/${topicId}` : "/dashboard/concept-intro"}
                                 className="inline-flex items-center justify-center gap-2 px-6 py-3 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 rounded-xl text-sm font-semibold hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors"
                             >
                                 <span className="material-symbols-outlined text-lg">school</span>
@@ -961,7 +982,7 @@ const TopicDetail = () => {
                                 <span>{startingExam ? 'Preparing...' : 'Take Quiz'}</span>
                             </button>
                         </div>
-                        
+
                         {startExamError && (
                             <div className="mt-4 max-w-md mx-auto rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
                                 {startExamError}
@@ -1049,6 +1070,9 @@ const TopicDetail = () => {
                                             Current: {selectedVoiceName || 'Auto'}.
                                         </p>
                                         <p className="mt-1 text-[11px] text-slate-500 dark:text-slate-400">
+                                            Playback: {playbackEngine === 'elevenlabs' ? 'ElevenLabs' : 'Browser voice'}.
+                                        </p>
+                                        <p className="mt-1 text-[11px] text-slate-500 dark:text-slate-400">
                                             For best quality, install Enhanced/Premium voices in macOS Settings.
                                         </p>
                                     </div>
@@ -1091,7 +1115,7 @@ const TopicDetail = () => {
                             </button>
                         </div>
                         <p className="text-sm text-slate-500 dark:text-slate-400 mb-4">Choose how you want this explanation to be rewritten.</p>
-                        <div className="grid grid-cols-2 gap-3 mb-4">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-4">
                             {[
                                 'Simple summary',
                                 'Step-by-step',
