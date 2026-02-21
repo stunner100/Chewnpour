@@ -1780,7 +1780,7 @@ Include ALL of these sections in order:
 4. **Step-by-Step Breakdown** — Walk through the topic like a tutorial. Number each step. Each step should be 2-3 short sentences.
 5. **Mini Worked Example** — Pick one specific problem or scenario and solve it step by step using simple numbers or ideas.
 6. **Common Mistakes** — 3-5 mistakes beginners make, explained in kid-friendly language.
-7. **Word Bank** — 8-12 difficult terms from the topic. Format each as: "**Term**: simple meaning [even simpler helper in brackets]".
+7. **Word Bank** — 8-12 difficult terms from the topic. Format each as a bullet: "- Term — simple meaning [even simpler helper in brackets]". Do NOT bold the term with ** markers.
 8. **Quick Check** — 3 short questions with answers so the student can test themselves.
 9. **Summary** — 3-4 sentences wrapping up what was learned.
 
@@ -3732,7 +3732,7 @@ ${workedTitle}
 ${workedSteps.map((step, index) => `${index + 1}. ${step}`).join("\n")}
 
 ## Word Bank
-${wordBank.map((entry) => `- **${entry.term}**: ${entry.meaning}`).join("\n")}
+${wordBank.map((entry) => `- ${entry.term} — ${entry.meaning}`).join("\n")}
 
 ## Quick Check
 ${quickCheck.map((item, index) => `${index + 1}. **Q:** ${item.question}\n   **A:** ${item.answer}`).join("\n")}
