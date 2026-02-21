@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { usePostHog } from '@posthog/react';
 import { useAuth } from '../contexts/AuthContext';
+import { capturePostHogEvent } from '../lib/posthog';
 import heroIllustration960 from '../assets/eduwebsite-960.jpg';
 import heroIllustration1600 from '../assets/eduwebsite-1600.jpg';
 
@@ -59,12 +59,11 @@ const testimonials = [
 const LandingPage = () => {
     const { user } = useAuth();
     const navigate = useNavigate();
-    const posthog = usePostHog();
     const [scrolled, setScrolled] = useState(false);
+    const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
     const captureLandingEvent = (eventName, properties = {}) => {
-        if (!posthog || typeof posthog.capture !== 'function') return;
-        posthog.capture(eventName, {
+        capturePostHogEvent(eventName, {
             page: 'landing',
             pathname: typeof window !== 'undefined' ? window.location.pathname : '/',
             ...properties,
@@ -73,18 +72,31 @@ const LandingPage = () => {
 
     useEffect(() => {
         let ticking = false;
+        let frameId = null;
         const handleScroll = () => {
             if (!ticking) {
-                window.requestAnimationFrame(() => {
+                frameId = window.requestAnimationFrame(() => {
                     setScrolled(window.scrollY > 20);
                     ticking = false;
+                    frameId = null;
                 });
                 ticking = true;
             }
         };
         window.addEventListener('scroll', handleScroll, { passive: true });
-        return () => window.removeEventListener('scroll', handleScroll);
+        return () => {
+            window.removeEventListener('scroll', handleScroll);
+            if (frameId !== null) {
+                window.cancelAnimationFrame(frameId);
+            }
+        };
     }, []);
+
+    // Close mobile menu on scroll
+    useEffect(() => {
+        if (mobileMenuOpen) setMobileMenuOpen(false);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [scrolled]);
 
     useEffect(() => {
         if (user) {
@@ -96,49 +108,108 @@ const LandingPage = () => {
         <div className="relative min-h-screen overflow-x-hidden bg-[#0a0a0b] text-white font-sans selection:bg-indigo-500/30">
             {/* Background Blobs */}
             <div className="pointer-events-none fixed inset-0 z-0">
-                <div className="absolute top-[-10%] left-[-10%] h-[300px] w-[300px] md:h-[500px] md:w-[500px] rounded-full bg-indigo-600/20 blur-[120px] safari-blur-heavy"></div>
-                <div className="absolute bottom-[-10%] right-[-10%] h-[300px] w-[300px] md:h-[500px] md:w-[500px] rounded-full bg-cyan-600/20 blur-[120px] safari-blur-heavy"></div>
-                <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 h-[350px] w-[350px] md:h-[600px] md:w-[600px] rounded-full bg-violet-600/10 blur-[150px] safari-blur-heavy"></div>
+                <div className="absolute top-[-10%] left-[-10%] h-[260px] w-[260px] md:h-[500px] md:w-[500px] rounded-full bg-indigo-600/15 md:bg-indigo-600/20 blur-[72px] md:blur-[120px] safari-blur-heavy"></div>
+                <div className="absolute bottom-[-10%] right-[-10%] h-[260px] w-[260px] md:h-[500px] md:w-[500px] rounded-full bg-cyan-600/15 md:bg-cyan-600/20 blur-[72px] md:blur-[120px] safari-blur-heavy"></div>
+                <div className="hidden md:block absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 h-[600px] w-[600px] rounded-full bg-violet-600/10 blur-[150px] safari-blur-heavy"></div>
             </div>
 
             {/* Header */}
             <header
-                className={`fixed top-0 z-50 w-full transition-all duration-300 safari-backdrop ${scrolled ? 'bg-[#0a0a0b]/80 backdrop-blur-xl border-b border-white/10 py-3' : 'bg-transparent py-5'
+                className={`fixed top-0 z-50 w-full transition-all duration-300 safari-backdrop ${scrolled ? 'bg-[#0a0a0b]/80 backdrop-blur-md md:backdrop-blur-xl border-b border-white/10 py-3' : 'bg-transparent py-5'
                     }`}
             >
                 <div className="mx-auto flex max-w-7xl items-center justify-between px-6 lg:px-12">
+                    {/* Logo */}
                     <div className="flex items-center gap-3">
                         <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-indigo-500 to-violet-600 shadow-lg shadow-indigo-500/25">
                             <span className="material-symbols-outlined text-[20px] filled text-white">auto_awesome</span>
                         </div>
-                        <h1 className="text-xl font-bold tracking-tight">
-                            StudyMate
-                        </h1>
+                        <h1 className="text-xl font-bold tracking-tight">StudyMate</h1>
                     </div>
+
+                    {/* Desktop Nav */}
                     <nav className="hidden md:flex items-center gap-8 text-sm font-medium text-neutral-400">
                         <a href="#features" className="hover:text-white transition-colors">Features</a>
                         <a href="#demo" className="hover:text-white transition-colors">How it works</a>
                         <a href="#testimonials" className="hover:text-white transition-colors">Students</a>
                     </nav>
-                    <div className="flex items-center gap-4">
+
+                    {/* Desktop Actions */}
+                    <div className="hidden md:flex items-center gap-4">
                         <Link
                             to="/login"
-                            onClick={() => {
-                                captureLandingEvent('landing_cta_clicked', { cta_name: 'header_login' });
-                            }}
+                            onClick={() => captureLandingEvent('landing_cta_clicked', { cta_name: 'header_login' })}
                             className="text-sm font-semibold hover:text-indigo-400 transition-colors"
                         >
                             Log in
                         </Link>
                         <Link
                             to="/signup"
-                            onClick={() => {
-                                captureLandingEvent('landing_cta_clicked', { cta_name: 'header_get_started' });
-                            }}
-                            className="inline-flex items-center rounded-full bg-indigo-600 px-5 py-2 text-sm font-bold text-white shadow-lg shadow-indigo-600/20 hover:bg-indigo-500 transition-all active:scale-95"
+                            onClick={() => captureLandingEvent('landing_cta_clicked', { cta_name: 'header_get_started' })}
+                            className="inline-flex items-center rounded-full bg-indigo-600 px-5 py-2 text-sm font-bold text-white shadow-lg shadow-indigo-600/20 hover:bg-indigo-500 transition-colors active:scale-95"
                         >
                             Get Started
                         </Link>
+                    </div>
+
+                    {/* Mobile Hamburger */}
+                    <button
+                        onClick={() => setMobileMenuOpen((o) => !o)}
+                        className="md:hidden flex items-center justify-center w-10 h-10 rounded-xl text-white hover:bg-white/10 transition-colors"
+                        aria-label={mobileMenuOpen ? 'Close menu' : 'Open menu'}
+                        aria-expanded={mobileMenuOpen}
+                    >
+                        <span className="material-symbols-outlined text-[22px]">
+                            {mobileMenuOpen ? 'close' : 'menu'}
+                        </span>
+                    </button>
+                </div>
+
+                {/* Mobile Drawer */}
+                <div
+                    className={`md:hidden overflow-hidden transition-all duration-300 ease-in-out ${mobileMenuOpen ? 'max-h-[400px] opacity-100' : 'max-h-0 opacity-0'
+                        }`}
+                >
+                    <div className="bg-[#0d0d10]/95 backdrop-blur-md border-t border-white/10 px-6 pt-4 pb-8">
+                        <nav className="flex flex-col gap-1 mb-6">
+                            {[
+                                { label: 'Features', href: '#features' },
+                                { label: 'How it works', href: '#demo' },
+                                { label: 'Students', href: '#testimonials' },
+                            ].map(({ label, href }) => (
+                                <a
+                                    key={href}
+                                    href={href}
+                                    onClick={() => setMobileMenuOpen(false)}
+                                    className="flex items-center gap-3 py-3 text-base font-semibold text-neutral-300 hover:text-white border-b border-white/5 transition-colors"
+                                >
+                                    <span className="w-1.5 h-1.5 rounded-full bg-indigo-500 shrink-0"></span>
+                                    {label}
+                                </a>
+                            ))}
+                        </nav>
+                        <div className="flex flex-col gap-3">
+                            <Link
+                                to="/login"
+                                onClick={() => {
+                                    setMobileMenuOpen(false);
+                                    captureLandingEvent('landing_cta_clicked', { cta_name: 'mobile_menu_login' });
+                                }}
+                                className="flex items-center justify-center w-full py-3.5 rounded-2xl border border-white/20 bg-white/5 text-sm font-bold text-white hover:bg-white/10 transition-colors active:scale-95"
+                            >
+                                Log in
+                            </Link>
+                            <Link
+                                to="/signup"
+                                onClick={() => {
+                                    setMobileMenuOpen(false);
+                                    captureLandingEvent('landing_cta_clicked', { cta_name: 'mobile_menu_get_started' });
+                                }}
+                                className="flex items-center justify-center w-full py-3.5 rounded-2xl bg-indigo-600 text-sm font-bold text-white shadow-lg shadow-indigo-600/25 hover:bg-indigo-500 transition-colors active:scale-95"
+                            >
+                                Get Started →
+                            </Link>
+                        </div>
                     </div>
                 </div>
             </header>
@@ -146,7 +217,7 @@ const LandingPage = () => {
             <main className="relative z-10 pt-28">
                 {/* Hero Section */}
                 <section className="mx-auto max-w-7xl px-6 lg:px-12 py-20 text-center">
-                    <div className="inline-flex items-center gap-2 rounded-full border border-indigo-500/30 bg-indigo-500/10 px-4 py-1.5 text-[11px] font-bold uppercase tracking-widest text-indigo-400 mb-8 animate-fade-in">
+                    <div className="inline-flex items-center gap-2 rounded-full border border-indigo-500/30 bg-indigo-500/10 px-4 py-1.5 text-[12px] font-bold uppercase tracking-widest text-indigo-400 mb-8 animate-fade-in">
                         <span className="relative flex h-2 w-2">
                             <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-indigo-400 opacity-75"></span>
                             <span className="relative inline-flex rounded-full h-2 w-2 bg-indigo-500"></span>
@@ -154,7 +225,7 @@ const LandingPage = () => {
                         Next-Gen Learning Assistant
                     </div>
                     <h2 className="text-3xl sm:text-4xl md:text-7xl font-bold leading-[1.1] tracking-tight mb-6 md:mb-8 animate-fade-in-up">
-                        Master any subject with <br className="hidden md:block" />
+                        Master any subject <br className="block sm:hidden" />with <br className="hidden md:block" />
                         <span className="bg-clip-text text-transparent bg-gradient-to-r from-indigo-400 via-violet-400 to-cyan-400">
                             Your Personal AI Tutor.
                         </span>
@@ -169,7 +240,7 @@ const LandingPage = () => {
                             onClick={() => {
                                 captureLandingEvent('landing_cta_clicked', { cta_name: 'hero_try_for_free' });
                             }}
-                            className="w-full sm:w-auto inline-flex h-14 items-center justify-center rounded-2xl bg-white px-8 text-base font-bold text-black shadow-xl hover:bg-neutral-200 transition-all active:scale-95"
+                            className="w-full sm:w-auto inline-flex h-14 items-center justify-center rounded-2xl bg-white px-8 text-base font-bold text-black shadow-xl hover:bg-neutral-200 transition-colors active:scale-95"
                         >
                             Try StudyMate for Free
                         </Link>
@@ -191,19 +262,23 @@ const LandingPage = () => {
                             <div className="rounded-[1.4rem] overflow-hidden border border-white/5">
                                 <picture>
                                     <source
-                                        srcSet={`${heroIllustration960} 960w, ${heroIllustration1600} 1600w`}
-                                        sizes="(max-width: 768px) 92vw, (max-width: 1280px) 88vw, 1200px"
+                                        media="(min-width: 1024px)"
+                                        srcSet={heroIllustration1600}
+                                        type="image/jpeg"
+                                    />
+                                    <source
+                                        srcSet={heroIllustration960}
                                         type="image/jpeg"
                                     />
                                     <img
-                                        src={heroIllustration1600}
+                                        src={heroIllustration960}
                                         alt="Platform Dashboard Preview"
                                         className="w-full h-auto opacity-90"
                                         width="1600"
                                         height="893"
-                                        loading="lazy"
+                                        loading="eager"
                                         decoding="async"
-                                        fetchPriority="low"
+                                        fetchPriority="high"
                                     />
                                 </picture>
                             </div>
@@ -212,7 +287,7 @@ const LandingPage = () => {
                 </section>
 
                 {/* Features Grid */}
-                <section id="features" className="mx-auto max-w-7xl px-6 lg:px-12 py-24">
+                <section id="features" className="mx-auto max-w-7xl px-6 lg:px-12 py-16 md:py-24">
                     <div className="text-center mb-16">
                         <h3 className="text-3xl md:text-5xl font-bold mb-4">Everything you need to succeed</h3>
                         <p className="text-neutral-400 max-w-xl mx-auto">Built by students, for students. Powerful tools to help you study smarter, not harder.</p>
@@ -221,7 +296,7 @@ const LandingPage = () => {
                         {features.map((feature, idx) => (
                             <div
                                 key={idx}
-                                className="group p-8 rounded-[2rem] border border-white/5 bg-white/[0.02] hover:bg-white/[0.05] transition-all duration-300 relative overflow-hidden"
+                                className="group p-6 md:p-8 rounded-[2rem] border border-white/5 bg-white/[0.02] hover:bg-white/[0.05] transition-colors duration-300 relative overflow-hidden"
                             >
                                 <div className={`h-12 w-12 rounded-xl ${feature.color} flex items-center justify-center mb-6 shadow-lg shadow-white/5 group-hover:scale-110 transition-transform`}>
                                     <span className="material-symbols-outlined text-white">{feature.icon}</span>
@@ -234,7 +309,7 @@ const LandingPage = () => {
                 </section>
 
                 {/* AI Demo Section */}
-                <section id="demo" className="mx-auto max-w-7xl px-6 lg:px-12 py-24">
+                <section id="demo" className="mx-auto max-w-7xl px-6 lg:px-12 py-16 md:py-24">
                     <div className="rounded-[3rem] border border-white/10 bg-gradient-to-br from-indigo-900/20 to-neutral-900/40 p-10 lg:p-20 relative overflow-hidden">
                         <div className="grid lg:grid-cols-2 gap-16 items-center">
                             <div>
@@ -285,7 +360,7 @@ const LandingPage = () => {
                 </section>
 
                 {/* Testimonials */}
-                <section id="testimonials" className="mx-auto max-w-7xl px-6 lg:px-12 py-24">
+                <section id="testimonials" className="mx-auto max-w-7xl px-6 lg:px-12 py-16 md:py-24">
                     <div className="text-center mb-16">
                         <h3 className="text-3xl md:text-5xl font-bold mb-4">Loved by students worldwide</h3>
                         <p className="text-neutral-400">Join thousands of high-achievers using StudyMate to master their courses.</p>
@@ -312,13 +387,13 @@ const LandingPage = () => {
                 </section>
 
                 {/* CTA Section */}
-                <section className="mx-auto max-w-7xl px-6 lg:px-12 py-24">
+                <section className="mx-auto max-w-7xl px-6 lg:px-12 py-16 md:py-24">
                     <div className="relative rounded-[2rem] md:rounded-[3rem] bg-indigo-600 p-8 sm:p-12 lg:p-24 text-center overflow-hidden">
                         <div className="absolute top-0 left-0 w-full h-full bg-gradient-to-br from-indigo-500 to-violet-700 -z-10"></div>
                         <div className="absolute -top-10 -right-10 h-64 w-64 rounded-full bg-white/10 blur-[60px] safari-blur-heavy"></div>
 
                         <h3 className="text-4xl lg:text-6xl font-bold mb-8">Ready to ace your exams?</h3>
-                        <p className="text-xl text-indigo-100 mb-12 max-w-2xl mx-auto">
+                        <p className="text-xl text-indigo-100 mb-6 sm:mb-12 max-w-2xl mx-auto">
                             Start using StudyMate today and experience the future of personalized education. No credit card required.
                         </p>
                         <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
@@ -327,7 +402,7 @@ const LandingPage = () => {
                                 onClick={() => {
                                     captureLandingEvent('landing_cta_clicked', { cta_name: 'footer_get_started_now' });
                                 }}
-                                className="w-full sm:w-auto inline-flex h-16 items-center justify-center rounded-2xl bg-white px-10 text-lg font-bold text-indigo-600 shadow-2xl hover:bg-neutral-100 transition-all active:scale-95"
+                                className="w-full sm:w-auto inline-flex h-16 items-center justify-center rounded-2xl bg-white px-10 text-lg font-bold text-indigo-600 shadow-2xl hover:bg-neutral-100 transition-colors active:scale-95"
                             >
                                 Get Started Now
                             </Link>
@@ -345,12 +420,12 @@ const LandingPage = () => {
                             </div>
                             <h4 className="text-xl font-bold">StudyMate</h4>
                         </div>
-                        <nav className="flex gap-8 text-sm font-semibold text-neutral-500">
+                        <nav className="flex gap-6 text-sm font-semibold text-neutral-500">
                             <a href="#features" className="hover:text-white transition-colors">Features</a>
                             <a href="#testimonials" className="hover:text-white transition-colors">Testimonials</a>
                             <a href="#" className="hover:text-white transition-colors">Contact</a>
                         </nav>
-                        <p className="text-sm text-neutral-500">© 2026 StudyMate AI. Empowering the next generation of learners.</p>
+                        <p className="text-sm text-neutral-500">© 2026 StudyMate AI.</p>
                     </div>
                 </div>
             </footer>

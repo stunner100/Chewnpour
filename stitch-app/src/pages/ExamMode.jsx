@@ -1,9 +1,221 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useParams, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useAction } from 'convex/react';
 import { api } from '../../convex/_generated/api';
 import { useAuth } from '../contexts/AuthContext';
+import {
+    resolveAutoGenerationError,
+    resolveAutoGenerationResult,
+} from '../lib/examAutoGenerationState';
 import { addSentryBreadcrumb, captureSentryException, captureSentryMessage } from '../lib/sentry';
+
+// ── Pure option-parsing helpers (hoisted out of the component) ──
+
+const safeJsonParse = (value) => {
+    if (typeof value !== 'string') return null;
+    const trimmed = value.trim();
+    if (!trimmed || (!trimmed.startsWith('{') && !trimmed.startsWith('['))) {
+        return null;
+    }
+    try {
+        return JSON.parse(trimmed);
+    } catch {
+        return null;
+    }
+};
+
+const normalizeOptionString = (value) => {
+    if (typeof value !== 'string') return value;
+    return value
+        .replace(/\\"/g, '"')
+        .replace(/\\n/g, '\n')
+        .replace(/^"+|"+$/g, '')
+        .trim();
+};
+
+const cleanOptionText = (value) => {
+    if (value === null || value === undefined) return '';
+    let text = typeof value === 'string' ? normalizeOptionString(value) : String(value);
+    if (!text) return '';
+
+    const parsed = safeJsonParse(text);
+    if (parsed && typeof parsed === 'object') {
+        if (Array.isArray(parsed)) return '';
+        if (typeof parsed.text === 'string') return normalizeOptionString(parsed.text);
+        return '';
+    }
+
+    const textMatch = text.match(/"text"\s*:\s*"([^"]+)"/);
+    if (textMatch) return textMatch[1];
+
+    if (/\"label\"\s*:\s*\"/.test(text) || /\"isCorrect\"\s*:/.test(text)) return '';
+
+    return text;
+};
+
+const extractOptionsFromText = (text) => {
+    if (typeof text !== 'string') return null;
+    const cleaned = normalizeOptionString(text);
+    const labelMatches = [...cleaned.matchAll(/"label"\s*:\s*"([^"]+)"/g)];
+    const textMatches = [...cleaned.matchAll(/"text"\s*:\s*"([^"]+)"/g)];
+    if (textMatches.length === 0) return null;
+    return textMatches.map((match, index) => ({
+        label: labelMatches[index]?.[1] ?? String.fromCharCode(65 + index),
+        text: match[1],
+    }));
+};
+
+const tryReconstructOptions = (stringOptions) => {
+    if (!Array.isArray(stringOptions) || stringOptions.length === 0) return null;
+    const joined = stringOptions.map(normalizeOptionString).join(',');
+    const cleanedCandidates = [joined, normalizeOptionString(joined)];
+
+    for (const candidate of cleanedCandidates) {
+        const parsed = safeJsonParse(candidate);
+        if (Array.isArray(parsed)) return parsed;
+        if (parsed && Array.isArray(parsed.options)) return parsed.options;
+    }
+
+    for (const candidate of cleanedCandidates) {
+        const wrapped = candidate.trim().startsWith('[') ? candidate : `[${candidate}]`;
+        const parsed = safeJsonParse(wrapped);
+        if (Array.isArray(parsed)) return parsed;
+        if (parsed && Array.isArray(parsed.options)) return parsed.options;
+    }
+
+    return extractOptionsFromText(joined) || null;
+};
+
+const reconstructFromFragments = (stringOptions) => {
+    if (!Array.isArray(stringOptions) || stringOptions.length === 0) return null;
+
+    const reconstructed = [];
+    let current = null;
+
+    for (const fragment of stringOptions) {
+        const cleaned = normalizeOptionString(fragment);
+        const labelMatch = cleaned.match(/"label"\s*:\s*"([^"]+)"/);
+        const textMatch = cleaned.match(/"text"\s*:\s*"([^"]+)"/);
+        const correctMatch = cleaned.match(/"isCorrect"\s*:\s*(true|false)/);
+
+        if (labelMatch) {
+            if (current && current.text) reconstructed.push(current);
+            current = { label: labelMatch[1] };
+        }
+
+        if (textMatch) {
+            if (!current) current = { label: String.fromCharCode(65 + reconstructed.length) };
+            current.text = textMatch[1];
+        }
+
+        if (correctMatch) {
+            if (!current) current = { label: String.fromCharCode(65 + reconstructed.length) };
+            current.isCorrect = correctMatch[1] === 'true';
+        }
+
+        if (current && current.label && current.text && correctMatch) {
+            reconstructed.push(current);
+            current = null;
+        }
+    }
+
+    if (current && current.text) reconstructed.push(current);
+
+    return reconstructed.length > 0 ? reconstructed : null;
+};
+
+const coerceOptions = (rawOptions) => {
+    if (!rawOptions) return [];
+
+    let options = rawOptions;
+    if (typeof options === 'string') {
+        const parsed = safeJsonParse(options);
+        options = parsed ?? options;
+    }
+
+    if (options && !Array.isArray(options) && typeof options === 'object') {
+        if (Array.isArray(options.options)) options = options.options;
+    }
+
+    if (!Array.isArray(options)) options = [options];
+
+    const flattened = [];
+    for (const option of options) {
+        if (typeof option === 'string') {
+            const parsed = safeJsonParse(option);
+            if (Array.isArray(parsed)) { flattened.push(...parsed); continue; }
+            if (parsed) { flattened.push(parsed); continue; }
+        }
+        flattened.push(option);
+    }
+
+    const cleaned = flattened.filter((option) => option !== null && option !== undefined);
+    if (cleaned.length > 0 && cleaned.every((option) => typeof option === 'string')) {
+        const fromFragments = reconstructFromFragments(cleaned);
+        if (fromFragments && fromFragments.length > 0) return fromFragments;
+        const reconstructed = tryReconstructOptions(cleaned);
+        if (reconstructed && reconstructed.length > 0) return reconstructed;
+        const extracted = extractOptionsFromText(cleaned.join(','));
+        if (extracted && extracted.length > 0) return extracted;
+    }
+
+    return cleaned;
+};
+
+const normalizeOption = (option, index) => {
+    if (option && typeof option === 'object') {
+        const label = option.label ?? String.fromCharCode(65 + index);
+        const text = cleanOptionText(option.text ?? option.value ?? '');
+        if (!text) return null;
+        return { label, value: String(label), text };
+    }
+    let label = String.fromCharCode(65 + index);
+    let text = cleanOptionText(option ?? '');
+    const labelMatch = typeof text === 'string' ? text.match(/"label"\s*:\s*"([^"]+)"/) : null;
+    const textMatch = typeof text === 'string' ? text.match(/"text"\s*:\s*"([^"]+)"/) : null;
+    if (labelMatch) label = labelMatch[1];
+    if (textMatch) {
+        text = textMatch[1];
+    } else if (labelMatch) {
+        text = '';
+    } else if (typeof text === 'string' && /"isCorrect"\s*:/.test(text)) {
+        text = '';
+    }
+    if (!text) return null;
+    return { label, value: label, text };
+};
+
+const buildFallbackOptionsFromRaw = (rawOptions) => {
+    try {
+        const rawString = typeof rawOptions === 'string'
+            ? rawOptions
+            : JSON.stringify(rawOptions ?? '');
+        const cleaned = normalizeOptionString(rawString);
+        const matches = [...cleaned.matchAll(/"text"\s*:\s*"([^"]+)"/g)];
+        if (matches.length === 0) return [];
+        return matches.map((match, index) => ({
+            label: String.fromCharCode(65 + index),
+            value: String.fromCharCode(65 + index),
+            text: match[1],
+        }));
+    } catch {
+        return [];
+    }
+};
+
+const resolveQuestionOptions = (rawOptions) => {
+    const options = coerceOptions(rawOptions);
+    const renderOptions = options.map((o, i) => normalizeOption(o, i)).filter(Boolean);
+    const hasRawArtifacts = renderOptions.some(
+        (o) => typeof o.text === 'string' && /"label"|{"label"|\"label\"|\"isCorrect\"/i.test(o.text)
+    );
+    const fallbackOptions = buildFallbackOptionsFromRaw(rawOptions);
+    return renderOptions.length === 0 || hasRawArtifacts
+        ? (fallbackOptions.length > 0 ? fallbackOptions : renderOptions)
+        : renderOptions;
+};
+
+// ── Component ──
 
 const ExamMode = () => {
     const { topicId } = useParams();
@@ -19,6 +231,7 @@ const ExamMode = () => {
     const [startExamError, setStartExamError] = useState('');
     const [generatingQuestions, setGeneratingQuestions] = useState(false);
     const [generateQuestionsError, setGenerateQuestionsError] = useState('');
+    const [autoGenerationPaused, setAutoGenerationPaused] = useState(false);
 
 
     // Get userId from Better Auth session
@@ -34,9 +247,11 @@ const ExamMode = () => {
     const generateQuestions = useAction(api.ai.generateQuestionsForTopic);
     const regenerateQuestions = useAction(api.ai.regenerateQuestionsForTopic);
 
-    const MIN_EXAM_QUESTIONS = 5;
+    const MIN_EXAM_QUESTIONS = 1;
     const START_EXAM_ATTEMPT_TIMEOUT_MS = 45_000;
     const EXAM_LOADING_STALL_TIMEOUT_MS = 90_000;
+    const QUESTION_GENERATION_REQUEST_TIMEOUT_MS = 60_000;
+    const AUTO_GENERATION_MAX_ATTEMPTS = 3;
 
     const topicQuestions = topicData?.questions || [];
     const hasAttemptQuestions = Array.isArray(attemptQuestions) && attemptQuestions.length > 0;
@@ -45,11 +260,33 @@ const ExamMode = () => {
     const examFlowStartTimeRef = useRef(Date.now());
     const attemptStartTimeRef = useRef(null);
     const loadingStallReportedRef = useRef(false);
+    const autoGenerationAttemptsRef = useRef(0);
+    const autoGenerationInFlightRef = useRef(false);
+    const autoGenerationRequestIdRef = useRef(0);
 
     useEffect(() => {
         examFlowStartTimeRef.current = Date.now();
         loadingStallReportedRef.current = false;
+        autoGenerationAttemptsRef.current = 0;
+        autoGenerationInFlightRef.current = false;
+        autoGenerationRequestIdRef.current = 0;
+        setAutoGenerationPaused(false);
     }, [topicId]);
+
+    const withTimeout = useCallback((promise, timeoutMs, timeoutMessage) => {
+        let timeoutHandle;
+        const timeoutPromise = new Promise((_, reject) => {
+            timeoutHandle = setTimeout(() => {
+                reject(new Error(timeoutMessage));
+            }, timeoutMs);
+        });
+
+        return Promise.race([promise, timeoutPromise]).finally(() => {
+            if (timeoutHandle) {
+                clearTimeout(timeoutHandle);
+            }
+        });
+    }, []);
 
     const beginExamAttempt = useCallback(async () => {
         if (!topicId || topicQuestions.length === 0) return;
@@ -186,51 +423,156 @@ const ExamMode = () => {
         userId,
     ]);
 
+    useEffect(() => {
+        if (!generatingQuestions) {
+            return;
+        }
+
+        const watchdog = setTimeout(() => {
+            autoGenerationInFlightRef.current = false;
+            autoGenerationAttemptsRef.current = AUTO_GENERATION_MAX_ATTEMPTS;
+            setAutoGenerationPaused(true);
+            setGeneratingQuestions(false);
+            setGenerateQuestionsError('Question generation timed out. Tap Generate Questions to retry.');
+            captureSentryMessage('Question generation watchdog timeout reached', {
+                level: 'warning',
+                tags: {
+                    area: 'exam',
+                    operation: 'question_generation_watchdog',
+                },
+                extras: {
+                    topicId,
+                    topicQuestionCount: topicQuestions.length,
+                    timeoutMs: QUESTION_GENERATION_REQUEST_TIMEOUT_MS,
+                },
+            });
+        }, QUESTION_GENERATION_REQUEST_TIMEOUT_MS + 2000);
+
+        return () => clearTimeout(watchdog);
+    }, [
+        generatingQuestions,
+        topicId,
+        topicQuestions.length,
+        QUESTION_GENERATION_REQUEST_TIMEOUT_MS,
+        AUTO_GENERATION_MAX_ATTEMPTS,
+    ]);
+
     // Auto-generate questions if too few exist (safety net for race condition)
     useEffect(() => {
         if (
             topicId &&
             topicData !== undefined &&
             topicData !== null &&
+            !autoGenerationPaused &&
+            !autoGenerationInFlightRef.current &&
             !generatingQuestions &&
             !examStarted &&
             !hasAttemptQuestions &&
-            topicQuestions.length > 0 &&
             topicQuestions.length < MIN_EXAM_QUESTIONS
         ) {
             let cancelled = false;
+            const previousQuestionCount = topicQuestions.length;
+            autoGenerationInFlightRef.current = true;
+            const requestId = autoGenerationRequestIdRef.current + 1;
+            autoGenerationRequestIdRef.current = requestId;
             setGeneratingQuestions(true);
             setGenerateQuestionsError('');
-            generateQuestions({ topicId })
+            withTimeout(
+                generateQuestions({ topicId }),
+                QUESTION_GENERATION_REQUEST_TIMEOUT_MS,
+                'Question generation request timed out.'
+            )
                 .then((result) => {
                     if (cancelled) return;
-                    const count = result?.count ?? 0;
-                    if (!result?.success || count === 0) {
-                        setGenerateQuestionsError('Unable to generate enough questions. Please try again.');
+                    const outcome = resolveAutoGenerationResult({
+                        result,
+                        previousQuestionCount,
+                        attemptCount: autoGenerationAttemptsRef.current,
+                        maxAttempts: AUTO_GENERATION_MAX_ATTEMPTS,
+                        minExamQuestions: MIN_EXAM_QUESTIONS,
+                    });
+                    autoGenerationAttemptsRef.current = outcome.nextAttemptCount;
+
+                    if (outcome.pauseAutoGeneration) {
+                        setAutoGenerationPaused(true);
+                        setGenerateQuestionsError(outcome.errorMessage);
+                        captureSentryMessage('Exam auto-generation paused after retries', {
+                            level: 'warning',
+                            tags: {
+                                area: 'exam',
+                                operation: 'auto_generate_questions',
+                            },
+                            extras: {
+                                topicId,
+                                previousQuestionCount,
+                                latestQuestionCount: outcome.latestQuestionCount,
+                                attemptCount: outcome.nextAttemptCount,
+                                maxAttempts: AUTO_GENERATION_MAX_ATTEMPTS,
+                            },
+                        });
+                        return;
+                    }
+
+                    if (outcome.errorMessage) {
+                        setGenerateQuestionsError(outcome.errorMessage);
                     }
                 })
                 .catch((error) => {
                     if (cancelled) return;
                     console.error('Auto question generation failed:', error);
-                    setGenerateQuestionsError('Failed to generate questions. Please try again.');
+                    const outcome = resolveAutoGenerationError({
+                        error,
+                        attemptCount: autoGenerationAttemptsRef.current,
+                        maxAttempts: AUTO_GENERATION_MAX_ATTEMPTS,
+                    });
+                    autoGenerationAttemptsRef.current = outcome.nextAttemptCount;
+                    if (outcome.pauseAutoGeneration) {
+                        setAutoGenerationPaused(true);
+                    }
+                    setGenerateQuestionsError(outcome.errorMessage);
+
                     captureSentryException(error, {
                         level: 'warning',
                         tags: {
                             area: 'exam',
                             operation: 'auto_generate_questions',
+                            timedOut: outcome.timedOut,
                         },
                         extras: {
                             topicId,
                             topicQuestionCount: topicQuestions.length,
+                            previousQuestionCount,
+                            attemptCount: outcome.nextAttemptCount,
+                            maxAttempts: AUTO_GENERATION_MAX_ATTEMPTS,
+                            timeoutMs: QUESTION_GENERATION_REQUEST_TIMEOUT_MS,
                         },
                     });
                 })
                 .finally(() => {
-                    if (!cancelled) setGeneratingQuestions(false);
+                    if (autoGenerationRequestIdRef.current !== requestId) return;
+                    autoGenerationInFlightRef.current = false;
+                    if (!cancelled) {
+                        setGeneratingQuestions(false);
+                    }
                 });
-            return () => { cancelled = true; };
+            return () => {
+                cancelled = true;
+            };
         }
-    }, [topicId, topicData, topicQuestions.length, generatingQuestions, examStarted, hasAttemptQuestions, generateQuestions]);
+    }, [
+        topicId,
+        topicData,
+        topicQuestions.length,
+        examStarted,
+        hasAttemptQuestions,
+        generateQuestions,
+        generatingQuestions,
+        autoGenerationPaused,
+        withTimeout,
+        MIN_EXAM_QUESTIONS,
+        AUTO_GENERATION_MAX_ATTEMPTS,
+        QUESTION_GENERATION_REQUEST_TIMEOUT_MS,
+    ]);
 
     // Start exam once enough questions exist. Keep generation in background.
     useEffect(() => {
@@ -333,7 +675,10 @@ const ExamMode = () => {
 
     const handleGenerateQuestions = async () => {
         if (!topicId) return;
+        autoGenerationAttemptsRef.current = 0;
+        setAutoGenerationPaused(false);
         setGenerateQuestionsError('');
+        autoGenerationInFlightRef.current = true;
         setGeneratingQuestions(true);
         addSentryBreadcrumb({
             category: 'exam',
@@ -344,25 +689,40 @@ const ExamMode = () => {
             },
         });
         try {
-            const result = await generateQuestions({ topicId });
+            const result = await withTimeout(
+                generateQuestions({ topicId }),
+                QUESTION_GENERATION_REQUEST_TIMEOUT_MS,
+                'Question generation request timed out.'
+            );
             const generatedCount = result?.count ?? 0;
             if (!result?.success || generatedCount === 0) {
                 setGenerateQuestionsError('Unable to generate questions yet. Please try again.');
+            } else if (generatedCount < MIN_EXAM_QUESTIONS) {
+                setGenerateQuestionsError(`Generated ${generatedCount} of ${MIN_EXAM_QUESTIONS} required questions. Try again in a few seconds.`);
             }
         } catch (error) {
-            setGenerateQuestionsError('Failed to generate questions. Please try again.');
+            const message = String(error?.message || '');
+            const timedOut = /timed out/i.test(message);
+            setGenerateQuestionsError(
+                timedOut
+                    ? 'Question generation timed out. Please try again.'
+                    : 'Failed to generate questions. Please try again.'
+            );
             captureSentryException(error, {
                 level: 'warning',
                 tags: {
                     area: 'exam',
                     operation: 'manual_generate_questions',
+                    timedOut,
                 },
                 extras: {
                     topicId,
                     topicQuestionCount: topicQuestions.length,
+                    timeoutMs: QUESTION_GENERATION_REQUEST_TIMEOUT_MS,
                 },
             });
         } finally {
+            autoGenerationInFlightRef.current = false;
             setGeneratingQuestions(false);
         }
     };
@@ -541,247 +901,11 @@ const ExamMode = () => {
     const currentQ = questions[currentQuestion];
     const progress = ((currentQuestion + 1) / questions.length) * 100;
 
-    const safeJsonParse = (value) => {
-        if (typeof value !== 'string') return null;
-        const trimmed = value.trim();
-        if (!trimmed || (!trimmed.startsWith('{') && !trimmed.startsWith('['))) {
-            return null;
-        }
-        try {
-            return JSON.parse(trimmed);
-        } catch (error) {
-            return null;
-        }
-    };
-
-    const normalizeOptionString = (value) => {
-        if (typeof value !== 'string') return value;
-        return value
-            .replace(/\\"/g, '"')
-            .replace(/\\n/g, '\n')
-            .replace(/^"+|"+$/g, '')
-            .trim();
-    };
-
-    const cleanOptionText = (value) => {
-        if (value === null || value === undefined) return '';
-        let text = typeof value === 'string' ? normalizeOptionString(value) : String(value);
-        if (!text) return '';
-
-        const parsed = safeJsonParse(text);
-        if (parsed && typeof parsed === 'object') {
-            if (Array.isArray(parsed)) {
-                return '';
-            }
-            if (typeof parsed.text === 'string') {
-                return normalizeOptionString(parsed.text);
-            }
-            return '';
-        }
-
-        const textMatch = text.match(/"text"\s*:\s*"([^"]+)"/);
-        if (textMatch) {
-            return textMatch[1];
-        }
-
-        if (/\"label\"\s*:\s*\"/.test(text) || /\"isCorrect\"\s*:/.test(text)) {
-            return '';
-        }
-
-        return text;
-    };
-
-    const extractOptionsFromText = (text) => {
-        if (typeof text !== 'string') return null;
-        const cleaned = normalizeOptionString(text);
-        const labelMatches = [...cleaned.matchAll(/"label"\s*:\s*"([^"]+)"/g)];
-        const textMatches = [...cleaned.matchAll(/"text"\s*:\s*"([^"]+)"/g)];
-        if (textMatches.length === 0) return null;
-        return textMatches.map((match, index) => ({
-            label: labelMatches[index]?.[1] ?? String.fromCharCode(65 + index),
-            text: match[1],
-        }));
-    };
-
-    const tryReconstructOptions = (stringOptions) => {
-        if (!Array.isArray(stringOptions) || stringOptions.length === 0) return null;
-        const joined = stringOptions.map(normalizeOptionString).join(',');
-        const cleanedCandidates = [
-            joined,
-            normalizeOptionString(joined),
-        ];
-
-        for (const candidate of cleanedCandidates) {
-            const parsed = safeJsonParse(candidate);
-            if (Array.isArray(parsed)) return parsed;
-            if (parsed && Array.isArray(parsed.options)) return parsed.options;
-        }
-
-        for (const candidate of cleanedCandidates) {
-            const wrapped = candidate.trim().startsWith('[') ? candidate : `[${candidate}]`;
-            const parsed = safeJsonParse(wrapped);
-            if (Array.isArray(parsed)) return parsed;
-            if (parsed && Array.isArray(parsed.options)) return parsed.options;
-        }
-
-        const extracted = extractOptionsFromText(joined);
-        if (extracted) return extracted;
-
-        return null;
-    };
-
-    const reconstructFromFragments = (stringOptions) => {
-        if (!Array.isArray(stringOptions) || stringOptions.length === 0) return null;
-
-        const reconstructed = [];
-        let current = null;
-
-        for (const fragment of stringOptions) {
-            const cleaned = normalizeOptionString(fragment);
-            const labelMatch = cleaned.match(/"label"\s*:\s*"([^"]+)"/);
-            const textMatch = cleaned.match(/"text"\s*:\s*"([^"]+)"/);
-            const correctMatch = cleaned.match(/"isCorrect"\s*:\s*(true|false)/);
-
-            if (labelMatch) {
-                if (current && current.text) {
-                    reconstructed.push(current);
-                }
-                current = { label: labelMatch[1] };
-            }
-
-            if (textMatch) {
-                if (!current) current = { label: String.fromCharCode(65 + reconstructed.length) };
-                current.text = textMatch[1];
-            }
-
-            if (correctMatch) {
-                if (!current) current = { label: String.fromCharCode(65 + reconstructed.length) };
-                current.isCorrect = correctMatch[1] === 'true';
-            }
-
-            if (current && current.label && current.text && correctMatch) {
-                reconstructed.push(current);
-                current = null;
-            }
-        }
-
-        if (current && current.text) {
-            reconstructed.push(current);
-        }
-
-        return reconstructed.length > 0 ? reconstructed : null;
-    };
-
-    const coerceOptions = (rawOptions) => {
-        if (!rawOptions) return [];
-
-        let options = rawOptions;
-        if (typeof options === 'string') {
-            const parsed = safeJsonParse(options);
-            options = parsed ?? options;
-        }
-
-        if (options && !Array.isArray(options) && typeof options === 'object') {
-            if (Array.isArray(options.options)) {
-                options = options.options;
-            }
-        }
-
-        if (!Array.isArray(options)) {
-            options = [options];
-        }
-
-        const flattened = [];
-        for (const option of options) {
-            if (typeof option === 'string') {
-                const parsed = safeJsonParse(option);
-                if (Array.isArray(parsed)) {
-                    flattened.push(...parsed);
-                    continue;
-                }
-                if (parsed) {
-                    flattened.push(parsed);
-                    continue;
-                }
-            }
-            flattened.push(option);
-        }
-
-        const cleaned = flattened.filter((option) => option !== null && option !== undefined);
-        if (cleaned.length > 0 && cleaned.every((option) => typeof option === 'string')) {
-            const reconstructedFromFragments = reconstructFromFragments(cleaned);
-            if (reconstructedFromFragments && reconstructedFromFragments.length > 0) {
-                return reconstructedFromFragments;
-            }
-            const reconstructed = tryReconstructOptions(cleaned);
-            if (reconstructed && reconstructed.length > 0) {
-                return reconstructed;
-            }
-            const extracted = extractOptionsFromText(cleaned.join(','));
-            if (extracted && extracted.length > 0) {
-                return extracted;
-            }
-        }
-
-        return cleaned;
-    };
-
-    const options = coerceOptions(currentQ?.options);
-    const normalizedOptions = options;
-    const normalizeOption = (option, index) => {
-        if (option && typeof option === 'object') {
-            const label = option.label ?? String.fromCharCode(65 + index);
-            const text = cleanOptionText(option.text ?? option.value ?? '');
-            if (!text) return null;
-            const value = String(label);
-            return { label, value, text };
-        }
-        let label = String.fromCharCode(65 + index);
-        let text = cleanOptionText(option ?? '');
-        const labelMatch = typeof text === 'string' ? text.match(/"label"\s*:\s*"([^"]+)"/) : null;
-        const textMatch = typeof text === 'string' ? text.match(/"text"\s*:\s*"([^"]+)"/) : null;
-        if (labelMatch) {
-            label = labelMatch[1];
-        }
-        if (textMatch) {
-            text = textMatch[1];
-        } else if (labelMatch) {
-            text = '';
-        } else if (typeof text === 'string' && /"isCorrect"\s*:/.test(text)) {
-            text = '';
-        }
-        const value = label;
-        if (!text) return null;
-        return { label, value, text };
-    };
-
-    const renderOptions = normalizedOptions
-        .map((option, index) => normalizeOption(option, index))
-        .filter(Boolean);
-
-    const buildFallbackOptionsFromRaw = () => {
-        try {
-            const rawString = typeof currentQ?.options === 'string'
-                ? currentQ.options
-                : JSON.stringify(currentQ?.options ?? '');
-            const cleaned = normalizeOptionString(rawString);
-            const matches = [...cleaned.matchAll(/"text"\s*:\s*"([^"]+)"/g)];
-            if (matches.length === 0) return [];
-            return matches.map((match, index) => ({
-                label: String.fromCharCode(65 + index),
-                value: String.fromCharCode(65 + index),
-                text: match[1],
-            }));
-        } catch (error) {
-            return [];
-        }
-    };
-
-    const hasRawArtifacts = renderOptions.some((option) => typeof option.text === 'string' && /"label"|{"label"|\"label\"|\"isCorrect\"/i.test(option.text));
-    const fallbackOptions = buildFallbackOptionsFromRaw();
-    const finalOptions = renderOptions.length === 0 || hasRawArtifacts
-        ? (fallbackOptions.length > 0 ? fallbackOptions : renderOptions)
-        : renderOptions;
+    // Memoize the expensive option parsing — only recompute when the question changes
+    const finalOptions = useMemo(
+        () => resolveQuestionOptions(currentQ?.options),
+        [currentQ?.options]
+    );
 
     return (
         <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-900 dark:to-slate-800 flex flex-col md:flex-row">
@@ -904,7 +1028,7 @@ const ExamMode = () => {
                 </div>
 
                 {/* Bottom Navigation */}
-                <div className="fixed bottom-0 inset-x-0 bg-white dark:bg-slate-900 border-t border-slate-200 dark:border-slate-800 p-4 safe-area-bottom">
+                <div className="fixed bottom-0 inset-x-0 z-50 md:hidden bg-white dark:bg-slate-900 border-t border-slate-200 dark:border-slate-800 p-4 safe-area-bottom">
                     <div className="max-w-3xl mx-auto flex items-center justify-between gap-4">
                         <button
                             onClick={handlePrevious}

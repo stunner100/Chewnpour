@@ -35,46 +35,59 @@ const MobileBottomNav = () => {
         tab.matchPaths.some((p) => location.pathname === p) ||
         (tab.path === '/dashboard' && location.pathname === '/dashboard');
 
+    const getTabClassName = (active) => (
+        `flex flex-col items-center justify-center gap-0.5 flex-1 min-w-[64px] py-2 rounded-2xl transition-all duration-200 active:scale-95 ${active
+            ? 'text-primary'
+            : 'text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300'}`
+    );
+
+    const renderTabContent = (tab, active) => (
+        <>
+            {active && (
+                <span className="absolute top-0 w-8 h-[3px] rounded-full bg-primary" />
+            )}
+            <span
+                className={`material-symbols-outlined text-[24px] transition-all ${active ? 'filled' : ''}`}
+                style={active ? { fontVariationSettings: "'FILL' 1" } : undefined}
+            >
+                {tab.icon}
+            </span>
+            <span className={`text-[10px] font-bold tracking-tight ${active ? 'text-primary' : ''}`}>
+                {tab.label}
+            </span>
+        </>
+    );
+
     return (
         <nav
-            className="fixed bottom-0 inset-x-0 z-50 md:hidden border-t border-slate-200/60 dark:border-slate-800/60"
-            style={{
-                background: 'rgba(255,255,255,0.82)',
-                backdropFilter: 'blur(20px) saturate(1.8)',
-                WebkitBackdropFilter: 'blur(20px) saturate(1.8)',
-            }}
+            className="fixed bottom-0 inset-x-0 z-50 md:hidden border-t border-slate-200/60 dark:border-slate-800/60 safe-area-bottom bg-white/82 dark:bg-[#0a0a0a]/85 backdrop-blur-xl"
             role="navigation"
             aria-label="Main navigation"
         >
-            {/* Dark mode background override */}
-            <div className="absolute inset-0 bg-[#0a0a0a]/85 dark:block hidden pointer-events-none" style={{ backdropFilter: 'blur(20px)' }} />
 
-            <div className="relative flex items-stretch justify-around h-[56px] max-w-md mx-auto px-2 safe-area-bottom">
+            <div className="relative flex items-stretch justify-around h-[56px] max-w-md mx-auto px-2">
                 {tabs.map((tab) => {
                     const active = isActive(tab);
+                    if (active) {
+                        return (
+                            <div
+                                key={tab.path}
+                                className={`${getTabClassName(true)} pointer-events-none`}
+                                aria-current="page"
+                                role="link"
+                            >
+                                {renderTabContent(tab, true)}
+                            </div>
+                        );
+                    }
+
                     return (
                         <Link
                             key={tab.path}
                             to={tab.path}
-                            className={`flex flex-col items-center justify-center gap-0.5 flex-1 min-w-[64px] py-2 rounded-2xl transition-all duration-200 active:scale-95 ${active
-                                ? 'text-primary'
-                                : 'text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300'
-                                }`}
-                            aria-current={active ? 'page' : undefined}
+                            className={getTabClassName(false)}
                         >
-                            {active && (
-                                <span className="absolute top-0 w-8 h-[3px] rounded-full bg-primary" />
-                            )}
-                            <span
-                                className={`material-symbols-outlined text-[24px] transition-all ${active ? 'filled' : ''
-                                    }`}
-                                style={active ? { fontVariationSettings: "'FILL' 1" } : undefined}
-                            >
-                                {tab.icon}
-                            </span>
-                            <span className={`text-[10px] font-bold tracking-tight ${active ? 'text-primary' : ''}`}>
-                                {tab.label}
-                            </span>
+                            {renderTabContent(tab, false)}
                         </Link>
                     );
                 })}

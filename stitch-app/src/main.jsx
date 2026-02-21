@@ -1,25 +1,120 @@
-import { StrictMode } from 'react'
-import { createRoot } from 'react-dom/client'
-import { ConvexProvider, ConvexReactClient } from "convex/react";
-import './index.css'
-import App from './App.jsx'
-import { AuthProvider } from './contexts/AuthContext.jsx'
-import { convexUrl, hasConvexUrl } from './lib/convex-config.js'
+import { StrictMode } from 'react';
+import { createRoot } from 'react-dom/client';
+import { registerSW } from 'virtual:pwa-register';
+import './index.css';
+import AppErrorBoundary from './components/AppErrorBoundary.jsx';
+import AppProviders from './bootstrap/AppProviders.jsx';
+import { attemptChunkRecoveryReload, isChunkLoadError } from './lib/chunkLoadRecovery.js';
+import { convexSiteUrl } from './lib/convex-config.js';
+import { initSentry } from './lib/sentry.js';
+import { initPostHog } from './lib/posthog.js';
+import { initializeTheme } from './lib/theme.js';
 
-const convex = hasConvexUrl ? new ConvexReactClient(convexUrl) : null;
+initializeTheme();
+
+const applyBrowserHints = () => {
+  if (typeof window === 'undefined' || typeof document === 'undefined') return;
+  const ua = window.navigator.userAgent;
+  const isSafari =
+    /Safari/i.test(ua) &&
+    !/Chrome|CriOS|Chromium|Edg|OPR|SamsungBrowser/i.test(ua);
+  if (isSafari) {
+    document.documentElement.classList.add('is-safari');
+  }
+};
+
+const appendResourceHint = (rel, href, crossOrigin = false) => {
+  if (!href || typeof document === 'undefined') return;
+  const selector = `link[rel="${rel}"][href="${href}"]`;
+  if (document.head.querySelector(selector)) return;
+
+  const link = document.createElement('link');
+  link.rel = rel;
+  link.href = href;
+  if (crossOrigin) {
+    link.crossOrigin = 'anonymous';
+  }
+  document.head.appendChild(link);
+};
+
+const applyNetworkHints = () => {
+  if (!convexSiteUrl) return;
+  appendResourceHint('preconnect', convexSiteUrl, true);
+  appendResourceHint('dns-prefetch', convexSiteUrl);
+};
+
+const registerServiceWorker = () => {
+  if (!import.meta.env.PROD || typeof window === 'undefined') return;
+
+  registerSW({
+    immediate: true,
+    onOfflineReady() {
+      console.info('[PWA] Offline mode is ready.');
+    },
+    onNeedRefresh() {
+      console.info('[PWA] New app version available. Refresh to update.');
+    },
+  });
+};
+
+const scheduleObservabilityInit = () => {
+  const startObservability = () => {
+    initSentry();
+    initPostHog();
+  };
+
+  if (typeof window === 'undefined') {
+    startObservability();
+    return;
+  }
+
+  if (typeof window.requestIdleCallback === 'function') {
+    window.requestIdleCallback(() => {
+      startObservability();
+    }, { timeout: 3000 });
+    return;
+  }
+
+  window.setTimeout(() => {
+    startObservability();
+  }, 1200);
+};
+
+const installChunkLoadRecovery = () => {
+  if (typeof window === 'undefined') return;
+
+  window.addEventListener('vite:preloadError', (event) => {
+    event?.preventDefault?.();
+    const payloadError = event?.payload;
+    if (!payloadError || isChunkLoadError(payloadError)) {
+      attemptChunkRecoveryReload();
+    }
+  });
+
+  window.addEventListener('error', (event) => {
+    if (isChunkLoadError(event?.error || event?.message)) {
+      attemptChunkRecoveryReload();
+    }
+  });
+
+  window.addEventListener('unhandledrejection', (event) => {
+    if (isChunkLoadError(event?.reason)) {
+      event?.preventDefault?.();
+      attemptChunkRecoveryReload();
+    }
+  });
+};
 
 createRoot(document.getElementById('root')).render(
   <StrictMode>
-    {hasConvexUrl && convex ? (
-      <ConvexProvider client={convex}>
-        <AuthProvider>
-          <App />
-        </AuthProvider>
-      </ConvexProvider>
-    ) : (
-      <AuthProvider>
-        <App />
-      </AuthProvider>
-    )}
+    <AppErrorBoundary>
+      <AppProviders />
+    </AppErrorBoundary>
   </StrictMode>,
-)
+);
+
+applyBrowserHints();
+applyNetworkHints();
+installChunkLoadRecovery();
+registerServiceWorker();
+scheduleObservabilityInit();

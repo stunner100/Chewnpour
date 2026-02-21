@@ -12,16 +12,28 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
   <meta name="apple-mobile-web-app-title" content="StudyMate" />
   <title>StudyMate</title>
+  <!-- Inline theme to prevent FOUC -->
+  <script>
+    try{var t=localStorage.getItem('stitch-theme');if(t==='dark'||(t!=='light'&&matchMedia('(prefers-color-scheme:dark)').matches))document.documentElement.classList.add('dark')}catch(e){}
+  </script>
   <link href="https://fonts.googleapis.com" rel="preconnect" />
   <link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect" />
   <link href="//fonts.googleapis.com" rel="dns-prefetch" />
   <link href="//fonts.gstatic.com" rel="dns-prefetch" />
+  <!-- Non-render-blocking font loading via media="print" swap trick -->
   <link
-    href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&amp;family=Fredoka:wght@400;500;600&amp;display=swap"
-    rel="stylesheet" />
+    href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@500;600;700&amp;family=Fredoka:wght@500;600&amp;display=swap"
+    rel="stylesheet" media="print" onload="this.media='all'" />
+  <noscript><link
+    href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@500;600;700&amp;family=Fredoka:wght@500;600&amp;display=swap"
+    rel="stylesheet" /></noscript>
+  <!-- Material Symbols: narrowed axis range (wght 400+700, FILL 0+1) and non-blocking -->
   <link
-    href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=block"
-    rel="stylesheet" />>
+    href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL@20..48,400;700,0..1&amp;display=swap"
+    rel="stylesheet" media="print" onload="this.media='all'" />
+  <noscript><link
+    href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL@20..48,400;700,0..1&amp;display=swap"
+    rel="stylesheet" /></noscript>
 </head>
 
 <body>

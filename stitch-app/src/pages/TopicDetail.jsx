@@ -4,6 +4,9 @@ import { useQuery, useAction } from 'convex/react';
 import { api } from '../../convex/_generated/api';
 import { useAuth } from '../contexts/AuthContext';
 import { useVoicePlayback } from '../lib/useVoicePlayback';
+import TopicSettingsModal from '../components/TopicSettingsModal';
+import TopicReExplainModal from '../components/TopicReExplainModal';
+import TopicSidebar from '../components/TopicSidebar';
 import {
     EXAM_PREWARM_MIN_QUESTION_COUNT,
     shouldPrewarmExamQuestions,
@@ -17,6 +20,41 @@ import {
     normalizeLessonContent,
     slugifyText,
 } from '../lib/topicContentFormatting';
+
+// ── Pure rendering helpers (hoisted out of the component to avoid re-creation) ──
+
+const HEADER_SIZES = {
+    1: "text-3xl md:text-4xl font-extrabold text-[#0d161c] dark:text-white mt-10 md:mt-12 mb-5 md:mb-6 tracking-tight flex items-center gap-3",
+    2: "text-xl md:text-2xl font-bold text-slate-900 dark:text-slate-100 mt-8 md:mt-10 mb-3 md:mb-4 tracking-tight flex items-center gap-2",
+    3: "text-lg md:text-xl font-bold text-slate-800 dark:text-slate-200 mt-6 md:mt-8 mb-2 md:mb-3 flex items-center gap-2"
+};
+
+const getHeaderIcon = (text) => {
+    const lowText = text.toLowerCase();
+    if (lowText.includes('intro')) return 'auto_stories';
+    if (lowText.includes('practice') || lowText.includes('exercise')) return 'exercise';
+    if (lowText.includes('summary') || lowText.includes('conclusion')) return 'task_alt';
+    if (lowText.includes('block') || lowText.includes('concept')) return 'category';
+    return null;
+};
+
+const parseBold = (text, cleanInline, cleanLine) => {
+    const parts = text.split(/(\*\*.*?\*\*)/);
+    return parts.map((part, i) => {
+        if (part.startsWith('**') && part.endsWith('**')) {
+            return <span key={i} className="font-bold text-slate-900 dark:text-white bg-yellow-100/50 dark:bg-yellow-900/30 px-1 rounded">{cleanInline(part.slice(2, -2))}</span>;
+        }
+        return cleanLine(part);
+    });
+};
+
+const ALERT_STYLES = {
+    tip: "bg-emerald-50 dark:bg-emerald-900/20 border-emerald-100 dark:border-emerald-800 text-emerald-900 dark:text-emerald-100 icon-lightbulb",
+    note: "bg-blue-50 dark:bg-blue-900/20 border-blue-100 dark:border-blue-800 text-blue-900 dark:text-blue-100 icon-info",
+    warning: "bg-amber-50 dark:bg-amber-900/20 border-amber-100 dark:border-amber-800 text-amber-900 dark:text-amber-100 icon-warning",
+    important: "bg-rose-50 dark:bg-rose-900/20 border-rose-100 dark:border-rose-800 text-rose-900 dark:text-rose-100 icon-priority_high",
+    "key takeaway": "bg-indigo-50 dark:bg-indigo-900/20 border-indigo-100 dark:border-indigo-800 text-indigo-900 dark:text-indigo-100 icon-star"
+};
 
 const TopicDetail = () => {
     const { topicId } = useParams();
@@ -514,6 +552,21 @@ const TopicDetail = () => {
         }
     };
 
+    const handleReExplain = useCallback(async () => {
+        if (!topicId) return;
+        setReExplainError('');
+        setReExplainLoading(true);
+        try {
+            const result = await reExplainTopic({ topicId, style: reExplainStyle });
+            setOverrideContent(result?.content || '');
+            setReExplainOpen(false);
+        } catch {
+            setReExplainError('Failed to re-explain. Please try again.');
+        } finally {
+            setReExplainLoading(false);
+        }
+    }, [topicId, reExplainStyle, reExplainTopic]);
+
     if (!topicId) {
         return (
             <div className="bg-background-light dark:bg-background-dark min-h-screen flex items-center justify-center">
@@ -617,7 +670,7 @@ const TopicDetail = () => {
                                 <div className="pt-2">
                                     <button
                                         onClick={() => setReExplainOpen(true)}
-                                        className="inline-flex items-center gap-2 px-4 py-2.5 bg-slate-50 dark:bg-slate-800/80 text-slate-800 dark:text-white rounded-full transition-all duration-200 shadow-soft-ui border border-slate-200/70 dark:border-slate-700/70 cursor-pointer hover:shadow-soft-ui-hover hover:border-primary/30 active:scale-95 active:shadow-inner group"
+                                        className="inline-flex items-center gap-2 px-4 py-2.5 bg-slate-50 dark:bg-slate-800/80 text-slate-800 dark:text-white rounded-full transition-shadow duration-200 shadow-soft-ui border border-slate-200/70 dark:border-slate-700/70 cursor-pointer hover:shadow-soft-ui-hover hover:border-primary/30 active:scale-95 active:shadow-inner group"
                                     >
                                         <span className="material-symbols-outlined text-[20px] text-primary group-hover:text-primary/80 transition-colors">lightbulb</span>
                                         <span className="text-xs font-bold tracking-tight">Re-explain differently</span>
@@ -711,42 +764,18 @@ const TopicDetail = () => {
                                                     return <div key={block.key} className="h-2 md:h-3"></div>;
                                                 }
 
-                                                const parseBold = (text) => {
-                                                    const parts = text.split(/(\*\*.*?\*\*)/);
-                                                    return parts.map((part, i) => {
-                                                        if (part.startsWith('**') && part.endsWith('**')) {
-                                                            return <span key={i} className="font-bold text-slate-900 dark:text-white bg-yellow-100/50 dark:bg-yellow-900/30 px-1 rounded">{cleanInline(part.slice(2, -2))}</span>;
-                                                        }
-                                                        return cleanLine(part);
-                                                    });
-                                                };
-
+                                                const bold = (text) => parseBold(text, cleanInline, cleanLine);
                                                 const animationClass = shouldAnimateBlocks ? "animate-fade-in fill-mode-forwards opacity-0" : "";
                                                 const animationStyle = shouldAnimateBlocks ? { animationDelay: `${Math.min(index, 24) * 60}ms` } : undefined;
 
                                                 if (block.type === 'header') {
-                                                    const sizes = {
-                                                        1: "text-3xl md:text-4xl font-extrabold text-[#0d161c] dark:text-white mt-10 md:mt-12 mb-5 md:mb-6 tracking-tight flex items-center gap-3",
-                                                        2: "text-xl md:text-2xl font-bold text-slate-900 dark:text-slate-100 mt-8 md:mt-10 mb-3 md:mb-4 tracking-tight flex items-center gap-2",
-                                                        3: "text-lg md:text-xl font-bold text-slate-800 dark:text-slate-200 mt-6 md:mt-8 mb-2 md:mb-3 flex items-center gap-2"
-                                                    };
-
-                                                    const getHeaderIcon = (text) => {
-                                                        const lowText = text.toLowerCase();
-                                                        if (lowText.includes('intro')) return 'auto_stories';
-                                                        if (lowText.includes('practice') || lowText.includes('exercise')) return 'exercise';
-                                                        if (lowText.includes('summary') || lowText.includes('conclusion')) return 'task_alt';
-                                                        if (lowText.includes('block') || lowText.includes('concept')) return 'category';
-                                                        return null;
-                                                    };
-
                                                     const icon = getHeaderIcon(block.text);
 
                                                     return (
                                                         <div
                                                             key={block.key}
                                                             id={block.id}
-                                                            className={`${sizes[block.level] || sizes[3]} scroll-mt-20 md:scroll-mt-32 ${animationClass}`}
+                                                            className={`${HEADER_SIZES[block.level] || HEADER_SIZES[3]} scroll-mt-20 md:scroll-mt-32 ${animationClass}`}
                                                             style={animationStyle}
                                                         >
                                                             {icon && <span className="material-symbols-outlined text-primary/70">{icon}</span>}
@@ -756,15 +785,7 @@ const TopicDetail = () => {
                                                 }
 
                                                 if (block.type === 'alert') {
-                                                    const styles = {
-                                                        tip: "bg-emerald-50 dark:bg-emerald-900/20 border-emerald-100 dark:border-emerald-800 text-emerald-900 dark:text-emerald-100 icon-lightbulb",
-                                                        note: "bg-blue-50 dark:bg-blue-900/20 border-blue-100 dark:border-blue-800 text-blue-900 dark:text-blue-100 icon-info",
-                                                        warning: "bg-amber-50 dark:bg-amber-900/20 border-amber-100 dark:border-amber-800 text-amber-900 dark:text-amber-100 icon-warning",
-                                                        important: "bg-rose-50 dark:bg-rose-900/20 border-rose-100 dark:border-rose-800 text-rose-900 dark:text-rose-100 icon-priority_high",
-                                                        "key takeaway": "bg-indigo-50 dark:bg-indigo-900/20 border-indigo-100 dark:border-indigo-800 text-indigo-900 dark:text-indigo-100 icon-star"
-                                                    };
-
-                                                    const currentStyle = styles[block.alertType] || styles.note;
+                                                    const currentStyle = ALERT_STYLES[block.alertType] || ALERT_STYLES.note;
                                                     const iconName = currentStyle.split('icon-')[1];
 
                                                     return (
@@ -772,7 +793,7 @@ const TopicDetail = () => {
                                                             <span className="material-symbols-outlined shrink-0 text-current opacity-70">{iconName}</span>
                                                             <div className="flex flex-col gap-1">
                                                                 <span className="text-[10px] font-black uppercase tracking-widest opacity-60">{block.alertType}</span>
-                                                                <div className="text-[15px] md:text-base font-medium leading-relaxed">{parseBold(block.text)}</div>
+                                                                <div className="text-[15px] md:text-base font-medium leading-relaxed">{bold(block.text)}</div>
                                                             </div>
                                                         </div>
                                                     );
@@ -780,16 +801,16 @@ const TopicDetail = () => {
 
                                                 if (block.type === 'definition') {
                                                     return (
-                                                        <div key={block.key} className={`my-4 md:my-6 p-5 md:p-6 rounded-[2rem] bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 shadow-sm relative overflow-hidden group hover:shadow-md transition-all duration-300 ${animationClass}`} style={animationStyle}>
+                                                        <div key={block.key} className={`my-4 md:my-6 p-5 md:p-6 rounded-[2rem] bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 shadow-sm relative overflow-hidden group hover:shadow-md transition-shadow duration-300 ${animationClass}`} style={animationStyle}>
                                                             <div className="absolute top-0 right-0 p-4 opacity-5 group-hover:opacity-10 transition-opacity">
                                                                 <span className="material-symbols-outlined text-6xl">menu_book</span>
                                                             </div>
                                                             <h4 className="text-sm font-bold text-primary uppercase tracking-wider mb-2 flex items-center gap-2">
-                                                                <span className="w-2 h-2 rounded-full bg-primary animate-pulse"></span>
+                                                                <span className="w-2 h-2 rounded-full bg-primary"></span>
                                                                 {block.term}
                                                             </h4>
                                                             <div className="text-base md:text-lg font-semibold text-slate-800 dark:text-slate-100 leading-relaxed italic">
-                                                                {parseBold(block.text)}
+                                                                {bold(block.text)}
                                                             </div>
                                                         </div>
                                                     );
@@ -803,7 +824,7 @@ const TopicDetail = () => {
                                                                 <span className="text-xs font-black uppercase tracking-widest">Example</span>
                                                             </div>
                                                             <div className="text-slate-700 dark:text-slate-300 text-[15px] md:text-base leading-relaxed">
-                                                                {parseBold(block.text)}
+                                                                {bold(block.text)}
                                                             </div>
                                                         </div>
                                                     );
@@ -815,7 +836,7 @@ const TopicDetail = () => {
                                                             <div className="mt-1.5 h-5 w-5 rounded-full bg-primary/10 flex items-center justify-center shrink-0 group-hover:bg-primary/20 transition-colors">
                                                                 <span className="material-symbols-outlined text-[14px] text-primary">arrow_forward</span>
                                                             </div>
-                                                            <span className="text-[15px] md:text-base leading-7 text-slate-700 dark:text-slate-300">{parseBold(block.text)}</span>
+                                                            <span className="text-[15px] md:text-base leading-7 text-slate-700 dark:text-slate-300">{bold(block.text)}</span>
                                                         </div>
                                                     );
                                                 }
@@ -826,7 +847,7 @@ const TopicDetail = () => {
                                                             <span className="flex items-center justify-center w-6 h-6 rounded-full bg-primary text-white text-[10px] font-black shrink-0 mt-0.5 shadow-sm shadow-primary/30">
                                                                 {block.num}
                                                             </span>
-                                                            <span className="text-[15px] md:text-base leading-7 text-slate-700 dark:text-slate-300">{parseBold(block.text)}</span>
+                                                            <span className="text-[15px] md:text-base leading-7 text-slate-700 dark:text-slate-300">{bold(block.text)}</span>
                                                         </div>
                                                     );
                                                 }
@@ -836,7 +857,7 @@ const TopicDetail = () => {
                                                         <div key={block.key} className={`border-l-4 border-primary/30 bg-primary/5 pl-6 md:pl-8 py-5 md:py-6 pr-5 md:pr-6 rounded-r-3xl my-6 md:my-8 relative ${animationClass}`} style={animationStyle}>
                                                             <span className="absolute top-2 left-2 material-symbols-outlined text-primary/10 text-4xl">format_quote</span>
                                                             <div className="italic text-lg md:text-xl text-slate-600 dark:text-slate-300 font-medium leading-relaxed relative z-10">
-                                                                {parseBold(block.text)}
+                                                                {bold(block.text)}
                                                             </div>
                                                         </div>
                                                     );
@@ -844,7 +865,7 @@ const TopicDetail = () => {
 
                                                 return (
                                                     <p key={block.key} className={`my-3 md:my-4 text-base md:text-lg leading-relaxed text-slate-700 dark:text-slate-300 font-medium ${animationClass}`} style={animationStyle}>
-                                                        {parseBold(block.text)}
+                                                        {bold(block.text)}
                                                     </p>
                                                 );
                                             })}
@@ -864,99 +885,13 @@ const TopicDetail = () => {
                     </div>
 
                     {!readingMode && (
-                        <div className="lg:col-span-3 space-y-6">
-                            <div className="sticky top-28 space-y-6">
-                                <div className="glass-card rounded-[2.5rem] p-8 border border-slate-200/50 dark:border-slate-700/50 overflow-hidden relative group">
-                                    <div className="absolute -top-12 -right-12 w-32 h-32 bg-primary/5 rounded-full blur-2xl group-hover:bg-primary/10 transition-colors"></div>
-                                    <div className="flex items-center gap-3 mb-6">
-                                        <div className="w-10 h-10 bg-indigo-500/10 rounded-2xl flex items-center justify-center text-indigo-500 shadow-sm border border-indigo-500/10">
-                                            <span className="material-symbols-outlined text-[20px]">analytics</span>
-                                        </div>
-                                        <h3 className="font-black text-xs uppercase tracking-[0.2em] text-slate-400">Lesson Stats</h3>
-                                    </div>
-                                    <div className="grid grid-cols-2 gap-4">
-                                        <div className="bg-slate-50/50 dark:bg-slate-800/50 p-4 rounded-2xl border border-slate-100 dark:border-slate-700/50">
-                                            <div className="text-2xl font-black text-slate-800 dark:text-white mb-1">
-                                                {normalizedContent ? Math.ceil(normalizedContent.split(/\s+/).length / 200) : 1}
-                                            </div>
-                                            <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Minutes</div>
-                                        </div>
-                                        <div className="bg-slate-50/50 dark:bg-slate-800/50 p-4 rounded-2xl border border-slate-100 dark:border-slate-700/50">
-                                            <div className="text-2xl font-black text-slate-800 dark:text-white mb-1">
-                                                {normalizedContent ? normalizedContent.split(/\s+/).length : 0}
-                                            </div>
-                                            <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Words</div>
-                                        </div>
-                                    </div>
-                                </div>
-
-                                {normalizedContent && parsed.toc.length > 0 && (
-                                    <div className="glass-card rounded-[2.5rem] p-8 border border-slate-200/50 dark:border-slate-700/50 hidden lg:block relative overflow-hidden group">
-                                        <div className="absolute -bottom-10 -left-10 w-24 h-24 bg-primary/5 rounded-full blur-xl group-hover:bg-primary/10 transition-colors"></div>
-                                        <h3 className="font-black text-xs uppercase tracking-[0.2em] text-slate-400 mb-6 flex items-center gap-3">
-                                            <div className="w-8 h-8 bg-slate-100 dark:bg-slate-800 rounded-xl flex items-center justify-center">
-                                                <span className="material-symbols-outlined text-[18px]">format_list_bulleted</span>
-                                            </div>
-                                            Table of Contents
-                                        </h3>
-                                        <nav className="space-y-3 relative z-10">
-                                            {parsed.toc.map((item) => {
-                                                return (
-                                                    <a
-                                                        key={item.id}
-                                                        href={`#${item.id}`}
-                                                        onClick={(e) => {
-                                                            e.preventDefault();
-                                                            const el = document.getElementById(item.id);
-                                                            if (!el) return;
-                                                            const offset = 120;
-                                                            const top = el.getBoundingClientRect().top + window.scrollY - offset;
-                                                            window.scrollTo({ top, behavior: 'smooth' });
-                                                        }}
-                                                        className={`group/item flex items-center gap-3 py-1 text-sm transition-all hover:translate-x-1 ${item.level === 1 ? 'font-black text-slate-800 dark:text-slate-200' :
-                                                            item.level === 2 ? 'pl-4 font-bold text-slate-500 dark:text-slate-400' :
-                                                                'pl-8 text-slate-400 dark:text-slate-500'
-                                                            }`}
-                                                    >
-                                                        <span className={`w-1 h-1 rounded-full bg-slate-300 dark:bg-slate-700 group-hover/item:bg-primary transition-colors ${item.level === 1 ? 'w-2 h-2' : ''}`}></span>
-                                                        {item.text}
-                                                    </a>
-                                                );
-                                            })}
-                                        </nav>
-                                    </div>
-                                )}
-
-                                <div className="bg-gradient-to-br from-indigo-500 to-primary rounded-[2.5rem] p-8 text-white shadow-xl shadow-primary/20 relative overflow-hidden group">
-                                    <div className="absolute top-0 right-0 p-8 opacity-10 transform scale-150 rotate-12 group-hover:rotate-45 transition-transform duration-700">
-                                        <span className="material-symbols-outlined text-8xl">bolt</span>
-                                    </div>
-                                    <h3 className="font-black text-[10px] uppercase tracking-[0.3em] opacity-70 mb-4 flex items-center gap-2">
-                                        <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse"></span>
-                                        Lesson Snapshot
-                                    </h3>
-                                    <ul className="space-y-4 relative z-10">
-                                        {(contentLines && contentLines.length > 0 ? contentLines : [
-                                            cleanLine(topic?.description || 'Lesson summary loading...')
-                                        ]).slice(0, 3).map((line, idx) => {
-                                            if (!line || typeof line !== 'string') return null;
-
-                                            const summaryLine = cleanLine(line);
-                                            if (!summaryLine) return null;
-
-                                            return (
-                                                <li key={idx} className="flex items-start gap-4">
-                                                    <div className="mt-1.5 w-5 h-5 rounded-full bg-white/20 flex items-center justify-center shrink-0 border border-white/10 group-hover:bg-white/30 transition-colors">
-                                                        <span className="material-symbols-outlined text-[12px]">done_all</span>
-                                                    </div>
-                                                    <span className="text-xs font-bold text-white/90 leading-relaxed line-clamp-2 uppercase tracking-wide">{summaryLine}</span>
-                                                </li>
-                                            );
-                                        })}
-                                    </ul>
-                                </div>
-                            </div>
-                        </div>
+                        <TopicSidebar
+                            normalizedContent={normalizedContent}
+                            contentLines={contentLines}
+                            toc={parsed.toc}
+                            cleanLine={cleanLine}
+                            topic={topic}
+                        />
                     )}
                 </div>
 
@@ -976,7 +911,7 @@ const TopicDetail = () => {
                             <button
                                 onClick={handleStartExam}
                                 disabled={startingExam}
-                                className="inline-flex items-center justify-center gap-2 px-6 py-3 bg-gradient-to-r from-blue-500 to-indigo-600 text-white rounded-xl text-sm font-semibold shadow-md shadow-blue-500/20 hover:shadow-lg hover:shadow-blue-500/30 transition-all disabled:opacity-60"
+                                className="inline-flex items-center justify-center gap-2 px-6 py-3 bg-gradient-to-r from-blue-500 to-indigo-600 text-white rounded-xl text-sm font-semibold shadow-md shadow-blue-500/20 hover:shadow-lg hover:shadow-blue-500/30 transition-shadow disabled:opacity-60"
                             >
                                 <span className="material-symbols-outlined text-lg">quiz</span>
                                 <span>{startingExam ? 'Preparing...' : 'Take Quiz'}</span>
@@ -1002,176 +937,32 @@ const TopicDetail = () => {
                 </div>
             </main>
 
-            {settingsOpen && (
-                <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/40 px-4">
-                    <div className="w-full max-w-md rounded-3xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xl p-6">
-                        <div className="flex items-center justify-between mb-4">
-                            <h3 className="text-lg font-bold text-slate-900 dark:text-white">Lesson Settings</h3>
-                            <button
-                                onClick={() => setSettingsOpen(false)}
-                                className="w-9 h-9 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-500 hover:text-primary flex items-center justify-center"
-                            >
-                                <span className="material-symbols-outlined text-[20px]">close</span>
-                            </button>
-                        </div>
+            <TopicSettingsModal
+                open={settingsOpen}
+                onClose={() => setSettingsOpen(false)}
+                voiceModeEnabled={voiceModeEnabled}
+                onToggleVoiceMode={toggleVoiceMode}
+                voiceSaving={voiceSaving}
+                voiceSettingsError={voiceSettingsError}
+                isVoiceSupported={isVoiceSupported}
+                voiceOptions={voiceOptions}
+                selectedVoiceURI={selectedVoiceURI}
+                selectedVoiceName={selectedVoiceName}
+                setVoicePreference={setVoicePreference}
+                playbackEngine={playbackEngine}
+                stopVoice={stopVoice}
+                playVoice={playVoice}
+            />
 
-                        <div className="rounded-2xl border border-slate-200 dark:border-slate-700 p-4">
-                            <div className="flex items-start justify-between gap-4">
-                                <div className="flex-1">
-                                    <p className="font-bold text-slate-900 dark:text-white mb-1">Voice Mode</p>
-                                    <p className="text-sm text-slate-500 dark:text-slate-400">
-                                        Read this topic explanation aloud.
-                                    </p>
-                                </div>
-                                <button
-                                    onClick={toggleVoiceMode}
-                                    disabled={voiceSaving}
-                                    className={`relative w-14 h-8 rounded-full transition-colors ${voiceModeEnabled ? 'bg-primary' : 'bg-slate-300 dark:bg-slate-700'} ${voiceSaving ? 'opacity-60 cursor-not-allowed' : ''}`}
-                                    aria-label="Toggle voice mode"
-                                    aria-pressed={voiceModeEnabled}
-                                >
-                                    <span
-                                        className={`absolute top-1 left-1 w-6 h-6 rounded-full bg-white shadow transition-transform ${voiceModeEnabled ? 'translate-x-6' : ''}`}
-                                    />
-                                </button>
-                            </div>
-                            <div className="mt-3 text-xs font-semibold text-slate-500 dark:text-slate-400">
-                                {voiceSaving ? 'Saving...' : (voiceModeEnabled ? 'Voice mode enabled' : 'Voice mode disabled')}
-                            </div>
-                            {voiceSettingsError && (
-                                <div className="mt-2 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-medium text-amber-800">
-                                    {voiceSettingsError}
-                                </div>
-                            )}
-                            {voiceModeEnabled && !isVoiceSupported && (
-                                <div className="mt-2 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-medium text-amber-800">
-                                    This browser does not support voice playback.
-                                </div>
-                            )}
-                            {voiceModeEnabled && isVoiceSupported && (
-                                <div className="mt-3 space-y-3">
-                                    <div>
-                                        <label className="mb-1 block text-xs font-semibold text-slate-500 dark:text-slate-400">
-                                            Voice
-                                        </label>
-                                        <select
-                                            value={selectedVoiceURI || ''}
-                                            onChange={(event) => setVoicePreference(event.target.value || '')}
-                                            className="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 py-2 text-xs font-medium text-slate-700 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-primary/30"
-                                        >
-                                            <option value="">Auto (Best local Apple voice)</option>
-                                            {voiceOptions.map((voice) => (
-                                                <option key={voice.voiceURI} value={voice.voiceURI}>
-                                                    {voice.name} ({voice.lang || 'unknown'})
-                                                </option>
-                                            ))}
-                                        </select>
-                                        <p className="mt-1 text-[11px] text-slate-500 dark:text-slate-400">
-                                            Current: {selectedVoiceName || 'Auto'}.
-                                        </p>
-                                        <p className="mt-1 text-[11px] text-slate-500 dark:text-slate-400">
-                                            Playback: {playbackEngine === 'elevenlabs' ? 'ElevenLabs' : 'Browser voice'}.
-                                        </p>
-                                        <p className="mt-1 text-[11px] text-slate-500 dark:text-slate-400">
-                                            For best quality, install Enhanced/Premium voices in macOS Settings.
-                                        </p>
-                                    </div>
-                                    <button
-                                        onClick={() => {
-                                            stopVoice();
-                                            playVoice("Voice mode test. If you can hear this sentence, your audio playback is working.");
-                                        }}
-                                        className="inline-flex items-center gap-2 px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-xs font-semibold text-slate-700 dark:text-slate-200 hover:border-primary/40 hover:text-primary"
-                                    >
-                                        <span className="material-symbols-outlined text-[16px]">record_voice_over</span>
-                                        Test Voice
-                                    </button>
-                                </div>
-                            )}
-                        </div>
-
-                        <div className="mt-5 flex justify-end">
-                            <button
-                                onClick={() => setSettingsOpen(false)}
-                                className="px-4 py-2 rounded-xl text-sm font-semibold bg-primary text-white"
-                            >
-                                Done
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            )}
-
-            {reExplainOpen && (
-                <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/40 px-4">
-                    <div className="w-full max-w-lg rounded-3xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xl p-6">
-                        <div className="flex items-center justify-between mb-4">
-                            <h3 className="text-lg font-bold text-slate-900 dark:text-white">Re-explain this lesson</h3>
-                            <button
-                                onClick={() => setReExplainOpen(false)}
-                                className="w-9 h-9 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-500 hover:text-primary flex items-center justify-center"
-                            >
-                                <span className="material-symbols-outlined text-[20px]">close</span>
-                            </button>
-                        </div>
-                        <p className="text-sm text-slate-500 dark:text-slate-400 mb-4">Choose how you want this explanation to be rewritten.</p>
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-4">
-                            {[
-                                'Simple summary',
-                                'Step-by-step',
-                                'Story/analogy',
-                                'Bullet points',
-                                'Short & direct',
-                                'Teach me like I’m 12'
-                            ].map((option) => (
-                                <button
-                                    key={option}
-                                    onClick={() => setReExplainStyle(option)}
-                                    className={`px-3 py-2 rounded-xl text-sm font-semibold border transition-colors ${reExplainStyle === option
-                                        ? 'bg-primary text-white border-primary'
-                                        : 'bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-slate-200 border-slate-200 dark:border-slate-700'
-                                        }`}
-                                >
-                                    {option}
-                                </button>
-                            ))}
-                        </div>
-                        {reExplainError && (
-                            <div className="mb-3 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-2 text-sm font-medium text-amber-800">
-                                {reExplainError}
-                            </div>
-                        )}
-                        <div className="flex items-center justify-end gap-3">
-                            <button
-                                onClick={() => setReExplainOpen(false)}
-                                className="px-4 py-2 rounded-xl text-sm font-semibold text-slate-600 hover:text-slate-900"
-                            >
-                                Cancel
-                            </button>
-                            <button
-                                onClick={async () => {
-                                    if (!topicId) return;
-                                    setReExplainError('');
-                                    setReExplainLoading(true);
-                                    try {
-                                        const result = await reExplainTopic({ topicId, style: reExplainStyle });
-                                        setOverrideContent(result?.content || '');
-                                        setReExplainOpen(false);
-                                    } catch {
-                                        setReExplainError('Failed to re-explain. Please try again.');
-                                    } finally {
-                                        setReExplainLoading(false);
-                                    }
-                                }}
-                                disabled={reExplainLoading}
-                                className="px-5 py-2 rounded-xl text-sm font-semibold bg-primary text-white shadow-sm shadow-primary/30 hover:shadow-primary/50 disabled:opacity-60"
-                            >
-                                {reExplainLoading ? 'Rewriting...' : 'Re-explain'}
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            )}
+            <TopicReExplainModal
+                open={reExplainOpen}
+                onClose={() => setReExplainOpen(false)}
+                selectedStyle={reExplainStyle}
+                onStyleChange={setReExplainStyle}
+                loading={reExplainLoading}
+                error={reExplainError}
+                onReExplain={handleReExplain}
+            />
         </div>
     );
 };
