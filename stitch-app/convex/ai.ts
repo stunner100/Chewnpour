@@ -2774,6 +2774,94 @@ Respond in this exact JSON format only:
   ]
 }`;
 
+// ── Essay / theory question generation ──
+
+const buildEssayQuestionGenerationPrompt = (args: {
+    requestedCount: number;
+    topicTitle: string;
+    topicDescription?: string;
+    topicContent: string;
+}) => `Create ${args.requestedCount} essay/theory questions that require written answers.
+
+TOPIC: ${args.topicTitle}
+DESCRIPTION: ${args.topicDescription || "General concepts"}
+
+LESSON CONTENT:
+"""
+${args.topicContent.slice(0, 8500)}
+"""
+
+Hard constraints:
+- Every question must be strictly about this topic only
+- Questions should require thoughtful 2-5 sentence written answers
+- Cover different sub-concepts from this topic
+- Avoid yes/no questions; ask "explain", "describe", "compare", "discuss", "analyze" style questions
+- Include a model answer that covers the key points a student should mention
+- Include rubric hints listing 2-4 key points for grading
+
+Respond in this exact JSON format only:
+{
+  "questions": [
+    {
+      "questionText": "Explain why ...",
+      "correctAnswer": "A model answer covering the key points in 2-4 sentences.",
+      "explanation": "Key points: 1) ... 2) ... 3) ...",
+      "difficulty": "easy|medium|hard",
+      "questionType": "essay"
+    }
+  ]
+}`;
+
+const generateEssayQuestionCandidatesBatch = async (args: {
+    requestedCount: number;
+    topicTitle: string;
+    topicDescription?: string;
+    topicContent: string;
+    deadlineMs?: number;
+    requestTimeoutMs?: number;
+    repairTimeoutMs?: number;
+    maxAttempts?: number;
+}) => {
+    const prompt = buildEssayQuestionGenerationPrompt(args);
+    let questionsData: any = { questions: [] };
+    const maxAttempts = Math.max(1, Math.round(Number(args.maxAttempts || 1)));
+    for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
+        const remainingMs = Number.isFinite(Number(args.deadlineMs))
+            ? Number(args.deadlineMs) - Date.now()
+            : null;
+        if (remainingMs !== null && remainingMs <= 1200) {
+            break;
+        }
+
+        const configuredTimeoutMs = Math.max(1000, Math.round(Number(args.requestTimeoutMs || DEFAULT_TIMEOUT_MS)));
+        const timeoutMs = remainingMs === null
+            ? configuredTimeoutMs
+            : Math.min(configuredTimeoutMs, Math.max(1000, remainingMs - 200));
+
+        const response = await callQwen([
+            {
+                role: "system",
+                content: "You are an expert educator creating essay/theory questions. Always respond with valid JSON only.",
+            },
+            { role: "user", content: prompt },
+        ], DEFAULT_MODEL, {
+            maxTokens: 3000,
+            responseFormat: "json_object",
+            timeoutMs,
+        });
+
+        questionsData = await parseQuestionsWithRepair(response, {
+            deadlineMs: args.deadlineMs,
+            repairTimeoutMs: args.repairTimeoutMs,
+        });
+        if (Array.isArray(questionsData?.questions) && questionsData.questions.length > 0) {
+            break;
+        }
+    }
+
+    return Array.isArray(questionsData?.questions) ? questionsData.questions : [];
+};
+
 const buildParallelBatchPlan = (args: {
     batchSize: number;
     minBatchSize: number;
@@ -3291,6 +3379,131 @@ export const regenerateQuestionsForTopic = action({
     },
 });
 
+// ── Essay question generation (on demand) ──
+
+export const generateEssayQuestionsForTopic = action({
+    args: {
+        topicId: v.id("topics"),
+        count: v.optional(v.number()),
+    },
+    handler: async (ctx, args) => {
+        const { topicId } = args;
+        const requestedCount = Math.max(3, Math.min(15, Number(args.count || 5)));
+        await assertTopicQuestionGenerationAccess(ctx, topicId);
+
+        const topicWithQuestions = await ctx.runQuery(api.topics.getTopicWithQuestions, { topicId });
+        if (!topicWithQuestions) throw new Error("Topic not found");
+
+        const topicContent = String(topicWithQuestions.content || "");
+
+        // Check how many essay questions already exist
+        const existingEssay = (topicWithQuestions.questions || []).filter(
+            (q: any) => q.questionType === "essay"
+        );
+        if (existingEssay.length >= requestedCount) {
+            return { success: true, count: existingEssay.length, added: 0, alreadyGenerated: true };
+        }
+
+        const candidates = await generateEssayQuestionCandidatesBatch({
+            requestedCount,
+            topicTitle: topicWithQuestions.title,
+            topicDescription: topicWithQuestions.description,
+            topicContent,
+            requestTimeoutMs: DEFAULT_TIMEOUT_MS,
+            maxAttempts: 2,
+        });
+
+        let added = 0;
+        const existingKeys = new Set(
+            existingEssay.map((q: any) => normalizeQuestionKey(q.questionText || "")).filter(Boolean)
+        );
+
+        for (const question of candidates) {
+            if (!question?.questionText || typeof question.questionText !== "string") continue;
+            const key = normalizeQuestionKey(question.questionText);
+            if (!key || existingKeys.has(key)) continue;
+
+            await ctx.runMutation(internal.topics.createQuestionInternal, {
+                topicId,
+                questionText: question.questionText,
+                questionType: "essay",
+                options: undefined,
+                correctAnswer: String(question.correctAnswer || ""),
+                explanation: String(question.explanation || ""),
+                difficulty: question.difficulty || "medium",
+            });
+
+            existingKeys.add(key);
+            added += 1;
+            if (existingKeys.size >= requestedCount) break;
+        }
+
+        return { success: true, count: existingKeys.size, added };
+    },
+});
+
+// ── AI essay grading ──
+
+export const gradeEssayAnswer = action({
+    args: {
+        questionText: v.string(),
+        modelAnswer: v.string(),
+        studentAnswer: v.string(),
+        rubricHints: v.optional(v.string()),
+    },
+    handler: async (ctx, args) => {
+        const { questionText, modelAnswer, studentAnswer, rubricHints } = args;
+
+        if (!studentAnswer || studentAnswer.trim().length < 5) {
+            return { score: 0, feedback: "No answer provided or answer too short." };
+        }
+
+        const prompt = `You are grading a student's essay answer. Be lenient — partial understanding should be rewarded.
+
+QUESTION:
+"${questionText}"
+
+MODEL ANSWER:
+"${modelAnswer}"
+
+${rubricHints ? `RUBRIC HINTS:\n${rubricHints}\n` : ""}
+STUDENT'S ANSWER:
+"${studentAnswer}"
+
+Grade this answer. Respond with valid JSON only:
+{
+  "score": 1 or 0 (1 if the student demonstrates understanding of the key concepts, 0 if completely wrong or missing the point),
+  "feedback": "Brief 1-2 sentence constructive feedback explaining the grade"
+}`;
+
+        try {
+            const response = await callQwen([
+                {
+                    role: "system",
+                    content: "You are a fair and encouraging educator grading student essays. Always respond with valid JSON only.",
+                },
+                { role: "user", content: prompt },
+            ], DEFAULT_MODEL, {
+                maxTokens: 300,
+                responseFormat: "json_object",
+                timeoutMs: 15000,
+            });
+
+            const parsed = parseJsonFromResponse(response, "essay_grade");
+            const score = parsed?.score === 1 ? 1 : 0;
+            const feedback = String(parsed?.feedback || "Unable to generate feedback.");
+            return { score, feedback };
+        } catch (error) {
+            console.error("Essay grading failed:", error);
+            // Fallback: give benefit of doubt for non-empty answers
+            return {
+                score: studentAnswer.trim().length >= 20 ? 1 : 0,
+                feedback: "Unable to grade automatically. Your answer has been recorded.",
+            };
+        }
+    },
+});
+
 const TEACH_TWELVE_STYLE_PATTERN = /(12|twelve|kid|child)/i;
 const TEACH_TWELVE_ANALOGY_CUE_PATTERN =
     /\b(think of it like|just like|imagine|similar to|school|classroom|home|game|sport|team|cartoon|playground)\b/gi;
@@ -3745,6 +3958,7 @@ const buildTeachTwelveStructuredPrompt = (args: {
     topicContent: string;
     styleLabel: string;
     extraGuidance?: string;
+    performanceContext?: string;
 }) => `Rewrite this lesson for a 12-year-old beginner and return STRICT JSON ONLY.
 
 STYLE LABEL: ${args.styleLabel}
@@ -3755,7 +3969,7 @@ SOURCE LESSON:
 """
 ${String(args.topicContent || "").slice(0, 6500)}
 """
-
+${args.performanceContext ? `\n${args.performanceContext}\n` : ""}
 Output schema (JSON object only):
 {
   "title": "short friendly title",
@@ -3861,6 +4075,7 @@ const generateTeachTwelveRewrite = async (args: {
     topicDescription?: string;
     topicContent: string;
     styleLabel: string;
+    performanceContext?: string;
 }) => {
     const sourceContent = parseLessonContentCandidate(String(args.topicContent || ""));
     let bestContent = "";
@@ -3880,6 +4095,7 @@ const generateTeachTwelveRewrite = async (args: {
                     topicContent: sourceContent,
                     styleLabel: args.styleLabel,
                     extraGuidance,
+                    performanceContext: args.performanceContext,
                 }),
             },
         ], DEFAULT_MODEL, {
@@ -3942,6 +4158,104 @@ const generateTeachTwelveRewrite = async (args: {
     }
 };
 
+// Generate personalised AI tutor feedback for a completed exam attempt
+export const generateExamFeedback = action({
+    args: { attemptId: v.id("examAttempts") },
+    handler: async (ctx, args) => {
+        const attempt: any = await ctx.runQuery(api.exams.getExamAttempt, {
+            attemptId: args.attemptId,
+        });
+        if (!attempt) throw new Error("Exam attempt not found");
+
+        const identity = await ctx.auth.getUserIdentity();
+        const userId = identity?.subject || attempt.userId;
+        const profile: any = await ctx.runQuery(api.profiles.getProfile, { userId });
+
+        const userName: string = profile?.fullName || "Student";
+        const educationLevel: string = profile?.educationLevel || "";
+        const department: string = profile?.department || "";
+        const topicTitle: string = attempt.topicTitle || "this topic";
+        const score: number = attempt.score || 0;
+        const totalQuestions: number = attempt.totalQuestions || attempt.answers?.length || 0;
+        const percentage: number =
+            typeof attempt.percentage === "number"
+                ? attempt.percentage
+                : Math.round((score / Math.max(totalQuestions, 1)) * 100);
+
+        const correctAnswers = (attempt.answers || []).filter((a: any) => a.isCorrect);
+        const incorrectAnswers = (attempt.answers || []).filter((a: any) => !a.isCorrect);
+
+        const levelTone =
+            educationLevel === "postgrad"
+                ? "Use precise, graduate-level language."
+                : educationLevel === "professional"
+                    ? "Be direct and practical — they are a busy professional."
+                    : educationLevel === "undergrad"
+                        ? "Use clear academic language appropriate for a university student."
+                        : "Use simple, encouraging language suitable for a high school student.";
+
+        const correctList =
+            correctAnswers
+                .slice(0, 8)
+                .map((a: any) => `- "${a.questionText}" (${a.difficulty || "medium"})`)
+                .join("\n") || "(none)";
+
+        const incorrectList =
+            incorrectAnswers
+                .slice(0, 8)
+                .map(
+                    (a: any) =>
+                        `- "${a.questionText}" → chose "${a.selectedAnswer}", correct: "${a.correctAnswer}" (${a.difficulty || "medium"})`
+                )
+                .join("\n") || "(none)";
+
+        const prompt = `You are ${userName}’s personal study tutor writing a review of their exam performance.
+
+STUDENT: ${userName}${educationLevel ? `, ${educationLevel} level` : ""}${department ? `, studying ${department}` : ""}
+EXAM TOPIC: "${topicTitle}"
+SCORE: ${score}/${totalQuestions} (${percentage}%)
+
+WHAT THEY GOT RIGHT:
+${correctList}
+
+WHAT THEY GOT WRONG:
+${incorrectList}
+
+Write a personal tutor message in 3–4 short paragraphs:
+1. An honest, warm assessment of their overall performance
+2. Name 2–3 specific STRENGTHS — concepts they clearly understand (reference actual question topics, not generic praise)
+3. Name 2–3 specific WEAK AREAS — concepts to review, with a brief hint on what to focus on
+4. An EXAM READINESS verdict — one of: "Not Ready" / "Almost Ready" / "Ready" / "Exam Ready" — with one sentence of reasoning
+
+End with one short encouraging line.
+
+${levelTone}
+Keep it under 250 words. Be specific — reference actual concepts from their answers. Do not use markdown formatting — write in plain paragraphs.`;
+
+        const feedbackText = await callQwen(
+            [
+                {
+                    role: "system",
+                    content:
+                        "You are a knowledgeable, honest, and encouraging personal study tutor. Write in plain prose — no bullet points, no markdown.",
+                },
+                { role: "user", content: prompt },
+            ],
+            DEFAULT_MODEL,
+            { maxTokens: 500 }
+        );
+
+        const feedback = String(feedbackText || "").trim();
+        if (feedback) {
+            await ctx.runMutation(api.exams.saveTutorFeedback, {
+                attemptId: args.attemptId,
+                tutorFeedback: feedback,
+            });
+        }
+        return feedback;
+    },
+});
+
 // Re-explain a topic in a different style on demand
 export const reExplainTopic = action({
     args: {
@@ -3955,6 +4269,32 @@ export const reExplainTopic = action({
             throw new Error("Topic not found");
         }
 
+        // Inject exam performance context to target weak concepts in re-explains
+        const identity = await ctx.auth.getUserIdentity();
+        const userId = identity?.subject;
+        let performanceContext = "";
+        if (userId) {
+            try {
+                const latestAttempt: any = await ctx.runQuery(api.exams.getLatestAttemptForTopic, {
+                    userId,
+                    topicId,
+                });
+                if (latestAttempt && latestAttempt.incorrectAnswers?.length > 0) {
+                    const weakConcepts = latestAttempt.incorrectAnswers
+                        .map((a: any) => `- "${a.questionText}"`)
+                        .join("\n");
+                    performanceContext = `\nSTUDENT PERFORMANCE CONTEXT:
+The student recently scored ${latestAttempt.score}/${latestAttempt.totalQuestions} on this topic.
+They specifically struggled with these concepts (got them wrong):
+${weakConcepts}
+
+Give extra attention to explaining these concepts clearly. Weave them naturally into the lesson — do not just list them.\n`;
+                }
+            } catch {
+                // Graceful degradation — re-explain still works without performance context
+            }
+        }
+
         const requestedStyle = String(style || "Teach me like I’m 12").trim() || "Teach me like I’m 12";
         const normalizedStyle = requestedStyle.toLowerCase();
         if (TEACH_TWELVE_STYLE_PATTERN.test(normalizedStyle)) {
@@ -3963,6 +4303,7 @@ export const reExplainTopic = action({
                 topicDescription: topic.description || "",
                 topicContent: String(topic.content || ""),
                 styleLabel: requestedStyle,
+                performanceContext,
             });
             const cleanedFallback = parseLessonContentCandidate(String(topic.content || ""));
             return { content: teachTwelveContent || cleanedFallback || topic.content || "" };
@@ -4054,7 +4395,7 @@ ${(topic.content || "").slice(0, 6000)}
 """
 
 ${styleInstruction}
-
+${performanceContext}
 IMPORTANT FORMATTING RULES:
 - Return clean markdown with headings and bullet points. Keep it concise but complete.
 - Do not return JSON.

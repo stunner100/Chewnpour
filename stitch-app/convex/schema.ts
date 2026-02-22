@@ -9,6 +9,7 @@ export default defineSchema({
         educationLevel: v.optional(v.string()), // 'high_school', 'undergrad', 'postgrad', 'professional'
         department: v.optional(v.string()),
         avatarUrl: v.optional(v.string()),
+        avatarGradient: v.optional(v.number()),
         voiceModeEnabled: v.optional(v.boolean()),
         onboardingCompleted: v.optional(v.boolean()),
         streakDays: v.optional(v.number()),
@@ -108,7 +109,8 @@ export default defineSchema({
         timeTakenSeconds: v.number(),
         questionIds: v.optional(v.array(v.id("questions"))),
         answers: v.optional(v.any()), // user's answers (JSON)
-    }).index("by_userId", ["userId"]).index("by_topicId", ["topicId"]),
+        tutorFeedback: v.optional(v.string()), // AI-generated personal tutor analysis
+    }).index("by_userId", ["userId"]).index("by_topicId", ["topicId"]).index("by_userId_topicId", ["userId", "topicId"]),
 
     // Concept practice attempts
     conceptAttempts: defineTable({
@@ -129,5 +131,26 @@ export default defineSchema({
         currency: v.optional(v.string()),
         status: v.string(), // 'active', 'cancelled'
         nextBillingDate: v.optional(v.string()),
+        purchasedUploadCredits: v.optional(v.number()),
+        consumedUploadCredits: v.optional(v.number()),
+        lastPaymentReference: v.optional(v.string()),
+        lastPaymentAt: v.optional(v.number()),
     }).index("by_userId", ["userId"]),
+
+    paymentTransactions: defineTable({
+        userId: v.string(),
+        provider: v.string(),
+        reference: v.string(),
+        amountMinor: v.number(),
+        currency: v.string(),
+        status: v.string(), // 'initialized', 'success', 'failed'
+        source: v.string(), // 'checkout_init', 'callback_verify', 'webhook'
+        createdAt: v.number(),
+        paidAt: v.optional(v.number()),
+        customerEmail: v.optional(v.string()),
+        eventType: v.optional(v.string()),
+    })
+        .index("by_reference", ["reference"])
+        .index("by_userId", ["userId"])
+        .index("by_userId_createdAt", ["userId", "createdAt"]),
 });

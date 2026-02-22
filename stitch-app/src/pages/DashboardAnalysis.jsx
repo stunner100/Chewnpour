@@ -1,8 +1,9 @@
-import React, { useState, useRef } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import React, { useEffect, useState, useRef } from 'react';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useAction } from 'convex/react';
 import { api } from '../../convex/_generated/api';
 import { useAuth } from '../contexts/AuthContext';
+import Toast from '../components/Toast';
 import {
     createUploadObservation,
     reportUploadFlowCompleted,
@@ -43,13 +44,65 @@ const extractPdfTextFromFile = async (file) => {
     return text.trim();
 };
 
+const isIgnorableProcessingDispatchError = (error) => {
+    const message = String(error?.message || error || '').toLowerCase();
+    return message.includes('connection lost while action was in flight');
+};
+
+const getConvexErrorCode = (error) => {
+    const code = error?.data?.code;
+    if (typeof code === 'string' && code.trim()) return code.trim();
+
+    const message = String(error?.message || '').trim();
+    if (message.includes('UPLOAD_QUOTA_EXCEEDED')) return 'UPLOAD_QUOTA_EXCEEDED';
+    return '';
+};
+
+const resolveQuotaExceededMessage = (error) => {
+    const dataMessage = typeof error?.data?.message === 'string' ? error.data.message.trim() : '';
+    if (dataMessage) return dataMessage;
+    return 'Upload limit reached. Purchase a GHS 20 top-up to continue uploading.';
+};
+
+const buildUploadLimitSubscriptionPath = () => {
+    const query = new URLSearchParams({
+        from: '/dashboard',
+        reason: 'upload_limit',
+    });
+    return `/subscription?${query.toString()}`;
+};
+
+const STREAK_MILESTONES = [2, 3, 5, 7, 14, 30, 60, 100];
+
+const getStreakStorageKey = (userId) => `streak_last_seen:${String(userId || '')}`;
+
+const readLastSeenStreak = (userId) => {
+    if (!userId || typeof window === 'undefined') return null;
+    const rawValue = window.localStorage.getItem(getStreakStorageKey(userId));
+    const parsed = Number(rawValue);
+    return Number.isFinite(parsed) ? Math.max(0, Math.floor(parsed)) : null;
+};
+
+const writeLastSeenStreak = (userId, streakDays) => {
+    if (!userId || typeof window === 'undefined') return;
+    window.localStorage.setItem(
+        getStreakStorageKey(userId),
+        String(Math.max(0, Math.floor(Number(streakDays) || 0)))
+    );
+};
+
 const DashboardAnalysis = () => {
     const [uploading, setUploading] = useState(false);
     const [uploadError, setUploadError] = useState('');
     const [deleteError, setDeleteError] = useState('');
     const [deletingCourseId, setDeletingCourseId] = useState('');
     const [searchQuery, setSearchQuery] = useState('');
+    const [showAllCourses, setShowAllCourses] = useState(false);
+    const [streakToastMessage, setStreakToastMessage] = useState('');
     const fileInputRef = useRef(null);
+    const uploadInFlightRef = useRef(false);
+    const lastSeenStreakRef = useRef(null);
+    const location = useLocation();
     const navigate = useNavigate();
     const { user } = useAuth();
 
@@ -59,16 +112,96 @@ const DashboardAnalysis = () => {
     // Convex queries, mutations, and actions
     const courses = useQuery(api.courses.getUserCourses, userId ? { userId } : 'skip');
     const userStats = useQuery(api.profiles.getUserStats, userId ? { userId } : 'skip');
+    const performanceInsights = useQuery(api.exams.getUserPerformanceInsights, userId ? { userId } : 'skip');
+    const uploadQuota = useQuery(api.subscriptions.getUploadQuotaStatus, userId ? {} : 'skip');
+    const subscription = useQuery(api.subscriptions.getSubscription, userId ? { userId } : 'skip');
     const generateUploadUrl = useMutation(api.uploads.generateUploadUrl);
     const createUpload = useMutation(api.uploads.createUpload);
     const createCourse = useMutation(api.courses.createCourse);
     const deleteCourse = useMutation(api.courses.deleteCourse);
     const processUploadedFile = useAction(api.ai.processUploadedFile);
 
+    useEffect(() => {
+        lastSeenStreakRef.current = null;
+        setStreakToastMessage('');
+    }, [userId]);
+
+    useEffect(() => {
+        const currentStreak = Number(userStats?.streakDays);
+        if (!userId || !Number.isFinite(currentStreak)) return;
+
+        const normalizedCurrentStreak = Math.max(0, Math.floor(currentStreak));
+        if (lastSeenStreakRef.current === null) {
+            const storedStreak = readLastSeenStreak(userId);
+            if (storedStreak === null) {
+                lastSeenStreakRef.current = normalizedCurrentStreak;
+                writeLastSeenStreak(userId, normalizedCurrentStreak);
+                return;
+            }
+            lastSeenStreakRef.current = storedStreak;
+        }
+
+        const previousStreak = Number(lastSeenStreakRef.current);
+        if (!Number.isFinite(previousStreak)) {
+            lastSeenStreakRef.current = normalizedCurrentStreak;
+            writeLastSeenStreak(userId, normalizedCurrentStreak);
+            return;
+        }
+
+        if (normalizedCurrentStreak > previousStreak) {
+            const reachedMilestones = STREAK_MILESTONES.filter(
+                (milestone) => previousStreak < milestone && normalizedCurrentStreak >= milestone
+            );
+
+            if (reachedMilestones.length > 0) {
+                const reachedMilestone = reachedMilestones[reachedMilestones.length - 1];
+                setStreakToastMessage(
+                    `Congrats! You've reached a ${reachedMilestone}-day streak. Keep going!`
+                );
+            }
+        }
+
+        if (normalizedCurrentStreak !== previousStreak) {
+            lastSeenStreakRef.current = normalizedCurrentStreak;
+            writeLastSeenStreak(userId, normalizedCurrentStreak);
+        }
+    }, [userId, userStats?.streakDays]);
+
+    useEffect(() => {
+        if (!streakToastMessage) return undefined;
+        const timeoutId = window.setTimeout(() => {
+            setStreakToastMessage('');
+        }, 4200);
+        return () => window.clearTimeout(timeoutId);
+    }, [streakToastMessage]);
+
+    useEffect(() => {
+        const paywallToastMessage = location.state?.paywallToastMessage;
+        if (!paywallToastMessage) return;
+
+        setStreakToastMessage(String(paywallToastMessage));
+        navigate(`${location.pathname}${location.search}`, { replace: true, state: {} });
+    }, [location.pathname, location.search, location.state, navigate]);
+
     const handleFileSelect = async (e) => {
         const inputElement = e.target;
         const file = e.target.files?.[0];
         if (!file) return;
+
+        if (uploadInFlightRef.current) {
+            setUploadError('An upload is already in progress. Please wait for it to finish.');
+            reportUploadValidationRejected({
+                flowType: 'study_material',
+                source: 'dashboard_analysis',
+                reason: 'upload_in_progress',
+                userId,
+                file,
+            });
+            if (inputElement) {
+                inputElement.value = '';
+            }
+            return;
+        }
 
         if (!userId) {
             setUploadError('Please log in to upload files');
@@ -79,6 +212,22 @@ const DashboardAnalysis = () => {
                 userId,
                 file,
             });
+            return;
+        }
+
+        if (uploadQuota && Number(uploadQuota.remaining) <= 0) {
+            setUploadError('Upload limit reached. Purchase a GHS 20 top-up to continue uploading.');
+            reportUploadValidationRejected({
+                flowType: 'study_material',
+                source: 'dashboard_analysis',
+                reason: 'upload_quota_exhausted_preflight',
+                userId,
+                file,
+            });
+            navigate(buildUploadLimitSubscriptionPath());
+            if (inputElement) {
+                inputElement.value = '';
+            }
             return;
         }
 
@@ -121,6 +270,7 @@ const DashboardAnalysis = () => {
         });
         let currentStage = 'request_upload_url';
         setUploadError('');
+        uploadInFlightRef.current = true;
         setUploading(true);
         reportUploadFlowStarted(uploadObservation);
 
@@ -201,6 +351,20 @@ const DashboardAnalysis = () => {
             currentStage = 'dispatch_ai_processing';
             reportUploadStage(uploadObservation, currentStage, { uploadId, courseId });
             processUploadedFile({ uploadId, courseId, userId, extractedText }).catch((err) => {
+                if (isIgnorableProcessingDispatchError(err)) {
+                    reportUploadWarning(
+                        uploadObservation,
+                        'background_ai_processing',
+                        'AI processing dispatch acknowledgement lost during a temporary connection drop',
+                        {
+                            uploadId,
+                            courseId,
+                            errorMessage: String(err?.message || err),
+                        }
+                    );
+                    return;
+                }
+
                 console.error('AI processing failed:', err);
                 reportUploadFlowFailed(uploadObservation, err, {
                     stage: 'background_ai_processing',
@@ -216,9 +380,22 @@ const DashboardAnalysis = () => {
             });
         } catch (error) {
             console.error('Upload failed:', error);
+            if (getConvexErrorCode(error) === 'UPLOAD_QUOTA_EXCEEDED') {
+                setUploadError(resolveQuotaExceededMessage(error));
+                reportUploadValidationRejected({
+                    flowType: 'study_material',
+                    source: 'dashboard_analysis',
+                    reason: 'upload_quota_exhausted_backend',
+                    userId,
+                    file,
+                });
+                navigate(buildUploadLimitSubscriptionPath());
+                return;
+            }
             reportUploadFlowFailed(uploadObservation, error, { stage: currentStage });
             setUploadError('Upload failed. Please try again.');
         } finally {
+            uploadInFlightRef.current = false;
             setUploading(false);
             if (inputElement) {
                 inputElement.value = '';
@@ -227,6 +404,7 @@ const DashboardAnalysis = () => {
     };
 
     const handleUploadClick = () => {
+        if (uploadInFlightRef.current) return;
         fileInputRef.current?.click();
     };
 
@@ -257,17 +435,19 @@ const DashboardAnalysis = () => {
         'linear-gradient(135deg, #10b981 0%, #3b82f6 100%)', // Emerald -> Blue
     ];
 
-    const normalizedSearch = searchQuery.trim().toLowerCase();
-    const filteredCourses = React.useMemo(() => {
-        if (!courses || !normalizedSearch) return courses || [];
-        return courses.filter((course) => {
-            const title = course.title?.toLowerCase() || '';
-            const description = course.description?.toLowerCase() || '';
-            return title.includes(normalizedSearch) || description.includes(normalizedSearch);
-        });
-    }, [courses, normalizedSearch]);
-    const visibleCourses = normalizedSearch ? filteredCourses : (courses || []);
-    const displayCourses = normalizedSearch ? visibleCourses : visibleCourses.slice(0, 3);
+    // Sort courses by creation date descending
+    const displayCourses = React.useMemo(() => {
+        if (!courses) return [];
+        return showAllCourses ? courses : courses.slice(0, 3);
+    }, [courses, showAllCourses]);
+
+    const canToggleAllCourses = courses && courses.length > 3;
+
+    const handleSearchKeyDown = (e) => {
+        if (e.key === 'Enter' && searchQuery.trim()) {
+            navigate(`/dashboard/search?q=${encodeURIComponent(searchQuery.trim())}`);
+        }
+    };
 
     return (
         <div className="bg-background-light dark:bg-background-dark font-body antialiased min-h-screen flex flex-col transition-colors duration-300">
@@ -277,17 +457,18 @@ const DashboardAnalysis = () => {
                         <div className="w-10 h-10 bg-gradient-to-br from-primary via-purple-500 to-primary rounded-xl flex items-center justify-center text-white shadow-lg shadow-primary/30">
                             <span className="material-symbols-outlined text-[24px]">school</span>
                         </div>
-                        <span className="text-xl font-display font-bold tracking-tight text-slate-900 dark:text-white hidden sm:block">StudyMate</span>
+                        <span className="text-xl font-display font-bold tracking-tight text-slate-900 dark:text-white hidden sm:block">ChewnPour</span>
                     </div>
                     <div className="flex-1 max-w-xl hidden md:block">
-                        <div className="relative group transition-all duration-300 focus-within:scale-[1.01]">
+                        <div className="relative group transition-transform duration-300 focus-within:scale-[1.01]">
                             <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-primary transition-colors material-symbols-outlined">search</span>
                             <input
-                                className="w-full pl-12 pr-4 py-2.5 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 focus:border-primary/30 rounded-2xl focus:ring-4 focus:ring-primary/5 transition-all text-sm font-medium placeholder-slate-400 shadow-sm"
+                                className="w-full pl-12 pr-4 py-2.5 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 focus:border-primary/30 rounded-2xl focus:ring-4 focus:ring-primary/5 transition-colors text-sm font-medium placeholder-slate-400 shadow-sm"
                                 placeholder="Search courses, topics, or questions..."
                                 type="text"
                                 value={searchQuery}
                                 onChange={(event) => setSearchQuery(event.target.value)}
+                                onKeyDown={handleSearchKeyDown}
                             />
                         </div>
                     </div>
@@ -312,12 +493,25 @@ const DashboardAnalysis = () => {
                 </div>
             </header>
             <main className="flex-1 w-full max-w-[1600px] mx-auto px-4 py-8 pb-20 md:px-6 md:py-12 md:pb-12">
+                {/* Mobile Search Bar */}
+                <div className="md:hidden w-full mb-6 relative group transition-transform duration-300 focus-within:scale-[1.01]">
+                    <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-primary transition-colors material-symbols-outlined">search</span>
+                    <input
+                        className="w-full pl-12 pr-4 py-3 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 focus:border-primary/30 rounded-2xl focus:ring-4 focus:ring-primary/5 transition-colors text-base font-medium placeholder-slate-400 shadow-sm"
+                        placeholder="Search courses or topics..."
+                        type="text"
+                        value={searchQuery}
+                        onChange={(event) => setSearchQuery(event.target.value)}
+                        onKeyDown={handleSearchKeyDown}
+                    />
+                </div>
+
                 <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
                     <div className="lg:col-span-8 flex flex-col animate-slide-up">
                         <div className="relative w-full h-full overflow-hidden rounded-3xl bg-gradient-to-br from-white via-slate-50 to-white dark:from-slate-900 dark:via-slate-800/50 dark:to-slate-900 p-6 sm:p-8 md:p-10 shadow-soft border border-slate-200/60 dark:border-slate-800 group isolate">
                             {/* Decorative background elements */}
-                            <div className="absolute top-0 right-0 w-[400px] h-[400px] bg-gradient-to-br from-primary/5 to-purple-500/5 rounded-full blur-[120px] -z-10 group-hover:opacity-70 transition-opacity duration-700"></div>
-                            <div className="absolute bottom-0 left-0 w-[300px] h-[300px] bg-gradient-to-tr from-blue-500/5 to-transparent rounded-full blur-[100px] -z-10"></div>
+                            <div className="hidden md:block absolute top-0 right-0 w-[400px] h-[400px] bg-gradient-to-br from-primary/5 to-purple-500/5 rounded-full blur-[120px] -z-10 group-hover:opacity-70 transition-opacity duration-700"></div>
+                            <div className="hidden md:block absolute bottom-0 left-0 w-[300px] h-[300px] bg-gradient-to-tr from-blue-500/5 to-transparent rounded-full blur-[100px] -z-10"></div>
 
                             <div className="relative z-10 flex flex-col md:flex-row items-start md:items-center justify-between h-full gap-8">
                                 <div className="flex-1 space-y-5">
@@ -325,6 +519,18 @@ const DashboardAnalysis = () => {
                                         <span className="material-symbols-outlined text-sm filled text-primary">auto_awesome</span>
                                         <span className="text-xs font-bold uppercase tracking-wider text-primary">AI Powered v2.0</span>
                                     </span>
+                                    {subscription && (
+                                        subscription.plan === 'premium' ? (
+                                            <span className="inline-flex items-center gap-1.5 bg-gradient-to-r from-amber-500/15 to-orange-500/15 dark:from-amber-500/25 dark:to-orange-500/25 px-3 py-1.5 rounded-full border border-amber-400/30">
+                                                <span className="text-amber-500 text-xs">✦</span>
+                                                <span className="text-xs font-bold uppercase tracking-wider text-amber-600 dark:text-amber-400">Premium</span>
+                                            </span>
+                                        ) : (
+                                            <span className="inline-flex items-center gap-1.5 bg-slate-100 dark:bg-slate-800 px-3 py-1.5 rounded-full border border-slate-200 dark:border-slate-700">
+                                                <span className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Free Plan</span>
+                                            </span>
+                                        )
+                                    )}
                                     <h1 className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-display font-extrabold text-slate-900 dark:text-white leading-[1.15] tracking-tight">
                                         Turn Your Slides into <br />
                                         <span className="text-transparent bg-clip-text bg-gradient-to-r from-primary via-purple-600 to-primary bg-[length:200%_auto] animate-gradient-x">Smart Lessons & Quizzes</span>
@@ -343,12 +549,13 @@ const DashboardAnalysis = () => {
                                             type="file"
                                             accept=".pdf,.pptx,.docx"
                                             className="hidden"
+                                            disabled={uploading}
                                             onChange={handleFileSelect}
                                         />
                                         <button
                                             onClick={handleUploadClick}
                                             disabled={uploading}
-                                            className="flex items-center justify-center gap-2 bg-gradient-to-r from-primary to-purple-600 hover:from-primary-hover hover:to-purple-700 active:scale-95 transition-all text-white px-6 h-12 rounded-2xl text-base font-bold shadow-lg shadow-primary/25 hover:shadow-primary/40 disabled:opacity-50 disabled:cursor-not-allowed w-full sm:w-fit"
+                                            className="flex items-center justify-center gap-2 bg-gradient-to-r from-primary to-purple-600 hover:from-primary-hover hover:to-purple-700 active:scale-95 transition-colors text-white px-6 h-12 rounded-2xl text-base font-bold shadow-lg shadow-primary/25 hover:shadow-primary/40 disabled:opacity-50 disabled:cursor-not-allowed w-full sm:w-fit"
                                         >
                                             <span className="material-symbols-outlined text-[22px] filled">
                                                 {uploading ? 'hourglass_empty' : 'cloud_upload'}
@@ -359,6 +566,34 @@ const DashboardAnalysis = () => {
                                             <span className="material-symbols-outlined text-[14px] text-green-500">verified</span>
                                             Secure • PDF, PPTX, DOCX • Max 50MB
                                         </p>
+                                        {uploadQuota && (
+                                            <div className="mt-4 w-full sm:w-72">
+                                                <div className="flex items-center justify-between mb-1.5">
+                                                    <span className="text-xs font-semibold text-slate-600 dark:text-slate-300">
+                                                        {uploadQuota.remaining} of {uploadQuota.totalAllowed} uploads remaining
+                                                    </span>
+                                                    {uploadQuota.remaining === 0 && (
+                                                        <Link
+                                                            to={buildUploadLimitSubscriptionPath()}
+                                                            className="text-[11px] font-bold text-primary hover:text-primary-hover"
+                                                        >
+                                                            Get More
+                                                        </Link>
+                                                    )}
+                                                </div>
+                                                <div className="w-full h-2 bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden">
+                                                    <div
+                                                        className={`h-full rounded-full transition-[width] duration-500 ${uploadQuota.remaining === 0
+                                                            ? 'bg-red-500'
+                                                            : uploadQuota.remaining <= 1
+                                                                ? 'bg-amber-500'
+                                                                : 'bg-green-500'
+                                                            }`}
+                                                        style={{ width: `${Math.round((uploadQuota.remaining / uploadQuota.totalAllowed) * 100)}%` }}
+                                                    ></div>
+                                                </div>
+                                            </div>
+                                        )}
                                     </div>
                                 </div>
                                 <div className="hidden md:flex items-center justify-center relative w-1/3">
@@ -372,7 +607,7 @@ const DashboardAnalysis = () => {
                         </div>
                     </div>
                     <div className="lg:col-span-4 flex flex-col h-full animate-slide-up animate-delay-100 space-y-4">
-                        <Link to="/dashboard/assignment-helper" className="relative flex-1 flex flex-col justify-between overflow-hidden rounded-2xl bg-gradient-to-br from-blue-500 to-indigo-600 p-5 sm:p-6 shadow-lg shadow-blue-500/20 transition-all duration-300 cursor-pointer group hover:shadow-xl hover:shadow-blue-500/30 hover:-translate-y-1">
+                        <Link to="/dashboard/assignment-helper" className="relative flex-1 flex flex-col justify-between overflow-hidden rounded-2xl bg-gradient-to-br from-blue-500 to-indigo-600 p-5 sm:p-6 shadow-lg shadow-blue-500/20 transition-shadow duration-300 cursor-pointer group hover:shadow-xl hover:shadow-blue-500/30 hover:-translate-y-1">
                             <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full blur-2xl -translate-y-1/2 translate-x-1/2 group-hover:scale-150 transition-transform duration-500"></div>
                             <div className="absolute bottom-0 left-0 w-24 h-24 bg-indigo-600/30 rounded-full blur-xl translate-y-1/2 -translate-x-1/2"></div>
                             <div className="relative z-10">
@@ -393,7 +628,7 @@ const DashboardAnalysis = () => {
                                 </div>
                             </div>
                         </Link>
-                        <Link to="/dashboard/humanizer" className="relative flex-1 flex flex-col justify-between overflow-hidden rounded-2xl bg-gradient-to-br from-purple-500 to-pink-600 p-5 sm:p-6 shadow-lg shadow-purple-500/20 transition-all duration-300 cursor-pointer group hover:shadow-xl hover:shadow-purple-500/30 hover:-translate-y-1">
+                        <Link to="/dashboard/humanizer" className="relative flex-1 flex flex-col justify-between overflow-hidden rounded-2xl bg-gradient-to-br from-purple-500 to-pink-600 p-5 sm:p-6 shadow-lg shadow-purple-500/20 transition-shadow duration-300 cursor-pointer group hover:shadow-xl hover:shadow-purple-500/30 hover:-translate-y-1">
                             <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full blur-2xl -translate-y-1/2 translate-x-1/2 group-hover:scale-150 transition-transform duration-500"></div>
                             <div className="absolute bottom-0 left-0 w-24 h-24 bg-pink-600/30 rounded-full blur-xl translate-y-1/2 -translate-x-1/2"></div>
                             <div className="relative z-10">
@@ -429,10 +664,19 @@ const DashboardAnalysis = () => {
                                     <p className="text-slate-500 dark:text-slate-400 text-sm">Pick up where you left off</p>
                                 </div>
                             </div>
-                            <a className="hidden sm:flex items-center gap-1 px-3 py-1.5 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 rounded-full text-slate-600 dark:text-slate-300 text-xs font-bold transition-colors" href="#">
-                                View all
-                                <span className="material-symbols-outlined text-[16px]">chevron_right</span>
-                            </a>
+                            {canToggleAllCourses && (
+                                <button
+                                    type="button"
+                                    onClick={() => setShowAllCourses((current) => !current)}
+                                    className="hidden sm:flex items-center gap-1 px-3 py-1.5 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 rounded-full text-slate-600 dark:text-slate-300 text-xs font-bold transition-colors"
+                                    aria-label={showAllCourses ? 'Show fewer courses' : 'View all courses'}
+                                >
+                                    {showAllCourses ? 'Show less' : 'View all'}
+                                    <span className="material-symbols-outlined text-[16px]">
+                                        {showAllCourses ? 'expand_less' : 'chevron_right'}
+                                    </span>
+                                </button>
+                            )}
                         </div>
                         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                             {displayCourses.length > 0 ? (
@@ -445,7 +689,7 @@ const DashboardAnalysis = () => {
                                         <Link
                                             key={course._id}
                                             to={`/dashboard/course/${course._id}`}
-                                            className="group flex flex-col bg-white dark:bg-surface-dark rounded-2xl overflow-hidden shadow-sm border border-slate-200/60 dark:border-slate-800 hover:shadow-xl hover:shadow-slate-200/30 dark:hover:shadow-black/30 hover:-translate-y-1 transition-all duration-300 cursor-pointer h-full"
+                                            className="group flex flex-col bg-white dark:bg-surface-dark rounded-2xl overflow-hidden shadow-sm border border-slate-200/60 dark:border-slate-800 hover:shadow-xl hover:shadow-slate-200/30 dark:hover:shadow-black/30 hover:-translate-y-1 transition-shadow duration-300 cursor-pointer h-full"
                                         >
                                             <div className="relative w-full aspect-[16/10] overflow-hidden bg-slate-100 dark:bg-slate-800">
                                                 <button
@@ -489,7 +733,7 @@ const DashboardAnalysis = () => {
                                                 </div>
                                                 <div className="w-full h-1.5 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
                                                     <div
-                                                        className={`h-full rounded-full transition-all duration-500 ${isExcellent ? 'bg-green-500' : isGood ? 'bg-blue-500' : 'bg-primary'}`}
+                                                        className={`h-full rounded-full transition-[width] duration-500 ${isExcellent ? 'bg-green-500' : isGood ? 'bg-blue-500' : 'bg-primary'}`}
                                                         style={{ width: `${progress}%` }}
                                                     ></div>
                                                 </div>
@@ -503,17 +747,19 @@ const DashboardAnalysis = () => {
                                         <span className="material-symbols-outlined text-3xl">school</span>
                                     </div>
                                     <h3 className="text-base font-bold text-slate-900 dark:text-white mb-1">
-                                        {normalizedSearch ? 'No matching courses' : 'No courses yet'}
+                                        {searchQuery.trim() ? 'No matching courses' : 'No courses yet'}
                                     </h3>
                                     <p className="text-slate-500 dark:text-slate-400 text-sm mb-4 max-w-xs mx-auto">
-                                        {normalizedSearch
-                                            ? 'Try a different keyword or clear your search.'
+                                        {searchQuery.trim()
+                                            ? 'Try a different keyword or press Enter to search.'
                                             : 'Upload your first study material to get started!'}
                                     </p>
-                                    {!normalizedSearch && (
-                                        <button 
-                                            onClick={handleUploadClick} 
-                                            className="inline-flex items-center gap-1 px-4 py-2 bg-primary text-white text-sm font-bold rounded-full hover:bg-primary-hover transition-colors"
+                                    {!searchQuery.trim() && (
+                                        <button
+                                            type="button"
+                                            onClick={handleUploadClick}
+                                            disabled={uploading}
+                                            className="inline-flex items-center gap-1 px-4 py-2 bg-primary text-white text-sm font-bold rounded-full hover:bg-primary-hover transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                                         >
                                             <span className="material-symbols-outlined text-[18px]">cloud_upload</span>
                                             Upload Now
@@ -521,16 +767,18 @@ const DashboardAnalysis = () => {
                                     )}
                                 </div>
                             )}
-                            <div
+                            <button
+                                type="button"
                                 onClick={handleUploadClick}
-                                className="flex flex-col items-center justify-center bg-slate-50 dark:bg-slate-800/50 rounded-2xl border-2 border-dashed border-slate-300 dark:border-slate-700 text-slate-500 hover:border-primary hover:bg-primary/5 hover:text-primary transition-all duration-300 cursor-pointer min-h-[220px] group h-full"
+                                disabled={uploading}
+                                className="flex flex-col items-center justify-center bg-slate-50 dark:bg-slate-800/50 rounded-2xl border-2 border-dashed border-slate-300 dark:border-slate-700 text-slate-500 hover:border-primary hover:bg-primary/5 hover:text-primary transition-colors duration-300 cursor-pointer min-h-[220px] group h-full disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:border-slate-300 disabled:hover:bg-slate-50 disabled:hover:text-slate-500"
                             >
                                 <div className="w-14 h-14 rounded-xl bg-white dark:bg-slate-800 shadow-sm flex items-center justify-center mb-3 group-hover:scale-110 transition-transform duration-300">
                                     <span className="material-symbols-outlined text-2xl text-primary">add</span>
                                 </div>
                                 <span className="font-bold text-base">Add New Course</span>
                                 <span className="text-xs text-slate-400 mt-1">PDF, PPTX, DOCX</span>
-                            </div>
+                            </button>
                         </div>
                         {deleteError && (
                             <div className="mt-6 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-medium text-amber-800">
@@ -539,7 +787,101 @@ const DashboardAnalysis = () => {
                         )}
                     </div>
                 </div>
+                {/* Performance Insights panel — visible once user has exam history */}
+                {performanceInsights && (
+                    <div className="mt-8 animate-slide-up animate-delay-300">
+                        <div className="flex items-center gap-3 mb-6 px-1">
+                            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-white shadow-lg shadow-indigo-500/20">
+                                <span className="material-symbols-outlined text-xl filled">insights</span>
+                            </div>
+                            <div>
+                                <h2 className="text-xl md:text-2xl font-display font-bold text-slate-900 dark:text-white tracking-tight">Your Progress Snapshot</h2>
+                                <p className="text-slate-500 dark:text-slate-400 text-sm">Based on your exam history</p>
+                            </div>
+                        </div>
+
+                        {/* Preparedness gauge */}
+                        <div className="mb-6 bg-white dark:bg-surface-dark rounded-2xl border border-slate-200/60 dark:border-slate-800 p-5 flex items-center gap-5 shadow-sm">
+                            <div className="relative w-16 h-16 shrink-0">
+                                <svg className="w-16 h-16 -rotate-90" viewBox="0 0 64 64">
+                                    <circle cx="32" cy="32" r="26" fill="none" stroke="currentColor" strokeWidth="6" className="text-slate-100 dark:text-slate-800" />
+                                    <circle
+                                        cx="32" cy="32" r="26" fill="none" strokeWidth="6"
+                                        strokeDasharray={`${(performanceInsights.overallPreparedness / 100) * 163.4} 163.4`}
+                                        strokeLinecap="round"
+                                        className={
+                                            performanceInsights.overallPreparedness >= 80
+                                                ? 'text-green-500 stroke-current'
+                                                : performanceInsights.overallPreparedness >= 50
+                                                    ? 'text-blue-500 stroke-current'
+                                                    : 'text-amber-500 stroke-current'
+                                        }
+                                    />
+                                </svg>
+                                <span className="absolute inset-0 flex items-center justify-center text-sm font-extrabold text-slate-900 dark:text-white">
+                                    {performanceInsights.overallPreparedness}%
+                                </span>
+                            </div>
+                            <div>
+                                <p className="text-base font-bold text-slate-900 dark:text-white">
+                                    {performanceInsights.overallPreparedness >= 80
+                                        ? 'Exam Ready'
+                                        : performanceInsights.overallPreparedness >= 50
+                                            ? 'Almost Ready'
+                                            : 'Needs More Practice'}
+                                </p>
+                                <p className="text-sm text-slate-500 dark:text-slate-400">
+                                    {performanceInsights.mastered.length} mastered · {performanceInsights.progressing.length} progressing · {performanceInsights.needsWork.length} needs work
+                                </p>
+                            </div>
+                        </div>
+
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            {/* Strengths */}
+                            {performanceInsights.mastered.length > 0 && (
+                                <div className="bg-green-50 dark:bg-green-900/10 border border-green-100 dark:border-green-800/30 rounded-2xl p-5">
+                                    <div className="flex items-center gap-2 mb-3">
+                                        <span className="material-symbols-outlined text-green-600 text-[20px]">workspace_premium</span>
+                                        <span className="text-xs font-bold uppercase tracking-wider text-green-700 dark:text-green-400">Your Strengths</span>
+                                    </div>
+                                    <ul className="space-y-2">
+                                        {performanceInsights.mastered.slice(0, 4).map((t) => (
+                                            <li key={t.topicId} className="flex items-center justify-between gap-2">
+                                                <span className="text-sm font-medium text-gray-800 dark:text-gray-200 truncate">{t.title}</span>
+                                                <span className="shrink-0 text-xs font-bold text-green-600 dark:text-green-400">{t.best}%</span>
+                                            </li>
+                                        ))}
+                                    </ul>
+                                </div>
+                            )}
+
+                            {/* Needs Attention */}
+                            {performanceInsights.needsWork.length > 0 && (
+                                <div className="bg-amber-50 dark:bg-amber-900/10 border border-amber-100 dark:border-amber-800/30 rounded-2xl p-5">
+                                    <div className="flex items-center gap-2 mb-3">
+                                        <span className="material-symbols-outlined text-amber-600 text-[20px]">priority_high</span>
+                                        <span className="text-xs font-bold uppercase tracking-wider text-amber-700 dark:text-amber-400">Needs Attention</span>
+                                    </div>
+                                    <ul className="space-y-2">
+                                        {performanceInsights.needsWork.slice(0, 4).map((t) => (
+                                            <li key={t.topicId} className="flex items-center justify-between gap-2">
+                                                <span className="text-sm font-medium text-gray-800 dark:text-gray-200 truncate">{t.title}</span>
+                                                <Link
+                                                    to={`/dashboard/topic/${t.topicId}`}
+                                                    className="shrink-0 text-xs font-bold text-amber-600 hover:text-amber-700 dark:text-amber-400 dark:hover:text-amber-300 underline underline-offset-2"
+                                                >
+                                                    Study Now
+                                                </Link>
+                                            </li>
+                                        ))}
+                                    </ul>
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                )}
             </main>
+            <Toast message={streakToastMessage} onClose={() => setStreakToastMessage('')} />
         </div>
     );
 };
