@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { useQuery, useMutation, useAction } from 'convex/react';
+import { useQuery, useMutation, useAction, useConvexAuth } from 'convex/react';
 import { api } from '../../convex/_generated/api';
 import { useAuth } from '../contexts/AuthContext';
 import Toast from '../components/Toast';
@@ -13,10 +13,16 @@ import {
     reportUploadValidationRejected,
     reportUploadWarning,
 } from '../lib/uploadObservability';
+import {
+    isTransientUploadTransportError,
+    uploadToStorageWithRetry,
+} from '../lib/uploadNetworkResilience';
+import { ensurePromiseWithResolvers } from '../lib/runtimePolyfills';
 
 let pdfWorkerInitialized = false;
 
 const extractPdfTextFromFile = async (file) => {
+    ensurePromiseWithResolvers();
     const pdfjsLib = await import('pdfjs-dist/build/pdf.mjs');
     if (!pdfWorkerInitialized) {
         pdfjsLib.GlobalWorkerOptions.workerSrc = new URL(
@@ -51,17 +57,29 @@ const isIgnorableProcessingDispatchError = (error) => {
 
 const getConvexErrorCode = (error) => {
     const code = error?.data?.code;
-    if (typeof code === 'string' && code.trim()) return code.trim();
+    if (typeof code === 'string' && code.trim()) return code.trim().toUpperCase();
 
     const message = String(error?.message || '').trim();
     if (message.includes('UPLOAD_QUOTA_EXCEEDED')) return 'UPLOAD_QUOTA_EXCEEDED';
+    if (/must be signed in/i.test(message)) return 'UNAUTHENTICATED';
+    if (/do not have permission|permission to upload/i.test(message)) return 'UNAUTHORIZED';
     return '';
 };
+
+const isConvexAuthenticationError = (error) => {
+    const code = getConvexErrorCode(error);
+    if (code === 'UNAUTHENTICATED' || code === 'UNAUTHORIZED') return true;
+    const message = String(error?.data?.message || error?.message || '').toLowerCase();
+    return message.includes('must be signed in') || message.includes('permission to upload');
+};
+
+const getUploadAuthNotReadyMessage = () =>
+    'Your session is still syncing. Please wait a few seconds and try again. If this continues, refresh and sign in again.';
 
 const resolveQuotaExceededMessage = (error) => {
     const dataMessage = typeof error?.data?.message === 'string' ? error.data.message.trim() : '';
     if (dataMessage) return dataMessage;
-    return 'Upload limit reached. Purchase a GHS 20 top-up to continue uploading.';
+    return 'Upload limit reached. Purchase a GHS 20 top-up to add 20 uploads and continue.';
 };
 
 const buildUploadLimitSubscriptionPath = () => {
@@ -105,6 +123,7 @@ const DashboardAnalysis = () => {
     const location = useLocation();
     const navigate = useNavigate();
     const { user } = useAuth();
+    const { isAuthenticated: isConvexAuthenticated } = useConvexAuth();
 
     // Get userId from Better Auth session
     const userId = user?.id;
@@ -112,8 +131,14 @@ const DashboardAnalysis = () => {
     // Convex queries, mutations, and actions
     const courses = useQuery(api.courses.getUserCourses, userId ? { userId } : 'skip');
     const userStats = useQuery(api.profiles.getUserStats, userId ? { userId } : 'skip');
-    const performanceInsights = useQuery(api.exams.getUserPerformanceInsights, userId ? { userId } : 'skip');
-    const uploadQuota = useQuery(api.subscriptions.getUploadQuotaStatus, userId ? {} : 'skip');
+    const performanceInsights = useQuery(
+        api.exams.getUserPerformanceInsights,
+        isConvexAuthenticated ? {} : 'skip'
+    );
+    const uploadQuota = useQuery(
+        api.subscriptions.getUploadQuotaStatus,
+        userId && isConvexAuthenticated ? {} : 'skip'
+    );
     const subscription = useQuery(api.subscriptions.getSubscription, userId ? { userId } : 'skip');
     const generateUploadUrl = useMutation(api.uploads.generateUploadUrl);
     const createUpload = useMutation(api.uploads.createUpload);
@@ -183,6 +208,14 @@ const DashboardAnalysis = () => {
         navigate(`${location.pathname}${location.search}`, { replace: true, state: {} });
     }, [location.pathname, location.search, location.state, navigate]);
 
+    const redirectToUploadTopUp = () => {
+        navigate(buildUploadLimitSubscriptionPath(), {
+            state: {
+                paywallMessage: 'Upload limit reached. Purchase a GHS 20 top-up to add 20 uploads and continue.',
+            },
+        });
+    };
+
     const handleFileSelect = async (e) => {
         const inputElement = e.target;
         const file = e.target.files?.[0];
@@ -215,16 +248,15 @@ const DashboardAnalysis = () => {
             return;
         }
 
-        if (uploadQuota && Number(uploadQuota.remaining) <= 0) {
-            setUploadError('Upload limit reached. Purchase a GHS 20 top-up to continue uploading.');
+        if (!isConvexAuthenticated) {
+            setUploadError(getUploadAuthNotReadyMessage());
             reportUploadValidationRejected({
                 flowType: 'study_material',
                 source: 'dashboard_analysis',
-                reason: 'upload_quota_exhausted_preflight',
+                reason: 'convex_auth_not_ready',
                 userId,
                 file,
             });
-            navigate(buildUploadLimitSubscriptionPath());
             if (inputElement) {
                 inputElement.value = '';
             }
@@ -262,6 +294,22 @@ const DashboardAnalysis = () => {
             return;
         }
 
+        if (uploadQuota && Number(uploadQuota.remaining) <= 0) {
+            setUploadError('Upload limit reached. Purchase a GHS 20 top-up to add 20 uploads and continue.');
+            reportUploadValidationRejected({
+                flowType: 'study_material',
+                source: 'dashboard_analysis',
+                reason: 'upload_quota_exhausted_preflight',
+                userId,
+                file,
+            });
+            redirectToUploadTopUp();
+            if (inputElement) {
+                inputElement.value = '';
+            }
+            return;
+        }
+
         const uploadObservation = createUploadObservation({
             flowType: 'study_material',
             source: 'dashboard_analysis',
@@ -280,20 +328,66 @@ const DashboardAnalysis = () => {
             const uploadUrl = await generateUploadUrl();
 
             // Step 2: Upload file to Convex storage
+            const uploadToStorageAttempt = async ({
+                targetUploadUrl,
+                maxAttempts,
+                retryLabel,
+            }) => uploadToStorageWithRetry({
+                uploadUrl: targetUploadUrl,
+                file,
+                contentType: file.type,
+                maxAttempts,
+                onRetry: ({ attempt, maxAttempts: limit, delayMs, error }) => {
+                    reportUploadWarning(
+                        uploadObservation,
+                        currentStage,
+                        'Upload to storage failed due to a temporary network issue. Retrying.',
+                        {
+                            attempt,
+                            maxAttempts: limit,
+                            retryDelayMs: delayMs,
+                            retryLabel,
+                            errorMessage: String(error?.message || error || ''),
+                        }
+                    );
+                },
+            });
+
+            let storageId;
             currentStage = 'upload_to_storage';
             reportUploadStage(uploadObservation, currentStage);
-            const result = await fetch(uploadUrl, {
-                method: 'POST',
-                headers: { 'Content-Type': file.type },
-                body: file,
-            });
-            if (!result.ok) {
-                throw new Error(`Upload storage request failed with status ${result.status}.`);
-            }
+            try {
+                storageId = await uploadToStorageAttempt({
+                    targetUploadUrl: uploadUrl,
+                    maxAttempts: 3,
+                    retryLabel: 'initial',
+                });
+            } catch (storageUploadError) {
+                if (!isTransientUploadTransportError(storageUploadError)) {
+                    throw storageUploadError;
+                }
 
-            const { storageId } = await result.json();
-            if (!storageId) {
-                throw new Error('Upload failed to return storage information.');
+                reportUploadWarning(
+                    uploadObservation,
+                    currentStage,
+                    'Upload to storage exhausted retries. Requesting a fresh upload URL and retrying once.',
+                    {
+                        handledAs: 'refresh_upload_url_and_retry',
+                        errorMessage: String(storageUploadError?.message || storageUploadError || ''),
+                    }
+                );
+
+                currentStage = 'request_upload_url_retry';
+                reportUploadStage(uploadObservation, currentStage);
+                const retryUploadUrl = await generateUploadUrl();
+
+                currentStage = 'upload_to_storage_retry';
+                reportUploadStage(uploadObservation, currentStage);
+                storageId = await uploadToStorageAttempt({
+                    targetUploadUrl: retryUploadUrl,
+                    maxAttempts: 2,
+                    retryLabel: 'fresh_upload_url',
+                });
             }
 
             // Step 3: Create upload record
@@ -389,11 +483,29 @@ const DashboardAnalysis = () => {
                     userId,
                     file,
                 });
-                navigate(buildUploadLimitSubscriptionPath());
+                redirectToUploadTopUp();
+                return;
+            }
+            if (isConvexAuthenticationError(error)) {
+                reportUploadWarning(
+                    uploadObservation,
+                    currentStage,
+                    'Upload blocked because session auth is not ready.',
+                    {
+                        handledAs: 'auth_not_ready',
+                        errorCode: getConvexErrorCode(error),
+                        errorMessage: String(error?.data?.message || error?.message || ''),
+                    }
+                );
+                setUploadError(getUploadAuthNotReadyMessage());
                 return;
             }
             reportUploadFlowFailed(uploadObservation, error, { stage: currentStage });
-            setUploadError('Upload failed. Please try again.');
+            if (isTransientUploadTransportError(error)) {
+                setUploadError('Upload failed due to a temporary network issue. Please check your connection and try again.');
+            } else {
+                setUploadError('Upload failed. Please try again.');
+            }
         } finally {
             uploadInFlightRef.current = false;
             setUploading(false);
@@ -473,7 +585,7 @@ const DashboardAnalysis = () => {
                         </div>
                     </div>
                     <div className="flex items-center gap-3 shrink-0">
-                        <div className="hidden sm:flex items-center gap-2 bg-gradient-to-r from-orange-50 to-red-50 dark:from-orange-900/20 dark:to-red-900/20 backdrop-blur-sm px-3 py-1.5 rounded-full border border-orange-200 dark:border-orange-800">
+                        <div className="hidden sm:flex items-center gap-2 bg-gradient-to-r from-orange-50 to-red-50 dark:from-orange-900/20 dark:to-red-900/20 backdrop-blur-sm px-3 py-1.5 rounded-full border border-orange-200 dark:border-orange-800 select-none pointer-events-none">
                             <span className="material-symbols-outlined text-orange-500 text-[18px] filled animate-pulse">local_fire_department</span>
                             <span className="text-slate-700 dark:text-slate-200 text-xs font-bold">
                                 {userStats?.streakDays || 0} Day Streak
@@ -577,7 +689,7 @@ const DashboardAnalysis = () => {
                                                             to={buildUploadLimitSubscriptionPath()}
                                                             className="text-[11px] font-bold text-primary hover:text-primary-hover"
                                                         >
-                                                            Get More
+                                                            Top up now
                                                         </Link>
                                                     )}
                                                 </div>

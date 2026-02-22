@@ -70,14 +70,13 @@ const MobileBottomNav = () => {
                     const active = isActive(tab);
                     if (active) {
                         return (
-                            <div
+                            <span
                                 key={tab.path}
                                 className={`${getTabClassName(true)} pointer-events-none`}
                                 aria-current="page"
-                                role="link"
                             >
                                 {renderTabContent(tab, true)}
-                            </div>
+                            </span>
                         );
                     }
 

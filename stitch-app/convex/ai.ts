@@ -713,17 +713,27 @@ TOPIC: ${topicTitle}
 Return JSON only in this format:
 {"options":[{"label":"A","text":"...","isCorrect":false},{"label":"B","text":"...","isCorrect":true},{"label":"C","text":"...","isCorrect":false},{"label":"D","text":"...","isCorrect":false}]}`;
 
-    const response = await callQwen([
-        {
-            role: "system",
-            content: "You are an expert educator. Create strong, specific distractors. Respond with valid JSON only.",
-        },
-        { role: "user", content: prompt },
-    ], DEFAULT_MODEL, {
-        maxTokens: 700,
-        responseFormat: "json_object",
-        timeoutMs: options?.timeoutMs,
-    });
+    let response = "";
+    try {
+        response = await callQwen([
+            {
+                role: "system",
+                content: "You are an expert educator. Create strong, specific distractors. Respond with valid JSON only.",
+            },
+            { role: "user", content: prompt },
+        ], DEFAULT_MODEL, {
+            maxTokens: 700,
+            responseFormat: "json_object",
+            timeoutMs: options?.timeoutMs,
+        });
+    } catch (error) {
+        console.warn("[QuestionBank] option_generation_failed", {
+            topicTitle,
+            timeoutMs: options?.timeoutMs,
+            message: error instanceof Error ? error.message : String(error),
+        });
+        return null;
+    }
 
     try {
         return parseJsonFromResponse(response, "options");
@@ -3381,64 +3391,88 @@ export const regenerateQuestionsForTopic = action({
 
 // ── Essay question generation (on demand) ──
 
+const generateEssayQuestionsForTopicCore = async (
+    ctx: any,
+    args: { topicId: any; count?: number },
+    options?: { skipAccessCheck?: boolean },
+) => {
+    const { topicId } = args;
+    const requestedCount = Math.max(3, Math.min(15, Number(args.count || 5)));
+    if (!options?.skipAccessCheck) {
+        await assertTopicQuestionGenerationAccess(ctx, topicId);
+    }
+
+    const topicWithQuestions = await ctx.runQuery(api.topics.getTopicWithQuestions, { topicId });
+    if (!topicWithQuestions) throw new Error("Topic not found");
+
+    const topicContent = String(topicWithQuestions.content || "");
+
+    // Check how many essay questions already exist
+    const existingEssay = (topicWithQuestions.questions || []).filter(
+        (q: any) => q.questionType === "essay"
+    );
+    if (existingEssay.length >= requestedCount) {
+        return { success: true, count: existingEssay.length, added: 0, alreadyGenerated: true };
+    }
+
+    const candidates = await generateEssayQuestionCandidatesBatch({
+        requestedCount,
+        topicTitle: topicWithQuestions.title,
+        topicDescription: topicWithQuestions.description,
+        topicContent,
+        requestTimeoutMs: DEFAULT_TIMEOUT_MS,
+        maxAttempts: 2,
+    });
+
+    let added = 0;
+    const existingKeys = new Set(
+        existingEssay.map((q: any) => normalizeQuestionKey(q.questionText || "")).filter(Boolean)
+    );
+
+    for (const question of candidates) {
+        if (!question?.questionText || typeof question.questionText !== "string") continue;
+        const key = normalizeQuestionKey(question.questionText);
+        if (!key || existingKeys.has(key)) continue;
+
+        await ctx.runMutation(internal.topics.createQuestionInternal, {
+            topicId,
+            questionText: question.questionText,
+            questionType: "essay",
+            options: undefined,
+            correctAnswer: String(question.correctAnswer || ""),
+            explanation: String(question.explanation || ""),
+            difficulty: question.difficulty || "medium",
+        });
+
+        existingKeys.add(key);
+        added += 1;
+        if (existingKeys.size >= requestedCount) break;
+    }
+
+    return { success: true, count: existingKeys.size, added };
+};
+
+export const generateEssayQuestionsForTopicInternal = internalAction({
+    args: {
+        topicId: v.id("topics"),
+        count: v.optional(v.number()),
+    },
+    handler: async (ctx, args) => {
+        return await generateEssayQuestionsForTopicCore(ctx, args, {
+            skipAccessCheck: true,
+        });
+    },
+});
+
 export const generateEssayQuestionsForTopic = action({
     args: {
         topicId: v.id("topics"),
         count: v.optional(v.number()),
     },
     handler: async (ctx, args) => {
-        const { topicId } = args;
-        const requestedCount = Math.max(3, Math.min(15, Number(args.count || 5)));
-        await assertTopicQuestionGenerationAccess(ctx, topicId);
-
-        const topicWithQuestions = await ctx.runQuery(api.topics.getTopicWithQuestions, { topicId });
-        if (!topicWithQuestions) throw new Error("Topic not found");
-
-        const topicContent = String(topicWithQuestions.content || "");
-
-        // Check how many essay questions already exist
-        const existingEssay = (topicWithQuestions.questions || []).filter(
-            (q: any) => q.questionType === "essay"
-        );
-        if (existingEssay.length >= requestedCount) {
-            return { success: true, count: existingEssay.length, added: 0, alreadyGenerated: true };
-        }
-
-        const candidates = await generateEssayQuestionCandidatesBatch({
-            requestedCount,
-            topicTitle: topicWithQuestions.title,
-            topicDescription: topicWithQuestions.description,
-            topicContent,
-            requestTimeoutMs: DEFAULT_TIMEOUT_MS,
-            maxAttempts: 2,
+        return await generateEssayQuestionsForTopicCore(ctx, args, {
+            skipAccessCheck: false,
         });
-
-        let added = 0;
-        const existingKeys = new Set(
-            existingEssay.map((q: any) => normalizeQuestionKey(q.questionText || "")).filter(Boolean)
-        );
-
-        for (const question of candidates) {
-            if (!question?.questionText || typeof question.questionText !== "string") continue;
-            const key = normalizeQuestionKey(question.questionText);
-            if (!key || existingKeys.has(key)) continue;
-
-            await ctx.runMutation(internal.topics.createQuestionInternal, {
-                topicId,
-                questionText: question.questionText,
-                questionType: "essay",
-                options: undefined,
-                correctAnswer: String(question.correctAnswer || ""),
-                explanation: String(question.explanation || ""),
-                difficulty: question.difficulty || "medium",
-            });
-
-            existingKeys.add(key);
-            added += 1;
-            if (existingKeys.size >= requestedCount) break;
-        }
-
-        return { success: true, count: existingKeys.size, added };
     },
 });
 
@@ -3553,6 +3587,34 @@ const TEACH_TWELVE_DEFAULT_TERMS = [
     "outcome",
     "comparison",
 ];
+const GHANAIAN_PIDGIN_STYLE_PATTERN = /\b(pidgin|ghanaian pidgin)\b/i;
+const GHANAIAN_PIDGIN_CUE_PATTERN =
+    /\b(chale|charley|abi|dey|wey|dem|ein|norr?|saa|paa|sharp|aswear|koraa|massa)\b/gi;
+const FORMAL_ENGLISH_CONNECTOR_PATTERN =
+    /\b(furthermore|moreover|therefore|consequently|additionally|however|in conclusion)\b/gi;
+const STANDARD_ENGLISH_FUNCTION_WORDS = new Set([
+    "the",
+    "and",
+    "that",
+    "this",
+    "these",
+    "those",
+    "is",
+    "are",
+    "was",
+    "were",
+    "been",
+    "because",
+    "which",
+    "while",
+    "through",
+    "therefore",
+    "however",
+    "moreover",
+    "furthermore",
+    "consequently",
+    "additionally",
+]);
 
 const toShortSentence = (value: string, maxWords = 22) => {
     const normalized = normalizeOutlineString(value)
@@ -4227,10 +4289,10 @@ Write a personal tutor message in 3–4 short paragraphs:
 3. Name 2–3 specific WEAK AREAS — concepts to review, with a brief hint on what to focus on
 4. An EXAM READINESS verdict — one of: "Not Ready" / "Almost Ready" / "Ready" / "Exam Ready" — with one sentence of reasoning
 
-End with one short encouraging line.
+End with one short encouraging line addressed to ${userName}.
 
 ${levelTone}
-Keep it under 250 words. Be specific — reference actual concepts from their answers. Do not use markdown formatting — write in plain paragraphs.`;
+Keep it under 250 words. Be specific — reference actual concepts from their answers. Do not use markdown formatting — write in plain paragraphs. Do NOT add a sign-off, signature, or placeholders like "[Your Name]" — end after the encouraging line.`;
 
         const feedbackText = await callQwen(
             [
@@ -4255,6 +4317,154 @@ Keep it under 250 words. Be specific — reference actual concepts from their an
         return feedback;
     },
 });
+
+const buildGhanaianPidginRewritePrompt = (args: {
+    topicTitle: string;
+    topicDescription?: string;
+    topicContent: string;
+    styleLabel: string;
+    performanceContext?: string;
+    extraGuidance?: string;
+}) => `Rewrite this lesson in Ghanaian Pidgin.
+
+STYLE LABEL: ${args.styleLabel}
+TOPIC: ${args.topicTitle}
+DESCRIPTION: ${args.topicDescription || "General lesson explanation"}
+
+SOURCE LESSON:
+"""
+${String(args.topicContent || "").slice(0, 6500)}
+"""
+${args.performanceContext ? `\n${args.performanceContext}\n` : ""}
+Hard requirements:
+- Write fully in Ghanaian Pidgin only.
+- Do not include standard-English explanatory paragraphs.
+- Do not add English translations or bilingual lines.
+- Keep all original facts and key concepts correct.
+- Keep markdown clean with headings and bullet points.
+- Keep attention on weak concepts from performance context when provided.
+
+${args.extraGuidance ? `Fix these issues from the previous draft: ${args.extraGuidance}` : ""}
+
+IMPORTANT FORMATTING RULES:
+- Do not return JSON.
+- Do not output escaped markdown characters like \\# or \\*.
+- Every **bold** marker MUST have both an opening ** and a closing **.
+- Do NOT include citation brackets, reference numbers, or footnote markers like [1], [2], [3.], [*, etc.
+- Do NOT use orphaned brackets [ or ] that don't form complete markdown links.
+- Avoid bibliography-style metadata unless directly required for understanding.`;
+
+const evaluateGhanaianPidginConsistency = (content: string) => {
+    const normalized = parseLessonContentCandidate(String(content || ""));
+    const plain = stripMarkdownLikeFormatting(normalized)
+        .replace(/\s+/g, " ")
+        .trim()
+        .toLowerCase();
+    const words = plain
+        .split(/[^a-z']+/)
+        .map((word) => word.trim())
+        .filter(Boolean);
+    const pidginCues = Array.from(
+        new Set(
+            (plain.match(GHANAIAN_PIDGIN_CUE_PATTERN) || [])
+                .map((word) => word.trim().toLowerCase())
+                .filter(Boolean)
+        )
+    );
+    const standardEnglishWordCount = words.filter((word) =>
+        STANDARD_ENGLISH_FUNCTION_WORDS.has(word)
+    ).length;
+    const standardEnglishRatio = words.length > 0
+        ? standardEnglishWordCount / words.length
+        : 1;
+    const formalEnglishConnectorCount = countPatternMatches(
+        plain,
+        FORMAL_ENGLISH_CONNECTOR_PATTERN
+    );
+
+    const reasons: string[] = [];
+    if (pidginCues.length < 3) reasons.push("Too few Ghanaian Pidgin cues were detected.");
+    if (standardEnglishRatio > 0.62) reasons.push("Output still looks too standard-English.");
+    if (formalEnglishConnectorCount > 0) reasons.push("Output contains formal standard-English connector words.");
+
+    const score = (
+        pidginCues.length * 6
+        - Math.round(standardEnglishRatio * 10)
+        - formalEnglishConnectorCount * 3
+    );
+
+    return {
+        passed: reasons.length === 0,
+        reasons,
+        score,
+        metrics: {
+            pidginCueCount: pidginCues.length,
+            standardEnglishWordCount,
+            standardEnglishRatio: Number(standardEnglishRatio.toFixed(3)),
+            formalEnglishConnectorCount,
+        },
+    };
+};
+
+const generateGhanaianPidginRewrite = async (args: {
+    topicTitle: string;
+    topicDescription?: string;
+    topicContent: string;
+    styleLabel: string;
+    performanceContext?: string;
+}) => {
+    const sourceContent = parseLessonContentCandidate(String(args.topicContent || ""));
+    let bestContent = "";
+    let bestScore = Number.NEGATIVE_INFINITY;
+
+    const runAttempt = async (extraGuidance = "") => {
+        const response = await callQwen([
+            {
+                role: "system",
+                content: "You are an expert educator rewriting lessons in full Ghanaian Pidgin. Keep facts correct and output clean markdown only.",
+            },
+            {
+                role: "user",
+                content: buildGhanaianPidginRewritePrompt({
+                    topicTitle: args.topicTitle,
+                    topicDescription: args.topicDescription,
+                    topicContent: sourceContent,
+                    styleLabel: args.styleLabel,
+                    performanceContext: args.performanceContext,
+                    extraGuidance,
+                }),
+            },
+        ], DEFAULT_MODEL, { maxTokens: 2400 });
+
+        const cleaned = parseLessonContentCandidate(String(response || ""));
+        const report = evaluateGhanaianPidginConsistency(cleaned);
+        return { cleaned, report };
+    };
+
+    try {
+        const first = await runAttempt();
+        if (first.cleaned && first.report.score > bestScore) {
+            bestContent = first.cleaned;
+            bestScore = first.report.score;
+        }
+        if (first.report.passed) return first.cleaned;
+
+        const second = await runAttempt(first.report.reasons.join(" "));
+        if (second.cleaned && second.report.score > bestScore) {
+            bestContent = second.cleaned;
+            bestScore = second.report.score;
+        }
+        if (second.report.passed) return second.cleaned;
+
+        return bestContent || sourceContent;
+    } catch (error) {
+        console.warn("[ReExplain] ghanaian_pidgin_rewrite_failed", {
+            topicTitle: args.topicTitle,
+            message: error instanceof Error ? error.message : String(error),
+        });
+        return bestContent || sourceContent;
+    }
+};
 
 // Re-explain a topic in a different style on demand
 export const reExplainTopic = action({
@@ -4297,6 +4507,18 @@ Give extra attention to explaining these concepts clearly. Weave them naturally 
 
         const requestedStyle = String(style || "Teach me like I’m 12").trim() || "Teach me like I’m 12";
         const normalizedStyle = requestedStyle.toLowerCase();
+        if (GHANAIAN_PIDGIN_STYLE_PATTERN.test(normalizedStyle)) {
+            const pidginContent = await generateGhanaianPidginRewrite({
+                topicTitle: topic.title,
+                topicDescription: topic.description || "",
+                topicContent: String(topic.content || ""),
+                styleLabel: requestedStyle,
+                performanceContext,
+            });
+            const cleanedFallback = parseLessonContentCandidate(String(topic.content || ""));
+            return { content: pidginContent || cleanedFallback || topic.content || "" };
+        }
+
         if (TEACH_TWELVE_STYLE_PATTERN.test(normalizedStyle)) {
             const teachTwelveContent = await generateTeachTwelveRewrite({
                 topicTitle: topic.title,

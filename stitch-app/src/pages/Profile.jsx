@@ -7,6 +7,7 @@ import StatsDetailModal from '../components/StatsDetailModal';
 import ExamActionModal from '../components/ExamActionModal';
 import Toast from '../components/Toast';
 import { useShare } from '../hooks/useShare';
+import { isDarkModeEnabled, toggleThemePreference } from '../lib/theme';
 
 const Profile = () => {
     const { user, signOut, updateProfile, loading: authLoading } = useAuth();
@@ -14,7 +15,8 @@ const Profile = () => {
     const { share, shareProfile, toastMessage, hideToast } = useShare();
     const [voiceSaving, setVoiceSaving] = useState(false);
     const [voiceError, setVoiceError] = useState('');
-    
+    const [darkModeEnabled, setDarkModeEnabled] = useState(() => isDarkModeEnabled());
+
     // Modal states
     const [statsModal, setStatsModal] = useState({ open: false, type: null });
     const [examModal, setExamModal] = useState({ open: false, attempt: null });
@@ -101,6 +103,12 @@ const Profile = () => {
     const displaySubscription = subscription || { plan: 'free', status: 'active' };
     const voiceModeEnabled = Boolean(profile?.voiceModeEnabled);
     const isPremium = displaySubscription.plan === 'premium';
+    const profileGradientIndex = Number.isInteger(Number(profile?.avatarGradient))
+        ? Math.min(
+            gradients.length - 1,
+            Math.max(0, Number(profile?.avatarGradient))
+        )
+        : 0;
 
     const handleVoiceModeToggle = async () => {
         setVoiceError('');
@@ -110,6 +118,11 @@ const Profile = () => {
             setVoiceError(error.message || 'Unable to update voice mode setting');
         }
         setVoiceSaving(false);
+    };
+
+    const handleDarkModeToggle = () => {
+        const nextTheme = toggleThemePreference();
+        setDarkModeEnabled(nextTheme === 'dark');
     };
 
     return (
@@ -134,7 +147,7 @@ const Profile = () => {
                     {/* Background decorative elements */}
                     <div className="absolute top-0 right-0 w-40 h-40 bg-primary/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2"></div>
                     <div className="absolute bottom-0 left-0 w-32 h-32 bg-purple-500/10 rounded-full blur-3xl translate-y-1/2 -translate-x-1/2"></div>
-                    
+
                     <div className="relative flex flex-col items-center gap-5">
                         {/* Enhanced Avatar with Progress Ring */}
                         <div className="relative">
@@ -142,7 +155,11 @@ const Profile = () => {
                                 <div className="w-full h-full rounded-full bg-white dark:bg-slate-900 p-1">
                                     <div
                                         className="w-full h-full rounded-full bg-center bg-no-repeat bg-cover flex items-center justify-center text-primary text-4xl font-bold"
-                                        style={profile?.avatarUrl ? { backgroundImage: `url("${profile.avatarUrl}")` } : { background: 'linear-gradient(135deg, #f3f4f6 0%, #e5e7eb 100%)' }}
+                                        style={
+                                            profile?.avatarUrl
+                                                ? { backgroundImage: `url("${profile.avatarUrl}")` }
+                                                : { background: gradients[profileGradientIndex] }
+                                        }
                                     >
                                         {!profile?.avatarUrl && (displayName?.[0]?.toUpperCase() || '?')}
                                     </div>
@@ -230,7 +247,7 @@ const Profile = () => {
                         <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-orange-500 to-red-500 text-white flex items-center justify-center shadow-lg shadow-orange-500/25 group-hover:scale-110 transition-transform">
                             <span className="material-symbols-outlined filled text-lg">schedule</span>
                         </div>
-                        <p className="text-xl font-bold text-slate-900 dark:text-white">{displayStats.studyTime}h</p>
+                        <p className="text-xl font-bold text-slate-900 dark:text-white">{Number(displayStats.studyTime || 0).toFixed(1)}h</p>
                         <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Hours</p>
                     </div>
                 </div>
@@ -255,7 +272,7 @@ const Profile = () => {
                                     </div>
                                 </div>
                                 <Link to="/subscription" className="px-4 py-2 bg-white text-primary rounded-xl text-sm font-bold hover:bg-white/90 transition-colors">
-                                    Manage
+                                    Buy Credits
                                 </Link>
                             </div>
                         </>
@@ -306,7 +323,7 @@ const Profile = () => {
                                 <span className="material-symbols-outlined filled text-xl">quiz</span>
                             </div>
                             <div>
-                                <p className="text-sm font-bold text-slate-900 dark:text-white">Practice Exams</p>
+                                <p className="text-sm font-bold text-slate-900 dark:text-white">Past Questions</p>
                                 <p className="text-xs text-slate-400">Test your knowledge</p>
                             </div>
                             <span className="material-symbols-outlined text-slate-300 ml-auto group-hover:text-primary group-hover:translate-x-1 transition-all">arrow_forward</span>
@@ -316,8 +333,8 @@ const Profile = () => {
                                 <span className="material-symbols-outlined filled text-xl">dashboard</span>
                             </div>
                             <div>
-                                <p className="text-sm font-bold text-slate-900 dark:text-white">All Courses</p>
-                                <p className="text-xs text-slate-400">View your courses</p>
+                                <p className="text-sm font-bold text-slate-900 dark:text-white">Dashboard</p>
+                                <p className="text-xs text-slate-400">Go to dashboard</p>
                             </div>
                             <span className="material-symbols-outlined text-slate-300 ml-auto group-hover:text-primary group-hover:translate-x-1 transition-all">arrow_forward</span>
                         </Link>
@@ -372,16 +389,42 @@ const Profile = () => {
                                     </div>
                                 </div>
                                 <button
-                                    onClick={() => document.documentElement.classList.toggle('dark')}
+                                    onClick={handleDarkModeToggle}
                                     className="relative w-12 h-7 rounded-full bg-slate-300 dark:bg-primary transition-colors"
                                     aria-label="Toggle dark mode"
+                                    aria-pressed={darkModeEnabled}
                                 >
                                     <span
-                                        className={`absolute top-1 left-1 w-5 h-5 rounded-full bg-white shadow transition-transform ${document.documentElement.classList.contains('dark') ? 'translate-x-5' : ''}`}
+                                        className={`absolute top-1 left-1 w-5 h-5 rounded-full bg-white shadow transition-transform ${darkModeEnabled ? 'translate-x-5' : ''}`}
                                     />
                                 </button>
                             </div>
                         </div>
+                    </div>
+                </div>
+
+                {/* Support & Community Cards */}
+                <div>
+                    <h3 className="text-base font-bold text-slate-900 dark:text-white mb-3">Support & Community</h3>
+                    <div className="grid grid-cols-2 gap-3">
+                        <a href="mailto:patrickannor35@gmail.com" className="flex flex-col gap-2 p-4 bg-white dark:bg-surface-dark rounded-2xl border border-slate-100 dark:border-slate-800 shadow-sm hover:shadow-md hover:border-primary/20 transition-all group">
+                            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-500 to-indigo-600 text-white flex items-center justify-center shadow-lg shadow-blue-500/20 group-hover:scale-110 transition-transform">
+                                <span className="material-symbols-outlined filled text-lg">mail</span>
+                            </div>
+                            <div>
+                                <p className="text-sm font-bold text-slate-900 dark:text-white">Email Us</p>
+                                <p className="text-xs text-slate-400">Get direct support</p>
+                            </div>
+                        </a>
+                        <a href="https://t.me/+jIHi6XFYdl9kNDA0" target="_blank" rel="noopener noreferrer" className="flex flex-col gap-2 p-4 bg-white dark:bg-surface-dark rounded-2xl border border-slate-100 dark:border-slate-800 shadow-sm hover:shadow-md hover:border-blue-400/30 transition-all group">
+                            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-400 to-blue-500 text-white flex items-center justify-center shadow-lg shadow-blue-400/20 group-hover:scale-110 transition-transform">
+                                <span className="material-symbols-outlined filled text-lg">forum</span>
+                            </div>
+                            <div>
+                                <p className="text-sm font-bold text-slate-900 dark:text-white">Telegram</p>
+                                <p className="text-xs text-slate-400">Join our community</p>
+                            </div>
+                        </a>
                     </div>
                 </div>
 
@@ -390,7 +433,7 @@ const Profile = () => {
                     <div className="flex items-center justify-between mb-3">
                         <h3 className="text-base font-bold text-slate-900 dark:text-white">Recent Exams</h3>
                         {examAttempts && examAttempts.length > 0 && (
-                            <Link to="/dashboard/results" className="text-xs font-bold text-primary hover:underline">View all</Link>
+                            <Link to="/dashboard/analysis" className="text-xs font-bold text-primary hover:underline">View all</Link>
                         )}
                     </div>
                     {examAttempts && examAttempts.length > 0 ? (
@@ -400,11 +443,11 @@ const Profile = () => {
                                 const isExcellent = scorePercent >= 80;
                                 const isGood = scorePercent >= 60;
                                 return (
-                                    <div 
-                                    key={attempt._id} 
-                                    onClick={() => setExamModal({ open: true, attempt })}
-                                    className="flex items-center gap-4 p-4 bg-white dark:bg-surface-dark rounded-2xl border border-slate-100 dark:border-slate-800 shadow-sm hover:shadow-md transition-all group cursor-pointer"
-                                >
+                                    <div
+                                        key={attempt._id}
+                                        onClick={() => setExamModal({ open: true, attempt })}
+                                        className="flex items-center gap-4 p-4 bg-white dark:bg-surface-dark rounded-2xl border border-slate-100 dark:border-slate-800 shadow-sm hover:shadow-md transition-all group cursor-pointer"
+                                    >
                                         <div className="w-12 h-12 rounded-xl flex items-center justify-center text-white shadow-md" style={{ background: gradients[index % gradients.length] }}>
                                             <span className="material-symbols-outlined text-lg">quiz</span>
                                         </div>
@@ -412,8 +455,8 @@ const Profile = () => {
                                             <p className="font-bold text-slate-900 dark:text-white text-sm truncate">{attempt.topicTitle}</p>
                                             <div className="flex items-center gap-2 mt-1">
                                                 <div className="flex-1 h-1.5 bg-slate-100 dark:bg-slate-700 rounded-full overflow-hidden max-w-[80px]">
-                                                    <div 
-                                                        className={`h-full rounded-full ${isExcellent ? 'bg-green-500' : isGood ? 'bg-amber-500' : 'bg-red-500'}`} 
+                                                    <div
+                                                        className={`h-full rounded-full ${isExcellent ? 'bg-green-500' : isGood ? 'bg-amber-500' : 'bg-red-500'}`}
                                                         style={{ width: `${scorePercent}%` }}
                                                     ></div>
                                                 </div>

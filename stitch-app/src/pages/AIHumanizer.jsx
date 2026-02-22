@@ -1,9 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useAction } from 'convex/react';
 import { api } from '../../convex/_generated/api';
 
-const AIHumanizer = () => {
+export const AIHumanizer = () => {
     const location = useLocation();
     const navigate = useNavigate();
     const detectAIText = useAction(api.ai.detectAIText);
@@ -16,6 +16,7 @@ const AIHumanizer = () => {
     const [detectionResult, setDetectionResult] = useState(null);
     const [error, setError] = useState('');
     const [copied, setCopied] = useState(false);
+    const copiedTimerRef = useRef(null);
 
     useEffect(() => {
         if (location.state?.text) {
@@ -24,9 +25,35 @@ const AIHumanizer = () => {
         }
     }, [location.state, navigate, location.pathname]);
 
+    useEffect(() => {
+        return () => {
+            if (copiedTimerRef.current) {
+                clearTimeout(copiedTimerRef.current);
+                copiedTimerRef.current = null;
+            }
+        };
+    }, []);
+
+    const resolveConvexError = (err, fallbackMessage) => {
+        const dataMessage = typeof err?.data === 'string'
+            ? err.data
+            : typeof err?.data?.message === 'string'
+                ? err.data.message
+                : '';
+        const resolved = dataMessage || err?.message || fallbackMessage;
+        return String(resolved)
+            .replace(/^Uncaught (ConvexError|Error):\s*/i, '')
+            .trim();
+    };
+
     const handleDetect = async () => {
-        if (!inputText.trim()) {
+        const trimmedText = inputText.trim();
+        if (!trimmedText) {
             setError('Please enter some text to analyze.');
+            return;
+        }
+        if (trimmedText.length < 50) {
+            setError('Text must be at least 50 characters for accurate detection.');
             return;
         }
 
@@ -35,18 +62,23 @@ const AIHumanizer = () => {
         setDetectionResult(null);
 
         try {
-            const result = await detectAIText({ text: inputText });
+            const result = await detectAIText({ text: trimmedText });
             setDetectionResult(result);
         } catch (err) {
-            setError(err.message || 'Failed to analyze text. Please try again.');
+            setError(resolveConvexError(err, 'Failed to analyze text. Please try again.'));
         } finally {
             setIsDetecting(false);
         }
     };
 
     const handleHumanize = async () => {
-        if (!inputText.trim()) {
+        const trimmedText = inputText.trim();
+        if (!trimmedText) {
             setError('Please enter some text to humanize.');
+            return;
+        }
+        if (trimmedText.length < 10) {
+            setError('Text must be at least 10 characters to humanize.');
             return;
         }
 
@@ -55,10 +87,10 @@ const AIHumanizer = () => {
         setDetectionResult(null);
 
         try {
-            const result = await humanizeText({ text: inputText });
+            const result = await humanizeText({ text: trimmedText });
             setOutputText(result.humanizedText);
         } catch (err) {
-            setError(err.message || 'Failed to humanize text. Please try again.');
+            setError(resolveConvexError(err, 'Failed to humanize text. Please try again.'));
         } finally {
             setIsHumanizing(false);
         }
@@ -69,7 +101,13 @@ const AIHumanizer = () => {
         try {
             await navigator.clipboard.writeText(outputText);
             setCopied(true);
-            setTimeout(() => setCopied(false), 2000);
+            if (copiedTimerRef.current) {
+                clearTimeout(copiedTimerRef.current);
+            }
+            copiedTimerRef.current = setTimeout(() => {
+                setCopied(false);
+                copiedTimerRef.current = null;
+            }, 2000);
         } catch {
             setError('Failed to copy to clipboard.');
         }
@@ -101,7 +139,7 @@ const AIHumanizer = () => {
     };
 
     return (
-        <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-900 dark:to-slate-800 p-4 md:p-6">
+        <div className="min-h-[100svh] md:min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-900 dark:to-slate-800 p-4 pb-24 md:p-6">
             <div className="max-w-4xl mx-auto">
                 <div className="mb-6">
                     <h1 className="text-2xl md:text-3xl font-display font-extrabold text-slate-900 dark:text-white">
@@ -143,7 +181,7 @@ const AIHumanizer = () => {
                                 <button
                                     type="button"
                                     onClick={handleDetect}
-                                    disabled={isDetecting || !inputText.trim()}
+                                    disabled={isDetecting}
                                     className="inline-flex items-center gap-2 px-4 py-2 text-sm font-semibold rounded-xl border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                                 >
                                     <span className="material-symbols-outlined text-[18px]">
@@ -154,7 +192,7 @@ const AIHumanizer = () => {
                                 <button
                                     type="button"
                                     onClick={handleHumanize}
-                                    disabled={isHumanizing || !inputText.trim()}
+                                    disabled={isHumanizing}
                                     className="inline-flex items-center gap-2 px-4 py-2 text-sm font-semibold rounded-xl bg-primary text-white hover:bg-primary/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                                 >
                                     <span className="material-symbols-outlined text-[18px]">
@@ -225,9 +263,9 @@ const AIHumanizer = () => {
                         </div>
                         <textarea
                             value={outputText}
-                            onChange={(e) => setOutputText(e.target.value)}
+                            readOnly
                             placeholder="Humanized text will appear here..."
-                            className="w-full h-64 md:h-80 px-3 py-2 text-sm text-slate-900 dark:text-white bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl resize-none focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary"
+                            className="w-full h-64 md:h-80 px-3 py-2 text-sm text-slate-900 dark:text-white bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl resize-none focus:outline-none"
                         />
                         {outputText && (
                             <div className="mt-3">
