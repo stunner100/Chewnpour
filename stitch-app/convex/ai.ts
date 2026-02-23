@@ -58,6 +58,12 @@ const OUTLINE_FALLBACK_SOURCE_CHAR_LIMIT = 40000;
 const GEMINI_BASE_URL = process.env.GEMINI_BASE_URL || "https://generativelanguage.googleapis.com/v1beta";
 const GEMINI_IMAGE_MODEL = process.env.GEMINI_IMAGE_MODEL || "gemini-2.0-flash-exp-image-generation";
 const GEMINI_TIMEOUT_MS = Number(process.env.GEMINI_TIMEOUT_MS || 45000);
+const TOPIC_PLACEHOLDER_ILLUSTRATION_URL =
+    String(process.env.TOPIC_PLACEHOLDER_ILLUSTRATION_URL || "/topic-placeholder.svg").trim()
+    || "/topic-placeholder.svg";
+const TOPIC_ILLUSTRATION_GENERATION_ENABLED = ["1", "true", "yes", "on"].includes(
+    String(process.env.TOPIC_ILLUSTRATION_GENERATION_ENABLED || "false").trim().toLowerCase()
+);
 const MIN_EXTRACTED_TEXT_LENGTH = 200;
 const BACKEND_SENTRY_DSN = String(process.env.SENTRY_DSN || process.env.VITE_SENTRY_DSN || "").trim();
 const BACKEND_SENTRY_ENVIRONMENT = String(
@@ -332,6 +338,19 @@ Image requirements:
 - no text, letters, numbers, logos, watermarks, or UI chrome
 - high contrast, student-friendly colors
 - horizontal composition suitable for a lesson header`;
+};
+
+const resolveTopicPlaceholderIllustrationUrl = () => {
+    if (
+        TOPIC_PLACEHOLDER_ILLUSTRATION_URL.startsWith("http://")
+        || TOPIC_PLACEHOLDER_ILLUSTRATION_URL.startsWith("https://")
+        || TOPIC_PLACEHOLDER_ILLUSTRATION_URL.startsWith("data:")
+    ) {
+        return TOPIC_PLACEHOLDER_ILLUSTRATION_URL;
+    }
+    return TOPIC_PLACEHOLDER_ILLUSTRATION_URL.startsWith("/")
+        ? TOPIC_PLACEHOLDER_ILLUSTRATION_URL
+        : `/${TOPIC_PLACEHOLDER_ILLUSTRATION_URL}`;
 };
 
 const extractInlineImageFromGemini = (payload: GeminiGenerateContentResponse) => {
@@ -1333,6 +1352,45 @@ const normalizeOutlineStringList = (value: any, maxItems = 8) => {
         .slice(0, maxItems);
 };
 
+const extractOutlineFallbackSplitPoints = (sourceText: string, maxItems = 6) => {
+    const normalizedSource = String(sourceText || "")
+        .replace(/\r\n/g, "\n")
+        .trim();
+    if (!normalizedSource) return [];
+
+    const headingCandidates = normalizedSource
+        .split("\n")
+        .map((line) => normalizeOutlineString(line))
+        .filter((line) =>
+            line.length >= 14
+            && line.length <= 90
+            && !/[.!?]$/.test(line)
+            && !/^\d+$/.test(line)
+        )
+        .slice(0, maxItems * 2);
+
+    const sentenceCandidates = normalizedSource
+        .split(/[\.\n]+/)
+        .map((sentence) => normalizeOutlineString(sentence))
+        .filter((sentence) =>
+            sentence.length >= 24
+            && sentence.length <= 140
+            && sentence.split(/\s+/).filter(Boolean).length >= 4
+        )
+        .slice(0, maxItems * 3);
+
+    const seen = new Set<string>();
+    const merged: string[] = [];
+    for (const candidate of [...headingCandidates, ...sentenceCandidates]) {
+        const key = candidate.toLowerCase();
+        if (!key || seen.has(key)) continue;
+        seen.add(key);
+        merged.push(candidate);
+        if (merged.length >= maxItems) break;
+    }
+    return merged;
+};
+
 const buildOutlineLegacyPrompt = (sourceText: string) => `You are an expert educational content creator. Analyze the following study material and create a structured course outline that is easy for a layperson to understand while still being detailed.
 
 STUDY MATERIAL:
@@ -1586,6 +1644,7 @@ Rules:
         courseDescription: normalizeOutlineString(parsed?.courseDescription)
             || "AI-generated course from your study materials.",
         topics,
+        sourceSnippets: groupedPayload.map((g: any) => g.sourceSnippet || ""),
     };
 };
 
@@ -1678,7 +1737,7 @@ const generateCourseOutlineWithPipeline = async (extractedText: string, fileName
         fileName,
     });
 
-    const prepared = buildPreparedTopics(groupedOutline, extractedText, fileName);
+    const prepared = buildPreparedTopics(groupedOutline, extractedText, fileName, groupedOutline.sourceSnippets);
     if (!Array.isArray(prepared) || prepared.length === 0) {
         return await getLegacyFallback();
     }
@@ -1711,30 +1770,44 @@ type PreparedTopic = {
     title: string;
     description: string;
     keyPoints: string[];
+    sourceContext: string;
 };
 
 const preparedTopicValidator = v.object({
     title: v.string(),
     description: v.string(),
     keyPoints: v.array(v.string()),
+    sourceContext: v.string(),
 });
 
-const buildPreparedTopics = (courseOutline: any, extractedText: string, fileName: string) => {
+const buildPreparedTopics = (courseOutline: any, extractedText: string, fileName: string, sourceSnippets?: string[]) => {
     const normalizedTopics = Array.isArray(courseOutline?.topics) ? [...courseOutline.topics] : [];
     let totalTopics = normalizedTopics.length;
 
     if (totalTopics < 4 && normalizedTopics.length > 0) {
         const seed = normalizedTopics[0];
         const baseKeyPoints = Array.isArray(seed?.keyPoints) ? seed.keyPoints : [];
+        const fallbackSplitPoints = extractOutlineFallbackSplitPoints(extractedText, 4);
+        const seenSplitKeys = new Set<string>();
+        const splitSource = [...baseKeyPoints, ...fallbackSplitPoints]
+            .map((point: any) => normalizeOutlineString(point))
+            .filter(Boolean)
+            .filter((point: string) => {
+                const key = point.toLowerCase();
+                if (seenSplitKeys.has(key)) return false;
+                seenSplitKeys.add(key);
+                return true;
+            });
         const splitPoints = baseKeyPoints
-            .filter((point: any) => typeof point === "string" && point.trim())
+            .filter((point: any) => typeof point === "string" && point.trim());
+        const expandedSplitPoints = (splitSource.length > 0 ? splitSource : splitPoints)
             .slice(0, 4)
             .map((point: string) => ({
                 title: `Deep Dive: ${point}`,
                 description: `Focused exploration of ${point}.`,
                 keyPoints: [point],
             }));
-        normalizedTopics.push(...splitPoints);
+        normalizedTopics.push(...expandedSplitPoints);
     }
 
     totalTopics = normalizedTopics.length;
@@ -1756,6 +1829,7 @@ const buildPreparedTopics = (courseOutline: any, extractedText: string, fileName
             title: safeTopicTitle,
             description: typeof topicData?.description === "string" ? topicData.description.trim() : "",
             keyPoints,
+            sourceContext: (sourceSnippets && sourceSnippets[index]) || "",
         };
     });
 
@@ -1779,6 +1853,47 @@ const countGeneratedTopicsForCourse = async (ctx: any, courseId: any, totalTopic
     return uniqueOrderIndexes.size;
 };
 
+const buildToneDirective = (educationLevel: string) => {
+    switch (educationLevel) {
+        case "high_school":
+            return {
+                style: `CRITICAL STYLE – "Teach me like I'm 12":
+- Use very simple, everyday words. Keep most sentences under 20 words.
+- The FIRST time you use a hard or technical word, immediately explain it in square brackets, e.g. "photosynthesis [how plants make food from sunlight]".
+- Use a warm, encouraging tone — like a friendly older sibling tutoring you.
+- NO jargon walls. If a paragraph has more than 2 technical terms, split it up and simplify.`,
+                systemMessage: "You are a friendly, expert educator who explains topics as if talking to a smart 12-year-old. Use simple words, short sentences, fun analogies, and always explain jargon in brackets. Always respond with valid JSON only.",
+            };
+        case "postgrad":
+            return {
+                style: `CRITICAL STYLE – Graduate-level depth:
+- Use precise technical language. Assume the reader has solid undergraduate foundations.
+- Focus on nuances, edge cases, advanced applications, and connections to related fields.
+- Explain non-obvious distinctions and common misconceptions at a graduate level.
+- Include formal definitions where appropriate, but keep explanations crisp and insightful.`,
+                systemMessage: "You are an expert academic instructor writing for graduate students. Use precise technical language, focus on depth and nuance, and connect concepts to broader research context. Always respond with valid JSON only.",
+            };
+        case "professional":
+            return {
+                style: `CRITICAL STYLE – Practitioner-focused:
+- Use clear professional language. Assume working knowledge of the domain.
+- Emphasize real-world application, best practices, and implementation patterns.
+- Include practical examples from industry, common pitfalls in practice, and actionable takeaways.
+- Be direct and efficient — professionals value clarity over elaborate explanation.`,
+                systemMessage: "You are an industry expert writing for working professionals. Emphasize practical application, real-world examples, and actionable insights. Always respond with valid JSON only.",
+            };
+        default: // "undergrad" or unset
+            return {
+                style: `CRITICAL STYLE – Clear academic explanation:
+- Use clear, accessible academic language. Explain jargon the first time it appears.
+- Build intuition before formal definitions. Use concrete examples to illustrate abstract concepts.
+- Maintain a supportive, engaging tone — like a great teaching assistant.
+- Balance rigor with readability. Don't oversimplify, but don't assume prior knowledge of this specific topic.`,
+                systemMessage: "You are an expert educator writing for university students. Use clear academic language, build intuition with examples, and explain technical terms on first use. Always respond with valid JSON only.",
+            };
+    }
+};
+
 const generateTopicContentForIndex = async (args: {
     ctx: any;
     courseId: any;
@@ -1786,8 +1901,11 @@ const generateTopicContentForIndex = async (args: {
     extractedText: string;
     topicData: PreparedTopic;
     index: number;
+    userId: string;
+    totalTopics: number;
+    allTopicTitles: string[];
 }) => {
-    const { ctx, courseId, uploadId, extractedText, topicData, index } = args;
+    const { ctx, courseId, uploadId, extractedText, topicData, index, userId, totalTopics, allTopicTitles } = args;
     const existingTopics = await getCourseTopicsSorted(ctx, courseId);
     const existingTopic = existingTopics.find((topic: any) => topic.orderIndex === index);
     if (existingTopic?._id) {
@@ -1798,20 +1916,38 @@ const generateTopicContentForIndex = async (args: {
     const keyPoints = Array.isArray(topicData.keyPoints)
         ? topicData.keyPoints
         : [];
-    const topicContext = buildTopicContextFromSource(extractedText, {
-        title: safeTopicTitle,
-        description: topicData.description,
-        keyPoints,
-    });
+    const topicContext = topicData.sourceContext
+        ? topicData.sourceContext
+        : buildTopicContextFromSource(extractedText, {
+            title: safeTopicTitle,
+            description: topicData.description,
+            keyPoints,
+        });
     const topicStart = Date.now();
 
+    let educationLevel = "undergrad";
+    try {
+        const profile = await ctx.runQuery(api.profiles.getProfile, { userId });
+        if (profile?.educationLevel) {
+            educationLevel = profile.educationLevel;
+        }
+    } catch (_) {
+        // Profile lookup failure is non-critical, continue with default
+    }
+    const tone = buildToneDirective(educationLevel);
+
+    const sequencingContext = totalTopics > 1
+        ? `\nCOURSE POSITION: This is topic ${index + 1} of ${totalTopics}.
+${index > 0 ? `PREVIOUS TOPICS: ${allTopicTitles.slice(0, index).join(", ")}\nBuild on concepts from previous topics — don't repeat what was already covered.` : "This is the first topic — introduce concepts from scratch."}
+${index === totalTopics - 1 ? "This is the final topic — summarize and connect all concepts learned throughout the course." : ""}`
+        : "";
+
     const lessonPrompt = `Create deeply detailed lesson content for this study topic.
-Write as if you are explaining to a smart 12-year-old who has never seen this topic before.
 
 TOPIC: ${safeTopicTitle}
 DESCRIPTION: ${topicData.description}
 KEY POINTS: ${keyPoints.join(", ") || "General concepts"}
-
+${sequencingContext}
 CONTEXT FROM STUDY MATERIAL:
 """
 ${topicContext}
@@ -1819,25 +1955,21 @@ ${topicContext}
 
 Target length: ${TOPIC_DETAIL_WORD_TARGET} words.
 
-CRITICAL STYLE – "Teach me like I'm 12":
-- Use very simple, everyday words. Keep most sentences under 20 words.
-- The FIRST time you use a hard or technical word, immediately explain it in square brackets, e.g. "photosynthesis [how plants make food from sunlight]".
-- Use a warm, encouraging tone — like a friendly older sibling tutoring you.
-- NO jargon walls. If a paragraph has more than 2 technical terms, split it up and simplify.
+${tone.style}
 
 Include ALL of these sections in order:
 1. **Big Idea** — 1-2 sentences summarizing the whole topic in the simplest words possible.
-2. **Key Ideas in Simple Words** — 6-10 bullet points, each one sentence, plain language.
-3. **Everyday Analogies** — At least 3 analogies connecting concepts to school life, games, sports, cooking, or home life. Start each with "Think of it like…" or "Imagine…".
-4. **Step-by-Step Breakdown** — Walk through the topic like a tutorial. Number each step. Each step should be 2-3 short sentences.
-5. **Mini Worked Example** — Pick one specific problem or scenario and solve it step by step using simple numbers or ideas.
-6. **Common Mistakes** — 3-5 mistakes beginners make, explained in kid-friendly language.
-7. **Word Bank** — 8-12 difficult terms from the topic. Format each as a bullet: "- Term — simple meaning [even simpler helper in brackets]". Do NOT bold the term with ** markers.
+2. **Key Ideas** — 6-10 bullet points, each one sentence, covering the core concepts.
+3. **Everyday Analogies** — At least 3 analogies connecting concepts to familiar real-world scenarios. Start each with "Think of it like…" or "Imagine…".
+4. **Step-by-Step Breakdown** — Walk through the topic like a tutorial. Number each step. Each step should be 2-3 sentences.
+5. **Mini Worked Example** — Pick one specific problem or scenario and solve it step by step.
+6. **Common Mistakes** — 3-5 mistakes learners make, with clear explanations of why they're wrong.
+7. **Word Bank** — 8-12 key terms from the topic. Format each as a bullet: "- Term — meaning". Do NOT bold the term with ** markers.
 8. **Quick Check** — 3 short questions with answers so the student can test themselves.
 9. **Summary** — 3-4 sentences wrapping up what was learned.
 
 Format the content in clear markdown with headers (##) and bullet points.
-Make it engaging, fun, and easy to follow while keeping all facts correct.
+Make it engaging and easy to follow while keeping all facts correct.
 
 IMPORTANT FORMATTING RULES:
 - Do NOT include citation brackets, reference numbers, or footnote markers like [1], [2], [3.], [*, etc.
@@ -1845,6 +1977,11 @@ IMPORTANT FORMATTING RULES:
 - Square brackets are ONLY for inline word explanations like [simple meaning].
 - Every bullet point or list item must be complete — no trailing symbols or orphaned markers.
 - Use clean, properly closed markdown only.
+
+SOURCE QUOTING:
+- When the source material contains specific definitions, formulas, theorems, or key statements, quote them directly in a blockquote (> prefix).
+- Label quoted material: "> **From your notes:** [quoted text]"
+- This grounds the lesson in the student's actual study material.
 
 Respond in this exact JSON format only:
 {
@@ -1854,9 +1991,9 @@ Respond in this exact JSON format only:
     let lessonData: any = null;
     try {
         const lessonResponse = await callQwen([
-            { role: "system", content: "You are a friendly, expert educator who explains topics as if talking to a smart 12-year-old. Use simple words, short sentences, fun analogies, and always explain jargon in brackets. Always respond with valid JSON only." },
+            { role: "system", content: tone.systemMessage },
             { role: "user", content: lessonPrompt },
-        ], DEFAULT_MODEL, { maxTokens: 4200, responseFormat: "json_object" });
+        ], DEFAULT_MODEL, { maxTokens: 6000, responseFormat: "json_object" });
         lessonData = parseJsonFromResponse(lessonResponse, "lesson content");
     } catch (lessonError) {
         console.warn("[CourseGeneration] lesson_generation_fallback", {
@@ -1884,17 +2021,20 @@ Respond in this exact JSON format only:
         title: safeTopicTitle,
         description: topicData.description,
         content,
+        illustrationUrl: resolveTopicPlaceholderIllustrationUrl(),
         orderIndex: index,
         isLocked: index !== 0,
     });
 
-    await ctx.scheduler.runAfter(0, internal.ai.generateTopicIllustration, {
-        topicId,
-        title: safeTopicTitle,
-        description: topicData?.description,
-        keyPoints,
-        content: content.slice(0, 1800),
-    });
+    if (TOPIC_ILLUSTRATION_GENERATION_ENABLED) {
+        await ctx.scheduler.runAfter(0, internal.ai.generateTopicIllustration, {
+            topicId,
+            title: safeTopicTitle,
+            description: topicData?.description,
+            keyPoints,
+            content: content.slice(0, 1800),
+        });
+    }
 
     const duration = Date.now() - topicStart;
     console.info("[CourseGeneration] topic_ready", {
@@ -1936,6 +2076,15 @@ export const generateTopicIllustration = internalAction({
     },
     handler: async (ctx, args) => {
         try {
+            if (!TOPIC_ILLUSTRATION_GENERATION_ENABLED) {
+                return {
+                    success: true,
+                    skipped: true,
+                    reason: "disabled_using_placeholder",
+                    illustrationUrl: resolveTopicPlaceholderIllustrationUrl(),
+                };
+            }
+
             const topic = await ctx.runQuery(api.topics.getTopicWithQuestions, { topicId: args.topicId });
             if (!topic) {
                 return { success: false, skipped: true, reason: "topic_not_found" };
@@ -2001,9 +2150,10 @@ export const generateCourseFromText = action({
         uploadId: v.id("uploads"),
         extractedText: v.string(),
         fileName: v.string(),
+        userId: v.string(),
     },
     handler: async (ctx, args) => {
-        const { courseId, uploadId, extractedText, fileName } = args;
+        const { courseId, uploadId, extractedText, fileName, userId } = args;
 
         try {
             const startTime = Date.now();
@@ -2036,7 +2186,7 @@ export const generateCourseFromText = action({
                 description: courseOutline.courseDescription || "AI-generated course from your study materials",
             });
 
-            const preparedTopics = buildPreparedTopics(courseOutline, extractedText, fileName);
+            const preparedTopics = buildPreparedTopics(courseOutline, extractedText, fileName, courseOutline.sourceSnippets);
             const totalTopics = preparedTopics.length;
             const plannedTopicTitles = preparedTopics.map((topic) => topic.title);
 
@@ -2058,6 +2208,9 @@ export const generateCourseFromText = action({
                 extractedText,
                 topicData: preparedTopics[0],
                 index: 0,
+                userId,
+                totalTopics,
+                allTopicTitles: plannedTopicTitles,
             });
             const generatedTopicCount = normalizeGeneratedTopicCount({
                 generatedTopicCount: await countGeneratedTopicsForCourse(ctx, courseId, totalTopics),
@@ -2086,6 +2239,7 @@ export const generateCourseFromText = action({
                 extractedText: extractedText.slice(0, BACKGROUND_SOURCE_TEXT_LIMIT),
                 preparedTopics,
                 plannedTopicTitles,
+                userId,
             });
 
             return {
@@ -2113,9 +2267,10 @@ export const generateRemainingTopicsInBackground = internalAction({
         extractedText: v.string(),
         preparedTopics: v.array(preparedTopicValidator),
         plannedTopicTitles: v.array(v.string()),
+        userId: v.string(),
     },
     handler: async (ctx, args) => {
-        const { courseId, uploadId, extractedText, preparedTopics, plannedTopicTitles } = args;
+        const { courseId, uploadId, extractedText, preparedTopics, plannedTopicTitles, userId } = args;
         const totalTopics = Math.max(1, preparedTopics.length);
         const safeGeneratedCount = async () =>
             normalizeGeneratedTopicCount({
@@ -2148,6 +2303,9 @@ export const generateRemainingTopicsInBackground = internalAction({
                     extractedText,
                     topicData: preparedTopics[index],
                     index,
+                    userId,
+                    totalTopics,
+                    allTopicTitles: plannedTopicTitles,
                 });
 
                 generatedTopicCount = await safeGeneratedCount();
@@ -2288,9 +2446,17 @@ export const processUploadedFile = action({
                 processingProgress: 20,
             });
 
-            // --- Three-tier extraction: Native → Azure Layout → Qwen fallback ---
-            let extractedText = (providedText || "").trim();
+            // --- Three-tier extraction: Native → Azure Layout → Client preview fallback → Qwen fallback ---
+            const clientExtractedText = (providedText || "").trim();
+            let extractedText = "";
             const uploadFileType = String(upload.fileType || "").toLowerCase();
+
+            if (clientExtractedText.length >= MIN_EXTRACTED_TEXT_LENGTH) {
+                console.info("[Extraction] client_preview_available", {
+                    uploadId,
+                    chars: clientExtractedText.length,
+                });
+            }
 
             // Tier 1: Native text extraction (fast, free, no OCR needed)
             if (!extractedText || extractedText.length < MIN_EXTRACTED_TEXT_LENGTH) {
@@ -2348,7 +2514,18 @@ export const processUploadedFile = action({
                 }
             }
 
-            // Tier 3: Qwen LLM fallback (reconstructs content from filename + partial text)
+            // Tier 3: Client preview fallback (browser PDF parser), only if server extraction could not recover enough text.
+            if (!extractedText || extractedText.length < MIN_EXTRACTED_TEXT_LENGTH) {
+                if (clientExtractedText.length >= MIN_EXTRACTED_TEXT_LENGTH) {
+                    extractedText = clientExtractedText;
+                    console.info("[Extraction] client_preview_fallback_used", {
+                        uploadId,
+                        chars: clientExtractedText.length,
+                    });
+                }
+            }
+
+            // Tier 4: Qwen LLM fallback (reconstructs content from filename + partial text)
             if (!extractedText || extractedText.length < MIN_EXTRACTED_TEXT_LENGTH) {
                 checkTimeout();
                 const fileLabel = uploadFileType === "pptx"
@@ -2391,6 +2568,7 @@ Format your response as educational content that can be used to generate quiz qu
                 uploadId,
                 extractedText,
                 fileName: upload.fileName,
+                userId,
             });
 
             return result;

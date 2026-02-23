@@ -20,6 +20,7 @@ import type * as http from "../http.js";
 import type * as lib_examAttemptReuse from "../lib/examAttemptReuse.js";
 import type * as lib_examSecurity from "../lib/examSecurity.js";
 import type * as lib_illustrationUrl from "../lib/illustrationUrl.js";
+import type * as lib_nativeExtractors from "../lib/nativeExtractors.js";
 import type * as lib_questionBankConfig from "../lib/questionBankConfig.js";
 import type * as lib_topicGenerationProgress from "../lib/topicGenerationProgress.js";
 import type * as lib_topicOutlinePipeline from "../lib/topicOutlinePipeline.js";
@@ -47,6 +48,7 @@ declare const fullApi: ApiFromModules<{
   "lib/examAttemptReuse": typeof lib_examAttemptReuse;
   "lib/examSecurity": typeof lib_examSecurity;
   "lib/illustrationUrl": typeof lib_illustrationUrl;
+  "lib/nativeExtractors": typeof lib_nativeExtractors;
   "lib/questionBankConfig": typeof lib_questionBankConfig;
   "lib/topicGenerationProgress": typeof lib_topicGenerationProgress;
   "lib/topicOutlinePipeline": typeof lib_topicOutlinePipeline;
