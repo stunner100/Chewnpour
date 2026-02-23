@@ -44,16 +44,17 @@ const ASSIGNMENT_DOCX_MIME = "application/vnd.openxmlformats-officedocument.word
 const ASSIGNMENT_PDF_MIME = "application/pdf";
 const TOPIC_DETAIL_WORD_TARGET = "1800-2500";
 const MIN_TOPIC_CONTENT_WORDS = 140;
-const TOPIC_CONTEXT_CHUNK_CHARS = 1200;
-const TOPIC_CONTEXT_LIMIT = 10000;
+const TOPIC_CONTEXT_CHUNK_CHARS = 2400;
+const TOPIC_CONTEXT_LIMIT = 24000;
+const TOPIC_CONTEXT_TOP_CHUNKS = 12;
 const BACKGROUND_SOURCE_TEXT_LIMIT = 120000;
 const OUTLINE_SECTION_MIN_WORDS = 45;
 const OUTLINE_MAX_SECTIONS = 200;
 const OUTLINE_MIN_CHUNK_CHARS = 1200;
-const OUTLINE_MAX_CHUNK_CHARS = 4000;
-const OUTLINE_MAX_MAP_CHUNKS = 20;
-const OUTLINE_GROUP_SOURCE_CHAR_LIMIT = 4600;
-const OUTLINE_FALLBACK_SOURCE_CHAR_LIMIT = 22000;
+const OUTLINE_MAX_CHUNK_CHARS = 6000;
+const OUTLINE_MAX_MAP_CHUNKS = 30;
+const OUTLINE_GROUP_SOURCE_CHAR_LIMIT = 8000;
+const OUTLINE_FALLBACK_SOURCE_CHAR_LIMIT = 40000;
 const GEMINI_BASE_URL = process.env.GEMINI_BASE_URL || "https://generativelanguage.googleapis.com/v1beta";
 const GEMINI_IMAGE_MODEL = process.env.GEMINI_IMAGE_MODEL || "gemini-2.0-flash-exp-image-generation";
 const GEMINI_TIMEOUT_MS = Number(process.env.GEMINI_TIMEOUT_MS || 45000);
@@ -805,29 +806,70 @@ ${(topic.content || "").slice(0, 5000)}
     },
 });
 
-const extractTextFromAzureResult = (result: any) => {
-    const content = result?.analyzeResult?.content;
-    if (typeof content === "string" && content.trim()) {
-        return content.trim();
+const formatAzureTable = (table: any) => {
+    const cells = table?.cells || [];
+    if (cells.length === 0) return "";
+
+    const maxRow = Math.max(0, ...cells.map((c: any) => Number(c.rowIndex ?? 0)));
+    const maxCol = Math.max(0, ...cells.map((c: any) => Number(c.columnIndex ?? 0)));
+    const grid: string[][] = Array.from({ length: maxRow + 1 }, () =>
+        Array(maxCol + 1).fill("-")
+    );
+
+    for (const cell of cells) {
+        const r = Number(cell.rowIndex ?? 0);
+        const c = Number(cell.columnIndex ?? 0);
+        const text = String(cell.content || "").replace(/\|/g, "/").replace(/\n/g, " ").trim();
+        grid[r][c] = text || "-";
     }
-    const lines: string[] = [];
-    const pages = result?.analyzeResult?.pages || [];
-    for (const page of pages) {
-        for (const line of page?.lines || []) {
-            if (typeof line?.content === "string") {
-                lines.push(line.content);
-            }
-        }
+
+    const tableLines = grid.map((row) => "| " + row.join(" | ") + " |");
+    if (tableLines.length > 1) {
+        const sep = "| " + grid[0].map(() => "---").join(" | ") + " |";
+        tableLines.splice(1, 0, sep);
     }
-    return lines.join("\n").trim();
+    return tableLines.join("\n");
 };
 
-const callAzureDocIntelRead = async (fileBuffer: ArrayBuffer, contentType: string) => {
+const extractTextFromAzureResult = (result: any) => {
+    const parts: string[] = [];
+
+    // Primary: use analyzeResult.content (full OCR text)
+    const content = result?.analyzeResult?.content;
+    if (typeof content === "string" && content.trim()) {
+        parts.push(content.trim());
+    } else {
+        // Fallback: concatenate line-level text from pages
+        const lines: string[] = [];
+        const pages = result?.analyzeResult?.pages || [];
+        for (const page of pages) {
+            for (const line of page?.lines || []) {
+                if (typeof line?.content === "string") {
+                    lines.push(line.content);
+                }
+            }
+        }
+        if (lines.length > 0) parts.push(lines.join("\n"));
+    }
+
+    // Append table data in markdown format (prebuilt-layout)
+    const tables = result?.analyzeResult?.tables || [];
+    for (const table of tables) {
+        const formatted = formatAzureTable(table);
+        if (formatted) {
+            parts.push("\n[Table]\n" + formatted);
+        }
+    }
+
+    return parts.join("\n").trim();
+};
+
+const callAzureDocIntelLayout = async (fileBuffer: ArrayBuffer, contentType: string) => {
     if (!AZURE_DOCINTEL_ENDPOINT || !AZURE_DOCINTEL_KEY) {
         return "";
     }
     const endpoint = AZURE_DOCINTEL_ENDPOINT.replace(/\/+$/, "");
-    const url = `${endpoint}/formrecognizer/documentModels/prebuilt-read:analyze?api-version=${AZURE_DOCINTEL_API_VERSION}`;
+    const url = `${endpoint}/formrecognizer/documentModels/prebuilt-layout:analyze?api-version=${AZURE_DOCINTEL_API_VERSION}`;
 
     const analyzeResponse = await fetch(url, {
         method: "POST",
@@ -1234,7 +1276,7 @@ const buildTopicContextFromSource = (
 
     const selected = scored
         .sort((a, b) => (b.score - a.score) || (a.index - b.index))
-        .slice(0, 7)
+        .slice(0, TOPIC_CONTEXT_TOP_CHUNKS)
         .sort((a, b) => a.index - b.index)
         .map((item) => item.chunk.trim())
         .filter(Boolean)
@@ -2246,33 +2288,80 @@ export const processUploadedFile = action({
                 processingProgress: 20,
             });
 
-            // Extract text using Azure OCR before topic generation.
+            // --- Three-tier extraction: Native → Azure Layout → Qwen fallback ---
             let extractedText = (providedText || "").trim();
             const uploadFileType = String(upload.fileType || "").toLowerCase();
 
-            if (uploadFileType === "pdf" || uploadFileType === "docx") {
-                if (!extractedText || extractedText.length < MIN_EXTRACTED_TEXT_LENGTH) {
-                    checkTimeout();
-                    try {
-                        const contentType = uploadFileType === "docx" ? ASSIGNMENT_DOCX_MIME : "application/pdf";
-                        const azureText = await callAzureDocIntelRead(fileBuffer, contentType);
-                        if (azureText && azureText.length >= MIN_EXTRACTED_TEXT_LENGTH) {
-                            extractedText = azureText;
+            // Tier 1: Native text extraction (fast, free, no OCR needed)
+            if (!extractedText || extractedText.length < MIN_EXTRACTED_TEXT_LENGTH) {
+                checkTimeout();
+                try {
+                    if (uploadFileType === "pdf") {
+                        const { extractTextFromPdfNative } = await import("./lib/nativeExtractors");
+                        const nativeText = await extractTextFromPdfNative(fileBuffer);
+                        if (nativeText && nativeText.length >= MIN_EXTRACTED_TEXT_LENGTH) {
+                            extractedText = nativeText;
+                            console.info("[Extraction] native_pdf_success", {
+                                uploadId, chars: nativeText.length,
+                            });
                         }
-                    } catch (azureError) {
-                        console.error("Azure OCR failed:", azureError);
+                    } else if (uploadFileType === "pptx") {
+                        const { extractTextFromPptxNative } = await import("./lib/nativeExtractors");
+                        const nativeText = await extractTextFromPptxNative(fileBuffer);
+                        if (nativeText && nativeText.length >= MIN_EXTRACTED_TEXT_LENGTH) {
+                            extractedText = nativeText;
+                            console.info("[Extraction] native_pptx_success", {
+                                uploadId, chars: nativeText.length,
+                            });
+                        }
                     }
+                    // DOCX: no native parser needed — Azure handles it well
+                } catch (nativeError) {
+                    console.warn("[Extraction] native_extraction_failed", {
+                        uploadId, fileType: uploadFileType,
+                        error: nativeError instanceof Error ? nativeError.message : String(nativeError),
+                    });
                 }
-                if (!extractedText || extractedText.length < MIN_EXTRACTED_TEXT_LENGTH) {
-                    checkTimeout();
-                    extractedText = await callQwen([
-                        {
-                            role: "system",
-                            content: "You are a document analysis assistant. Extract and summarize the main educational content from this document.",
-                        },
-                        {
-                            role: "user",
-                            content: `The ${uploadFileType.toUpperCase()} text could not be fully parsed. Based on the filename and any partial text below, reconstruct the most likely educational content and key topics.
+            }
+
+            // Tier 2: Azure Document Intelligence (prebuilt-layout with table extraction)
+            if (!extractedText || extractedText.length < MIN_EXTRACTED_TEXT_LENGTH) {
+                checkTimeout();
+                try {
+                    const contentType = uploadFileType === "pdf"
+                        ? "application/pdf"
+                        : uploadFileType === "docx"
+                            ? ASSIGNMENT_DOCX_MIME
+                            : "application/vnd.openxmlformats-officedocument.presentationml.presentation";
+                    const azureText = await callAzureDocIntelLayout(fileBuffer, contentType);
+                    if (azureText && azureText.length >= MIN_EXTRACTED_TEXT_LENGTH) {
+                        extractedText = azureText;
+                        console.info("[Extraction] azure_layout_success", {
+                            uploadId, chars: azureText.length,
+                        });
+                    }
+                } catch (azureError) {
+                    console.error("[Extraction] azure_layout_failed", {
+                        uploadId,
+                        error: azureError instanceof Error ? azureError.message : String(azureError),
+                    });
+                }
+            }
+
+            // Tier 3: Qwen LLM fallback (reconstructs content from filename + partial text)
+            if (!extractedText || extractedText.length < MIN_EXTRACTED_TEXT_LENGTH) {
+                checkTimeout();
+                const fileLabel = uploadFileType === "pptx"
+                    ? "PowerPoint presentation"
+                    : `${uploadFileType.toUpperCase()} document`;
+                extractedText = await callQwen([
+                    {
+                        role: "system",
+                        content: "You are a document analysis assistant. Extract and summarize the main educational content from this document.",
+                    },
+                    {
+                        role: "user",
+                        content: `This ${fileLabel} named "${upload.fileName}" could not be fully parsed. Based on the filename and any partial text below, reconstruct the most likely educational content and key topics.
 
 Filename: ${upload.fileName}
 
@@ -2288,48 +2377,11 @@ Please provide:
 4. Any formulas, processes, or methodologies mentioned
 
 Format your response as educational content that can be used to generate quiz questions.`,
-                        },
-                    ], DEFAULT_MODEL, { maxTokens: 1200 });
-                }
-            } else {
-                // PPTX processing
-                if (!extractedText || extractedText.length < MIN_EXTRACTED_TEXT_LENGTH) {
-                    checkTimeout();
-                    try {
-                        const azureText = await callAzureDocIntelRead(
-                            fileBuffer,
-                            "application/vnd.openxmlformats-officedocument.presentationml.presentation"
-                        );
-                        if (azureText && azureText.length >= MIN_EXTRACTED_TEXT_LENGTH) {
-                            extractedText = azureText;
-                        }
-                    } catch (azureError) {
-                        console.error("Azure OCR failed:", azureError);
-                    }
-                }
-                if (!extractedText || extractedText.length < MIN_EXTRACTED_TEXT_LENGTH) {
-                    checkTimeout();
-                    extractedText = await callQwen([
-                        {
-                            role: "system",
-                            content: "You are a document analysis assistant. Extract and summarize the main educational content from this presentation.",
-                        },
-                        {
-                            role: "user",
-                            content: `This is a PowerPoint presentation named "${upload.fileName}". Please analyze it and extract the main educational content, key topics, and important information. Based on the filename, describe what content you would expect and generate appropriate educational material.
-
-Filename: ${upload.fileName}
-
-Please provide:
-1. Main topics/slides covered
-2. Key concepts and definitions
-3. Important points and takeaways
-4. Any diagrams, charts, or visual concepts that would be discussed
-
-Format your response as educational content that can be used to generate quiz questions.`,
-                        },
-                    ], DEFAULT_MODEL, { maxTokens: 1200 });
-                }
+                    },
+                ], DEFAULT_MODEL, { maxTokens: 1200 });
+                console.info("[Extraction] qwen_fallback_used", {
+                    uploadId, chars: extractedText.length,
+                });
             }
 
             // Now generate the course from the extracted text
@@ -2444,7 +2496,7 @@ export const processAssignmentThread = action({
                         : fileType === ASSIGNMENT_DOCX_MIME
                             ? ASSIGNMENT_DOCX_MIME
                             : ASSIGNMENT_PDF_MIME;
-                    extractedText = normalizeAssignmentText(await callAzureDocIntelRead(fileBuffer, ocrContentType));
+                    extractedText = normalizeAssignmentText(await callAzureDocIntelLayout(fileBuffer, ocrContentType));
                 } catch (ocrError) {
                     console.error("Assignment OCR failed:", ocrError);
                     return await failThread(
@@ -3357,11 +3409,20 @@ export const generateQuestionsForTopic = action({
     },
     handler: async (ctx, args) => {
         await assertTopicQuestionGenerationAccess(ctx, args.topicId);
-        return await generateQuestionBankForTopic(
+        const result = await generateQuestionBankForTopic(
             ctx,
             args.topicId,
             QUESTION_BANK_INTERACTIVE_PROFILE
         );
+
+        // Continue expanding older/smaller topic banks in the background.
+        void ctx.scheduler.runAfter(0, internal.ai.generateQuestionsForTopicInternal, {
+            topicId: args.topicId,
+        }).catch(() => {
+            // Best effort backfill only; interactive call already returned.
+        });
+
+        return result;
     },
 });
 
