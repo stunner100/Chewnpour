@@ -4,6 +4,7 @@ import { useAuth } from '../contexts/AuthContext';
 
 const OnboardingDepartment = () => {
     const [selectedDepts, setSelectedDepts] = useState([]);
+    const [searchQuery, setSearchQuery] = useState('');
     const [loading, setLoading] = useState(false);
     const { updateProfile, profile } = useAuth();
     const navigate = useNavigate();
@@ -49,6 +50,11 @@ const OnboardingDepartment = () => {
         { value: 'math', label: 'Mathematics', icon: 'calculate' },
     ];
 
+    const query = searchQuery.trim().toLowerCase();
+    const visibleDepartments = query
+        ? departments.filter((dept) => dept.label.toLowerCase().includes(query))
+        : departments;
+
     return (
         <div className="bg-background-light dark:bg-background-dark font-display text-slate-900 dark:text-white h-screen flex flex-col overflow-hidden selection:bg-slate-900/10">
             <header className="flex-none px-4 pt-6 pb-2 flex items-center justify-between z-10 bg-background-light dark:bg-background-dark">
@@ -87,27 +93,42 @@ const OnboardingDepartment = () => {
                         <span className="absolute inset-y-0 left-0 flex items-center pl-4 pointer-events-none text-slate-400">
                             <span className="material-symbols-outlined">search</span>
                         </span>
-                        <input className="w-full py-3.5 pl-11 pr-4 bg-slate-100 dark:bg-slate-800 border-none rounded-xl text-slate-900 dark:text-white placeholder-slate-400 focus:ring-2 focus:ring-slate-900 dark:focus:ring-white transition-all font-medium text-base" placeholder="Search departments..." type="text" />
+                        <input
+                            className="w-full py-3.5 pl-11 pr-4 bg-slate-100 dark:bg-slate-800 border-none rounded-xl text-slate-900 dark:text-white placeholder-slate-400 focus:ring-2 focus:ring-slate-900 dark:focus:ring-white transition-all font-medium text-base"
+                            placeholder="Search departments..."
+                            type="text"
+                            value={searchQuery}
+                            onChange={(event) => setSearchQuery(event.target.value)}
+                        />
                     </div>
                 </div>
 
-                <div className="flex flex-wrap gap-3 w-full max-w-md mx-auto justify-center content-start">
-                    {departments.map((dept) => (
-                        <label key={dept.value} className="cursor-pointer group">
-                            <input
-                                type="checkbox"
-                                className="peer sr-only"
-                                name="department"
-                                value={dept.value}
-                                checked={selectedDepts.includes(dept.value)}
-                                onChange={() => handleToggle(dept.value)}
-                            />
-                            <div className="flex items-center gap-2 px-5 py-3 rounded-full border-2 border-transparent bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 font-semibold transition-all duration-200 peer-checked:bg-primary peer-checked:text-white peer-checked:shadow-lg peer-checked:scale-105 active:scale-95 hover:bg-slate-200 dark:hover:bg-slate-700">
-                                <span className="material-symbols-outlined text-[20px]">{dept.icon}</span>
-                                <span>{dept.label}</span>
-                            </div>
-                        </label>
-                    ))}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 w-full max-w-md mx-auto content-start">
+                    {visibleDepartments.map((dept) => {
+                        const isSelected = selectedDepts.includes(dept.value);
+                        return (
+                            <button
+                                key={dept.value}
+                                type="button"
+                                aria-pressed={isSelected}
+                                onClick={() => handleToggle(dept.value)}
+                                className={`group w-full min-h-14 px-5 py-3 rounded-2xl border-2 font-semibold transition-all duration-75 active:scale-95 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/70 ${isSelected
+                                    ? 'bg-primary text-white border-primary shadow-lg'
+                                    : 'bg-slate-100 dark:bg-slate-800 border-transparent text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700'
+                                    }`}
+                            >
+                                <span className="flex items-center justify-start gap-2 w-full">
+                                    <span className="material-symbols-outlined text-[20px] shrink-0">{dept.icon}</span>
+                                    <span className="text-left leading-tight">{dept.label}</span>
+                                </span>
+                            </button>
+                        );
+                    })}
+                    {visibleDepartments.length === 0 && (
+                        <p className="text-sm text-slate-500 dark:text-slate-400 py-4">
+                            No departments found.
+                        </p>
+                    )}
                 </div>
             </main>
 
