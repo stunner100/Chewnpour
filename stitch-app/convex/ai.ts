@@ -3131,6 +3131,52 @@ const buildParallelBatchPlan = (args: {
     return plan.length > 0 ? plan : [safeBatchSize];
 };
 
+const buildQuestionVariationPrompt = (args: {
+    requestedCount: number;
+    topicTitle: string;
+    topicDescription?: string;
+    topicContent: string;
+    existingQuestionSample: string;
+}) => `Create ${args.requestedCount} NEW and DIFFERENT multiple-choice quiz questions.
+
+TOPIC: ${args.topicTitle}
+DESCRIPTION: ${args.topicDescription || "General concepts"}
+
+LESSON CONTENT:
+"""
+${args.topicContent.slice(0, 8500)}
+"""
+
+IMPORTANT: These questions must test DIFFERENT concepts than the ones below. Do NOT repeat or rephrase these existing questions:
+${args.existingQuestionSample}
+
+Focus on: application scenarios, "what would happen if" questions, compare/contrast, cause-and-effect, real-world examples, edge cases, and misconceptions.
+
+Hard constraints:
+- Every question must be strictly about this topic only
+- Cover sub-concepts NOT already tested above
+- Use exactly 4 options per question and mark exactly one correct option
+- Do not use "All of the above", "None of the above", "Cannot be determined from the question", or "Not enough information"
+- Do not use single-letter or placeholder options (like "A", "B", "Option A")
+- Keep every option concrete, plausible, and specific to this lesson content
+
+Respond in this exact JSON format only:
+{
+  "questions": [
+    {
+      "questionText": "The question text here?",
+      "options": [
+        {"label": "A", "text": "First option", "isCorrect": false},
+        {"label": "B", "text": "Second option", "isCorrect": true},
+        {"label": "C", "text": "Third option", "isCorrect": false},
+        {"label": "D", "text": "Fourth option", "isCorrect": false}
+      ],
+      "explanation": "Brief explanation of why the correct answer is correct",
+      "difficulty": "easy|medium|hard"
+    }
+  ]
+}`;
+
 const generateQuestionCandidatesBatch = async (args: {
     requestedCount: number;
     topicTitle: string;
@@ -3140,8 +3186,12 @@ const generateQuestionCandidatesBatch = async (args: {
     requestTimeoutMs?: number;
     repairTimeoutMs?: number;
     maxAttempts?: number;
+    useVariationPrompt?: boolean;
+    existingQuestionSample?: string;
 }) => {
-    const prompt = buildQuestionGenerationPrompt(args);
+    const prompt = args.useVariationPrompt && args.existingQuestionSample
+        ? buildQuestionVariationPrompt({ ...args, existingQuestionSample: args.existingQuestionSample })
+        : buildQuestionGenerationPrompt(args);
     let questionsData: any = { questions: [] };
     const maxAttempts = Math.max(1, Math.round(Number(args.maxAttempts || 1)));
     for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
@@ -3225,6 +3275,7 @@ const generateQuestionBankForTopic = async (
 
     let added = 0;
     let noProgressRounds = 0;
+    let usedVariationPrompt = false;
     let round = 0;
     const maxRounds = deriveQuestionGenerationRounds({
         targetCount,
@@ -3276,6 +3327,11 @@ const generateQuestionBankForTopic = async (
             minBatchSize: profile.minBatchSize,
             parallelRequests: profile.parallelRequests,
         });
+        // Build a sample of existing questions for variation prompt (first 50 chars each)
+        const existingQuestionSample = usedVariationPrompt
+            ? Array.from(existingQuestionKeys).slice(0, 20).map(k => k.slice(0, 50)).join("\n- ")
+            : "";
+
         const batchSettled = await Promise.allSettled(
             batchPlan.map((requestedCount) =>
                 generateQuestionCandidatesBatch({
@@ -3287,6 +3343,8 @@ const generateQuestionBankForTopic = async (
                     requestTimeoutMs: profile.requestTimeoutMs,
                     repairTimeoutMs: profile.repairTimeoutMs,
                     maxAttempts: profile.maxBatchAttempts,
+                    useVariationPrompt: usedVariationPrompt,
+                    existingQuestionSample: existingQuestionSample || undefined,
                 })
             )
         );
@@ -3396,6 +3454,18 @@ const generateQuestionBankForTopic = async (
 
         if (roundAdded === 0) {
             noProgressRounds += 1;
+            if (noProgressRounds >= profile.noProgressLimit && !usedVariationPrompt) {
+                // Instead of stopping, reset the counter and switch to variation prompt
+                noProgressRounds = 0;
+                usedVariationPrompt = true;
+                console.info("[QuestionBank] switching_to_variation_prompt", {
+                    topicId,
+                    topicTitle: topicWithQuestions.title,
+                    round,
+                    totalCount: existingQuestionKeys.size,
+                    targetCount,
+                });
+            }
             void captureBackendSentryMessage({
                 message: "Question bank round made no progress",
                 level: "warning",
@@ -3413,6 +3483,7 @@ const generateQuestionBankForTopic = async (
                     totalCount: existingQuestionKeys.size,
                     targetCount,
                     batchPlan,
+                    usedVariationPrompt,
                 },
             });
         } else {
@@ -3438,6 +3509,20 @@ const generateQuestionBankForTopic = async (
     const stoppedForMaxRounds = incomplete && round >= maxRounds;
     const timedOut = Date.now() >= deadlineMs && incomplete;
     const elapsedMs = Date.now() - generationStartedAt;
+
+    console.info("[QuestionBank] generation_complete", {
+        topicId,
+        topicTitle: topicWithQuestions.title,
+        initialCount,
+        targetCount,
+        added,
+        finalCount: existingQuestionKeys.size,
+        rounds: round,
+        noProgressRounds,
+        usedVariationPrompt,
+        durationMs: elapsedMs,
+        hitTarget: existingQuestionKeys.size >= targetCount,
+    });
 
     if (stoppedForNoProgress) {
         console.warn("[QuestionBank] no_progress_limit_reached", {
@@ -3551,6 +3636,7 @@ const generateQuestionBankForTopic = async (
                 maxRounds,
                 roundsCompleted: round,
                 noProgressRounds,
+                usedVariationPrompt,
                 elapsedMs,
                 timeBudgetMs: profile.timeBudgetMs,
             },
@@ -3731,7 +3817,7 @@ export const gradeEssayAnswer = action({
             return { score: 0, feedback: "No answer provided or answer too short." };
         }
 
-        const prompt = `You are grading a student's essay answer. Be lenient — partial understanding should be rewarded.
+        const prompt = `You are grading a student's essay answer. Be fair — reward partial understanding.
 
 QUESTION:
 "${questionText}"
@@ -3743,9 +3829,17 @@ ${rubricHints ? `RUBRIC HINTS:\n${rubricHints}\n` : ""}
 STUDENT'S ANSWER:
 "${studentAnswer}"
 
-Grade this answer. Respond with valid JSON only:
+Grade on a 0-5 scale:
+- 5: Excellent — fully correct, demonstrates deep understanding
+- 4: Good — mostly correct, minor gaps or imprecision
+- 3: Adequate — demonstrates basic understanding, some errors
+- 2: Partial — shows some relevant knowledge but significant gaps
+- 1: Minimal — barely relevant, major misunderstandings
+- 0: No credit — completely wrong, off-topic, or blank
+
+Respond with valid JSON only:
 {
-  "score": 1 or 0 (1 if the student demonstrates understanding of the key concepts, 0 if completely wrong or missing the point),
+  "score": 0-5,
   "feedback": "Brief 1-2 sentence constructive feedback explaining the grade"
 }`;
 
@@ -3763,14 +3857,15 @@ Grade this answer. Respond with valid JSON only:
             });
 
             const parsed = parseJsonFromResponse(response, "essay_grade");
-            const score = parsed?.score === 1 ? 1 : 0;
+            const rawScore = Math.round(Number(parsed?.score) || 0);
+            const score = Math.max(0, Math.min(5, rawScore));
             const feedback = String(parsed?.feedback || "Unable to generate feedback.");
             return { score, feedback };
         } catch (error) {
             console.error("Essay grading failed:", error);
             // Fallback: give benefit of doubt for non-empty answers
             return {
-                score: studentAnswer.trim().length >= 20 ? 1 : 0,
+                score: studentAnswer.trim().length >= 20 ? 3 : 0,
                 feedback: "Unable to grade automatically. Your answer has been recorded.",
             };
         }
