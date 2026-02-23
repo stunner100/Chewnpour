@@ -1,8 +1,9 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
-import { useAction, useMutation, useQuery } from 'convex/react';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { useAction, useMutation, useQuery, useConvexAuth } from 'convex/react';
 import { api } from '../../convex/_generated/api';
 import { useAuth } from '../contexts/AuthContext';
+import Toast from '../components/Toast';
 import {
     createUploadObservation,
     reportUploadFlowCompleted,
@@ -12,10 +13,16 @@ import {
     reportUploadValidationRejected,
     reportUploadWarning,
 } from '../lib/uploadObservability';
+import {
+    isTransientUploadTransportError,
+    uploadToStorageWithRetry,
+} from '../lib/uploadNetworkResilience';
+import { ensurePromiseWithResolvers } from '../lib/runtimePolyfills';
 
 let pdfWorkerInitialized = false;
 
 const extractPdfTextFromFile = async (file) => {
+    ensurePromiseWithResolvers();
     const pdfjsLib = await import('pdfjs-dist/build/pdf.mjs');
     if (!pdfWorkerInitialized) {
         pdfjsLib.GlobalWorkerOptions.workerSrc = new URL(
@@ -96,14 +103,95 @@ const normalizeAssistantDisplayText = (value) => {
         .trim();
 };
 
+const FOLLOWUP_MAX_LENGTH = 4000;
+const CONVEX_ERROR_WRAPPER_PATTERN = /\[CONVEX [^\]]+\]\s*\[Request ID:[^\]]+\]\s*/i;
+const ASSIGNMENT_EXTRACTION_INSUFFICIENT_PATTERN = /could not extract enough text|upload a clearer image\/file/i;
+
+const resolveConvexActionError = (error, fallbackMessage) => {
+    const dataMessage = typeof error?.data === 'string'
+        ? error.data
+        : typeof error?.data?.message === 'string'
+            ? error.data.message
+            : '';
+    const resolved = String(dataMessage || error?.message || fallbackMessage || '')
+        .replace(/\s+/g, ' ')
+        .trim();
+    if (!resolved) return fallbackMessage;
+
+    const unwrapped = resolved
+        .replace(CONVEX_ERROR_WRAPPER_PATTERN, '')
+        .replace(/^Uncaught (ConvexError|Error):\s*/i, '')
+        .replace(/^ConvexError:\s*/i, '')
+        .replace(/^Server Error\s*/i, '')
+        .replace(/Called by client$/i, '')
+        .trim();
+
+    return unwrapped || fallbackMessage;
+};
+
+const getConvexErrorCode = (error) => {
+    const dataCode = error?.data?.code;
+    if (typeof dataCode === 'string' && dataCode.trim()) return dataCode.trim().toUpperCase();
+
+    const message = String(error?.message || '').trim();
+    if (message.includes('UPLOAD_QUOTA_EXCEEDED')) return 'UPLOAD_QUOTA_EXCEEDED';
+    if (/must be signed in/i.test(message)) return 'UNAUTHENTICATED';
+    if (/do not have permission|permission to upload/i.test(message)) return 'UNAUTHORIZED';
+    return '';
+};
+
+const resolveQuotaExceededMessage = (error) => {
+    const dataMessage = typeof error?.data?.message === 'string' ? error.data.message.trim() : '';
+    if (dataMessage) return dataMessage;
+    return 'Upload limit reached. Purchase a GHS 20 top-up to add 20 uploads and continue.';
+};
+
+const isAssignmentExtractionInsufficientError = (error) => {
+    const normalizedMessage = resolveConvexActionError(error, '').toLowerCase();
+    if (!normalizedMessage) return false;
+    return ASSIGNMENT_EXTRACTION_INSUFFICIENT_PATTERN.test(normalizedMessage);
+};
+
+const buildAssignmentExtractionGuidance = (error) => {
+    const normalizedMessage = resolveConvexActionError(
+        error,
+        'We could not extract enough text from this assignment. Please upload a clearer image/file.'
+    );
+    return `${normalizedMessage} Make sure text is sharp, well-lit, and fully visible.`;
+};
+
+const isConvexAuthenticationError = (error) => {
+    const code = getConvexErrorCode(error);
+    if (code === 'UNAUTHENTICATED' || code === 'UNAUTHORIZED') return true;
+    const message = String(error?.data?.message || error?.message || '').toLowerCase();
+    return message.includes('must be signed in') || message.includes('permission to upload');
+};
+
+const getUploadAuthNotReadyMessage = () =>
+    'Your session is still syncing. Please wait a few seconds and try again. If this continues, refresh and sign in again.';
+
+const buildUploadLimitSubscriptionPath = () => {
+    const query = new URLSearchParams({
+        from: '/dashboard/assignment-helper',
+        reason: 'upload_limit',
+    });
+    return `/subscription?${query.toString()}`;
+};
+
 const AssignmentHelper = () => {
     const { user } = useAuth();
+    const { isAuthenticated: isConvexAuthenticated } = useConvexAuth();
     const userId = user?.id;
+    const location = useLocation();
     const navigate = useNavigate();
 
     const threads = useQuery(
         api.assignments.listThreads,
         userId ? { userId } : 'skip'
+    );
+    const uploadQuota = useQuery(
+        api.subscriptions.getUploadQuotaStatus,
+        userId && isConvexAuthenticated ? {} : 'skip'
     );
     const [selectedThreadId, setSelectedThreadId] = useState(null);
     const [followUpQuestion, setFollowUpQuestion] = useState('');
@@ -111,11 +199,16 @@ const AssignmentHelper = () => {
     const [sending, setSending] = useState(false);
     const [error, setError] = useState('');
     const [successMessage, setSuccessMessage] = useState('');
+    const [paywallToastMessage, setPaywallToastMessage] = useState('');
     const [deletingThreadId, setDeletingThreadId] = useState('');
     const [processingStageIndex, setProcessingStageIndex] = useState(0);
+    const [copiedMessageId, setCopiedMessageId] = useState(null);
+    const [confirmDeleteId, setConfirmDeleteId] = useState(null);
     const uploadInputRef = useRef(null);
     const cameraInputRef = useRef(null);
     const endRef = useRef(null);
+    const textareaRef = useRef(null);
+    const pendingThreadIdRef = useRef(null);
 
     const generateUploadUrl = useMutation(api.uploads.generateUploadUrl);
     const createThreadFromUpload = useMutation(api.assignments.createThreadFromUpload);
@@ -142,7 +235,11 @@ const AssignmentHelper = () => {
             setSelectedThreadId(null);
             return;
         }
-
+        // Protect the explicitly-set thread ID from being overridden by the sorted list
+        if (pendingThreadIdRef.current && sortedThreads.some((t) => String(t._id) === String(pendingThreadIdRef.current))) {
+            pendingThreadIdRef.current = null;
+            return;
+        }
         if (!selectedThreadId || !sortedThreads.some((thread) => String(thread._id) === String(selectedThreadId))) {
             setSelectedThreadId(sortedThreads[0]._id);
         }
@@ -153,6 +250,39 @@ const AssignmentHelper = () => {
         const timer = window.setTimeout(() => setSuccessMessage(''), 2500);
         return () => window.clearTimeout(timer);
     }, [successMessage]);
+
+    useEffect(() => {
+        if (!paywallToastMessage) return undefined;
+        const timer = window.setTimeout(() => setPaywallToastMessage(''), 4200);
+        return () => window.clearTimeout(timer);
+    }, [paywallToastMessage]);
+
+    useEffect(() => {
+        if (!copiedMessageId) return undefined;
+        const timer = window.setTimeout(() => setCopiedMessageId(null), 1500);
+        return () => window.clearTimeout(timer);
+    }, [copiedMessageId]);
+
+    useEffect(() => {
+        if (!confirmDeleteId) return undefined;
+        const timer = window.setTimeout(() => setConfirmDeleteId(null), 3000);
+        return () => window.clearTimeout(timer);
+    }, [confirmDeleteId]);
+
+    useEffect(() => {
+        const incomingToastMessage = location.state?.paywallToastMessage;
+        if (!incomingToastMessage) return;
+        setPaywallToastMessage(String(incomingToastMessage));
+        navigate(`${location.pathname}${location.search}`, { replace: true, state: {} });
+    }, [location.pathname, location.search, location.state, navigate]);
+
+    const redirectToUploadTopUp = () => {
+        navigate(buildUploadLimitSubscriptionPath(), {
+            state: {
+                paywallMessage: 'Upload limit reached. Purchase a GHS 20 top-up to add 20 uploads and continue.',
+            },
+        });
+    };
 
     useEffect(() => {
         endRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' });
@@ -189,6 +319,17 @@ const AssignmentHelper = () => {
             });
             return;
         }
+        if (!isConvexAuthenticated) {
+            setError(getUploadAuthNotReadyMessage());
+            reportUploadValidationRejected({
+                flowType: 'assignment',
+                source: 'assignment_helper',
+                reason: 'convex_auth_not_ready',
+                userId,
+                file,
+            });
+            return;
+        }
         setError('');
         setSuccessMessage('');
 
@@ -215,6 +356,19 @@ const AssignmentHelper = () => {
             return;
         }
 
+        if (uploadQuota && Number(uploadQuota.remaining) <= 0) {
+            setError('Upload limit reached. Purchase a GHS 20 top-up to add 20 uploads and continue.');
+            reportUploadValidationRejected({
+                flowType: 'assignment',
+                source: 'assignment_helper',
+                reason: 'upload_quota_exhausted_preflight',
+                userId,
+                file,
+            });
+            redirectToUploadTopUp();
+            return;
+        }
+
         const uploadObservation = createUploadObservation({
             flowType: 'assignment',
             source: 'assignment_helper',
@@ -228,21 +382,66 @@ const AssignmentHelper = () => {
         try {
             reportUploadStage(uploadObservation, currentStage);
             const uploadUrl = await generateUploadUrl();
+            const uploadToStorageAttempt = async ({
+                targetUploadUrl,
+                maxAttempts,
+                retryLabel,
+            }) => uploadToStorageWithRetry({
+                uploadUrl: targetUploadUrl,
+                file,
+                contentType: file.type,
+                maxAttempts,
+                onRetry: ({ attempt, maxAttempts: limit, delayMs, error }) => {
+                    reportUploadWarning(
+                        uploadObservation,
+                        currentStage,
+                        'Assignment upload hit a temporary network issue. Retrying.',
+                        {
+                            attempt,
+                            maxAttempts: limit,
+                            retryDelayMs: delayMs,
+                            retryLabel,
+                            errorMessage: String(error?.message || error || ''),
+                        }
+                    );
+                },
+            });
+
+            let storageId;
             currentStage = 'upload_to_storage';
             reportUploadStage(uploadObservation, currentStage);
-            const uploadResult = await fetch(uploadUrl, {
-                method: 'POST',
-                headers: { 'Content-Type': file.type },
-                body: file,
-            });
-            if (!uploadResult.ok) {
-                throw new Error('Failed to upload assignment file.');
-            }
+            try {
+                storageId = await uploadToStorageAttempt({
+                    targetUploadUrl: uploadUrl,
+                    maxAttempts: 3,
+                    retryLabel: 'initial',
+                });
+            } catch (storageUploadError) {
+                if (!isTransientUploadTransportError(storageUploadError)) {
+                    throw storageUploadError;
+                }
 
-            const payload = await uploadResult.json();
-            const storageId = payload?.storageId;
-            if (!storageId) {
-                throw new Error('Upload failed to return file storage information.');
+                reportUploadWarning(
+                    uploadObservation,
+                    currentStage,
+                    'Assignment upload exhausted retries. Requesting a fresh upload URL and retrying once.',
+                    {
+                        handledAs: 'refresh_upload_url_and_retry',
+                        errorMessage: String(storageUploadError?.message || storageUploadError || ''),
+                    }
+                );
+
+                currentStage = 'request_upload_url_retry';
+                reportUploadStage(uploadObservation, currentStage);
+                const retryUploadUrl = await generateUploadUrl();
+
+                currentStage = 'upload_to_storage_retry';
+                reportUploadStage(uploadObservation, currentStage);
+                storageId = await uploadToStorageAttempt({
+                    targetUploadUrl: retryUploadUrl,
+                    maxAttempts: 2,
+                    retryLabel: 'fresh_upload_url',
+                });
             }
 
             currentStage = 'create_assignment_thread';
@@ -255,6 +454,7 @@ const AssignmentHelper = () => {
                 storageId,
             });
 
+            pendingThreadIdRef.current = threadId;
             setSelectedThreadId(threadId);
 
             let extractedText = '';
@@ -291,9 +491,53 @@ const AssignmentHelper = () => {
             });
             setSuccessMessage('Assignment processed. You can ask follow-up questions now.');
         } catch (uploadError) {
+            if (getConvexErrorCode(uploadError) === 'UPLOAD_QUOTA_EXCEEDED') {
+                setError(resolveQuotaExceededMessage(uploadError));
+                reportUploadValidationRejected({
+                    flowType: 'assignment',
+                    source: 'assignment_helper',
+                    reason: 'upload_quota_exhausted_backend',
+                    userId,
+                    file,
+                });
+                redirectToUploadTopUp();
+                return;
+            }
+            if (isAssignmentExtractionInsufficientError(uploadError)) {
+                console.warn('Assignment upload rejected due to insufficient extracted text:', uploadError);
+                reportUploadWarning(
+                    uploadObservation,
+                    currentStage,
+                    'Assignment processing could not extract enough text from the uploaded file.',
+                    {
+                        handledAs: 'user_correctable',
+                        errorMessage: resolveConvexActionError(uploadError, ''),
+                    }
+                );
+                setError(buildAssignmentExtractionGuidance(uploadError));
+                return;
+            }
+            if (isConvexAuthenticationError(uploadError)) {
+                reportUploadWarning(
+                    uploadObservation,
+                    currentStage,
+                    'Assignment upload blocked because session auth is not ready.',
+                    {
+                        handledAs: 'auth_not_ready',
+                        errorCode: getConvexErrorCode(uploadError),
+                        errorMessage: resolveConvexActionError(uploadError, ''),
+                    }
+                );
+                setError(getUploadAuthNotReadyMessage());
+                return;
+            }
             console.error('Assignment upload failed:', uploadError);
             reportUploadFlowFailed(uploadObservation, uploadError, { stage: currentStage });
-            setError(uploadError?.message || 'Could not process assignment. Please try again.');
+            if (isTransientUploadTransportError(uploadError)) {
+                setError('Upload failed due to a temporary network issue. Please check your connection and try again.');
+            } else {
+                setError(resolveConvexActionError(uploadError, 'Could not process assignment. Please try again.'));
+            }
         } finally {
             setBusy(false);
         }
@@ -308,10 +552,8 @@ const AssignmentHelper = () => {
     const handleDeleteThread = async (thread) => {
         if (!userId || !thread?._id) return;
 
-        const confirmed = window.confirm(`Delete "${thread.title}" and all its messages?`);
-        if (!confirmed) return;
-
         setDeletingThreadId(String(thread._id));
+        setConfirmDeleteId(null);
         setError('');
         try {
             await deleteThread({
@@ -323,7 +565,7 @@ const AssignmentHelper = () => {
             }
             setSuccessMessage('Thread deleted.');
         } catch (deleteError) {
-            setError(deleteError?.message || 'Could not delete this thread right now.');
+            setError(resolveConvexActionError(deleteError, 'Could not delete this thread right now.'));
         } finally {
             setDeletingThreadId('');
         }
@@ -344,10 +586,38 @@ const AssignmentHelper = () => {
                 question,
             });
             setFollowUpQuestion('');
+            if (textareaRef.current) {
+                textareaRef.current.style.height = 'auto';
+            }
         } catch (followUpError) {
-            setError(followUpError?.message || 'Could not send follow-up question.');
+            setError(resolveConvexActionError(followUpError, 'Could not send follow-up question.'));
         } finally {
             setSending(false);
+        }
+    };
+
+    const handleCopy = async (content, messageId) => {
+        try {
+            await navigator.clipboard.writeText(content);
+            setCopiedMessageId(messageId);
+        } catch { /* clipboard not available */ }
+    };
+
+    const retryProcessing = async (thread) => {
+        if (!thread || !userId || busy) return;
+        setBusy(true);
+        setError('');
+        setProcessingStageIndex(0);
+        try {
+            await processAssignmentThread({
+                threadId: thread._id,
+                userId,
+            });
+            setSuccessMessage('Assignment reprocessed successfully.');
+        } catch (retryError) {
+            setError(resolveConvexActionError(retryError, 'Retry failed. Please try uploading again.'));
+        } finally {
+            setBusy(false);
         }
     };
 
@@ -363,7 +633,7 @@ const AssignmentHelper = () => {
             <header className="sticky top-0 z-50 w-full glass border-b border-slate-200/50 dark:border-slate-800/50">
                 <div className="max-w-[1600px] mx-auto px-4 md:px-6 h-16 md:h-18 flex items-center justify-between gap-4">
                     <div className="flex items-center gap-3">
-                        <Link to="/dashboard" className="flex size-9 items-center justify-center rounded-full bg-slate-100 dark:bg-slate-800 text-slate-500 hover:text-primary hover:bg-slate-200 transition-colors">
+                        <Link to="/dashboard" aria-label="Back to dashboard" className="flex size-9 items-center justify-center rounded-full bg-slate-100 dark:bg-slate-800 text-slate-500 hover:text-primary hover:bg-slate-200 transition-colors">
                             <span className="material-symbols-outlined text-[20px]">arrow_back</span>
                         </Link>
                         <div className="flex items-center gap-2">
@@ -378,6 +648,7 @@ const AssignmentHelper = () => {
                             type="button"
                             onClick={handleCameraClick}
                             disabled={busy}
+                            aria-label="Take photo of assignment"
                             className="inline-flex items-center gap-1.5 h-9 px-3 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 text-sm font-medium hover:border-primary/30 hover:text-primary transition-colors disabled:opacity-60"
                         >
                             <span className="material-symbols-outlined text-[18px]">photo_camera</span>
@@ -387,6 +658,7 @@ const AssignmentHelper = () => {
                             type="button"
                             onClick={handleUploadClick}
                             disabled={busy}
+                            aria-label="Upload assignment file"
                             className="inline-flex items-center gap-1.5 h-9 px-3 rounded-lg bg-gradient-to-r from-blue-500 to-indigo-600 text-white text-sm font-semibold shadow-md shadow-blue-500/20 hover:shadow-lg hover:shadow-blue-500/30 transition-all disabled:opacity-60"
                         >
                             <span className="material-symbols-outlined text-[18px]">{busy ? 'hourglass_empty' : 'upload_file'}</span>
@@ -416,12 +688,12 @@ const AssignmentHelper = () => {
                 {(error || successMessage) && (
                     <div className="mb-5 space-y-2">
                         {error && (
-                            <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-medium text-red-700">
+                            <div className="rounded-xl border border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-900/20 px-4 py-3 text-sm font-medium text-red-700 dark:text-red-300">
                                 {error}
                             </div>
                         )}
                         {successMessage && (
-                            <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-medium text-emerald-700">
+                            <div className="rounded-xl border border-emerald-200 dark:border-emerald-800 bg-emerald-50 dark:bg-emerald-900/20 px-4 py-3 text-sm font-medium text-emerald-700 dark:text-emerald-300">
                                 {successMessage}
                             </div>
                         )}
@@ -437,8 +709,14 @@ const AssignmentHelper = () => {
                             </div>
                             <span className="text-xs font-medium px-2 py-0.5 bg-slate-100 dark:bg-slate-800 text-slate-500 rounded-full">{sortedThreads.length}</span>
                         </div>
-                        <div className="flex-1 overflow-y-auto p-3 space-y-2">
-                            {sortedThreads.length === 0 ? (
+                        <div className="flex-1 overflow-y-auto p-3 space-y-2" role="list">
+                            {threads === undefined ? (
+                                <div className="space-y-2">
+                                    {[0, 1, 2].map((i) => (
+                                        <div key={i} className="animate-pulse rounded-xl bg-slate-100 dark:bg-slate-800 h-20" />
+                                    ))}
+                                </div>
+                            ) : sortedThreads.length === 0 ? (
                                 <div className="h-full flex flex-col items-center justify-center text-center px-4 py-8">
                                     <div className="w-14 h-14 rounded-xl bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 flex items-center justify-center mb-3">
                                         <span className="material-symbols-outlined text-2xl text-blue-400">chat_add_on</span>
@@ -450,9 +728,11 @@ const AssignmentHelper = () => {
                                 sortedThreads.map((thread) => {
                                     const isActive = String(selectedThreadId) === String(thread._id);
                                     const isDeleting = deletingThreadId === String(thread._id);
+                                    const isConfirmingDelete = confirmDeleteId === String(thread._id);
                                     return (
                                         <div
                                             key={thread._id}
+                                            role="listitem"
                                             className={`group rounded-xl p-3 transition-all relative ${isActive
                                                 ? 'bg-blue-50 dark:bg-blue-900/20 border-2 border-blue-500 shadow-sm'
                                                 : 'bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 hover:border-blue-300 dark:hover:border-blue-700'
@@ -489,20 +769,39 @@ const AssignmentHelper = () => {
                                                     </div>
                                                 </div>
                                             </button>
-                                            <button
-                                                type="button"
-                                                onClick={(e) => {
-                                                    e.stopPropagation();
-                                                    handleDeleteThread(thread);
-                                                }}
-                                                disabled={isDeleting}
-                                                className="absolute right-2 top-2 w-7 h-7 flex items-center justify-center rounded-lg text-slate-400 hover:text-red-500 hover:bg-red-50 opacity-0 group-hover:opacity-100 transition-all"
-                                                title="Delete conversation"
-                                            >
-                                                <span className="material-symbols-outlined text-lg">
-                                                    {isDeleting ? 'hourglass_empty' : 'close'}
-                                                </span>
-                                            </button>
+                                            {isConfirmingDelete ? (
+                                                <div className="absolute right-2 top-2 flex items-center gap-1">
+                                                    <button
+                                                        type="button"
+                                                        onClick={(e) => { e.stopPropagation(); handleDeleteThread(thread); setConfirmDeleteId(null); }}
+                                                        className="text-[10px] font-semibold text-white bg-red-500 hover:bg-red-600 px-2 py-1 rounded-lg transition-colors"
+                                                    >
+                                                        Delete
+                                                    </button>
+                                                    <button
+                                                        type="button"
+                                                        onClick={(e) => { e.stopPropagation(); setConfirmDeleteId(null); }}
+                                                        className="text-[10px] font-medium text-slate-500 hover:text-slate-700 px-1.5 py-1 rounded-lg transition-colors"
+                                                    >
+                                                        Cancel
+                                                    </button>
+                                                </div>
+                                            ) : (
+                                                <button
+                                                    type="button"
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        setConfirmDeleteId(String(thread._id));
+                                                    }}
+                                                    disabled={isDeleting}
+                                                    aria-label="Delete conversation"
+                                                    className="absolute right-2 top-2 w-7 h-7 flex items-center justify-center rounded-lg text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 opacity-0 group-hover:opacity-100 transition-all"
+                                                >
+                                                    <span className="material-symbols-outlined text-lg">
+                                                        {isDeleting ? 'hourglass_empty' : 'close'}
+                                                    </span>
+                                                </button>
+                                            )}
                                         </div>
                                     );
                                 })
@@ -623,7 +922,7 @@ const AssignmentHelper = () => {
                                     {messages.length === 0 && threadStatus === 'error' && (
                                         <div className="rounded-xl bg-red-50 dark:bg-red-900/10 border border-red-100 dark:border-red-900/30 px-4 py-4">
                                             <div className="flex items-start gap-3">
-                                                <div className="w-10 h-10 rounded-full bg-red-100 flex items-center justify-center shrink-0">
+                                                <div className="w-10 h-10 rounded-full bg-red-100 dark:bg-red-900/30 flex items-center justify-center shrink-0">
                                                     <span className="material-symbols-outlined text-red-500 text-xl">error</span>
                                                 </div>
                                                 <div>
@@ -631,6 +930,15 @@ const AssignmentHelper = () => {
                                                     <p className="text-xs text-red-600 dark:text-red-300 mt-1">
                                                         {selectedThread.errorMessage || 'Could not process this assignment. Try uploading a clearer file or taking a better photo.'}
                                                     </p>
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => retryProcessing(selectedThread)}
+                                                        disabled={busy}
+                                                        className="mt-3 inline-flex items-center gap-1.5 text-xs font-medium text-red-600 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300 bg-red-100 hover:bg-red-200 dark:bg-red-900/30 dark:hover:bg-red-900/50 px-3 py-1.5 rounded-lg transition-colors disabled:opacity-50"
+                                                    >
+                                                        <span className="material-symbols-outlined text-[14px]">refresh</span>
+                                                        Retry Processing
+                                                    </button>
                                                 </div>
                                             </div>
                                         </div>
@@ -681,14 +989,22 @@ const AssignmentHelper = () => {
                                                                 <span className="material-symbols-outlined text-[14px]">auto_fix_high</span>
                                                                 Humanize
                                                             </button>
-                                                            <button
-                                                                type="button"
-                                                                onClick={() => navigator.clipboard.writeText(displayContent)}
-                                                                className="inline-flex items-center gap-1.5 text-xs font-medium text-slate-500 hover:text-slate-700 bg-slate-100 hover:bg-slate-200 dark:bg-slate-700 dark:hover:bg-slate-600 px-3 py-1.5 rounded-lg transition-colors"
-                                                            >
-                                                                <span className="material-symbols-outlined text-[14px]">content_copy</span>
-                                                                Copy
-                                                            </button>
+                                                            {(() => {
+                                                                const isCopied = copiedMessageId === message._id;
+                                                                return (
+                                                                    <button
+                                                                        type="button"
+                                                                        onClick={() => handleCopy(displayContent, message._id)}
+                                                                        className={`inline-flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-lg transition-colors ${isCopied
+                                                                            ? 'text-green-600 bg-green-50 dark:bg-green-900/20'
+                                                                            : 'text-slate-500 hover:text-slate-700 bg-slate-100 hover:bg-slate-200 dark:bg-slate-700 dark:hover:bg-slate-600'
+                                                                        }`}
+                                                                    >
+                                                                        <span className="material-symbols-outlined text-[14px]">{isCopied ? 'check' : 'content_copy'}</span>
+                                                                        {isCopied ? 'Copied!' : 'Copy'}
+                                                                    </button>
+                                                                );
+                                                            })()}
                                                         </div>
                                                     )}
                                                 </div>
@@ -731,9 +1047,10 @@ const AssignmentHelper = () => {
                                         </div>
                                     ) : (
                                         <div className="flex items-end gap-2">
-                                            <div className="flex-1">
+                                            <div className="flex-1 relative">
                                                 <textarea
                                                     ref={(el) => {
+                                                        textareaRef.current = el;
                                                         if (el) {
                                                             el.style.height = 'auto';
                                                             el.style.height = Math.min(el.scrollHeight, 120) + 'px';
@@ -748,14 +1065,22 @@ const AssignmentHelper = () => {
                                                     onKeyDown={onComposerKeyDown}
                                                     placeholder={canAskFollowUp ? "Ask a follow-up question..." : "Chat disabled while processing"}
                                                     disabled={!canAskFollowUp}
-                                                    className="w-full resize-none rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 px-4 py-3 pr-12 text-sm text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500/40 disabled:opacity-50 disabled:bg-slate-100 min-h-[44px] max-h-[120px] overflow-y-auto"
+                                                    aria-label="Follow-up question"
+                                                    maxLength={FOLLOWUP_MAX_LENGTH}
+                                                    className="w-full resize-none rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 px-4 py-3 pr-12 text-base text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500/40 disabled:opacity-50 disabled:bg-slate-100 dark:disabled:bg-slate-800/50 min-h-[44px] max-h-[120px] overflow-y-auto"
                                                     rows={1}
                                                 />
+                                                {followUpQuestion.length > FOLLOWUP_MAX_LENGTH * 0.8 && (
+                                                    <span className={`absolute right-2 bottom-1 text-[10px] ${followUpQuestion.length >= FOLLOWUP_MAX_LENGTH ? 'text-red-500' : 'text-slate-400'}`}>
+                                                        {followUpQuestion.length}/{FOLLOWUP_MAX_LENGTH}
+                                                    </span>
+                                                )}
                                             </div>
                                             <button
                                                 type="button"
                                                 onClick={handleSendFollowUp}
-                                                disabled={!canAskFollowUp || !followUpQuestion.trim() || sending}
+                                                disabled={!canAskFollowUp || !followUpQuestion.trim() || sending || followUpQuestion.length > FOLLOWUP_MAX_LENGTH}
+                                                aria-label="Send follow-up question"
                                                 className="flex items-center justify-center w-11 h-11 rounded-xl bg-gradient-to-r from-blue-500 to-indigo-600 text-white shadow-md shadow-blue-500/20 hover:shadow-lg hover:shadow-blue-500/30 hover:scale-105 active:scale-95 transition-all disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:scale-100 shrink-0"
                                             >
                                                 <span className="material-symbols-outlined text-xl">{sending ? 'hourglass_empty' : 'send'}</span>
@@ -768,6 +1093,7 @@ const AssignmentHelper = () => {
                     </section>
                 </div>
             </main>
+            <Toast message={paywallToastMessage} onClose={() => setPaywallToastMessage('')} />
         </div>
     );
 };

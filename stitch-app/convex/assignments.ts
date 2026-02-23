@@ -1,5 +1,9 @@
-import { v } from "convex/values";
+import { ConvexError, v } from "convex/values";
 import { mutation, query } from "./_generated/server";
+import {
+    consumeUploadCreditOrThrow,
+    getHistoricalStoredUploadCount,
+} from "./subscriptions";
 
 const MAX_FILE_SIZE_BYTES = 50 * 1024 * 1024;
 const DOCX_MIME = "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
@@ -16,6 +20,54 @@ const deriveThreadTitle = (fileName: string) => {
         .replace(/\s+/g, " ")
         .trim();
     return base || "Assignment Helper";
+};
+
+const resolveAuthUserId = (identity: any) => {
+    if (!identity || typeof identity !== "object") return "";
+    const candidates = [
+        identity.subject,
+        identity.userId,
+        identity.id,
+        identity.tokenIdentifier,
+    ];
+    for (const candidate of candidates) {
+        if (typeof candidate === "string" && candidate.trim()) {
+            return candidate.trim();
+        }
+    }
+    return "";
+};
+
+const assertAuthorizedUser = (identity: any, userId: string) => {
+    const authUserId = resolveAuthUserId(identity);
+    if (!authUserId) {
+        throw new ConvexError({
+            code: "UNAUTHENTICATED",
+            message: "You must be signed in to upload assignments.",
+        });
+    }
+    if (authUserId !== userId) {
+        throw new ConvexError({
+            code: "UNAUTHORIZED",
+            message: "You do not have permission to upload for this user.",
+        });
+    }
+};
+
+const isUploadQuotaExceededError = (error: unknown) => {
+    return error instanceof ConvexError
+        && typeof error.data === "object"
+        && error.data !== null
+        && String((error.data as { code?: unknown }).code || "") === "UPLOAD_QUOTA_EXCEEDED";
+};
+
+const isAuthenticationError = (error: unknown) => {
+    return error instanceof ConvexError
+        && typeof error.data === "object"
+        && error.data !== null
+        && ["UNAUTHENTICATED", "UNAUTHORIZED"].includes(
+            String((error.data as { code?: unknown }).code || "")
+        );
 };
 
 export const listThreads = query({
@@ -54,7 +106,7 @@ export const getThreadWithMessages = query({
 
         return {
             thread,
-            messages: messages.filter((message) => message.userId === args.userId),
+            messages,
         };
     },
 });
@@ -68,11 +120,31 @@ export const createThreadFromUpload = mutation({
         storageId: v.id("_storage"),
     },
     handler: async (ctx, args) => {
+        const identity = await ctx.auth.getUserIdentity();
+        try {
+            assertAuthorizedUser(identity, args.userId);
+        } catch (error) {
+            if (isAuthenticationError(error)) {
+                await ctx.storage.delete(args.storageId).catch(() => undefined);
+            }
+            throw error;
+        }
+
         if (!isSupportedAssignmentMimeType(args.fileType)) {
             throw new Error("Unsupported file format. Upload a PDF, DOCX, or image file.");
         }
         if (args.fileSize > MAX_FILE_SIZE_BYTES) {
             throw new Error("File is too large. Maximum supported size is 50MB.");
+        }
+
+        const historicalStoredUploadCount = await getHistoricalStoredUploadCount(ctx, args.userId);
+        try {
+            await consumeUploadCreditOrThrow(ctx, args.userId, historicalStoredUploadCount);
+        } catch (error) {
+            if (isUploadQuotaExceededError(error)) {
+                await ctx.storage.delete(args.storageId).catch(() => undefined);
+            }
+            throw error;
         }
 
         const fileUrl = await ctx.storage.getUrl(args.storageId);
