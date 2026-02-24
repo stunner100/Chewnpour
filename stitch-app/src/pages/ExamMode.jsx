@@ -3,6 +3,8 @@ import { Link, useParams, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useAction } from 'convex/react';
 import { api } from '../../convex/_generated/api';
 import { useAuth } from '../contexts/AuthContext';
+import { getSession } from '../lib/auth-client';
+import { useStudyTimer } from '../hooks/useStudyTimer';
 import {
     resolveAutoGenerationError,
     resolveAutoGenerationResult,
@@ -48,7 +50,7 @@ const cleanOptionText = (value) => {
     const textMatch = text.match(/"text"\s*:\s*"([^"]+)"/);
     if (textMatch) return textMatch[1];
 
-    if (/\"label\"\s*:\s*\"/.test(text) || /\"isCorrect\"\s*:/.test(text)) return '';
+    if (/"label"\s*:\s*"/.test(text) || /"isCorrect"\s*:/.test(text)) return '';
 
     return text;
 };
@@ -206,13 +208,158 @@ const buildFallbackOptionsFromRaw = (rawOptions) => {
 const resolveQuestionOptions = (rawOptions) => {
     const options = coerceOptions(rawOptions);
     const renderOptions = options.map((o, i) => normalizeOption(o, i)).filter(Boolean);
-    const hasRawArtifacts = renderOptions.some(
-        (o) => typeof o.text === 'string' && /"label"|{"label"|\"label\"|\"isCorrect\"/i.test(o.text)
-    );
+    const hasRawArtifacts = renderOptions.some((o) => {
+        if (typeof o.text !== 'string') return false;
+        return (
+            o.text.includes('"label"')
+            || o.text.includes('{"label"')
+            || o.text.includes('\\"label\\"')
+            || o.text.includes('\\"isCorrect\\"')
+        );
+    });
     const fallbackOptions = buildFallbackOptionsFromRaw(rawOptions);
     return renderOptions.length === 0 || hasRawArtifacts
         ? (fallbackOptions.length > 0 ? fallbackOptions : renderOptions)
         : renderOptions;
+};
+
+const CONVEX_ERROR_WRAPPER_PATTERN = /\[CONVEX [^\]]+\]\s*\[Request ID:[^\]]+\]\s*/i;
+const TRANSIENT_TRANSPORT_ERROR_PATTERNS = [
+    'load failed',
+    'failed to fetch',
+    'networkerror',
+    'network request failed',
+    'connection lost',
+    'connection reset',
+    'timed out',
+    'timeout',
+    'fetch failed',
+    'inactive server',
+];
+const MCQ_EXAM_QUESTION_CAP = 35;
+const ESSAY_EXAM_QUESTION_CAP = 15;
+const EXAM_DURATION_SECONDS = 45 * 60;
+const MIN_ESSAY_SUBMIT_CHAR_COUNT = 1;
+
+const resolveConvexActionError = (error, fallbackMessage) => {
+    const dataMessage = typeof error?.data === 'string'
+        ? error.data
+        : typeof error?.data?.message === 'string'
+            ? error.data.message
+            : '';
+    const resolved = String(dataMessage || error?.message || fallbackMessage || '')
+        .replace(/\s+/g, ' ')
+        .trim();
+    if (!resolved) return fallbackMessage;
+
+    const unwrapped = resolved
+        .replace(CONVEX_ERROR_WRAPPER_PATTERN, '')
+        .replace(/^Uncaught (ConvexError|Error):\s*/i, '')
+        .replace(/^ConvexError:\s*/i, '')
+        .replace(/^Server Error\s*/i, '')
+        .replace(/Called by client$/i, '')
+        .trim();
+
+    return unwrapped || fallbackMessage;
+};
+
+const getConvexErrorCode = (error) => {
+    if (typeof error?.data?.code === 'string' && error.data.code.trim()) {
+        return error.data.code.trim().toUpperCase();
+    }
+    const normalizedMessage = resolveConvexActionError(error, '').toLowerCase();
+    if (!normalizedMessage) return '';
+    if (normalizedMessage.includes('exam_questions_preparing')) return 'EXAM_QUESTIONS_PREPARING';
+    if (normalizedMessage.includes('essay_questions_preparing')) return 'ESSAY_QUESTIONS_PREPARING';
+    if (
+        normalizedMessage.includes('must be signed in')
+        || normalizedMessage.includes('not authenticated')
+        || normalizedMessage.includes('invalid token')
+        || normalizedMessage.includes('session is still syncing')
+    ) {
+        return 'UNAUTHENTICATED';
+    }
+    if (normalizedMessage.includes('do not have permission') || normalizedMessage.includes('permission')) {
+        return 'UNAUTHORIZED';
+    }
+    return '';
+};
+
+const isConvexAuthenticationError = (error) => {
+    const code = getConvexErrorCode(error);
+    if (code === 'UNAUTHENTICATED' || code === 'UNAUTHORIZED') return true;
+    const normalizedMessage = resolveConvexActionError(error, '').toLowerCase();
+    return (
+        normalizedMessage.includes('must be signed in')
+        || normalizedMessage.includes('not authenticated')
+        || normalizedMessage.includes('invalid token')
+        || normalizedMessage.includes('session is still syncing')
+        || normalizedMessage.includes('permission')
+    );
+};
+
+// After a prolonged WebSocket disconnect, Convex actions may wrap auth errors
+// as a generic "Server Error" with filtered data fields. Detect this pattern
+// so the exam flow can attempt a session refresh rather than showing a generic error.
+const isLikelyPostDisconnectAuthError = (error) => {
+    const message = String(error?.message || '').trim();
+    if (!message) return false;
+    // Convex wraps action errors as "Server Error" when the inner ConvexError is filtered
+    if (/^server error$/i.test(message) || /^uncaught convexerror: server error/i.test(message)) {
+        // If there's a structured code, it's not an opaque wrapping
+        const code = getConvexErrorCode(error);
+        return !code;
+    }
+    return false;
+};
+
+const isTransientExamTransportError = (error, resolvedMessage = '') => {
+    const normalizedMessage = `${String(error?.message || '').toLowerCase()} ${String(resolvedMessage || '').toLowerCase()}`;
+    return TRANSIENT_TRANSPORT_ERROR_PATTERNS.some((pattern) => normalizedMessage.includes(pattern));
+};
+
+const getExamAuthNotReadyMessage = (sessionRefreshed = false) =>
+    sessionRefreshed
+        ? 'Your session has been refreshed. Tap Retry to start the exam.'
+        : 'Your session is still syncing. Please wait a few seconds and tap Retry.';
+
+const getExamSessionExpiredMessage = () =>
+    'Your session has expired. Please go back and sign in again.';
+
+const refreshAuthSessionQuietly = async () => {
+    try {
+        const result = await getSession();
+        const hasUser = Boolean(result?.data?.user?.id);
+        return { refreshed: hasUser, expired: !hasUser };
+    } catch {
+        return { refreshed: false, expired: true };
+    }
+};
+
+const getExamTransientStartRetryMessage = () =>
+    'Connection dropped while starting the exam. Check your internet and tap Retry.';
+
+const getExamTransientSubmitRetryMessage = () =>
+    'Connection dropped while submitting your exam. Please retry once your connection is stable.';
+
+const isRecoverableExamSubmitError = ({ error, message }) => {
+    if (isUserCorrectableEssaySubmitError(message)) return true;
+    if (isConvexAuthenticationError(error)) return true;
+    if (isTransientExamTransportError(error, message)) return true;
+    return false;
+};
+
+const isUserCorrectableEssaySubmitError = (message) => {
+    const normalized = String(message || '').toLowerCase();
+    if (!normalized) return false;
+    return (
+        normalized.includes('restart the exam') ||
+        normalized.includes('essay mode') ||
+        normalized.includes('could not grade your essay right now') ||
+        normalized.includes('duplicate questions') ||
+        normalized.includes('at least one question') ||
+        normalized.includes('answer all essay questions')
+    );
 };
 
 // ── Component ──
@@ -223,7 +370,7 @@ const ExamMode = () => {
     const { user } = useAuth();
     const [currentQuestion, setCurrentQuestion] = useState(0);
     const [selectedAnswers, setSelectedAnswers] = useState({});
-    const [timeRemaining, setTimeRemaining] = useState(30 * 60); // 30 minutes
+    const [timeRemaining, setTimeRemaining] = useState(EXAM_DURATION_SECONDS);
     const [examStarted, setExamStarted] = useState(false);
     const [attemptId, setAttemptId] = useState(null);
     const [attemptQuestions, setAttemptQuestions] = useState(null);
@@ -233,9 +380,16 @@ const ExamMode = () => {
     const [generateQuestionsError, setGenerateQuestionsError] = useState('');
     const [autoGenerationPaused, setAutoGenerationPaused] = useState(false);
 
+    // Essay exam state
+    const [examFormat, setExamFormat] = useState(null); // null = not chosen, 'mcq' | 'essay'
+    const [generatingEssayQuestions, setGeneratingEssayQuestions] = useState(false);
+    const [gradingEssay, setGradingEssay] = useState(false);
+    const [submitError, setSubmitError] = useState('');
+
 
     // Get userId from Better Auth session
     const userId = user?.id;
+    useStudyTimer(userId);
 
     // Convex queries and mutations
     const topicData = useQuery(
@@ -245,7 +399,8 @@ const ExamMode = () => {
     const startExam = useMutation(api.exams.startExamAttempt);
     const submitExam = useMutation(api.exams.submitExamAttempt);
     const generateQuestions = useAction(api.ai.generateQuestionsForTopic);
-    const regenerateQuestions = useAction(api.ai.regenerateQuestionsForTopic);
+    const generateEssayQuestions = useAction(api.ai.generateEssayQuestionsForTopic);
+    const submitEssayExam = useAction(api.exams.submitEssayExam);
 
     const MIN_EXAM_QUESTIONS = 1;
     const START_EXAM_ATTEMPT_TIMEOUT_MS = 45_000;
@@ -254,6 +409,8 @@ const ExamMode = () => {
     const AUTO_GENERATION_MAX_ATTEMPTS = 3;
 
     const topicQuestions = topicData?.questions || [];
+    const loadingExamQuestionCap = examFormat === 'essay' ? ESSAY_EXAM_QUESTION_CAP : MCQ_EXAM_QUESTION_CAP;
+    const loadingExamTypeLabel = examFormat === 'essay' ? 'essay' : 'multiple-choice';
     const hasAttemptQuestions = Array.isArray(attemptQuestions) && attemptQuestions.length > 0;
     const questions = hasAttemptQuestions ? attemptQuestions : [];
     const topic = topicData;
@@ -292,6 +449,7 @@ const ExamMode = () => {
         if (!topicId || topicQuestions.length === 0) return;
 
         setStartExamError('');
+        setSubmitError('');
         setStartingExamAttempt(true);
         attemptStartTimeRef.current = Date.now();
         addSentryBreadcrumb({
@@ -301,17 +459,54 @@ const ExamMode = () => {
                 topicId,
                 topicQuestionCount: topicQuestions.length,
                 hasUserId: Boolean(userId),
+                examFormat: examFormat || 'mcq',
             },
         });
         let timeoutHandle = null;
         try {
-            const startPromise = startExam(userId ? { userId, topicId } : { topicId });
+            const startPromise = startExam({ topicId, examFormat: examFormat || 'mcq' });
             const timeoutPromise = new Promise((_, reject) => {
                 timeoutHandle = setTimeout(() => {
                     reject(new Error('Exam attempt initialization timed out.'));
                 }, START_EXAM_ATTEMPT_TIMEOUT_MS);
             });
             const result = await Promise.race([startPromise, timeoutPromise]);
+            const deferredCode = typeof result?.code === 'string' ? result.code.toUpperCase() : '';
+            const deferredMessage = typeof result?.message === 'string'
+                ? result.message
+                : 'Questions are being refreshed for quality. Please try again in a few seconds.';
+            const isDeferredPreparingState =
+                result?.deferred === true
+                && (
+                    deferredCode === 'EXAM_QUESTIONS_PREPARING'
+                    || deferredCode === 'ESSAY_QUESTIONS_PREPARING'
+                );
+            if (isDeferredPreparingState) {
+                setAttemptId(null);
+                setAttemptQuestions(null);
+                setExamStarted(false);
+                setStartExamError(deferredMessage);
+                const elapsedMs = Date.now() - attemptStartTimeRef.current;
+                captureSentryMessage('Exam attempt deferred while question bank prepares', {
+                    level: 'warning',
+                    tags: {
+                        area: 'exam',
+                        operation: 'start_exam_attempt',
+                        deferred: 'yes',
+                        errorCode: deferredCode,
+                    },
+                    extras: {
+                        topicId,
+                        userId,
+                        topicQuestionCount: topicQuestions.length,
+                        elapsedMs,
+                        timeoutMs: START_EXAM_ATTEMPT_TIMEOUT_MS,
+                        message: deferredMessage,
+                    },
+                });
+                return;
+            }
+
             const selectedQuestions = Array.isArray(result?.questions) ? result.questions : [];
             if (selectedQuestions.length === 0) {
                 throw new Error('No questions available for this exam attempt.');
@@ -321,7 +516,7 @@ const ExamMode = () => {
             setAttemptQuestions(selectedQuestions);
             setCurrentQuestion(0);
             setSelectedAnswers({});
-            setTimeRemaining(30 * 60);
+            setTimeRemaining(EXAM_DURATION_SECONDS);
             setExamStarted(true);
             const elapsedMs = Date.now() - attemptStartTimeRef.current;
             addSentryBreadcrumb({
@@ -335,31 +530,105 @@ const ExamMode = () => {
                 },
             });
         } catch (error) {
-            console.error('Failed to start exam attempt:', error);
-            const message = String(error?.message || '');
+            const errorCode = getConvexErrorCode(error);
+            const isPreparingQuestionsError =
+                errorCode === 'EXAM_QUESTIONS_PREPARING' ||
+                errorCode === 'ESSAY_QUESTIONS_PREPARING';
+            const message = resolveConvexActionError(error, 'Unable to start the exam. Please try again.');
+            const authError = isConvexAuthenticationError(error);
+            const transientTransportError = isTransientExamTransportError(error, message);
+            const timedOut = /timed out/i.test(message);
             const elapsedMs = attemptStartTimeRef.current
                 ? Date.now() - attemptStartTimeRef.current
                 : null;
-            if (/timed out/i.test(message)) {
+            if (isPreparingQuestionsError) {
+                setStartExamError(message);
+                captureSentryMessage('Exam attempt deferred while question bank prepares', {
+                    level: 'warning',
+                    tags: {
+                        area: 'exam',
+                        operation: 'start_exam_attempt',
+                        deferred: 'yes',
+                        errorCode,
+                    },
+                    extras: {
+                        topicId,
+                        userId,
+                        topicQuestionCount: topicQuestions.length,
+                        elapsedMs,
+                        timeoutMs: START_EXAM_ATTEMPT_TIMEOUT_MS,
+                        message,
+                    },
+                });
+            } else if (authError) {
+                const { refreshed, expired } = await refreshAuthSessionQuietly();
+                if (expired) {
+                    setStartExamError(getExamSessionExpiredMessage());
+                } else {
+                    setStartExamError(getExamAuthNotReadyMessage(refreshed));
+                }
+            } else if (transientTransportError) {
+                setStartExamError(getExamTransientStartRetryMessage());
+            } else if (timedOut) {
                 setStartExamError('Exam setup is taking longer than expected. Tap Retry.');
+            } else if (isLikelyPostDisconnectAuthError(error)) {
+                // Opaque "Server Error" after a disconnect — likely an auth error.
+                // Attempt a session refresh so the next retry has a valid token.
+                const { refreshed, expired } = await refreshAuthSessionQuietly();
+                if (expired) {
+                    setStartExamError(getExamSessionExpiredMessage());
+                } else if (refreshed) {
+                    setStartExamError(getExamAuthNotReadyMessage(true));
+                } else {
+                    setStartExamError('Something went wrong. Please wait a moment and tap Retry.');
+                }
             } else {
                 setStartExamError('Unable to start the exam. Please try again.');
             }
-            captureSentryException(error, {
-                level: /timed out/i.test(message) ? 'warning' : 'error',
-                tags: {
-                    area: 'exam',
-                    operation: 'start_exam_attempt',
-                    timedOut: /timed out/i.test(message),
-                },
-                extras: {
-                    topicId,
-                    userId,
-                    topicQuestionCount: topicQuestions.length,
-                    elapsedMs,
-                    timeoutMs: START_EXAM_ATTEMPT_TIMEOUT_MS,
-                },
-            });
+            const likelyPostDisconnect = isLikelyPostDisconnectAuthError(error);
+            const recoverableError = isPreparingQuestionsError || timedOut || authError || transientTransportError || likelyPostDisconnect;
+            if (recoverableError) {
+                captureSentryMessage('Exam attempt start requires retry', {
+                    level: 'warning',
+                    tags: {
+                        area: 'exam',
+                        operation: 'start_exam_attempt',
+                        recoverable: 'yes',
+                        timedOut,
+                        authError: authError ? 'yes' : 'no',
+                        transientTransportError: transientTransportError ? 'yes' : 'no',
+                        likelyPostDisconnect: likelyPostDisconnect ? 'yes' : 'no',
+                        errorCode: errorCode || 'unknown',
+                    },
+                    extras: {
+                        topicId,
+                        userId,
+                        topicQuestionCount: topicQuestions.length,
+                        elapsedMs,
+                        timeoutMs: START_EXAM_ATTEMPT_TIMEOUT_MS,
+                        message,
+                    },
+                });
+            } else {
+                console.error('Failed to start exam attempt:', error);
+                captureSentryException(error, {
+                    level: 'error',
+                    tags: {
+                        area: 'exam',
+                        operation: 'start_exam_attempt',
+                        timedOut,
+                        errorCode: errorCode || 'unknown',
+                    },
+                    extras: {
+                        topicId,
+                        userId,
+                        topicQuestionCount: topicQuestions.length,
+                        elapsedMs,
+                        timeoutMs: START_EXAM_ATTEMPT_TIMEOUT_MS,
+                        message,
+                    },
+                });
+            }
             setAttemptId(null);
             setAttemptQuestions(null);
             setExamStarted(false);
@@ -370,7 +639,7 @@ const ExamMode = () => {
             attemptStartTimeRef.current = null;
             setStartingExamAttempt(false);
         }
-    }, [topicId, userId, topicQuestions.length, startExam, START_EXAM_ATTEMPT_TIMEOUT_MS]);
+    }, [topicId, userId, examFormat, topicQuestions.length, startExam, START_EXAM_ATTEMPT_TIMEOUT_MS]);
 
     useEffect(() => {
         const waitingForQuestions = topicData !== null && topicData !== undefined && topicQuestions.length < MIN_EXAM_QUESTIONS;
@@ -517,8 +786,36 @@ const ExamMode = () => {
                         setGenerateQuestionsError(outcome.errorMessage);
                     }
                 })
-                .catch((error) => {
+                .catch(async (error) => {
                     if (cancelled) return;
+
+                    // Auth errors during auto-generation: refresh session and pause
+                    // instead of counting as a generation failure
+                    if (isConvexAuthenticationError(error) || isLikelyPostDisconnectAuthError(error)) {
+                        const { refreshed, expired } = await refreshAuthSessionQuietly();
+                        autoGenerationAttemptsRef.current = AUTO_GENERATION_MAX_ATTEMPTS;
+                        setAutoGenerationPaused(true);
+                        setGenerateQuestionsError(
+                            expired
+                                ? getExamSessionExpiredMessage()
+                                : refreshed
+                                    ? 'Your session has been refreshed. Tap Generate Questions to retry.'
+                                    : 'Your session may have expired. Please wait a moment and retry.'
+                        );
+                        captureSentryMessage('Exam auto-generation paused due to auth error', {
+                            level: 'warning',
+                            tags: {
+                                area: 'exam',
+                                operation: 'auto_generate_questions',
+                                authError: 'yes',
+                                likelyPostDisconnect: isLikelyPostDisconnectAuthError(error) ? 'yes' : 'no',
+                                sessionRefreshed: refreshed ? 'yes' : 'no',
+                            },
+                            extras: { topicId, expired },
+                        });
+                        return;
+                    }
+
                     console.error('Auto question generation failed:', error);
                     const outcome = resolveAutoGenerationError({
                         error,
@@ -574,10 +871,11 @@ const ExamMode = () => {
         QUESTION_GENERATION_REQUEST_TIMEOUT_MS,
     ]);
 
-    // Start exam once enough questions exist. Keep generation in background.
+    // Start exam once enough questions exist AND user has chosen a format. Keep generation in background.
     useEffect(() => {
         if (
             topicId &&
+            examFormat &&
             !examStarted &&
             !startingExamAttempt &&
             !hasAttemptQuestions &&
@@ -588,6 +886,7 @@ const ExamMode = () => {
         }
     }, [
         topicId,
+        examFormat,
         examStarted,
         startingExamAttempt,
         hasAttemptQuestions,
@@ -621,6 +920,7 @@ const ExamMode = () => {
     };
 
     const handleAnswerSelect = (questionId, answer) => {
+        if (submitError) setSubmitError('');
         setSelectedAnswers((prev) => ({
             ...prev,
             [questionId]: answer,
@@ -641,13 +941,83 @@ const ExamMode = () => {
 
     const handleSubmit = async () => {
         if (!attemptId) return;
+        setSubmitError('');
+
+        if (examFormat === 'essay') {
+            const answeredEssayQuestions = questions.filter((question) => {
+                const value = selectedAnswers[question._id];
+                return String(value ?? '').trim().length >= MIN_ESSAY_SUBMIT_CHAR_COUNT;
+            }).length;
+            if (answeredEssayQuestions < questions.length) {
+                setSubmitError('Please answer all essay questions before submitting.');
+                return;
+            }
+
+            setGradingEssay(true);
+            try {
+                const answers = questions.map((question) => ({
+                    questionId: question._id,
+                    essayText: String(selectedAnswers[question._id] ?? ''),
+                }));
+                const timeTaken = EXAM_DURATION_SECONDS - timeRemaining;
+
+                await submitEssayExam({
+                    attemptId,
+                    answers,
+                    timeTakenSeconds: timeTaken,
+                });
+                navigate(`/dashboard/results/${attemptId}`);
+            } catch (error) {
+                const message = resolveConvexActionError(
+                    error,
+                    'Could not submit essay exam. Please try again.'
+                );
+                const authError = isConvexAuthenticationError(error) || isLikelyPostDisconnectAuthError(error);
+                const transientTransportError = isTransientExamTransportError(error, message);
+                if (authError) {
+                    const { refreshed, expired } = await refreshAuthSessionQuietly();
+                    setSubmitError(
+                        expired
+                            ? getExamSessionExpiredMessage()
+                            : getExamAuthNotReadyMessage(refreshed)
+                    );
+                } else if (transientTransportError) {
+                    setSubmitError(getExamTransientSubmitRetryMessage());
+                } else {
+                    setSubmitError(message);
+                }
+                const recoverableError = isRecoverableExamSubmitError({ error, message });
+                if (recoverableError) {
+                    captureSentryMessage('Essay submission rejected by validation', {
+                        level: 'warning',
+                        tags: { area: 'exam', operation: 'submit_essay_exam' },
+                        extras: {
+                            topicId,
+                            attemptId,
+                            message,
+                            authError: authError ? 'yes' : 'no',
+                            transientTransportError: transientTransportError ? 'yes' : 'no',
+                        },
+                    });
+                } else {
+                    console.error('Failed to submit essay exam:', error);
+                    captureSentryException(error, {
+                        tags: { area: 'exam', operation: 'submit_essay_exam' },
+                        extras: { topicId, attemptId, message },
+                    });
+                }
+            } finally {
+                setGradingEssay(false);
+            }
+            return;
+        }
 
         const answers = Object.entries(selectedAnswers).map(([questionId, selectedAnswer]) => ({
             questionId,
             selectedAnswer,
         }));
 
-        const timeTaken = 30 * 60 - timeRemaining;
+        const timeTaken = EXAM_DURATION_SECONDS - timeRemaining;
 
         try {
             await submitExam({
@@ -657,19 +1027,54 @@ const ExamMode = () => {
             });
             navigate(`/dashboard/results/${attemptId}`);
         } catch (error) {
-            console.error('Failed to submit exam:', error);
-            captureSentryException(error, {
-                tags: {
-                    area: 'exam',
-                    operation: 'submit_exam_attempt',
-                },
-                extras: {
-                    topicId,
-                    attemptId,
-                    answerCount: answers.length,
-                    timeTakenSeconds: timeTaken,
-                },
-            });
+            const message = resolveConvexActionError(error, 'Failed to submit exam. Please try again.');
+            const authError = isConvexAuthenticationError(error) || isLikelyPostDisconnectAuthError(error);
+            const transientTransportError = isTransientExamTransportError(error, message);
+            if (authError) {
+                const { refreshed, expired } = await refreshAuthSessionQuietly();
+                setSubmitError(
+                    expired
+                        ? getExamSessionExpiredMessage()
+                        : getExamAuthNotReadyMessage(refreshed)
+                );
+            } else if (transientTransportError) {
+                setSubmitError(getExamTransientSubmitRetryMessage());
+            } else {
+                setSubmitError(message);
+            }
+            if (authError || transientTransportError) {
+                captureSentryMessage('Exam submission requires retry', {
+                    level: 'warning',
+                    tags: {
+                        area: 'exam',
+                        operation: 'submit_exam_attempt',
+                        authError: authError ? 'yes' : 'no',
+                        transientTransportError: transientTransportError ? 'yes' : 'no',
+                    },
+                    extras: {
+                        topicId,
+                        attemptId,
+                        message,
+                        answerCount: answers.length,
+                        timeTakenSeconds: timeTaken,
+                    },
+                });
+            } else {
+                console.error('Failed to submit exam:', error);
+                captureSentryException(error, {
+                    tags: {
+                        area: 'exam',
+                        operation: 'submit_exam_attempt',
+                    },
+                    extras: {
+                        topicId,
+                        attemptId,
+                        message,
+                        answerCount: answers.length,
+                        timeTakenSeconds: timeTaken,
+                    },
+                });
+            }
         }
     };
 
@@ -726,6 +1131,24 @@ const ExamMode = () => {
             setGeneratingQuestions(false);
         }
     };
+
+    const currentQ = questions[currentQuestion];
+    const progress = questions.length > 0
+        ? ((currentQuestion + 1) / questions.length) * 100
+        : 0;
+    const answeredQuestionCount = examFormat === 'essay'
+        ? questions.filter((question) => {
+            const value = selectedAnswers[question._id];
+            return String(value ?? '').trim().length >= MIN_ESSAY_SUBMIT_CHAR_COUNT;
+        }).length
+        : questions.filter((question) => Boolean(selectedAnswers[question._id])).length;
+    const isEssaySubmitBlocked = examFormat === 'essay' && answeredQuestionCount < questions.length;
+
+    // Keep hook order stable across loading/error/exam states.
+    const finalOptions = useMemo(
+        () => resolveQuestionOptions(currentQ?.options),
+        [currentQ?.options]
+    );
 
     if (!topicId) {
         return (
@@ -820,6 +1243,67 @@ const ExamMode = () => {
         );
     }
 
+    if (!examFormat && !examStarted && topicQuestions.length >= MIN_EXAM_QUESTIONS) {
+        return (
+            <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-900 dark:to-slate-800 flex items-center justify-center p-4">
+                <div className="w-full max-w-md">
+                    <div className="bg-white dark:bg-slate-900 rounded-3xl shadow-xl border border-slate-200 dark:border-slate-800 p-8 text-center">
+                        <div className="w-20 h-20 mx-auto mb-6 rounded-2xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-white shadow-lg shadow-blue-500/25">
+                            <span className="material-symbols-outlined text-4xl">quiz</span>
+                        </div>
+                        <h2 className="text-2xl font-bold text-slate-900 dark:text-white mb-2">Choose Exam Format</h2>
+                        <p className="text-slate-500 dark:text-slate-400 mb-8">How would you like to be tested?</p>
+
+                        <div className="space-y-3">
+                            <button
+                                onClick={() => setExamFormat('mcq')}
+                                className="w-full flex items-center gap-4 p-4 rounded-2xl border-2 border-slate-200 dark:border-slate-700 hover:border-blue-400 hover:bg-blue-50/50 dark:hover:bg-blue-900/20 transition-all text-left group"
+                            >
+                                <div className="w-12 h-12 rounded-xl bg-blue-100 dark:bg-blue-900/40 flex items-center justify-center group-hover:bg-blue-200 dark:group-hover:bg-blue-800/50 transition-colors">
+                                    <span className="material-symbols-outlined text-blue-600 dark:text-blue-400">radio_button_checked</span>
+                                </div>
+                                <div>
+                                    <p className="font-bold text-slate-900 dark:text-white">Multiple Choice</p>
+                                    <p className="text-sm text-slate-500 dark:text-slate-400">Pick the best answer from 4 options</p>
+                                </div>
+                            </button>
+
+                            <button
+                                onClick={async () => {
+                                    setExamFormat('essay');
+                                    // Generate essay questions if needed
+                                    setGeneratingEssayQuestions(true);
+                                    try {
+                                        await generateEssayQuestions({ topicId, count: ESSAY_EXAM_QUESTION_CAP });
+                                    } catch (e) {
+                                        console.error('Essay question generation failed:', e);
+                                    } finally {
+                                        setGeneratingEssayQuestions(false);
+                                    }
+                                }}
+                                disabled={generatingEssayQuestions}
+                                className="w-full flex items-center gap-4 p-4 rounded-2xl border-2 border-slate-200 dark:border-slate-700 hover:border-purple-400 hover:bg-purple-50/50 dark:hover:bg-purple-900/20 transition-all text-left group disabled:opacity-60"
+                            >
+                                <div className="w-12 h-12 rounded-xl bg-purple-100 dark:bg-purple-900/40 flex items-center justify-center group-hover:bg-purple-200 dark:group-hover:bg-purple-800/50 transition-colors">
+                                    <span className="material-symbols-outlined text-purple-600 dark:text-purple-400">edit_note</span>
+                                </div>
+                                <div>
+                                    <p className="font-bold text-slate-900 dark:text-white">
+                                        {generatingEssayQuestions ? 'Preparing Essay Questions...' : 'Essay / Theory'}
+                                    </p>
+                                    <p className="text-sm text-slate-500 dark:text-slate-400">Write your answers in your own words</p>
+                                </div>
+                                {generatingEssayQuestions && (
+                                    <div className="ml-auto w-5 h-5 rounded-full border-2 border-purple-500 border-t-transparent animate-spin"></div>
+                                )}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        );
+    }
+
     if (startingExamAttempt || !examStarted || !attemptId || questions.length === 0) {
         return (
             <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-900 dark:to-slate-800 flex items-center justify-center p-4">
@@ -833,14 +1317,14 @@ const ExamMode = () => {
                                     <span className="material-symbols-outlined text-3xl">quiz</span>
                                 </div>
                             </div>
-                            
+
                             <h2 className="text-2xl font-bold text-slate-900 dark:text-white mb-2">
                                 Preparing Your Exam
                             </h2>
                             <p className="text-slate-500 dark:text-slate-400 mb-6">
-                                We're building a personalized 25-question test based on your topic.
+                                {`We're building a personalized ${loadingExamTypeLabel} test with up to ${loadingExamQuestionCap} questions based on your topic.`}
                             </p>
-                            
+
                             <div className="space-y-3">
                                 <div className="flex items-center gap-3 text-sm text-slate-600 dark:text-slate-400">
                                     <span className="material-symbols-outlined text-green-500">check_circle</span>
@@ -855,7 +1339,7 @@ const ExamMode = () => {
                                     <span>Finalizing exam set</span>
                                 </div>
                             </div>
-                            
+
                             <div className="mt-6 pt-6 border-t border-slate-100 dark:border-slate-800">
                                 <p className="text-xs text-slate-400">
                                     This usually takes 10-20 seconds
@@ -867,23 +1351,33 @@ const ExamMode = () => {
                             <div className="w-20 h-20 rounded-full bg-amber-100 dark:bg-amber-900/20 flex items-center justify-center mx-auto mb-4">
                                 <span className="material-symbols-outlined text-3xl text-amber-500">warning</span>
                             </div>
-                            
+
                             <h2 className="text-xl font-bold text-slate-900 dark:text-white mb-2">
                                 Taking Longer Than Expected
                             </h2>
                             <p className="text-slate-500 dark:text-slate-400 mb-6">
                                 {startExamError}
                             </p>
-                            
+
                             <div className="flex gap-3">
-                                <button
-                                    onClick={beginExamAttempt}
-                                    disabled={startingExamAttempt}
-                                    className="flex-1 py-3 bg-gradient-to-r from-blue-500 to-indigo-600 text-white rounded-xl font-semibold shadow-md shadow-blue-500/20 hover:shadow-lg transition-all disabled:opacity-60 flex items-center justify-center gap-2"
-                                >
-                                    <span className="material-symbols-outlined">refresh</span>
-                                    <span>Try Again</span>
-                                </button>
+                                {startExamError === getExamSessionExpiredMessage() ? (
+                                    <Link
+                                        to="/login"
+                                        className="flex-1 py-3 bg-gradient-to-r from-blue-500 to-indigo-600 text-white rounded-xl font-semibold shadow-md shadow-blue-500/20 hover:shadow-lg transition-all flex items-center justify-center gap-2"
+                                    >
+                                        <span className="material-symbols-outlined">login</span>
+                                        <span>Sign In</span>
+                                    </Link>
+                                ) : (
+                                    <button
+                                        onClick={beginExamAttempt}
+                                        disabled={startingExamAttempt}
+                                        className="flex-1 py-3 bg-gradient-to-r from-blue-500 to-indigo-600 text-white rounded-xl font-semibold shadow-md shadow-blue-500/20 hover:shadow-lg transition-all disabled:opacity-60 flex items-center justify-center gap-2"
+                                    >
+                                        <span className="material-symbols-outlined">refresh</span>
+                                        <span>Try Again</span>
+                                    </button>
+                                )}
                                 <Link
                                     to={`/dashboard/topic/${topicId}`}
                                     className="px-4 py-3 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 rounded-xl font-semibold hover:bg-slate-200 transition-colors flex items-center justify-center"
@@ -898,17 +1392,23 @@ const ExamMode = () => {
         );
     }
 
-    const currentQ = questions[currentQuestion];
-    const progress = ((currentQuestion + 1) / questions.length) * 100;
-
-    // Memoize the expensive option parsing — only recompute when the question changes
-    const finalOptions = useMemo(
-        () => resolveQuestionOptions(currentQ?.options),
-        [currentQ?.options]
-    );
-
     return (
         <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-900 dark:to-slate-800 flex flex-col md:flex-row">
+            {/* Essay grading overlay */}
+            {gradingEssay && (
+                <div className="fixed inset-0 z-50 bg-slate-900/70 backdrop-blur-sm flex items-center justify-center p-4">
+                    <div className="bg-white dark:bg-slate-900 rounded-3xl shadow-2xl p-8 text-center max-w-sm w-full">
+                        <div className="w-20 h-20 mx-auto mb-6 rounded-full bg-gradient-to-br from-purple-500 to-indigo-600 flex items-center justify-center text-white shadow-lg shadow-purple-500/25 animate-pulse">
+                            <span className="material-symbols-outlined text-4xl">psychology</span>
+                        </div>
+                        <h3 className="text-xl font-bold text-slate-900 dark:text-white mb-2">Grading Your Answers</h3>
+                        <p className="text-slate-500 dark:text-slate-400 text-sm">Our AI is reading and evaluating each of your responses. This may take a moment...</p>
+                        <div className="mt-6 w-full h-1.5 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
+                            <div className="h-full bg-gradient-to-r from-purple-500 to-indigo-600 rounded-full animate-[pulse_1.5s_ease-in-out_infinite]" style={{ width: '70%' }}></div>
+                        </div>
+                    </div>
+                </div>
+            )}
             {/* Main Content Area */}
             <main className="flex-1 flex flex-col min-h-screen">
                 {/* Header */}
@@ -946,6 +1446,14 @@ const ExamMode = () => {
                             {startExamError}
                         </div>
                     )}
+                    {submitError && (
+                        <div className="mb-4 rounded-xl border border-red-200 bg-red-50 dark:border-red-800 dark:bg-red-900/20 px-4 py-3 text-sm text-red-800 dark:text-red-300">
+                            {submitError}
+                            {submitError === getExamSessionExpiredMessage() && (
+                                <Link to="/login" className="ml-2 font-semibold underline">Sign in</Link>
+                            )}
+                        </div>
+                    )}
 
                     {/* Question Card */}
                     <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-800 p-6 md:p-8 mb-6">
@@ -959,9 +1467,32 @@ const ExamMode = () => {
                             </h2>
                         </div>
 
-                        {/* Options */}
+                        {/* Options / Essay Textarea */}
                         <div className="space-y-2">
-                            {finalOptions.length === 0 ? (
+                            {examFormat === 'essay' ? (
+                                /* Essay textarea */
+                                <div>
+                                    <textarea
+                                        value={selectedAnswers[currentQ._id] || ''}
+                                        onChange={(e) => {
+                                            const val = e.target.value.slice(0, 1500);
+                                            handleAnswerSelect(currentQ._id, val);
+                                        }}
+                                        placeholder="Write your answer here..."
+                                        rows={6}
+                                        className="w-full p-4 rounded-xl border-2 border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white placeholder-slate-400 focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20 outline-none resize-y transition-all text-sm md:text-base"
+                                        style={{ minHeight: '120px', fontSize: '16px' }}
+                                    />
+                                    <div className="flex justify-end mt-1">
+                                        <span className={`text-xs font-medium ${(selectedAnswers[currentQ._id] || '').length >= 1400
+                                            ? 'text-red-500'
+                                            : 'text-slate-400'
+                                            }`}>
+                                            {(selectedAnswers[currentQ._id] || '').length}/1500
+                                        </span>
+                                    </div>
+                                </div>
+                            ) : finalOptions.length === 0 ? (
                                 <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
                                     No options available for this question.
                                 </div>
@@ -996,17 +1527,53 @@ const ExamMode = () => {
                                 })
                             )}
                         </div>
+
+                        {/* Navigation Buttons - inside question card */}
+                        <div className="flex items-center justify-between mt-8 pt-6 border-t border-slate-100 dark:border-slate-800">
+                            <button
+                                onClick={handlePrevious}
+                                disabled={currentQuestion === 0}
+                                className="px-5 py-2.5 rounded-xl text-slate-600 dark:text-slate-400 font-semibold hover:bg-slate-100 dark:hover:bg-slate-800 disabled:opacity-30 disabled:hover:bg-transparent transition-colors flex items-center gap-2"
+                            >
+                                <span className="material-symbols-outlined text-lg">arrow_back</span>
+                                <span>Previous</span>
+                            </button>
+
+                            {currentQuestion === questions.length - 1 ? (
+                                <button
+                                    onClick={handleSubmit}
+                                    disabled={!attemptId || isEssaySubmitBlocked}
+                                    className="px-6 py-2.5 rounded-xl bg-gradient-to-r from-green-500 to-emerald-600 text-white font-semibold shadow-md shadow-green-500/20 hover:shadow-lg transition-all flex items-center gap-2 disabled:opacity-60"
+                                >
+                                    <span>Submit Exam</span>
+                                    <span className="material-symbols-outlined text-lg">check</span>
+                                </button>
+                            ) : (
+                                <button
+                                    onClick={handleNext}
+                                    className={`px-6 py-2.5 rounded-xl font-semibold shadow-md transition-all flex items-center gap-2 ${selectedAnswers[currentQ._id]
+                                        ? 'bg-gradient-to-r from-blue-500 to-indigo-600 text-white shadow-blue-500/20 hover:shadow-lg animate-[pulse_2s_ease-in-out_1]'
+                                        : 'bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 shadow-none'
+                                        }`}
+                                >
+                                    <span>Next</span>
+                                    <span className="material-symbols-outlined text-lg">arrow_forward</span>
+                                </button>
+                            )}
+                        </div>
                     </div>
 
                     {/* Question Navigator - Mobile Only */}
                     <div className="md:hidden bg-white dark:bg-slate-900 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-800 p-4">
                         <div className="flex items-center justify-between mb-3">
                             <span className="text-sm font-medium text-slate-500">Question Navigator</span>
-                            <span className="text-xs text-slate-400">{Object.keys(selectedAnswers).length} of {questions.length} answered</span>
+                            <span className="text-xs text-slate-400">{answeredQuestionCount} of {questions.length} answered</span>
                         </div>
                         <div className="grid grid-cols-8 gap-1.5">
                             {questions.map((q, index) => {
-                                const isAnswered = selectedAnswers[q._id];
+                                const isAnswered = examFormat === 'essay'
+                                    ? String(selectedAnswers[q._id] ?? '').trim().length >= MIN_ESSAY_SUBMIT_CHAR_COUNT
+                                    : Boolean(selectedAnswers[q._id]);
                                 const isCurrent = index === currentQuestion;
                                 return (
                                     <button
@@ -1041,14 +1608,14 @@ const ExamMode = () => {
 
                         <div className="flex-1 text-center">
                             <span className="text-sm text-slate-500">
-                                {Object.keys(selectedAnswers).length} <span className="text-slate-400">/ {questions.length}</span> answered
+                                {answeredQuestionCount} <span className="text-slate-400">/ {questions.length}</span> answered
                             </span>
                         </div>
 
                         {currentQuestion === questions.length - 1 ? (
                             <button
                                 onClick={handleSubmit}
-                                disabled={!attemptId}
+                                disabled={!attemptId || isEssaySubmitBlocked}
                                 className="px-6 py-2.5 rounded-xl bg-green-500 text-white font-semibold shadow-md hover:bg-green-600 transition-all flex items-center gap-1 disabled:opacity-60"
                             >
                                 <span>Submit</span>
@@ -1097,7 +1664,9 @@ const ExamMode = () => {
                         <span className="text-sm font-medium text-slate-600 dark:text-slate-400 block mb-3">Questions</span>
                         <div className="grid grid-cols-5 gap-1.5">
                             {questions.map((q, index) => {
-                                const isAnswered = selectedAnswers[q._id];
+                                const isAnswered = examFormat === 'essay'
+                                    ? String(selectedAnswers[q._id] ?? '').trim().length >= MIN_ESSAY_SUBMIT_CHAR_COUNT
+                                    : Boolean(selectedAnswers[q._id]);
                                 const isCurrent = index === currentQuestion;
                                 return (
                                     <button
@@ -1122,7 +1691,7 @@ const ExamMode = () => {
                 <div className="p-6 border-t border-slate-200 dark:border-slate-800">
                     <button
                         onClick={handleSubmit}
-                        disabled={!attemptId}
+                        disabled={!attemptId || isEssaySubmitBlocked}
                         className="w-full py-3 rounded-xl bg-gradient-to-r from-blue-500 to-indigo-600 text-white font-semibold shadow-md hover:shadow-lg transition-all disabled:opacity-60"
                     >
                         Submit Exam
