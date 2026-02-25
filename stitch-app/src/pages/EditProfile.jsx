@@ -48,10 +48,17 @@ const EditProfile = () => {
     // Initialize form with current profile data
     useEffect(() => {
         if (profile) {
+            const gradientValue = Number(profile.avatarGradient);
+            const safeGradient =
+                Number.isInteger(gradientValue)
+                && gradientValue >= 0
+                && gradientValue < GRADIENTS.length
+                    ? gradientValue
+                    : 0;
             setFullName(profile.fullName || '');
             setEducationLevel(profile.educationLevel || '');
             setDepartment(profile.department || '');
-            setSelectedGradient(profile.avatarGradient || 0);
+            setSelectedGradient(safeGradient);
         }
     }, [profile]);
 
@@ -100,12 +107,12 @@ const EditProfile = () => {
     }
 
     return (
-        <div className="bg-background-light dark:bg-background-dark font-body antialiased text-slate-900 dark:text-slate-100 min-h-screen flex flex-col">
+        <div className="bg-background-light dark:bg-background-dark font-body antialiased text-neutral-900 dark:text-neutral-100 min-h-screen flex flex-col">
             {/* Header */}
-            <header className="sticky top-0 z-50 flex items-center justify-between glass border-b border-slate-200/50 dark:border-slate-800/50 p-4">
+            <header className="sticky top-0 z-50 flex items-center justify-between glass border-b border-neutral-200/50 dark:border-neutral-800/50 p-4">
                 <button 
                     onClick={handleCancel}
-                    className="flex size-10 shrink-0 items-center justify-center rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-500 hover:text-primary transition-all"
+                    className="flex size-10 shrink-0 items-center justify-center rounded-full hover:bg-neutral-100 dark:hover:bg-neutral-800 text-neutral-500 hover:text-primary transition-all"
                 >
                     <span className="material-symbols-outlined">arrow_back</span>
                 </button>
@@ -153,14 +160,14 @@ const EditProfile = () => {
                             />
                         ))}
                     </div>
-                    <p className="text-xs text-slate-400">Choose your avatar color</p>
+                    <p className="text-xs text-neutral-400">Choose your avatar color</p>
                 </section>
 
                 {/* Form Fields */}
                 <section className="space-y-6">
                     {/* Full Name */}
                     <div className="space-y-2">
-                        <label className="text-sm font-bold text-slate-700 dark:text-slate-300">
+                        <label className="text-sm font-bold text-neutral-700 dark:text-neutral-300">
                             Full Name
                         </label>
                         <input
@@ -171,27 +178,27 @@ const EditProfile = () => {
                                 if (error) setError('');
                             }}
                             placeholder="Enter your full name"
-                            className="w-full h-14 px-4 rounded-2xl bg-white dark:bg-surface-dark border-2 border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:border-primary focus:ring-4 focus:ring-primary/10 transition-all"
+                            className="w-full h-14 px-4 rounded-2xl bg-white dark:bg-surface-dark border-2 border-neutral-200 dark:border-neutral-700 text-neutral-900 dark:text-white placeholder:text-neutral-400 focus:outline-none focus:border-primary focus:ring-4 focus:ring-primary/10 transition-all"
                         />
                     </div>
 
                     {/* Education Level */}
                     <div className="space-y-2">
-                        <label className="text-sm font-bold text-slate-700 dark:text-slate-300">
+                        <label className="text-sm font-bold text-neutral-700 dark:text-neutral-300">
                             Education Level
                         </label>
                         <div className="relative">
                             <select
                                 value={educationLevel}
                                 onChange={(e) => setEducationLevel(e.target.value)}
-                                className="w-full h-14 px-4 pr-12 rounded-2xl bg-white dark:bg-surface-dark border-2 border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white appearance-none focus:outline-none focus:border-primary focus:ring-4 focus:ring-primary/10 transition-all cursor-pointer"
+                                className="w-full h-14 px-4 pr-12 rounded-2xl bg-white dark:bg-surface-dark border-2 border-neutral-200 dark:border-neutral-700 text-neutral-900 dark:text-white appearance-none focus:outline-none focus:border-primary focus:ring-4 focus:ring-primary/10 transition-all cursor-pointer"
                             >
                                 <option value="">Select your level</option>
                                 {Object.entries(EDUCATION_LEVELS).map(([key, label]) => (
                                     <option key={key} value={key}>{label}</option>
                                 ))}
                             </select>
-                            <span className="material-symbols-outlined absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none">
+                            <span className="material-symbols-outlined absolute right-4 top-1/2 -translate-y-1/2 text-neutral-400 pointer-events-none">
                                 expand_more
                             </span>
                         </div>
@@ -199,21 +206,21 @@ const EditProfile = () => {
 
                     {/* Department */}
                     <div className="space-y-2">
-                        <label className="text-sm font-bold text-slate-700 dark:text-slate-300">
+                        <label className="text-sm font-bold text-neutral-700 dark:text-neutral-300">
                             Department
                         </label>
                         <div className="relative">
                             <select
                                 value={department}
                                 onChange={(e) => setDepartment(e.target.value)}
-                                className="w-full h-14 px-4 pr-12 rounded-2xl bg-white dark:bg-surface-dark border-2 border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white appearance-none focus:outline-none focus:border-primary focus:ring-4 focus:ring-primary/10 transition-all cursor-pointer"
+                                className="w-full h-14 px-4 pr-12 rounded-2xl bg-white dark:bg-surface-dark border-2 border-neutral-200 dark:border-neutral-700 text-neutral-900 dark:text-white appearance-none focus:outline-none focus:border-primary focus:ring-4 focus:ring-primary/10 transition-all cursor-pointer"
                             >
                                 <option value="">Select your department</option>
                                 {Object.entries(DEPARTMENTS).map(([key, label]) => (
                                     <option key={key} value={key}>{label}</option>
                                 ))}
                             </select>
-                            <span className="material-symbols-outlined absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none">
+                            <span className="material-symbols-outlined absolute right-4 top-1/2 -translate-y-1/2 text-neutral-400 pointer-events-none">
                                 expand_more
                             </span>
                         </div>
@@ -226,7 +233,7 @@ const EditProfile = () => {
                 <div className="max-w-2xl mx-auto flex gap-3">
                     <button
                         onClick={handleCancel}
-                        className="flex-1 h-14 rounded-2xl bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-bold hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors"
+                        className="flex-1 h-14 rounded-2xl bg-neutral-100 dark:bg-neutral-800 text-neutral-700 dark:text-neutral-300 font-bold hover:bg-neutral-200 dark:hover:bg-neutral-700 transition-colors"
                     >
                         Cancel
                     </button>

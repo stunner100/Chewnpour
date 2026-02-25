@@ -17,38 +17,6 @@ import {
     isTransientUploadTransportError,
     uploadToStorageWithRetry,
 } from '../lib/uploadNetworkResilience';
-import { ensurePromiseWithResolvers } from '../lib/runtimePolyfills';
-
-let pdfWorkerInitialized = false;
-
-const extractPdfTextFromFile = async (file) => {
-    ensurePromiseWithResolvers();
-    const pdfjsLib = await import('pdfjs-dist/build/pdf.mjs');
-    if (!pdfWorkerInitialized) {
-        pdfjsLib.GlobalWorkerOptions.workerSrc = new URL(
-            'pdfjs-dist/build/pdf.worker.min.mjs',
-            import.meta.url
-        ).toString();
-        pdfWorkerInitialized = true;
-    }
-
-    const arrayBuffer = await file.arrayBuffer();
-    const loadingTask = pdfjsLib.getDocument({ data: arrayBuffer });
-    const pdf = await loadingTask.promise;
-    const maxPages = Math.min(pdf.numPages, 20);
-    let text = '';
-
-    for (let i = 1; i <= maxPages; i++) {
-        const page = await pdf.getPage(i);
-        const content = await page.getTextContent();
-        const pageText = content.items
-            .map((item) => (typeof item.str === 'string' ? item.str : ''))
-            .join(' ');
-        text += `${pageText}\n`;
-    }
-
-    return text.trim();
-};
 
 const isIgnorableProcessingDispatchError = (error) => {
     const message = String(error?.message || error || '').toLowerCase();
@@ -415,36 +383,11 @@ const DashboardAnalysis = () => {
                 uploadId,
             });
 
-            // Navigate to processing page immediately
-            currentStage = 'navigate_processing_page';
-            reportUploadStage(uploadObservation, currentStage, { courseId, uploadId });
-            navigate(`/dashboard/processing/${courseId}`);
-
-            // Step 5: Trigger AI processing in the background (don't await)
-            let extractedText = '';
-            if (file.type.includes('pdf')) {
-                currentStage = 'extract_pdf_text_preview';
-                reportUploadStage(uploadObservation, currentStage, { uploadId, courseId });
-                try {
-                    extractedText = await extractPdfTextFromFile(file);
-                } catch (pdfError) {
-                    console.error('PDF extraction failed in browser:', pdfError);
-                    reportUploadWarning(
-                        uploadObservation,
-                        currentStage,
-                        'Client-side PDF text preview extraction failed',
-                        {
-                            uploadId,
-                            courseId,
-                            errorMessage: String(pdfError?.message || pdfError),
-                        }
-                    );
-                }
-            }
-
+            // Step 5: Trigger AI processing in the background (don't await).
+            // Dispatch before navigation so quick route transitions can't drop kickoff.
             currentStage = 'dispatch_ai_processing';
             reportUploadStage(uploadObservation, currentStage, { uploadId, courseId });
-            processUploadedFile({ uploadId, courseId, userId, extractedText }).catch((err) => {
+            processUploadedFile({ uploadId, courseId, userId }).catch((err) => {
                 if (isIgnorableProcessingDispatchError(err)) {
                     reportUploadWarning(
                         uploadObservation,
@@ -466,11 +409,16 @@ const DashboardAnalysis = () => {
                     courseId,
                 });
             });
+
+            // Navigate to processing page immediately after kickoff dispatch.
+            currentStage = 'navigate_processing_page';
+            reportUploadStage(uploadObservation, currentStage, { courseId, uploadId });
+            navigate(`/dashboard/processing/${courseId}`);
+
             reportUploadFlowCompleted(uploadObservation, {
                 uploadId,
                 courseId,
                 processingDispatched: true,
-                extractedTextLength: extractedText.length,
             });
         } catch (error) {
             console.error('Upload failed:', error);
@@ -541,10 +489,10 @@ const DashboardAnalysis = () => {
     };
 
     const gradients = [
-        'linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%)', // Indigo -> Violet
-        'linear-gradient(135deg, #3b82f6 0%, #06b6d4 100%)', // Blue -> Cyan
-        'linear-gradient(135deg, #ec4899 0%, #f43f5e 100%)', // Pink -> Rose
-        'linear-gradient(135deg, #10b981 0%, #3b82f6 100%)', // Emerald -> Blue
+        '#7c3aed', // primary (violet)
+        '#f43f5e', // secondary (rose)
+        '#06b6d4', // accent-cyan
+        '#10b981', // accent-emerald
     ];
 
     // Sort courses by creation date descending
@@ -563,19 +511,19 @@ const DashboardAnalysis = () => {
 
     return (
         <div className="bg-background-light dark:bg-background-dark font-body antialiased min-h-screen flex flex-col transition-colors duration-300">
-            <header className="sticky top-0 z-50 w-full glass border-b border-slate-200/50 dark:border-slate-800/50">
+            <header className="sticky top-0 z-50 w-full glass border-b border-neutral-200/50 dark:border-neutral-800/50">
                 <div className="max-w-[1600px] mx-auto px-4 md:px-6 h-16 md:h-20 flex items-center justify-between gap-4 md:gap-8">
                     <div className="flex items-center gap-3 shrink-0">
-                        <div className="w-10 h-10 bg-gradient-to-br from-primary via-purple-500 to-primary rounded-xl flex items-center justify-center text-white shadow-lg shadow-primary/30">
+                        <div className="w-10 h-10 bg-primary rounded-xl flex items-center justify-center text-white shadow-lg shadow-primary/30">
                             <span className="material-symbols-outlined text-[24px]">school</span>
                         </div>
-                        <span className="text-xl font-display font-bold tracking-tight text-slate-900 dark:text-white hidden sm:block">ChewnPour</span>
+                        <span className="text-xl font-display font-bold tracking-tight text-neutral-900 dark:text-white hidden sm:block">ChewnPour</span>
                     </div>
                     <div className="flex-1 max-w-xl hidden md:block">
                         <div className="relative group transition-transform duration-300 focus-within:scale-[1.01]">
-                            <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-primary transition-colors material-symbols-outlined">search</span>
+                            <span className="absolute left-4 top-1/2 -translate-y-1/2 text-neutral-400 group-focus-within:text-primary transition-colors material-symbols-outlined">search</span>
                             <input
-                                className="w-full pl-12 pr-4 py-2.5 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 focus:border-primary/30 rounded-2xl focus:ring-4 focus:ring-primary/5 transition-colors text-sm font-medium placeholder-slate-400 shadow-sm"
+                                className="w-full pl-12 pr-4 py-2.5 bg-white dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 focus:border-primary/30 rounded-2xl focus:ring-4 focus:ring-primary/5 transition-colors text-sm font-medium placeholder-slate-400 shadow-sm"
                                 placeholder="Search courses, topics, or questions..."
                                 type="text"
                                 value={searchQuery}
@@ -587,19 +535,19 @@ const DashboardAnalysis = () => {
                     <div className="flex items-center gap-3 shrink-0">
                         <div className="hidden sm:flex items-center gap-2 bg-gradient-to-r from-orange-50 to-red-50 dark:from-orange-900/20 dark:to-red-900/20 backdrop-blur-sm px-3 py-1.5 rounded-full border border-orange-200 dark:border-orange-800 select-none pointer-events-none">
                             <span className="material-symbols-outlined text-orange-500 text-[18px] filled animate-pulse">local_fire_department</span>
-                            <span className="text-slate-700 dark:text-slate-200 text-xs font-bold">
+                            <span className="text-neutral-700 dark:text-neutral-200 text-xs font-bold">
                                 {userStats?.streakDays || 0} Day Streak
                             </span>
                         </div>
                         <Link to="/profile" className="relative group block">
-                            <div className="h-10 w-10 rounded-full p-0.5 bg-gradient-to-br from-primary via-purple-500 to-primary">
-                                <div className="w-full h-full rounded-full bg-white dark:bg-slate-900 flex items-center justify-center overflow-hidden">
+                            <div className="h-10 w-10 rounded-full p-0.5 bg-primary">
+                                <div className="w-full h-full rounded-full bg-white dark:bg-neutral-900 flex items-center justify-center overflow-hidden">
                                     <span className="text-primary font-bold text-sm">
                                         {user?.name?.[0]?.toUpperCase() || 'S'}
                                     </span>
                                 </div>
                             </div>
-                            <div className="absolute bottom-0 right-0 w-2.5 h-2.5 bg-green-500 border-2 border-white dark:border-slate-900 rounded-full"></div>
+                            <div className="absolute bottom-0 right-0 w-2.5 h-2.5 bg-green-500 border-2 border-white dark:border-neutral-900 rounded-full"></div>
                         </Link>
                     </div>
                 </div>
@@ -607,9 +555,9 @@ const DashboardAnalysis = () => {
             <main className="flex-1 w-full max-w-[1600px] mx-auto px-4 py-8 pb-20 md:px-6 md:py-12 md:pb-12">
                 {/* Mobile Search Bar */}
                 <div className="md:hidden w-full mb-6 relative group transition-transform duration-300 focus-within:scale-[1.01]">
-                    <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-primary transition-colors material-symbols-outlined">search</span>
+                    <span className="absolute left-4 top-1/2 -translate-y-1/2 text-neutral-400 group-focus-within:text-primary transition-colors material-symbols-outlined">search</span>
                     <input
-                        className="w-full pl-12 pr-4 py-3 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 focus:border-primary/30 rounded-2xl focus:ring-4 focus:ring-primary/5 transition-colors text-base font-medium placeholder-slate-400 shadow-sm"
+                        className="w-full pl-12 pr-4 py-3 bg-white dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 focus:border-primary/30 rounded-2xl focus:ring-4 focus:ring-primary/5 transition-colors text-base font-medium placeholder-slate-400 shadow-sm"
                         placeholder="Search courses or topics..."
                         type="text"
                         value={searchQuery}
@@ -620,34 +568,31 @@ const DashboardAnalysis = () => {
 
                 <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
                     <div className="lg:col-span-8 flex flex-col animate-slide-up">
-                        <div className="relative w-full h-full overflow-hidden rounded-3xl bg-gradient-to-br from-white via-slate-50 to-white dark:from-slate-900 dark:via-slate-800/50 dark:to-slate-900 p-6 sm:p-8 md:p-10 shadow-soft border border-slate-200/60 dark:border-slate-800 group isolate">
-                            {/* Decorative background elements */}
-                            <div className="hidden md:block absolute top-0 right-0 w-[400px] h-[400px] bg-gradient-to-br from-primary/5 to-purple-500/5 rounded-full blur-[120px] -z-10 group-hover:opacity-70 transition-opacity duration-700"></div>
-                            <div className="hidden md:block absolute bottom-0 left-0 w-[300px] h-[300px] bg-gradient-to-tr from-blue-500/5 to-transparent rounded-full blur-[100px] -z-10"></div>
+                        <div className="relative w-full h-full overflow-hidden rounded-3xl bg-surface-light dark:bg-surface-dark p-6 sm:p-8 md:p-10 shadow-soft border border-neutral-200/60 dark:border-neutral-800 group isolate">
 
                             <div className="relative z-10 flex flex-col md:flex-row items-start md:items-center justify-between h-full gap-8">
                                 <div className="flex-1 space-y-5">
-                                    <span className="inline-flex items-center gap-2 bg-gradient-to-r from-primary/10 to-purple-500/10 dark:from-primary/20 dark:to-purple-500/20 px-3 py-1.5 rounded-full border border-primary/20 dark:border-primary/30">
-                                        <span className="material-symbols-outlined text-sm filled text-primary">auto_awesome</span>
-                                        <span className="text-xs font-bold uppercase tracking-wider text-primary">AI Powered v2.0</span>
+                                    <span className="badge-primary">
+                                        <span className="material-symbols-outlined text-sm filled">auto_awesome</span>
+                                        AI Powered v2.0
                                     </span>
                                     {subscription && (
                                         subscription.plan === 'premium' ? (
-                                            <span className="inline-flex items-center gap-1.5 bg-gradient-to-r from-amber-500/15 to-orange-500/15 dark:from-amber-500/25 dark:to-orange-500/25 px-3 py-1.5 rounded-full border border-amber-400/30">
+                                            <span className="inline-flex items-center gap-1.5 bg-amber-500/10 dark:bg-amber-500/20 px-3 py-1.5 rounded-full border border-amber-400/30">
                                                 <span className="text-amber-500 text-xs">✦</span>
                                                 <span className="text-xs font-bold uppercase tracking-wider text-amber-600 dark:text-amber-400">Premium</span>
                                             </span>
                                         ) : (
-                                            <span className="inline-flex items-center gap-1.5 bg-slate-100 dark:bg-slate-800 px-3 py-1.5 rounded-full border border-slate-200 dark:border-slate-700">
-                                                <span className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Free Plan</span>
+                                            <span className="inline-flex items-center gap-1.5 bg-neutral-100 dark:bg-neutral-800 px-3 py-1.5 rounded-full border border-neutral-200 dark:border-neutral-700">
+                                                <span className="text-xs font-bold uppercase tracking-wider text-neutral-500 dark:text-neutral-400">Free Plan</span>
                                             </span>
                                         )
                                     )}
-                                    <h1 className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-display font-extrabold text-slate-900 dark:text-white leading-[1.15] tracking-tight">
+                                    <h1 className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-display font-extrabold text-neutral-900 dark:text-white leading-[1.15] tracking-tight">
                                         Turn Your Slides into <br />
-                                        <span className="text-transparent bg-clip-text bg-gradient-to-r from-primary via-purple-600 to-primary bg-[length:200%_auto] animate-gradient-x">Smart Lessons & Quizzes</span>
+                                        <span className="text-primary">Smart Lessons & Quizzes</span>
                                     </h1>
-                                    <p className="text-slate-500 dark:text-slate-400 text-base md:text-lg font-medium leading-relaxed max-w-lg">
+                                    <p className="text-neutral-500 dark:text-neutral-400 text-base md:text-lg font-medium leading-relaxed max-w-lg">
                                         Upload PDFs, PowerPoints, or Word docs. Our AI transforms them into bite-sized lessons with practice quizzes.
                                     </p>
                                     <div className="pt-2">
@@ -667,33 +612,31 @@ const DashboardAnalysis = () => {
                                         <button
                                             onClick={handleUploadClick}
                                             disabled={uploading}
-                                            className="flex items-center justify-center gap-2 bg-gradient-to-r from-primary to-purple-600 hover:from-primary-hover hover:to-purple-700 active:scale-95 transition-colors text-white px-6 h-12 rounded-2xl text-base font-bold shadow-lg shadow-primary/25 hover:shadow-primary/40 disabled:opacity-50 disabled:cursor-not-allowed w-full sm:w-fit"
+                                            className="btn-primary flex items-center justify-center gap-2 h-12 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed w-full sm:w-fit"
                                         >
                                             <span className="material-symbols-outlined text-[22px] filled">
                                                 {uploading ? 'hourglass_empty' : 'cloud_upload'}
                                             </span>
                                             {uploading ? 'Uploading...' : 'Upload Materials'}
                                         </button>
-                                        <p className="mt-3 text-xs font-medium text-slate-400 dark:text-slate-500 flex items-center gap-1">
+                                        <p className="mt-3 text-xs font-medium text-neutral-400 dark:text-neutral-500 flex items-center gap-1">
                                             <span className="material-symbols-outlined text-[14px] text-green-500">verified</span>
                                             Secure • PDF, PPTX, DOCX • Max 50MB
                                         </p>
                                         {uploadQuota && (
                                             <div className="mt-4 w-full sm:w-72">
                                                 <div className="flex items-center justify-between mb-1.5">
-                                                    <span className="text-xs font-semibold text-slate-600 dark:text-slate-300">
+                                                    <span className="text-xs font-semibold text-neutral-600 dark:text-neutral-300">
                                                         {uploadQuota.remaining} of {uploadQuota.totalAllowed} uploads remaining
                                                     </span>
-                                                    {uploadQuota.remaining === 0 && (
-                                                        <Link
-                                                            to={buildUploadLimitSubscriptionPath()}
-                                                            className="text-[11px] font-bold text-primary hover:text-primary-hover"
-                                                        >
-                                                            Top up now
-                                                        </Link>
-                                                    )}
+                                                    <Link
+                                                        to={buildUploadLimitSubscriptionPath()}
+                                                        className="text-[11px] font-bold text-primary hover:text-primary-hover"
+                                                    >
+                                                        Top up now
+                                                    </Link>
                                                 </div>
-                                                <div className="w-full h-2 bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden">
+                                                <div className="w-full h-2 bg-neutral-200 dark:bg-neutral-700 rounded-full overflow-hidden">
                                                     <div
                                                         className={`h-full rounded-full transition-[width] duration-500 ${uploadQuota.remaining === 0
                                                             ? 'bg-red-500'
@@ -709,19 +652,16 @@ const DashboardAnalysis = () => {
                                     </div>
                                 </div>
                                 <div className="hidden md:flex items-center justify-center relative w-1/3">
-                                    <div className="w-48 h-48 bg-gradient-to-br from-white to-slate-100 dark:from-slate-800 dark:to-slate-900 rounded-[2rem] flex items-center justify-center shadow-xl relative z-10 rotate-3 border border-slate-200/50 dark:border-slate-700/50">
-                                        <div className="absolute inset-2 bg-gradient-to-br from-primary/10 to-purple-500/10 rounded-[1.75rem]"></div>
+                                    <div className="w-48 h-48 bg-surface-light dark:bg-surface-dark rounded-[2rem] flex items-center justify-center shadow-card relative z-10 rotate-3 border border-neutral-200/50 dark:border-neutral-700/50">
+                                        <div className="absolute inset-2 bg-primary/5 rounded-[1.75rem]"></div>
                                         <span className="material-symbols-outlined text-[64px] text-primary relative z-10" style={{ fontVariationSettings: "'FILL' 1" }}>school</span>
                                     </div>
-                                    <div className="absolute -z-10 top-4 right-4 w-48 h-48 bg-gradient-to-br from-primary/30 to-purple-500/30 rounded-[2rem] -rotate-6 blur-xl"></div>
                                 </div>
                             </div>
                         </div>
                     </div>
                     <div className="lg:col-span-4 flex flex-col h-full animate-slide-up animate-delay-100 space-y-4">
-                        <Link to="/dashboard/assignment-helper" className="relative flex-1 flex flex-col justify-between overflow-hidden rounded-2xl bg-gradient-to-br from-blue-500 to-indigo-600 p-5 sm:p-6 shadow-lg shadow-blue-500/20 transition-shadow duration-300 cursor-pointer group hover:shadow-xl hover:shadow-blue-500/30 hover:-translate-y-1">
-                            <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full blur-2xl -translate-y-1/2 translate-x-1/2 group-hover:scale-150 transition-transform duration-500"></div>
-                            <div className="absolute bottom-0 left-0 w-24 h-24 bg-indigo-600/30 rounded-full blur-xl translate-y-1/2 -translate-x-1/2"></div>
+                        <Link to="/dashboard/assignment-helper" className="relative flex-1 flex flex-col justify-between overflow-hidden rounded-2xl bg-primary p-5 sm:p-6 shadow-lg shadow-primary/20 transition-shadow duration-300 cursor-pointer group hover:shadow-xl hover:shadow-primary/30 hover:-translate-y-1">
                             <div className="relative z-10">
                                 <div className="w-12 h-12 rounded-xl bg-white/20 backdrop-blur-sm flex items-center justify-center text-white mb-4">
                                     <span className="material-symbols-outlined text-[28px] filled">assignment</span>
@@ -740,9 +680,7 @@ const DashboardAnalysis = () => {
                                 </div>
                             </div>
                         </Link>
-                        <Link to="/dashboard/humanizer" className="relative flex-1 flex flex-col justify-between overflow-hidden rounded-2xl bg-gradient-to-br from-purple-500 to-pink-600 p-5 sm:p-6 shadow-lg shadow-purple-500/20 transition-shadow duration-300 cursor-pointer group hover:shadow-xl hover:shadow-purple-500/30 hover:-translate-y-1">
-                            <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full blur-2xl -translate-y-1/2 translate-x-1/2 group-hover:scale-150 transition-transform duration-500"></div>
-                            <div className="absolute bottom-0 left-0 w-24 h-24 bg-pink-600/30 rounded-full blur-xl translate-y-1/2 -translate-x-1/2"></div>
+                        <Link to="/dashboard/humanizer" className="relative flex-1 flex flex-col justify-between overflow-hidden rounded-2xl bg-secondary p-5 sm:p-6 shadow-lg shadow-secondary/20 transition-shadow duration-300 cursor-pointer group hover:shadow-xl hover:shadow-secondary/30 hover:-translate-y-1">
                             <div className="relative z-10">
                                 <div className="flex items-center gap-2 mb-4">
                                     <div className="w-12 h-12 rounded-xl bg-white/20 backdrop-blur-sm flex items-center justify-center text-white">
@@ -768,19 +706,19 @@ const DashboardAnalysis = () => {
                     <div className="col-span-1 lg:col-span-12 mt-2 animate-slide-up animate-delay-200">
                         <div className="flex items-center justify-between mb-6 px-1">
                             <div className="flex items-center gap-3">
-                                <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-primary to-purple-600 flex items-center justify-center text-white shadow-lg shadow-primary/20">
+                                <div className="w-10 h-10 rounded-xl bg-primary flex items-center justify-center text-white shadow-lg shadow-primary/20">
                                     <span className="material-symbols-outlined text-xl filled">history</span>
                                 </div>
                                 <div>
-                                    <h2 className="text-xl md:text-2xl font-display font-bold text-slate-900 dark:text-white tracking-tight">Continue Learning</h2>
-                                    <p className="text-slate-500 dark:text-slate-400 text-sm">Pick up where you left off</p>
+                                    <h2 className="text-xl md:text-2xl font-display font-bold text-neutral-900 dark:text-white tracking-tight">Continue Learning</h2>
+                                    <p className="text-neutral-500 dark:text-neutral-400 text-sm">Pick up where you left off</p>
                                 </div>
                             </div>
                             {canToggleAllCourses && (
                                 <button
                                     type="button"
                                     onClick={() => setShowAllCourses((current) => !current)}
-                                    className="hidden sm:flex items-center gap-1 px-3 py-1.5 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 rounded-full text-slate-600 dark:text-slate-300 text-xs font-bold transition-colors"
+                                    className="hidden sm:flex items-center gap-1 px-3 py-1.5 bg-neutral-100 dark:bg-neutral-800 hover:bg-neutral-200 dark:hover:bg-neutral-700 rounded-full text-neutral-600 dark:text-neutral-300 text-xs font-bold transition-colors"
                                     aria-label={showAllCourses ? 'Show fewer courses' : 'View all courses'}
                                 >
                                     {showAllCourses ? 'Show less' : 'View all'}
@@ -801,9 +739,9 @@ const DashboardAnalysis = () => {
                                         <Link
                                             key={course._id}
                                             to={`/dashboard/course/${course._id}`}
-                                            className="group flex flex-col bg-white dark:bg-surface-dark rounded-2xl overflow-hidden shadow-sm border border-slate-200/60 dark:border-slate-800 hover:shadow-xl hover:shadow-slate-200/30 dark:hover:shadow-black/30 hover:-translate-y-1 transition-shadow duration-300 cursor-pointer h-full"
+                                            className="group flex flex-col bg-white dark:bg-surface-dark rounded-2xl overflow-hidden shadow-sm border border-neutral-200/60 dark:border-neutral-800 hover:shadow-xl hover:shadow-slate-200/30 dark:hover:shadow-black/30 hover:-translate-y-1 transition-shadow duration-300 cursor-pointer h-full"
                                         >
-                                            <div className="relative w-full aspect-[16/10] overflow-hidden bg-slate-100 dark:bg-slate-800">
+                                            <div className="relative w-full aspect-[16/10] overflow-hidden bg-neutral-100 dark:bg-neutral-800">
                                                 <button
                                                     onClick={(event) => {
                                                         event.preventDefault();
@@ -811,7 +749,7 @@ const DashboardAnalysis = () => {
                                                         handleDeleteCourse(course);
                                                     }}
                                                     disabled={deletingCourseId === String(course._id)}
-                                                    className="absolute top-2 right-2 z-20 inline-flex h-8 w-8 items-center justify-center rounded-full bg-white/90 dark:bg-slate-900/90 border border-slate-200 dark:border-slate-700 text-slate-500 hover:text-red-500 hover:border-red-200 shadow-sm opacity-0 group-hover:opacity-100 transition-opacity disabled:opacity-60"
+                                                    className="absolute top-2 right-2 z-20 inline-flex h-8 w-8 items-center justify-center rounded-full bg-white/90 dark:bg-neutral-900/90 border border-neutral-200 dark:border-neutral-700 text-neutral-500 hover:text-red-500 hover:border-red-200 shadow-sm opacity-0 group-hover:opacity-100 transition-opacity disabled:opacity-60"
                                                     title="Delete course"
                                                     aria-label={`Delete ${course.title}`}
                                                 >
@@ -835,15 +773,15 @@ const DashboardAnalysis = () => {
                                                         }`}>
                                                         {isCompleted ? 'Completed' : 'In Progress'}
                                                     </span>
-                                                    <span className={`text-xs font-bold ${isExcellent ? 'text-green-600' : isGood ? 'text-blue-600' : 'text-slate-400'}`}>
+                                                    <span className={`text-xs font-bold ${isExcellent ? 'text-green-600' : isGood ? 'text-blue-600' : 'text-neutral-400'}`}>
                                                         {progress}%
                                                     </span>
                                                 </div>
                                                 <div className="flex-1">
-                                                    <h3 className="text-base font-bold text-slate-900 dark:text-white leading-tight mb-1 line-clamp-1 group-hover:text-primary transition-colors">{course.title}</h3>
-                                                    <p className="text-slate-500 dark:text-slate-400 text-xs line-clamp-2">{course.description}</p>
+                                                    <h3 className="text-base font-bold text-neutral-900 dark:text-white leading-tight mb-1 line-clamp-1 group-hover:text-primary transition-colors">{course.title}</h3>
+                                                    <p className="text-neutral-500 dark:text-neutral-400 text-xs line-clamp-2">{course.description}</p>
                                                 </div>
-                                                <div className="w-full h-1.5 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
+                                                <div className="w-full h-1.5 bg-neutral-100 dark:bg-neutral-800 rounded-full overflow-hidden">
                                                     <div
                                                         className={`h-full rounded-full transition-[width] duration-500 ${isExcellent ? 'bg-green-500' : isGood ? 'bg-blue-500' : 'bg-primary'}`}
                                                         style={{ width: `${progress}%` }}
@@ -854,14 +792,14 @@ const DashboardAnalysis = () => {
                                     );
                                 })
                             ) : (
-                                <div className="col-span-full py-12 text-center rounded-2xl border border-dashed border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/30">
-                                    <div className="w-16 h-16 bg-gradient-to-br from-slate-100 to-slate-200 dark:from-slate-800 dark:to-slate-700 rounded-2xl flex items-center justify-center mx-auto mb-3 text-slate-400">
+                                <div className="col-span-full py-12 text-center rounded-2xl border border-dashed border-neutral-200 dark:border-neutral-800 bg-neutral-50/50 dark:bg-neutral-900/30">
+                                    <div className="w-16 h-16 bg-gradient-to-br from-slate-100 to-slate-200 dark:from-slate-800 dark:to-slate-700 rounded-2xl flex items-center justify-center mx-auto mb-3 text-neutral-400">
                                         <span className="material-symbols-outlined text-3xl">school</span>
                                     </div>
-                                    <h3 className="text-base font-bold text-slate-900 dark:text-white mb-1">
+                                    <h3 className="text-base font-bold text-neutral-900 dark:text-white mb-1">
                                         {searchQuery.trim() ? 'No matching courses' : 'No courses yet'}
                                     </h3>
-                                    <p className="text-slate-500 dark:text-slate-400 text-sm mb-4 max-w-xs mx-auto">
+                                    <p className="text-neutral-500 dark:text-neutral-400 text-sm mb-4 max-w-xs mx-auto">
                                         {searchQuery.trim()
                                             ? 'Try a different keyword or press Enter to search.'
                                             : 'Upload your first study material to get started!'}
@@ -883,13 +821,13 @@ const DashboardAnalysis = () => {
                                 type="button"
                                 onClick={handleUploadClick}
                                 disabled={uploading}
-                                className="flex flex-col items-center justify-center bg-slate-50 dark:bg-slate-800/50 rounded-2xl border-2 border-dashed border-slate-300 dark:border-slate-700 text-slate-500 hover:border-primary hover:bg-primary/5 hover:text-primary transition-colors duration-300 cursor-pointer min-h-[220px] group h-full disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:border-slate-300 disabled:hover:bg-slate-50 disabled:hover:text-slate-500"
+                                className="flex flex-col items-center justify-center bg-neutral-50 dark:bg-neutral-800/50 rounded-2xl border-2 border-dashed border-neutral-300 dark:border-neutral-700 text-neutral-500 hover:border-primary hover:bg-primary/5 hover:text-primary transition-colors duration-300 cursor-pointer min-h-[220px] group h-full disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:border-neutral-300 disabled:hover:bg-neutral-50 disabled:hover:text-neutral-500"
                             >
-                                <div className="w-14 h-14 rounded-xl bg-white dark:bg-slate-800 shadow-sm flex items-center justify-center mb-3 group-hover:scale-110 transition-transform duration-300">
+                                <div className="w-14 h-14 rounded-xl bg-white dark:bg-neutral-800 shadow-sm flex items-center justify-center mb-3 group-hover:scale-110 transition-transform duration-300">
                                     <span className="material-symbols-outlined text-2xl text-primary">add</span>
                                 </div>
                                 <span className="font-bold text-base">Add New Course</span>
-                                <span className="text-xs text-slate-400 mt-1">PDF, PPTX, DOCX</span>
+                                <span className="text-xs text-neutral-400 mt-1">PDF, PPTX, DOCX</span>
                             </button>
                         </div>
                         {deleteError && (
@@ -903,20 +841,20 @@ const DashboardAnalysis = () => {
                 {performanceInsights && (
                     <div className="mt-8 animate-slide-up animate-delay-300">
                         <div className="flex items-center gap-3 mb-6 px-1">
-                            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-white shadow-lg shadow-indigo-500/20">
+                            <div className="w-10 h-10 rounded-xl bg-primary flex items-center justify-center text-white shadow-lg shadow-primary/20">
                                 <span className="material-symbols-outlined text-xl filled">insights</span>
                             </div>
                             <div>
-                                <h2 className="text-xl md:text-2xl font-display font-bold text-slate-900 dark:text-white tracking-tight">Your Progress Snapshot</h2>
-                                <p className="text-slate-500 dark:text-slate-400 text-sm">Based on your exam history</p>
+                                <h2 className="text-xl md:text-2xl font-display font-bold text-neutral-900 dark:text-white tracking-tight">Your Progress Snapshot</h2>
+                                <p className="text-neutral-500 dark:text-neutral-400 text-sm">Based on your exam history</p>
                             </div>
                         </div>
 
                         {/* Preparedness gauge */}
-                        <div className="mb-6 bg-white dark:bg-surface-dark rounded-2xl border border-slate-200/60 dark:border-slate-800 p-5 flex items-center gap-5 shadow-sm">
+                        <div className="mb-6 bg-white dark:bg-surface-dark rounded-2xl border border-neutral-200/60 dark:border-neutral-800 p-5 flex items-center gap-5 shadow-sm">
                             <div className="relative w-16 h-16 shrink-0">
                                 <svg className="w-16 h-16 -rotate-90" viewBox="0 0 64 64">
-                                    <circle cx="32" cy="32" r="26" fill="none" stroke="currentColor" strokeWidth="6" className="text-slate-100 dark:text-slate-800" />
+                                    <circle cx="32" cy="32" r="26" fill="none" stroke="currentColor" strokeWidth="6" className="text-neutral-100 dark:text-neutral-800" />
                                     <circle
                                         cx="32" cy="32" r="26" fill="none" strokeWidth="6"
                                         strokeDasharray={`${(performanceInsights.overallPreparedness / 100) * 163.4} 163.4`}
@@ -930,19 +868,19 @@ const DashboardAnalysis = () => {
                                         }
                                     />
                                 </svg>
-                                <span className="absolute inset-0 flex items-center justify-center text-sm font-extrabold text-slate-900 dark:text-white">
+                                <span className="absolute inset-0 flex items-center justify-center text-sm font-extrabold text-neutral-900 dark:text-white">
                                     {performanceInsights.overallPreparedness}%
                                 </span>
                             </div>
                             <div>
-                                <p className="text-base font-bold text-slate-900 dark:text-white">
+                                <p className="text-base font-bold text-neutral-900 dark:text-white">
                                     {performanceInsights.overallPreparedness >= 80
                                         ? 'Exam Ready'
                                         : performanceInsights.overallPreparedness >= 50
                                             ? 'Almost Ready'
                                             : 'Needs More Practice'}
                                 </p>
-                                <p className="text-sm text-slate-500 dark:text-slate-400">
+                                <p className="text-sm text-neutral-500 dark:text-neutral-400">
                                     {performanceInsights.mastered.length} mastered · {performanceInsights.progressing.length} progressing · {performanceInsights.needsWork.length} needs work
                                 </p>
                             </div>
@@ -998,4 +936,5 @@ const DashboardAnalysis = () => {
     );
 };
 
+export { DashboardAnalysis };
 export default DashboardAnalysis;

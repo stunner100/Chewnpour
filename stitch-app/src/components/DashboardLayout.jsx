@@ -1,4 +1,5 @@
 import React from 'react';
+import { useLocation } from 'react-router-dom';
 import MobileBottomNav from './MobileBottomNav';
 
 /**
@@ -6,10 +7,13 @@ import MobileBottomNav from './MobileBottomNav';
  * Renders the persistent mobile bottom navigation bar on small screens.
  */
 const DashboardLayout = ({ children }) => {
+    const location = useLocation();
+    const hideMobileBottomNav = location.pathname.startsWith('/dashboard/exam');
+
     return (
         <>
             {children}
-            <MobileBottomNav />
+            {!hideMobileBottomNav && <MobileBottomNav />}
         </>
     );
 };

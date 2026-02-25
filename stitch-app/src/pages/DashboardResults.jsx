@@ -60,7 +60,7 @@ const StrengthsAndFocus = ({ answers }) => {
                     </div>
                     <ul className="space-y-2">
                         {strengths.map((a, i) => (
-                            <li key={i} className="text-xs font-medium text-gray-700 dark:text-gray-300 leading-snug">
+                            <li key={i} className="text-xs font-medium text-neutral-700 dark:text-neutral-300 leading-snug">
                                 {truncate(a.questionText)}
                             </li>
                         ))}
@@ -75,7 +75,7 @@ const StrengthsAndFocus = ({ answers }) => {
                     </div>
                     <ul className="space-y-2">
                         {focusAreas.map((a, i) => (
-                            <li key={i} className="text-xs font-medium text-gray-700 dark:text-gray-300 leading-snug">
+                            <li key={i} className="text-xs font-medium text-neutral-700 dark:text-neutral-300 leading-snug">
                                 {truncate(a.questionText)}
                             </li>
                         ))}
@@ -105,31 +105,39 @@ const extractReadinessLabel = (text) => {
 
 const TutorReport = ({ attemptId, storedFeedback }) => {
     const generateFeedback = useAction(api.ai.generateExamFeedback);
-    const [feedback, setFeedback] = useState(storedFeedback || null);
-    const [loading, setLoading] = useState(false);
+    const normalizedStoredFeedback = typeof storedFeedback === 'string'
+        ? storedFeedback.trim()
+        : '';
+    const [generatedFeedback, setGeneratedFeedback] = useState(null);
+    const [loading, setLoading] = useState(() => Boolean(attemptId && !normalizedStoredFeedback));
+    const feedback = normalizedStoredFeedback || generatedFeedback;
 
     useEffect(() => {
-        if (storedFeedback) {
-            setFeedback(storedFeedback);
-            return;
-        }
-        if (!attemptId || loading || feedback) return;
-
-        setLoading(true);
+        if (!attemptId || normalizedStoredFeedback || generatedFeedback !== null) return undefined;
+        let cancelled = false;
         generateFeedback({ attemptId })
-            .then((text) => { if (text) setFeedback(String(text)); })
+            .then((text) => {
+                if (cancelled) return;
+                const normalized = String(text || '').trim();
+                if (normalized) setGeneratedFeedback(normalized);
+            })
             .catch(() => { /* silently degrade */ })
-            .finally(() => setLoading(false));
-    }, [attemptId, storedFeedback]); // eslint-disable-line react-hooks/exhaustive-deps
+            .finally(() => {
+                if (!cancelled) setLoading(false);
+            });
+        return () => {
+            cancelled = true;
+        };
+    }, [attemptId, normalizedStoredFeedback, generatedFeedback, generateFeedback]);
 
     const readinessLabel = feedback ? extractReadinessLabel(feedback) : null;
 
     return (
-        <div className="w-full max-w-2xl bg-surface-light dark:bg-surface-dark border border-gray-100 dark:border-gray-700 rounded-2xl shadow-soft overflow-hidden">
-            <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 dark:border-gray-700/60 bg-gradient-to-r from-primary/5 to-purple-500/5">
+        <div className="w-full max-w-2xl bg-surface-light dark:bg-surface-dark border border-neutral-100 dark:border-neutral-700 rounded-2xl shadow-soft overflow-hidden">
+            <div className="flex items-center justify-between px-6 py-4 border-b border-neutral-100 dark:border-neutral-700/60 bg-gradient-to-r from-primary/5 to-purple-500/5">
                 <div className="flex items-center gap-2">
                     <span className="material-symbols-outlined text-primary text-[22px]">psychology</span>
-                    <span className="text-sm font-bold text-gray-900 dark:text-white">Personal Tutor</span>
+                    <span className="text-sm font-bold text-neutral-900 dark:text-white">Personal Tutor</span>
                 </div>
                 {readinessLabel && (
                     <span className={`text-[11px] font-bold px-3 py-1 rounded-full border ${READINESS_BADGE[readinessLabel] || READINESS_BADGE['Ready']}`}>
@@ -140,18 +148,18 @@ const TutorReport = ({ attemptId, storedFeedback }) => {
             <div className="px-6 py-5">
                 {loading && (
                     <div className="space-y-3">
-                        <div className="h-3 bg-gray-100 dark:bg-gray-800 rounded-full w-full animate-pulse"></div>
-                        <div className="h-3 bg-gray-100 dark:bg-gray-800 rounded-full w-5/6 animate-pulse"></div>
-                        <div className="h-3 bg-gray-100 dark:bg-gray-800 rounded-full w-4/6 animate-pulse"></div>
-                        <div className="h-3 bg-gray-100 dark:bg-gray-800 rounded-full w-full animate-pulse mt-4"></div>
-                        <div className="h-3 bg-gray-100 dark:bg-gray-800 rounded-full w-3/4 animate-pulse"></div>
+                        <div className="h-3 bg-neutral-100 dark:bg-neutral-800 rounded-full w-full animate-pulse"></div>
+                        <div className="h-3 bg-neutral-100 dark:bg-neutral-800 rounded-full w-5/6 animate-pulse"></div>
+                        <div className="h-3 bg-neutral-100 dark:bg-neutral-800 rounded-full w-4/6 animate-pulse"></div>
+                        <div className="h-3 bg-neutral-100 dark:bg-neutral-800 rounded-full w-full animate-pulse mt-4"></div>
+                        <div className="h-3 bg-neutral-100 dark:bg-neutral-800 rounded-full w-3/4 animate-pulse"></div>
                     </div>
                 )}
                 {!loading && feedback && (
-                    <p className="text-sm text-gray-700 dark:text-gray-300 leading-relaxed whitespace-pre-line">{feedback}</p>
+                    <p className="text-sm text-neutral-700 dark:text-neutral-300 leading-relaxed whitespace-pre-line">{feedback}</p>
                 )}
                 {!loading && !feedback && (
-                    <p className="text-sm text-gray-400 dark:text-gray-500">Tutor feedback unavailable for this attempt.</p>
+                    <p className="text-sm text-neutral-400 dark:text-neutral-500">Tutor feedback unavailable for this attempt.</p>
                 )}
             </div>
         </div>
@@ -229,18 +237,18 @@ const DashboardResults = () => {
     const answers = attempt.answers || [];
 
     return (
-        <div className="bg-background-light dark:bg-background-dark font-display antialiased text-[#0d161c] dark:text-white min-h-screen flex flex-col">
-            <header className="w-full bg-surface-light dark:bg-surface-dark border-b border-gray-100 dark:border-gray-800 sticky top-0 z-30 shadow-sm">
+        <div className="bg-background-light dark:bg-background-dark font-display antialiased text-neutral-900 dark:text-white min-h-screen flex flex-col">
+            <header className="w-full bg-surface-light dark:bg-surface-dark border-b border-neutral-100 dark:border-neutral-800 sticky top-0 z-30 shadow-sm">
                 <div className="max-w-7xl mx-auto flex items-center justify-between px-6 py-4">
                     <div className="flex items-center gap-4">
                         <div className="flex flex-col">
-                            <h1 className="text-xl font-bold text-gray-900 dark:text-white leading-tight">Exam Results</h1>
-                            <span className="text-sm font-medium text-gray-400 dark:text-gray-500">{attempt.topicTitle || 'ChewnPour Mode'}</span>
+                            <h1 className="text-xl font-bold text-neutral-900 dark:text-white leading-tight">Exam Results</h1>
+                            <span className="text-sm font-medium text-neutral-400 dark:text-neutral-500">{attempt.topicTitle || 'ChewnPour Mode'}</span>
                         </div>
                     </div>
                     <div className="flex items-center gap-4">
-                        <Link to="/dashboard" className="flex items-center justify-center bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors rounded-full h-10 w-10">
-                            <span className="material-symbols-outlined text-gray-600 dark:text-gray-300">close</span>
+                        <Link to="/dashboard" className="flex items-center justify-center bg-neutral-100 dark:bg-neutral-800 hover:bg-neutral-200 dark:hover:bg-neutral-700 transition-colors rounded-full h-10 w-10">
+                            <span className="material-symbols-outlined text-neutral-600 dark:text-neutral-300">close</span>
                         </Link>
                     </div>
                 </div>
@@ -249,17 +257,17 @@ const DashboardResults = () => {
             <main className="flex-1 w-full max-w-7xl mx-auto px-6 py-8 flex flex-col gap-8">
                 {/* Score card */}
                 <section className="w-full flex justify-center">
-                    <div className="w-full max-w-2xl bg-surface-light dark:bg-surface-dark border border-gray-100 dark:border-gray-700 rounded-2xl p-8 shadow-soft flex flex-col items-center text-center relative overflow-hidden">
+                    <div className="w-full max-w-2xl bg-surface-light dark:bg-surface-dark border border-neutral-100 dark:border-neutral-700 rounded-2xl p-8 shadow-soft flex flex-col items-center text-center relative overflow-hidden">
                         <div className="absolute top-0 left-0 w-full h-1.5 bg-gradient-to-r from-primary via-purple-500 to-primary"></div>
-                        <h2 className="text-sm font-bold text-gray-400 uppercase tracking-wider mb-4">Overall Score</h2>
+                        <h2 className="text-sm font-bold text-neutral-400 uppercase tracking-wider mb-4">Overall Score</h2>
                         <div className="flex items-baseline justify-center gap-1 mb-2">
-                            <span className="text-7xl font-extrabold text-gray-900 dark:text-white tracking-tight">{percentage}</span>
-                            <span className="text-3xl text-gray-400 font-bold">/100</span>
+                            <span className="text-7xl font-extrabold text-neutral-900 dark:text-white tracking-tight">{percentage}</span>
+                            <span className="text-3xl text-neutral-400 font-bold">/100</span>
                         </div>
-                        <div className="text-sm font-semibold text-gray-500 dark:text-gray-400">
+                        <div className="text-sm font-semibold text-neutral-500 dark:text-neutral-400">
                             {attempt.score} correct out of {totalQuestions}
                         </div>
-                        <div className="mt-4 flex items-center gap-3 text-xs font-bold text-gray-500">
+                        <div className="mt-4 flex items-center gap-3 text-xs font-bold text-neutral-500">
                             <span className="px-3 py-1 rounded-full bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-300">
                                 {attempt.score} Correct
                             </span>
@@ -280,7 +288,7 @@ const DashboardResults = () => {
 
                 {/* Tutor Report */}
                 <section className="w-full flex justify-center">
-                    <TutorReport attemptId={attemptId} storedFeedback={attempt.tutorFeedback} />
+                    <TutorReport key={attemptId} attemptId={attemptId} storedFeedback={attempt.tutorFeedback} />
                 </section>
 
                 {/* Question Review */}
@@ -289,12 +297,12 @@ const DashboardResults = () => {
                         <div className="bg-primary/10 p-2 rounded-xl text-primary shadow-sm">
                             <span className="material-symbols-outlined text-[24px]">quiz</span>
                         </div>
-                        <h3 className="text-xl font-bold text-gray-900 dark:text-white">Question Review</h3>
+                        <h3 className="text-xl font-bold text-neutral-900 dark:text-white">Question Review</h3>
                     </div>
 
                     {answers.length === 0 ? (
-                        <div className="bg-surface-light dark:bg-surface-dark border border-gray-100 dark:border-gray-700 rounded-3xl p-6 shadow-card">
-                            <p className="text-gray-600 dark:text-gray-400">No answers recorded for this attempt.</p>
+                        <div className="bg-surface-light dark:bg-surface-dark border border-neutral-100 dark:border-neutral-700 rounded-3xl p-6 shadow-card">
+                            <p className="text-neutral-600 dark:text-neutral-400">No answers recorded for this attempt.</p>
                         </div>
                     ) : (
                         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -304,12 +312,12 @@ const DashboardResults = () => {
                                 const correctAnswerText = getOptionText(answer.options, answer.correctAnswer) || answer.correctAnswer;
                                 const isCorrect = Boolean(answer.isCorrect);
                                 return (
-                                    <div key={`${answer.questionId}-${index}`} className="bg-surface-light dark:bg-surface-dark border border-gray-100 dark:border-gray-700 rounded-3xl p-6 shadow-card">
+                                    <div key={`${answer.questionId}-${index}`} className="bg-surface-light dark:bg-surface-dark border border-neutral-100 dark:border-neutral-700 rounded-3xl p-6 shadow-card">
                                         <div className="flex justify-between items-center mb-4">
                                             <div className="flex items-center gap-2">
-                                                <span className="text-xs font-bold text-gray-400 uppercase tracking-wider">Question {index + 1}</span>
+                                                <span className="text-xs font-bold text-neutral-400 uppercase tracking-wider">Question {index + 1}</span>
                                                 {answer.difficulty && (
-                                                    <span className="text-[10px] font-bold text-gray-400 uppercase">{answer.difficulty}</span>
+                                                    <span className="text-[10px] font-bold text-neutral-400 uppercase">{answer.difficulty}</span>
                                                 )}
                                             </div>
                                             <span className={`text-[11px] font-bold px-3 py-1.5 rounded-lg uppercase tracking-wide border ${isCorrect
@@ -319,7 +327,7 @@ const DashboardResults = () => {
                                                 {isCorrect ? 'Correct' : 'Incorrect'}
                                             </span>
                                         </div>
-                                        <p className="text-lg font-medium text-gray-800 dark:text-gray-200 mb-6 leading-relaxed">
+                                        <p className="text-lg font-medium text-neutral-800 dark:text-neutral-200 mb-6 leading-relaxed">
                                             {questionText}
                                         </p>
 
@@ -333,7 +341,7 @@ const DashboardResults = () => {
                                                     <span className={`text-xs font-bold uppercase block mb-2 ${isCorrect ? 'text-green-600' : 'text-red-600'}`}>
                                                         Your Answer
                                                     </span>
-                                                    <p className="text-sm text-gray-800 dark:text-gray-200 whitespace-pre-wrap leading-relaxed">{answer.selectedAnswer || 'Not answered'}</p>
+                                                    <p className="text-sm text-neutral-800 dark:text-neutral-200 whitespace-pre-wrap leading-relaxed">{answer.selectedAnswer || 'Not answered'}</p>
                                                 </div>
 
                                                 {/* AI Feedback */}
@@ -341,7 +349,7 @@ const DashboardResults = () => {
                                                     <span className="material-symbols-outlined text-purple-600 mt-0.5 text-[24px]">psychology</span>
                                                     <div className="flex-1">
                                                         <span className="text-xs text-purple-600 font-bold uppercase block mb-1">AI Feedback</span>
-                                                        <span className="text-sm font-medium text-gray-800 dark:text-white">{answer.feedback}</span>
+                                                        <span className="text-sm font-medium text-neutral-800 dark:text-white">{answer.feedback}</span>
                                                     </div>
                                                 </div>
 
@@ -351,7 +359,7 @@ const DashboardResults = () => {
                                                         <span className="material-symbols-outlined text-blue-600 mt-0.5 text-[24px]">school</span>
                                                         <div className="flex-1">
                                                             <span className="text-xs text-blue-600 font-bold uppercase block mb-1">Model Answer</span>
-                                                            <span className="text-sm font-medium text-gray-800 dark:text-white">{answer.correctAnswer}</span>
+                                                            <span className="text-sm font-medium text-neutral-800 dark:text-white">{answer.correctAnswer}</span>
                                                         </div>
                                                     </div>
                                                 )}
@@ -370,7 +378,7 @@ const DashboardResults = () => {
                                                         <span className={`text-xs font-bold uppercase block mb-1 ${isCorrect ? 'text-green-600' : 'text-red-600'}`}>
                                                             Your Answer
                                                         </span>
-                                                        <span className="text-base font-bold text-gray-800 dark:text-white">{yourAnswerText}</span>
+                                                        <span className="text-base font-bold text-neutral-800 dark:text-white">{yourAnswerText}</span>
                                                     </div>
                                                 </div>
                                                 {!isCorrect && (
@@ -378,7 +386,7 @@ const DashboardResults = () => {
                                                         <span className="material-symbols-outlined text-green-600 mt-0.5 text-[24px]">check_circle</span>
                                                         <div className="flex-1">
                                                             <span className="text-xs text-green-600 font-bold uppercase block mb-1">Correct Answer</span>
-                                                            <span className="text-base font-bold text-gray-800 dark:text-white">{correctAnswerText}</span>
+                                                            <span className="text-base font-bold text-neutral-800 dark:text-white">{correctAnswerText}</span>
                                                         </div>
                                                     </div>
                                                 )}
@@ -386,10 +394,10 @@ const DashboardResults = () => {
                                         )}
 
                                         {answer.explanation && !answer.feedback && (
-                                            <div className="text-sm text-gray-600 dark:text-gray-400 leading-relaxed bg-gray-50 dark:bg-black/20 p-5 rounded-2xl border border-gray-100 dark:border-gray-700/50">
+                                            <div className="text-sm text-neutral-600 dark:text-neutral-400 leading-relaxed bg-neutral-50 dark:bg-black/20 p-5 rounded-2xl border border-neutral-100 dark:border-neutral-700/50">
                                                 <div className="flex items-center gap-2 mb-2">
                                                     <span className="material-symbols-outlined text-primary text-[20px]">lightbulb</span>
-                                                    <span className="font-bold text-gray-900 dark:text-white">Why?</span>
+                                                    <span className="font-bold text-neutral-900 dark:text-white">Why?</span>
                                                 </div>
                                                 {answer.explanation}
                                             </div>

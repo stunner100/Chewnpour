@@ -3,6 +3,7 @@ import { Link, useNavigate, useParams } from 'react-router-dom';
 import { useQuery, useAction } from 'convex/react';
 import { api } from '../../convex/_generated/api';
 import { useAuth } from '../contexts/AuthContext';
+import { useStudyTimer } from '../hooks/useStudyTimer';
 import { useVoicePlayback } from '../lib/useVoicePlayback';
 import TopicSettingsModal from '../components/TopicSettingsModal';
 import TopicReExplainModal from '../components/TopicReExplainModal';
@@ -20,13 +21,14 @@ import {
     normalizeLessonContent,
     slugifyText,
 } from '../lib/topicContentFormatting';
+import { resolveTopicIllustrationUrl } from '../lib/topicIllustration';
 
 // ── Pure rendering helpers (hoisted out of the component to avoid re-creation) ──
 
 const HEADER_SIZES = {
-    1: "text-3xl md:text-4xl font-extrabold text-[#0d161c] dark:text-white mt-10 md:mt-12 mb-5 md:mb-6 tracking-tight flex items-center gap-3",
-    2: "text-xl md:text-2xl font-bold text-slate-900 dark:text-slate-100 mt-8 md:mt-10 mb-3 md:mb-4 tracking-tight flex items-center gap-2",
-    3: "text-lg md:text-xl font-bold text-slate-800 dark:text-slate-200 mt-6 md:mt-8 mb-2 md:mb-3 flex items-center gap-2"
+    1: "text-3xl md:text-4xl font-extrabold text-neutral-900 dark:text-white mt-10 md:mt-12 mb-5 md:mb-6 tracking-tight flex items-center gap-3",
+    2: "text-xl md:text-2xl font-bold text-neutral-900 dark:text-neutral-100 mt-8 md:mt-10 mb-3 md:mb-4 tracking-tight flex items-center gap-2",
+    3: "text-lg md:text-xl font-bold text-neutral-800 dark:text-neutral-200 mt-6 md:mt-8 mb-2 md:mb-3 flex items-center gap-2"
 };
 
 const getHeaderIcon = (text) => {
@@ -42,7 +44,7 @@ const parseBold = (text, cleanInline, cleanLine) => {
     const parts = text.split(/(\*\*.*?\*\*)/);
     return parts.map((part, i) => {
         if (part.startsWith('**') && part.endsWith('**')) {
-            return <span key={i} className="font-bold text-slate-900 dark:text-white bg-yellow-100/50 dark:bg-yellow-900/30 px-1 rounded">{cleanInline(part.slice(2, -2))}</span>;
+            return <span key={i} className="font-bold text-neutral-900 dark:text-white bg-yellow-100/50 dark:bg-yellow-900/30 px-1 rounded">{cleanInline(part.slice(2, -2))}</span>;
         }
         return cleanLine(part);
     });
@@ -59,6 +61,7 @@ const ALERT_STYLES = {
 const TopicDetail = () => {
     const { topicId } = useParams();
     const { user, profile, updateProfile } = useAuth();
+    useStudyTimer(user?.id);
     const generateQuestions = useAction(api.ai.generateQuestionsForTopic);
     const reExplainTopic = useAction(api.ai.reExplainTopic);
     const synthesizeTopicVoice = useAction(api.ai.synthesizeTopicVoice);
@@ -341,6 +344,7 @@ const TopicDetail = () => {
         : (cleanedTopicTitle || firstLessonHeading || 'Topic Overview');
     const headerTopicTitle = resolvedTopicTitle;
     const heroTopicTitle = resolvedTopicTitle;
+    const topicIllustrationUrl = resolveTopicIllustrationUrl(topic?.illustrationUrl);
     const profileInitial = useMemo(() => {
         const source = profile?.fullName || user?.name || user?.email || '';
         const firstCharacter = String(source).trim().charAt(0);
@@ -571,8 +575,8 @@ const TopicDetail = () => {
         return (
             <div className="bg-background-light dark:bg-background-dark min-h-screen flex items-center justify-center">
                 <div className="text-center max-w-md px-6">
-                    <h2 className="text-xl font-bold text-slate-900 dark:text-white mb-2">Topic not found</h2>
-                    <p className="text-slate-500 font-medium mb-6">Please return to your dashboard and select a topic.</p>
+                    <h2 className="text-xl font-bold text-neutral-900 dark:text-white mb-2">Topic not found</h2>
+                    <p className="text-neutral-500 font-medium mb-6">Please return to your dashboard and select a topic.</p>
                     <Link to="/dashboard" className="inline-flex items-center justify-center px-5 py-2.5 rounded-xl bg-primary text-white font-bold shadow-lg shadow-primary/20">
                         Back to Dashboard
                     </Link>
@@ -586,7 +590,7 @@ const TopicDetail = () => {
             <div className="bg-background-light dark:bg-background-dark min-h-screen flex items-center justify-center">
                 <div className="text-center">
                     <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary mx-auto mb-4"></div>
-                    <p className="text-slate-500 font-medium">Loading lesson...</p>
+                    <p className="text-neutral-500 font-medium">Loading lesson...</p>
                 </div>
             </div>
         );
@@ -596,8 +600,8 @@ const TopicDetail = () => {
         return (
             <div className="bg-background-light dark:bg-background-dark min-h-screen flex items-center justify-center">
                 <div className="text-center max-w-md px-6">
-                    <h2 className="text-xl font-bold text-slate-900 dark:text-white mb-2">Topic not found</h2>
-                    <p className="text-slate-500 font-medium mb-6">We couldn’t find this topic. Please return to your dashboard.</p>
+                    <h2 className="text-xl font-bold text-neutral-900 dark:text-white mb-2">Topic not found</h2>
+                    <p className="text-neutral-500 font-medium mb-6">We couldn’t find this topic. Please return to your dashboard.</p>
                     <Link to="/dashboard" className="inline-flex items-center justify-center px-5 py-2.5 rounded-xl bg-primary text-white font-bold shadow-lg shadow-primary/20">
                         Back to Dashboard
                     </Link>
@@ -607,27 +611,27 @@ const TopicDetail = () => {
     }
 
     return (
-        <div className="bg-background-light dark:bg-background-dark font-display antialiased text-[#0d161c] dark:text-white min-h-screen flex flex-col overflow-x-hidden touch-pan-y">
-            <header className="fixed top-0 inset-x-0 z-40 flex items-center justify-between px-4 py-3 bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl border-b border-slate-200/50 dark:border-slate-800/50">
+        <div className="bg-background-light dark:bg-background-dark font-display antialiased text-neutral-900 dark:text-white min-h-screen flex flex-col overflow-x-hidden touch-pan-y">
+            <header className="fixed top-0 inset-x-0 z-40 flex items-center justify-between px-4 py-3 bg-white/80 dark:bg-neutral-900/80 backdrop-blur-xl border-b border-neutral-200/50 dark:border-neutral-800/50">
                 <div className="flex items-center gap-3">
-                    <Link to={courseId ? `/dashboard/course/${courseId}` : "/dashboard"} className="flex items-center gap-2 text-slate-600 dark:text-slate-400 hover:text-primary transition-colors">
+                    <Link to={courseId ? `/dashboard/course/${courseId}` : "/dashboard"} className="flex items-center gap-2 text-neutral-600 dark:text-neutral-400 hover:text-primary transition-colors">
                         <span className="material-symbols-outlined text-xl">arrow_back</span>
                         <span className="hidden sm:inline text-sm font-medium">Back</span>
                     </Link>
-                    <div className="w-px h-5 bg-slate-200 dark:bg-slate-700"></div>
-                    <Link to="/dashboard" className="hidden sm:flex items-center gap-2 text-slate-600 dark:text-slate-400 hover:text-primary transition-colors">
+                    <div className="w-px h-5 bg-neutral-200 dark:bg-neutral-700"></div>
+                    <Link to="/dashboard" className="hidden sm:flex items-center gap-2 text-neutral-600 dark:text-neutral-400 hover:text-primary transition-colors">
                         <span className="material-symbols-outlined text-xl">home</span>
                         <span className="text-sm font-medium">Dashboard</span>
                     </Link>
-                    <div className="hidden sm:block w-px h-5 bg-slate-200 dark:bg-slate-700"></div>
-                    <span className="text-xs sm:text-sm font-semibold text-slate-700 dark:text-slate-300 truncate max-w-[130px] sm:max-w-[200px] md:max-w-md">
+                    <div className="hidden sm:block w-px h-5 bg-neutral-200 dark:bg-neutral-700"></div>
+                    <span className="text-xs sm:text-sm font-semibold text-neutral-700 dark:text-neutral-300 truncate max-w-[130px] sm:max-w-[200px] md:max-w-md">
                         {headerTopicTitle}
                     </span>
                 </div>
                 <div className="flex items-center gap-2">
                     <button
                         onClick={() => setReadingMode((value) => !value)}
-                        className="hidden lg:flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+                        className="hidden lg:flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium text-neutral-600 dark:text-neutral-400 hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors"
                         title={readingMode ? 'Switch to split view' : 'Switch to focus mode'}
                     >
                         <span className="material-symbols-outlined text-lg">{readingMode ? 'fullscreen' : 'splitscreen'}</span>
@@ -635,13 +639,13 @@ const TopicDetail = () => {
                     </button>
                     <button
                         onClick={() => setSettingsOpen(true)}
-                        className="w-9 h-9 flex items-center justify-center rounded-full text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+                        className="w-9 h-9 flex items-center justify-center rounded-full text-neutral-500 hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors"
                         aria-label="Settings"
                     >
                         <span className="material-symbols-outlined text-xl">settings</span>
                     </button>
                     <Link to="/profile" className="w-9 h-9 rounded-full bg-gradient-to-br from-primary to-purple-500 p-0.5">
-                        <div className="w-full h-full rounded-full bg-white dark:bg-slate-900 flex items-center justify-center">
+                        <div className="w-full h-full rounded-full bg-white dark:bg-neutral-900 flex items-center justify-center">
                             <span className="text-primary font-bold text-xs">{profileInitial}</span>
                         </div>
                     </Link>
@@ -650,27 +654,25 @@ const TopicDetail = () => {
             <main className={`flex-1 w-full mx-auto px-4 md:px-6 lg:px-10 pt-20 md:pt-24 pb-20 md:pb-8 lg:pt-28 lg:pb-12 ${readingMode ? 'max-w-4xl' : 'max-w-[1440px]'}`}>
                 <div className={`grid grid-cols-1 ${readingMode ? '' : 'lg:grid-cols-12'} gap-8 lg:gap-12`}>
                     <div ref={contentRef} className={`${readingMode ? '' : 'lg:col-span-9'} space-y-8`}>
-                        <div className="bg-surface-light dark:bg-surface-dark rounded-2xl md:rounded-3xl p-5 md:p-8 lg:p-10 shadow-card border border-slate-100 dark:border-slate-800 relative">
+                        <div className="bg-surface-light dark:bg-surface-dark rounded-2xl md:rounded-3xl p-5 md:p-8 lg:p-10 shadow-card border border-neutral-100 dark:border-neutral-800 relative">
                             <div className="flex flex-col gap-4 max-w-none">
                                 <span className="md:hidden inline-block w-fit px-3 py-1 text-[10px] font-extrabold tracking-widest uppercase text-primary bg-primary/10 rounded-full border border-primary/10 mb-2">{headerTopicTitle}</span>
-                                <h1 className="text-xl sm:text-2xl lg:text-5xl font-extrabold text-[#0d161c] dark:text-white tracking-tight leading-tight">
+                                <h1 className="text-xl sm:text-2xl lg:text-5xl font-extrabold text-neutral-900 dark:text-white tracking-tight leading-tight">
                                     {heroTopicTitle}
                                 </h1>
-                                <p className="text-slate-500 dark:text-slate-400 text-base lg:text-lg font-medium">{cleanLine(topic?.description || "You're doing great, let's dive in!")}</p>
-                                {topic?.illustrationUrl && (
-                                    <div className="overflow-hidden rounded-2xl border border-slate-200/70 dark:border-slate-700/70 bg-slate-50 dark:bg-slate-900/50">
-                                        <img
-                                            src={topic.illustrationUrl}
-                                            alt={`${heroTopicTitle} illustration`}
-                                            loading="lazy"
-                                            className="h-44 w-full object-cover md:h-64"
-                                        />
-                                    </div>
-                                )}
+                                <p className="text-neutral-500 dark:text-neutral-400 text-base lg:text-lg font-medium">{cleanLine(topic?.description || "You're doing great, let's dive in!")}</p>
+                                <div className="overflow-hidden rounded-2xl border border-neutral-200/70 dark:border-neutral-700/70 bg-neutral-50 dark:bg-neutral-900/50">
+                                    <img
+                                        src={topicIllustrationUrl}
+                                        alt={`${heroTopicTitle} illustration`}
+                                        loading="lazy"
+                                        className="h-44 w-full object-cover md:h-64"
+                                    />
+                                </div>
                                 <div className="pt-2">
                                     <button
                                         onClick={() => setReExplainOpen(true)}
-                                        className="inline-flex items-center gap-2 px-4 py-2.5 bg-slate-50 dark:bg-slate-800/80 text-slate-800 dark:text-white rounded-full transition-shadow duration-200 shadow-soft-ui border border-slate-200/70 dark:border-slate-700/70 cursor-pointer hover:shadow-soft-ui-hover hover:border-primary/30 active:scale-95 active:shadow-inner group"
+                                        className="inline-flex items-center gap-2 px-4 py-2.5 bg-neutral-50 dark:bg-neutral-800/80 text-neutral-800 dark:text-white rounded-full transition-shadow duration-200 shadow-soft-ui border border-neutral-200/70 dark:border-neutral-700/70 cursor-pointer hover:shadow-soft-ui-hover hover:border-primary/30 active:scale-95 active:shadow-inner group"
                                     >
                                         <span className="material-symbols-outlined text-[20px] text-primary group-hover:text-primary/80 transition-colors">lightbulb</span>
                                         <span className="text-xs font-bold tracking-tight">Re-explain differently</span>
@@ -681,7 +683,7 @@ const TopicDetail = () => {
 
                         <div className={`${readingMode ? '' : 'grid grid-cols-1 md:grid-cols-2'} gap-8`}>
                             <div className={`flex flex-col justify-center h-full ${readingMode ? '' : 'md:col-span-2'}`}>
-                                <div className="bg-surface-light dark:bg-surface-dark rounded-3xl p-8 h-full border border-slate-100 dark:border-slate-800 shadow-card hover:shadow-lg transition-shadow duration-300">
+                                <div className="bg-surface-light dark:bg-surface-dark rounded-3xl p-8 h-full border border-neutral-100 dark:border-neutral-800 shadow-card hover:shadow-lg transition-shadow duration-300">
                                     <div className="flex flex-wrap items-center gap-3 mb-6">
                                         <span className="inline-flex items-center px-3 py-1.5 rounded-full text-xs font-bold uppercase tracking-wider bg-primary/10 text-primary border border-primary/10">
                                             Lesson Overview
@@ -699,7 +701,7 @@ const TopicDetail = () => {
                                                         }
                                                     }}
                                                     disabled={!isVoiceSupported || !speechText || voiceStatus === 'loading'}
-                                                    className="inline-flex items-center gap-1 px-3 h-11 min-w-[80px] rounded-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs font-bold text-slate-700 dark:text-slate-200 hover:border-primary/40 hover:text-primary disabled:opacity-50 disabled:cursor-not-allowed"
+                                                    className="inline-flex items-center gap-1 px-3 h-11 min-w-[80px] rounded-full bg-neutral-50 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 text-xs font-bold text-neutral-700 dark:text-neutral-200 hover:border-primary/40 hover:text-primary disabled:opacity-50 disabled:cursor-not-allowed"
                                                 >
                                                     <span className="material-symbols-outlined text-[16px]">
                                                         {voiceStatus === 'loading' ? 'hourglass_top' : (isPaused ? 'play_arrow' : 'volume_up')}
@@ -709,7 +711,7 @@ const TopicDetail = () => {
                                                 <button
                                                     onClick={pauseVoice}
                                                     disabled={!isPlaying}
-                                                    className="inline-flex items-center gap-1 px-3 h-11 min-w-[72px] rounded-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs font-bold text-slate-700 dark:text-slate-200 hover:border-primary/40 hover:text-primary disabled:opacity-50 disabled:cursor-not-allowed"
+                                                    className="inline-flex items-center gap-1 px-3 h-11 min-w-[72px] rounded-full bg-neutral-50 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 text-xs font-bold text-neutral-700 dark:text-neutral-200 hover:border-primary/40 hover:text-primary disabled:opacity-50 disabled:cursor-not-allowed"
                                                 >
                                                     <span className="material-symbols-outlined text-[16px]">pause</span>
                                                     Pause
@@ -717,7 +719,7 @@ const TopicDetail = () => {
                                                 <button
                                                     onClick={stopVoice}
                                                     disabled={!isPlaying && !isPaused}
-                                                    className="inline-flex items-center gap-1 px-3 h-11 min-w-[68px] rounded-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs font-bold text-slate-700 dark:text-slate-200 hover:border-primary/40 hover:text-primary disabled:opacity-50 disabled:cursor-not-allowed"
+                                                    className="inline-flex items-center gap-1 px-3 h-11 min-w-[68px] rounded-full bg-neutral-50 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 text-xs font-bold text-neutral-700 dark:text-neutral-200 hover:border-primary/40 hover:text-primary disabled:opacity-50 disabled:cursor-not-allowed"
                                                 >
                                                     <span className="material-symbols-outlined text-[16px]">stop</span>
                                                     Stop
@@ -733,12 +735,12 @@ const TopicDetail = () => {
                                                 </div>
                                             )}
                                             {isVoiceSupported && !speechText && (
-                                                <div className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-medium text-slate-600">
+                                                <div className="rounded-xl border border-neutral-200 bg-neutral-50 px-3 py-2 text-xs font-medium text-neutral-600">
                                                     No explanation text is available to read aloud.
                                                 </div>
                                             )}
                                             {isVoiceSupported && speechText && (
-                                                <div className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-medium text-slate-600">
+                                                <div className="rounded-xl border border-neutral-200 bg-neutral-50 px-3 py-2 text-xs font-medium text-neutral-600">
                                                     {voiceStatus === 'loading' && 'Generating voice audio...'}
                                                     {voiceStatus === 'playing' && (
                                                         playbackEngine === 'elevenlabs'
@@ -758,7 +760,7 @@ const TopicDetail = () => {
                                     )}
 
                                     {normalizedContent ? (
-                                        <div className="prose prose-base md:prose-lg prose-slate dark:prose-invert max-w-none text-slate-700 dark:text-slate-300 leading-relaxed">
+                                        <div className="prose prose-base md:prose-lg prose-slate dark:prose-invert max-w-none text-neutral-700 dark:text-neutral-300 leading-relaxed">
                                             {parsed.blocks.map((block, index) => {
                                                 if (block.type === 'spacer') {
                                                     return <div key={block.key} className="h-2 md:h-3"></div>;
@@ -801,7 +803,7 @@ const TopicDetail = () => {
 
                                                 if (block.type === 'definition') {
                                                     return (
-                                                        <div key={block.key} className={`my-4 md:my-6 p-5 md:p-6 rounded-[2rem] bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 shadow-sm relative overflow-hidden group hover:shadow-md transition-shadow duration-300 ${animationClass}`} style={animationStyle}>
+                                                        <div key={block.key} className={`my-4 md:my-6 p-5 md:p-6 rounded-[2rem] bg-neutral-50 dark:bg-neutral-800/50 border border-neutral-200 dark:border-neutral-700 shadow-sm relative overflow-hidden group hover:shadow-md transition-shadow duration-300 ${animationClass}`} style={animationStyle}>
                                                             <div className="absolute top-0 right-0 p-4 opacity-5 group-hover:opacity-10 transition-opacity">
                                                                 <span className="material-symbols-outlined text-6xl">menu_book</span>
                                                             </div>
@@ -809,7 +811,7 @@ const TopicDetail = () => {
                                                                 <span className="w-2 h-2 rounded-full bg-primary"></span>
                                                                 {block.term}
                                                             </h4>
-                                                            <div className="text-base md:text-lg font-semibold text-slate-800 dark:text-slate-100 leading-relaxed italic">
+                                                            <div className="text-base md:text-lg font-semibold text-neutral-800 dark:text-neutral-100 leading-relaxed italic">
                                                                 {bold(block.text)}
                                                             </div>
                                                         </div>
@@ -823,7 +825,7 @@ const TopicDetail = () => {
                                                                 <span className="material-symbols-outlined text-[20px]">lightbulb_circle</span>
                                                                 <span className="text-xs font-black uppercase tracking-widest">Example</span>
                                                             </div>
-                                                            <div className="text-slate-700 dark:text-slate-300 text-[15px] md:text-base leading-relaxed">
+                                                            <div className="text-neutral-700 dark:text-neutral-300 text-[15px] md:text-base leading-relaxed">
                                                                 {bold(block.text)}
                                                             </div>
                                                         </div>
@@ -836,7 +838,7 @@ const TopicDetail = () => {
                                                             <div className="mt-1.5 h-5 w-5 rounded-full bg-primary/10 flex items-center justify-center shrink-0 group-hover:bg-primary/20 transition-colors">
                                                                 <span className="material-symbols-outlined text-[14px] text-primary">arrow_forward</span>
                                                             </div>
-                                                            <span className="text-[15px] md:text-base leading-7 text-slate-700 dark:text-slate-300">{bold(block.text)}</span>
+                                                            <span className="text-[15px] md:text-base leading-7 text-neutral-700 dark:text-neutral-300">{bold(block.text)}</span>
                                                         </div>
                                                     );
                                                 }
@@ -847,7 +849,7 @@ const TopicDetail = () => {
                                                             <span className="flex items-center justify-center w-6 h-6 rounded-full bg-primary text-white text-[10px] font-black shrink-0 mt-0.5 shadow-sm shadow-primary/30">
                                                                 {block.num}
                                                             </span>
-                                                            <span className="text-[15px] md:text-base leading-7 text-slate-700 dark:text-slate-300">{bold(block.text)}</span>
+                                                            <span className="text-[15px] md:text-base leading-7 text-neutral-700 dark:text-neutral-300">{bold(block.text)}</span>
                                                         </div>
                                                     );
                                                 }
@@ -856,7 +858,7 @@ const TopicDetail = () => {
                                                     return (
                                                         <div key={block.key} className={`border-l-4 border-primary/30 bg-primary/5 pl-6 md:pl-8 py-5 md:py-6 pr-5 md:pr-6 rounded-r-3xl my-6 md:my-8 relative ${animationClass}`} style={animationStyle}>
                                                             <span className="absolute top-2 left-2 material-symbols-outlined text-primary/10 text-4xl">format_quote</span>
-                                                            <div className="italic text-lg md:text-xl text-slate-600 dark:text-slate-300 font-medium leading-relaxed relative z-10">
+                                                            <div className="italic text-lg md:text-xl text-neutral-600 dark:text-neutral-300 font-medium leading-relaxed relative z-10">
                                                                 {bold(block.text)}
                                                             </div>
                                                         </div>
@@ -864,7 +866,7 @@ const TopicDetail = () => {
                                                 }
 
                                                 return (
-                                                    <p key={block.key} className={`my-3 md:my-4 text-base md:text-lg leading-relaxed text-slate-700 dark:text-slate-300 font-medium ${animationClass}`} style={animationStyle}>
+                                                    <p key={block.key} className={`my-3 md:my-4 text-base md:text-lg leading-relaxed text-neutral-700 dark:text-neutral-300 font-medium ${animationClass}`} style={animationStyle}>
                                                         {bold(block.text)}
                                                     </p>
                                                 );
@@ -872,10 +874,10 @@ const TopicDetail = () => {
                                         </div>
                                     ) : (
                                         <div className="flex flex-col items-center justify-center py-16 text-center opacity-60">
-                                            <div className="w-16 h-16 bg-slate-100 dark:bg-slate-800 rounded-full flex items-center justify-center mb-4 animate-pulse">
-                                                <span className="material-symbols-outlined text-slate-400 text-[32px]">auto_stories</span>
+                                            <div className="w-16 h-16 bg-neutral-100 dark:bg-neutral-800 rounded-full flex items-center justify-center mb-4 animate-pulse">
+                                                <span className="material-symbols-outlined text-neutral-400 text-[32px]">auto_stories</span>
                                             </div>
-                                            <p className="text-slate-500 font-medium text-lg">Preparing your lesson content...</p>
+                                            <p className="text-neutral-500 font-medium text-lg">Preparing your lesson content...</p>
                                         </div>
                                     )}
                                 </div>
@@ -896,14 +898,14 @@ const TopicDetail = () => {
                 </div>
 
                 <div className="mt-12 w-full">
-                    <div className="bg-white dark:bg-slate-900 rounded-2xl p-6 md:p-8 text-center border border-slate-200 dark:border-slate-800 shadow-sm">
-                        <h3 className="text-xl md:text-2xl font-bold text-slate-900 dark:text-white mb-2">Ready to practice?</h3>
-                        <p className="text-slate-500 dark:text-slate-400 text-sm mb-6">Test your knowledge with questions based on this lesson.</p>
+                    <div className="bg-white dark:bg-neutral-900 rounded-2xl p-6 md:p-8 text-center border border-neutral-200 dark:border-neutral-800 shadow-sm">
+                        <h3 className="text-xl md:text-2xl font-bold text-neutral-900 dark:text-white mb-2">Ready to practice?</h3>
+                        <p className="text-neutral-500 dark:text-neutral-400 text-sm mb-6">Test your knowledge with questions based on this lesson.</p>
 
                         <div className="flex flex-col sm:flex-row gap-3 justify-center">
                             <Link
                                 to={topicId ? `/dashboard/concept-intro/${topicId}` : "/dashboard/concept-intro"}
-                                className="inline-flex items-center justify-center gap-2 px-6 py-3 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 rounded-xl text-sm font-semibold hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors"
+                                className="inline-flex items-center justify-center gap-2 px-6 py-3 bg-neutral-100 dark:bg-neutral-800 text-neutral-700 dark:text-neutral-200 rounded-xl text-sm font-semibold hover:bg-neutral-200 dark:hover:bg-neutral-700 transition-colors"
                             >
                                 <span className="material-symbols-outlined text-lg">school</span>
                                 <span>Study Concepts</span>
@@ -929,7 +931,7 @@ const TopicDetail = () => {
                             </div>
                         )}
                         {!prewarmingQuestions && questions.length > 0 && questions.length < EXAM_PREWARM_MIN_QUESTION_COUNT && (
-                            <div className="mt-4 text-xs text-slate-400">
+                            <div className="mt-4 text-xs text-neutral-400">
                                 {questions.length} questions ready • More generating
                             </div>
                         )}
@@ -967,4 +969,5 @@ const TopicDetail = () => {
     );
 };
 
+export { TopicDetail };
 export default TopicDetail;
