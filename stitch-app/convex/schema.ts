@@ -104,6 +104,7 @@ export default defineSchema({
     examAttempts: defineTable({
         userId: v.string(),
         topicId: v.id("topics"),
+        examFormat: v.optional(v.string()), // 'mcq' | 'essay'
         score: v.number(),
         totalQuestions: v.number(),
         timeTakenSeconds: v.number(),

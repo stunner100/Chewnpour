@@ -82,15 +82,9 @@ const Subscription = () => {
     const topUpCredits = toPositiveInt(safeQuota.topUpCredits, 20);
     const topUpPriceMajor = toPositiveInt(safeQuota.topUpPriceMajor, 20);
     const currency = String(safeQuota.currency || 'GHS').toUpperCase();
-    const canTopUp = Boolean(safeQuota.canTopUp);
 
     const handleCheckout = async (event) => {
         event.preventDefault();
-
-        if (!canTopUp) {
-            setError('Top-up is available when your remaining uploads reach 0.');
-            return;
-        }
 
         setLoading(true);
         setError('');
@@ -125,7 +119,7 @@ const Subscription = () => {
                         Upload Top-Up
                     </h1>
                     <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">
-                        Free users get {freeLimit} upload{freeLimit === 1 ? '' : 's'}. Add credits to continue uploading study and assignment files.
+                        Free users get {freeLimit} upload{freeLimit === 1 ? '' : 's'}. Add credits anytime to increase your upload balance.
                     </p>
                 </div>
 
@@ -174,23 +168,13 @@ const Subscription = () => {
                     <button
                         type="button"
                         onClick={handleCheckout}
-                        disabled={loading || quota === undefined || !canTopUp}
-                        className={`w-full h-14 rounded-2xl font-bold text-base transition-all disabled:cursor-not-allowed ${canTopUp
-                            ? 'bg-gradient-to-r from-primary to-blue-600 text-white shadow-lg shadow-primary/20 hover:shadow-xl hover:shadow-primary/25'
-                            : 'bg-slate-200 dark:bg-slate-700 text-slate-400 dark:text-slate-500'}`}
+                        disabled={loading || quota === undefined}
+                        className="w-full h-14 rounded-2xl font-bold text-base transition-all disabled:cursor-not-allowed bg-gradient-to-r from-primary to-blue-600 text-white shadow-lg shadow-primary/20 hover:shadow-xl hover:shadow-primary/25"
                     >
                         {loading
                             ? 'Redirecting to Paystack...'
-                            : !canTopUp
-                                ? `You still have ${remaining} upload${remaining === 1 ? '' : 's'} remaining`
-                                : `Pay ${currency} ${topUpPriceMajor} and get +${topUpCredits} uploads`}
+                            : `Pay ${currency} ${topUpPriceMajor} and get +${topUpCredits} uploads`}
                     </button>
-
-                    {!canTopUp && quota !== undefined && (
-                        <p className="text-sm text-slate-500 dark:text-slate-400 text-center">
-                            Top-up becomes available when your remaining uploads reach 0.
-                        </p>
-                    )}
                 </div>
             </div>
         </div>

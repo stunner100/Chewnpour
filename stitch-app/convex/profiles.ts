@@ -1,18 +1,43 @@
 import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
 
+const normalizeUserId = (value: unknown): string | null => {
+    if (typeof value !== "string") return null;
+    const trimmed = value.trim();
+    return trimmed.length > 0 ? trimmed : null;
+};
+
 // Get the user's profile
 export const getProfile = query({
-    args: { userId: v.optional(v.string()) },
+    args: { userId: v.optional(v.any()) },
     handler: async (ctx, args) => {
-        if (!args.userId) return null;
+        const explicitUserId = normalizeUserId(args.userId);
+        const identity = await ctx.auth.getUserIdentity().catch(() => null);
+        const authenticatedUserId = normalizeUserId(identity?.subject);
+        const effectiveUserId = authenticatedUserId ?? explicitUserId;
 
-        const profile = await ctx.db
-            .query("profiles")
-            .withIndex("by_userId", (q) => q.eq("userId", args.userId))
-            .first();
+        if (!effectiveUserId) return null;
 
-        return profile;
+        // Never allow explicit cross-user lookups from authenticated requests.
+        if (explicitUserId && authenticatedUserId && explicitUserId !== authenticatedUserId) {
+            return null;
+        }
+
+        try {
+            const profile = await ctx.db
+                .query("profiles")
+                .withIndex("by_userId", (q) => q.eq("userId", effectiveUserId))
+                .first();
+
+            return profile;
+        } catch (error) {
+            console.error("[profiles:getProfile] Failed to read profile", {
+                hasExplicitUserId: Boolean(explicitUserId),
+                hasAuthenticatedUserId: Boolean(authenticatedUserId),
+                error: error instanceof Error ? error.message : String(error),
+            });
+            return null;
+        }
     },
 });
 
@@ -24,6 +49,7 @@ export const upsertProfile = mutation({
         educationLevel: v.optional(v.string()),
         department: v.optional(v.string()),
         avatarUrl: v.optional(v.string()),
+        avatarGradient: v.optional(v.number()),
         voiceModeEnabled: v.optional(v.boolean()),
         onboardingCompleted: v.optional(v.boolean()),
     },
@@ -39,6 +65,7 @@ export const upsertProfile = mutation({
             if (args.educationLevel !== undefined) updates.educationLevel = args.educationLevel;
             if (args.department !== undefined) updates.department = args.department;
             if (args.avatarUrl !== undefined) updates.avatarUrl = args.avatarUrl;
+            if (args.avatarGradient !== undefined) updates.avatarGradient = args.avatarGradient;
             if (args.voiceModeEnabled !== undefined) updates.voiceModeEnabled = args.voiceModeEnabled;
             if (args.onboardingCompleted !== undefined) updates.onboardingCompleted = args.onboardingCompleted;
 
@@ -53,6 +80,7 @@ export const upsertProfile = mutation({
                 educationLevel: args.educationLevel,
                 department: args.department,
                 avatarUrl: args.avatarUrl,
+                avatarGradient: args.avatarGradient,
                 voiceModeEnabled: args.voiceModeEnabled ?? false,
                 onboardingCompleted: args.onboardingCompleted ?? false,
                 streakDays: 0,

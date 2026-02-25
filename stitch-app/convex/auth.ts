@@ -7,7 +7,7 @@ export const authComponent = createClient(components.betterAuth, {
     local: {
         schema,
     },
-    verbose: true,
+    verbose: false,
 });
 
 // Export client API functions

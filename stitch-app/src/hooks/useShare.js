@@ -1,20 +1,37 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 
 // Custom toast hook
 export const useToast = () => {
     const [toastMessage, setToastMessage] = useState(null);
+    const dismissTimerRef = useRef(null);
+
+    const clearDismissTimer = useCallback(() => {
+        if (dismissTimerRef.current) {
+            clearTimeout(dismissTimerRef.current);
+            dismissTimerRef.current = null;
+        }
+    }, []);
 
     const showToast = useCallback((message, duration = 3000) => {
+        clearDismissTimer();
         setToastMessage(message);
-        
-        setTimeout(() => {
+
+        dismissTimerRef.current = setTimeout(() => {
             setToastMessage(null);
+            dismissTimerRef.current = null;
         }, duration);
-    }, []);
+    }, [clearDismissTimer]);
 
     const hideToast = useCallback(() => {
+        clearDismissTimer();
         setToastMessage(null);
-    }, []);
+    }, [clearDismissTimer]);
+
+    useEffect(() => {
+        return () => {
+            clearDismissTimer();
+        };
+    }, [clearDismissTimer]);
 
     return { toastMessage, showToast, hideToast };
 };
@@ -25,8 +42,8 @@ export const useShare = () => {
 
     const share = useCallback(async (options = {}) => {
         const {
-            title = 'StudyMate',
-            text = 'Check out my progress on StudyMate!',
+            title = 'ChewnPour',
+            text = 'Check out my progress on ChewnPour!',
             url = window.location.href
         } = options;
 
@@ -61,15 +78,15 @@ export const useShare = () => {
 
     const shareProfile = useCallback((userName) => {
         return share({
-            title: `${userName}'s StudyMate Profile`,
-            text: `Check out ${userName}'s learning progress on StudyMate!`,
+            title: `${userName}'s ChewnPour Profile`,
+            text: `Check out ${userName}'s learning progress on ChewnPour!`,
             url: window.location.href
         });
     }, [share]);
 
-    return { 
-        share, 
-        shareProfile, 
+    return {
+        share,
+        shareProfile,
         toastMessage,
         hideToast
     };

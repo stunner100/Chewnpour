@@ -5,6 +5,8 @@ import ProtectedRoute from './components/ProtectedRoute';
 import DashboardLayout from './components/DashboardLayout';
 import { addSentryBreadcrumb } from './lib/sentry';
 import { attemptChunkRecoveryReload, isChunkLoadError } from './lib/chunkLoadRecovery';
+import SignUpPage from './pages/SignUp';
+import DashboardAnalysisPage from './pages/DashboardAnalysis';
 
 const ChunkRecoveryFallback = ({ componentName }) => (
   <div className="bg-background-light dark:bg-background-dark min-h-screen flex items-center justify-center px-6">
@@ -24,16 +26,47 @@ const ChunkRecoveryFallback = ({ componentName }) => (
   </div>
 );
 
+const resolveLazyRouteModule = (mod, { componentName, namedExport } = {}) => {
+  if (mod?.default) return mod;
+
+  const exportCandidates = [namedExport, componentName]
+    .filter(Boolean)
+    .filter((candidate, index, array) => array.indexOf(candidate) === index);
+
+  for (const candidate of exportCandidates) {
+    if (mod?.[candidate]) {
+      return { default: mod[candidate] };
+    }
+  }
+
+  if (mod && typeof mod === 'object') {
+    const functionExports = Object.entries(mod)
+      .filter(([key, value]) => key !== 'default' && typeof value === 'function');
+    if (functionExports.length === 1) {
+      return { default: functionExports[0][1] };
+    }
+  }
+
+  return null;
+};
+
 const lazyRoute = (importer, { componentName, namedExport } = {}) => lazy(() =>
   importer()
     .then((mod) => {
-      if (mod?.default) return mod;
-      if (namedExport && mod?.[namedExport]) {
-        return { default: mod[namedExport] };
+      const resolvedModule = resolveLazyRouteModule(mod, { componentName, namedExport });
+      if (resolvedModule) {
+        return resolvedModule;
       }
-      throw new Error(
-        `Expected the result of a dynamic import() call with a default export for ${componentName || 'route component'}.`
-      );
+
+      const routeName = componentName || namedExport || 'route';
+      if (attemptChunkRecoveryReload(routeName)) {
+        // Keep Suspense pending until the hard reload starts.
+        return new Promise(() => { });
+      }
+
+      return {
+        default: () => <ChunkRecoveryFallback componentName={routeName} />,
+      };
     })
     .catch((error) => {
       const routeName = componentName || namedExport || 'route';
@@ -52,10 +85,6 @@ const lazyRoute = (importer, { componentName, namedExport } = {}) => lazy(() =>
 
 const LandingPage = lazyRoute(() => import('./pages/LandingPage'), { componentName: 'LandingPage' });
 const Login = lazyRoute(() => import('./pages/Login'), { componentName: 'Login' });
-const SignUp = lazyRoute(() => import('./pages/SignUp'), {
-  componentName: 'SignUp',
-  namedExport: 'SignUp',
-});
 const ResetPassword = lazyRoute(() => import('./pages/ResetPassword'), { componentName: 'ResetPassword' });
 const OnboardingName = lazyRoute(() => import('./pages/OnboardingName'), { componentName: 'OnboardingName' });
 const OnboardingLevel = lazyRoute(() => import('./pages/OnboardingLevel'), { componentName: 'OnboardingLevel' });
@@ -63,12 +92,14 @@ const OnboardingDepartment = lazyRoute(() => import('./pages/OnboardingDepartmen
 const Subscription = lazyRoute(() => import('./pages/Subscription'), { componentName: 'Subscription' });
 const SubscriptionCallback = lazyRoute(() => import('./pages/SubscriptionCallback'), { componentName: 'SubscriptionCallback' });
 const DashboardSearch = lazyRoute(() => import('./pages/DashboardSearch'), { componentName: 'DashboardSearch' });
-const DashboardAnalysis = lazyRoute(() => import('./pages/DashboardAnalysis'), { componentName: 'DashboardAnalysis' });
 const DashboardProcessing = lazyRoute(() => import('./pages/DashboardProcessing'), {
   componentName: 'DashboardProcessing',
   namedExport: 'DashboardProcessing',
 });
-const DashboardCourse = lazyRoute(() => import('./pages/DashboardCourse'), { componentName: 'DashboardCourse' });
+const DashboardCourse = lazyRoute(() => import('./pages/DashboardCourse'), {
+  componentName: 'DashboardCourse',
+  namedExport: 'DashboardCourse',
+});
 const TopicDetail = lazyRoute(() => import('./pages/TopicDetail'), {
   componentName: 'TopicDetail',
   namedExport: 'TopicDetail',
@@ -155,7 +186,7 @@ function App() {
         {/* Public Routes */}
         <Route path="/" element={withSuspense(<LandingPage />)} />
         <Route path="/login" element={withSuspense(<Login />)} />
-        <Route path="/signup" element={withSuspense(<SignUp />)} />
+        <Route path="/signup" element={withSuspense(<SignUpPage />)} />
         <Route path="/reset-password" element={withSuspense(<ResetPassword />)} />
 
         {/* Onboarding Routes */}
@@ -164,7 +195,7 @@ function App() {
         <Route path="/onboarding/department" element={withSuspense(<ProtectedRoute><OnboardingDepartment /></ProtectedRoute>)} />
 
         {/* Protected Dashboard Routes — wrapped in DashboardLayout for mobile nav */}
-        <Route path="/dashboard" element={withSuspense(<ProtectedRoute><DashboardLayout><DashboardAnalysis /></DashboardLayout></ProtectedRoute>)} />
+        <Route path="/dashboard" element={withSuspense(<ProtectedRoute><DashboardLayout><DashboardAnalysisPage /></DashboardLayout></ProtectedRoute>)} />
         <Route path="/dashboard/search" element={withSuspense(<ProtectedRoute><DashboardLayout><DashboardSearch /></DashboardLayout></ProtectedRoute>)} />
         <Route path="/dashboard/processing" element={withSuspense(<ProtectedRoute><DashboardLayout><DashboardProcessing /></DashboardLayout></ProtectedRoute>)} />
         <Route path="/dashboard/processing/:courseId" element={withSuspense(<ProtectedRoute><DashboardLayout><DashboardProcessing /></DashboardLayout></ProtectedRoute>)} />

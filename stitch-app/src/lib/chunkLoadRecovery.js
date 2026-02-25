@@ -1,0 +1,92 @@
+const CHUNK_RECOVERY_TS_KEY_PREFIX = '__chunk_recovery_reload_ts:';
+const CHUNK_RECOVERY_WINDOW_MS = 30_000;
+
+const getErrorMessage = (errorLike) => {
+    if (!errorLike) return '';
+    if (typeof errorLike === 'string') return errorLike;
+    if (typeof errorLike.message === 'string') return errorLike.message;
+    if (typeof errorLike.error?.message === 'string') return errorLike.error.message;
+    return String(errorLike);
+};
+
+export const isChunkLoadError = (errorLike) => {
+    const message = getErrorMessage(errorLike).toLowerCase();
+    return (
+        message.includes('failed to fetch dynamically imported module') ||
+        message.includes('importing a module script failed') ||
+        message.includes('chunkloaderror') ||
+        message.includes('loading chunk') ||
+        message.includes('_result.default') ||
+        message.includes("reading 'default'") ||
+        message.includes('expected the result of a dynamic import() call')
+    );
+};
+
+const toScopeKey = (scope) => {
+    const normalizedScope = String(scope || 'global').trim().toLowerCase();
+    const safeScope = normalizedScope.replace(/[^a-z0-9:_-]+/g, '_') || 'global';
+    return `${CHUNK_RECOVERY_TS_KEY_PREFIX}${safeScope}`;
+};
+
+const markRecoveryAttempt = (scope) => {
+    if (typeof window === 'undefined') return false;
+
+    const now = Date.now();
+    const storageKey = toScopeKey(scope);
+
+    try {
+        const lastAttemptRaw = window.sessionStorage.getItem(storageKey);
+        const lastAttempt = Number(lastAttemptRaw);
+
+        if (Number.isFinite(lastAttempt) && now - lastAttempt < CHUNK_RECOVERY_WINDOW_MS) {
+            return false;
+        }
+
+        window.sessionStorage.setItem(storageKey, String(now));
+        return true;
+    } catch {
+        // If sessionStorage is unavailable (private mode / blocked storage),
+        // proceed with a single in-memory attempt using the current runtime.
+        return true;
+    }
+};
+
+const clearBrowserRuntimeCaches = async () => {
+    if (typeof window === 'undefined') return;
+
+    const clearServiceWorkers = async () => {
+        if (!('serviceWorker' in navigator)) return;
+
+        try {
+            const registrations = await navigator.serviceWorker.getRegistrations();
+            await Promise.allSettled(registrations.map((registration) => registration.unregister()));
+        } catch {
+            // Ignore cleanup failures and continue to reload.
+        }
+    };
+
+    const clearCacheStorage = async () => {
+        if (!('caches' in window)) return;
+
+        try {
+            const cacheKeys = await window.caches.keys();
+            await Promise.allSettled(cacheKeys.map((key) => window.caches.delete(key)));
+        } catch {
+            // Ignore cleanup failures and continue to reload.
+        }
+    };
+
+    await Promise.allSettled([clearServiceWorkers(), clearCacheStorage()]);
+};
+
+export const canAttemptChunkRecoveryReload = (scope) => markRecoveryAttempt(scope);
+
+export const attemptChunkRecoveryReload = (scope) => {
+    if (!canAttemptChunkRecoveryReload(scope)) return false;
+
+    void clearBrowserRuntimeCaches().finally(() => {
+        window.location.reload();
+    });
+
+    return true;
+};

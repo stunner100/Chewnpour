@@ -5,11 +5,36 @@ import { useAuth } from '../contexts/AuthContext';
 const SignUp = () => {
     const { signInWithGoogle } = useAuth();
     const [loading, setLoading] = React.useState(false);
+    const [error, setError] = React.useState('');
+
+    const resolveGoogleErrorMessage = (authError) => {
+        const fallbackMessage = 'Failed to continue with Google';
+        if (!authError) return fallbackMessage;
+
+        const rawMessage = String(authError.message || '').trim();
+        if (!rawMessage) return fallbackMessage;
+
+        const normalized = rawMessage.toLowerCase();
+        if (normalized === 'load failed' || normalized === 'failed to fetch') {
+            return 'Unable to reach authentication right now. Please try again.';
+        }
+
+        return rawMessage;
+    };
 
     const handleGoogleSignIn = async () => {
+        setError('');
         setLoading(true);
-        await signInWithGoogle();
-        setLoading(false);
+        try {
+            const { error: signInError } = await signInWithGoogle();
+            if (signInError) {
+                setError(resolveGoogleErrorMessage(signInError));
+            }
+        } catch {
+            setError('Unable to reach authentication right now. Please try again.');
+        } finally {
+            setLoading(false);
+        }
     };
 
     return (
@@ -37,6 +62,12 @@ const SignUp = () => {
                             Join your campus community today to discover resources and study groups.
                         </p>
                     </div>
+
+                    {error && (
+                        <div className="mb-6 rounded-2xl border border-secondary/20 bg-secondary/10 p-4 text-sm font-medium text-secondary animate-scale-in">
+                            {error}
+                        </div>
+                    )}
 
                     {/* Auth Buttons */}
                     <div className="flex flex-col gap-3">
@@ -85,4 +116,5 @@ const SignUp = () => {
     );
 };
 
+export { SignUp };
 export default SignUp;

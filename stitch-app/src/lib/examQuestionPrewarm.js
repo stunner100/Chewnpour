@@ -1,4 +1,4 @@
-export const EXAM_PREWARM_MIN_QUESTION_COUNT = 25;
+export const EXAM_PREWARM_MIN_QUESTION_COUNT = 30;
 
 export const shouldPrewarmExamQuestions = ({
     topicId,

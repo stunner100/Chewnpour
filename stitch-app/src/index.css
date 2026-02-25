@@ -7,7 +7,7 @@
         scroll-behavior: smooth;
         -webkit-font-smoothing: antialiased;
         -moz-osx-font-smoothing: grayscale;
-        font-size: 15px;
+        font-size: 16px;
         min-height: 100%;
         /* Prevent bounce/overscroll effects that cause shake */
         overscroll-behavior: none;
@@ -302,6 +302,51 @@ html.is-safari .safari-backdrop {
     /* Disable smooth scroll on mobile - causes jank/instability */
     html {
         scroll-behavior: auto;
+    }
+
+    /* ── Mobile GPU Performance ── */
+
+    /* Disable expensive backdrop-blur on mobile — creates heavy compositing layers */
+    .glass,
+    .glass-card,
+    .glass-premium,
+    [class*="backdrop-blur"] {
+        -webkit-backdrop-filter: none !important;
+        backdrop-filter: none !important;
+    }
+
+    /* Reduce large decorative blur blobs to simple opacity instead of GPU blur */
+    .safari-blur-heavy,
+    [class*="blur-["] {
+        filter: none !important;
+        opacity: 0.35;
+    }
+
+    /* ── Pause infinite animations on mobile to save CPU/GPU ── */
+    .animate-pulse,
+    .animate-ping,
+    .animate-float,
+    .animate-float-slow,
+    .animate-bounce-soft,
+    .animate-glow-pulse,
+    .animate-shimmer,
+    .animate-gradient,
+    .animate-spin-slow,
+    .animate-pulse-subtle,
+    [class*="animate-gradient-x"] {
+        animation-play-state: paused !important;
+        animation: none !important;
+    }
+
+    /* Keep essential loading spinners running */
+    .animate-spin {
+        animation: spin 1s linear infinite !important;
+    }
+
+    /* Smooth sticky header scrolling */
+    .sticky,
+    .fixed {
+        will-change: transform;
     }
 }
 

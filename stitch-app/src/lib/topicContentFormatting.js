@@ -47,6 +47,11 @@ const shouldMergeParagraphLines = (previousLine, currentLine) => {
     if (/:$/.test(prev) && prev.length < 70) return false;
     if (/[.!?]"?$/.test(prev)) return false;
     if (/^topic\s*\d+[:.-]?/i.test(curr)) return false;
+    // Don't merge pipe-delimited table rows
+    if (/^\|.+\|$/.test(prev) || /^\|.+\|$/.test(curr)) return false;
+    // Don't merge if current line is a known section title
+    const currTitle = curr.replace(/:$/, '').toLowerCase();
+    if (SECTION_TITLES_SET.has(currTitle)) return false;
     return true;
 };
 
@@ -67,24 +72,73 @@ export const isArtifactLine = (value) => {
     return false;
 };
 
+/**
+ * Remove any '[' that has no matching ']' after it, and any ']'
+ * that has no matching '[' before it. Preserves balanced [text] pairs.
+ */
+const stripOrphanBrackets = (str) => {
+    if (!str) return str;
+    if (!str.includes('[') && !str.includes(']')) return str;
+
+    // Pass 1: strip orphaned opening brackets
+    const pass1 = [];
+    let i = 0;
+    while (i < str.length) {
+        if (str[i] === '[') {
+            const close = str.indexOf(']', i + 1);
+            if (close === -1) {
+                // No matching ] — skip the orphaned [
+                i++;
+                continue;
+            }
+            // Has closing ], keep the whole segment
+            pass1.push(str.slice(i, close + 1));
+            i = close + 1;
+        } else {
+            pass1.push(str[i]);
+            i++;
+        }
+    }
+
+    // Pass 2: strip orphaned closing brackets
+    const joined = pass1.join('');
+    return joined.replace(/](?![^[]*\[)/g, (match, offset) => {
+        // Check if there's a matching [ before this ]
+        const before = joined.slice(0, offset);
+        const lastOpen = before.lastIndexOf('[');
+        if (lastOpen === -1) return ''; // No opener, strip it
+        // Check if the opener was already consumed by an earlier ]
+        const closeBetween = before.slice(lastOpen).indexOf(']');
+        if (closeBetween !== -1) return ''; // Opener already matched
+        return match; // Balanced, keep it
+    });
+};
+
 export const cleanInlineText = (text) => {
     if (!text) return '';
-    return String(text)
-        .replace(/\\r\\n/g, ' ')
-        .replace(/\\n/g, ' ')
-        .replace(/\r?\n/g, ' ')
-        .replace(/\\"/g, '"')
-        .replace(/\\([#*_[\]()`>~-])/g, '$1')
-        .replace(/\\+/g, ' ')
-        .replace(/(^|[\s(])\*([^*\n]+)\*([\s).,!?]|$)/g, '$1$2$3')
-        .replace(/(^|[\s(])_([^_\n]+)_([\s).,!?]|$)/g, '$1$2$3')
-        .replace(/\[(.*?)\]\((.*?)\)/g, '$1')
-        .replace(/\[\s*([^\]]+?)\s*\]/g, '$1')
-        .replace(/#{1,6}\s*/g, '')
-        .replace(/`([^`]+)`/g, '$1')
-        .replace(/\s*[*_`|]+\s*/g, (match) => (/^\s*$/.test(match) ? match : ' '))
-        .replace(/\s{2,}/g, ' ')
-        .trim();
+    return stripOrphanBrackets(
+        String(text)
+            .replace(/\\r\\n/g, ' ')
+            .replace(/\\n/g, ' ')
+            .replace(/\r?\n/g, ' ')
+            .replace(/\\"/g, '"')
+            .replace(/\\([#*_[\]()`>~-])/g, '$1')
+            .replace(/\\+/g, ' ')
+            .replace(/(^|[\s(])\*([^*\n]+)\*([\s).,!?]|$)/g, '$1$2$3')
+            .replace(/(^|[\s(])_([^_\n]+)_([\s).,!?]|$)/g, '$1$2$3')
+            .replace(/\[(.*?)\]\((.*?)\)/g, '$1')
+            .replace(/\[\s*([^\]]+?)\s*\]/g, '$1')
+            .replace(/#{1,6}\s*/g, '')
+            .replace(/`([^`]+)`/g, '$1')
+            // Safari-safe markdown marker cleanup (avoids lookbehind syntax).
+            .replace(/(^|[^a-zA-Z0-9])[*_]{2,}(?=[^a-zA-Z0-9]|$)/g, '$1 ')
+            .replace(/(^|[^a-zA-Z0-9])`{1,3}(?=[^a-zA-Z0-9]|$)/g, '$1 ')
+            .replace(/\*\*([^*]+)$/g, '$1')
+            .replace(/^([^*]*)\*\*$/g, '$1')
+            .replace(/\s*\*\s*$/g, '')
+            .replace(/\s{2,}/g, ' ')
+            .trim()
+    );
 };
 
 export const cleanDisplayLine = (text) =>
@@ -117,10 +171,8 @@ export const normalizeLessonContent = (text) => {
         .replace(/\r\n?/g, '\n')
         .replace(/\t/g, ' ')
         .replace(/\\"/g, '"')
-        .replace(/\\([#*_[\]()`>~-])/g, '$1')
-        .replace(/\\(?=\d+[.)])/g, '')
-        .replace(/\\(?=[A-Za-z])/g, '')
-        .replace(/\\+/g, ' ')
+        .replace(/\\\\([#*_[\]()`>~-])/g, '$1')
+        .replace(/\\(?=\s)/g, '')
         .replace(/"\s*>\s*"/g, '\n')
         .replace(/"\s*>\s*/g, '\n')
         .replace(/\s*>\s*"/g, '\n')
@@ -139,12 +191,14 @@ export const normalizeLessonContent = (text) => {
 
     const compactLines = [];
     for (const sourceLine of normalizedBase.split('\n')) {
-        const line = String(sourceLine || '')
-            .replace(/^\\+/, '')
-            .replace(/\s*\\\s*/g, ' ')
-            .replace(/^(\d+)\)\s+/, '$1. ')
-            .replace(/\s{2,}/g, ' ')
-            .trim();
+        const line = stripOrphanBrackets(
+            String(sourceLine || '')
+                .replace(/^\\+/, '')
+                .replace(/\s*\\\s*/g, ' ')
+                .replace(/^(\d+)\)\s+/, '$1. ')
+                .replace(/\s{2,}/g, ' ')
+                .trim()
+        );
 
         if (!line) {
             if (compactLines.length > 0 && compactLines[compactLines.length - 1] !== '') {

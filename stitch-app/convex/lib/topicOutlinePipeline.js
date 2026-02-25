@@ -95,6 +95,14 @@ const isLikelyHeading = (line) => {
     if (!text) return false;
     if (text.length < 4 || text.length > 140) return false;
     if (/^[-=*•]{2,}$/.test(text)) return false;
+
+    // Markdown-style headings: ## Heading, ### Heading
+    if (/^#{1,6}\s+.+/.test(String(line || '').trim())) return true;
+
+    // Bold-text headings: **Section Title** (standalone bold lines)
+    const boldMatch = String(line || '').trim().match(/^\*\*([^*]{3,90})\*\*\s*$/);
+    if (boldMatch) return true;
+
     if (/^[a-z]/.test(text)) return false;
 
     const words = text.split(/\s+/).filter(Boolean);
@@ -462,7 +470,7 @@ export const deriveTargetTopicCount = (options = {}) => {
     const minimum = Math.max(1, Number(options.minimum || 4));
     const maximum = Math.max(minimum, Number(options.maximum || 8));
 
-    const byWords = Math.ceil(wordCount / 1100);
+    const byWords = Math.ceil(wordCount / 800);
     const byChunks = Math.ceil(chunkCount * 0.85);
     const rawTarget = Math.max(2, byWords, byChunks);
     const bounded = clamp(rawTarget, minimum, maximum);
@@ -527,7 +535,8 @@ export const groupChunksIntoTopicBuckets = (chunks, options = {}) => {
         let splitWordCount = -1;
         for (let index = 0; index < groups.length; index += 1) {
             const group = groups[index];
-            if (group.chunkIds.length < 2) continue;
+            // Allow splitting groups with multiple chunks OR single large chunks (text-based split)
+            if (group.chunkIds.length < 2 && group.wordCount < 400) continue;
             if (group.wordCount > splitWordCount) {
                 splitWordCount = group.wordCount;
                 splitIndex = index;
@@ -536,29 +545,62 @@ export const groupChunksIntoTopicBuckets = (chunks, options = {}) => {
         if (splitIndex === -1) break;
 
         const candidate = groups[splitIndex];
-        const midpoint = Math.floor(candidate.chunkIds.length / 2);
-        const leftIds = candidate.chunkIds.slice(0, midpoint);
-        const rightIds = candidate.chunkIds.slice(midpoint);
-        if (leftIds.length === 0 || rightIds.length === 0) break;
-        const left = {
-            id: groups.length,
-            chunkIds: leftIds,
-            headingHints: [...candidate.headingHints],
-            keywords: [...candidate.keywords],
-            majorKeys: [...candidate.majorKeys],
-            wordCount: Math.floor(candidate.wordCount / 2),
-            text: candidate.text,
-        };
-        const right = {
-            id: groups.length + 1,
-            chunkIds: rightIds,
-            headingHints: [...candidate.headingHints],
-            keywords: [...candidate.keywords],
-            majorKeys: [...candidate.majorKeys],
-            wordCount: candidate.wordCount - left.wordCount,
-            text: candidate.text,
-        };
-        groups.splice(splitIndex, 1, left, right);
+
+        // For multi-chunk groups, split by chunk IDs
+        if (candidate.chunkIds.length >= 2) {
+            const midpoint = Math.floor(candidate.chunkIds.length / 2);
+            const leftIds = candidate.chunkIds.slice(0, midpoint);
+            const rightIds = candidate.chunkIds.slice(midpoint);
+            if (leftIds.length === 0 || rightIds.length === 0) break;
+            const left = {
+                id: groups.length,
+                chunkIds: leftIds,
+                headingHints: [...candidate.headingHints],
+                keywords: [...candidate.keywords],
+                majorKeys: [...candidate.majorKeys],
+                wordCount: Math.floor(candidate.wordCount / 2),
+                text: candidate.text,
+            };
+            const right = {
+                id: groups.length + 1,
+                chunkIds: rightIds,
+                headingHints: [...candidate.headingHints],
+                keywords: [...candidate.keywords],
+                majorKeys: [...candidate.majorKeys],
+                wordCount: candidate.wordCount - left.wordCount,
+                text: candidate.text,
+            };
+            groups.splice(splitIndex, 1, left, right);
+        } else {
+            // Single-chunk large group: split by paragraph boundary
+            const paragraphs = candidate.text.split(/\n{2,}/).filter(Boolean);
+            if (paragraphs.length < 2) break;
+            const midPara = Math.floor(paragraphs.length / 2);
+            const leftText = paragraphs.slice(0, midPara).join('\n\n').trim();
+            const rightText = paragraphs.slice(midPara).join('\n\n').trim();
+            if (!leftText || !rightText) break;
+            const leftHeadings = candidate.headingHints.slice(0, Math.max(1, Math.floor(candidate.headingHints.length / 2)));
+            const rightHeadings = candidate.headingHints.slice(Math.max(1, Math.floor(candidate.headingHints.length / 2)));
+            const left = {
+                id: groups.length,
+                chunkIds: [...candidate.chunkIds],
+                headingHints: leftHeadings.length > 0 ? leftHeadings : [...candidate.headingHints],
+                keywords: [...candidate.keywords],
+                majorKeys: [...candidate.majorKeys],
+                wordCount: countWords(leftText),
+                text: leftText,
+            };
+            const right = {
+                id: groups.length + 1,
+                chunkIds: [...candidate.chunkIds],
+                headingHints: rightHeadings.length > 0 ? rightHeadings : [...candidate.headingHints],
+                keywords: extractOutlineKeywords(rightText),
+                majorKeys: [...candidate.majorKeys],
+                wordCount: countWords(rightText),
+                text: rightText,
+            };
+            groups.splice(splitIndex, 1, left, right);
+        }
     }
 
     return groups.map((group, index) => ({ ...group, id: index }));
@@ -592,7 +634,7 @@ export const deriveStructureTopicCount = (sections) => {
         majors.add(section.majorKey);
     }
     if (majors.size >= 2) {
-        return clamp(majors.size, 2, 8);
+        return clamp(majors.size, 2, 15);
     }
     return 0;
 };

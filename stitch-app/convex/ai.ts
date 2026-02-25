@@ -3863,10 +3863,11 @@ Respond with valid JSON only:
             return { score, feedback };
         } catch (error) {
             console.error("Essay grading failed:", error);
-            // Fallback: give benefit of doubt for non-empty answers
+            // Surface as ungraded so caller can prompt retry instead of assigning fallback credit.
             return {
-                score: studentAnswer.trim().length >= 20 ? 3 : 0,
-                feedback: "Unable to grade automatically. Your answer has been recorded.",
+                score: null,
+                feedback: "Unable to grade automatically right now. Please retry submission.",
+                ungraded: true,
             };
         }
     },

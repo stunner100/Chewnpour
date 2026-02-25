@@ -2,14 +2,46 @@ import React, { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 
+const NAME_FORM_ID = 'onboarding-name-form';
+const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+const submitFormWithFallback = (formElement) => {
+    if (!formElement) return;
+
+    if (typeof formElement.requestSubmit === 'function') {
+        formElement.requestSubmit();
+        return;
+    }
+
+    const submitControl = formElement.querySelector('button[type="submit"], input[type="submit"]');
+    if (submitControl && typeof submitControl.click === 'function') {
+        submitControl.click();
+        return;
+    }
+
+    const submitEvent = new Event('submit', { bubbles: true, cancelable: true });
+    formElement.dispatchEvent(submitEvent);
+};
+
 const OnboardingName = () => {
     const [name, setName] = useState('');
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [error, setError] = useState('');
+    const [touched, setTouched] = useState({
+        name: false,
+        email: false,
+        password: false,
+    });
     const [loading, setLoading] = useState(false);
     const { signUp, profile } = useAuth();
     const navigate = useNavigate();
+    const trimmedName = name.trim();
+    const trimmedEmail = email.trim();
+    const isNameValid = trimmedName.length > 0;
+    const isEmailValid = EMAIL_PATTERN.test(trimmedEmail);
+    const isPasswordValid = password.length >= 6;
+    const isSubmitDisabled = loading || !isNameValid || !isEmailValid || !isPasswordValid;
 
     useEffect(() => {
         if (profile?.onboardingCompleted) {
@@ -19,15 +51,15 @@ const OnboardingName = () => {
 
     const handleSubmit = async (e) => {
         e.preventDefault();
-        if (!name.trim()) {
+        if (!isNameValid) {
             setError('Please enter your name');
             return;
         }
-        if (!email.trim()) {
-            setError('Please enter your email');
+        if (!isEmailValid) {
+            setError(trimmedEmail ? 'Please enter a valid email address' : 'Please enter your email');
             return;
         }
-        if (password.length < 6) {
+        if (!isPasswordValid) {
             setError('Password must be at least 6 characters');
             return;
         }
@@ -36,14 +68,14 @@ const OnboardingName = () => {
         setLoading(true);
 
         try {
-            const { data, error } = await signUp(email, password, name);
+            const { error } = await signUp(trimmedEmail, password, trimmedName);
             if (error) {
                 setError(error.message);
             } else {
                 // Continue to next onboarding step
                 navigate('/onboarding/level');
             }
-        } catch (err) {
+        } catch {
             setError('An unexpected error occurred');
         } finally {
             setLoading(false);
@@ -53,14 +85,29 @@ const OnboardingName = () => {
     return (
         <div className="bg-surface dark:bg-mono-dark text-mono-black dark:text-white min-h-screen flex flex-col overflow-x-hidden font-sans">
             <header className="w-full pt-16 pb-4 flex justify-center">
-                <div aria-label="Progress" className="flex gap-4 w-80 max-w-full">
-                    <div className="h-1 flex-1 rounded-full bg-accent-blue shadow-[0_0_12px_rgba(41,98,255,0.6)]"></div>
-                    <div className="h-1 flex-1 rounded-full bg-gray-200 dark:bg-white/10"></div>
-                    <div className="h-1 flex-1 rounded-full bg-gray-200 dark:bg-white/10"></div>
+                <div className="flex flex-col items-center gap-2 w-80 max-w-full">
+                    <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                        Step 1 of 3
+                    </p>
+                    <div aria-label="Progress" className="flex gap-4 w-full">
+                        <div className="h-1 flex-1 rounded-full bg-accent-blue shadow-[0_0_12px_rgba(41,98,255,0.6)]"></div>
+                        <div className="h-1 flex-1 rounded-full bg-gray-200 dark:bg-white/10"></div>
+                        <div className="h-1 flex-1 rounded-full bg-gray-200 dark:bg-white/10"></div>
+                    </div>
                 </div>
             </header>
-            <main className="flex-1 w-full flex flex-col items-center justify-center pb-12 px-6">
-                <form onSubmit={handleSubmit} className="w-full max-w-md flex flex-col items-center gap-8 animate-in fade-in slide-in-from-bottom-6 duration-700">
+            <main className="flex-1 w-full flex flex-col items-center justify-start pb-40 px-6 pt-4">
+                <form
+                    id={NAME_FORM_ID}
+                    onSubmit={handleSubmit}
+                    onKeyDown={(event) => {
+                        if (event.key === 'Enter' && !event.shiftKey) {
+                            event.preventDefault();
+                            submitFormWithFallback(event.currentTarget);
+                        }
+                    }}
+                    className="w-full max-w-md flex flex-col items-center gap-8 animate-in fade-in slide-in-from-bottom-6 duration-700"
+                >
                     <h1 className="text-center text-3xl md:text-4xl font-extrabold text-mono-black dark:text-white leading-[1.1] tracking-tight">
                         Create your account
                     </h1>
@@ -75,14 +122,25 @@ const OnboardingName = () => {
                         <div className="flex flex-col gap-2">
                             <label className="text-sm font-semibold text-mono-black dark:text-white ml-1">Your Name</label>
                             <input
-                                autoFocus
-                                className="w-full h-14 px-5 text-lg font-semibold rounded-xl bg-white dark:bg-gray-800 border-2 border-gray-200 dark:border-gray-700 text-mono-black dark:text-white outline-none focus:border-accent-blue focus:ring-2 focus:ring-accent-blue/20 placeholder:text-gray-400 transition-all duration-300"
+                                className={`w-full h-14 px-5 text-lg font-semibold rounded-xl bg-white dark:bg-gray-800 border-2 text-mono-black dark:text-white outline-none focus:ring-2 focus:ring-accent-blue/20 placeholder:text-gray-400 transition-all duration-300 ${isNameValid
+                                    ? 'border-emerald-400 dark:border-emerald-500 focus:border-emerald-500'
+                                    : 'border-gray-200 dark:border-gray-700 focus:border-accent-blue'
+                                    }`}
                                 placeholder="What should we call you?"
                                 type="text"
                                 value={name}
-                                onChange={(e) => setName(e.target.value)}
+                                onChange={(e) => {
+                                    setName(e.target.value);
+                                    if (error) setError('');
+                                }}
+                                onBlur={() => setTouched((prev) => ({ ...prev, name: true }))}
                                 required
                             />
+                            {(touched.name || name.length > 0) && (
+                                <p className={`text-xs ml-1 ${isNameValid ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-500 dark:text-red-400'}`}>
+                                    {isNameValid ? 'Looks good.' : 'Enter your name to continue.'}
+                                </p>
+                            )}
                         </div>
 
                         <div className="flex flex-col gap-2">
@@ -92,9 +150,18 @@ const OnboardingName = () => {
                                 placeholder="student@university.edu"
                                 type="email"
                                 value={email}
-                                onChange={(e) => setEmail(e.target.value)}
+                                onChange={(e) => {
+                                    setEmail(e.target.value);
+                                    if (error) setError('');
+                                }}
+                                onBlur={() => setTouched((prev) => ({ ...prev, email: true }))}
                                 required
                             />
+                            {(touched.email || email.length > 0) && (
+                                <p className={`text-xs ml-1 ${isEmailValid ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-500 dark:text-red-400'}`}>
+                                    {isEmailValid ? 'Valid email address.' : 'Enter a valid email address.'}
+                                </p>
+                            )}
                         </div>
 
                         <div className="flex flex-col gap-2">
@@ -104,27 +171,40 @@ const OnboardingName = () => {
                                 placeholder="Create a strong password"
                                 type="password"
                                 value={password}
-                                onChange={(e) => setPassword(e.target.value)}
+                                onChange={(e) => {
+                                    setPassword(e.target.value);
+                                    if (error) setError('');
+                                }}
+                                onBlur={() => setTouched((prev) => ({ ...prev, password: true }))}
                                 minLength={6}
                                 required
                             />
-                            <p className="text-xs text-gray-400 ml-1">At least 6 characters</p>
+                            {(touched.password || password.length > 0) && (
+                                <p className={`text-xs ml-1 ${isPasswordValid ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-500 dark:text-red-400'}`}>
+                                    {isPasswordValid ? 'Strong enough.' : 'At least 6 characters required.'}
+                                </p>
+                            )}
                         </div>
                     </div>
-
-                    <button
-                        type="submit"
-                        disabled={loading}
-                        className="w-full h-16 bg-mono-black dark:bg-white text-white dark:text-mono-black hover:bg-mono-dark/90 dark:hover:bg-gray-100 hover:-translate-y-0.5 active:translate-y-0 active:scale-[0.98] transition-all duration-200 rounded-full font-bold text-xl shadow-xl flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                        {loading ? 'Creating account...' : 'Continue'}
-                    </button>
 
                     <p className="text-center text-gray-500 dark:text-gray-400 text-sm">
                         Already have an account? <Link to="/login" className="text-accent-blue font-bold hover:underline">Log in</Link>
                     </p>
                 </form>
             </main>
+
+            <div className="fixed bottom-0 left-0 w-full p-6 bg-gradient-to-t from-surface via-surface to-transparent dark:from-mono-dark dark:via-mono-dark pointer-events-none">
+                <div className="max-w-md mx-auto pointer-events-auto">
+                    <button
+                        type="submit"
+                        form={NAME_FORM_ID}
+                        disabled={isSubmitDisabled}
+                        className="w-full h-16 bg-mono-black dark:bg-white text-white dark:text-mono-black hover:bg-mono-dark/90 dark:hover:bg-gray-100 hover:-translate-y-0.5 active:translate-y-0 active:scale-[0.98] transition-all duration-200 rounded-full font-bold text-xl shadow-xl flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                        {loading ? 'Creating account...' : 'Continue'}
+                    </button>
+                </div>
+            </div>
         </div>
     );
 };

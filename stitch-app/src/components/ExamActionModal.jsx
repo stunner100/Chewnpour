@@ -132,11 +132,6 @@ const ExamActionModal = ({ isOpen, onClose, attempt }) => {
         onClose();
     };
 
-    // Prevent touch events from bubbling when scrolling content
-    const handleContentTouch = useCallback((e) => {
-        e.stopPropagation();
-    }, []);
-
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
             {/* Backdrop */}

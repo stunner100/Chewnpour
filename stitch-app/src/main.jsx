@@ -8,9 +8,49 @@ import { attemptChunkRecoveryReload, isChunkLoadError } from './lib/chunkLoadRec
 import { convexSiteUrl } from './lib/convex-config.js';
 import { initSentry } from './lib/sentry.js';
 import { initPostHog } from './lib/posthog.js';
+import { ensurePromiseWithResolvers } from './lib/runtimePolyfills.js';
+import { stashOttFromUrl } from './lib/ott.js';
 import { initializeTheme } from './lib/theme.js';
 
 initializeTheme();
+ensurePromiseWithResolvers();
+stashOttFromUrl();
+
+const ensureMetaTag = ({ property, name, content }) => {
+  if (!content || typeof document === 'undefined') return;
+
+  const selector = property
+    ? `meta[property="${property}"]`
+    : `meta[name="${name}"]`;
+
+  let meta = document.head?.querySelector(selector) || document.querySelector(selector);
+  if (!meta) {
+    meta = document.createElement('meta');
+    if (property) {
+      meta.setAttribute('property', property);
+    }
+    if (name) {
+      meta.setAttribute('name', name);
+    }
+    document.head?.appendChild(meta);
+  }
+
+  if (!meta.getAttribute('content')) {
+    meta.setAttribute('content', content);
+  }
+};
+
+const ensureSocialMetaDefaults = () => {
+  if (typeof window === 'undefined' || typeof document === 'undefined') return;
+  const canonicalUrl = window.location?.origin || 'https://www.chewnpour.com';
+
+  ensureMetaTag({ property: 'og:type', content: 'website' });
+  ensureMetaTag({ property: 'og:title', content: 'ChewnPour' });
+  ensureMetaTag({ property: 'og:description', content: 'Turn your slides into smart lessons and quizzes.' });
+  ensureMetaTag({ property: 'og:url', content: `${canonicalUrl}/` });
+  ensureMetaTag({ property: 'og:image', content: `${canonicalUrl}/icons/icon-512x512.png` });
+  ensureMetaTag({ name: 'twitter:card', content: 'summary_large_image' });
+};
 
 const applyBrowserHints = () => {
   if (typeof window === 'undefined' || typeof document === 'undefined') return;
@@ -104,6 +144,8 @@ const installChunkLoadRecovery = () => {
     }
   });
 };
+
+ensureSocialMetaDefaults();
 
 createRoot(document.getElementById('root')).render(
   <StrictMode>

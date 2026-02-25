@@ -1,11 +1,71 @@
-import { v } from "convex/values";
+import { ConvexError, v } from "convex/values";
 import { mutation, query } from "./_generated/server";
+import {
+    consumeUploadCreditOrThrow,
+    getHistoricalStoredUploadCount,
+} from "./subscriptions";
+
+const resolveAuthUserId = (identity: any) => {
+    if (!identity || typeof identity !== "object") return "";
+    const candidates = [
+        identity.subject,
+        identity.userId,
+        identity.id,
+        identity.tokenIdentifier,
+    ];
+    for (const candidate of candidates) {
+        if (typeof candidate === "string" && candidate.trim()) {
+            return candidate.trim();
+        }
+    }
+    return "";
+};
+
+const assertAuthorizedUser = (identity: any, userId: string) => {
+    const authUserId = resolveAuthUserId(identity);
+    if (!authUserId) {
+        throw new ConvexError({
+            code: "UNAUTHENTICATED",
+            message: "You must be signed in to upload files.",
+        });
+    }
+    if (authUserId !== userId) {
+        throw new ConvexError({
+            code: "UNAUTHORIZED",
+            message: "You do not have permission to upload for this user.",
+        });
+    }
+};
+
+const isUploadQuotaExceededError = (error: unknown) => {
+    return error instanceof ConvexError
+        && typeof error.data === "object"
+        && error.data !== null
+        && String((error.data as { code?: unknown }).code || "") === "UPLOAD_QUOTA_EXCEEDED";
+};
+
+const isAuthenticationError = (error: unknown) => {
+    return error instanceof ConvexError
+        && typeof error.data === "object"
+        && error.data !== null
+        && ["UNAUTHENTICATED", "UNAUTHORIZED"].includes(
+            String((error.data as { code?: unknown }).code || "")
+        );
+};
 
 // Generate upload URL for file storage
 // Note: This doesn't require authentication since we validate on createUpload
 export const generateUploadUrl = mutation({
     args: {},
     handler: async (ctx) => {
+        const identity = await ctx.auth.getUserIdentity();
+        const authUserId = resolveAuthUserId(identity);
+        if (!authUserId) {
+            throw new ConvexError({
+                code: "UNAUTHENTICATED",
+                message: "You must be signed in to upload files.",
+            });
+        }
         return await ctx.storage.generateUploadUrl();
     },
 });
@@ -20,6 +80,27 @@ export const createUpload = mutation({
         storageId: v.id("_storage"),
     },
     handler: async (ctx, args) => {
+        const identity = await ctx.auth.getUserIdentity();
+        try {
+            assertAuthorizedUser(identity, args.userId);
+        } catch (error) {
+            if (isAuthenticationError(error)) {
+                await ctx.storage.delete(args.storageId).catch(() => undefined);
+            }
+            throw error;
+        }
+
+        const historicalStoredUploadCount = await getHistoricalStoredUploadCount(ctx, args.userId);
+
+        try {
+            await consumeUploadCreditOrThrow(ctx, args.userId, historicalStoredUploadCount);
+        } catch (error) {
+            if (isUploadQuotaExceededError(error)) {
+                await ctx.storage.delete(args.storageId).catch(() => undefined);
+            }
+            throw error;
+        }
+
         // Get the file URL from storage
         const fileUrl = await ctx.storage.getUrl(args.storageId);
 

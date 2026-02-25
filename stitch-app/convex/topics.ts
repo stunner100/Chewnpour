@@ -1,7 +1,24 @@
 import { v } from "convex/values";
-import { mutation, query } from "./_generated/server";
-import { sanitizeExamQuestionForClient } from "./lib/examSecurity";
+import { internalMutation, internalQuery, mutation, query } from "./_generated/server";
+import { isUsableExamQuestion, sanitizeExamQuestionForClient } from "./lib/examSecurity";
 import { resolveIllustrationUrl } from "./lib/illustrationUrl";
+
+const DEFAULT_TOPIC_ILLUSTRATION_URL =
+    String(process.env.TOPIC_PLACEHOLDER_ILLUSTRATION_URL || "/topic-placeholder.svg").trim()
+    || "/topic-placeholder.svg";
+
+const resolveDefaultTopicIllustrationUrl = () => {
+    if (
+        DEFAULT_TOPIC_ILLUSTRATION_URL.startsWith("http://")
+        || DEFAULT_TOPIC_ILLUSTRATION_URL.startsWith("https://")
+        || DEFAULT_TOPIC_ILLUSTRATION_URL.startsWith("data:")
+    ) {
+        return DEFAULT_TOPIC_ILLUSTRATION_URL;
+    }
+    return DEFAULT_TOPIC_ILLUSTRATION_URL.startsWith("/")
+        ? DEFAULT_TOPIC_ILLUSTRATION_URL
+        : `/${DEFAULT_TOPIC_ILLUSTRATION_URL}`;
+};
 
 // Get all topics for a course
 export const getTopicsByCourse = query({
@@ -15,15 +32,23 @@ export const getTopicsByCourse = query({
 
         const topicsWithIllustrations = await Promise.all(
             topics.map(async (topic) => {
-                if (!topic.illustrationStorageId) return topic;
-                const freshIllustrationUrl = await resolveIllustrationUrl({
-                    illustrationStorageId: topic.illustrationStorageId,
-                    getUrl: (storageId) => ctx.storage.getUrl(storageId),
-                });
+                let freshIllustrationUrl: string | undefined =
+                    topic.illustrationUrl || resolveDefaultTopicIllustrationUrl();
+
+                if (topic.illustrationStorageId) {
+                    const resolvedStorageUrl = await resolveIllustrationUrl({
+                        illustrationStorageId: topic.illustrationStorageId,
+                        getUrl: (storageId) => ctx.storage.getUrl(storageId),
+                    });
+                    if (resolvedStorageUrl) {
+                        freshIllustrationUrl = resolvedStorageUrl;
+                    }
+                }
+
                 return {
                     ...topic,
                     // Convex storage URLs are signed and can expire; refresh on each read.
-                    illustrationUrl: freshIllustrationUrl || undefined,
+                    illustrationUrl: freshIllustrationUrl,
                 };
             })
         );
@@ -39,25 +64,47 @@ export const getTopicWithQuestions = query({
         const topic = await ctx.db.get(args.topicId);
         if (!topic) return null;
 
-        let freshIllustrationUrl: string | undefined = topic.illustrationUrl;
+        let freshIllustrationUrl: string | undefined =
+            topic.illustrationUrl || resolveDefaultTopicIllustrationUrl();
         if (topic.illustrationStorageId) {
-            freshIllustrationUrl =
+            const resolvedStorageUrl =
                 (await resolveIllustrationUrl({
                     illustrationStorageId: topic.illustrationStorageId,
                     getUrl: (storageId) => ctx.storage.getUrl(storageId),
                 })) || undefined;
+            if (resolvedStorageUrl) {
+                freshIllustrationUrl = resolvedStorageUrl;
+            }
         }
 
         const questions = await ctx.db
             .query("questions")
             .withIndex("by_topicId", (q) => q.eq("topicId", args.topicId))
             .collect();
-        const safeQuestions = questions.map((question) => sanitizeExamQuestionForClient(question));
+        const safeQuestions = questions
+            .filter((question) => isUsableExamQuestion(question))
+            .map((question) => sanitizeExamQuestionForClient(question));
 
         return {
             ...topic,
             illustrationUrl: freshIllustrationUrl,
             questions: safeQuestions,
+        };
+    },
+});
+
+// Get topic owner user id (for server-side authorization checks)
+export const getTopicOwnerUserIdInternal = internalQuery({
+    args: { topicId: v.id("topics") },
+    handler: async (ctx, args) => {
+        const topic = await ctx.db.get(args.topicId);
+        if (!topic) return null;
+        const course = await ctx.db.get(topic.courseId);
+        if (!course) return null;
+        return {
+            topicId: topic._id,
+            courseId: topic.courseId,
+            userId: course.userId,
         };
     },
 });
@@ -73,6 +120,7 @@ export const getQuestionsByTopic = query({
 
         // Shuffle questions for randomized exams
         return questions
+            .filter((question) => isUsableExamQuestion(question))
             .map((question) => sanitizeExamQuestionForClient(question))
             .sort(() => Math.random() - 0.5);
     },
@@ -97,7 +145,7 @@ export const createTopic = mutation({
             description: args.description,
             content: args.content,
             illustrationStorageId: args.illustrationStorageId,
-            illustrationUrl: args.illustrationUrl,
+            illustrationUrl: args.illustrationUrl || resolveDefaultTopicIllustrationUrl(),
             orderIndex: args.orderIndex,
             isLocked: args.isLocked,
         });
@@ -142,7 +190,7 @@ export const unlockTopic = mutation({
 });
 
 // Create a question for a topic
-export const createQuestion = mutation({
+export const createQuestionInternal = internalMutation({
     args: {
         topicId: v.id("topics"),
         questionText: v.string(),
@@ -168,7 +216,7 @@ export const createQuestion = mutation({
 });
 
 // Delete all questions for a topic (used for regeneration)
-export const deleteQuestionsByTopic = mutation({
+export const deleteQuestionsByTopicInternal = internalMutation({
     args: { topicId: v.id("topics") },
     handler: async (ctx, args) => {
         const questions = await ctx.db
@@ -186,7 +234,7 @@ export const deleteQuestionsByTopic = mutation({
 
 
 // Batch create questions (for AI-generated content)
-export const batchCreateQuestions = mutation({
+export const batchCreateQuestionsInternal = internalMutation({
     args: {
         topicId: v.id("topics"),
         questions: v.array(

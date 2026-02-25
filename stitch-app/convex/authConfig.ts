@@ -1,6 +1,7 @@
 import { betterAuth } from "better-auth";
 import { authComponent } from "./auth";
-import { crossDomain } from "@convex-dev/better-auth/plugins";
+import { convex, crossDomain } from "@convex-dev/better-auth/plugins";
+import authConfig from "./auth.config";
 
 // The frontend URL - where users should be redirected after auth
 // In development, this is localhost; in production, this would be your app URL
@@ -15,6 +16,23 @@ const LOCAL_ORIGINS = [
 
 const PREVIEW_HOST_SUFFIXES = [".vercel.app"];
 const PREVIEW_TRUSTED_PATTERNS = ["https://*.vercel.app"];
+const LOCAL_HOSTS = new Set(["localhost", "127.0.0.1", "::1"]);
+
+const parseConfiguredFrontendOrigins = () => {
+    const values = [
+        process.env.FRONTEND_URL,
+        ...(process.env.FRONTEND_URLS || "")
+            .split(",")
+            .map((value) => value.trim())
+            .filter(Boolean),
+    ];
+
+    const origins = values
+        .map((value) => normalizeOrigin(value))
+        .filter((value): value is string => Boolean(value));
+
+    return Array.from(new Set(origins));
+};
 
 const normalizeOrigin = (value: string | null | undefined) => {
     if (!value) return null;
@@ -32,6 +50,16 @@ const isAllowedPreviewOrigin = (origin: string) => {
         return PREVIEW_HOST_SUFFIXES.some((suffix) =>
             parsed.hostname === suffix.slice(1) || parsed.hostname.endsWith(suffix)
         );
+    } catch {
+        return false;
+    }
+};
+
+const isLocalhostOrigin = (origin: string) => {
+    try {
+        const parsed = new URL(origin);
+        if (parsed.protocol !== "http:" && parsed.protocol !== "https:") return false;
+        return LOCAL_HOSTS.has(parsed.hostname);
     } catch {
         return false;
     }
@@ -78,19 +106,26 @@ export const createAuth = (ctx: any) =>
                 request?.headers.get("origin") ||
                 request?.headers.get("referer")
             );
-            const configuredFrontend = normalizeOrigin(process.env.FRONTEND_URL);
+            const configuredFrontends = parseConfiguredFrontendOrigins();
 
-            const origins = [...LOCAL_ORIGINS, ...PREVIEW_TRUSTED_PATTERNS];
-            if (configuredFrontend) {
-                origins.push(configuredFrontend);
-            }
+            const origins = [...LOCAL_ORIGINS, ...PREVIEW_TRUSTED_PATTERNS, ...configuredFrontends];
             if (
                 dynamicOrigin &&
-                (LOCAL_ORIGINS.includes(dynamicOrigin) || isAllowedPreviewOrigin(dynamicOrigin))
+                (
+                    isLocalhostOrigin(dynamicOrigin) ||
+                    configuredFrontends.includes(dynamicOrigin) ||
+                    isAllowedPreviewOrigin(dynamicOrigin)
+                )
             ) {
                 origins.push(dynamicOrigin);
             }
             return Array.from(new Set(origins));
         },
-        plugins: [crossDomain({ siteUrl: frontendUrl })],
+        plugins: [
+            crossDomain({ siteUrl: frontendUrl }),
+            convex({
+                authConfig,
+                jwksRotateOnTokenGenerationError: true,
+            }),
+        ],
     });

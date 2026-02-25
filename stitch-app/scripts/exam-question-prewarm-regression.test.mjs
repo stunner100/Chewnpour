@@ -7,6 +7,12 @@ import {
 const baseTopic = { _id: 'topic_1', title: 'Topic 1' };
 
 assert.equal(
+    EXAM_PREWARM_MIN_QUESTION_COUNT,
+    30,
+    'Expected prewarm minimum question threshold to be 30.'
+);
+
+assert.equal(
     shouldPrewarmExamQuestions({
         topicId: null,
         topicData: baseTopic,

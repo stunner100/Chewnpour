@@ -1,4 +1,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+    GENERIC_REMOTE_PLAYBACK_ERROR_MESSAGE,
+    normalizeRemotePlaybackErrorMessage,
+    shouldDisableRemotePlaybackForSession,
+} from "./voicePlaybackErrors";
 
 const PREFERRED_VOICE_STORAGE_KEY = "studymate.voice.preferredVoiceURI";
 const LEGACY_PREFERRED_VOICE_STORAGE_KEY = "stitch.voice.preferredVoiceURI";
@@ -206,19 +211,34 @@ const persistPreferredVoiceURI = (voiceURI) => {
     }
 };
 
-export const useVoicePlayback = () => {
+export const useVoicePlayback = ({
+    remoteSynthesize = null,
+    maxRemoteChars = 2500,
+} = {}) => {
     const synthesisRef = useRef(null);
     const playbackIdRef = useRef(0);
     const activeUtteranceRef = useRef(null);
+    const activeAudioRef = useRef(null);
+    const activeAudioUrlRef = useRef("");
     const isStoppingRef = useRef(false);
     const voicesRef = useRef([]);
     const preferredVoiceRef = useRef(null);
     const startTimeoutRef = useRef(null);
+    const remoteFailureCountRef = useRef(0);
+    const remotePlaybackDisabledRef = useRef(false);
 
-    const isSupported = useMemo(() => {
+    const hasSpeechSynthesis = useMemo(() => {
         if (typeof window === "undefined") return false;
         return "speechSynthesis" in window && "SpeechSynthesisUtterance" in window;
     }, []);
+    const canPlayAudio = useMemo(() => {
+        if (typeof window === "undefined") return false;
+        return typeof window.Audio === "function";
+    }, []);
+    const isSupported = useMemo(() => {
+        const hasRemote = typeof remoteSynthesize === "function" && canPlayAudio;
+        return hasSpeechSynthesis || hasRemote;
+    }, [hasSpeechSynthesis, canPlayAudio, remoteSynthesize]);
 
     const browserLang = useMemo(() => {
         if (typeof navigator === "undefined" || !navigator.language) return "en-us";
@@ -227,6 +247,7 @@ export const useVoicePlayback = () => {
 
     const [status, setStatus] = useState(() => (isSupported ? "idle" : "unsupported"));
     const [error, setError] = useState(null);
+    const [playbackEngine, setPlaybackEngine] = useState("browser");
     const [preferredVoiceURI, setPreferredVoiceURI] = useState(() => getStoredPreferredVoiceURI());
     const [selectedVoiceName, setSelectedVoiceName] = useState("Auto");
     const [availableVoices, setAvailableVoices] = useState([]);
@@ -239,7 +260,7 @@ export const useVoicePlayback = () => {
     }, []);
 
     const refreshVoices = useCallback(() => {
-        if (!synthesisRef.current) return;
+        if (!hasSpeechSynthesis || !synthesisRef.current) return;
 
         const voices = synthesisRef.current.getVoices() || [];
         voicesRef.current = voices;
@@ -264,7 +285,7 @@ export const useVoicePlayback = () => {
                 default: Boolean(voice.default),
             }))
         );
-    }, [browserLang, preferredVoiceURI]);
+    }, [hasSpeechSynthesis, browserLang, preferredVoiceURI]);
 
     const setVoicePreference = useCallback((voiceURI) => {
         const normalized = String(voiceURI || "");
@@ -272,8 +293,55 @@ export const useVoicePlayback = () => {
         persistPreferredVoiceURI(normalized);
     }, []);
 
+    const formatRemotePlaybackError = useCallback((error) => {
+        const normalized = normalizeRemotePlaybackErrorMessage(error);
+        if (!normalized) {
+            return "ElevenLabs voice generation failed.";
+        }
+        if (normalized === GENERIC_REMOTE_PLAYBACK_ERROR_MESSAGE) {
+            return normalized;
+        }
+        return `ElevenLabs voice failed: ${normalized}`;
+    }, []);
+
+    const clearActiveAudio = useCallback(() => {
+        const audio = activeAudioRef.current;
+        if (audio) {
+            audio.onplay = null;
+            audio.onpause = null;
+            audio.onended = null;
+            audio.onerror = null;
+            try {
+                audio.pause();
+            } catch {
+                // ignore
+            }
+            try {
+                audio.removeAttribute("src");
+                audio.load();
+            } catch {
+                // ignore
+            }
+        }
+        activeAudioRef.current = null;
+        if (activeAudioUrlRef.current) {
+            URL.revokeObjectURL(activeAudioUrlRef.current);
+            activeAudioUrlRef.current = "";
+        }
+    }, []);
+
+    const decodeBase64Audio = useCallback((base64Audio, mimeType = "audio/mpeg") => {
+        const normalized = String(base64Audio || "").trim();
+        const binary = window.atob(normalized);
+        const bytes = new Uint8Array(binary.length);
+        for (let index = 0; index < binary.length; index += 1) {
+            bytes[index] = binary.charCodeAt(index);
+        }
+        return new Blob([bytes], { type: mimeType || "audio/mpeg" });
+    }, []);
+
     useEffect(() => {
-        if (!isSupported) return;
+        if (!hasSpeechSynthesis) return;
         const synthesis = window.speechSynthesis;
         synthesisRef.current = synthesis;
         const initVoicesTimer = setTimeout(() => {
@@ -299,24 +367,26 @@ export const useVoicePlayback = () => {
                 synthesis.onvoiceschanged = null;
             }
         };
-    }, [isSupported, refreshVoices, clearStartTimeout]);
+    }, [hasSpeechSynthesis, refreshVoices, clearStartTimeout]);
 
     const stop = useCallback(() => {
-        if (!isSupported || !synthesisRef.current) return false;
+        if (!isSupported) return false;
         clearStartTimeout();
         playbackIdRef.current += 1;
         isStoppingRef.current = true;
-        synthesisRef.current.cancel();
+        if (hasSpeechSynthesis && synthesisRef.current) {
+            synthesisRef.current.cancel();
+        }
         activeUtteranceRef.current = null;
+        clearActiveAudio();
         setStatus("idle");
         setError(null);
         return true;
-    }, [isSupported, clearStartTimeout]);
+    }, [isSupported, hasSpeechSynthesis, clearStartTimeout, clearActiveAudio]);
 
-    const play = useCallback(
-        (text) => {
-            if (!isSupported || !synthesisRef.current) {
-                setStatus("unsupported");
+    const playWithSpeechSynthesis = useCallback(
+        (text, playbackId) => {
+            if (!hasSpeechSynthesis || !synthesisRef.current) {
                 return false;
             }
 
@@ -327,10 +397,8 @@ export const useVoicePlayback = () => {
                 return false;
             }
 
-            playbackIdRef.current += 1;
-            const playbackId = playbackIdRef.current;
+            setPlaybackEngine("browser");
             isStoppingRef.current = false;
-            setError(null);
             clearStartTimeout();
             refreshVoices();
 
@@ -447,40 +515,224 @@ export const useVoicePlayback = () => {
             speakNext();
             return true;
         },
-        [isSupported, clearStartTimeout, refreshVoices, browserLang, preferredVoiceURI]
+        [hasSpeechSynthesis, clearStartTimeout, refreshVoices, browserLang, preferredVoiceURI]
+    );
+
+    const playWithRemoteAudio = useCallback(
+        async (text, playbackId) => {
+            if (
+                typeof remoteSynthesize !== "function" ||
+                !canPlayAudio ||
+                remotePlaybackDisabledRef.current
+            ) {
+                return false;
+            }
+
+            const normalizedText = normalizeForSpeech(String(text || ""));
+            if (!normalizedText) {
+                return false;
+            }
+
+            const maxChars = Math.max(300, Number(maxRemoteChars || 2500));
+            const requestText = normalizedText.slice(0, maxChars);
+            setPlaybackEngine("elevenlabs");
+            setStatus("loading");
+
+            const payload = await remoteSynthesize(requestText);
+            if (playbackIdRef.current !== playbackId || isStoppingRef.current) {
+                return true;
+            }
+            remoteFailureCountRef.current = 0;
+
+            const audioBase64 = payload?.audioBase64;
+            if (!audioBase64 || typeof audioBase64 !== "string") {
+                throw new Error("ElevenLabs did not return audio data.");
+            }
+
+            const audioBlob = decodeBase64Audio(audioBase64, payload?.mimeType || "audio/mpeg");
+            clearActiveAudio();
+            const objectUrl = URL.createObjectURL(audioBlob);
+            activeAudioUrlRef.current = objectUrl;
+
+            const audio = new window.Audio(objectUrl);
+            activeAudioRef.current = audio;
+            audio.preload = "auto";
+
+            audio.onplay = () => {
+                if (playbackIdRef.current !== playbackId || isStoppingRef.current) return;
+                setStatus("playing");
+            };
+            audio.onpause = () => {
+                if (playbackIdRef.current !== playbackId || isStoppingRef.current) return;
+                if (!audio.ended) {
+                    setStatus("paused");
+                }
+            };
+            audio.onended = () => {
+                if (playbackIdRef.current !== playbackId) return;
+                setStatus("idle");
+            };
+            audio.onerror = () => {
+                if (playbackIdRef.current !== playbackId) return;
+                setError("Voice playback failed. Please try again.");
+                setStatus("error");
+            };
+
+            await audio.play();
+            return true;
+        },
+        [remoteSynthesize, canPlayAudio, maxRemoteChars, decodeBase64Audio, clearActiveAudio]
+    );
+
+    const play = useCallback(
+        async (text) => {
+            const inputText = String(text || "");
+            if (!inputText.trim()) {
+                setError("No explanation text available to read.");
+                setStatus("error");
+                return false;
+            }
+
+            if (!isSupported) {
+                setStatus("unsupported");
+                return false;
+            }
+
+            playbackIdRef.current += 1;
+            const playbackId = playbackIdRef.current;
+            isStoppingRef.current = false;
+            setError(null);
+            clearStartTimeout();
+            clearActiveAudio();
+
+            if (hasSpeechSynthesis && synthesisRef.current) {
+                if (synthesisRef.current.paused) {
+                    synthesisRef.current.resume();
+                }
+                if (synthesisRef.current.speaking || synthesisRef.current.pending) {
+                    synthesisRef.current.cancel();
+                }
+            }
+
+            if (
+                typeof remoteSynthesize === "function" &&
+                canPlayAudio &&
+                !remotePlaybackDisabledRef.current
+            ) {
+                try {
+                    const remoteStarted = await playWithRemoteAudio(inputText, playbackId);
+                    if (remoteStarted) return true;
+                } catch (remoteError) {
+                    const remoteMessage = formatRemotePlaybackError(remoteError);
+                    if (!hasSpeechSynthesis || !synthesisRef.current) {
+                        setError(remoteMessage);
+                        setStatus("error");
+                        return false;
+                    }
+
+                    remoteFailureCountRef.current += 1;
+                    const shouldDisableRemote =
+                        shouldDisableRemotePlaybackForSession(remoteMessage) ||
+                        remoteFailureCountRef.current >= 2;
+                    if (shouldDisableRemote) {
+                        remotePlaybackDisabledRef.current = true;
+                    }
+
+                    setError(null);
+                    console.warn("[VoiceMode] ElevenLabs playback failed. Falling back to browser voice.", {
+                        remoteMessage,
+                        disabledForSession: remotePlaybackDisabledRef.current,
+                        failureCount: remoteFailureCountRef.current,
+                    });
+                }
+            }
+
+            const localStarted = playWithSpeechSynthesis(inputText, playbackId);
+            if (!localStarted) {
+                setError("Voice playback is unavailable right now.");
+                setStatus("error");
+                return false;
+            }
+            return true;
+        },
+        [
+            isSupported,
+            clearStartTimeout,
+            clearActiveAudio,
+            hasSpeechSynthesis,
+            formatRemotePlaybackError,
+            remoteSynthesize,
+            canPlayAudio,
+            playWithRemoteAudio,
+            playWithSpeechSynthesis,
+        ]
     );
 
     const pause = useCallback(() => {
-        if (!isSupported || !synthesisRef.current) return false;
+        if (!isSupported) return false;
+
+        if (playbackEngine === "elevenlabs" && activeAudioRef.current) {
+            if (!activeAudioRef.current.paused && !activeAudioRef.current.ended) {
+                activeAudioRef.current.pause();
+                setStatus("paused");
+                return true;
+            }
+        }
+
+        if (!hasSpeechSynthesis || !synthesisRef.current) return false;
         if (!synthesisRef.current.speaking || synthesisRef.current.paused) return false;
         synthesisRef.current.pause();
         setStatus("paused");
         return true;
-    }, [isSupported]);
+    }, [isSupported, playbackEngine, hasSpeechSynthesis]);
 
     const resume = useCallback(() => {
-        if (!isSupported || !synthesisRef.current) return false;
+        if (!isSupported) return false;
+
+        if (playbackEngine === "elevenlabs" && activeAudioRef.current) {
+            if (!activeAudioRef.current.paused) return false;
+            activeAudioRef.current.play()
+                .then(() => {
+                    if (!isStoppingRef.current) {
+                        setStatus("playing");
+                    }
+                })
+                .catch((resumeError) => {
+                    if (import.meta.env.DEV) {
+                        console.warn("[VoiceMode] Failed to resume ElevenLabs playback", resumeError);
+                    }
+                    setError("Voice playback failed. Please try again.");
+                    setStatus("error");
+                });
+            return true;
+        }
+
+        if (!hasSpeechSynthesis || !synthesisRef.current) return false;
         if (!synthesisRef.current.paused) return false;
         synthesisRef.current.resume();
         setStatus("playing");
         return true;
-    }, [isSupported]);
+    }, [isSupported, playbackEngine, hasSpeechSynthesis]);
 
     useEffect(
         () => () => {
-            if (!isSupported || !synthesisRef.current) return;
+            if (!isSupported) return;
             clearStartTimeout();
             playbackIdRef.current += 1;
             isStoppingRef.current = true;
-            synthesisRef.current.cancel();
+            if (hasSpeechSynthesis && synthesisRef.current) {
+                synthesisRef.current.cancel();
+            }
+            clearActiveAudio();
         },
-        [isSupported, clearStartTimeout]
+        [isSupported, hasSpeechSynthesis, clearStartTimeout, clearActiveAudio]
     );
 
     return {
         isSupported,
         status,
         error,
+        playbackEngine,
         play,
         pause,
         resume,

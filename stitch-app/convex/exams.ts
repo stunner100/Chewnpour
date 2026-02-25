@@ -556,6 +556,24 @@ export const submitEssayExam = action({
                 failEssaySubmission("We could not load this exam's questions. Please restart the exam.");
             }
 
+            const submittedQuestionIds = new Set(
+                args.answers.map((answer) => String(answer.questionId))
+            );
+            const requiredQuestionCount = Number(attempt.totalQuestions || 0) > 0
+                ? Number(attempt.totalQuestions || 0)
+                : attemptQuestionIds.size;
+            if (requiredQuestionCount > 0 && args.answers.length !== requiredQuestionCount) {
+                failEssaySubmission("Please answer all essay questions before submitting.");
+            }
+            if (attemptQuestionIds.size > 0) {
+                const unansweredCount = Array.from(attemptQuestionIds).filter(
+                    (questionId) => !submittedQuestionIds.has(questionId)
+                ).length;
+                if (unansweredCount > 0) {
+                    failEssaySubmission("Please answer all essay questions before submitting.");
+                }
+            }
+
             // Grade each answer via AI (0-5 scale per answer)
             let totalEssayScore = 0;
             let correctCount = 0;
@@ -583,13 +601,18 @@ export const submitEssayExam = action({
                     );
                 }
 
+                const normalizedEssayText = String(answer.essayText || "").trim();
+                if (!normalizedEssayText) {
+                    failEssaySubmission("Please answer all essay questions before submitting.");
+                }
+
                 // Grade via AI
                 let gradeResult: any;
                 try {
                     gradeResult = await ctx.runAction(api.ai.gradeEssayAnswer, {
                         questionText: question.questionText || "",
                         modelAnswer: question.correctAnswer || "",
-                        studentAnswer: answer.essayText,
+                        studentAnswer: normalizedEssayText,
                         rubricHints: question.explanation || undefined,
                     });
                 } catch (gradingError) {
@@ -603,14 +626,28 @@ export const submitEssayExam = action({
                     throw gradingError;
                 }
 
-                const essayScore = Math.max(0, Math.min(5, Math.round(Number(gradeResult?.score) || 0)));
+                if (gradeResult?.ungraded) {
+                    failEssaySubmission(
+                        "We could not grade your essay right now. Please try again in a moment.",
+                        "ESSAY_GRADING_UNAVAILABLE"
+                    );
+                }
+
+                const rawEssayScore = Number(gradeResult?.score);
+                if (!Number.isFinite(rawEssayScore)) {
+                    failEssaySubmission(
+                        "We could not grade your essay right now. Please try again in a moment.",
+                        "ESSAY_GRADING_UNAVAILABLE"
+                    );
+                }
+                const essayScore = Math.max(0, Math.min(5, Math.round(rawEssayScore)));
                 totalEssayScore += essayScore;
                 const isCorrect = essayScore >= 3;
                 if (isCorrect) correctCount++;
 
                 gradedAnswers.push({
                     questionId: answer.questionId,
-                    selectedAnswer: answer.essayText,
+                    selectedAnswer: normalizedEssayText,
                     correctAnswer: question.correctAnswer || "",
                     isCorrect,
                     essayScore,
@@ -618,7 +655,8 @@ export const submitEssayExam = action({
                 });
             }
 
-            const maxEssayScore = args.answers.length * 5;
+            const totalQuestions = attempt.totalQuestions || requiredQuestionCount || args.answers.length;
+            const maxEssayScore = totalQuestions * 5;
 
             // Update the attempt record
             await ctx.runMutation(api.exams.updateExamAttemptScore, {
@@ -627,8 +665,6 @@ export const submitEssayExam = action({
                 timeTakenSeconds: args.timeTakenSeconds,
                 answers: gradedAnswers,
             });
-
-            const totalQuestions = attempt.totalQuestions || args.answers.length;
 
             return {
                 score: correctCount,

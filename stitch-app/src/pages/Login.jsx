@@ -11,15 +11,34 @@ const Login = () => {
     const { signIn, signInWithGoogle } = useAuth();
     const navigate = useNavigate();
 
+    const resolveGoogleErrorMessage = (authError) => {
+        const fallbackMessage = 'Failed to sign in with Google';
+        if (!authError) return fallbackMessage;
+
+        const rawMessage = String(authError.message || '').trim();
+        if (!rawMessage) return fallbackMessage;
+
+        const normalized = rawMessage.toLowerCase();
+        if (normalized === 'load failed' || normalized === 'failed to fetch') {
+            return 'Unable to reach authentication right now. Please try again.';
+        }
+
+        return rawMessage;
+    };
+
     const handleGoogleSignIn = async () => {
+        setError('');
         setLoading(true);
-        // We don't necessarily need to catch error here as redirect happens, but good practice
-        const { error } = await signInWithGoogle();
-        if (error) {
-            setError(error.message || 'Failed to sign in with Google');
+        try {
+            const { error: signInError } = await signInWithGoogle();
+            if (signInError) {
+                setError(resolveGoogleErrorMessage(signInError));
+            }
+        } catch {
+            setError('Unable to reach authentication right now. Please try again.');
+        } finally {
             setLoading(false);
         }
-        // Redirect happens automatically via callbackURL
     };
 
     const handleSubmit = async (e) => {
@@ -28,13 +47,13 @@ const Login = () => {
         setLoading(true);
 
         try {
-            const { data, error } = await signIn(email, password);
+            const { error } = await signIn(email, password);
             if (error) {
                 setError(error.message);
             } else {
                 navigate('/dashboard');
             }
-        } catch (err) {
+        } catch {
             setError('An unexpected error occurred');
         } finally {
             setLoading(false);
@@ -126,7 +145,7 @@ const Login = () => {
                             </button>
                         </div>
                         <div className="flex justify-end mt-1">
-                            <Link className="text-primary hover:text-primary-dark text-sm font-semibold transition-colors animated-underline" to="/reset-password">
+                            <Link className="inline-block py-2 text-primary hover:text-primary-dark text-sm font-semibold transition-colors animated-underline" to="/reset-password">
                                 Forgot Password?
                             </Link>
                         </div>
@@ -153,7 +172,7 @@ const Login = () => {
 
             <footer className="relative z-10 p-6 text-center">
                 <p className="text-text-sub-light dark:text-text-sub-dark text-sm font-medium">
-                    New here? <Link to="/signup" className="text-primary hover:text-primary-dark font-bold ml-1 transition-colors animated-underline">Sign up</Link>
+                    New here? <Link to="/signup" className="inline-block py-2 text-primary hover:text-primary-dark font-bold ml-1 transition-colors animated-underline">Sign up</Link>
                 </p>
             </footer>
         </div>
