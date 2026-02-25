@@ -1,59 +1,30 @@
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { capturePostHogEvent } from '../lib/posthog';
-import heroIllustration960 from '../assets/eduwebsite-960.jpg';
-import heroIllustration1600 from '../assets/eduwebsite-1600.jpg';
 
 const features = [
     {
-        title: 'Instant Lecture Synthesis',
-        description: 'Upload your lecture slides or recordings and get structured notes, summaries, and key takeaways in seconds.',
-        icon: 'psychology',
-        color: 'bg-indigo-500',
+        title: 'Instant Lessons',
+        description: 'Upload any PDF or lecture slide and get structured, easy-to-read lessons generated in seconds.',
+        icon: 'menu_book',
     },
     {
-        title: '24/7 AI Tutor',
-        description: 'Stuck on a concept? Our AI tutor is trained on your specific course material to provide clear, personalized explanations.',
-        icon: 'chat_bubble',
-        color: 'bg-cyan-500',
-    },
-    {
-        title: 'Automated Quizzing',
-        description: 'Transform your notes into interactive flashcards and practice quizzes that adapt to your knowledge gaps.',
+        title: 'Smart Quizzes',
+        description: 'AI creates practice exams from your material that test what you actually need to know.',
         icon: 'quiz',
-        color: 'bg-violet-500',
     },
     {
-        title: 'Exam Readiness Tracking',
-        description: 'Get deep insights into your learning progress and know exactly what topics to focus on before exam day.',
-        icon: 'analytics',
-        color: 'bg-emerald-500',
+        title: 'AI Tutor',
+        description: 'Ask questions about your course material and get clear, personalized explanations instantly.',
+        icon: 'psychology',
     },
 ];
 
-const testimonials = [
-    {
-        name: 'Alex Rivera',
-        role: 'Med Student',
-        content: 'StudyMate transformed how I handle anatomy. The AI summaries save me hours of manual note-taking every week.',
-        initials: 'AR',
-        avatarClass: 'from-indigo-500 to-violet-500',
-    },
-    {
-        name: 'Sarah Chen',
-        role: 'Computer Science',
-        content: "The AI tutor's ability to explain complex algorithms using analogies is a game-changer for my study sessions.",
-        initials: 'SC',
-        avatarClass: 'from-cyan-500 to-blue-500',
-    },
-    {
-        name: 'Jordan Smith',
-        role: 'Law Student',
-        content: 'Managing massive reading lists is finally manageable. I can quickly find the core arguments in any case.',
-        initials: 'JS',
-        avatarClass: 'from-emerald-500 to-teal-500',
-    },
+const stats = [
+    { value: '10,000+', label: 'Documents processed' },
+    { value: '50,000+', label: 'Lessons generated' },
+    { value: '200,000+', label: 'Quiz questions created' },
 ];
 
 const LandingPage = () => {
@@ -92,7 +63,6 @@ const LandingPage = () => {
         };
     }, []);
 
-    // Close mobile menu on scroll
     useEffect(() => {
         if (mobileMenuOpen) setMobileMenuOpen(false);
         // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -105,48 +75,45 @@ const LandingPage = () => {
     }, [user, navigate]);
 
     return (
-        <div className="relative min-h-screen overflow-x-hidden bg-[#0a0a0b] text-white font-sans selection:bg-indigo-500/30">
-            {/* Background Blobs */}
-            <div className="pointer-events-none fixed inset-0 z-0">
-                <div className="absolute top-[-10%] left-[-10%] h-[260px] w-[260px] md:h-[500px] md:w-[500px] rounded-full bg-indigo-600/15 md:bg-indigo-600/20 blur-[72px] md:blur-[120px] safari-blur-heavy"></div>
-                <div className="absolute bottom-[-10%] right-[-10%] h-[260px] w-[260px] md:h-[500px] md:w-[500px] rounded-full bg-cyan-600/15 md:bg-cyan-600/20 blur-[72px] md:blur-[120px] safari-blur-heavy"></div>
-                <div className="hidden md:block absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 h-[600px] w-[600px] rounded-full bg-violet-600/10 blur-[150px] safari-blur-heavy"></div>
-            </div>
+        <div className="relative min-h-screen overflow-x-hidden bg-neutral-50 dark:bg-neutral-950 text-neutral-900 dark:text-neutral-100 font-display selection:bg-primary/20">
+            {/* Subtle warm background mesh */}
+            <div className="pointer-events-none fixed inset-0 z-0 bg-mesh-light dark:bg-mesh-dark opacity-60" />
 
             {/* Header */}
             <header
-                className={`fixed top-0 z-50 w-full transition-all duration-300 safari-backdrop ${scrolled ? 'bg-[#0a0a0b]/80 backdrop-blur-md md:backdrop-blur-xl border-b border-white/10 py-3' : 'bg-transparent py-5'
+                className={`fixed top-0 z-50 w-full transition-all duration-300 ${scrolled
+                    ? 'bg-white/80 dark:bg-neutral-900/80 backdrop-blur-xl border-b border-neutral-200/60 dark:border-neutral-800/60 py-3 shadow-soft'
+                    : 'bg-transparent py-5'
                     }`}
             >
-                <div className="mx-auto flex max-w-7xl items-center justify-between px-6 lg:px-12">
+                <div className="mx-auto flex max-w-6xl items-center justify-between px-6 lg:px-8">
                     {/* Logo */}
-                    <div className="flex items-center gap-3">
-                        <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-indigo-500 to-violet-600 shadow-lg shadow-indigo-500/25">
-                            <span className="material-symbols-outlined text-[20px] filled text-white">auto_awesome</span>
+                    <Link to="/" className="flex items-center gap-2.5">
+                        <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-primary to-secondary shadow-lg shadow-primary/20">
+                            <span className="material-symbols-outlined text-[18px] filled text-white">auto_awesome</span>
                         </div>
-                        <h1 className="text-xl font-bold tracking-tight">StudyMate</h1>
-                    </div>
+                        <span className="text-lg font-bold tracking-tight text-neutral-900 dark:text-white">ChewnPour</span>
+                    </Link>
 
                     {/* Desktop Nav */}
-                    <nav className="hidden md:flex items-center gap-8 text-sm font-medium text-neutral-400">
-                        <a href="#features" className="hover:text-white transition-colors">Features</a>
-                        <a href="#demo" className="hover:text-white transition-colors">How it works</a>
-                        <a href="#testimonials" className="hover:text-white transition-colors">Students</a>
+                    <nav className="hidden md:flex items-center gap-8 text-[13px] font-semibold text-neutral-500 dark:text-neutral-400">
+                        <a href="#features" className="hover:text-neutral-900 dark:hover:text-white transition-colors">Features</a>
+                        <a href="#pricing" className="hover:text-neutral-900 dark:hover:text-white transition-colors">Pricing</a>
                     </nav>
 
                     {/* Desktop Actions */}
-                    <div className="hidden md:flex items-center gap-4">
+                    <div className="hidden md:flex items-center gap-3">
                         <Link
                             to="/login"
                             onClick={() => captureLandingEvent('landing_cta_clicked', { cta_name: 'header_login' })}
-                            className="text-sm font-semibold hover:text-indigo-400 transition-colors"
+                            className="px-4 py-2 text-sm font-semibold text-neutral-600 dark:text-neutral-300 hover:text-neutral-900 dark:hover:text-white transition-colors"
                         >
                             Log in
                         </Link>
                         <Link
                             to="/signup"
                             onClick={() => captureLandingEvent('landing_cta_clicked', { cta_name: 'header_get_started' })}
-                            className="inline-flex items-center rounded-full bg-indigo-600 px-5 py-2 text-sm font-bold text-white shadow-lg shadow-indigo-600/20 hover:bg-indigo-500 transition-colors active:scale-95"
+                            className="inline-flex items-center rounded-xl bg-primary px-5 py-2.5 text-sm font-bold text-white shadow-button hover:bg-primary-hover hover:shadow-button-hover hover:-translate-y-0.5 active:translate-y-0 transition-all duration-200"
                         >
                             Get Started
                         </Link>
@@ -155,7 +122,7 @@ const LandingPage = () => {
                     {/* Mobile Hamburger */}
                     <button
                         onClick={() => setMobileMenuOpen((o) => !o)}
-                        className="md:hidden flex items-center justify-center w-10 h-10 rounded-xl text-white hover:bg-white/10 transition-colors"
+                        className="md:hidden flex items-center justify-center w-10 h-10 rounded-xl text-neutral-700 dark:text-neutral-200 hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors"
                         aria-label={mobileMenuOpen ? 'Close menu' : 'Open menu'}
                         aria-expanded={mobileMenuOpen}
                     >
@@ -167,23 +134,20 @@ const LandingPage = () => {
 
                 {/* Mobile Drawer */}
                 <div
-                    className={`md:hidden overflow-hidden transition-all duration-300 ease-in-out ${mobileMenuOpen ? 'max-h-[400px] opacity-100' : 'max-h-0 opacity-0'
-                        }`}
+                    className={`md:hidden overflow-hidden transition-all duration-300 ease-in-out ${mobileMenuOpen ? 'max-h-[320px] opacity-100' : 'max-h-0 opacity-0'}`}
                 >
-                    <div className="bg-[#0d0d10]/95 backdrop-blur-md border-t border-white/10 px-6 pt-4 pb-8">
-                        <nav className="flex flex-col gap-1 mb-6">
+                    <div className="bg-white/95 dark:bg-neutral-900/95 backdrop-blur-xl border-t border-neutral-200/60 dark:border-neutral-800/60 px-6 pt-4 pb-6">
+                        <nav className="flex flex-col gap-1 mb-5">
                             {[
                                 { label: 'Features', href: '#features' },
-                                { label: 'How it works', href: '#demo' },
-                                { label: 'Students', href: '#testimonials' },
+                                { label: 'Pricing', href: '#pricing' },
                             ].map(({ label, href }) => (
                                 <a
                                     key={href}
                                     href={href}
                                     onClick={() => setMobileMenuOpen(false)}
-                                    className="flex items-center gap-3 py-3 text-base font-semibold text-neutral-300 hover:text-white border-b border-white/5 transition-colors"
+                                    className="py-3 text-base font-semibold text-neutral-700 dark:text-neutral-200 hover:text-primary transition-colors"
                                 >
-                                    <span className="w-1.5 h-1.5 rounded-full bg-indigo-500 shrink-0"></span>
                                     {label}
                                 </a>
                             ))}
@@ -195,7 +159,7 @@ const LandingPage = () => {
                                     setMobileMenuOpen(false);
                                     captureLandingEvent('landing_cta_clicked', { cta_name: 'mobile_menu_login' });
                                 }}
-                                className="flex items-center justify-center w-full py-3.5 rounded-2xl border border-white/20 bg-white/5 text-sm font-bold text-white hover:bg-white/10 transition-colors active:scale-95"
+                                className="flex items-center justify-center w-full py-3 rounded-xl border-2 border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-800 text-sm font-bold text-neutral-700 dark:text-neutral-200 hover:border-primary/30 transition-colors active:scale-[0.98]"
                             >
                                 Log in
                             </Link>
@@ -205,227 +169,281 @@ const LandingPage = () => {
                                     setMobileMenuOpen(false);
                                     captureLandingEvent('landing_cta_clicked', { cta_name: 'mobile_menu_get_started' });
                                 }}
-                                className="flex items-center justify-center w-full py-3.5 rounded-2xl bg-indigo-600 text-sm font-bold text-white shadow-lg shadow-indigo-600/25 hover:bg-indigo-500 transition-colors active:scale-95"
+                                className="flex items-center justify-center w-full py-3 rounded-xl bg-primary text-sm font-bold text-white shadow-button hover:bg-primary-hover transition-colors active:scale-[0.98]"
                             >
-                                Get Started →
+                                Get Started Free
                             </Link>
                         </div>
                     </div>
                 </div>
             </header>
 
-            <main className="relative z-10 pt-28">
-                {/* Hero Section */}
-                <section className="mx-auto max-w-7xl px-6 lg:px-12 py-20 text-center">
-                    <div className="inline-flex items-center gap-2 rounded-full border border-indigo-500/30 bg-indigo-500/10 px-4 py-1.5 text-[12px] font-bold uppercase tracking-widest text-indigo-400 mb-8 animate-fade-in">
-                        <span className="relative flex h-2 w-2">
-                            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-indigo-400 opacity-75"></span>
-                            <span className="relative inline-flex rounded-full h-2 w-2 bg-indigo-500"></span>
-                        </span>
-                        Next-Gen Learning Assistant
-                    </div>
-                    <h2 className="text-3xl sm:text-4xl md:text-7xl font-bold leading-[1.1] tracking-tight mb-6 md:mb-8 animate-fade-in-up">
-                        Master any subject <br className="block sm:hidden" />with <br className="hidden md:block" />
-                        <span className="bg-clip-text text-transparent bg-gradient-to-r from-indigo-400 via-violet-400 to-cyan-400">
-                            Your Personal AI Tutor.
-                        </span>
-                    </h2>
-                    <p className="mx-auto max-w-2xl text-lg text-neutral-400 leading-relaxed mb-10 animate-fade-in-up animate-delay-100">
-                        StudyMate uses advanced AI to synthesize your course material into manageable study paths.
-                        Stop feeling overwhelmed and start excelling with personalized learning.
-                    </p>
-                    <div className="flex flex-col sm:flex-row items-center justify-center gap-4 animate-fade-in-up animate-delay-200">
-                        <Link
-                            to="/signup"
-                            onClick={() => {
-                                captureLandingEvent('landing_cta_clicked', { cta_name: 'hero_try_for_free' });
-                            }}
-                            className="w-full sm:w-auto inline-flex h-14 items-center justify-center rounded-2xl bg-white px-8 text-base font-bold text-black shadow-xl hover:bg-neutral-200 transition-colors active:scale-95"
-                        >
-                            Try StudyMate for Free
-                        </Link>
-                        <a
-                            href="#demo"
-                            onClick={() => {
-                                captureLandingEvent('landing_cta_clicked', { cta_name: 'hero_watch_demo' });
-                            }}
-                            className="w-full sm:w-auto inline-flex h-14 items-center justify-center rounded-2xl border border-white/10 bg-white/5 px-8 text-base font-bold transition-colors hover:bg-white/10"
-                        >
-                            Watch Demo
-                        </a>
-                    </div>
-
-                    {/* Dashboard Preview */}
-                    <div className="mt-20 relative animate-fade-in-up animate-delay-300">
-                        <div className="absolute inset-0 bg-indigo-600/20 blur-[100px] safari-blur-heavy -z-10"></div>
-                        <div className="rounded-3xl border border-white/10 bg-[#121214] p-2 shadow-2xl overflow-hidden">
-                            <div className="rounded-[1.4rem] overflow-hidden border border-white/5">
-                                <picture>
-                                    <source
-                                        media="(min-width: 1024px)"
-                                        srcSet={heroIllustration1600}
-                                        type="image/jpeg"
-                                    />
-                                    <source
-                                        srcSet={heroIllustration960}
-                                        type="image/jpeg"
-                                    />
-                                    <img
-                                        src={heroIllustration960}
-                                        alt="Platform Dashboard Preview"
-                                        className="w-full h-auto opacity-90"
-                                        width="1600"
-                                        height="893"
-                                        loading="eager"
-                                        decoding="async"
-                                        fetchPriority="high"
-                                    />
-                                </picture>
-                            </div>
+            <main className="relative z-10">
+                {/* ─── Hero ─── */}
+                <section className="mx-auto max-w-6xl px-6 lg:px-8 pt-32 md:pt-40 pb-16 md:pb-24">
+                    <div className="text-center max-w-3xl mx-auto mb-16 md:mb-20">
+                        <h1 className="text-[2rem] sm:text-4xl md:text-[3.5rem] font-extrabold leading-[1.1] tracking-tight text-neutral-900 dark:text-white mb-5 md:mb-6 animate-fade-in-up">
+                            Upload your PDF.{' '}
+                            <br className="hidden sm:block" />
+                            Get lessons, quizzes, and{' '}
+                            <br className="hidden md:block" />
+                            <span className="text-primary">an AI tutor</span> in 30 seconds.
+                        </h1>
+                        <p className="text-base md:text-lg text-neutral-600 dark:text-neutral-300 leading-relaxed mb-8 md:mb-10 max-w-xl mx-auto animate-fade-in-up animate-delay-100">
+                            Built for university students who want to study smarter, not harder.
+                        </p>
+                        <div className="flex flex-col sm:flex-row items-center justify-center gap-3 animate-fade-in-up animate-delay-200">
+                            <Link
+                                to="/signup"
+                                onClick={() => captureLandingEvent('landing_cta_clicked', { cta_name: 'hero_get_started' })}
+                                className="w-full sm:w-auto inline-flex h-13 items-center justify-center rounded-2xl bg-primary px-8 text-base font-bold text-white shadow-button hover:bg-primary-hover hover:shadow-button-hover hover:-translate-y-0.5 active:translate-y-0 transition-all duration-200"
+                            >
+                                Get Started Free
+                            </Link>
+                            <a
+                                href="#features"
+                                onClick={() => captureLandingEvent('landing_cta_clicked', { cta_name: 'hero_see_features' })}
+                                className="w-full sm:w-auto inline-flex h-13 items-center justify-center gap-2 rounded-2xl px-8 text-base font-bold text-neutral-600 dark:text-neutral-300 hover:text-neutral-900 dark:hover:text-white hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-all duration-200"
+                            >
+                                See how it works
+                                <span className="material-symbols-outlined text-[20px]">play_circle</span>
+                            </a>
                         </div>
                     </div>
-                </section>
 
-                {/* Features Grid */}
-                <section id="features" className="mx-auto max-w-7xl px-6 lg:px-12 py-16 md:py-24">
-                    <div className="text-center mb-16">
-                        <h3 className="text-3xl md:text-5xl font-bold mb-4">Everything you need to succeed</h3>
-                        <p className="text-neutral-400 max-w-xl mx-auto">Built by students, for students. Powerful tools to help you study smarter, not harder.</p>
-                    </div>
-                    <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
-                        {features.map((feature, idx) => (
-                            <div
-                                key={idx}
-                                className="group p-6 md:p-8 rounded-[2rem] border border-white/5 bg-white/[0.02] hover:bg-white/[0.05] transition-colors duration-300 relative overflow-hidden"
-                            >
-                                <div className={`h-12 w-12 rounded-xl ${feature.color} flex items-center justify-center mb-6 shadow-lg shadow-white/5 group-hover:scale-110 transition-transform`}>
-                                    <span className="material-symbols-outlined text-white">{feature.icon}</span>
+                    {/* Product Flow Mockup — 3 steps */}
+                    <div className="animate-fade-in-up animate-delay-300">
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-5 max-w-4xl mx-auto">
+                            {/* Step 1: Upload */}
+                            <div className="relative bg-white dark:bg-neutral-900 rounded-2xl border border-neutral-200/80 dark:border-neutral-800 p-5 shadow-card">
+                                <div className="flex items-center gap-2 mb-4">
+                                    <div className="flex items-center justify-center w-6 h-6 rounded-full bg-primary/10 text-primary text-xs font-extrabold">1</div>
+                                    <span className="text-xs font-bold text-neutral-400 dark:text-neutral-500 uppercase tracking-wider">Upload</span>
                                 </div>
-                                <h4 className="text-xl font-bold mb-3">{feature.title}</h4>
-                                <p className="text-sm text-neutral-400 leading-relaxed">{feature.description}</p>
+                                <div className="rounded-xl border-2 border-dashed border-neutral-200 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-800/50 p-4 flex flex-col items-center gap-3">
+                                    <div className="w-12 h-12 rounded-xl bg-red-50 dark:bg-red-900/20 flex items-center justify-center">
+                                        <span className="material-symbols-outlined text-red-500 text-[24px]">picture_as_pdf</span>
+                                    </div>
+                                    <div className="text-center">
+                                        <p className="text-sm font-semibold text-neutral-700 dark:text-neutral-200 truncate">Organic_Chemistry_Ch4.pdf</p>
+                                        <p className="text-[11px] text-neutral-400">2.4 MB</p>
+                                    </div>
+                                    <div className="w-full h-1.5 bg-neutral-200 dark:bg-neutral-700 rounded-full overflow-hidden">
+                                        <div className="h-full w-full bg-primary rounded-full" />
+                                    </div>
+                                </div>
                             </div>
-                        ))}
-                    </div>
-                </section>
 
-                {/* AI Demo Section */}
-                <section id="demo" className="mx-auto max-w-7xl px-6 lg:px-12 py-16 md:py-24">
-                    <div className="rounded-[3rem] border border-white/10 bg-gradient-to-br from-indigo-900/20 to-neutral-900/40 p-10 lg:p-20 relative overflow-hidden">
-                        <div className="grid lg:grid-cols-2 gap-16 items-center">
-                            <div>
-                                <h3 className="text-3xl md:text-5xl font-bold mb-6">Ask anything. <br /> Get instant clarity.</h3>
-                                <p className="text-lg text-neutral-400 leading-relaxed mb-8">
-                                    Our AI tutor understands the context of your specific course. Upload your PDF, and it becomes a living knowledge base you can interact with.
-                                </p>
-                                <ul className="space-y-4">
+                            {/* Step 2: Lessons */}
+                            <div className="relative bg-white dark:bg-neutral-900 rounded-2xl border border-neutral-200/80 dark:border-neutral-800 p-5 shadow-card">
+                                <div className="flex items-center gap-2 mb-4">
+                                    <div className="flex items-center justify-center w-6 h-6 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 text-xs font-extrabold">2</div>
+                                    <span className="text-xs font-bold text-neutral-400 dark:text-neutral-500 uppercase tracking-wider">Learn</span>
+                                </div>
+                                <div className="space-y-2.5">
                                     {[
-                                        'Summarize chapter 4 in three bullets',
-                                        'Explain the Newton-Raphson method',
-                                        'Create a 10-question practice quiz',
-                                        'What are the key terms in this week\'s lecture?'
-                                    ].map((text, i) => (
-                                        <li key={i} className="flex items-center gap-3 text-sm font-medium text-indigo-400">
-                                            <span className="material-symbols-outlined text-[18px]">check_circle</span>
-                                            {text}
-                                        </li>
+                                        { title: 'Alkene Reactions', progress: 85, color: 'bg-primary' },
+                                        { title: 'Stereochemistry', progress: 60, color: 'bg-cyan-500' },
+                                        { title: 'Spectroscopy', progress: 30, color: 'bg-amber-500' },
+                                    ].map((topic) => (
+                                        <div key={topic.title} className="flex items-center gap-3 p-2.5 rounded-xl bg-neutral-50 dark:bg-neutral-800/50">
+                                            <div className="flex-1 min-w-0">
+                                                <p className="text-xs font-semibold text-neutral-700 dark:text-neutral-200 truncate">{topic.title}</p>
+                                                <div className="mt-1.5 h-1 bg-neutral-200 dark:bg-neutral-700 rounded-full overflow-hidden">
+                                                    <div className={`h-full rounded-full ${topic.color}`} style={{ width: `${topic.progress}%` }} />
+                                                </div>
+                                            </div>
+                                            <span className="text-[10px] font-bold text-neutral-400 tabular-nums">{topic.progress}%</span>
+                                        </div>
                                     ))}
-                                </ul>
+                                </div>
                             </div>
-                            <div className="bg-[#0a0a0b] border border-white/10 rounded-2xl p-6 shadow-2xl">
-                                <div className="space-y-4">
+
+                            {/* Step 3: AI Tutor */}
+                            <div className="relative bg-white dark:bg-neutral-900 rounded-2xl border border-neutral-200/80 dark:border-neutral-800 p-5 shadow-card">
+                                <div className="flex items-center gap-2 mb-4">
+                                    <div className="flex items-center justify-center w-6 h-6 rounded-full bg-rose-500/10 text-rose-600 dark:text-rose-400 text-xs font-extrabold">3</div>
+                                    <span className="text-xs font-bold text-neutral-400 dark:text-neutral-500 uppercase tracking-wider">Ask</span>
+                                </div>
+                                <div className="space-y-3">
                                     <div className="flex justify-end">
-                                        <div className="bg-indigo-600 text-white px-4 py-2 rounded-2xl rounded-tr-none text-sm max-w-[80%]">
-                                            Can you explain the main concept of Quantum Entanglement?
+                                        <div className="bg-primary text-white px-3.5 py-2 rounded-2xl rounded-br-md text-xs leading-relaxed max-w-[85%]">
+                                            Explain SN1 vs SN2 reactions simply?
                                         </div>
                                     </div>
                                     <div className="flex justify-start">
-                                        <div className="bg-white/5 border border-white/10 text-neutral-300 px-4 py-2 rounded-2xl rounded-tl-none text-sm max-w-[80%]">
-                                            <div className="flex items-center gap-2 mb-2 font-bold text-indigo-400">
-                                                <span className="material-symbols-outlined text-[16px]">auto_awesome</span>
-                                                StudyMate AI
-                                            </div>
-                                            Think of it like two magic coins: if you flip one and it shows heads, the other will always show heads, no matter how far away they are. It's what Einstein called "spooky action at a distance."
-                                        </div>
-                                    </div>
-                                    <div className="flex justify-end pt-4">
-                                        <div className="w-full h-10 bg-white/5 border border-white/10 rounded-full px-4 flex items-center justify-between text-xs text-neutral-500">
-                                            <span>Type a message...</span>
-                                            <span className="material-symbols-outlined text-[16px]">send</span>
+                                        <div className="bg-neutral-100 dark:bg-neutral-800 text-neutral-700 dark:text-neutral-200 px-3.5 py-2 rounded-2xl rounded-bl-md text-xs leading-relaxed max-w-[85%]">
+                                            <span className="font-bold text-primary text-[10px] block mb-1">ChewnPour AI</span>
+                                            Think of SN1 as a two-step dance — the leaving group exits first, then the nucleophile joins. SN2 is a one-step swap...
                                         </div>
                                     </div>
                                 </div>
                             </div>
                         </div>
+
+                        {/* Connecting arrows (desktop only) */}
+                        <div className="hidden md:flex items-center justify-center gap-0 mt-[-180px] mb-[100px] pointer-events-none relative z-10">
+                            <div className="w-1/3" />
+                            <span className="material-symbols-outlined text-neutral-300 dark:text-neutral-600 text-[20px]">arrow_forward</span>
+                            <div className="w-1/3" />
+                            <span className="material-symbols-outlined text-neutral-300 dark:text-neutral-600 text-[20px]">arrow_forward</span>
+                            <div className="w-1/3" />
+                        </div>
                     </div>
                 </section>
 
-                {/* Testimonials */}
-                <section id="testimonials" className="mx-auto max-w-7xl px-6 lg:px-12 py-16 md:py-24">
-                    <div className="text-center mb-16">
-                        <h3 className="text-3xl md:text-5xl font-bold mb-4">Loved by students worldwide</h3>
-                        <p className="text-neutral-400">Join thousands of high-achievers using StudyMate to master their courses.</p>
-                    </div>
-                    <div className="grid gap-8 md:grid-cols-3">
-                        {testimonials.map((t, idx) => (
-                            <div key={idx} className="p-8 rounded-3xl border border-white/5 bg-white/[0.02] relative">
-                                <div className="flex items-center gap-4 mb-6">
-                                    <div
-                                        aria-hidden="true"
-                                        className={`h-12 w-12 rounded-full border border-white/10 bg-gradient-to-br ${t.avatarClass} flex items-center justify-center text-xs font-extrabold tracking-wide text-white`}
-                                    >
-                                        {t.initials}
-                                    </div>
-                                    <div>
-                                        <h5 className="font-bold">{t.name}</h5>
-                                        <p className="text-xs text-indigo-400 font-medium uppercase tracking-wider">{t.role}</p>
-                                    </div>
+                {/* ─── Stats Bar ─── */}
+                <section className="border-y border-neutral-200/60 dark:border-neutral-800/60 bg-white/50 dark:bg-neutral-900/50">
+                    <div className="mx-auto max-w-6xl px-6 lg:px-8 py-10 md:py-12">
+                        <div className="grid grid-cols-3 gap-6 md:gap-12 text-center">
+                            {stats.map((stat) => (
+                                <div key={stat.label}>
+                                    <div className="text-2xl md:text-3xl font-extrabold text-neutral-900 dark:text-white tracking-tight">{stat.value}</div>
+                                    <div className="text-[11px] md:text-xs font-semibold text-neutral-500 dark:text-neutral-400 uppercase tracking-wider mt-1">{stat.label}</div>
                                 </div>
-                                <p className="text-neutral-400 leading-relaxed italic">"{t.content}"</p>
+                            ))}
+                        </div>
+                    </div>
+                </section>
+
+                {/* ─── Features ─── */}
+                <section id="features" className="mx-auto max-w-6xl px-6 lg:px-8 py-20 md:py-28">
+                    <div className="text-center mb-12 md:mb-16">
+                        <h2 className="text-2xl md:text-4xl font-extrabold tracking-tight text-neutral-900 dark:text-white mb-3">
+                            Everything you need to ace your courses
+                        </h2>
+                        <p className="text-neutral-500 dark:text-neutral-400 max-w-lg mx-auto text-sm md:text-base">
+                            Powerful tools that turn your course material into an interactive study experience.
+                        </p>
+                    </div>
+                    <div className="grid gap-5 md:grid-cols-3">
+                        {features.map((feature) => (
+                            <div
+                                key={feature.title}
+                                className="group p-6 md:p-8 rounded-2xl bg-white dark:bg-neutral-900 border border-neutral-200/80 dark:border-neutral-800 shadow-card hover:shadow-card-hover hover:-translate-y-1 transition-all duration-300"
+                            >
+                                <div className="h-12 w-12 rounded-xl bg-primary/10 flex items-center justify-center mb-5 group-hover:bg-primary/15 transition-colors">
+                                    <span className="material-symbols-outlined text-primary text-[24px]">{feature.icon}</span>
+                                </div>
+                                <h3 className="text-lg font-bold text-neutral-900 dark:text-white mb-2">{feature.title}</h3>
+                                <p className="text-sm text-neutral-500 dark:text-neutral-400 leading-relaxed">{feature.description}</p>
                             </div>
                         ))}
                     </div>
                 </section>
 
-                {/* CTA Section */}
-                <section className="mx-auto max-w-7xl px-6 lg:px-12 py-16 md:py-24">
-                    <div className="relative rounded-[2rem] md:rounded-[3rem] bg-indigo-600 p-8 sm:p-12 lg:p-24 text-center overflow-hidden">
-                        <div className="absolute top-0 left-0 w-full h-full bg-gradient-to-br from-indigo-500 to-violet-700 -z-10"></div>
-                        <div className="absolute -top-10 -right-10 h-64 w-64 rounded-full bg-white/10 blur-[60px] safari-blur-heavy"></div>
-
-                        <h3 className="text-4xl lg:text-6xl font-bold mb-8">Ready to ace your exams?</h3>
-                        <p className="text-xl text-indigo-100 mb-6 sm:mb-12 max-w-2xl mx-auto">
-                            Start using StudyMate today and experience the future of personalized education. No credit card required.
+                {/* ─── Pricing ─── */}
+                <section id="pricing" className="mx-auto max-w-6xl px-6 lg:px-8 py-20 md:py-28">
+                    <div className="text-center mb-12 md:mb-16">
+                        <h2 className="text-2xl md:text-4xl font-extrabold tracking-tight text-neutral-900 dark:text-white mb-3">
+                            Simple pricing
+                        </h2>
+                        <p className="text-neutral-500 dark:text-neutral-400 max-w-md mx-auto text-sm md:text-base">
+                            Start free. Upgrade when you need more uploads.
                         </p>
-                        <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
+                    </div>
+                    <div className="grid gap-5 md:grid-cols-2 max-w-2xl mx-auto">
+                        {/* Free Plan */}
+                        <div className="p-7 md:p-8 rounded-2xl bg-white dark:bg-neutral-900 border border-neutral-200/80 dark:border-neutral-800 shadow-card">
+                            <div className="mb-5">
+                                <span className="inline-flex items-center px-2.5 py-1 rounded-lg text-[11px] font-bold uppercase tracking-widest bg-neutral-100 dark:bg-neutral-800 text-neutral-500 dark:text-neutral-400 mb-3">Free</span>
+                                <div className="flex items-baseline gap-1">
+                                    <span className="text-4xl font-extrabold text-neutral-900 dark:text-white">GHS 0</span>
+                                    <span className="text-neutral-400 text-sm font-medium">/forever</span>
+                                </div>
+                            </div>
+                            <ul className="space-y-3 mb-7">
+                                {[
+                                    '2 document uploads',
+                                    'AI-powered lessons',
+                                    'Interactive quizzes',
+                                    'AI Tutor chat',
+                                    'Progress tracking',
+                                ].map((item) => (
+                                    <li key={item} className="flex items-center gap-2.5 text-sm text-neutral-600 dark:text-neutral-300">
+                                        <span className="material-symbols-outlined text-emerald-500 text-[16px]">check_circle</span>
+                                        {item}
+                                    </li>
+                                ))}
+                            </ul>
                             <Link
                                 to="/signup"
-                                onClick={() => {
-                                    captureLandingEvent('landing_cta_clicked', { cta_name: 'footer_get_started_now' });
-                                }}
-                                className="w-full sm:w-auto inline-flex h-16 items-center justify-center rounded-2xl bg-white px-10 text-lg font-bold text-indigo-600 shadow-2xl hover:bg-neutral-100 transition-colors active:scale-95"
+                                onClick={() => captureLandingEvent('landing_cta_clicked', { cta_name: 'pricing_free' })}
+                                className="w-full inline-flex h-11 items-center justify-center rounded-xl border-2 border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-800 text-sm font-bold text-neutral-700 dark:text-neutral-200 hover:border-primary/30 hover:shadow-card-hover transition-all active:scale-[0.98]"
                             >
-                                Get Started Now
+                                Get Started Free
+                            </Link>
+                        </div>
+
+                        {/* Premium */}
+                        <div className="relative p-7 md:p-8 rounded-2xl bg-white dark:bg-neutral-900 border-2 border-primary/30 shadow-card">
+                            <div className="absolute -top-3 left-1/2 -translate-x-1/2">
+                                <span className="px-3 py-1 bg-primary text-white text-[10px] font-bold uppercase tracking-widest rounded-full shadow-button">Popular</span>
+                            </div>
+                            <div className="mb-5">
+                                <span className="inline-flex items-center px-2.5 py-1 rounded-lg text-[11px] font-bold uppercase tracking-widest bg-primary/10 text-primary mb-3">Premium</span>
+                                <div className="flex items-baseline gap-1">
+                                    <span className="text-4xl font-extrabold text-neutral-900 dark:text-white">GHS 20</span>
+                                    <span className="text-neutral-400 text-sm font-medium">/top-up</span>
+                                </div>
+                            </div>
+                            <ul className="space-y-3 mb-7">
+                                {[
+                                    '20 additional uploads',
+                                    'Everything in Free',
+                                    'Priority AI processing',
+                                    'Assignment Helper',
+                                    'AI Humanizer tool',
+                                    'Premium support',
+                                ].map((item) => (
+                                    <li key={item} className="flex items-center gap-2.5 text-sm text-neutral-600 dark:text-neutral-300">
+                                        <span className="material-symbols-outlined text-primary text-[16px]">check_circle</span>
+                                        {item}
+                                    </li>
+                                ))}
+                            </ul>
+                            <Link
+                                to="/signup"
+                                onClick={() => captureLandingEvent('landing_cta_clicked', { cta_name: 'pricing_premium' })}
+                                className="w-full inline-flex h-11 items-center justify-center rounded-xl bg-primary text-sm font-bold text-white shadow-button hover:bg-primary-hover hover:shadow-button-hover hover:-translate-y-0.5 active:translate-y-0 transition-all duration-200"
+                            >
+                                Get Premium
                             </Link>
                         </div>
                     </div>
                 </section>
             </main>
 
-            <footer className="border-t border-white/5 bg-[#0a0a0b] py-20">
-                <div className="mx-auto max-w-7xl px-6 lg:px-12">
-                    <div className="flex flex-col md:flex-row justify-between items-center gap-10">
-                        <div className="flex items-center gap-3">
-                            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-indigo-600 text-white shadow-lg">
-                                <span className="material-symbols-outlined text-[20px] filled">auto_awesome</span>
+            {/* ─── Footer ─── */}
+            <footer className="border-t border-neutral-200/60 dark:border-neutral-800/60 bg-white/50 dark:bg-neutral-900/50 py-10">
+                <div className="mx-auto max-w-6xl px-6 lg:px-8">
+                    <div className="flex flex-col md:flex-row justify-between items-center gap-6">
+                        <div className="flex items-center gap-2.5">
+                            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-primary to-secondary text-white shadow-sm">
+                                <span className="material-symbols-outlined text-[16px] filled">auto_awesome</span>
                             </div>
-                            <h4 className="text-xl font-bold">StudyMate</h4>
+                            <span className="text-sm font-bold text-neutral-900 dark:text-white">ChewnPour</span>
                         </div>
-                        <nav className="flex gap-6 text-sm font-semibold text-neutral-500">
-                            <a href="#features" className="hover:text-white transition-colors">Features</a>
-                            <a href="#testimonials" className="hover:text-white transition-colors">Testimonials</a>
-                            <a href="#" className="hover:text-white transition-colors">Contact</a>
-                        </nav>
-                        <p className="text-sm text-neutral-500">© 2026 StudyMate AI.</p>
+                        <div className="flex items-center gap-5 text-sm">
+                            <a
+                                href="https://t.me/+jIHi6XFYdl9kNDA0"
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="font-semibold text-neutral-500 dark:text-neutral-400 hover:text-primary transition-colors"
+                            >
+                                Telegram
+                            </a>
+                            <a
+                                href="mailto:patrickannor35@gmail.com"
+                                className="font-semibold text-neutral-500 dark:text-neutral-400 hover:text-primary transition-colors"
+                            >
+                                Email
+                            </a>
+                            <a href="#pricing" className="font-semibold text-neutral-500 dark:text-neutral-400 hover:text-primary transition-colors">
+                                Pricing
+                            </a>
+                        </div>
+                        <p className="text-xs text-neutral-400 dark:text-neutral-500">© 2026 ChewnPour</p>
                     </div>
                 </div>
             </footer>
