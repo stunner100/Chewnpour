@@ -139,13 +139,13 @@ export const AIHumanizer = () => {
     };
 
     return (
-        <div className="min-h-[100svh] md:min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-900 dark:to-slate-800 p-4 pb-24 md:p-6">
+        <div className="min-h-[100svh] md:min-h-screen bg-gradient-to-br from-neutral-50 to-neutral-100 dark:from-neutral-900 dark:to-neutral-800 p-4 pb-24 md:p-6">
             <div className="max-w-4xl mx-auto">
                 <div className="mb-6">
-                    <h1 className="text-2xl md:text-3xl font-display font-extrabold text-slate-900 dark:text-white">
+                    <h1 className="text-2xl md:text-3xl font-display font-extrabold text-neutral-900 dark:text-white">
                         AI Humanizer
                     </h1>
-                    <p className="mt-1 text-slate-600 dark:text-slate-400">
+                    <p className="mt-1 text-neutral-600 dark:text-neutral-400">
                         Make AI-generated text appear naturally human-written
                     </p>
                 </div>
@@ -158,15 +158,15 @@ export const AIHumanizer = () => {
 
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                     <div className="space-y-4">
-                        <div className="rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 shadow-soft p-4">
+                        <div className="rounded-2xl border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-800 shadow-soft p-4">
                             <div className="flex items-center justify-between mb-3">
-                                <h2 className="text-sm font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                                <h2 className="text-sm font-bold uppercase tracking-wider text-neutral-500 dark:text-neutral-400">
                                     Original Text
                                 </h2>
                                 <button
                                     type="button"
                                     onClick={handleClear}
-                                    className="text-xs font-medium text-slate-500 hover:text-primary transition-colors"
+                                    className="text-xs font-medium text-neutral-500 hover:text-primary transition-colors"
                                 >
                                     Clear
                                 </button>
@@ -175,14 +175,14 @@ export const AIHumanizer = () => {
                                 value={inputText}
                                 onChange={(e) => setInputText(e.target.value)}
                                 placeholder="Paste your AI-generated text here..."
-                                className="w-full h-64 md:h-80 px-3 py-2 text-sm text-slate-900 dark:text-white bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl resize-none focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary"
+                                className="w-full h-64 md:h-80 px-3 py-2 text-sm text-neutral-900 dark:text-white bg-neutral-50 dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-700 rounded-xl resize-none focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary"
                             />
                             <div className="mt-3 flex flex-wrap gap-2">
                                 <button
                                     type="button"
                                     onClick={handleDetect}
                                     disabled={isDetecting}
-                                    className="inline-flex items-center gap-2 px-4 py-2 text-sm font-semibold rounded-xl border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                                    className="inline-flex items-center gap-2 px-4 py-2 text-sm font-semibold rounded-xl border border-neutral-200 dark:border-neutral-600 bg-white dark:bg-neutral-700 text-neutral-700 dark:text-neutral-200 hover:bg-neutral-100 dark:hover:bg-neutral-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                                 >
                                     <span className="material-symbols-outlined text-[18px]">
                                         {isDetecting ? 'hourglass_empty' : 'psychology'}
@@ -216,11 +216,11 @@ export const AIHumanizer = () => {
                                             <span className={`text-lg font-bold ${getConfidenceColor(detectionResult.confidence)}`}>
                                                 {detectionResult.confidence}%
                                             </span>
-                                            <span className="text-sm font-medium text-slate-600 dark:text-slate-400">
+                                            <span className="text-sm font-medium text-neutral-600 dark:text-neutral-400">
                                                 AI Probability
                                             </span>
                                         </div>
-                                        <p className="text-sm text-slate-600 dark:text-slate-400 mt-1">
+                                        <p className="text-sm text-neutral-600 dark:text-neutral-400 mt-1">
                                             {detectionResult.isAI
                                                 ? 'This text appears to be AI-generated'
                                                 : 'This text appears to be human-written'}
@@ -230,7 +230,7 @@ export const AIHumanizer = () => {
                                                 {detectionResult.flags.slice(0, 5).map((flag, idx) => (
                                                     <span
                                                         key={idx}
-                                                        className="text-xs px-2 py-1 rounded-full bg-white/70 dark:bg-slate-800/70 text-slate-600 dark:text-slate-400"
+                                                        className="text-xs px-2 py-1 rounded-full bg-white/70 dark:bg-neutral-800/70 text-neutral-600 dark:text-neutral-400"
                                                     >
                                                         {flag}
                                                     </span>
@@ -243,9 +243,9 @@ export const AIHumanizer = () => {
                         )}
                     </div>
 
-                    <div className="rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 shadow-soft p-4">
+                    <div className="rounded-2xl border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-800 shadow-soft p-4">
                         <div className="flex items-center justify-between mb-3">
-                            <h2 className="text-sm font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                            <h2 className="text-sm font-bold uppercase tracking-wider text-neutral-500 dark:text-neutral-400">
                                 Humanized Output
                             </h2>
                             {outputText && (
@@ -265,14 +265,14 @@ export const AIHumanizer = () => {
                             value={outputText}
                             readOnly
                             placeholder="Humanized text will appear here..."
-                            className="w-full h-64 md:h-80 px-3 py-2 text-sm text-slate-900 dark:text-white bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl resize-none focus:outline-none"
+                            className="w-full h-64 md:h-80 px-3 py-2 text-sm text-neutral-900 dark:text-white bg-neutral-50 dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-700 rounded-xl resize-none focus:outline-none"
                         />
                         {outputText && (
                             <div className="mt-3">
                                 <button
                                     type="button"
                                     onClick={handleReplace}
-                                    className="inline-flex items-center gap-2 px-4 py-2 text-sm font-semibold rounded-xl border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-600 transition-colors"
+                                    className="inline-flex items-center gap-2 px-4 py-2 text-sm font-semibold rounded-xl border border-neutral-200 dark:border-neutral-600 bg-white dark:bg-neutral-700 text-neutral-700 dark:text-neutral-200 hover:bg-neutral-100 dark:hover:bg-neutral-700 transition-colors"
                                 >
                                     <span className="material-symbols-outlined text-[18px]">swap_horiz</span>
                                     Replace Original

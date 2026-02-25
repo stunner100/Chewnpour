@@ -126,16 +126,16 @@ const Profile = () => {
     };
 
     return (
-        <div className="bg-background-light dark:bg-background-dark font-body antialiased text-slate-900 dark:text-slate-100 transition-colors duration-300 min-h-screen flex flex-col overflow-x-hidden">
+        <div className="bg-background-light dark:bg-background-dark font-body antialiased text-neutral-900 dark:text-neutral-100 transition-colors duration-300 min-h-screen flex flex-col overflow-x-hidden">
             {/* Enhanced Header */}
-            <div className="sticky top-0 z-50 flex items-center justify-between glass border-b border-slate-200/50 dark:border-slate-800/50 p-4 pb-4">
-                <Link to="/dashboard" className="flex size-10 shrink-0 items-center justify-center rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-500 hover:text-primary transition-all cursor-pointer">
+            <div className="sticky top-0 z-50 flex items-center justify-between glass border-b border-neutral-200/50 dark:border-neutral-800/50 p-4 pb-4">
+                <Link to="/dashboard" className="flex size-10 shrink-0 items-center justify-center rounded-full hover:bg-neutral-100 dark:hover:bg-neutral-800 text-neutral-500 hover:text-primary transition-all cursor-pointer">
                     <span className="material-symbols-outlined">arrow_back</span>
                 </Link>
                 <h2 className="text-lg font-bold leading-tight tracking-tight">Student Profile</h2>
                 <button
                     onClick={() => navigate('/profile/edit')}
-                    className="flex size-10 shrink-0 items-center justify-center rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-500 hover:text-primary transition-all"
+                    className="flex size-10 shrink-0 items-center justify-center rounded-full hover:bg-neutral-100 dark:hover:bg-neutral-800 text-neutral-500 hover:text-primary transition-all"
                 >
                     <span className="material-symbols-outlined">settings</span>
                 </button>
@@ -144,15 +144,11 @@ const Profile = () => {
             <main className="flex-1 w-full max-w-2xl mx-auto p-4 md:p-6 pb-28 md:pb-8 space-y-6 animate-slide-up">
                 {/* Enhanced Profile Header with Stats */}
                 <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-primary/5 via-purple-500/5 to-primary/5 dark:from-primary/10 dark:via-purple-500/10 dark:to-primary/10 p-6 md:p-8">
-                    {/* Background decorative elements */}
-                    <div className="absolute top-0 right-0 w-40 h-40 bg-primary/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2"></div>
-                    <div className="absolute bottom-0 left-0 w-32 h-32 bg-purple-500/10 rounded-full blur-3xl translate-y-1/2 -translate-x-1/2"></div>
-
                     <div className="relative flex flex-col items-center gap-5">
                         {/* Enhanced Avatar with Progress Ring */}
                         <div className="relative">
-                            <div className="w-28 h-28 rounded-full p-1 bg-gradient-to-br from-primary via-purple-500 to-primary">
-                                <div className="w-full h-full rounded-full bg-white dark:bg-slate-900 p-1">
+                            <div className="w-28 h-28 rounded-full p-1 bg-primary">
+                                <div className="w-full h-full rounded-full bg-white dark:bg-neutral-900 p-1">
                                     <div
                                         className="w-full h-full rounded-full bg-center bg-no-repeat bg-cover flex items-center justify-center text-primary text-4xl font-bold"
                                         style={
@@ -167,7 +163,7 @@ const Profile = () => {
                             </div>
                             {/* Streak Badge */}
                             {displayStats.streakDays > 0 && (
-                                <div className="absolute -bottom-1 left-1/2 -translate-x-1/2 bg-gradient-to-r from-orange-400 to-red-500 text-white px-3 py-1 rounded-full text-xs font-bold shadow-lg flex items-center gap-1">
+                                <div className="absolute -bottom-1 left-1/2 -translate-x-1/2 bg-accent-amber text-white px-3 py-1 rounded-full text-xs font-bold shadow-lg flex items-center gap-1">
                                     <span className="material-symbols-outlined text-[14px] filled">local_fire_department</span>
                                     <span>{displayStats.streakDays}-day streak</span>
                                 </div>
@@ -177,14 +173,14 @@ const Profile = () => {
                         {/* Profile Info */}
                         <div className="text-center space-y-1">
                             <div className="flex items-center justify-center gap-2">
-                                <h1 className="text-2xl md:text-3xl font-display font-bold tracking-tight text-slate-900 dark:text-white">
+                                <h1 className="text-2xl md:text-3xl font-display font-bold tracking-tight text-neutral-900 dark:text-white">
                                     {displayName}
                                 </h1>
                                 {isPremium && (
                                     <span className="material-symbols-outlined text-primary text-xl filled">verified</span>
                                 )}
                             </div>
-                            <p className="text-slate-500 dark:text-slate-400 text-sm font-medium">
+                            <p className="text-neutral-500 dark:text-neutral-400 text-sm font-medium">
                                 {getDepartmentLabel(profile?.department)} • {getLevelLabel(profile?.educationLevel)}
                             </p>
                         </div>
@@ -200,7 +196,7 @@ const Profile = () => {
                             </button>
                             <button
                                 onClick={() => shareProfile(displayName)}
-                                className="h-11 w-11 rounded-2xl bg-white dark:bg-surface-dark border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white flex items-center justify-center hover:bg-slate-50 dark:hover:bg-slate-800 transition-all hover:-translate-y-0.5 shadow-sm"
+                                className="h-11 w-11 rounded-2xl bg-white dark:bg-surface-dark border border-neutral-200 dark:border-neutral-700 text-neutral-900 dark:text-white flex items-center justify-center hover:bg-neutral-50 dark:hover:bg-neutral-800 transition-all hover:-translate-y-0.5 shadow-sm"
                             >
                                 <span className="material-symbols-outlined">share</span>
                             </button>
@@ -212,48 +208,48 @@ const Profile = () => {
                 <div className="grid grid-cols-4 gap-3">
                     <div
                         onClick={() => setStatsModal({ open: true, type: 'topics' })}
-                        className="flex flex-col items-center gap-2 p-4 bg-white dark:bg-surface-dark rounded-2xl border border-slate-100 dark:border-slate-800 shadow-sm hover:shadow-md hover:border-primary/20 transition-all group cursor-pointer"
+                        className="flex flex-col items-center gap-2 p-4 bg-white dark:bg-surface-dark rounded-2xl border border-neutral-100 dark:border-neutral-800 shadow-sm hover:shadow-md hover:border-primary/20 transition-all group cursor-pointer"
                     >
-                        <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-500 to-blue-600 text-white flex items-center justify-center shadow-lg shadow-blue-500/25 group-hover:scale-110 transition-transform">
+                        <div className="w-10 h-10 rounded-xl bg-primary text-white flex items-center justify-center shadow-lg shadow-primary/25 group-hover:scale-110 transition-transform">
                             <span className="material-symbols-outlined filled text-lg">menu_book</span>
                         </div>
-                        <p className="text-xl font-bold text-slate-900 dark:text-white">{displayStats.topics}</p>
-                        <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Topics</p>
+                        <p className="text-xl font-bold text-neutral-900 dark:text-white">{displayStats.topics}</p>
+                        <p className="text-[10px] font-bold uppercase tracking-wider text-neutral-400">Topics</p>
                     </div>
                     <div
                         onClick={() => setStatsModal({ open: true, type: 'accuracy' })}
-                        className="flex flex-col items-center gap-2 p-4 bg-white dark:bg-surface-dark rounded-2xl border border-slate-100 dark:border-slate-800 shadow-sm hover:shadow-md hover:border-primary/20 transition-all group cursor-pointer"
+                        className="flex flex-col items-center gap-2 p-4 bg-white dark:bg-surface-dark rounded-2xl border border-neutral-100 dark:border-neutral-800 shadow-sm hover:shadow-md hover:border-primary/20 transition-all group cursor-pointer"
                     >
-                        <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-green-500 to-emerald-600 text-white flex items-center justify-center shadow-lg shadow-green-500/25 group-hover:scale-110 transition-transform">
+                        <div className="w-10 h-10 rounded-xl bg-accent-emerald text-white flex items-center justify-center shadow-lg shadow-accent-emerald/25 group-hover:scale-110 transition-transform">
                             <span className="material-symbols-outlined filled text-lg">check_circle</span>
                         </div>
-                        <p className="text-xl font-bold text-slate-900 dark:text-white">{displayStats.accuracy}%</p>
-                        <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Accuracy</p>
+                        <p className="text-xl font-bold text-neutral-900 dark:text-white">{displayStats.accuracy}%</p>
+                        <p className="text-[10px] font-bold uppercase tracking-wider text-neutral-400">Accuracy</p>
                     </div>
                     <div
                         onClick={() => setStatsModal({ open: true, type: 'courses' })}
-                        className="flex flex-col items-center gap-2 p-4 bg-white dark:bg-surface-dark rounded-2xl border border-slate-100 dark:border-slate-800 shadow-sm hover:shadow-md hover:border-primary/20 transition-all group cursor-pointer"
+                        className="flex flex-col items-center gap-2 p-4 bg-white dark:bg-surface-dark rounded-2xl border border-neutral-100 dark:border-neutral-800 shadow-sm hover:shadow-md hover:border-primary/20 transition-all group cursor-pointer"
                     >
-                        <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-purple-500 to-violet-600 text-white flex items-center justify-center shadow-lg shadow-purple-500/25 group-hover:scale-110 transition-transform">
+                        <div className="w-10 h-10 rounded-xl bg-secondary text-white flex items-center justify-center shadow-lg shadow-secondary/25 group-hover:scale-110 transition-transform">
                             <span className="material-symbols-outlined filled text-lg">school</span>
                         </div>
-                        <p className="text-xl font-bold text-slate-900 dark:text-white">{displayStats.courses}</p>
-                        <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Courses</p>
+                        <p className="text-xl font-bold text-neutral-900 dark:text-white">{displayStats.courses}</p>
+                        <p className="text-[10px] font-bold uppercase tracking-wider text-neutral-400">Courses</p>
                     </div>
                     <div
                         onClick={() => setStatsModal({ open: true, type: 'hours' })}
-                        className="flex flex-col items-center gap-2 p-4 bg-white dark:bg-surface-dark rounded-2xl border border-slate-100 dark:border-slate-800 shadow-sm hover:shadow-md hover:border-primary/20 transition-all group cursor-pointer"
+                        className="flex flex-col items-center gap-2 p-4 bg-white dark:bg-surface-dark rounded-2xl border border-neutral-100 dark:border-neutral-800 shadow-sm hover:shadow-md hover:border-primary/20 transition-all group cursor-pointer"
                     >
-                        <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-orange-500 to-red-500 text-white flex items-center justify-center shadow-lg shadow-orange-500/25 group-hover:scale-110 transition-transform">
+                        <div className="w-10 h-10 rounded-xl bg-accent-amber text-white flex items-center justify-center shadow-lg shadow-accent-amber/25 group-hover:scale-110 transition-transform">
                             <span className="material-symbols-outlined filled text-lg">schedule</span>
                         </div>
-                        <p className="text-xl font-bold text-slate-900 dark:text-white">{Number(displayStats.studyTime || 0).toFixed(1)}h</p>
-                        <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Hours</p>
+                        <p className="text-xl font-bold text-neutral-900 dark:text-white">{Number(displayStats.studyTime || 0).toFixed(1)}h</p>
+                        <p className="text-[10px] font-bold uppercase tracking-wider text-neutral-400">Hours</p>
                     </div>
                 </div>
 
                 {/* Premium Subscription Card */}
-                <div className={`p-5 rounded-2xl shadow-lg relative overflow-hidden ${isPremium ? 'bg-gradient-to-br from-primary via-purple-600 to-primary' : 'bg-white dark:bg-surface-dark border border-slate-200 dark:border-slate-800'}`}>
+                <div className={`p-5 rounded-2xl shadow-lg relative overflow-hidden ${isPremium ? 'bg-primary' : 'bg-white dark:bg-surface-dark border border-neutral-200 dark:border-neutral-800'}`}>
                     {isPremium ? (
                         <>
                             <div className="absolute top-0 right-0 w-48 h-48 bg-white/10 rounded-full -translate-y-1/2 translate-x-1/2 blur-2xl"></div>
@@ -279,15 +275,15 @@ const Profile = () => {
                     ) : (
                         <div className="flex items-center justify-between">
                             <div className="flex items-center gap-4">
-                                <div className="w-14 h-14 rounded-2xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center">
-                                    <span className="material-symbols-outlined text-3xl text-slate-400">card_membership</span>
+                                <div className="w-14 h-14 rounded-2xl bg-neutral-100 dark:bg-neutral-800 flex items-center justify-center">
+                                    <span className="material-symbols-outlined text-3xl text-neutral-400">card_membership</span>
                                 </div>
                                 <div>
-                                    <p className="text-xl font-bold text-slate-900 dark:text-white">Free Plan</p>
-                                    <p className="text-sm text-slate-500 dark:text-slate-400">Upgrade to unlock all features</p>
+                                    <p className="text-xl font-bold text-neutral-900 dark:text-white">Free Plan</p>
+                                    <p className="text-sm text-neutral-500 dark:text-neutral-400">Upgrade to unlock all features</p>
                                 </div>
                             </div>
-                            <Link to="/subscription" className="px-5 py-2.5 bg-gradient-to-r from-primary to-purple-600 text-white rounded-xl text-sm font-bold shadow-lg shadow-primary/30 hover:shadow-xl hover:-translate-y-0.5 transition-all">
+                            <Link to="/subscription" className="px-5 py-2.5 bg-primary text-white rounded-xl text-sm font-bold shadow-lg shadow-primary/30 hover:shadow-xl hover:-translate-y-0.5 transition-all">
                                 Upgrade
                             </Link>
                         </div>
@@ -296,71 +292,71 @@ const Profile = () => {
 
                 {/* Quick Access Grid */}
                 <div>
-                    <h3 className="text-base font-bold text-slate-900 dark:text-white mb-3">Quick Access</h3>
+                    <h3 className="text-base font-bold text-neutral-900 dark:text-white mb-3">Quick Access</h3>
                     <div className="grid grid-cols-2 gap-3">
-                        <Link to="/dashboard/assignment-helper" className="flex items-center gap-4 p-4 bg-white dark:bg-surface-dark rounded-2xl border border-slate-100 dark:border-slate-800 shadow-sm hover:shadow-md hover:border-primary/20 transition-all group">
-                            <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-blue-500 to-indigo-600 text-white flex items-center justify-center shadow-lg shadow-blue-500/20 group-hover:scale-110 transition-transform">
+                        <Link to="/dashboard/assignment-helper" className="flex items-center gap-4 p-4 bg-white dark:bg-surface-dark rounded-2xl border border-neutral-100 dark:border-neutral-800 shadow-sm hover:shadow-md hover:border-primary/20 transition-all group">
+                            <div className="w-12 h-12 rounded-xl bg-primary text-white flex items-center justify-center shadow-lg shadow-primary/20 group-hover:scale-110 transition-transform">
                                 <span className="material-symbols-outlined filled text-xl">assignment</span>
                             </div>
                             <div>
-                                <p className="text-sm font-bold text-slate-900 dark:text-white">Assignment Helper</p>
-                                <p className="text-xs text-slate-400">Get AI answers</p>
+                                <p className="text-sm font-bold text-neutral-900 dark:text-white">Assignment Helper</p>
+                                <p className="text-xs text-neutral-400">Get AI answers</p>
                             </div>
-                            <span className="material-symbols-outlined text-slate-300 ml-auto group-hover:text-primary group-hover:translate-x-1 transition-all">arrow_forward</span>
+                            <span className="material-symbols-outlined text-neutral-300 ml-auto group-hover:text-primary group-hover:translate-x-1 transition-all">arrow_forward</span>
                         </Link>
-                        <Link to="/dashboard/humanizer" className="flex items-center gap-4 p-4 bg-white dark:bg-surface-dark rounded-2xl border border-slate-100 dark:border-slate-800 shadow-sm hover:shadow-md hover:border-primary/20 transition-all group">
-                            <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-purple-500 to-pink-600 text-white flex items-center justify-center shadow-lg shadow-purple-500/20 group-hover:scale-110 transition-transform">
+                        <Link to="/dashboard/humanizer" className="flex items-center gap-4 p-4 bg-white dark:bg-surface-dark rounded-2xl border border-neutral-100 dark:border-neutral-800 shadow-sm hover:shadow-md hover:border-primary/20 transition-all group">
+                            <div className="w-12 h-12 rounded-xl bg-secondary text-white flex items-center justify-center shadow-lg shadow-secondary/20 group-hover:scale-110 transition-transform">
                                 <span className="material-symbols-outlined filled text-xl">auto_fix_high</span>
                             </div>
                             <div>
-                                <p className="text-sm font-bold text-slate-900 dark:text-white">AI Humanizer</p>
-                                <p className="text-xs text-slate-400">Bypass detection</p>
+                                <p className="text-sm font-bold text-neutral-900 dark:text-white">AI Humanizer</p>
+                                <p className="text-xs text-neutral-400">Bypass detection</p>
                             </div>
-                            <span className="material-symbols-outlined text-slate-300 ml-auto group-hover:text-primary group-hover:translate-x-1 transition-all">arrow_forward</span>
+                            <span className="material-symbols-outlined text-neutral-300 ml-auto group-hover:text-primary group-hover:translate-x-1 transition-all">arrow_forward</span>
                         </Link>
-                        <Link to="/dashboard/exam" className="flex items-center gap-4 p-4 bg-white dark:bg-surface-dark rounded-2xl border border-slate-100 dark:border-slate-800 shadow-sm hover:shadow-md hover:border-primary/20 transition-all group">
-                            <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-emerald-500 to-teal-600 text-white flex items-center justify-center shadow-lg shadow-emerald-500/20 group-hover:scale-110 transition-transform">
+                        <Link to="/dashboard/exam" className="flex items-center gap-4 p-4 bg-white dark:bg-surface-dark rounded-2xl border border-neutral-100 dark:border-neutral-800 shadow-sm hover:shadow-md hover:border-primary/20 transition-all group">
+                            <div className="w-12 h-12 rounded-xl bg-accent-emerald text-white flex items-center justify-center shadow-lg shadow-accent-emerald/20 group-hover:scale-110 transition-transform">
                                 <span className="material-symbols-outlined filled text-xl">quiz</span>
                             </div>
                             <div>
-                                <p className="text-sm font-bold text-slate-900 dark:text-white">Past Questions</p>
-                                <p className="text-xs text-slate-400">Test your knowledge</p>
+                                <p className="text-sm font-bold text-neutral-900 dark:text-white">Past Questions</p>
+                                <p className="text-xs text-neutral-400">Test your knowledge</p>
                             </div>
-                            <span className="material-symbols-outlined text-slate-300 ml-auto group-hover:text-primary group-hover:translate-x-1 transition-all">arrow_forward</span>
+                            <span className="material-symbols-outlined text-neutral-300 ml-auto group-hover:text-primary group-hover:translate-x-1 transition-all">arrow_forward</span>
                         </Link>
-                        <Link to="/dashboard" className="flex items-center gap-4 p-4 bg-white dark:bg-surface-dark rounded-2xl border border-slate-100 dark:border-slate-800 shadow-sm hover:shadow-md hover:border-primary/20 transition-all group">
-                            <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-orange-500 to-red-500 text-white flex items-center justify-center shadow-lg shadow-orange-500/20 group-hover:scale-110 transition-transform">
+                        <Link to="/dashboard" className="flex items-center gap-4 p-4 bg-white dark:bg-surface-dark rounded-2xl border border-neutral-100 dark:border-neutral-800 shadow-sm hover:shadow-md hover:border-primary/20 transition-all group">
+                            <div className="w-12 h-12 rounded-xl bg-accent-amber text-white flex items-center justify-center shadow-lg shadow-accent-amber/20 group-hover:scale-110 transition-transform">
                                 <span className="material-symbols-outlined filled text-xl">dashboard</span>
                             </div>
                             <div>
-                                <p className="text-sm font-bold text-slate-900 dark:text-white">Dashboard</p>
-                                <p className="text-xs text-slate-400">Go to dashboard</p>
+                                <p className="text-sm font-bold text-neutral-900 dark:text-white">Dashboard</p>
+                                <p className="text-xs text-neutral-400">Go to dashboard</p>
                             </div>
-                            <span className="material-symbols-outlined text-slate-300 ml-auto group-hover:text-primary group-hover:translate-x-1 transition-all">arrow_forward</span>
+                            <span className="material-symbols-outlined text-neutral-300 ml-auto group-hover:text-primary group-hover:translate-x-1 transition-all">arrow_forward</span>
                         </Link>
                     </div>
                 </div>
 
                 {/* Settings Cards */}
                 <div>
-                    <h3 className="text-base font-bold text-slate-900 dark:text-white mb-3">Settings</h3>
+                    <h3 className="text-base font-bold text-neutral-900 dark:text-white mb-3">Settings</h3>
                     <div className="space-y-3">
                         {/* Voice Mode Toggle */}
-                        <div className="p-4 bg-white dark:bg-surface-dark rounded-2xl border border-slate-100 dark:border-slate-800 shadow-sm">
+                        <div className="p-4 bg-white dark:bg-surface-dark rounded-2xl border border-neutral-100 dark:border-neutral-800 shadow-sm">
                             <div className="flex items-center justify-between gap-4">
                                 <div className="flex items-center gap-3">
                                     <div className="w-10 h-10 rounded-xl bg-indigo-50 dark:bg-indigo-900/20 text-indigo-500 flex items-center justify-center">
                                         <span className="material-symbols-outlined filled">volume_up</span>
                                     </div>
                                     <div>
-                                        <p className="font-bold text-slate-900 dark:text-white text-sm">Voice Mode</p>
-                                        <p className="text-xs text-slate-400">Read topics aloud</p>
+                                        <p className="font-bold text-neutral-900 dark:text-white text-sm">Voice Mode</p>
+                                        <p className="text-xs text-neutral-400">Read topics aloud</p>
                                     </div>
                                 </div>
                                 <button
                                     onClick={handleVoiceModeToggle}
                                     disabled={voiceSaving}
-                                    className={`relative w-12 h-7 rounded-full transition-colors ${voiceModeEnabled ? 'bg-primary' : 'bg-slate-300 dark:bg-slate-600'} ${voiceSaving ? 'opacity-60 cursor-not-allowed' : ''}`}
+                                    className={`relative w-12 h-7 rounded-full transition-colors ${voiceModeEnabled ? 'bg-primary' : 'bg-neutral-300 dark:bg-neutral-600'} ${voiceSaving ? 'opacity-60 cursor-not-allowed' : ''}`}
                                     aria-label="Toggle voice mode"
                                     aria-pressed={voiceModeEnabled}
                                 >
@@ -377,20 +373,20 @@ const Profile = () => {
                         </div>
 
                         {/* Dark Mode Toggle */}
-                        <div className="p-4 bg-white dark:bg-surface-dark rounded-2xl border border-slate-100 dark:border-slate-800 shadow-sm">
+                        <div className="p-4 bg-white dark:bg-surface-dark rounded-2xl border border-neutral-100 dark:border-neutral-800 shadow-sm">
                             <div className="flex items-center justify-between gap-4">
                                 <div className="flex items-center gap-3">
-                                    <div className="w-10 h-10 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 flex items-center justify-center">
+                                    <div className="w-10 h-10 rounded-xl bg-neutral-100 dark:bg-neutral-800 text-neutral-600 dark:text-neutral-400 flex items-center justify-center">
                                         <span className="material-symbols-outlined filled">dark_mode</span>
                                     </div>
                                     <div>
-                                        <p className="font-bold text-slate-900 dark:text-white text-sm">Dark Mode</p>
-                                        <p className="text-xs text-slate-400">Toggle appearance</p>
+                                        <p className="font-bold text-neutral-900 dark:text-white text-sm">Dark Mode</p>
+                                        <p className="text-xs text-neutral-400">Toggle appearance</p>
                                     </div>
                                 </div>
                                 <button
                                     onClick={handleDarkModeToggle}
-                                    className="relative w-12 h-7 rounded-full bg-slate-300 dark:bg-primary transition-colors"
+                                    className="relative w-12 h-7 rounded-full bg-neutral-300 dark:bg-primary transition-colors"
                                     aria-label="Toggle dark mode"
                                     aria-pressed={darkModeEnabled}
                                 >
@@ -405,24 +401,24 @@ const Profile = () => {
 
                 {/* Support & Community Cards */}
                 <div>
-                    <h3 className="text-base font-bold text-slate-900 dark:text-white mb-3">Support & Community</h3>
+                    <h3 className="text-base font-bold text-neutral-900 dark:text-white mb-3">Support & Community</h3>
                     <div className="grid grid-cols-2 gap-3">
-                        <a href="mailto:patrickannor35@gmail.com" className="flex flex-col gap-2 p-4 bg-white dark:bg-surface-dark rounded-2xl border border-slate-100 dark:border-slate-800 shadow-sm hover:shadow-md hover:border-primary/20 transition-all group">
-                            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-500 to-indigo-600 text-white flex items-center justify-center shadow-lg shadow-blue-500/20 group-hover:scale-110 transition-transform">
+                        <a href="mailto:patrickannor35@gmail.com" className="flex flex-col gap-2 p-4 bg-white dark:bg-surface-dark rounded-2xl border border-neutral-100 dark:border-neutral-800 shadow-sm hover:shadow-md hover:border-primary/20 transition-all group">
+                            <div className="w-10 h-10 rounded-xl bg-primary text-white flex items-center justify-center shadow-lg shadow-primary/20 group-hover:scale-110 transition-transform">
                                 <span className="material-symbols-outlined filled text-lg">mail</span>
                             </div>
                             <div>
-                                <p className="text-sm font-bold text-slate-900 dark:text-white">Email Us</p>
-                                <p className="text-xs text-slate-400">Get direct support</p>
+                                <p className="text-sm font-bold text-neutral-900 dark:text-white">Email Us</p>
+                                <p className="text-xs text-neutral-400">Get direct support</p>
                             </div>
                         </a>
-                        <a href="https://t.me/+jIHi6XFYdl9kNDA0" target="_blank" rel="noopener noreferrer" className="flex flex-col gap-2 p-4 bg-white dark:bg-surface-dark rounded-2xl border border-slate-100 dark:border-slate-800 shadow-sm hover:shadow-md hover:border-blue-400/30 transition-all group">
-                            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-400 to-blue-500 text-white flex items-center justify-center shadow-lg shadow-blue-400/20 group-hover:scale-110 transition-transform">
+                        <a href="https://t.me/+jIHi6XFYdl9kNDA0" target="_blank" rel="noopener noreferrer" className="flex flex-col gap-2 p-4 bg-white dark:bg-surface-dark rounded-2xl border border-neutral-100 dark:border-neutral-800 shadow-sm hover:shadow-md hover:border-blue-400/30 transition-all group">
+                            <div className="w-10 h-10 rounded-xl bg-accent-cyan text-white flex items-center justify-center shadow-lg shadow-accent-cyan/20 group-hover:scale-110 transition-transform">
                                 <span className="material-symbols-outlined filled text-lg">forum</span>
                             </div>
                             <div>
-                                <p className="text-sm font-bold text-slate-900 dark:text-white">Telegram</p>
-                                <p className="text-xs text-slate-400">Join our community</p>
+                                <p className="text-sm font-bold text-neutral-900 dark:text-white">Telegram</p>
+                                <p className="text-xs text-neutral-400">Join our community</p>
                             </div>
                         </a>
                     </div>
@@ -431,7 +427,7 @@ const Profile = () => {
                 {/* Recent Exams */}
                 <div>
                     <div className="flex items-center justify-between mb-3">
-                        <h3 className="text-base font-bold text-slate-900 dark:text-white">Recent Exams</h3>
+                        <h3 className="text-base font-bold text-neutral-900 dark:text-white">Recent Exams</h3>
                         {examAttempts && examAttempts.length > 0 && (
                             <Link to="/dashboard/analysis" className="text-xs font-bold text-primary hover:underline">View all</Link>
                         )}
@@ -446,15 +442,15 @@ const Profile = () => {
                                     <div
                                         key={attempt._id}
                                         onClick={() => setExamModal({ open: true, attempt })}
-                                        className="flex items-center gap-4 p-4 bg-white dark:bg-surface-dark rounded-2xl border border-slate-100 dark:border-slate-800 shadow-sm hover:shadow-md transition-all group cursor-pointer"
+                                        className="flex items-center gap-4 p-4 bg-white dark:bg-surface-dark rounded-2xl border border-neutral-100 dark:border-neutral-800 shadow-sm hover:shadow-md transition-all group cursor-pointer"
                                     >
                                         <div className="w-12 h-12 rounded-xl flex items-center justify-center text-white shadow-md" style={{ background: gradients[index % gradients.length] }}>
                                             <span className="material-symbols-outlined text-lg">quiz</span>
                                         </div>
                                         <div className="flex-1 min-w-0">
-                                            <p className="font-bold text-slate-900 dark:text-white text-sm truncate">{attempt.topicTitle}</p>
+                                            <p className="font-bold text-neutral-900 dark:text-white text-sm truncate">{attempt.topicTitle}</p>
                                             <div className="flex items-center gap-2 mt-1">
-                                                <div className="flex-1 h-1.5 bg-slate-100 dark:bg-slate-700 rounded-full overflow-hidden max-w-[80px]">
+                                                <div className="flex-1 h-1.5 bg-neutral-100 dark:bg-neutral-700 rounded-full overflow-hidden max-w-[80px]">
                                                     <div
                                                         className={`h-full rounded-full ${isExcellent ? 'bg-green-500' : isGood ? 'bg-amber-500' : 'bg-red-500'}`}
                                                         style={{ width: `${scorePercent}%` }}
@@ -465,17 +461,17 @@ const Profile = () => {
                                                 </p>
                                             </div>
                                         </div>
-                                        <p className="text-xs text-slate-400 whitespace-nowrap">{formatDate(attempt._creationTime)}</p>
+                                        <p className="text-xs text-neutral-400 whitespace-nowrap">{formatDate(attempt._creationTime)}</p>
                                     </div>
                                 );
                             })}
                         </div>
                     ) : (
-                        <div className="text-center py-8 bg-slate-50 dark:bg-slate-800/30 rounded-2xl border border-dashed border-slate-200 dark:border-slate-700">
-                            <div className="w-14 h-14 bg-slate-100 dark:bg-slate-800 rounded-full flex items-center justify-center mx-auto mb-3 text-slate-400">
+                        <div className="text-center py-8 bg-neutral-50 dark:bg-neutral-800/30 rounded-2xl border border-dashed border-neutral-200 dark:border-neutral-700">
+                            <div className="w-14 h-14 bg-neutral-100 dark:bg-neutral-800 rounded-full flex items-center justify-center mx-auto mb-3 text-neutral-400">
                                 <span className="material-symbols-outlined text-2xl">quiz</span>
                             </div>
-                            <p className="font-medium text-slate-900 dark:text-white text-sm">No exam attempts yet</p>
+                            <p className="font-medium text-neutral-900 dark:text-white text-sm">No exam attempts yet</p>
                             <Link to="/dashboard" className="text-primary font-bold text-xs hover:underline mt-1 inline-block">Start learning</Link>
                         </div>
                     )}
@@ -485,7 +481,7 @@ const Profile = () => {
                 <div className="pt-4">
                     <button
                         onClick={handleLogout}
-                        className="w-full flex items-center justify-center gap-2 h-12 bg-white dark:bg-surface-dark border border-slate-200 dark:border-slate-700 text-red-600 dark:text-red-400 rounded-2xl font-bold hover:bg-red-50 dark:hover:bg-red-900/10 transition-colors shadow-sm"
+                        className="w-full flex items-center justify-center gap-2 h-12 bg-white dark:bg-surface-dark border border-neutral-200 dark:border-neutral-700 text-red-600 dark:text-red-400 rounded-2xl font-bold hover:bg-red-50 dark:hover:bg-red-900/10 transition-colors shadow-sm"
                     >
                         <span className="material-symbols-outlined">logout</span>
                         Sign Out
