@@ -75,16 +75,16 @@ const formatRelativeTime = (timestamp) => {
 
 const PROCESSING_STAGES = [
     {
-        title: 'Calculating',
-        detail: 'Reading your assignment and identifying each question.',
+        title: 'Reading',
+        detail: 'Identifying the subject and parsing each question.',
     },
     {
         title: 'Solving',
-        detail: 'Working through each part step by step.',
+        detail: 'Working through each question step by step.',
     },
     {
         title: 'Finalizing',
-        detail: 'Getting you the best answers to review.',
+        detail: 'Reviewing answers and preparing your results.',
     },
 ];
 
@@ -101,6 +101,20 @@ const normalizeAssistantDisplayText = (value) => {
         .replace(/(^|[\s(])\*([^*\n]+)\*([\s).,!?]|$)/g, '$1$2$3')
         .replace(/\n{3,}/g, '\n\n')
         .trim();
+};
+
+const ASSIGNMENT_QUESTIONS_MARKER = '__ASSIGNMENT_QUESTIONS_V1__';
+
+const parseStructuredAnswers = (content) => {
+    if (!content || typeof content !== 'string') return null;
+    const markerIdx = content.indexOf(ASSIGNMENT_QUESTIONS_MARKER);
+    if (markerIdx === -1) return null;
+    try {
+        const jsonStr = content.slice(markerIdx + ASSIGNMENT_QUESTIONS_MARKER.length);
+        const parsed = JSON.parse(jsonStr);
+        if (parsed?.questions?.length >= 2) return parsed;
+    } catch { /* malformed JSON — fall back to prose */ }
+    return null;
 };
 
 const FOLLOWUP_MAX_LENGTH = 4000;
@@ -204,6 +218,8 @@ const AssignmentHelper = () => {
     const [processingStageIndex, setProcessingStageIndex] = useState(0);
     const [copiedMessageId, setCopiedMessageId] = useState(null);
     const [confirmDeleteId, setConfirmDeleteId] = useState(null);
+    const [activeFollowUpQuestionNumber, setActiveFollowUpQuestionNumber] = useState(null);
+    const [expandedQuestionIndex, setExpandedQuestionIndex] = useState(0);
     const uploadInputRef = useRef(null);
     const cameraInputRef = useRef(null);
     const endRef = useRef(null);
@@ -580,12 +596,17 @@ const AssignmentHelper = () => {
         setSending(true);
         setError('');
         try {
-            await askAssignmentFollowUp({
+            const args = {
                 threadId: selectedThreadId,
                 userId,
                 question,
-            });
+            };
+            if (activeFollowUpQuestionNumber) {
+                args.questionNumber = activeFollowUpQuestionNumber;
+            }
+            await askAssignmentFollowUp(args);
             setFollowUpQuestion('');
+            setActiveFollowUpQuestionNumber(null);
             if (textareaRef.current) {
                 textareaRef.current.style.height = 'auto';
             }
@@ -594,6 +615,12 @@ const AssignmentHelper = () => {
         } finally {
             setSending(false);
         }
+    };
+
+    const handleAskAboutQuestion = (qNum) => {
+        setActiveFollowUpQuestionNumber(qNum);
+        setFollowUpQuestion(`Regarding Question ${qNum}: `);
+        textareaRef.current?.focus();
     };
 
     const handleCopy = async (content, messageId) => {
@@ -961,10 +988,112 @@ const AssignmentHelper = () => {
                                     )}
                                     {messages.map((message, index) => {
                                         const isAssistant = message.role === 'assistant';
-                                        const displayContent = isAssistant
+                                        const structured = isAssistant ? parseStructuredAnswers(message.content) : null;
+                                        const displayContent = isAssistant && !structured
                                             ? (normalizeAssistantDisplayText(message.content) || message.content)
                                             : message.content;
                                         const showAvatar = index === 0 || messages[index - 1].role !== message.role;
+
+                                        // Structured question-by-question accordion
+                                        if (structured) {
+                                            return (
+                                                <div key={message._id} className="flex justify-start gap-2">
+                                                    {showAvatar && (
+                                                        <div className="w-8 h-8 rounded-full bg-primary flex items-center justify-center text-white shrink-0 mt-1">
+                                                            <span className="material-symbols-outlined text-sm">smart_toy</span>
+                                                        </div>
+                                                    )}
+                                                    <div className="max-w-[92%] md:max-w-[85%] space-y-2 w-full">
+                                                        {structured.questions.map((q, qi) => {
+                                                            const isOpen = expandedQuestionIndex === qi;
+                                                            return (
+                                                                <div
+                                                                    key={qi}
+                                                                    className="rounded-xl border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-800 shadow-sm overflow-hidden"
+                                                                >
+                                                                    <button
+                                                                        type="button"
+                                                                        onClick={() => setExpandedQuestionIndex(isOpen ? -1 : qi)}
+                                                                        className="w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-neutral-50 dark:hover:bg-neutral-750 transition-colors"
+                                                                    >
+                                                                        <span className="w-7 h-7 rounded-full bg-primary/10 text-primary text-xs font-bold flex items-center justify-center shrink-0">
+                                                                            {q.number || qi + 1}
+                                                                        </span>
+                                                                        <span className="flex-1 text-sm font-medium text-neutral-800 dark:text-neutral-100 truncate">
+                                                                            {q.questionText || `Question ${q.number || qi + 1}`}
+                                                                        </span>
+                                                                        <span className={`material-symbols-outlined text-neutral-400 text-lg transition-transform ${isOpen ? 'rotate-180' : ''}`}>
+                                                                            expand_more
+                                                                        </span>
+                                                                    </button>
+
+                                                                    {isOpen && (
+                                                                        <div className="px-4 pb-4 space-y-3 border-t border-neutral-100 dark:border-neutral-700">
+                                                                            {q.questionText && (
+                                                                                <p className="text-xs text-neutral-500 dark:text-neutral-400 pt-3 italic">
+                                                                                    {q.questionText}
+                                                                                </p>
+                                                                            )}
+                                                                            <div className="rounded-lg bg-primary/5 dark:bg-primary/10 border border-primary/10 dark:border-primary/20 px-3 py-3">
+                                                                                <p className="text-xs font-semibold text-primary mb-1">Answer</p>
+                                                                                <div className="text-sm text-neutral-800 dark:text-neutral-100 leading-relaxed whitespace-pre-wrap">
+                                                                                    {q.answer}
+                                                                                </div>
+                                                                            </div>
+                                                                            {q.workings && (
+                                                                                <div className="rounded-lg bg-neutral-50 dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-700 px-3 py-3">
+                                                                                    <p className="text-xs font-semibold text-neutral-500 dark:text-neutral-400 mb-1">Workings</p>
+                                                                                    <div className="text-xs text-neutral-600 dark:text-neutral-300 leading-relaxed whitespace-pre-wrap font-mono">
+                                                                                        {q.workings}
+                                                                                    </div>
+                                                                                </div>
+                                                                            )}
+                                                                            <div className="flex items-center gap-2 pt-1">
+                                                                                <button
+                                                                                    type="button"
+                                                                                    onClick={() => handleAskAboutQuestion(q.number || qi + 1)}
+                                                                                    className="inline-flex items-center gap-1 text-xs font-medium text-primary hover:text-primary/80 bg-primary/10 hover:bg-primary/15 px-2.5 py-1.5 rounded-lg transition-colors"
+                                                                                >
+                                                                                    <span className="material-symbols-outlined text-[13px]">chat</span>
+                                                                                    Ask about Q{q.number || qi + 1}
+                                                                                </button>
+                                                                                <button
+                                                                                    type="button"
+                                                                                    onClick={() => navigate('/dashboard/humanizer', { state: { text: q.answer } })}
+                                                                                    className="inline-flex items-center gap-1 text-xs font-medium text-primary hover:text-primary/80 bg-primary/10 hover:bg-primary/15 px-2.5 py-1.5 rounded-lg transition-colors"
+                                                                                >
+                                                                                    <span className="material-symbols-outlined text-[13px]">auto_fix_high</span>
+                                                                                    Humanize
+                                                                                </button>
+                                                                                {(() => {
+                                                                                    const copyId = `${message._id}-q${qi}`;
+                                                                                    const isCopied = copiedMessageId === copyId;
+                                                                                    return (
+                                                                                        <button
+                                                                                            type="button"
+                                                                                            onClick={() => handleCopy(q.answer + (q.workings ? `\n\nWorkings:\n${q.workings}` : ''), copyId)}
+                                                                                            className={`inline-flex items-center gap-1 text-xs font-medium px-2.5 py-1.5 rounded-lg transition-colors ${isCopied
+                                                                                                ? 'text-green-600 bg-green-50 dark:bg-green-900/20'
+                                                                                                : 'text-neutral-500 hover:text-neutral-700 bg-neutral-100 hover:bg-neutral-200 dark:bg-neutral-700 dark:hover:bg-neutral-600'
+                                                                                            }`}
+                                                                                        >
+                                                                                            <span className="material-symbols-outlined text-[13px]">{isCopied ? 'check' : 'content_copy'}</span>
+                                                                                            {isCopied ? 'Copied!' : 'Copy'}
+                                                                                        </button>
+                                                                                    );
+                                                                                })()}
+                                                                            </div>
+                                                                        </div>
+                                                                    )}
+                                                                </div>
+                                                            );
+                                                        })}
+                                                    </div>
+                                                </div>
+                                            );
+                                        }
+
+                                        // Prose fallback (original rendering)
                                         return (
                                             <div
                                                 key={message._id}
@@ -1053,7 +1182,23 @@ const AssignmentHelper = () => {
                                             </p>
                                         </div>
                                     ) : (
-                                        <div className="flex items-end gap-2">
+                                        <div className="flex flex-col gap-2">
+                                            {activeFollowUpQuestionNumber && (
+                                                <div className="flex items-center gap-2">
+                                                    <span className="inline-flex items-center gap-1.5 text-xs font-medium text-primary bg-primary/10 px-2.5 py-1 rounded-full">
+                                                        <span className="material-symbols-outlined text-[13px]">chat</span>
+                                                        Asking about Q{activeFollowUpQuestionNumber}
+                                                    </span>
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => { setActiveFollowUpQuestionNumber(null); setFollowUpQuestion(''); }}
+                                                        className="text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-300 transition-colors"
+                                                    >
+                                                        <span className="material-symbols-outlined text-[14px]">close</span>
+                                                    </button>
+                                                </div>
+                                            )}
+                                            <div className="flex items-end gap-2">
                                             <div className="flex-1 relative">
                                                 <textarea
                                                     ref={(el) => {
@@ -1092,6 +1237,7 @@ const AssignmentHelper = () => {
                                             >
                                                 <span className="material-symbols-outlined text-xl">{sending ? 'hourglass_empty' : 'send'}</span>
                                             </button>
+                                        </div>
                                         </div>
                                     )}
                                 </div>
