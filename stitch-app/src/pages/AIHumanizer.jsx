@@ -2,12 +2,31 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useAction } from 'convex/react';
 import { api } from '../../convex/_generated/api';
+import { useAuth } from '../contexts/AuthContext';
+
+const WRITING_STYLES = [
+    'Academic Essay',
+    'Lab Report',
+    'Casual/Blog',
+    'Formal Letter',
+];
+
+const VERIFICATION_STEPS = [
+    { key: 'analyzing_input', label: 'Analyzing original text' },
+    { key: 'humanizing', label: 'Rewriting in your style' },
+    { key: 'verifying', label: 'Verifying result' },
+    { key: 'done', label: 'Done' },
+];
 
 export const AIHumanizer = () => {
     const location = useLocation();
     const navigate = useNavigate();
+    const { user } = useAuth();
+    const isLoggedIn = Boolean(user);
+
     const detectAIText = useAction(api.ai.detectAIText);
     const humanizeText = useAction(api.ai.humanizeText);
+    const humanizeWithVerification = useAction(api.ai.humanizeWithVerification);
 
     const [inputText, setInputText] = useState('');
     const [outputText, setOutputText] = useState('');
@@ -17,6 +36,10 @@ export const AIHumanizer = () => {
     const [error, setError] = useState('');
     const [copied, setCopied] = useState(false);
     const copiedTimerRef = useRef(null);
+
+    const [selectedStyle, setSelectedStyle] = useState('Casual/Blog');
+    const [verificationResult, setVerificationResult] = useState(null);
+    const [verificationStep, setVerificationStep] = useState(null);
 
     useEffect(() => {
         if (location.state?.text) {
@@ -85,14 +108,44 @@ export const AIHumanizer = () => {
         setIsHumanizing(true);
         setError('');
         setDetectionResult(null);
+        setVerificationResult(null);
 
-        try {
-            const result = await humanizeText({ text: trimmedText });
-            setOutputText(result.humanizedText);
-        } catch (err) {
-            setError(resolveConvexError(err, 'Failed to humanize text. Please try again.'));
-        } finally {
-            setIsHumanizing(false);
+        if (isLoggedIn) {
+            try {
+                setVerificationStep('analyzing_input');
+                await new Promise((r) => setTimeout(r, 400));
+
+                setVerificationStep('humanizing');
+                const stepAdvanceTimer = setTimeout(() => setVerificationStep('verifying'), 8000);
+
+                const result = await humanizeWithVerification({
+                    text: trimmedText,
+                    style: selectedStyle,
+                });
+
+                clearTimeout(stepAdvanceTimer);
+                setVerificationStep('done');
+                setOutputText(result.humanizedText);
+                setVerificationResult({
+                    before: result.passes.before,
+                    after: result.passes.after,
+                    attempts: result.attempts,
+                });
+            } catch (err) {
+                setError(resolveConvexError(err, 'Failed to humanize text. Please try again.'));
+            } finally {
+                setIsHumanizing(false);
+                setTimeout(() => setVerificationStep(null), 2000);
+            }
+        } else {
+            try {
+                const result = await humanizeText({ text: trimmedText, style: selectedStyle });
+                setOutputText(result.humanizedText);
+            } catch (err) {
+                setError(resolveConvexError(err, 'Failed to humanize text. Please try again.'));
+            } finally {
+                setIsHumanizing(false);
+            }
         }
     };
 
@@ -117,12 +170,14 @@ export const AIHumanizer = () => {
         if (!outputText) return;
         setInputText(outputText);
         setOutputText('');
+        setVerificationResult(null);
     };
 
     const handleClear = () => {
         setInputText('');
         setOutputText('');
         setDetectionResult(null);
+        setVerificationResult(null);
         setError('');
     };
 
@@ -177,6 +232,30 @@ export const AIHumanizer = () => {
                                 placeholder="Paste your AI-generated text here..."
                                 className="w-full h-64 md:h-80 px-3 py-2 text-sm text-neutral-900 dark:text-white bg-neutral-50 dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-700 rounded-xl resize-none focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary"
                             />
+
+                            {/* Writing Style Selector */}
+                            <div className="mt-3">
+                                <p className="text-xs font-semibold text-neutral-500 dark:text-neutral-400 mb-2 uppercase tracking-wider">
+                                    Writing Style
+                                </p>
+                                <div className="flex flex-wrap gap-2">
+                                    {WRITING_STYLES.map((style) => (
+                                        <button
+                                            key={style}
+                                            type="button"
+                                            onClick={() => setSelectedStyle(style)}
+                                            className={`px-3 py-1.5 rounded-full text-xs font-semibold border transition-colors ${
+                                                selectedStyle === style
+                                                    ? 'bg-primary text-white border-primary'
+                                                    : 'bg-neutral-50 dark:bg-neutral-800 text-neutral-700 dark:text-neutral-200 border-neutral-200 dark:border-neutral-700 hover:border-primary/50'
+                                            }`}
+                                        >
+                                            {style}
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
+
                             <div className="mt-3 flex flex-wrap gap-2">
                                 <button
                                     type="button"
@@ -198,9 +277,21 @@ export const AIHumanizer = () => {
                                     <span className="material-symbols-outlined text-[18px]">
                                         {isHumanizing ? 'hourglass_empty' : 'auto_fix_high'}
                                     </span>
-                                    {isHumanizing ? 'Humanizing...' : 'Humanize'}
+                                    {isHumanizing
+                                        ? isLoggedIn ? 'Working...' : 'Humanizing...'
+                                        : 'Humanize'}
                                 </button>
                             </div>
+
+                            {/* Step indicator during verified humanization */}
+                            {isHumanizing && isLoggedIn && verificationStep && (
+                                <div className="mt-3 flex items-center gap-2 text-xs text-neutral-500 dark:text-neutral-400">
+                                    <span className="inline-block w-3 h-3 rounded-full border-2 border-primary border-t-transparent animate-spin" />
+                                    <span className="font-medium">
+                                        {VERIFICATION_STEPS.find((s) => s.key === verificationStep)?.label ?? 'Processing...'}
+                                    </span>
+                                </div>
+                            )}
                         </div>
 
                         {detectionResult && (
@@ -267,6 +358,36 @@ export const AIHumanizer = () => {
                             placeholder="Humanized text will appear here..."
                             className="w-full h-64 md:h-80 px-3 py-2 text-sm text-neutral-900 dark:text-white bg-neutral-50 dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-700 rounded-xl resize-none focus:outline-none"
                         />
+
+                        {/* Before/After Score Card */}
+                        {verificationResult && (
+                            <div className="mt-3 rounded-xl border border-neutral-200 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-900 p-3">
+                                <p className="text-xs font-bold uppercase tracking-wider text-neutral-500 dark:text-neutral-400 mb-2">
+                                    AI Detection Score
+                                </p>
+                                <div className="flex items-center gap-4">
+                                    <div className="flex flex-col items-center">
+                                        <span className={`text-lg font-bold ${getConfidenceColor(verificationResult.before)}`}>
+                                            {verificationResult.before}%
+                                        </span>
+                                        <span className="text-xs text-neutral-500 dark:text-neutral-400">Before</span>
+                                    </div>
+                                    <span className="material-symbols-outlined text-neutral-400 text-[20px]">arrow_forward</span>
+                                    <div className="flex flex-col items-center">
+                                        <span className={`text-lg font-bold ${getConfidenceColor(verificationResult.after)}`}>
+                                            {verificationResult.after}%
+                                        </span>
+                                        <span className="text-xs text-neutral-500 dark:text-neutral-400">After</span>
+                                    </div>
+                                    {verificationResult.attempts > 1 && (
+                                        <span className="ml-auto text-xs text-neutral-400 dark:text-neutral-500">
+                                            {verificationResult.attempts} rewrite{verificationResult.attempts > 1 ? 's' : ''}
+                                        </span>
+                                    )}
+                                </div>
+                            </div>
+                        )}
+
                         {outputText && (
                             <div className="mt-3">
                                 <button
@@ -282,19 +403,20 @@ export const AIHumanizer = () => {
                     </div>
                 </div>
 
-                <div className="mt-6 p-4 rounded-2xl bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800">
+                <div className="mt-6 p-4 rounded-2xl bg-primary/5 dark:bg-primary/10 border border-primary/20 dark:border-primary/20">
                     <div className="flex items-start gap-3">
-                        <span className="material-symbols-outlined text-blue-600 dark:text-blue-400 text-[20px] mt-0.5">info</span>
-                    <div>
-                        <p className="text-sm font-medium text-blue-800 dark:text-blue-300">
-                            Tips for best results
-                        </p>
-                        <ul className="mt-1 text-xs text-blue-700 dark:text-blue-400 space-y-1">
-                            <li>• Paste 100+ words for more accurate detection</li>
-                            <li>• Humanization works best on paragraphs of text</li>
-                            <li>• Review the output - you may want to make small edits</li>
-                        </ul>
-                    </div>
+                        <span className="material-symbols-outlined text-primary text-[20px] mt-0.5">info</span>
+                        <div>
+                            <p className="text-sm font-medium text-neutral-800 dark:text-neutral-200">
+                                Tips for best results
+                            </p>
+                            <ul className="mt-1 text-xs text-neutral-600 dark:text-neutral-400 space-y-1">
+                                <li>• Paste 100+ words for more accurate detection</li>
+                                <li>• Choose a writing style that matches your assignment type</li>
+                                <li>• Logged-in users get automatic verification with before/after scores</li>
+                                <li>• Review the output — you may want to make small edits</li>
+                            </ul>
+                        </div>
                     </div>
                 </div>
             </div>

@@ -28,9 +28,12 @@ import {
     resolveQuestionBankProfile,
 } from "./lib/questionBankConfig";
 
-// Qwen API configuration (OpenAI-compatible)
+// Primary LLM: OpenAI GPT-5.2. Fallback: Qwen (OpenAI-compatible endpoint).
+const OPENAI_BASE_URL = process.env.OPENAI_BASE_URL || "https://api.openai.com/v1";
+const OPENAI_MODEL = process.env.OPENAI_MODEL || "gpt-5.2";
 const QWEN_BASE_URL = process.env.QWEN_BASE_URL || "https://dashscope.aliyuncs.com/compatible-mode/v1";
-const DEFAULT_MODEL = process.env.QWEN_MODEL || "qwen-max";
+const QWEN_MODEL = process.env.QWEN_MODEL || "qwen-max";
+const DEFAULT_MODEL = OPENAI_MODEL;
 const DEFAULT_TIMEOUT_MS = Number(process.env.QWEN_TIMEOUT_MS || 60000);
 const DEFAULT_PROCESSING_TIMEOUT_MS = Number(process.env.PROCESSING_TIMEOUT_MS || 25 * 60 * 1000);
 const AZURE_DOCINTEL_ENDPOINT = process.env.AZURE_DOCINTEL_ENDPOINT || "";
@@ -259,59 +262,108 @@ async function callQwen(
     model: string = DEFAULT_MODEL,
     options?: { temperature?: number; maxTokens?: number; timeoutMs?: number; responseFormat?: "json_object" }
 ): Promise<string> {
-    const apiKey = process.env.QWEN_API_KEY;
-    if (!apiKey) {
-        throw new Error("QWEN_API_KEY environment variable not set");
-    }
-
-    const controller = new AbortController();
     const timeoutMs = options?.timeoutMs ?? DEFAULT_TIMEOUT_MS;
-    let timeoutId: ReturnType<typeof setTimeout> | null = null;
-    let response: Response;
-    try {
-        const timeoutPromise = new Promise<never>((_, reject) => {
-            timeoutId = setTimeout(() => {
-                controller.abort();
-                reject(new Error(`Qwen request timed out after ${timeoutMs}ms`));
-            }, timeoutMs);
-        });
 
-        const requestPromise = fetch(`${QWEN_BASE_URL}/chat/completions`, {
-            method: "POST",
-            headers: {
-                "Content-Type": "application/json",
-                Authorization: `Bearer ${apiKey}`,
-            },
-            body: JSON.stringify({
+    const callProvider = async (args: {
+        providerName: "openai" | "qwen";
+        baseUrl: string;
+        apiKey: string;
+        modelName: string;
+    }) => {
+        const controller = new AbortController();
+        let timeoutId: ReturnType<typeof setTimeout> | null = null;
+        let response: Response;
+
+        try {
+            const timeoutPromise = new Promise<never>((_, reject) => {
+                timeoutId = setTimeout(() => {
+                    controller.abort();
+                    reject(new Error(`${args.providerName} request timed out after ${timeoutMs}ms`));
+                }, timeoutMs);
+            });
+
+            const requestPromise = fetch(`${args.baseUrl}/chat/completions`, {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    Authorization: `Bearer ${args.apiKey}`,
+                },
+                body: JSON.stringify({
+                    model: args.modelName,
+                    messages,
+                    temperature: options?.temperature ?? 0.3,
+                    ...(args.providerName === "openai"
+                        ? { max_completion_tokens: options?.maxTokens ?? 2048 }
+                        : { max_tokens: options?.maxTokens ?? 2048 }),
+                    response_format: options?.responseFormat ? { type: options.responseFormat } : undefined,
+                }),
+                signal: controller.signal,
+            });
+
+            response = await Promise.race([requestPromise, timeoutPromise]);
+        } catch (error) {
+            const errorMessage = error instanceof Error ? error.message : String(error);
+            if (errorMessage.includes("timed out") || errorMessage.includes("aborted")) {
+                throw new Error(`${args.providerName} request timed out after ${timeoutMs}ms`);
+            }
+            throw error;
+        } finally {
+            if (timeoutId) {
+                clearTimeout(timeoutId);
+            }
+        }
+
+        if (!response.ok) {
+            const errorText = await response.text();
+            throw new Error(`${args.providerName} API error: ${response.status} - ${errorText}`);
+        }
+
+        const data: ChatCompletionResponse = await response.json();
+        return data.choices[0]?.message?.content || "";
+    };
+
+    const openaiApiKey = String(process.env.OPENAI_API_KEY || "").trim();
+    const qwenApiKey = String(process.env.QWEN_API_KEY || "").trim();
+    let primaryError: unknown = null;
+
+    if (openaiApiKey) {
+        try {
+            return await callProvider({
+                providerName: "openai",
+                baseUrl: OPENAI_BASE_URL,
+                apiKey: openaiApiKey,
+                modelName: model,
+            });
+        } catch (error) {
+            primaryError = error;
+            console.warn("[LLM] primary_provider_failed_using_fallback", {
+                provider: "openai",
                 model,
-                messages,
-                temperature: options?.temperature ?? 0.3,
-                max_tokens: options?.maxTokens ?? 2048,
-                response_format: options?.responseFormat ? { type: options.responseFormat } : undefined,
-            }),
-            signal: controller.signal,
+                fallbackProvider: "qwen",
+                error: error instanceof Error ? error.message : String(error),
+            });
+        }
+    } else {
+        primaryError = new Error("OPENAI_API_KEY environment variable not set");
+    }
+
+    if (!qwenApiKey) {
+        if (primaryError instanceof Error) throw primaryError;
+        throw new Error("No LLM provider configured. Set OPENAI_API_KEY and/or QWEN_API_KEY.");
+    }
+
+    try {
+        return await callProvider({
+            providerName: "qwen",
+            baseUrl: QWEN_BASE_URL,
+            apiKey: qwenApiKey,
+            modelName: QWEN_MODEL,
         });
-
-        response = await Promise.race([requestPromise, timeoutPromise]);
-    } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : String(error);
-        if (errorMessage.includes("timed out") || errorMessage.includes("aborted")) {
-            throw new Error(`Qwen request timed out after ${timeoutMs}ms`);
-        }
-        throw error;
-    } finally {
-        if (timeoutId) {
-            clearTimeout(timeoutId);
-        }
+    } catch (fallbackError) {
+        const primaryMessage = primaryError instanceof Error ? primaryError.message : String(primaryError || "");
+        const fallbackMessage = fallbackError instanceof Error ? fallbackError.message : String(fallbackError);
+        throw new Error(`Primary LLM failed (${primaryMessage}); fallback LLM failed (${fallbackMessage})`);
     }
-
-    if (!response.ok) {
-        const errorText = await response.text();
-        throw new Error(`Qwen API error: ${response.status} - ${errorText}`);
-    }
-
-    const data: ChatCompletionResponse = await response.json();
-    return data.choices[0]?.message?.content || "";
 }
 
 const buildTopicIllustrationPrompt = (args: {
@@ -5006,6 +5058,80 @@ Requirements:
 - Do NOT add any new information or opinions
 - Output ONLY the rewritten text, no explanations or meta-comments`;
 
+const HUMANIZE_STYLE_PROMPTS: Record<string, string> = {
+    "Academic Essay": `Style: Academic Essay.
+- Use formal, precise academic language with a clear thesis-driven structure.
+- Maintain hedged language ("suggests", "indicates", "demonstrates") rather than absolute claims.
+- Vary sentence length but keep a scholarly cadence. Include connective phrases that feel disciplined, not robotic ("this raises the question", "the evidence points toward").
+- Preserve technical terminology verbatim; humanize the surrounding sentences.
+- Avoid contractions entirely.
+- Sound like a diligent, engaged human scholar — not a press release.`,
+
+    "Lab Report": `Style: Lab Report.
+- Use objective, first-person-plural or passive voice selectively ("We observed...", "The results indicate...").
+- Sentences should be precise and lean — no rhetorical flourishes or conversational filler.
+- Preserve numerical data, units, and methodology verbatim.
+- Humanize by adding small qualifying observations that a real researcher would notice ("Notably, this differed slightly from expected values...").
+- Short paragraphs, active-structure method steps, detached but not robotic tone.`,
+
+    "Casual/Blog": `Style: Casual Blog Post.
+- Use a warm, conversational first-person voice ("I've been thinking about...", "Here's the thing...").
+- Contractions throughout. Short sentences. Rhetorical questions.
+- Add occasional parenthetical asides and light humor where appropriate.
+- Break up long explanations with an example or a brief anecdote.
+- Avoid jargon unless immediately explained in plain language.
+- Should feel like a knowledgeable friend explaining something over coffee.`,
+
+    "Formal Letter": `Style: Formal Letter / Professional Email.
+- Polite but direct. Structured with a clear opening, body, and closing.
+- No contractions. No slang. No overly casual phrases.
+- Humanize by varying sentence structure; avoid mechanically parallel constructions.
+- Use natural transitions ("With that in mind,", "I would also like to note that") instead of AI transition phrases ("Furthermore,", "Moreover,", "In addition,").
+- Every sentence should sound like it was typed by a thoughtful human professional, not generated by a template.`,
+};
+
+const DEFAULT_HUMANIZE_STYLE = "Casual/Blog";
+const HUMANIZE_VERIFICATION_CONFIDENCE_THRESHOLD = 30;
+const HUMANIZE_MAX_RETRIES = 2;
+const HUMANIZE_RETRY_TEMPERATURE = 0.65;
+
+type HumanizeMessage = { role: string; content: string };
+
+const buildStyleAwareHumanizeMessages = (text: string, style: string): HumanizeMessage[] => {
+    const styleKey = Object.keys(HUMANIZE_STYLE_PROMPTS).find(
+        (k) => k.toLowerCase() === style.toLowerCase()
+    ) ?? DEFAULT_HUMANIZE_STYLE;
+    const styleInstruction = HUMANIZE_STYLE_PROMPTS[styleKey] ?? HUMANIZE_STYLE_PROMPTS[DEFAULT_HUMANIZE_STYLE];
+
+    return [
+        { role: "system", content: `${HUMANIZE_SYSTEM_PROMPT}\n\n${styleInstruction}` },
+        { role: "user", content: `Humanize the following text:\n\n${text}` },
+    ];
+};
+
+const runDetection = async (text: string): Promise<{ confidence: number; flags: string[] }> => {
+    let response = "";
+    try {
+        response = await callQwen([
+            { role: "system", content: DETECTION_SYSTEM_PROMPT },
+            { role: "user", content: `Analyze this text for AI-generated characteristics:\n\n${text.slice(0, 4000)}` },
+        ], DEFAULT_MODEL, { maxTokens: 500, temperature: 0.2 });
+    } catch {
+        return { confidence: 50, flags: [] };
+    }
+    try {
+        const jsonMatch = response.match(/\{[\s\S]*\}/);
+        if (jsonMatch) {
+            const parsed = JSON.parse(jsonMatch[0]);
+            return {
+                confidence: Number(parsed.confidence) || 50,
+                flags: Array.isArray(parsed.flags) ? parsed.flags : [],
+            };
+        }
+    } catch { /* parse failure */ }
+    return { confidence: 50, flags: [] };
+};
+
 export const detectAIText = action({
     args: {
         text: v.string(),
@@ -5052,6 +5178,7 @@ export const detectAIText = action({
 export const humanizeText = action({
     args: {
         text: v.string(),
+        style: v.optional(v.string()),
     },
     handler: async (ctx, args) => {
         if (!args.text || args.text.trim().length < 10) {
@@ -5059,17 +5186,105 @@ export const humanizeText = action({
         }
 
         const truncatedText = args.text.slice(0, 6000);
+        const style = args.style || DEFAULT_HUMANIZE_STYLE;
         let response = "";
         try {
-            response = await callQwen([
-                { role: "system", content: HUMANIZE_SYSTEM_PROMPT },
-                { role: "user", content: `Humanize the following text:\n\n${truncatedText}` },
-            ], DEFAULT_MODEL, { maxTokens: 8000, temperature: 0.5 });
+            response = await callQwen(
+                buildStyleAwareHumanizeMessages(truncatedText, style),
+                DEFAULT_MODEL,
+                { maxTokens: 8000, temperature: 0.5 },
+            );
         } catch (error) {
             console.error("humanizeText failed:", error);
             throw new ConvexError("Failed to humanize text right now. Please try again.");
         }
 
         return { humanizedText: response.trim() };
+    },
+});
+
+export const humanizeWithVerification = action({
+    args: {
+        text: v.string(),
+        style: v.optional(v.string()),
+    },
+    handler: async (ctx, args) => {
+        const identity = await ctx.auth.getUserIdentity();
+        const authUserId = resolveAuthUserId(identity);
+        assertAuthorizedUser({ authUserId });
+
+        const trimmedText = args.text.trim();
+        if (!trimmedText || trimmedText.length < 10) {
+            throw new ConvexError("Text must be at least 10 characters to humanize.");
+        }
+
+        const style = args.style || DEFAULT_HUMANIZE_STYLE;
+        const truncatedInput = trimmedText.slice(0, 6000);
+
+        // Step 1: Detect AI confidence on the original input
+        const { confidence: scoreBefore } = await runDetection(truncatedInput);
+
+        // Step 2: Initial humanization pass
+        let currentText = "";
+        try {
+            currentText = await callQwen(
+                buildStyleAwareHumanizeMessages(truncatedInput, style),
+                DEFAULT_MODEL,
+                { maxTokens: 8000, temperature: 0.5 },
+            );
+            currentText = currentText.trim();
+        } catch (error) {
+            console.error("humanizeWithVerification - initial humanize failed:", error);
+            throw new ConvexError("Failed to humanize text right now. Please try again.");
+        }
+
+        let attempts = 1;
+        let scoreAfter = 50;
+
+        // Step 3: Verify → retry loop
+        for (let i = 0; i < HUMANIZE_MAX_RETRIES; i++) {
+            const detection = await runDetection(currentText);
+            scoreAfter = detection.confidence;
+
+            if (scoreAfter <= HUMANIZE_VERIFICATION_CONFIDENCE_THRESHOLD) break;
+
+            // Rewrite with targeted feedback from detected flags
+            const flagsSummary = detection.flags.slice(0, 5).join(", ");
+            const retryUserMessage = flagsSummary
+                ? `The previous rewrite still scored ${scoreAfter}% AI confidence. The detector flagged these specific patterns: ${flagsSummary}. Rewrite again, this time aggressively eliminating these patterns:\n\n${currentText}`
+                : `The previous rewrite still scored ${scoreAfter}% AI confidence. Rewrite again with a stronger human voice:\n\n${currentText}`;
+
+            const styleKey = Object.keys(HUMANIZE_STYLE_PROMPTS).find(
+                (k) => k.toLowerCase() === style.toLowerCase()
+            ) ?? DEFAULT_HUMANIZE_STYLE;
+            const styleInstruction = HUMANIZE_STYLE_PROMPTS[styleKey] ?? HUMANIZE_STYLE_PROMPTS[DEFAULT_HUMANIZE_STYLE];
+
+            try {
+                currentText = await callQwen(
+                    [
+                        { role: "system", content: `${HUMANIZE_SYSTEM_PROMPT}\n\n${styleInstruction}` },
+                        { role: "user", content: retryUserMessage },
+                    ],
+                    DEFAULT_MODEL,
+                    { maxTokens: 8000, temperature: HUMANIZE_RETRY_TEMPERATURE },
+                );
+                currentText = currentText.trim();
+                attempts++;
+            } catch {
+                break; // Return best version we have
+            }
+        }
+
+        // Run final detection if we haven't just detected
+        if (attempts > 1) {
+            const finalDetection = await runDetection(currentText);
+            scoreAfter = finalDetection.confidence;
+        }
+
+        return {
+            humanizedText: currentText,
+            passes: { before: scoreBefore, after: scoreAfter },
+            attempts,
+        };
     },
 });
