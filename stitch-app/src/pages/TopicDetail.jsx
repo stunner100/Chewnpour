@@ -36,13 +36,53 @@ const getHeaderIcon = (text) => {
     return null;
 };
 
-const parseBold = (text, cleanInline, cleanLine) => {
-    const parts = text.split(/(\*\*.*?\*\*)/);
+/**
+ * Parse inline markdown into styled React elements.
+ * Handles: **bold**, *italic*, `code`, and [link](url).
+ * Uses a single-pass token approach so nested markers don't collide.
+ */
+const parseInlineFormatting = (text, cleanInline) => {
+    if (!text) return '';
+    // Tokenise: split on **bold**, *italic*, `code`, and [text](url)
+    const TOKEN_RE = /(\*\*[^*]+?\*\*|\*[^*\n]+?\*|`[^`\n]+?`|\[[^\]]+?\]\([^)]+?\))/g;
+    const parts = text.split(TOKEN_RE);
     return parts.map((part, i) => {
+        if (!part) return null;
+        // Bold **text**
         if (part.startsWith('**') && part.endsWith('**')) {
-            return <span key={i} className="font-bold text-neutral-900 dark:text-white bg-yellow-100/50 dark:bg-yellow-900/30 px-1 rounded">{cleanInline(part.slice(2, -2))}</span>;
+            return (
+                <strong key={i} className="font-semibold text-neutral-900 dark:text-white">
+                    {cleanInline(part.slice(2, -2))}
+                </strong>
+            );
         }
-        return cleanLine(part);
+        // Italic *text*
+        if (part.startsWith('*') && part.endsWith('*') && part.length > 2) {
+            return (
+                <em key={i} className="italic text-neutral-700 dark:text-neutral-300">
+                    {cleanInline(part.slice(1, -1))}
+                </em>
+            );
+        }
+        // Inline code `text`
+        if (part.startsWith('`') && part.endsWith('`') && part.length > 2) {
+            return (
+                <code key={i} className="px-1.5 py-0.5 rounded-md bg-neutral-100 dark:bg-neutral-800 text-[0.9em] font-mono text-neutral-800 dark:text-neutral-200 border border-neutral-200/60 dark:border-neutral-700/60">
+                    {part.slice(1, -1)}
+                </code>
+            );
+        }
+        // Link [text](url)
+        const linkMatch = part.match(/^\[([^\]]+)\]\(([^)]+)\)$/);
+        if (linkMatch) {
+            return (
+                <a key={i} href={linkMatch[2]} target="_blank" rel="noopener noreferrer" className="text-primary underline underline-offset-2 decoration-primary/30 hover:decoration-primary/70 transition-colors">
+                    {cleanInline(linkMatch[1])}
+                </a>
+            );
+        }
+        // Plain text — clean residual markers
+        return cleanInline(part);
     });
 };
 
@@ -176,7 +216,7 @@ const TopicDetail = () => {
     }, [contentCacheKey, topic?.content]);
 
     useEffect(() => {
-        if (!topicId || !topicQuizStartReady) return;
+        if (!topicId) return;
         if (usableEssayCount >= EXAM_READY_MIN_ESSAY_COUNT) return;
 
         const scheduleMarker = `${topicId}:${usableEssayCount}`;
@@ -191,7 +231,6 @@ const TopicDetail = () => {
         });
     }, [
         topicId,
-        topicQuizStartReady,
         usableEssayCount,
         EXAM_READY_MIN_ESSAY_COUNT,
         requestEssayQuestionTopUp,
@@ -538,12 +577,6 @@ const TopicDetail = () => {
             setStartExamError('Topic not found. Please return to the dashboard and try again.');
             return;
         }
-        if (!topicQuizStartReady) {
-            setStartExamError(
-                `Quiz is still preparing (${usableMcqCount}/${EXAM_READY_MIN_MCQ_COUNT} MCQ ready). Please check back in a moment.`
-            );
-            return;
-        }
         if (preferredFormat === 'essay' && !topicEssayStartReady) {
             setStartExamError(
                 `Essay questions are still preparing (${usableEssayCount}/${EXAM_READY_MIN_ESSAY_COUNT}). Please check back in a moment.`
@@ -774,13 +807,13 @@ const TopicDetail = () => {
                                     )}
 
                                     {normalizedContent ? (
-                                        <div className="prose prose-base md:prose-lg prose-neutral dark:prose-invert max-w-none text-neutral-700 dark:text-neutral-300 leading-relaxed">
+                                        <div className="prose prose-base md:prose-lg prose-neutral dark:prose-invert max-w-none text-neutral-700 dark:text-neutral-300 leading-relaxed [text-wrap:pretty]">
                                             {parsed.blocks.map((block, index) => {
                                                 if (block.type === 'spacer') {
                                                     return <div key={block.key} className="h-2 md:h-3"></div>;
                                                 }
 
-                                                const bold = (text) => parseBold(text, cleanInline, cleanLine);
+                                                const bold = (text) => parseInlineFormatting(text, cleanInline);
                                                 const animationClass = shouldAnimateBlocks ? "animate-fade-in fill-mode-forwards opacity-0" : "";
                                                 const animationStyle = shouldAnimateBlocks ? { animationDelay: `${Math.min(index, 24) * 60}ms` } : undefined;
 
@@ -825,7 +858,7 @@ const TopicDetail = () => {
                                                                 <span className="w-2 h-2 rounded-full bg-primary"></span>
                                                                 {block.term}
                                                             </h4>
-                                                            <div className="text-base md:text-lg font-semibold text-neutral-800 dark:text-neutral-100 leading-relaxed italic">
+                                                            <div className="text-base md:text-lg text-neutral-800 dark:text-neutral-100 leading-relaxed">
                                                                 {bold(block.text)}
                                                             </div>
                                                         </div>
@@ -860,7 +893,7 @@ const TopicDetail = () => {
                                                 if (block.type === 'numbered') {
                                                     return (
                                                         <div key={block.key} className={`flex items-start gap-4 ml-1 mb-3 md:mb-4 group ${animationClass}`} style={animationStyle}>
-                                                            <span className="flex items-center justify-center w-6 h-6 rounded-full bg-primary text-white text-[10px] font-black shrink-0 mt-0.5 shadow-sm shadow-primary/30">
+                                                            <span className="flex items-center justify-center w-6 h-6 rounded-full bg-primary/10 text-primary text-xs font-bold shrink-0 mt-0.5">
                                                                 {block.num}
                                                             </span>
                                                             <span className="text-[15px] md:text-base leading-7 text-neutral-700 dark:text-neutral-300">{bold(block.text)}</span>
@@ -872,7 +905,7 @@ const TopicDetail = () => {
                                                     return (
                                                         <div key={block.key} className={`border-l-4 border-primary/30 bg-primary/5 pl-6 md:pl-8 py-5 md:py-6 pr-5 md:pr-6 rounded-r-3xl my-6 md:my-8 relative ${animationClass}`} style={animationStyle}>
                                                             <span className="absolute top-2 left-2 material-symbols-outlined text-primary/10 text-4xl">format_quote</span>
-                                                            <div className="italic text-lg md:text-xl text-neutral-600 dark:text-neutral-300 font-medium leading-relaxed relative z-10">
+                                                            <div className="text-base md:text-lg text-neutral-600 dark:text-neutral-300 leading-relaxed relative z-10 italic">
                                                                 {bold(block.text)}
                                                             </div>
                                                         </div>
@@ -880,7 +913,7 @@ const TopicDetail = () => {
                                                 }
 
                                                 return (
-                                                    <p key={block.key} className={`my-3 md:my-4 text-base md:text-lg leading-relaxed text-neutral-700 dark:text-neutral-300 font-medium ${animationClass}`} style={animationStyle}>
+                                                    <p key={block.key} className={`my-3 md:my-4 text-base md:text-lg leading-[1.8] text-neutral-700 dark:text-neutral-300 ${animationClass}`} style={animationStyle}>
                                                         {bold(block.text)}
                                                     </p>
                                                 );
@@ -931,21 +964,19 @@ const TopicDetail = () => {
                             </Link>
                             <button
                                 onClick={() => handleStartExam('mcq')}
-                                disabled={startingExam || !topicQuizStartReady}
+                                disabled={startingExam}
                                 className="inline-flex items-center justify-center gap-2 px-6 py-3 bg-gradient-to-r from-blue-500 to-indigo-600 text-white rounded-xl text-sm font-semibold shadow-md shadow-blue-500/20 hover:shadow-lg hover:shadow-blue-500/30 transition-shadow disabled:opacity-60"
                             >
                                 <span className="material-symbols-outlined text-lg">quiz</span>
                                 <span>
                                     {startingExam
                                         ? 'Preparing...'
-                                        : topicQuizStartReady
-                                            ? 'Take MCQ Quiz'
-                                            : 'Preparing Quiz...'}
+                                        : 'Take MCQ Quiz'}
                                 </span>
                             </button>
                             <button
                                 onClick={() => handleStartExam('essay')}
-                                disabled={startingExam || !topicQuizStartReady || !topicEssayStartReady}
+                                disabled={startingExam || !topicEssayStartReady}
                                 className="inline-flex items-center justify-center gap-2 px-6 py-3 bg-gradient-to-r from-purple-500 to-fuchsia-600 text-white rounded-xl text-sm font-semibold shadow-md shadow-purple-500/20 hover:shadow-lg hover:shadow-purple-500/30 transition-shadow disabled:opacity-60"
                             >
                                 <span className="material-symbols-outlined text-lg">edit_note</span>
