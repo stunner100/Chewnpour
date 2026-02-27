@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
-import { useQuery, useAction } from 'convex/react';
+import { useQuery, useAction, useMutation } from 'convex/react';
 import { api } from '../../convex/_generated/api';
 import { useAuth } from '../contexts/AuthContext';
 import { useStudyTimer } from '../hooks/useStudyTimer';
@@ -8,10 +8,6 @@ import { useVoicePlayback } from '../lib/useVoicePlayback';
 import TopicSettingsModal from '../components/TopicSettingsModal';
 import TopicReExplainModal from '../components/TopicReExplainModal';
 import TopicSidebar from '../components/TopicSidebar';
-import {
-    EXAM_PREWARM_MIN_QUESTION_COUNT,
-    shouldPrewarmExamQuestions,
-} from '../lib/examQuestionPrewarm';
 import {
     SECTION_TITLE_PATTERN,
     SECTION_TITLES_SET,
@@ -62,9 +58,9 @@ const TopicDetail = () => {
     const { topicId } = useParams();
     const { user, profile, updateProfile } = useAuth();
     useStudyTimer(user?.id);
-    const generateQuestions = useAction(api.ai.generateQuestionsForTopic);
-    const reExplainTopic = useAction(api.ai.reExplainTopic);
     const synthesizeTopicVoice = useAction(api.ai.synthesizeTopicVoice);
+    const reExplainTopic = useAction(api.ai.reExplainTopic);
+    const requestEssayQuestionTopUp = useMutation(api.exams.requestEssayQuestionTopUp);
     const [startingExam, setStartingExam] = useState(false);
     const [startExamError, setStartExamError] = useState('');
     const [reExplainOpen, setReExplainOpen] = useState(false);
@@ -78,16 +74,23 @@ const TopicDetail = () => {
     const [cachedContent, setCachedContent] = useState('');
     const [readingMode, setReadingMode] = useState(true);
     const [shouldAnimateBlocks, setShouldAnimateBlocks] = useState(false);
-    const [prewarmingQuestions, setPrewarmingQuestions] = useState(false);
+    const [showScrollTop, setShowScrollTop] = useState(false);
     const contentRef = useRef(null);
-    const prewarmedTopicIdsRef = useRef(new Set());
+    const essayTopUpMarkerRef = useRef('');
     const navigate = useNavigate();
     const topicData = useQuery(
         api.topics.getTopicWithQuestions,
         topicId ? { topicId } : 'skip'
     );
     const topic = topicData || null;
-    const questions = topic?.questions || [];
+    const EXAM_READY_MIN_MCQ_COUNT = 10;
+    const EXAM_READY_MIN_ESSAY_COUNT = 3;
+    const usableMcqCount = Number(topic?.usableMcqCount || 0);
+    const usableEssayCount = Number(topic?.usableEssayCount || 0);
+    const topicQuizStartReady = usableMcqCount >= EXAM_READY_MIN_MCQ_COUNT;
+    const topicEssayStartReady = usableEssayCount >= EXAM_READY_MIN_ESSAY_COUNT;
+    const topicExamReady = Boolean(topic?.examReady)
+        || (topicQuizStartReady && usableEssayCount >= EXAM_READY_MIN_ESSAY_COUNT);
     const courseId = topic?.courseId;
     const voiceModeEnabled = Boolean(profile?.voiceModeEnabled);
     const storageKey = topicId ? `topicOverride:${topicId}` : null;
@@ -119,8 +122,9 @@ const TopicDetail = () => {
         selectedVoiceURI,
         selectedVoiceName,
         setVoicePreference,
+        primeVoicePlayback,
     } = useVoicePlayback({
-        remoteSynthesize: synthesizeLessonVoice,
+        remoteStream: synthesizeLessonVoice,
     });
 
     useEffect(() => {
@@ -170,6 +174,28 @@ const TopicDetail = () => {
             console.warn('Failed to cache topic content', error);
         }
     }, [contentCacheKey, topic?.content]);
+
+    useEffect(() => {
+        if (!topicId || !topicQuizStartReady) return;
+        if (usableEssayCount >= EXAM_READY_MIN_ESSAY_COUNT) return;
+
+        const scheduleMarker = `${topicId}:${usableEssayCount}`;
+        if (essayTopUpMarkerRef.current === scheduleMarker) return;
+        essayTopUpMarkerRef.current = scheduleMarker;
+
+        void requestEssayQuestionTopUp({
+            topicId,
+            minimumCount: EXAM_READY_MIN_ESSAY_COUNT,
+        }).catch((error) => {
+            console.warn('Failed to schedule essay question top-up', error);
+        });
+    }, [
+        topicId,
+        topicQuizStartReady,
+        usableEssayCount,
+        EXAM_READY_MIN_ESSAY_COUNT,
+        requestEssayQuestionTopUp,
+    ]);
 
     const content = overrideContent || topic?.content || cachedContent;
     const normalizedContent = useMemo(() => {
@@ -251,6 +277,12 @@ const TopicDetail = () => {
     }, [speechText, isPlaying, isPaused, stopVoice]);
 
     useEffect(() => {
+        if (!voiceModeEnabled) return;
+        if (!speechText) return;
+        primeVoicePlayback(speechText);
+    }, [voiceModeEnabled, speechText, primeVoicePlayback]);
+
+    useEffect(() => {
         if (typeof window === 'undefined') return undefined;
         const motionQuery = window.matchMedia('(prefers-reduced-motion: reduce)');
         const updateAnimationPreference = () => {
@@ -276,43 +308,17 @@ const TopicDetail = () => {
         };
     }, []);
 
+    useEffect(() => {
+        const handleScroll = () => setShowScrollTop(window.scrollY > 600);
+        window.addEventListener('scroll', handleScroll, { passive: true });
+        return () => window.removeEventListener('scroll', handleScroll);
+    }, []);
 
+    const scrollToTop = () => window.scrollTo({ top: 0, behavior: 'smooth' });
 
     const cleanInline = (text) => cleanInlineText(text);
 
     const cleanLine = (text) => cleanDisplayLine(text);
-
-    useEffect(() => {
-        if (
-            !shouldPrewarmExamQuestions({
-                topicId,
-                topicData,
-                questionCount: questions.length,
-                alreadyTriggered: prewarmedTopicIdsRef.current.has(topicId),
-            })
-        ) {
-            return;
-        }
-
-        prewarmedTopicIdsRef.current.add(topicId);
-        let cancelled = false;
-        setPrewarmingQuestions(true);
-        generateQuestions({ topicId })
-            .catch((error) => {
-                if (!cancelled) {
-                    console.warn('Background question prewarm failed:', error);
-                }
-            })
-            .finally(() => {
-                if (!cancelled) {
-                    setPrewarmingQuestions(false);
-                }
-            });
-
-        return () => {
-            cancelled = true;
-        };
-    }, [topicId, topicData, questions.length, generateQuestions]);
 
     const sanitizeTopicTitle = (value) => {
         return cleanLine(value || '')
@@ -527,9 +533,21 @@ const TopicDetail = () => {
         return { blocks, toc };
     }, [normalizedContent]);
 
-    const handleStartExam = async () => {
+    const handleStartExam = async (preferredFormat = 'mcq') => {
         if (!topicId) {
             setStartExamError('Topic not found. Please return to the dashboard and try again.');
+            return;
+        }
+        if (!topicQuizStartReady) {
+            setStartExamError(
+                `Quiz is still preparing (${usableMcqCount}/${EXAM_READY_MIN_MCQ_COUNT} MCQ ready). Please check back in a moment.`
+            );
+            return;
+        }
+        if (preferredFormat === 'essay' && !topicEssayStartReady) {
+            setStartExamError(
+                `Essay questions are still preparing (${usableEssayCount}/${EXAM_READY_MIN_ESSAY_COUNT}). Please check back in a moment.`
+            );
             return;
         }
 
@@ -537,18 +555,12 @@ const TopicDetail = () => {
         setStartingExam(true);
 
         try {
-            const MIN_READY_QUESTIONS = 5;
-            if (questions.length < MIN_READY_QUESTIONS && !prewarmingQuestions) {
-                generateQuestions({ topicId }).catch((error) => {
-                    console.warn('Question bank warmup failed after exam start; continuing to exam page.', error);
-                });
-            } else if (questions.length >= MIN_READY_QUESTIONS) {
-                generateQuestions({ topicId }).catch((error) => {
-                    console.warn('Question bank background top-up failed:', error);
-                });
-            }
-
-            navigate(`/dashboard/exam/${topicId}`);
+            navigate(`/dashboard/exam/${topicId}`, {
+                state: {
+                    preferredFormat,
+                    source: 'topic_detail',
+                },
+            });
         } catch {
             setStartExamError('Failed to start the exam. Please try again.');
         } finally {
@@ -624,7 +636,7 @@ const TopicDetail = () => {
                         <span className="text-sm font-medium">Dashboard</span>
                     </Link>
                     <div className="hidden sm:block w-px h-5 bg-neutral-200 dark:bg-neutral-700"></div>
-                    <span className="text-xs sm:text-sm font-semibold text-neutral-700 dark:text-neutral-300 truncate max-w-[130px] sm:max-w-[200px] md:max-w-md">
+                    <span className="text-xs sm:text-sm font-semibold text-neutral-700 dark:text-neutral-300 truncate max-w-[180px] sm:max-w-[240px] md:max-w-md">
                         {headerTopicTitle}
                     </span>
                 </div>
@@ -684,12 +696,14 @@ const TopicDetail = () => {
                         <div className={`${readingMode ? '' : 'grid grid-cols-1 md:grid-cols-2'} gap-8`}>
                             <div className={`flex flex-col justify-center h-full ${readingMode ? '' : 'md:col-span-2'}`}>
                                 <div className="bg-surface-light dark:bg-surface-dark rounded-3xl p-8 h-full border border-neutral-100 dark:border-neutral-800 shadow-card hover:shadow-lg transition-shadow duration-300">
-                                    <div className="flex flex-wrap items-center gap-3 mb-6">
-                                        <span className="inline-flex items-center px-3 py-1.5 rounded-full text-xs font-bold uppercase tracking-wider bg-primary/10 text-primary border border-primary/10">
-                                            Lesson Overview
-                                        </span>
+                                    <div className="flex flex-col gap-3 mb-6">
+                                        <div className="flex items-center justify-between">
+                                            <span className="inline-flex items-center px-3 py-1.5 rounded-full text-xs font-bold uppercase tracking-wider bg-primary/10 text-primary border border-primary/10">
+                                                Lesson Overview
+                                            </span>
+                                        </div>
                                         {voiceModeEnabled && (
-                                            <div className="ml-auto flex items-center gap-2">
+                                            <div className="flex items-center gap-2 overflow-x-auto pb-1 -mb-1">
                                                 <button
                                                     onClick={() => {
                                                         if (!speechText) return;
@@ -701,17 +715,17 @@ const TopicDetail = () => {
                                                         }
                                                     }}
                                                     disabled={!isVoiceSupported || !speechText || voiceStatus === 'loading'}
-                                                    className="inline-flex items-center gap-1 px-3 h-11 min-w-[80px] rounded-full bg-neutral-50 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 text-xs font-bold text-neutral-700 dark:text-neutral-200 hover:border-primary/40 hover:text-primary disabled:opacity-50 disabled:cursor-not-allowed"
+                                                    className="inline-flex items-center gap-1 px-3 h-9 rounded-full bg-neutral-50 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 text-xs font-bold text-neutral-700 dark:text-neutral-200 hover:border-primary/40 hover:text-primary disabled:opacity-50 disabled:cursor-not-allowed shrink-0"
                                                 >
                                                     <span className="material-symbols-outlined text-[16px]">
                                                         {voiceStatus === 'loading' ? 'hourglass_top' : (isPaused ? 'play_arrow' : 'volume_up')}
                                                     </span>
-                                                    {voiceStatus === 'loading' ? 'Generating...' : (isPaused ? 'Resume' : 'Play')}
+                                                    {voiceStatus === 'loading' ? 'Loading...' : (isPaused ? 'Resume' : 'Play')}
                                                 </button>
                                                 <button
                                                     onClick={pauseVoice}
                                                     disabled={!isPlaying}
-                                                    className="inline-flex items-center gap-1 px-3 h-11 min-w-[72px] rounded-full bg-neutral-50 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 text-xs font-bold text-neutral-700 dark:text-neutral-200 hover:border-primary/40 hover:text-primary disabled:opacity-50 disabled:cursor-not-allowed"
+                                                    className="inline-flex items-center gap-1 px-3 h-9 rounded-full bg-neutral-50 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 text-xs font-bold text-neutral-700 dark:text-neutral-200 hover:border-primary/40 hover:text-primary disabled:opacity-50 disabled:cursor-not-allowed shrink-0"
                                                 >
                                                     <span className="material-symbols-outlined text-[16px]">pause</span>
                                                     Pause
@@ -719,7 +733,7 @@ const TopicDetail = () => {
                                                 <button
                                                     onClick={stopVoice}
                                                     disabled={!isPlaying && !isPaused}
-                                                    className="inline-flex items-center gap-1 px-3 h-11 min-w-[68px] rounded-full bg-neutral-50 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 text-xs font-bold text-neutral-700 dark:text-neutral-200 hover:border-primary/40 hover:text-primary disabled:opacity-50 disabled:cursor-not-allowed"
+                                                    className="inline-flex items-center gap-1 px-3 h-9 rounded-full bg-neutral-50 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 text-xs font-bold text-neutral-700 dark:text-neutral-200 hover:border-primary/40 hover:text-primary disabled:opacity-50 disabled:cursor-not-allowed shrink-0"
                                                 >
                                                     <span className="material-symbols-outlined text-[16px]">stop</span>
                                                     Stop
@@ -743,9 +757,9 @@ const TopicDetail = () => {
                                                 <div className="rounded-xl border border-neutral-200 bg-neutral-50 px-3 py-2 text-xs font-medium text-neutral-600">
                                                     {voiceStatus === 'loading' && 'Generating voice audio...'}
                                                     {voiceStatus === 'playing' && (
-                                                        playbackEngine === 'elevenlabs'
-                                                            ? 'Reading explanation aloud with ElevenLabs...'
-                                                            : 'Reading explanation aloud...'
+                                                        playbackEngine === 'remote'
+                                                            ? 'Reading explanation aloud...'
+                                                            : 'Reading explanation aloud (browser voice)...'
                                                     )}
                                                     {voiceStatus === 'paused' && 'Reading paused.'}
                                                     {(voiceStatus === 'idle' || voiceStatus === 'error') && 'Tap Play to hear this explanation.'}
@@ -760,7 +774,7 @@ const TopicDetail = () => {
                                     )}
 
                                     {normalizedContent ? (
-                                        <div className="prose prose-base md:prose-lg prose-slate dark:prose-invert max-w-none text-neutral-700 dark:text-neutral-300 leading-relaxed">
+                                        <div className="prose prose-base md:prose-lg prose-neutral dark:prose-invert max-w-none text-neutral-700 dark:text-neutral-300 leading-relaxed">
                                             {parsed.blocks.map((block, index) => {
                                                 if (block.type === 'spacer') {
                                                     return <div key={block.key} className="h-2 md:h-3"></div>;
@@ -897,47 +911,82 @@ const TopicDetail = () => {
                     )}
                 </div>
 
-                <div className="mt-12 w-full">
-                    <div className="bg-white dark:bg-neutral-900 rounded-2xl p-6 md:p-8 text-center border border-neutral-200 dark:border-neutral-800 shadow-sm">
+                <div className="mt-12 w-full flex flex-col items-center">
+                    <div className="flex items-center gap-3 mb-6">
+                        <div className="h-px w-16 bg-gradient-to-r from-transparent to-neutral-300 dark:to-neutral-600"></div>
+                        <span className="material-symbols-outlined text-primary/40 text-2xl">expand_more</span>
+                        <div className="h-px w-16 bg-gradient-to-l from-transparent to-neutral-300 dark:to-neutral-600"></div>
+                    </div>
+                    <div className="bg-white dark:bg-neutral-900 rounded-2xl p-6 md:p-8 text-center border border-neutral-200 dark:border-neutral-800 shadow-sm w-full">
                         <h3 className="text-xl md:text-2xl font-bold text-neutral-900 dark:text-white mb-2">Ready to practice?</h3>
                         <p className="text-neutral-500 dark:text-neutral-400 text-sm mb-6">Test your knowledge with questions based on this lesson.</p>
 
                         <div className="flex flex-col sm:flex-row gap-3 justify-center">
                             <Link
                                 to={topicId ? `/dashboard/concept-intro/${topicId}` : "/dashboard/concept-intro"}
-                                className="inline-flex items-center justify-center gap-2 px-6 py-3 bg-neutral-100 dark:bg-neutral-800 text-neutral-700 dark:text-neutral-200 rounded-xl text-sm font-semibold hover:bg-neutral-200 dark:hover:bg-neutral-700 transition-colors"
+                                className="inline-flex items-center justify-center gap-2 px-6 py-3 bg-gradient-to-r from-emerald-500 to-teal-600 text-white rounded-xl text-sm font-semibold shadow-md shadow-emerald-500/20 hover:shadow-lg hover:shadow-emerald-500/30 transition-shadow"
                             >
                                 <span className="material-symbols-outlined text-lg">school</span>
                                 <span>Study Concepts</span>
                             </Link>
                             <button
-                                onClick={handleStartExam}
-                                disabled={startingExam}
+                                onClick={() => handleStartExam('mcq')}
+                                disabled={startingExam || !topicQuizStartReady}
                                 className="inline-flex items-center justify-center gap-2 px-6 py-3 bg-gradient-to-r from-blue-500 to-indigo-600 text-white rounded-xl text-sm font-semibold shadow-md shadow-blue-500/20 hover:shadow-lg hover:shadow-blue-500/30 transition-shadow disabled:opacity-60"
                             >
                                 <span className="material-symbols-outlined text-lg">quiz</span>
-                                <span>{startingExam ? 'Preparing...' : 'Take Quiz'}</span>
+                                <span>
+                                    {startingExam
+                                        ? 'Preparing...'
+                                        : topicQuizStartReady
+                                            ? 'Take MCQ Quiz'
+                                            : 'Preparing Quiz...'}
+                                </span>
+                            </button>
+                            <button
+                                onClick={() => handleStartExam('essay')}
+                                disabled={startingExam || !topicQuizStartReady || !topicEssayStartReady}
+                                className="inline-flex items-center justify-center gap-2 px-6 py-3 bg-gradient-to-r from-purple-500 to-fuchsia-600 text-white rounded-xl text-sm font-semibold shadow-md shadow-purple-500/20 hover:shadow-lg hover:shadow-purple-500/30 transition-shadow disabled:opacity-60"
+                            >
+                                <span className="material-symbols-outlined text-lg">edit_note</span>
+                                <span>
+                                    {startingExam
+                                        ? 'Preparing...'
+                                        : topicEssayStartReady
+                                            ? 'Take Essay Quiz'
+                                            : `Essay Preparing (${usableEssayCount}/${EXAM_READY_MIN_ESSAY_COUNT})`}
+                                </span>
                             </button>
                         </div>
 
+                        {!topicQuizStartReady && (
+                            <div className="mt-4 max-w-md mx-auto rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
+                                {`${usableMcqCount}/${EXAM_READY_MIN_MCQ_COUNT} MCQ and ${usableEssayCount}/${EXAM_READY_MIN_ESSAY_COUNT} essay questions ready.`}
+                            </div>
+                        )}
+                        {topicQuizStartReady && !topicExamReady && (
+                            <div className="mt-4 max-w-md mx-auto rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">
+                                {`MCQ quiz is ready. Essay questions are still preparing (${usableEssayCount}/${EXAM_READY_MIN_ESSAY_COUNT}) and will continue building in the background.`}
+                            </div>
+                        )}
                         {startExamError && (
                             <div className="mt-4 max-w-md mx-auto rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
                                 {startExamError}
                             </div>
                         )}
-                        {prewarmingQuestions && (
-                            <div className="mt-4 max-w-md mx-auto rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
-                                Preparing questions in the background...
-                            </div>
-                        )}
-                        {!prewarmingQuestions && questions.length > 0 && questions.length < EXAM_PREWARM_MIN_QUESTION_COUNT && (
-                            <div className="mt-4 text-xs text-neutral-400">
-                                {questions.length} questions ready • More generating
-                            </div>
-                        )}
                     </div>
                 </div>
             </main>
+
+            {showScrollTop && (
+                <button
+                    onClick={scrollToTop}
+                    className="fixed bottom-6 right-6 z-30 w-11 h-11 rounded-full bg-primary text-white shadow-lg shadow-primary/30 flex items-center justify-center hover:scale-105 active:scale-95 transition-transform"
+                    aria-label="Scroll to top"
+                >
+                    <span className="material-symbols-outlined text-xl">arrow_upward</span>
+                </button>
+            )}
 
             <TopicSettingsModal
                 open={settingsOpen}
@@ -951,7 +1000,6 @@ const TopicDetail = () => {
                 selectedVoiceURI={selectedVoiceURI}
                 selectedVoiceName={selectedVoiceName}
                 setVoicePreference={setVoicePreference}
-                playbackEngine={playbackEngine}
                 stopVoice={stopVoice}
                 playVoice={playVoice}
             />
