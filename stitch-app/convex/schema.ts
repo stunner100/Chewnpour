@@ -80,6 +80,8 @@ export default defineSchema({
         usableMcqCount: v.optional(v.number()),
         usableEssayCount: v.optional(v.number()),
         examReadyUpdatedAt: v.optional(v.number()),
+        mcqGenerationLockedUntil: v.optional(v.number()),
+        essayGenerationLockedUntil: v.optional(v.number()),
         orderIndex: v.number(),
         isLocked: v.boolean(),
     }).index("by_courseId", ["courseId"]),
@@ -138,6 +140,7 @@ export default defineSchema({
         nextBillingDate: v.optional(v.string()),
         purchasedUploadCredits: v.optional(v.number()),
         consumedUploadCredits: v.optional(v.number()),
+        consumedVoiceGenerations: v.optional(v.number()),
         lastPaymentReference: v.optional(v.string()),
         lastPaymentAt: v.optional(v.number()),
     }).index("by_userId", ["userId"]),
@@ -147,6 +150,13 @@ export default defineSchema({
         date: v.string(),
         count: v.number(),
     }).index("by_userId_date", ["userId", "date"]),
+
+    topicNotes: defineTable({
+        userId: v.string(),
+        topicId: v.id("topics"),
+        content: v.string(),
+        updatedAt: v.number(),
+    }).index("by_userId_topicId", ["userId", "topicId"]),
 
     paymentTransactions: defineTable({
         userId: v.string(),

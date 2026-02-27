@@ -20,6 +20,31 @@ const resolveDefaultTopicIllustrationUrl = () => {
         : `/${DEFAULT_TOPIC_ILLUSTRATION_URL}`;
 };
 
+const EXAM_READY_MIN_MCQ_COUNT = 10;
+const EXAM_READY_MIN_ESSAY_COUNT = 3;
+
+const computeTopicExamReadinessFromQuestions = (questions: any[]) => {
+    const usableMcqCount = questions.filter(
+        (question) =>
+            question?.questionType !== "essay"
+            && isUsableExamQuestion(question)
+    ).length;
+    const usableEssayCount = questions.filter(
+        (question) =>
+            question?.questionType === "essay"
+            && isUsableExamQuestion(question, { allowEssay: true })
+    ).length;
+    const examReady =
+        usableMcqCount >= EXAM_READY_MIN_MCQ_COUNT
+        && usableEssayCount >= EXAM_READY_MIN_ESSAY_COUNT;
+
+    return {
+        usableMcqCount,
+        usableEssayCount,
+        examReady,
+    };
+};
+
 // Get all topics for a course
 export const getTopicsByCourse = query({
     args: { courseId: v.id("courses") },
@@ -84,10 +109,20 @@ export const getTopicWithQuestions = query({
         const safeQuestions = questions
             .filter((question) => isUsableExamQuestion(question))
             .map((question) => sanitizeExamQuestionForClient(question));
+        const computedReadiness = computeTopicExamReadinessFromQuestions(questions);
+        // Always derive readiness from live question docs for this view.
+        // Stored counters can lag when background jobs fail/retry, which can
+        // incorrectly keep "Take Quiz" disabled even though usable questions exist.
+        const usableMcqCount = computedReadiness.usableMcqCount;
+        const usableEssayCount = computedReadiness.usableEssayCount;
+        const examReady = computedReadiness.examReady;
 
         return {
             ...topic,
             illustrationUrl: freshIllustrationUrl,
+            usableMcqCount,
+            usableEssayCount,
+            examReady,
             questions: safeQuestions,
         };
     },
@@ -126,6 +161,16 @@ export const getQuestionsByTopic = query({
     },
 });
 
+export const getRawQuestionsByTopicInternal = internalQuery({
+    args: { topicId: v.id("topics") },
+    handler: async (ctx, args) => {
+        return await ctx.db
+            .query("questions")
+            .withIndex("by_topicId", (q) => q.eq("topicId", args.topicId))
+            .collect();
+    },
+});
+
 // Create a new topic
 export const createTopic = mutation({
     args: {
@@ -146,11 +191,113 @@ export const createTopic = mutation({
             content: args.content,
             illustrationStorageId: args.illustrationStorageId,
             illustrationUrl: args.illustrationUrl || resolveDefaultTopicIllustrationUrl(),
+            examReady: false,
+            usableMcqCount: 0,
+            usableEssayCount: 0,
+            examReadyUpdatedAt: Date.now(),
             orderIndex: args.orderIndex,
             isLocked: args.isLocked,
         });
 
         return topicId;
+    },
+});
+
+export const refreshTopicExamReadinessInternal = internalMutation({
+    args: { topicId: v.id("topics") },
+    handler: async (ctx, args) => {
+        const topic = await ctx.db.get(args.topicId);
+        if (!topic) {
+            return {
+                topicId: args.topicId,
+                exists: false,
+                examReady: false,
+                usableMcqCount: 0,
+                usableEssayCount: 0,
+            };
+        }
+
+        const questions = await ctx.db
+            .query("questions")
+            .withIndex("by_topicId", (q) => q.eq("topicId", args.topicId))
+            .collect();
+        const readiness = computeTopicExamReadinessFromQuestions(questions);
+
+        await ctx.db.patch(args.topicId, {
+            examReady: readiness.examReady,
+            usableMcqCount: readiness.usableMcqCount,
+            usableEssayCount: readiness.usableEssayCount,
+            examReadyUpdatedAt: Date.now(),
+        });
+
+        return {
+            topicId: args.topicId,
+            exists: true,
+            ...readiness,
+        };
+    },
+});
+
+// Generation lock TTLs — kept close to actual generation time budgets so
+// stale locks don't block new requests for too long.
+const MCQ_GENERATION_LOCK_TTL_MS = 4 * 60 * 1000; // 4 minutes (MCQ budget is ~180s)
+const ESSAY_GENERATION_LOCK_TTL_MS = 60 * 1000;    // 60 seconds (essay budget is ~30s)
+
+/**
+ * Attempt to acquire a generation lock for the given topic + format.
+ * Returns { acquired: true } if the lock was set, or { acquired: false }
+ * if another generation is already in progress (lock not yet expired).
+ */
+export const acquireGenerationLockInternal = internalMutation({
+    args: {
+        topicId: v.id("topics"),
+        format: v.string(), // 'mcq' | 'essay'
+    },
+    handler: async (ctx, args) => {
+        const topic = await ctx.db.get(args.topicId);
+        if (!topic) return { acquired: false };
+
+        const now = Date.now();
+        const lockField = args.format === "essay"
+            ? "essayGenerationLockedUntil"
+            : "mcqGenerationLockedUntil";
+        const currentLock = Number((topic as any)[lockField] || 0);
+
+        if (currentLock > now) {
+            // Lock is still held and not expired
+            return { acquired: false };
+        }
+
+        const ttlMs = args.format === "essay"
+            ? ESSAY_GENERATION_LOCK_TTL_MS
+            : MCQ_GENERATION_LOCK_TTL_MS;
+        await ctx.db.patch(args.topicId, {
+            [lockField]: now + ttlMs,
+        });
+
+        return { acquired: true };
+    },
+});
+
+/**
+ * Release a generation lock after generation completes (or fails).
+ */
+export const releaseGenerationLockInternal = internalMutation({
+    args: {
+        topicId: v.id("topics"),
+        format: v.string(), // 'mcq' | 'essay'
+    },
+    handler: async (ctx, args) => {
+        const topic = await ctx.db.get(args.topicId);
+        if (!topic) return;
+
+        const lockField = args.format === "essay"
+            ? "essayGenerationLockedUntil"
+            : "mcqGenerationLockedUntil";
+
+        await ctx.db.patch(args.topicId, {
+            [lockField]: 0,
+        });
     },
 });
 
@@ -228,6 +375,13 @@ export const deleteQuestionsByTopicInternal = internalMutation({
             await ctx.db.delete(question._id);
         }
 
+        await ctx.db.patch(args.topicId, {
+            examReady: false,
+            usableMcqCount: 0,
+            usableEssayCount: 0,
+            examReadyUpdatedAt: Date.now(),
+        });
+
         return { deleted: questions.length };
     },
 });
@@ -256,6 +410,18 @@ export const batchCreateQuestionsInternal = internalMutation({
             });
             questionIds.push(id);
         }
+
+        const topicQuestions = await ctx.db
+            .query("questions")
+            .withIndex("by_topicId", (q) => q.eq("topicId", args.topicId))
+            .collect();
+        const readiness = computeTopicExamReadinessFromQuestions(topicQuestions);
+        await ctx.db.patch(args.topicId, {
+            examReady: readiness.examReady,
+            usableMcqCount: readiness.usableMcqCount,
+            usableEssayCount: readiness.usableEssayCount,
+            examReadyUpdatedAt: Date.now(),
+        });
 
         return questionIds;
     },

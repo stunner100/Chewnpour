@@ -29,7 +29,7 @@ export const canReuseExamAttempt = ({
     if (!Number.isFinite(createdAt) || createdAt <= 0) return false;
 
     const ageMs = Math.max(0, Number(nowMs || Date.now()) - createdAt);
-    if (ageMs > maxAgeMs) return false;
+    if (ageMs >= maxAgeMs) return false;
 
     return true;
 };

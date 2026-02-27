@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Link, useParams, useNavigate } from 'react-router-dom';
+import { Link, useParams, useNavigate, useLocation } from 'react-router-dom';
 import { useQuery, useMutation, useAction } from 'convex/react';
 import { api } from '../../convex/_generated/api';
 import { useAuth } from '../contexts/AuthContext';
@@ -238,6 +238,7 @@ const TRANSIENT_TRANSPORT_ERROR_PATTERNS = [
 ];
 const MCQ_EXAM_QUESTION_CAP = 35;
 const ESSAY_EXAM_QUESTION_CAP = 15;
+const ESSAY_EXAM_INTERACTIVE_START_COUNT = 3;
 const EXAM_DURATION_SECONDS = 45 * 60;
 const MIN_ESSAY_SUBMIT_CHAR_COUNT = 1;
 
@@ -362,11 +363,27 @@ const isUserCorrectableEssaySubmitError = (message) => {
     );
 };
 
+const isPreparingEssayStartError = (message) => {
+    const normalized = String(message || '').toLowerCase();
+    if (!normalized) return false;
+    return (
+        normalized.includes('essay_questions_preparing')
+        || normalized.includes('essay questions are being prepared')
+    );
+};
+
+const resolvePreferredExamFormat = (value) => {
+    const normalized = String(value || '').toLowerCase().trim();
+    if (normalized === 'mcq' || normalized === 'essay') return normalized;
+    return null;
+};
+
 // ── Component ──
 
 const ExamMode = () => {
     const { topicId } = useParams();
     const navigate = useNavigate();
+    const location = useLocation();
     const { user } = useAuth();
     const [currentQuestion, setCurrentQuestion] = useState(0);
     const [selectedAnswers, setSelectedAnswers] = useState({});
@@ -409,11 +426,13 @@ const ExamMode = () => {
     const AUTO_GENERATION_MAX_ATTEMPTS = 3;
 
     const topicQuestions = topicData?.questions || [];
+    const essayQuestionCount = topicQuestions.filter((question) => question?.questionType === 'essay').length;
     const loadingExamQuestionCap = examFormat === 'essay' ? ESSAY_EXAM_QUESTION_CAP : MCQ_EXAM_QUESTION_CAP;
     const loadingExamTypeLabel = examFormat === 'essay' ? 'essay' : 'multiple-choice';
     const hasAttemptQuestions = Array.isArray(attemptQuestions) && attemptQuestions.length > 0;
     const questions = hasAttemptQuestions ? attemptQuestions : [];
     const topic = topicData;
+    const preferredFormatFromState = resolvePreferredExamFormat(location?.state?.preferredFormat);
     const examFlowStartTimeRef = useRef(Date.now());
     const attemptStartTimeRef = useRef(null);
     const loadingStallReportedRef = useRef(false);
@@ -429,6 +448,26 @@ const ExamMode = () => {
         autoGenerationRequestIdRef.current = 0;
         setAutoGenerationPaused(false);
     }, [topicId]);
+
+    // When entering from TopicDetail, auto-select preferred format so the flow
+    // does not stall on the intermediate chooser screen.
+    useEffect(() => {
+        if (examFormat || !preferredFormatFromState) return;
+        if (!topicId || topicData === undefined || topicData === null) return;
+        if (examStarted || startingExamAttempt || hasAttemptQuestions) return;
+        if (topicQuestions.length < MIN_EXAM_QUESTIONS) return;
+        setExamFormat(preferredFormatFromState);
+    }, [
+        examFormat,
+        preferredFormatFromState,
+        topicId,
+        topicData,
+        examStarted,
+        startingExamAttempt,
+        hasAttemptQuestions,
+        topicQuestions.length,
+        MIN_EXAM_QUESTIONS,
+    ]);
 
     const withTimeout = useCallback((promise, timeoutMs, timeoutMessage) => {
         let timeoutHandle;
@@ -871,11 +910,35 @@ const ExamMode = () => {
         QUESTION_GENERATION_REQUEST_TIMEOUT_MS,
     ]);
 
+    // Auto-clear deferred "preparing" errors after a short delay so the
+    // auto-start effect retries. Covers both MCQ and essay formats.
+    useEffect(() => {
+        if (!startExamError) return;
+        if (examStarted || startingExamAttempt || hasAttemptQuestions) return;
+
+        const isDeferredError =
+            isPreparingEssayStartError(startExamError)
+            || /preparing|refreshed for quality|try again in a few/i.test(startExamError);
+        if (!isDeferredError) return;
+
+        const handle = setTimeout(() => {
+            if (examStarted || startingExamAttempt || hasAttemptQuestions) return;
+            setStartExamError('');
+        }, 5000);
+        return () => clearTimeout(handle);
+    }, [
+        startExamError,
+        examStarted,
+        startingExamAttempt,
+        hasAttemptQuestions,
+    ]);
+
     // Start exam once enough questions exist AND user has chosen a format. Keep generation in background.
     useEffect(() => {
         if (
             topicId &&
             examFormat &&
+            !(examFormat === 'essay' && generatingEssayQuestions) &&
             !examStarted &&
             !startingExamAttempt &&
             !hasAttemptQuestions &&
@@ -887,6 +950,7 @@ const ExamMode = () => {
     }, [
         topicId,
         examFormat,
+        generatingEssayQuestions,
         examStarted,
         startingExamAttempt,
         hasAttemptQuestions,
@@ -1271,10 +1335,11 @@ const ExamMode = () => {
                             <button
                                 onClick={async () => {
                                     setExamFormat('essay');
+                                    setStartExamError('');
                                     // Generate essay questions if needed
                                     setGeneratingEssayQuestions(true);
                                     try {
-                                        await generateEssayQuestions({ topicId, count: ESSAY_EXAM_QUESTION_CAP });
+                                        await generateEssayQuestions({ topicId, count: ESSAY_EXAM_INTERACTIVE_START_COUNT });
                                     } catch (e) {
                                         console.error('Essay question generation failed:', e);
                                     } finally {

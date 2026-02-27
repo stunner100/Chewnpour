@@ -29,6 +29,7 @@ import type * as lib_topicOutlinePipeline from "../lib/topicOutlinePipeline.js";
 import type * as lib_voiceStreamToken from "../lib/voiceStreamToken.js";
 import type * as profiles from "../profiles.js";
 import type * as subscriptions from "../subscriptions.js";
+import type * as topicNotes from "../topicNotes.js";
 import type * as topics from "../topics.js";
 import type * as uploads from "../uploads.js";
 import type * as voiceHttp from "../voiceHttp.js";
@@ -61,6 +62,7 @@ declare const fullApi: ApiFromModules<{
   "lib/voiceStreamToken": typeof lib_voiceStreamToken;
   profiles: typeof profiles;
   subscriptions: typeof subscriptions;
+  topicNotes: typeof topicNotes;
   topics: typeof topics;
   uploads: typeof uploads;
   voiceHttp: typeof voiceHttp;
