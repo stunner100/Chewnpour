@@ -71,6 +71,12 @@ const formatRelativeTime = (timestamp) => {
     return `${Math.floor(delta / day)}d ago`;
 };
 
+const getThreadStatusLabel = (status) => {
+    if (status === 'ready') return 'Ready';
+    if (status === 'error') return 'Failed';
+    return 'Processing';
+};
+
 
 
 const PROCESSING_STAGES = [
@@ -728,7 +734,7 @@ const AssignmentHelper = () => {
                 )}
 
                 <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 min-h-[72vh]">
-                    <aside className={`lg:col-span-4 xl:col-span-3 rounded-2xl border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 shadow-sm flex flex-col max-h-[35vh] lg:max-h-none overflow-hidden ${selectedThread ? 'hidden lg:flex' : ''}`}>
+                    <aside className={`lg:col-span-4 xl:col-span-3 rounded-2xl border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 shadow-sm flex flex-col max-h-[60vh] lg:max-h-none overflow-hidden ${selectedThread ? 'hidden lg:flex' : ''}`}>
                         <div className="flex items-center justify-between p-4 border-b border-neutral-100 dark:border-neutral-800">
                             <div className="flex items-center gap-2">
                                 <span className="material-symbols-outlined text-neutral-400 text-lg">forum</span>
@@ -822,7 +828,7 @@ const AssignmentHelper = () => {
                                                     }}
                                                     disabled={isDeleting}
                                                     aria-label="Delete conversation"
-                                                    className="absolute right-2 top-2 w-7 h-7 flex items-center justify-center rounded-lg text-neutral-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 opacity-0 group-hover:opacity-100 transition-all"
+                                                    className="absolute right-2 top-2 w-7 h-7 flex items-center justify-center rounded-lg text-neutral-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 opacity-100 lg:opacity-0 lg:group-hover:opacity-100 transition-all"
                                                 >
                                                     <span className="material-symbols-outlined text-lg">
                                                         {isDeleting ? 'hourglass_empty' : 'close'}
@@ -836,7 +842,7 @@ const AssignmentHelper = () => {
                         </div>
                     </aside>
 
-                    <section className="lg:col-span-8 xl:col-span-9 rounded-2xl border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 shadow-sm flex flex-col h-[72vh] overflow-hidden">
+                    <section className="lg:col-span-8 xl:col-span-9 rounded-2xl border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 shadow-sm flex flex-col h-[calc(100svh-10rem)] lg:h-[72vh] overflow-hidden">
                         {!selectedThread ? (
                             <div className="flex-1 flex flex-col items-center justify-center text-center px-6 py-16">
                                 <div className="mb-6">
@@ -913,6 +919,34 @@ const AssignmentHelper = () => {
                                             </div>
                                         </div>
                                     </div>
+                                    {sortedThreads.length > 1 && (
+                                        <div className="mt-3 lg:hidden">
+                                            <label htmlFor="mobile-assignment-thread-switcher" className="sr-only">
+                                                Switch assignment conversation
+                                            </label>
+                                            <div className="relative">
+                                                <span className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 material-symbols-outlined text-[16px] text-neutral-400">
+                                                    swap_horiz
+                                                </span>
+                                                <select
+                                                    id="mobile-assignment-thread-switcher"
+                                                    aria-label="Switch assignment conversation"
+                                                    value={selectedThreadId ? String(selectedThreadId) : ''}
+                                                    onChange={(event) => setSelectedThreadId(event.target.value || null)}
+                                                    className="w-full h-9 rounded-lg border border-neutral-200 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-800 text-neutral-800 dark:text-neutral-100 text-sm pl-8 pr-8 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary/40"
+                                                >
+                                                    {sortedThreads.map((thread) => (
+                                                        <option key={thread._id} value={String(thread._id)}>
+                                                            {`${thread.title} (${getThreadStatusLabel(thread.status)})`}
+                                                        </option>
+                                                    ))}
+                                                </select>
+                                                <span className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 material-symbols-outlined text-[18px] text-neutral-400">
+                                                    expand_more
+                                                </span>
+                                            </div>
+                                        </div>
+                                    )}
                                 </div>
 
                                 <div className="flex-1 overflow-y-auto px-4 py-4 space-y-4 bg-neutral-50/50 dark:bg-neutral-900/30">
