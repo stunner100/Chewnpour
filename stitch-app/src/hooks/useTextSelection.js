@@ -3,9 +3,23 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 export function useTextSelection(containerRef) {
     const [selection, setSelection] = useState(null);
     const debounceRef = useRef(null);
+    // Track when the container element is available (refs don't trigger re-renders)
+    const [container, setContainer] = useState(null);
+
+    // Poll for the container ref to become available after mount
+    useEffect(() => {
+        if (containerRef?.current) {
+            setContainer(containerRef.current);
+            return;
+        }
+        // Ref may not be set on first render — check after a tick
+        const raf = requestAnimationFrame(() => {
+            if (containerRef?.current) setContainer(containerRef.current);
+        });
+        return () => cancelAnimationFrame(raf);
+    }, [containerRef]);
 
     useEffect(() => {
-        const container = containerRef?.current;
         if (!container) return;
 
         const resolve = () => {
@@ -48,15 +62,22 @@ export function useTextSelection(containerRef) {
             setTimeout(resolve, 150);
         };
 
+        // Also handle mouseup directly as a fallback
+        const handleMouseUp = () => {
+            setTimeout(resolve, 10);
+        };
+
         document.addEventListener('selectionchange', handleSelectionChange);
         container.addEventListener('touchend', handleTouchEnd);
+        container.addEventListener('mouseup', handleMouseUp);
 
         return () => {
             if (debounceRef.current) clearTimeout(debounceRef.current);
             document.removeEventListener('selectionchange', handleSelectionChange);
             container.removeEventListener('touchend', handleTouchEnd);
+            container.removeEventListener('mouseup', handleMouseUp);
         };
-    }, [containerRef]);
+    }, [container]);
 
     const clearSelection = useCallback(() => {
         window.getSelection()?.removeAllRanges();

@@ -709,7 +709,7 @@ const TopicDetail = () => {
                     </Link>
                 </div>
             </header>
-            <main className={`flex-1 w-full mx-auto px-4 md:px-6 lg:px-10 pt-20 md:pt-24 pb-20 md:pb-8 lg:pt-28 lg:pb-12 ${readingMode ? 'max-w-4xl' : 'max-w-[1440px]'}`}>
+            <main className={`flex-1 w-full mx-auto px-4 md:px-6 lg:px-10 pt-20 md:pt-24 pb-20 md:pb-8 lg:pt-28 lg:pb-12 ${readingMode ? 'max-w-4xl' : 'max-w-[1440px]'} transition-[margin] duration-200 ${notesOpen ? 'md:mr-80' : ''}`}>
                 <div className={`grid grid-cols-1 ${readingMode ? '' : 'lg:grid-cols-12'} gap-8 lg:gap-12`}>
                     <div ref={contentRef} className={`${readingMode ? '' : 'lg:col-span-9'} space-y-8`}>
                         <div className="bg-surface-light dark:bg-surface-dark rounded-2xl md:rounded-3xl p-5 md:p-8 lg:p-10 shadow-card border border-neutral-100 dark:border-neutral-800 relative">
