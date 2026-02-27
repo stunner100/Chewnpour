@@ -19,7 +19,7 @@ import {
     extractStructuredSections,
     groupChunksIntoTopicBuckets,
 } from "./lib/topicOutlinePipeline";
-import { assertAuthorizedUser, resolveAuthUserId } from "./lib/examSecurity";
+import { assertAuthorizedUser, isUsableExamQuestion, resolveAuthUserId } from "./lib/examSecurity";
 import {
     QUESTION_BANK_BACKGROUND_PROFILE,
     QUESTION_BANK_INTERACTIVE_PROFILE,
@@ -27,13 +27,16 @@ import {
     deriveQuestionGenerationRounds,
     resolveQuestionBankProfile,
 } from "./lib/questionBankConfig";
+import {
+    buildConceptExerciseKey,
+    normalizeConceptTextKey,
+} from "./lib/conceptExerciseGeneration";
+import { createVoiceStreamToken } from "./lib/voiceStreamToken";
 
-// Primary LLM: OpenAI GPT-5.2. Fallback: Qwen (OpenAI-compatible endpoint).
-const OPENAI_BASE_URL = process.env.OPENAI_BASE_URL || "https://api.openai.com/v1";
-const OPENAI_MODEL = process.env.OPENAI_MODEL || "gpt-5.2";
+// Sole LLM provider: Qwen (OpenAI-compatible endpoint).
 const QWEN_BASE_URL = process.env.QWEN_BASE_URL || "https://dashscope.aliyuncs.com/compatible-mode/v1";
 const QWEN_MODEL = process.env.QWEN_MODEL || "qwen-max";
-const DEFAULT_MODEL = OPENAI_MODEL;
+const DEFAULT_MODEL = QWEN_MODEL;
 const DEFAULT_TIMEOUT_MS = Number(process.env.QWEN_TIMEOUT_MS || 60000);
 const DEFAULT_PROCESSING_TIMEOUT_MS = Number(process.env.PROCESSING_TIMEOUT_MS || 25 * 60 * 1000);
 const AZURE_DOCINTEL_ENDPOINT = process.env.AZURE_DOCINTEL_ENDPOINT || "";
@@ -123,6 +126,20 @@ const OUTLINE_MAX_CHUNK_CHARS = 6000;
 const OUTLINE_MAX_MAP_CHUNKS = 30;
 const OUTLINE_GROUP_SOURCE_CHAR_LIMIT = 8000;
 const OUTLINE_FALLBACK_SOURCE_CHAR_LIMIT = 40000;
+const ESSAY_QUESTION_MIN_GENERATION_COUNT = 3;
+const ESSAY_QUESTION_MAX_GENERATION_COUNT = 15;
+const ESSAY_QUESTION_PARALLEL_REQUESTS = 2;
+const ESSAY_QUESTION_MIN_BATCH_SIZE = 4;
+const ESSAY_QUESTION_REQUEST_TIMEOUT_MS = 18_000;
+const ESSAY_QUESTION_REPAIR_TIMEOUT_MS = 3_000;
+const ESSAY_QUESTION_TIME_BUDGET_MS = 30_000;
+const ESSAY_QUESTION_MAX_BATCH_ATTEMPTS = 2;
+const ESSAY_QUESTION_BACKGROUND_RETRY_DELAY_MS = 20_000;
+const ESSAY_QUESTION_BACKGROUND_MAX_RETRIES = 4;
+const ESSAY_QUESTION_READY_MIN_COUNT = 3;
+const TOPIC_EXAM_PREBUILD_ESSAY_COUNT = 15;
+const CONCEPT_EXERCISE_HISTORY_LIMIT = 8;
+const CONCEPT_EXERCISE_MAX_ATTEMPTS = 3;
 const GEMINI_BASE_URL = process.env.GEMINI_BASE_URL || "https://generativelanguage.googleapis.com/v1beta";
 const GEMINI_IMAGE_MODEL = process.env.GEMINI_IMAGE_MODEL || "gemini-2.0-flash-exp-image-generation";
 const GEMINI_TIMEOUT_MS = Number(process.env.GEMINI_TIMEOUT_MS || 45000);
@@ -146,15 +163,17 @@ const BACKEND_SENTRY_CAPTURE_TIMEOUT_MS = (() => {
     if (!Number.isFinite(parsed)) return 1500;
     return Math.max(250, Math.round(parsed));
 })();
-const ELEVENLABS_API_BASE_URL = String(process.env.ELEVENLABS_API_BASE_URL || "https://api.elevenlabs.io").trim();
-const ELEVENLABS_API_KEY = String(process.env.ELEVENLABS_API_KEY || "").trim();
-const ELEVENLABS_DEFAULT_VOICE_ID = String(process.env.ELEVENLABS_VOICE_ID || "").trim();
-const ELEVENLABS_MODEL_ID = String(process.env.ELEVENLABS_MODEL_ID || "eleven_multilingual_v2").trim();
-const ELEVENLABS_OUTPUT_FORMAT = String(process.env.ELEVENLABS_OUTPUT_FORMAT || "mp3_44100_128").trim();
-const ELEVENLABS_MAX_TEXT_CHARS = (() => {
-    const parsed = Number(process.env.ELEVENLABS_MAX_TEXT_CHARS || 2500);
-    if (!Number.isFinite(parsed)) return 2500;
-    return Math.max(300, Math.min(5000, Math.round(parsed)));
+const DEEPGRAM_API_KEY = String(process.env.DEEPGRAM_API_KEY || "").trim();
+const DEEPGRAM_VOICE_MODEL = String(process.env.DEEPGRAM_VOICE_MODEL || "aura-2-thalia-en").trim();
+const DEEPGRAM_MAX_TEXT_CHARS = (() => {
+    const parsed = Number(process.env.DEEPGRAM_MAX_TEXT_CHARS || 900);
+    if (!Number.isFinite(parsed)) return 900;
+    return Math.max(300, Math.min(2000, Math.round(parsed)));
+})();
+const VOICE_STREAM_TOKEN_TTL_MS = (() => {
+    const parsed = Number(process.env.VOICE_STREAM_TOKEN_TTL_MS || 120000);
+    if (!Number.isFinite(parsed)) return 120000;
+    return Math.max(30000, Math.min(600000, Math.round(parsed)));
 })();
 
 interface Message {
@@ -328,107 +347,58 @@ async function callQwen(
     options?: { temperature?: number; maxTokens?: number; timeoutMs?: number; responseFormat?: "json_object" }
 ): Promise<string> {
     const timeoutMs = options?.timeoutMs ?? DEFAULT_TIMEOUT_MS;
-
-    const callProvider = async (args: {
-        providerName: "openai" | "qwen";
-        baseUrl: string;
-        apiKey: string;
-        modelName: string;
-    }) => {
-        const controller = new AbortController();
-        let timeoutId: ReturnType<typeof setTimeout> | null = null;
-        let response: Response;
-
-        try {
-            const timeoutPromise = new Promise<never>((_, reject) => {
-                timeoutId = setTimeout(() => {
-                    controller.abort();
-                    reject(new Error(`${args.providerName} request timed out after ${timeoutMs}ms`));
-                }, timeoutMs);
-            });
-
-            const requestPromise = fetch(`${args.baseUrl}/chat/completions`, {
-                method: "POST",
-                headers: {
-                    "Content-Type": "application/json",
-                    Authorization: `Bearer ${args.apiKey}`,
-                },
-                body: JSON.stringify({
-                    model: args.modelName,
-                    messages,
-                    temperature: options?.temperature ?? 0.3,
-                    ...(args.providerName === "openai"
-                        ? { max_completion_tokens: options?.maxTokens ?? 2048 }
-                        : { max_tokens: options?.maxTokens ?? 2048 }),
-                    response_format: options?.responseFormat ? { type: options.responseFormat } : undefined,
-                }),
-                signal: controller.signal,
-            });
-
-            response = await Promise.race([requestPromise, timeoutPromise]);
-        } catch (error) {
-            const errorMessage = error instanceof Error ? error.message : String(error);
-            if (errorMessage.includes("timed out") || errorMessage.includes("aborted")) {
-                throw new Error(`${args.providerName} request timed out after ${timeoutMs}ms`);
-            }
-            throw error;
-        } finally {
-            if (timeoutId) {
-                clearTimeout(timeoutId);
-            }
-        }
-
-        if (!response.ok) {
-            const errorText = await response.text();
-            throw new Error(`${args.providerName} API error: ${response.status} - ${errorText}`);
-        }
-
-        const data: ChatCompletionResponse = await response.json();
-        return data.choices[0]?.message?.content || "";
-    };
-
-    const openaiApiKey = String(process.env.OPENAI_API_KEY || "").trim();
     const qwenApiKey = String(process.env.QWEN_API_KEY || "").trim();
-    let primaryError: unknown = null;
-
-    if (openaiApiKey) {
-        try {
-            return await callProvider({
-                providerName: "openai",
-                baseUrl: OPENAI_BASE_URL,
-                apiKey: openaiApiKey,
-                modelName: model,
-            });
-        } catch (error) {
-            primaryError = error;
-            console.warn("[LLM] primary_provider_failed_using_fallback", {
-                provider: "openai",
-                model,
-                fallbackProvider: "qwen",
-                error: error instanceof Error ? error.message : String(error),
-            });
-        }
-    } else {
-        primaryError = new Error("OPENAI_API_KEY environment variable not set");
-    }
-
     if (!qwenApiKey) {
-        if (primaryError instanceof Error) throw primaryError;
-        throw new Error("No LLM provider configured. Set OPENAI_API_KEY and/or QWEN_API_KEY.");
+        throw new Error("QWEN_API_KEY environment variable not set.");
     }
 
+    const controller = new AbortController();
+    let timeoutId: ReturnType<typeof setTimeout> | null = null;
+    let response: Response;
     try {
-        return await callProvider({
-            providerName: "qwen",
-            baseUrl: QWEN_BASE_URL,
-            apiKey: qwenApiKey,
-            modelName: QWEN_MODEL,
+        const timeoutPromise = new Promise<never>((_, reject) => {
+            timeoutId = setTimeout(() => {
+                controller.abort();
+                reject(new Error(`qwen request timed out after ${timeoutMs}ms`));
+            }, timeoutMs);
         });
-    } catch (fallbackError) {
-        const primaryMessage = primaryError instanceof Error ? primaryError.message : String(primaryError || "");
-        const fallbackMessage = fallbackError instanceof Error ? fallbackError.message : String(fallbackError);
-        throw new Error(`Primary LLM failed (${primaryMessage}); fallback LLM failed (${fallbackMessage})`);
+
+        const requestPromise = fetch(`${QWEN_BASE_URL}/chat/completions`, {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+                Authorization: `Bearer ${qwenApiKey}`,
+            },
+            body: JSON.stringify({
+                model,
+                messages,
+                temperature: options?.temperature ?? 0.3,
+                max_tokens: options?.maxTokens ?? 2048,
+                response_format: options?.responseFormat ? { type: options.responseFormat } : undefined,
+            }),
+            signal: controller.signal,
+        });
+
+        response = await Promise.race([requestPromise, timeoutPromise]);
+    } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : String(error);
+        if (errorMessage.includes("timed out") || errorMessage.includes("aborted")) {
+            throw new Error(`qwen request timed out after ${timeoutMs}ms`);
+        }
+        throw error;
+    } finally {
+        if (timeoutId) {
+            clearTimeout(timeoutId);
+        }
     }
+
+    if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`qwen API error: ${response.status} - ${errorText}`);
+    }
+
+    const data: ChatCompletionResponse = await response.json();
+    return data.choices[0]?.message?.content || "";
 }
 
 const buildTopicIllustrationPrompt = (args: {
@@ -622,6 +592,61 @@ ${String(raw || "").slice(0, 20000)}
             });
 
             return parseJsonFromResponse(repaired, "repaired questions");
+        } catch (repairError) {
+            return { questions: [] };
+        }
+    }
+};
+
+const parseEssayQuestionsWithRepair = async (
+    raw: string,
+    options?: { deadlineMs?: number; repairTimeoutMs?: number }
+) => {
+    try {
+        return parseJsonFromResponse(raw, "essay_questions");
+    } catch (error) {
+        const remainingMs = Number.isFinite(Number(options?.deadlineMs))
+            ? Number(options?.deadlineMs) - Date.now()
+            : null;
+        if (remainingMs !== null && remainingMs <= 1200) {
+            return { questions: [] };
+        }
+
+        let repairTimeoutMs = Number(options?.repairTimeoutMs || ESSAY_QUESTION_REPAIR_TIMEOUT_MS);
+        if (remainingMs !== null) {
+            repairTimeoutMs = Math.min(repairTimeoutMs, Math.max(1000, remainingMs - 200));
+        }
+        const repairPrompt = `Fix the malformed JSON-like content below and return strict JSON only.
+
+Required schema:
+{
+  "questions": [
+    {
+      "questionText": "string",
+      "correctAnswer": "string",
+      "explanation": "string",
+      "difficulty": "easy|medium|hard",
+      "questionType": "essay"
+    }
+  ]
+}
+
+Malformed content:
+"""
+${String(raw || "").slice(0, 20000)}
+"""`;
+
+        try {
+            const repaired = await callQwen([
+                { role: "system", content: "You are a strict JSON repair assistant. Return valid JSON only." },
+                { role: "user", content: repairPrompt },
+            ], DEFAULT_MODEL, {
+                maxTokens: 1600,
+                responseFormat: "json_object",
+                timeoutMs: repairTimeoutMs,
+            });
+
+            return parseJsonFromResponse(repaired, "repaired_essay_questions");
         } catch (repairError) {
             return { questions: [] };
         }
@@ -882,17 +907,83 @@ Return JSON only in this format:
 export const generateConceptExerciseForTopic = action({
     args: {
         topicId: v.id("topics"),
+        userId: v.optional(v.string()),
     },
     handler: async (ctx, args) => {
-        const { topicId } = args;
+        const { topicId, userId } = args;
 
         const topic = await ctx.runQuery(api.topics.getTopicWithQuestions, { topicId });
         if (!topic) {
             throw new Error("Topic not found");
         }
         const topicKeywords = extractTopicKeywords(topic.title);
+        const rawAttempts = userId
+            ? await ctx.runQuery(api.concepts.getUserConceptAttempts, { userId })
+            : [];
+        const topicAttempts = Array.isArray(rawAttempts)
+            ? rawAttempts
+                .filter((attempt: any) => String(attempt?.topicId || "") === String(topicId))
+                .slice(0, CONCEPT_EXERCISE_HISTORY_LIMIT)
+            : [];
+        const seenExerciseKeys = new Set<string>();
+        const seenQuestionTextKeys = new Set<string>();
 
-        const prompt = `Create a single fill-in-the-blank concept practice exercise based on the lesson content below.
+        const previousExerciseBlock = topicAttempts
+            .map((attempt: any) => {
+                const questionText = String(attempt?.questionText || "").trim();
+                const promptQuestionText = questionText.slice(0, 160);
+                const correctAnswers = Array.isArray(attempt?.answers?.correctAnswers)
+                    ? attempt.answers.correctAnswers
+                    : [];
+                const answersLine = correctAnswers
+                    .map((answer: any) => normalizeConceptTextKey(answer))
+                    .filter(Boolean)
+                    .slice(0, 6)
+                    .join(", ");
+                const attemptKey = buildConceptExerciseKey(
+                    {
+                        questionText,
+                        answers: correctAnswers,
+                    },
+                    { includeTemplate: false }
+                );
+                if (attemptKey) {
+                    seenExerciseKeys.add(attemptKey);
+                }
+                const normalizedQuestionKey = normalizeConceptTextKey(questionText);
+                if (normalizedQuestionKey) {
+                    seenQuestionTextKeys.add(normalizedQuestionKey);
+                }
+                if (promptQuestionText && answersLine) return `- ${promptQuestionText} [answers: ${answersLine}]`;
+                if (promptQuestionText) return `- ${promptQuestionText}`;
+                if (answersLine) return `- answers: ${answersLine}`;
+                return "";
+            })
+            .filter(Boolean)
+            .join("\n");
+
+        const duplicateGuardSection = previousExerciseBlock
+            ? `Avoid repeating previous concept exercises.
+Do NOT copy or lightly rephrase any exercise below.
+Use a different relationship/concept framing than these:
+${previousExerciseBlock}`
+            : "";
+
+        const lessonContent = (topic.content || "").slice(0, 5000);
+        const generationSeed = randomBytes(4).toString("hex");
+        let chosenExercise: {
+            questionText: string;
+            template: string[];
+            answers: string[];
+            tokens: string[];
+        } | null = null;
+        let lastError: Error | null = null;
+
+        for (let attemptIndex = 0; attemptIndex < CONCEPT_EXERCISE_MAX_ATTEMPTS; attemptIndex += 1) {
+            const retryGuidance = attemptIndex === 0
+                ? ""
+                : "Retry because previous output matched earlier work. Use a clearly different sentence structure and answer set.";
+            const prompt = `Create a single fill-in-the-blank concept practice exercise based on the lesson content below.
 Return JSON ONLY in this exact format:
 {
   "questionText": "Explain the key idea in one sentence.",
@@ -907,38 +998,81 @@ Rules:
 - tokens must include all answers plus additional distractors
 - The exercise must be strictly about the TOPIC below
 - questionText must explicitly mention the topic context (not a generic statement)
+- Use different wording and tested relationships from earlier exercises whenever history is provided
+
+${duplicateGuardSection}
+${retryGuidance}
+SEED: ${generationSeed}-${attemptIndex}
 
 TOPIC: ${topic.title}
 LESSON CONTENT:
 \"\"\"
-${(topic.content || "").slice(0, 5000)}
+${lessonContent}
 \"\"\"`;
 
-        const response = await callQwen([
-            { role: "system", content: "You are an expert educator creating fill-in-the-blank exercises. Respond with valid JSON only." },
-            { role: "user", content: prompt },
-        ], DEFAULT_MODEL, { maxTokens: 900, responseFormat: "json_object" });
+            try {
+                const response = await callQwen([
+                    {
+                        role: "system",
+                        content: "You are an expert educator creating fill-in-the-blank exercises. Respond with valid JSON only.",
+                    },
+                    { role: "user", content: prompt },
+                ], DEFAULT_MODEL, {
+                    maxTokens: 900,
+                    responseFormat: "json_object",
+                    temperature: Math.min(0.75, 0.3 + (attemptIndex * 0.2)),
+                });
 
-        const exercise = parseJsonFromResponse(response, "concept exercise");
-        const template = Array.isArray(exercise.template) ? exercise.template : [];
-        const answers = Array.isArray(exercise.answers) ? exercise.answers : [];
-        const tokens = Array.isArray(exercise.tokens) ? exercise.tokens : [];
+                const exercise = parseJsonFromResponse(response, "concept exercise");
+                const template = Array.isArray(exercise.template) ? exercise.template : [];
+                const answers = Array.isArray(exercise.answers) ? exercise.answers : [];
+                const tokens = Array.isArray(exercise.tokens) ? exercise.tokens : [];
 
-        if (template.length === 0 || answers.length === 0 || tokens.length === 0) {
-            throw new Error("Failed to generate concept exercise");
+                if (template.length === 0 || answers.length === 0 || tokens.length === 0) {
+                    throw new Error("Failed to generate concept exercise");
+                }
+
+                const anchoredQuestionText = anchorTextToTopic(
+                    exercise.questionText || topic.title,
+                    topic.title,
+                    topicKeywords
+                );
+                const candidate = {
+                    questionText: anchoredQuestionText,
+                    template,
+                    answers,
+                    tokens,
+                };
+
+                const candidateKey = buildConceptExerciseKey(candidate, { includeTemplate: false });
+                if (candidateKey && seenExerciseKeys.has(candidateKey)) {
+                    lastError = new Error("Generated duplicate concept exercise");
+                    continue;
+                }
+                const candidateQuestionKey = normalizeConceptTextKey(anchoredQuestionText);
+                if (candidateQuestionKey && seenQuestionTextKeys.has(candidateQuestionKey)) {
+                    lastError = new Error("Generated duplicate concept question text");
+                    continue;
+                }
+                if (candidateKey) {
+                    seenExerciseKeys.add(candidateKey);
+                }
+                if (candidateQuestionKey) {
+                    seenQuestionTextKeys.add(candidateQuestionKey);
+                }
+
+                chosenExercise = candidate;
+                break;
+            } catch (error) {
+                lastError = error instanceof Error ? error : new Error(String(error));
+            }
         }
-        const anchoredQuestionText = anchorTextToTopic(
-            exercise.questionText || topic.title,
-            topic.title,
-            topicKeywords
-        );
 
-        return {
-            questionText: anchoredQuestionText,
-            template,
-            answers,
-            tokens,
-        };
+        if (!chosenExercise) {
+            throw lastError || new Error("Failed to generate unique concept exercise");
+        }
+
+        return chosenExercise;
     },
 });
 
@@ -2137,6 +2271,34 @@ const buildToneDirective = (educationLevel: string) => {
     }
 };
 
+const scheduleExamQuestionPrebuildForTopic = async (args: {
+    ctx: any;
+    courseId: any;
+    uploadId: any;
+    topicId: any;
+    topicIndex: number;
+    reason: "topic_created" | "upload_completion";
+}) => {
+    const { ctx, courseId, uploadId, topicId, topicIndex, reason } = args;
+
+    await ctx.scheduler.runAfter(0, internal.ai.generateQuestionsForTopicInternal, {
+        topicId,
+    });
+    await ctx.scheduler.runAfter(0, internal.ai.generateEssayQuestionsForTopicInternal, {
+        topicId,
+        count: TOPIC_EXAM_PREBUILD_ESSAY_COUNT,
+    });
+
+    console.info("[CourseGeneration] exam_prebuild_scheduled", {
+        courseId,
+        uploadId,
+        topicId,
+        topicIndex,
+        reason,
+        essayCount: TOPIC_EXAM_PREBUILD_ESSAY_COUNT,
+    });
+};
+
 const generateTopicContentForIndex = async (args: {
     ctx: any;
     courseId: any;
@@ -2279,6 +2441,25 @@ Respond in this exact JSON format only:
         });
     }
 
+    try {
+        await scheduleExamQuestionPrebuildForTopic({
+            ctx,
+            courseId,
+            uploadId,
+            topicId,
+            topicIndex: index,
+            reason: "topic_created",
+        });
+    } catch (scheduleError) {
+        console.warn("[CourseGeneration] topic_exam_prebuild_schedule_failed", {
+            courseId,
+            uploadId,
+            topicId,
+            topicIndex: index,
+            message: scheduleError instanceof Error ? scheduleError.message : String(scheduleError),
+        });
+    }
+
     const duration = Date.now() - topicStart;
     console.info("[CourseGeneration] topic_ready", {
         courseId,
@@ -2294,19 +2475,24 @@ Respond in this exact JSON format only:
 
 const scheduleQuestionBanksForCourse = async (ctx: any, courseId: any, uploadId: any) => {
     const topics = await getCourseTopicsSorted(ctx, courseId);
+    let scheduledTopics = 0;
     for (let index = 0; index < topics.length; index += 1) {
         const topic = topics[index];
-        await ctx.scheduler.runAfter(0, internal.ai.generateQuestionsForTopicInternal, {
-            topicId: topic._id,
-        });
-        console.info("[CourseGeneration] question_generation_scheduled", {
+        if (topic?.examReady === true) {
+            continue;
+        }
+
+        await scheduleExamQuestionPrebuildForTopic({
+            ctx,
             courseId,
             uploadId,
             topicId: topic._id,
             topicIndex: index,
+            reason: "upload_completion",
         });
+        scheduledTopics += 1;
     }
-    return topics.length;
+    return scheduledTopics;
 };
 
 export const generateTopicIllustration = internalAction({
@@ -3138,25 +3324,14 @@ const assertTopicQuestionGenerationAccess = async (ctx: any, topicId: any) => {
     });
 };
 
-const assertTopicVoicePlaybackAccess = async (ctx: any, topicId: any) => {
-    const identity = await ctx.auth.getUserIdentity();
-    const authUserId = resolveAuthUserId(identity);
-    assertAuthorizedUser({ authUserId });
-
-    const topicOwner = await ctx.runQuery(internal.topics.getTopicOwnerUserIdInternal, { topicId });
-    if (!topicOwner) {
-        throw new Error("Topic not found");
-    }
-};
-
 export const synthesizeTopicVoice = action({
     args: {
         topicId: v.id("topics"),
         text: v.string(),
-        voiceId: v.optional(v.string()),
+        model: v.optional(v.string()),
     },
     handler: async (ctx, args) => {
-        await assertTopicVoicePlaybackAccess(ctx, args.topicId);
+        await assertTopicQuestionGenerationAccess(ctx, args.topicId);
 
         const normalizedText = String(args.text || "")
             .replace(/\s+/g, " ")
@@ -3165,55 +3340,38 @@ export const synthesizeTopicVoice = action({
             throw new Error("No lesson text is available for voice playback.");
         }
 
-        if (!ELEVENLABS_API_KEY) {
-            throw new Error("ElevenLabs voice is not configured (missing API key).");
+        if (!DEEPGRAM_API_KEY) {
+            throw new Error("Deepgram voice is not configured (missing API key).");
         }
-        const selectedVoiceId = String(args.voiceId || ELEVENLABS_DEFAULT_VOICE_ID).trim();
-        if (!selectedVoiceId) {
-            throw new Error("ElevenLabs voice is not configured (missing voice id).");
+        const selectedModel = String(args.model || DEEPGRAM_VOICE_MODEL).trim();
+        if (!selectedModel) {
+            throw new Error("Deepgram voice is not configured (missing voice model).");
         }
-        const truncatedText = normalizedText.slice(0, ELEVENLABS_MAX_TEXT_CHARS);
+        const truncatedText = normalizedText.slice(0, DEEPGRAM_MAX_TEXT_CHARS);
+        const expiresAt = Date.now() + VOICE_STREAM_TOKEN_TTL_MS;
 
         try {
-            const endpoint = `${ELEVENLABS_API_BASE_URL}/v1/text-to-speech/${encodeURIComponent(selectedVoiceId)}?output_format=${encodeURIComponent(ELEVENLABS_OUTPUT_FORMAT)}`;
-            const response = await fetch(endpoint, {
-                method: "POST",
-                headers: {
-                    "Content-Type": "application/json",
-                    "xi-api-key": ELEVENLABS_API_KEY,
-                    Accept: "audio/mpeg",
-                },
-                body: JSON.stringify({
-                    text: truncatedText,
-                    model_id: ELEVENLABS_MODEL_ID,
-                }),
+            const streamToken = await createVoiceStreamToken({
+                topicId: String(args.topicId),
+                text: truncatedText,
+                model: selectedModel,
+                exp: expiresAt,
             });
-
-            if (!response.ok) {
-                const details = await response.text().catch(() => "");
-                const message = details
-                    ? details.slice(0, 240)
-                    : "No response body";
-                throw new Error(`ElevenLabs TTS request failed (${response.status}): ${message}`);
-            }
-
-            const audioBytes = await response.arrayBuffer();
-            const mimeType = response.headers.get("content-type") || "audio/mpeg";
-            const encodedAudio = Buffer.from(audioBytes).toString("base64");
 
             console.info("[VoiceMode] synthesizeTopicVoice_success", {
                 topicId: args.topicId,
-                voiceId: selectedVoiceId,
+                provider: "deepgram",
+                model: selectedModel,
                 sourceTextLength: normalizedText.length,
                 synthesizedTextLength: truncatedText.length,
-                audioBase64Length: encodedAudio.length,
+                tokenExpiresAt: expiresAt,
             });
 
             return {
-                provider: "elevenlabs",
-                voiceId: selectedVoiceId,
-                mimeType,
-                audioBase64: encodedAudio,
+                provider: "deepgram",
+                model: selectedModel,
+                streamToken,
+                expiresAt,
                 truncated: truncatedText.length < normalizedText.length,
                 sourceTextLength: normalizedText.length,
                 synthesizedTextLength: truncatedText.length,
@@ -3222,7 +3380,8 @@ export const synthesizeTopicVoice = action({
             const message = error instanceof Error ? error.message : String(error);
             console.warn("[VoiceMode] synthesizeTopicVoice_failed", {
                 topicId: args.topicId,
-                voiceId: selectedVoiceId,
+                provider: "deepgram",
+                model: selectedModel,
                 sourceTextLength: normalizedText.length,
                 synthesizedTextLength: truncatedText.length,
                 message,
@@ -3233,14 +3392,15 @@ export const synthesizeTopicVoice = action({
                 level: "warning",
                 tags: {
                     area: "voice",
-                    provider: "elevenlabs",
+                    provider: "deepgram",
                     operation: "synthesizeTopicVoice",
                 },
                 extras: {
                     topicId: String(args.topicId || ""),
-                    voiceId: selectedVoiceId,
+                    model: selectedModel,
                     sourceTextLength: normalizedText.length,
                     synthesizedTextLength: truncatedText.length,
+                    expiresAt,
                     errorMessage: message,
                 },
             }).catch(() => { });
@@ -3363,12 +3523,12 @@ const generateEssayQuestionCandidatesBatch = async (args: {
             },
             { role: "user", content: prompt },
         ], DEFAULT_MODEL, {
-            maxTokens: 3000,
+            maxTokens: 2200,
             responseFormat: "json_object",
             timeoutMs,
         });
 
-        questionsData = await parseQuestionsWithRepair(response, {
+        questionsData = await parseEssayQuestionsWithRepair(response, {
             deadlineMs: args.deadlineMs,
             repairTimeoutMs: args.repairTimeoutMs,
         });
@@ -3538,6 +3698,7 @@ const generateQuestionBankForTopic = async (
     const initialCount = existingQuestionKeys.size;
 
     if (initialCount >= targetCount) {
+        await ctx.runMutation(internal.topics.refreshTopicExamReadinessInternal, { topicId });
         return {
             success: true,
             alreadyGenerated: true,
@@ -3921,6 +4082,8 @@ const generateQuestionBankForTopic = async (
         });
     }
 
+    await ctx.runMutation(internal.topics.refreshTopicExamReadinessInternal, { topicId });
+
     return {
         success: true,
         alreadyGenerated: added === 0,
@@ -3963,6 +4126,12 @@ export const generateQuestionsForTopic = action({
         }).catch(() => {
             // Best effort backfill only; interactive call already returned.
         });
+        void ctx.scheduler.runAfter(0, internal.ai.generateEssayQuestionsForTopicInternal, {
+            topicId: args.topicId,
+            count: TOPIC_EXAM_PREBUILD_ESSAY_COUNT,
+        }).catch(() => {
+            // Best effort essay backfill only; interactive call already returned.
+        });
 
         return result;
     },
@@ -3987,6 +4156,10 @@ export const regenerateQuestionsForTopic = action({
         await ctx.scheduler.runAfter(0, internal.ai.generateQuestionsForTopicInternal, {
             topicId,
         });
+        await ctx.scheduler.runAfter(0, internal.ai.generateEssayQuestionsForTopicInternal, {
+            topicId,
+            count: TOPIC_EXAM_PREBUILD_ESSAY_COUNT,
+        });
 
         return { success: true, regenerated: true, count: result?.count ?? 0 };
     },
@@ -4000,70 +4173,211 @@ const generateEssayQuestionsForTopicCore = async (
     options?: { skipAccessCheck?: boolean },
 ) => {
     const { topicId } = args;
-    const requestedCount = Math.max(3, Math.min(15, Number(args.count || 5)));
+    const requestedCount = Math.max(
+        ESSAY_QUESTION_MIN_GENERATION_COUNT,
+        Math.min(ESSAY_QUESTION_MAX_GENERATION_COUNT, Number(args.count || 5))
+    );
     if (!options?.skipAccessCheck) {
         await assertTopicQuestionGenerationAccess(ctx, topicId);
     }
 
     const topicWithQuestions = await ctx.runQuery(api.topics.getTopicWithQuestions, { topicId });
     if (!topicWithQuestions) throw new Error("Topic not found");
+    const rawTopicQuestions = await ctx.runQuery(internal.topics.getRawQuestionsByTopicInternal, { topicId });
 
     const topicContent = String(topicWithQuestions.content || "");
 
     // Check how many essay questions already exist
-    const existingEssay = (topicWithQuestions.questions || []).filter(
+    const existingEssay = (rawTopicQuestions || []).filter(
         (q: any) => q.questionType === "essay"
     );
-    if (existingEssay.length >= requestedCount) {
-        return { success: true, count: existingEssay.length, added: 0, alreadyGenerated: true };
+    const existingUsableEssay = existingEssay.filter((question: any) =>
+        isUsableExamQuestion(question, { allowEssay: true })
+    );
+    const existingUsableEssayCount = existingUsableEssay.length;
+    if (existingUsableEssayCount >= requestedCount) {
+        await ctx.runMutation(internal.topics.refreshTopicExamReadinessInternal, { topicId });
+        return {
+            success: true,
+            count: existingUsableEssayCount,
+            added: 0,
+            alreadyGenerated: true,
+            existingEssayCount: existingEssay.length,
+            existingUsableEssayCount,
+        };
+    }
+    const generationStartedAt = Date.now();
+    const deadlineMs = Date.now() + ESSAY_QUESTION_TIME_BUDGET_MS;
+    const remainingNeeded = Math.max(0, requestedCount - existingUsableEssayCount);
+    const batchPlan = buildParallelBatchPlan({
+        batchSize: Math.max(1, remainingNeeded),
+        minBatchSize: ESSAY_QUESTION_MIN_BATCH_SIZE,
+        parallelRequests: ESSAY_QUESTION_PARALLEL_REQUESTS,
+    });
+    const batchSettled = await Promise.allSettled(
+        batchPlan.map((batchCount) =>
+            generateEssayQuestionCandidatesBatch({
+                requestedCount: batchCount,
+                topicTitle: topicWithQuestions.title,
+                topicDescription: topicWithQuestions.description,
+                topicContent,
+                deadlineMs,
+                requestTimeoutMs: ESSAY_QUESTION_REQUEST_TIMEOUT_MS,
+                repairTimeoutMs: ESSAY_QUESTION_REPAIR_TIMEOUT_MS,
+                maxAttempts: ESSAY_QUESTION_MAX_BATCH_ATTEMPTS,
+            })
+        )
+    );
+    const candidates: any[] = [];
+    for (const [batchIndex, settled] of batchSettled.entries()) {
+        if (settled.status === "fulfilled") {
+            candidates.push(...settled.value);
+            continue;
+        }
+
+        console.warn("[EssayQuestionBank] batch_request_failed", {
+            topicId,
+            topicTitle: topicWithQuestions.title,
+            batchIndex,
+            requestedCount: batchPlan[batchIndex],
+            message: settled.reason instanceof Error ? settled.reason.message : String(settled.reason),
+        });
     }
 
-    const candidates = await generateEssayQuestionCandidatesBatch({
-        requestedCount,
-        topicTitle: topicWithQuestions.title,
-        topicDescription: topicWithQuestions.description,
-        topicContent,
-        requestTimeoutMs: DEFAULT_TIMEOUT_MS,
-        maxAttempts: 2,
-    });
+    if (candidates.length === 0 && Date.now() < deadlineMs - 1200) {
+        try {
+            const fallbackCandidates = await generateEssayQuestionCandidatesBatch({
+                requestedCount: remainingNeeded,
+                topicTitle: topicWithQuestions.title,
+                topicDescription: topicWithQuestions.description,
+                topicContent,
+                deadlineMs,
+                requestTimeoutMs: ESSAY_QUESTION_REQUEST_TIMEOUT_MS,
+                repairTimeoutMs: ESSAY_QUESTION_REPAIR_TIMEOUT_MS,
+                maxAttempts: 1,
+            });
+            candidates.push(...fallbackCandidates);
+        } catch (fallbackError) {
+            console.warn("[EssayQuestionBank] fallback_batch_request_failed", {
+                topicId,
+                topicTitle: topicWithQuestions.title,
+                requestedCount: remainingNeeded,
+                message: fallbackError instanceof Error ? fallbackError.message : String(fallbackError),
+            });
+        }
+    }
 
     let added = 0;
     const existingKeys = new Set(
-        existingEssay.map((q: any) => normalizeQuestionKey(q.questionText || "")).filter(Boolean)
+        existingUsableEssay.map((q: any) => normalizeQuestionKey(q.questionText || "")).filter(Boolean)
     );
 
     for (const question of candidates) {
-        if (!question?.questionText || typeof question.questionText !== "string") continue;
-        const key = normalizeQuestionKey(question.questionText);
+        const normalizedQuestionText = String(question?.questionText || "").trim();
+        const normalizedCorrectAnswer = String(question?.correctAnswer || "").trim();
+        const normalizedExplanation = String(question?.explanation || "").trim();
+        if (normalizedQuestionText.length < 12 || normalizedCorrectAnswer.length < 6) continue;
+        const key = normalizeQuestionKey(normalizedQuestionText);
         if (!key || existingKeys.has(key)) continue;
+        const draftQuestion = {
+            questionText: normalizedQuestionText,
+            questionType: "essay",
+            correctAnswer: normalizedCorrectAnswer,
+            options: undefined,
+        };
+        if (!isUsableExamQuestion(draftQuestion, { allowEssay: true })) continue;
 
         await ctx.runMutation(internal.topics.createQuestionInternal, {
             topicId,
-            questionText: question.questionText,
+            questionText: normalizedQuestionText,
             questionType: "essay",
             options: undefined,
-            correctAnswer: String(question.correctAnswer || ""),
-            explanation: String(question.explanation || ""),
+            correctAnswer: normalizedCorrectAnswer,
+            explanation: normalizedExplanation || normalizedCorrectAnswer,
             difficulty: question.difficulty || "medium",
         });
 
         existingKeys.add(key);
         added += 1;
-        if (existingKeys.size >= requestedCount) break;
+        if (existingUsableEssayCount + added >= requestedCount) break;
     }
+    const elapsedMs = Date.now() - generationStartedAt;
+    const finalUsableCount = existingUsableEssayCount + added;
+    const timedOut = Date.now() >= deadlineMs && finalUsableCount < requestedCount;
 
-    return { success: true, count: existingKeys.size, added };
+    console.info("[EssayQuestionBank] generation_complete", {
+        topicId,
+        topicTitle: topicWithQuestions.title,
+        existingCount: existingEssay.length,
+        existingUsableCount: existingUsableEssayCount,
+        requestedCount,
+        batchPlan,
+        candidateCount: candidates.length,
+        added,
+        finalCount: finalUsableCount,
+        elapsedMs,
+        timedOut,
+    });
+
+    await ctx.runMutation(internal.topics.refreshTopicExamReadinessInternal, { topicId });
+
+    return { success: true, count: finalUsableCount, added, timedOut };
 };
 
 export const generateEssayQuestionsForTopicInternal = internalAction({
     args: {
         topicId: v.id("topics"),
         count: v.optional(v.number()),
+        retryAttempt: v.optional(v.number()),
     },
     handler: async (ctx, args) => {
-        return await generateEssayQuestionsForTopicCore(ctx, args, {
+        const requestedCount = Math.max(
+            ESSAY_QUESTION_MIN_GENERATION_COUNT,
+            Math.min(ESSAY_QUESTION_MAX_GENERATION_COUNT, Number(args.count || 5))
+        );
+        const retryAttempt = Math.max(0, Math.round(Number(args.retryAttempt || 0)));
+        const result = await generateEssayQuestionsForTopicCore(ctx, args, {
             skipAccessCheck: true,
         });
+        const desiredReadyCount = Math.min(requestedCount, ESSAY_QUESTION_READY_MIN_COUNT);
+        const shouldRetry =
+            Number(result?.count || 0) < desiredReadyCount
+            && retryAttempt < ESSAY_QUESTION_BACKGROUND_MAX_RETRIES;
+
+        if (shouldRetry) {
+            void ctx.scheduler.runAfter(
+                ESSAY_QUESTION_BACKGROUND_RETRY_DELAY_MS,
+                internal.ai.generateEssayQuestionsForTopicInternal,
+                {
+                    topicId: args.topicId,
+                    count: requestedCount,
+                    retryAttempt: retryAttempt + 1,
+                }
+            ).then(() => {
+                console.info("[EssayQuestionBank] retry_scheduled", {
+                    topicId: args.topicId,
+                    requestedCount,
+                    currentCount: Number(result?.count || 0),
+                    desiredReadyCount,
+                    retryAttempt: retryAttempt + 1,
+                    maxRetries: ESSAY_QUESTION_BACKGROUND_MAX_RETRIES,
+                    retryDelayMs: ESSAY_QUESTION_BACKGROUND_RETRY_DELAY_MS,
+                });
+            }).catch((scheduleError) => {
+                console.warn("[EssayQuestionBank] retry_schedule_failed", {
+                    topicId: args.topicId,
+                    requestedCount,
+                    retryAttempt: retryAttempt + 1,
+                    message: scheduleError instanceof Error ? scheduleError.message : String(scheduleError),
+                });
+            });
+        }
+
+        return {
+            ...result,
+            retryAttempt,
+            retryScheduled: shouldRetry,
+        };
     },
 });
 
@@ -5318,21 +5632,113 @@ const HUMANIZE_STYLE_PROMPTS: Record<string, string> = {
 
 const DEFAULT_HUMANIZE_STYLE = "Casual/Blog";
 const HUMANIZE_VERIFICATION_CONFIDENCE_THRESHOLD = 30;
-const HUMANIZE_MAX_RETRIES = 2;
-const HUMANIZE_RETRY_TEMPERATURE = 0.65;
+const HUMANIZE_MAX_INPUT_CHARS = 50000;
+const HUMANIZE_CHUNK_TARGET_CHARS = 4000;
+const HUMANIZE_CHUNK_THRESHOLD = 5000;
+
+type HumanizeStrength = "light" | "medium" | "heavy";
+
+const HUMANIZE_STRENGTH_CONFIGS: Record<HumanizeStrength, {
+    temperature: number;
+    retryTemperature: number;
+    maxRetries: number;
+    prompt: string;
+}> = {
+    light: {
+        temperature: 0.3,
+        retryTemperature: 0.45,
+        maxRetries: 1,
+        prompt: "STRENGTH: Light. Make minimal changes. Preserve the original structure and most phrasing. Only fix the most obvious AI patterns — uniform sentence length, transition word overuse, formulaic phrases. Keep 80%+ of the original wording intact.",
+    },
+    medium: {
+        temperature: 0.5,
+        retryTemperature: 0.65,
+        maxRetries: 2,
+        prompt: "",
+    },
+    heavy: {
+        temperature: 0.75,
+        retryTemperature: 0.8,
+        maxRetries: 3,
+        prompt: "STRENGTH: Heavy. Completely rewrite this text from scratch while keeping the same meaning and facts. Use an entirely different structure, vocabulary, and flow. The result should share no recognizable sentence patterns with the original.",
+    },
+};
+
+const resolveStrength = (value: unknown): HumanizeStrength => {
+    const s = String(value || "").toLowerCase().trim();
+    if (s === "light" || s === "medium" || s === "heavy") return s;
+    return "medium";
+};
 
 type HumanizeMessage = { role: string; content: string };
 
-const buildStyleAwareHumanizeMessages = (text: string, style: string): HumanizeMessage[] => {
+const buildStyleAwareHumanizeMessages = (text: string, style: string, strength: HumanizeStrength = "medium"): HumanizeMessage[] => {
     const styleKey = Object.keys(HUMANIZE_STYLE_PROMPTS).find(
         (k) => k.toLowerCase() === style.toLowerCase()
     ) ?? DEFAULT_HUMANIZE_STYLE;
     const styleInstruction = HUMANIZE_STYLE_PROMPTS[styleKey] ?? HUMANIZE_STYLE_PROMPTS[DEFAULT_HUMANIZE_STYLE];
+    const strengthConfig = HUMANIZE_STRENGTH_CONFIGS[strength];
+    const strengthBlock = strengthConfig.prompt ? `\n\n${strengthConfig.prompt}` : "";
 
     return [
-        { role: "system", content: `${HUMANIZE_SYSTEM_PROMPT}\n\n${styleInstruction}` },
+        { role: "system", content: `${HUMANIZE_SYSTEM_PROMPT}\n\n${styleInstruction}${strengthBlock}` },
         { role: "user", content: `Humanize the following text:\n\n${text}` },
     ];
+};
+
+const splitIntoChunks = (text: string): string[] => {
+    const paragraphs = text.split(/\n\n+/);
+    const chunks: string[] = [];
+    let currentChunk = "";
+
+    for (const para of paragraphs) {
+        // If a single paragraph exceeds chunk target, split on sentence boundaries
+        if (para.length > HUMANIZE_CHUNK_TARGET_CHARS) {
+            if (currentChunk.trim()) {
+                chunks.push(currentChunk.trim());
+                currentChunk = "";
+            }
+            const sentences = para.split(/(?<=\.\s)(?=[A-Z])/);
+            let sentenceChunk = "";
+            for (const sentence of sentences) {
+                if (sentenceChunk.length + sentence.length > HUMANIZE_CHUNK_TARGET_CHARS && sentenceChunk.trim()) {
+                    chunks.push(sentenceChunk.trim());
+                    sentenceChunk = "";
+                }
+                sentenceChunk += sentence;
+            }
+            if (sentenceChunk.trim()) {
+                chunks.push(sentenceChunk.trim());
+            }
+            continue;
+        }
+
+        if (currentChunk.length + para.length + 2 > HUMANIZE_CHUNK_TARGET_CHARS && currentChunk.trim()) {
+            chunks.push(currentChunk.trim());
+            currentChunk = "";
+        }
+        currentChunk += (currentChunk ? "\n\n" : "") + para;
+    }
+    if (currentChunk.trim()) {
+        chunks.push(currentChunk.trim());
+    }
+    return chunks.length > 0 ? chunks : [text];
+};
+
+const humanizeChunked = async (text: string, style: string, strength: HumanizeStrength): Promise<string> => {
+    const config = HUMANIZE_STRENGTH_CONFIGS[strength];
+    const chunks = splitIntoChunks(text);
+
+    const results: string[] = [];
+    for (const chunk of chunks) {
+        const response = await callQwen(
+            buildStyleAwareHumanizeMessages(chunk, style, strength),
+            DEFAULT_MODEL,
+            { maxTokens: 8000, temperature: config.temperature },
+        );
+        results.push(response.trim());
+    }
+    return results.join("\n\n");
 };
 
 const runDetection = async (text: string): Promise<{ confidence: number; flags: string[] }> => {
@@ -5405,27 +5811,45 @@ export const humanizeText = action({
     args: {
         text: v.string(),
         style: v.optional(v.string()),
+        strength: v.optional(v.string()),
     },
     handler: async (ctx, args) => {
+        const identity = await ctx.auth.getUserIdentity();
+        const authUserId = resolveAuthUserId(identity);
+        assertAuthorizedUser({ authUserId });
+
         if (!args.text || args.text.trim().length < 10) {
             throw new ConvexError("Text must be at least 10 characters to humanize.");
         }
+        if (args.text.length > HUMANIZE_MAX_INPUT_CHARS) {
+            throw new ConvexError("Text is too long. Maximum 50,000 characters.");
+        }
 
-        const truncatedText = args.text.slice(0, 6000);
+        await ctx.runMutation(api.subscriptions.consumeHumanizerCreditOrThrow, { userId: authUserId });
+
+        const inputText = args.text.trim();
         const style = args.style || DEFAULT_HUMANIZE_STYLE;
-        let response = "";
+        const strength = resolveStrength(args.strength);
+        const config = HUMANIZE_STRENGTH_CONFIGS[strength];
+
+        let humanized = "";
         try {
-            response = await callQwen(
-                buildStyleAwareHumanizeMessages(truncatedText, style),
-                DEFAULT_MODEL,
-                { maxTokens: 8000, temperature: 0.5 },
-            );
+            if (inputText.length > HUMANIZE_CHUNK_THRESHOLD) {
+                humanized = await humanizeChunked(inputText, style, strength);
+            } else {
+                humanized = await callQwen(
+                    buildStyleAwareHumanizeMessages(inputText, style, strength),
+                    DEFAULT_MODEL,
+                    { maxTokens: 8000, temperature: config.temperature },
+                );
+                humanized = humanized.trim();
+            }
         } catch (error) {
             console.error("humanizeText failed:", error);
             throw new ConvexError("Failed to humanize text right now. Please try again.");
         }
 
-        return { humanizedText: response.trim() };
+        return { humanizedText: humanized };
     },
 });
 
@@ -5433,6 +5857,7 @@ export const humanizeWithVerification = action({
     args: {
         text: v.string(),
         style: v.optional(v.string()),
+        strength: v.optional(v.string()),
     },
     handler: async (ctx, args) => {
         const identity = await ctx.auth.getUserIdentity();
@@ -5443,22 +5868,32 @@ export const humanizeWithVerification = action({
         if (!trimmedText || trimmedText.length < 10) {
             throw new ConvexError("Text must be at least 10 characters to humanize.");
         }
+        if (trimmedText.length > HUMANIZE_MAX_INPUT_CHARS) {
+            throw new ConvexError("Text is too long. Maximum 50,000 characters.");
+        }
+
+        await ctx.runMutation(api.subscriptions.consumeHumanizerCreditOrThrow, { userId: authUserId });
 
         const style = args.style || DEFAULT_HUMANIZE_STYLE;
-        const truncatedInput = trimmedText.slice(0, 6000);
+        const strength = resolveStrength(args.strength);
+        const config = HUMANIZE_STRENGTH_CONFIGS[strength];
 
-        // Step 1: Detect AI confidence on the original input
-        const { confidence: scoreBefore } = await runDetection(truncatedInput);
+        // Step 1: Detect AI confidence on the original input (first 4K chars)
+        const { confidence: scoreBefore } = await runDetection(trimmedText);
 
-        // Step 2: Initial humanization pass
+        // Step 2: Initial humanization pass (chunked for long texts)
         let currentText = "";
         try {
-            currentText = await callQwen(
-                buildStyleAwareHumanizeMessages(truncatedInput, style),
-                DEFAULT_MODEL,
-                { maxTokens: 8000, temperature: 0.5 },
-            );
-            currentText = currentText.trim();
+            if (trimmedText.length > HUMANIZE_CHUNK_THRESHOLD) {
+                currentText = await humanizeChunked(trimmedText, style, strength);
+            } else {
+                currentText = await callQwen(
+                    buildStyleAwareHumanizeMessages(trimmedText, style, strength),
+                    DEFAULT_MODEL,
+                    { maxTokens: 8000, temperature: config.temperature },
+                );
+                currentText = currentText.trim();
+            }
         } catch (error) {
             console.error("humanizeWithVerification - initial humanize failed:", error);
             throw new ConvexError("Failed to humanize text right now. Please try again.");
@@ -5467,41 +5902,46 @@ export const humanizeWithVerification = action({
         let attempts = 1;
         let scoreAfter = 50;
 
-        // Step 3: Verify → retry loop
-        for (let i = 0; i < HUMANIZE_MAX_RETRIES; i++) {
+        // Step 3: Verify → retry loop (retry only the detection-sampled portion for efficiency)
+        for (let i = 0; i < config.maxRetries; i++) {
             const detection = await runDetection(currentText);
             scoreAfter = detection.confidence;
 
             if (scoreAfter <= HUMANIZE_VERIFICATION_CONFIDENCE_THRESHOLD) break;
 
-            // Rewrite with targeted feedback from detected flags
             const flagsSummary = detection.flags.slice(0, 5).join(", ");
             const retryUserMessage = flagsSummary
-                ? `The previous rewrite still scored ${scoreAfter}% AI confidence. The detector flagged these specific patterns: ${flagsSummary}. Rewrite again, this time aggressively eliminating these patterns:\n\n${currentText}`
-                : `The previous rewrite still scored ${scoreAfter}% AI confidence. Rewrite again with a stronger human voice:\n\n${currentText}`;
+                ? `The previous rewrite still scored ${scoreAfter}% AI confidence. The detector flagged these specific patterns: ${flagsSummary}. Rewrite again, this time aggressively eliminating these patterns:\n\n${currentText.slice(0, HUMANIZE_CHUNK_THRESHOLD)}`
+                : `The previous rewrite still scored ${scoreAfter}% AI confidence. Rewrite again with a stronger human voice:\n\n${currentText.slice(0, HUMANIZE_CHUNK_THRESHOLD)}`;
 
             const styleKey = Object.keys(HUMANIZE_STYLE_PROMPTS).find(
                 (k) => k.toLowerCase() === style.toLowerCase()
             ) ?? DEFAULT_HUMANIZE_STYLE;
             const styleInstruction = HUMANIZE_STYLE_PROMPTS[styleKey] ?? HUMANIZE_STYLE_PROMPTS[DEFAULT_HUMANIZE_STYLE];
+            const strengthBlock = config.prompt ? `\n\n${config.prompt}` : "";
 
             try {
-                currentText = await callQwen(
+                const retryResult = await callQwen(
                     [
-                        { role: "system", content: `${HUMANIZE_SYSTEM_PROMPT}\n\n${styleInstruction}` },
+                        { role: "system", content: `${HUMANIZE_SYSTEM_PROMPT}\n\n${styleInstruction}${strengthBlock}` },
                         { role: "user", content: retryUserMessage },
                     ],
                     DEFAULT_MODEL,
-                    { maxTokens: 8000, temperature: HUMANIZE_RETRY_TEMPERATURE },
+                    { maxTokens: 8000, temperature: config.retryTemperature },
                 );
-                currentText = currentText.trim();
+                // For chunked texts, replace only the first portion; for short texts, replace all
+                if (trimmedText.length > HUMANIZE_CHUNK_THRESHOLD) {
+                    const restOfText = currentText.slice(HUMANIZE_CHUNK_THRESHOLD);
+                    currentText = retryResult.trim() + (restOfText ? "\n\n" + restOfText : "");
+                } else {
+                    currentText = retryResult.trim();
+                }
                 attempts++;
             } catch {
-                break; // Return best version we have
+                break;
             }
         }
 
-        // Run final detection if we haven't just detected
         if (attempts > 1) {
             const finalDetection = await runDetection(currentText);
             scoreAfter = finalDetection.confidence;

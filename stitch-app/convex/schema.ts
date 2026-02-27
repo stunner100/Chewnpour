@@ -76,6 +76,10 @@ export default defineSchema({
         content: v.optional(v.string()), // AI-generated summary content
         illustrationStorageId: v.optional(v.id("_storage")),
         illustrationUrl: v.optional(v.string()),
+        examReady: v.optional(v.boolean()),
+        usableMcqCount: v.optional(v.number()),
+        usableEssayCount: v.optional(v.number()),
+        examReadyUpdatedAt: v.optional(v.number()),
         orderIndex: v.number(),
         isLocked: v.boolean(),
     }).index("by_courseId", ["courseId"]),
@@ -137,6 +141,12 @@ export default defineSchema({
         lastPaymentReference: v.optional(v.string()),
         lastPaymentAt: v.optional(v.number()),
     }).index("by_userId", ["userId"]),
+
+    humanizerUsage: defineTable({
+        userId: v.string(),
+        date: v.string(),
+        count: v.number(),
+    }).index("by_userId_date", ["userId", "date"]),
 
     paymentTransactions: defineTable({
         userId: v.string(),

@@ -839,3 +839,65 @@ export const cancelSubscription = mutation({
         }
     },
 });
+
+// ── Humanizer Rate Limiting ─────────────────────────────────────────────────
+
+const FREE_HUMANIZER_DAILY_LIMIT = 1;
+
+const getHumanizerUsageToday = async (ctx: any, userId: string) => {
+    const todayUTC = new Date().toISOString().slice(0, 10);
+    const row = await ctx.db
+        .query("humanizerUsage")
+        .withIndex("by_userId_date", (q: any) => q.eq("userId", userId).eq("date", todayUTC))
+        .first();
+    return { row, date: todayUTC, count: toNonNegativeInt(row?.count) };
+};
+
+const isUserPremium = (subscription: any) => {
+    if (!subscription) return false;
+    const plan = String(subscription.plan || "").toLowerCase();
+    const status = String(subscription.status || "").toLowerCase();
+    return plan === "premium" && status === "active";
+};
+
+export const getHumanizerQuotaStatus = query({
+    args: {},
+    handler: async (ctx) => {
+        const identity = await ctx.auth.getUserIdentity();
+        const userId = assertAuthenticatedUserId(identity);
+        const subscription = await getSubscriptionRecordByUserId(ctx, userId);
+        const premium = isUserPremium(subscription);
+        const { count } = await getHumanizerUsageToday(ctx, userId);
+        const limit = premium ? Infinity : FREE_HUMANIZER_DAILY_LIMIT;
+        const remaining = premium ? Infinity : Math.max(0, limit - count);
+        return { limit, used: count, remaining, isPremium: premium };
+    },
+});
+
+export const consumeHumanizerCreditOrThrow = mutation({
+    args: { userId: v.string() },
+    handler: async (ctx, args) => {
+        const userId = String(args.userId || "").trim();
+        if (!userId) throw new ConvexError({ code: "UNAUTHENTICATED", message: "You must be signed in." });
+
+        const subscription = await getSubscriptionRecordByUserId(ctx, userId);
+        const premium = isUserPremium(subscription);
+
+        if (!premium) {
+            const { row, date, count } = await getHumanizerUsageToday(ctx, userId);
+            if (count >= FREE_HUMANIZER_DAILY_LIMIT) {
+                throw new ConvexError({
+                    code: "HUMANIZER_QUOTA_EXCEEDED",
+                    message: "You've used your free humanization today. Upgrade to premium for unlimited access.",
+                    used: count,
+                    limit: FREE_HUMANIZER_DAILY_LIMIT,
+                });
+            }
+            if (row) {
+                await ctx.db.patch(row._id, { count: count + 1 });
+            } else {
+                await ctx.db.insert("humanizerUsage", { userId, date, count: 1 });
+            }
+        }
+    },
+});

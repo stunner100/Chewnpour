@@ -17,17 +17,21 @@ import type * as courses from "../courses.js";
 import type * as devAuth from "../devAuth.js";
 import type * as exams from "../exams.js";
 import type * as http from "../http.js";
+import type * as lib_conceptExerciseGeneration from "../lib/conceptExerciseGeneration.js";
 import type * as lib_examAttemptReuse from "../lib/examAttemptReuse.js";
+import type * as lib_examQuestionSelection from "../lib/examQuestionSelection.js";
 import type * as lib_examSecurity from "../lib/examSecurity.js";
 import type * as lib_illustrationUrl from "../lib/illustrationUrl.js";
 import type * as lib_nativeExtractors from "../lib/nativeExtractors.js";
 import type * as lib_questionBankConfig from "../lib/questionBankConfig.js";
 import type * as lib_topicGenerationProgress from "../lib/topicGenerationProgress.js";
 import type * as lib_topicOutlinePipeline from "../lib/topicOutlinePipeline.js";
+import type * as lib_voiceStreamToken from "../lib/voiceStreamToken.js";
 import type * as profiles from "../profiles.js";
 import type * as subscriptions from "../subscriptions.js";
 import type * as topics from "../topics.js";
 import type * as uploads from "../uploads.js";
+import type * as voiceHttp from "../voiceHttp.js";
 
 import type {
   ApiFromModules,
@@ -45,17 +49,21 @@ declare const fullApi: ApiFromModules<{
   devAuth: typeof devAuth;
   exams: typeof exams;
   http: typeof http;
+  "lib/conceptExerciseGeneration": typeof lib_conceptExerciseGeneration;
   "lib/examAttemptReuse": typeof lib_examAttemptReuse;
+  "lib/examQuestionSelection": typeof lib_examQuestionSelection;
   "lib/examSecurity": typeof lib_examSecurity;
   "lib/illustrationUrl": typeof lib_illustrationUrl;
   "lib/nativeExtractors": typeof lib_nativeExtractors;
   "lib/questionBankConfig": typeof lib_questionBankConfig;
   "lib/topicGenerationProgress": typeof lib_topicGenerationProgress;
   "lib/topicOutlinePipeline": typeof lib_topicOutlinePipeline;
+  "lib/voiceStreamToken": typeof lib_voiceStreamToken;
   profiles: typeof profiles;
   subscriptions: typeof subscriptions;
   topics: typeof topics;
   uploads: typeof uploads;
+  voiceHttp: typeof voiceHttp;
 }>;
 
 /**

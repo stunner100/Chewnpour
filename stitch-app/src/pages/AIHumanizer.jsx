@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { useLocation, useNavigate } from 'react-router-dom';
-import { useAction } from 'convex/react';
+import { useLocation, useNavigate, Link } from 'react-router-dom';
+import { useAction, useQuery, useConvexAuth } from 'convex/react';
 import { api } from '../../convex/_generated/api';
 import { useAuth } from '../contexts/AuthContext';
 
@@ -11,6 +11,12 @@ const WRITING_STYLES = [
     'Formal Letter',
 ];
 
+const STRENGTH_OPTIONS = [
+    { key: 'light', label: 'Light', description: 'Subtle tweaks, preserves structure' },
+    { key: 'medium', label: 'Medium', description: 'Balanced rewrite' },
+    { key: 'heavy', label: 'Heavy', description: 'Full transformation' },
+];
+
 const VERIFICATION_STEPS = [
     { key: 'analyzing_input', label: 'Analyzing original text' },
     { key: 'humanizing', label: 'Rewriting in your style' },
@@ -18,15 +24,23 @@ const VERIFICATION_STEPS = [
     { key: 'done', label: 'Done' },
 ];
 
+const HUMANIZE_CHUNK_ESTIMATE_CHARS = 4000;
+
 export const AIHumanizer = () => {
     const location = useLocation();
     const navigate = useNavigate();
     const { user } = useAuth();
+    const { isAuthenticated: isConvexAuthenticated } = useConvexAuth();
     const isLoggedIn = Boolean(user);
+    const userId = user?.id;
 
     const detectAIText = useAction(api.ai.detectAIText);
-    const humanizeText = useAction(api.ai.humanizeText);
     const humanizeWithVerification = useAction(api.ai.humanizeWithVerification);
+
+    const humanizerQuota = useQuery(
+        api.subscriptions.getHumanizerQuotaStatus,
+        userId && isConvexAuthenticated ? {} : 'skip'
+    );
 
     const [inputText, setInputText] = useState('');
     const [outputText, setOutputText] = useState('');
@@ -38,8 +52,10 @@ export const AIHumanizer = () => {
     const copiedTimerRef = useRef(null);
 
     const [selectedStyle, setSelectedStyle] = useState('Casual/Blog');
+    const [strength, setStrength] = useState('medium');
     const [verificationResult, setVerificationResult] = useState(null);
     const [verificationStep, setVerificationStep] = useState(null);
+    const [chunkProgressLabel, setChunkProgressLabel] = useState('');
 
     useEffect(() => {
         if (location.state?.text) {
@@ -68,6 +84,15 @@ export const AIHumanizer = () => {
             .replace(/^Uncaught (ConvexError|Error):\s*/i, '')
             .trim();
     };
+
+    const isQuotaExceeded = (err) => {
+        const code = err?.data?.code || '';
+        return code === 'HUMANIZER_QUOTA_EXCEEDED';
+    };
+
+    const quotaRemaining = humanizerQuota?.remaining ?? null;
+    const isPremium = humanizerQuota?.isPremium ?? false;
+    const canHumanize = isLoggedIn && (isPremium || quotaRemaining === null || quotaRemaining > 0);
 
     const handleDetect = async () => {
         const trimmedText = inputText.trim();
@@ -104,48 +129,70 @@ export const AIHumanizer = () => {
             setError('Text must be at least 10 characters to humanize.');
             return;
         }
+        if (trimmedText.length > 50000) {
+            setError('Text is too long. Maximum 50,000 characters.');
+            return;
+        }
+        if (!isLoggedIn) {
+            setError('Please sign in to humanize text. AI detection is free for everyone.');
+            return;
+        }
 
         setIsHumanizing(true);
         setError('');
         setDetectionResult(null);
         setVerificationResult(null);
+        setChunkProgressLabel('');
 
-        if (isLoggedIn) {
-            try {
-                setVerificationStep('analyzing_input');
-                await new Promise((r) => setTimeout(r, 400));
+        // Estimate chunks for progress display
+        const estimatedChunks = Math.max(1, Math.ceil(trimmedText.length / HUMANIZE_CHUNK_ESTIMATE_CHARS));
+        let chunkTimer = null;
 
-                setVerificationStep('humanizing');
-                const stepAdvanceTimer = setTimeout(() => setVerificationStep('verifying'), 8000);
+        try {
+            setVerificationStep('analyzing_input');
+            await new Promise((r) => setTimeout(r, 400));
 
-                const result = await humanizeWithVerification({
-                    text: trimmedText,
-                    style: selectedStyle,
-                });
+            setVerificationStep('humanizing');
 
-                clearTimeout(stepAdvanceTimer);
-                setVerificationStep('done');
-                setOutputText(result.humanizedText);
-                setVerificationResult({
-                    before: result.passes.before,
-                    after: result.passes.after,
-                    attempts: result.attempts,
-                });
-            } catch (err) {
-                setError(resolveConvexError(err, 'Failed to humanize text. Please try again.'));
-            } finally {
-                setIsHumanizing(false);
-                setTimeout(() => setVerificationStep(null), 2000);
+            // For long texts, cycle through chunk progress labels
+            if (estimatedChunks > 1) {
+                let currentChunk = 1;
+                setChunkProgressLabel(`Rewriting section 1 of ${estimatedChunks}...`);
+                chunkTimer = setInterval(() => {
+                    currentChunk = Math.min(currentChunk + 1, estimatedChunks);
+                    setChunkProgressLabel(`Rewriting section ${currentChunk} of ${estimatedChunks}...`);
+                }, 4000);
             }
-        } else {
-            try {
-                const result = await humanizeText({ text: trimmedText, style: selectedStyle });
-                setOutputText(result.humanizedText);
-            } catch (err) {
+
+            const stepAdvanceTimer = setTimeout(() => setVerificationStep('verifying'), estimatedChunks > 1 ? estimatedChunks * 4000 : 8000);
+
+            const result = await humanizeWithVerification({
+                text: trimmedText,
+                style: selectedStyle,
+                strength,
+            });
+
+            clearTimeout(stepAdvanceTimer);
+            if (chunkTimer) clearInterval(chunkTimer);
+            setChunkProgressLabel('');
+            setVerificationStep('done');
+            setOutputText(result.humanizedText);
+            setVerificationResult({
+                before: result.passes.before,
+                after: result.passes.after,
+                attempts: result.attempts,
+            });
+        } catch (err) {
+            if (chunkTimer) clearInterval(chunkTimer);
+            setChunkProgressLabel('');
+            if (isQuotaExceeded(err)) {
+                setError("You've used your free humanization today. Upgrade to premium for unlimited access.");
+            } else {
                 setError(resolveConvexError(err, 'Failed to humanize text. Please try again.'));
-            } finally {
-                setIsHumanizing(false);
             }
+        } finally {
+            setIsHumanizing(false);
+            setTimeout(() => setVerificationStep(null), 2000);
         }
     };
 
@@ -208,6 +255,35 @@ export const AIHumanizer = () => {
                 {error && (
                     <div className="mb-5 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-medium text-red-700 dark:bg-red-900/20 dark:border-red-800 dark:text-red-300">
                         {error}
+                        {error.includes('Upgrade to premium') && (
+                            <Link
+                                to="/subscription"
+                                className="ml-2 underline font-bold hover:text-red-800 dark:hover:text-red-200"
+                            >
+                                Upgrade now
+                            </Link>
+                        )}
+                    </div>
+                )}
+
+                {/* Sign-in banner for guests */}
+                {!isLoggedIn && (
+                    <div className="mb-5 rounded-xl border border-primary/20 bg-primary/5 px-4 py-3 flex items-center gap-3">
+                        <span className="material-symbols-outlined text-primary text-[20px]">lock</span>
+                        <div className="flex-1">
+                            <p className="text-sm font-medium text-neutral-800 dark:text-neutral-200">
+                                Sign in to humanize text
+                            </p>
+                            <p className="text-xs text-neutral-500 dark:text-neutral-400">
+                                AI detection is free for everyone. Humanization requires an account.
+                            </p>
+                        </div>
+                        <Link
+                            to="/login"
+                            className="px-4 py-2 text-sm font-semibold rounded-xl bg-primary text-white hover:bg-primary/90 transition-colors shrink-0"
+                        >
+                            Sign in
+                        </Link>
                     </div>
                 )}
 
@@ -218,13 +294,20 @@ export const AIHumanizer = () => {
                                 <h2 className="text-sm font-bold uppercase tracking-wider text-neutral-500 dark:text-neutral-400">
                                     Original Text
                                 </h2>
-                                <button
-                                    type="button"
-                                    onClick={handleClear}
-                                    className="text-xs font-medium text-neutral-500 hover:text-primary transition-colors"
-                                >
-                                    Clear
-                                </button>
+                                <div className="flex items-center gap-3">
+                                    {inputText.length > 40000 && (
+                                        <span className="text-xs text-amber-600 dark:text-amber-400">
+                                            Long text — may take longer
+                                        </span>
+                                    )}
+                                    <button
+                                        type="button"
+                                        onClick={handleClear}
+                                        className="text-xs font-medium text-neutral-500 hover:text-primary transition-colors"
+                                    >
+                                        Clear
+                                    </button>
+                                </div>
                             </div>
                             <textarea
                                 value={inputText}
@@ -256,7 +339,33 @@ export const AIHumanizer = () => {
                                 </div>
                             </div>
 
-                            <div className="mt-3 flex flex-wrap gap-2">
+                            {/* Strength Selector */}
+                            <div className="mt-3">
+                                <p className="text-xs font-semibold text-neutral-500 dark:text-neutral-400 mb-2 uppercase tracking-wider">
+                                    Strength
+                                </p>
+                                <div className="flex rounded-xl border border-neutral-200 dark:border-neutral-700 overflow-hidden">
+                                    {STRENGTH_OPTIONS.map((opt) => (
+                                        <button
+                                            key={opt.key}
+                                            type="button"
+                                            onClick={() => setStrength(opt.key)}
+                                            className={`flex-1 px-3 py-2 text-center transition-colors ${
+                                                strength === opt.key
+                                                    ? 'bg-primary text-white'
+                                                    : 'bg-white dark:bg-neutral-800 text-neutral-700 dark:text-neutral-200 hover:bg-neutral-50 dark:hover:bg-neutral-750'
+                                            }`}
+                                        >
+                                            <span className="block text-xs font-bold">{opt.label}</span>
+                                            <span className={`block text-[10px] mt-0.5 ${strength === opt.key ? 'text-white/80' : 'text-neutral-400'}`}>
+                                                {opt.description}
+                                            </span>
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
+
+                            <div className="mt-3 flex flex-wrap items-center gap-2">
                                 <button
                                     type="button"
                                     onClick={handleDetect}
@@ -271,24 +380,31 @@ export const AIHumanizer = () => {
                                 <button
                                     type="button"
                                     onClick={handleHumanize}
-                                    disabled={isHumanizing}
+                                    disabled={isHumanizing || !canHumanize}
                                     className="inline-flex items-center gap-2 px-4 py-2 text-sm font-semibold rounded-xl bg-primary text-white hover:bg-primary/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                                 >
                                     <span className="material-symbols-outlined text-[18px]">
                                         {isHumanizing ? 'hourglass_empty' : 'auto_fix_high'}
                                     </span>
-                                    {isHumanizing
-                                        ? isLoggedIn ? 'Working...' : 'Humanizing...'
-                                        : 'Humanize'}
+                                    {isHumanizing ? 'Working...' : 'Humanize'}
                                 </button>
+
+                                {/* Quota indicator for free users */}
+                                {isLoggedIn && !isPremium && quotaRemaining !== null && !isHumanizing && (
+                                    <span className={`text-xs font-medium ${quotaRemaining > 0 ? 'text-neutral-400' : 'text-red-500'}`}>
+                                        {quotaRemaining > 0
+                                            ? `${quotaRemaining} free today`
+                                            : 'Limit reached'}
+                                    </span>
+                                )}
                             </div>
 
-                            {/* Step indicator during verified humanization */}
-                            {isHumanizing && isLoggedIn && verificationStep && (
+                            {/* Step indicator during humanization */}
+                            {isHumanizing && verificationStep && (
                                 <div className="mt-3 flex items-center gap-2 text-xs text-neutral-500 dark:text-neutral-400">
                                     <span className="inline-block w-3 h-3 rounded-full border-2 border-primary border-t-transparent animate-spin" />
                                     <span className="font-medium">
-                                        {VERIFICATION_STEPS.find((s) => s.key === verificationStep)?.label ?? 'Processing...'}
+                                        {chunkProgressLabel || VERIFICATION_STEPS.find((s) => s.key === verificationStep)?.label || 'Processing...'}
                                     </span>
                                 </div>
                             )}
@@ -411,10 +527,11 @@ export const AIHumanizer = () => {
                                 Tips for best results
                             </p>
                             <ul className="mt-1 text-xs text-neutral-600 dark:text-neutral-400 space-y-1">
-                                <li>• Paste 100+ words for more accurate detection</li>
-                                <li>• Choose a writing style that matches your assignment type</li>
-                                <li>• Logged-in users get automatic verification with before/after scores</li>
-                                <li>• Review the output — you may want to make small edits</li>
+                                <li>Paste 100+ words for more accurate detection</li>
+                                <li>Choose a writing style that matches your assignment type</li>
+                                <li>Use Light strength for polish, Heavy for a complete rewrite</li>
+                                <li>Long texts are automatically split into sections and reassembled</li>
+                                <li>Review the output — you may want to make small edits</li>
                             </ul>
                         </div>
                     </div>
