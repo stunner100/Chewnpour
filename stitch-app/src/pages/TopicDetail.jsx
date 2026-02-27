@@ -8,6 +8,9 @@ import { useVoicePlayback } from '../lib/useVoicePlayback';
 import TopicSettingsModal from '../components/TopicSettingsModal';
 import TopicReExplainModal from '../components/TopicReExplainModal';
 import TopicSidebar from '../components/TopicSidebar';
+import TopicNotesPanel from '../components/TopicNotesPanel';
+import HighlightExplainPopover from '../components/HighlightExplainPopover';
+import { useTextSelection } from '../hooks/useTextSelection';
 import {
     SECTION_TITLE_PATTERN,
     SECTION_TITLES_SET,
@@ -115,8 +118,11 @@ const TopicDetail = () => {
     const [readingMode, setReadingMode] = useState(true);
     const [shouldAnimateBlocks, setShouldAnimateBlocks] = useState(false);
     const [showScrollTop, setShowScrollTop] = useState(false);
+    const [notesOpen, setNotesOpen] = useState(false);
+    const [notesAppendText, setNotesAppendText] = useState('');
     const contentRef = useRef(null);
     const essayTopUpMarkerRef = useRef('');
+    const { selection, clearSelection } = useTextSelection(contentRef);
     const navigate = useNavigate();
     const topicData = useQuery(
         api.topics.getTopicWithQuestions,
@@ -133,16 +139,22 @@ const TopicDetail = () => {
         || (topicQuizStartReady && usableEssayCount >= EXAM_READY_MIN_ESSAY_COUNT);
     const courseId = topic?.courseId;
     const voiceModeEnabled = Boolean(profile?.voiceModeEnabled);
+    const voiceQuota = useQuery(
+        api.subscriptions.getVoiceGenerationQuotaStatus,
+        user?.id ? {} : 'skip'
+    );
+    const isVoicePremium = Boolean(voiceQuota?.isPremium);
     const storageKey = topicId ? `topicOverride:${topicId}` : null;
     const contentCacheKey = topicId ? `topicContent:${topicId}` : null;
     const synthesizeLessonVoice = useCallback(
-        async (text) => {
+        async (text, options = {}) => {
             if (!topicId) {
                 throw new Error('Topic not found.');
             }
             return synthesizeTopicVoice({
                 topicId,
                 text,
+                consumeQuota: options.consumeQuota !== false,
             });
         },
         [synthesizeTopicVoice, topicId]
@@ -317,9 +329,10 @@ const TopicDetail = () => {
 
     useEffect(() => {
         if (!voiceModeEnabled) return;
+        if (!isVoicePremium) return;
         if (!speechText) return;
         primeVoicePlayback(speechText);
-    }, [voiceModeEnabled, speechText, primeVoicePlayback]);
+    }, [voiceModeEnabled, isVoicePremium, speechText, primeVoicePlayback]);
 
     useEffect(() => {
         if (typeof window === 'undefined') return undefined;
@@ -1009,7 +1022,18 @@ const TopicDetail = () => {
                 </div>
             </main>
 
-            {showScrollTop && (
+            {/* Notes floating button */}
+            {user && !notesOpen && (
+                <button
+                    onClick={() => setNotesOpen(true)}
+                    className="fixed bottom-20 right-6 z-30 w-11 h-11 rounded-full bg-amber-500 text-white shadow-lg shadow-amber-500/30 flex items-center justify-center hover:scale-105 active:scale-95 transition-transform"
+                    aria-label="Open notes"
+                >
+                    <span className="material-symbols-outlined text-xl">edit_note</span>
+                </button>
+            )}
+
+            {showScrollTop && !notesOpen && (
                 <button
                     onClick={scrollToTop}
                     className="fixed bottom-6 right-6 z-30 w-11 h-11 rounded-full bg-primary text-white shadow-lg shadow-primary/30 flex items-center justify-center hover:scale-105 active:scale-95 transition-transform"
@@ -1017,6 +1041,28 @@ const TopicDetail = () => {
                 >
                     <span className="material-symbols-outlined text-xl">arrow_upward</span>
                 </button>
+            )}
+
+            {/* Notes panel */}
+            <TopicNotesPanel
+                topicId={topicId}
+                open={notesOpen}
+                onClose={() => setNotesOpen(false)}
+                appendText={notesAppendText}
+            />
+
+            {/* Highlight explain popover */}
+            {selection && (
+                <HighlightExplainPopover
+                    selection={selection}
+                    topicId={topicId}
+                    onClose={clearSelection}
+                    onCopyToNotes={(text) => {
+                        setNotesAppendText(text);
+                        setNotesOpen(true);
+                        clearSelection();
+                    }}
+                />
             )}
 
             <TopicSettingsModal
