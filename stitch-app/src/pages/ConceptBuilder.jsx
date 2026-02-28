@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { useAction, useMutation, useQuery } from 'convex/react';
 import { api } from '../../convex/_generated/api';
@@ -15,7 +15,7 @@ const ConceptBuilder = () => {
     );
     const conceptAttempts = useQuery(
         api.concepts.getUserConceptAttempts,
-        userId ? { userId } : 'skip'
+        userId ? {} : 'skip'
     );
 
     const generateConceptExercise = useAction(api.ai.generateConceptExerciseForTopic);
@@ -52,10 +52,10 @@ const ConceptBuilder = () => {
         return Math.round((totals.score / totals.total) * 100);
     }, [topicAttempts]);
 
-    const storageKey = topicId ? `conceptExercise:${topicId}` : null;
+    const storageKey = topicId && userId ? `conceptExercise:${userId}:${topicId}` : null;
 
-    const loadExercise = async (options = {}) => {
-        if (!topicId) return;
+    const loadExercise = useCallback(async (options = {}) => {
+        if (!topicId || !userId) return;
         const { force = false } = options;
 
         if (!force && storageKey) {
@@ -90,7 +90,6 @@ const ConceptBuilder = () => {
         try {
             const response = await generateConceptExercise({
                 topicId,
-                userId: userId || undefined,
             });
             const answers = Array.isArray(response?.answers) ? response.answers : [];
             if (!answers.length) {
@@ -107,13 +106,11 @@ const ConceptBuilder = () => {
         } finally {
             setLoading(false);
         }
-    };
+    }, [generateConceptExercise, storageKey, topicId, userId]);
 
     useEffect(() => {
-        if (topicId) {
-            loadExercise();
-        }
-    }, [topicId]);
+        loadExercise();
+    }, [loadExercise]);
 
     useEffect(() => {
         if (!storageKey || !exercise) return;
@@ -134,10 +131,18 @@ const ConceptBuilder = () => {
 
     const tokenItems = useMemo(() => {
         const tokens = Array.isArray(exercise?.tokens) ? exercise.tokens : [];
-        return tokens.map((text, index) => ({
+        const items = tokens.map((text, index) => ({
             id: `${index}-${text}`,
             text,
         }));
+        // Shuffle tokens so correct answers aren't in the same order as blanks
+        const seed = (exercise?.questionText || '').length + tokens.length;
+        const shuffled = [...items];
+        for (let i = shuffled.length - 1; i > 0; i--) {
+            const j = ((seed * (i + 1) * 2654435761) >>> 0) % (i + 1);
+            [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+        }
+        return shuffled;
     }, [exercise]);
 
     const selectedTokenIds = useMemo(() => {
@@ -237,7 +242,6 @@ const ConceptBuilder = () => {
             const timeTakenSeconds = startedAt ? Math.round((Date.now() - startedAt) / 1000) : undefined;
 
             await createConceptAttempt({
-                userId,
                 topicId,
                 score,
                 totalQuestions: correctAnswers.length,
@@ -375,7 +379,7 @@ const ConceptBuilder = () => {
             </header>
 
             {/* Main content */}
-            <main className="max-w-4xl mx-auto px-4 py-6 pb-32">
+            <main className="max-w-4xl mx-auto px-4 py-6 pb-44 md:pb-32">
                 {/* Question */}
                 <div className="mb-8">
                     <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 text-xs font-medium mb-3">
@@ -394,8 +398,12 @@ const ConceptBuilder = () => {
                             if (part === '__') {
                                 const slotIndex = blankCounter;
                                 const token = selectedTokens[slotIndex];
-                                const isCorrect = submitted && result && result.userAnswers[slotIndex] === result.correctAnswers[slotIndex];
-                                const isWrong = submitted && result && result.userAnswers[slotIndex] !== result.correctAnswers[slotIndex];
+                                const isCorrect = submitted
+                                    && result
+                                    && normalize(result.userAnswers[slotIndex]) === normalize(result.correctAnswers[slotIndex]);
+                                const isWrong = submitted
+                                    && result
+                                    && normalize(result.userAnswers[slotIndex]) !== normalize(result.correctAnswers[slotIndex]);
                                 blankCounter += 1;
                                 return (
                                     <div
@@ -490,7 +498,7 @@ const ConceptBuilder = () => {
             </main>
 
             {/* Bottom action bar */}
-            <div className="fixed bottom-0 inset-x-0 bg-white dark:bg-slate-900 border-t border-slate-200 dark:border-slate-800 p-4 safe-area-bottom">
+            <div className="fixed bottom-16 md:bottom-0 inset-x-0 bg-white dark:bg-slate-900 border-t border-slate-200 dark:border-slate-800 p-4 md:safe-area-bottom">
                 <div className="max-w-4xl mx-auto flex gap-3">
                     {submitted ? (
                         <>
