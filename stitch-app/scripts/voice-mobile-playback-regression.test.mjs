@@ -9,6 +9,8 @@ const source = await read("src/lib/useVoicePlayback.js");
 
 for (const pattern of [
   "const isLikelyAutoplayPolicyErrorMessage = (message) => {",
+  "/not\\s+allowed/i,",
+  "/denied permission/i,",
   "const isLikelyMobileBrowser = () => {",
   "navigator.userAgentData && navigator.userAgentData.mobile",
   "const platform = String(navigator.platform || \"\").toLowerCase();",
@@ -33,6 +35,9 @@ for (const pattern of [
   "if (isMobileBrowser) {",
   "setError(remoteMessage);",
   "if (isLikelyAutoplayPolicyErrorMessage(remoteMessage)) {",
+  "const hasBrowserVoiceFallback = Boolean(hasSpeechSynthesis && synthesisRef.current);",
+  "remotePlaybackDisabledRef.current = true;",
+  "AI voice blocked by autoplay/permission policy. Falling back to browser voice.",
   "setError(\"Audio was blocked by your mobile browser. Tap Play again.\");",
 ]) {
   if (!source.includes(pattern)) {

@@ -258,6 +258,9 @@ const shouldDisableRemotePlaybackForSession = (message) => {
 
 const AUTOPLAY_BLOCK_ERROR_PATTERNS = [
     /notallowed/i,
+    /not\s+allowed/i,
+    /denied permission/i,
+    /user agent|platform in the current context/i,
     /user.*interact/i,
     /play\(\)\s*request/i,
     /gesture/i,
@@ -1033,6 +1036,7 @@ export const useVoicePlayback = ({
                     if (remoteStarted) return true;
                 } catch (remoteError) {
                     const remoteMessage = formatRemotePlaybackError(remoteError);
+                    const hasBrowserVoiceFallback = Boolean(hasSpeechSynthesis && synthesisRef.current);
                     if (isVoiceQuotaExceededMessage(remoteMessage)) {
                         remotePlaybackDisabledRef.current = true;
                         setError(remoteMessage);
@@ -1041,37 +1045,53 @@ export const useVoicePlayback = ({
                     }
 
                     if (isLikelyAutoplayPolicyErrorMessage(remoteMessage)) {
-                        setError("Audio was blocked by your mobile browser. Tap Play again.");
-                        setStatus("error");
-                        return false;
-                    }
-
-                    if (isMobileBrowser) {
-                        setError(remoteMessage);
-                        setStatus("error");
-                        return false;
-                    }
-
-                    if (!hasSpeechSynthesis || !synthesisRef.current) {
-                        setError(remoteMessage);
-                        setStatus("error");
-                        return false;
-                    }
-
-                    remoteFailureCountRef.current += 1;
-                    const shouldDisableRemote =
-                        shouldDisableRemotePlaybackForSession(remoteMessage) ||
-                        remoteFailureCountRef.current >= 2;
-                    if (shouldDisableRemote) {
                         remotePlaybackDisabledRef.current = true;
-                    }
+                        if (!hasBrowserVoiceFallback) {
+                            setError("Audio was blocked by your mobile browser. Tap Play again.");
+                            setStatus("error");
+                            return false;
+                        }
+                        setError(null);
+                        console.warn("[VoiceMode] AI voice blocked by autoplay/permission policy. Falling back to browser voice.", {
+                            remoteMessage,
+                            disabledForSession: remotePlaybackDisabledRef.current,
+                        });
+                        remoteFailureCountRef.current = 0;
+                    } else if (isMobileBrowser) {
+                        remotePlaybackDisabledRef.current = true;
+                        if (!hasBrowserVoiceFallback) {
+                            setError(remoteMessage);
+                            setStatus("error");
+                            return false;
+                        }
+                        setError(null);
+                        console.warn("[VoiceMode] AI voice failed on mobile. Falling back to browser voice.", {
+                            remoteMessage,
+                            disabledForSession: remotePlaybackDisabledRef.current,
+                        });
+                        remoteFailureCountRef.current = 0;
+                    } else {
+                        if (!hasBrowserVoiceFallback) {
+                            setError(remoteMessage);
+                            setStatus("error");
+                            return false;
+                        }
 
-                    setError(null);
-                    console.warn("[VoiceMode] AI voice playback failed. Falling back to browser voice.", {
-                        remoteMessage,
-                        disabledForSession: remotePlaybackDisabledRef.current,
-                        failureCount: remoteFailureCountRef.current,
-                    });
+                        remoteFailureCountRef.current += 1;
+                        const shouldDisableRemote =
+                            shouldDisableRemotePlaybackForSession(remoteMessage) ||
+                            remoteFailureCountRef.current >= 2;
+                        if (shouldDisableRemote) {
+                            remotePlaybackDisabledRef.current = true;
+                        }
+
+                        setError(null);
+                        console.warn("[VoiceMode] AI voice playback failed. Falling back to browser voice.", {
+                            remoteMessage,
+                            disabledForSession: remotePlaybackDisabledRef.current,
+                            failureCount: remoteFailureCountRef.current,
+                        });
+                    }
                 }
             }
 
