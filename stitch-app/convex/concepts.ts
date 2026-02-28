@@ -45,3 +45,23 @@ export const getUserConceptAttempts = query({
         return attempts;
     },
 });
+
+export const getUserConceptAttemptsForTopic = query({
+    args: {
+        userId: v.string(),
+        topicId: v.id("topics"),
+        limit: v.optional(v.number()),
+    },
+    handler: async (ctx, args) => {
+        const cap = args.limit || 50;
+        const attempts = await ctx.db
+            .query("conceptAttempts")
+            .withIndex("by_userId_topicId", (q) =>
+                q.eq("userId", args.userId).eq("topicId", args.topicId)
+            )
+            .order("desc")
+            .take(cap);
+
+        return attempts;
+    },
+});

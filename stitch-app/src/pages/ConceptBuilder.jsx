@@ -63,13 +63,18 @@ const ConceptBuilder = () => {
                 const cachedRaw = localStorage.getItem(storageKey);
                 if (cachedRaw) {
                     const cached = JSON.parse(cachedRaw);
-                    if (cached?.exercise?.answers?.length) {
+                    const CACHE_TTL_MS = 30 * 60 * 1000; // 30 minutes
+                    const isExpired = cached?.cachedAt && (Date.now() - cached.cachedAt) > CACHE_TTL_MS;
+                    if (cached?.exercise?.answers?.length && !isExpired) {
                         setExercise(cached.exercise);
                         setSelectedTokens(cached.selectedTokens || Array(cached.exercise.answers.length).fill(null));
                         setSubmitted(Boolean(cached.submitted));
                         setResult(cached.result || null);
                         setStartedAt(cached.startedAt || Date.now());
                         return;
+                    }
+                    if (isExpired) {
+                        localStorage.removeItem(storageKey);
                     }
                 }
             } catch (error) {
@@ -83,7 +88,10 @@ const ConceptBuilder = () => {
         setSubmitted(false);
         setResult(null);
         try {
-            const response = await generateConceptExercise({ topicId });
+            const response = await generateConceptExercise({
+                topicId,
+                userId: userId || undefined,
+            });
             const answers = Array.isArray(response?.answers) ? response.answers : [];
             if (!answers.length) {
                 throw new Error('No blanks generated for this topic.');
@@ -115,6 +123,7 @@ const ConceptBuilder = () => {
             submitted,
             result,
             startedAt,
+            cachedAt: Date.now(),
         };
         try {
             localStorage.setItem(storageKey, JSON.stringify(payload));
@@ -191,7 +200,7 @@ const ConceptBuilder = () => {
         let tokenId = '';
         try {
             tokenId = event.dataTransfer.getData('text/plain');
-        } catch (error) {
+        } catch {
             tokenId = '';
         }
         const token = tokenItems.find((item) => item.id === tokenId);
@@ -205,7 +214,15 @@ const ConceptBuilder = () => {
         event.dataTransfer.dropEffect = 'move';
     };
 
-    const normalize = (text) => String(text || '').trim().toLowerCase();
+    // Must match backend normalizeConceptTextKey to avoid grading mismatches
+    const normalize = (text) =>
+        String(text || '')
+            .toLowerCase()
+            .replace(/[\u2018\u2019]/g, "'")
+            .replace(/[\u201c\u201d]/g, '"')
+            .replace(/[^a-z0-9]+/g, ' ')
+            .replace(/\s+/g, ' ')
+            .trim();
 
     const handleSubmit = async () => {
         if (!exercise || !topicId || !userId || !allFilled) return;

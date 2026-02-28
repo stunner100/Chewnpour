@@ -912,19 +912,30 @@ export const generateConceptExerciseForTopic = action({
     handler: async (ctx, args) => {
         const { topicId, userId } = args;
 
+        if (!userId) {
+            throw new Error("Authentication required to generate concept exercises");
+        }
+
         const topic = await ctx.runQuery(api.topics.getTopicWithQuestions, { topicId });
         if (!topic) {
             throw new Error("Topic not found");
         }
         const topicKeywords = extractTopicKeywords(topic.title);
-        const rawAttempts = userId
-            ? await ctx.runQuery(api.concepts.getUserConceptAttempts, { userId })
-            : [];
-        const topicAttempts = Array.isArray(rawAttempts)
-            ? rawAttempts
-                .filter((attempt: any) => String(attempt?.topicId || "") === String(topicId))
-                .slice(0, CONCEPT_EXERCISE_HISTORY_LIMIT)
-            : [];
+        const topicAttempts = await ctx.runQuery(api.concepts.getUserConceptAttemptsForTopic, {
+            userId,
+            topicId,
+            limit: CONCEPT_EXERCISE_HISTORY_LIMIT,
+        });
+
+        // Rate limit: max 20 exercises per topic per day
+        const DAILY_CONCEPT_LIMIT = 20;
+        const oneDayAgo = Date.now() - 24 * 60 * 60 * 1000;
+        const recentCount = topicAttempts.filter(
+            (a: any) => (a._creationTime || 0) > oneDayAgo
+        ).length;
+        if (recentCount >= DAILY_CONCEPT_LIMIT) {
+            throw new Error("You've reached the daily limit for this topic. Try again tomorrow.");
+        }
         const seenExerciseKeys = new Set<string>();
         const seenQuestionTextKeys = new Set<string>();
 
@@ -1030,6 +1041,20 @@ ${lessonContent}
 
                 if (template.length === 0 || answers.length === 0 || tokens.length === 0) {
                     throw new Error("Failed to generate concept exercise");
+                }
+
+                // Validate blank count matches answer count
+                const blankCount = template.filter((p: string) => p === "__").length;
+                if (blankCount !== answers.length) {
+                    throw new Error(`Template has ${blankCount} blanks but ${answers.length} answers`);
+                }
+
+                // Ensure tokens contain all answers (case-insensitive)
+                const tokenSet = new Set(tokens.map((t: string) => String(t).toLowerCase().trim()));
+                for (const answer of answers) {
+                    if (!tokenSet.has(String(answer).toLowerCase().trim())) {
+                        tokens.push(answer);
+                    }
                 }
 
                 const anchoredQuestionText = anchorTextToTopic(

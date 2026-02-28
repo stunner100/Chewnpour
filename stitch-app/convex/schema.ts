@@ -128,7 +128,7 @@ export default defineSchema({
         timeTakenSeconds: v.optional(v.number()),
         answers: v.optional(v.any()), // user's answers (JSON)
         questionText: v.optional(v.string()),
-    }).index("by_userId", ["userId"]).index("by_topicId", ["topicId"]),
+    }).index("by_userId", ["userId"]).index("by_topicId", ["topicId"]).index("by_userId_topicId", ["userId", "topicId"]),
 
     // Subscription info
     subscriptions: defineTable({
