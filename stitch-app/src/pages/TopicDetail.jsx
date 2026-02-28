@@ -163,17 +163,12 @@ const TopicDetail = () => {
         isSupported: isVoiceSupported,
         status: voiceStatus,
         error: voicePlaybackError,
-        playbackEngine,
         play: playVoice,
         pause: pauseVoice,
         resume: resumeVoice,
         stop: stopVoice,
         isPlaying,
         isPaused,
-        availableVoices,
-        selectedVoiceURI,
-        selectedVoiceName,
-        setVoicePreference,
         primeVoicePlayback,
     } = useVoicePlayback({
         remoteStream: synthesizeLessonVoice,
@@ -296,19 +291,6 @@ const TopicDetail = () => {
             .replace(/\s+/g, ' ')
             .trim();
     }, [normalizedContent]);
-    const browserLangRoot = useMemo(() => {
-        if (typeof navigator === 'undefined' || !navigator.language) return 'en';
-        return navigator.language.toLowerCase().split('-')[0];
-    }, []);
-    const voiceOptions = useMemo(() => {
-        const localVoices = availableVoices.filter((voice) => voice.localService);
-        const baseList = localVoices.length > 0 ? localVoices : availableVoices;
-        const sameLang = baseList.filter((voice) => {
-            const lang = (voice.lang || '').toLowerCase();
-            return lang.startsWith(`${browserLangRoot}-`) || lang === browserLangRoot;
-        });
-        return (sameLang.length > 0 ? sameLang : baseList).slice(0, 40);
-    }, [availableVoices, browserLangRoot]);
     const previousSpeechTextRef = useRef(speechText);
 
     useEffect(() => {
@@ -802,11 +784,7 @@ const TopicDetail = () => {
                                             {isVoiceSupported && speechText && (
                                                 <div className="rounded-xl border border-neutral-200 bg-neutral-50 px-3 py-2 text-xs font-medium text-neutral-600">
                                                     {voiceStatus === 'loading' && 'Generating voice audio...'}
-                                                    {voiceStatus === 'playing' && (
-                                                        playbackEngine === 'remote'
-                                                            ? 'Reading explanation aloud...'
-                                                            : 'Reading explanation aloud (browser voice)...'
-                                                    )}
+                                                    {voiceStatus === 'playing' && 'Reading explanation aloud...'}
                                                     {voiceStatus === 'paused' && 'Reading paused.'}
                                                     {(voiceStatus === 'idle' || voiceStatus === 'error') && 'Tap Play to hear this explanation.'}
                                                 </div>
@@ -1073,10 +1051,6 @@ const TopicDetail = () => {
                 voiceSaving={voiceSaving}
                 voiceSettingsError={voiceSettingsError}
                 isVoiceSupported={isVoiceSupported}
-                voiceOptions={voiceOptions}
-                selectedVoiceURI={selectedVoiceURI}
-                selectedVoiceName={selectedVoiceName}
-                setVoicePreference={setVoicePreference}
                 stopVoice={stopVoice}
                 playVoice={playVoice}
             />

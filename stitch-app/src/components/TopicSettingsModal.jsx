@@ -8,11 +8,6 @@ const TopicSettingsModal = memo(function TopicSettingsModal({
     voiceSaving,
     voiceSettingsError,
     isVoiceSupported,
-    voiceOptions,
-    selectedVoiceURI,
-    selectedVoiceName,
-    setVoicePreference,
-    playbackEngine,
     stopVoice,
     playVoice,
 }) {
@@ -67,29 +62,15 @@ const TopicSettingsModal = memo(function TopicSettingsModal({
                     {voiceModeEnabled && isVoiceSupported && (
                         <div className="mt-3 space-y-3">
                             <div>
-                                <label className="mb-1 block text-xs font-semibold text-slate-500 dark:text-slate-400">
-                                    Voice
-                                </label>
-                                <select
-                                    value={selectedVoiceURI || ''}
-                                    onChange={(event) => setVoicePreference(event.target.value || '')}
-                                    className="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 py-2 text-xs font-medium text-slate-700 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-primary/30"
-                                >
-                                    <option value="">Auto (Best local Apple voice)</option>
-                                    {voiceOptions.map((voice) => (
-                                        <option key={voice.voiceURI} value={voice.voiceURI}>
-                                            {voice.name} ({voice.lang || 'unknown'})
-                                        </option>
-                                    ))}
-                                </select>
-                                <p className="mt-1 text-[11px] text-slate-500 dark:text-slate-400">
-                                    Current: {selectedVoiceName || 'Auto'}.
+                                <p className="text-xs font-semibold text-slate-500 dark:text-slate-400 mb-1">
+                                    Voice Engine
                                 </p>
+                                <div className="flex items-center gap-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 px-3 py-2">
+                                    <span className="material-symbols-outlined text-[16px] text-primary">graphic_eq</span>
+                                    <span className="text-xs font-semibold text-slate-700 dark:text-slate-200">Deepgram AI Voice</span>
+                                </div>
                                 <p className="mt-1 text-[11px] text-slate-500 dark:text-slate-400">
-                                    Playback: {playbackEngine === 'elevenlabs' ? 'ElevenLabs' : 'Browser voice'}.
-                                </p>
-                                <p className="mt-1 text-[11px] text-slate-500 dark:text-slate-400">
-                                    For best quality, install Enhanced/Premium voices in macOS Settings.
+                                    High-quality AI-generated voice powered by Deepgram.
                                 </p>
                             </div>
                             <button

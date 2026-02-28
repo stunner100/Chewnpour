@@ -1,8 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
-const PREFERRED_VOICE_STORAGE_KEY = "studymate.voice.preferredVoiceURI";
-const LEGACY_PREFERRED_VOICE_STORAGE_KEY = "stitch.voice.preferredVoiceURI";
-
 const normalizeForSpeech = (text) =>
     text
         .replace(/\s+/g, " ")
@@ -78,145 +75,6 @@ const buildRemoteChunkPlan = (normalizedText, maxChars) => {
     const remainingText = normalizedText.slice(firstChunk.length).trim();
     const trailingChunks = remainingText ? splitTextIntoChunks(remainingText, maxChars) : [];
     return [firstChunk, ...trailingChunks];
-};
-
-const APPLE_QUALITY_TOKENS = [
-    "apple",
-    "siri",
-    "premium",
-    "enhanced",
-    "neural",
-    "natural",
-];
-
-const PREFERRED_APPLE_ENGLISH_TOKENS = [
-    "samantha",
-    "ava",
-    "allison",
-    "daniel",
-    "karen",
-    "moira",
-    "tessa",
-    "reed",
-    "zoe",
-    "serena",
-];
-
-const NOVELTY_VOICE_TOKENS = [
-    "bad news",
-    "bahh",
-    "bells",
-    "boing",
-    "bubbles",
-    "cellos",
-    "wobble",
-    "pipe organ",
-    "whisper",
-    "zarvox",
-    "trinoids",
-    "hysterical",
-];
-
-const hasToken = (value, tokens) => tokens.some((token) => value.includes(token));
-
-const buildVoiceDescriptor = (voice) =>
-    `${(voice?.name || "").toLowerCase()} ${(voice?.voiceURI || "").toLowerCase()}`;
-
-const isGoogleLikeVoice = (voice) => buildVoiceDescriptor(voice).includes("google");
-
-const isNoveltyVoice = (voice) => hasToken(buildVoiceDescriptor(voice), NOVELTY_VOICE_TOKENS);
-
-const scoreVoice = (voice, browserLang, langRoot, preferredVoiceURI = "") => {
-    const descriptor = buildVoiceDescriptor(voice);
-    const lang = (voice?.lang || "").toLowerCase();
-    let score = 0;
-
-    if (preferredVoiceURI && voice?.voiceURI === preferredVoiceURI) score += 10000;
-
-    if (voice?.localService) score += 2000;
-    if (lang === browserLang) score += 1200;
-    else if (lang.startsWith(`${langRoot}-`)) score += 900;
-
-    if (voice?.default) score += 150;
-    if (hasToken(descriptor, APPLE_QUALITY_TOKENS)) score += 900;
-    if (langRoot === "en" && hasToken(descriptor, PREFERRED_APPLE_ENGLISH_TOKENS)) score += 350;
-
-    if (descriptor.includes("compact")) score -= 120;
-    if (isGoogleLikeVoice(voice)) score -= 260;
-    if (isNoveltyVoice(voice)) score -= 1400;
-
-    return score;
-};
-
-const sortVoicesByScore = (voices, browserLang, langRoot, preferredVoiceURI = "") =>
-    [...voices].sort((a, b) => {
-        const scoreDiff =
-            scoreVoice(b, browserLang, langRoot, preferredVoiceURI) -
-            scoreVoice(a, browserLang, langRoot, preferredVoiceURI);
-        if (scoreDiff !== 0) return scoreDiff;
-
-        const aName = (a?.name || "").toLowerCase();
-        const bName = (b?.name || "").toLowerCase();
-        return aName.localeCompare(bName);
-    });
-
-const pickPreferredVoice = (voices, browserLang, preferredVoiceURI = "") => {
-    if (!voices || voices.length === 0) return null;
-
-    const langRoot = browserLang.split("-")[0];
-
-    if (preferredVoiceURI) {
-        const explicit = voices.find((voice) => voice.voiceURI === preferredVoiceURI);
-        if (explicit) return explicit;
-    }
-
-    let candidates = voices;
-
-    const sameLanguage = candidates.filter((voice) => {
-        const lang = (voice.lang || "").toLowerCase();
-        return lang === browserLang || lang.startsWith(`${langRoot}-`);
-    });
-    if (sameLanguage.length > 0) candidates = sameLanguage;
-
-    const nonGoogle = candidates.filter((voice) => !isGoogleLikeVoice(voice));
-    if (nonGoogle.length > 0) candidates = nonGoogle;
-
-    const nonNovelty = candidates.filter((voice) => !isNoveltyVoice(voice));
-    if (nonNovelty.length > 0) candidates = nonNovelty;
-
-    const sortedCandidates = sortVoicesByScore(candidates, browserLang, langRoot, preferredVoiceURI);
-    if (sortedCandidates.length > 0) return sortedCandidates[0];
-
-    const sortedAll = sortVoicesByScore(voices, browserLang, langRoot, preferredVoiceURI);
-    return sortedAll[0] || null;
-};
-
-const getStoredPreferredVoiceURI = () => {
-    if (typeof window === "undefined") return "";
-    try {
-        return (
-            window.localStorage.getItem(PREFERRED_VOICE_STORAGE_KEY) ||
-            window.localStorage.getItem(LEGACY_PREFERRED_VOICE_STORAGE_KEY) ||
-            ""
-        );
-    } catch {
-        return "";
-    }
-};
-
-const persistPreferredVoiceURI = (voiceURI) => {
-    if (typeof window === "undefined") return;
-    try {
-        if (!voiceURI) {
-            window.localStorage.removeItem(PREFERRED_VOICE_STORAGE_KEY);
-            window.localStorage.removeItem(LEGACY_PREFERRED_VOICE_STORAGE_KEY);
-        } else {
-            window.localStorage.setItem(PREFERRED_VOICE_STORAGE_KEY, voiceURI);
-            window.localStorage.removeItem(LEGACY_PREFERRED_VOICE_STORAGE_KEY);
-        }
-    } catch {
-        // Ignore storage failures silently.
-    }
 };
 
 const GENERIC_REMOTE_PLAYBACK_ERROR_MESSAGE = "AI voice is unavailable right now.";
@@ -308,7 +166,6 @@ const isLikelyMobileBrowser = () => {
     const platform = String(navigator.platform || "").toLowerCase();
     const maxTouchPoints = Number(navigator.maxTouchPoints || 0);
 
-    // iPadOS can report a desktop-like UA and Mac platform.
     if (platform === "macintel" && maxTouchPoints > 1) return true;
 
     if (typeof window !== "undefined" && typeof window.matchMedia === "function") {
@@ -319,11 +176,6 @@ const isLikelyMobileBrowser = () => {
     }
 
     return false;
-};
-
-const hasRuntimeSpeechSynthesisSupport = () => {
-    if (typeof window === "undefined") return false;
-    return "speechSynthesis" in window && "SpeechSynthesisUtterance" in window;
 };
 
 const canCreateAudioElement = () => {
@@ -350,9 +202,7 @@ export const useVoicePlayback = ({
     remoteStream = null,
     maxRemoteChars = 900,
 } = {}) => {
-    const synthesisRef = useRef(null);
     const playbackIdRef = useRef(0);
-    const activeUtteranceRef = useRef(null);
     const activeAudioRef = useRef(null);
     const activeAudioObjectUrlRef = useRef("");
     const remotePrefetchRef = useRef({
@@ -362,81 +212,23 @@ export const useVoicePlayback = ({
         payloadPromise: null,
     });
     const isStoppingRef = useRef(false);
-    const voicesRef = useRef([]);
-    const preferredVoiceRef = useRef(null);
-    const startTimeoutRef = useRef(null);
     const remoteFailureCountRef = useRef(0);
     const remotePlaybackDisabledRef = useRef(false);
+    const autoplayRetryCountRef = useRef(0);
     const audioUnlockRef = useRef({
         unlocked: false,
         context: null,
     });
 
-    const hasSpeechSynthesis = useMemo(() => {
-        return hasRuntimeSpeechSynthesisSupport();
-    }, []);
     const canPlayAudio = useMemo(() => canCreateAudioElement(), []);
     const isSupported = useMemo(() => {
-        const hasRemote = typeof remoteStream === "function" && canPlayAudio;
-        return hasSpeechSynthesis || hasRemote;
-    }, [hasSpeechSynthesis, canPlayAudio, remoteStream]);
+        return typeof remoteStream === "function" && canPlayAudio;
+    }, [canPlayAudio, remoteStream]);
     const convexHttpBaseUrl = useMemo(() => resolveConvexHttpBaseUrl(), []);
-
-    const browserLang = useMemo(() => {
-        if (typeof navigator === "undefined" || !navigator.language) return "en-us";
-        return navigator.language.toLowerCase();
-    }, []);
+    const isMobileBrowser = useMemo(() => isLikelyMobileBrowser(), []);
 
     const [status, setStatus] = useState(() => (isSupported ? "idle" : "unsupported"));
     const [error, setError] = useState(null);
-    const [playbackEngine, setPlaybackEngine] = useState("browser");
-    const [preferredVoiceURI, setPreferredVoiceURI] = useState(() => getStoredPreferredVoiceURI());
-    const [selectedVoiceName, setSelectedVoiceName] = useState("Auto");
-    const [availableVoices, setAvailableVoices] = useState([]);
-    const isMobileBrowser = useMemo(() => isLikelyMobileBrowser(), []);
-    const speechStartTimeoutMs = useMemo(() => (isMobileBrowser ? 9000 : 2000), [isMobileBrowser]);
-    const maxSpeechStartRetries = useMemo(() => (isMobileBrowser ? 2 : 1), [isMobileBrowser]);
-
-    const clearStartTimeout = useCallback(() => {
-        if (startTimeoutRef.current) {
-            clearTimeout(startTimeoutRef.current);
-            startTimeoutRef.current = null;
-        }
-    }, []);
-
-    const refreshVoices = useCallback(() => {
-        if (!hasSpeechSynthesis || !synthesisRef.current) return;
-
-        const voices = synthesisRef.current.getVoices() || [];
-        voicesRef.current = voices;
-
-        const selected = pickPreferredVoice(voices, browserLang, preferredVoiceURI);
-        preferredVoiceRef.current = selected;
-        setSelectedVoiceName(selected?.name || "Auto");
-
-        const sortedForDisplay = sortVoicesByScore(
-            voices,
-            browserLang,
-            browserLang.split("-")[0],
-            preferredVoiceURI
-        );
-
-        setAvailableVoices(
-            sortedForDisplay.map((voice) => ({
-                name: voice.name,
-                lang: voice.lang || "",
-                voiceURI: voice.voiceURI || voice.name,
-                localService: Boolean(voice.localService),
-                default: Boolean(voice.default),
-            }))
-        );
-    }, [hasSpeechSynthesis, browserLang, preferredVoiceURI]);
-
-    const setVoicePreference = useCallback((voiceURI) => {
-        const normalized = String(voiceURI || "");
-        setPreferredVoiceURI(normalized);
-        persistPreferredVoiceURI(normalized);
-    }, []);
 
     const formatRemotePlaybackError = useCallback((sourceError) => {
         const normalized = normalizeRemotePlaybackErrorMessage(sourceError);
@@ -505,7 +297,6 @@ export const useVoicePlayback = ({
                 context.resume().catch(() => undefined);
             }
 
-            // A near-silent oscillator "unlocks" audio output on mobile browsers.
             const oscillator = context.createOscillator();
             const gainNode = context.createGain();
             gainNode.gain.value = 0.00001;
@@ -515,26 +306,9 @@ export const useVoicePlayback = ({
             oscillator.stop(context.currentTime + 0.01);
             audioUnlockRef.current.unlocked = true;
         } catch {
-            // Ignore unlock failures and continue normal playback attempts.
+            // Ignore unlock failures.
         }
     }, [canPlayAudio]);
-
-    const unlockSpeechSynthesisOutput = useCallback(() => {
-        if (!isMobileBrowser || !hasSpeechSynthesis || !synthesisRef.current) return;
-        try {
-            const synthesis = synthesisRef.current;
-            if (synthesis.speaking || synthesis.pending) return;
-            const warmup = new window.SpeechSynthesisUtterance(" ");
-            warmup.volume = 0;
-            warmup.rate = 1;
-            warmup.pitch = 1;
-            warmup.lang = browserLang;
-            synthesis.speak(warmup);
-            synthesis.cancel();
-        } catch {
-            // Ignore warm-up failures and keep normal playback flow.
-        }
-    }, [isMobileBrowser, hasSpeechSynthesis, browserLang]);
 
     const fetchRemoteAudioBlobUrl = useCallback(async (streamUrl) => {
         const response = await fetch(streamUrl, {
@@ -611,212 +385,16 @@ export const useVoicePlayback = ({
         [remoteStream, canPlayAudio, maxRemoteChars]
     );
 
-    useEffect(() => {
-        if (!hasSpeechSynthesis) return;
-        const synthesis = window.speechSynthesis;
-        synthesisRef.current = synthesis;
-        const initVoicesTimer = setTimeout(() => {
-            refreshVoices();
-        }, 0);
-
-        const handleVoicesChanged = () => {
-            refreshVoices();
-        };
-
-        if (synthesis.addEventListener) {
-            synthesis.addEventListener("voiceschanged", handleVoicesChanged);
-        } else {
-            synthesis.onvoiceschanged = handleVoicesChanged;
-        }
-
-        return () => {
-            clearTimeout(initVoicesTimer);
-            clearStartTimeout();
-            if (synthesis.removeEventListener) {
-                synthesis.removeEventListener("voiceschanged", handleVoicesChanged);
-            } else if (synthesis.onvoiceschanged === handleVoicesChanged) {
-                synthesis.onvoiceschanged = null;
-            }
-        };
-    }, [hasSpeechSynthesis, refreshVoices, clearStartTimeout]);
-
-    const ensureSpeechSynthesisReady = useCallback(() => {
-        if (!hasRuntimeSpeechSynthesisSupport()) return false;
-        if (!synthesisRef.current && typeof window !== "undefined" && "speechSynthesis" in window) {
-            synthesisRef.current = window.speechSynthesis;
-        }
-        return Boolean(synthesisRef.current);
-    }, []);
-
     const stop = useCallback(() => {
         if (!isSupported) return false;
-        clearStartTimeout();
         playbackIdRef.current += 1;
         isStoppingRef.current = true;
-        if (hasSpeechSynthesis && synthesisRef.current) {
-            synthesisRef.current.cancel();
-        }
-        activeUtteranceRef.current = null;
         clearRemotePrefetch();
         clearActiveAudio();
         setStatus("idle");
         setError(null);
         return true;
-    }, [
-        isSupported,
-        hasSpeechSynthesis,
-        clearStartTimeout,
-        clearRemotePrefetch,
-        clearActiveAudio,
-    ]);
-
-    const playWithSpeechSynthesis = useCallback(
-        (text, playbackId) => {
-            if (!ensureSpeechSynthesisReady()) return false;
-
-            const chunks = splitTextIntoChunks(String(text || ""));
-            if (chunks.length === 0) {
-                setError("No explanation text available to read.");
-                setStatus("error");
-                return false;
-            }
-
-            setPlaybackEngine("browser");
-            isStoppingRef.current = false;
-            clearStartTimeout();
-            refreshVoices();
-
-            if (synthesisRef.current.paused) {
-                synthesisRef.current.resume();
-            }
-            if (synthesisRef.current.speaking || synthesisRef.current.pending) {
-                synthesisRef.current.cancel();
-            }
-
-            let chunkIndex = 0;
-            let firstChunkStarted = false;
-            let firstChunkRetryCount = 0;
-
-            const retryFirstChunk = (reason) => {
-                if (chunkIndex !== 0) return false;
-                if (firstChunkRetryCount >= maxSpeechStartRetries) return false;
-
-                firstChunkRetryCount += 1;
-                clearStartTimeout();
-                if (synthesisRef.current?.speaking || synthesisRef.current?.pending) {
-                    synthesisRef.current.cancel();
-                }
-                refreshVoices();
-
-                if (import.meta.env.DEV) {
-                    console.warn(`[VoiceMode] ${reason}; retrying first chunk (${firstChunkRetryCount}/${maxSpeechStartRetries}).`);
-                }
-
-                setTimeout(() => {
-                    if (playbackIdRef.current !== playbackId || isStoppingRef.current) return;
-                    speakChunk(false);
-                }, 220);
-                return true;
-            };
-
-            const speakChunk = (usePreferredVoice = true) => {
-                const utterance = new window.SpeechSynthesisUtterance(chunks[chunkIndex]);
-                if (usePreferredVoice) {
-                    const preferredVoice =
-                        preferredVoiceRef.current ||
-                        pickPreferredVoice(voicesRef.current, browserLang, preferredVoiceURI) ||
-                        null;
-                    if (preferredVoice) {
-                        utterance.voice = preferredVoice;
-                        utterance.lang = preferredVoice.lang;
-                    } else {
-                        utterance.lang = browserLang;
-                    }
-                } else {
-                    utterance.lang = browserLang;
-                }
-                utterance.rate = 0.96;
-                utterance.pitch = 1;
-                utterance.volume = 1;
-                activeUtteranceRef.current = utterance;
-
-                utterance.onstart = () => {
-                    if (playbackIdRef.current !== playbackId) return;
-                    firstChunkStarted = true;
-                    clearStartTimeout();
-                    setStatus("playing");
-                };
-
-                utterance.onend = () => {
-                    if (playbackIdRef.current !== playbackId || isStoppingRef.current) return;
-                    chunkIndex += 1;
-                    speakNext();
-                };
-
-                utterance.onerror = (event) => {
-                    if (playbackIdRef.current !== playbackId || isStoppingRef.current) return;
-                    clearStartTimeout();
-                    if (retryFirstChunk("Speech synthesis errored before first chunk started")) {
-                        return;
-                    }
-                    if (import.meta.env.DEV) {
-                        console.error("[VoiceMode] Speech synthesis error:", event.error || event);
-                    }
-                    setError("Voice playback failed. Please try again.");
-                    setStatus("error");
-                };
-
-                synthesisRef.current.speak(utterance);
-
-                if (chunkIndex === 0) {
-                    startTimeoutRef.current = setTimeout(() => {
-                        if (
-                            playbackIdRef.current === playbackId &&
-                            !isStoppingRef.current &&
-                            !firstChunkStarted
-                        ) {
-                            if (retryFirstChunk("First utterance did not start")) {
-                                return;
-                            }
-                            setError(
-                                isMobileBrowser
-                                    ? "Voice did not start on mobile. Turn off silent mode, raise media volume, then tap Play again."
-                                    : "Voice did not start. Check tab/site sound and system output, then press Play again."
-                            );
-                            setStatus("error");
-                        }
-                    }, speechStartTimeoutMs);
-                }
-            };
-
-            const speakNext = () => {
-                if (playbackIdRef.current !== playbackId || isStoppingRef.current) return;
-
-                if (chunkIndex >= chunks.length) {
-                    clearStartTimeout();
-                    activeUtteranceRef.current = null;
-                    setStatus("idle");
-                    return;
-                }
-
-                const usePreferredVoice = !(chunkIndex === 0 && firstChunkRetryCount > 0);
-                speakChunk(usePreferredVoice);
-            };
-
-            speakNext();
-            return true;
-        },
-        [
-            ensureSpeechSynthesisReady,
-            clearStartTimeout,
-            refreshVoices,
-            browserLang,
-            preferredVoiceURI,
-            speechStartTimeoutMs,
-            maxSpeechStartRetries,
-            isMobileBrowser,
-        ]
-    );
+    }, [isSupported, clearRemotePrefetch, clearActiveAudio]);
 
     const playWithRemoteAudio = useCallback(
         async (text, playbackId) => {
@@ -981,7 +559,6 @@ export const useVoicePlayback = ({
                 )
                 : null;
 
-            setPlaybackEngine("remote");
             setStatus("loading");
             const started = await playChunkAtIndex(0, prefetchedFirstChunkPromise, true);
             if (hasPrefetchedFirstChunk) {
@@ -1021,170 +598,107 @@ export const useVoicePlayback = ({
             const playbackId = playbackIdRef.current;
             isStoppingRef.current = false;
             setError(null);
-            clearStartTimeout();
             clearRemotePrefetch();
             clearActiveAudio();
             unlockAudioOutput();
-            unlockSpeechSynthesisOutput();
-            const hasBrowserVoiceFallback = ensureSpeechSynthesisReady();
 
-            if (hasBrowserVoiceFallback && synthesisRef.current) {
-                if (synthesisRef.current.paused) {
-                    synthesisRef.current.resume();
+            try {
+                const remoteStarted = await playWithRemoteAudio(inputText, playbackId);
+                if (remoteStarted) {
+                    autoplayRetryCountRef.current = 0;
+                    return true;
                 }
-                if (synthesisRef.current.speaking || synthesisRef.current.pending) {
-                    synthesisRef.current.cancel();
+            } catch (remoteError) {
+                const remoteMessage = formatRemotePlaybackError(remoteError);
+
+                if (isVoiceQuotaExceededMessage(remoteMessage)) {
+                    remotePlaybackDisabledRef.current = true;
+                    setError(remoteMessage);
+                    setStatus("error");
+                    return false;
                 }
-            }
 
-            if (
-                typeof remoteStream === "function" &&
-                canPlayAudio &&
-                !remotePlaybackDisabledRef.current
-            ) {
-                try {
-                    const remoteStarted = await playWithRemoteAudio(inputText, playbackId);
-                    if (remoteStarted) return true;
-                } catch (remoteError) {
-                    const remoteMessage = formatRemotePlaybackError(remoteError);
-                    if (isVoiceQuotaExceededMessage(remoteMessage)) {
-                        remotePlaybackDisabledRef.current = true;
-                        setError(remoteMessage);
-                        setStatus("error");
-                        return false;
-                    }
-
-                    if (isLikelyAutoplayPolicyErrorMessage(remoteMessage)) {
-                        remotePlaybackDisabledRef.current = true;
-                        if (!hasBrowserVoiceFallback) {
-                            setError("Audio was blocked by your mobile browser. Tap Play again.");
-                            setStatus("error");
-                            return false;
-                        }
-                        setError(null);
-                        console.warn("[VoiceMode] AI voice blocked by autoplay/permission policy. Falling back to browser voice.", {
-                            remoteMessage,
-                            disabledForSession: remotePlaybackDisabledRef.current,
-                        });
-                        remoteFailureCountRef.current = 0;
-                    } else if (isMobileBrowser) {
-                        remotePlaybackDisabledRef.current = true;
-                        if (!hasBrowserVoiceFallback) {
-                            setError(remoteMessage);
-                            setStatus("error");
-                            return false;
-                        }
-                        setError(null);
-                        console.warn("[VoiceMode] AI voice failed on mobile. Falling back to browser voice.", {
-                            remoteMessage,
-                            disabledForSession: remotePlaybackDisabledRef.current,
-                        });
-                        remoteFailureCountRef.current = 0;
+                if (isLikelyAutoplayPolicyErrorMessage(remoteMessage)) {
+                    if (autoplayRetryCountRef.current < 1) {
+                        autoplayRetryCountRef.current += 1;
+                        setError(
+                            isMobileBrowser
+                                ? "Audio was blocked by your browser. Tap Play again to start voice."
+                                : "Audio was blocked. Click Play again to start voice."
+                        );
                     } else {
-                        if (!hasBrowserVoiceFallback) {
-                            setError(remoteMessage);
-                            setStatus("error");
-                            return false;
-                        }
-
-                        remoteFailureCountRef.current += 1;
-                        const shouldDisableRemote =
-                            shouldDisableRemotePlaybackForSession(remoteMessage) ||
-                            remoteFailureCountRef.current >= 2;
-                        if (shouldDisableRemote) {
-                            remotePlaybackDisabledRef.current = true;
-                        }
-
-                        setError(null);
-                        console.warn("[VoiceMode] AI voice playback failed. Falling back to browser voice.", {
-                            remoteMessage,
-                            disabledForSession: remotePlaybackDisabledRef.current,
-                            failureCount: remoteFailureCountRef.current,
-                        });
+                        setError(
+                            isMobileBrowser
+                                ? "Voice is blocked on mobile. Turn off silent mode, raise volume, and tap Play."
+                                : "Voice is blocked. Check that the tab is not muted, then click Play."
+                        );
                     }
+                    setStatus("error");
+                    return false;
                 }
-            }
 
-            const localStarted = playWithSpeechSynthesis(inputText, playbackId);
-            if (!localStarted) {
-                setError("Voice playback is unavailable right now.");
+                remoteFailureCountRef.current += 1;
+                if (
+                    shouldDisableRemotePlaybackForSession(remoteMessage) ||
+                    remoteFailureCountRef.current >= 3
+                ) {
+                    remotePlaybackDisabledRef.current = true;
+                }
+
+                setError(remoteMessage);
                 setStatus("error");
                 return false;
             }
-            return true;
+
+            setError("AI voice is unavailable right now.");
+            setStatus("error");
+            return false;
         },
         [
             isSupported,
-            clearStartTimeout,
             clearRemotePrefetch,
             clearActiveAudio,
             formatRemotePlaybackError,
-            remoteStream,
-            canPlayAudio,
             playWithRemoteAudio,
-            playWithSpeechSynthesis,
-            ensureSpeechSynthesisReady,
             isMobileBrowser,
             unlockAudioOutput,
-            unlockSpeechSynthesisOutput,
         ]
     );
 
     const pause = useCallback(() => {
         if (!isSupported) return false;
-
-        if (playbackEngine === "remote" && activeAudioRef.current) {
-            if (!activeAudioRef.current.paused && !activeAudioRef.current.ended) {
-                activeAudioRef.current.pause();
-                setStatus("paused");
-                return true;
-            }
+        if (activeAudioRef.current && !activeAudioRef.current.paused && !activeAudioRef.current.ended) {
+            activeAudioRef.current.pause();
+            setStatus("paused");
+            return true;
         }
-
-        if (!hasSpeechSynthesis || !synthesisRef.current) return false;
-        if (!synthesisRef.current.speaking || synthesisRef.current.paused) return false;
-        synthesisRef.current.pause();
-        setStatus("paused");
-        return true;
-    }, [isSupported, playbackEngine, hasSpeechSynthesis]);
+        return false;
+    }, [isSupported]);
 
     const resume = useCallback(() => {
         if (!isSupported) return false;
-
-        if (playbackEngine === "remote" && activeAudioRef.current) {
-            if (!activeAudioRef.current.paused) return false;
-            activeAudioRef.current.play()
-                .then(() => {
-                    if (!isStoppingRef.current) {
-                        setStatus("playing");
-                    }
-                })
-                .catch((resumeError) => {
-                    if (import.meta.env.DEV) {
-                        console.warn("[VoiceMode] Failed to resume AI voice playback", resumeError);
-                    }
-                    setError("Voice playback failed. Please try again.");
-                    setStatus("error");
-                });
-            return true;
-        }
-
-        if (!hasSpeechSynthesis || !synthesisRef.current) return false;
-        if (!synthesisRef.current.paused) return false;
-        synthesisRef.current.resume();
-        setStatus("playing");
+        if (!activeAudioRef.current || !activeAudioRef.current.paused) return false;
+        activeAudioRef.current.play()
+            .then(() => {
+                if (!isStoppingRef.current) {
+                    setStatus("playing");
+                }
+            })
+            .catch((resumeError) => {
+                if (import.meta.env.DEV) {
+                    console.warn("[VoiceMode] Failed to resume AI voice playback", resumeError);
+                }
+                setError("Voice playback failed. Please try again.");
+                setStatus("error");
+            });
         return true;
-    }, [isSupported, playbackEngine, hasSpeechSynthesis]);
+    }, [isSupported]);
 
     useEffect(
         () => () => {
             if (!isSupported) return;
-            clearStartTimeout();
             playbackIdRef.current += 1;
             isStoppingRef.current = true;
-            if (hasSpeechSynthesis && synthesisRef.current) {
-                synthesisRef.current.cancel();
-            }
             const audioContext = audioUnlockRef.current.context;
             if (audioContext && typeof audioContext.close === "function") {
                 audioContext.close().catch(() => undefined);
@@ -1196,24 +710,24 @@ export const useVoicePlayback = ({
             clearRemotePrefetch();
             clearActiveAudio();
         },
-        [isSupported, hasSpeechSynthesis, clearStartTimeout, clearRemotePrefetch, clearActiveAudio]
+        [isSupported, clearRemotePrefetch, clearActiveAudio]
     );
 
     return {
         isSupported,
         status,
         error,
-        playbackEngine,
+        playbackEngine: "remote",
         play,
         pause,
         resume,
         stop,
         isPlaying: status === "playing",
         isPaused: status === "paused",
-        availableVoices,
-        selectedVoiceURI: preferredVoiceURI,
-        selectedVoiceName,
-        setVoicePreference,
+        availableVoices: [],
+        selectedVoiceURI: "",
+        selectedVoiceName: "Deepgram AI",
+        setVoicePreference: () => {},
         primeVoicePlayback: primeRemotePlayback,
     };
 };
