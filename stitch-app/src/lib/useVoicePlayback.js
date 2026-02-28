@@ -636,6 +636,14 @@ export const useVoicePlayback = ({
         };
     }, [hasSpeechSynthesis, refreshVoices, clearStartTimeout]);
 
+    const ensureSpeechSynthesisReady = useCallback(() => {
+        if (!hasSpeechSynthesis) return false;
+        if (!synthesisRef.current && typeof window !== "undefined" && "speechSynthesis" in window) {
+            synthesisRef.current = window.speechSynthesis;
+        }
+        return Boolean(synthesisRef.current);
+    }, [hasSpeechSynthesis]);
+
     const stop = useCallback(() => {
         if (!isSupported) return false;
         clearStartTimeout();
@@ -660,9 +668,13 @@ export const useVoicePlayback = ({
 
     const playWithSpeechSynthesis = useCallback(
         (text, playbackId) => {
-            if (!hasSpeechSynthesis || !synthesisRef.current) {
+            if (!hasSpeechSynthesis) {
                 return false;
             }
+            if (!synthesisRef.current && typeof window !== "undefined" && "speechSynthesis" in window) {
+                synthesisRef.current = window.speechSynthesis;
+            }
+            if (!synthesisRef.current) return false;
 
             const chunks = splitTextIntoChunks(String(text || ""));
             if (chunks.length === 0) {
@@ -1016,8 +1028,9 @@ export const useVoicePlayback = ({
             clearActiveAudio();
             unlockAudioOutput();
             unlockSpeechSynthesisOutput();
+            const hasBrowserVoiceFallback = ensureSpeechSynthesisReady();
 
-            if (hasSpeechSynthesis && synthesisRef.current) {
+            if (hasBrowserVoiceFallback && synthesisRef.current) {
                 if (synthesisRef.current.paused) {
                     synthesisRef.current.resume();
                 }
@@ -1036,7 +1049,6 @@ export const useVoicePlayback = ({
                     if (remoteStarted) return true;
                 } catch (remoteError) {
                     const remoteMessage = formatRemotePlaybackError(remoteError);
-                    const hasBrowserVoiceFallback = Boolean(hasSpeechSynthesis && synthesisRef.current);
                     if (isVoiceQuotaExceededMessage(remoteMessage)) {
                         remotePlaybackDisabledRef.current = true;
                         setError(remoteMessage);
@@ -1108,12 +1120,12 @@ export const useVoicePlayback = ({
             clearStartTimeout,
             clearRemotePrefetch,
             clearActiveAudio,
-            hasSpeechSynthesis,
             formatRemotePlaybackError,
             remoteStream,
             canPlayAudio,
             playWithRemoteAudio,
             playWithSpeechSynthesis,
+            ensureSpeechSynthesisReady,
             isMobileBrowser,
             unlockAudioOutput,
             unlockSpeechSynthesisOutput,
