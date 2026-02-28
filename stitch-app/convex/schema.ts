@@ -158,6 +158,14 @@ export default defineSchema({
         updatedAt: v.number(),
     }).index("by_userId_topicId", ["userId", "topicId"]),
 
+    // User feedback submissions
+    feedback: defineTable({
+        userId: v.string(),
+        rating: v.number(), // 1-5 stars
+        message: v.optional(v.string()),
+        createdAt: v.number(),
+    }).index("by_userId", ["userId"]),
+
     paymentTransactions: defineTable({
         userId: v.string(),
         provider: v.string(),

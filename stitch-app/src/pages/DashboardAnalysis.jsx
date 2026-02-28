@@ -17,6 +17,38 @@ import {
     isTransientUploadTransportError,
     uploadToStorageWithRetry,
 } from '../lib/uploadNetworkResilience';
+import { ensurePromiseWithResolvers } from '../lib/runtimePolyfills';
+
+let pdfWorkerInitialized = false;
+
+const extractPdfTextFromFile = async (file) => {
+    ensurePromiseWithResolvers();
+    const pdfjsLib = await import('pdfjs-dist/build/pdf.mjs');
+    if (!pdfWorkerInitialized) {
+        pdfjsLib.GlobalWorkerOptions.workerSrc = new URL(
+            'pdfjs-dist/build/pdf.worker.min.mjs',
+            import.meta.url
+        ).toString();
+        pdfWorkerInitialized = true;
+    }
+
+    const arrayBuffer = await file.arrayBuffer();
+    const loadingTask = pdfjsLib.getDocument({ data: arrayBuffer });
+    const pdf = await loadingTask.promise;
+    const maxPages = Math.min(pdf.numPages, 20);
+    let text = '';
+
+    for (let i = 1; i <= maxPages; i += 1) {
+        const page = await pdf.getPage(i);
+        const content = await page.getTextContent();
+        const pageText = content.items
+            .map((item) => (typeof item.str === 'string' ? item.str : ''))
+            .join(' ');
+        text += `${pageText}\n`;
+    }
+
+    return text.trim();
+};
 
 const isIgnorableProcessingDispatchError = (error) => {
     const message = String(error?.message || error || '').toLowerCase();
@@ -47,7 +79,7 @@ const getUploadAuthNotReadyMessage = () =>
 const resolveQuotaExceededMessage = (error) => {
     const dataMessage = typeof error?.data?.message === 'string' ? error.data.message.trim() : '';
     if (dataMessage) return dataMessage;
-    return 'Upload limit reached. Purchase a GHS 20 top-up to add 20 uploads and continue.';
+    return 'Upload limit reached. Choose a top-up plan: GHS 20 (+5 uploads) or GHS 40 (+12 uploads).';
 };
 
 const buildUploadLimitSubscriptionPath = () => {
@@ -85,6 +117,10 @@ const DashboardAnalysis = () => {
     const [searchQuery, setSearchQuery] = useState('');
     const [showAllCourses, setShowAllCourses] = useState(false);
     const [streakToastMessage, setStreakToastMessage] = useState('');
+    const [feedbackText, setFeedbackText] = useState('');
+    const [feedbackRating, setFeedbackRating] = useState(0);
+    const [feedbackSubmitted, setFeedbackSubmitted] = useState(false);
+    const [feedbackSubmitting, setFeedbackSubmitting] = useState(false);
     const fileInputRef = useRef(null);
     const uploadInFlightRef = useRef(false);
     const lastSeenStreakRef = useRef(null);
@@ -113,6 +149,7 @@ const DashboardAnalysis = () => {
     const createCourse = useMutation(api.courses.createCourse);
     const deleteCourse = useMutation(api.courses.deleteCourse);
     const processUploadedFile = useAction(api.ai.processUploadedFile);
+    const submitFeedbackMutation = useMutation(api.feedback.submitFeedback);
 
     useEffect(() => {
         lastSeenStreakRef.current = null;
@@ -179,7 +216,7 @@ const DashboardAnalysis = () => {
     const redirectToUploadTopUp = () => {
         navigate(buildUploadLimitSubscriptionPath(), {
             state: {
-                paywallMessage: 'Upload limit reached. Purchase a GHS 20 top-up to add 20 uploads and continue.',
+                paywallMessage: 'Upload limit reached. Choose a top-up plan: GHS 20 (+5 uploads) or GHS 40 (+12 uploads).',
             },
         });
     };
@@ -263,7 +300,7 @@ const DashboardAnalysis = () => {
         }
 
         if (uploadQuota && Number(uploadQuota.remaining) <= 0) {
-            setUploadError('Upload limit reached. Purchase a GHS 20 top-up to add 20 uploads and continue.');
+            setUploadError('Upload limit reached. Choose a top-up plan: GHS 20 (+5 uploads) or GHS 40 (+12 uploads).');
             reportUploadValidationRejected({
                 flowType: 'study_material',
                 source: 'dashboard_analysis',
@@ -383,11 +420,32 @@ const DashboardAnalysis = () => {
                 uploadId,
             });
 
+            let extractedText = '';
+            if (file.type.includes('pdf')) {
+                currentStage = 'extract_pdf_text_preview';
+                reportUploadStage(uploadObservation, currentStage, { uploadId, courseId });
+                try {
+                    extractedText = await extractPdfTextFromFile(file);
+                } catch (pdfError) {
+                    console.error('PDF extraction failed in browser:', pdfError);
+                    reportUploadWarning(
+                        uploadObservation,
+                        currentStage,
+                        'Client-side PDF text preview extraction failed',
+                        {
+                            uploadId,
+                            courseId,
+                            errorMessage: String(pdfError?.message || pdfError),
+                        }
+                    );
+                }
+            }
+
             // Step 5: Trigger AI processing in the background (don't await).
             // Dispatch before navigation so quick route transitions can't drop kickoff.
             currentStage = 'dispatch_ai_processing';
             reportUploadStage(uploadObservation, currentStage, { uploadId, courseId });
-            processUploadedFile({ uploadId, courseId, userId }).catch((err) => {
+            processUploadedFile({ uploadId, courseId, userId, extractedText }).catch((err) => {
                 if (isIgnorableProcessingDispatchError(err)) {
                     reportUploadWarning(
                         uploadObservation,
@@ -419,6 +477,7 @@ const DashboardAnalysis = () => {
                 uploadId,
                 courseId,
                 processingDispatched: true,
+                extractedTextLength: extractedText.length,
             });
         } catch (error) {
             console.error('Upload failed:', error);
@@ -703,6 +762,34 @@ const DashboardAnalysis = () => {
                             </div>
                         </Link>
                     </div>
+                    {/* Upgrade Banner for Free Users */}
+                    {subscription && subscription.plan !== 'premium' && (
+                        <div className="col-span-1 lg:col-span-12 animate-slide-up animate-delay-150">
+                            <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-primary via-violet-600 to-fuchsia-600 p-5 sm:p-6 shadow-lg shadow-primary/20">
+                                <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full -translate-y-1/2 translate-x-1/3 blur-3xl"></div>
+                                <div className="absolute bottom-0 left-0 w-40 h-40 bg-white/5 rounded-full translate-y-1/2 -translate-x-1/4 blur-2xl"></div>
+                                <div className="relative z-10 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                                    <div className="flex items-center gap-4">
+                                        <div className="w-12 h-12 rounded-xl bg-white/20 backdrop-blur-sm flex items-center justify-center shrink-0">
+                                            <span className="material-symbols-outlined text-2xl text-white filled">rocket_launch</span>
+                                        </div>
+                                        <div>
+                                            <h3 className="text-lg font-display font-bold text-white">Unlock More Uploads</h3>
+                                            <p className="text-white/80 text-sm">You're on the Free Plan with limited uploads. Top up to keep learning without interruptions.</p>
+                                        </div>
+                                    </div>
+                                    <Link
+                                        to="/subscription"
+                                        className="shrink-0 inline-flex items-center gap-2 px-6 py-3 bg-white text-primary rounded-xl text-sm font-bold shadow-lg hover:bg-white/90 hover:-translate-y-0.5 transition-all"
+                                    >
+                                        <span className="material-symbols-outlined text-lg filled">diamond</span>
+                                        Upgrade Now
+                                    </Link>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
                     <div className="col-span-1 lg:col-span-12 mt-2 animate-slide-up animate-delay-200">
                         <div className="flex items-center justify-between mb-6 px-1">
                             <div className="flex items-center gap-3">
@@ -930,6 +1017,96 @@ const DashboardAnalysis = () => {
                         </div>
                     </div>
                 )}
+                {/* Feedback Form */}
+                <div className="mt-10 animate-slide-up animate-delay-300">
+                    <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-primary/5 via-violet-50 to-fuchsia-50 dark:from-primary/10 dark:via-violet-900/10 dark:to-fuchsia-900/10 border-2 border-primary/20 dark:border-primary/30 p-6 sm:p-8 shadow-lg shadow-primary/5">
+                        <div className="absolute top-0 right-0 w-48 h-48 bg-primary/5 rounded-full -translate-y-1/2 translate-x-1/3 blur-3xl"></div>
+                        <div className="absolute bottom-0 left-0 w-32 h-32 bg-fuchsia-500/5 rounded-full translate-y-1/2 -translate-x-1/4 blur-2xl"></div>
+                        {feedbackSubmitted ? (
+                            <div className="relative z-10 text-center py-6">
+                                <div className="w-16 h-16 rounded-full bg-green-100 dark:bg-green-900/30 flex items-center justify-center mx-auto mb-4">
+                                    <span className="material-symbols-outlined text-4xl text-green-600 dark:text-green-400" style={{ fontVariationSettings: "'FILL' 1" }}>check_circle</span>
+                                </div>
+                                <h3 className="text-xl font-display font-bold text-neutral-900 dark:text-white mb-2">Thanks for your feedback!</h3>
+                                <p className="text-sm text-neutral-500 dark:text-neutral-400">Your input helps us make ChewnPour better for everyone.</p>
+                            </div>
+                        ) : (
+                            <div className="relative z-10">
+                                <div className="flex items-center gap-4 mb-6">
+                                    <div className="w-12 h-12 rounded-xl bg-primary/10 dark:bg-primary/20 flex items-center justify-center shrink-0">
+                                        <span className="material-symbols-outlined text-2xl text-primary" style={{ fontVariationSettings: "'FILL' 1" }}>rate_review</span>
+                                    </div>
+                                    <div>
+                                        <h3 className="text-lg font-display font-bold text-neutral-900 dark:text-white">How's your experience?</h3>
+                                        <p className="text-sm text-neutral-500 dark:text-neutral-400">We'd love to hear what you think</p>
+                                    </div>
+                                </div>
+                                <div className="flex items-center gap-2 mb-5">
+                                    {[1, 2, 3, 4, 5].map((star) => (
+                                        <button
+                                            key={star}
+                                            type="button"
+                                            onClick={() => setFeedbackRating(star)}
+                                            className="group/star p-1.5 rounded-xl hover:bg-white/60 dark:hover:bg-white/5 transition-colors"
+                                            aria-label={`Rate ${star} star${star > 1 ? 's' : ''}`}
+                                        >
+                                            <span
+                                                className={`material-symbols-outlined text-3xl transition-all ${
+                                                    star <= feedbackRating
+                                                        ? 'text-amber-400 scale-110'
+                                                        : 'text-neutral-300 dark:text-neutral-600 group-hover/star:text-amber-300'
+                                                }`}
+                                                style={star <= feedbackRating ? { fontVariationSettings: "'FILL' 1" } : undefined}
+                                            >
+                                                star
+                                            </span>
+                                        </button>
+                                    ))}
+                                    {feedbackRating > 0 && (
+                                        <span className="ml-2 text-sm font-semibold text-primary">
+                                            {['', 'Needs work', 'Could be better', 'It\'s okay', 'Really good!', 'Love it!'][feedbackRating]}
+                                        </span>
+                                    )}
+                                </div>
+                                <textarea
+                                    value={feedbackText}
+                                    onChange={(e) => setFeedbackText(e.target.value)}
+                                    placeholder="What can we do better? Any features you'd love to see?"
+                                    rows={3}
+                                    className="w-full px-4 py-3 bg-white dark:bg-neutral-800/80 border border-neutral-200 dark:border-neutral-700 rounded-xl text-sm text-neutral-900 dark:text-white placeholder-neutral-400 focus:border-primary/40 focus:ring-4 focus:ring-primary/10 transition-colors resize-none shadow-sm"
+                                />
+                                <div className="flex justify-end mt-4">
+                                    <button
+                                        type="button"
+                                        disabled={(!feedbackText.trim() && feedbackRating === 0) || feedbackSubmitting}
+                                        onClick={async () => {
+                                            if (!userId) return;
+                                            setFeedbackSubmitting(true);
+                                            try {
+                                                await submitFeedbackMutation({
+                                                    userId,
+                                                    rating: feedbackRating || 0,
+                                                    message: feedbackText.trim() || undefined,
+                                                });
+                                                setFeedbackSubmitted(true);
+                                            } catch {
+                                                setStreakToastMessage('Failed to send feedback. Please try again.');
+                                            } finally {
+                                                setFeedbackSubmitting(false);
+                                            }
+                                        }}
+                                        className="inline-flex items-center gap-2 px-6 py-3 bg-primary text-white rounded-xl text-sm font-bold shadow-lg shadow-primary/25 hover:shadow-xl hover:-translate-y-0.5 transition-all disabled:opacity-40 disabled:cursor-not-allowed disabled:shadow-none disabled:hover:translate-y-0"
+                                    >
+                                        <span className="material-symbols-outlined text-lg">
+                                            {feedbackSubmitting ? 'hourglass_empty' : 'send'}
+                                        </span>
+                                        {feedbackSubmitting ? 'Sending...' : 'Send Feedback'}
+                                    </button>
+                                </div>
+                            </div>
+                        )}
+                    </div>
+                </div>
             </main>
             <Toast message={streakToastMessage} onClose={() => setStreakToastMessage('')} />
         </div>
