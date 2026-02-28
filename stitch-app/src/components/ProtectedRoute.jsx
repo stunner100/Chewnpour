@@ -2,8 +2,10 @@ import React from 'react';
 import { Navigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 
+const ONBOARDING_PATHS = ['/onboarding/level', '/onboarding/department'];
+
 const ProtectedRoute = ({ children }) => {
-    const { user, loading } = useAuth();
+    const { user, profile, loading } = useAuth();
     const location = useLocation();
 
     if (loading) {
@@ -18,8 +20,15 @@ const ProtectedRoute = ({ children }) => {
     }
 
     if (!user) {
-        // Redirect to login page but save the attempted location
         return <Navigate to="/login" state={{ from: location }} replace />;
+    }
+
+    const isOnboardingRoute = ONBOARDING_PATHS.some((p) => location.pathname.startsWith(p));
+
+    // Redirect users who haven't completed onboarding to the onboarding flow
+    // (skip this check if they're already on an onboarding page)
+    if (!isOnboardingRoute && !profile?.onboardingCompleted) {
+        return <Navigate to="/onboarding/level" replace />;
     }
 
     return children;

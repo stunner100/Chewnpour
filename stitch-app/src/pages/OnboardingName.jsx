@@ -34,7 +34,7 @@ const OnboardingName = () => {
         password: false,
     });
     const [loading, setLoading] = useState(false);
-    const { signUp, profile } = useAuth();
+    const { signUp, profile, user } = useAuth();
     const navigate = useNavigate();
     const trimmedName = name.trim();
     const trimmedEmail = email.trim();
@@ -46,8 +46,11 @@ const OnboardingName = () => {
     useEffect(() => {
         if (profile?.onboardingCompleted) {
             navigate('/dashboard', { replace: true });
+        } else if (user && !profile?.onboardingCompleted) {
+            // Already logged in but hasn't completed onboarding — skip to level
+            navigate('/onboarding/level', { replace: true });
         }
-    }, [profile, navigate]);
+    }, [user, profile, navigate]);
 
     const handleSubmit = async (e) => {
         e.preventDefault();

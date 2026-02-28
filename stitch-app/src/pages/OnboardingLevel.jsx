@@ -5,6 +5,7 @@ import { useAuth } from '../contexts/AuthContext';
 const OnboardingLevel = () => {
     const [selectedLevel, setSelectedLevel] = useState(200);
     const [loading, setLoading] = useState(false);
+    const [error, setError] = useState('');
     const { updateProfile, profile } = useAuth();
     const navigate = useNavigate();
 
@@ -23,11 +24,26 @@ const OnboardingLevel = () => {
 
     const handleNext = async () => {
         setLoading(true);
+        setError('');
         try {
             await updateProfile({ educationLevel: levelMap[selectedLevel] });
             navigate('/onboarding/department');
-        } catch (error) {
-            console.error('Failed to update profile:', error);
+        } catch (err) {
+            console.error('Failed to update profile:', err);
+            setError('Failed to save. Please try again.');
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const handleSkip = async () => {
+        setLoading(true);
+        setError('');
+        try {
+            await updateProfile({ educationLevel: 'sophomore' });
+            navigate('/onboarding/department');
+        } catch (err) {
+            console.error('Failed to update profile on skip:', err);
             navigate('/onboarding/department');
         } finally {
             setLoading(false);
@@ -42,13 +58,13 @@ const OnboardingLevel = () => {
                 </Link>
                 <div className="flex flex-col items-center gap-2">
                     <p className="text-xs font-semibold text-zinc-500 uppercase tracking-wider">Step 2 of 3</p>
-                    <div className="flex w-32 flex-row items-center gap-2">
+                    <div aria-label="Onboarding progress: step 2 of 3" className="flex w-32 flex-row items-center gap-2">
                         <div className="h-1.5 flex-1 rounded-full bg-black dark:bg-white"></div>
                         <div className="h-1.5 flex-1 rounded-full bg-black dark:bg-white"></div>
                         <div className="h-1.5 flex-1 rounded-full bg-zinc-200 dark:bg-zinc-800"></div>
                     </div>
                 </div>
-                <Link to="/onboarding/department" className="text-sm font-semibold text-zinc-400 dark:text-zinc-500 hover:text-zinc-900 dark:hover:text-white transition-colors">Skip</Link>
+                <button onClick={handleSkip} disabled={loading} className="text-sm font-semibold text-zinc-400 dark:text-zinc-500 hover:text-zinc-900 dark:hover:text-white transition-colors disabled:opacity-50">Skip</button>
             </div>
 
             <main className="flex-1 flex flex-col items-center justify-center w-full max-w-6xl mx-auto px-6 py-12">
@@ -61,11 +77,19 @@ const OnboardingLevel = () => {
                     </p>
                 </div>
 
+                {error && (
+                    <div className="w-full max-w-md mb-6 p-4 rounded-xl bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-600 dark:text-red-400 text-sm font-medium text-center">
+                        {error}
+                    </div>
+                )}
+
                 <div className="w-full max-w-5xl mb-16">
                     <div className="grid grid-cols-2 lg:grid-cols-4 gap-6">
                         {[100, 200, 300, 400].map((level) => (
                             <button
                                 key={level}
+                                aria-label={`Level ${level} - ${levelMap[level]}`}
+                                aria-pressed={selectedLevel === level}
                                 onClick={() => setSelectedLevel(level)}
                                 className={`group relative flex flex-col items-center justify-center p-8 aspect-[4/3] lg:aspect-square rounded-3xl border transition-all active:scale-[0.98] ${selectedLevel === level
                                     ? 'border-[3px] border-royal-blue bg-royal-blue/5 dark:bg-royal-blue/10 shadow-md'

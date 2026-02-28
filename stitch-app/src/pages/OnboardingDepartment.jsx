@@ -6,6 +6,7 @@ const OnboardingDepartment = () => {
     const [selectedDepts, setSelectedDepts] = useState([]);
     const [searchQuery, setSearchQuery] = useState('');
     const [loading, setLoading] = useState(false);
+    const [error, setError] = useState('');
     const { updateProfile, profile } = useAuth();
     const navigate = useNavigate();
 
@@ -23,15 +24,30 @@ const OnboardingDepartment = () => {
 
     const handleComplete = async () => {
         setLoading(true);
+        setError('');
         try {
             await updateProfile({
                 department: selectedDepts.length > 0 ? selectedDepts.join(',') : undefined,
                 onboardingCompleted: true,
             });
             navigate('/dashboard');
-        } catch (error) {
-            console.error('Failed to update profile:', error);
+        } catch (err) {
+            console.error('Failed to update profile:', err);
+            setError('Failed to save. Please try again.');
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const handleSkip = async () => {
+        setLoading(true);
+        setError('');
+        try {
+            await updateProfile({ onboardingCompleted: true });
             navigate('/dashboard');
+        } catch (err) {
+            console.error('Failed to update profile on skip:', err);
+            setError('Failed to save. Please try again.');
         } finally {
             setLoading(false);
         }
@@ -63,15 +79,16 @@ const OnboardingDepartment = () => {
                 </Link>
                 <h2 className="text-base font-bold leading-tight flex-1 text-center">Step <span className="text-primary">3 of 3</span></h2>
                 <button
-                    onClick={() => navigate('/dashboard')}
-                    className="flex w-10 items-center justify-center text-slate-400 font-bold text-sm hover:text-slate-600 dark:hover:text-slate-300 transition-colors"
+                    onClick={handleSkip}
+                    disabled={loading}
+                    className="flex w-10 items-center justify-center text-slate-400 font-bold text-sm hover:text-slate-600 dark:hover:text-slate-300 transition-colors disabled:opacity-50"
                 >
                     Skip
                 </button>
             </header>
 
             <div className="flex-none px-6 py-2 w-full">
-                <div className="flex w-full gap-2">
+                <div aria-label="Onboarding progress: step 3 of 3" className="flex w-full gap-2">
                     <div className="h-1.5 flex-1 rounded-full bg-slate-900 dark:bg-white"></div>
                     <div className="h-1.5 flex-1 rounded-full bg-slate-900 dark:bg-white"></div>
                     <div className="h-1.5 flex-1 rounded-full bg-primary"></div>
@@ -79,6 +96,11 @@ const OnboardingDepartment = () => {
             </div>
 
             <main className="flex-1 overflow-y-auto no-scrollbar flex flex-col px-6 pb-32">
+                {error && (
+                    <div className="mx-auto max-w-md mt-4 p-4 rounded-xl bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-600 dark:text-red-400 text-sm font-medium text-center">
+                        {error}
+                    </div>
+                )}
                 <div className="pt-6 pb-2 text-center">
                     <h1 className="text-xl md:text-2xl font-extrabold tracking-tight text-slate-900 dark:text-white mb-3">
                         What do you study?
