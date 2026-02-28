@@ -321,6 +321,11 @@ const isLikelyMobileBrowser = () => {
     return false;
 };
 
+const hasRuntimeSpeechSynthesisSupport = () => {
+    if (typeof window === "undefined") return false;
+    return "speechSynthesis" in window && "SpeechSynthesisUtterance" in window;
+};
+
 const canCreateAudioElement = () => {
     if (typeof window === "undefined") return false;
     if (typeof window.Audio === "function") return true;
@@ -368,8 +373,7 @@ export const useVoicePlayback = ({
     });
 
     const hasSpeechSynthesis = useMemo(() => {
-        if (typeof window === "undefined") return false;
-        return "speechSynthesis" in window && "SpeechSynthesisUtterance" in window;
+        return hasRuntimeSpeechSynthesisSupport();
     }, []);
     const canPlayAudio = useMemo(() => canCreateAudioElement(), []);
     const isSupported = useMemo(() => {
@@ -637,12 +641,12 @@ export const useVoicePlayback = ({
     }, [hasSpeechSynthesis, refreshVoices, clearStartTimeout]);
 
     const ensureSpeechSynthesisReady = useCallback(() => {
-        if (!hasSpeechSynthesis) return false;
+        if (!hasRuntimeSpeechSynthesisSupport()) return false;
         if (!synthesisRef.current && typeof window !== "undefined" && "speechSynthesis" in window) {
             synthesisRef.current = window.speechSynthesis;
         }
         return Boolean(synthesisRef.current);
-    }, [hasSpeechSynthesis]);
+    }, []);
 
     const stop = useCallback(() => {
         if (!isSupported) return false;
@@ -668,13 +672,7 @@ export const useVoicePlayback = ({
 
     const playWithSpeechSynthesis = useCallback(
         (text, playbackId) => {
-            if (!hasSpeechSynthesis) {
-                return false;
-            }
-            if (!synthesisRef.current && typeof window !== "undefined" && "speechSynthesis" in window) {
-                synthesisRef.current = window.speechSynthesis;
-            }
-            if (!synthesisRef.current) return false;
+            if (!ensureSpeechSynthesisReady()) return false;
 
             const chunks = splitTextIntoChunks(String(text || ""));
             if (chunks.length === 0) {
@@ -809,7 +807,7 @@ export const useVoicePlayback = ({
             return true;
         },
         [
-            hasSpeechSynthesis,
+            ensureSpeechSynthesisReady,
             clearStartTimeout,
             refreshVoices,
             browserLang,
