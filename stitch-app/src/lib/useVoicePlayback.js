@@ -1,9 +1,4 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import {
-    GENERIC_REMOTE_PLAYBACK_ERROR_MESSAGE,
-    normalizeRemotePlaybackErrorMessage,
-    shouldDisableRemotePlaybackForSession,
-} from "./voicePlaybackErrors";
 
 const PREFERRED_VOICE_STORAGE_KEY = "studymate.voice.preferredVoiceURI";
 const LEGACY_PREFERRED_VOICE_STORAGE_KEY = "stitch.voice.preferredVoiceURI";
@@ -13,6 +8,8 @@ const normalizeForSpeech = (text) =>
         .replace(/\s+/g, " ")
         .replace(/\s+([.,!?;:])/g, "$1")
         .trim();
+
+const REMOTE_STARTUP_CHUNK_CHARS = 320;
 
 const chunkLongSentence = (sentence, maxLength) => {
     if (sentence.length <= maxLength) return [sentence];
@@ -70,6 +67,17 @@ const splitTextIntoChunks = (text, maxLength = 220) => {
 
     if (current) chunks.push(current.trim());
     return chunks;
+};
+
+const buildRemoteChunkPlan = (normalizedText, maxChars) => {
+    const startupChunkChars = Math.max(180, Math.min(REMOTE_STARTUP_CHUNK_CHARS, maxChars));
+    const startupChunks = splitTextIntoChunks(normalizedText, startupChunkChars);
+    if (startupChunks.length === 0) return [];
+
+    const firstChunk = startupChunks[0];
+    const remainingText = normalizedText.slice(firstChunk.length).trim();
+    const trailingChunks = remainingText ? splitTextIntoChunks(remainingText, maxChars) : [];
+    return [firstChunk, ...trailingChunks];
 };
 
 const APPLE_QUALITY_TOKENS = [
@@ -211,34 +219,161 @@ const persistPreferredVoiceURI = (voiceURI) => {
     }
 };
 
+const GENERIC_REMOTE_PLAYBACK_ERROR_MESSAGE = "AI voice is unavailable right now.";
+
+const CONVEX_SERVER_ERROR_PATTERN =
+    /\[CONVEX [^\]]+\]\s*\[Request ID:[^\]]+\]\s*Server Error\s*Called by client/i;
+
+const PERSISTENT_REMOTE_FAILURE_PATTERNS = [
+    /payment_required/i,
+    /insufficient/i,
+    /quota/i,
+    /credit/i,
+    /missing api key/i,
+    /invalid api key/i,
+    /unauthorized/i,
+    /forbidden/i,
+];
+
+const normalizeRemotePlaybackErrorMessage = (error) => {
+    const rawMessage = error instanceof Error ? error.message : String(error || "");
+    const normalized = rawMessage.replace(/\s+/g, " ").trim();
+    if (!normalized) return "";
+
+    const withoutConvexWrapper = normalized.replace(CONVEX_SERVER_ERROR_PATTERN, "").trim();
+    if (!withoutConvexWrapper) return GENERIC_REMOTE_PLAYBACK_ERROR_MESSAGE;
+
+    if (CONVEX_SERVER_ERROR_PATTERN.test(normalized) && /^server error$/i.test(withoutConvexWrapper)) {
+        return GENERIC_REMOTE_PLAYBACK_ERROR_MESSAGE;
+    }
+
+    return withoutConvexWrapper;
+};
+
+const shouldDisableRemotePlaybackForSession = (message) => {
+    const normalized = String(message || "").trim();
+    if (!normalized) return false;
+    return PERSISTENT_REMOTE_FAILURE_PATTERNS.some((pattern) => pattern.test(normalized));
+};
+
+const AUTOPLAY_BLOCK_ERROR_PATTERNS = [
+    /notallowed/i,
+    /user.*interact/i,
+    /play\(\)\s*request/i,
+    /gesture/i,
+    /autoplay/i,
+];
+
+const isLikelyAutoplayPolicyErrorMessage = (message) => {
+    const normalized = String(message || "").trim();
+    if (!normalized) return false;
+    return AUTOPLAY_BLOCK_ERROR_PATTERNS.some((pattern) => pattern.test(normalized));
+};
+
+const isVoiceQuotaExceededMessage = (message) => {
+    const normalized = String(message || "").toLowerCase();
+    if (!normalized) return false;
+    return (
+        normalized.includes("voice_quota_exceeded")
+        || normalized.includes("free ai voice generation")
+        || normalized.includes("unlimited ai voice")
+    );
+};
+
+const resolveConvexHttpBaseUrl = () => {
+    const rawConvexUrl = String(import.meta.env?.VITE_CONVEX_URL || "").trim();
+    if (!rawConvexUrl) return "";
+    try {
+        const parsed = new URL(rawConvexUrl);
+        if (parsed.hostname.endsWith(".convex.cloud")) {
+            parsed.hostname = parsed.hostname.replace(/\.convex\.cloud$/, ".convex.site");
+        }
+        return parsed.origin;
+    } catch {
+        return "";
+    }
+};
+
+const MOBILE_BROWSER_PATTERN = /(iphone|ipad|ipod|android|mobile)/i;
+
+const isLikelyMobileBrowser = () => {
+    if (typeof navigator === "undefined") return false;
+    const ua = String(navigator.userAgent || navigator.vendor || "").toLowerCase();
+    if (navigator.userAgentData && navigator.userAgentData.mobile) return true;
+    if (MOBILE_BROWSER_PATTERN.test(ua)) return true;
+
+    const platform = String(navigator.platform || "").toLowerCase();
+    const maxTouchPoints = Number(navigator.maxTouchPoints || 0);
+
+    // iPadOS can report a desktop-like UA and Mac platform.
+    if (platform === "macintel" && maxTouchPoints > 1) return true;
+
+    if (typeof window !== "undefined" && typeof window.matchMedia === "function") {
+        const hasCoarsePointer =
+            window.matchMedia("(pointer: coarse)").matches ||
+            window.matchMedia("(any-pointer: coarse)").matches;
+        if (hasCoarsePointer && maxTouchPoints > 0) return true;
+    }
+
+    return false;
+};
+
+const canCreateAudioElement = () => {
+    if (typeof window === "undefined") return false;
+    if (typeof window.Audio === "function") return true;
+    if (typeof document === "undefined" || typeof document.createElement !== "function") return false;
+    const audio = document.createElement("audio");
+    return Boolean(audio && typeof audio.play === "function");
+};
+
+const createAudioElement = (src) => {
+    if (typeof window !== "undefined" && typeof window.Audio === "function") {
+        return new window.Audio(src);
+    }
+    if (typeof document === "undefined" || typeof document.createElement !== "function") {
+        return null;
+    }
+    const audio = document.createElement("audio");
+    audio.src = src;
+    return audio;
+};
+
 export const useVoicePlayback = ({
-    remoteSynthesize = null,
-    maxRemoteChars = 2500,
+    remoteStream = null,
+    maxRemoteChars = 900,
 } = {}) => {
     const synthesisRef = useRef(null);
     const playbackIdRef = useRef(0);
     const activeUtteranceRef = useRef(null);
     const activeAudioRef = useRef(null);
-    const activeAudioUrlRef = useRef("");
+    const activeAudioObjectUrlRef = useRef("");
+    const remotePrefetchRef = useRef({
+        chunkKey: "",
+        chunkText: "",
+        payload: null,
+        payloadPromise: null,
+    });
     const isStoppingRef = useRef(false);
     const voicesRef = useRef([]);
     const preferredVoiceRef = useRef(null);
     const startTimeoutRef = useRef(null);
     const remoteFailureCountRef = useRef(0);
     const remotePlaybackDisabledRef = useRef(false);
+    const audioUnlockRef = useRef({
+        unlocked: false,
+        context: null,
+    });
 
     const hasSpeechSynthesis = useMemo(() => {
         if (typeof window === "undefined") return false;
         return "speechSynthesis" in window && "SpeechSynthesisUtterance" in window;
     }, []);
-    const canPlayAudio = useMemo(() => {
-        if (typeof window === "undefined") return false;
-        return typeof window.Audio === "function";
-    }, []);
+    const canPlayAudio = useMemo(() => canCreateAudioElement(), []);
     const isSupported = useMemo(() => {
-        const hasRemote = typeof remoteSynthesize === "function" && canPlayAudio;
+        const hasRemote = typeof remoteStream === "function" && canPlayAudio;
         return hasSpeechSynthesis || hasRemote;
-    }, [hasSpeechSynthesis, canPlayAudio, remoteSynthesize]);
+    }, [hasSpeechSynthesis, canPlayAudio, remoteStream]);
+    const convexHttpBaseUrl = useMemo(() => resolveConvexHttpBaseUrl(), []);
 
     const browserLang = useMemo(() => {
         if (typeof navigator === "undefined" || !navigator.language) return "en-us";
@@ -251,6 +386,9 @@ export const useVoicePlayback = ({
     const [preferredVoiceURI, setPreferredVoiceURI] = useState(() => getStoredPreferredVoiceURI());
     const [selectedVoiceName, setSelectedVoiceName] = useState("Auto");
     const [availableVoices, setAvailableVoices] = useState([]);
+    const isMobileBrowser = useMemo(() => isLikelyMobileBrowser(), []);
+    const speechStartTimeoutMs = useMemo(() => (isMobileBrowser ? 9000 : 2000), [isMobileBrowser]);
+    const maxSpeechStartRetries = useMemo(() => (isMobileBrowser ? 2 : 1), [isMobileBrowser]);
 
     const clearStartTimeout = useCallback(() => {
         if (startTimeoutRef.current) {
@@ -293,15 +431,15 @@ export const useVoicePlayback = ({
         persistPreferredVoiceURI(normalized);
     }, []);
 
-    const formatRemotePlaybackError = useCallback((error) => {
-        const normalized = normalizeRemotePlaybackErrorMessage(error);
+    const formatRemotePlaybackError = useCallback((sourceError) => {
+        const normalized = normalizeRemotePlaybackErrorMessage(sourceError);
         if (!normalized) {
-            return "ElevenLabs voice generation failed.";
+            return "AI voice generation failed.";
         }
         if (normalized === GENERIC_REMOTE_PLAYBACK_ERROR_MESSAGE) {
             return normalized;
         }
-        return `ElevenLabs voice failed: ${normalized}`;
+        return `AI voice failed: ${normalized}`;
     }, []);
 
     const clearActiveAudio = useCallback(() => {
@@ -324,21 +462,147 @@ export const useVoicePlayback = ({
             }
         }
         activeAudioRef.current = null;
-        if (activeAudioUrlRef.current) {
-            URL.revokeObjectURL(activeAudioUrlRef.current);
-            activeAudioUrlRef.current = "";
+        if (activeAudioObjectUrlRef.current) {
+            try {
+                URL.revokeObjectURL(activeAudioObjectUrlRef.current);
+            } catch {
+                // ignore
+            }
+            activeAudioObjectUrlRef.current = "";
         }
     }, []);
 
-    const decodeBase64Audio = useCallback((base64Audio, mimeType = "audio/mpeg") => {
-        const normalized = String(base64Audio || "").trim();
-        const binary = window.atob(normalized);
-        const bytes = new Uint8Array(binary.length);
-        for (let index = 0; index < binary.length; index += 1) {
-            bytes[index] = binary.charCodeAt(index);
-        }
-        return new Blob([bytes], { type: mimeType || "audio/mpeg" });
+    const clearRemotePrefetch = useCallback(() => {
+        remotePrefetchRef.current = {
+            chunkKey: "",
+            chunkText: "",
+            payload: null,
+            payloadPromise: null,
+        };
     }, []);
+
+    const unlockAudioOutput = useCallback(() => {
+        if (!canPlayAudio || typeof window === "undefined") return;
+        if (audioUnlockRef.current.unlocked) return;
+        try {
+            const AudioContextCtor = window.AudioContext || window.webkitAudioContext;
+            if (!AudioContextCtor) return;
+
+            let context = audioUnlockRef.current.context;
+            if (!context || context.state === "closed") {
+                context = new AudioContextCtor();
+                audioUnlockRef.current.context = context;
+            }
+
+            if (context.state === "suspended") {
+                context.resume().catch(() => undefined);
+            }
+
+            // A near-silent oscillator "unlocks" audio output on mobile browsers.
+            const oscillator = context.createOscillator();
+            const gainNode = context.createGain();
+            gainNode.gain.value = 0.00001;
+            oscillator.connect(gainNode);
+            gainNode.connect(context.destination);
+            oscillator.start();
+            oscillator.stop(context.currentTime + 0.01);
+            audioUnlockRef.current.unlocked = true;
+        } catch {
+            // Ignore unlock failures and continue normal playback attempts.
+        }
+    }, [canPlayAudio]);
+
+    const unlockSpeechSynthesisOutput = useCallback(() => {
+        if (!isMobileBrowser || !hasSpeechSynthesis || !synthesisRef.current) return;
+        try {
+            const synthesis = synthesisRef.current;
+            if (synthesis.speaking || synthesis.pending) return;
+            const warmup = new window.SpeechSynthesisUtterance(" ");
+            warmup.volume = 0;
+            warmup.rate = 1;
+            warmup.pitch = 1;
+            warmup.lang = browserLang;
+            synthesis.speak(warmup);
+            synthesis.cancel();
+        } catch {
+            // Ignore warm-up failures and keep normal playback flow.
+        }
+    }, [isMobileBrowser, hasSpeechSynthesis, browserLang]);
+
+    const fetchRemoteAudioBlobUrl = useCallback(async (streamUrl) => {
+        const response = await fetch(streamUrl, {
+            method: "GET",
+            cache: "no-store",
+        });
+        if (!response.ok) {
+            const contentType = String(response.headers.get("content-type") || "").toLowerCase();
+            let details = "";
+            if (contentType.includes("application/json")) {
+                const payload = await response.json().catch(() => null);
+                details = String(payload?.error || payload?.message || "").trim();
+            } else {
+                details = String(await response.text().catch(() => "") || "").trim().slice(0, 220);
+            }
+            throw new Error(details || `AI voice request failed with status ${response.status}.`);
+        }
+
+        const blob = await response.blob();
+        if (!blob || blob.size <= 0) {
+            throw new Error("AI voice provider returned empty audio.");
+        }
+        return URL.createObjectURL(blob);
+    }, []);
+
+    const primeRemotePlayback = useCallback(
+        (text) => {
+            if (
+                typeof remoteStream !== "function" ||
+                !canPlayAudio ||
+                remotePlaybackDisabledRef.current
+            ) {
+                return false;
+            }
+
+            const normalizedText = normalizeForSpeech(String(text || ""));
+            if (!normalizedText) return false;
+
+            const maxChars = Math.max(300, Number(maxRemoteChars || 2500));
+            const remoteChunks = buildRemoteChunkPlan(normalizedText, maxChars);
+            if (remoteChunks.length === 0) return false;
+            const firstChunk = remoteChunks[0];
+            const chunkKey = `${maxChars}:${firstChunk}`;
+
+            if (
+                remotePrefetchRef.current.chunkKey === chunkKey &&
+                (remotePrefetchRef.current.payload || remotePrefetchRef.current.payloadPromise)
+            ) {
+                return true;
+            }
+
+            const payloadPromise = remoteStream(firstChunk, { consumeQuota: false })
+                .then((payload) => {
+                    if (remotePrefetchRef.current.chunkKey === chunkKey) {
+                        remotePrefetchRef.current.payload = payload;
+                    }
+                    return payload;
+                })
+                .catch(() => null)
+                .finally(() => {
+                    if (remotePrefetchRef.current.chunkKey === chunkKey) {
+                        remotePrefetchRef.current.payloadPromise = null;
+                    }
+                });
+
+            remotePrefetchRef.current = {
+                chunkKey,
+                chunkText: firstChunk,
+                payload: null,
+                payloadPromise,
+            };
+            return true;
+        },
+        [remoteStream, canPlayAudio, maxRemoteChars]
+    );
 
     useEffect(() => {
         if (!hasSpeechSynthesis) return;
@@ -378,11 +642,18 @@ export const useVoicePlayback = ({
             synthesisRef.current.cancel();
         }
         activeUtteranceRef.current = null;
+        clearRemotePrefetch();
         clearActiveAudio();
         setStatus("idle");
         setError(null);
         return true;
-    }, [isSupported, hasSpeechSynthesis, clearStartTimeout, clearActiveAudio]);
+    }, [
+        isSupported,
+        hasSpeechSynthesis,
+        clearStartTimeout,
+        clearRemotePrefetch,
+        clearActiveAudio,
+    ]);
 
     const playWithSpeechSynthesis = useCallback(
         (text, playbackId) => {
@@ -411,7 +682,29 @@ export const useVoicePlayback = ({
 
             let chunkIndex = 0;
             let firstChunkStarted = false;
-            let recoveredFirstChunk = false;
+            let firstChunkRetryCount = 0;
+
+            const retryFirstChunk = (reason) => {
+                if (chunkIndex !== 0) return false;
+                if (firstChunkRetryCount >= maxSpeechStartRetries) return false;
+
+                firstChunkRetryCount += 1;
+                clearStartTimeout();
+                if (synthesisRef.current?.speaking || synthesisRef.current?.pending) {
+                    synthesisRef.current.cancel();
+                }
+                refreshVoices();
+
+                if (import.meta.env.DEV) {
+                    console.warn(`[VoiceMode] ${reason}; retrying first chunk (${firstChunkRetryCount}/${maxSpeechStartRetries}).`);
+                }
+
+                setTimeout(() => {
+                    if (playbackIdRef.current !== playbackId || isStoppingRef.current) return;
+                    speakChunk(false);
+                }, 220);
+                return true;
+            };
 
             const speakChunk = (usePreferredVoice = true) => {
                 const utterance = new window.SpeechSynthesisUtterance(chunks[chunkIndex]);
@@ -450,15 +743,7 @@ export const useVoicePlayback = ({
                 utterance.onerror = (event) => {
                     if (playbackIdRef.current !== playbackId || isStoppingRef.current) return;
                     clearStartTimeout();
-                    if (chunkIndex === 0 && !recoveredFirstChunk) {
-                        recoveredFirstChunk = true;
-                        if (import.meta.env.DEV) {
-                            console.warn("[VoiceMode] Retrying first chunk with fallback voice settings.");
-                        }
-                        setTimeout(() => {
-                            if (playbackIdRef.current !== playbackId || isStoppingRef.current) return;
-                            speakChunk(false);
-                        }, 160);
+                    if (retryFirstChunk("Speech synthesis errored before first chunk started")) {
                         return;
                     }
                     if (import.meta.env.DEV) {
@@ -477,24 +762,17 @@ export const useVoicePlayback = ({
                             !isStoppingRef.current &&
                             !firstChunkStarted
                         ) {
-                            if (!recoveredFirstChunk) {
-                                recoveredFirstChunk = true;
-                                if (import.meta.env.DEV) {
-                                    console.warn("[VoiceMode] First utterance did not start; retrying with fallback voice.");
-                                }
-                                if (synthesisRef.current?.speaking || synthesisRef.current?.pending) {
-                                    synthesisRef.current.cancel();
-                                }
-                                setTimeout(() => {
-                                    if (playbackIdRef.current !== playbackId || isStoppingRef.current) return;
-                                    speakChunk(false);
-                                }, 160);
+                            if (retryFirstChunk("First utterance did not start")) {
                                 return;
                             }
-                            setError("Voice did not start. Check tab/site sound and system output, then press Play again.");
+                            setError(
+                                isMobileBrowser
+                                    ? "Voice did not start on mobile. Turn off silent mode, raise media volume, then tap Play again."
+                                    : "Voice did not start. Check tab/site sound and system output, then press Play again."
+                            );
                             setStatus("error");
                         }
-                    }, 2000);
+                    }, speechStartTimeoutMs);
                 }
             };
 
@@ -508,20 +786,29 @@ export const useVoicePlayback = ({
                     return;
                 }
 
-                const usePreferredVoice = !(chunkIndex === 0 && recoveredFirstChunk);
+                const usePreferredVoice = !(chunkIndex === 0 && firstChunkRetryCount > 0);
                 speakChunk(usePreferredVoice);
             };
 
             speakNext();
             return true;
         },
-        [hasSpeechSynthesis, clearStartTimeout, refreshVoices, browserLang, preferredVoiceURI]
+        [
+            hasSpeechSynthesis,
+            clearStartTimeout,
+            refreshVoices,
+            browserLang,
+            preferredVoiceURI,
+            speechStartTimeoutMs,
+            maxSpeechStartRetries,
+            isMobileBrowser,
+        ]
     );
 
     const playWithRemoteAudio = useCallback(
         async (text, playbackId) => {
             if (
-                typeof remoteSynthesize !== "function" ||
+                typeof remoteStream !== "function" ||
                 !canPlayAudio ||
                 remotePlaybackDisabledRef.current
             ) {
@@ -534,54 +821,173 @@ export const useVoicePlayback = ({
             }
 
             const maxChars = Math.max(300, Number(maxRemoteChars || 2500));
-            const requestText = normalizedText.slice(0, maxChars);
-            setPlaybackEngine("elevenlabs");
-            setStatus("loading");
-
-            const payload = await remoteSynthesize(requestText);
-            if (playbackIdRef.current !== playbackId || isStoppingRef.current) {
-                return true;
-            }
-            remoteFailureCountRef.current = 0;
-
-            const audioBase64 = payload?.audioBase64;
-            if (!audioBase64 || typeof audioBase64 !== "string") {
-                throw new Error("ElevenLabs did not return audio data.");
+            const remoteChunks = buildRemoteChunkPlan(normalizedText, maxChars);
+            if (remoteChunks.length === 0) {
+                return false;
             }
 
-            const audioBlob = decodeBase64Audio(audioBase64, payload?.mimeType || "audio/mpeg");
-            clearActiveAudio();
-            const objectUrl = URL.createObjectURL(audioBlob);
-            activeAudioUrlRef.current = objectUrl;
+            const resolveStreamUrlFromPayload = (payload) => {
+                const directUrl = String(payload?.streamUrl || payload?.audioUrl || "").trim();
+                if (directUrl) return directUrl;
 
-            const audio = new window.Audio(objectUrl);
-            activeAudioRef.current = audio;
-            audio.preload = "auto";
-
-            audio.onplay = () => {
-                if (playbackIdRef.current !== playbackId || isStoppingRef.current) return;
-                setStatus("playing");
-            };
-            audio.onpause = () => {
-                if (playbackIdRef.current !== playbackId || isStoppingRef.current) return;
-                if (!audio.ended) {
-                    setStatus("paused");
+                const streamToken = String(payload?.streamToken || payload?.token || "").trim();
+                if (!streamToken || !convexHttpBaseUrl) {
+                    throw new Error("AI voice provider did not return a stream URL.");
                 }
-            };
-            audio.onended = () => {
-                if (playbackIdRef.current !== playbackId) return;
-                setStatus("idle");
-            };
-            audio.onerror = () => {
-                if (playbackIdRef.current !== playbackId) return;
-                setError("Voice playback failed. Please try again.");
-                setStatus("error");
+
+                return `${convexHttpBaseUrl}/voice/stream?token=${encodeURIComponent(streamToken)}`;
             };
 
-            await audio.play();
-            return true;
+            const resolveChunkPayload = async (
+                chunkText,
+                preferredPayloadPromise = null,
+                consumeQuota = false,
+            ) => {
+                let payload = preferredPayloadPromise
+                    ? await preferredPayloadPromise
+                    : null;
+                if (!payload) {
+                    payload = await remoteStream(chunkText, { consumeQuota });
+                }
+                if (playbackIdRef.current !== playbackId || isStoppingRef.current) {
+                    return null;
+                }
+
+                remoteFailureCountRef.current = 0;
+                return {
+                    streamUrl: resolveStreamUrlFromPayload(payload),
+                };
+            };
+
+            const playChunkAtIndex = async (
+                chunkIndex,
+                preferredPayloadPromise = null,
+                consumeQuota = false,
+            ) => {
+                const chunkText = remoteChunks[chunkIndex];
+                const payload = await resolveChunkPayload(
+                    chunkText,
+                    preferredPayloadPromise,
+                    consumeQuota,
+                );
+                if (!payload) {
+                    return true;
+                }
+
+                const nextChunkIndex = chunkIndex + 1;
+                const hasNextChunk = nextChunkIndex < remoteChunks.length;
+                const nextChunkText = hasNextChunk ? remoteChunks[nextChunkIndex] : "";
+                const nextPayloadPromise = hasNextChunk
+                    ? remoteStream(nextChunkText, { consumeQuota: false })
+                        .then((nextPayload) => ({ ok: true, payload: nextPayload }))
+                        .catch((nextError) => ({ ok: false, error: nextError }))
+                    : null;
+
+                const streamUrl = payload.streamUrl;
+                const sourceUrl = isMobileBrowser
+                    ? await fetchRemoteAudioBlobUrl(streamUrl)
+                    : streamUrl;
+
+                clearActiveAudio();
+                if (isMobileBrowser) {
+                    activeAudioObjectUrlRef.current = sourceUrl;
+                }
+                const audio = createAudioElement(sourceUrl);
+                if (!audio) {
+                    throw new Error("Audio playback is unavailable right now.");
+                }
+                activeAudioRef.current = audio;
+                audio.preload = "auto";
+                audio.playsInline = true;
+                audio.crossOrigin = "anonymous";
+
+                audio.onplay = () => {
+                    if (playbackIdRef.current !== playbackId || isStoppingRef.current) return;
+                    setStatus("playing");
+                };
+                audio.onpause = () => {
+                    if (playbackIdRef.current !== playbackId || isStoppingRef.current) return;
+                    if (!audio.ended) {
+                        setStatus("paused");
+                    }
+                };
+                audio.onended = () => {
+                    if (playbackIdRef.current !== playbackId || isStoppingRef.current) return;
+                    if (!hasNextChunk) {
+                        setStatus("idle");
+                        return;
+                    }
+
+                    setStatus("loading");
+                    void (async () => {
+                        let preferredNextPromise = null;
+                        if (nextPayloadPromise) {
+                            const nextResult = await nextPayloadPromise;
+                            if (!nextResult?.ok) {
+                                throw nextResult?.error || new Error("AI voice prefetch failed.");
+                            }
+                            preferredNextPromise = Promise.resolve(nextResult.payload);
+                        }
+                        await playChunkAtIndex(nextChunkIndex, preferredNextPromise, false);
+                    })().catch((chunkError) => {
+                        if (playbackIdRef.current !== playbackId || isStoppingRef.current) return;
+                        clearRemotePrefetch();
+                        setError(formatRemotePlaybackError(chunkError));
+                        setStatus("error");
+                    });
+                };
+                audio.onerror = () => {
+                    if (playbackIdRef.current !== playbackId) return;
+                    setError("Voice playback failed. Please try again.");
+                    setStatus("error");
+                };
+
+                try {
+                    await audio.play();
+                } catch (playError) {
+                    const playMessage = normalizeRemotePlaybackErrorMessage(playError);
+                    if (isLikelyAutoplayPolicyErrorMessage(playMessage)) {
+                        unlockAudioOutput();
+                        await new Promise((resolve) => setTimeout(resolve, 80));
+                        await audio.play();
+                    } else {
+                        throw playError;
+                    }
+                }
+                return true;
+            };
+
+            const firstChunkText = remoteChunks[0];
+            const firstChunkKey = `${maxChars}:${firstChunkText}`;
+            const hasPrefetchedFirstChunk = remotePrefetchRef.current.chunkKey === firstChunkKey;
+            const prefetchedFirstChunkPromise = hasPrefetchedFirstChunk
+                ? (
+                    remotePrefetchRef.current.payload
+                        ? Promise.resolve(remotePrefetchRef.current.payload)
+                        : remotePrefetchRef.current.payloadPromise
+                )
+                : null;
+
+            setPlaybackEngine("remote");
+            setStatus("loading");
+            const started = await playChunkAtIndex(0, prefetchedFirstChunkPromise, true);
+            if (hasPrefetchedFirstChunk) {
+                clearRemotePrefetch();
+            }
+            return started;
         },
-        [remoteSynthesize, canPlayAudio, maxRemoteChars, decodeBase64Audio, clearActiveAudio]
+        [
+            remoteStream,
+            canPlayAudio,
+            maxRemoteChars,
+            convexHttpBaseUrl,
+            clearActiveAudio,
+            clearRemotePrefetch,
+            formatRemotePlaybackError,
+            fetchRemoteAudioBlobUrl,
+            isMobileBrowser,
+            unlockAudioOutput,
+        ]
     );
 
     const play = useCallback(
@@ -603,7 +1009,10 @@ export const useVoicePlayback = ({
             isStoppingRef.current = false;
             setError(null);
             clearStartTimeout();
+            clearRemotePrefetch();
             clearActiveAudio();
+            unlockAudioOutput();
+            unlockSpeechSynthesisOutput();
 
             if (hasSpeechSynthesis && synthesisRef.current) {
                 if (synthesisRef.current.paused) {
@@ -615,7 +1024,7 @@ export const useVoicePlayback = ({
             }
 
             if (
-                typeof remoteSynthesize === "function" &&
+                typeof remoteStream === "function" &&
                 canPlayAudio &&
                 !remotePlaybackDisabledRef.current
             ) {
@@ -624,6 +1033,25 @@ export const useVoicePlayback = ({
                     if (remoteStarted) return true;
                 } catch (remoteError) {
                     const remoteMessage = formatRemotePlaybackError(remoteError);
+                    if (isVoiceQuotaExceededMessage(remoteMessage)) {
+                        remotePlaybackDisabledRef.current = true;
+                        setError(remoteMessage);
+                        setStatus("error");
+                        return false;
+                    }
+
+                    if (isLikelyAutoplayPolicyErrorMessage(remoteMessage)) {
+                        setError("Audio was blocked by your mobile browser. Tap Play again.");
+                        setStatus("error");
+                        return false;
+                    }
+
+                    if (isMobileBrowser) {
+                        setError(remoteMessage);
+                        setStatus("error");
+                        return false;
+                    }
+
                     if (!hasSpeechSynthesis || !synthesisRef.current) {
                         setError(remoteMessage);
                         setStatus("error");
@@ -639,7 +1067,7 @@ export const useVoicePlayback = ({
                     }
 
                     setError(null);
-                    console.warn("[VoiceMode] ElevenLabs playback failed. Falling back to browser voice.", {
+                    console.warn("[VoiceMode] AI voice playback failed. Falling back to browser voice.", {
                         remoteMessage,
                         disabledForSession: remotePlaybackDisabledRef.current,
                         failureCount: remoteFailureCountRef.current,
@@ -658,20 +1086,24 @@ export const useVoicePlayback = ({
         [
             isSupported,
             clearStartTimeout,
+            clearRemotePrefetch,
             clearActiveAudio,
             hasSpeechSynthesis,
             formatRemotePlaybackError,
-            remoteSynthesize,
+            remoteStream,
             canPlayAudio,
             playWithRemoteAudio,
             playWithSpeechSynthesis,
+            isMobileBrowser,
+            unlockAudioOutput,
+            unlockSpeechSynthesisOutput,
         ]
     );
 
     const pause = useCallback(() => {
         if (!isSupported) return false;
 
-        if (playbackEngine === "elevenlabs" && activeAudioRef.current) {
+        if (playbackEngine === "remote" && activeAudioRef.current) {
             if (!activeAudioRef.current.paused && !activeAudioRef.current.ended) {
                 activeAudioRef.current.pause();
                 setStatus("paused");
@@ -689,7 +1121,7 @@ export const useVoicePlayback = ({
     const resume = useCallback(() => {
         if (!isSupported) return false;
 
-        if (playbackEngine === "elevenlabs" && activeAudioRef.current) {
+        if (playbackEngine === "remote" && activeAudioRef.current) {
             if (!activeAudioRef.current.paused) return false;
             activeAudioRef.current.play()
                 .then(() => {
@@ -699,7 +1131,7 @@ export const useVoicePlayback = ({
                 })
                 .catch((resumeError) => {
                     if (import.meta.env.DEV) {
-                        console.warn("[VoiceMode] Failed to resume ElevenLabs playback", resumeError);
+                        console.warn("[VoiceMode] Failed to resume AI voice playback", resumeError);
                     }
                     setError("Voice playback failed. Please try again.");
                     setStatus("error");
@@ -723,9 +1155,18 @@ export const useVoicePlayback = ({
             if (hasSpeechSynthesis && synthesisRef.current) {
                 synthesisRef.current.cancel();
             }
+            const audioContext = audioUnlockRef.current.context;
+            if (audioContext && typeof audioContext.close === "function") {
+                audioContext.close().catch(() => undefined);
+            }
+            audioUnlockRef.current = {
+                unlocked: false,
+                context: null,
+            };
+            clearRemotePrefetch();
             clearActiveAudio();
         },
-        [isSupported, hasSpeechSynthesis, clearStartTimeout, clearActiveAudio]
+        [isSupported, hasSpeechSynthesis, clearStartTimeout, clearRemotePrefetch, clearActiveAudio]
     );
 
     return {
@@ -743,6 +1184,7 @@ export const useVoicePlayback = ({
         selectedVoiceURI: preferredVoiceURI,
         selectedVoiceName,
         setVoicePreference,
+        primeVoicePlayback: primeRemotePlayback,
     };
 };
 
