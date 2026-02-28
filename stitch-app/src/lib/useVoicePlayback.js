@@ -198,6 +198,12 @@ const createAudioElement = (src) => {
     return audio;
 };
 
+// Tiny silent WAV (44 bytes of silence) as a base64 data URI.
+// Playing this immediately on user tap "unlocks" HTMLAudioElement.play()
+// on mobile browsers that gate playback behind a user gesture.
+const SILENT_AUDIO_DATA_URI =
+    "data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQAAAAA=";
+
 export const useVoicePlayback = ({
     remoteStream = null,
     maxRemoteChars = 900,
@@ -219,6 +225,7 @@ export const useVoicePlayback = ({
         unlocked: false,
         context: null,
     });
+    const warmupAudioRef = useRef(null);
 
     const canPlayAudio = useMemo(() => canCreateAudioElement(), []);
     const isSupported = useMemo(() => {
@@ -279,6 +286,23 @@ export const useVoicePlayback = ({
             payloadPromise: null,
         };
     }, []);
+
+    const warmupAudioElement = useCallback(() => {
+        if (!canPlayAudio || typeof window === "undefined") return;
+        try {
+            const audio = createAudioElement(SILENT_AUDIO_DATA_URI);
+            if (!audio) return;
+            audio.playsInline = true;
+            audio.volume = 0.01;
+            warmupAudioRef.current = audio;
+            const playPromise = audio.play();
+            if (playPromise && typeof playPromise.then === "function") {
+                playPromise.catch(() => undefined);
+            }
+        } catch {
+            // Ignore warm-up failures.
+        }
+    }, [canPlayAudio]);
 
     const unlockAudioOutput = useCallback(() => {
         if (!canPlayAudio || typeof window === "undefined") return;
@@ -601,6 +625,7 @@ export const useVoicePlayback = ({
             clearRemotePrefetch();
             clearActiveAudio();
             unlockAudioOutput();
+            warmupAudioElement();
 
             try {
                 const remoteStarted = await playWithRemoteAudio(inputText, playbackId);
@@ -662,6 +687,7 @@ export const useVoicePlayback = ({
             playWithRemoteAudio,
             isMobileBrowser,
             unlockAudioOutput,
+            warmupAudioElement,
         ]
     );
 
@@ -709,6 +735,10 @@ export const useVoicePlayback = ({
             };
             clearRemotePrefetch();
             clearActiveAudio();
+            if (warmupAudioRef.current) {
+                try { warmupAudioRef.current.pause(); } catch { /* ignore */ }
+                warmupAudioRef.current = null;
+            }
         },
         [isSupported, clearRemotePrefetch, clearActiveAudio]
     );
