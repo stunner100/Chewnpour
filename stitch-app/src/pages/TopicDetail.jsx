@@ -9,6 +9,7 @@ import TopicSettingsModal from '../components/TopicSettingsModal';
 import TopicReExplainModal from '../components/TopicReExplainModal';
 import TopicSidebar from '../components/TopicSidebar';
 import TopicNotesPanel from '../components/TopicNotesPanel';
+import TopicChatPanel from '../components/TopicChatPanel';
 import HighlightExplainPopover from '../components/HighlightExplainPopover';
 import { useTextSelection } from '../hooks/useTextSelection';
 import {
@@ -120,6 +121,10 @@ const TopicDetail = () => {
     const [showScrollTop, setShowScrollTop] = useState(false);
     const [notesOpen, setNotesOpen] = useState(false);
     const [notesAppendText, setNotesAppendText] = useState('');
+    const [chatOpen, setChatOpen] = useState(false);
+
+    const openNotes = useCallback(() => { setChatOpen(false); setNotesOpen(true); }, []);
+    const openChat = useCallback(() => { setNotesOpen(false); setChatOpen(true); }, []);
     const contentRef = useRef(null);
     const essayTopUpMarkerRef = useRef('');
     const { selection, clearSelection } = useTextSelection(contentRef);
@@ -691,7 +696,7 @@ const TopicDetail = () => {
                     </Link>
                 </div>
             </header>
-            <main className={`flex-1 w-full mx-auto px-4 md:px-6 lg:px-10 pt-20 md:pt-24 pb-20 md:pb-8 lg:pt-28 lg:pb-12 ${readingMode ? 'max-w-4xl' : 'max-w-[1440px]'} transition-[margin] duration-200 ${notesOpen ? 'md:mr-80' : ''}`}>
+            <main className={`flex-1 w-full mx-auto px-4 md:px-6 lg:px-10 pt-20 md:pt-24 pb-20 md:pb-8 lg:pt-28 lg:pb-12 ${readingMode ? 'max-w-4xl' : 'max-w-[1440px]'} transition-[margin] duration-200 ${notesOpen || chatOpen ? 'md:mr-80' : ''}`}>
                 <div className={`grid grid-cols-1 ${readingMode ? '' : 'lg:grid-cols-12'} gap-8 lg:gap-12`}>
                     <div ref={contentRef} className={`${readingMode ? '' : 'lg:col-span-9'} space-y-8`}>
                         <div className="bg-surface-light dark:bg-surface-dark rounded-2xl md:rounded-3xl p-5 md:p-8 lg:p-10 shadow-card border border-neutral-100 dark:border-neutral-800 relative">
@@ -1000,10 +1005,21 @@ const TopicDetail = () => {
                 </div>
             </main>
 
-            {/* Notes floating button */}
-            {user && !notesOpen && (
+            {/* AI Tutor floating button */}
+            {user && !chatOpen && !notesOpen && (
                 <button
-                    onClick={() => setNotesOpen(true)}
+                    onClick={openChat}
+                    className="fixed bottom-20 right-[4.5rem] z-30 w-11 h-11 rounded-full bg-primary text-white shadow-lg shadow-primary/30 flex items-center justify-center hover:scale-105 active:scale-95 transition-transform"
+                    aria-label="Open AI tutor"
+                >
+                    <span className="material-symbols-outlined text-xl">smart_toy</span>
+                </button>
+            )}
+
+            {/* Notes floating button */}
+            {user && !notesOpen && !chatOpen && (
+                <button
+                    onClick={openNotes}
                     className="fixed bottom-20 right-6 z-30 w-11 h-11 rounded-full bg-amber-500 text-white shadow-lg shadow-amber-500/30 flex items-center justify-center hover:scale-105 active:scale-95 transition-transform"
                     aria-label="Open notes"
                 >
@@ -1011,7 +1027,7 @@ const TopicDetail = () => {
                 </button>
             )}
 
-            {showScrollTop && !notesOpen && (
+            {showScrollTop && !notesOpen && !chatOpen && (
                 <button
                     onClick={scrollToTop}
                     className="fixed bottom-6 right-6 z-30 w-11 h-11 rounded-full bg-primary text-white shadow-lg shadow-primary/30 flex items-center justify-center hover:scale-105 active:scale-95 transition-transform"
@@ -1029,6 +1045,14 @@ const TopicDetail = () => {
                 appendText={notesAppendText}
             />
 
+            {/* AI Tutor chat panel */}
+            <TopicChatPanel
+                topicId={topicId}
+                topicTitle={topic?.title || ''}
+                open={chatOpen}
+                onClose={() => setChatOpen(false)}
+            />
+
             {/* Highlight explain popover */}
             {selection && (
                 <HighlightExplainPopover
@@ -1037,7 +1061,7 @@ const TopicDetail = () => {
                     onClose={clearSelection}
                     onCopyToNotes={(text) => {
                         setNotesAppendText(text);
-                        setNotesOpen(true);
+                        openNotes();
                         clearSelection();
                     }}
                 />

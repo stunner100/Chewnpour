@@ -158,6 +158,15 @@ export default defineSchema({
         updatedAt: v.number(),
     }).index("by_userId_topicId", ["userId", "topicId"]),
 
+    // AI tutor chat messages per topic
+    topicChatMessages: defineTable({
+        userId: v.string(),
+        topicId: v.id("topics"),
+        role: v.string(), // 'user' | 'assistant'
+        content: v.string(),
+        createdAt: v.number(),
+    }).index("by_userId_topicId", ["userId", "topicId"]),
+
     // User feedback submissions
     feedback: defineTable({
         userId: v.string(),
@@ -165,6 +174,12 @@ export default defineSchema({
         message: v.optional(v.string()),
         createdAt: v.number(),
     }).index("by_userId", ["userId"]),
+
+    adminAccess: defineTable({
+        email: v.string(),
+        addedByUserId: v.string(),
+        createdAt: v.number(),
+    }).index("by_email", ["email"]),
 
     paymentTransactions: defineTable({
         userId: v.string(),
