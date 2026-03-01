@@ -1,0 +1,1167 @@
+import { mutation, query } from "./_generated/server";
+import { v } from "convex/values";
+import { components } from "./_generated/api";
+
+const DAY_MS = 24 * 60 * 60 * 1000;
+const NEW_USER_WINDOW_DAYS = 7;
+const ACTIVE_USER_WINDOW_DAYS = 7;
+const RECENT_USERS_LIMIT = 20;
+const RECENT_FEEDBACK_LIMIT = 100;
+const BOOTSTRAP_ADMIN_EMAILS = ["patrickannor35@gmail.com"];
+const BETTER_AUTH_PAGE_SIZE = 200;
+const BETTER_AUTH_MAX_PAGES = 60;
+const BETTER_AUTH_USER_CHUNK_SIZE = 100;
+
+const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/i;
+
+const parseCommaSeparated = (value: string | undefined, transform?: (item: string) => string) => {
+    if (!value) return [];
+    return value
+        .split(",")
+        .map((item) => item.trim())
+        .filter(Boolean)
+        .map((item) => (transform ? transform(item) : item));
+};
+
+const parseConfiguredAdminEmails = () =>
+    new Set(parseCommaSeparated(process.env.ADMIN_EMAILS, (item) => item.toLowerCase()));
+
+const parseConfiguredAdminUserIds = () =>
+    new Set(parseCommaSeparated(process.env.ADMIN_USER_IDS));
+
+const resolveAuthUserId = (identity: any) => {
+    if (!identity || typeof identity !== "object") return "";
+    const candidates = [
+        identity.subject,
+        identity.userId,
+        identity.id,
+        identity.tokenIdentifier,
+    ];
+
+    for (const candidate of candidates) {
+        if (typeof candidate === "string" && candidate.trim()) {
+            return candidate.trim();
+        }
+    }
+
+    return "";
+};
+
+const normalizeEmail = (value: unknown) =>
+    typeof value === "string" && value.trim()
+        ? value.trim().toLowerCase()
+        : "";
+
+const normalizeFeedbackMessage = (value: unknown) =>
+    typeof value === "string"
+        ? value.trim()
+        : "";
+
+const isValidEmail = (value: string) => EMAIL_PATTERN.test(value);
+
+const toTimestamp = (value: unknown, fallback: number) => {
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : fallback;
+};
+
+const normalizeUploadStatus = (value: unknown) => {
+    const normalized = String(value || "").trim().toLowerCase();
+    if (normalized === "ready" || normalized === "processing" || normalized === "error") {
+        return normalized;
+    }
+    return "other";
+};
+
+const normalizeFileExtension = (fileName: unknown) => {
+    if (typeof fileName !== "string") return "";
+    const trimmed = fileName.trim().toLowerCase();
+    if (!trimmed) return "";
+    const lastDotIndex = trimmed.lastIndexOf(".");
+    if (lastDotIndex <= 0 || lastDotIndex >= trimmed.length - 1) return "";
+    const extension = trimmed.slice(lastDotIndex + 1).replace(/[^a-z0-9]/g, "");
+    return extension || "";
+};
+
+const normalizeUploadFileType = (fileType: unknown, fileName?: unknown) => {
+    const normalizedFileType = typeof fileType === "string" ? fileType.trim().toLowerCase() : "";
+
+    if (normalizedFileType) {
+        if (normalizedFileType.includes("pdf")) return "pdf";
+        if (
+            normalizedFileType.includes("wordprocessingml")
+            || normalizedFileType.includes("msword")
+            || normalizedFileType === "doc"
+            || normalizedFileType === "docx"
+        ) {
+            return "docx";
+        }
+        if (
+            normalizedFileType.includes("presentationml")
+            || normalizedFileType.includes("powerpoint")
+            || normalizedFileType === "ppt"
+            || normalizedFileType === "pptx"
+        ) {
+            return "pptx";
+        }
+        if (normalizedFileType.startsWith("image/") || normalizedFileType === "image") return "image";
+        if (normalizedFileType.includes("text/plain") || normalizedFileType === "txt") return "txt";
+        if (normalizedFileType.includes("zip") || normalizedFileType === "zip") return "zip";
+        if (/^[a-z0-9]+$/.test(normalizedFileType) && normalizedFileType.length <= 16) {
+            return normalizedFileType;
+        }
+    }
+
+    const extension = normalizeFileExtension(fileName);
+    if (!extension) return "unknown";
+
+    if (extension === "jpeg" || extension === "jpg" || extension === "png" || extension === "gif" || extension === "webp" || extension === "heic" || extension === "heif" || extension === "bmp" || extension === "svg") {
+        return "image";
+    }
+    if (extension === "doc") return "docx";
+    if (extension === "ppt") return "pptx";
+    if (extension === "text") return "txt";
+    if (extension.length <= 16) return extension;
+    return "unknown";
+};
+
+const incrementMap = (map: Map<string, number>, key: string, amount = 1) => {
+    map.set(key, (map.get(key) || 0) + amount);
+};
+
+const updateMaxTimestamp = (map: Map<string, number>, key: string, timestampMs: number) => {
+    const previous = map.get(key) || 0;
+    if (timestampMs > previous) {
+        map.set(key, timestampMs);
+    }
+};
+
+const markActiveWindow = (
+    userId: string,
+    timestampMs: number,
+    sevenDaysAgo: number,
+    fourteenDaysAgo: number,
+    activeUsersLastWindow: Set<string>,
+    activeUsersPrevWindow: Set<string>
+) => {
+    if (!userId) return;
+    if (timestampMs >= sevenDaysAgo) {
+        activeUsersLastWindow.add(userId);
+        return;
+    }
+    if (timestampMs >= fourteenDaysAgo) {
+        activeUsersPrevWindow.add(userId);
+    }
+};
+
+const normalizeSessionUserId = (session: any) =>
+    String(session?.userId || "").trim();
+
+const normalizeAuthUserId = (user: any) =>
+    String(user?.id || "").trim();
+
+const chunkArray = <T>(items: T[], chunkSize: number) => {
+    const safeChunkSize = Math.max(1, Math.floor(chunkSize));
+    const chunks: T[][] = [];
+    for (let index = 0; index < items.length; index += safeChunkSize) {
+        chunks.push(items.slice(index, index + safeChunkSize));
+    }
+    return chunks;
+};
+
+const fetchBetterAuthRows = async (
+    ctx: any,
+    params: {
+        model: "user" | "session";
+        where?: Array<Record<string, unknown>>;
+        sortBy?: { field: string; direction: "asc" | "desc" };
+        pageSize?: number;
+        maxPages?: number;
+    }
+) => {
+    const pageSize = Math.max(
+        1,
+        Math.min(200, Math.floor(Number(params.pageSize) || BETTER_AUTH_PAGE_SIZE))
+    );
+    const maxPages = Math.max(1, Math.floor(Number(params.maxPages) || BETTER_AUTH_MAX_PAGES));
+    const rows: any[] = [];
+    let cursor: string | null = null;
+
+    for (let pageIndex = 0; pageIndex < maxPages; pageIndex += 1) {
+        const result = await ctx.runQuery(components.betterAuth.adapter.findMany, {
+            model: params.model,
+            where: params.where,
+            sortBy: params.sortBy,
+            paginationOpts: {
+                cursor,
+                numItems: pageSize,
+            },
+        });
+
+        const pageRows = Array.isArray(result?.page) ? result.page : [];
+        rows.push(...pageRows);
+
+        if (result?.isDone) {
+            return { rows, truncated: false };
+        }
+
+        const nextCursor =
+            typeof result?.continueCursor === "string" ? result.continueCursor : null;
+        if (!nextCursor || nextCursor === cursor) {
+            return { rows, truncated: true };
+        }
+        cursor = nextCursor;
+    }
+
+    return { rows, truncated: true };
+};
+
+const fetchAuthUsersByIds = async (ctx: any, userIds: string[]) => {
+    const normalizedIds = Array.from(
+        new Set(
+            userIds
+                .map((userId) => String(userId || "").trim())
+                .filter(Boolean)
+        )
+    );
+    if (normalizedIds.length === 0) return [];
+
+    const usersById = new Map<string, any>();
+    const idChunks = chunkArray(normalizedIds, BETTER_AUTH_USER_CHUNK_SIZE);
+
+    for (const idChunk of idChunks) {
+        const result = await ctx.runQuery(components.betterAuth.adapter.findMany, {
+            model: "user",
+            where: [{ field: "id", operator: "in", value: idChunk }],
+            paginationOpts: {
+                cursor: null,
+                numItems: idChunk.length,
+            },
+        });
+
+        const pageRows = Array.isArray(result?.page) ? result.page : [];
+        for (const authUser of pageRows) {
+            const authUserId = normalizeAuthUserId(authUser);
+            if (!authUserId) continue;
+            usersById.set(authUserId, authUser);
+        }
+    }
+
+    return normalizedIds
+        .map((userId) => usersById.get(userId))
+        .filter((authUser): authUser is NonNullable<typeof authUser> => Boolean(authUser));
+};
+
+const buildAccessDeniedPayload = (
+    reason: "unauthenticated" | "forbidden" | "not_configured",
+    identity: any
+) => ({
+    allowed: false as const,
+    reason,
+    signedInAs: {
+        userId: resolveAuthUserId(identity) || null,
+        email: normalizeEmail(identity?.email) || null,
+    },
+});
+
+const buildAdminEmailSourceMap = async (ctx: any) => {
+    const map = new Map<string, Set<"bootstrap" | "env" | "db">>();
+
+    const addEmail = (rawEmail: unknown, source: "bootstrap" | "env" | "db") => {
+        const normalizedEmail = normalizeEmail(rawEmail);
+        if (!normalizedEmail) return;
+        const existing = map.get(normalizedEmail) || new Set();
+        existing.add(source);
+        map.set(normalizedEmail, existing);
+    };
+
+    for (const email of BOOTSTRAP_ADMIN_EMAILS) {
+        addEmail(email, "bootstrap");
+    }
+    for (const email of parseConfiguredAdminEmails()) {
+        addEmail(email, "env");
+    }
+
+    const dynamicAdminRows = await ctx.db.query("adminAccess").collect();
+    for (const row of dynamicAdminRows) {
+        addEmail(row.email, "db");
+    }
+
+    return map;
+};
+
+const listAdminEmailsFromMap = (sourceMap: Map<string, Set<"bootstrap" | "env" | "db">>) =>
+    [...sourceMap.entries()]
+        .map(([email, sources]) => ({
+            email,
+            sources: [...sources].sort(),
+        }))
+        .sort((left, right) => left.email.localeCompare(right.email));
+
+const resolveAdminAccess = async (ctx: any, identity: any) => {
+    const authUserId = resolveAuthUserId(identity);
+    const authEmail = normalizeEmail(identity?.email);
+    const adminUserIdAllowlist = parseConfiguredAdminUserIds();
+    const adminEmailSourceMap = await buildAdminEmailSourceMap(ctx);
+    const adminEmails = listAdminEmailsFromMap(adminEmailSourceMap);
+    const allowlistConfigured = adminUserIdAllowlist.size > 0 || adminEmailSourceMap.size > 0;
+    const isAllowed = Boolean(
+        authUserId
+        && allowlistConfigured
+        && (
+            adminUserIdAllowlist.has(authUserId)
+            || (authEmail && adminEmailSourceMap.has(authEmail))
+        )
+    );
+
+    return {
+        authUserId,
+        authEmail,
+        adminUserIdAllowlist,
+        adminEmailSourceMap,
+        adminEmails,
+        allowlistConfigured,
+        isAllowed,
+    };
+};
+
+const requireAdminAccess = async (ctx: any) => {
+    const identity = await ctx.auth.getUserIdentity().catch(() => null);
+    const access = await resolveAdminAccess(ctx, identity);
+
+    if (!access.authUserId) {
+        return { denied: true as const, payload: buildAccessDeniedPayload("unauthenticated", identity) };
+    }
+    if (!access.allowlistConfigured) {
+        return { denied: true as const, payload: buildAccessDeniedPayload("not_configured", identity) };
+    }
+    if (!access.isAllowed) {
+        return { denied: true as const, payload: buildAccessDeniedPayload("forbidden", identity) };
+    }
+
+    return {
+        denied: false as const,
+        identity,
+        access,
+    };
+};
+
+export const addAdminEmail = mutation({
+    args: { email: v.string() },
+    handler: async (ctx, args) => {
+        const adminGuard = await requireAdminAccess(ctx);
+        if (adminGuard.denied) {
+            throw new Error("Admin access required.");
+        }
+
+        const email = normalizeEmail(args.email);
+        if (!email || !isValidEmail(email)) {
+            throw new Error("Provide a valid email address.");
+        }
+
+        const existing = await ctx.db
+            .query("adminAccess")
+            .withIndex("by_email", (q) => q.eq("email", email))
+            .first();
+        if (existing) {
+            return { ok: true, alreadyExisted: true, email };
+        }
+
+        await ctx.db.insert("adminAccess", {
+            email,
+            addedByUserId: adminGuard.access.authUserId,
+            createdAt: Date.now(),
+        });
+
+        return { ok: true, alreadyExisted: false, email };
+    },
+});
+
+export const removeAdminEmail = mutation({
+    args: { email: v.string() },
+    handler: async (ctx, args) => {
+        const adminGuard = await requireAdminAccess(ctx);
+        if (adminGuard.denied) {
+            throw new Error("Admin access required.");
+        }
+
+        const email = normalizeEmail(args.email);
+        if (!email || !isValidEmail(email)) {
+            throw new Error("Provide a valid email address.");
+        }
+
+        const bootstrapEmails = new Set(BOOTSTRAP_ADMIN_EMAILS.map((entry) => normalizeEmail(entry)));
+        if (bootstrapEmails.has(email)) {
+            throw new Error("This bootstrap admin email cannot be removed.");
+        }
+
+        const configuredAdminEmails = parseConfiguredAdminEmails();
+        if (configuredAdminEmails.has(email)) {
+            throw new Error("This admin email is managed via ADMIN_EMAILS env and cannot be removed here.");
+        }
+
+        const existing = await ctx.db
+            .query("adminAccess")
+            .withIndex("by_email", (q) => q.eq("email", email))
+            .first();
+        if (!existing) {
+            return { ok: true, removed: false, email };
+        }
+
+        await ctx.db.delete(existing._id);
+        return { ok: true, removed: true, email };
+    },
+});
+
+export const getDashboardSnapshot = query({
+    args: {},
+    handler: async (ctx) => {
+        const identity = await ctx.auth.getUserIdentity().catch(() => null);
+        const access = await resolveAdminAccess(ctx, identity);
+
+        if (!access.authUserId) {
+            return buildAccessDeniedPayload("unauthenticated", identity);
+        }
+        if (!access.allowlistConfigured) {
+            return buildAccessDeniedPayload("not_configured", identity);
+        }
+        if (!access.isAllowed) {
+            return buildAccessDeniedPayload("forbidden", identity);
+        }
+
+        const [profiles, uploads, assignmentThreads, examAttempts, conceptAttempts, feedbackEntries, activeSessionsResult, subscriptions, paymentTransactions, courses, topics, humanizerUsage] =
+            await Promise.all([
+                ctx.db.query("profiles").collect(),
+                ctx.db.query("uploads").collect(),
+                ctx.db.query("assignmentThreads").collect(),
+                ctx.db.query("examAttempts").collect(),
+                ctx.db.query("conceptAttempts").collect(),
+                ctx.db.query("feedback").collect(),
+                fetchBetterAuthRows(ctx, {
+                    model: "session",
+                    where: [{ field: "expiresAt", operator: "gt", value: Date.now() }],
+                    sortBy: { field: "updatedAt", direction: "desc" },
+                }),
+                ctx.db.query("subscriptions").collect(),
+                ctx.db.query("paymentTransactions").collect(),
+                ctx.db.query("courses").collect(),
+                ctx.db.query("topics").collect(),
+                ctx.db.query("humanizerUsage").collect(),
+            ]);
+
+        const activeSessions = activeSessionsResult.rows;
+
+        const now = Date.now();
+        const sevenDaysAgo = now - ACTIVE_USER_WINDOW_DAYS * DAY_MS;
+        const fourteenDaysAgo = now - (ACTIVE_USER_WINDOW_DAYS + NEW_USER_WINDOW_DAYS) * DAY_MS;
+
+        const activeUsersLastWindow = new Set<string>();
+        const activeUsersPrevWindow = new Set<string>();
+        const feedbackCountByUser = new Map<string, number>();
+        const docsProcessedByUser = new Map<string, number>();
+        const lastActivityByUser = new Map<string, number>();
+        const uploadChannelStats = new Map<string, {
+            total: number;
+            ready: number;
+            processing: number;
+            error: number;
+            other: number;
+        }>();
+        const uploadFileTypeCounts = new Map<string, number>();
+        const uploadStatsByUser = new Map<string, {
+            totalUploads: number;
+            studyUploads: number;
+            assignmentUploads: number;
+            readyUploads: number;
+            processingUploads: number;
+            errorUploads: number;
+            otherUploads: number;
+        }>();
+
+        const ensureUploadChannelStats = (channelKey: string) => {
+            const existing = uploadChannelStats.get(channelKey);
+            if (existing) return existing;
+            const created = {
+                total: 0,
+                ready: 0,
+                processing: 0,
+                error: 0,
+                other: 0,
+            };
+            uploadChannelStats.set(channelKey, created);
+            return created;
+        };
+
+        const ensureUploadUserStats = (userId: string) => {
+            const existing = uploadStatsByUser.get(userId);
+            if (existing) return existing;
+            const created = {
+                totalUploads: 0,
+                studyUploads: 0,
+                assignmentUploads: 0,
+                readyUploads: 0,
+                processingUploads: 0,
+                errorUploads: 0,
+                otherUploads: 0,
+            };
+            uploadStatsByUser.set(userId, created);
+            return created;
+        };
+
+        const applyStatusCounters = (
+            counters: {
+                total: number;
+                ready: number;
+                processing: number;
+                error: number;
+                other: number;
+            },
+            statusKey: string
+        ) => {
+            counters.total += 1;
+            if (statusKey === "ready") {
+                counters.ready += 1;
+                return;
+            }
+            if (statusKey === "processing") {
+                counters.processing += 1;
+                return;
+            }
+            if (statusKey === "error") {
+                counters.error += 1;
+                return;
+            }
+            counters.other += 1;
+        };
+
+        const recordUploadBreakdown = (args: {
+            userId: string;
+            channel: "study_materials" | "assignment_helper";
+            status: unknown;
+            fileType: unknown;
+            fileName?: unknown;
+        }) => {
+            const userId = String(args.userId || "").trim();
+            if (!userId) return;
+
+            const statusKey = normalizeUploadStatus(args.status);
+            const fileTypeKey = normalizeUploadFileType(args.fileType, args.fileName);
+
+            incrementMap(uploadFileTypeCounts, fileTypeKey);
+            applyStatusCounters(ensureUploadChannelStats(args.channel), statusKey);
+
+            const uploadUserStats = ensureUploadUserStats(userId);
+            uploadUserStats.totalUploads += 1;
+            if (args.channel === "study_materials") {
+                uploadUserStats.studyUploads += 1;
+            } else {
+                uploadUserStats.assignmentUploads += 1;
+            }
+            if (statusKey === "ready") {
+                uploadUserStats.readyUploads += 1;
+            } else if (statusKey === "processing") {
+                uploadUserStats.processingUploads += 1;
+            } else if (statusKey === "error") {
+                uploadUserStats.errorUploads += 1;
+            } else {
+                uploadUserStats.otherUploads += 1;
+            }
+        };
+
+        for (const upload of uploads) {
+            const userId = String(upload.userId || "").trim();
+            const timestampMs = toTimestamp(upload._creationTime, 0);
+            if (!userId) continue;
+            recordUploadBreakdown({
+                userId,
+                channel: "study_materials",
+                status: upload.status,
+                fileType: upload.fileType,
+                fileName: upload.fileName,
+            });
+            updateMaxTimestamp(lastActivityByUser, userId, timestampMs);
+            markActiveWindow(
+                userId,
+                timestampMs,
+                sevenDaysAgo,
+                fourteenDaysAgo,
+                activeUsersLastWindow,
+                activeUsersPrevWindow
+            );
+            if (upload.status === "ready") {
+                incrementMap(docsProcessedByUser, userId);
+            }
+        }
+
+        for (const thread of assignmentThreads) {
+            const userId = String(thread.userId || "").trim();
+            const timestampMs = toTimestamp(thread._creationTime, 0);
+            if (!userId) continue;
+            recordUploadBreakdown({
+                userId,
+                channel: "assignment_helper",
+                status: thread.status,
+                fileType: thread.fileType,
+                fileName: thread.fileName,
+            });
+            updateMaxTimestamp(lastActivityByUser, userId, timestampMs);
+            markActiveWindow(
+                userId,
+                timestampMs,
+                sevenDaysAgo,
+                fourteenDaysAgo,
+                activeUsersLastWindow,
+                activeUsersPrevWindow
+            );
+            if (thread.status === "ready") {
+                incrementMap(docsProcessedByUser, userId);
+            }
+        }
+
+        for (const attempt of examAttempts) {
+            const userId = String(attempt.userId || "").trim();
+            const timestampMs = toTimestamp(attempt._creationTime, 0);
+            if (!userId) continue;
+            updateMaxTimestamp(lastActivityByUser, userId, timestampMs);
+            markActiveWindow(
+                userId,
+                timestampMs,
+                sevenDaysAgo,
+                fourteenDaysAgo,
+                activeUsersLastWindow,
+                activeUsersPrevWindow
+            );
+        }
+
+        for (const attempt of conceptAttempts) {
+            const userId = String(attempt.userId || "").trim();
+            const timestampMs = toTimestamp(attempt._creationTime, 0);
+            if (!userId) continue;
+            updateMaxTimestamp(lastActivityByUser, userId, timestampMs);
+            markActiveWindow(
+                userId,
+                timestampMs,
+                sevenDaysAgo,
+                fourteenDaysAgo,
+                activeUsersLastWindow,
+                activeUsersPrevWindow
+            );
+        }
+
+        for (const entry of feedbackEntries) {
+            const userId = String(entry.userId || "").trim();
+            const timestampMs = toTimestamp(entry.createdAt, entry._creationTime);
+            if (!userId) continue;
+            incrementMap(feedbackCountByUser, userId);
+            updateMaxTimestamp(lastActivityByUser, userId, timestampMs);
+            markActiveWindow(
+                userId,
+                timestampMs,
+                sevenDaysAgo,
+                fourteenDaysAgo,
+                activeUsersLastWindow,
+                activeUsersPrevWindow
+            );
+        }
+
+        const profileByUserId = new Map(
+            profiles
+                .map((profile) => [String(profile.userId || "").trim(), profile] as const)
+                .filter(([userId]) => Boolean(userId))
+        );
+
+        // ── Exam Analytics ──
+        const examAttemptsLastWindow = examAttempts.filter((a) => a._creationTime >= sevenDaysAgo).length;
+        const mcqAttempts = examAttempts.filter((a) => a.examFormat === "mcq").length;
+        const essayAttempts = examAttempts.filter((a) => a.examFormat === "essay").length;
+
+        let examScoreSum = 0;
+        let examScoreCount = 0;
+        let examTimeSum = 0;
+        let examTimeCount = 0;
+        const examScoreBuckets = [0, 0, 0, 0, 0]; // 0-20, 21-40, 41-60, 61-80, 81-100
+        const examCountByUser = new Map<string, { count: number; scoreSum: number; scoreCount: number }>();
+
+        for (const attempt of examAttempts) {
+            const total = Number(attempt.totalQuestions || 0);
+            if (total > 0) {
+                const pct = (Number(attempt.score || 0) / total) * 100;
+                examScoreSum += pct;
+                examScoreCount += 1;
+                const bucketIdx = Math.min(Math.floor(pct / 20), 4);
+                examScoreBuckets[bucketIdx] += 1;
+            }
+            if (Number(attempt.timeTakenSeconds) > 0) {
+                examTimeSum += Number(attempt.timeTakenSeconds);
+                examTimeCount += 1;
+            }
+            const uid = String(attempt.userId || "").trim();
+            if (uid) {
+                const cur = examCountByUser.get(uid) || { count: 0, scoreSum: 0, scoreCount: 0 };
+                cur.count += 1;
+                if (total > 0) {
+                    cur.scoreSum += (Number(attempt.score || 0) / total) * 100;
+                    cur.scoreCount += 1;
+                }
+                examCountByUser.set(uid, cur);
+            }
+        }
+
+        const topExamUsersBase = [...examCountByUser.entries()]
+            .sort((a, b) => b[1].count - a[1].count)
+            .slice(0, 5)
+            .map(([userId, stats]) => {
+                const profile = profileByUserId.get(userId);
+                return {
+                    userId,
+                    fullName: profile?.fullName || null,
+                    attempts: stats.count,
+                    avgScore: stats.scoreCount > 0 ? Math.round((stats.scoreSum / stats.scoreCount) * 10) / 10 : 0,
+                };
+            });
+
+        const examAnalytics = {
+            totalAttempts: examAttempts.length,
+            attemptsLastWindow: examAttemptsLastWindow,
+            mcqAttempts,
+            essayAttempts,
+            averageScorePercent: examScoreCount > 0 ? Math.round((examScoreSum / examScoreCount) * 10) / 10 : 0,
+            averageTimeTakenSeconds: examTimeCount > 0 ? Math.round(examTimeSum / examTimeCount) : 0,
+            scoreDistribution: [
+                { label: "0-20%", count: examScoreBuckets[0] },
+                { label: "21-40%", count: examScoreBuckets[1] },
+                { label: "41-60%", count: examScoreBuckets[2] },
+                { label: "61-80%", count: examScoreBuckets[3] },
+                { label: "81-100%", count: examScoreBuckets[4] },
+            ],
+            topExamUsers: topExamUsersBase,
+        };
+
+        // ── Concept Analytics ──
+        const conceptAttemptsLastWindow = conceptAttempts.filter((a) => a._creationTime >= sevenDaysAgo).length;
+        let conceptScoreSum = 0;
+        let conceptScoreCount = 0;
+        let conceptTimeSum = 0;
+        let conceptTimeCount = 0;
+        for (const attempt of conceptAttempts) {
+            const total = Number(attempt.totalQuestions || 0);
+            if (total > 0) {
+                conceptScoreSum += (Number(attempt.score || 0) / total) * 100;
+                conceptScoreCount += 1;
+            }
+            if (Number(attempt.timeTakenSeconds) > 0) {
+                conceptTimeSum += Number(attempt.timeTakenSeconds);
+                conceptTimeCount += 1;
+            }
+        }
+
+        const conceptAnalytics = {
+            totalAttempts: conceptAttempts.length,
+            attemptsLastWindow: conceptAttemptsLastWindow,
+            averageScorePercent: conceptScoreCount > 0 ? Math.round((conceptScoreSum / conceptScoreCount) * 10) / 10 : 0,
+            averageTimeTakenSeconds: conceptTimeCount > 0 ? Math.round(conceptTimeSum / conceptTimeCount) : 0,
+        };
+
+        // ── Subscription Analytics ──
+        const planCounts = new Map<string, number>();
+        let totalPurchasedCredits = 0;
+        let totalConsumedCredits = 0;
+        let totalVoiceGenerations = 0;
+        for (const sub of subscriptions) {
+            const plan = String(sub.plan || "free");
+            planCounts.set(plan, (planCounts.get(plan) || 0) + 1);
+            totalPurchasedCredits += Number(sub.purchasedUploadCredits || 0);
+            totalConsumedCredits += Number(sub.consumedUploadCredits || 0);
+            totalVoiceGenerations += Number(sub.consumedVoiceGenerations || 0);
+        }
+        const totalSubs = subscriptions.length || 1;
+        const planBreakdown = [...planCounts.entries()]
+            .map(([plan, count]) => ({
+                plan,
+                count,
+                percent: Math.round((count / totalSubs) * 1000) / 10,
+            }))
+            .sort((a, b) => b.count - a.count);
+
+        const subscriptionAnalytics = {
+            planBreakdown,
+            totalPurchasedCredits,
+            totalConsumedCredits,
+            totalVoiceGenerations,
+        };
+
+        // ── Revenue Analytics ──
+        const successfulPayments = paymentTransactions.filter((t) => t.status === "success");
+        const failedPayments = paymentTransactions.filter((t) => t.status === "failed");
+        const totalRevenueMinor = successfulPayments.reduce((sum, t) => sum + Number(t.amountMinor || 0), 0);
+        const paymentsLastWindow = successfulPayments.filter((t) => {
+            const ts = Number(t.paidAt || t.createdAt || 0);
+            return ts >= sevenDaysAgo;
+        });
+        const revenueLastWindowMinor = paymentsLastWindow.reduce((sum, t) => sum + Number(t.amountMinor || 0), 0);
+        const totalPaymentAttempts = paymentTransactions.length;
+        const conversionRate = totalPaymentAttempts > 0
+            ? Math.round((successfulPayments.length / totalPaymentAttempts) * 1000) / 10
+            : 0;
+        const currency = successfulPayments.length > 0 ? successfulPayments[0].currency : "GHS";
+
+        const revenueAnalytics = {
+            totalSuccessfulPayments: successfulPayments.length,
+            totalRevenueMinor,
+            currency,
+            paymentsLastWindow: paymentsLastWindow.length,
+            revenueLastWindowMinor,
+            failedPayments: failedPayments.length,
+            conversionRate,
+        };
+
+        // ── Content Analytics ──
+        const completedCourses = courses.filter((c) => c.status === "completed").length;
+        const inProgressCourses = courses.filter((c) => c.status === "in_progress").length;
+        const examReadyTopics = topics.filter((t) => t.examReady).length;
+        const totalMcq = topics.reduce((sum, t) => sum + Number(t.usableMcqCount || 0), 0);
+        const totalEssay = topics.reduce((sum, t) => sum + Number(t.usableEssayCount || 0), 0);
+        const topicCount = topics.length || 1;
+
+        const contentAnalytics = {
+            totalCourses: courses.length,
+            completedCourses,
+            inProgressCourses,
+            totalTopics: topics.length,
+            examReadyTopics,
+            averageMcqPerTopic: Math.round((totalMcq / topicCount) * 10) / 10,
+            averageEssayPerTopic: Math.round((totalEssay / topicCount) * 10) / 10,
+        };
+
+        // ── Engagement Analytics ──
+        const onboardingCompletedCount = profiles.filter((p) => p.onboardingCompleted).length;
+        const onboardingCompletionRate = profiles.length > 0
+            ? Math.round((onboardingCompletedCount / profiles.length) * 1000) / 10
+            : 0;
+        const voiceModeEnabledCount = profiles.filter((p) => p.voiceModeEnabled).length;
+        let totalStreakDays = 0;
+        let streakCount = 0;
+        let totalStudyHoursSum = 0;
+        let studyHoursCount = 0;
+        for (const p of profiles) {
+            if (Number(p.streakDays) > 0) {
+                totalStreakDays += Number(p.streakDays);
+                streakCount += 1;
+            }
+            if (Number(p.totalStudyHours) > 0) {
+                totalStudyHoursSum += Number(p.totalStudyHours);
+                studyHoursCount += 1;
+            }
+        }
+        const totalHumanizerUsage = humanizerUsage.reduce((sum, h) => sum + Number(h.count || 0), 0);
+        const humanizerUsageLastWindow = humanizerUsage
+            .filter((h) => h._creationTime >= sevenDaysAgo)
+            .reduce((sum, h) => sum + Number(h.count || 0), 0);
+
+        const engagementAnalytics = {
+            onboardingCompletedCount,
+            onboardingCompletionRate,
+            voiceModeEnabledCount,
+            averageStreakDays: streakCount > 0 ? Math.round((totalStreakDays / streakCount) * 10) / 10 : 0,
+            averageTotalStudyHours: studyHoursCount > 0 ? Math.round((totalStudyHoursSum / studyHoursCount) * 10) / 10 : 0,
+            totalHumanizerUsage,
+            humanizerUsageLastWindow,
+        };
+
+        const newUsersLastWindow = profiles.filter((profile) => profile._creationTime >= sevenDaysAgo).length;
+        const newUsersPrevWindow = profiles.filter(
+            (profile) => profile._creationTime >= fourteenDaysAgo && profile._creationTime < sevenDaysAgo
+        ).length;
+
+        const uploadReadyTotal = uploads.filter((upload) => upload.status === "ready").length;
+        const uploadReadyLastWindow = uploads.filter(
+            (upload) => upload.status === "ready" && upload._creationTime >= sevenDaysAgo
+        ).length;
+        const assignmentReadyTotal = assignmentThreads.filter((thread) => thread.status === "ready").length;
+        const assignmentReadyLastWindow = assignmentThreads.filter(
+            (thread) => thread.status === "ready" && thread._creationTime >= sevenDaysAgo
+        ).length;
+
+        const feedbackTotal = feedbackEntries.length;
+        const feedbackLastWindow = feedbackEntries.filter((entry) => {
+            const timestampMs = toTimestamp(entry.createdAt, entry._creationTime);
+            return timestampMs >= sevenDaysAgo;
+        }).length;
+        const feedbackWithMessageTotal = feedbackEntries.filter(
+            (entry) => Boolean(normalizeFeedbackMessage(entry.message))
+        ).length;
+        const feedbackWithMessageLastWindow = feedbackEntries.filter((entry) => {
+            const timestampMs = toTimestamp(entry.createdAt, entry._creationTime);
+            return timestampMs >= sevenDaysAgo && Boolean(normalizeFeedbackMessage(entry.message));
+        }).length;
+
+        const ratedFeedback = feedbackEntries.filter(
+            (entry) => Number.isFinite(Number(entry.rating)) && Number(entry.rating) > 0
+        );
+        const averageFeedbackRating = ratedFeedback.length > 0
+            ? Math.round(
+                (ratedFeedback.reduce((sum, entry) => sum + Number(entry.rating || 0), 0) / ratedFeedback.length) * 10
+            ) / 10
+            : 0;
+
+        const recentUsersBase = [...profiles]
+            .sort((left, right) => right._creationTime - left._creationTime)
+            .slice(0, RECENT_USERS_LIMIT)
+            .map((profile) => {
+                const userId = String(profile.userId || "").trim();
+                return {
+                    userId,
+                    fullName: profile.fullName || null,
+                    educationLevel: profile.educationLevel || null,
+                    department: profile.department || null,
+                    createdAt: profile._creationTime,
+                    lastActiveAt: lastActivityByUser.get(userId) || null,
+                    documentsProcessed: docsProcessedByUser.get(userId) || 0,
+                    feedbackCount: feedbackCountByUser.get(userId) || 0,
+                };
+            });
+        const recentUserIds = Array.from(
+            new Set(
+                recentUsersBase
+                    .map((entry) => String(entry.userId || "").trim())
+                    .filter(Boolean)
+            )
+        );
+        const recentUserAuthUsers = await fetchAuthUsersByIds(ctx, recentUserIds);
+        const recentUserAuthUsersById = new Map(
+            recentUserAuthUsers
+                .map((authUser) => [normalizeAuthUserId(authUser), authUser] as const)
+                .filter(([userId]) => Boolean(userId))
+        );
+        const recentUsers = recentUsersBase.map((entry) => ({
+            ...entry,
+            email: normalizeEmail(recentUserAuthUsersById.get(entry.userId)?.email) || null,
+        }));
+
+        const recentFeedbackBase = [...feedbackEntries]
+            .sort((left, right) => {
+                const leftTimestamp = toTimestamp(left.createdAt, left._creationTime);
+                const rightTimestamp = toTimestamp(right.createdAt, right._creationTime);
+                return rightTimestamp - leftTimestamp;
+            })
+            .slice(0, RECENT_FEEDBACK_LIMIT)
+            .map((entry) => {
+                const userId = String(entry.userId || "").trim();
+                const profile = profileByUserId.get(userId);
+                return {
+                    feedbackId: String(entry._id),
+                    userId,
+                    rating: Number(entry.rating || 0),
+                    message: normalizeFeedbackMessage(entry.message),
+                    createdAt: toTimestamp(entry.createdAt, entry._creationTime),
+                    fullName: profile?.fullName || null,
+                    department: profile?.department || null,
+                };
+            });
+        const recentFeedbackUserIds = Array.from(
+            new Set(
+                recentFeedbackBase
+                    .map((entry) => String(entry.userId || "").trim())
+                    .filter(Boolean)
+            )
+        );
+        const recentFeedbackAuthUsers = await fetchAuthUsersByIds(ctx, recentFeedbackUserIds);
+        const recentFeedbackAuthUsersById = new Map(
+            recentFeedbackAuthUsers
+                .map((authUser) => [normalizeAuthUserId(authUser), authUser] as const)
+                .filter(([userId]) => Boolean(userId))
+        );
+        const recentFeedback = recentFeedbackBase.map((entry) => {
+            const authUser = recentFeedbackAuthUsersById.get(entry.userId);
+            const message = normalizeFeedbackMessage(entry.message);
+            return {
+                ...entry,
+                email: normalizeEmail(authUser?.email) || null,
+                hasMessage: Boolean(message),
+                message,
+            };
+        });
+
+        const sessionStatsByUser = new Map<string, { count: number; latestAt: number }>();
+        for (const session of activeSessions) {
+            const userId = normalizeSessionUserId(session);
+            if (!userId) continue;
+            const timestampMs = toTimestamp(session.updatedAt, toTimestamp(session.createdAt, 0));
+            const current = sessionStatsByUser.get(userId) || { count: 0, latestAt: 0 };
+            current.count += 1;
+            current.latestAt = Math.max(current.latestAt, timestampMs);
+            sessionStatsByUser.set(userId, current);
+        }
+
+        const activeSessionUserIds = Array.from(sessionStatsByUser.keys());
+        const authUsers = await fetchAuthUsersByIds(ctx, activeSessionUserIds);
+        const authUsersById = new Map(
+            authUsers
+                .map((authUser) => [normalizeAuthUserId(authUser), authUser] as const)
+                .filter(([userId]) => Boolean(userId))
+        );
+
+        const signedInUsers = activeSessionUserIds
+            .map((userId) => {
+                const stats = sessionStatsByUser.get(userId);
+                if (!stats) return null;
+                const authUser = authUsersById.get(userId);
+                const profile = profileByUserId.get(userId);
+                return {
+                    userId,
+                    email: normalizeEmail(authUser?.email) || null,
+                    fullName: profile?.fullName || authUser?.name || userId,
+                    emailVerified: Boolean(authUser?.emailVerified),
+                    createdAt: toTimestamp(authUser?.createdAt, profile?._creationTime || 0),
+                    lastSessionAt: stats.latestAt,
+                    activeSessionCount: stats.count,
+                    department: profile?.department || null,
+                };
+            })
+            .filter((record): record is NonNullable<typeof record> => Boolean(record))
+            .sort((left, right) => right.lastSessionAt - left.lastSessionAt);
+
+        const totalTrackedUploads = [...uploadChannelStats.values()].reduce(
+            (sum, stats) => sum + stats.total,
+            0
+        );
+        const channelLabelByKey: Record<string, string> = {
+            study_materials: "Study materials",
+            assignment_helper: "Assignment helper",
+        };
+        const uploadBreakdownByChannel = [...uploadChannelStats.entries()]
+            .map(([channelKey, stats]) => {
+                const percent = totalTrackedUploads > 0
+                    ? Math.round((stats.total / totalTrackedUploads) * 1000) / 10
+                    : 0;
+                const readyRatePercent = stats.total > 0
+                    ? Math.round((stats.ready / stats.total) * 1000) / 10
+                    : 0;
+                return {
+                    key: channelKey,
+                    label: channelLabelByKey[channelKey] || channelKey,
+                    count: stats.total,
+                    percent,
+                    readyRatePercent,
+                    statuses: {
+                        ready: stats.ready,
+                        processing: stats.processing,
+                        error: stats.error,
+                        other: stats.other,
+                    },
+                };
+            })
+            .sort((left, right) => right.count - left.count);
+
+        const uploadBreakdownByFileType = [...uploadFileTypeCounts.entries()]
+            .map(([fileType, count]) => ({
+                fileType,
+                count,
+                percent: totalTrackedUploads > 0
+                    ? Math.round((count / totalTrackedUploads) * 1000) / 10
+                    : 0,
+            }))
+            .sort((left, right) => {
+                if (right.count !== left.count) return right.count - left.count;
+                return left.fileType.localeCompare(right.fileType);
+            })
+            .slice(0, 8);
+
+        const topUploadUsersBase = [...uploadStatsByUser.entries()]
+            .map(([userId, stats]) => {
+                const profile = profileByUserId.get(userId);
+                return {
+                    userId,
+                    fullName: profile?.fullName || null,
+                    department: profile?.department || null,
+                    totalUploads: stats.totalUploads,
+                    studyUploads: stats.studyUploads,
+                    assignmentUploads: stats.assignmentUploads,
+                    readyUploads: stats.readyUploads,
+                    processingUploads: stats.processingUploads,
+                    errorUploads: stats.errorUploads,
+                    otherUploads: stats.otherUploads,
+                };
+            })
+            .sort((left, right) => {
+                if (right.totalUploads !== left.totalUploads) return right.totalUploads - left.totalUploads;
+                if (right.readyUploads !== left.readyUploads) return right.readyUploads - left.readyUploads;
+                return left.userId.localeCompare(right.userId);
+            })
+            .slice(0, 10);
+        const topUploadUserIds = Array.from(
+            new Set(
+                topUploadUsersBase
+                    .map((entry) => String(entry.userId || "").trim())
+                    .filter(Boolean)
+            )
+        );
+        const topUploadAuthUsers = await fetchAuthUsersByIds(ctx, topUploadUserIds);
+        const topUploadAuthUsersById = new Map(
+            topUploadAuthUsers
+                .map((authUser) => [normalizeAuthUserId(authUser), authUser] as const)
+                .filter(([userId]) => Boolean(userId))
+        );
+        const topUploadUsers = topUploadUsersBase.map((entry) => ({
+            ...entry,
+            email: normalizeEmail(topUploadAuthUsersById.get(entry.userId)?.email) || null,
+        }));
+
+        return {
+            allowed: true as const,
+            generatedAt: now,
+            windows: {
+                newUsersDays: NEW_USER_WINDOW_DAYS,
+                activeUsersDays: ACTIVE_USER_WINDOW_DAYS,
+            },
+            totals: {
+                userProfiles: profiles.length,
+                signedInUsersNow: sessionStatsByUser.size,
+                signedInUsersResolved: signedInUsers.length,
+                newUsersLastWindow,
+                newUsersPrevWindow,
+                activeUsersLastWindow: activeUsersLastWindow.size,
+                activeUsersPrevWindow: activeUsersPrevWindow.size,
+                documentsProcessedTotal: uploadReadyTotal + assignmentReadyTotal,
+                documentsProcessedLastWindow: uploadReadyLastWindow + assignmentReadyLastWindow,
+                feedbackTotal,
+                feedbackLastWindow,
+                feedbackWithMessageTotal,
+                feedbackWithMessageLastWindow,
+                averageFeedbackRating,
+            },
+            documents: {
+                uploads: {
+                    total: uploads.length,
+                    ready: uploadReadyTotal,
+                    processing: uploads.filter((upload) => upload.status === "processing").length,
+                    error: uploads.filter((upload) => upload.status === "error").length,
+                },
+                assignments: {
+                    total: assignmentThreads.length,
+                    ready: assignmentReadyTotal,
+                    processing: assignmentThreads.filter((thread) => thread.status === "processing").length,
+                    error: assignmentThreads.filter((thread) => thread.status === "error").length,
+                },
+            },
+            flags: {
+                activeSessionsTruncated: activeSessionsResult.truncated,
+            },
+            uploadBreakdown: {
+                total: totalTrackedUploads,
+                channels: uploadBreakdownByChannel,
+                fileTypes: uploadBreakdownByFileType,
+                topUsers: topUploadUsers,
+            },
+            adminEmails: access.adminEmails,
+            recentUsers,
+            recentFeedback,
+            signedInUsers,
+            examAnalytics,
+            conceptAnalytics,
+            subscriptionAnalytics,
+            revenueAnalytics,
+            contentAnalytics,
+            engagementAnalytics,
+        };
+    },
+});
