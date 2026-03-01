@@ -91,7 +91,7 @@ const TopicChatPanel = memo(function TopicChatPanel({ topicId, topicTitle, open,
             />
 
             {/* Panel */}
-            <div className="fixed z-50 inset-x-0 bottom-0 md:inset-x-auto md:right-0 md:top-0 md:bottom-0 md:w-80 flex flex-col bg-white dark:bg-slate-900 border-t md:border-t-0 md:border-l border-slate-200 dark:border-slate-800 shadow-xl animate-chat-slide-up md:animate-chat-slide-left">
+            <div className="fixed z-[60] inset-0 md:inset-x-auto md:right-0 md:top-0 md:bottom-0 md:w-80 flex flex-col bg-white dark:bg-slate-900 border-t md:border-t-0 md:border-l border-slate-200 dark:border-slate-800 shadow-xl animate-chat-slide-up md:animate-chat-slide-left pb-[env(safe-area-inset-bottom)] md:pb-0">
                 {/* Header */}
                 <div className="flex items-center justify-between px-4 py-3 border-b border-slate-100 dark:border-slate-800">
                     <div className="flex items-center gap-2">
@@ -120,7 +120,7 @@ const TopicChatPanel = memo(function TopicChatPanel({ topicId, topicTitle, open,
                 {/* Messages */}
                 <div
                     ref={messagesContainerRef}
-                    className="flex-1 overflow-y-auto px-3 py-4 space-y-3 min-h-[200px] max-h-[55vh] md:max-h-none"
+                    className="flex-1 overflow-y-auto px-3 py-4 space-y-3"
                 >
                     {messageList.length === 0 && !sending && (
                         <div className="flex gap-2.5 items-start">
