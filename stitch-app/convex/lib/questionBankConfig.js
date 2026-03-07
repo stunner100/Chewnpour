@@ -3,6 +3,39 @@ const toSafeNumber = (value, fallback) => {
     return Number.isFinite(numeric) ? numeric : fallback;
 };
 
+const tokenizeEvidenceText = (value) =>
+    String(value || "")
+        .toLowerCase()
+        .split(/[^a-z0-9]+/)
+        .map((token) => token.trim())
+        .filter((token) => token.length >= 4);
+
+const countSentenceLikeUnits = (value) =>
+    String(value || "")
+        .split(/(?<=[.!?])\s+|\n+/)
+        .map((entry) => entry.trim())
+        .filter((entry) => entry.length >= 20)
+        .length;
+
+const countBulletLikeLines = (value) =>
+    String(value || "")
+        .split(/\n+/)
+        .map((entry) => entry.trim())
+        .filter((entry) => /^[-*•]\s+/.test(entry) || /^\d+[.)]\s+/.test(entry))
+        .length;
+
+const countStructuredSignals = (value) => {
+    const text = String(value || "");
+    const numericSignals = (text.match(/\b\d+(?:[./]\d+)?%?\b/g) || []).length;
+    const definitionSignals = (text.match(/\b(is|are|means|defined as|refers to)\b/gi) || []).length;
+    const exampleSignals = (text.match(/\b(example|for example|such as)\b/gi) || []).length;
+    return {
+        numericSignals,
+        definitionSignals,
+        exampleSignals,
+    };
+};
+
 export const clampNumber = (value, min, max) => {
     const safeMin = Number.isFinite(min) ? min : 0;
     const safeMax = Number.isFinite(max) ? max : safeMin;
@@ -23,6 +56,67 @@ export const calculateQuestionBankTarget = ({
     const safeWordCount = Math.max(0, Math.round(toSafeNumber(wordCount, 0)));
     const computed = Math.ceil(safeWordCount / safeDivisor);
     return clampNumber(computed, safeMinTarget, safeMaxTarget);
+};
+
+const estimateEvidencePassageQuestionCapacity = (passage) => {
+    const text = String(passage?.text || "").trim();
+    if (!text) return 0;
+
+    const textLength = text.length;
+    const sentenceCount = countSentenceLikeUnits(text);
+    const bulletCount = countBulletLikeLines(text);
+    const tokenCount = new Set(tokenizeEvidenceText(text)).size;
+    const flags = Array.isArray(passage?.flags) ? passage.flags.filter(Boolean) : [];
+    const { numericSignals, definitionSignals, exampleSignals } = countStructuredSignals(text);
+
+    let capacity = 1;
+    if (textLength >= 140) capacity += 1;
+    if (textLength >= 260) capacity += 1;
+    if (sentenceCount >= 3 || bulletCount >= 2 || definitionSignals >= 1) capacity += 1;
+    if (sentenceCount >= 6 || bulletCount >= 4 || numericSignals >= 2 || exampleSignals >= 1) capacity += 1;
+    if (tokenCount >= 24) capacity += 1;
+    if (flags.length > 0) capacity += 1;
+
+    if (textLength < 120) {
+        capacity = Math.min(capacity, 2);
+    } else if (textLength < 220) {
+        capacity = Math.min(capacity, 3);
+    } else if (textLength < 360) {
+        capacity = Math.min(capacity, 4);
+    }
+
+    return clampNumber(capacity, 1, 6);
+};
+
+export const calculateEvidenceRichMcqCap = ({
+    evidence,
+    minTarget = 1,
+    maxTarget = 60,
+}) => {
+    const items = Array.isArray(evidence) ? evidence : [];
+    const uniquePassages = [];
+    const seenPassageIds = new Set();
+
+    for (const passage of items) {
+        const fallbackId = `page:${Number(passage?.page || 0)}:${String(passage?.text || "").slice(0, 80)}`;
+        const passageId = String(passage?.passageId || fallbackId).trim();
+        if (!passageId || seenPassageIds.has(passageId)) {
+            continue;
+        }
+        seenPassageIds.add(passageId);
+        uniquePassages.push(passage);
+    }
+
+    if (uniquePassages.length === 0) {
+        return clampNumber(minTarget, minTarget, maxTarget);
+    }
+
+    const estimatedCapacity = uniquePassages.reduce(
+        (sum, passage) => sum + estimateEvidencePassageQuestionCapacity(passage),
+        0
+    );
+
+    return clampNumber(estimatedCapacity, minTarget, maxTarget);
 };
 
 export const deriveQuestionGenerationRounds = ({

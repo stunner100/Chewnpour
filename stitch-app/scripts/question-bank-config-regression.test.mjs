@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import {
+    calculateEvidenceRichMcqCap,
     QUESTION_BANK_BACKGROUND_PROFILE,
     QUESTION_BANK_INTERACTIVE_PROFILE,
     calculateQuestionBankTarget,
@@ -110,6 +111,50 @@ const tests = [
         assert.equal(QUESTION_BANK_INTERACTIVE_PROFILE.maxRounds, 6, "Interactive profile maxRounds should be 6.");
         assert.equal(QUESTION_BANK_INTERACTIVE_PROFILE.noProgressLimit, 3, "Interactive profile noProgressLimit should be 3.");
         assert.equal(QUESTION_BANK_INTERACTIVE_PROFILE.timeBudgetMs, 60_000, "Interactive profile timeBudgetMs should be 60000.");
+    },
+    () => {
+        const cap = calculateEvidenceRichMcqCap({
+            evidence: [
+                {
+                    passageId: "p1-0",
+                    page: 0,
+                    text: "A fraction represents part of a whole. Key ideas: numerator and denominator. Example: 1/4 + 2/4 = 3/4.",
+                    flags: [],
+                },
+            ],
+            minTarget: 1,
+            maxTarget: 60,
+        });
+        assert.equal(
+            cap,
+            2,
+            "Thin single-passage topics should cap MCQ generation to a small grounded bank."
+        );
+    },
+    () => {
+        const richEvidence = Array.from({ length: 4 }, (_, index) => ({
+            passageId: `p${index + 1}-0`,
+            page: index,
+            text: [
+                "Revenue target is 10% week over week growth.",
+                "Vendor app adoption target is 20% weekly.",
+                "New vendor target is 10 new vendors per week.",
+                "Missing items rate should remain 10% or less.",
+                "Example: compare this week's result to last week's baseline.",
+                "Definition: active vendors made at least one sale in the week.",
+            ].join(" "),
+            flags: index % 2 === 0 ? ["table"] : [],
+        }));
+        const cap = calculateEvidenceRichMcqCap({
+            evidence: richEvidence,
+            minTarget: 1,
+            maxTarget: 12,
+        });
+        assert.equal(
+            cap,
+            12,
+            "Rich multi-passage evidence should still be allowed to fill a larger MCQ bank up to the configured max."
+        );
     },
 ];
 

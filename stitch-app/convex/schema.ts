@@ -31,7 +31,51 @@ export default defineSchema({
         plannedTopicCount: v.optional(v.number()),
         generatedTopicCount: v.optional(v.number()),
         plannedTopicTitles: v.optional(v.array(v.string())),
+        extractionWarnings: v.optional(v.array(v.string())),
+        extractionStatus: v.optional(v.string()), // 'pending' | 'running' | 'provisional' | 'complete' | 'failed'
+        extractionQualityScore: v.optional(v.number()), // 0-1
+        extractionCoverage: v.optional(v.number()), // 0-1
+        extractionVersion: v.optional(v.string()),
+        provisionalExtraction: v.optional(v.boolean()),
+        extractionArtifactStorageId: v.optional(v.id("_storage")),
+        evidenceIndexStorageId: v.optional(v.id("_storage")),
+        evidenceIndexVersion: v.optional(v.string()),
+        evidencePassageCount: v.optional(v.number()),
     }).index("by_userId", ["userId"]),
+
+    documentExtractions: defineTable({
+        uploadId: v.id("uploads"),
+        version: v.string(),
+        status: v.string(), // 'running' | 'provisional' | 'complete' | 'failed'
+        qualityScore: v.number(), // 0-1
+        coverage: v.number(), // 0-1
+        providerTrace: v.array(v.object({
+            pass: v.string(),
+            status: v.string(),
+            latencyMs: v.number(),
+            chars: v.number(),
+            pageCount: v.number(),
+            error: v.optional(v.string()),
+        })),
+        artifactStorageId: v.optional(v.id("_storage")),
+        startedAt: v.number(),
+        finishedAt: v.number(),
+        errorSummary: v.optional(v.string()),
+    })
+        .index("by_uploadId", ["uploadId"])
+        .index("by_uploadId_startedAt", ["uploadId", "startedAt"]),
+
+    uploadEvidenceIndexes: defineTable({
+        uploadId: v.id("uploads"),
+        version: v.string(),
+        storageId: v.id("_storage"),
+        passageCount: v.number(),
+        status: v.string(), // 'ready' | 'failed'
+        createdAt: v.number(),
+        errorSummary: v.optional(v.string()),
+    })
+        .index("by_uploadId", ["uploadId"])
+        .index("by_uploadId_createdAt", ["uploadId", "createdAt"]),
 
     // Assignment helper threads
     assignmentThreads: defineTable({
@@ -74,9 +118,13 @@ export default defineSchema({
         title: v.string(),
         description: v.optional(v.string()),
         content: v.optional(v.string()), // AI-generated summary content
+        sourceChunkIds: v.optional(v.array(v.number())),
+        sourcePassageIds: v.optional(v.array(v.string())),
+        groundingVersion: v.optional(v.string()),
         illustrationStorageId: v.optional(v.id("_storage")),
         illustrationUrl: v.optional(v.string()),
         examReady: v.optional(v.boolean()),
+        mcqTargetCount: v.optional(v.number()),
         usableMcqCount: v.optional(v.number()),
         usableEssayCount: v.optional(v.number()),
         examReadyUpdatedAt: v.optional(v.number()),
@@ -104,6 +152,26 @@ export default defineSchema({
         correctAnswer: v.string(),
         explanation: v.optional(v.string()),
         difficulty: v.optional(v.string()), // 'easy', 'medium', 'hard'
+        citations: v.optional(v.array(v.any())),
+        sourcePassageIds: v.optional(v.array(v.string())),
+        groundingScore: v.optional(v.number()), // 0-1
+        factualityStatus: v.optional(v.string()), // 'verified' | 'rejected'
+        generationVersion: v.optional(v.string()),
+        learningObjective: v.optional(v.string()),
+        rubricPoints: v.optional(v.array(v.string())),
+        qualityFlags: v.optional(v.array(v.string())),
+    }).index("by_topicId", ["topicId"]),
+
+    conceptExercises: defineTable({
+        topicId: v.id("topics"),
+        questionText: v.string(),
+        template: v.array(v.string()),
+        answers: v.array(v.string()),
+        tokens: v.array(v.string()),
+        citations: v.optional(v.array(v.any())),
+        groundingScore: v.optional(v.number()),
+        version: v.optional(v.string()),
+        createdAt: v.number(),
     }).index("by_topicId", ["topicId"]),
 
     // User exam attempts
@@ -117,6 +185,9 @@ export default defineSchema({
         questionIds: v.optional(v.array(v.id("questions"))),
         answers: v.optional(v.any()), // user's answers (JSON)
         tutorFeedback: v.optional(v.string()), // AI-generated personal tutor analysis
+        essayWeightedPercentage: v.optional(v.number()), // weighted essay quality % (0-100)
+        startedAt: v.optional(v.number()), // timestamp when attempt was created
+        claimedAt: v.optional(v.number()), // timestamp when reused attempt was claimed by a session
     }).index("by_userId", ["userId"]).index("by_topicId", ["topicId"]).index("by_userId_topicId", ["userId", "topicId"]),
 
     // Concept practice attempts
@@ -141,6 +212,7 @@ export default defineSchema({
         purchasedUploadCredits: v.optional(v.number()),
         consumedUploadCredits: v.optional(v.number()),
         consumedVoiceGenerations: v.optional(v.number()),
+        consumedReExplanations: v.optional(v.number()),
         lastPaymentReference: v.optional(v.string()),
         lastPaymentAt: v.optional(v.number()),
     }).index("by_userId", ["userId"]),
@@ -150,6 +222,19 @@ export default defineSchema({
         date: v.string(),
         count: v.number(),
     }).index("by_userId_date", ["userId", "date"]),
+
+    aiMessageUsage: defineTable({
+        userId: v.string(),
+        date: v.string(),
+        count: v.number(),
+    }).index("by_userId_date", ["userId", "date"]),
+
+    userPresence: defineTable({
+        userId: v.string(),
+        lastSeenAt: v.number(),
+    })
+        .index("by_userId", ["userId"])
+        .index("by_lastSeenAt", ["lastSeenAt"]),
 
     topicNotes: defineTable({
         userId: v.string(),

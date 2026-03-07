@@ -22,6 +22,7 @@ import {
     slugifyText,
 } from '../lib/topicContentFormatting';
 import { resolveTopicIllustrationUrl } from '../lib/topicIllustration';
+import { isLikelyConvexId } from '../lib/convexId';
 
 // ── Pure rendering helpers (hoisted out of the component to avoid re-creation) ──
 
@@ -98,8 +99,29 @@ const ALERT_STYLES = {
     "key takeaway": "bg-indigo-50 dark:bg-indigo-900/20 border-indigo-100 dark:border-indigo-800 text-indigo-900 dark:text-indigo-100 icon-star"
 };
 
+const resolveConvexErrorMessage = (error, fallbackMessage) => {
+    const dataMessage = typeof error?.data === 'string'
+        ? error.data
+        : typeof error?.data?.message === 'string'
+            ? error.data.message
+            : '';
+    const resolved = String(dataMessage || error?.message || fallbackMessage || '')
+        .replace(/^Uncaught (ConvexError|Error):\s*/i, '')
+        .trim();
+    return resolved || fallbackMessage;
+};
+
+const isReExplainQuotaExceededError = (error) => {
+    const code = String(error?.data?.code || '').trim().toUpperCase();
+    if (code === 'REEXPLAIN_QUOTA_EXCEEDED') return true;
+    const message = String(error?.message || error?.data?.message || '').toUpperCase();
+    return message.includes('REEXPLAIN_QUOTA_EXCEEDED');
+};
+
 const TopicDetail = () => {
-    const { topicId } = useParams();
+    const { topicId: topicIdParam } = useParams();
+    const normalizedTopicId = typeof topicIdParam === 'string' ? topicIdParam.trim() : '';
+    const topicId = isLikelyConvexId(normalizedTopicId) ? normalizedTopicId : '';
     const { user, profile, updateProfile } = useAuth();
     useStudyTimer(user?.id);
     const synthesizeTopicVoice = useAction(api.ai.synthesizeTopicVoice);
@@ -134,11 +156,15 @@ const TopicDetail = () => {
         topicId ? { topicId } : 'skip'
     );
     const topic = topicData || null;
-    const EXAM_READY_MIN_MCQ_COUNT = 10;
+    const DEFAULT_EXAM_READY_MIN_MCQ_COUNT = 10;
     const EXAM_READY_MIN_ESSAY_COUNT = 3;
+    const topicMcqTargetCount = Math.max(
+        1,
+        Math.round(Number(topic?.mcqTargetCount || DEFAULT_EXAM_READY_MIN_MCQ_COUNT))
+    );
     const usableMcqCount = Number(topic?.usableMcqCount || 0);
     const usableEssayCount = Number(topic?.usableEssayCount || 0);
-    const topicQuizStartReady = usableMcqCount >= EXAM_READY_MIN_MCQ_COUNT;
+    const topicQuizStartReady = usableMcqCount >= topicMcqTargetCount;
     const topicEssayStartReady = usableEssayCount >= EXAM_READY_MIN_ESSAY_COUNT;
     const topicExamReady = Boolean(topic?.examReady)
         || (topicQuizStartReady && usableEssayCount >= EXAM_READY_MIN_ESSAY_COUNT);
@@ -609,8 +635,17 @@ const TopicDetail = () => {
             const result = await reExplainTopic({ topicId, style: reExplainStyle });
             setOverrideContent(result?.content || '');
             setReExplainOpen(false);
-        } catch {
-            setReExplainError('Failed to re-explain. Please try again.');
+        } catch (error) {
+            if (isReExplainQuotaExceededError(error)) {
+                setReExplainError(
+                    resolveConvexErrorMessage(
+                        error,
+                        "You've used your free lesson re-explain. Upgrade to premium for unlimited re-explains."
+                    )
+                );
+            } else {
+                setReExplainError(resolveConvexErrorMessage(error, 'Failed to re-explain. Please try again.'));
+            }
         } finally {
             setReExplainLoading(false);
         }
@@ -736,7 +771,7 @@ const TopicDetail = () => {
                                             </span>
                                         </div>
                                         {isVoiceSupported && speechText && (
-                                            <div className="flex items-center gap-2 overflow-x-auto pb-1 -mb-1">
+                                            <div className="hidden md:flex items-center gap-2 overflow-x-auto pb-1 -mb-1">
                                                 <button
                                                     onClick={() => {
                                                         if (!speechText) return;
@@ -775,7 +810,7 @@ const TopicDetail = () => {
                                         )}
                                     </div>
                                     {isVoiceSupported && (
-                                        <div className="mb-4">
+                                        <div className="mb-4 hidden md:block">
                                             {!isVoiceSupported && (
                                                 <div className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-medium text-amber-800">
                                                     Voice mode is not supported in this browser.
@@ -799,6 +834,13 @@ const TopicDetail = () => {
                                                     {voicePlaybackError}
                                                 </div>
                                             )}
+                                        </div>
+                                    )}
+                                    {isVoiceSupported && (
+                                        <div className="mb-4 md:hidden">
+                                            <div className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-medium text-amber-800">
+                                                Voice playback is temporarily unavailable on mobile.
+                                            </div>
                                         </div>
                                     )}
 
@@ -988,7 +1030,7 @@ const TopicDetail = () => {
 
                         {!topicQuizStartReady && (
                             <div className="mt-4 max-w-md mx-auto rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
-                                {`${usableMcqCount}/${EXAM_READY_MIN_MCQ_COUNT} MCQ and ${usableEssayCount}/${EXAM_READY_MIN_ESSAY_COUNT} essay questions ready.`}
+                                {`${usableMcqCount}/${topicMcqTargetCount} MCQ and ${usableEssayCount}/${EXAM_READY_MIN_ESSAY_COUNT} essay questions ready.`}
                             </div>
                         )}
                         {topicQuizStartReady && !topicExamReady && (
@@ -1030,7 +1072,7 @@ const TopicDetail = () => {
             {showScrollTop && !notesOpen && !chatOpen && (
                 <button
                     onClick={scrollToTop}
-                    className="fixed bottom-6 right-6 z-30 w-11 h-11 rounded-full bg-primary text-white shadow-lg shadow-primary/30 flex items-center justify-center hover:scale-105 active:scale-95 transition-transform"
+                    className="fixed bottom-20 md:bottom-6 left-4 md:left-auto md:right-6 z-30 w-11 h-11 rounded-full bg-primary text-white shadow-lg shadow-primary/30 flex items-center justify-center hover:scale-105 active:scale-95 transition-transform"
                     aria-label="Scroll to top"
                 >
                     <span className="material-symbols-outlined text-xl">arrow_upward</span>
