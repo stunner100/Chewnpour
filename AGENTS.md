@@ -11,6 +11,7 @@
 - Do not commit secrets; use environment variables from `stitch-app/.env.example`.
 - Do not manually edit generated Convex files in `stitch-app/convex/_generated/`.
 - Use a hard cutover approach and never implement backward compatibility.
+- Any time you make a change, create a git commit for that work and push it to GitHub unless the user explicitly says not to.
 
 ## stitch-app Workflow
 - Setup: `cd stitch-app && npm install`.
