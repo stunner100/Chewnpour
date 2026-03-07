@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useMemo, useRef } from 'react';
 import {
     authBaseUrl,
     authClient,
@@ -82,6 +82,9 @@ const wait = (durationMs) =>
     new Promise((resolve) => {
         setTimeout(resolve, durationMs);
     });
+
+const SOCIAL_SIGN_IN_MAX_RETRIES = 2;
+const SOCIAL_SIGN_IN_RETRY_BASE_DELAY_MS = 400;
 
 const normalizeErrorForSentry = (error, fallbackMessage = 'Authentication request failed') => {
     if (error instanceof Error) return error;
@@ -221,6 +224,7 @@ const verifyOttTokenWithRetry = async (token, maxRetries = 1) => {
     }
 };
 
+// eslint-disable-next-line react-refresh/only-export-components
 export const useAuth = () => {
     const context = useContext(AuthContext);
     if (!context) {
@@ -253,6 +257,8 @@ const AuthProviderFallback = ({ children }) => {
 const AuthProviderConvex = ({ children }) => {
     const { data: session, isPending, refetch, error: sessionError } = useSession();
     const [lastKnownUser, setLastKnownUser] = useState(null);
+    const [profileOverride, setProfileOverride] = useState(null);
+    const lastPresenceHeartbeatAtRef = useRef(0);
 
     // Handle OTT (One-Time Token) exchange for cross-domain auth
     const [ottPending, setOttPending] = useState(() => {
@@ -334,33 +340,103 @@ const AuthProviderConvex = ({ children }) => {
         }
     }, [sessionUser, isPending, sessionError]);
 
+    useEffect(() => {
+        setProfileOverride(null);
+    }, [sessionUser?.id]);
+
     const profileData = useQuery(
         api.profiles.getProfile,
-        user?.id ? { userId: user.id } : 'skip'
+        sessionUser?.id ? { userId: sessionUser.id } : 'skip'
     );
-    const profile = profileData ?? null;
-    const profileLoading = user ? profileData === undefined : false;
+    const profile = useMemo(() => {
+        if (!sessionUser) return null;
+        if (!profileOverride) return profileData ?? null;
+        return {
+            userId: sessionUser.id,
+            ...(profileData || {}),
+            ...profileOverride,
+        };
+    }, [profileData, profileOverride, sessionUser]);
+    const profileLoading = sessionUser ? profileData === undefined : false;
     const loading = isPending || profileLoading || ottPending;
+    const profileReady = !sessionUser || profileData !== undefined;
 
     const upsertProfile = useMutation(api.profiles.upsertProfile);
+    const touchPresence = useMutation(api.profiles.touchPresence);
 
     useEffect(() => {
-        if (!user) {
+        const activeUserId = sessionUser?.id;
+        if (!activeUserId) {
             setSentryUser(null);
             resetPostHogUser();
             return;
         }
         setSentryUser({
-            id: user.id,
-            email: user.email,
-            username: user.name,
+            id: activeUserId,
+            email: sessionUser?.email,
+            username: sessionUser?.name,
         });
         setPostHogUser({
-            id: user.id,
-            email: user.email,
-            username: user.name,
+            id: activeUserId,
+            email: sessionUser?.email,
+            username: sessionUser?.name,
         });
-    }, [user?.id, user?.email, user?.name]);
+    }, [sessionUser?.id, sessionUser?.email, sessionUser?.name]);
+
+    useEffect(() => {
+        const activeUserId = sessionUser?.id;
+        if (!activeUserId) {
+            lastPresenceHeartbeatAtRef.current = 0;
+            return undefined;
+        }
+
+        if (typeof window === 'undefined' || typeof document === 'undefined') {
+            return undefined;
+        }
+
+        let isDisposed = false;
+
+        const sendPresenceHeartbeat = async ({ force = false } = {}) => {
+            if (isDisposed) return;
+            if (!force && document.visibilityState !== 'visible') return;
+
+            const now = Date.now();
+            if (!force && now - lastPresenceHeartbeatAtRef.current < 60_000) {
+                return;
+            }
+
+            lastPresenceHeartbeatAtRef.current = now;
+            try {
+                await touchPresence({ userId: activeUserId });
+            } catch (error) {
+                console.warn('[AuthContext] Failed to send presence heartbeat', getErrorMessage(error, 'unknown'));
+            }
+        };
+
+        void sendPresenceHeartbeat({ force: true });
+
+        const intervalId = window.setInterval(() => {
+            void sendPresenceHeartbeat();
+        }, 60_000);
+
+        const onVisibilityChange = () => {
+            if (document.visibilityState !== 'visible') return;
+            void sendPresenceHeartbeat({ force: true });
+        };
+        const onWindowFocus = () => {
+            void sendPresenceHeartbeat({ force: true });
+        };
+
+        document.addEventListener('visibilitychange', onVisibilityChange);
+        window.addEventListener('focus', onWindowFocus);
+
+        return () => {
+            isDisposed = true;
+            window.clearInterval(intervalId);
+            document.removeEventListener('visibilitychange', onVisibilityChange);
+            window.removeEventListener('focus', onWindowFocus);
+        };
+    }, [sessionUser?.id, touchPresence]);
 
     const signUp = async (email, password, fullName) => {
         const callbackURL = absoluteUrl('/onboarding/level');
@@ -444,42 +520,69 @@ const AuthProviderConvex = ({ children }) => {
     const signInWithGoogle = async () => {
         const callbackURL = absoluteUrl('/dashboard');
         const provider = 'google';
-        try {
-            const result = await betterSignIn.social({
-                provider,
-                callbackURL,
-            });
-            if (result.error) {
-                if (isTransientSessionError(result.error)) {
-                    captureAuthFailure({
-                        error: result.error,
-                        operation: 'sign_in_google',
-                        callbackURL,
-                        provider,
-                        extras: {
-                            phase: 'result_error',
-                        },
-                        level: 'warning',
-                    });
+        let attempt = 0;
+
+        while (attempt <= SOCIAL_SIGN_IN_MAX_RETRIES) {
+            try {
+                const result = await betterSignIn.social({
+                    provider,
+                    callbackURL,
+                });
+
+                if (result.error) {
+                    const transient = isTransientSessionError(result.error);
+                    if (transient && attempt < SOCIAL_SIGN_IN_MAX_RETRIES) {
+                        attempt += 1;
+                        await wait(SOCIAL_SIGN_IN_RETRY_BASE_DELAY_MS * attempt);
+                        continue;
+                    }
+
+                    if (transient) {
+                        captureAuthFailure({
+                            error: result.error,
+                            operation: 'sign_in_google',
+                            callbackURL,
+                            provider,
+                            extras: {
+                                phase: 'result_error',
+                                transient,
+                                attempt,
+                                maxRetries: SOCIAL_SIGN_IN_MAX_RETRIES,
+                            },
+                            level: 'warning',
+                        });
+                    }
+
+                    return { data: null, error: result.error };
                 }
-                return { data: null, error: result.error };
+
+                return { data: result.data, error: null };
+            } catch (error) {
+                const transient = isTransientSessionError(error);
+                if (transient && attempt < SOCIAL_SIGN_IN_MAX_RETRIES) {
+                    attempt += 1;
+                    await wait(SOCIAL_SIGN_IN_RETRY_BASE_DELAY_MS * attempt);
+                    continue;
+                }
+
+                captureAuthFailure({
+                    error,
+                    operation: 'sign_in_google',
+                    callbackURL,
+                    provider,
+                    extras: {
+                        phase: 'exception',
+                        transient,
+                        attempt,
+                        maxRetries: SOCIAL_SIGN_IN_MAX_RETRIES,
+                    },
+                    level: transient ? 'warning' : 'error',
+                });
+                return { data: null, error };
             }
-            return { data: result.data, error: null };
-        } catch (error) {
-            const transient = isTransientSessionError(error);
-            captureAuthFailure({
-                error,
-                operation: 'sign_in_google',
-                callbackURL,
-                provider,
-                extras: {
-                    phase: 'exception',
-                    transient,
-                },
-                level: transient ? 'warning' : 'error',
-            });
-            return { data: null, error };
         }
+
+        return { data: null, error: { message: 'Unable to reach authentication right now. Please try again.' } };
     };
 
     const signOut = async () => {
@@ -504,7 +607,17 @@ const AuthProviderConvex = ({ children }) => {
         if (!user) return { error: { message: 'No user logged in' } };
         try {
             await upsertProfile({ userId: user.id, ...updates });
-            return { data: { ...profile, ...updates }, error: null };
+            setProfileOverride((current) => ({
+                ...(current || {}),
+                ...updates,
+            }));
+            return {
+                data: {
+                    ...(profile || { userId: user.id }),
+                    ...updates,
+                },
+                error: null,
+            };
         } catch (error) {
             captureSentryException(error, {
                 tags: {
@@ -520,6 +633,7 @@ const AuthProviderConvex = ({ children }) => {
         user,
         profile,
         loading,
+        profileReady,
         signUp,
         signIn,
         signInWithGoogle,

@@ -1,19 +1,23 @@
 import React, { useEffect, useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
+import { resolveOnboardingPath } from '../lib/onboarding';
 
 const OnboardingLevel = () => {
     const [selectedLevel, setSelectedLevel] = useState(200);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
-    const { updateProfile, profile } = useAuth();
+    const { updateProfile, profile, loading: authLoading } = useAuth();
     const navigate = useNavigate();
 
+    // #2 — wait for auth to finish loading before redirecting
     useEffect(() => {
-        if (profile?.onboardingCompleted) {
-            navigate('/dashboard', { replace: true });
+        if (authLoading) return;
+        const nextPath = resolveOnboardingPath(profile);
+        if (nextPath !== '/onboarding/level') {
+            navigate(nextPath, { replace: true });
         }
-    }, [profile, navigate]);
+    }, [profile, authLoading, navigate]);
 
     const levelMap = {
         100: 'freshman',
@@ -53,9 +57,14 @@ const OnboardingLevel = () => {
     return (
         <div className="bg-background-light dark:bg-background-dark font-display antialiased text-zinc-900 dark:text-zinc-100 min-h-screen flex flex-col">
             <div className="w-full px-8 py-6 max-w-7xl mx-auto flex items-center justify-between">
-                <Link to="/onboarding/name" className="flex items-center justify-center w-10 h-10 rounded-full bg-zinc-100 dark:bg-zinc-800 text-zinc-900 dark:text-white hover:bg-zinc-200 dark:hover:bg-zinc-700 transition-colors">
+                {/* #6 — go back in history instead of linking to /onboarding/name (avoids redirect loop) */}
+                <button
+                    type="button"
+                    onClick={() => navigate(-1)}
+                    className="flex items-center justify-center w-10 h-10 rounded-full bg-zinc-100 dark:bg-zinc-800 text-zinc-900 dark:text-white hover:bg-zinc-200 dark:hover:bg-zinc-700 transition-colors"
+                >
                     <span className="material-symbols-outlined text-[20px]" style={{ fontVariationSettings: "'FILL' 0" }}>arrow_back</span>
-                </Link>
+                </button>
                 <div className="flex flex-col items-center gap-2">
                     <p className="text-xs font-semibold text-zinc-500 uppercase tracking-wider">Step 2 of 3</p>
                     <div aria-label="Onboarding progress: step 2 of 3" className="flex w-32 flex-row items-center gap-2">
@@ -88,9 +97,17 @@ const OnboardingLevel = () => {
                         {[100, 200, 300, 400].map((level) => (
                             <button
                                 key={level}
+                                type="button"
                                 aria-label={`Level ${level} - ${levelMap[level]}`}
                                 aria-pressed={selectedLevel === level}
                                 onClick={() => setSelectedLevel(level)}
+                                // #11 — keyboard support for Enter/Space
+                                onKeyDown={(e) => {
+                                    if (e.key === 'Enter' || e.key === ' ') {
+                                        e.preventDefault();
+                                        setSelectedLevel(level);
+                                    }
+                                }}
                                 className={`group relative flex flex-col items-center justify-center p-8 aspect-[4/3] lg:aspect-square rounded-3xl border transition-all active:scale-[0.98] ${selectedLevel === level
                                     ? 'border-[3px] border-royal-blue bg-royal-blue/5 dark:bg-royal-blue/10 shadow-md'
                                     : 'border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 hover:border-zinc-400 dark:hover:border-zinc-600 shadow-sm hover:shadow-md'
@@ -112,7 +129,8 @@ const OnboardingLevel = () => {
                     </div>
                 </div>
 
-                <div className="w-full flex justify-center pb-8">
+                {/* #8 — safe-area padding for bottom button */}
+                <div className="w-full flex justify-center" style={{ paddingBottom: 'max(2rem, env(safe-area-inset-bottom, 2rem))' }}>
                     <button
                         onClick={handleNext}
                         disabled={loading}
