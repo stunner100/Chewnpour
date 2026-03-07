@@ -332,6 +332,14 @@ export const runGroundedBackfillSweep = internalAction({
 const NUMERIC_MCQ_SIGNAL_PATTERN =
     /(?:%|percent|percentage|rate|ratio|target|limit|threshold|minimum|maximum|at least|at most|how many|how much|count|number of|per week|per day|per month|weekly|daily|monthly|increase|decrease)/i;
 
+const getStoredMcqQuestions = (rawQuestions: any[]) =>
+    (Array.isArray(rawQuestions) ? rawQuestions : [])
+        .filter((question: any) => String(question?.questionType || "") !== "essay");
+
+const getStoredEssayQuestions = (rawQuestions: any[]) =>
+    (Array.isArray(rawQuestions) ? rawQuestions : [])
+        .filter((question: any) => String(question?.questionType || "") === "essay");
+
 const resolveStoredCorrectOption = (question: any) => {
     const options = Array.isArray(question?.options) ? question.options : [];
     const storedCorrectLabel = String(question?.correctAnswer || "").trim().toUpperCase();
@@ -370,6 +378,345 @@ const buildSyntheticEvidenceIndexFromCitations = (question: any) => {
         passages,
     };
 };
+
+const inspectStoredMcqGrounding = (question: any) => {
+    const correctOption = resolveStoredCorrectOption(question);
+    const correctOptionText = String(correctOption?.text || "").trim();
+    const citations = Array.isArray(question?.citations) ? question.citations : [];
+    const numericCandidateText = [
+        String(question?.questionText || ""),
+        correctOptionText,
+        ...citations.map((citation: any) => String(citation?.quote || "")),
+    ].join(" ");
+    const isNumericCandidate = NUMERIC_MCQ_SIGNAL_PATTERN.test(numericCandidateText);
+    if (!isNumericCandidate) {
+        return {
+            correctOptionText,
+            citations,
+            deterministicPass: true,
+            isNumericCandidate: false,
+            reasons: [] as string[],
+        };
+    }
+
+    const evidenceIndex = buildSyntheticEvidenceIndexFromCitations(question);
+    const deterministic = runDeterministicGroundingCheck({
+        type: "mcq",
+        candidate: {
+            questionText: question?.questionText,
+            options: Array.isArray(question?.options) ? question.options : [],
+            citations,
+        },
+        evidenceIndex,
+    });
+    const reasons = Array.isArray(deterministic.reasons)
+        ? deterministic.reasons.filter(Boolean)
+        : [];
+
+    return {
+        correctOptionText,
+        citations,
+        deterministicPass: deterministic.deterministicPass,
+        isNumericCandidate: true,
+        reasons,
+    };
+};
+
+export const summarizeTopicUpdateBuckets = internalAction({
+    args: {
+        fromTs: v.optional(v.number()),
+        toTs: v.optional(v.number()),
+        bucketMs: v.optional(v.number()),
+        limit: v.optional(v.number()),
+        sampleLimit: v.optional(v.number()),
+    },
+    handler: async (ctx, args) => {
+        const topicLimit = Math.max(1, Math.min(20_000, Math.floor(Number(args.limit || 10_000))));
+        const sampleLimit = Math.max(1, Math.min(100, Math.floor(Number(args.sampleLimit || 20))));
+        const bucketMs = Math.max(1_000, Math.min(60 * 60 * 1000, Math.floor(Number(args.bucketMs || 60_000))));
+        const fromTs = Number(args.fromTs || 0);
+        const toTs = Number(args.toTs || Date.now());
+        const bucketCounts = new Map<number, number>();
+        const sampleTopics: any[] = [];
+        let scannedTopicCount = 0;
+        let candidateTopicCount = 0;
+        let cursor: string | null = null;
+        let isDone = false;
+
+        while (!isDone && scannedTopicCount < topicLimit) {
+            const pageSize = Math.min(40, topicLimit - scannedTopicCount);
+            const topicPage = await ctx.runQuery((internal as any).grounded.listTopicsForSweep, {
+                paginationOpts: {
+                    numItems: pageSize,
+                    cursor,
+                },
+            }) as {
+                page: any[];
+                continueCursor: string;
+                isDone: boolean;
+            };
+            cursor = topicPage.continueCursor;
+            isDone = topicPage.isDone;
+
+            for (const topic of topicPage.page) {
+                scannedTopicCount += 1;
+                if (scannedTopicCount > topicLimit) {
+                    break;
+                }
+
+                const updatedAt = Number(topic?.examReadyUpdatedAt || 0);
+                if (!updatedAt || updatedAt < fromTs || updatedAt > toTs) {
+                    continue;
+                }
+
+                candidateTopicCount += 1;
+                const bucketStart = Math.floor(updatedAt / bucketMs) * bucketMs;
+                bucketCounts.set(bucketStart, (bucketCounts.get(bucketStart) || 0) + 1);
+
+                if (sampleTopics.length < sampleLimit) {
+                    sampleTopics.push({
+                        topicId: topic._id,
+                        topicTitle: String(topic?.title || "Unknown Topic"),
+                        examReadyUpdatedAt: updatedAt,
+                        usableMcqCount: Number(topic?.usableMcqCount || 0),
+                        usableEssayCount: Number(topic?.usableEssayCount || 0),
+                    });
+                }
+            }
+        }
+
+        const buckets = Array.from(bucketCounts.entries())
+            .map(([bucketStart, count]) => ({
+                bucketStart,
+                bucketEnd: bucketStart + bucketMs - 1,
+                count,
+            }))
+            .sort((left, right) => left.bucketStart - right.bucketStart);
+
+        return {
+            scannedTopicCount,
+            candidateTopicCount,
+            fromTs,
+            toTs,
+            bucketMs,
+            buckets,
+            sampleTopics,
+        };
+    },
+});
+
+export const auditMcqRefillForUpdatedTopicsWindow = internalAction({
+    args: {
+        fromTs: v.number(),
+        toTs: v.number(),
+        rebuildFromTs: v.optional(v.number()),
+        rebuildToTs: v.optional(v.number()),
+        topicCreatedBeforeTs: v.optional(v.number()),
+        limit: v.optional(v.number()),
+        minVerifiedMcqs: v.optional(v.number()),
+        sampleLimit: v.optional(v.number()),
+    },
+    handler: async (ctx, args) => {
+        const topicLimit = Math.max(1, Math.min(20_000, Math.floor(Number(args.limit || 10_000))));
+        const minVerifiedMcqs = Math.max(1, Math.min(50, Math.floor(Number(args.minVerifiedMcqs || 7))));
+        const sampleLimit = Math.max(1, Math.min(100, Math.floor(Number(args.sampleLimit || 20))));
+        const fromTs = Number(args.fromTs);
+        const toTs = Number(args.toTs);
+        const rebuildFromTs = Number(args.rebuildFromTs || 0);
+        const rebuildToTs = Number(args.rebuildToTs || 0);
+        const topicCreatedBeforeTs = Number(args.topicCreatedBeforeTs || toTs);
+        let scannedTopicCount = 0;
+        let candidateTopicCount = 0;
+        let updatedWindowTopicCount = 0;
+        let rebuildWindowTopicCount = 0;
+        let anyVerifiedMcqCount = 0;
+        let fullyRefilledCount = 0;
+        let partialRefillCount = 0;
+        let zeroMcqCount = 0;
+        let zeroVerifiedMcqCount = 0;
+        let lockedCount = 0;
+        let totalRawMcqCount = 0;
+        let totalVerifiedMcqCount = 0;
+        let numericCandidateCount = 0;
+        let remainingNumericMismatchCount = 0;
+        let remainingNumericMismatchTopicCount = 0;
+        const topicStates: any[] = [];
+        let cursor: string | null = null;
+        let isDone = false;
+
+        while (!isDone && scannedTopicCount < topicLimit) {
+            const pageSize = Math.min(40, topicLimit - scannedTopicCount);
+            const topicPage = await ctx.runQuery((internal as any).grounded.listTopicsForSweep, {
+                paginationOpts: {
+                    numItems: pageSize,
+                    cursor,
+                },
+            }) as {
+                page: any[];
+                continueCursor: string;
+                isDone: boolean;
+            };
+            cursor = topicPage.continueCursor;
+            isDone = topicPage.isDone;
+
+            for (const topic of topicPage.page) {
+                scannedTopicCount += 1;
+                if (scannedTopicCount > topicLimit) {
+                    break;
+                }
+
+                const updatedAt = Number(topic?.examReadyUpdatedAt || 0);
+                const updatedInWindow = Boolean(updatedAt && updatedAt >= fromTs && updatedAt <= toTs);
+                let selectionReason: "updated_window" | "rebuild_window" | "both" | null = null;
+                let rawQuestions: any[] = [];
+                let mcqQuestions: any[] = [];
+                let essayQuestions: any[] = [];
+                let newestMcqCreatedAt = 0;
+
+                if (updatedInWindow) {
+                    selectionReason = "updated_window";
+                    updatedWindowTopicCount += 1;
+                    rawQuestions = await ctx.runQuery(internal.topics.getRawQuestionsByTopicInternal, {
+                        topicId: topic._id,
+                    });
+                    mcqQuestions = getStoredMcqQuestions(rawQuestions);
+                    essayQuestions = getStoredEssayQuestions(rawQuestions);
+                    newestMcqCreatedAt = mcqQuestions.reduce(
+                        (maxCreatedAt: number, question: any) =>
+                            Math.max(maxCreatedAt, Number(question?._creationTime || 0)),
+                        0,
+                    );
+                } else if (rebuildFromTs > 0 && rebuildToTs > 0 && Number(topic?._creationTime || 0) < topicCreatedBeforeTs) {
+                    rawQuestions = await ctx.runQuery(internal.topics.getRawQuestionsByTopicInternal, {
+                        topicId: topic._id,
+                    });
+                    mcqQuestions = getStoredMcqQuestions(rawQuestions);
+                    if (mcqQuestions.length === 0) {
+                        continue;
+                    }
+                    essayQuestions = getStoredEssayQuestions(rawQuestions);
+                    newestMcqCreatedAt = mcqQuestions.reduce(
+                        (maxCreatedAt: number, question: any) =>
+                            Math.max(maxCreatedAt, Number(question?._creationTime || 0)),
+                        0,
+                    );
+                    const oldestEssayCreatedAt = essayQuestions.reduce(
+                        (minCreatedAt: number, question: any) =>
+                            Math.min(minCreatedAt, Number(question?._creationTime || Number.MAX_SAFE_INTEGER)),
+                        Number.MAX_SAFE_INTEGER,
+                    );
+                    const rebuiltInWindow =
+                        newestMcqCreatedAt >= rebuildFromTs
+                        && newestMcqCreatedAt <= rebuildToTs
+                        && oldestEssayCreatedAt < rebuildFromTs;
+                    if (!rebuiltInWindow) {
+                        continue;
+                    }
+                    selectionReason = "rebuild_window";
+                    rebuildWindowTopicCount += 1;
+                } else {
+                    continue;
+                }
+
+                candidateTopicCount += 1;
+                if (mcqQuestions.length === 0 && rawQuestions.length > 0) {
+                    mcqQuestions = getStoredMcqQuestions(rawQuestions);
+                }
+                if (essayQuestions.length === 0 && rawQuestions.length > 0) {
+                    essayQuestions = getStoredEssayQuestions(rawQuestions);
+                }
+                if (newestMcqCreatedAt === 0) {
+                    newestMcqCreatedAt = mcqQuestions.reduce(
+                        (maxCreatedAt: number, question: any) =>
+                            Math.max(maxCreatedAt, Number(question?._creationTime || 0)),
+                        0,
+                    );
+                }
+                const verifiedMcqs = mcqQuestions.filter((question: any) =>
+                    String(question?.factualityStatus || "") === "verified"
+                    && Array.isArray(question?.citations)
+                    && question.citations.length > 0);
+                const currentlyLocked = Number(topic?.mcqGenerationLockedUntil || 0) > Date.now();
+                if (currentlyLocked) {
+                    lockedCount += 1;
+                }
+
+                totalRawMcqCount += mcqQuestions.length;
+                totalVerifiedMcqCount += verifiedMcqs.length;
+
+                if (mcqQuestions.length === 0) {
+                    zeroMcqCount += 1;
+                }
+                if (verifiedMcqs.length === 0) {
+                    zeroVerifiedMcqCount += 1;
+                } else {
+                    anyVerifiedMcqCount += 1;
+                    if (verifiedMcqs.length >= minVerifiedMcqs) {
+                        fullyRefilledCount += 1;
+                    } else {
+                        partialRefillCount += 1;
+                    }
+                }
+
+                let topicNumericMismatchCount = 0;
+                for (const question of mcqQuestions) {
+                    const inspection = inspectStoredMcqGrounding(question);
+                    if (!inspection.isNumericCandidate) {
+                        continue;
+                    }
+                    numericCandidateCount += 1;
+                    if (inspection.reasons.includes("correct option unsupported by cited evidence")) {
+                        remainingNumericMismatchCount += 1;
+                        topicNumericMismatchCount += 1;
+                    }
+                }
+                if (topicNumericMismatchCount > 0) {
+                    remainingNumericMismatchTopicCount += 1;
+                }
+
+                if (topicStates.length < sampleLimit) {
+                    topicStates.push({
+                        topicId: topic._id,
+                        topicTitle: String(topic?.title || "Unknown Topic"),
+                        examReadyUpdatedAt: updatedAt,
+                        rawMcqCount: mcqQuestions.length,
+                        verifiedMcqCount: verifiedMcqs.length,
+                        essayCount: essayQuestions.length,
+                        locked: currentlyLocked,
+                        numericMismatchCount: topicNumericMismatchCount,
+                        newestMcqCreatedAt,
+                        selectionReason,
+                    });
+                }
+            }
+        }
+
+        return {
+            scannedTopicCount,
+            candidateTopicCount,
+            fromTs,
+            toTs,
+            rebuildFromTs,
+            rebuildToTs,
+            topicCreatedBeforeTs,
+            minVerifiedMcqs,
+            updatedWindowTopicCount,
+            rebuildWindowTopicCount,
+            anyVerifiedMcqCount,
+            fullyRefilledCount,
+            partialRefillCount,
+            zeroMcqCount,
+            zeroVerifiedMcqCount,
+            lockedCount,
+            totalRawMcqCount,
+            totalVerifiedMcqCount,
+            numericCandidateCount,
+            remainingNumericMismatchCount,
+            remainingNumericMismatchTopicCount,
+            sampleTopics: topicStates,
+        };
+    },
+});
 
 export const sweepStoredMcqBanksForGroundingMismatches = internalAction({
     args: {
@@ -417,8 +764,7 @@ export const sweepStoredMcqBanksForGroundingMismatches = internalAction({
                 const rawQuestions = await ctx.runQuery(internal.topics.getRawQuestionsByTopicInternal, {
                     topicId: topic._id,
                 });
-                const mcqQuestions = (Array.isArray(rawQuestions) ? rawQuestions : [])
-                    .filter((question: any) => String(question?.questionType || "") !== "essay");
+                const mcqQuestions = getStoredMcqQuestions(rawQuestions);
                 if (mcqQuestions.length === 0) {
                     continue;
                 }
@@ -429,40 +775,18 @@ export const sweepStoredMcqBanksForGroundingMismatches = internalAction({
 
                 for (const question of mcqQuestions) {
                     scannedMcqCount += 1;
-
-                    const correctOption = resolveStoredCorrectOption(question);
-                    const correctOptionText = String(correctOption?.text || "").trim();
-                    const citations = Array.isArray(question?.citations) ? question.citations : [];
-                    const numericCandidateText = [
-                        String(question?.questionText || ""),
-                        correctOptionText,
-                        ...citations.map((citation: any) => String(citation?.quote || "")),
-                    ].join(" ");
-                    const isNumericCandidate = NUMERIC_MCQ_SIGNAL_PATTERN.test(numericCandidateText);
-                    if (!isNumericCandidate) {
+                    const inspection = inspectStoredMcqGrounding(question);
+                    if (!inspection.isNumericCandidate) {
                         continue;
                     }
 
                     numericCandidateCount += 1;
-                    const evidenceIndex = buildSyntheticEvidenceIndexFromCitations(question);
-                    const deterministic = runDeterministicGroundingCheck({
-                        type: "mcq",
-                        candidate: {
-                            questionText: question?.questionText,
-                            options: Array.isArray(question?.options) ? question.options : [],
-                            citations,
-                        },
-                        evidenceIndex,
-                    });
-
-                    if (deterministic.deterministicPass) {
+                    if (inspection.deterministicPass) {
                         supportedCount += 1;
                         continue;
                     }
 
-                    const reasons = Array.isArray(deterministic.reasons)
-                        ? deterministic.reasons.filter(Boolean)
-                        : [];
+                    const reasons = inspection.reasons;
                     const isNumericMismatch = reasons.includes("correct option unsupported by cited evidence");
                     if (isNumericMismatch) {
                         numericMismatchCount += 1;
@@ -481,8 +805,8 @@ export const sweepStoredMcqBanksForGroundingMismatches = internalAction({
                         topicTitle,
                         questionId: question?._id,
                         questionText: String(question?.questionText || ""),
-                        correctOptionText,
-                        citationQuote: String(citations[0]?.quote || ""),
+                        correctOptionText: inspection.correctOptionText,
+                        citationQuote: String(inspection.citations[0]?.quote || ""),
                         reasons,
                         numericMismatch: isNumericMismatch,
                     });
@@ -561,8 +885,7 @@ export const remediateStoredMcqGroundingMismatches = internalAction({
                 const rawQuestions = await ctx.runQuery(internal.topics.getRawQuestionsByTopicInternal, {
                     topicId: topic._id,
                 });
-                const mcqQuestions = (Array.isArray(rawQuestions) ? rawQuestions : [])
-                    .filter((question: any) => String(question?.questionType || "") !== "essay");
+                const mcqQuestions = getStoredMcqQuestions(rawQuestions);
                 if (mcqQuestions.length === 0) {
                     continue;
                 }
@@ -571,32 +894,12 @@ export const remediateStoredMcqGroundingMismatches = internalAction({
                 const offendingQuestionIds: Id<"questions">[] = [];
 
                 for (const question of mcqQuestions) {
-                    const correctOption = resolveStoredCorrectOption(question);
-                    const correctOptionText = String(correctOption?.text || "").trim();
-                    const citations = Array.isArray(question?.citations) ? question.citations : [];
-                    const numericCandidateText = [
-                        String(question?.questionText || ""),
-                        correctOptionText,
-                        ...citations.map((citation: any) => String(citation?.quote || "")),
-                    ].join(" ");
-                    const isNumericCandidate = NUMERIC_MCQ_SIGNAL_PATTERN.test(numericCandidateText);
-                    if (!isNumericCandidate) {
+                    const inspection = inspectStoredMcqGrounding(question);
+                    if (!inspection.isNumericCandidate) {
                         continue;
                     }
 
-                    const evidenceIndex = buildSyntheticEvidenceIndexFromCitations(question);
-                    const deterministic = runDeterministicGroundingCheck({
-                        type: "mcq",
-                        candidate: {
-                            questionText: question?.questionText,
-                            options: Array.isArray(question?.options) ? question.options : [],
-                            citations,
-                        },
-                        evidenceIndex,
-                    });
-                    const reasons = Array.isArray(deterministic.reasons)
-                        ? deterministic.reasons.filter(Boolean)
-                        : [];
+                    const reasons = inspection.reasons;
                     if (!reasons.includes("correct option unsupported by cited evidence")) {
                         continue;
                     }
