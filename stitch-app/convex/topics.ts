@@ -1,6 +1,11 @@
 import { v } from "convex/values";
 import { internalMutation, internalQuery, mutation, query } from "./_generated/server";
-import { isUsableExamQuestion, sanitizeExamQuestionForClient } from "./lib/examSecurity";
+import {
+    assertAuthorizedUser,
+    isUsableExamQuestion,
+    resolveAuthUserId,
+    sanitizeExamQuestionForClient,
+} from "./lib/examSecurity";
 import { resolveIllustrationUrl } from "./lib/illustrationUrl";
 
 const DEFAULT_TOPIC_ILLUSTRATION_URL =
@@ -45,6 +50,61 @@ const computeTopicExamReadinessFromQuestions = (questions: any[]) => {
     };
 };
 
+const getTopicWithQuestionsPayload = async (ctx: any, topicId: any) => {
+    const safeGetDocument = async (id: any) => {
+        if (!id) return null;
+        try {
+            return await ctx.db.get(id);
+        } catch {
+            return null;
+        }
+    };
+
+    const topic = await safeGetDocument(topicId);
+    if (!topic) return null;
+    const course = await safeGetDocument(topic.courseId);
+    if (!course) return null;
+
+    let freshIllustrationUrl: string | undefined =
+        topic.illustrationUrl || resolveDefaultTopicIllustrationUrl();
+    if (topic.illustrationStorageId) {
+        const resolvedStorageUrl =
+            (await resolveIllustrationUrl({
+                illustrationStorageId: topic.illustrationStorageId,
+                getUrl: (storageId) => ctx.storage.getUrl(storageId),
+            })) || undefined;
+        if (resolvedStorageUrl) {
+            freshIllustrationUrl = resolvedStorageUrl;
+        }
+    }
+
+    let questions: any[] = [];
+    try {
+        questions = await ctx.db
+            .query("questions")
+            .withIndex("by_topicId", (q: any) => q.eq("topicId", topicId))
+            .collect();
+    } catch {
+        questions = [];
+    }
+    const safeQuestions = questions
+        .filter((question: any) => isUsableExamQuestion(question))
+        .map((question: any) => sanitizeExamQuestionForClient(question));
+    const computedReadiness = computeTopicExamReadinessFromQuestions(questions);
+
+    return {
+        topic: {
+            ...topic,
+            illustrationUrl: freshIllustrationUrl,
+            usableMcqCount: computedReadiness.usableMcqCount,
+            usableEssayCount: computedReadiness.usableEssayCount,
+            examReady: computedReadiness.examReady,
+            questions: safeQuestions,
+        },
+        ownerUserId: course.userId,
+    };
+};
+
 // Get all topics for a course
 export const getTopicsByCourse = query({
     args: { courseId: v.id("courses") },
@@ -86,45 +146,32 @@ export const getTopicsByCourse = query({
 export const getTopicWithQuestions = query({
     args: { topicId: v.id("topics") },
     handler: async (ctx, args) => {
-        const topic = await ctx.db.get(args.topicId);
-        if (!topic) return null;
+        const identity = await ctx.auth.getUserIdentity();
+        const authUserId = resolveAuthUserId(identity);
+        if (!authUserId) return null;
 
-        let freshIllustrationUrl: string | undefined =
-            topic.illustrationUrl || resolveDefaultTopicIllustrationUrl();
-        if (topic.illustrationStorageId) {
-            const resolvedStorageUrl =
-                (await resolveIllustrationUrl({
-                    illustrationStorageId: topic.illustrationStorageId,
-                    getUrl: (storageId) => ctx.storage.getUrl(storageId),
-                })) || undefined;
-            if (resolvedStorageUrl) {
-                freshIllustrationUrl = resolvedStorageUrl;
-            }
+        const payload = await getTopicWithQuestionsPayload(ctx, args.topicId);
+        if (!payload) return null;
+
+        try {
+            assertAuthorizedUser({
+                authUserId,
+                resourceOwnerUserId: payload.ownerUserId,
+            });
+        } catch {
+            return null;
         }
 
-        const questions = await ctx.db
-            .query("questions")
-            .withIndex("by_topicId", (q) => q.eq("topicId", args.topicId))
-            .collect();
-        const safeQuestions = questions
-            .filter((question) => isUsableExamQuestion(question))
-            .map((question) => sanitizeExamQuestionForClient(question));
-        const computedReadiness = computeTopicExamReadinessFromQuestions(questions);
-        // Always derive readiness from live question docs for this view.
-        // Stored counters can lag when background jobs fail/retry, which can
-        // incorrectly keep "Take Quiz" disabled even though usable questions exist.
-        const usableMcqCount = computedReadiness.usableMcqCount;
-        const usableEssayCount = computedReadiness.usableEssayCount;
-        const examReady = computedReadiness.examReady;
+        return payload.topic;
+    },
+});
 
-        return {
-            ...topic,
-            illustrationUrl: freshIllustrationUrl,
-            usableMcqCount,
-            usableEssayCount,
-            examReady,
-            questions: safeQuestions,
-        };
+export const getTopicWithQuestionsInternal = internalQuery({
+    args: { topicId: v.id("topics") },
+    handler: async (ctx, args) => {
+        const payload = await getTopicWithQuestionsPayload(ctx, args.topicId);
+        if (!payload) return null;
+        return payload.topic;
     },
 });
 
@@ -178,6 +225,9 @@ export const createTopic = mutation({
         title: v.string(),
         description: v.optional(v.string()),
         content: v.optional(v.string()),
+        sourceChunkIds: v.optional(v.array(v.number())),
+        sourcePassageIds: v.optional(v.array(v.string())),
+        groundingVersion: v.optional(v.string()),
         illustrationStorageId: v.optional(v.id("_storage")),
         illustrationUrl: v.optional(v.string()),
         orderIndex: v.number(),
@@ -189,6 +239,9 @@ export const createTopic = mutation({
             title: args.title,
             description: args.description,
             content: args.content,
+            sourceChunkIds: args.sourceChunkIds,
+            sourcePassageIds: args.sourcePassageIds,
+            groundingVersion: args.groundingVersion,
             illustrationStorageId: args.illustrationStorageId,
             illustrationUrl: args.illustrationUrl || resolveDefaultTopicIllustrationUrl(),
             examReady: false,
@@ -346,6 +399,14 @@ export const createQuestionInternal = internalMutation({
         correctAnswer: v.string(),
         explanation: v.optional(v.string()),
         difficulty: v.optional(v.string()),
+        citations: v.optional(v.array(v.any())),
+        sourcePassageIds: v.optional(v.array(v.string())),
+        groundingScore: v.optional(v.number()),
+        factualityStatus: v.optional(v.string()),
+        generationVersion: v.optional(v.string()),
+        learningObjective: v.optional(v.string()),
+        rubricPoints: v.optional(v.array(v.string())),
+        qualityFlags: v.optional(v.array(v.string())),
     },
     handler: async (ctx, args) => {
         const questionId = await ctx.db.insert("questions", {
@@ -356,6 +417,14 @@ export const createQuestionInternal = internalMutation({
             correctAnswer: args.correctAnswer,
             explanation: args.explanation,
             difficulty: args.difficulty,
+            citations: args.citations,
+            sourcePassageIds: args.sourcePassageIds,
+            groundingScore: args.groundingScore,
+            factualityStatus: args.factualityStatus,
+            generationVersion: args.generationVersion,
+            learningObjective: args.learningObjective,
+            rubricPoints: args.rubricPoints,
+            qualityFlags: args.qualityFlags,
         });
 
         return questionId;
@@ -386,6 +455,41 @@ export const deleteQuestionsByTopicInternal = internalMutation({
     },
 });
 
+export const deleteMcqQuestionsByTopicInternal = internalMutation({
+    args: { topicId: v.id("topics") },
+    handler: async (ctx, args) => {
+        const questions = await ctx.db
+            .query("questions")
+            .withIndex("by_topicId", (q) => q.eq("topicId", args.topicId))
+            .collect();
+
+        let deleted = 0;
+        const remainingQuestions = [];
+        for (const question of questions) {
+            if (String(question?.questionType || "") === "essay") {
+                remainingQuestions.push(question);
+                continue;
+            }
+            await ctx.db.delete(question._id);
+            deleted += 1;
+        }
+
+        const readiness = computeTopicExamReadinessFromQuestions(remainingQuestions);
+        await ctx.db.patch(args.topicId, {
+            examReady: readiness.examReady,
+            usableMcqCount: readiness.usableMcqCount,
+            usableEssayCount: readiness.usableEssayCount,
+            examReadyUpdatedAt: Date.now(),
+        });
+
+        return {
+            deleted,
+            remainingEssayCount: readiness.usableEssayCount,
+            examReady: readiness.examReady,
+        };
+    },
+});
+
 
 // Batch create questions (for AI-generated content)
 export const batchCreateQuestionsInternal = internalMutation({
@@ -398,6 +502,14 @@ export const batchCreateQuestionsInternal = internalMutation({
                 options: v.optional(v.any()),
                 correctAnswer: v.string(),
                 explanation: v.optional(v.string()),
+                citations: v.optional(v.array(v.any())),
+                sourcePassageIds: v.optional(v.array(v.string())),
+                groundingScore: v.optional(v.number()),
+                factualityStatus: v.optional(v.string()),
+                generationVersion: v.optional(v.string()),
+                learningObjective: v.optional(v.string()),
+                rubricPoints: v.optional(v.array(v.string())),
+                qualityFlags: v.optional(v.array(v.string())),
             })
         ),
     },
