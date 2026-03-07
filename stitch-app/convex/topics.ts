@@ -7,6 +7,7 @@ import {
     sanitizeExamQuestionForClient,
 } from "./lib/examSecurity";
 import { resolveIllustrationUrl } from "./lib/illustrationUrl";
+import { areMcqQuestionsNearDuplicate, buildMcqUniquenessSignature } from "./lib/mcqUniqueness";
 
 const DEFAULT_TOPIC_ILLUSTRATION_URL =
     String(process.env.TOPIC_PLACEHOLDER_ILLUSTRATION_URL || "/topic-placeholder.svg").trim()
@@ -50,6 +51,30 @@ const computeTopicExamReadinessFromQuestions = (questions: any[]) => {
     };
 };
 
+const dedupeTopicQuestions = (questions: any[]) => {
+    const items = Array.isArray(questions) ? questions : [];
+    const seenMcqSignatures: any[] = [];
+    const deduped = [];
+
+    for (const question of items) {
+        if (!question) continue;
+        if (String(question?.questionType || "") === "essay") {
+            deduped.push(question);
+            continue;
+        }
+
+        const signature = buildMcqUniquenessSignature(question);
+        if (seenMcqSignatures.some((prior) => areMcqQuestionsNearDuplicate(signature, prior))) {
+            continue;
+        }
+
+        seenMcqSignatures.push(signature);
+        deduped.push(question);
+    }
+
+    return deduped;
+};
+
 const getTopicWithQuestionsPayload = async (ctx: any, topicId: any) => {
     const safeGetDocument = async (id: any) => {
         if (!id) return null;
@@ -87,10 +112,11 @@ const getTopicWithQuestionsPayload = async (ctx: any, topicId: any) => {
     } catch {
         questions = [];
     }
-    const safeQuestions = questions
+    const dedupedQuestions = dedupeTopicQuestions(questions);
+    const safeQuestions = dedupedQuestions
         .filter((question: any) => isUsableExamQuestion(question))
         .map((question: any) => sanitizeExamQuestionForClient(question));
-    const computedReadiness = computeTopicExamReadinessFromQuestions(questions);
+    const computedReadiness = computeTopicExamReadinessFromQuestions(dedupedQuestions);
 
     return {
         topic: {
@@ -201,7 +227,7 @@ export const getQuestionsByTopic = query({
             .collect();
 
         // Shuffle questions for randomized exams
-        return questions
+        return dedupeTopicQuestions(questions)
             .filter((question) => isUsableExamQuestion(question))
             .map((question) => sanitizeExamQuestionForClient(question))
             .sort(() => Math.random() - 0.5);
@@ -409,6 +435,27 @@ export const createQuestionInternal = internalMutation({
         qualityFlags: v.optional(v.array(v.string())),
     },
     handler: async (ctx, args) => {
+        if (String(args.questionType || "") !== "essay") {
+            const existingQuestions = await ctx.db
+                .query("questions")
+                .withIndex("by_topicId", (q) => q.eq("topicId", args.topicId))
+                .collect();
+            const candidateSignature = buildMcqUniquenessSignature({
+                questionText: args.questionText,
+                options: args.options,
+                correctAnswer: args.correctAnswer,
+                citations: args.citations,
+            });
+            const duplicateExists = existingQuestions
+                .filter((question: any) => String(question?.questionType || "") !== "essay")
+                .some((question: any) =>
+                    areMcqQuestionsNearDuplicate(candidateSignature, buildMcqUniquenessSignature(question))
+                );
+            if (duplicateExists) {
+                return null;
+            }
+        }
+
         const questionId = await ctx.db.insert("questions", {
             topicId: args.topicId,
             questionText: args.questionText,
@@ -515,7 +562,21 @@ export const batchCreateQuestionsInternal = internalMutation({
     },
     handler: async (ctx, args) => {
         const questionIds = [];
+        const existingQuestions = await ctx.db
+            .query("questions")
+            .withIndex("by_topicId", (q) => q.eq("topicId", args.topicId))
+            .collect();
+        const acceptedMcqSignatures = existingQuestions
+            .filter((question: any) => String(question?.questionType || "") !== "essay")
+            .map((question: any) => buildMcqUniquenessSignature(question));
         for (const q of args.questions) {
+            if (String(q.questionType || "") !== "essay") {
+                const candidateSignature = buildMcqUniquenessSignature(q);
+                if (acceptedMcqSignatures.some((prior) => areMcqQuestionsNearDuplicate(candidateSignature, prior))) {
+                    continue;
+                }
+                acceptedMcqSignatures.push(candidateSignature);
+            }
             const id = await ctx.db.insert("questions", {
                 topicId: args.topicId,
                 ...q,

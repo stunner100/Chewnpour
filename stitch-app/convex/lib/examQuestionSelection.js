@@ -1,3 +1,6 @@
+import { areQuestionPromptsNearDuplicate, buildQuestionPromptSignature } from "./mcqUniqueness.js";
+import { areMcqQuestionsNearDuplicate, buildMcqUniquenessSignature } from "./mcqUniqueness.js";
+
 const DIFFICULTY_DISTRIBUTION = { easy: 0.3, medium: 0.5, hard: 0.2 };
 
 const pickRandomSubset = (items, size) => {
@@ -49,16 +52,44 @@ const normalizeQuestionPromptKey = (value) => {
 export const dedupeQuestionsByPrompt = (questions) => {
     const items = Array.isArray(questions) ? questions : [];
     const seenPromptKeys = new Set();
+    const seenFingerprints = new Set();
+    const acceptedSignatures = [];
+    const acceptedMcqSignatures = [];
     const deduped = [];
 
     for (const question of items) {
         if (!question) continue;
-        const normalizedPrompt = normalizeQuestionPromptKey(question.questionText);
+        const signature = buildQuestionPromptSignature(question.questionText);
+        const normalizedPrompt = signature.normalized || normalizeQuestionPromptKey(question.questionText);
         const fallbackKey = String(question._id || "");
         const dedupeKey = normalizedPrompt || fallbackKey;
         if (!dedupeKey) continue;
         if (seenPromptKeys.has(dedupeKey)) continue;
+        if (signature.fingerprint && seenFingerprints.has(signature.fingerprint)) continue;
+        if (
+            signature.normalized
+            && acceptedSignatures.some((prior) => areQuestionPromptsNearDuplicate(signature, prior))
+        ) {
+            continue;
+        }
+        if (
+            String(question?.questionType || "") !== "essay"
+            && acceptedMcqSignatures.some((prior) =>
+                areMcqQuestionsNearDuplicate(buildMcqUniquenessSignature(question), prior)
+            )
+        ) {
+            continue;
+        }
         seenPromptKeys.add(dedupeKey);
+        if (signature.fingerprint) {
+            seenFingerprints.add(signature.fingerprint);
+        }
+        if (signature.normalized) {
+            acceptedSignatures.push(signature);
+        }
+        if (String(question?.questionType || "") !== "essay") {
+            acceptedMcqSignatures.push(buildMcqUniquenessSignature(question));
+        }
         deduped.push(question);
     }
 
