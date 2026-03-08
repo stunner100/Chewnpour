@@ -53,7 +53,11 @@ import {
     parseGroundedVerifierResult,
     runDeterministicGroundingCheck,
 } from "./lib/groundedVerifier";
-import { applyGroundedAcceptance, buildEvidenceSnippet } from "./lib/groundedContentPipeline";
+import {
+    applyGroundedAcceptance,
+    buildEvidenceSnippet,
+    createGroundedAcceptanceMetrics,
+} from "./lib/groundedContentPipeline";
 import { createVoiceStreamToken } from "./lib/voiceStreamToken";
 
 // Sole LLM provider: Inception Labs (OpenAI-compatible endpoint).
@@ -2161,6 +2165,12 @@ const calculateQuestionBankTarget = (topicContent: string, profile: any) => {
         maxTarget: profile?.maxTarget,
         wordDivisor: profile?.wordDivisor,
     });
+};
+
+const normalizeTimingMs = (value: any) => {
+    const numeric = Number(value);
+    if (!Number.isFinite(numeric)) return 0;
+    return Math.max(0, Math.round(numeric));
 };
 
 const resolveMcqQuestionBankTarget = (args: {
@@ -4292,10 +4302,52 @@ const generateQuestionCandidatesBatch = async (args: {
 const generateQuestionBankForTopic = async (
     ctx: any,
     topicId: any,
-    rawProfile: any = QUESTION_BANK_BACKGROUND_PROFILE
+    rawProfile: any = QUESTION_BANK_BACKGROUND_PROFILE,
+    options?: {
+        lockProbeMs?: number;
+        lockWaitMs?: number;
+        lockedUntil?: number;
+        lockTtlMs?: number;
+    },
 ) => {
+    const overallStartedAt = Date.now();
     const profile = resolveQuestionBankProfile(rawProfile);
     const runMode = resolveQuestionBankRunMode(profile);
+    const timingBreakdown = {
+        lockProbeMs: normalizeTimingMs(options?.lockProbeMs),
+        lockWaitMs: normalizeTimingMs(options?.lockWaitMs),
+        setupMs: 0,
+        batchGenerationMs: 0,
+        acceptanceMs: 0,
+        deterministicMs: 0,
+        llmVerificationMs: 0,
+        repairMs: 0,
+        optionRepairMs: 0,
+        saveMs: 0,
+        refreshReadinessMs: 0,
+        otherMs: 0,
+    };
+    const countBreakdown = {
+        roundsAttempted: 0,
+        batchRequests: 0,
+        candidateCount: 0,
+        acceptedCandidateCount: 0,
+        rejectedCandidateCount: 0,
+        deterministicChecks: 0,
+        llmVerificationCount: 0,
+        llmVerificationErrorCount: 0,
+        llmRejectedCount: 0,
+        repairAttempts: 0,
+        repairSuccesses: 0,
+        optionRepairAttempts: 0,
+        optionRepairSuccesses: 0,
+        savedQuestionCount: 0,
+        nearDuplicateSkips: 0,
+        groundingRejects: 0,
+    };
+    let nearDuplicateSkips = 0;
+    let groundingRejects = 0;
+    const setupStartedAt = Date.now();
     const topicWithQuestions = await ctx.runQuery(internal.topics.getTopicWithQuestionsInternal, { topicId });
     if (!topicWithQuestions) {
         throw new Error("Topic not found");
@@ -4348,8 +4400,63 @@ const generateQuestionBankForTopic = async (
         topicId,
         mcqTargetCount: targetCount,
     });
+    timingBreakdown.setupMs = normalizeTimingMs(Date.now() - setupStartedAt);
+
+    const buildTimingDiagnostics = (outcome: string) => {
+        const durationMs = normalizeTimingMs(Date.now() - overallStartedAt);
+        const measuredMs =
+            timingBreakdown.lockProbeMs
+            + timingBreakdown.setupMs
+            + timingBreakdown.batchGenerationMs
+            + timingBreakdown.acceptanceMs
+            + timingBreakdown.optionRepairMs
+            + timingBreakdown.saveMs
+            + timingBreakdown.refreshReadinessMs;
+        return {
+            outcome,
+            runMode,
+            startedAt: overallStartedAt,
+            finishedAt: Date.now(),
+            durationMs,
+            lock: {
+                probeMs: timingBreakdown.lockProbeMs,
+                waitMs: timingBreakdown.lockWaitMs,
+                lockedUntil: Number(options?.lockedUntil || 0),
+                ttlMs: normalizeTimingMs(options?.lockTtlMs),
+            },
+            target: {
+                initialCount,
+                finalCount: getUniqueQuestionCount(),
+                remainingNeeded: Math.max(0, targetCount - initialCount),
+                targetCount,
+                evidenceRichnessCap: targetResolution.evidenceRichnessCap,
+                wordCountTarget: targetResolution.wordCountTarget,
+                retrievedEvidenceCount: Array.isArray(groundedPack.evidence) ? groundedPack.evidence.length : 0,
+                retrievedEvidencePassageCount: new Set(
+                    (Array.isArray(groundedPack.evidence) ? groundedPack.evidence : [])
+                        .map((entry: any) => String(entry?.passageId || "").trim())
+                        .filter(Boolean)
+                ).size,
+            },
+            counts: {
+                ...countBreakdown,
+                nearDuplicateSkips,
+                groundingRejects,
+            },
+            timings: {
+                ...timingBreakdown,
+                otherMs: Math.max(0, durationMs - measuredMs),
+            },
+        };
+    };
 
     if (initialCount >= targetCount) {
+        const diagnostics = buildTimingDiagnostics("already_generated");
+        console.info("[QuestionBank] timing_breakdown", {
+            topicId,
+            topicTitle: topicWithQuestions.title,
+            diagnostics,
+        });
         return {
             success: true,
             alreadyGenerated: true,
@@ -4358,6 +4465,7 @@ const generateQuestionBankForTopic = async (
             targetCount,
             evidenceRichnessCap: targetResolution.evidenceRichnessCap,
             wordCountTarget: targetResolution.wordCountTarget,
+            diagnostics,
         };
     }
     if (!groundedPack.index || groundedPack.evidence.length === 0) {
@@ -4372,6 +4480,12 @@ const generateQuestionBankForTopic = async (
             topicTitle: topicWithQuestions.title,
             uploadId: groundedPack.upload?._id ? String(groundedPack.upload._id) : "",
         });
+        const diagnostics = buildTimingDiagnostics("insufficient_evidence");
+        console.info("[QuestionBank] timing_breakdown", {
+            topicId,
+            topicTitle: topicWithQuestions.title,
+            diagnostics,
+        });
         return {
             success: true,
             alreadyGenerated: false,
@@ -4382,6 +4496,7 @@ const generateQuestionBankForTopic = async (
             wordCountTarget: targetResolution.wordCountTarget,
             abstained: true,
             reason: "INSUFFICIENT_EVIDENCE",
+            diagnostics,
         };
     }
     const evidenceSnippet = groundedPack.evidenceSnippet;
@@ -4394,8 +4509,6 @@ const generateQuestionBankForTopic = async (
     let added = 0;
     let noProgressRounds = 0;
     let usedVariationPrompt = false;
-    let nearDuplicateSkips = 0;
-    let groundingRejects = 0;
     let round = 0;
     const maxRounds = deriveQuestionGenerationRounds({
         targetCount,
@@ -4423,6 +4536,8 @@ const generateQuestionBankForTopic = async (
                 initialCount,
                 targetCount,
                 maxRounds,
+                lockProbeMs: timingBreakdown.lockProbeMs,
+                lockWaitMs: timingBreakdown.lockWaitMs,
                 timeBudgetMs: profile.timeBudgetMs,
                 batchSize: profile.batchSize,
                 parallelRequests: profile.parallelRequests,
@@ -4437,6 +4552,7 @@ const generateQuestionBankForTopic = async (
         && Date.now() < deadlineMs
     ) {
         round += 1;
+        countBreakdown.roundsAttempted = round;
         const remaining = targetCount - getUniqueQuestionCount();
         const batchSize = Math.min(
             remaining,
@@ -4452,6 +4568,7 @@ const generateQuestionBankForTopic = async (
             ? Array.from(existingQuestionKeys).slice(0, 20).map(k => k.slice(0, 50)).join("\n- ")
             : "";
 
+        const batchGenerationStartedAt = Date.now();
         const batchSettled = await Promise.allSettled(
             batchPlan.map((requestedCount) =>
                 generateQuestionCandidatesBatch({
@@ -4467,6 +4584,8 @@ const generateQuestionBankForTopic = async (
                 })
             )
         );
+        timingBreakdown.batchGenerationMs += normalizeTimingMs(Date.now() - batchGenerationStartedAt);
+        countBreakdown.batchRequests += batchPlan.length;
         const candidateQuestions = [];
         for (const [batchIndex, result] of batchSettled.entries()) {
             if (result.status === "fulfilled") {
@@ -4500,7 +4619,10 @@ const generateQuestionBankForTopic = async (
                 });
             }
         }
+        countBreakdown.candidateCount += candidateQuestions.length;
 
+        const acceptanceMetrics = createGroundedAcceptanceMetrics();
+        const acceptanceStartedAt = Date.now();
         const acceptance = await applyGroundedAcceptance({
             type: "mcq",
             requestedCount: Math.max(1, remaining),
@@ -4528,7 +4650,20 @@ const generateQuestionBankForTopic = async (
                     evidenceSnippet,
                     timeoutMs: runMode === "interactive" ? 5000 : 7000,
                 }),
+            metrics: acceptanceMetrics,
         });
+        timingBreakdown.acceptanceMs += normalizeTimingMs(Date.now() - acceptanceStartedAt);
+        timingBreakdown.deterministicMs += normalizeTimingMs(acceptanceMetrics.deterministicMs);
+        timingBreakdown.llmVerificationMs += normalizeTimingMs(acceptanceMetrics.llmVerificationMs);
+        timingBreakdown.repairMs += normalizeTimingMs(acceptanceMetrics.repairMs);
+        countBreakdown.acceptedCandidateCount += acceptance.accepted.length;
+        countBreakdown.rejectedCandidateCount += acceptance.rejected.length;
+        countBreakdown.deterministicChecks += acceptanceMetrics.deterministicChecks;
+        countBreakdown.llmVerificationCount += acceptanceMetrics.llmVerifications;
+        countBreakdown.llmVerificationErrorCount += acceptanceMetrics.llmVerificationErrors;
+        countBreakdown.llmRejectedCount += acceptanceMetrics.llmRejected;
+        countBreakdown.repairAttempts += acceptanceMetrics.repairAttempts;
+        countBreakdown.repairSuccesses += acceptanceMetrics.repairSuccesses;
         groundingRejects += acceptance.rejected.length;
         const acceptedQuestions = acceptance.accepted;
 
@@ -4554,9 +4689,11 @@ const generateQuestionBankForTopic = async (
             if (!hasUsableQuestionOptions(options)) {
                 const remainingOptionBudgetMs = deadlineMs - Date.now();
                 if (remainingOptionBudgetMs > 900) {
+                    countBreakdown.optionRepairAttempts += 1;
                     const optionTimeoutMs = runMode === "interactive"
                         ? Math.min(3000, Math.max(900, remainingOptionBudgetMs - 200))
                         : Math.min(profile.requestTimeoutMs, Math.max(1000, remainingOptionBudgetMs - 200));
+                    const optionRepairStartedAt = Date.now();
                     const generated = await generateOptionsForQuestion({
                         question: questionRecord,
                         topicTitle: topicWithQuestions.title,
@@ -4565,6 +4702,7 @@ const generateQuestionBankForTopic = async (
                         timeoutMs: optionTimeoutMs,
                         repairReasons: ["invalid mcq structure", "unusable options"],
                     });
+                    timingBreakdown.optionRepairMs += normalizeTimingMs(Date.now() - optionRepairStartedAt);
                     if (generated && typeof generated === "object") {
                         questionRecord = {
                             ...questionRecord,
@@ -4580,6 +4718,7 @@ const generateQuestionBankForTopic = async (
                         normalizeOptions(questionRecord.options)
                     );
                     if (hasUsableQuestionOptions(generatedOptions)) {
+                        countBreakdown.optionRepairSuccesses += 1;
                         options = generatedOptions;
                     }
                 }
@@ -4596,11 +4735,14 @@ const generateQuestionBankForTopic = async (
                 options,
             };
 
+            const finalGroundingStartedAt = Date.now();
             const finalGrounding = runDeterministicGroundingCheck({
                 type: "mcq",
                 candidate: questionRecord,
                 evidenceIndex,
             });
+            timingBreakdown.deterministicMs += normalizeTimingMs(Date.now() - finalGroundingStartedAt);
+            countBreakdown.deterministicChecks += 1;
             if (!finalGrounding.deterministicPass) {
                 groundingRejects += 1;
                 continue;
@@ -4639,6 +4781,7 @@ const generateQuestionBankForTopic = async (
                         .filter(Boolean)
                 )
             );
+            const saveStartedAt = Date.now();
             const questionId = await ctx.runMutation(internal.topics.createQuestionInternal, {
                 topicId,
                 questionText: finalQuestionText,
@@ -4655,6 +4798,7 @@ const generateQuestionBankForTopic = async (
                 learningObjective: String(questionRecord?.learningObjective || "").trim() || undefined,
                 qualityFlags: [],
             });
+            timingBreakdown.saveMs += normalizeTimingMs(Date.now() - saveStartedAt);
 
             if (questionId) {
                 existingQuestionKeys.add(normalizedKey);
@@ -4664,6 +4808,7 @@ const generateQuestionBankForTopic = async (
                 }
                 added += 1;
                 roundAdded += 1;
+                countBreakdown.savedQuestionCount += 1;
             }
 
             if (getUniqueQuestionCount() >= targetCount) {
@@ -4722,6 +4867,12 @@ const generateQuestionBankForTopic = async (
             timeBudgetMs: profile.timeBudgetMs,
             parallelRequests: profile.parallelRequests,
             batchPlan,
+            batchGenerationMs: timingBreakdown.batchGenerationMs,
+            acceptanceMs: timingBreakdown.acceptanceMs,
+            llmVerificationMs: timingBreakdown.llmVerificationMs,
+            repairMs: timingBreakdown.repairMs,
+            optionRepairMs: timingBreakdown.optionRepairMs,
+            saveMs: timingBreakdown.saveMs,
             nearDuplicateSkips,
             groundingRejects,
         });
@@ -4733,6 +4884,8 @@ const generateQuestionBankForTopic = async (
     const timedOut = Date.now() >= deadlineMs && incomplete;
     const elapsedMs = Date.now() - generationStartedAt;
 
+    countBreakdown.nearDuplicateSkips = nearDuplicateSkips;
+    countBreakdown.groundingRejects = groundingRejects;
     console.info("[QuestionBank] generation_complete", {
         topicId,
         topicTitle: topicWithQuestions.title,
@@ -4750,7 +4903,13 @@ const generateQuestionBankForTopic = async (
         durationMs: elapsedMs,
         hitTarget: getUniqueQuestionCount() >= targetCount,
     });
-
+    const outcome = timedOut
+        ? "time_budget_reached"
+        : stoppedForNoProgress
+            ? "no_progress_limit_reached"
+            : stoppedForMaxRounds
+                ? "max_rounds_reached"
+                : "completed";
     if (stoppedForNoProgress) {
         console.warn("[QuestionBank] no_progress_limit_reached", {
             topicId,
@@ -4840,13 +4999,6 @@ const generateQuestionBankForTopic = async (
     }
 
     if (runMode === "interactive") {
-        const outcome = timedOut
-            ? "time_budget_reached"
-            : stoppedForNoProgress
-                ? "no_progress_limit_reached"
-                : stoppedForMaxRounds
-                    ? "max_rounds_reached"
-                    : "completed";
         void captureBackendSentryMessage({
             message: "Question bank generation finished",
             level: outcome === "completed" ? "info" : "warning",
@@ -4876,10 +5028,39 @@ const generateQuestionBankForTopic = async (
         });
     }
 
+    const refreshReadinessStartedAt = Date.now();
     await ctx.runMutation(internal.topics.refreshTopicExamReadinessInternal, {
         topicId,
         mcqTargetCount: targetCount,
     });
+    timingBreakdown.refreshReadinessMs += normalizeTimingMs(Date.now() - refreshReadinessStartedAt);
+    const finalDiagnostics = buildTimingDiagnostics(outcome);
+    console.info("[QuestionBank] timing_breakdown", {
+        topicId,
+        topicTitle: topicWithQuestions.title,
+        diagnostics: finalDiagnostics,
+    });
+
+    if (runMode === "interactive") {
+        void captureBackendSentryMessage({
+            message: "Question bank timing breakdown",
+            level: "info",
+            tags: {
+                operation: "question_bank_generation",
+                stage: "timing_breakdown",
+                runMode,
+                outcome,
+            },
+            extras: {
+                topicId,
+                topicTitle: topicWithQuestions.title,
+                timingBreakdown: finalDiagnostics.timings,
+                countBreakdown: finalDiagnostics.counts,
+                lockBreakdown: finalDiagnostics.lock,
+                targetBreakdown: finalDiagnostics.target,
+            },
+        });
+    }
 
     return {
         success: true,
@@ -4890,6 +5071,7 @@ const generateQuestionBankForTopic = async (
         evidenceRichnessCap: targetResolution.evidenceRichnessCap,
         wordCountTarget: targetResolution.wordCountTarget,
         timedOut,
+        diagnostics: finalDiagnostics,
     };
 };
 
@@ -4936,16 +5118,42 @@ export const generateQuestionsForTopicInternal = internalAction({
         topicId: v.id("topics"),
     },
     handler: async (ctx, args) => {
+        const lockStartedAt = Date.now();
         const lock: any = await acquireMcqGenerationLock(ctx, args.topicId);
+        const lockProbeMs = normalizeTimingMs(Date.now() - lockStartedAt);
         if (!lock?.acquired) {
-            console.info("[QuestionBank] skipped_concurrent_generation", { topicId: args.topicId });
-            return { skipped: true, reason: "generation_already_in_progress" };
+            console.info("[QuestionBank] skipped_concurrent_generation", {
+                topicId: args.topicId,
+                lockProbeMs,
+                lockWaitMs: normalizeTimingMs(lock?.lockWaitMs),
+                lockedUntil: Number(lock?.lockedUntil || 0),
+            });
+            return {
+                skipped: true,
+                reason: "generation_already_in_progress",
+                diagnostics: {
+                    outcome: "skipped_concurrent_generation",
+                    runMode: "background",
+                    lock: {
+                        probeMs: lockProbeMs,
+                        waitMs: normalizeTimingMs(lock?.lockWaitMs),
+                        lockedUntil: Number(lock?.lockedUntil || 0),
+                        ttlMs: normalizeTimingMs(lock?.ttlMs),
+                    },
+                },
+            };
         }
         try {
             return await generateQuestionBankForTopic(
                 ctx,
                 args.topicId,
-                QUESTION_BANK_BACKGROUND_PROFILE
+                QUESTION_BANK_BACKGROUND_PROFILE,
+                {
+                    lockProbeMs,
+                    lockWaitMs: normalizeTimingMs(lock?.lockWaitMs),
+                    lockedUntil: Number(lock?.lockedUntil || 0),
+                    lockTtlMs: normalizeTimingMs(lock?.ttlMs),
+                },
             );
         } finally {
             await releaseMcqGenerationLock(ctx, args.topicId);
@@ -4960,7 +5168,9 @@ export const generateQuestionsForTopic = action({
     },
     handler: async (ctx, args) => {
         await assertTopicQuestionGenerationAccess(ctx, args.topicId);
+        const lockStartedAt = Date.now();
         const lock: any = await acquireMcqGenerationLock(ctx, args.topicId);
+        const lockProbeMs = normalizeTimingMs(Date.now() - lockStartedAt);
         if (!lock?.acquired) {
             const topicSnapshot = await ctx.runQuery(internal.topics.getTopicWithQuestionsInternal, {
                 topicId: args.topicId,
@@ -4978,6 +5188,21 @@ export const generateQuestionsForTopic = action({
                 count: existingCount,
                 added: 0,
                 targetCount,
+                diagnostics: {
+                    outcome: "generation_already_in_progress",
+                    runMode: "interactive",
+                    lock: {
+                        probeMs: lockProbeMs,
+                        waitMs: normalizeTimingMs(lock?.lockWaitMs),
+                        lockedUntil: Number(lock?.lockedUntil || 0),
+                        ttlMs: normalizeTimingMs(lock?.ttlMs),
+                    },
+                    target: {
+                        initialCount: existingCount,
+                        finalCount: existingCount,
+                        targetCount,
+                    },
+                },
             };
         }
 
@@ -4986,7 +5211,13 @@ export const generateQuestionsForTopic = action({
             result = await generateQuestionBankForTopic(
                 ctx,
                 args.topicId,
-                QUESTION_BANK_INTERACTIVE_PROFILE
+                QUESTION_BANK_INTERACTIVE_PROFILE,
+                {
+                    lockProbeMs,
+                    lockWaitMs: normalizeTimingMs(lock?.lockWaitMs),
+                    lockedUntil: Number(lock?.lockedUntil || 0),
+                    lockTtlMs: normalizeTimingMs(lock?.ttlMs),
+                },
             );
         } finally {
             await releaseMcqGenerationLock(ctx, args.topicId);
@@ -5017,13 +5248,25 @@ export const regenerateQuestionsForTopic = action({
     handler: async (ctx, args) => {
         const { topicId } = args;
         await assertTopicQuestionGenerationAccess(ctx, topicId);
+        const lockStartedAt = Date.now();
         const lock: any = await acquireMcqGenerationLock(ctx, topicId);
+        const lockProbeMs = normalizeTimingMs(Date.now() - lockStartedAt);
         if (!lock?.acquired) {
             return {
                 success: true,
                 regenerated: false,
                 skipped: true,
                 reason: "generation_already_in_progress",
+                diagnostics: {
+                    outcome: "generation_already_in_progress",
+                    runMode: "interactive",
+                    lock: {
+                        probeMs: lockProbeMs,
+                        waitMs: normalizeTimingMs(lock?.lockWaitMs),
+                        lockedUntil: Number(lock?.lockedUntil || 0),
+                        ttlMs: normalizeTimingMs(lock?.ttlMs),
+                    },
+                },
             };
         }
 
@@ -5033,7 +5276,13 @@ export const regenerateQuestionsForTopic = action({
             result = await generateQuestionBankForTopic(
                 ctx,
                 topicId,
-                QUESTION_BANK_INTERACTIVE_PROFILE
+                QUESTION_BANK_INTERACTIVE_PROFILE,
+                {
+                    lockProbeMs,
+                    lockWaitMs: normalizeTimingMs(lock?.lockWaitMs),
+                    lockedUntil: Number(lock?.lockedUntil || 0),
+                    lockTtlMs: normalizeTimingMs(lock?.ttlMs),
+                },
             );
         } finally {
             await releaseMcqGenerationLock(ctx, topicId);
@@ -5048,7 +5297,12 @@ export const regenerateQuestionsForTopic = action({
             count: TOPIC_EXAM_PREBUILD_ESSAY_COUNT,
         });
 
-        return { success: true, regenerated: true, count: result?.count ?? 0 };
+        return {
+            success: true,
+            regenerated: true,
+            count: result?.count ?? 0,
+            diagnostics: result?.diagnostics,
+        };
     },
 });
 

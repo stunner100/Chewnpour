@@ -358,27 +358,48 @@ export const acquireGenerationLockInternal = internalMutation({
     },
     handler: async (ctx, args) => {
         const topic = await ctx.db.get(args.topicId);
-        if (!topic) return { acquired: false };
+        if (!topic) {
+            return {
+                acquired: false,
+                now: Date.now(),
+                lockWaitMs: 0,
+                lockedUntil: 0,
+                ttlMs: 0,
+            };
+        }
 
         const now = Date.now();
         const lockField = args.format === "essay"
             ? "essayGenerationLockedUntil"
             : "mcqGenerationLockedUntil";
         const currentLock = Number((topic as any)[lockField] || 0);
-
-        if (currentLock > now) {
-            // Lock is still held and not expired
-            return { acquired: false };
-        }
-
         const ttlMs = args.format === "essay"
             ? ESSAY_GENERATION_LOCK_TTL_MS
             : MCQ_GENERATION_LOCK_TTL_MS;
+
+        if (currentLock > now) {
+            // Lock is still held and not expired
+            return {
+                acquired: false,
+                now,
+                lockWaitMs: currentLock - now,
+                lockedUntil: currentLock,
+                ttlMs,
+            };
+        }
+
+        const lockedUntil = now + ttlMs;
         await ctx.db.patch(args.topicId, {
             [lockField]: now + ttlMs,
         });
 
-        return { acquired: true };
+        return {
+            acquired: true,
+            now,
+            lockWaitMs: 0,
+            lockedUntil,
+            ttlMs,
+        };
     },
 });
 
