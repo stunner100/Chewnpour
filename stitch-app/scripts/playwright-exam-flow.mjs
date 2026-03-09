@@ -442,12 +442,12 @@ try {
     const topicUrl = absolutizeUrl(topicWaitResult.topicHref);
     await page.goto(topicUrl, { waitUntil: 'domcontentloaded', timeout: 120000 });
   }
-  await page.getByRole('button', { name: /take quiz|start exam/i }).first().waitFor({ timeout: 120000 });
+  await page.getByRole('button', { name: /take.*quiz|start exam/i }).first().waitFor({ timeout: 120000 });
   await screenshot('09-topic-detail');
   recordStep('open-topic', 'passed', { url: page.url() });
 
   recordStep('start-exam', 'started');
-  await page.getByRole('button', { name: /take quiz|start exam/i }).first().click({ timeout: 45000 });
+  await page.getByRole('button', { name: /take.*quiz|start exam/i }).first().click({ timeout: 45000 });
   await waitForPath(page, /\/dashboard\/exam\//, 120000);
   await screenshot('10-exam-opened');
 

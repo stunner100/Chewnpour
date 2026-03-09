@@ -30,6 +30,18 @@ if (!/Free users get \{freeLimit\} upload\{freeLimit === 1 \? '' : 's'\}/.test(s
   throw new Error('Expected Subscription hero copy to use dynamic freeLimit text.');
 }
 
+if (!/reason === 'upload_limit'/.test(subscriptionSource)) {
+  throw new Error('Expected Subscription to handle upload_limit as a dedicated reason branch.');
+}
+
+if (!/setError\(remaining <= 0 \? \(stateMessage \|\| uploadLimitMessage\) : ''\);/.test(subscriptionSource)) {
+  throw new Error('Expected Subscription to suppress upload_limit paywall messaging when remaining uploads are available.');
+}
+
+if (!/setError\(remaining <= 0 \? stateMessage : ''\);/.test(subscriptionSource)) {
+  throw new Error('Expected Subscription to avoid stale paywall state messages once quota is restored.');
+}
+
 for (const [name, source] of [
   ['DashboardAnalysis.jsx', dashboardSource],
   ['AssignmentHelper.jsx', assignmentSource],
@@ -38,8 +50,8 @@ for (const [name, source] of [
     throw new Error(`Expected ${name} to pass a paywall message state when redirecting to /subscription.`);
   }
 
-  if (!/add 20 uploads and continue\./.test(source)) {
-    throw new Error(`Expected ${name} to show explicit top-up guidance for quota exhaustion.`);
+  if (!/buildUploadLimitMessageFromOptions/.test(source)) {
+    throw new Error(`Expected ${name} to build paywall messaging from localized top-up options.`);
   }
 }
 

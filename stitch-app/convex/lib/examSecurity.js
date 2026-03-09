@@ -188,10 +188,34 @@ export const isUsableExamQuestion = (question, { allowEssay = false } = {}) => {
 export const sanitizeExamQuestionForClient = (question) => {
     if (!question || typeof question !== "object") return question;
     if (question.questionType === "essay") {
-        const { correctAnswer: _CORRECT_ANSWER, explanation: _EXPLANATION, ...safeQuestion } = question;
+        const {
+            correctAnswer: _CORRECT_ANSWER,
+            explanation: _EXPLANATION,
+            citations: _CITATIONS,
+            sourcePassageIds: _SOURCE_PASSAGE_IDS,
+            groundingScore: _GROUNDING_SCORE,
+            factualityStatus: _FACTUALITY_STATUS,
+            generationVersion: _GENERATION_VERSION,
+            learningObjective: _LEARNING_OBJECTIVE,
+            rubricPoints: _RUBRIC_POINTS,
+            qualityFlags: _QUALITY_FLAGS,
+            ...safeQuestion
+        } = question;
         return safeQuestion;
     }
-    const { correctAnswer: _CORRECT_ANSWER, options, ...safeQuestion } = question;
+    const {
+        correctAnswer: _CORRECT_ANSWER,
+        citations: _CITATIONS,
+        sourcePassageIds: _SOURCE_PASSAGE_IDS,
+        groundingScore: _GROUNDING_SCORE,
+        factualityStatus: _FACTUALITY_STATUS,
+        generationVersion: _GENERATION_VERSION,
+        learningObjective: _LEARNING_OBJECTIVE,
+        rubricPoints: _RUBRIC_POINTS,
+        qualityFlags: _QUALITY_FLAGS,
+        options,
+        ...safeQuestion
+    } = question;
     return {
         ...safeQuestion,
         options: stripCorrectnessHints(options),
@@ -214,6 +238,7 @@ export const computeExamPercentage = ({ score, totalQuestions, fallbackTotal = 0
     const safeScore = Number.isFinite(score) ? Number(score) : 0;
     const safeTotal = Number.isFinite(totalQuestions) ? Number(totalQuestions) : 0;
     const safeFallback = Number.isFinite(fallbackTotal) ? Number(fallbackTotal) : 0;
-    const denominator = safeTotal > 0 ? safeTotal : safeFallback > 0 ? safeFallback : 1;
-    return Math.round((safeScore / denominator) * 100);
+    const denominator = safeTotal > 0 ? safeTotal : safeFallback > 0 ? safeFallback : 0;
+    if (denominator === 0) return 0;
+    return Math.min(100, Math.round((safeScore / denominator) * 100));
 };

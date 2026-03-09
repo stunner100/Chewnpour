@@ -37,8 +37,8 @@ if (!/const\s+optionTimeoutMs\s*=\s*runMode\s*===\s*"interactive"/.test(aiSource
   throw new Error('Expected backend to use a bounded interactive timeout when regenerating weak options.');
 }
 
-if (!/if\s*\(!hasUsableQuestionOptions\(options\)\)\s*\{[\s\S]*generateOptionsForQuestion/s.test(aiSource)) {
-  throw new Error('Expected backend to regenerate options when generated options are low quality.');
+if (!/if\s*\(!hasUsableQuestionOptions\(options\)\)\s*\{[\s\S]*generateOptionsForQuestion\(\{[\s\S]*evidence:\s*groundedPack\.evidence/s.test(aiSource)) {
+  throw new Error('Expected backend to regenerate weak options with grounded evidence.');
 }
 
 console.log('exam-generation-timeout-regression.test.mjs passed');

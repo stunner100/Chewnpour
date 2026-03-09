@@ -83,16 +83,55 @@ const applyNetworkHints = () => {
   appendResourceHint('dns-prefetch', convexSiteUrl);
 };
 
+const PWA_UPDATE_RELOAD_KEY = '__pwa_update_reload_ts';
+const PWA_UPDATE_RELOAD_WINDOW_MS = 30_000;
+
+const canReloadForPwaUpdate = () => {
+  if (typeof window === 'undefined') return false;
+  const now = Date.now();
+  try {
+    const lastRaw = window.sessionStorage.getItem(PWA_UPDATE_RELOAD_KEY);
+    const last = Number(lastRaw);
+    if (Number.isFinite(last) && now - last < PWA_UPDATE_RELOAD_WINDOW_MS) {
+      return false;
+    }
+    window.sessionStorage.setItem(PWA_UPDATE_RELOAD_KEY, String(now));
+    return true;
+  } catch {
+    return true;
+  }
+};
+
+const triggerPwaUpdateReload = (updateServiceWorker) => {
+  if (!canReloadForPwaUpdate()) return;
+  const reload = () => {
+    window.setTimeout(() => {
+      window.location.reload();
+    }, 80);
+  };
+
+  if (typeof updateServiceWorker !== 'function') {
+    reload();
+    return;
+  }
+
+  Promise.resolve(updateServiceWorker(true))
+    .catch(() => undefined)
+    .finally(reload);
+};
+
 const registerServiceWorker = () => {
   if (!import.meta.env.PROD || typeof window === 'undefined') return;
 
-  registerSW({
+  let updateServiceWorker = null;
+  updateServiceWorker = registerSW({
     immediate: true,
     onOfflineReady() {
       console.info('[PWA] Offline mode is ready.');
     },
     onNeedRefresh() {
       console.info('[PWA] New app version available. Refresh to update.');
+      triggerPwaUpdateReload(updateServiceWorker);
     },
   });
 };

@@ -34,7 +34,7 @@ const OnboardingName = () => {
         password: false,
     });
     const [loading, setLoading] = useState(false);
-    const { signUp, profile, user } = useAuth();
+    const { signUp, profile, loading: authLoading } = useAuth();
     const navigate = useNavigate();
     const trimmedName = name.trim();
     const trimmedEmail = email.trim();
@@ -43,14 +43,14 @@ const OnboardingName = () => {
     const isPasswordValid = password.length >= 6;
     const isSubmitDisabled = loading || !isNameValid || !isEmailValid || !isPasswordValid;
 
+    // Only redirect if onboarding is fully completed — don't redirect mid-onboarding
+    // users back to /level, as that breaks the back button from Level → Name.
     useEffect(() => {
+        if (authLoading) return;
         if (profile?.onboardingCompleted) {
             navigate('/dashboard', { replace: true });
-        } else if (user && !profile?.onboardingCompleted) {
-            // Already logged in but hasn't completed onboarding — skip to level
-            navigate('/onboarding/level', { replace: true });
         }
-    }, [user, profile, navigate]);
+    }, [profile, authLoading, navigate]);
 
     const handleSubmit = async (e) => {
         e.preventDefault();
@@ -99,7 +99,8 @@ const OnboardingName = () => {
                     </div>
                 </div>
             </header>
-            <main className="flex-1 w-full flex flex-col items-center justify-start pb-40 px-6 pt-4">
+            {/* #9 — reduced bottom padding from pb-40 to pb-28 for small screens */}
+            <main className="flex-1 w-full flex flex-col items-center justify-start pb-28 px-6 pt-4">
                 <form
                     id={NAME_FORM_ID}
                     onSubmit={handleSubmit}
@@ -196,13 +197,14 @@ const OnboardingName = () => {
                 </form>
             </main>
 
-            <div className="fixed bottom-0 left-0 w-full p-6 bg-gradient-to-t from-surface via-surface to-transparent dark:from-mono-dark dark:via-mono-dark pointer-events-none">
+            {/* #3 — added safe-area-inset-bottom via pb-[env(safe-area-inset-bottom)] */}
+            <div className="fixed bottom-0 left-0 w-full p-6 bg-gradient-to-t from-surface via-surface to-transparent dark:from-mono-dark dark:via-mono-dark pointer-events-none" style={{ paddingBottom: 'max(1.5rem, env(safe-area-inset-bottom, 1.5rem))' }}>
                 <div className="max-w-md mx-auto pointer-events-auto">
                     <button
                         type="submit"
                         form={NAME_FORM_ID}
                         disabled={isSubmitDisabled}
-                        className="w-full h-16 bg-mono-black dark:bg-white text-white dark:text-mono-black hover:bg-mono-dark/90 dark:hover:bg-gray-100 hover:-translate-y-0.5 active:translate-y-0 active:scale-[0.98] transition-all duration-200 rounded-full font-bold text-xl shadow-xl flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                        className="w-full h-16 bg-black dark:bg-white text-white dark:text-black hover:bg-neutral-900 dark:hover:bg-gray-100 hover:-translate-y-0.5 active:translate-y-0 active:scale-[0.98] transition-all duration-200 rounded-full font-bold text-xl shadow-xl flex items-center justify-center gap-2 disabled:cursor-not-allowed disabled:bg-gray-400 disabled:text-white dark:disabled:bg-gray-600 dark:disabled:text-white"
                     >
                         {loading ? 'Creating account...' : 'Continue'}
                     </button>

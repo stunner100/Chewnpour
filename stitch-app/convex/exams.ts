@@ -1,5 +1,5 @@
 import { ConvexError, v } from "convex/values";
-import { action, mutation, query } from "./_generated/server";
+import { action, internalMutation, internalQuery, mutation, query } from "./_generated/server";
 import { api, internal } from "./_generated/api";
 import {
     assertAuthorizedUser,
@@ -21,7 +21,8 @@ const safeGetQuestionById = async (ctx: any, questionId: any) => {
     if (!questionId) return null;
     try {
         return await ctx.db.get(questionId);
-    } catch {
+    } catch (error) {
+        console.warn("[ExamQuery] safeGetQuestionById failed", { questionId, error: error instanceof Error ? error.message : String(error) });
         return null;
     }
 };
@@ -125,6 +126,12 @@ export const startExamAttempt = mutation({
             });
         }
 
+        // Verify topic ownership
+        const course = topic.courseId ? await ctx.db.get(topic.courseId) : null;
+        if (course && course.userId !== effectiveUserId) {
+            throw new ConvexError({ code: "UNAUTHORIZED", message: "Not authorized to access this topic." });
+        }
+
         const isEssay = args.examFormat === "essay";
         const recentAttempts = await ctx.db
             .query("examAttempts")
@@ -174,6 +181,9 @@ export const startExamAttempt = mutation({
                     });
                 }
 
+                // Mark attempt as claimed to prevent concurrent reuse from another session
+                await ctx.db.patch(reusableAttempt._id, { claimedAt: Date.now() });
+
                 const safeQuestions = reusableQuestions.map((question) =>
                     sanitizeExamQuestionForClient(question)
                 );
@@ -182,6 +192,7 @@ export const startExamAttempt = mutation({
                     totalQuestions: reusableQuestions.length,
                     questions: safeQuestions,
                     reusedAttempt: true,
+                    startedAt: (reusableAttempt as any).startedAt || reusableAttempt._creationTime,
                 };
             }
         }
@@ -288,6 +299,7 @@ export const startExamAttempt = mutation({
             timeTakenSeconds: 0,
             questionIds,
             answers: [],
+            startedAt: Date.now(),
         };
 
         const attemptId = await (async () => {
@@ -339,6 +351,24 @@ export const submitExamAttempt = mutation({
         }
         assertAuthorizedUser({ authUserId, resourceOwnerUserId: attempt.userId });
 
+        // Idempotency guard — if already submitted, return existing result
+        const existingAnswers = Array.isArray(attempt.answers) ? attempt.answers : [];
+        if (existingAnswers.length > 0) {
+            return {
+                score: attempt.score || 0,
+                totalQuestions: attempt.totalQuestions || 0,
+                percentage: computeExamPercentage({
+                    score: attempt.score || 0,
+                    totalQuestions: attempt.totalQuestions || 0,
+                    fallbackTotal: existingAnswers.length,
+                }),
+                timeTakenSeconds: attempt.timeTakenSeconds || 0,
+            };
+        }
+
+        // Validate and clamp timeTakenSeconds
+        const safeTimeTaken = Math.max(0, Math.min(86400, Math.round(args.timeTakenSeconds || 0)));
+
         // Calculate score
         let correctCount = 0;
         const gradedAnswers = [];
@@ -358,15 +388,34 @@ export const submitExamAttempt = mutation({
                 throw new Error("Submitted answers include questions outside this topic.");
             }
 
-            const isCorrect = question?.correctAnswer === answer.selectedAnswer;
+            const answered = typeof answer.selectedAnswer === "string" && answer.selectedAnswer.trim() !== "";
+            const isCorrect = answered && question?.correctAnswer === answer.selectedAnswer;
             if (isCorrect) correctCount++;
 
             gradedAnswers.push({
                 questionId: answer.questionId,
-                selectedAnswer: answer.selectedAnswer,
+                selectedAnswer: answered ? answer.selectedAnswer : "",
                 correctAnswer: question?.correctAnswer,
                 isCorrect,
+                skipped: !answered,
             });
+        }
+
+        // Add entries for unanswered questions (skipped by user)
+        if (enforceSubset) {
+            const answeredIds = new Set(args.answers.map((a: any) => String(a.questionId)));
+            for (const qId of attempt.questionIds || []) {
+                if (!answeredIds.has(String(qId))) {
+                    const question = await safeGetQuestionById(ctx, qId);
+                    gradedAnswers.push({
+                        questionId: String(qId),
+                        selectedAnswer: "",
+                        correctAnswer: question?.correctAnswer || "",
+                        isCorrect: false,
+                        skipped: true,
+                    });
+                }
+            }
         }
 
         const attemptExamFormat = String((attempt as { examFormat?: unknown })?.examFormat || "mcq")
@@ -376,7 +425,7 @@ export const submitExamAttempt = mutation({
         // Update the attempt
         await ctx.db.patch(args.attemptId, {
             score: correctCount,
-            timeTakenSeconds: args.timeTakenSeconds,
+            timeTakenSeconds: safeTimeTaken,
             answers: gradedAnswers,
         });
 
@@ -414,7 +463,7 @@ export const submitExamAttempt = mutation({
                 totalQuestions,
                 fallbackTotal: args.answers.length,
             }),
-            timeTakenSeconds: args.timeTakenSeconds,
+            timeTakenSeconds: safeTimeTaken,
             gradedAnswers,
         };
     },
@@ -471,12 +520,12 @@ export const getExamAttemptsByTopic = query({
 
         const attempts = await ctx.db
             .query("examAttempts")
-            .withIndex("by_topicId", (q) => q.eq("topicId", args.topicId))
+            .withIndex("by_userId_topicId", (q) =>
+                q.eq("userId", effectiveUserId).eq("topicId", args.topicId)
+            )
             .order("desc")
             .collect();
-
-        // Filter to only user's attempts
-        return attempts.filter((a) => a.userId === effectiveUserId);
+        return attempts;
     },
 });
 
@@ -505,29 +554,36 @@ export const getExamAttempt = query({
                 const question = await safeGetQuestionById(ctx, safeAnswer.questionId);
                 return {
                     ...safeAnswer,
-                    questionText: question?.questionText,
-                    options: question?.options,
+                    questionText: question?.questionText || safeAnswer.questionText || "Question unavailable",
+                    options: question?.options || safeAnswer.options,
                     explanation: question?.explanation,
-                    difficulty: question?.difficulty,
+                    difficulty: question?.difficulty || safeAnswer.difficulty || "medium",
                 };
             })
         );
+
+        const isEssayAttempt = String((attempt as any).examFormat || "").toLowerCase() === "essay";
+        const essayWeightedPct = (attempt as any).essayWeightedPercentage;
+        // For essays: prefer weighted quality %, fall back to binary score if not yet graded
+        const percentage = isEssayAttempt && typeof essayWeightedPct === "number"
+            ? essayWeightedPct
+            : computeExamPercentage({
+                score: attempt.score,
+                totalQuestions: isEssayAttempt ? undefined : attempt.totalQuestions,
+                fallbackTotal: enrichedAnswers.length,
+            });
 
         return {
             ...attempt,
             topicTitle: topic?.title || "Unknown Topic",
             answers: enrichedAnswers,
-            percentage: computeExamPercentage({
-                score: attempt.score,
-                totalQuestions: attempt.totalQuestions,
-                fallbackTotal: enrichedAnswers.length,
-            }),
+            percentage,
         };
     },
 });
 
 // Get full attempt context for essay submission (includes raw question docs)
-export const getEssayAttemptSubmissionContext = query({
+export const getEssayAttemptSubmissionContext = internalQuery({
     args: { attemptId: v.id("examAttempts") },
     handler: async (ctx, args) => {
         const identity = await ctx.auth.getUserIdentity();
@@ -587,13 +643,31 @@ export const submitEssayExam = action({
 
         try {
             // Load the attempt with its raw question docs (including essay answers/rubrics).
-            const submissionContext: any = await ctx.runQuery(api.exams.getEssayAttemptSubmissionContext, {
+            const submissionContext: any = await ctx.runQuery(internal.exams.getEssayAttemptSubmissionContext, {
                 attemptId: args.attemptId,
             });
             const attempt: any = submissionContext?.attempt;
             if (!attempt) {
                 failEssaySubmission("Exam attempt not found.");
             }
+
+            // Idempotency guard — if already submitted, return existing result
+            const existingEssayAnswers = Array.isArray(attempt.answers) ? attempt.answers : [];
+            if (existingEssayAnswers.length > 0) {
+                const essayWeightedPct = typeof attempt.essayWeightedPercentage === "number"
+                    ? attempt.essayWeightedPercentage
+                    : 0;
+                return {
+                    score: attempt.score || 0,
+                    totalQuestions: attempt.totalQuestions || 0,
+                    percentage: essayWeightedPct,
+                    timeTakenSeconds: attempt.timeTakenSeconds || 0,
+                };
+            }
+
+            // Validate and clamp timeTakenSeconds
+            const safeTimeTaken = Math.max(0, Math.min(86400, Math.round(args.timeTakenSeconds || 0)));
+
             const allQuestions: any[] = Array.isArray(submissionContext?.questions)
                 ? submissionContext.questions
                 : [];
@@ -606,6 +680,14 @@ export const submitEssayExam = action({
                 ensureUniqueAnswerQuestionIds(args.answers);
             } catch {
                 failEssaySubmission("Please submit at most one answer per question.");
+            }
+
+            // Validate essay text length
+            const MAX_ESSAY_CHARS = 15000;
+            for (const answer of args.answers) {
+                if (typeof answer.essayText === "string" && answer.essayText.length > MAX_ESSAY_CHARS) {
+                    throw new ConvexError({ code: "INPUT_TOO_LONG", message: `Essay answers must be under ${MAX_ESSAY_CHARS} characters.` });
+                }
             }
 
             const attemptQuestionIds = new Set(
@@ -672,7 +754,7 @@ export const submitEssayExam = action({
                 // Grade via AI — tolerate individual failures to preserve partial work.
                 let gradeResult: any;
                 try {
-                    gradeResult = await ctx.runAction(api.ai.gradeEssayAnswer, {
+                    gradeResult = await ctx.runAction(internal.ai.gradeEssayAnswer, {
                         questionText: question.questionText || "",
                         modelAnswer: question.correctAnswer || "",
                         studentAnswer: normalizedEssayText,
@@ -730,19 +812,22 @@ export const submitEssayExam = action({
             const gradedCount = args.answers.length - ungradedCount;
             const maxEssayScore = Math.max(gradedCount, 1) * 5;
 
+            const essayWeightedPercentage = Math.round((totalEssayScore / Math.max(maxEssayScore, 1)) * 100);
+
             // Update the attempt record
-            await ctx.runMutation(api.exams.updateExamAttemptScore, {
+            await ctx.runMutation(internal.exams.updateExamAttemptScore, {
                 attemptId: args.attemptId,
                 score: correctCount,
-                timeTakenSeconds: args.timeTakenSeconds,
+                timeTakenSeconds: safeTimeTaken,
                 answers: gradedAnswers,
+                essayWeightedPercentage,
             });
 
             return {
                 score: correctCount,
                 totalQuestions,
-                percentage: Math.round((totalEssayScore / Math.max(maxEssayScore, 1)) * 100),
-                timeTakenSeconds: args.timeTakenSeconds,
+                percentage: essayWeightedPercentage,
+                timeTakenSeconds: safeTimeTaken,
                 gradedAnswers,
                 ...(ungradedCount > 0 ? { ungradedCount, partialGrade: true } : {}),
             };
@@ -808,14 +893,20 @@ export const getLatestAttemptForTopic = query({
                 })
         );
 
-        return {
-            score: attempt.score,
-            totalQuestions: attempt.totalQuestions,
-            percentage: computeExamPercentage({
+        const isEssayAttempt = String((attempt as any).examFormat || "").toLowerCase() === "essay";
+        const essayWeightedPct = (attempt as any).essayWeightedPercentage;
+        const percentage = isEssayAttempt && typeof essayWeightedPct === "number"
+            ? essayWeightedPct
+            : computeExamPercentage({
                 score: attempt.score,
                 totalQuestions: attempt.totalQuestions,
                 fallbackTotal: (attempt.answers || []).length,
-            }),
+            });
+
+        return {
+            score: attempt.score,
+            totalQuestions: attempt.totalQuestions,
+            percentage,
             incorrectAnswers,
         };
     },
@@ -851,11 +942,15 @@ export const getUserPerformanceInsights = query({
         for (const attempt of completedAttempts) {
             const total = attempt.totalQuestions || (attempt.answers || []).length;
             if (total === 0) continue;
-            const pct = computeExamPercentage({
-                score: attempt.score,
-                totalQuestions: total,
-                fallbackTotal: (attempt.answers || []).length,
-            });
+            const isEssayAttempt = String((attempt as any).examFormat || "").toLowerCase() === "essay";
+            const essayWeightedPct = (attempt as any).essayWeightedPercentage;
+            const pct = isEssayAttempt && typeof essayWeightedPct === "number"
+                ? essayWeightedPct
+                : computeExamPercentage({
+                    score: attempt.score,
+                    totalQuestions: total,
+                    fallbackTotal: (attempt.answers || []).length,
+                });
             const key = String(attempt.topicId);
             const existing = topicMap.get(key);
             if (!existing || pct > existing.best) {
@@ -882,26 +977,37 @@ export const getUserPerformanceInsights = query({
 });
 
 // Helper mutation to update exam attempt score (used by submitEssayExam action)
-export const updateExamAttemptScore = mutation({
+export const updateExamAttemptScore = internalMutation({
     args: {
         attemptId: v.id("examAttempts"),
         score: v.number(),
         timeTakenSeconds: v.number(),
-        answers: v.any(),
+        answers: v.array(
+            v.object({
+                questionId: v.union(v.id("questions"), v.string()),
+                selectedAnswer: v.string(),
+                correctAnswer: v.string(),
+                isCorrect: v.boolean(),
+                skipped: v.optional(v.boolean()),
+                essayScore: v.optional(v.union(v.number(), v.null())),
+                feedback: v.optional(v.string()),
+                ungraded: v.optional(v.boolean()),
+            })
+        ),
+        essayWeightedPercentage: v.optional(v.number()),
     },
     handler: async (ctx, args) => {
-        const identity = await ctx.auth.getUserIdentity();
-        const authUserId = resolveAuthUserId(identity);
-        assertAuthorizedUser({ authUserId });
-
         const attempt = await ctx.db.get(args.attemptId);
         if (!attempt) throw new Error("Exam attempt not found");
-        assertAuthorizedUser({ authUserId, resourceOwnerUserId: attempt.userId });
 
-        await ctx.db.patch(args.attemptId, {
+        const patch: any = {
             score: args.score,
             timeTakenSeconds: args.timeTakenSeconds,
             answers: args.answers,
-        });
+        };
+        if (typeof args.essayWeightedPercentage === "number") {
+            patch.essayWeightedPercentage = args.essayWeightedPercentage;
+        }
+        await ctx.db.patch(args.attemptId, patch);
     },
 });

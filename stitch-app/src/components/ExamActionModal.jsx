@@ -31,6 +31,14 @@ const ExamActionModal = ({ isOpen, onClose, attempt }) => {
     const startY = useRef(0);
     const currentTranslateY = useRef(0);
 
+    const closeModal = useCallback(() => {
+        setIsDragging(false);
+        setTranslateY(0);
+        startY.current = 0;
+        currentTranslateY.current = 0;
+        onClose();
+    }, [onClose]);
+
     // Handle touch start for swipe-to-close (only on header/drag handle)
     const handleTouchStart = useCallback((e) => {
         setIsDragging(true);
@@ -59,18 +67,17 @@ const ExamActionModal = ({ isOpen, onClose, attempt }) => {
 
         if (translateY > 100) {
             triggerHaptic('light');
-            onClose();
+            closeModal();
         } else {
             setTranslateY(0);
         }
-    }, [isDragging, translateY, onClose]);
+    }, [closeModal, isDragging, translateY]);
 
     // Lock body scroll when modal is open
     useEffect(() => {
         if (!isOpen) return;
-        
+
         // Always ensure scroll is locked when modal is open
-        setTranslateY(0);
         document.body.style.overflow = 'hidden';
         document.body.style.touchAction = 'none';
         document.body.style.position = 'fixed';
@@ -95,17 +102,17 @@ const ExamActionModal = ({ isOpen, onClose, attempt }) => {
     useEffect(() => {
         const handleKeyDown = (e) => {
             if (e.key === 'Escape' && isOpen) {
-                onClose();
+                closeModal();
             }
         };
 
         window.addEventListener('keydown', handleKeyDown);
         return () => window.removeEventListener('keydown', handleKeyDown);
-    }, [isOpen, onClose]);
+    }, [closeModal, isOpen]);
 
     if (!isOpen || !attempt) return null;
 
-    const scorePercent = Math.round((attempt.score / attempt.totalQuestions) * 100);
+    const scorePercent = attempt.totalQuestions ? Math.round((attempt.score / attempt.totalQuestions) * 100) : 0;
     const isExcellent = scorePercent >= 80;
     const isGood = scorePercent >= 60;
 
@@ -117,19 +124,19 @@ const ExamActionModal = ({ isOpen, onClose, attempt }) => {
 
     const handleViewResults = () => {
         triggerHaptic('medium');
-        onClose();
-        navigate('/dashboard/results');
+        closeModal();
+        navigate(`/dashboard/results/${attempt._id}`);
     };
 
     const handleRetryExam = () => {
         triggerHaptic('medium');
-        onClose();
+        closeModal();
         navigate(`/dashboard/exam/${attempt.topicId}`);
     };
 
     const handleCloseClick = () => {
         triggerHaptic('light');
-        onClose();
+        closeModal();
     };
 
     return (

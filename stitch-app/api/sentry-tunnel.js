@@ -1,3 +1,5 @@
+import { Buffer } from 'node:buffer';
+
 const SENTRY_HOST_ALLOWLIST = [
     'sentry.io',
     '.ingest.sentry.io',

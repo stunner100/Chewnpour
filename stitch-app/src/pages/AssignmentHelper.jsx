@@ -18,6 +18,9 @@ import {
     uploadToStorageWithRetry,
 } from '../lib/uploadNetworkResilience';
 import { ensurePromiseWithResolvers } from '../lib/runtimePolyfills';
+import {
+    buildUploadLimitMessageFromOptions,
+} from '../lib/pricingCurrency';
 
 let pdfWorkerInitialized = false;
 
@@ -155,15 +158,24 @@ const getConvexErrorCode = (error) => {
 
     const message = String(error?.message || '').trim();
     if (message.includes('UPLOAD_QUOTA_EXCEEDED')) return 'UPLOAD_QUOTA_EXCEEDED';
+    if (message.includes('AI_MESSAGE_QUOTA_EXCEEDED')) return 'AI_MESSAGE_QUOTA_EXCEEDED';
     if (/must be signed in/i.test(message)) return 'UNAUTHENTICATED';
     if (/do not have permission|permission to upload/i.test(message)) return 'UNAUTHORIZED';
     return '';
 };
 
-const resolveQuotaExceededMessage = (error) => {
+const resolveQuotaExceededMessage = (error, fallbackTopUpOptions, fallbackCurrency = 'GHS') => {
+    const topUpOptions = Array.isArray(error?.data?.topUpOptions)
+        ? error.data.topUpOptions
+        : fallbackTopUpOptions;
+    if (Array.isArray(topUpOptions) && topUpOptions.length > 0) {
+        const optionCurrency = String(error?.data?.currency || fallbackCurrency || 'GHS').toUpperCase();
+        return buildUploadLimitMessageFromOptions(topUpOptions, optionCurrency);
+    }
+
     const dataMessage = typeof error?.data?.message === 'string' ? error.data.message.trim() : '';
     if (dataMessage) return dataMessage;
-    return 'Upload limit reached. Purchase a GHS 20 top-up to add 20 uploads and continue.';
+    return buildUploadLimitMessageFromOptions(fallbackTopUpOptions, fallbackCurrency);
 };
 
 const isAssignmentExtractionInsufficientError = (error) => {
@@ -194,6 +206,14 @@ const buildUploadLimitSubscriptionPath = () => {
     const query = new URLSearchParams({
         from: '/dashboard/assignment-helper',
         reason: 'upload_limit',
+    });
+    return `/subscription?${query.toString()}`;
+};
+
+const buildAiMessageLimitSubscriptionPath = () => {
+    const query = new URLSearchParams({
+        from: '/dashboard/assignment-helper',
+        reason: 'ai_message_limit',
     });
     return `/subscription?${query.toString()}`;
 };
@@ -249,6 +269,13 @@ const AssignmentHelper = () => {
     const isThreadProcessing = Boolean(selectedThread && threadStatus === 'processing');
     const showProcessingExperience = busy || isThreadProcessing;
     const currentProcessingStage = PROCESSING_STAGES[processingStageIndex] || PROCESSING_STAGES[0];
+    const uploadLimitMessage = useMemo(
+        () => buildUploadLimitMessageFromOptions(
+            uploadQuota?.topUpOptions,
+            uploadQuota?.currency || 'GHS'
+        ),
+        [uploadQuota?.topUpOptions, uploadQuota?.currency]
+    );
 
     const sortedThreads = useMemo(() => threads || [], [threads]);
 
@@ -301,7 +328,7 @@ const AssignmentHelper = () => {
     const redirectToUploadTopUp = () => {
         navigate(buildUploadLimitSubscriptionPath(), {
             state: {
-                paywallMessage: 'Upload limit reached. Purchase a GHS 20 top-up to add 20 uploads and continue.',
+                paywallMessage: uploadLimitMessage,
             },
         });
     };
@@ -379,7 +406,7 @@ const AssignmentHelper = () => {
         }
 
         if (uploadQuota && Number(uploadQuota.remaining) <= 0) {
-            setError('Upload limit reached. Purchase a GHS 20 top-up to add 20 uploads and continue.');
+            setError(uploadLimitMessage);
             reportUploadValidationRejected({
                 flowType: 'assignment',
                 source: 'assignment_helper',
@@ -514,7 +541,13 @@ const AssignmentHelper = () => {
             setSuccessMessage('Assignment processed. You can ask follow-up questions now.');
         } catch (uploadError) {
             if (getConvexErrorCode(uploadError) === 'UPLOAD_QUOTA_EXCEEDED') {
-                setError(resolveQuotaExceededMessage(uploadError));
+                setError(
+                    resolveQuotaExceededMessage(
+                        uploadError,
+                        uploadQuota?.topUpOptions,
+                        uploadQuota?.currency || 'GHS'
+                    )
+                );
                 reportUploadValidationRejected({
                     flowType: 'assignment',
                     source: 'assignment_helper',
@@ -617,6 +650,19 @@ const AssignmentHelper = () => {
                 textareaRef.current.style.height = 'auto';
             }
         } catch (followUpError) {
+            if (getConvexErrorCode(followUpError) === 'AI_MESSAGE_QUOTA_EXCEEDED') {
+                const paywallMessage = resolveConvexActionError(
+                    followUpError,
+                    "You've used your free AI messages today. Upgrade to premium for unlimited AI chat."
+                );
+                setError(paywallMessage);
+                navigate(buildAiMessageLimitSubscriptionPath(), {
+                    state: {
+                        paywallMessage,
+                    },
+                });
+                return;
+            }
             setError(resolveConvexActionError(followUpError, 'Could not send follow-up question.'));
         } finally {
             setSending(false);

@@ -1,6 +1,7 @@
 import { httpRouter } from "convex/server";
 import { authComponent } from "./auth";
 import { createAuth } from "./authConfig";
+import { streamTopicVoiceHttp } from "./voiceHttp";
 
 const http = httpRouter();
 
@@ -12,10 +13,27 @@ authComponent.registerRoutes(http, createAuth, {
             "http://localhost:5173",
             "http://localhost:5174",
             "http://localhost:5175",
+            "http://localhost:5176",
+            "http://localhost:5177",
+            "http://localhost:5178",
+            "http://localhost:5179",
+            "http://localhost:5180",
             "http://127.0.0.1:5173",
             "http://127.0.0.1:5174",
+            "http://127.0.0.1:5175",
+            "http://127.0.0.1:5176",
+            "http://127.0.0.1:5177",
+            "http://127.0.0.1:5178",
+            "http://127.0.0.1:5179",
+            "http://127.0.0.1:5180",
         ],
     },
+});
+
+http.route({
+    path: "/voice/stream",
+    method: "GET",
+    handler: streamTopicVoiceHttp,
 });
 
 export default http;

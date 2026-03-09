@@ -9,11 +9,23 @@ import {
 import { internal } from "./_generated/api";
 
 export const FREE_UPLOAD_LIMIT = 1;
-export const TOPUP_CREDITS = 20;
-export const TOPUP_AMOUNT_MAJOR = 20;
 export const TOPUP_CURRENCY = "GHS";
+export const TOPUP_PLANS = [
+    {
+        id: "starter",
+        amountMajor: 20,
+        amountMinor: 2000,
+        credits: 5,
+    },
+    {
+        id: "max",
+        amountMajor: 40,
+        amountMinor: 4000,
+        credits: 12,
+    },
+] as const;
 
-const TOPUP_AMOUNT_MINOR = TOPUP_AMOUNT_MAJOR * 100;
+const DEFAULT_TOPUP_PLAN = TOPUP_PLANS[0];
 const PAYSTACK_PROVIDER = "paystack";
 const PAYSTACK_BASE_URL = String(process.env.PAYSTACK_BASE_URL || "https://api.paystack.co").replace(/\/+$/, "");
 const PAYSTACK_SECRET_KEY = String(process.env.PAYSTACK_SECRET_KEY || "").trim();
@@ -36,6 +48,58 @@ const toNonNegativeInt = (value: unknown) => {
 };
 
 const normalizeCurrency = (value: unknown) => String(value || "").trim().toUpperCase();
+
+const TOPUP_CHECKOUT_CURRENCIES = [TOPUP_CURRENCY];
+
+const formatTopUpAmountForCopy = (amountMajor: number) => {
+    const normalizedAmount = Number(amountMajor);
+    const safeAmount = Number.isFinite(normalizedAmount) ? Math.max(0, normalizedAmount) : 0;
+    const hasFraction = Math.abs(safeAmount % 1) > 0.000001;
+    return `${TOPUP_CURRENCY} ${hasFraction ? safeAmount.toFixed(2) : String(safeAmount)}`;
+};
+
+const buildLocalizedTopUpPlan = (plan: typeof TOPUP_PLANS[number]) => ({
+    id: plan.id,
+    amountMajor: plan.amountMajor,
+    amountMinor: plan.amountMinor,
+    credits: plan.credits,
+    currency: TOPUP_CURRENCY,
+});
+
+const buildLocalizedTopUpOptions = () =>
+    TOPUP_PLANS.map((plan) => buildLocalizedTopUpPlan(plan));
+
+const buildTopUpOptionsCopy = (
+    options: Array<{ amountMajor: number; credits: number; currency: string }>
+) => options
+    .map((plan) => `${formatTopUpAmountForCopy(plan.amountMajor)} (+${plan.credits} uploads)`)
+    .join(" or ");
+
+const LEGACY_PREMIUM_MIN_CREDITS = TOPUP_PLANS.reduce(
+    (maxCredits, plan) => Math.max(maxCredits, plan.credits),
+    0,
+);
+
+const TOPUP_OPTIONS_COPY = buildTopUpOptionsCopy(buildLocalizedTopUpOptions());
+
+const resolveTopUpPlanById = (
+    planId: unknown,
+) => {
+    const normalizedId = String(planId || "").trim().toLowerCase();
+    if (!normalizedId) return null;
+    const basePlan = TOPUP_PLANS.find((plan) => plan.id === normalizedId);
+    if (!basePlan) return null;
+    return buildLocalizedTopUpPlan(basePlan);
+};
+
+const resolveTopUpPlanByPayment = (amountMinor: number, currency: string) => {
+    const normalizedAmountMinor = toNonNegativeInt(amountMinor);
+    const normalizedCurrency = normalizeCurrency(currency);
+    if (normalizedCurrency !== TOPUP_CURRENCY) return null;
+
+    const plan = TOPUP_PLANS.find((item) => toNonNegativeInt(item.amountMinor) === normalizedAmountMinor);
+    return plan ? buildLocalizedTopUpPlan(plan) : null;
+};
 
 const resolveAuthUserId = (identity: any) => {
     if (!identity || typeof identity !== "object") return "";
@@ -186,6 +250,31 @@ export const getHistoricalStoredUploadCount = async (ctx: any, userId: string) =
     return uploads.length + assignmentThreads.length;
 };
 
+const hasPremiumPaymentHistory = (subscription: any, purchasedCredits: number) =>
+    purchasedCredits > 0
+    && Boolean(
+        String(subscription?.lastPaymentReference || "").trim()
+        || toNonNegativeInt(subscription?.lastPaymentAt) > 0
+    );
+
+const resolveConsumedUploadCredits = (params: {
+    subscription: any;
+    purchasedCredits: number;
+    storedConsumedCredits: number;
+    historicalStoredUploadCount: number;
+}) => {
+    const hasPaidPremiumHistory = hasPremiumPaymentHistory(params.subscription, params.purchasedCredits);
+    if (hasPaidPremiumHistory) {
+        // For paid users, keep consumption ledger authoritative to avoid charging
+        // pre-premium uploads against purchased credits.
+        return toNonNegativeInt(params.storedConsumedCredits);
+    }
+    return Math.max(
+        toNonNegativeInt(params.storedConsumedCredits),
+        toNonNegativeInt(params.historicalStoredUploadCount),
+    );
+};
+
 const buildUploadQuotaSnapshot = (params: {
     purchasedCredits: number;
     consumedCredits: number;
@@ -194,6 +283,8 @@ const buildUploadQuotaSnapshot = (params: {
     const consumedCredits = toNonNegativeInt(params.consumedCredits);
     const totalAllowed = FREE_UPLOAD_LIMIT + purchasedCredits;
     const remaining = Math.max(0, totalAllowed - consumedCredits);
+    const topUpOptions = buildLocalizedTopUpOptions();
+    const defaultTopUpPlan = topUpOptions[0] || buildLocalizedTopUpPlan(DEFAULT_TOPUP_PLAN);
 
     return {
         freeLimit: FREE_UPLOAD_LIMIT,
@@ -202,13 +293,17 @@ const buildUploadQuotaSnapshot = (params: {
         totalAllowed,
         remaining,
         canTopUp: true,
-        topUpPriceMajor: TOPUP_AMOUNT_MAJOR,
-        currency: TOPUP_CURRENCY,
-        topUpCredits: TOPUP_CREDITS,
+        topUpPriceMajor: defaultTopUpPlan.amountMajor,
+        currency: defaultTopUpPlan.currency,
+        topUpCredits: defaultTopUpPlan.credits,
+        topUpOptions,
     };
 };
 
-const computeUploadQuotaSnapshotForUser = async (ctx: any, userId: string) => {
+const computeUploadQuotaSnapshotForUser = async (
+    ctx: any,
+    userId: string,
+) => {
     const [subscription, historicalStoredUploadCount] = await Promise.all([
         getSubscriptionRecordByUserId(ctx, userId),
         getHistoricalStoredUploadCount(ctx, userId),
@@ -216,7 +311,12 @@ const computeUploadQuotaSnapshotForUser = async (ctx: any, userId: string) => {
 
     const purchasedCredits = toNonNegativeInt(subscription?.purchasedUploadCredits);
     const storedConsumedCredits = toNonNegativeInt(subscription?.consumedUploadCredits);
-    const consumedCredits = Math.max(storedConsumedCredits, historicalStoredUploadCount);
+    const consumedCredits = resolveConsumedUploadCredits({
+        subscription,
+        purchasedCredits,
+        storedConsumedCredits,
+        historicalStoredUploadCount,
+    });
 
     return buildUploadQuotaSnapshot({
         purchasedCredits,
@@ -227,12 +327,13 @@ const computeUploadQuotaSnapshotForUser = async (ctx: any, userId: string) => {
 const buildUploadQuotaExceededError = (snapshot: ReturnType<typeof buildUploadQuotaSnapshot>) => {
     return new ConvexError({
         code: "UPLOAD_QUOTA_EXCEEDED",
-        message: "Upload limit reached. Purchase a GHS 20 top-up to continue uploading.",
+        message: `Upload limit reached. Purchase a top-up: ${buildTopUpOptionsCopy(snapshot.topUpOptions)}.`,
         remaining: snapshot.remaining,
         totalAllowed: snapshot.totalAllowed,
         topUpPriceMajor: snapshot.topUpPriceMajor,
         currency: snapshot.currency,
         topUpCredits: snapshot.topUpCredits,
+        topUpOptions: snapshot.topUpOptions,
     });
 };
 
@@ -248,7 +349,12 @@ export const consumeUploadCreditOrThrow = async (
 
     const purchasedCredits = toNonNegativeInt(subscription?.purchasedUploadCredits);
     const storedConsumedCredits = toNonNegativeInt(subscription?.consumedUploadCredits);
-    const consumedBefore = Math.max(storedConsumedCredits, historicalBaseline);
+    const consumedBefore = resolveConsumedUploadCredits({
+        subscription,
+        purchasedCredits,
+        storedConsumedCredits,
+        historicalStoredUploadCount: historicalBaseline,
+    });
 
     const beforeSnapshot = buildUploadQuotaSnapshot({
         purchasedCredits,
@@ -261,7 +367,7 @@ export const consumeUploadCreditOrThrow = async (
 
     const nextConsumedCredits = consumedBefore + 1;
     const plan = purchasedCredits > 0 ? "premium" : "free";
-    const amount = purchasedCredits > 0 ? TOPUP_AMOUNT_MAJOR : 0;
+    const amount = purchasedCredits > 0 ? DEFAULT_TOPUP_PLAN.amountMajor : 0;
 
     if (subscription) {
         await ctx.db.patch(subscription._id, {
@@ -330,20 +436,43 @@ const applyPaystackTopUpCreditGrant = async (ctx: any, args: {
         };
     }
 
-    if (toNonNegativeInt(args.amountMinor) !== TOPUP_AMOUNT_MINOR) {
+    const amountMinor = toNonNegativeInt(args.amountMinor);
+    const currency = normalizeCurrency(args.currency);
+    const initializedAmountMinor = toNonNegativeInt(existingTransaction?.amountMinor);
+    const initializedCurrency = normalizeCurrency(existingTransaction?.currency);
+
+    if (
+        existingTransaction
+        && initializedAmountMinor > 0
+        && amountMinor !== initializedAmountMinor
+    ) {
         return {
             applied: false,
             duplicate: false,
-            reason: "invalid_amount",
+            reason: "amount_mismatch",
             remaining: 0,
         };
     }
 
-    if (normalizeCurrency(args.currency) !== TOPUP_CURRENCY) {
+    if (
+        existingTransaction
+        && initializedCurrency
+        && currency !== initializedCurrency
+    ) {
         return {
             applied: false,
             duplicate: false,
-            reason: "invalid_currency",
+            reason: "currency_mismatch",
+            remaining: 0,
+        };
+    }
+
+    const topUpPlan = resolveTopUpPlanByPayment(amountMinor, currency);
+    if (!topUpPlan) {
+        return {
+            applied: false,
+            duplicate: false,
+            reason: "invalid_topup_plan",
             remaining: 0,
         };
     }
@@ -355,15 +484,24 @@ const applyPaystackTopUpCreditGrant = async (ctx: any, args: {
 
     const purchasedCredits = toNonNegativeInt(subscription?.purchasedUploadCredits);
     const storedConsumedCredits = toNonNegativeInt(subscription?.consumedUploadCredits);
-    const consumedCredits = Math.max(storedConsumedCredits, historicalStoredUploadCount);
-    const nextPurchasedCredits = purchasedCredits + TOPUP_CREDITS;
+    const consumedCreditsBeforeTopUp = resolveConsumedUploadCredits({
+        subscription,
+        purchasedCredits,
+        storedConsumedCredits,
+        historicalStoredUploadCount,
+    });
+    const isFirstPaidGrant = purchasedCredits <= 0;
+    const consumedCredits = isFirstPaidGrant
+        ? Math.min(FREE_UPLOAD_LIMIT, consumedCreditsBeforeTopUp)
+        : consumedCreditsBeforeTopUp;
+    const nextPurchasedCredits = purchasedCredits + topUpPlan.credits;
     const paidAt = toNonNegativeInt(args.paidAtMs) || Date.now();
 
     const subscriptionPatch = {
         plan: "premium",
         status: "active",
-        amount: TOPUP_AMOUNT_MAJOR,
-        currency: TOPUP_CURRENCY,
+        amount: topUpPlan.amountMajor,
+        currency: topUpPlan.currency,
         purchasedUploadCredits: nextPurchasedCredits,
         consumedUploadCredits: consumedCredits,
         lastPaymentReference: reference,
@@ -380,8 +518,8 @@ const applyPaystackTopUpCreditGrant = async (ctx: any, args: {
     }
 
     const paymentPatch = {
-        amountMinor: TOPUP_AMOUNT_MINOR,
-        currency: TOPUP_CURRENCY,
+        amountMinor: topUpPlan.amountMinor,
+        currency: topUpPlan.currency,
         status: "success",
         source: args.source,
         paidAt,
@@ -411,6 +549,9 @@ const applyPaystackTopUpCreditGrant = async (ctx: any, args: {
         duplicate: false,
         reason: "applied",
         remaining: snapshot.remaining,
+        grantedCredits: topUpPlan.credits,
+        amountMajor: topUpPlan.amountMajor,
+        currency: topUpPlan.currency,
     };
 };
 
@@ -456,6 +597,23 @@ export const getUploadQuotaStatusInternal = internalQuery({
     },
 });
 
+export const getPublicTopUpPricing = query({
+    args: {},
+    handler: async (_ctx) => {
+        const topUpOptions = buildLocalizedTopUpOptions();
+        const defaultTopUpPlan = topUpOptions[0] || buildLocalizedTopUpPlan(DEFAULT_TOPUP_PLAN);
+
+        return {
+            freeLimit: FREE_UPLOAD_LIMIT,
+            currency: defaultTopUpPlan.currency,
+            topUpPriceMajor: defaultTopUpPlan.amountMajor,
+            topUpCredits: defaultTopUpPlan.credits,
+            topUpOptions,
+            checkoutCurrencies: TOPUP_CHECKOUT_CURRENCIES,
+        };
+    },
+});
+
 export const getPaymentTransactionByReferenceInternal = internalQuery({
     args: {
         reference: v.string(),
@@ -493,12 +651,20 @@ export const recordPaymentInitializationInternal = internalMutation({
             });
         }
 
+        const selectedPlan = resolveTopUpPlanByPayment(args.amountMinor, args.currency);
+        if (!selectedPlan) {
+            throw new ConvexError({
+                code: "INVALID_TOPUP_PLAN",
+                message: `Unsupported top-up plan. Available plans: ${TOPUP_OPTIONS_COPY}.`,
+            });
+        }
+
         const payload = {
             userId: args.userId,
             provider: PAYSTACK_PROVIDER,
             reference,
-            amountMinor: toNonNegativeInt(args.amountMinor),
-            currency: normalizeCurrency(args.currency),
+            amountMinor: selectedPlan.amountMinor,
+            currency: selectedPlan.currency,
             status: "initialized",
             source: args.source,
             createdAt: Date.now(),
@@ -512,6 +678,54 @@ export const recordPaymentInitializationInternal = internalMutation({
         }
 
         return await ctx.db.insert("paymentTransactions", payload);
+    },
+});
+
+export const reconcileUploadConsumedCreditsInternal = internalMutation({
+    args: {
+        userId: v.string(),
+        consumedUploadCredits: v.number(),
+    },
+    handler: async (ctx, args) => {
+        const userId = String(args.userId || "").trim();
+        if (!userId) {
+            throw new ConvexError({
+                code: "INVALID_USER",
+                message: "User id is required.",
+            });
+        }
+
+        const subscription = await getSubscriptionRecordByUserId(ctx, userId);
+        if (!subscription) {
+            throw new ConvexError({
+                code: "SUBSCRIPTION_NOT_FOUND",
+                message: "Subscription record not found for user.",
+            });
+        }
+
+        const consumedUploadCredits = toNonNegativeInt(args.consumedUploadCredits);
+        const purchasedUploadCredits = toNonNegativeInt(subscription.purchasedUploadCredits);
+        await ctx.db.patch(subscription._id, {
+            consumedUploadCredits,
+            purchasedUploadCredits,
+            plan: purchasedUploadCredits > 0 ? "premium" : "free",
+            status: subscription.status || "active",
+            amount: typeof subscription.amount === "number"
+                ? subscription.amount
+                : purchasedUploadCredits > 0
+                    ? DEFAULT_TOPUP_PLAN.amountMajor
+                    : 0,
+            currency: subscription.currency || TOPUP_CURRENCY,
+        });
+
+        const snapshot = await computeUploadQuotaSnapshotForUser(ctx, userId);
+        return {
+            userId,
+            purchasedCredits: snapshot.purchasedCredits,
+            consumedCredits: snapshot.consumedCredits,
+            remaining: snapshot.remaining,
+            totalAllowed: snapshot.totalAllowed,
+        };
     },
 });
 
@@ -543,23 +757,22 @@ export const applyVerifiedPaystackPaymentInternal = internalMutation({
 export const initializePaystackTopUpCheckout = action({
     args: {
         returnPath: v.string(),
+        topUpPlanId: v.string(),
     },
     handler: async (ctx, args) => {
         const identity = await ctx.auth.getUserIdentity();
         const userId = assertAuthenticatedUserId(identity);
         const safeReturnPath = sanitizeReturnPath(args.returnPath);
+        const selectedPlan = resolveTopUpPlanById(args.topUpPlanId);
+        if (!selectedPlan) {
+            throw new ConvexError({
+                code: "INVALID_TOPUP_PLAN",
+                message: `Choose a valid top-up plan: ${TOPUP_OPTIONS_COPY}.`,
+            });
+        }
 
         const reference = buildPaymentReference(userId);
         const customerEmail = getPaystackCustomerEmail(identity, userId);
-
-        await ctx.runMutation(internal.subscriptions.recordPaymentInitializationInternal, {
-            userId,
-            reference,
-            amountMinor: TOPUP_AMOUNT_MINOR,
-            currency: TOPUP_CURRENCY,
-            customerEmail,
-            source: "checkout_init",
-        });
 
         const callbackParams = new URLSearchParams({
             reference,
@@ -567,23 +780,49 @@ export const initializePaystackTopUpCheckout = action({
         });
 
         const callbackUrl = buildAbsoluteAppUrl(`/subscription/callback?${callbackParams.toString()}`);
-
-        const initializePayload = await callPaystackApi("/transaction/initialize", {
-            method: "POST",
-            body: JSON.stringify({
-                email: customerEmail,
-                amount: TOPUP_AMOUNT_MINOR,
-                currency: TOPUP_CURRENCY,
+        const initializeCheckoutForPlan = async (
+            plan: NonNullable<ReturnType<typeof resolveTopUpPlanById>>,
+            source: string,
+        ) => {
+            await ctx.runMutation(internal.subscriptions.recordPaymentInitializationInternal, {
+                userId,
                 reference,
-                callback_url: callbackUrl,
-                metadata: {
-                    userId,
-                    returnPath: safeReturnPath,
-                    purpose: "upload_topup",
-                    topUpCredits: TOPUP_CREDITS,
-                },
-            }),
-        });
+                amountMinor: plan.amountMinor,
+                currency: plan.currency,
+                customerEmail,
+                source,
+            });
+
+            return await callPaystackApi("/transaction/initialize", {
+                method: "POST",
+                body: JSON.stringify({
+                    email: customerEmail,
+                    amount: plan.amountMinor,
+                    currency: plan.currency,
+                    reference,
+                    callback_url: callbackUrl,
+                    metadata: {
+                        userId,
+                        returnPath: safeReturnPath,
+                        purpose: "upload_topup",
+                        topUpPlanId: plan.id,
+                        topUpCredits: plan.credits,
+                        topUpAmountMajor: plan.amountMajor,
+                        topUpCurrency: plan.currency,
+                    },
+                }),
+            });
+        };
+
+        let initializePayload;
+        try {
+            initializePayload = await initializeCheckoutForPlan(selectedPlan, "checkout_init");
+        } catch {
+            throw new ConvexError({
+                code: "CHECKOUT_INIT_FAILED",
+                message: "Could not start checkout right now. Please try again.",
+            });
+        }
 
         const authorizationUrl = String(initializePayload?.data?.authorization_url || "").trim();
         if (!authorizationUrl) {
@@ -596,6 +835,9 @@ export const initializePaystackTopUpCheckout = action({
         return {
             authorizationUrl,
             reference,
+            topUpPlanId: selectedPlan.id,
+            amountMajor: selectedPlan.amountMajor,
+            currency: selectedPlan.currency,
         };
     },
 });
@@ -644,6 +886,9 @@ export const verifyPaystackTopUpAfterRedirect = action({
             const currency = normalizeCurrency(paymentData.currency);
             const paidAtMs = paymentData.paid_at ? Date.parse(paymentData.paid_at) : Date.now();
             const customerEmail = String(paymentData?.customer?.email || initializedTransaction.customerEmail || "").trim();
+            const expectedAmountMinor = toNonNegativeInt(initializedTransaction.amountMinor);
+            const expectedCurrency = normalizeCurrency(initializedTransaction.currency);
+            const expectedPlan = resolveTopUpPlanByPayment(expectedAmountMinor, expectedCurrency);
 
             if (paymentStatus !== "success") {
                 const quota = await ctx.runQuery(internal.subscriptions.getUploadQuotaStatusInternal, { userId });
@@ -654,7 +899,11 @@ export const verifyPaystackTopUpAfterRedirect = action({
                 };
             }
 
-            if (amountMinor !== TOPUP_AMOUNT_MINOR || currency !== TOPUP_CURRENCY) {
+            if (
+                !expectedPlan
+                || amountMinor !== expectedAmountMinor
+                || currency !== expectedCurrency
+            ) {
                 const quota = await ctx.runQuery(internal.subscriptions.getUploadQuotaStatusInternal, { userId });
                 return {
                     success: false,
@@ -678,6 +927,11 @@ export const verifyPaystackTopUpAfterRedirect = action({
                 success: applyResult.applied || applyResult.duplicate,
                 remaining: toNonNegativeInt(applyResult.remaining),
                 redirectTo: safeReturnPath,
+                grantedCredits: toNonNegativeInt(applyResult.grantedCredits),
+                amountMajor: Number.isFinite(Number(applyResult.amountMajor))
+                    ? Number(applyResult.amountMajor)
+                    : 0,
+                currency: String(applyResult.currency || TOPUP_CURRENCY),
             };
         } catch {
             const quota = await ctx.runQuery(internal.subscriptions.getUploadQuotaStatusInternal, { userId });
@@ -809,7 +1063,7 @@ export const upgradeToPremium = mutation({
             nextBillingDate: nextBilling.toISOString(),
             purchasedUploadCredits: Math.max(
                 toNonNegativeInt(existing?.purchasedUploadCredits),
-                TOPUP_CREDITS,
+                LEGACY_PREMIUM_MIN_CREDITS,
             ),
         };
 
@@ -840,14 +1094,26 @@ export const cancelSubscription = mutation({
     },
 });
 
-// ── Humanizer Rate Limiting ─────────────────────────────────────────────────
+// ── Voice + Humanizer Rate Limiting ─────────────────────────────────────────
 
+const FREE_VOICE_GENERATION_LIMIT = 1;
+const FREE_REEXPLAIN_LIMIT = 1;
 const FREE_HUMANIZER_DAILY_LIMIT = 1;
+const FREE_AI_MESSAGE_DAILY_LIMIT = 2;
 
 const getHumanizerUsageToday = async (ctx: any, userId: string) => {
     const todayUTC = new Date().toISOString().slice(0, 10);
     const row = await ctx.db
         .query("humanizerUsage")
+        .withIndex("by_userId_date", (q: any) => q.eq("userId", userId).eq("date", todayUTC))
+        .first();
+    return { row, date: todayUTC, count: toNonNegativeInt(row?.count) };
+};
+
+const getAiMessageUsageToday = async (ctx: any, userId: string) => {
+    const todayUTC = new Date().toISOString().slice(0, 10);
+    const row = await ctx.db
+        .query("aiMessageUsage")
         .withIndex("by_userId_date", (q: any) => q.eq("userId", userId).eq("date", todayUTC))
         .first();
     return { row, date: todayUTC, count: toNonNegativeInt(row?.count) };
@@ -859,6 +1125,184 @@ const isUserPremium = (subscription: any) => {
     const status = String(subscription.status || "").toLowerCase();
     return plan === "premium" && status === "active";
 };
+
+export const getVoiceGenerationQuotaStatus = query({
+    args: {},
+    handler: async (ctx) => {
+        const identity = await ctx.auth.getUserIdentity();
+        const userId = assertAuthenticatedUserId(identity);
+        const subscription = await getSubscriptionRecordByUserId(ctx, userId);
+        const premium = isUserPremium(subscription);
+        const used = toNonNegativeInt(subscription?.consumedVoiceGenerations);
+        const limit = premium ? Infinity : FREE_VOICE_GENERATION_LIMIT;
+        const remaining = premium ? Infinity : Math.max(0, limit - used);
+        return { limit, used, remaining, isPremium: premium };
+    },
+});
+
+export const getAiMessageQuotaStatus = query({
+    args: {},
+    handler: async (ctx) => {
+        const identity = await ctx.auth.getUserIdentity();
+        const userId = assertAuthenticatedUserId(identity);
+        const subscription = await getSubscriptionRecordByUserId(ctx, userId);
+        const premium = isUserPremium(subscription);
+        const { count } = await getAiMessageUsageToday(ctx, userId);
+        const limit = premium ? Infinity : FREE_AI_MESSAGE_DAILY_LIMIT;
+        const remaining = premium ? Infinity : Math.max(0, limit - count);
+        return { limit, used: count, remaining, isPremium: premium };
+    },
+});
+
+export const consumeAiMessageCreditOrThrow = mutation({
+    args: { userId: v.string() },
+    handler: async (ctx, args) => {
+        const userId = String(args.userId || "").trim();
+        if (!userId) throw new ConvexError({ code: "UNAUTHENTICATED", message: "You must be signed in." });
+
+        const subscription = await getSubscriptionRecordByUserId(ctx, userId);
+        const premium = isUserPremium(subscription);
+        if (premium) {
+            return {
+                limit: Infinity,
+                used: 0,
+                remaining: Infinity,
+                isPremium: true,
+            };
+        }
+
+        const { row, date, count } = await getAiMessageUsageToday(ctx, userId);
+        if (count >= FREE_AI_MESSAGE_DAILY_LIMIT) {
+            throw new ConvexError({
+                code: "AI_MESSAGE_QUOTA_EXCEEDED",
+                message: "You've used your free AI messages today. Upgrade to premium for unlimited AI chat.",
+                used: count,
+                limit: FREE_AI_MESSAGE_DAILY_LIMIT,
+            });
+        }
+
+        const nextCount = count + 1;
+        if (row) {
+            await ctx.db.patch(row._id, { count: nextCount });
+        } else {
+            await ctx.db.insert("aiMessageUsage", { userId, date, count: nextCount });
+        }
+
+        return {
+            limit: FREE_AI_MESSAGE_DAILY_LIMIT,
+            used: nextCount,
+            remaining: Math.max(0, FREE_AI_MESSAGE_DAILY_LIMIT - nextCount),
+            isPremium: false,
+        };
+    },
+});
+
+export const consumeVoiceGenerationCreditOrThrow = mutation({
+    args: { userId: v.string() },
+    handler: async (ctx, args) => {
+        const userId = String(args.userId || "").trim();
+        if (!userId) throw new ConvexError({ code: "UNAUTHENTICATED", message: "You must be signed in." });
+
+        const subscription = await getSubscriptionRecordByUserId(ctx, userId);
+        if (isUserPremium(subscription)) {
+            return {
+                limit: Infinity,
+                used: toNonNegativeInt(subscription?.consumedVoiceGenerations),
+                remaining: Infinity,
+                isPremium: true,
+            };
+        }
+
+        const used = toNonNegativeInt(subscription?.consumedVoiceGenerations);
+        if (used >= FREE_VOICE_GENERATION_LIMIT) {
+            throw new ConvexError({
+                code: "VOICE_QUOTA_EXCEEDED",
+                message: "You've used your free AI voice generation. Upgrade to premium for unlimited AI voice.",
+                used,
+                limit: FREE_VOICE_GENERATION_LIMIT,
+            });
+        }
+
+        const nextUsed = used + 1;
+        if (subscription) {
+            await ctx.db.patch(subscription._id, {
+                consumedVoiceGenerations: nextUsed,
+            });
+        } else {
+            await ctx.db.insert("subscriptions", {
+                userId,
+                plan: "free",
+                status: "active",
+                amount: 0,
+                currency: TOPUP_CURRENCY,
+                purchasedUploadCredits: 0,
+                consumedUploadCredits: 0,
+                consumedVoiceGenerations: nextUsed,
+            });
+        }
+
+        return {
+            limit: FREE_VOICE_GENERATION_LIMIT,
+            used: nextUsed,
+            remaining: Math.max(0, FREE_VOICE_GENERATION_LIMIT - nextUsed),
+            isPremium: false,
+        };
+    },
+});
+
+export const consumeReExplainCreditOrThrow = mutation({
+    args: { userId: v.string() },
+    handler: async (ctx, args) => {
+        const userId = String(args.userId || "").trim();
+        if (!userId) throw new ConvexError({ code: "UNAUTHENTICATED", message: "You must be signed in." });
+
+        const subscription = await getSubscriptionRecordByUserId(ctx, userId);
+        if (isUserPremium(subscription)) {
+            return {
+                limit: Infinity,
+                used: toNonNegativeInt(subscription?.consumedReExplanations),
+                remaining: Infinity,
+                isPremium: true,
+            };
+        }
+
+        const used = toNonNegativeInt(subscription?.consumedReExplanations);
+        if (used >= FREE_REEXPLAIN_LIMIT) {
+            throw new ConvexError({
+                code: "REEXPLAIN_QUOTA_EXCEEDED",
+                message: "You've used your free lesson re-explain. Upgrade to premium for unlimited re-explains.",
+                used,
+                limit: FREE_REEXPLAIN_LIMIT,
+            });
+        }
+
+        const nextUsed = used + 1;
+        if (subscription) {
+            await ctx.db.patch(subscription._id, {
+                consumedReExplanations: nextUsed,
+            });
+        } else {
+            await ctx.db.insert("subscriptions", {
+                userId,
+                plan: "free",
+                status: "active",
+                amount: 0,
+                currency: TOPUP_CURRENCY,
+                purchasedUploadCredits: 0,
+                consumedUploadCredits: 0,
+                consumedVoiceGenerations: 0,
+                consumedReExplanations: nextUsed,
+            });
+        }
+
+        return {
+            limit: FREE_REEXPLAIN_LIMIT,
+            used: nextUsed,
+            remaining: Math.max(0, FREE_REEXPLAIN_LIMIT - nextUsed),
+            isPremium: false,
+        };
+    },
+});
 
 export const getHumanizerQuotaStatus = query({
     args: {},

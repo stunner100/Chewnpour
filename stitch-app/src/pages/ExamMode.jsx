@@ -5,6 +5,7 @@ import { api } from '../../convex/_generated/api';
 import { useAuth } from '../contexts/AuthContext';
 import { getSession } from '../lib/auth-client';
 import { useStudyTimer } from '../hooks/useStudyTimer';
+import { isLikelyConvexId } from '../lib/convexId';
 import {
     resolveAutoGenerationError,
     resolveAutoGenerationResult,
@@ -240,7 +241,7 @@ const MCQ_EXAM_QUESTION_CAP = 35;
 const ESSAY_EXAM_QUESTION_CAP = 15;
 const ESSAY_EXAM_INTERACTIVE_START_COUNT = 3;
 const EXAM_DURATION_SECONDS = 45 * 60;
-const MIN_ESSAY_SUBMIT_CHAR_COUNT = 1;
+const MIN_ESSAY_SUBMIT_CHAR_COUNT = 20;
 
 const resolveConvexActionError = (error, fallbackMessage) => {
     const dataMessage = typeof error?.data === 'string'
@@ -381,7 +382,9 @@ const resolvePreferredExamFormat = (value) => {
 // ── Component ──
 
 const ExamMode = () => {
-    const { topicId } = useParams();
+    const { topicId: topicIdParam } = useParams();
+    const normalizedTopicId = typeof topicIdParam === 'string' ? topicIdParam.trim() : '';
+    const topicId = isLikelyConvexId(normalizedTopicId) ? normalizedTopicId : '';
     const navigate = useNavigate();
     const location = useLocation();
     const { user } = useAuth();
@@ -426,7 +429,6 @@ const ExamMode = () => {
     const AUTO_GENERATION_MAX_ATTEMPTS = 3;
 
     const topicQuestions = topicData?.questions || [];
-    const essayQuestionCount = topicQuestions.filter((question) => question?.questionType === 'essay').length;
     const loadingExamQuestionCap = examFormat === 'essay' ? ESSAY_EXAM_QUESTION_CAP : MCQ_EXAM_QUESTION_CAP;
     const loadingExamTypeLabel = examFormat === 'essay' ? 'essay' : 'multiple-choice';
     const hasAttemptQuestions = Array.isArray(attemptQuestions) && attemptQuestions.length > 0;
@@ -439,6 +441,8 @@ const ExamMode = () => {
     const autoGenerationAttemptsRef = useRef(0);
     const autoGenerationInFlightRef = useRef(false);
     const autoGenerationRequestIdRef = useRef(0);
+    const handleSubmitRef = useRef(() => { });
+    const submittingRef = useRef(false);
 
     useEffect(() => {
         examFlowStartTimeRef.current = Date.now();
@@ -555,7 +559,15 @@ const ExamMode = () => {
             setAttemptQuestions(selectedQuestions);
             setCurrentQuestion(0);
             setSelectedAnswers({});
-            setTimeRemaining(EXAM_DURATION_SECONDS);
+
+            // For reused attempts, calculate remaining time from when attempt was first created
+            if (result.reusedAttempt && result.startedAt) {
+                const elapsedSec = Math.floor((Date.now() - result.startedAt) / 1000);
+                const remaining = Math.max(60, EXAM_DURATION_SECONDS - elapsedSec); // at least 60s
+                setTimeRemaining(remaining);
+            } else {
+                setTimeRemaining(EXAM_DURATION_SECONDS);
+            }
             setExamStarted(true);
             const elapsedMs = Date.now() - attemptStartTimeRef.current;
             addSentryBreadcrumb({
@@ -967,7 +979,7 @@ const ExamMode = () => {
             setTimeRemaining((prev) => {
                 if (prev <= 0) {
                     clearInterval(timer);
-                    handleSubmit();
+                    handleSubmitRef.current();
                     return 0;
                 }
                 return prev - 1;
@@ -1004,7 +1016,9 @@ const ExamMode = () => {
     };
 
     const handleSubmit = async () => {
+        if (submittingRef.current) return;
         if (!attemptId) return;
+        submittingRef.current = true;
         setSubmitError('');
 
         if (examFormat === 'essay') {
@@ -1014,6 +1028,7 @@ const ExamMode = () => {
             }).length;
             if (answeredEssayQuestions < questions.length) {
                 setSubmitError('Please answer all essay questions before submitting.');
+                submittingRef.current = false;
                 return;
             }
 
@@ -1072,13 +1087,14 @@ const ExamMode = () => {
                 }
             } finally {
                 setGradingEssay(false);
+                submittingRef.current = false;
             }
             return;
         }
 
-        const answers = Object.entries(selectedAnswers).map(([questionId, selectedAnswer]) => ({
-            questionId,
-            selectedAnswer,
+        const answers = attemptQuestions.map((q) => ({
+            questionId: q._id,
+            selectedAnswer: selectedAnswers[q._id] || '',
         }));
 
         const timeTaken = EXAM_DURATION_SECONDS - timeRemaining;
@@ -1139,8 +1155,10 @@ const ExamMode = () => {
                     },
                 });
             }
+            submittingRef.current = false;
         }
     };
+    handleSubmitRef.current = handleSubmit;
 
     const handleGenerateQuestions = async () => {
         if (!topicId) return;

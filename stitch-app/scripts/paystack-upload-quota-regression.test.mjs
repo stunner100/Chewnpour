@@ -29,6 +29,11 @@ for (const pattern of [
   'export const initializePaystackTopUpCheckout = action({',
   'export const verifyPaystackTopUpAfterRedirect = action({',
   'export const processPaystackWebhookEvent = mutation({',
+  'const hasPremiumPaymentHistory = (subscription: any, purchasedCredits: number) =>',
+  'const resolveConsumedUploadCredits = (params: {',
+  'const isFirstPaidGrant = purchasedCredits <= 0;',
+  'Math.min(FREE_UPLOAD_LIMIT, consumedCreditsBeforeTopUp)',
+  'export const reconcileUploadConsumedCreditsInternal = internalMutation({',
   'UPLOAD_QUOTA_EXCEEDED',
   'consumeUploadCreditOrThrow',
 ]) {

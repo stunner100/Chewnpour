@@ -87,17 +87,6 @@ export const createUploadObservation = ({ flowType, source, userId, file }) => {
 
 export const reportUploadValidationRejected = ({ flowType, source, reason, userId, file }) => {
     const fileMeta = getFileMeta(file);
-    const tags = toStringTags({
-        area: 'upload',
-        operation: 'validation_rejected',
-        flowType,
-        source,
-        reason,
-    });
-    const extras = {
-        ...fileMeta,
-        userId: userId ? String(userId) : undefined,
-    };
 
     addSentryBreadcrumb({
         category: 'upload',
@@ -109,13 +98,6 @@ export const reportUploadValidationRejected = ({ flowType, source, reason, userI
             source,
             ...fileMeta,
         },
-    });
-
-    captureSentryMessage('Upload validation rejected', {
-        level: 'warning',
-        tags,
-        extras,
-        fingerprint: ['upload-validation-rejected', String(flowType || 'unknown'), String(reason || 'unknown')],
     });
 
     capturePostHogEvent('upload_validation_rejected', {

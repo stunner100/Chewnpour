@@ -35,6 +35,12 @@ const formatCurrency = (amountMinor, currency = 'GHS') => {
     return `${currency} ${major.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 };
 
+const formatMajorCurrency = (amountMajor, currency = 'GHS') => {
+    const major = Number(amountMajor);
+    if (!Number.isFinite(major) || major <= 0) return 'N/A';
+    return `${currency} ${major.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+};
+
 const formatDuration = (seconds) => {
     const s = Number(seconds) || 0;
     if (s < 60) return `${s}s`;
@@ -232,7 +238,7 @@ const OverviewPanel = ({ snapshot, totals, activeUsersDays, newUsersDays, flags 
 
     return (
         <div className="space-y-4">
-            <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+            <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
                 <StatCard
                     label={`New users (${newUsersDays}d)`}
                     value={totals.newUsersLastWindow}
@@ -246,11 +252,18 @@ const OverviewPanel = ({ snapshot, totals, activeUsersDays, newUsersDays, flags 
                     icon="bolt"
                 />
                 <StatCard
-                    label="Online now"
-                    value={totals.signedInUsersNow}
-                    sublabel={flags.activeSessionsTruncated ? 'Partial scan' : `${formatNumber(totals.signedInUsersResolved)} resolved`}
+                    label="Active (5m)"
+                    value={totals.activeUsersLast5Minutes}
+                    sublabel={flags.activeSessionsTruncated ? 'Heartbeat in last 5m (sessions partial)' : 'Heartbeat in last 5m'}
                     icon="group"
                     color="emerald"
+                />
+                <StatCard
+                    label="Premium users"
+                    value={totals.premiumUsersActive}
+                    sublabel={`${formatNumber(totals.premiumUsersTotal)} premium total`}
+                    icon="workspace_premium"
+                    color="amber"
                 />
                 <StatCard
                     label="Docs processed"
@@ -556,7 +569,7 @@ const ContentPanel = ({ snapshot }) => {
     );
 };
 
-const UsersPanel = ({ snapshot, signedInUsers, recentUsers, flags }) => (
+const UsersPanel = ({ signedInUsers, recentUsers, premiumUsers, flags }) => (
     <div className="space-y-4">
         <SectionCard title="All Signed-In Users" badge={flags.activeSessionsTruncated ? 'Partial scan' : undefined}>
             <div className="overflow-x-auto">
@@ -587,6 +600,42 @@ const UsersPanel = ({ snapshot, signedInUsers, recentUsers, flags }) => (
                                 <td className="px-3 py-3 text-slate-600 dark:text-slate-300">{formatNumber(record.activeSessionCount)}</td>
                                 <td className="px-3 py-3 text-slate-600 dark:text-slate-300">{formatDateTime(record.lastSessionAt)}</td>
                                 <td className="px-3 py-3 text-slate-600 dark:text-slate-300">{formatDateTime(record.createdAt)}</td>
+                            </tr>
+                        ))}
+                    </tbody>
+                </table>
+            </div>
+        </SectionCard>
+
+        <SectionCard title="Premium Users">
+            <div className="overflow-x-auto">
+                <table className="min-w-full text-sm">
+                    <thead>
+                        <tr className="border-b border-slate-200 dark:border-slate-700">
+                            <th className="px-3 py-2 text-left font-semibold text-slate-500 dark:text-slate-400">User</th>
+                            <th className="px-3 py-2 text-left font-semibold text-slate-500 dark:text-slate-400">Status</th>
+                            <th className="px-3 py-2 text-left font-semibold text-slate-500 dark:text-slate-400">Plan amount</th>
+                            <th className="px-3 py-2 text-left font-semibold text-slate-500 dark:text-slate-400">Last payment</th>
+                            <th className="px-3 py-2 text-left font-semibold text-slate-500 dark:text-slate-400">Next billing</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {premiumUsers.length === 0 ? (
+                            <tr>
+                                <td colSpan={5} className="px-3 py-6 text-center text-slate-500 dark:text-slate-400">
+                                    No premium users yet.
+                                </td>
+                            </tr>
+                        ) : premiumUsers.map((record) => (
+                            <tr key={record.userId} className="border-b border-slate-100 dark:border-slate-800/80">
+                                <td className="px-3 py-3">
+                                    <p className="font-semibold text-slate-900 dark:text-white">{record.email || record.fullName || record.userId}</p>
+                                    <p className="text-xs text-slate-500 dark:text-slate-400">{record.department || ''}</p>
+                                </td>
+                                <td className="px-3 py-3 text-slate-600 dark:text-slate-300 capitalize">{record.status || 'unknown'}</td>
+                                <td className="px-3 py-3 text-slate-600 dark:text-slate-300">{formatMajorCurrency(record.amountMajor, record.currency)}</td>
+                                <td className="px-3 py-3 text-slate-600 dark:text-slate-300">{formatDateTime(record.lastPaymentAt)}</td>
+                                <td className="px-3 py-3 text-slate-600 dark:text-slate-300">{record.nextBillingDate || 'N/A'}</td>
                             </tr>
                         ))}
                     </tbody>
@@ -850,6 +899,7 @@ const AdminDashboard = () => {
     const recentUsers = Array.isArray(snapshot.recentUsers) ? snapshot.recentUsers : [];
     const recentFeedback = Array.isArray(snapshot.recentFeedback) ? snapshot.recentFeedback : [];
     const signedInUsers = Array.isArray(snapshot.signedInUsers) ? snapshot.signedInUsers : [];
+    const premiumUsers = Array.isArray(snapshot.premiumUsers) ? snapshot.premiumUsers : [];
 
     const handleAddAdminEmail = async (event) => {
         event.preventDefault();
@@ -889,7 +939,7 @@ const AdminDashboard = () => {
             case 'content':
                 return <ContentPanel snapshot={snapshot} />;
             case 'users':
-                return <UsersPanel snapshot={snapshot} signedInUsers={signedInUsers} recentUsers={recentUsers} flags={flags} />;
+                return <UsersPanel signedInUsers={signedInUsers} recentUsers={recentUsers} premiumUsers={premiumUsers} flags={flags} />;
             case 'uploads':
                 return <UploadsPanel snapshot={snapshot} />;
             case 'feedback':

@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useAction, useConvexAuth } from 'convex/react';
 import { api } from '../../convex/_generated/api';
@@ -18,6 +18,9 @@ import {
     uploadToStorageWithRetry,
 } from '../lib/uploadNetworkResilience';
 import { ensurePromiseWithResolvers } from '../lib/runtimePolyfills';
+import {
+    buildUploadLimitMessageFromOptions,
+} from '../lib/pricingCurrency';
 
 let pdfWorkerInitialized = false;
 
@@ -35,8 +38,9 @@ const extractPdfTextFromFile = async (file) => {
     const arrayBuffer = await file.arrayBuffer();
     const loadingTask = pdfjsLib.getDocument({ data: arrayBuffer });
     const pdf = await loadingTask.promise;
-    const maxPages = Math.min(pdf.numPages, 20);
-    let text = '';
+    const MAX_CLIENT_PAGES = 300;
+    const maxPages = Math.min(pdf.numPages, MAX_CLIENT_PAGES);
+    const parts = [];
 
     for (let i = 1; i <= maxPages; i += 1) {
         const page = await pdf.getPage(i);
@@ -44,10 +48,10 @@ const extractPdfTextFromFile = async (file) => {
         const pageText = content.items
             .map((item) => (typeof item.str === 'string' ? item.str : ''))
             .join(' ');
-        text += `${pageText}\n`;
+        parts.push(pageText);
     }
 
-    return text.trim();
+    return parts.join('\n').trim();
 };
 
 const isIgnorableProcessingDispatchError = (error) => {
@@ -76,10 +80,18 @@ const isConvexAuthenticationError = (error) => {
 const getUploadAuthNotReadyMessage = () =>
     'Your session is still syncing. Please wait a few seconds and try again. If this continues, refresh and sign in again.';
 
-const resolveQuotaExceededMessage = (error) => {
+const resolveQuotaExceededMessage = (error, fallbackTopUpOptions, fallbackCurrency = 'GHS') => {
+    const topUpOptions = Array.isArray(error?.data?.topUpOptions)
+        ? error.data.topUpOptions
+        : fallbackTopUpOptions;
+    if (Array.isArray(topUpOptions) && topUpOptions.length > 0) {
+        const optionCurrency = String(error?.data?.currency || fallbackCurrency || 'GHS').toUpperCase();
+        return buildUploadLimitMessageFromOptions(topUpOptions, optionCurrency);
+    }
+
     const dataMessage = typeof error?.data?.message === 'string' ? error.data.message.trim() : '';
     if (dataMessage) return dataMessage;
-    return 'Upload limit reached. Choose a top-up plan: GHS 20 (+5 uploads) or GHS 40 (+12 uploads).';
+    return buildUploadLimitMessageFromOptions(fallbackTopUpOptions, fallbackCurrency);
 };
 
 const buildUploadLimitSubscriptionPath = () => {
@@ -142,6 +154,13 @@ const DashboardAnalysis = () => {
     const uploadQuota = useQuery(
         api.subscriptions.getUploadQuotaStatus,
         userId && isConvexAuthenticated ? {} : 'skip'
+    );
+    const uploadLimitMessage = useMemo(
+        () => buildUploadLimitMessageFromOptions(
+            uploadQuota?.topUpOptions,
+            uploadQuota?.currency || 'GHS'
+        ),
+        [uploadQuota?.topUpOptions, uploadQuota?.currency]
     );
     const subscription = useQuery(api.subscriptions.getSubscription, userId ? { userId } : 'skip');
     const generateUploadUrl = useMutation(api.uploads.generateUploadUrl);
@@ -216,7 +235,7 @@ const DashboardAnalysis = () => {
     const redirectToUploadTopUp = () => {
         navigate(buildUploadLimitSubscriptionPath(), {
             state: {
-                paywallMessage: 'Upload limit reached. Choose a top-up plan: GHS 20 (+5 uploads) or GHS 40 (+12 uploads).',
+                paywallMessage: uploadLimitMessage,
             },
         });
     };
@@ -300,7 +319,7 @@ const DashboardAnalysis = () => {
         }
 
         if (uploadQuota && Number(uploadQuota.remaining) <= 0) {
-            setUploadError('Upload limit reached. Choose a top-up plan: GHS 20 (+5 uploads) or GHS 40 (+12 uploads).');
+            setUploadError(uploadLimitMessage);
             reportUploadValidationRejected({
                 flowType: 'study_material',
                 source: 'dashboard_analysis',
@@ -482,7 +501,13 @@ const DashboardAnalysis = () => {
         } catch (error) {
             console.error('Upload failed:', error);
             if (getConvexErrorCode(error) === 'UPLOAD_QUOTA_EXCEEDED') {
-                setUploadError(resolveQuotaExceededMessage(error));
+                setUploadError(
+                    resolveQuotaExceededMessage(
+                        error,
+                        uploadQuota?.topUpOptions,
+                        uploadQuota?.currency || 'GHS'
+                    )
+                );
                 reportUploadValidationRejected({
                     flowType: 'study_material',
                     source: 'dashboard_analysis',

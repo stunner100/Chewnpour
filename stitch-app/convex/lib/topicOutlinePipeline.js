@@ -93,7 +93,7 @@ const detectHeadingLevel = (line) => {
 const isLikelyHeading = (line) => {
     const text = cleanHeading(line);
     if (!text) return false;
-    if (text.length < 4 || text.length > 140) return false;
+    if (text.length < 3 || text.length > 160) return false;
     if (/^[-=*•]{2,}$/.test(text)) return false;
 
     // Markdown-style headings: ## Heading, ### Heading
@@ -103,13 +103,20 @@ const isLikelyHeading = (line) => {
     const boldMatch = String(line || '').trim().match(/^\*\*([^*]{3,90})\*\*\s*$/);
     if (boldMatch) return true;
 
+    // Underline-style headings: text followed by === or --- on next line (handled as standalone)
+    if (/^[=]{3,}$/.test(text) || /^[-]{3,}$/.test(text)) return false;
+
     if (/^[a-z]/.test(text)) return false;
 
     const words = text.split(/\s+/).filter(Boolean);
-    if (words.length > 14) return false;
-    if (/^(chapter|section|topic|lesson|unit|module|part)\s+\d+/i.test(text)) return true;
+    if (words.length > 16) return false;
+    if (/^(chapter|section|topic|lesson|unit|module|part|week|lecture|appendix)\s+(\d+|[ivxlcdm]+)/i.test(text)) return true;
     if (/^\d+(\.\d+){0,3}[)\-.:]?\s+[A-Z]/.test(text)) return true;
-    if (/^[IVXLCDM]+\.\s+[A-Z]/.test(text)) return true;
+    if (/^[IVXLCDM]+[.)]\s+[A-Z]/.test(text)) return true;
+    // Parenthesized numbers: (1) Introduction, (a) Overview
+    if (/^\([0-9a-zA-Z]+\)\s+[A-Z]/.test(text)) return true;
+    // Letter-prefixed: A. Introduction, B. Methods
+    if (/^[A-Z][.)]\s+[A-Z]/.test(text) && words.length <= 12) return true;
     if (/:$/.test(text) && words.length <= 10) return true;
 
     const alphaWords = words.filter((word) => /[A-Za-z]/.test(word));
@@ -118,18 +125,74 @@ const isLikelyHeading = (line) => {
     const titleCaseWords = alphaWords.filter((word) => /^[A-Z][a-z0-9'/-]+$/.test(word));
     const upperWords = alphaWords.filter((word) => word.length > 1 && word === word.toUpperCase());
     const headingRatio = (titleCaseWords.length + upperWords.length) / alphaWords.length;
-    if (headingRatio >= 0.7 && words.length <= 12) return true;
+    if (headingRatio >= 0.65 && words.length <= 14) return true;
 
-    if (/^[A-Z0-9][A-Z0-9 ,:&()'/-]+$/.test(text) && words.length <= 12) return true;
+    if (/^[A-Z0-9][A-Z0-9 ,:&()'/-]+$/.test(text) && words.length <= 14) return true;
     if (/[.!?]$/.test(text) && words.length > 8) return false;
     return false;
 };
 
-const normalizeSectionContent = (lines) =>
-    String((lines || []).join("\n"))
-        .replace(/[ \t]+\n/g, "\n")
-        .replace(/\n{3,}/g, "\n\n")
-        .trim();
+const normalizeSectionContent = (lines) => {
+    // Preserve indentation for code blocks (lines starting with 4+ spaces or tabs)
+    const raw = (lines || []).join("\n");
+    const parts = raw.split(/(```[\s\S]*?```)/);
+    const normalized = parts.map((part) => {
+        if (part.startsWith("```")) return part; // preserve code fences as-is
+        return part
+            .replace(/[ \t]+\n/g, "\n")
+            .replace(/\n{3,}/g, "\n\n");
+    }).join("");
+    return normalized.trim();
+};
+
+/**
+ * Detect and remove repeated header/footer lines that appear across multiple
+ * page boundaries (form-feed or "Page X" markers). A line that appears on
+ * 3+ pages in the first/last 3 lines of each page is considered a header/footer.
+ */
+const filterRepeatedHeadersFooters = (text) => {
+    if (!text) return text;
+    // Split by form feed or "Page N" markers
+    const pages = String(text).split(/\f|(?:^|\n)(?:Page\s+\d+\s*(?:of\s+\d+)?)\s*(?:\n|$)/i);
+    if (pages.length < 3) return text;
+
+    const lineCounts = new Map();
+    const EDGE_LINES = 3;
+
+    for (const page of pages) {
+        const lines = page.split("\n").map((l) => l.trim()).filter(Boolean);
+        if (lines.length < 2) continue;
+        const edgeLines = new Set();
+        for (let i = 0; i < Math.min(EDGE_LINES, lines.length); i++) {
+            edgeLines.add(lines[i]);
+        }
+        for (let i = Math.max(0, lines.length - EDGE_LINES); i < lines.length; i++) {
+            edgeLines.add(lines[i]);
+        }
+        for (const line of edgeLines) {
+            // Normalize page numbers for comparison
+            const normalized = line.replace(/\d+/g, "#").trim();
+            if (normalized.length < 3) continue;
+            lineCounts.set(normalized, (lineCounts.get(normalized) || 0) + 1);
+        }
+    }
+
+    const threshold = Math.max(3, Math.floor(pages.length * 0.4));
+    const repeatedPatterns = new Set();
+    for (const [pattern, count] of lineCounts) {
+        if (count >= threshold) repeatedPatterns.add(pattern);
+    }
+
+    if (repeatedPatterns.size === 0) return text;
+
+    const allLines = String(text).split("\n");
+    const filtered = allLines.filter((line) => {
+        const normalized = line.trim().replace(/\d+/g, "#").trim();
+        return !repeatedPatterns.has(normalized);
+    });
+
+    return filtered.join("\n");
+};
 
 const extractOutlineKeywords = (text) =>
     uniqueStrings(
@@ -209,8 +272,9 @@ const splitLargeTextBlock = (text, maxChars) => {
 export const extractStructuredSections = (text, options = {}) => {
     const minSectionWords = Math.max(25, Number(options.minSectionWords || 45));
     const maxSections = Math.max(3, Number(options.maxSections || 120));
-    const normalized = String(text || "")
-        .replace(/\u0000/g, "")
+    const cleaned = filterRepeatedHeadersFooters(String(text || ""));
+    const normalized = String(cleaned)
+        .split("\u0000").join("")
         .replace(/\r\n/g, "\n")
         .replace(/\t/g, " ")
         .replace(/[ \f\v]+/g, " ")
@@ -470,7 +534,7 @@ export const deriveTargetTopicCount = (options = {}) => {
     const minimum = Math.max(1, Number(options.minimum || 4));
     const maximum = Math.max(minimum, Number(options.maximum || 8));
 
-    const byWords = Math.ceil(wordCount / 800);
+    const byWords = Math.ceil(wordCount / 550);
     const byChunks = Math.ceil(chunkCount * 0.85);
     const rawTarget = Math.max(2, byWords, byChunks);
     const bounded = clamp(rawTarget, minimum, maximum);
@@ -713,8 +777,39 @@ export const buildGroupSourceSnippet = (group, chunks, options = {}) => {
         .trim();
 
     if (text.length <= maxChars) return text;
-    const headSize = Math.floor(maxChars * 0.72);
-    const tailSize = Math.floor(maxChars * 0.22);
-    const trimmed = `${text.slice(0, headSize).trim()}\n\n...\n\n${text.slice(-tailSize).trim()}`;
-    return trimmed.slice(0, maxChars).trim();
+
+    // Multi-segment sampling keeps the middle of long groups visible to
+    // downstream topic labeling instead of only head/tail slices.
+    const segmentCount = 5; // head + quartiles + tail
+    const separator = "\n\n...\n\n";
+    const separatorBudget = separator.length * (segmentCount - 1);
+    const segmentChars = Math.max(
+        120,
+        Math.floor((maxChars - separatorBudget) / segmentCount)
+    );
+
+    const anchors = [0, 0.25, 0.5, 0.75, 1];
+    const segments = [];
+    for (const anchor of anchors) {
+        const start = anchor >= 1
+            ? Math.max(0, text.length - segmentChars)
+            : Math.max(0, Math.floor(text.length * anchor) - Math.floor(segmentChars / 2));
+        const slice = text.slice(start, start + segmentChars).trim();
+        if (!slice) continue;
+        segments.push({ start, text: slice });
+    }
+
+    const deduped = [];
+    let lastStart = -Infinity;
+    for (const segment of segments.sort((a, b) => a.start - b.start)) {
+        if (segment.start - lastStart < Math.floor(segmentChars * 0.35)) {
+            continue;
+        }
+        deduped.push(segment.text);
+        lastStart = segment.start;
+    }
+
+    const merged = deduped.join(separator).trim();
+    if (merged.length <= maxChars) return merged;
+    return merged.slice(0, maxChars).trim();
 };

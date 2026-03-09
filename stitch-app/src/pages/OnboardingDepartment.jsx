@@ -7,14 +7,16 @@ const OnboardingDepartment = () => {
     const [searchQuery, setSearchQuery] = useState('');
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
-    const { updateProfile, profile } = useAuth();
+    const { updateProfile, profile, loading: authLoading } = useAuth();
     const navigate = useNavigate();
 
+    // #2 — wait for auth to finish loading before redirecting
     useEffect(() => {
+        if (authLoading) return;
         if (profile?.onboardingCompleted) {
             navigate('/dashboard', { replace: true });
         }
-    }, [profile, navigate]);
+    }, [profile, authLoading, navigate]);
 
     const handleToggle = (value) => {
         setSelectedDepts(prev =>
@@ -72,7 +74,8 @@ const OnboardingDepartment = () => {
         : departments;
 
     return (
-        <div className="bg-background-light dark:bg-background-dark font-display text-slate-900 dark:text-white h-screen flex flex-col overflow-hidden selection:bg-slate-900/10">
+        // #5 — replaced h-screen with min-h-screen (dvh override already in CSS)
+        <div className="bg-background-light dark:bg-background-dark font-display text-slate-900 dark:text-white min-h-screen flex flex-col overflow-hidden selection:bg-slate-900/10">
             <header className="flex-none px-4 pt-6 pb-2 flex items-center justify-between z-10 bg-background-light dark:bg-background-dark">
                 <Link to="/onboarding/level" className="flex size-10 items-center justify-center rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors text-slate-900 dark:text-white">
                     <span className="material-symbols-outlined text-[24px]">arrow_back</span>
@@ -95,7 +98,8 @@ const OnboardingDepartment = () => {
                 </div>
             </div>
 
-            <main className="flex-1 overflow-y-auto no-scrollbar flex flex-col px-6 pb-32">
+            {/* #12 — reduced pb-32 to pb-24 for small screens */}
+            <main className="flex-1 overflow-y-auto no-scrollbar flex flex-col px-6 pb-24">
                 {error && (
                     <div className="mx-auto max-w-md mt-4 p-4 rounded-xl bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-600 dark:text-red-400 text-sm font-medium text-center">
                         {error}
@@ -110,7 +114,8 @@ const OnboardingDepartment = () => {
                     </p>
                 </div>
 
-                <div className="sticky top-0 z-20 bg-background-light dark:bg-background-dark py-4">
+                {/* #4 — removed sticky positioning; search stays in flow to avoid covering results on small screens */}
+                <div className="py-4 bg-background-light dark:bg-background-dark">
                     <div className="relative max-w-md mx-auto">
                         <span className="absolute inset-y-0 left-0 flex items-center pl-4 pointer-events-none text-slate-400">
                             <span className="material-symbols-outlined">search</span>
@@ -154,7 +159,8 @@ const OnboardingDepartment = () => {
                 </div>
             </main>
 
-            <div className="fixed bottom-0 left-0 w-full p-6 bg-gradient-to-t from-background-light via-background-light to-transparent dark:from-background-dark dark:via-background-dark pointer-events-none">
+            {/* #3 — added safe-area-inset-bottom */}
+            <div className="fixed bottom-0 left-0 w-full p-6 bg-gradient-to-t from-background-light via-background-light to-transparent dark:from-background-dark dark:via-background-dark pointer-events-none" style={{ paddingBottom: 'max(1.5rem, env(safe-area-inset-bottom, 1.5rem))' }}>
                 <div className="max-w-md mx-auto pointer-events-auto">
                     <button
                         onClick={handleComplete}

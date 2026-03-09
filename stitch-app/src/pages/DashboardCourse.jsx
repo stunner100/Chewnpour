@@ -5,6 +5,8 @@ import { api } from '../../convex/_generated/api';
 import { useAuth } from '../contexts/AuthContext';
 import { resolveTopicIllustrationUrl } from '../lib/topicIllustration';
 
+const EMPTY_LIST = [];
+
 const DashboardCourse = () => {
     const { courseId } = useParams();
     const { user } = useAuth();
@@ -30,12 +32,12 @@ const DashboardCourse = () => {
     );
 
     const displayCourse = courseData || latestCourseTopics || course;
-    const topics = displayCourse?.topics || [];
+    const topics = Array.isArray(displayCourse?.topics) ? displayCourse.topics : EMPTY_LIST;
     const upload = useQuery(
         api.uploads.getUpload,
         displayCourse?.uploadId ? { uploadId: displayCourse.uploadId } : 'skip'
     );
-    const plannedTopicTitles = Array.isArray(upload?.plannedTopicTitles) ? upload.plannedTopicTitles : [];
+    const plannedTopicTitles = Array.isArray(upload?.plannedTopicTitles) ? upload.plannedTopicTitles : EMPTY_LIST;
     const plannedTopicCountFromUpload = typeof upload?.plannedTopicCount === 'number' ? upload.plannedTopicCount : 0;
     const plannedCount = Math.max(plannedTopicCountFromUpload, plannedTopicTitles.length, topics.length);
     const generatedCountBase = Math.max(

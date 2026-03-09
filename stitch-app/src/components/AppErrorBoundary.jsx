@@ -1,5 +1,9 @@
 import { Component } from 'react';
-import { attemptChunkRecoveryReload, isChunkLoadError } from '../lib/chunkLoadRecovery.js';
+import {
+    attemptChunkRecoveryReload,
+    isChunkLoadError,
+    isStaleConvexClientError,
+} from '../lib/chunkLoadRecovery.js';
 import { captureSentryException } from '../lib/sentry.js';
 
 class AppErrorBoundary extends Component {
@@ -13,7 +17,11 @@ class AppErrorBoundary extends Component {
     }
 
     componentDidCatch(error, errorInfo) {
-        if (isChunkLoadError(error) && attemptChunkRecoveryReload()) {
+        if (isChunkLoadError(error) && attemptChunkRecoveryReload('chunk-load')) {
+            return;
+        }
+
+        if (isStaleConvexClientError(error) && attemptChunkRecoveryReload('stale-convex-client')) {
             return;
         }
 

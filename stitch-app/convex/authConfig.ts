@@ -4,14 +4,36 @@ import { convex, crossDomain } from "@convex-dev/better-auth/plugins";
 import authConfig from "./auth.config";
 
 // The frontend URL - where users should be redirected after auth
-// In development, this is localhost; in production, this would be your app URL
-const frontendUrl = process.env.FRONTEND_URL || "http://localhost:5173";
+// In development, this is localhost; in production, this should be your app URL
+const resolveFrontendUrl = () => {
+    const configuredUrl = process.env.APP_BASE_URL || process.env.FRONTEND_URL;
+    if (!configuredUrl) return "http://localhost:5173";
+    try {
+        return new URL(configuredUrl).origin;
+    } catch {
+        return "http://localhost:5173";
+    }
+};
+
+const frontendUrl = resolveFrontendUrl();
 
 const LOCAL_ORIGINS = [
     "http://localhost:5173",
     "http://localhost:5174",
     "http://localhost:5175",
+    "http://localhost:5176",
+    "http://localhost:5177",
+    "http://localhost:5178",
+    "http://localhost:5179",
+    "http://localhost:5180",
     "http://127.0.0.1:5173",
+    "http://127.0.0.1:5174",
+    "http://127.0.0.1:5175",
+    "http://127.0.0.1:5176",
+    "http://127.0.0.1:5177",
+    "http://127.0.0.1:5178",
+    "http://127.0.0.1:5179",
+    "http://127.0.0.1:5180",
 ];
 
 const PREVIEW_HOST_SUFFIXES = [".vercel.app"];
@@ -20,6 +42,7 @@ const LOCAL_HOSTS = new Set(["localhost", "127.0.0.1", "::1"]);
 
 const parseConfiguredFrontendOrigins = () => {
     const values = [
+        process.env.APP_BASE_URL,
         process.env.FRONTEND_URL,
         ...(process.env.FRONTEND_URLS || "")
             .split(",")

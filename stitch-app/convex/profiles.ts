@@ -7,6 +7,8 @@ const normalizeUserId = (value: unknown): string | null => {
     return trimmed.length > 0 ? trimmed : null;
 };
 
+const PRESENCE_HEARTBEAT_MIN_INTERVAL_MS = 60 * 1000;
+
 // Get the user's profile
 export const getProfile = query({
     args: { userId: v.optional(v.any()) },
@@ -206,6 +208,40 @@ export const addStudyTime = mutation({
                 totalStudyHours: (profile.totalStudyHours || 0) + hoursToAdd,
             });
         }
+    },
+});
+
+export const touchPresence = mutation({
+    args: { userId: v.string() },
+    handler: async (ctx, args) => {
+        const identity = await ctx.auth.getUserIdentity().catch(() => null);
+        const authenticatedUserId = normalizeUserId(identity?.subject);
+        const requestedUserId = normalizeUserId(args.userId);
+
+        if (!authenticatedUserId || !requestedUserId || authenticatedUserId !== requestedUserId) {
+            throw new Error("Unauthorized presence heartbeat.");
+        }
+
+        const now = Date.now();
+        const existing = await ctx.db
+            .query("userPresence")
+            .withIndex("by_userId", (q) => q.eq("userId", authenticatedUserId))
+            .first();
+
+        if (existing) {
+            const existingLastSeenAt = Number(existing.lastSeenAt || 0);
+            if (now - existingLastSeenAt >= PRESENCE_HEARTBEAT_MIN_INTERVAL_MS) {
+                await ctx.db.patch(existing._id, { lastSeenAt: now });
+                return { ok: true, lastSeenAt: now };
+            }
+            return { ok: true, lastSeenAt: existingLastSeenAt };
+        }
+
+        await ctx.db.insert("userPresence", {
+            userId: authenticatedUserId,
+            lastSeenAt: now,
+        });
+        return { ok: true, lastSeenAt: now };
     },
 });
 

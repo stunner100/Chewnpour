@@ -117,6 +117,7 @@ const AIHumanizer = lazyRoute(() => import('./pages/AIHumanizer'), {
   componentName: 'AIHumanizer',
   namedExport: 'AIHumanizer',
 });
+const AdminDashboard = lazyRoute(() => import('./pages/AdminDashboard'), { componentName: 'AdminDashboard' });
 
 function RouteChangeTracker() {
   const location = useLocation();
@@ -189,7 +190,7 @@ function App() {
         <Route path="/signup" element={withSuspense(<SignUpPage />)} />
         <Route path="/reset-password" element={withSuspense(<ResetPassword />)} />
 
-        {/* Onboarding Routes */}
+        {/* Onboarding Routes — /onboarding/name is sign-up (public), level+department are protected */}
         <Route path="/onboarding/name" element={withSuspense(<OnboardingName />)} />
         <Route path="/onboarding/level" element={withSuspense(<ProtectedRoute><OnboardingLevel /></ProtectedRoute>)} />
         <Route path="/onboarding/department" element={withSuspense(<ProtectedRoute><OnboardingDepartment /></ProtectedRoute>)} />
@@ -222,6 +223,9 @@ function App() {
         {/* Profile Routes */}
         <Route path="/profile" element={withSuspense(<ProtectedRoute><DashboardLayout><Profile /></DashboardLayout></ProtectedRoute>)} />
         <Route path="/profile/edit" element={withSuspense(<ProtectedRoute><DashboardLayout><EditProfile /></DashboardLayout></ProtectedRoute>)} />
+
+        {/* Admin Route */}
+        <Route path="/admin" element={withSuspense(<ProtectedRoute><AdminDashboard /></ProtectedRoute>)} />
 
         {/* 404 Catch-all */}
         <Route path="*" element={<NotFound />} />

@@ -3,13 +3,14 @@ import { v } from "convex/values";
 import { components } from "./_generated/api";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
+const ACTIVE_USERS_5M_WINDOW_MS = 5 * 60 * 1000;
 const NEW_USER_WINDOW_DAYS = 7;
 const ACTIVE_USER_WINDOW_DAYS = 7;
 const RECENT_USERS_LIMIT = 20;
 const RECENT_FEEDBACK_LIMIT = 100;
 const BOOTSTRAP_ADMIN_EMAILS = ["patrickannor35@gmail.com"];
 const BETTER_AUTH_PAGE_SIZE = 200;
-const BETTER_AUTH_MAX_PAGES = 60;
+const BETTER_AUTH_MAX_PAGES = 12;
 const BETTER_AUTH_USER_CHUNK_SIZE = 100;
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/i;
@@ -29,28 +30,65 @@ const parseConfiguredAdminEmails = () =>
 const parseConfiguredAdminUserIds = () =>
     new Set(parseCommaSeparated(process.env.ADMIN_USER_IDS));
 
-const resolveAuthUserId = (identity: any) => {
-    if (!identity || typeof identity !== "object") return "";
-    const candidates = [
-        identity.subject,
-        identity.userId,
-        identity.id,
-        identity.tokenIdentifier,
-    ];
+const normalizeUserIdCandidate = (value: unknown) => {
+    if (typeof value !== "string") return "";
+    const normalized = value.trim();
+    return normalized || "";
+};
 
-    for (const candidate of candidates) {
-        if (typeof candidate === "string" && candidate.trim()) {
-            return candidate.trim();
+const pushUnique = (target: string[], value: unknown) => {
+    const normalized = normalizeUserIdCandidate(value);
+    if (!normalized || target.includes(normalized)) return;
+    target.push(normalized);
+};
+
+const collectAuthUserIdCandidates = (identity: any) => {
+    if (!identity || typeof identity !== "object") return [] as string[];
+
+    const candidates: string[] = [];
+    pushUnique(candidates, identity.subject);
+    pushUnique(candidates, identity.userId);
+    pushUnique(candidates, identity.id);
+
+    const tokenIdentifier = normalizeUserIdCandidate(identity.tokenIdentifier);
+    if (tokenIdentifier) {
+        pushUnique(candidates, tokenIdentifier);
+
+        // Some auth providers encode a stable user id in tokenIdentifier segments.
+        const pipeSegments = tokenIdentifier
+            .split("|")
+            .map((segment: string) => segment.trim())
+            .filter(Boolean);
+        if (pipeSegments.length > 1) {
+            pushUnique(candidates, pipeSegments[pipeSegments.length - 1]);
+        }
+        const colonSegments = tokenIdentifier
+            .split(":")
+            .map((segment: string) => segment.trim())
+            .filter(Boolean);
+        if (colonSegments.length > 1) {
+            pushUnique(candidates, colonSegments[colonSegments.length - 1]);
         }
     }
 
-    return "";
+    return candidates;
 };
+
+const resolveAuthUserId = (identity: any) => collectAuthUserIdCandidates(identity)[0] || "";
 
 const normalizeEmail = (value: unknown) =>
     typeof value === "string" && value.trim()
         ? value.trim().toLowerCase()
         : "";
+
+const resolveIdentityEmail = (identity: any) => {
+    if (!identity || typeof identity !== "object") return "";
+    return (
+        normalizeEmail(identity.email)
+        || normalizeEmail(identity.claims?.email)
+        || normalizeEmail(identity.profile?.email)
+    );
+};
 
 const normalizeFeedbackMessage = (value: unknown) =>
     typeof value === "string"
@@ -64,6 +102,20 @@ const toTimestamp = (value: unknown, fallback: number) => {
     return Number.isFinite(parsed) ? parsed : fallback;
 };
 
+const toNonNegativeNumber = (value: unknown) => {
+    const parsed = Number(value);
+    if (!Number.isFinite(parsed)) return 0;
+    return Math.max(0, parsed);
+};
+
+const toNonNegativeInteger = (value: unknown) =>
+    Math.max(0, Math.floor(toNonNegativeNumber(value)));
+
+const normalizeCurrencyCode = (value: unknown, fallback = "GHS") => {
+    const normalized = String(value || "").trim().toUpperCase();
+    return normalized || fallback;
+};
+
 const normalizeUploadStatus = (value: unknown) => {
     const normalized = String(value || "").trim().toLowerCase();
     if (normalized === "ready" || normalized === "processing" || normalized === "error") {
@@ -71,6 +123,49 @@ const normalizeUploadStatus = (value: unknown) => {
     }
     return "other";
 };
+
+const normalizePaymentStatus = (value: unknown) =>
+    String(value || "").trim().toLowerCase();
+
+const normalizePaymentEventType = (value: unknown) =>
+    String(value || "").trim().toLowerCase();
+
+const normalizeSubscriptionPlan = (value: unknown) => {
+    const normalized = String(value || "").trim().toLowerCase();
+    return normalized || "free";
+};
+
+const normalizeSubscriptionStatus = (value: unknown) => {
+    const normalized = String(value || "").trim().toLowerCase();
+    return normalized || "unknown";
+};
+
+const isSuccessfulPayment = (payment: any) => {
+    const status = normalizePaymentStatus(payment?.status);
+    const eventType = normalizePaymentEventType(payment?.eventType);
+    return (
+        status === "success"
+        || status === "succeeded"
+        || status === "paid"
+        || eventType === "charge.success"
+    );
+};
+
+const isFailedPayment = (payment: any) => {
+    const status = normalizePaymentStatus(payment?.status);
+    return (
+        status === "failed"
+        || status === "error"
+        || status === "abandoned"
+        || status === "cancelled"
+    );
+};
+
+const resolvePaymentTimestamp = (payment: any) =>
+    toTimestamp(
+        payment?.paidAt,
+        toTimestamp(payment?.createdAt, toTimestamp(payment?._creationTime, 0))
+    );
 
 const normalizeFileExtension = (fileName: unknown) => {
     if (typeof fileName !== "string") return "";
@@ -259,7 +354,7 @@ const buildAccessDeniedPayload = (
     reason,
     signedInAs: {
         userId: resolveAuthUserId(identity) || null,
-        email: normalizeEmail(identity?.email) || null,
+        email: resolveIdentityEmail(identity) || null,
     },
 });
 
@@ -298,17 +393,22 @@ const listAdminEmailsFromMap = (sourceMap: Map<string, Set<"bootstrap" | "env" |
         .sort((left, right) => left.email.localeCompare(right.email));
 
 const resolveAdminAccess = async (ctx: any, identity: any) => {
-    const authUserId = resolveAuthUserId(identity);
-    const authEmail = normalizeEmail(identity?.email);
+    const authUserIdCandidates = collectAuthUserIdCandidates(identity);
+    const resolvedAuthUsers = await fetchAuthUsersByIds(ctx, authUserIdCandidates);
+    const resolvedAuthUser = resolvedAuthUsers[0] || null;
+    const authUserId = normalizeAuthUserId(resolvedAuthUser) || authUserIdCandidates[0] || "";
+    const authEmail = resolveIdentityEmail(identity) || normalizeEmail(resolvedAuthUser?.email);
     const adminUserIdAllowlist = parseConfiguredAdminUserIds();
     const adminEmailSourceMap = await buildAdminEmailSourceMap(ctx);
     const adminEmails = listAdminEmailsFromMap(adminEmailSourceMap);
     const allowlistConfigured = adminUserIdAllowlist.size > 0 || adminEmailSourceMap.size > 0;
+    const allowedByUserId = authUserIdCandidates.some((candidate) => adminUserIdAllowlist.has(candidate))
+        || (authUserId ? adminUserIdAllowlist.has(authUserId) : false);
     const isAllowed = Boolean(
         authUserId
         && allowlistConfigured
         && (
-            adminUserIdAllowlist.has(authUserId)
+            allowedByUserId
             || (authEmail && adminEmailSourceMap.has(authEmail))
         )
     );
@@ -316,6 +416,7 @@ const resolveAdminAccess = async (ctx: any, identity: any) => {
     return {
         authUserId,
         authEmail,
+        authUserIdCandidates,
         adminUserIdAllowlist,
         adminEmailSourceMap,
         adminEmails,
@@ -428,7 +529,12 @@ export const getDashboardSnapshot = query({
             return buildAccessDeniedPayload("forbidden", identity);
         }
 
-        const [profiles, uploads, assignmentThreads, examAttempts, conceptAttempts, feedbackEntries, activeSessionsResult, subscriptions, paymentTransactions, courses, topics, humanizerUsage] =
+        const now = Date.now();
+        const sevenDaysAgo = now - ACTIVE_USER_WINDOW_DAYS * DAY_MS;
+        const fourteenDaysAgo = now - (ACTIVE_USER_WINDOW_DAYS + NEW_USER_WINDOW_DAYS) * DAY_MS;
+        const fiveMinutesAgo = now - ACTIVE_USERS_5M_WINDOW_MS;
+
+        const [profiles, uploads, assignmentThreads, examAttempts, conceptAttempts, feedbackEntries, activeSessionsResult, subscriptions, paymentTransactions, courses, humanizerUsage, userPresence] =
             await Promise.all([
                 ctx.db.query("profiles").collect(),
                 ctx.db.query("uploads").collect(),
@@ -444,15 +550,28 @@ export const getDashboardSnapshot = query({
                 ctx.db.query("subscriptions").collect(),
                 ctx.db.query("paymentTransactions").collect(),
                 ctx.db.query("courses").collect(),
-                ctx.db.query("topics").collect(),
                 ctx.db.query("humanizerUsage").collect(),
+                ctx.db
+                    .query("userPresence")
+                    .withIndex("by_lastSeenAt", (q) => q.gte("lastSeenAt", fiveMinutesAgo))
+                    .collect(),
             ]);
+        // Topics can contain very large generated content, so avoid full-table
+        // scans here and derive admin content metrics from lightweight records.
+        const topics: any[] = [];
 
         const activeSessions = activeSessionsResult.rows;
 
-        const now = Date.now();
-        const sevenDaysAgo = now - ACTIVE_USER_WINDOW_DAYS * DAY_MS;
-        const fourteenDaysAgo = now - (ACTIVE_USER_WINDOW_DAYS + NEW_USER_WINDOW_DAYS) * DAY_MS;
+        const activeUsersLast5Minutes = new Set(
+            userPresence
+                .map((presence) => {
+                    const userId = String(presence.userId || "").trim();
+                    const lastSeenAt = toTimestamp(presence.lastSeenAt, 0);
+                    if (!userId || lastSeenAt < fiveMinutesAgo) return null;
+                    return userId;
+                })
+                .filter((userId): userId is string => Boolean(userId))
+        );
 
         const activeUsersLastWindow = new Set<string>();
         const activeUsersPrevWindow = new Set<string>();
@@ -766,12 +885,24 @@ export const getDashboardSnapshot = query({
         let totalPurchasedCredits = 0;
         let totalConsumedCredits = 0;
         let totalVoiceGenerations = 0;
+        const latestSubscriptionByUser = new Map<string, any>();
         for (const sub of subscriptions) {
-            const plan = String(sub.plan || "free");
+            const plan = normalizeSubscriptionPlan(sub.plan);
             planCounts.set(plan, (planCounts.get(plan) || 0) + 1);
             totalPurchasedCredits += Number(sub.purchasedUploadCredits || 0);
             totalConsumedCredits += Number(sub.consumedUploadCredits || 0);
             totalVoiceGenerations += Number(sub.consumedVoiceGenerations || 0);
+
+            const userId = String(sub.userId || "").trim();
+            if (!userId) continue;
+            const snapshotTimestamp = toTimestamp(sub.lastPaymentAt, toTimestamp(sub._creationTime, 0));
+            const existing = latestSubscriptionByUser.get(userId);
+            const existingTimestamp = existing
+                ? toTimestamp(existing.lastPaymentAt, toTimestamp(existing._creationTime, 0))
+                : -1;
+            if (!existing || snapshotTimestamp >= existingTimestamp) {
+                latestSubscriptionByUser.set(userId, sub);
+            }
         }
         const totalSubs = subscriptions.length || 1;
         const planBreakdown = [...planCounts.entries()]
@@ -781,55 +912,155 @@ export const getDashboardSnapshot = query({
                 percent: Math.round((count / totalSubs) * 1000) / 10,
             }))
             .sort((a, b) => b.count - a.count);
+        const latestSubscriptions = Array.from(latestSubscriptionByUser.values());
+        const premiumUsersTotal = latestSubscriptions.filter(
+            (subscription) => normalizeSubscriptionPlan(subscription.plan) === "premium"
+        ).length;
+        const premiumUsersActive = latestSubscriptions.filter(
+            (subscription) =>
+                normalizeSubscriptionPlan(subscription.plan) === "premium"
+                && normalizeSubscriptionStatus(subscription.status) === "active"
+        ).length;
 
         const subscriptionAnalytics = {
             planBreakdown,
             totalPurchasedCredits,
             totalConsumedCredits,
             totalVoiceGenerations,
+            premiumUsersTotal,
+            premiumUsersActive,
         };
 
         // ── Revenue Analytics ──
-        const successfulPayments = paymentTransactions.filter((t) => t.status === "success");
-        const failedPayments = paymentTransactions.filter((t) => t.status === "failed");
-        const totalRevenueMinor = successfulPayments.reduce((sum, t) => sum + Number(t.amountMinor || 0), 0);
-        const paymentsLastWindow = successfulPayments.filter((t) => {
-            const ts = Number(t.paidAt || t.createdAt || 0);
-            return ts >= sevenDaysAgo;
-        });
-        const revenueLastWindowMinor = paymentsLastWindow.reduce((sum, t) => sum + Number(t.amountMinor || 0), 0);
-        const totalPaymentAttempts = paymentTransactions.length;
-        const conversionRate = totalPaymentAttempts > 0
-            ? Math.round((successfulPayments.length / totalPaymentAttempts) * 1000) / 10
+        const successfulPayments = paymentTransactions.filter(isSuccessfulPayment);
+        const failedPayments = paymentTransactions.filter(isFailedPayment);
+        const finalizedPaymentAttempts = successfulPayments.length + failedPayments.length;
+
+        // If transaction rows are missing but subscriptions track recent paid states,
+        // derive a conservative revenue snapshot from the subscription records.
+        const subscriptionRevenueSnapshots = subscriptions
+            .map((subscription) => {
+                const amountMajor = toNonNegativeNumber(subscription.amount);
+                const paidAt = toTimestamp(subscription.lastPaymentAt, 0);
+                if (amountMajor <= 0 || paidAt <= 0) return null;
+                return {
+                    amountMinor: Math.round(amountMajor * 100),
+                    paidAt,
+                    currency: normalizeCurrencyCode(subscription.currency, "GHS"),
+                };
+            })
+            .filter((entry): entry is NonNullable<typeof entry> => Boolean(entry));
+        const useSubscriptionRevenueFallback =
+            successfulPayments.length === 0 && subscriptionRevenueSnapshots.length > 0;
+
+        const paymentsLastWindow = successfulPayments.filter(
+            (payment) => resolvePaymentTimestamp(payment) >= sevenDaysAgo
+        );
+        const subscriptionPaymentsLastWindow = subscriptionRevenueSnapshots.filter(
+            (payment) => payment.paidAt >= sevenDaysAgo
+        );
+
+        const totalRevenueMinor = useSubscriptionRevenueFallback
+            ? subscriptionRevenueSnapshots.reduce((sum, payment) => sum + payment.amountMinor, 0)
+            : successfulPayments.reduce(
+                (sum, payment) => sum + toNonNegativeNumber(payment.amountMinor),
+                0
+            );
+        const revenueLastWindowMinor = useSubscriptionRevenueFallback
+            ? subscriptionPaymentsLastWindow.reduce((sum, payment) => sum + payment.amountMinor, 0)
+            : paymentsLastWindow.reduce(
+                (sum, payment) => sum + toNonNegativeNumber(payment.amountMinor),
+                0
+            );
+        const totalSuccessfulPayments = useSubscriptionRevenueFallback
+            ? subscriptionRevenueSnapshots.length
+            : successfulPayments.length;
+        const paymentsLastWindowCount = useSubscriptionRevenueFallback
+            ? subscriptionPaymentsLastWindow.length
+            : paymentsLastWindow.length;
+        const conversionBase = useSubscriptionRevenueFallback
+            ? subscriptionRevenueSnapshots.length + failedPayments.length
+            : finalizedPaymentAttempts;
+        const conversionRate = conversionBase > 0
+            ? Math.round((totalSuccessfulPayments / conversionBase) * 1000) / 10
             : 0;
-        const currency = successfulPayments.length > 0 ? successfulPayments[0].currency : "GHS";
+        const currency = useSubscriptionRevenueFallback
+            ? normalizeCurrencyCode(subscriptionRevenueSnapshots[0]?.currency, "GHS")
+            : normalizeCurrencyCode(successfulPayments[0]?.currency, "GHS");
 
         const revenueAnalytics = {
-            totalSuccessfulPayments: successfulPayments.length,
+            totalSuccessfulPayments,
             totalRevenueMinor,
             currency,
-            paymentsLastWindow: paymentsLastWindow.length,
+            paymentsLastWindow: paymentsLastWindowCount,
             revenueLastWindowMinor,
             failedPayments: failedPayments.length,
             conversionRate,
+            source: useSubscriptionRevenueFallback
+                ? "subscriptions"
+                : "paymentTransactions",
         };
 
         // ── Content Analytics ──
-        const completedCourses = courses.filter((c) => c.status === "completed").length;
-        const inProgressCourses = courses.filter((c) => c.status === "in_progress").length;
-        const examReadyTopics = topics.filter((t) => t.examReady).length;
-        const totalMcq = topics.reduce((sum, t) => sum + Number(t.usableMcqCount || 0), 0);
-        const totalEssay = topics.reduce((sum, t) => sum + Number(t.usableEssayCount || 0), 0);
-        const topicCount = topics.length || 1;
+        const completedCoursesFromCourses = courses.filter(
+            (course) => course.status === "completed" || course.status === "ready"
+        ).length;
+        const inProgressCoursesFromCourses = courses.filter(
+            (course) => course.status === "in_progress" || course.status === "processing"
+        ).length;
+
+        const inferredCompletedCourses = uploads.filter(
+            (upload) => normalizeUploadStatus(upload.status) === "ready"
+        ).length;
+        const inferredInProgressCourses = uploads.filter(
+            (upload) => normalizeUploadStatus(upload.status) === "processing"
+        ).length;
+
+        const inferredTopicStats = uploads.reduce(
+            (acc, upload) => {
+                const plannedTopics = toNonNegativeInteger(upload.plannedTopicCount);
+                const generatedTopics = toNonNegativeInteger(upload.generatedTopicCount);
+                const totalTopics = Math.max(plannedTopics, generatedTopics);
+                acc.totalTopics += totalTopics;
+                if (normalizeUploadStatus(upload.status) === "ready") {
+                    acc.examReadyTopics += totalTopics;
+                } else {
+                    acc.examReadyTopics += generatedTopics;
+                }
+                return acc;
+            },
+            { totalTopics: 0, examReadyTopics: 0 }
+        );
+
+        const hasCourseRows = courses.length > 0;
+        const hasTopicRows = topics.length > 0;
+        const completedCourses = hasCourseRows ? completedCoursesFromCourses : inferredCompletedCourses;
+        const inProgressCourses = hasCourseRows ? inProgressCoursesFromCourses : inferredInProgressCourses;
+        const totalCourses = hasCourseRows ? courses.length : uploads.length;
+        const totalTopics = hasTopicRows ? topics.length : inferredTopicStats.totalTopics;
+        const examReadyTopics = hasTopicRows
+            ? topics.filter((topic) => Boolean(topic.examReady)).length
+            : inferredTopicStats.examReadyTopics;
+        const totalMcq = hasTopicRows
+            ? topics.reduce((sum, topic) => sum + toNonNegativeNumber(topic.usableMcqCount), 0)
+            : 0;
+        const totalEssay = hasTopicRows
+            ? topics.reduce((sum, topic) => sum + toNonNegativeNumber(topic.usableEssayCount), 0)
+            : 0;
+        const topicCount = totalTopics || 1;
 
         const contentAnalytics = {
-            totalCourses: courses.length,
+            totalCourses,
             completedCourses,
             inProgressCourses,
-            totalTopics: topics.length,
+            totalTopics,
             examReadyTopics,
-            averageMcqPerTopic: Math.round((totalMcq / topicCount) * 10) / 10,
-            averageEssayPerTopic: Math.round((totalEssay / topicCount) * 10) / 10,
+            averageMcqPerTopic: hasTopicRows ? Math.round((totalMcq / topicCount) * 10) / 10 : 0,
+            averageEssayPerTopic: hasTopicRows ? Math.round((totalEssay / topicCount) * 10) / 10 : 0,
+            source: {
+                courses: hasCourseRows ? "courses" : "uploads",
+                topics: hasTopicRows ? "topics" : "uploads",
+            },
         };
 
         // ── Engagement Analytics ──
@@ -935,6 +1166,51 @@ export const getDashboardSnapshot = query({
         const recentUsers = recentUsersBase.map((entry) => ({
             ...entry,
             email: normalizeEmail(recentUserAuthUsersById.get(entry.userId)?.email) || null,
+        }));
+
+        const premiumUsersBase = latestSubscriptions
+            .map((subscription) => {
+                const userId = String(subscription.userId || "").trim();
+                if (!userId || normalizeSubscriptionPlan(subscription.plan) !== "premium") {
+                    return null;
+                }
+                const profile = profileByUserId.get(userId);
+                const lastPaymentAt = toTimestamp(subscription.lastPaymentAt, 0);
+                const status = normalizeSubscriptionStatus(subscription.status);
+                return {
+                    userId,
+                    fullName: profile?.fullName || null,
+                    department: profile?.department || null,
+                    status,
+                    isActive: status === "active",
+                    amountMajor: toNonNegativeNumber(subscription.amount),
+                    currency: normalizeCurrencyCode(subscription.currency, "GHS"),
+                    lastPaymentAt: lastPaymentAt > 0 ? lastPaymentAt : null,
+                    nextBillingDate: String(subscription.nextBillingDate || "").trim() || null,
+                };
+            })
+            .filter((entry): entry is NonNullable<typeof entry> => Boolean(entry))
+            .sort((left, right) => {
+                const statusDiff = Number(right.isActive) - Number(left.isActive);
+                if (statusDiff !== 0) return statusDiff;
+                return (right.lastPaymentAt || 0) - (left.lastPaymentAt || 0);
+            });
+        const premiumUserIds = Array.from(
+            new Set(
+                premiumUsersBase
+                    .map((entry) => String(entry.userId || "").trim())
+                    .filter(Boolean)
+            )
+        );
+        const premiumAuthUsers = await fetchAuthUsersByIds(ctx, premiumUserIds);
+        const premiumAuthUsersById = new Map(
+            premiumAuthUsers
+                .map((authUser) => [normalizeAuthUserId(authUser), authUser] as const)
+                .filter(([userId]) => Boolean(userId))
+        );
+        const premiumUsers = premiumUsersBase.map((entry) => ({
+            ...entry,
+            email: normalizeEmail(premiumAuthUsersById.get(entry.userId)?.email) || null,
         }));
 
         const recentFeedbackBase = [...feedbackEntries]
@@ -1117,6 +1393,9 @@ export const getDashboardSnapshot = query({
                 userProfiles: profiles.length,
                 signedInUsersNow: sessionStatsByUser.size,
                 signedInUsersResolved: signedInUsers.length,
+                activeUsersLast5Minutes: activeUsersLast5Minutes.size,
+                premiumUsersTotal: subscriptionAnalytics.premiumUsersTotal,
+                premiumUsersActive: subscriptionAnalytics.premiumUsersActive,
                 newUsersLastWindow,
                 newUsersPrevWindow,
                 activeUsersLastWindow: activeUsersLastWindow.size,
@@ -1156,6 +1435,7 @@ export const getDashboardSnapshot = query({
             recentUsers,
             recentFeedback,
             signedInUsers,
+            premiumUsers,
             examAnalytics,
             conceptAnalytics,
             subscriptionAnalytics,

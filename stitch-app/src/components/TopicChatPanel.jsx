@@ -1,15 +1,59 @@
-import React, { memo, useState, useEffect, useRef, useCallback } from 'react';
-import { useQuery, useAction, useMutation } from 'convex/react';
+import React, { memo, useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import { Link } from 'react-router-dom';
+import { useQuery, useAction, useMutation, useConvexAuth } from 'convex/react';
 import { api } from '../../convex/_generated/api';
 
+const resolveConvexErrorMessage = (error, fallbackMessage) => {
+    const dataMessage = typeof error?.data === 'string'
+        ? error.data
+        : typeof error?.data?.message === 'string'
+            ? error.data.message
+            : '';
+    const resolved = String(dataMessage || error?.message || fallbackMessage || '')
+        .replace(/^Uncaught (ConvexError|Error):\s*/i, '')
+        .trim();
+    return resolved || fallbackMessage;
+};
+
+const isAiMessageQuotaExceededError = (error) => {
+    const code = String(error?.data?.code || '').trim().toUpperCase();
+    if (code === 'AI_MESSAGE_QUOTA_EXCEEDED') return true;
+    const message = String(error?.message || error?.data?.message || '').toUpperCase();
+    return message.includes('AI_MESSAGE_QUOTA_EXCEEDED');
+};
+
 const TopicChatPanel = memo(function TopicChatPanel({ topicId, topicTitle, open, onClose }) {
+    const { isAuthenticated: isConvexAuthenticated } = useConvexAuth();
     const messages = useQuery(api.topicChat.getMessages, topicId ? { topicId } : 'skip');
+    const aiMessageQuota = useQuery(
+        api.subscriptions.getAiMessageQuotaStatus,
+        isConvexAuthenticated ? {} : 'skip'
+    );
     const askTutor = useAction(api.ai.askTopicTutor);
     const clearChat = useMutation(api.topicChat.clearChat);
 
     const [input, setInput] = useState('');
     const [sending, setSending] = useState(false);
     const [error, setError] = useState('');
+
+    const aiMessageLimit = Number(aiMessageQuota?.limit);
+    const aiMessageUsed = Number(aiMessageQuota?.used);
+    const aiMessageRemaining = Number(aiMessageQuota?.remaining);
+    const isPremium = Boolean(aiMessageQuota?.isPremium);
+    const isFreeQuotaTracked = Boolean(aiMessageQuota) && !isPremium && Number.isFinite(aiMessageRemaining);
+    const isFreeQuotaExhausted = isFreeQuotaTracked && aiMessageRemaining <= 0;
+    const normalizedAiMessageLimit = Number.isFinite(aiMessageLimit) ? Math.max(0, aiMessageLimit) : 0;
+    const aiMessageLimitMessage = normalizedAiMessageLimit > 0
+        ? `You've used your ${normalizedAiMessageLimit} free AI messages today. Upgrade to premium for unlimited AI chat.`
+        : "You've used your free AI messages today. Upgrade to premium for unlimited AI chat.";
+    const aiMessageLimitPath = useMemo(() => {
+        const fromPath = topicId ? `/dashboard/topic/${topicId}` : '/dashboard';
+        const query = new URLSearchParams({
+            from: fromPath,
+            reason: 'ai_message_limit',
+        });
+        return `/subscription?${query.toString()}`;
+    }, [topicId]);
 
     const textareaRef = useRef(null);
     const endRef = useRef(null);
@@ -39,9 +83,18 @@ const TopicChatPanel = memo(function TopicChatPanel({ topicId, topicTitle, open,
         return () => document.removeEventListener('keydown', handleKeyDown);
     }, [open, onClose]);
 
+    useEffect(() => {
+        if (!isFreeQuotaExhausted || error) return;
+        setError(aiMessageLimitMessage);
+    }, [aiMessageLimitMessage, error, isFreeQuotaExhausted]);
+
     const handleSend = useCallback(async () => {
         const question = input.trim();
         if (!question || sending) return;
+        if (isFreeQuotaExhausted) {
+            setError(aiMessageLimitMessage);
+            return;
+        }
         setSending(true);
         setError('');
         setInput('');
@@ -49,11 +102,15 @@ const TopicChatPanel = memo(function TopicChatPanel({ topicId, topicTitle, open,
         try {
             await askTutor({ topicId, question });
         } catch (err) {
-            setError(err?.message || 'Could not get a response. Please try again.');
+            if (isAiMessageQuotaExceededError(err)) {
+                setError(resolveConvexErrorMessage(err, aiMessageLimitMessage));
+            } else {
+                setError(resolveConvexErrorMessage(err, 'Could not get a response. Please try again.'));
+            }
         } finally {
             setSending(false);
         }
-    }, [input, sending, askTutor, topicId]);
+    }, [input, sending, askTutor, topicId, isFreeQuotaExhausted, aiMessageLimitMessage]);
 
     const handleKeyDown = useCallback((e) => {
         if (e.key === 'Enter' && !e.shiftKey) {
@@ -116,6 +173,19 @@ const TopicChatPanel = memo(function TopicChatPanel({ topicId, topicTitle, open,
                         </button>
                     </div>
                 </div>
+
+                {isFreeQuotaTracked && (
+                    <div className="px-4 py-2 border-b border-slate-100 dark:border-slate-800 bg-slate-50/80 dark:bg-slate-800/40">
+                        <p className="text-xs text-slate-600 dark:text-slate-300">
+                            Free AI messages today:{' '}
+                            <span className="font-semibold text-slate-900 dark:text-white">{Math.max(0, aiMessageRemaining)}</span>
+                            {' '}left
+                            {Number.isFinite(aiMessageUsed) && Number.isFinite(aiMessageLimit)
+                                ? ` (${Math.max(0, aiMessageUsed)}/${Math.max(0, aiMessageLimit)} used)`
+                                : ''}
+                        </p>
+                    </div>
+                )}
 
                 {/* Messages */}
                 <div
@@ -188,6 +258,15 @@ const TopicChatPanel = memo(function TopicChatPanel({ topicId, topicTitle, open,
                 {error && (
                     <div className="px-3 py-2 border-t border-rose-100 dark:border-rose-900/30 bg-rose-50 dark:bg-rose-900/10">
                         <p className="text-xs text-rose-600 dark:text-rose-300">{error}</p>
+                        {isFreeQuotaExhausted && (
+                            <Link
+                                to={aiMessageLimitPath}
+                                state={{ paywallMessage: error || aiMessageLimitMessage }}
+                                className="mt-1 inline-flex text-xs font-semibold text-primary hover:text-primary-hover transition-colors"
+                            >
+                                Upgrade to premium
+                            </Link>
+                        )}
                     </div>
                 )}
 
@@ -199,15 +278,15 @@ const TopicChatPanel = memo(function TopicChatPanel({ topicId, topicTitle, open,
                             value={input}
                             onChange={handleTextareaChange}
                             onKeyDown={handleKeyDown}
-                            placeholder="Ask about this lesson..."
-                            disabled={sending}
+                            placeholder={isFreeQuotaExhausted ? 'Daily free AI message limit reached' : 'Ask about this lesson...'}
+                            disabled={sending || isFreeQuotaExhausted}
                             rows={1}
                             className="flex-1 resize-none rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 px-3 py-2.5 text-sm text-slate-800 dark:text-slate-200 placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary/50 disabled:opacity-60"
                             style={{ maxHeight: 120 }}
                         />
                         <button
                             onClick={handleSend}
-                            disabled={sending || !input.trim()}
+                            disabled={sending || !input.trim() || isFreeQuotaExhausted}
                             className="w-9 h-9 shrink-0 rounded-xl bg-primary text-white flex items-center justify-center hover:bg-primary-hover transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
                             aria-label="Send message"
                         >

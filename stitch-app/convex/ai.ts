@@ -5595,7 +5595,7 @@ export const generateEssayQuestionsForTopic = action({
 
 // ── AI essay grading ──
 
-export const gradeEssayAnswer = action({
+export const gradeEssayAnswer = internalAction({
     args: {
         questionText: v.string(),
         modelAnswer: v.string(),
@@ -6365,7 +6365,7 @@ export const generateExamFeedback = action({
 
         // #15 — verify the caller owns this attempt
         const identity = await ctx.auth.getUserIdentity();
-        const authUserId = identity?.subject || "";
+        const authUserId = resolveAuthUserId(identity);
         if (!authUserId) throw new Error("Not authenticated");
         if (attempt.userId && authUserId !== attempt.userId) {
             throw new Error("You do not have permission to generate feedback for this attempt.");

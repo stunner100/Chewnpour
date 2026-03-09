@@ -22,6 +22,14 @@ const StatsDetailModal = ({ isOpen, onClose, type, userId }) => {
     const [isDragging, setIsDragging] = useState(false);
     const startY = useRef(0);
     const currentTranslateY = useRef(0);
+
+    const closeModal = useCallback(() => {
+        setIsDragging(false);
+        setTranslateY(0);
+        startY.current = 0;
+        currentTranslateY.current = 0;
+        onClose();
+    }, [onClose]);
     
     // Always call hooks first - pass 'skip' when modal is closed or no userId
     const shouldFetchCourses = isOpen && userId && type === 'courses';
@@ -70,11 +78,11 @@ const StatsDetailModal = ({ isOpen, onClose, type, userId }) => {
         
         if (translateY > 100) {
             triggerHaptic('light');
-            onClose();
+            closeModal();
         } else {
             setTranslateY(0);
         }
-    }, [isDragging, translateY, onClose]);
+    }, [closeModal, isDragging, translateY]);
     
     // Prevent touch events from bubbling when scrolling content
     const handleContentTouch = useCallback((e) => {
@@ -86,7 +94,6 @@ const StatsDetailModal = ({ isOpen, onClose, type, userId }) => {
         if (!isOpen) return;
         
         // Always ensure scroll is locked when modal is open
-        setTranslateY(0);
         document.body.style.overflow = 'hidden';
         document.body.style.touchAction = 'none';
         document.body.style.position = 'fixed';
@@ -111,20 +118,20 @@ const StatsDetailModal = ({ isOpen, onClose, type, userId }) => {
     useEffect(() => {
         const handleKeyDown = (e) => {
             if (e.key === 'Escape' && isOpen) {
-                onClose();
+                closeModal();
             }
         };
         
         window.addEventListener('keydown', handleKeyDown);
         return () => window.removeEventListener('keydown', handleKeyDown);
-    }, [isOpen, onClose]);
+    }, [closeModal, isOpen]);
 
     // Return null after all hooks are called
     if (!isOpen || !userId) return null;
 
     const handleCloseClick = () => {
         triggerHaptic('light');
-        onClose();
+        closeModal();
     };
 
     const renderContent = () => {

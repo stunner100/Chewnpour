@@ -1,9 +1,9 @@
 import { v } from "convex/values";
-import { mutation, query } from "./_generated/server";
+import { internalMutation, internalQuery, mutation, query } from "./_generated/server";
+import { assertAuthorizedUser, resolveAuthUserId } from "./lib/examSecurity";
 
 export const createConceptAttempt = mutation({
     args: {
-        userId: v.string(),
         topicId: v.id("topics"),
         score: v.number(),
         totalQuestions: v.number(),
@@ -12,13 +12,25 @@ export const createConceptAttempt = mutation({
         questionText: v.optional(v.string()),
     },
     handler: async (ctx, args) => {
+        const identity = await ctx.auth.getUserIdentity();
+        const authUserId = resolveAuthUserId(identity);
+        const userId = assertAuthorizedUser({ authUserId });
+
         const topic = await ctx.db.get(args.topicId);
         if (!topic) {
             throw new Error("Topic not found");
         }
+        const course = await ctx.db.get(topic.courseId);
+        if (!course) {
+            throw new Error("Topic not found");
+        }
+        assertAuthorizedUser({
+            authUserId,
+            resourceOwnerUserId: course.userId,
+        });
 
         const attemptId = await ctx.db.insert("conceptAttempts", {
-            userId: args.userId,
+            userId,
             topicId: args.topicId,
             score: args.score,
             totalQuestions: args.totalQuestions,
@@ -32,13 +44,16 @@ export const createConceptAttempt = mutation({
 });
 
 export const getUserConceptAttempts = query({
-    args: { userId: v.optional(v.string()) },
-    handler: async (ctx, args) => {
-        if (!args.userId) return [];
+    args: {},
+    handler: async (ctx) => {
+        const identity = await ctx.auth.getUserIdentity();
+        const authUserId = resolveAuthUserId(identity);
+        if (!authUserId) return [];
+        const userId = authUserId;
 
         const attempts = await ctx.db
             .query("conceptAttempts")
-            .withIndex("by_userId", (q) => q.eq("userId", args.userId))
+            .withIndex("by_userId", (q) => q.eq("userId", userId))
             .order("desc")
             .collect();
 
@@ -46,7 +61,7 @@ export const getUserConceptAttempts = query({
     },
 });
 
-export const getUserConceptAttemptsForTopic = query({
+export const getUserConceptAttemptsForTopicInternal = internalQuery({
     args: {
         userId: v.string(),
         topicId: v.id("topics"),
@@ -63,5 +78,31 @@ export const getUserConceptAttemptsForTopic = query({
             .take(cap);
 
         return attempts;
+    },
+});
+
+export const createConceptExerciseInternal = internalMutation({
+    args: {
+        topicId: v.id("topics"),
+        questionText: v.string(),
+        template: v.array(v.string()),
+        answers: v.array(v.string()),
+        tokens: v.array(v.string()),
+        citations: v.optional(v.array(v.any())),
+        groundingScore: v.optional(v.number()),
+        version: v.optional(v.string()),
+    },
+    handler: async (ctx, args) => {
+        return await ctx.db.insert("conceptExercises", {
+            topicId: args.topicId,
+            questionText: args.questionText,
+            template: args.template,
+            answers: args.answers,
+            tokens: args.tokens,
+            citations: args.citations,
+            groundingScore: args.groundingScore,
+            version: args.version,
+            createdAt: Date.now(),
+        });
     },
 });

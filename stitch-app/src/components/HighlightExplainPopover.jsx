@@ -80,7 +80,7 @@ const HighlightExplainPopover = memo(function HighlightExplainPopover({
     // Position: centered above selection, flip below if off-screen
     const style = useMemo(() => {
         if (!selection?.rect) return { display: 'none' };
-        const { top, left, width, height, bottom } = selection.rect;
+        const { top, left, width, bottom } = selection.rect;
         const popoverHeight = explanation ? 280 : 52;
         const gap = 10;
         const centerX = left + width / 2;

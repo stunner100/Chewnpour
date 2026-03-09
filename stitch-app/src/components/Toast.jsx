@@ -1,6 +1,6 @@
 import React from 'react';
 
-const Toast = ({ message, onClose }) => {
+const Toast = ({ message }) => {
     if (!message) return null;
     
     return (

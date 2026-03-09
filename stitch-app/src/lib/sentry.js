@@ -10,6 +10,9 @@ const KNOWN_NOISE_ERROR_PATTERNS = [
     /SCDynimacBridge/i,
     /SCDynamicBridge/i,
 ];
+const CONVEX_SERVER_ERROR_PATTERN = /\[CONVEX\s+[AQM]\([^)]+\)\][\s\S]*Server Error/i;
+const CONVEX_REQUEST_ID_PATTERN = /\[Request ID:[^\]]+\]/gi;
+const CONVEX_CALL_SIGNATURE_PATTERN = /\[CONVEX\s+([AQM]\([^)]+\))\]/i;
 const RECOVERABLE_SIGNAL_MESSAGES = new Set([
     'Assignment upload blocked because session auth is not ready.',
     'Essay submission rejected by validation',
@@ -31,6 +34,8 @@ const NOISY_UPLOAD_OPERATIONS = new Set([
     'flow_completed',
     'flow_started',
     'flow_warning',
+    'flow_slow',
+    'large_file_detected',
     'processing_ready',
     'validation_rejected',
 ]);
@@ -203,6 +208,48 @@ const readEventTag = (event, key) => {
     return '';
 };
 
+const sanitizeConvexServerErrorMessage = (value) =>
+    String(value || '')
+        .replace(CONVEX_REQUEST_ID_PATTERN, '[Request ID]')
+        .replace(/\s+/g, ' ')
+        .trim();
+
+const resolveConvexCallSignature = (value) => {
+    const match = String(value || '').match(CONVEX_CALL_SIGNATURE_PATTERN);
+    return match?.[1] ? match[1].toUpperCase() : '';
+};
+
+const normalizeConvexServerErrorEvent = (event, hint) => {
+    const messages = extractCandidateErrorMessages(event, hint);
+    const matchingMessage = messages.find((message) => CONVEX_SERVER_ERROR_PATTERN.test(message));
+    if (!matchingMessage) return event;
+
+    const fingerprintSignature = resolveConvexCallSignature(matchingMessage);
+
+    if (typeof event?.message === 'string' && CONVEX_SERVER_ERROR_PATTERN.test(event.message)) {
+        event.message = sanitizeConvexServerErrorMessage(event.message);
+    }
+
+    if (Array.isArray(event?.exception?.values)) {
+        event.exception.values = event.exception.values.map((entry) => {
+            if (!entry || typeof entry !== 'object') return entry;
+            if (typeof entry.value !== 'string' || !CONVEX_SERVER_ERROR_PATTERN.test(entry.value)) {
+                return entry;
+            }
+            return {
+                ...entry,
+                value: sanitizeConvexServerErrorMessage(entry.value),
+            };
+        });
+    }
+
+    if (fingerprintSignature) {
+        event.fingerprint = ['convex-server-error', fingerprintSignature];
+    }
+
+    return event;
+};
+
 const shouldDropAssetTransportNoiseEvent = (event, messages) => {
     const location = String(event?.location || '').toLowerCase();
     if (!location.includes('/assets/')) return false;
@@ -312,7 +359,7 @@ export const initSentry = () => {
                     if (shouldDropKnownNoiseEvent(event, hint)) {
                         return null;
                     }
-                    return event;
+                    return normalizeConvexServerErrorEvent(event, hint);
                 },
             });
 

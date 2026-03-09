@@ -12,7 +12,7 @@ import { isDarkModeEnabled, toggleThemePreference } from '../lib/theme';
 const Profile = () => {
     const { user, signOut, updateProfile, loading: authLoading } = useAuth();
     const navigate = useNavigate();
-    const { share, shareProfile, toastMessage, hideToast } = useShare();
+    const { shareProfile, toastMessage, hideToast } = useShare();
     const [voiceSaving, setVoiceSaving] = useState(false);
     const [voiceError, setVoiceError] = useState('');
     const [darkModeEnabled, setDarkModeEnabled] = useState(() => isDarkModeEnabled());
@@ -403,7 +403,7 @@ const Profile = () => {
                 <div>
                     <h3 className="text-base font-bold text-neutral-900 dark:text-white mb-3">Support & Community</h3>
                     <div className="grid grid-cols-2 gap-3">
-                        <a href="mailto:patrickannor35@gmail.com" className="flex flex-col gap-2 p-4 bg-white dark:bg-surface-dark rounded-2xl border border-neutral-100 dark:border-neutral-800 shadow-sm hover:shadow-md hover:border-primary/20 transition-all group">
+                        <a href="mailto:info@chewnpour.com" className="flex flex-col gap-2 p-4 bg-white dark:bg-surface-dark rounded-2xl border border-neutral-100 dark:border-neutral-800 shadow-sm hover:shadow-md hover:border-primary/20 transition-all group">
                             <div className="w-10 h-10 rounded-xl bg-primary text-white flex items-center justify-center shadow-lg shadow-primary/20 group-hover:scale-110 transition-transform">
                                 <span className="material-symbols-outlined filled text-lg">mail</span>
                             </div>

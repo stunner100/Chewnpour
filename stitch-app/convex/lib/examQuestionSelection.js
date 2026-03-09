@@ -1,5 +1,10 @@
-import { areQuestionPromptsNearDuplicate, buildQuestionPromptSignature } from "./mcqUniqueness.js";
-import { areMcqQuestionsNearDuplicate, buildMcqUniquenessSignature } from "./mcqUniqueness.js";
+import {
+    areMcqQuestionsNearDuplicate,
+    areQuestionPromptsNearDuplicate,
+    buildMcqUniquenessSignature,
+    buildQuestionPromptSignature,
+    normalizeQuestionPromptKey,
+} from "./mcqUniqueness.js";
 
 const DIFFICULTY_DISTRIBUTION = { easy: 0.3, medium: 0.5, hard: 0.2 };
 
@@ -21,9 +26,9 @@ const pickDifficultyBalancedSubset = (items, size) => {
         (buckets[difficulty] || buckets.medium).push(item);
     }
 
-    const easyTarget = Math.round(size * DIFFICULTY_DISTRIBUTION.easy);
-    const mediumTarget = Math.round(size * DIFFICULTY_DISTRIBUTION.medium);
-    const hardTarget = size - easyTarget - mediumTarget;
+    const easyTarget = Math.floor(size * DIFFICULTY_DISTRIBUTION.easy);
+    const hardTarget = Math.floor(size * DIFFICULTY_DISTRIBUTION.hard);
+    const mediumTarget = size - easyTarget - hardTarget;
 
     const selected = [
         ...pickRandomSubset(buckets.easy, easyTarget),
@@ -38,15 +43,6 @@ const pickDifficultyBalancedSubset = (items, size) => {
     }
 
     return selected.slice(0, size);
-};
-
-const normalizeQuestionPromptKey = (value) => {
-    return String(value || "")
-        .toLowerCase()
-        .replace(/[\u2018\u2019]/g, "'")
-        .replace(/[\u201c\u201d]/g, '"')
-        .replace(/[^a-z0-9]+/g, " ")
-        .trim();
 };
 
 export const dedupeQuestionsByPrompt = (questions) => {

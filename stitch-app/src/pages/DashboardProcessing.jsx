@@ -29,8 +29,8 @@ const DashboardProcessing = () => {
     const navigate = useNavigate();
     const processUploadedFile = useAction(api.ai.processUploadedFile);
     const [showConfirmation, setShowConfirmation] = useState(false);
-    const [autoNavigated, setAutoNavigated] = useState(false);
     const lastStepLogKeyRef = useRef('');
+    const autoNavigatedRef = useRef(false);
     const terminalStatusLoggedRef = useRef(new Set());
     const processingKickoffRetryRef = useRef({ uploadId: '', attempted: false });
 
@@ -76,35 +76,33 @@ const DashboardProcessing = () => {
 
     // Show confirmation when ready and we have at least first-topic readiness metadata.
     useEffect(() => {
-        if (shouldRenderConfirmation && !showConfirmation) {
-            const timer = setTimeout(() => {
-                setShowConfirmation(true);
-            }, 500);
-            return () => clearTimeout(timer);
-        }
-        if (!shouldRenderConfirmation && showConfirmation) {
-            setShowConfirmation(false);
-        }
-        return undefined;
-    }, [shouldRenderConfirmation, showConfirmation]);
+        const delayMs = shouldRenderConfirmation ? 500 : 0;
+        const timer = window.setTimeout(() => {
+            setShowConfirmation(shouldRenderConfirmation);
+        }, delayMs);
+        return () => window.clearTimeout(timer);
+    }, [shouldRenderConfirmation]);
 
     // Reset route-scoped UI state for every new processing run.
     useEffect(() => {
-        setShowConfirmation(false);
-        setAutoNavigated(false);
+        autoNavigatedRef.current = false;
+        const resetTimer = window.setTimeout(() => {
+            setShowConfirmation(false);
+        }, 0);
+        return () => window.clearTimeout(resetTimer);
     }, [courseId]);
 
     useEffect(() => {
         if (shouldAutoNavigateFromProcessing({
             upload,
             hasTopics,
-            autoNavigated,
+            autoNavigated: autoNavigatedRef.current,
             resolvedCourseId,
         })) {
-            setAutoNavigated(true);
+            autoNavigatedRef.current = true;
             navigate(`/dashboard/course/${resolvedCourseId}`);
         }
-    }, [upload, resolvedCourseId, autoNavigated, navigate, hasTopics]);
+    }, [upload, resolvedCourseId, navigate, hasTopics]);
 
     useEffect(() => {
         if (!upload?._id) return;
@@ -228,15 +226,11 @@ const DashboardProcessing = () => {
             processingKickoffRetryRef.current.attempted = true;
 
             const uploadId = String(upload._id);
-            captureSentryMessage('Upload processing kickoff retry triggered', {
+            addSentryBreadcrumb({
+                category: 'upload',
+                message: 'Upload processing kickoff retry triggered',
                 level: 'warning',
-                tags: {
-                    area: 'upload',
-                    operation: 'processing_kickoff_retry',
-                    source: 'dashboard_processing',
-                    uploadId,
-                },
-                extras: {
+                data: {
                     uploadId,
                     courseId: String(resolvedCourseId),
                     userId: String(userId),
@@ -374,7 +368,6 @@ const DashboardProcessing = () => {
                                 {PROCESSING_STEPS.slice(0, 6).map((step, index) => {
                                     const isCompleted = index < currentStepIndex;
                                     const isCurrent = index === currentStepIndex;
-                                    const isPending = index > currentStepIndex;
                                     
                                     return (
                                         <div key={step.key} className="flex items-center">
@@ -403,6 +396,21 @@ const DashboardProcessing = () => {
                                     );
                                 })}
                             </div>
+
+                            {/* Extraction Warnings */}
+                            {upload?.extractionWarnings?.length > 0 && !hasError && (
+                                <div className="mt-6 p-4 rounded-xl bg-amber-50 dark:bg-amber-900/10 border border-amber-200 dark:border-amber-800/30">
+                                    <div className="flex items-start gap-3">
+                                        <span className="material-symbols-outlined text-amber-500 text-xl shrink-0">info</span>
+                                        <div className="text-left">
+                                            <p className="text-sm font-semibold text-amber-800 dark:text-amber-400">Heads up</p>
+                                            {upload.extractionWarnings.map((w, i) => (
+                                                <p key={i} className="text-xs text-amber-700 dark:text-amber-300 mt-1">{w}</p>
+                                            ))}
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
 
                             {/* Error State */}
                             {hasError && (

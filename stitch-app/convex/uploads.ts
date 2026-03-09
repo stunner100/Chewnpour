@@ -1,5 +1,6 @@
 import { ConvexError, v } from "convex/values";
 import { mutation, query } from "./_generated/server";
+import type { Id } from "./_generated/dataModel";
 import {
     consumeUploadCreditOrThrow,
     getHistoricalStoredUploadCount,
@@ -112,6 +113,13 @@ export const createUpload = mutation({
             fileSize: args.fileSize,
             status: "processing",
             storageId: args.storageId,
+            extractionStatus: "pending",
+            extractionQualityScore: 0,
+            extractionCoverage: 0,
+            extractionVersion: "v2",
+            provisionalExtraction: false,
+            evidenceIndexVersion: "grounded-v1",
+            evidencePassageCount: 0,
         });
 
         return uploadId;
@@ -153,6 +161,16 @@ export const updateUploadStatus = mutation({
         plannedTopicCount: v.optional(v.number()),
         generatedTopicCount: v.optional(v.number()),
         plannedTopicTitles: v.optional(v.array(v.string())),
+        extractionWarnings: v.optional(v.array(v.string())),
+        extractionStatus: v.optional(v.string()),
+        extractionQualityScore: v.optional(v.number()),
+        extractionCoverage: v.optional(v.number()),
+        extractionVersion: v.optional(v.string()),
+        provisionalExtraction: v.optional(v.boolean()),
+        extractionArtifactStorageId: v.optional(v.id("_storage")),
+        evidenceIndexStorageId: v.optional(v.id("_storage")),
+        evidenceIndexVersion: v.optional(v.string()),
+        evidencePassageCount: v.optional(v.number()),
     },
     handler: async (ctx, args) => {
         const updateData: {
@@ -162,6 +180,16 @@ export const updateUploadStatus = mutation({
             plannedTopicCount?: number;
             generatedTopicCount?: number;
             plannedTopicTitles?: string[];
+            extractionWarnings?: string[];
+            extractionStatus?: string;
+            extractionQualityScore?: number;
+            extractionCoverage?: number;
+            extractionVersion?: string;
+            provisionalExtraction?: boolean;
+            extractionArtifactStorageId?: Id<"_storage">;
+            evidenceIndexStorageId?: Id<"_storage">;
+            evidenceIndexVersion?: string;
+            evidencePassageCount?: number;
         } = {
             status: args.status,
         };
@@ -180,6 +208,36 @@ export const updateUploadStatus = mutation({
         }
         if (args.plannedTopicTitles !== undefined) {
             updateData.plannedTopicTitles = args.plannedTopicTitles;
+        }
+        if (args.extractionWarnings !== undefined) {
+            updateData.extractionWarnings = args.extractionWarnings;
+        }
+        if (args.extractionStatus !== undefined) {
+            updateData.extractionStatus = args.extractionStatus;
+        }
+        if (args.extractionQualityScore !== undefined) {
+            updateData.extractionQualityScore = args.extractionQualityScore;
+        }
+        if (args.extractionCoverage !== undefined) {
+            updateData.extractionCoverage = args.extractionCoverage;
+        }
+        if (args.extractionVersion !== undefined) {
+            updateData.extractionVersion = args.extractionVersion;
+        }
+        if (args.provisionalExtraction !== undefined) {
+            updateData.provisionalExtraction = args.provisionalExtraction;
+        }
+        if (args.extractionArtifactStorageId !== undefined) {
+            updateData.extractionArtifactStorageId = args.extractionArtifactStorageId;
+        }
+        if (args.evidenceIndexStorageId !== undefined) {
+            updateData.evidenceIndexStorageId = args.evidenceIndexStorageId;
+        }
+        if (args.evidenceIndexVersion !== undefined) {
+            updateData.evidenceIndexVersion = args.evidenceIndexVersion;
+        }
+        if (args.evidencePassageCount !== undefined) {
+            updateData.evidencePassageCount = args.evidencePassageCount;
         }
 
         await ctx.db.patch(args.uploadId, updateData);

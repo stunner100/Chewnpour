@@ -1,5 +1,14 @@
 const CHUNK_RECOVERY_TS_KEY_PREFIX = '__chunk_recovery_reload_ts:';
 const CHUNK_RECOVERY_WINDOW_MS = 30_000;
+const CONVEX_SERVER_ERROR_SIGNATURE_PATTERN =
+    /\[convex\s+[aqm]\([^)]+\)\]\s*\[request id:[^\]]+\]\s*server error(?:\s*called by client)?/i;
+const STALE_CONVEX_CALL_SIGNATURES = [
+    /concepts:getUserConceptAttempts/i,
+    /subscriptions:getUploadQuotaStatus/i,
+    /subscriptions:getPublicTopUpPricing/i,
+    /subscriptions:getVoiceGenerationQuotaStatus/i,
+    /topics:getTopicWithQuestions/i,
+];
 
 const getErrorMessage = (errorLike) => {
     if (!errorLike) return '';
@@ -9,8 +18,13 @@ const getErrorMessage = (errorLike) => {
     return String(errorLike);
 };
 
+const normalizeMessage = (errorLike) =>
+    getErrorMessage(errorLike)
+        .replace(/\s+/g, ' ')
+        .trim();
+
 export const isChunkLoadError = (errorLike) => {
-    const message = getErrorMessage(errorLike).toLowerCase();
+    const message = normalizeMessage(errorLike).toLowerCase();
     return (
         message.includes('failed to fetch dynamically imported module') ||
         message.includes('importing a module script failed') ||
@@ -20,6 +34,13 @@ export const isChunkLoadError = (errorLike) => {
         message.includes("reading 'default'") ||
         message.includes('expected the result of a dynamic import() call')
     );
+};
+
+export const isStaleConvexClientError = (errorLike) => {
+    const message = normalizeMessage(errorLike);
+    if (!message) return false;
+    if (!CONVEX_SERVER_ERROR_SIGNATURE_PATTERN.test(message)) return false;
+    return STALE_CONVEX_CALL_SIGNATURES.some((pattern) => pattern.test(message));
 };
 
 const toScopeKey = (scope) => {

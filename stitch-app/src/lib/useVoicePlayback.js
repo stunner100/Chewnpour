@@ -221,6 +221,7 @@ export const useVoicePlayback = ({
     const remoteFailureCountRef = useRef(0);
     const remotePlaybackDisabledRef = useRef(false);
     const autoplayRetryCountRef = useRef(0);
+    const blockedByAutoplayRef = useRef(false);
     const audioUnlockRef = useRef({
         unlocked: false,
         context: null,
@@ -287,17 +288,30 @@ export const useVoicePlayback = ({
         };
     }, []);
 
-    const warmupAudioElement = useCallback(() => {
+    const warmupAudioElement = useCallback(async () => {
         if (!canPlayAudio || typeof window === "undefined") return;
         try {
-            const audio = createAudioElement(SILENT_AUDIO_DATA_URI);
+            let audio = warmupAudioRef.current;
+            if (!audio) {
+                audio = createAudioElement(SILENT_AUDIO_DATA_URI);
+            }
             if (!audio) return;
+            if (audio.src !== SILENT_AUDIO_DATA_URI) {
+                audio.src = SILENT_AUDIO_DATA_URI;
+                try {
+                    audio.load();
+                } catch {
+                    // ignore
+                }
+            }
             audio.playsInline = true;
-            audio.volume = 0.01;
+            audio.loop = true;
+            audio.muted = true;
+            audio.volume = 0;
             warmupAudioRef.current = audio;
             const playPromise = audio.play();
             if (playPromise && typeof playPromise.then === "function") {
-                playPromise.catch(() => undefined);
+                await playPromise.catch(() => undefined);
             }
         } catch {
             // Ignore warm-up failures.
@@ -507,13 +521,31 @@ export const useVoicePlayback = ({
                 if (isMobileBrowser) {
                     activeAudioObjectUrlRef.current = sourceUrl;
                 }
-                const audio = createAudioElement(sourceUrl);
+                let audio = null;
+                if (isMobileBrowser && warmupAudioRef.current) {
+                    audio = warmupAudioRef.current;
+                    try {
+                        audio.pause();
+                    } catch {
+                        // ignore
+                    }
+                    audio.src = sourceUrl;
+                    try {
+                        audio.load();
+                    } catch {
+                        // ignore
+                    }
+                } else {
+                    audio = createAudioElement(sourceUrl);
+                }
                 if (!audio) {
                     throw new Error("Audio playback is unavailable right now.");
                 }
                 activeAudioRef.current = audio;
                 audio.preload = "auto";
                 audio.playsInline = true;
+                audio.muted = false;
+                audio.loop = false;
                 audio.crossOrigin = "anonymous";
 
                 audio.onplay = () => {
@@ -563,6 +595,11 @@ export const useVoicePlayback = ({
                     const playMessage = normalizeRemotePlaybackErrorMessage(playError);
                     if (isLikelyAutoplayPolicyErrorMessage(playMessage)) {
                         unlockAudioOutput();
+                        if (isMobileBrowser) {
+                            await warmupAudioElement();
+                            audio.muted = false;
+                            audio.loop = false;
+                        }
                         await new Promise((resolve) => setTimeout(resolve, 80));
                         await audio.play();
                     } else {
@@ -601,6 +638,7 @@ export const useVoicePlayback = ({
             fetchRemoteAudioBlobUrl,
             isMobileBrowser,
             unlockAudioOutput,
+            warmupAudioElement,
         ]
     );
 
@@ -623,13 +661,30 @@ export const useVoicePlayback = ({
             isStoppingRef.current = false;
             setError(null);
             clearRemotePrefetch();
-            clearActiveAudio();
             unlockAudioOutput();
-            warmupAudioElement();
+            if (isMobileBrowser && blockedByAutoplayRef.current && activeAudioRef.current) {
+                try {
+                    await warmupAudioElement();
+                    const blockedAudio = activeAudioRef.current;
+                    blockedAudio.playsInline = true;
+                    blockedAudio.muted = false;
+                    blockedAudio.loop = false;
+                    await blockedAudio.play();
+                    blockedByAutoplayRef.current = false;
+                    autoplayRetryCountRef.current = 0;
+                    setStatus("playing");
+                    return true;
+                } catch {
+                    // Fall back to full remote replay path below.
+                }
+            }
+            clearActiveAudio();
+            await warmupAudioElement();
 
             try {
                 const remoteStarted = await playWithRemoteAudio(inputText, playbackId);
                 if (remoteStarted) {
+                    blockedByAutoplayRef.current = false;
                     autoplayRetryCountRef.current = 0;
                     return true;
                 }
@@ -644,6 +699,7 @@ export const useVoicePlayback = ({
                 }
 
                 if (isLikelyAutoplayPolicyErrorMessage(remoteMessage)) {
+                    blockedByAutoplayRef.current = true;
                     if (autoplayRetryCountRef.current < 1) {
                         autoplayRetryCountRef.current += 1;
                         setError(
@@ -662,6 +718,7 @@ export const useVoicePlayback = ({
                     return false;
                 }
 
+                blockedByAutoplayRef.current = false;
                 remoteFailureCountRef.current += 1;
                 if (
                     shouldDisableRemotePlaybackForSession(remoteMessage) ||
@@ -725,6 +782,7 @@ export const useVoicePlayback = ({
             if (!isSupported) return;
             playbackIdRef.current += 1;
             isStoppingRef.current = true;
+            blockedByAutoplayRef.current = false;
             const audioContext = audioUnlockRef.current.context;
             if (audioContext && typeof audioContext.close === "function") {
                 audioContext.close().catch(() => undefined);

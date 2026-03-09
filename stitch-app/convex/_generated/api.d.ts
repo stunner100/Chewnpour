@@ -8,6 +8,7 @@
  * @module
  */
 
+import type * as admin from "../admin.js";
 import type * as ai from "../ai.js";
 import type * as assignments from "../assignments.js";
 import type * as auth from "../auth.js";
@@ -16,19 +17,33 @@ import type * as concepts from "../concepts.js";
 import type * as courses from "../courses.js";
 import type * as devAuth from "../devAuth.js";
 import type * as exams from "../exams.js";
+import type * as extraction from "../extraction.js";
+import type * as extractionState from "../extractionState.js";
+import type * as feedback from "../feedback.js";
+import type * as grounded from "../grounded.js";
 import type * as http from "../http.js";
 import type * as lib_conceptExerciseGeneration from "../lib/conceptExerciseGeneration.js";
+import type * as lib_documentExtractionPipeline from "../lib/documentExtractionPipeline.js";
 import type * as lib_examAttemptReuse from "../lib/examAttemptReuse.js";
 import type * as lib_examQuestionSelection from "../lib/examQuestionSelection.js";
 import type * as lib_examSecurity from "../lib/examSecurity.js";
+import type * as lib_groundedContentPipeline from "../lib/groundedContentPipeline.js";
+import type * as lib_groundedEvidenceIndex from "../lib/groundedEvidenceIndex.js";
+import type * as lib_groundedGeneration from "../lib/groundedGeneration.js";
+import type * as lib_groundedRanking from "../lib/groundedRanking.js";
+import type * as lib_groundedRetrieval from "../lib/groundedRetrieval.js";
+import type * as lib_groundedVerifier from "../lib/groundedVerifier.js";
 import type * as lib_illustrationUrl from "../lib/illustrationUrl.js";
+import type * as lib_mcqUniqueness from "../lib/mcqUniqueness.js";
 import type * as lib_nativeExtractors from "../lib/nativeExtractors.js";
 import type * as lib_questionBankConfig from "../lib/questionBankConfig.js";
+import type * as lib_questionPromptSimilarity from "../lib/questionPromptSimilarity.js";
 import type * as lib_topicGenerationProgress from "../lib/topicGenerationProgress.js";
 import type * as lib_topicOutlinePipeline from "../lib/topicOutlinePipeline.js";
 import type * as lib_voiceStreamToken from "../lib/voiceStreamToken.js";
 import type * as profiles from "../profiles.js";
 import type * as subscriptions from "../subscriptions.js";
+import type * as topicChat from "../topicChat.js";
 import type * as topicNotes from "../topicNotes.js";
 import type * as topics from "../topics.js";
 import type * as uploads from "../uploads.js";
@@ -41,6 +56,7 @@ import type {
 } from "convex/server";
 
 declare const fullApi: ApiFromModules<{
+  admin: typeof admin;
   ai: typeof ai;
   assignments: typeof assignments;
   auth: typeof auth;
@@ -49,19 +65,33 @@ declare const fullApi: ApiFromModules<{
   courses: typeof courses;
   devAuth: typeof devAuth;
   exams: typeof exams;
+  extraction: typeof extraction;
+  extractionState: typeof extractionState;
+  feedback: typeof feedback;
+  grounded: typeof grounded;
   http: typeof http;
   "lib/conceptExerciseGeneration": typeof lib_conceptExerciseGeneration;
+  "lib/documentExtractionPipeline": typeof lib_documentExtractionPipeline;
   "lib/examAttemptReuse": typeof lib_examAttemptReuse;
   "lib/examQuestionSelection": typeof lib_examQuestionSelection;
   "lib/examSecurity": typeof lib_examSecurity;
+  "lib/groundedContentPipeline": typeof lib_groundedContentPipeline;
+  "lib/groundedEvidenceIndex": typeof lib_groundedEvidenceIndex;
+  "lib/groundedGeneration": typeof lib_groundedGeneration;
+  "lib/groundedRanking": typeof lib_groundedRanking;
+  "lib/groundedRetrieval": typeof lib_groundedRetrieval;
+  "lib/groundedVerifier": typeof lib_groundedVerifier;
   "lib/illustrationUrl": typeof lib_illustrationUrl;
+  "lib/mcqUniqueness": typeof lib_mcqUniqueness;
   "lib/nativeExtractors": typeof lib_nativeExtractors;
   "lib/questionBankConfig": typeof lib_questionBankConfig;
+  "lib/questionPromptSimilarity": typeof lib_questionPromptSimilarity;
   "lib/topicGenerationProgress": typeof lib_topicGenerationProgress;
   "lib/topicOutlinePipeline": typeof lib_topicOutlinePipeline;
   "lib/voiceStreamToken": typeof lib_voiceStreamToken;
   profiles: typeof profiles;
   subscriptions: typeof subscriptions;
+  topicChat: typeof topicChat;
   topicNotes: typeof topicNotes;
   topics: typeof topics;
   uploads: typeof uploads;

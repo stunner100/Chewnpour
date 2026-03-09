@@ -25,6 +25,9 @@ export const canReuseExamAttempt = ({
     const score = Number(attempt.score || 0);
     if (Number.isFinite(score) && score > 0) return false;
 
+    // Guard: if another session already claimed this attempt, skip it
+    if (attempt.claimedAt && typeof attempt.claimedAt === 'number') return false;
+
     const createdAt = Number(attempt._creationTime || 0);
     if (!Number.isFinite(createdAt) || createdAt <= 0) return false;
 

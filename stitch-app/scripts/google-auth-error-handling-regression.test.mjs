@@ -11,6 +11,14 @@ if (!/process\.env\.FRONTEND_URLS/.test(authConfigSource)) {
   throw new Error('Expected convex/authConfig.ts to support FRONTEND_URLS for explicit trusted origins.');
 }
 
+if (!/process\.env\.APP_BASE_URL/.test(authConfigSource)) {
+  throw new Error('Expected convex/authConfig.ts to support APP_BASE_URL as the primary frontend URL.');
+}
+
+if (!/const\s+resolveFrontendUrl\s*=\s*\(\)\s*=>/.test(authConfigSource)) {
+  throw new Error('Expected convex/authConfig.ts to derive frontendUrl through resolveFrontendUrl().');
+}
+
 if (!/const\s+isLocalhostOrigin\s*=\s*\(origin:\s*string\)\s*=>/.test(authConfigSource)) {
   throw new Error('Expected convex/authConfig.ts to declare an isLocalhostOrigin helper.');
 }

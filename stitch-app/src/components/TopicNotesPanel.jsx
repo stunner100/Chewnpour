@@ -122,7 +122,7 @@ const TopicNotesPanel = memo(function TopicNotesPanel({ topicId, open, onClose, 
             />
 
             {/* Panel */}
-            <div className="fixed z-50 inset-x-0 bottom-0 md:inset-x-auto md:right-0 md:top-0 md:bottom-0 md:w-80 flex flex-col bg-white dark:bg-slate-900 border-t md:border-t-0 md:border-l border-slate-200 dark:border-slate-800 shadow-xl animate-slide-up md:animate-slide-left">
+            <div className="fixed z-[60] inset-0 md:inset-x-auto md:right-0 md:top-0 md:bottom-0 md:w-80 flex flex-col bg-white dark:bg-slate-900 border-t md:border-t-0 md:border-l border-slate-200 dark:border-slate-800 shadow-xl animate-slide-up md:animate-slide-left pb-[env(safe-area-inset-bottom)] md:pb-0">
                 {/* Header */}
                 <div className="flex items-center justify-between px-4 py-3 border-b border-slate-100 dark:border-slate-800">
                     <div className="flex items-center gap-2">
@@ -144,7 +144,7 @@ const TopicNotesPanel = memo(function TopicNotesPanel({ topicId, open, onClose, 
                         value={draft}
                         onChange={handleChange}
                         placeholder="Jot down insights as you study..."
-                        className="w-full h-full min-h-[200px] md:min-h-0 max-h-[55vh] md:max-h-none resize-none rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 px-4 py-3 text-sm text-slate-800 dark:text-slate-200 placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary/50"
+                        className="w-full h-full min-h-[200px] md:min-h-0 resize-none rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 px-4 py-3 text-sm text-slate-800 dark:text-slate-200 placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary/50"
                     />
                 </div>
 

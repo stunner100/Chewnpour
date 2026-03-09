@@ -20,10 +20,27 @@ export function useStudyTimer(userId) {
 
     // Accumulated minutes not yet flushed.
     const accMinutesRef = useRef(0);
+    // Failed flush retries, stored per user to avoid cross-user leakage.
+    const pendingMinutesByUserRef = useRef(new Map());
     // Timestamp when the current "visible" interval began (null → paused).
     const intervalStartRef = useRef(null);
-    const userIdRef = useRef(userId);
-    userIdRef.current = userId;
+    const userIdRef = useRef(userId || '');
+
+    const getPendingMinutesForUser = useCallback((uid) => {
+        if (!uid) return 0;
+        const value = pendingMinutesByUserRef.current.get(uid);
+        return Number.isFinite(value) ? Math.max(0, value) : 0;
+    }, []);
+
+    const setPendingMinutesForUser = useCallback((uid, minutes) => {
+        if (!uid) return;
+        const normalizedMinutes = Number.isFinite(minutes) ? Math.max(0, minutes) : 0;
+        if (normalizedMinutes <= 0) {
+            pendingMinutesByUserRef.current.delete(uid);
+            return;
+        }
+        pendingMinutesByUserRef.current.set(uid, normalizedMinutes);
+    }, []);
 
     // Collect elapsed time since last mark.
     const markElapsed = useCallback(() => {
@@ -36,19 +53,31 @@ export function useStudyTimer(userId) {
     }, []);
 
     // Flush accumulated minutes to the backend.
-    const flush = useCallback(() => {
+    const flushForUser = useCallback((uid) => {
         markElapsed();
-        const minutes = accMinutesRef.current;
-        const uid = userIdRef.current;
-        if (minutes >= MIN_FLUSH_MINUTES && uid) {
+        const normalizedUserId = typeof uid === 'string' ? uid.trim() : '';
+        if (!normalizedUserId) return;
+
+        const minutes = accMinutesRef.current + getPendingMinutesForUser(normalizedUserId);
+        if (minutes >= MIN_FLUSH_MINUTES) {
             accMinutesRef.current = 0;
+            setPendingMinutesForUser(normalizedUserId, 0);
             // Fire-and-forget; don't await — avoids blocking unmount.
-            addStudyTime({ userId: uid, minutes }).catch(() => {
-                // If the flush fails, add it back so the next flush retries.
-                accMinutesRef.current += minutes;
+            addStudyTime({ userId: normalizedUserId, minutes }).catch(() => {
+                // Retry failed minutes for the same user only.
+                const currentPending = getPendingMinutesForUser(normalizedUserId);
+                setPendingMinutesForUser(normalizedUserId, currentPending + minutes);
             });
         }
-    }, [addStudyTime, markElapsed]);
+    }, [addStudyTime, getPendingMinutesForUser, markElapsed, setPendingMinutesForUser]);
+
+    const flush = useCallback(() => {
+        flushForUser(userIdRef.current);
+    }, [flushForUser]);
+
+    useEffect(() => {
+        userIdRef.current = userId || '';
+    }, [userId]);
 
     useEffect(() => {
         if (!userId) return;

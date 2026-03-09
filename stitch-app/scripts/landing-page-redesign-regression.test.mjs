@@ -79,13 +79,16 @@ assert(source.includes('Smart Quizzes'), 'Feature: Smart Quizzes');
 assert(source.includes('AI Tutor'), 'Feature: AI Tutor');
 
 // Pricing preserved
-assert(source.includes('GHS 0'), 'Free tier pricing');
-assert(source.includes('GHS 20'), 'Premium tier pricing');
-assert(source.includes('Popular'), 'Popular badge on premium');
+assert(source.includes('getPublicTopUpPricing'), 'Public pricing query wired');
+assert(source.includes('formatPlanPrice'), 'Localized currency formatter wired');
+assert(source.includes('1 document upload'), 'Free tier upload limit copy');
+assert(source.includes('starterPlan.amountMajor'), 'Starter top-up pricing is dynamic');
+assert(source.includes('maxPlan.amountMajor'), 'Max top-up pricing is dynamic');
+assert(source.includes('Popular'), 'Popular badge on paid plan');
 
 // Contact info in footer
 assert(source.includes('t.me'), 'Telegram link preserved');
-assert(source.includes('patrickannor35@gmail.com'), 'Email contact preserved');
+assert(source.includes('info@chewnpour.com'), 'Email contact preserved');
 
 // Sections reduced (no separate CTA, demo, testimonials, contact sections)
 assert(!source.includes('id="demo"'), 'Removed separate demo section');

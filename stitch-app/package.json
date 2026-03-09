@@ -16,6 +16,7 @@
     "better-auth": "^1.4.9",
     "convex": "^1.31.6",
     "fflate": "^0.8.2",
+    "pdf-lib": "^1.17.1",
     "pdfjs-dist": "^5.4.530",
     "posthog-js": "^1.347.2",
     "react": "^19.2.0",

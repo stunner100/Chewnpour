@@ -1,8 +1,13 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { useAction, useQuery, useConvexAuth } from 'convex/react';
+import { useAction, useConvexAuth, useQuery } from 'convex/react';
 import { api } from '../../convex/_generated/api';
 import { useAuth } from '../contexts/AuthContext';
+import {
+    buildUploadLimitMessageFromOptions,
+    formatPlanPrice,
+    normalizeTopUpOptions,
+} from '../lib/pricingCurrency';
 
 const sanitizeReturnPath = (value) => {
     const fallback = '/dashboard';
@@ -13,7 +18,7 @@ const sanitizeReturnPath = (value) => {
     return trimmed;
 };
 
-const toPositiveInt = (value, fallback = 0) => {
+const toNonNegativeInt = (value, fallback = 0) => {
     const parsed = Number(value);
     if (!Number.isFinite(parsed)) return fallback;
     return Math.max(0, Math.floor(parsed));
@@ -23,24 +28,6 @@ const DEFAULT_TOP_UP_OPTIONS = [
     { id: 'starter', amountMajor: 20, credits: 5, currency: 'GHS' },
     { id: 'max', amountMajor: 40, credits: 12, currency: 'GHS' },
 ];
-
-const normalizeTopUpOptions = (value, fallbackCurrency = 'GHS') => {
-    if (!Array.isArray(value)) return DEFAULT_TOP_UP_OPTIONS;
-    const normalized = value
-        .map((item) => {
-            const id = String(item?.id || '').trim();
-            const amountMajor = toPositiveInt(item?.amountMajor, 0);
-            const credits = toPositiveInt(item?.credits, 0);
-            const currency = String(item?.currency || fallbackCurrency || 'GHS').toUpperCase();
-            if (!id || amountMajor <= 0 || credits <= 0) return null;
-            return { id, amountMajor, credits, currency };
-        })
-        .filter(Boolean);
-
-    if (!normalized.length) return DEFAULT_TOP_UP_OPTIONS;
-
-    return normalized.sort((a, b) => a.amountMajor - b.amountMajor);
-};
 
 const Subscription = () => {
     const location = useLocation();
@@ -64,29 +51,6 @@ const Subscription = () => {
         [searchParams]
     );
 
-    useEffect(() => {
-        const reason = String(searchParams.get('reason') || '').trim();
-        const stateMessage = typeof location.state?.paywallMessage === 'string'
-            ? location.state.paywallMessage.trim()
-            : '';
-        if (!reason) {
-            setError(stateMessage || '');
-            return;
-        }
-
-        const reasonMessages = {
-            upload_limit: 'Upload limit reached. Choose a top-up plan: GHS 20 (+5 uploads) or GHS 40 (+12 uploads).',
-            payment_failed: 'Payment was not completed. Please try again.',
-            verification_failed: 'Could not verify payment yet. Please try again.',
-            invalid_reference: 'This payment reference is invalid for your account.',
-            payment_not_success: 'Payment is still pending or failed. Please complete payment to continue.',
-            payment_mismatch: 'Payment details did not match your selected top-up plan.',
-            missing_reference: 'Missing payment reference. Start checkout again.',
-        };
-
-        setError(reasonMessages[reason] || 'Could not complete payment. Please try again.');
-    }, [location.state, searchParams]);
-
     const safeQuota = quota || {
         freeLimit: 1,
         purchasedCredits: 0,
@@ -100,9 +64,9 @@ const Subscription = () => {
         topUpOptions: DEFAULT_TOP_UP_OPTIONS,
     };
 
-    const freeLimit = toPositiveInt(safeQuota.freeLimit, 1);
-    const totalAllowed = toPositiveInt(safeQuota.totalAllowed, freeLimit);
-    const remaining = toPositiveInt(safeQuota.remaining, 0);
+    const freeLimit = toNonNegativeInt(safeQuota.freeLimit, 1);
+    const totalAllowed = toNonNegativeInt(safeQuota.totalAllowed, freeLimit);
+    const remaining = toNonNegativeInt(safeQuota.remaining, 0);
     const consumed = Math.max(0, totalAllowed - remaining);
     const currency = String(safeQuota.currency || 'GHS').toUpperCase();
     const topUpOptions = useMemo(
@@ -110,12 +74,51 @@ const Subscription = () => {
         [safeQuota.topUpOptions, currency]
     );
     const selectedTopUpPlan = topUpOptions.find((plan) => plan.id === selectedPlanId) || topUpOptions[0];
+    const uploadLimitMessage = useMemo(
+        () => buildUploadLimitMessageFromOptions(topUpOptions, currency),
+        [topUpOptions, currency]
+    );
 
     useEffect(() => {
         if (!selectedTopUpPlan) return;
         if (selectedTopUpPlan.id === selectedPlanId) return;
         setSelectedPlanId(selectedTopUpPlan.id);
     }, [selectedPlanId, selectedTopUpPlan]);
+
+    useEffect(() => {
+        const reason = String(searchParams.get('reason') || '').trim();
+        const stateMessage = typeof location.state?.paywallMessage === 'string'
+            ? location.state.paywallMessage.trim()
+            : '';
+        if (!reason) {
+            setError(remaining <= 0 ? stateMessage : '');
+            return;
+        }
+
+        if (reason === 'upload_limit') {
+            setError(remaining <= 0 ? (stateMessage || uploadLimitMessage) : '');
+            return;
+        }
+
+        if (reason === 'ai_message_limit') {
+            setError(
+                stateMessage
+                || "You've used your free AI messages today. Upgrade to premium for unlimited AI chat."
+            );
+            return;
+        }
+
+        const reasonMessages = {
+            payment_failed: 'Payment was not completed. Please try again.',
+            verification_failed: 'Could not verify payment yet. Please try again.',
+            invalid_reference: 'This payment reference is invalid for your account.',
+            payment_not_success: 'Payment is still pending or failed. Please complete payment to continue.',
+            payment_mismatch: 'Payment details did not match your selected top-up plan.',
+            missing_reference: 'Missing payment reference. Start checkout again.',
+        };
+
+        setError(reasonMessages[reason] || 'Could not complete payment. Please try again.');
+    }, [location.state, searchParams, uploadLimitMessage, remaining]);
 
     const handleCheckout = async (event) => {
         event.preventDefault();
@@ -138,9 +141,11 @@ const Subscription = () => {
             }
             window.location.assign(authorizationUrl);
         } catch (checkoutError) {
-            setError(checkoutError instanceof Error
-                ? checkoutError.message
-                : 'Could not initialize Paystack checkout.');
+            setError(
+                checkoutError instanceof Error
+                    ? checkoutError.message
+                    : 'Could not initialize Paystack checkout.'
+            );
             setLoading(false);
         }
     };
@@ -208,7 +213,7 @@ const Subscription = () => {
                                             }`}
                                         >
                                             <p className="text-lg font-bold text-slate-900 dark:text-white">
-                                                {plan.currency} {plan.amountMajor}
+                                                {formatPlanPrice(plan.amountMajor, plan.currency)}
                                             </p>
                                             <p className="text-sm text-slate-500 dark:text-slate-400">
                                                 +{plan.credits} uploads
@@ -237,7 +242,7 @@ const Subscription = () => {
                     >
                         {loading
                             ? 'Redirecting to Paystack...'
-                            : `Pay ${selectedTopUpPlan?.currency || currency} ${selectedTopUpPlan?.amountMajor || 0} and get +${selectedTopUpPlan?.credits || 0} uploads`}
+                            : `Pay ${formatPlanPrice(selectedTopUpPlan?.amountMajor || 0, selectedTopUpPlan?.currency || currency)} and get +${selectedTopUpPlan?.credits || 0} uploads`}
                     </button>
                 </div>
             </div>

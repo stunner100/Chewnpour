@@ -87,7 +87,7 @@ const EditProfile = () => {
             } else {
                 navigate('/profile', { replace: true });
             }
-        } catch (err) {
+        } catch {
             setError('An unexpected error occurred');
         } finally {
             setIsSaving(false);

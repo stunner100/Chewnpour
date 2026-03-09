@@ -10,6 +10,7 @@ const DIFFICULTY_LABELS = { easy: 'Easy', medium: 'Medium', hard: 'Hard' };
 const buildDifficultyBreakdown = (answers) => {
     const buckets = { easy: { correct: 0, total: 0 }, medium: { correct: 0, total: 0 }, hard: { correct: 0, total: 0 } };
     for (const a of answers) {
+        if (a.skipped) continue;
         const d = (a.difficulty || 'medium').toLowerCase();
         const key = buckets[d] ? d : 'medium';
         buckets[key].total += 1;
@@ -47,7 +48,7 @@ const truncate = (text, max = 60) =>
 
 const StrengthsAndFocus = ({ answers }) => {
     const strengths = answers.filter((a) => a.isCorrect).slice(0, 3);
-    const focusAreas = answers.filter((a) => !a.isCorrect).slice(0, 3);
+    const focusAreas = answers.filter((a) => !a.isCorrect && !a.skipped).slice(0, 3);
     if (strengths.length === 0 && focusAreas.length === 0) return null;
 
     return (
@@ -95,13 +96,42 @@ const READINESS_BADGE = {
     'Exam Ready': 'bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-300 border-green-100 dark:border-green-900/30',
 };
 
+// #6 — use regex word boundaries for robust readiness label extraction
 const extractReadinessLabel = (text) => {
-    const candidates = ['Exam Ready', 'Almost Ready', 'Not Ready', 'Ready'];
-    for (const label of candidates) {
-        if (text && text.includes(label)) return label;
+    if (!text) return null;
+    // Check for structured "Verdict: X" format first (requested in prompt)
+    const verdictMatch = text.match(/Verdict:\s*(Exam Ready|Almost Ready|Not Ready|Ready)/i);
+    if (verdictMatch) {
+        // Normalize to title case
+        const raw = verdictMatch[1];
+        const candidates = ['Exam Ready', 'Almost Ready', 'Not Ready', 'Ready'];
+        for (const label of candidates) {
+            if (raw.toLowerCase() === label.toLowerCase()) return label;
+        }
+    }
+    // Fallback: word-boundary matching in priority order (longest match first)
+    const patterns = [
+        { label: 'Exam Ready', re: /\bExam\s+Ready\b/i },
+        { label: 'Almost Ready', re: /\bAlmost\s+Ready\b/i },
+        { label: 'Not Ready', re: /\bNot\s+Ready\b/i },
+        { label: 'Ready', re: /\bReady\b/i },
+    ];
+    for (const { label, re } of patterns) {
+        if (re.test(text)) {
+            // Make sure "Ready" alone doesn't match when "Not Ready" or "Almost Ready" also appears
+            if (label === 'Ready') {
+                if (/\bNot\s+Ready\b/i.test(text)) return 'Not Ready';
+                if (/\bAlmost\s+Ready\b/i.test(text)) return 'Almost Ready';
+                if (/\bExam\s+Ready\b/i.test(text)) return 'Exam Ready';
+            }
+            return label;
+        }
     }
     return null;
 };
+
+// #3 — track in-flight generation to prevent duplicate calls
+const feedbackInFlight = new Set();
 
 const TutorReport = ({ attemptId, storedFeedback }) => {
     const generateFeedback = useAction(api.ai.generateExamFeedback);
@@ -109,21 +139,36 @@ const TutorReport = ({ attemptId, storedFeedback }) => {
         ? storedFeedback.trim()
         : '';
     const [generatedFeedback, setGeneratedFeedback] = useState(null);
+    const [error, setError] = useState(false);
     const [loading, setLoading] = useState(() => Boolean(attemptId && !normalizedStoredFeedback));
     const feedback = normalizedStoredFeedback || generatedFeedback;
 
     useEffect(() => {
         if (!attemptId || normalizedStoredFeedback || generatedFeedback !== null) return undefined;
+        // #3 — prevent duplicate concurrent calls for same attempt
+        if (feedbackInFlight.has(attemptId)) return undefined;
+        feedbackInFlight.add(attemptId);
         let cancelled = false;
         generateFeedback({ attemptId })
             .then((text) => {
+                // Success — feedback confirmed generated, safe to clear guard
+                feedbackInFlight.delete(attemptId);
                 if (cancelled) return;
                 const normalized = String(text || '').trim();
                 if (normalized) setGeneratedFeedback(normalized);
+                setLoading(false);
             })
-            .catch(() => { /* silently degrade */ })
-            .finally(() => {
-                if (!cancelled) setLoading(false);
+            .catch((err) => {
+                // #5 — log error instead of silently swallowing
+                console.error('[TutorReport] Failed to generate feedback:', err);
+                // Permanent failure (4xx-class) — clear guard so retry is possible on next mount
+                const isPermanent = err?.data?.code === 'INVALID_ARGUMENT' || err?.data?.code === 'NOT_FOUND';
+                if (isPermanent) feedbackInFlight.delete(attemptId);
+                // Transient failure — keep the Set entry so rapid re-mount won't re-trigger
+                if (!cancelled) {
+                    setError(true);
+                    setLoading(false);
+                }
             });
         return () => {
             cancelled = true;
@@ -139,26 +184,41 @@ const TutorReport = ({ attemptId, storedFeedback }) => {
                     <span className="material-symbols-outlined text-primary text-[22px]">psychology</span>
                     <span className="text-sm font-bold text-neutral-900 dark:text-white">Personal Tutor</span>
                 </div>
-                {readinessLabel && (
-                    <span className={`text-[11px] font-bold px-3 py-1 rounded-full border ${READINESS_BADGE[readinessLabel] || READINESS_BADGE['Ready']}`}>
+                {/* #19 — only show badge when label is actually extracted */}
+                {readinessLabel && READINESS_BADGE[readinessLabel] && (
+                    <span className={`text-[11px] font-bold px-3 py-1 rounded-full border ${READINESS_BADGE[readinessLabel]}`}>
                         {readinessLabel}
                     </span>
                 )}
             </div>
             <div className="px-6 py-5">
+                {/* #16 — skeleton that better matches paragraph layout */}
                 {loading && (
-                    <div className="space-y-3">
-                        <div className="h-3 bg-neutral-100 dark:bg-neutral-800 rounded-full w-full animate-pulse"></div>
-                        <div className="h-3 bg-neutral-100 dark:bg-neutral-800 rounded-full w-5/6 animate-pulse"></div>
-                        <div className="h-3 bg-neutral-100 dark:bg-neutral-800 rounded-full w-4/6 animate-pulse"></div>
-                        <div className="h-3 bg-neutral-100 dark:bg-neutral-800 rounded-full w-full animate-pulse mt-4"></div>
-                        <div className="h-3 bg-neutral-100 dark:bg-neutral-800 rounded-full w-3/4 animate-pulse"></div>
+                    <div className="space-y-4">
+                        <div className="space-y-2">
+                            <div className="h-3 bg-neutral-100 dark:bg-neutral-800 rounded-full w-full animate-pulse"></div>
+                            <div className="h-3 bg-neutral-100 dark:bg-neutral-800 rounded-full w-11/12 animate-pulse"></div>
+                            <div className="h-3 bg-neutral-100 dark:bg-neutral-800 rounded-full w-4/5 animate-pulse"></div>
+                        </div>
+                        <div className="space-y-2">
+                            <div className="h-3 bg-neutral-100 dark:bg-neutral-800 rounded-full w-full animate-pulse"></div>
+                            <div className="h-3 bg-neutral-100 dark:bg-neutral-800 rounded-full w-5/6 animate-pulse"></div>
+                        </div>
+                        <div className="space-y-2">
+                            <div className="h-3 bg-neutral-100 dark:bg-neutral-800 rounded-full w-full animate-pulse"></div>
+                            <div className="h-3 bg-neutral-100 dark:bg-neutral-800 rounded-full w-3/4 animate-pulse"></div>
+                        </div>
                     </div>
                 )}
+                {/* #11 — overflow-hidden + break-words for mobile safety */}
                 {!loading && feedback && (
-                    <p className="text-sm text-neutral-700 dark:text-neutral-300 leading-relaxed whitespace-pre-line">{feedback}</p>
+                    <p className="text-sm text-neutral-700 dark:text-neutral-300 leading-relaxed whitespace-pre-line break-words overflow-hidden">{feedback}</p>
                 )}
-                {!loading && !feedback && (
+                {/* #5 & #18 — show distinct error vs unavailable messages */}
+                {!loading && !feedback && error && (
+                    <p className="text-sm text-amber-600 dark:text-amber-400">Could not generate tutor feedback. Please try refreshing the page.</p>
+                )}
+                {!loading && !feedback && !error && (
                     <p className="text-sm text-neutral-400 dark:text-neutral-500">Tutor feedback unavailable for this attempt.</p>
                 )}
             </div>
@@ -214,27 +274,40 @@ const DashboardResults = () => {
         );
     }
 
-    const totalQuestions = attempt.totalQuestions || attempt.answers?.length || 0;
+    const answers = attempt.answers || [];
+    const isEssay = attempt.examFormat === 'essay';
+    const skippedCount = answers.filter((a) => a.skipped).length;
+    const answeredCount = answers.filter((a) => !a.skipped).length;
+    const correctCount = attempt.score || 0;
+    const incorrectCount = Math.max(0, answeredCount - correctCount);
+    // Use actual answers length so the score breakdown always adds up visually
+    const totalQuestions = answers.length || attempt.totalQuestions || 0;
     const percentage = typeof attempt.percentage === 'number'
         ? attempt.percentage
         : totalQuestions > 0
-            ? Math.round((attempt.score / totalQuestions) * 100)
+            ? Math.round((correctCount / totalQuestions) * 100)
             : 0;
-    const incorrectCount = totalQuestions - (attempt.score || 0);
 
+    // #10 — handle all option structures: objects with label/value/text, plain strings, nested
     const getOptionText = (options, label) => {
         if (!options || !label) return label || '';
         if (Array.isArray(options)) {
-            const match = options.find((option) => {
-                if (!option || typeof option !== 'object') return false;
-                return option.label === label || option.value === label;
-            });
-            if (match?.text) return match.text;
+            for (const option of options) {
+                if (typeof option === 'string') {
+                    // Plain string options — match by prefix label like "A) ..."
+                    const match = option.match(/^\s*([A-D])[).\-:\s]+(.+)$/i);
+                    if (match && match[1].toUpperCase() === String(label).toUpperCase()) return match[2].trim();
+                    if (option === label) return option;
+                    continue;
+                }
+                if (!option || typeof option !== 'object') continue;
+                if (option.label === label || option.value === label) {
+                    return option.text || option.content || option.choiceText || option.value || label;
+                }
+            }
         }
         return label;
     };
-
-    const answers = attempt.answers || [];
 
     return (
         <div className="bg-background-light dark:bg-background-dark font-display antialiased text-neutral-900 dark:text-white min-h-screen flex flex-col">
@@ -265,15 +338,24 @@ const DashboardResults = () => {
                             <span className="text-3xl text-neutral-400 font-bold">/100</span>
                         </div>
                         <div className="text-sm font-semibold text-neutral-500 dark:text-neutral-400">
-                            {attempt.score} correct out of {totalQuestions}
+                            {isEssay
+                                ? `${totalQuestions} essay question${totalQuestions !== 1 ? 's' : ''} — quality score`
+                                : `${attempt.score} correct out of ${totalQuestions}`}
                         </div>
                         <div className="mt-4 flex items-center gap-3 text-xs font-bold text-neutral-500">
                             <span className="px-3 py-1 rounded-full bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-300">
-                                {attempt.score} Correct
+                                {attempt.score} {isEssay ? 'Pass' : 'Correct'}
                             </span>
-                            <span className="px-3 py-1 rounded-full bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-300">
-                                {incorrectCount} Incorrect
-                            </span>
+                            {incorrectCount > 0 && (
+                                <span className="px-3 py-1 rounded-full bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-300">
+                                    {incorrectCount} {isEssay ? 'Needs Work' : 'Incorrect'}
+                                </span>
+                            )}
+                            {skippedCount > 0 && (
+                                <span className="px-3 py-1 rounded-full bg-neutral-50 dark:bg-neutral-800 text-neutral-500 dark:text-neutral-400">
+                                    {skippedCount} Skipped
+                                </span>
+                            )}
                         </div>
                         {answers.length > 0 && <DifficultyPills answers={answers} />}
                     </div>
@@ -311,20 +393,23 @@ const DashboardResults = () => {
                                 const yourAnswerText = getOptionText(answer.options, answer.selectedAnswer) || 'Not answered';
                                 const correctAnswerText = getOptionText(answer.options, answer.correctAnswer) || answer.correctAnswer;
                                 const isCorrect = Boolean(answer.isCorrect);
+                                const hasEssayFeedback = Boolean(answer.feedback);
                                 return (
                                     <div key={`${answer.questionId}-${index}`} className="bg-surface-light dark:bg-surface-dark border border-neutral-100 dark:border-neutral-700 rounded-3xl p-6 shadow-card">
                                         <div className="flex justify-between items-center mb-4">
                                             <div className="flex items-center gap-2">
                                                 <span className="text-xs font-bold text-neutral-400 uppercase tracking-wider">Question {index + 1}</span>
-                                                {answer.difficulty && (
-                                                    <span className="text-[10px] font-bold text-neutral-400 uppercase">{answer.difficulty}</span>
-                                                )}
+                                                {/* #14 — always show difficulty, default to "Medium" */}
+                                                <span className="text-[10px] font-bold text-neutral-400 uppercase">{answer.difficulty || 'Medium'}</span>
                                             </div>
-                                            <span className={`text-[11px] font-bold px-3 py-1.5 rounded-lg uppercase tracking-wide border ${isCorrect
-                                                ? 'bg-green-50 text-green-700 dark:bg-green-900/20 dark:text-green-300 border-green-100 dark:border-green-900/30'
-                                                : 'bg-red-50 text-red-700 dark:bg-red-900/20 dark:text-red-300 border-red-100 dark:border-red-900/30'
+                                            <span className={`text-[11px] font-bold px-3 py-1.5 rounded-lg uppercase tracking-wide border ${
+                                                answer.skipped
+                                                    ? 'bg-neutral-50 text-neutral-500 dark:bg-neutral-800 dark:text-neutral-400 border-neutral-200 dark:border-neutral-700'
+                                                    : isCorrect
+                                                        ? 'bg-green-50 text-green-700 dark:bg-green-900/20 dark:text-green-300 border-green-100 dark:border-green-900/30'
+                                                        : 'bg-red-50 text-red-700 dark:bg-red-900/20 dark:text-red-300 border-red-100 dark:border-red-900/30'
                                                 }`}>
-                                                {isCorrect ? 'Correct' : 'Incorrect'}
+                                                {answer.skipped ? 'Skipped' : hasEssayFeedback ? (isCorrect ? 'Pass' : 'Needs Work') : (isCorrect ? 'Correct' : 'Incorrect')}
                                             </span>
                                         </div>
                                         <p className="text-lg font-medium text-neutral-800 dark:text-neutral-200 mb-6 leading-relaxed">
@@ -332,7 +417,7 @@ const DashboardResults = () => {
                                         </p>
 
                                         {/* Essay answer display */}
-                                        {answer.feedback ? (
+                                        {hasEssayFeedback ? (
                                             <div className="space-y-4 mb-6">
                                                 <div className={`p-4 rounded-2xl border ${isCorrect
                                                     ? 'bg-green-50 dark:bg-green-900/10 border-green-100 dark:border-green-800/30'
@@ -367,18 +452,27 @@ const DashboardResults = () => {
                                         ) : (
                                             /* MCQ answer display */
                                             <div className="space-y-4 mb-6">
-                                                <div className={`flex items-start gap-4 p-4 rounded-2xl border ${isCorrect
-                                                    ? 'bg-green-50 dark:bg-green-900/10 border-green-100 dark:border-green-800/30'
-                                                    : 'bg-red-50 dark:bg-red-900/10 border-red-100 dark:border-red-800/30'
+                                                <div className={`flex items-start gap-4 p-4 rounded-2xl border ${
+                                                    answer.skipped
+                                                        ? 'bg-neutral-50 dark:bg-neutral-800/30 border-neutral-200 dark:border-neutral-700'
+                                                        : isCorrect
+                                                            ? 'bg-green-50 dark:bg-green-900/10 border-green-100 dark:border-green-800/30'
+                                                            : 'bg-red-50 dark:bg-red-900/10 border-red-100 dark:border-red-800/30'
                                                     }`}>
-                                                    <span className={`material-symbols-outlined mt-0.5 text-[24px] ${isCorrect ? 'text-green-600' : 'text-red-600'}`}>
-                                                        {isCorrect ? 'check_circle' : 'cancel'}
+                                                    <span className={`material-symbols-outlined mt-0.5 text-[24px] ${
+                                                        answer.skipped ? 'text-neutral-400' : isCorrect ? 'text-green-600' : 'text-red-600'
+                                                    }`}>
+                                                        {answer.skipped ? 'remove_circle_outline' : isCorrect ? 'check_circle' : 'cancel'}
                                                     </span>
                                                     <div className="flex-1">
-                                                        <span className={`text-xs font-bold uppercase block mb-1 ${isCorrect ? 'text-green-600' : 'text-red-600'}`}>
-                                                            Your Answer
+                                                        <span className={`text-xs font-bold uppercase block mb-1 ${
+                                                            answer.skipped ? 'text-neutral-400' : isCorrect ? 'text-green-600' : 'text-red-600'
+                                                        }`}>
+                                                            {answer.skipped ? 'Skipped' : 'Your Answer'}
                                                         </span>
-                                                        <span className="text-base font-bold text-neutral-800 dark:text-white">{yourAnswerText}</span>
+                                                        <span className="text-base font-bold text-neutral-800 dark:text-white">
+                                                            {answer.skipped ? 'No answer selected' : yourAnswerText}
+                                                        </span>
                                                     </div>
                                                 </div>
                                                 {!isCorrect && (
@@ -393,7 +487,8 @@ const DashboardResults = () => {
                                             </div>
                                         )}
 
-                                        {answer.explanation && !answer.feedback && (
+                                        {/* #13 — show explanation for both MCQ and essay (if available) */}
+                                        {answer.explanation && (
                                             <div className="text-sm text-neutral-600 dark:text-neutral-400 leading-relaxed bg-neutral-50 dark:bg-black/20 p-5 rounded-2xl border border-neutral-100 dark:border-neutral-700/50">
                                                 <div className="flex items-center gap-2 mb-2">
                                                     <span className="material-symbols-outlined text-primary text-[20px]">lightbulb</span>

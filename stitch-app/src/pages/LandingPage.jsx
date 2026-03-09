@@ -1,7 +1,13 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import { useQuery } from 'convex/react';
+import { api } from '../../convex/_generated/api';
 import { useAuth } from '../contexts/AuthContext';
 import { capturePostHogEvent } from '../lib/posthog';
+import {
+    formatPlanPrice,
+    normalizeTopUpOptions,
+} from '../lib/pricingCurrency';
 
 const features = [
     {
@@ -32,6 +38,23 @@ const LandingPage = () => {
     const navigate = useNavigate();
     const [scrolled, setScrolled] = useState(false);
     const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+    const pricing = useQuery(api.subscriptions.getPublicTopUpPricing, {});
+    const topUpOptions = useMemo(
+        () => normalizeTopUpOptions(pricing?.topUpOptions),
+        [pricing?.topUpOptions]
+    );
+    const starterPlan = topUpOptions.find((plan) => plan.id === 'starter') || topUpOptions[0] || {
+        id: 'starter',
+        amountMajor: 20,
+        credits: 5,
+        currency: 'GHS',
+    };
+    const maxPlan = topUpOptions.find((plan) => plan.id === 'max') || topUpOptions[topUpOptions.length - 1] || {
+        id: 'max',
+        amountMajor: 40,
+        credits: 12,
+        currency: starterPlan.currency || 'GHS',
+    };
 
     const captureLandingEvent = (eventName, properties = {}) => {
         capturePostHogEvent(eventName, {
@@ -342,19 +365,21 @@ const LandingPage = () => {
                             Start free. Upgrade when you need more uploads.
                         </p>
                     </div>
-                    <div className="grid gap-5 md:grid-cols-2 max-w-2xl mx-auto">
+                    <div className="grid gap-5 md:grid-cols-3 max-w-5xl mx-auto">
                         {/* Free Plan */}
                         <div className="p-7 md:p-8 rounded-2xl bg-white dark:bg-neutral-900 border border-neutral-200/80 dark:border-neutral-800 shadow-card">
                             <div className="mb-5">
                                 <span className="inline-flex items-center px-2.5 py-1 rounded-lg text-[11px] font-bold uppercase tracking-widest bg-neutral-100 dark:bg-neutral-800 text-neutral-500 dark:text-neutral-400 mb-3">Free</span>
                                 <div className="flex items-baseline gap-1">
-                                    <span className="text-4xl font-extrabold text-neutral-900 dark:text-white">GHS 0</span>
+                                    <span className="text-4xl font-extrabold text-neutral-900 dark:text-white">
+                                        {formatPlanPrice(0, starterPlan.currency)}
+                                    </span>
                                     <span className="text-neutral-400 text-sm font-medium">/forever</span>
                                 </div>
                             </div>
                             <ul className="space-y-3 mb-7">
                                 {[
-                                    '2 document uploads',
+                                    '1 document upload',
                                     'AI-powered lessons',
                                     'Interactive quizzes',
                                     'AI Tutor chat',
@@ -375,21 +400,20 @@ const LandingPage = () => {
                             </Link>
                         </div>
 
-                        {/* Premium */}
-                        <div className="relative p-7 md:p-8 rounded-2xl bg-white dark:bg-neutral-900 border-2 border-primary/30 shadow-card">
-                            <div className="absolute -top-3 left-1/2 -translate-x-1/2">
-                                <span className="px-3 py-1 bg-primary text-white text-[10px] font-bold uppercase tracking-widest rounded-full shadow-button">Popular</span>
-                            </div>
+                        {/* Starter Top-up */}
+                        <div className="p-7 md:p-8 rounded-2xl bg-white dark:bg-neutral-900 border border-neutral-200/80 dark:border-neutral-800 shadow-card">
                             <div className="mb-5">
-                                <span className="inline-flex items-center px-2.5 py-1 rounded-lg text-[11px] font-bold uppercase tracking-widest bg-primary/10 text-primary mb-3">Premium</span>
+                                <span className="inline-flex items-center px-2.5 py-1 rounded-lg text-[11px] font-bold uppercase tracking-widest bg-primary/10 text-primary mb-3">Starter</span>
                                 <div className="flex items-baseline gap-1">
-                                    <span className="text-4xl font-extrabold text-neutral-900 dark:text-white">GHS 20</span>
+                                    <span className="text-4xl font-extrabold text-neutral-900 dark:text-white">
+                                        {formatPlanPrice(starterPlan.amountMajor, starterPlan.currency)}
+                                    </span>
                                     <span className="text-neutral-400 text-sm font-medium">/top-up</span>
                                 </div>
                             </div>
                             <ul className="space-y-3 mb-7">
                                 {[
-                                    '20 additional uploads',
+                                    `+${starterPlan.credits} uploads`,
                                     'Everything in Free',
                                     'Priority AI processing',
                                     'Assignment Helper',
@@ -404,10 +428,48 @@ const LandingPage = () => {
                             </ul>
                             <Link
                                 to="/signup"
-                                onClick={() => captureLandingEvent('landing_cta_clicked', { cta_name: 'pricing_premium' })}
+                                onClick={() => captureLandingEvent('landing_cta_clicked', { cta_name: 'pricing_starter' })}
+                                className="w-full inline-flex h-11 items-center justify-center rounded-xl border-2 border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-800 text-sm font-bold text-neutral-700 dark:text-neutral-200 hover:border-primary/30 hover:shadow-card-hover transition-all active:scale-[0.98]"
+                            >
+                                Choose Starter
+                            </Link>
+                        </div>
+
+                        {/* Max Top-up */}
+                        <div className="relative p-7 md:p-8 rounded-2xl bg-white dark:bg-neutral-900 border-2 border-primary/30 shadow-card">
+                            <div className="absolute -top-3 left-1/2 -translate-x-1/2">
+                                <span className="px-3 py-1 bg-primary text-white text-[10px] font-bold uppercase tracking-widest rounded-full shadow-button">Popular</span>
+                            </div>
+                            <div className="mb-5">
+                                <span className="inline-flex items-center px-2.5 py-1 rounded-lg text-[11px] font-bold uppercase tracking-widest bg-primary/10 text-primary mb-3">Max</span>
+                                <div className="flex items-baseline gap-1">
+                                    <span className="text-4xl font-extrabold text-neutral-900 dark:text-white">
+                                        {formatPlanPrice(maxPlan.amountMajor, maxPlan.currency)}
+                                    </span>
+                                    <span className="text-neutral-400 text-sm font-medium">/top-up</span>
+                                </div>
+                            </div>
+                            <ul className="space-y-3 mb-7">
+                                {[
+                                    `+${maxPlan.credits} uploads`,
+                                    'Everything in Free',
+                                    'Priority AI processing',
+                                    'Assignment Helper',
+                                    'AI Humanizer tool',
+                                    'Premium support',
+                                ].map((item) => (
+                                    <li key={item} className="flex items-center gap-2.5 text-sm text-neutral-600 dark:text-neutral-300">
+                                        <span className="material-symbols-outlined text-primary text-[16px]">check_circle</span>
+                                        {item}
+                                    </li>
+                                ))}
+                            </ul>
+                            <Link
+                                to="/signup"
+                                onClick={() => captureLandingEvent('landing_cta_clicked', { cta_name: 'pricing_max' })}
                                 className="w-full inline-flex h-11 items-center justify-center rounded-xl bg-primary text-sm font-bold text-white shadow-button hover:bg-primary-hover hover:shadow-button-hover hover:-translate-y-0.5 active:translate-y-0 transition-all duration-200"
                             >
-                                Get Premium
+                                Choose Max
                             </Link>
                         </div>
                     </div>
@@ -434,7 +496,7 @@ const LandingPage = () => {
                                 Telegram
                             </a>
                             <a
-                                href="mailto:patrickannor35@gmail.com"
+                                href="mailto:info@chewnpour.com"
                                 className="font-semibold text-neutral-500 dark:text-neutral-400 hover:text-primary transition-colors"
                             >
                                 Email

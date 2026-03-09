@@ -33,5 +33,11 @@ if (!/const\s+existingQuestions\s*=\s*rawExistingQuestions\.filter/.test(aiSourc
 if (!/return\s+hasUsableQuestionOptions\(options\);/.test(aiSource)) {
   throw new Error('Expected ai.ts to count only usable existing question options toward generation targets.');
 }
+if (!/applyGroundedAcceptance\(\{[\s\S]*type:\s*"mcq"/.test(aiSource)) {
+  throw new Error('Expected ai.ts MCQ generation to apply grounded acceptance checks.');
+}
+if (!/createQuestionInternal,\s*\{[\s\S]*citations,[\s\S]*groundingScore:[\s\S]*factualityStatus:/.test(aiSource)) {
+  throw new Error('Expected ai.ts MCQ persistence to include grounding metadata.');
+}
 
 console.log('exam-question-quality-gate-regression.test.mjs passed');

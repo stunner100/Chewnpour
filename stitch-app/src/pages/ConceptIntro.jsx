@@ -2,9 +2,12 @@ import React from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { useQuery } from 'convex/react';
 import { api } from '../../convex/_generated/api';
+import { isLikelyConvexId } from '../lib/convexId';
 
 const ConceptIntro = () => {
-    const { topicId } = useParams();
+    const { topicId: topicIdParam } = useParams();
+    const normalizedTopicId = typeof topicIdParam === 'string' ? topicIdParam.trim() : '';
+    const topicId = isLikelyConvexId(normalizedTopicId) ? normalizedTopicId : '';
     const topic = useQuery(
         api.topics.getTopicWithQuestions,
         topicId ? { topicId } : 'skip'

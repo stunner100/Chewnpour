@@ -24,6 +24,11 @@ assert.match(
     /ensurePromiseWithResolvers\(\);\s*\n\s*const pdfjsLib = await import\('pdfjs-dist\/build\/pdf\.mjs'\);/,
     'Expected DashboardAnalysis PDF extraction to install polyfill before loading pdfjs.',
 );
+assert.match(
+    dashboardSource,
+    /processUploadedFile\(\{\s*uploadId,\s*courseId,\s*userId,\s*extractedText\s*\}\)/,
+    'Expected DashboardAnalysis to pass extractedText when dispatching processUploadedFile.',
+);
 
 const assignmentSource = read('src/pages/AssignmentHelper.jsx');
 assert.match(
@@ -33,4 +38,3 @@ assert.match(
 );
 
 console.log('pdf-withresolvers-polyfill-regression.test.mjs passed');
-

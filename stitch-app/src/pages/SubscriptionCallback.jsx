@@ -43,11 +43,16 @@ const SubscriptionCallback = () => {
 
                 if (result?.success) {
                     const redirectTo = sanitizeReturnPath(result?.redirectTo || returnPath);
+                    const grantedCredits = Number.isFinite(Number(result?.grantedCredits))
+                        ? Math.max(0, Math.floor(Number(result.grantedCredits)))
+                        : 0;
                     setStatus('success');
                     navigate(redirectTo, {
                         replace: true,
                         state: {
-                            paywallToastMessage: 'Payment successful. 20 uploads added to your quota.',
+                            paywallToastMessage: grantedCredits > 0
+                                ? `Payment successful. ${grantedCredits} uploads added to your quota.`
+                                : 'Payment successful. Your upload quota has been updated.',
                         },
                     });
                     return;
