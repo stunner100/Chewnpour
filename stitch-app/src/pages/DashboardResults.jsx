@@ -300,8 +300,8 @@ const DashboardResults = () => {
         return (
             <div className="bg-background-light dark:bg-background-dark min-h-screen flex items-center justify-center">
                 <div className="text-center max-w-md px-6">
-                    <h2 className="text-xl font-bold text-slate-900 dark:text-white mb-2">No exam selected</h2>
-                    <p className="text-slate-500 font-medium mb-6">Return to your dashboard and open a completed exam.</p>
+                    <h2 className="text-xl font-bold text-neutral-900 dark:text-white mb-2">No exam selected</h2>
+                    <p className="text-neutral-500 font-medium mb-6">Return to your dashboard and open a completed exam.</p>
                     <Link to="/dashboard" className="inline-flex items-center justify-center px-5 py-2.5 rounded-xl bg-primary text-white font-bold shadow-lg shadow-primary/20">
                         Back to Dashboard
                     </Link>
@@ -315,7 +315,7 @@ const DashboardResults = () => {
             <div className="bg-background-light dark:bg-background-dark min-h-screen flex items-center justify-center">
                 <div className="text-center">
                     <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary mx-auto mb-4"></div>
-                    <p className="text-slate-500 font-medium">Loading exam results...</p>
+                    <p className="text-neutral-500 font-medium">Loading exam results...</p>
                 </div>
             </div>
         );
@@ -325,8 +325,8 @@ const DashboardResults = () => {
         return (
             <div className="bg-background-light dark:bg-background-dark min-h-screen flex items-center justify-center">
                 <div className="text-center max-w-md px-6">
-                    <h2 className="text-xl font-bold text-slate-900 dark:text-white mb-2">Results not found</h2>
-                    <p className="text-slate-500 font-medium mb-6">We couldn't find that exam attempt.</p>
+                    <h2 className="text-xl font-bold text-neutral-900 dark:text-white mb-2">Results not found</h2>
+                    <p className="text-neutral-500 font-medium mb-6">We couldn't find that exam attempt.</p>
                     <Link to="/dashboard" className="inline-flex items-center justify-center px-5 py-2.5 rounded-xl bg-primary text-white font-bold shadow-lg shadow-primary/20">
                         Back to Dashboard
                     </Link>

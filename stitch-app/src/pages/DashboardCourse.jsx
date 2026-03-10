@@ -132,15 +132,8 @@ const DashboardCourse = () => {
                     </Link>
 
                     <div className="flex items-center gap-3">
-                        {uploadQuota && (
-                            uploadQuota.remaining > 0 ? (
-                                <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-neutral-100 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700">
-                                    <span className="material-symbols-outlined text-neutral-400 dark:text-neutral-500 text-sm">cloud_upload</span>
-                                    <span className="text-neutral-600 dark:text-neutral-400 text-xs font-medium">
-                                        {uploadQuota.remaining} upload{uploadQuota.remaining !== 1 ? 's' : ''} left
-                                    </span>
-                                </div>
-                            ) : (
+                        {uploadQuota && uploadQuota.remaining <= 3 && (
+                            uploadQuota.remaining === 0 ? (
                                 <Link
                                     to="/subscription?reason=quota_badge"
                                     className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800/40 hover:bg-amber-100 dark:hover:bg-amber-900/30 transition-colors"
@@ -149,9 +142,16 @@ const DashboardCourse = () => {
                                     <span className="text-amber-700 dark:text-amber-400 text-xs font-medium">
                                         0 uploads left
                                     </span>
-                                    <span className="text-amber-500 dark:text-amber-500 text-xs">·</span>
-                                    <span className="text-amber-700 dark:text-amber-400 text-xs font-semibold">Upgrade</span>
+                                    <span className="mx-2 text-amber-400 opacity-50 text-xs">|</span>
+                                    <span className="text-amber-700 dark:text-amber-400 text-xs font-semibold underline underline-offset-2">Upgrade</span>
                                 </Link>
+                            ) : (
+                                <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-amber-50/60 dark:bg-amber-900/10 border border-amber-200/70 dark:border-amber-800/30">
+                                    <span className="material-symbols-outlined text-amber-400 dark:text-amber-500 text-sm">cloud_upload</span>
+                                    <span className="text-amber-600 dark:text-amber-400 text-xs font-medium">
+                                        {uploadQuota.remaining} upload{uploadQuota.remaining !== 1 ? 's' : ''} left
+                                    </span>
+                                </div>
                             )
                         )}
                         {backgroundGenerationActive && (
@@ -336,7 +336,7 @@ const DashboardCourse = () => {
                     ) : (
                         /* Loading Skeleton */
                         <>
-                            {[1, 2, 3].map((i) => (
+                            {Array.from({ length: displayCourse?.plannedCount || topics?.length || 6 }, (_, i) => (
                                 <div key={i} className="p-5 rounded-2xl bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 animate-pulse">
                                     <div className="flex items-center justify-between mb-4">
                                         <div className="h-4 w-16 bg-neutral-100 dark:bg-neutral-800 rounded"></div>

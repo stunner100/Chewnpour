@@ -34,6 +34,7 @@ const testimonials = [
         course: 'Biological Sciences',
         quote: 'I uploaded my Biochemistry slides the night before my exam and ChewnPour turned them into clear, structured lessons. I finally understood enzyme kinetics and scored an A. This app is a lifesaver.',
         stars: 5,
+        avatarColor: 'bg-primary',
     },
     {
         name: 'Kwame Boateng',
@@ -41,6 +42,7 @@ const testimonials = [
         course: 'Mechanical Engineering',
         quote: 'The AI Tutor explained thermodynamics concepts better than any textbook I have read. I use it every single week now and my grades have gone from Cs to Bs consistently.',
         stars: 5,
+        avatarColor: 'bg-violet-500',
     },
     {
         name: 'Efua Owusu',
@@ -48,6 +50,7 @@ const testimonials = [
         course: 'Nursing',
         quote: 'The quizzes are so close to what actually comes in exams. I practised with ChewnPour for two weeks and my Anatomy score jumped from 52 to 78. Absolutely worth it.',
         stars: 5,
+        avatarColor: 'bg-emerald-500',
     },
     {
         name: 'Yaw Asante',
@@ -55,6 +58,7 @@ const testimonials = [
         course: 'Computer Science',
         quote: 'I was struggling with Data Structures until I started uploading my lecture notes here. The lessons break everything down step by step. It is like having a personal tutor available 24/7.',
         stars: 4,
+        avatarColor: 'bg-amber-500',
     },
     {
         name: 'Abena Darko',
@@ -62,6 +66,7 @@ const testimonials = [
         course: 'Political Science',
         quote: 'My friends thought I was joking when I said an app helped me study. Now the whole study group uses ChewnPour before every test. The AI-generated questions are spot on.',
         stars: 5,
+        avatarColor: 'bg-rose-500',
     },
     {
         name: 'Kofi Agyeman',
@@ -69,6 +74,7 @@ const testimonials = [
         course: 'Pharmacy',
         quote: 'Pharmacology has so much content to memorise. ChewnPour organises everything and the quizzes help me figure out what I actually know vs what I just think I know.',
         stars: 4,
+        avatarColor: 'bg-cyan-500',
     },
 ];
 
@@ -272,14 +278,14 @@ const LandingPage = () => {
                             <Link
                                 to="/signup"
                                 onClick={() => captureLandingEvent('landing_cta_clicked', { cta_name: 'hero_get_started' })}
-                                className="w-full sm:w-auto inline-flex h-13 items-center justify-center rounded-2xl bg-primary px-8 text-base font-bold text-white shadow-button hover:bg-primary-hover hover:shadow-button-hover hover:-translate-y-0.5 active:translate-y-0 transition-all duration-200"
+                                className="w-full sm:w-auto inline-flex h-12 items-center justify-center rounded-2xl bg-primary px-8 text-base font-bold text-white shadow-button hover:bg-primary-hover hover:shadow-button-hover hover:-translate-y-0.5 active:translate-y-0 transition-all duration-200"
                             >
                                 Get Started Free
                             </Link>
                             <a
                                 href="#features"
                                 onClick={() => captureLandingEvent('landing_cta_clicked', { cta_name: 'hero_see_features' })}
-                                className="w-full sm:w-auto inline-flex h-13 items-center justify-center gap-2 rounded-2xl px-8 text-base font-bold text-neutral-600 dark:text-neutral-300 hover:text-neutral-900 dark:hover:text-white hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-all duration-200"
+                                className="w-full sm:w-auto inline-flex h-12 items-center justify-center gap-2 rounded-2xl px-8 text-base font-bold text-neutral-600 dark:text-neutral-300 hover:text-neutral-900 dark:hover:text-white hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-all duration-200"
                             >
                                 Learn More
                                 <span className="material-symbols-outlined text-[20px]">arrow_downward</span>
@@ -419,11 +425,11 @@ const LandingPage = () => {
                                 Thousands of students are studying smarter with ChewnPour. Here is what they have to say.
                             </p>
                         </div>
-                        <div className="grid gap-5 md:grid-cols-2 max-w-4xl mx-auto">
+                        <div className="grid gap-5 md:grid-cols-2 max-w-4xl mx-auto items-stretch">
                             {testimonials.map((t) => (
                                 <div
                                     key={t.name}
-                                    className="p-6 md:p-7 rounded-2xl bg-neutral-50 dark:bg-neutral-800/50 border border-neutral-200/80 dark:border-neutral-800 shadow-card"
+                                    className="flex flex-col p-6 md:p-7 rounded-2xl bg-neutral-50 dark:bg-neutral-800/50 border border-neutral-200/80 dark:border-neutral-800 shadow-card"
                                 >
                                     <div className="flex items-center gap-1 mb-3">
                                         {Array.from({ length: 5 }).map((_, i) => (
@@ -439,14 +445,19 @@ const LandingPage = () => {
                                             </span>
                                         ))}
                                     </div>
-                                    <p className="text-sm text-neutral-600 dark:text-neutral-300 leading-relaxed mb-5">
+                                    <p className="flex-1 text-sm text-neutral-600 dark:text-neutral-300 leading-relaxed mb-5">
                                         &ldquo;{t.quote}&rdquo;
                                     </p>
-                                    <div>
-                                        <p className="text-sm font-bold text-neutral-900 dark:text-white">{t.name}</p>
-                                        <p className="text-xs text-neutral-500 dark:text-neutral-400">
-                                            {t.course} &middot; {t.university}
-                                        </p>
+                                    <div className="flex items-center gap-3">
+                                        <div className={`w-9 h-9 rounded-full flex items-center justify-center text-sm font-bold text-white flex-shrink-0 ${t.avatarColor}`}>
+                                            {t.name.charAt(0)}
+                                        </div>
+                                        <div>
+                                            <p className="text-sm font-bold text-neutral-900 dark:text-white">{t.name}</p>
+                                            <p className="text-xs text-neutral-500 dark:text-neutral-400">
+                                                {t.course} &middot; {t.university}
+                                            </p>
+                                        </div>
                                     </div>
                                 </div>
                             ))}
@@ -464,9 +475,9 @@ const LandingPage = () => {
                             Start free. Upgrade when you need more uploads.
                         </p>
                     </div>
-                    <div className="grid gap-5 md:grid-cols-2 lg:grid-cols-4 max-w-6xl mx-auto">
+                    <div className="grid gap-5 md:grid-cols-2 lg:grid-cols-4 max-w-6xl mx-auto pt-5">
                         {/* Free Plan */}
-                        <div className="p-7 md:p-8 rounded-2xl bg-white dark:bg-neutral-900 border border-neutral-200/80 dark:border-neutral-800 shadow-card">
+                        <div className="flex flex-col p-7 md:p-8 rounded-2xl bg-white dark:bg-neutral-900 border border-neutral-200/80 dark:border-neutral-800 shadow-card">
                             <div className="mb-5">
                                 <span className="inline-flex items-center px-2.5 py-1 rounded-lg text-[11px] font-bold uppercase tracking-widest bg-neutral-100 dark:bg-neutral-800 text-neutral-500 dark:text-neutral-400 mb-3">Free</span>
                                 <div className="flex items-baseline gap-1">
@@ -476,7 +487,7 @@ const LandingPage = () => {
                                     <span className="text-neutral-400 text-sm font-medium">/forever</span>
                                 </div>
                             </div>
-                            <ul className="space-y-3 mb-7">
+                            <ul className="flex-1 space-y-3 mb-7">
                                 {[
                                     '1 document upload',
                                     'AI-powered lessons',
@@ -500,7 +511,7 @@ const LandingPage = () => {
                         </div>
 
                         {/* Starter Top-up */}
-                        <div className="p-7 md:p-8 rounded-2xl bg-white dark:bg-neutral-900 border border-neutral-200/80 dark:border-neutral-800 shadow-card">
+                        <div className="flex flex-col p-7 md:p-8 rounded-2xl bg-white dark:bg-neutral-900 border border-neutral-200/80 dark:border-neutral-800 shadow-card">
                             <div className="mb-5">
                                 <span className="inline-flex items-center px-2.5 py-1 rounded-lg text-[11px] font-bold uppercase tracking-widest bg-primary/10 text-primary mb-3">Starter</span>
                                 <div className="flex items-baseline gap-1">
@@ -513,7 +524,7 @@ const LandingPage = () => {
                                     {formatPlanPrice(starterPlan.amountMajor / starterPlan.credits, starterPlan.currency)} per upload
                                 </p>
                             </div>
-                            <ul className="space-y-3 mb-7">
+                            <ul className="flex-1 space-y-3 mb-7">
                                 {[
                                     `+${starterPlan.credits} uploads`,
                                     'Everything in Free',
@@ -538,7 +549,7 @@ const LandingPage = () => {
                         </div>
 
                         {/* Max Top-up */}
-                        <div className="relative p-7 md:p-8 rounded-2xl bg-white dark:bg-neutral-900 border-2 border-primary/30 shadow-card">
+                        <div className="relative flex flex-col p-7 md:p-8 rounded-2xl bg-white dark:bg-neutral-900 border-2 border-primary/30 shadow-card">
                             <div className="absolute -top-3 left-1/2 -translate-x-1/2">
                                 <span className="px-3 py-1 bg-primary text-white text-[10px] font-bold uppercase tracking-widest rounded-full shadow-button">Popular</span>
                             </div>
@@ -561,7 +572,7 @@ const LandingPage = () => {
                                     )}
                                 </div>
                             </div>
-                            <ul className="space-y-3 mb-7">
+                            <ul className="flex-1 space-y-3 mb-7">
                                 {[
                                     `+${maxPlan.credits} uploads`,
                                     'Everything in Free',
@@ -586,7 +597,7 @@ const LandingPage = () => {
                         </div>
 
                         {/* Semester Pass */}
-                        <div className="relative p-7 md:p-8 rounded-2xl bg-gradient-to-br from-emerald-50 to-teal-50 dark:from-emerald-950/40 dark:to-teal-950/40 border-2 border-emerald-400/50 dark:border-emerald-500/30 shadow-card">
+                        <div className="relative flex flex-col p-7 md:p-8 rounded-2xl bg-gradient-to-br from-emerald-50 to-teal-50 dark:from-emerald-950/40 dark:to-teal-950/40 border-2 border-emerald-400/50 dark:border-emerald-500/30 shadow-card">
                             <div className="absolute -top-3 left-1/2 -translate-x-1/2">
                                 <span className="px-3 py-1 bg-emerald-500 text-white text-[10px] font-bold uppercase tracking-widest rounded-full shadow-sm">Best Value</span>
                             </div>
@@ -609,7 +620,7 @@ const LandingPage = () => {
                                     )}
                                 </div>
                             </div>
-                            <ul className="space-y-3 mb-7">
+                            <ul className="flex-1 space-y-3 mb-7">
                                 {[
                                     `+${semesterPlan.credits} uploads`,
                                     'Unlimited AI chat messages',

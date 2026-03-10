@@ -153,20 +153,20 @@ const Subscription = () => {
 
     return (
         <div className="bg-background-light dark:bg-background-dark min-h-screen px-4 py-10 pb-28 md:py-14 md:pb-14">
-            <div className="w-full max-w-3xl mx-auto rounded-3xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-xl overflow-hidden">
-                <div className="p-6 md:p-8 border-b border-slate-100 dark:border-slate-800 bg-gradient-to-r from-primary/10 to-blue-500/10">
+            <div className="w-full max-w-3xl mx-auto rounded-3xl border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 shadow-xl overflow-hidden">
+                <div className="p-6 md:p-8 border-b border-neutral-100 dark:border-neutral-800 bg-gradient-to-r from-primary/10 to-blue-500/10">
                     <Link
                         to={returnPath}
-                        className="inline-flex items-center gap-2 text-sm font-semibold text-slate-500 hover:text-primary transition-colors"
+                        className="inline-flex items-center gap-2 text-sm font-semibold text-neutral-500 hover:text-primary transition-colors"
                     >
                         <span className="material-symbols-outlined text-[20px]">arrow_back</span>
                         Back
                     </Link>
-                    <h1 className="mt-3 text-2xl md:text-3xl font-bold text-slate-900 dark:text-white">
-                        Upload Top-Up
+                    <h1 className="mt-3 text-2xl md:text-3xl font-bold text-neutral-900 dark:text-white">
+                        Choose Your Plan
                     </h1>
-                    <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">
-                        Free users get {freeLimit} upload{freeLimit === 1 ? '' : 's'}. Add credits anytime to increase your upload balance.
+                    <p className="mt-2 text-sm text-neutral-500 dark:text-neutral-400">
+                        Add uploads anytime. Semester Pass includes unlimited AI chat and 4 months of access.
                     </p>
                 </div>
 
@@ -178,28 +178,28 @@ const Subscription = () => {
                     )}
 
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                        <div className="rounded-2xl border border-slate-200 dark:border-slate-700 p-4">
-                            <p className="text-xs font-bold uppercase tracking-wider text-slate-400">Used</p>
-                            <p className="mt-1 text-2xl font-bold text-slate-900 dark:text-white">{consumed}</p>
+                        <div className="rounded-2xl border border-neutral-200 dark:border-neutral-700 p-4">
+                            <p className="text-xs font-bold uppercase tracking-wider text-neutral-400">Used</p>
+                            <p className="mt-1 text-2xl font-bold text-neutral-900 dark:text-white">{consumed}</p>
                         </div>
-                        <div className="rounded-2xl border border-slate-200 dark:border-slate-700 p-4">
-                            <p className="text-xs font-bold uppercase tracking-wider text-slate-400">Total Allowed</p>
-                            <p className="mt-1 text-2xl font-bold text-slate-900 dark:text-white">{totalAllowed}</p>
+                        <div className="rounded-2xl border border-neutral-200 dark:border-neutral-700 p-4">
+                            <p className="text-xs font-bold uppercase tracking-wider text-neutral-400">Total Allowed</p>
+                            <p className="mt-1 text-2xl font-bold text-neutral-900 dark:text-white">{totalAllowed}</p>
                         </div>
-                        <div className="rounded-2xl border border-slate-200 dark:border-slate-700 p-4">
-                            <p className="text-xs font-bold uppercase tracking-wider text-slate-400">Remaining</p>
+                        <div className="rounded-2xl border border-neutral-200 dark:border-neutral-700 p-4">
+                            <p className="text-xs font-bold uppercase tracking-wider text-neutral-400">Remaining</p>
                             <p className={`mt-1 text-2xl font-bold ${remaining === 0 ? 'text-red-500' : 'text-emerald-600'}`}>
                                 {remaining}
                             </p>
                         </div>
                     </div>
 
-                    <div className="rounded-2xl border border-slate-200 dark:border-slate-700 p-5 md:p-6 bg-slate-50 dark:bg-slate-800/50">
+                    <div className="rounded-2xl border border-neutral-200 dark:border-neutral-700 p-5 md:p-6 bg-neutral-50 dark:bg-neutral-800/50">
                         <div className="space-y-4">
                             <div>
-                                <p className="text-xs font-bold uppercase tracking-wider text-slate-400">Top-Up Plans</p>
+                                <p className="text-xs font-bold uppercase tracking-wider text-neutral-400">Top-Up Plans</p>
                             </div>
-                            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-3 pt-4 items-start">
                                 {topUpOptions.map((plan) => {
                                     const active = plan.id === selectedTopUpPlan?.id;
                                     const isSemester = plan.id === 'semester';
@@ -214,8 +214,8 @@ const Subscription = () => {
                                                     : active
                                                         ? 'border-primary bg-primary/10'
                                                         : isSemester
-                                                            ? 'border-emerald-300 dark:border-emerald-700 bg-white dark:bg-slate-900'
-                                                            : 'border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-900'
+                                                            ? 'border-emerald-300 dark:border-emerald-700 bg-white dark:bg-neutral-900'
+                                                            : 'border-neutral-200 dark:border-neutral-600 bg-white dark:bg-neutral-900'
                                             }`}
                                         >
                                             {isSemester && (
@@ -223,10 +223,10 @@ const Subscription = () => {
                                                     Best Value
                                                 </span>
                                             )}
-                                            <p className="text-lg font-bold text-slate-900 dark:text-white">
+                                            <p className="text-lg font-bold text-neutral-900 dark:text-white">
                                                 {formatPlanPrice(plan.amountMajor, plan.currency)}
                                             </p>
-                                            <p className="text-sm text-slate-500 dark:text-slate-400">
+                                            <p className="text-sm text-neutral-500 dark:text-neutral-400">
                                                 +{plan.credits} uploads
                                             </p>
                                             {isSemester && (
@@ -238,7 +238,7 @@ const Subscription = () => {
                                                         <span className="material-symbols-outlined text-[14px]">all_inclusive</span>
                                                         Unlimited AI chat
                                                     </p>
-                                                    <p className="text-[11px] text-slate-400 dark:text-slate-500">
+                                                    <p className="text-[11px] text-neutral-400 dark:text-neutral-500">
                                                         Valid for 4 months
                                                     </p>
                                                 </div>
@@ -248,10 +248,10 @@ const Subscription = () => {
                                 })}
                             </div>
                             <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
-                                <p className="text-sm text-slate-500 dark:text-slate-400">
+                                <p className="text-sm text-neutral-500 dark:text-neutral-400">
                                     Credits are added once per successful payment.
                                 </p>
-                                <div className="inline-flex items-center gap-2 text-xs font-bold text-slate-500">
+                                <div className="inline-flex items-center gap-2 text-xs font-bold text-neutral-500">
                                     <span className="material-symbols-outlined text-base">verified_user</span>
                                     Secured by Paystack
                                 </div>
@@ -265,9 +265,12 @@ const Subscription = () => {
                         disabled={loading || quota === undefined || !selectedTopUpPlan}
                         className="w-full h-14 rounded-2xl font-bold text-base transition-all disabled:cursor-not-allowed bg-gradient-to-r from-primary to-blue-600 text-white shadow-lg shadow-primary/20 hover:shadow-xl hover:shadow-primary/25"
                     >
-                        {loading
-                            ? 'Redirecting to Paystack...'
-                            : `Pay ${formatPlanPrice(selectedTopUpPlan?.amountMajor || 0, selectedTopUpPlan?.currency || currency)} and get +${selectedTopUpPlan?.credits || 0} uploads`}
+                        {loading ? (
+                            <>
+                                <span className="material-symbols-outlined text-[18px] animate-spin mr-2">progress_activity</span>
+                                Redirecting to Paystack...
+                            </>
+                        ) : `Pay ${formatPlanPrice(selectedTopUpPlan?.amountMajor || 0, selectedTopUpPlan?.currency || currency)} and get +${selectedTopUpPlan?.credits || 0} uploads`}
                     </button>
                 </div>
             </div>

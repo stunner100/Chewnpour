@@ -126,6 +126,7 @@ const DashboardAnalysis = () => {
     const [uploadError, setUploadError] = useState('');
     const [deleteError, setDeleteError] = useState('');
     const [deletingCourseId, setDeletingCourseId] = useState('');
+    const [confirmDeleteId, setConfirmDeleteId] = useState(null);
     const [searchQuery, setSearchQuery] = useState('');
     const [showAllCourses, setShowAllCourses] = useState(false);
     const [streakToastMessage, setStreakToastMessage] = useState('');
@@ -555,11 +556,6 @@ const DashboardAnalysis = () => {
     const handleDeleteCourse = async (course) => {
         if (!course?._id || !userId) return;
 
-        const confirmed = window.confirm(
-            `Delete "${course.title}"? This will permanently remove the course, topics, and attempts.`
-        );
-        if (!confirmed) return;
-
         setDeleteError('');
         setDeletingCourseId(String(course._id));
 
@@ -854,21 +850,39 @@ const DashboardAnalysis = () => {
                                             className="group flex flex-col bg-white dark:bg-surface-dark rounded-2xl overflow-hidden shadow-sm border border-neutral-200/60 dark:border-neutral-800 hover:shadow-xl hover:shadow-slate-200/30 dark:hover:shadow-black/30 hover:-translate-y-1 transition-shadow duration-300 cursor-pointer h-full"
                                         >
                                             <div className="relative w-full aspect-[16/10] overflow-hidden bg-neutral-100 dark:bg-neutral-800">
-                                                <button
-                                                    onClick={(event) => {
-                                                        event.preventDefault();
-                                                        event.stopPropagation();
-                                                        handleDeleteCourse(course);
-                                                    }}
-                                                    disabled={deletingCourseId === String(course._id)}
-                                                    className="absolute top-2 right-2 z-20 inline-flex h-8 w-8 items-center justify-center rounded-full bg-white/90 dark:bg-neutral-900/90 border border-neutral-200 dark:border-neutral-700 text-neutral-500 hover:text-red-500 hover:border-red-200 shadow-sm opacity-0 group-hover:opacity-100 transition-opacity disabled:opacity-60"
-                                                    title="Delete course"
-                                                    aria-label={`Delete ${course.title}`}
-                                                >
-                                                    <span className="material-symbols-outlined text-[18px]">
-                                                        {deletingCourseId === String(course._id) ? 'hourglass_empty' : 'delete'}
-                                                    </span>
-                                                </button>
+                                                {confirmDeleteId === course._id ? (
+                                                    <div
+                                                        onClick={(event) => { event.preventDefault(); event.stopPropagation(); }}
+                                                        className="absolute top-2 right-2 z-20 flex items-center gap-2 bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-800 rounded-xl px-3 py-2 shadow-sm"
+                                                    >
+                                                        <span className="text-xs text-red-600 dark:text-red-400 font-medium">Delete?</span>
+                                                        <button
+                                                            onClick={() => { handleDeleteCourse(course); setConfirmDeleteId(null); }}
+                                                            disabled={deletingCourseId === String(course._id)}
+                                                            className="text-xs font-bold text-red-600 dark:text-red-400 hover:text-red-700 px-2 py-0.5 rounded-lg hover:bg-red-100 dark:hover:bg-red-900/40 transition-colors disabled:opacity-60"
+                                                        >Yes</button>
+                                                        <button
+                                                            onClick={() => setConfirmDeleteId(null)}
+                                                            className="text-xs text-neutral-500 hover:text-neutral-700 dark:hover:text-neutral-300 px-2 py-0.5 rounded-lg hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors"
+                                                        >Cancel</button>
+                                                    </div>
+                                                ) : (
+                                                    <button
+                                                        onClick={(event) => {
+                                                            event.preventDefault();
+                                                            event.stopPropagation();
+                                                            setConfirmDeleteId(course._id);
+                                                        }}
+                                                        disabled={deletingCourseId === String(course._id)}
+                                                        className="absolute top-2 right-2 z-20 inline-flex h-8 w-8 items-center justify-center rounded-full bg-white/90 dark:bg-neutral-900/90 border border-neutral-200 dark:border-neutral-700 text-neutral-500 hover:text-red-500 hover:border-red-200 shadow-sm opacity-0 group-hover:opacity-100 transition-opacity disabled:opacity-60"
+                                                        title="Delete course"
+                                                        aria-label={`Delete ${course.title}`}
+                                                    >
+                                                        <span className="material-symbols-outlined text-[18px]">
+                                                            {deletingCourseId === String(course._id) ? 'hourglass_empty' : 'delete'}
+                                                        </span>
+                                                    </button>
+                                                )}
                                                 <div
                                                     className="w-full h-full flex items-center justify-center transition-transform duration-500 group-hover:scale-105"
                                                     style={{ background: course.coverColor || gradients[index % gradients.length] }}
