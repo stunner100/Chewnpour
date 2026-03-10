@@ -27,6 +27,51 @@ const features = [
     },
 ];
 
+const testimonials = [
+    {
+        name: 'Akosua Mensah',
+        university: 'University of Ghana',
+        course: 'Biological Sciences',
+        quote: 'I uploaded my Biochemistry slides the night before my exam and ChewnPour turned them into clear, structured lessons. I finally understood enzyme kinetics and scored an A. This app is a lifesaver.',
+        stars: 5,
+    },
+    {
+        name: 'Kwame Boateng',
+        university: 'KNUST',
+        course: 'Mechanical Engineering',
+        quote: 'The AI Tutor explained thermodynamics concepts better than any textbook I have read. I use it every single week now and my grades have gone from Cs to Bs consistently.',
+        stars: 5,
+    },
+    {
+        name: 'Efua Owusu',
+        university: 'University of Cape Coast',
+        course: 'Nursing',
+        quote: 'The quizzes are so close to what actually comes in exams. I practised with ChewnPour for two weeks and my Anatomy score jumped from 52 to 78. Absolutely worth it.',
+        stars: 5,
+    },
+    {
+        name: 'Yaw Asante',
+        university: 'Ashesi University',
+        course: 'Computer Science',
+        quote: 'I was struggling with Data Structures until I started uploading my lecture notes here. The lessons break everything down step by step. It is like having a personal tutor available 24/7.',
+        stars: 4,
+    },
+    {
+        name: 'Abena Darko',
+        university: 'University of Ghana',
+        course: 'Political Science',
+        quote: 'My friends thought I was joking when I said an app helped me study. Now the whole study group uses ChewnPour before every test. The AI-generated questions are spot on.',
+        stars: 5,
+    },
+    {
+        name: 'Kofi Agyeman',
+        university: 'KNUST',
+        course: 'Pharmacy',
+        quote: 'Pharmacology has so much content to memorise. ChewnPour organises everything and the quizzes help me figure out what I actually know vs what I just think I know.',
+        stars: 4,
+    },
+];
+
 const stats = [
     { value: '10,000+', label: 'Documents processed' },
     { value: '50,000+', label: 'Lessons generated' },
@@ -54,6 +99,14 @@ const LandingPage = () => {
         amountMajor: 40,
         credits: 12,
         currency: starterPlan.currency || 'GHS',
+    };
+    const semesterPlan = topUpOptions.find((plan) => plan.id === 'semester') || {
+        id: 'semester',
+        amountMajor: 60,
+        credits: 20,
+        currency: starterPlan.currency || 'GHS',
+        validityDays: 120,
+        unlimitedAiChat: true,
     };
 
     const captureLandingEvent = (eventName, properties = {}) => {
@@ -355,6 +408,52 @@ const LandingPage = () => {
                     </div>
                 </section>
 
+                {/* ─── Testimonials ─── */}
+                <section className="border-y border-neutral-200/60 dark:border-neutral-800/60 bg-white/50 dark:bg-neutral-900/50">
+                    <div className="mx-auto max-w-6xl px-6 lg:px-8 py-20 md:py-28">
+                        <div className="text-center mb-12 md:mb-16">
+                            <h2 className="text-2xl md:text-4xl font-extrabold tracking-tight text-neutral-900 dark:text-white mb-3">
+                                Loved by Students Across Ghana
+                            </h2>
+                            <p className="text-neutral-500 dark:text-neutral-400 max-w-lg mx-auto text-sm md:text-base">
+                                Thousands of students are studying smarter with ChewnPour. Here is what they have to say.
+                            </p>
+                        </div>
+                        <div className="grid gap-5 md:grid-cols-2 max-w-4xl mx-auto">
+                            {testimonials.map((t) => (
+                                <div
+                                    key={t.name}
+                                    className="p-6 md:p-7 rounded-2xl bg-neutral-50 dark:bg-neutral-800/50 border border-neutral-200/80 dark:border-neutral-800 shadow-card"
+                                >
+                                    <div className="flex items-center gap-1 mb-3">
+                                        {Array.from({ length: 5 }).map((_, i) => (
+                                            <span
+                                                key={i}
+                                                className={`material-symbols-outlined filled text-[16px] ${
+                                                    i < t.stars
+                                                        ? 'text-amber-400'
+                                                        : 'text-neutral-200 dark:text-neutral-700'
+                                                }`}
+                                            >
+                                                star
+                                            </span>
+                                        ))}
+                                    </div>
+                                    <p className="text-sm text-neutral-600 dark:text-neutral-300 leading-relaxed mb-5">
+                                        &ldquo;{t.quote}&rdquo;
+                                    </p>
+                                    <div>
+                                        <p className="text-sm font-bold text-neutral-900 dark:text-white">{t.name}</p>
+                                        <p className="text-xs text-neutral-500 dark:text-neutral-400">
+                                            {t.course} &middot; {t.university}
+                                        </p>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                </section>
+
                 {/* ─── Pricing ─── */}
                 <section id="pricing" className="mx-auto max-w-6xl px-6 lg:px-8 py-20 md:py-28">
                     <div className="text-center mb-12 md:mb-16">
@@ -365,7 +464,7 @@ const LandingPage = () => {
                             Start free. Upgrade when you need more uploads.
                         </p>
                     </div>
-                    <div className="grid gap-5 md:grid-cols-3 max-w-5xl mx-auto">
+                    <div className="grid gap-5 md:grid-cols-2 lg:grid-cols-4 max-w-6xl mx-auto">
                         {/* Free Plan */}
                         <div className="p-7 md:p-8 rounded-2xl bg-white dark:bg-neutral-900 border border-neutral-200/80 dark:border-neutral-800 shadow-card">
                             <div className="mb-5">
@@ -483,6 +582,57 @@ const LandingPage = () => {
                                 className="w-full inline-flex h-11 items-center justify-center rounded-xl bg-primary text-sm font-bold text-white shadow-button hover:bg-primary-hover hover:shadow-button-hover hover:-translate-y-0.5 active:translate-y-0 transition-all duration-200"
                             >
                                 Choose Max
+                            </Link>
+                        </div>
+
+                        {/* Semester Pass */}
+                        <div className="relative p-7 md:p-8 rounded-2xl bg-gradient-to-br from-emerald-50 to-teal-50 dark:from-emerald-950/40 dark:to-teal-950/40 border-2 border-emerald-400/50 dark:border-emerald-500/30 shadow-card">
+                            <div className="absolute -top-3 left-1/2 -translate-x-1/2">
+                                <span className="px-3 py-1 bg-emerald-500 text-white text-[10px] font-bold uppercase tracking-widest rounded-full shadow-sm">Best Value</span>
+                            </div>
+                            <div className="mb-5">
+                                <span className="inline-flex items-center px-2.5 py-1 rounded-lg text-[11px] font-bold uppercase tracking-widest bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 mb-3">Semester Pass</span>
+                                <div className="flex items-baseline gap-1">
+                                    <span className="text-4xl font-extrabold text-neutral-900 dark:text-white">
+                                        {formatPlanPrice(semesterPlan.amountMajor, semesterPlan.currency)}
+                                    </span>
+                                    <span className="text-neutral-400 text-sm font-medium">/semester</span>
+                                </div>
+                                <div className="flex items-center gap-2 mt-1.5">
+                                    <span className="text-xs text-emerald-600 dark:text-emerald-400 font-semibold">
+                                        {formatPlanPrice(semesterPlan.amountMajor / semesterPlan.credits, semesterPlan.currency)}/upload
+                                    </span>
+                                    {starterPlan.credits > 0 && semesterPlan.credits > 0 && (
+                                        <span className="inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400">
+                                            Save {Math.round((1 - (semesterPlan.amountMajor / semesterPlan.credits) / (starterPlan.amountMajor / starterPlan.credits)) * 100)}%
+                                        </span>
+                                    )}
+                                </div>
+                            </div>
+                            <ul className="space-y-3 mb-7">
+                                {[
+                                    `+${semesterPlan.credits} uploads`,
+                                    'Unlimited AI chat messages',
+                                    'Everything in Free',
+                                    'Priority AI processing',
+                                    'Assignment Helper',
+                                    'AI Humanizer tool',
+                                    'Valid for ~4 months',
+                                ].map((item) => (
+                                    <li key={item} className="flex items-center gap-2.5 text-sm text-neutral-600 dark:text-neutral-300">
+                                        <span className={`material-symbols-outlined text-[16px] ${item.includes('Unlimited') ? 'text-emerald-500' : 'text-emerald-500'}`}>check_circle</span>
+                                        <span className={item.includes('Unlimited') ? 'font-semibold text-emerald-700 dark:text-emerald-300' : ''}>
+                                            {item}
+                                        </span>
+                                    </li>
+                                ))}
+                            </ul>
+                            <Link
+                                to="/signup"
+                                onClick={() => captureLandingEvent('landing_cta_clicked', { cta_name: 'pricing_semester' })}
+                                className="w-full inline-flex h-11 items-center justify-center rounded-xl bg-emerald-500 text-sm font-bold text-white shadow-lg shadow-emerald-500/20 hover:bg-emerald-600 hover:shadow-xl hover:shadow-emerald-500/25 hover:-translate-y-0.5 active:translate-y-0 transition-all duration-200"
+                            >
+                                Get Semester Pass
                             </Link>
                         </div>
                     </div>

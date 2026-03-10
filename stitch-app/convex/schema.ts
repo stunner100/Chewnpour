@@ -14,7 +14,27 @@ export default defineSchema({
         onboardingCompleted: v.optional(v.boolean()),
         streakDays: v.optional(v.number()),
         totalStudyHours: v.optional(v.number()),
-    }).index("by_userId", ["userId"]),
+        // Email notification preferences (all default to true / opted-in)
+        emailPreferences: v.optional(v.object({
+            streakReminders: v.boolean(),
+            streakBroken: v.boolean(),
+            weeklySummary: v.boolean(),
+        })),
+        // Token for one-click email unsubscribe
+        emailUnsubscribeToken: v.optional(v.string()),
+        // Referral program
+        referralCode: v.optional(v.string()), // unique 6-char alphanumeric code
+        referredBy: v.optional(v.string()), // referral code of the user who referred this user
+        referralCreditApplied: v.optional(v.boolean()), // true once first-upload referral credit was granted
+    }).index("by_userId", ["userId"])
+      .index("by_referralCode", ["referralCode"]),
+
+    // Tracks sent emails to avoid duplicate sends within a window
+    emailLog: defineTable({
+        userId: v.string(),
+        emailType: v.string(), // 'streak_at_risk' | 'streak_broken' | 'weekly_summary'
+        sentAt: v.number(),
+    }).index("by_userId_emailType", ["userId", "emailType"]),
 
     // Uploaded study materials
     uploads: defineTable({
@@ -215,6 +235,8 @@ export default defineSchema({
         consumedReExplanations: v.optional(v.number()),
         lastPaymentReference: v.optional(v.string()),
         lastPaymentAt: v.optional(v.number()),
+        planExpiresAt: v.optional(v.number()), // Timestamp (ms) when semester pass expires
+        lastTopUpPlanId: v.optional(v.string()), // ID of the last purchased top-up plan
     }).index("by_userId", ["userId"]),
 
     humanizerUsage: defineTable({

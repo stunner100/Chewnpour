@@ -1,11 +1,13 @@
 import React from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 
 const SignUp = () => {
     const { signInWithGoogle } = useAuth();
     const [loading, setLoading] = React.useState(false);
     const [error, setError] = React.useState('');
+    const [searchParams] = useSearchParams();
+    const refCode = searchParams.get('ref') || '';
 
     const resolveGoogleErrorMessage = (authError) => {
         const fallbackMessage = 'Failed to continue with Google';
@@ -25,6 +27,10 @@ const SignUp = () => {
     const handleGoogleSignIn = async () => {
         setError('');
         setLoading(true);
+        // Persist referral code so it survives the OAuth redirect
+        if (refCode) {
+            try { sessionStorage.setItem('pending_referral_code', refCode.trim().toUpperCase()); } catch {}
+        }
         try {
             const { error: signInError } = await signInWithGoogle();
             if (signInError) {
@@ -63,6 +69,13 @@ const SignUp = () => {
                         </p>
                     </div>
 
+                    {refCode && (
+                        <div className="mb-6 rounded-2xl border border-emerald-200 dark:border-emerald-800 bg-emerald-50 dark:bg-emerald-900/20 p-4 text-sm font-medium text-emerald-700 dark:text-emerald-300 text-center flex items-center justify-center gap-2 animate-scale-in">
+                            <span className="text-lg">🎁</span>
+                            <span>You were referred! Sign up and upload to earn a free credit.</span>
+                        </div>
+                    )}
+
                     {error && (
                         <div className="mb-6 rounded-2xl border border-secondary/20 bg-secondary/10 p-4 text-sm font-medium text-secondary animate-scale-in">
                             {error}
@@ -93,7 +106,7 @@ const SignUp = () => {
                             </div>
                         </div>
 
-                        <Link to="/onboarding/name" className="group btn-primary h-14 flex items-center justify-center gap-3 text-base">
+                        <Link to={`/onboarding/name${refCode ? `?ref=${encodeURIComponent(refCode)}` : ''}`} className="group btn-primary h-14 flex items-center justify-center gap-3 text-base">
                             <span className="material-symbols-outlined text-[22px] group-hover:scale-110 transition-transform">mail</span>
                             <span>Continue with Email</span>
                         </Link>

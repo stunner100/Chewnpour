@@ -27,6 +27,7 @@ const toNonNegativeInt = (value, fallback = 0) => {
 const DEFAULT_TOP_UP_OPTIONS = [
     { id: 'starter', amountMajor: 20, credits: 5, currency: 'GHS' },
     { id: 'max', amountMajor: 40, credits: 12, currency: 'GHS' },
+    { id: 'semester', amountMajor: 60, credits: 20, currency: 'GHS', validityDays: 120, unlimitedAiChat: true },
 ];
 
 const Subscription = () => {
@@ -198,26 +199,50 @@ const Subscription = () => {
                             <div>
                                 <p className="text-xs font-bold uppercase tracking-wider text-slate-400">Top-Up Plans</p>
                             </div>
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                                 {topUpOptions.map((plan) => {
                                     const active = plan.id === selectedTopUpPlan?.id;
+                                    const isSemester = plan.id === 'semester';
                                     return (
                                         <button
                                             key={plan.id}
                                             type="button"
                                             onClick={() => setSelectedPlanId(plan.id)}
-                                            className={`rounded-xl border px-4 py-3 text-left transition-colors ${
-                                                active
-                                                    ? 'border-primary bg-primary/10'
-                                                    : 'border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-900'
+                                            className={`relative rounded-xl border px-4 py-3 text-left transition-colors ${
+                                                isSemester && active
+                                                    ? 'border-emerald-500 bg-emerald-500/10 ring-1 ring-emerald-500/30'
+                                                    : active
+                                                        ? 'border-primary bg-primary/10'
+                                                        : isSemester
+                                                            ? 'border-emerald-300 dark:border-emerald-700 bg-white dark:bg-slate-900'
+                                                            : 'border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-900'
                                             }`}
                                         >
+                                            {isSemester && (
+                                                <span className="absolute -top-2.5 right-3 px-2 py-0.5 bg-emerald-500 text-white text-[10px] font-bold uppercase tracking-widest rounded-full shadow-sm">
+                                                    Best Value
+                                                </span>
+                                            )}
                                             <p className="text-lg font-bold text-slate-900 dark:text-white">
                                                 {formatPlanPrice(plan.amountMajor, plan.currency)}
                                             </p>
                                             <p className="text-sm text-slate-500 dark:text-slate-400">
                                                 +{plan.credits} uploads
                                             </p>
+                                            {isSemester && (
+                                                <div className="mt-1.5 space-y-0.5">
+                                                    <p className="text-xs text-emerald-600 dark:text-emerald-400 font-semibold">
+                                                        {formatPlanPrice(plan.amountMajor / plan.credits, plan.currency)}/upload
+                                                    </p>
+                                                    <p className="text-xs text-emerald-600 dark:text-emerald-400 font-medium flex items-center gap-1">
+                                                        <span className="material-symbols-outlined text-[14px]">all_inclusive</span>
+                                                        Unlimited AI chat
+                                                    </p>
+                                                    <p className="text-[11px] text-slate-400 dark:text-slate-500">
+                                                        Valid for 4 months
+                                                    </p>
+                                                </div>
+                                            )}
                                         </button>
                                     );
                                 })}

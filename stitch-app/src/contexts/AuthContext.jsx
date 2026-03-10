@@ -363,6 +363,19 @@ const AuthProviderConvex = ({ children }) => {
 
     const upsertProfile = useMutation(api.profiles.upsertProfile);
     const touchPresence = useMutation(api.profiles.touchPresence);
+    const setReferredByMutation = useMutation(api.profiles.setReferredBy);
+
+    // Apply pending referral code (from Google OAuth redirect) once profile is ready
+    useEffect(() => {
+        if (!sessionUser?.id || !profileData) return;
+        // Only apply if profile has no referredBy yet
+        if (profileData.referredBy) return;
+        let pendingRef;
+        try { pendingRef = sessionStorage.getItem('pending_referral_code'); } catch { return; }
+        if (!pendingRef) return;
+        try { sessionStorage.removeItem('pending_referral_code'); } catch {}
+        setReferredByMutation({ userId: sessionUser.id, referralCode: pendingRef }).catch(() => {});
+    }, [sessionUser?.id, profileData, setReferredByMutation]);
 
     useEffect(() => {
         const activeUserId = sessionUser?.id;

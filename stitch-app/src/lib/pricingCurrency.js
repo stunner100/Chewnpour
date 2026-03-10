@@ -3,6 +3,7 @@ const DEFAULT_PRICING_CURRENCY = 'GHS';
 const DEFAULT_TOP_UP_OPTIONS = [
     { id: 'starter', amountMajor: 20, credits: 5, currency: DEFAULT_PRICING_CURRENCY },
     { id: 'max', amountMajor: 40, credits: 12, currency: DEFAULT_PRICING_CURRENCY },
+    { id: 'semester', amountMajor: 60, credits: 20, currency: DEFAULT_PRICING_CURRENCY, validityDays: 120, unlimitedAiChat: true },
 ];
 
 const toPositiveAmount = (value, fallback = 0) => {
@@ -27,12 +28,15 @@ export const normalizeTopUpOptions = (value) => {
             const amountMajor = toPositiveAmount(item?.amountMajor, 0);
             const credits = Math.max(0, Math.floor(toPositiveAmount(item?.credits, 0)));
             if (!id || amountMajor <= 0 || credits <= 0) return null;
-            return {
+            const plan = {
                 id,
                 amountMajor,
                 credits,
                 currency: DEFAULT_PRICING_CURRENCY,
             };
+            if (item?.validityDays) plan.validityDays = item.validityDays;
+            if (item?.unlimitedAiChat) plan.unlimitedAiChat = true;
+            return plan;
         })
         .filter(Boolean);
 

@@ -1,7 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
-import { useQuery } from 'convex/react';
+import { useQuery, useMutation } from 'convex/react';
 import { api } from '../../convex/_generated/api';
 import StatsDetailModal from '../components/StatsDetailModal';
 import ExamActionModal from '../components/ExamActionModal';
@@ -16,6 +16,11 @@ const Profile = () => {
     const [voiceSaving, setVoiceSaving] = useState(false);
     const [voiceError, setVoiceError] = useState('');
     const [darkModeEnabled, setDarkModeEnabled] = useState(() => isDarkModeEnabled());
+    const [emailPrefSaving, setEmailPrefSaving] = useState(null); // key being saved
+
+    const updateEmailPreferences = useMutation(api.profiles.updateEmailPreferences);
+    const ensureReferralCode = useMutation(api.profiles.ensureReferralCode);
+    const [referralCopied, setReferralCopied] = useState(false);
 
     // Modal states
     const [statsModal, setStatsModal] = useState({ open: false, type: null });
@@ -29,6 +34,14 @@ const Profile = () => {
     const stats = useQuery(api.profiles.getUserStats, userId ? { userId } : 'skip');
     const subscription = useQuery(api.subscriptions.getSubscription, userId ? { userId } : 'skip');
     const examAttempts = useQuery(api.exams.getUserExamAttempts, userId ? { userId } : 'skip');
+    const referralStats = useQuery(api.profiles.getReferralStats, userId ? { userId } : 'skip');
+
+    // Ensure user has a referral code on profile load
+    useEffect(() => {
+        if (userId && profile && !profile.referralCode) {
+            ensureReferralCode({ userId }).catch(() => {});
+        }
+    }, [userId, profile, ensureReferralCode]);
 
     const handleLogout = async () => {
         await signOut();
@@ -123,6 +136,62 @@ const Profile = () => {
     const handleDarkModeToggle = () => {
         const nextTheme = toggleThemePreference();
         setDarkModeEnabled(nextTheme === 'dark');
+    };
+
+    const referralCode = referralStats?.referralCode || profile?.referralCode || '';
+    const referralLink = referralCode ? `https://www.chewnpour.com/signup?ref=${referralCode}` : '';
+
+    const handleCopyReferralLink = useCallback(async () => {
+        if (!referralLink) return;
+        try {
+            await navigator.clipboard.writeText(referralLink);
+            setReferralCopied(true);
+            setTimeout(() => setReferralCopied(false), 2000);
+        } catch {
+            // Fallback for older browsers
+            const textArea = document.createElement('textarea');
+            textArea.value = referralLink;
+            textArea.style.position = 'fixed';
+            textArea.style.opacity = '0';
+            document.body.appendChild(textArea);
+            textArea.select();
+            document.execCommand('copy');
+            document.body.removeChild(textArea);
+            setReferralCopied(true);
+            setTimeout(() => setReferralCopied(false), 2000);
+        }
+    }, [referralLink]);
+
+    const handleShareWhatsApp = useCallback(() => {
+        if (!referralLink) return;
+        const text = `Hey! Join me on Chew & Pour - the AI study app for Ghanaian students. Upload your notes and get AI-generated lessons and quizzes. Sign up with my link and we both get a free upload credit!\n\n${referralLink}`;
+        window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank');
+    }, [referralLink]);
+
+    const handleShareTelegram = useCallback(() => {
+        if (!referralLink) return;
+        const text = `Hey! Join me on Chew & Pour - the AI study app for Ghanaian students. Upload your notes and get AI-generated lessons and quizzes. Sign up with my link and we both get a free upload credit!`;
+        window.open(`https://t.me/share/url?url=${encodeURIComponent(referralLink)}&text=${encodeURIComponent(text)}`, '_blank');
+    }, [referralLink]);
+
+    const emailPrefs = profile?.emailPreferences ?? {
+        streakReminders: true,
+        streakBroken: true,
+        weeklySummary: true,
+    };
+
+    const handleEmailPrefToggle = async (key) => {
+        if (!userId || emailPrefSaving) return;
+        setEmailPrefSaving(key);
+        try {
+            await updateEmailPreferences({
+                userId,
+                [key]: !emailPrefs[key],
+            });
+        } catch (err) {
+            console.error('Failed to update email preference', err);
+        }
+        setEmailPrefSaving(null);
     };
 
     return (
@@ -290,6 +359,86 @@ const Profile = () => {
                     )}
                 </div>
 
+                {/* Referral Program */}
+                <div>
+                    <h3 className="text-base font-bold text-neutral-900 dark:text-white mb-3">Refer a Friend</h3>
+                    <div className="p-5 bg-white dark:bg-surface-dark rounded-2xl border border-neutral-100 dark:border-neutral-800 shadow-sm space-y-4">
+                        <div className="flex items-start gap-4">
+                            <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-emerald-400 to-cyan-500 text-white flex items-center justify-center shadow-lg shadow-emerald-500/20 shrink-0">
+                                <span className="material-symbols-outlined filled text-xl">card_giftcard</span>
+                            </div>
+                            <div className="flex-1 min-w-0">
+                                <p className="font-bold text-neutral-900 dark:text-white text-sm">Earn free upload credits</p>
+                                <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-0.5">
+                                    Share your link. When a friend signs up and uploads their first document, you both get +1 free credit.
+                                </p>
+                            </div>
+                        </div>
+
+                        {/* Referral Link */}
+                        {referralLink && (
+                            <div className="flex items-center gap-2">
+                                <div className="flex-1 min-w-0 h-11 px-4 bg-neutral-50 dark:bg-neutral-800 rounded-xl border border-neutral-200 dark:border-neutral-700 flex items-center">
+                                    <p className="text-xs font-mono text-neutral-600 dark:text-neutral-300 truncate">
+                                        {referralLink}
+                                    </p>
+                                </div>
+                                <button
+                                    onClick={handleCopyReferralLink}
+                                    className={`h-11 px-4 rounded-xl text-sm font-bold transition-all flex items-center gap-1.5 shrink-0 ${
+                                        referralCopied
+                                            ? 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400'
+                                            : 'bg-primary text-white hover:bg-primary-hover shadow-lg shadow-primary/25 hover:-translate-y-0.5 active:scale-95'
+                                    }`}
+                                >
+                                    <span className="material-symbols-outlined text-[18px]">
+                                        {referralCopied ? 'check' : 'content_copy'}
+                                    </span>
+                                    {referralCopied ? 'Copied' : 'Copy'}
+                                </button>
+                            </div>
+                        )}
+
+                        {/* Share Buttons */}
+                        {referralLink && (
+                            <div className="flex gap-2">
+                                <button
+                                    onClick={handleShareWhatsApp}
+                                    className="flex-1 h-11 rounded-xl bg-[#25D366] hover:bg-[#20BD5A] text-white text-sm font-bold transition-all hover:-translate-y-0.5 active:scale-95 flex items-center justify-center gap-2 shadow-lg shadow-[#25D366]/25"
+                                >
+                                    <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
+                                        <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/>
+                                    </svg>
+                                    WhatsApp
+                                </button>
+                                <button
+                                    onClick={handleShareTelegram}
+                                    className="flex-1 h-11 rounded-xl bg-[#0088cc] hover:bg-[#0077b5] text-white text-sm font-bold transition-all hover:-translate-y-0.5 active:scale-95 flex items-center justify-center gap-2 shadow-lg shadow-[#0088cc]/25"
+                                >
+                                    <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
+                                        <path d="M11.944 0A12 12 0 0 0 0 12a12 12 0 0 0 12 12 12 12 0 0 0 12-12A12 12 0 0 0 12 0a12 12 0 0 0-.056 0zm4.962 7.224c.1-.002.321.023.465.14a.506.506 0 0 1 .171.325c.016.093.036.306.02.472-.18 1.898-.962 6.502-1.36 8.627-.168.9-.499 1.201-.82 1.23-.696.065-1.225-.46-1.9-.902-1.056-.693-1.653-1.124-2.678-1.8-1.185-.78-.417-1.21.258-1.91.177-.184 3.247-2.977 3.307-3.23.007-.032.014-.15-.056-.212s-.174-.041-.249-.024c-.106.024-1.793 1.14-5.061 3.345-.48.33-.913.49-1.302.48-.428-.008-1.252-.241-1.865-.44-.752-.245-1.349-.374-1.297-.789.027-.216.325-.437.893-.663 3.498-1.524 5.83-2.529 6.998-3.014 3.332-1.386 4.025-1.627 4.476-1.635z"/>
+                                    </svg>
+                                    Telegram
+                                </button>
+                            </div>
+                        )}
+
+                        {/* Referral Stats */}
+                        {referralStats && (
+                            <div className="flex gap-3 pt-2 border-t border-neutral-100 dark:border-neutral-800">
+                                <div className="flex-1 text-center p-3 bg-neutral-50 dark:bg-neutral-800/50 rounded-xl">
+                                    <p className="text-lg font-bold text-neutral-900 dark:text-white">{referralStats.successfulReferrals}</p>
+                                    <p className="text-[10px] font-bold uppercase tracking-wider text-neutral-400">Referrals</p>
+                                </div>
+                                <div className="flex-1 text-center p-3 bg-neutral-50 dark:bg-neutral-800/50 rounded-xl">
+                                    <p className="text-lg font-bold text-emerald-600 dark:text-emerald-400">+{referralStats.creditsEarned}</p>
+                                    <p className="text-[10px] font-bold uppercase tracking-wider text-neutral-400">Credits Earned</p>
+                                </div>
+                            </div>
+                        )}
+                    </div>
+                </div>
+
                 {/* Quick Access Grid */}
                 <div>
                     <h3 className="text-base font-bold text-neutral-900 dark:text-white mb-3">Quick Access</h3>
@@ -393,6 +542,84 @@ const Profile = () => {
                                     <span
                                         className={`absolute top-1 left-1 w-5 h-5 rounded-full bg-white shadow transition-transform ${darkModeEnabled ? 'translate-x-5' : ''}`}
                                     />
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                {/* Email Notifications */}
+                <div>
+                    <h3 className="text-base font-bold text-neutral-900 dark:text-white mb-3">Email Notifications</h3>
+                    <div className="space-y-3">
+                        {/* Streak Reminders */}
+                        <div className="p-4 bg-white dark:bg-surface-dark rounded-2xl border border-neutral-100 dark:border-neutral-800 shadow-sm">
+                            <div className="flex items-center justify-between gap-4">
+                                <div className="flex items-center gap-3">
+                                    <div className="w-10 h-10 rounded-xl bg-amber-50 dark:bg-amber-900/20 text-amber-500 flex items-center justify-center">
+                                        <span className="material-symbols-outlined filled">local_fire_department</span>
+                                    </div>
+                                    <div>
+                                        <p className="font-bold text-neutral-900 dark:text-white text-sm">Streak Reminders</p>
+                                        <p className="text-xs text-neutral-400">Get notified when your streak is at risk</p>
+                                    </div>
+                                </div>
+                                <button
+                                    onClick={() => handleEmailPrefToggle('streakReminders')}
+                                    disabled={emailPrefSaving === 'streakReminders'}
+                                    className={`relative w-12 h-7 rounded-full transition-colors ${emailPrefs.streakReminders ? 'bg-primary' : 'bg-neutral-300 dark:bg-neutral-600'} ${emailPrefSaving === 'streakReminders' ? 'opacity-60 cursor-not-allowed' : ''}`}
+                                    aria-label="Toggle streak reminders"
+                                    aria-pressed={emailPrefs.streakReminders}
+                                >
+                                    <span className={`absolute top-1 left-1 w-5 h-5 rounded-full bg-white shadow transition-transform ${emailPrefs.streakReminders ? 'translate-x-5' : ''}`} />
+                                </button>
+                            </div>
+                        </div>
+
+                        {/* Streak Broken */}
+                        <div className="p-4 bg-white dark:bg-surface-dark rounded-2xl border border-neutral-100 dark:border-neutral-800 shadow-sm">
+                            <div className="flex items-center justify-between gap-4">
+                                <div className="flex items-center gap-3">
+                                    <div className="w-10 h-10 rounded-xl bg-red-50 dark:bg-red-900/20 text-red-500 flex items-center justify-center">
+                                        <span className="material-symbols-outlined filled">heart_broken</span>
+                                    </div>
+                                    <div>
+                                        <p className="font-bold text-neutral-900 dark:text-white text-sm">Streak Broken</p>
+                                        <p className="text-xs text-neutral-400">Know when your streak ends</p>
+                                    </div>
+                                </div>
+                                <button
+                                    onClick={() => handleEmailPrefToggle('streakBroken')}
+                                    disabled={emailPrefSaving === 'streakBroken'}
+                                    className={`relative w-12 h-7 rounded-full transition-colors ${emailPrefs.streakBroken ? 'bg-primary' : 'bg-neutral-300 dark:bg-neutral-600'} ${emailPrefSaving === 'streakBroken' ? 'opacity-60 cursor-not-allowed' : ''}`}
+                                    aria-label="Toggle streak broken notifications"
+                                    aria-pressed={emailPrefs.streakBroken}
+                                >
+                                    <span className={`absolute top-1 left-1 w-5 h-5 rounded-full bg-white shadow transition-transform ${emailPrefs.streakBroken ? 'translate-x-5' : ''}`} />
+                                </button>
+                            </div>
+                        </div>
+
+                        {/* Weekly Summary */}
+                        <div className="p-4 bg-white dark:bg-surface-dark rounded-2xl border border-neutral-100 dark:border-neutral-800 shadow-sm">
+                            <div className="flex items-center justify-between gap-4">
+                                <div className="flex items-center gap-3">
+                                    <div className="w-10 h-10 rounded-xl bg-blue-50 dark:bg-blue-900/20 text-blue-500 flex items-center justify-center">
+                                        <span className="material-symbols-outlined filled">summarize</span>
+                                    </div>
+                                    <div>
+                                        <p className="font-bold text-neutral-900 dark:text-white text-sm">Weekly Summary</p>
+                                        <p className="text-xs text-neutral-400">Receive a weekly study digest</p>
+                                    </div>
+                                </div>
+                                <button
+                                    onClick={() => handleEmailPrefToggle('weeklySummary')}
+                                    disabled={emailPrefSaving === 'weeklySummary'}
+                                    className={`relative w-12 h-7 rounded-full transition-colors ${emailPrefs.weeklySummary ? 'bg-primary' : 'bg-neutral-300 dark:bg-neutral-600'} ${emailPrefSaving === 'weeklySummary' ? 'opacity-60 cursor-not-allowed' : ''}`}
+                                    aria-label="Toggle weekly summary"
+                                    aria-pressed={emailPrefs.weeklySummary}
+                                >
+                                    <span className={`absolute top-1 left-1 w-5 h-5 rounded-full bg-white shadow transition-transform ${emailPrefs.weeklySummary ? 'translate-x-5' : ''}`} />
                                 </button>
                             </div>
                         </div>

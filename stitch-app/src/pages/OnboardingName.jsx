@@ -1,5 +1,7 @@
 import React, { useEffect, useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
+import { useMutation } from 'convex/react';
+import { api } from '../../convex/_generated/api';
 import { useAuth } from '../contexts/AuthContext';
 
 const NAME_FORM_ID = 'onboarding-name-form';
@@ -36,6 +38,14 @@ const OnboardingName = () => {
     const [loading, setLoading] = useState(false);
     const { signUp, profile, loading: authLoading } = useAuth();
     const navigate = useNavigate();
+    const [searchParams] = useSearchParams();
+    const setReferredBy = useMutation(api.profiles.setReferredBy);
+
+    // Capture referral code from URL (?ref=CODE)
+    const [referralCode] = useState(() => {
+        const ref = searchParams.get('ref') || '';
+        return ref.trim().toUpperCase();
+    });
     const trimmedName = name.trim();
     const trimmedEmail = email.trim();
     const isNameValid = trimmedName.length > 0;
@@ -71,10 +81,17 @@ const OnboardingName = () => {
         setLoading(true);
 
         try {
-            const { error } = await signUp(trimmedEmail, password, trimmedName);
+            const { error, data } = await signUp(trimmedEmail, password, trimmedName);
             if (error) {
                 setError(error.message);
             } else {
+                // Store referral code on the new user's profile (best-effort)
+                if (referralCode) {
+                    const newUserId = data?.user?.id ?? data?.id;
+                    if (newUserId) {
+                        setReferredBy({ userId: newUserId, referralCode }).catch(() => {});
+                    }
+                }
                 // Skip level/department steps — go straight to dashboard
                 navigate('/dashboard');
             }
@@ -110,6 +127,13 @@ const OnboardingName = () => {
                     <h1 className="text-center text-3xl md:text-4xl font-extrabold text-mono-black dark:text-white leading-[1.1] tracking-tight">
                         Create your account
                     </h1>
+
+                    {referralCode && (
+                        <div className="w-full p-3 rounded-xl bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800 text-emerald-700 dark:text-emerald-300 text-sm font-medium text-center flex items-center justify-center gap-2">
+                            <span className="text-lg">🎁</span>
+                            <span>You were referred! Sign up and upload to earn a free credit.</span>
+                        </div>
+                    )}
 
                     {error && (
                         <div className="w-full p-4 rounded-lg bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-600 dark:text-red-400 text-sm font-medium text-center">

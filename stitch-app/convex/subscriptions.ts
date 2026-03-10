@@ -23,6 +23,14 @@ export const TOPUP_PLANS = [
         amountMinor: 4000,
         credits: 12,
     },
+    {
+        id: "semester",
+        amountMajor: 60,
+        amountMinor: 6000,
+        credits: 20,
+        validityDays: 120, // ~4 months
+        unlimitedAiChat: true,
+    },
 ] as const;
 
 const DEFAULT_TOPUP_PLAN = TOPUP_PLANS[0];
@@ -64,6 +72,8 @@ const buildLocalizedTopUpPlan = (plan: typeof TOPUP_PLANS[number]) => ({
     amountMinor: plan.amountMinor,
     credits: plan.credits,
     currency: TOPUP_CURRENCY,
+    ...("validityDays" in plan ? { validityDays: plan.validityDays } : {}),
+    ...("unlimitedAiChat" in plan ? { unlimitedAiChat: plan.unlimitedAiChat } : {}),
 });
 
 const buildLocalizedTopUpOptions = () =>
@@ -497,7 +507,13 @@ const applyPaystackTopUpCreditGrant = async (ctx: any, args: {
     const nextPurchasedCredits = purchasedCredits + topUpPlan.credits;
     const paidAt = toNonNegativeInt(args.paidAtMs) || Date.now();
 
-    const subscriptionPatch = {
+    // Compute expiry for semester pass plans
+    const isSemesterPass = "validityDays" in topUpPlan && (topUpPlan as any).validityDays > 0;
+    const planExpiresAt = isSemesterPass
+        ? paidAt + ((topUpPlan as any).validityDays * 24 * 60 * 60 * 1000)
+        : undefined;
+
+    const subscriptionPatch: Record<string, any> = {
         plan: "premium",
         status: "active",
         amount: topUpPlan.amountMajor,
@@ -506,7 +522,11 @@ const applyPaystackTopUpCreditGrant = async (ctx: any, args: {
         consumedUploadCredits: consumedCredits,
         lastPaymentReference: reference,
         lastPaymentAt: paidAt,
+        lastTopUpPlanId: topUpPlan.id,
     };
+    if (planExpiresAt !== undefined) {
+        subscriptionPatch.planExpiresAt = planExpiresAt;
+    }
 
     if (subscription) {
         await ctx.db.patch(subscription._id, subscriptionPatch);
@@ -1123,7 +1143,15 @@ const isUserPremium = (subscription: any) => {
     if (!subscription) return false;
     const plan = String(subscription.plan || "").toLowerCase();
     const status = String(subscription.status || "").toLowerCase();
-    return plan === "premium" && status === "active";
+    if (plan !== "premium" || status !== "active") return false;
+
+    // Check if the plan has an expiry (semester pass)
+    const expiresAt = toNonNegativeInt(subscription.planExpiresAt);
+    if (expiresAt > 0 && Date.now() > expiresAt) {
+        return false;
+    }
+
+    return true;
 };
 
 export const getVoiceGenerationQuotaStatus = query({

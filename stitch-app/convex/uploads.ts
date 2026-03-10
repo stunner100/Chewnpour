@@ -122,6 +122,62 @@ export const createUpload = mutation({
             evidencePassageCount: 0,
         });
 
+        // Apply referral credit on first upload (non-blocking, best-effort)
+        try {
+            const profile = await ctx.db
+                .query("profiles")
+                .withIndex("by_userId", (q) => q.eq("userId", args.userId))
+                .first();
+
+            if (profile?.referredBy && !profile.referralCreditApplied) {
+                // Find the referrer
+                const referrer = await ctx.db
+                    .query("profiles")
+                    .withIndex("by_referralCode", (q) => q.eq("referralCode", profile.referredBy))
+                    .first();
+
+                if (referrer) {
+                    // Grant +1 credit to referee
+                    const refereeSub = await ctx.db
+                        .query("subscriptions")
+                        .withIndex("by_userId", (q) => q.eq("userId", args.userId))
+                        .first();
+                    if (refereeSub) {
+                        await ctx.db.patch(refereeSub._id, {
+                            purchasedUploadCredits: (refereeSub.purchasedUploadCredits || 0) + 1,
+                        });
+                    }
+
+                    // Grant +1 credit to referrer
+                    const referrerSub = await ctx.db
+                        .query("subscriptions")
+                        .withIndex("by_userId", (q) => q.eq("userId", referrer.userId))
+                        .first();
+                    if (referrerSub) {
+                        await ctx.db.patch(referrerSub._id, {
+                            purchasedUploadCredits: (referrerSub.purchasedUploadCredits || 0) + 1,
+                        });
+                    } else {
+                        await ctx.db.insert("subscriptions", {
+                            userId: referrer.userId,
+                            plan: "free",
+                            status: "active",
+                            amount: 0,
+                            currency: "GHS",
+                            purchasedUploadCredits: 1,
+                            consumedUploadCredits: 0,
+                        });
+                    }
+
+                    // Mark as applied
+                    await ctx.db.patch(profile._id, { referralCreditApplied: true });
+                }
+            }
+        } catch (err) {
+            // Non-fatal: referral credit can be retried later
+            console.warn("[createUpload] Failed to apply referral credit", err);
+        }
+
         return uploadId;
     },
 });
