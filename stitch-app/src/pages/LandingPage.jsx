@@ -228,8 +228,8 @@ const LandingPage = () => {
                                 onClick={() => captureLandingEvent('landing_cta_clicked', { cta_name: 'hero_see_features' })}
                                 className="w-full sm:w-auto inline-flex h-13 items-center justify-center gap-2 rounded-2xl px-8 text-base font-bold text-neutral-600 dark:text-neutral-300 hover:text-neutral-900 dark:hover:text-white hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-all duration-200"
                             >
-                                See how it works
-                                <span className="material-symbols-outlined text-[20px]">play_circle</span>
+                                Learn More
+                                <span className="material-symbols-outlined text-[20px]">arrow_downward</span>
                             </a>
                         </div>
                     </div>
@@ -410,6 +410,9 @@ const LandingPage = () => {
                                     </span>
                                     <span className="text-neutral-400 text-sm font-medium">/top-up</span>
                                 </div>
+                                <p className="text-xs text-neutral-400 dark:text-neutral-500 mt-1.5">
+                                    {formatPlanPrice(starterPlan.amountMajor / starterPlan.credits, starterPlan.currency)} per upload
+                                </p>
                             </div>
                             <ul className="space-y-3 mb-7">
                                 {[
@@ -447,6 +450,16 @@ const LandingPage = () => {
                                         {formatPlanPrice(maxPlan.amountMajor, maxPlan.currency)}
                                     </span>
                                     <span className="text-neutral-400 text-sm font-medium">/top-up</span>
+                                </div>
+                                <div className="flex items-center gap-2 mt-1.5">
+                                    <span className="text-xs text-neutral-400 dark:text-neutral-500">
+                                        {formatPlanPrice(maxPlan.amountMajor / maxPlan.credits, maxPlan.currency)} per upload
+                                    </span>
+                                    {starterPlan.credits > 0 && maxPlan.credits > 0 && (
+                                        <span className="inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400">
+                                            Save {Math.round((1 - (maxPlan.amountMajor / maxPlan.credits) / (starterPlan.amountMajor / starterPlan.credits)) * 100)}%
+                                        </span>
+                                    )}
                                 </div>
                             </div>
                             <ul className="space-y-3 mb-7">

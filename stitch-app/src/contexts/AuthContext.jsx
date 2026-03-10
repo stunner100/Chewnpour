@@ -439,7 +439,7 @@ const AuthProviderConvex = ({ children }) => {
     }, [sessionUser?.id, touchPresence]);
 
     const signUp = async (email, password, fullName) => {
-        const callbackURL = absoluteUrl('/onboarding/level');
+        const callbackURL = absoluteUrl('/dashboard');
         try {
             const result = await betterSignUp.email({
                 email,
@@ -460,6 +460,21 @@ const AuthProviderConvex = ({ children }) => {
                     });
                 }
                 return { data: null, error: result.error };
+            }
+            // Mark onboarding as completed immediately so the user
+            // is not redirected back to onboarding steps.
+            const userId = result.data?.user?.id ?? result.data?.id;
+            if (userId) {
+                try {
+                    await upsertProfile({
+                        userId,
+                        fullName,
+                        onboardingCompleted: true,
+                    });
+                } catch (profileErr) {
+                    // Non-fatal: profile will be created on next page load.
+                    console.warn('[signUp] Failed to create profile during signup', profileErr);
+                }
             }
             return { data: result.data, error: null };
         } catch (error) {

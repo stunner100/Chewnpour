@@ -75,8 +75,8 @@ const OnboardingName = () => {
             if (error) {
                 setError(error.message);
             } else {
-                // Continue to next onboarding step
-                navigate('/onboarding/level');
+                // Skip level/department steps — go straight to dashboard
+                navigate('/dashboard');
             }
         } catch {
             setError('An unexpected error occurred');
@@ -89,13 +89,8 @@ const OnboardingName = () => {
         <div className="bg-surface dark:bg-mono-dark text-mono-black dark:text-white min-h-screen flex flex-col overflow-x-hidden font-sans">
             <header className="w-full pt-16 pb-4 flex justify-center">
                 <div className="flex flex-col items-center gap-2 w-80 max-w-full">
-                    <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                        Step 1 of 3
-                    </p>
                     <div aria-label="Progress" className="flex gap-4 w-full">
                         <div className="h-1 flex-1 rounded-full bg-accent-blue shadow-[0_0_12px_rgba(41,98,255,0.6)]"></div>
-                        <div className="h-1 flex-1 rounded-full bg-gray-200 dark:bg-white/10"></div>
-                        <div className="h-1 flex-1 rounded-full bg-gray-200 dark:bg-white/10"></div>
                     </div>
                 </div>
             </header>

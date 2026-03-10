@@ -1,6 +1,6 @@
 import React from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
-import { useQuery } from 'convex/react';
+import { useQuery, useConvexAuth } from 'convex/react';
 import { api } from '../../convex/_generated/api';
 import { useAuth } from '../contexts/AuthContext';
 import { resolveTopicIllustrationUrl } from '../lib/topicIllustration';
@@ -11,7 +11,13 @@ const DashboardCourse = () => {
     const { courseId } = useParams();
     const { user } = useAuth();
     const userId = user?.id;
+    const { isAuthenticated: isConvexAuthenticated } = useConvexAuth();
     const navigate = useNavigate();
+
+    const uploadQuota = useQuery(
+        api.subscriptions.getUploadQuotaStatus,
+        userId && isConvexAuthenticated ? {} : 'skip'
+    );
 
     React.useEffect(() => {
         window.scrollTo({ top: 0, left: 0, behavior: 'auto' });
@@ -126,6 +132,28 @@ const DashboardCourse = () => {
                     </Link>
 
                     <div className="flex items-center gap-3">
+                        {uploadQuota && (
+                            uploadQuota.remaining > 0 ? (
+                                <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-neutral-100 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700">
+                                    <span className="material-symbols-outlined text-neutral-400 dark:text-neutral-500 text-sm">cloud_upload</span>
+                                    <span className="text-neutral-600 dark:text-neutral-400 text-xs font-medium">
+                                        {uploadQuota.remaining} upload{uploadQuota.remaining !== 1 ? 's' : ''} left
+                                    </span>
+                                </div>
+                            ) : (
+                                <Link
+                                    to="/subscription?reason=quota_badge"
+                                    className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800/40 hover:bg-amber-100 dark:hover:bg-amber-900/30 transition-colors"
+                                >
+                                    <span className="material-symbols-outlined text-amber-500 text-sm">cloud_off</span>
+                                    <span className="text-amber-700 dark:text-amber-400 text-xs font-medium">
+                                        0 uploads left
+                                    </span>
+                                    <span className="text-amber-500 dark:text-amber-500 text-xs">·</span>
+                                    <span className="text-amber-700 dark:text-amber-400 text-xs font-semibold">Upgrade</span>
+                                </Link>
+                            )
+                        )}
                         {backgroundGenerationActive && (
                             <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-blue-50 dark:bg-blue-900/20 border border-blue-100 dark:border-blue-800/30">
                                 <span className="material-symbols-outlined text-blue-500 text-sm animate-spin">sync</span>

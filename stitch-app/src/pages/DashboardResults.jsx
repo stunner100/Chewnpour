@@ -3,6 +3,67 @@ import { Link, useParams } from 'react-router-dom';
 import { useQuery, useAction } from 'convex/react';
 import { api } from '../../convex/_generated/api';
 
+// ─── Post-exam upgrade prompt ────────────────────────────────────────────────
+
+const PostExamUpgradeCard = () => {
+    const uploadQuota = useQuery(api.subscriptions.getUploadQuotaStatus, {});
+
+    // Don't render while loading or if query fails
+    if (uploadQuota === undefined || uploadQuota === null) return null;
+
+    const hasRemaining = (uploadQuota.remaining ?? 0) > 0;
+
+    if (hasRemaining) {
+        return (
+            <section className="w-full flex justify-center">
+                <div className="w-full max-w-2xl rounded-2xl p-6 bg-gradient-to-r from-primary/10 via-purple-500/10 to-primary/10 dark:from-primary/20 dark:via-purple-500/15 dark:to-primary/20 border border-primary/20 dark:border-primary/30">
+                    <div className="flex flex-col sm:flex-row items-center gap-4">
+                        <div className="flex-1 text-center sm:text-left">
+                            <h3 className="text-lg font-bold text-neutral-900 dark:text-white mb-1">
+                                Ready for your next course?
+                            </h3>
+                            <p className="text-sm text-neutral-600 dark:text-neutral-400">
+                                Keep the momentum going and upload another course to study.
+                            </p>
+                        </div>
+                        <Link
+                            to="/dashboard/analysis"
+                            className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-primary text-white font-bold text-sm shadow-lg shadow-primary/20 hover:shadow-primary/30 hover:brightness-110 transition-all whitespace-nowrap"
+                        >
+                            Upload Another Course
+                            <span className="material-symbols-outlined text-[18px]">arrow_forward</span>
+                        </Link>
+                    </div>
+                </div>
+            </section>
+        );
+    }
+
+    return (
+        <section className="w-full flex justify-center">
+            <div className="w-full max-w-2xl rounded-2xl p-6 bg-gradient-to-r from-amber-500/10 via-orange-500/10 to-amber-500/10 dark:from-amber-500/15 dark:via-orange-500/10 dark:to-amber-500/15 border border-amber-500/20 dark:border-amber-500/30">
+                <div className="flex flex-col sm:flex-row items-center gap-4">
+                    <div className="flex-1 text-center sm:text-left">
+                        <h3 className="text-lg font-bold text-neutral-900 dark:text-white mb-1">
+                            Want to study more courses?
+                        </h3>
+                        <p className="text-sm text-neutral-600 dark:text-neutral-400">
+                            Get 5 more uploads starting at GHS 20
+                        </p>
+                    </div>
+                    <Link
+                        to="/subscription?reason=post_exam"
+                        className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-amber-500 text-white font-bold text-sm shadow-lg shadow-amber-500/20 hover:shadow-amber-500/30 hover:brightness-110 transition-all whitespace-nowrap"
+                    >
+                        Upgrade Now
+                        <span className="material-symbols-outlined text-[18px]">arrow_forward</span>
+                    </Link>
+                </div>
+            </div>
+        </section>
+    );
+};
+
 // ─── Difficulty breakdown helpers ────────────────────────────────────────────
 
 const DIFFICULTY_LABELS = { easy: 'Easy', medium: 'Medium', hard: 'Hard' };
@@ -503,6 +564,9 @@ const DashboardResults = () => {
                         </div>
                     )}
                 </section>
+
+                {/* Post-exam upgrade prompt */}
+                <PostExamUpgradeCard />
             </main>
         </div>
     );
