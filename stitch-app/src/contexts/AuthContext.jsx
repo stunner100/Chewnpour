@@ -373,7 +373,7 @@ const AuthProviderConvex = ({ children }) => {
         let pendingRef;
         try { pendingRef = sessionStorage.getItem('pending_referral_code'); } catch { return; }
         if (!pendingRef) return;
-        try { sessionStorage.removeItem('pending_referral_code'); } catch {}
+        try { sessionStorage.removeItem('pending_referral_code'); } catch { void 0; }
         setReferredByMutation({ userId: sessionUser.id, referralCode: pendingRef }).catch(() => {});
     }, [sessionUser?.id, profileData, setReferredByMutation]);
 

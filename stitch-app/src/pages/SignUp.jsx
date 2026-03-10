@@ -29,7 +29,7 @@ const SignUp = () => {
         setLoading(true);
         // Persist referral code so it survives the OAuth redirect
         if (refCode) {
-            try { sessionStorage.setItem('pending_referral_code', refCode.trim().toUpperCase()); } catch {}
+            try { sessionStorage.setItem('pending_referral_code', refCode.trim().toUpperCase()); } catch { void 0; }
         }
         try {
             const { error: signInError } = await signInWithGoogle();

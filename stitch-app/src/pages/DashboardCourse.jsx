@@ -76,7 +76,7 @@ const DashboardCourse = () => {
         }
         return 'Course generation is still running in the background. New topics will appear automatically.';
     })();
-    const syllabusItems = React.useMemo(() => {
+    const syllabusItems = (() => {
         if (!topics.length && plannedCount === 0) return [];
 
         const topicsByOrder = new Map(
@@ -98,7 +98,7 @@ const DashboardCourse = () => {
                 title: plannedTopicTitles[index] || `Topic ${index + 1}`,
             };
         });
-    }, [topics, plannedCount, plannedTopicTitles]);
+    })();
     const [isProcessing, setIsProcessing] = React.useState(false);
 
     React.useEffect(() => {

@@ -101,16 +101,6 @@ const Profile = () => {
         'linear-gradient(135deg, #f59e0b 0%, #ef4444 100%)', // Amber -> Red
     ];
 
-    const loading = authLoading || profile === undefined || stats === undefined;
-
-    if (loading) {
-        return (
-            <div className="bg-background-light dark:bg-background-dark min-h-screen flex items-center justify-center">
-                <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary mx-auto mb-4"></div>
-            </div>
-        );
-    }
-
     const displayName = profile?.fullName || user?.name || user?.email?.split('@')[0] || 'Student';
     const displayStats = stats || { topics: 0, accuracy: 0, courses: 0, studyTime: 0, streakDays: 0 };
     const displaySubscription = subscription || { plan: 'free', status: 'active' };
@@ -193,6 +183,16 @@ const Profile = () => {
         }
         setEmailPrefSaving(null);
     };
+
+    const loading = authLoading || profile === undefined || stats === undefined;
+
+    if (loading) {
+        return (
+            <div className="bg-background-light dark:bg-background-dark min-h-screen flex items-center justify-center">
+                <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary mx-auto mb-4"></div>
+            </div>
+        );
+    }
 
     return (
         <div className="bg-background-light dark:bg-background-dark font-body antialiased text-neutral-900 dark:text-neutral-100 transition-colors duration-300 min-h-screen flex flex-col overflow-x-hidden">
