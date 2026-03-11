@@ -1,11 +1,13 @@
 import assert from "node:assert/strict";
 import {
     calculateEvidenceRichMcqCap,
+    calculateEvidenceRichEssayCap,
     QUESTION_BANK_BACKGROUND_PROFILE,
     QUESTION_BANK_INTERACTIVE_PROFILE,
     calculateQuestionBankTarget,
     deriveQuestionGenerationRounds,
     rebaseQuestionBankTargetAfterRun,
+    resolveEvidenceRichEssayCap,
     resolveEvidenceRichMcqCap,
     resolveQuestionBankProfile,
 } from "../convex/lib/questionBankConfig.js";
@@ -215,6 +217,56 @@ const tests = [
             kept,
             24,
             "Time-budget exits that still make strong progress should keep the requested target for follow-up generation."
+        );
+    },
+    () => {
+        const cap = calculateEvidenceRichEssayCap({
+            evidence: [
+                {
+                    passageId: "p1-0",
+                    page: 0,
+                    text: "A fraction represents part of a whole. The numerator names the selected parts and the denominator names the total parts.",
+                    flags: [],
+                },
+            ],
+            minTarget: 1,
+            maxTarget: 6,
+        });
+        assert.equal(
+            cap,
+            1,
+            "Thin single-passage topics should only request one grounded essay question."
+        );
+    },
+    () => {
+        const broadEvidence = Array.from({ length: 9 }, (_, index) => ({
+            passageId: `p${index + 1}-0`,
+            page: index,
+            text: [
+                `Policy ${index + 1}: riders must accept orders quickly and handle deliveries professionally.`,
+                "Definition: integrity means honest status updates and respectful conduct.",
+                "Example: confirm pickup, use GPS, and contact the customer politely upon arrival.",
+                "Target: complete delivery steps in the prescribed order without falsifying updates.",
+            ].join(" "),
+            flags: index % 2 === 0 ? ["table"] : [],
+        }));
+        const resolution = resolveEvidenceRichEssayCap({
+            evidence: broadEvidence,
+            topicTitle: "Deep Dive: NIGHT MARKET RIDER TRAINING MANUAL",
+            topicDescription: "Focused exploration of NIGHT MARKET RIDER TRAINING MANUAL.",
+            sourcePassageIds: broadEvidence.map((entry) => entry.passageId),
+            minTarget: 1,
+            maxTarget: 6,
+        });
+        assert.equal(
+            resolution.cap,
+            4,
+            "Broad manual-style topics should cap essay readiness to a small grounded target."
+        );
+        assert.equal(
+            resolution.broadTopicPenaltyApplied,
+            true,
+            "Broad manual-style topics should trigger the essay broad-topic penalty."
         );
     },
 ];

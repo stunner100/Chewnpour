@@ -23,8 +23,8 @@ if (!/useMutation\(api\.exams\.requestEssayQuestionTopUp\)/.test(topicDetailSour
   throw new Error('Expected TopicDetail to wire requestEssayQuestionTopUp mutation.');
 }
 
-if (!/minimumCount:\s*EXAM_READY_MIN_ESSAY_COUNT/.test(topicDetailSource)) {
-  throw new Error('Expected TopicDetail essay top-up request to use readiness essay count target.');
+if (!/minimumCount:\s*topicEssayTargetCount/.test(topicDetailSource)) {
+  throw new Error('Expected TopicDetail essay top-up request to use the derived per-topic essay target.');
 }
 
 if (!/Failed to schedule essay question top-up/.test(topicDetailSource)) {

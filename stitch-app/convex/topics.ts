@@ -37,9 +37,17 @@ const resolveTopicMcqTargetCount = (value: any) => {
     return Math.max(1, Math.round(numeric));
 };
 
+const resolveTopicEssayTargetCount = (value: any) => {
+    const numeric = Number(value);
+    if (!Number.isFinite(numeric)) {
+        return EXAM_READY_MIN_ESSAY_COUNT;
+    }
+    return Math.max(1, Math.round(numeric));
+};
+
 const computeTopicExamReadinessFromQuestions = (
     questions: any[],
-    options?: { mcqTargetCount?: number },
+    options?: { mcqTargetCount?: number; essayTargetCount?: number },
 ) => {
     const usableMcqCount = questions.filter(
         (question) =>
@@ -52,12 +60,14 @@ const computeTopicExamReadinessFromQuestions = (
             && isUsableExamQuestion(question, { allowEssay: true })
     ).length;
     const mcqTargetCount = resolveTopicMcqTargetCount(options?.mcqTargetCount);
+    const essayTargetCount = resolveTopicEssayTargetCount(options?.essayTargetCount);
     const examReady =
         usableMcqCount >= mcqTargetCount
-        && usableEssayCount >= EXAM_READY_MIN_ESSAY_COUNT;
+        && usableEssayCount >= essayTargetCount;
 
     return {
         mcqTargetCount,
+        essayTargetCount,
         usableMcqCount,
         usableEssayCount,
         examReady,
@@ -131,6 +141,7 @@ const getTopicWithQuestionsPayload = async (ctx: any, topicId: any) => {
         .map((question: any) => sanitizeExamQuestionForClient(question));
     const computedReadiness = computeTopicExamReadinessFromQuestions(dedupedQuestions, {
         mcqTargetCount: topic?.mcqTargetCount,
+        essayTargetCount: topic?.essayTargetCount,
     });
 
     return {
@@ -138,6 +149,7 @@ const getTopicWithQuestionsPayload = async (ctx: any, topicId: any) => {
             ...topic,
             illustrationUrl: freshIllustrationUrl,
             mcqTargetCount: computedReadiness.mcqTargetCount,
+            essayTargetCount: computedReadiness.essayTargetCount,
             usableMcqCount: computedReadiness.usableMcqCount,
             usableEssayCount: computedReadiness.usableEssayCount,
             examReady: computedReadiness.examReady,
@@ -288,6 +300,7 @@ export const createTopic = mutation({
             illustrationUrl: args.illustrationUrl || resolveDefaultTopicIllustrationUrl(),
             examReady: false,
             mcqTargetCount: EXAM_READY_MIN_MCQ_COUNT,
+            essayTargetCount: EXAM_READY_MIN_ESSAY_COUNT,
             usableMcqCount: 0,
             usableEssayCount: 0,
             examReadyUpdatedAt: Date.now(),
@@ -303,6 +316,7 @@ export const refreshTopicExamReadinessInternal = internalMutation({
     args: {
         topicId: v.id("topics"),
         mcqTargetCount: v.optional(v.number()),
+        essayTargetCount: v.optional(v.number()),
     },
     handler: async (ctx, args) => {
         const topic = await ctx.db.get(args.topicId);
@@ -312,6 +326,7 @@ export const refreshTopicExamReadinessInternal = internalMutation({
                 exists: false,
                 examReady: false,
                 mcqTargetCount: EXAM_READY_MIN_MCQ_COUNT,
+                essayTargetCount: EXAM_READY_MIN_ESSAY_COUNT,
                 usableMcqCount: 0,
                 usableEssayCount: 0,
             };
@@ -323,11 +338,13 @@ export const refreshTopicExamReadinessInternal = internalMutation({
             .collect();
         const readiness = computeTopicExamReadinessFromQuestions(questions, {
             mcqTargetCount: args.mcqTargetCount ?? topic.mcqTargetCount,
+            essayTargetCount: args.essayTargetCount ?? topic.essayTargetCount,
         });
 
         await ctx.db.patch(args.topicId, {
             examReady: readiness.examReady,
             mcqTargetCount: readiness.mcqTargetCount,
+            essayTargetCount: readiness.essayTargetCount,
             usableMcqCount: readiness.usableMcqCount,
             usableEssayCount: readiness.usableEssayCount,
             examReadyUpdatedAt: Date.now(),
@@ -576,10 +593,12 @@ export const deleteMcqQuestionsByTopicInternal = internalMutation({
 
         const readiness = computeTopicExamReadinessFromQuestions(remainingQuestions, {
             mcqTargetCount: topic.mcqTargetCount,
+            essayTargetCount: topic.essayTargetCount,
         });
         await ctx.db.patch(args.topicId, {
             examReady: readiness.examReady,
             mcqTargetCount: readiness.mcqTargetCount,
+            essayTargetCount: readiness.essayTargetCount,
             usableMcqCount: readiness.usableMcqCount,
             usableEssayCount: readiness.usableEssayCount,
             examReadyUpdatedAt: Date.now(),
@@ -650,10 +669,12 @@ export const batchCreateQuestionsInternal = internalMutation({
             .collect();
         const readiness = computeTopicExamReadinessFromQuestions(topicQuestions, {
             mcqTargetCount: topic.mcqTargetCount,
+            essayTargetCount: topic.essayTargetCount,
         });
         await ctx.db.patch(args.topicId, {
             examReady: readiness.examReady,
             mcqTargetCount: readiness.mcqTargetCount,
+            essayTargetCount: readiness.essayTargetCount,
             usableMcqCount: readiness.usableMcqCount,
             usableEssayCount: readiness.usableEssayCount,
             examReadyUpdatedAt: Date.now(),

@@ -24,6 +24,7 @@ import {
     QUESTION_BANK_BACKGROUND_PROFILE,
     QUESTION_BANK_INTERACTIVE_PROFILE,
     calculateQuestionBankTarget as calculateQuestionBankTargetFromConfig,
+    resolveEvidenceRichEssayCap,
     rebaseQuestionBankTargetAfterRun,
     deriveQuestionGenerationRounds,
     resolveEvidenceRichMcqCap,
@@ -169,7 +170,10 @@ const OUTLINE_MAX_CHUNK_CHARS = 6000;
 const OUTLINE_MAX_MAP_CHUNKS = 50;
 const OUTLINE_GROUP_SOURCE_CHAR_LIMIT = 8000;
 const OUTLINE_FALLBACK_SOURCE_CHAR_LIMIT = 40000;
-const ESSAY_QUESTION_MIN_GENERATION_COUNT = 3;
+const ESSAY_QUESTION_TARGET_MIN_COUNT = 1;
+const ESSAY_QUESTION_TARGET_MAX_COUNT = 6;
+const ESSAY_QUESTION_TARGET_WORD_DIVISOR = 220;
+const ESSAY_QUESTION_MIN_GENERATION_COUNT = 1;
 const ESSAY_QUESTION_MAX_GENERATION_COUNT = 15;
 const ESSAY_QUESTION_PARALLEL_REQUESTS = 2;
 const ESSAY_QUESTION_MIN_BATCH_SIZE = 4;
@@ -179,7 +183,6 @@ const ESSAY_QUESTION_TIME_BUDGET_MS = 30_000;
 const ESSAY_QUESTION_MAX_BATCH_ATTEMPTS = 2;
 const ESSAY_QUESTION_BACKGROUND_RETRY_DELAY_MS = 20_000;
 const ESSAY_QUESTION_BACKGROUND_MAX_RETRIES = 4;
-const ESSAY_QUESTION_READY_MIN_COUNT = 3;
 const TOPIC_EXAM_PREBUILD_ESSAY_COUNT = 15;
 const CONCEPT_EXERCISE_HISTORY_LIMIT = 8;
 const CONCEPT_EXERCISE_MAX_ATTEMPTS = 3;
@@ -2187,6 +2190,37 @@ const resolveMcqQuestionBankTarget = (args: {
         topicDescription: String(args.topic?.description || ""),
         sourcePassageIds: Array.isArray(args.topic?.sourcePassageIds) ? args.topic.sourcePassageIds : [],
         minTarget: 1,
+        maxTarget: wordCountTarget,
+    });
+    return {
+        wordCountTarget,
+        evidenceRichnessCap: evidenceCapResolution.cap,
+        evidenceCapEstimatedCapacity: evidenceCapResolution.estimatedCapacity,
+        evidenceCapPassageDrivenCap: evidenceCapResolution.passageDrivenCap,
+        evidenceCapBroadTopicPenaltyApplied: evidenceCapResolution.broadTopicPenaltyApplied,
+        evidenceCapUniquePassageCount: evidenceCapResolution.uniquePassageCount,
+        targetCount: Math.min(wordCountTarget, evidenceCapResolution.cap),
+    };
+};
+
+const resolveEssayQuestionBankTarget = (args: {
+    topic: any;
+    topicContent: string;
+    evidence: RetrievedEvidence[];
+}) => {
+    const wordCount = countWords(args.topicContent);
+    const wordCountTarget = calculateQuestionBankTargetFromConfig({
+        wordCount,
+        minTarget: ESSAY_QUESTION_TARGET_MIN_COUNT,
+        maxTarget: ESSAY_QUESTION_TARGET_MAX_COUNT,
+        wordDivisor: ESSAY_QUESTION_TARGET_WORD_DIVISOR,
+    });
+    const evidenceCapResolution = resolveEvidenceRichEssayCap({
+        evidence: args.evidence,
+        topicTitle: String(args.topic?.title || ""),
+        topicDescription: String(args.topic?.description || ""),
+        sourcePassageIds: Array.isArray(args.topic?.sourcePassageIds) ? args.topic.sourcePassageIds : [],
+        minTarget: ESSAY_QUESTION_TARGET_MIN_COUNT,
         maxTarget: wordCountTarget,
     });
     return {
@@ -5357,7 +5391,7 @@ const generateEssayQuestionsForTopicCore = async (
     options?: { skipAccessCheck?: boolean },
 ) => {
     const { topicId } = args;
-    const requestedCount = Math.max(
+    const requestedCountRaw = Math.max(
         ESSAY_QUESTION_MIN_GENERATION_COUNT,
         Math.min(ESSAY_QUESTION_MAX_GENERATION_COUNT, Number(args.count || 5))
     );
@@ -5368,6 +5402,7 @@ const generateEssayQuestionsForTopicCore = async (
     const topicWithQuestions = await ctx.runQuery(internal.topics.getTopicWithQuestionsInternal, { topicId });
     if (!topicWithQuestions) throw new Error("Topic not found");
     const rawTopicQuestions = await ctx.runQuery(internal.topics.getRawQuestionsByTopicInternal, { topicId });
+    const topicContent = String(topicWithQuestions.content || "");
 
     // Check how many essay questions already exist
     const existingEssay = (rawTopicQuestions || []).filter(
@@ -5377,22 +5412,42 @@ const generateEssayQuestionsForTopicCore = async (
         isUsableExamQuestion(question, { allowEssay: true })
     );
     const existingUsableEssayCount = existingUsableEssay.length;
-    if (existingUsableEssayCount >= requestedCount) {
-        await ctx.runMutation(internal.topics.refreshTopicExamReadinessInternal, { topicId });
-        return {
-            success: true,
-            count: existingUsableEssayCount,
-            added: 0,
-            alreadyGenerated: true,
-            existingEssayCount: existingEssay.length,
-            existingUsableEssayCount,
-        };
-    }
     const groundedPack = await getGroundedEvidencePackForTopic({
         ctx,
         topic: topicWithQuestions,
         type: "essay",
     });
+    const targetResolution = resolveEssayQuestionBankTarget({
+        topic: topicWithQuestions,
+        topicContent,
+        evidence: groundedPack.evidence,
+    });
+    const targetCount = Math.max(
+        ESSAY_QUESTION_TARGET_MIN_COUNT,
+        Math.min(requestedCountRaw, targetResolution.targetCount)
+    );
+    let persistedEssayTargetCount = targetCount;
+    await ctx.runMutation(internal.topics.refreshTopicExamReadinessInternal, {
+        topicId,
+        essayTargetCount: persistedEssayTargetCount,
+    });
+
+    if (existingUsableEssayCount >= targetCount) {
+        await ctx.runMutation(internal.topics.refreshTopicExamReadinessInternal, {
+            topicId,
+            essayTargetCount: persistedEssayTargetCount,
+        });
+        return {
+            success: true,
+            count: existingUsableEssayCount,
+            added: 0,
+            alreadyGenerated: true,
+            targetCount: persistedEssayTargetCount,
+            requestedTargetCount: targetCount,
+            existingEssayCount: existingEssay.length,
+            existingUsableEssayCount,
+        };
+    }
     if (!groundedPack.index || groundedPack.evidence.length === 0) {
         if (groundedPack.upload?._id && groundedPack.upload?.extractionArtifactStorageId) {
             void ctx.scheduler.runAfter(0, (internal as any).grounded.buildEvidenceIndex, {
@@ -5406,6 +5461,8 @@ const generateEssayQuestionsForTopicCore = async (
             added: 0,
             abstained: true,
             reason: "INSUFFICIENT_EVIDENCE",
+            targetCount: persistedEssayTargetCount,
+            requestedTargetCount: targetCount,
             existingEssayCount: existingEssay.length,
             existingUsableEssayCount,
         };
@@ -5414,7 +5471,7 @@ const generateEssayQuestionsForTopicCore = async (
     const evidenceIndex = groundedPack.index;
     const generationStartedAt = Date.now();
     const deadlineMs = Date.now() + ESSAY_QUESTION_TIME_BUDGET_MS;
-    const remainingNeeded = Math.max(0, requestedCount - existingUsableEssayCount);
+    const remainingNeeded = Math.max(0, targetCount - existingUsableEssayCount);
     const batchPlan = buildParallelBatchPlan({
         batchSize: Math.max(1, remainingNeeded),
         minBatchSize: ESSAY_QUESTION_MIN_BATCH_SIZE,
@@ -5539,18 +5596,19 @@ const generateEssayQuestionsForTopicCore = async (
 
         existingKeys.add(key);
         added += 1;
-        if (existingUsableEssayCount + added >= requestedCount) break;
+        if (existingUsableEssayCount + added >= targetCount) break;
     }
     const elapsedMs = Date.now() - generationStartedAt;
     const finalUsableCount = existingUsableEssayCount + added;
-    const timedOut = Date.now() >= deadlineMs && finalUsableCount < requestedCount;
+    const timedOut = Date.now() >= deadlineMs && finalUsableCount < targetCount;
 
     console.info("[EssayQuestionBank] generation_complete", {
         topicId,
         topicTitle: topicWithQuestions.title,
         existingCount: existingEssay.length,
         existingUsableCount: existingUsableEssayCount,
-        requestedCount,
+        requestedCount: requestedCountRaw,
+        targetCount,
         batchPlan,
         candidateCount: candidates.length,
         acceptedCount: acceptedEssays.length,
@@ -5561,9 +5619,33 @@ const generateEssayQuestionsForTopicCore = async (
         timedOut,
     });
 
-    await ctx.runMutation(internal.topics.refreshTopicExamReadinessInternal, { topicId });
+    const outcome = timedOut
+        ? "time_budget_reached"
+        : finalUsableCount < targetCount
+            ? "max_rounds_reached"
+            : "completed";
+    persistedEssayTargetCount = rebaseQuestionBankTargetAfterRun({
+        targetCount,
+        initialCount: existingUsableEssayCount,
+        finalCount: finalUsableCount,
+        addedCount: added,
+        outcome,
+        minTarget: ESSAY_QUESTION_TARGET_MIN_COUNT,
+    });
 
-    return { success: true, count: finalUsableCount, added, timedOut };
+    await ctx.runMutation(internal.topics.refreshTopicExamReadinessInternal, {
+        topicId,
+        essayTargetCount: persistedEssayTargetCount,
+    });
+
+    return {
+        success: true,
+        count: finalUsableCount,
+        added,
+        timedOut,
+        targetCount: persistedEssayTargetCount,
+        requestedTargetCount: targetCount,
+    };
 };
 
 export const generateEssayQuestionsForTopicInternal = internalAction({
@@ -5581,7 +5663,10 @@ export const generateEssayQuestionsForTopicInternal = internalAction({
         const result = await generateEssayQuestionsForTopicCore(ctx, args, {
             skipAccessCheck: true,
         });
-        const desiredReadyCount = Math.min(requestedCount, ESSAY_QUESTION_READY_MIN_COUNT);
+        const desiredReadyCount = Math.max(
+            ESSAY_QUESTION_TARGET_MIN_COUNT,
+            Math.round(Number(result?.targetCount || requestedCount))
+        );
         const currentCount = Number(result?.count || 0);
         const shouldRetry =
             currentCount < desiredReadyCount

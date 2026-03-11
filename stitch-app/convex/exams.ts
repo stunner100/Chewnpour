@@ -15,7 +15,7 @@ import { selectQuestionsForAttempt } from "./lib/examQuestionSelection";
 const EXAM_QUESTION_SUBSET_SIZE = 35;
 const EXAM_ESSAY_QUESTION_SUBSET_SIZE = 15;
 const EXAM_ATTEMPT_REUSE_LOOKBACK = 50;
-const EXAM_ESSAY_MIN_READY_COUNT = 3;
+const EXAM_ESSAY_MIN_READY_COUNT = 1;
 
 const safeGetQuestionById = async (ctx: any, questionId: any) => {
     if (!questionId) return null;

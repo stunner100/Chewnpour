@@ -10,8 +10,8 @@ if (!/const existingUsableEssay = existingEssay\.filter\([\s\S]*isUsableExamQues
   throw new Error('Expected essay generation to derive readiness from usable essay questions only.');
 }
 
-if (!/if \(existingUsableEssayCount >= requestedCount\)/.test(aiSource)) {
-  throw new Error('Expected early-return readiness check to use usable essay count.');
+if (!/if \(existingUsableEssayCount >= targetCount\)/.test(aiSource)) {
+  throw new Error('Expected early-return readiness check to use usable essay count against the derived essay target.');
 }
 
 if (!/normalizedCorrectAnswer\.length < 6/.test(aiSource)) {

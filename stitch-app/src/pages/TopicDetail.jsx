@@ -158,17 +158,21 @@ const TopicDetail = () => {
     );
     const topic = topicData || null;
     const DEFAULT_EXAM_READY_MIN_MCQ_COUNT = 10;
-    const EXAM_READY_MIN_ESSAY_COUNT = 3;
+    const DEFAULT_EXAM_READY_MIN_ESSAY_COUNT = 3;
     const topicMcqTargetCount = Math.max(
         1,
         Math.round(Number(topic?.mcqTargetCount || DEFAULT_EXAM_READY_MIN_MCQ_COUNT))
     );
+    const topicEssayTargetCount = Math.max(
+        1,
+        Math.round(Number(topic?.essayTargetCount || DEFAULT_EXAM_READY_MIN_ESSAY_COUNT))
+    );
     const usableMcqCount = Number(topic?.usableMcqCount || 0);
     const usableEssayCount = Number(topic?.usableEssayCount || 0);
     const topicQuizStartReady = usableMcqCount >= topicMcqTargetCount;
-    const topicEssayStartReady = usableEssayCount >= EXAM_READY_MIN_ESSAY_COUNT;
+    const topicEssayStartReady = usableEssayCount >= topicEssayTargetCount;
     const topicExamReady = Boolean(topic?.examReady)
-        || (topicQuizStartReady && usableEssayCount >= EXAM_READY_MIN_ESSAY_COUNT);
+        || (topicQuizStartReady && usableEssayCount >= topicEssayTargetCount);
     const courseId = topic?.courseId;
     const voiceModeEnabled = Boolean(profile?.voiceModeEnabled);
     const voiceQuota = useQuery(
@@ -256,7 +260,7 @@ const TopicDetail = () => {
 
     useEffect(() => {
         if (!topicId) return;
-        if (usableEssayCount >= EXAM_READY_MIN_ESSAY_COUNT) return;
+        if (usableEssayCount >= topicEssayTargetCount) return;
 
         const scheduleMarker = `${topicId}:${usableEssayCount}`;
         if (essayTopUpMarkerRef.current === scheduleMarker) return;
@@ -264,14 +268,14 @@ const TopicDetail = () => {
 
         void requestEssayQuestionTopUp({
             topicId,
-            minimumCount: EXAM_READY_MIN_ESSAY_COUNT,
+            minimumCount: topicEssayTargetCount,
         }).catch((error) => {
             console.warn('Failed to schedule essay question top-up', error);
         });
     }, [
         topicId,
         usableEssayCount,
-        EXAM_READY_MIN_ESSAY_COUNT,
+        topicEssayTargetCount,
         requestEssayQuestionTopUp,
     ]);
 
@@ -606,7 +610,7 @@ const TopicDetail = () => {
         }
         if (preferredFormat === 'essay' && !topicEssayStartReady) {
             setStartExamError(
-                `Essay questions are still preparing (${usableEssayCount}/${EXAM_READY_MIN_ESSAY_COUNT}). Please check back in a moment.`
+                `Essay questions are still preparing (${usableEssayCount}/${topicEssayTargetCount}). Please check back in a moment.`
             );
             return;
         }
@@ -917,19 +921,19 @@ const TopicDetail = () => {
                                         ? 'Preparing...'
                                         : topicEssayStartReady
                                             ? 'Take Essay Quiz'
-                                            : `Essay Preparing (${usableEssayCount}/${EXAM_READY_MIN_ESSAY_COUNT})`}
+                                            : `Essay Preparing (${usableEssayCount}/${topicEssayTargetCount})`}
                                 </span>
                             </button>
                         </div>
 
                         {!topicQuizStartReady && (
                             <div className="mt-4 max-w-md mx-auto rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
-                                {`${usableMcqCount}/${topicMcqTargetCount} MCQ and ${usableEssayCount}/${EXAM_READY_MIN_ESSAY_COUNT} essay questions ready.`}
+                                {`${usableMcqCount}/${topicMcqTargetCount} MCQ and ${usableEssayCount}/${topicEssayTargetCount} essay questions ready.`}
                             </div>
                         )}
                         {topicQuizStartReady && !topicExamReady && (
                             <div className="mt-4 max-w-md mx-auto rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">
-                                {`MCQ quiz is ready. Essay questions are still preparing (${usableEssayCount}/${EXAM_READY_MIN_ESSAY_COUNT}) and will continue building in the background.`}
+                                {`MCQ quiz is ready. Essay questions are still preparing (${usableEssayCount}/${topicEssayTargetCount}) and will continue building in the background.`}
                             </div>
                         )}
                         {startExamError && (

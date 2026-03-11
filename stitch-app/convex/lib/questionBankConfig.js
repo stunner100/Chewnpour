@@ -209,6 +209,103 @@ export const calculateEvidenceRichMcqCap = (args) => {
     return resolveEvidenceRichMcqCap(args).cap;
 };
 
+const estimateEvidencePassageEssayCapacity = (passage) => {
+    const text = String(passage?.text || "").trim();
+    if (!text) return 0;
+
+    const textLength = text.length;
+    const sentenceCount = countSentenceLikeUnits(text);
+    const bulletCount = countBulletLikeLines(text);
+    const flags = Array.isArray(passage?.flags) ? passage.flags.filter(Boolean) : [];
+    const { numericSignals, definitionSignals, exampleSignals } = countStructuredSignals(text);
+
+    let capacity = 0;
+    if (
+        textLength >= 120
+        || sentenceCount >= 2
+        || bulletCount >= 1
+        || definitionSignals >= 1
+        || numericSignals >= 1
+    ) {
+        capacity += 1;
+    }
+    if (
+        textLength >= 320
+        && (
+            sentenceCount >= 5
+            || bulletCount >= 3
+            || numericSignals >= 2
+            || definitionSignals >= 2
+            || exampleSignals >= 1
+            || flags.length > 0
+        )
+    ) {
+        capacity += 1;
+    }
+
+    return clampNumber(capacity || 1, 1, 2);
+};
+
+export const resolveEvidenceRichEssayCap = ({
+    evidence,
+    topicTitle,
+    topicDescription,
+    sourcePassageIds,
+    minTarget = 1,
+    maxTarget = 6,
+}) => {
+    const uniquePassages = extractUniquePassages(evidence);
+
+    if (uniquePassages.length === 0) {
+        return {
+            cap: clampNumber(minTarget, minTarget, maxTarget),
+            estimatedCapacity: 0,
+            passageDrivenCap: clampNumber(minTarget, minTarget, maxTarget),
+            broadTopicPenaltyApplied: false,
+            uniquePassageCount: 0,
+        };
+    }
+
+    const passageCapacities = uniquePassages.map((passage) => estimateEvidencePassageEssayCapacity(passage));
+    const estimatedCapacity = passageCapacities.reduce((sum, capacity) => sum + capacity, 0);
+    const densePassageCount = passageCapacities.filter((capacity) => capacity >= 2).length;
+
+    let passageDrivenCap =
+        Math.ceil(uniquePassages.length / 3)
+        + Math.floor(densePassageCount / 2);
+
+    const broadTopicPenaltyApplied = isBroadCatchAllTopic({
+        topicTitle,
+        topicDescription,
+        sourcePassageIds,
+        evidencePassageCount: uniquePassages.length,
+    });
+    if (broadTopicPenaltyApplied) {
+        passageDrivenCap = Math.min(
+            passageDrivenCap,
+            Math.max(2, Math.ceil(uniquePassages.length / 2.5))
+        );
+    }
+
+    const cap = clampNumber(
+        Math.min(estimatedCapacity, passageDrivenCap),
+        minTarget,
+        maxTarget
+    );
+
+    return {
+        cap,
+        estimatedCapacity,
+        passageDrivenCap,
+        broadTopicPenaltyApplied,
+        uniquePassageCount: uniquePassages.length,
+    };
+};
+
+export const calculateEvidenceRichEssayCap = (args) => {
+    return resolveEvidenceRichEssayCap(args).cap;
+};
+
 export const rebaseQuestionBankTargetAfterRun = ({
     targetCount,
     initialCount = 0,

@@ -9,7 +9,7 @@ const aiSource = await fs.readFile(aiPath, 'utf8');
 for (const constantName of [
   'ESSAY_QUESTION_BACKGROUND_RETRY_DELAY_MS',
   'ESSAY_QUESTION_BACKGROUND_MAX_RETRIES',
-  'ESSAY_QUESTION_READY_MIN_COUNT',
+  'ESSAY_QUESTION_TARGET_MIN_COUNT',
 ]) {
   if (!aiSource.includes(`const ${constantName}`)) {
     throw new Error(`Expected convex/ai.ts to define ${constantName}.`);

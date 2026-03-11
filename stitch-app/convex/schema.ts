@@ -145,6 +145,7 @@ export default defineSchema({
         illustrationUrl: v.optional(v.string()),
         examReady: v.optional(v.boolean()),
         mcqTargetCount: v.optional(v.number()),
+        essayTargetCount: v.optional(v.number()),
         usableMcqCount: v.optional(v.number()),
         usableEssayCount: v.optional(v.number()),
         examReadyUpdatedAt: v.optional(v.number()),

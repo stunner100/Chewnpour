@@ -15,7 +15,7 @@ const [schemaSource, topicsSource, aiSource, topicDetailSource] = await Promise.
   fs.readFile(topicDetailPath, 'utf8'),
 ]);
 
-for (const field of ['examReady: v.optional(v.boolean())', 'mcqTargetCount: v.optional(v.number())', 'usableMcqCount: v.optional(v.number())', 'usableEssayCount: v.optional(v.number())']) {
+for (const field of ['examReady: v.optional(v.boolean())', 'mcqTargetCount: v.optional(v.number())', 'essayTargetCount: v.optional(v.number())', 'usableMcqCount: v.optional(v.number())', 'usableEssayCount: v.optional(v.number())']) {
   if (!schemaSource.includes(field)) {
     throw new Error(`Expected topics schema to include ${field}.`);
   }
@@ -57,7 +57,7 @@ if (!topicDetailSource.includes("onClick={() => handleStartExam('mcq')}")) {
   throw new Error('Expected TopicDetail Take Quiz CTA to route through the MCQ start handler.');
 }
 
-if (!topicDetailSource.includes('MCQ and ${usableEssayCount}/${EXAM_READY_MIN_ESSAY_COUNT} essay questions ready.')) {
+if (!topicDetailSource.includes('MCQ and ${usableEssayCount}/${topicEssayTargetCount} essay questions ready.')) {
   throw new Error('Expected TopicDetail to show readiness progress while exam assets are still building.');
 }
 

@@ -12,6 +12,7 @@ if (!topicsSource.includes('const computedReadiness = computeTopicExamReadinessF
 
 for (const expectedLine of [
   'mcqTargetCount: computedReadiness.mcqTargetCount,',
+  'essayTargetCount: computedReadiness.essayTargetCount,',
   'usableMcqCount: computedReadiness.usableMcqCount,',
   'usableEssayCount: computedReadiness.usableEssayCount,',
   'examReady: computedReadiness.examReady,',
