@@ -3,7 +3,6 @@
 import { internalAction } from "./_generated/server";
 import { internal } from "./_generated/api";
 import { components } from "./_generated/api";
-import { v } from "convex/values";
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -187,106 +186,6 @@ const sendEmailViaResend = async (params: {
 
 const buildUnsubscribeUrl = (token: string, emailType: string) =>
     `${APP_URL}/unsubscribe?token=${encodeURIComponent(token)}&type=${encodeURIComponent(emailType)}`;
-
-export const sendResendTestEmail = internalAction({
-    args: {
-        to: v.string(),
-        label: v.optional(v.string()),
-    },
-    handler: async (_ctx, args) => {
-        const nowIso = new Date().toISOString();
-        const label = String(args.label || "").trim() || "runtime";
-        const html = `
-<!DOCTYPE html>
-<html lang="en">
-<head>
-<meta charset="utf-8"/>
-<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-<title>${APP_NAME} Resend Test</title>
-</head>
-<body style="font-family:Arial,sans-serif;background:#f4f4f7;padding:24px;color:#111827;">
-  <div style="max-width:560px;margin:0 auto;background:#ffffff;border-radius:12px;padding:24px;">
-    <h1 style="margin-top:0;">${APP_NAME} Resend Test</h1>
-    <p>This is a direct runtime verification email from Convex using Resend.</p>
-    <p><strong>Label:</strong> ${label}</p>
-    <p><strong>Sent at:</strong> ${nowIso}</p>
-  </div>
-</body>
-</html>`.trim();
-        const ok = await sendEmailViaResend({
-            to: args.to,
-            subject: `${APP_NAME} Resend test (${label})`,
-            html,
-        });
-        return {
-            ok,
-            to: args.to,
-            label,
-            sentAt: nowIso,
-        };
-    },
-});
-
-export const sendWeeklySummaryTestEmail = internalAction({
-    args: {
-        to: v.string(),
-        name: v.optional(v.string()),
-    },
-    handler: async (ctx, args) => {
-        const email = String(args.to || "").trim().toLowerCase();
-        if (!email || !email.includes("@")) {
-            throw new Error("A valid recipient email is required.");
-        }
-
-        const explicitName = String(args.name || "").trim();
-        const fallbackName = email.split("@")[0] || "Student";
-        const displayName = explicitName || fallbackName;
-
-        let unsubscribeUrl = `${APP_URL}/profile`;
-        try {
-            const authUsersResult = await ctx.runQuery(components.betterAuth.adapter.findMany, {
-                model: "user",
-                where: [{ field: "email", operator: "eq", value: email }],
-                paginationOpts: { cursor: null, numItems: 1 },
-            });
-            const authUser = Array.isArray(authUsersResult?.page) ? authUsersResult.page[0] : null;
-            const userId = String(authUser?.id || "").trim();
-            if (userId) {
-                const token = await ctx.runMutation(internal.emailHelpers.ensureUnsubscribeToken, { userId });
-                if (token) {
-                    unsubscribeUrl = buildUnsubscribeUrl(token, "weekly_summary");
-                }
-            }
-        } catch (error) {
-            console.warn("[emails] Failed to build unsubscribe URL for weekly summary test", {
-                email,
-                error: error instanceof Error ? error.message : String(error),
-            });
-        }
-
-        const html = weeklySummaryTemplate(
-            displayName,
-            {
-                topicsStudied: 6,
-                quizzesTaken: 11,
-                averageScore: 84,
-                streakDays: 5,
-                studyHours: 7.5,
-            },
-            unsubscribeUrl,
-        );
-        const ok = await sendEmailViaResend({
-            to: email,
-            subject: `Your ${APP_NAME} Weekly Study Summary`,
-            html,
-        });
-        return {
-            ok,
-            to: email,
-            displayName,
-        };
-    },
-});
 
 // ---------------------------------------------------------------------------
 // Streak calculation helper (mirrors profiles.ts getUserStats logic)
