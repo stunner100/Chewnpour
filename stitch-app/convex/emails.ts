@@ -3,6 +3,7 @@
 import { internalAction } from "./_generated/server";
 import { internal } from "./_generated/api";
 import { components } from "./_generated/api";
+import { v } from "convex/values";
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -186,6 +187,45 @@ const sendEmailViaResend = async (params: {
 
 const buildUnsubscribeUrl = (token: string, emailType: string) =>
     `${APP_URL}/unsubscribe?token=${encodeURIComponent(token)}&type=${encodeURIComponent(emailType)}`;
+
+export const sendResendTestEmail = internalAction({
+    args: {
+        to: v.string(),
+        label: v.optional(v.string()),
+    },
+    handler: async (_ctx, args) => {
+        const nowIso = new Date().toISOString();
+        const label = String(args.label || "").trim() || "runtime";
+        const html = `
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>${APP_NAME} Resend Test</title>
+</head>
+<body style="font-family:Arial,sans-serif;background:#f4f4f7;padding:24px;color:#111827;">
+  <div style="max-width:560px;margin:0 auto;background:#ffffff;border-radius:12px;padding:24px;">
+    <h1 style="margin-top:0;">${APP_NAME} Resend Test</h1>
+    <p>This is a direct runtime verification email from Convex using Resend.</p>
+    <p><strong>Label:</strong> ${label}</p>
+    <p><strong>Sent at:</strong> ${nowIso}</p>
+  </div>
+</body>
+</html>`.trim();
+        const ok = await sendEmailViaResend({
+            to: args.to,
+            subject: `${APP_NAME} Resend test (${label})`,
+            html,
+        });
+        return {
+            ok,
+            to: args.to,
+            label,
+            sentAt: nowIso,
+        };
+    },
+});
 
 // ---------------------------------------------------------------------------
 // Streak calculation helper (mirrors profiles.ts getUserStats logic)
