@@ -58,6 +58,58 @@ export const calculateQuestionBankTarget = ({
     return clampNumber(computed, safeMinTarget, safeMaxTarget);
 };
 
+const normalizeTopicText = (value) =>
+    String(value || "")
+        .toLowerCase()
+        .replace(/\s+/g, " ")
+        .trim();
+
+const extractUniquePassages = (evidence) => {
+    const items = Array.isArray(evidence) ? evidence : [];
+    const uniquePassages = [];
+    const seenPassageIds = new Set();
+
+    for (const passage of items) {
+        const fallbackId = `page:${Number(passage?.page || 0)}:${String(passage?.text || "").slice(0, 80)}`;
+        const passageId = String(passage?.passageId || fallbackId).trim();
+        if (!passageId || seenPassageIds.has(passageId)) {
+            continue;
+        }
+        seenPassageIds.add(passageId);
+        uniquePassages.push(passage);
+    }
+
+    return uniquePassages;
+};
+
+const resolveUniqueSourcePassageCount = (sourcePassageIds) =>
+    new Set(
+        (Array.isArray(sourcePassageIds) ? sourcePassageIds : [])
+            .map((value) => String(value || "").trim())
+            .filter(Boolean)
+    ).size;
+
+const isBroadCatchAllTopic = ({
+    topicTitle,
+    topicDescription,
+    sourcePassageIds,
+    evidencePassageCount,
+}) => {
+    const title = normalizeTopicText(topicTitle);
+    const description = normalizeTopicText(topicDescription);
+    const strippedTitle = title.replace(/^deep dive:\s*/i, "").trim();
+    const sourcePassageCount = resolveUniqueSourcePassageCount(sourcePassageIds);
+    const genericPattern = /\b(overview|introduction|summary|manual|training manual|handbook|guide|document|notes|course|full)\b/;
+    const genericTitle = genericPattern.test(strippedTitle);
+    const deepDiveTitle = title.startsWith("deep dive:");
+    const broadDescription =
+        description.includes("focused exploration of")
+        && (!!strippedTitle && description.includes(strippedTitle));
+    const wideCoverage = Math.max(sourcePassageCount, Number(evidencePassageCount || 0)) >= 8;
+
+    return genericTitle || (deepDiveTitle && broadDescription) || (deepDiveTitle && wideCoverage);
+};
+
 const estimateEvidencePassageQuestionCapacity = (passage) => {
     const text = String(passage?.text || "").trim();
     if (!text) return 0;
@@ -88,35 +140,117 @@ const estimateEvidencePassageQuestionCapacity = (passage) => {
     return clampNumber(capacity, 1, 6);
 };
 
-export const calculateEvidenceRichMcqCap = ({
+export const resolveEvidenceRichMcqCap = ({
     evidence,
+    topicTitle,
+    topicDescription,
+    sourcePassageIds,
     minTarget = 1,
     maxTarget = 60,
 }) => {
-    const items = Array.isArray(evidence) ? evidence : [];
-    const uniquePassages = [];
-    const seenPassageIds = new Set();
-
-    for (const passage of items) {
-        const fallbackId = `page:${Number(passage?.page || 0)}:${String(passage?.text || "").slice(0, 80)}`;
-        const passageId = String(passage?.passageId || fallbackId).trim();
-        if (!passageId || seenPassageIds.has(passageId)) {
-            continue;
-        }
-        seenPassageIds.add(passageId);
-        uniquePassages.push(passage);
-    }
+    const uniquePassages = extractUniquePassages(evidence);
 
     if (uniquePassages.length === 0) {
-        return clampNumber(minTarget, minTarget, maxTarget);
+        return {
+            cap: clampNumber(minTarget, minTarget, maxTarget),
+            estimatedCapacity: 0,
+            passageDrivenCap: clampNumber(minTarget, minTarget, maxTarget),
+            broadTopicPenaltyApplied: false,
+            uniquePassageCount: 0,
+        };
     }
 
-    const estimatedCapacity = uniquePassages.reduce(
-        (sum, passage) => sum + estimateEvidencePassageQuestionCapacity(passage),
-        0
+    const passageCapacities = uniquePassages.map((passage) => estimateEvidencePassageQuestionCapacity(passage));
+    const estimatedCapacity = passageCapacities.reduce((sum, capacity) => sum + capacity, 0);
+    const densePassageCount = passageCapacities.filter((capacity) => capacity >= 4).length;
+    const veryDensePassageCount = passageCapacities.filter((capacity) => capacity >= 5).length;
+
+    let passageDrivenCap =
+        uniquePassages.length
+        + densePassageCount
+        + Math.floor(veryDensePassageCount / 2);
+
+    if (uniquePassages.length >= 6) {
+        passageDrivenCap = Math.min(
+            passageDrivenCap,
+            uniquePassages.length + Math.ceil(densePassageCount * 0.75)
+        );
+    }
+
+    const broadTopicPenaltyApplied = isBroadCatchAllTopic({
+        topicTitle,
+        topicDescription,
+        sourcePassageIds,
+        evidencePassageCount: uniquePassages.length,
+    });
+    if (broadTopicPenaltyApplied) {
+        passageDrivenCap = Math.min(
+            passageDrivenCap,
+            Math.max(4, Math.ceil(uniquePassages.length * 1.5))
+        );
+    }
+
+    const cap = clampNumber(
+        Math.min(estimatedCapacity, passageDrivenCap),
+        minTarget,
+        maxTarget
     );
 
-    return clampNumber(estimatedCapacity, minTarget, maxTarget);
+    return {
+        cap,
+        estimatedCapacity,
+        passageDrivenCap,
+        broadTopicPenaltyApplied,
+        uniquePassageCount: uniquePassages.length,
+    };
+};
+
+export const calculateEvidenceRichMcqCap = (args) => {
+    return resolveEvidenceRichMcqCap(args).cap;
+};
+
+export const rebaseQuestionBankTargetAfterRun = ({
+    targetCount,
+    initialCount = 0,
+    finalCount = 0,
+    addedCount = 0,
+    outcome,
+    minTarget = 1,
+}) => {
+    const requestedTargetCount = Math.max(
+        minTarget,
+        Math.round(toSafeNumber(targetCount, minTarget))
+    );
+    const safeInitialCount = Math.max(0, Math.round(toSafeNumber(initialCount, 0)));
+    const safeFinalCount = Math.max(0, Math.round(toSafeNumber(finalCount, 0)));
+    const safeAddedCount = Math.max(0, Math.round(toSafeNumber(addedCount, 0)));
+    const normalizedOutcome = String(outcome || "").trim().toLowerCase();
+
+    if (!normalizedOutcome || normalizedOutcome === "completed" || normalizedOutcome === "already_generated") {
+        return requestedTargetCount;
+    }
+
+    if (
+        normalizedOutcome === "time_budget_reached"
+        && safeAddedCount > 0
+        && safeFinalCount > safeInitialCount + 1
+    ) {
+        return requestedTargetCount;
+    }
+
+    if (
+        normalizedOutcome === "no_progress_limit_reached"
+        || normalizedOutcome === "max_rounds_reached"
+        || normalizedOutcome === "insufficient_evidence"
+        || normalizedOutcome === "time_budget_reached"
+    ) {
+        if (safeFinalCount <= 0) {
+            return Math.min(requestedTargetCount, Math.max(minTarget, safeInitialCount || 1));
+        }
+        return clampNumber(safeFinalCount, minTarget, requestedTargetCount);
+    }
+
+    return requestedTargetCount;
 };
 
 export const deriveQuestionGenerationRounds = ({

@@ -21,11 +21,12 @@ import {
 } from "./lib/topicOutlinePipeline";
 import { assertAuthorizedUser, isUsableExamQuestion, resolveAuthUserId } from "./lib/examSecurity";
 import {
-    calculateEvidenceRichMcqCap,
     QUESTION_BANK_BACKGROUND_PROFILE,
     QUESTION_BANK_INTERACTIVE_PROFILE,
     calculateQuestionBankTarget as calculateQuestionBankTargetFromConfig,
+    rebaseQuestionBankTargetAfterRun,
     deriveQuestionGenerationRounds,
+    resolveEvidenceRichMcqCap,
     resolveQuestionBankProfile,
 } from "./lib/questionBankConfig";
 import {
@@ -2174,20 +2175,28 @@ const normalizeTimingMs = (value: any) => {
 };
 
 const resolveMcqQuestionBankTarget = (args: {
+    topic: any;
     topicContent: string;
     profile: any;
     evidence: RetrievedEvidence[];
 }) => {
     const wordCountTarget = calculateQuestionBankTarget(args.topicContent, args.profile);
-    const evidenceRichnessCap = calculateEvidenceRichMcqCap({
+    const evidenceCapResolution = resolveEvidenceRichMcqCap({
         evidence: args.evidence,
+        topicTitle: String(args.topic?.title || ""),
+        topicDescription: String(args.topic?.description || ""),
+        sourcePassageIds: Array.isArray(args.topic?.sourcePassageIds) ? args.topic.sourcePassageIds : [],
         minTarget: 1,
         maxTarget: wordCountTarget,
     });
     return {
         wordCountTarget,
-        evidenceRichnessCap,
-        targetCount: Math.min(wordCountTarget, evidenceRichnessCap),
+        evidenceRichnessCap: evidenceCapResolution.cap,
+        evidenceCapEstimatedCapacity: evidenceCapResolution.estimatedCapacity,
+        evidenceCapPassageDrivenCap: evidenceCapResolution.passageDrivenCap,
+        evidenceCapBroadTopicPenaltyApplied: evidenceCapResolution.broadTopicPenaltyApplied,
+        evidenceCapUniquePassageCount: evidenceCapResolution.uniquePassageCount,
+        targetCount: Math.min(wordCountTarget, evidenceCapResolution.cap),
     };
 };
 
@@ -4391,14 +4400,16 @@ const generateQuestionBankForTopic = async (
         type: "mcq",
     });
     const targetResolution = resolveMcqQuestionBankTarget({
+        topic: topicWithQuestions,
         topicContent,
         profile,
         evidence: groundedPack.evidence,
     });
     const targetCount = targetResolution.targetCount;
+    let persistedTargetCount = targetCount;
     await ctx.runMutation(internal.topics.refreshTopicExamReadinessInternal, {
         topicId,
-        mcqTargetCount: targetCount,
+        mcqTargetCount: persistedTargetCount,
     });
     timingBreakdown.setupMs = normalizeTimingMs(Date.now() - setupStartedAt);
 
@@ -4427,10 +4438,15 @@ const generateQuestionBankForTopic = async (
             target: {
                 initialCount,
                 finalCount: getUniqueQuestionCount(),
-                remainingNeeded: Math.max(0, targetCount - initialCount),
-                targetCount,
+                remainingNeeded: Math.max(0, persistedTargetCount - getUniqueQuestionCount()),
+                requestedTargetCount: targetCount,
+                targetCount: persistedTargetCount,
                 evidenceRichnessCap: targetResolution.evidenceRichnessCap,
                 wordCountTarget: targetResolution.wordCountTarget,
+                evidenceCapEstimatedCapacity: targetResolution.evidenceCapEstimatedCapacity,
+                evidenceCapPassageDrivenCap: targetResolution.evidenceCapPassageDrivenCap,
+                evidenceCapBroadTopicPenaltyApplied: targetResolution.evidenceCapBroadTopicPenaltyApplied,
+                evidenceCapUniquePassageCount: targetResolution.evidenceCapUniquePassageCount,
                 retrievedEvidenceCount: Array.isArray(groundedPack.evidence) ? groundedPack.evidence.length : 0,
                 retrievedEvidencePassageCount: new Set(
                     (Array.isArray(groundedPack.evidence) ? groundedPack.evidence : [])
@@ -4910,6 +4926,24 @@ const generateQuestionBankForTopic = async (
             : stoppedForMaxRounds
                 ? "max_rounds_reached"
                 : "completed";
+    persistedTargetCount = rebaseQuestionBankTargetAfterRun({
+        targetCount,
+        initialCount,
+        finalCount: getUniqueQuestionCount(),
+        addedCount: added,
+        outcome,
+        minTarget: 1,
+    });
+    if (persistedTargetCount !== targetCount) {
+        console.info("[QuestionBank] target_rebased", {
+            topicId,
+            topicTitle: topicWithQuestions.title,
+            requestedTargetCount: targetCount,
+            persistedTargetCount,
+            finalCount: getUniqueQuestionCount(),
+            outcome,
+        });
+    }
     if (stoppedForNoProgress) {
         console.warn("[QuestionBank] no_progress_limit_reached", {
             topicId,
@@ -5031,7 +5065,7 @@ const generateQuestionBankForTopic = async (
     const refreshReadinessStartedAt = Date.now();
     await ctx.runMutation(internal.topics.refreshTopicExamReadinessInternal, {
         topicId,
-        mcqTargetCount: targetCount,
+        mcqTargetCount: persistedTargetCount,
     });
     timingBreakdown.refreshReadinessMs += normalizeTimingMs(Date.now() - refreshReadinessStartedAt);
     const finalDiagnostics = buildTimingDiagnostics(outcome);
@@ -5067,7 +5101,8 @@ const generateQuestionBankForTopic = async (
         alreadyGenerated: added === 0,
         count: getUniqueQuestionCount(),
         added,
-        targetCount,
+        targetCount: persistedTargetCount,
+        requestedTargetCount: targetCount,
         evidenceRichnessCap: targetResolution.evidenceRichnessCap,
         wordCountTarget: targetResolution.wordCountTarget,
         timedOut,
@@ -5176,9 +5211,17 @@ export const generateQuestionsForTopic = action({
                 topicId: args.topicId,
             });
             const existingCount = countUsableUniqueMcqQuestions(topicSnapshot?.questions || []);
-            const targetCount = calculateQuestionBankTarget(
-                String(topicSnapshot?.content || ""),
-                QUESTION_BANK_INTERACTIVE_PROFILE
+            const targetCount = Math.max(
+                1,
+                Math.round(
+                    Number(
+                        topicSnapshot?.mcqTargetCount
+                        || calculateQuestionBankTarget(
+                            String(topicSnapshot?.content || ""),
+                            QUESTION_BANK_INTERACTIVE_PROFILE
+                        )
+                    )
+                )
             );
             return {
                 success: true,

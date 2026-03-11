@@ -14,10 +14,12 @@ const [aiSource, topicsSource, schemaSource] = await Promise.all([
 ]);
 
 for (const requiredPattern of [
-  "calculateEvidenceRichMcqCap",
+  "resolveEvidenceRichMcqCap",
+  "rebaseQuestionBankTargetAfterRun",
   "const resolveMcqQuestionBankTarget =",
   "const targetResolution = resolveMcqQuestionBankTarget({",
-  "mcqTargetCount: targetCount",
+  "mcqTargetCount: persistedTargetCount",
+  "persistedTargetCount = rebaseQuestionBankTargetAfterRun({",
   "evidenceRichnessCap: targetResolution.evidenceRichnessCap",
   "wordCountTarget: targetResolution.wordCountTarget",
 ]) {

@@ -5,6 +5,8 @@ import {
     QUESTION_BANK_INTERACTIVE_PROFILE,
     calculateQuestionBankTarget,
     deriveQuestionGenerationRounds,
+    rebaseQuestionBankTargetAfterRun,
+    resolveEvidenceRichMcqCap,
     resolveQuestionBankProfile,
 } from "../convex/lib/questionBankConfig.js";
 
@@ -127,8 +129,8 @@ const tests = [
         });
         assert.equal(
             cap,
-            2,
-            "Thin single-passage topics should cap MCQ generation to a small grounded bank."
+            1,
+            "Thin single-passage topics should cap MCQ generation to the smallest viable grounded bank."
         );
     },
     () => {
@@ -152,8 +154,67 @@ const tests = [
         });
         assert.equal(
             cap,
-            12,
-            "Rich multi-passage evidence should still be allowed to fill a larger MCQ bank up to the configured max."
+            8,
+            "Rich multi-passage evidence should be capped conservatively enough to avoid oversizing the grounded MCQ bank."
+        );
+    },
+    () => {
+        const broadEvidence = Array.from({ length: 9 }, (_, index) => ({
+            passageId: `p${index + 1}-0`,
+            page: index,
+            text: [
+                `Policy ${index + 1}: riders must accept orders quickly and handle deliveries professionally.`,
+                "Definition: integrity means honest status updates and respectful conduct.",
+                "Example: confirm pickup, use GPS, and contact the customer politely upon arrival.",
+                "Target: complete delivery steps in the prescribed order without falsifying updates.",
+            ].join(" "),
+            flags: index % 2 === 0 ? ["table"] : [],
+        }));
+        const resolution = resolveEvidenceRichMcqCap({
+            evidence: broadEvidence,
+            topicTitle: "Deep Dive: NIGHT MARKET RIDER TRAINING MANUAL",
+            topicDescription: "Focused exploration of NIGHT MARKET RIDER TRAINING MANUAL.",
+            sourcePassageIds: broadEvidence.map((entry) => entry.passageId),
+            minTarget: 1,
+            maxTarget: 40,
+        });
+        assert.equal(
+            resolution.cap,
+            14,
+            "Broad catch-all topics should be capped aggressively enough to avoid impossible 40-question targets."
+        );
+        assert.equal(
+            resolution.broadTopicPenaltyApplied,
+            true,
+            "Catch-all topics should activate the broad-topic penalty path."
+        );
+    },
+    () => {
+        const rebased = rebaseQuestionBankTargetAfterRun({
+            targetCount: 40,
+            initialCount: 0,
+            finalCount: 1,
+            addedCount: 1,
+            outcome: "no_progress_limit_reached",
+        });
+        assert.equal(
+            rebased,
+            1,
+            "Stalled runs should rebase the persisted MCQ target down to the grounded yield."
+        );
+    },
+    () => {
+        const kept = rebaseQuestionBankTargetAfterRun({
+            targetCount: 24,
+            initialCount: 0,
+            finalCount: 15,
+            addedCount: 15,
+            outcome: "time_budget_reached",
+        });
+        assert.equal(
+            kept,
+            24,
+            "Time-budget exits that still make strong progress should keep the requested target for follow-up generation."
         );
     },
 ];
