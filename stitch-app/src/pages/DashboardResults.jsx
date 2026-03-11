@@ -1,12 +1,13 @@
 import React, { useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
-import { useQuery, useAction } from 'convex/react';
+import { useQuery, useAction, useConvexAuth } from 'convex/react';
 import { api } from '../../convex/_generated/api';
 
 // ─── Post-exam upgrade prompt ────────────────────────────────────────────────
 
 const PostExamUpgradeCard = () => {
-    const uploadQuota = useQuery(api.subscriptions.getUploadQuotaStatus, {});
+    const { isAuthenticated: isConvexAuthenticated } = useConvexAuth();
+    const uploadQuota = useQuery(api.subscriptions.getUploadQuotaStatus, isConvexAuthenticated ? {} : 'skip');
 
     // Don't render while loading or if query fails
     if (uploadQuota === undefined || uploadQuota === null) return null;

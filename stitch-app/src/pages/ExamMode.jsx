@@ -981,27 +981,23 @@ const ExamMode = () => {
 
     // Timer managed by useExamTimer hook above
 
-    const handleAnswerSelect = (questionId, answer) => {
-        if (submitError) setSubmitError('');
+    const handleAnswerSelect = useCallback((questionId, answer) => {
+        setSubmitError((prev) => (prev ? '' : prev));
         setSelectedAnswers((prev) => ({
             ...prev,
             [questionId]: answer,
         }));
-    };
+    }, []);
 
-    const handleNext = () => {
-        if (currentQuestion < questions.length - 1) {
-            setCurrentQuestion(currentQuestion + 1);
-        }
-    };
+    const handleNext = useCallback(() => {
+        setCurrentQuestion((prev) => Math.min(prev + 1, questions.length - 1));
+    }, [questions.length]);
 
-    const handlePrevious = () => {
-        if (currentQuestion > 0) {
-            setCurrentQuestion(currentQuestion - 1);
-        }
-    };
+    const handlePrevious = useCallback(() => {
+        setCurrentQuestion((prev) => Math.max(prev - 1, 0));
+    }, []);
 
-    const handleSubmit = async () => {
+    const handleSubmit = useCallback(async () => {
         if (submittingRef.current) return;
         if (!attemptId) return;
         submittingRef.current = true;
@@ -1143,7 +1139,7 @@ const ExamMode = () => {
             }
             submittingRef.current = false;
         }
-    };
+    }, [attemptId, attemptQuestions, questions, selectedAnswers, examFormat, timeRemaining, topicId, navigate, submitExam, submitEssayExam]);
     handleSubmitRef.current = handleSubmit;
 
     const handleGenerateQuestions = async () => {
