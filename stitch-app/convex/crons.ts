@@ -17,4 +17,11 @@ crons.cron(
     internal.emails.sendWeeklySummary,
 );
 
+// Rebase stale question-bank targets after generation has clearly stalled.
+crons.interval(
+    "question bank target audit",
+    { hours: 12 },
+    internal.grounded.runStaleQuestionBankTargetAudit,
+);
+
 export default crons;

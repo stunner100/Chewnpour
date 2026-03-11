@@ -12,9 +12,16 @@ for (const expectedPattern of [
   "refreshTopicExamReadinessInternal",
   "mcqTargetCount: topic.recalculatedTarget",
   "internal.ai.generateQuestionsForTopicInternal",
+  "export const rebaseStaleOversizedEssayTargets = internalAction({",
+  "resolveEssayTargetForSweep",
+  "essayTargetCount: topic.recalculatedTarget",
+  "internal.ai.generateEssayQuestionsForTopicInternal",
+  "export const runStaleQuestionBankTargetAudit = internalAction({",
+  "rebaseStaleOversizedMcqTargets",
+  "rebaseStaleOversizedEssayTargets",
 ]) {
   if (!source.includes(expectedPattern)) {
-    throw new Error(`Expected grounded.ts to include "${expectedPattern}" for stale MCQ target rebasing.`);
+    throw new Error(`Expected grounded.ts to include "${expectedPattern}" for stale target rebasing/audit.`);
   }
 }
 

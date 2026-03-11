@@ -9,6 +9,7 @@ import { runDeterministicGroundingCheck } from "./lib/groundedVerifier";
 import {
     QUESTION_BANK_BACKGROUND_PROFILE,
     calculateQuestionBankTarget,
+    resolveEvidenceRichEssayCap,
     resolveEvidenceRichMcqCap,
 } from "./lib/questionBankConfig";
 
@@ -21,6 +22,8 @@ type UploadDoc = {
     evidenceIndexStorageId?: Id<"_storage">;
     _creationTime?: number;
 };
+
+const DEFAULT_SWEEP_ESSAY_TARGET = 3;
 
 const toErrorSummary = (error: unknown) =>
     error instanceof Error ? error.message : String(error);
@@ -120,6 +123,51 @@ const resolveMcqTargetForSweep = async (ctx: any, topic: any) => {
         wordDivisor: QUESTION_BANK_BACKGROUND_PROFILE.wordDivisor,
     });
     const evidenceCapResolution = resolveEvidenceRichMcqCap({
+        evidence,
+        topicTitle: String(topic?.title || ""),
+        topicDescription: String(topic?.description || ""),
+        sourcePassageIds: Array.isArray(topic?.sourcePassageIds) ? topic.sourcePassageIds : [],
+        minTarget: 1,
+        maxTarget: wordCountTarget,
+    });
+
+    return {
+        targetCount: Math.min(wordCountTarget, evidenceCapResolution.cap),
+        wordCountTarget,
+        evidenceRichnessCap: evidenceCapResolution.cap,
+        evidenceCapEstimatedCapacity: evidenceCapResolution.estimatedCapacity,
+        evidenceCapPassageDrivenCap: evidenceCapResolution.passageDrivenCap,
+        evidenceCapBroadTopicPenaltyApplied: evidenceCapResolution.broadTopicPenaltyApplied,
+        evidenceCapUniquePassageCount: evidenceCapResolution.uniquePassageCount,
+        retrievedEvidenceCount: evidence.length,
+        retrievedEvidencePassageCount: new Set(
+            evidence.map((entry: any) => String(entry?.passageId || "").trim()).filter(Boolean)
+        ).size,
+    };
+};
+
+const resolveEssayTargetForSweep = async (ctx: any, topic: any) => {
+    const { index } = await loadGroundedEvidenceIndexForTopicSweep(ctx, topic);
+    if (!index) return null;
+
+    const evidence = retrieveGroundedEvidence({
+        index,
+        query: [
+            String(topic?.title || ""),
+            String(topic?.description || ""),
+        ].join(" "),
+        limit: 24,
+        preferFlags: ["table", "formula"],
+    });
+    if (evidence.length === 0) return null;
+
+    const wordCountTarget = calculateQuestionBankTarget({
+        wordCount: countWords(topic?.content),
+        minTarget: 1,
+        maxTarget: 6,
+        wordDivisor: 220,
+    });
+    const evidenceCapResolution = resolveEvidenceRichEssayCap({
         evidence,
         topicTitle: String(topic?.title || ""),
         topicDescription: String(topic?.description || ""),
@@ -1207,6 +1255,196 @@ export const rebaseStaleOversizedMcqTargets = internalAction({
             skippedForFreshnessCount,
             skippedForHealthyFillCount,
             sampleTopics: selectedTopics.slice(0, sampleLimit),
+        };
+    },
+});
+
+export const rebaseStaleOversizedEssayTargets = internalAction({
+    args: {
+        limit: v.optional(v.number()),
+        maxTopics: v.optional(v.number()),
+        dryRun: v.optional(v.boolean()),
+        sampleLimit: v.optional(v.number()),
+        staleHours: v.optional(v.number()),
+        minCurrentTarget: v.optional(v.number()),
+        maxFillRatio: v.optional(v.number()),
+    },
+    handler: async (ctx, args) => {
+        const topicLimit = Math.max(1, Math.min(20_000, Math.floor(Number(args.limit || 10_000))));
+        const maxTopics = Math.max(1, Math.min(2_000, Math.floor(Number(args.maxTopics || 500))));
+        const sampleLimit = Math.max(1, Math.min(100, Math.floor(Number(args.sampleLimit || 25))));
+        const staleHours = Math.max(1, Math.min(24 * 30, Number(args.staleHours || 24)));
+        const minCurrentTarget = Math.max(1, Math.min(20, Math.floor(Number(args.minCurrentTarget || 2))));
+        const maxFillRatio = Math.max(0, Math.min(1, Number(args.maxFillRatio || 0.8)));
+        const dryRun = args.dryRun === true;
+        const staleCutoffTs = Date.now() - staleHours * 60 * 60 * 1000;
+
+        let scannedTopicCount = 0;
+        let candidateTopicCount = 0;
+        let rebasedTopicCount = 0;
+        let scheduledTopicCount = 0;
+        let skippedForMissingEvidenceCount = 0;
+        let skippedForLockCount = 0;
+        let skippedForFreshnessCount = 0;
+        let skippedForHealthyFillCount = 0;
+        let totalTargetReduction = 0;
+        let cursor: string | null = null;
+        let isDone = false;
+        const candidateTopics: any[] = [];
+
+        while (!isDone && scannedTopicCount < topicLimit) {
+            const pageSize = Math.min(40, topicLimit - scannedTopicCount);
+            const topicPage = await ctx.runQuery((internal as any).grounded.listTopicsForSweep, {
+                paginationOpts: {
+                    numItems: pageSize,
+                    cursor,
+                },
+            }) as {
+                page: any[];
+                continueCursor: string;
+                isDone: boolean;
+            };
+            cursor = topicPage.continueCursor;
+            isDone = topicPage.isDone;
+
+            for (const topic of topicPage.page) {
+                scannedTopicCount += 1;
+                if (scannedTopicCount > topicLimit) break;
+
+                const currentTarget = Math.max(
+                    1,
+                    Math.round(Number(topic?.essayTargetCount || DEFAULT_SWEEP_ESSAY_TARGET))
+                );
+                const usableEssayCount = Math.max(0, Math.round(Number(topic?.usableEssayCount || 0)));
+                const updatedAt = Number(topic?.examReadyUpdatedAt || topic?._creationTime || 0);
+                const currentlyLocked = Number(topic?.essayGenerationLockedUntil || 0) > Date.now();
+
+                if (currentTarget < minCurrentTarget || usableEssayCount >= currentTarget) {
+                    continue;
+                }
+                if (currentlyLocked) {
+                    skippedForLockCount += 1;
+                    continue;
+                }
+                if (updatedAt > staleCutoffTs) {
+                    skippedForFreshnessCount += 1;
+                    continue;
+                }
+
+                const fillRatio = currentTarget > 0 ? usableEssayCount / currentTarget : 1;
+                if (usableEssayCount > 0 && fillRatio > maxFillRatio) {
+                    skippedForHealthyFillCount += 1;
+                    continue;
+                }
+
+                const resolution = await resolveEssayTargetForSweep(ctx, topic);
+                if (!resolution) {
+                    skippedForMissingEvidenceCount += 1;
+                    continue;
+                }
+                if (resolution.targetCount >= currentTarget) {
+                    continue;
+                }
+
+                candidateTopicCount += 1;
+                candidateTopics.push({
+                    topicId: topic._id,
+                    topicTitle: String(topic?.title || "Unknown Topic"),
+                    currentTarget,
+                    recalculatedTarget: resolution.targetCount,
+                    usableMcqCount: Math.max(0, Math.round(Number(topic?.usableMcqCount || 0))),
+                    usableEssayCount,
+                    fillRatio,
+                    updatedAt,
+                    ...resolution,
+                });
+            }
+        }
+
+        candidateTopics.sort((left, right) => {
+            const delta = (right.currentTarget - right.recalculatedTarget) - (left.currentTarget - left.recalculatedTarget);
+            if (delta !== 0) return delta;
+            return left.fillRatio - right.fillRatio;
+        });
+
+        const selectedTopics = candidateTopics.slice(0, maxTopics);
+
+        if (!dryRun) {
+            for (const topic of selectedTopics) {
+                await ctx.runMutation(internal.topics.refreshTopicExamReadinessInternal, {
+                    topicId: topic.topicId,
+                    essayTargetCount: topic.recalculatedTarget,
+                });
+                rebasedTopicCount += 1;
+                totalTargetReduction += Math.max(0, topic.currentTarget - topic.recalculatedTarget);
+
+                if (topic.usableEssayCount < topic.recalculatedTarget) {
+                    await ctx.scheduler.runAfter(0, internal.ai.generateEssayQuestionsForTopicInternal, {
+                        topicId: topic.topicId,
+                        count: topic.recalculatedTarget,
+                    });
+                    scheduledTopicCount += 1;
+                }
+            }
+        }
+
+        return {
+            dryRun,
+            scannedTopicCount,
+            candidateTopicCount,
+            rebasedTopicCount,
+            scheduledTopicCount,
+            staleHours,
+            minCurrentTarget,
+            maxFillRatio,
+            totalTargetReduction,
+            skippedForMissingEvidenceCount,
+            skippedForLockCount,
+            skippedForFreshnessCount,
+            skippedForHealthyFillCount,
+            sampleTopics: selectedTopics.slice(0, sampleLimit),
+        };
+    },
+});
+
+export const runStaleQuestionBankTargetAudit = internalAction({
+    args: {
+        mcqLimit: v.optional(v.number()),
+        essayLimit: v.optional(v.number()),
+        maxTopicsPerFormat: v.optional(v.number()),
+        staleHours: v.optional(v.number()),
+        dryRun: v.optional(v.boolean()),
+    },
+    handler: async (ctx, args) => {
+        const dryRun = args.dryRun === true;
+        const staleHours = Math.max(1, Math.min(24 * 30, Number(args.staleHours || 12)));
+        const maxTopicsPerFormat = Math.max(1, Math.min(2_000, Math.floor(Number(args.maxTopicsPerFormat || 250))));
+
+        const mcq = await ctx.runAction((internal as any).grounded.rebaseStaleOversizedMcqTargets, {
+            dryRun,
+            limit: args.mcqLimit,
+            maxTopics: maxTopicsPerFormat,
+            staleHours,
+            minCurrentTarget: 12,
+            maxFillRatio: 0.6,
+            sampleLimit: 10,
+        });
+        const essay = await ctx.runAction((internal as any).grounded.rebaseStaleOversizedEssayTargets, {
+            dryRun,
+            limit: args.essayLimit,
+            maxTopics: maxTopicsPerFormat,
+            staleHours: Math.max(staleHours, 24),
+            minCurrentTarget: 2,
+            maxFillRatio: 0.8,
+            sampleLimit: 10,
+        });
+
+        return {
+            dryRun,
+            staleHours,
+            maxTopicsPerFormat,
+            mcq,
+            essay,
         };
     },
 });
