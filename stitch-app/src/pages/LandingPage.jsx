@@ -477,7 +477,7 @@ const LandingPage = () => {
                     </div>
                     <div className="grid gap-5 md:grid-cols-2 lg:grid-cols-4 max-w-6xl mx-auto pt-5">
                         {/* Free Plan */}
-                        <div className="flex flex-col p-6 md:p-7 rounded-2xl bg-white dark:bg-neutral-900 border border-neutral-200/80 dark:border-neutral-800 shadow-card overflow-hidden">
+                        <div className="flex flex-col p-6 md:p-7 rounded-2xl bg-white dark:bg-neutral-900 border border-neutral-200/80 dark:border-neutral-800 shadow-card">
                             <div className="mb-5">
                                 <span className="inline-flex items-center px-2.5 py-1 rounded-lg text-[11px] font-bold uppercase tracking-widest bg-neutral-100 dark:bg-neutral-800 text-neutral-500 dark:text-neutral-400 mb-3">Free</span>
                                 <div className="flex items-baseline gap-1 flex-wrap">
@@ -511,7 +511,7 @@ const LandingPage = () => {
                         </div>
 
                         {/* Starter Top-up */}
-                        <div className="flex flex-col p-6 md:p-7 rounded-2xl bg-white dark:bg-neutral-900 border border-neutral-200/80 dark:border-neutral-800 shadow-card overflow-hidden">
+                        <div className="flex flex-col p-6 md:p-7 rounded-2xl bg-white dark:bg-neutral-900 border border-neutral-200/80 dark:border-neutral-800 shadow-card">
                             <div className="mb-5">
                                 <span className="inline-flex items-center px-2.5 py-1 rounded-lg text-[11px] font-bold uppercase tracking-widest bg-primary/10 text-primary mb-3">Starter</span>
                                 <div className="flex items-baseline gap-1 flex-wrap">
@@ -549,7 +549,7 @@ const LandingPage = () => {
                         </div>
 
                         {/* Max Top-up */}
-                        <div className="relative flex flex-col p-6 md:p-7 rounded-2xl bg-white dark:bg-neutral-900 border-2 border-primary/30 shadow-card overflow-hidden">
+                        <div className="relative flex flex-col p-6 md:p-7 rounded-2xl bg-white dark:bg-neutral-900 border-2 border-primary/30 shadow-card">
                             <div className="absolute -top-3 left-1/2 -translate-x-1/2">
                                 <span className="px-3 py-1 bg-primary text-white text-[10px] font-bold uppercase tracking-widest rounded-full shadow-button whitespace-nowrap">Popular</span>
                             </div>
@@ -597,7 +597,7 @@ const LandingPage = () => {
                         </div>
 
                         {/* Semester Pass */}
-                        <div className="relative flex flex-col p-6 md:p-7 rounded-2xl bg-gradient-to-br from-emerald-50 to-teal-50 dark:from-emerald-950/40 dark:to-teal-950/40 border-2 border-emerald-400/50 dark:border-emerald-500/30 shadow-card overflow-hidden">
+                        <div className="relative flex flex-col p-6 md:p-7 rounded-2xl bg-gradient-to-br from-emerald-50 to-teal-50 dark:from-emerald-950/40 dark:to-teal-950/40 border-2 border-emerald-400/50 dark:border-emerald-500/30 shadow-card">
                             <div className="absolute -top-3 left-1/2 -translate-x-1/2">
                                 <span className="px-3 py-1 bg-emerald-500 text-white text-[10px] font-bold uppercase tracking-widest rounded-full shadow-sm whitespace-nowrap">Best Value</span>
                             </div>
