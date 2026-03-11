@@ -534,7 +534,7 @@ export const getDashboardSnapshot = query({
         const fourteenDaysAgo = now - (ACTIVE_USER_WINDOW_DAYS + NEW_USER_WINDOW_DAYS) * DAY_MS;
         const fiveMinutesAgo = now - ACTIVE_USERS_5M_WINDOW_MS;
 
-        const [profiles, uploads, assignmentThreads, examAttempts, conceptAttempts, feedbackEntries, activeSessionsResult, subscriptions, paymentTransactions, courses, humanizerUsage, userPresence] =
+        const [profiles, uploads, assignmentThreads, examAttempts, conceptAttempts, feedbackEntries, activeSessionsResult, subscriptions, paymentTransactions, courses, humanizerUsage, userPresence, questionTargetAuditRuns] =
             await Promise.all([
                 ctx.db.query("profiles").collect(),
                 ctx.db.query("uploads").collect(),
@@ -555,6 +555,11 @@ export const getDashboardSnapshot = query({
                     .query("userPresence")
                     .withIndex("by_lastSeenAt", (q) => q.gte("lastSeenAt", fiveMinutesAgo))
                     .collect(),
+                ctx.db
+                    .query("questionTargetAuditRuns")
+                    .withIndex("by_finishedAt")
+                    .order("desc")
+                    .take(10),
             ]);
         // Topics can contain very large generated content, so avoid full-table
         // scans here and derive admin content metrics from lightweight records.
@@ -1382,6 +1387,59 @@ export const getDashboardSnapshot = query({
             email: normalizeEmail(topUploadAuthUsersById.get(entry.userId)?.email) || null,
         }));
 
+        const latestQuestionTargetAuditRun = questionTargetAuditRuns[0] || null;
+        const latestQuestionTargetAuditWithRebases =
+            questionTargetAuditRuns.find((run: any) => Array.isArray(run?.rebasedTopics) && run.rebasedTopics.length > 0)
+            || latestQuestionTargetAuditRun;
+        const mapQuestionTargetAuditRun = (run: any) => {
+            if (!run) return null;
+            return {
+                dryRun: run.dryRun === true,
+                startedAt: toTimestamp(run.startedAt, 0),
+                finishedAt: toTimestamp(run.finishedAt, 0),
+                staleHours: Number(run.staleHours) || 0,
+                maxTopicsPerFormat: Number(run.maxTopicsPerFormat) || 0,
+                mcqSummary: {
+                    scannedTopicCount: Number(run?.mcqSummary?.scannedTopicCount) || 0,
+                    candidateTopicCount: Number(run?.mcqSummary?.candidateTopicCount) || 0,
+                    rebasedTopicCount: Number(run?.mcqSummary?.rebasedTopicCount) || 0,
+                    scheduledTopicCount: Number(run?.mcqSummary?.scheduledTopicCount) || 0,
+                    totalTargetReduction: Number(run?.mcqSummary?.totalTargetReduction) || 0,
+                },
+                essaySummary: {
+                    scannedTopicCount: Number(run?.essaySummary?.scannedTopicCount) || 0,
+                    candidateTopicCount: Number(run?.essaySummary?.candidateTopicCount) || 0,
+                    rebasedTopicCount: Number(run?.essaySummary?.rebasedTopicCount) || 0,
+                    scheduledTopicCount: Number(run?.essaySummary?.scheduledTopicCount) || 0,
+                    totalTargetReduction: Number(run?.essaySummary?.totalTargetReduction) || 0,
+                },
+                totalRebasedTopics: Array.isArray(run?.rebasedTopics) ? run.rebasedTopics.length : 0,
+                rebasedTopics: (Array.isArray(run?.rebasedTopics) ? run.rebasedTopics : [])
+                    .slice(0, 20)
+                    .map((topic: any) => ({
+                        format: String(topic?.format || ""),
+                        topicId: String(topic?.topicId || ""),
+                        topicTitle: String(topic?.topicTitle || "Unknown Topic"),
+                        currentTarget: Number(topic?.currentTarget) || 0,
+                        recalculatedTarget: Number(topic?.recalculatedTarget) || 0,
+                        usableMcqCount: Number(topic?.usableMcqCount) || 0,
+                        usableEssayCount: Number(topic?.usableEssayCount) || 0,
+                        fillRatio: Number(topic?.fillRatio) || 0,
+                        scheduled: topic?.scheduled === true,
+                        wordCountTarget: Number.isFinite(Number(topic?.wordCountTarget))
+                            ? Number(topic.wordCountTarget)
+                            : null,
+                        evidenceRichnessCap: Number.isFinite(Number(topic?.evidenceRichnessCap))
+                            ? Number(topic.evidenceRichnessCap)
+                            : null,
+                        evidenceCapBroadTopicPenaltyApplied: topic?.evidenceCapBroadTopicPenaltyApplied === true,
+                        retrievedEvidencePassageCount: Number.isFinite(Number(topic?.retrievedEvidencePassageCount))
+                            ? Number(topic.retrievedEvidencePassageCount)
+                            : null,
+                    })),
+            };
+        };
+
         return {
             allowed: true as const,
             generatedAt: now,
@@ -1430,6 +1488,10 @@ export const getDashboardSnapshot = query({
                 channels: uploadBreakdownByChannel,
                 fileTypes: uploadBreakdownByFileType,
                 topUsers: topUploadUsers,
+            },
+            questionTargetAudit: {
+                latestRun: mapQuestionTargetAuditRun(latestQuestionTargetAuditRun),
+                latestRunWithRebases: mapQuestionTargetAuditRun(latestQuestionTargetAuditWithRebases),
             },
             adminEmails: access.adminEmails,
             recentUsers,

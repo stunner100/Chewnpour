@@ -49,6 +49,13 @@ const formatDuration = (seconds) => {
     return remaining > 0 ? `${m}m ${remaining}s` : `${m}m`;
 };
 
+const formatSignedPercent = (value) => {
+    const parsed = Number(value);
+    if (!Number.isFinite(parsed)) return '0%';
+    const rounded = Math.round(parsed * 10) / 10;
+    return `${rounded.toFixed(rounded % 1 === 0 ? 0 : 1)}%`;
+};
+
 const canRemoveAdminEmail = (sources) => (
     Array.isArray(sources)
     && sources.includes('db')
@@ -491,6 +498,9 @@ const RevenuePanel = ({ snapshot, activeUsersDays }) => {
 const ContentPanel = ({ snapshot }) => {
     const content = snapshot.contentAnalytics || {};
     const documents = snapshot.documents || {};
+    const questionTargetAudit = snapshot.questionTargetAudit || {};
+    const latestAudit = questionTargetAudit.latestRun || null;
+    const latestAuditWithRebases = questionTargetAudit.latestRunWithRebases || null;
 
     return (
         <div className="space-y-4">
@@ -565,6 +575,100 @@ const ContentPanel = ({ snapshot }) => {
                     </div>
                 </SectionCard>
             </section>
+
+            <SectionCard
+                title="Question Target Audit"
+                badge={latestAudit ? `Latest run ${formatDateTime(latestAudit.finishedAt)}` : 'No audit runs yet'}
+            >
+                {!latestAudit ? (
+                    <p className="text-sm text-slate-500 dark:text-slate-400">No target audit has been recorded yet.</p>
+                ) : (
+                    <div className="space-y-4">
+                        <div className="grid gap-4 lg:grid-cols-2">
+                            <div className="rounded-2xl border border-slate-200 dark:border-slate-700 bg-white/80 dark:bg-slate-900/40 p-4">
+                                <div className="flex items-center justify-between gap-2">
+                                    <h3 className="text-sm font-semibold text-slate-900 dark:text-white">Latest Audit Run</h3>
+                                    <span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${latestAudit.dryRun ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300' : 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300'}`}>
+                                        {latestAudit.dryRun ? 'Dry run' : 'Applied'}
+                                    </span>
+                                </div>
+                                <div className="mt-3 divide-y divide-slate-100 dark:divide-slate-800">
+                                    <StatRow label="Finished" value={formatDateTime(latestAudit.finishedAt)} />
+                                    <StatRow label="Stale window" value={`${formatNumber(latestAudit.staleHours)}h`} />
+                                    <StatRow label="Max topics/format" value={formatNumber(latestAudit.maxTopicsPerFormat)} />
+                                    <StatRow label="MCQ rebased" value={formatNumber(latestAudit.mcqSummary?.rebasedTopicCount)} detail={`${formatNumber(latestAudit.mcqSummary?.candidateTopicCount)} candidates`} />
+                                    <StatRow label="Essay rebased" value={formatNumber(latestAudit.essaySummary?.rebasedTopicCount)} detail={`${formatNumber(latestAudit.essaySummary?.candidateTopicCount)} candidates`} />
+                                    <StatRow label="Total rebased topics" value={formatNumber(latestAudit.totalRebasedTopics)} />
+                                </div>
+                            </div>
+
+                            <div className="rounded-2xl border border-slate-200 dark:border-slate-700 bg-white/80 dark:bg-slate-900/40 p-4">
+                                <h3 className="text-sm font-semibold text-slate-900 dark:text-white">Most Recent Effective Rebase</h3>
+                                {!latestAuditWithRebases || !latestAuditWithRebases.totalRebasedTopics ? (
+                                    <p className="mt-3 text-sm text-slate-500 dark:text-slate-400">No rebased topics recorded yet.</p>
+                                ) : (
+                                    <div className="mt-3 divide-y divide-slate-100 dark:divide-slate-800">
+                                        <StatRow label="Finished" value={formatDateTime(latestAuditWithRebases.finishedAt)} />
+                                        <StatRow label="MCQ rebased" value={formatNumber(latestAuditWithRebases.mcqSummary?.rebasedTopicCount)} detail={`${formatNumber(latestAuditWithRebases.mcqSummary?.totalTargetReduction)} target reduction`} />
+                                        <StatRow label="Essay rebased" value={formatNumber(latestAuditWithRebases.essaySummary?.rebasedTopicCount)} detail={`${formatNumber(latestAuditWithRebases.essaySummary?.totalTargetReduction)} target reduction`} />
+                                        <StatRow label="Topics changed" value={formatNumber(latestAuditWithRebases.totalRebasedTopics)} />
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+
+                        <div className="rounded-2xl border border-slate-200 dark:border-slate-700 bg-white/80 dark:bg-slate-900/40 p-4">
+                            <div className="flex items-center justify-between gap-2">
+                                <h3 className="text-sm font-semibold text-slate-900 dark:text-white">Rebased Topics</h3>
+                                <span className="text-xs text-slate-500 dark:text-slate-400">
+                                    {latestAuditWithRebases?.totalRebasedTopics
+                                        ? `Showing ${Math.min(latestAuditWithRebases.rebasedTopics?.length || 0, latestAuditWithRebases.totalRebasedTopics)} of ${formatNumber(latestAuditWithRebases.totalRebasedTopics)}`
+                                        : 'No changed topics'}
+                                </span>
+                            </div>
+                            {!latestAuditWithRebases || !Array.isArray(latestAuditWithRebases.rebasedTopics) || latestAuditWithRebases.rebasedTopics.length === 0 ? (
+                                <p className="mt-3 text-sm text-slate-500 dark:text-slate-400">The latest effective audit did not include any persisted topic rows.</p>
+                            ) : (
+                                <div className="mt-3 overflow-x-auto">
+                                    <table className="min-w-full text-sm">
+                                        <thead>
+                                            <tr className="border-b border-slate-200 dark:border-slate-700">
+                                                <th className="px-3 py-2 text-left font-semibold text-slate-500 dark:text-slate-400">Topic</th>
+                                                <th className="px-3 py-2 text-left font-semibold text-slate-500 dark:text-slate-400">Format</th>
+                                                <th className="px-3 py-2 text-left font-semibold text-slate-500 dark:text-slate-400">Target</th>
+                                                <th className="px-3 py-2 text-left font-semibold text-slate-500 dark:text-slate-400">Current Yield</th>
+                                                <th className="px-3 py-2 text-left font-semibold text-slate-500 dark:text-slate-400">Fill</th>
+                                                <th className="px-3 py-2 text-left font-semibold text-slate-500 dark:text-slate-400">Scheduled</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {latestAuditWithRebases.rebasedTopics.map((topic) => (
+                                                <tr key={`${topic.format}-${topic.topicId}`} className="border-b border-slate-100 dark:border-slate-800/80">
+                                                    <td className="px-3 py-3">
+                                                        <p className="font-semibold text-slate-900 dark:text-white">{topic.topicTitle || topic.topicId}</p>
+                                                        <p className="text-xs text-slate-500 dark:text-slate-400">{topic.topicId}</p>
+                                                    </td>
+                                                    <td className="px-3 py-3 text-slate-600 dark:text-slate-300 uppercase">{topic.format}</td>
+                                                    <td className="px-3 py-3 text-slate-600 dark:text-slate-300">
+                                                        {formatNumber(topic.currentTarget)} → {formatNumber(topic.recalculatedTarget)}
+                                                    </td>
+                                                    <td className="px-3 py-3 text-slate-600 dark:text-slate-300">
+                                                        {topic.format === 'essay'
+                                                            ? `${formatNumber(topic.usableEssayCount)} essay`
+                                                            : `${formatNumber(topic.usableMcqCount)} MCQ`}
+                                                    </td>
+                                                    <td className="px-3 py-3 text-slate-600 dark:text-slate-300">{formatSignedPercent((Number(topic.fillRatio) || 0) * 100)}</td>
+                                                    <td className="px-3 py-3 text-slate-600 dark:text-slate-300">{topic.scheduled ? 'Yes' : 'No'}</td>
+                                                </tr>
+                                            ))}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                )}
+            </SectionCard>
         </div>
     );
 };
