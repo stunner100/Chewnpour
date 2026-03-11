@@ -5,8 +5,6 @@ import ProtectedRoute from './components/ProtectedRoute';
 import DashboardLayout from './components/DashboardLayout';
 import { addSentryBreadcrumb } from './lib/sentry';
 import { attemptChunkRecoveryReload, isChunkLoadError } from './lib/chunkLoadRecovery';
-const SignUpPage = lazyRoute(() => import('./pages/SignUp'), { componentName: 'SignUp' });
-const DashboardAnalysisPage = lazyRoute(() => import('./pages/DashboardAnalysis'), { componentName: 'DashboardAnalysis' });
 
 const ChunkRecoveryFallback = ({ componentName }) => (
   <div className="bg-background-light dark:bg-background-dark min-h-screen flex items-center justify-center px-6">
@@ -83,6 +81,8 @@ const lazyRoute = (importer, { componentName, namedExport } = {}) => lazy(() =>
     })
 );
 
+const SignUpPage = lazyRoute(() => import('./pages/SignUp'), { componentName: 'SignUp' });
+const DashboardAnalysisPage = lazyRoute(() => import('./pages/DashboardAnalysis'), { componentName: 'DashboardAnalysis' });
 const LandingPage = lazyRoute(() => import('./pages/LandingPage'), { componentName: 'LandingPage' });
 const Login = lazyRoute(() => import('./pages/Login'), { componentName: 'Login' });
 const ResetPassword = lazyRoute(() => import('./pages/ResetPassword'), { componentName: 'ResetPassword' });
