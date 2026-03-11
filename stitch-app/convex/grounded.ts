@@ -25,6 +25,37 @@ type UploadDoc = {
 
 const DEFAULT_SWEEP_ESSAY_TARGET = 3;
 
+const buildAuditSummary = (result: any) => ({
+    scannedTopicCount: Math.max(0, Math.round(Number(result?.scannedTopicCount || 0))),
+    candidateTopicCount: Math.max(0, Math.round(Number(result?.candidateTopicCount || 0))),
+    rebasedTopicCount: Math.max(0, Math.round(Number(result?.rebasedTopicCount || 0))),
+    scheduledTopicCount: Math.max(0, Math.round(Number(result?.scheduledTopicCount || 0))),
+    totalTargetReduction: Math.max(0, Math.round(Number(result?.totalTargetReduction || 0))),
+});
+
+const mapRebasedTopicsForAudit = (result: any, format: "mcq" | "essay") =>
+    (Array.isArray(result?.rebasedTopics) ? result.rebasedTopics : []).map((topic: any) => ({
+        format,
+        topicId: topic.topicId,
+        topicTitle: String(topic?.topicTitle || "Unknown Topic"),
+        currentTarget: Math.max(1, Math.round(Number(topic?.currentTarget || 1))),
+        recalculatedTarget: Math.max(1, Math.round(Number(topic?.recalculatedTarget || 1))),
+        usableMcqCount: Math.max(0, Math.round(Number(topic?.usableMcqCount || 0))),
+        usableEssayCount: Math.max(0, Math.round(Number(topic?.usableEssayCount || 0))),
+        fillRatio: Math.max(0, Number(topic?.fillRatio || 0)),
+        scheduled: topic?.scheduled === true,
+        wordCountTarget: Number.isFinite(Number(topic?.wordCountTarget))
+            ? Math.max(1, Math.round(Number(topic.wordCountTarget)))
+            : undefined,
+        evidenceRichnessCap: Number.isFinite(Number(topic?.evidenceRichnessCap))
+            ? Math.max(1, Math.round(Number(topic.evidenceRichnessCap)))
+            : undefined,
+        evidenceCapBroadTopicPenaltyApplied: topic?.evidenceCapBroadTopicPenaltyApplied === true,
+        retrievedEvidencePassageCount: Number.isFinite(Number(topic?.retrievedEvidencePassageCount))
+            ? Math.max(0, Math.round(Number(topic.retrievedEvidencePassageCount)))
+            : undefined,
+    }));
+
 const toErrorSummary = (error: unknown) =>
     error instanceof Error ? error.message : String(error);
 
@@ -282,6 +313,73 @@ export const listTopicsForSweep = internalQuery({
             .query("topics")
             .order("desc")
             .paginate(args.paginationOpts);
+    },
+});
+
+export const insertQuestionTargetAuditRunInternal = internalMutation({
+    args: {
+        dryRun: v.boolean(),
+        startedAt: v.number(),
+        finishedAt: v.number(),
+        staleHours: v.number(),
+        maxTopicsPerFormat: v.number(),
+        mcqSummary: v.object({
+            scannedTopicCount: v.number(),
+            candidateTopicCount: v.number(),
+            rebasedTopicCount: v.number(),
+            scheduledTopicCount: v.number(),
+            totalTargetReduction: v.number(),
+        }),
+        essaySummary: v.object({
+            scannedTopicCount: v.number(),
+            candidateTopicCount: v.number(),
+            rebasedTopicCount: v.number(),
+            scheduledTopicCount: v.number(),
+            totalTargetReduction: v.number(),
+        }),
+        rebasedTopics: v.array(v.object({
+            format: v.string(),
+            topicId: v.id("topics"),
+            topicTitle: v.string(),
+            currentTarget: v.number(),
+            recalculatedTarget: v.number(),
+            usableMcqCount: v.number(),
+            usableEssayCount: v.number(),
+            fillRatio: v.number(),
+            scheduled: v.boolean(),
+            wordCountTarget: v.optional(v.number()),
+            evidenceRichnessCap: v.optional(v.number()),
+            evidenceCapBroadTopicPenaltyApplied: v.optional(v.boolean()),
+            retrievedEvidencePassageCount: v.optional(v.number()),
+        })),
+    },
+    handler: async (ctx, args) => {
+        return await ctx.db.insert("questionTargetAuditRuns", args);
+    },
+});
+
+export const getLatestQuestionTargetAuditDiagnostics = internalQuery({
+    args: {
+        includeDryRun: v.optional(v.boolean()),
+    },
+    handler: async (ctx, args) => {
+        const includeDryRun = args.includeDryRun === true;
+        const recentRuns = await ctx.db
+            .query("questionTargetAuditRuns")
+            .withIndex("by_finishedAt")
+            .order("desc")
+            .take(10);
+
+        const latest =
+            recentRuns.find((run: any) => includeDryRun || run?.dryRun !== true)
+            || recentRuns[0]
+            || null;
+        if (!latest) return null;
+
+        return {
+            ...latest,
+            totalRebasedTopics: Array.isArray(latest?.rebasedTopics) ? latest.rebasedTopics.length : 0,
+        };
     },
 });
 
@@ -1124,6 +1222,7 @@ export const rebaseStaleOversizedMcqTargets = internalAction({
         staleHours: v.optional(v.number()),
         minCurrentTarget: v.optional(v.number()),
         maxFillRatio: v.optional(v.number()),
+        includeTopicDetails: v.optional(v.boolean()),
     },
     handler: async (ctx, args) => {
         const topicLimit = Math.max(1, Math.min(20_000, Math.floor(Number(args.limit || 10_000))));
@@ -1133,6 +1232,7 @@ export const rebaseStaleOversizedMcqTargets = internalAction({
         const minCurrentTarget = Math.max(1, Math.min(100, Math.floor(Number(args.minCurrentTarget || 12))));
         const maxFillRatio = Math.max(0, Math.min(1, Number(args.maxFillRatio || 0.6)));
         const dryRun = args.dryRun === true;
+        const includeTopicDetails = args.includeTopicDetails === true;
         const staleCutoffTs = Date.now() - staleHours * 60 * 60 * 1000;
 
         let scannedTopicCount = 0;
@@ -1240,6 +1340,23 @@ export const rebaseStaleOversizedMcqTargets = internalAction({
             }
         }
 
+        const rebasedTopics = includeTopicDetails && !dryRun
+            ? selectedTopics.map((topic) => ({
+                topicId: topic.topicId,
+                topicTitle: topic.topicTitle,
+                currentTarget: topic.currentTarget,
+                recalculatedTarget: topic.recalculatedTarget,
+                usableMcqCount: topic.usableMcqCount,
+                usableEssayCount: topic.usableEssayCount,
+                fillRatio: topic.fillRatio,
+                wordCountTarget: topic.wordCountTarget,
+                evidenceRichnessCap: topic.evidenceRichnessCap,
+                evidenceCapBroadTopicPenaltyApplied: topic.evidenceCapBroadTopicPenaltyApplied,
+                retrievedEvidencePassageCount: topic.retrievedEvidencePassageCount,
+                scheduled: topic.usableMcqCount < topic.recalculatedTarget,
+            }))
+            : [];
+
         return {
             dryRun,
             scannedTopicCount,
@@ -1255,6 +1372,7 @@ export const rebaseStaleOversizedMcqTargets = internalAction({
             skippedForFreshnessCount,
             skippedForHealthyFillCount,
             sampleTopics: selectedTopics.slice(0, sampleLimit),
+            rebasedTopics,
         };
     },
 });
@@ -1268,6 +1386,7 @@ export const rebaseStaleOversizedEssayTargets = internalAction({
         staleHours: v.optional(v.number()),
         minCurrentTarget: v.optional(v.number()),
         maxFillRatio: v.optional(v.number()),
+        includeTopicDetails: v.optional(v.boolean()),
     },
     handler: async (ctx, args) => {
         const topicLimit = Math.max(1, Math.min(20_000, Math.floor(Number(args.limit || 10_000))));
@@ -1277,6 +1396,7 @@ export const rebaseStaleOversizedEssayTargets = internalAction({
         const minCurrentTarget = Math.max(1, Math.min(20, Math.floor(Number(args.minCurrentTarget || 2))));
         const maxFillRatio = Math.max(0, Math.min(1, Number(args.maxFillRatio || 0.8)));
         const dryRun = args.dryRun === true;
+        const includeTopicDetails = args.includeTopicDetails === true;
         const staleCutoffTs = Date.now() - staleHours * 60 * 60 * 1000;
 
         let scannedTopicCount = 0;
@@ -1388,6 +1508,23 @@ export const rebaseStaleOversizedEssayTargets = internalAction({
             }
         }
 
+        const rebasedTopics = includeTopicDetails && !dryRun
+            ? selectedTopics.map((topic) => ({
+                topicId: topic.topicId,
+                topicTitle: topic.topicTitle,
+                currentTarget: topic.currentTarget,
+                recalculatedTarget: topic.recalculatedTarget,
+                usableMcqCount: topic.usableMcqCount,
+                usableEssayCount: topic.usableEssayCount,
+                fillRatio: topic.fillRatio,
+                wordCountTarget: topic.wordCountTarget,
+                evidenceRichnessCap: topic.evidenceRichnessCap,
+                evidenceCapBroadTopicPenaltyApplied: topic.evidenceCapBroadTopicPenaltyApplied,
+                retrievedEvidencePassageCount: topic.retrievedEvidencePassageCount,
+                scheduled: topic.usableEssayCount < topic.recalculatedTarget,
+            }))
+            : [];
+
         return {
             dryRun,
             scannedTopicCount,
@@ -1403,6 +1540,7 @@ export const rebaseStaleOversizedEssayTargets = internalAction({
             skippedForFreshnessCount,
             skippedForHealthyFillCount,
             sampleTopics: selectedTopics.slice(0, sampleLimit),
+            rebasedTopics,
         };
     },
 });
@@ -1416,6 +1554,7 @@ export const runStaleQuestionBankTargetAudit = internalAction({
         dryRun: v.optional(v.boolean()),
     },
     handler: async (ctx, args) => {
+        const startedAt = Date.now();
         const dryRun = args.dryRun === true;
         const staleHours = Math.max(1, Math.min(24 * 30, Number(args.staleHours || 12)));
         const maxTopicsPerFormat = Math.max(1, Math.min(2_000, Math.floor(Number(args.maxTopicsPerFormat || 250))));
@@ -1428,6 +1567,7 @@ export const runStaleQuestionBankTargetAudit = internalAction({
             minCurrentTarget: 12,
             maxFillRatio: 0.6,
             sampleLimit: 10,
+            includeTopicDetails: !dryRun,
         });
         const essay = await ctx.runAction((internal as any).grounded.rebaseStaleOversizedEssayTargets, {
             dryRun,
@@ -1437,6 +1577,26 @@ export const runStaleQuestionBankTargetAudit = internalAction({
             minCurrentTarget: 2,
             maxFillRatio: 0.8,
             sampleLimit: 10,
+            includeTopicDetails: !dryRun,
+        });
+
+        const finishedAt = Date.now();
+        const rebasedTopics = dryRun
+            ? []
+            : [
+                ...mapRebasedTopicsForAudit(mcq, "mcq"),
+                ...mapRebasedTopicsForAudit(essay, "essay"),
+            ];
+
+        await ctx.runMutation((internal as any).grounded.insertQuestionTargetAuditRunInternal, {
+            dryRun,
+            startedAt,
+            finishedAt,
+            staleHours,
+            maxTopicsPerFormat,
+            mcqSummary: buildAuditSummary(mcq),
+            essaySummary: buildAuditSummary(essay),
+            rebasedTopics,
         });
 
         return {

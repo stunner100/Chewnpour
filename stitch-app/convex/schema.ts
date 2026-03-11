@@ -97,6 +97,43 @@ export default defineSchema({
         .index("by_uploadId", ["uploadId"])
         .index("by_uploadId_createdAt", ["uploadId", "createdAt"]),
 
+    questionTargetAuditRuns: defineTable({
+        dryRun: v.boolean(),
+        startedAt: v.number(),
+        finishedAt: v.number(),
+        staleHours: v.number(),
+        maxTopicsPerFormat: v.number(),
+        mcqSummary: v.object({
+            scannedTopicCount: v.number(),
+            candidateTopicCount: v.number(),
+            rebasedTopicCount: v.number(),
+            scheduledTopicCount: v.number(),
+            totalTargetReduction: v.number(),
+        }),
+        essaySummary: v.object({
+            scannedTopicCount: v.number(),
+            candidateTopicCount: v.number(),
+            rebasedTopicCount: v.number(),
+            scheduledTopicCount: v.number(),
+            totalTargetReduction: v.number(),
+        }),
+        rebasedTopics: v.array(v.object({
+            format: v.string(), // 'mcq' | 'essay'
+            topicId: v.id("topics"),
+            topicTitle: v.string(),
+            currentTarget: v.number(),
+            recalculatedTarget: v.number(),
+            usableMcqCount: v.number(),
+            usableEssayCount: v.number(),
+            fillRatio: v.number(),
+            scheduled: v.boolean(),
+            wordCountTarget: v.optional(v.number()),
+            evidenceRichnessCap: v.optional(v.number()),
+            evidenceCapBroadTopicPenaltyApplied: v.optional(v.boolean()),
+            retrievedEvidencePassageCount: v.optional(v.number()),
+        })),
+    }).index("by_finishedAt", ["finishedAt"]),
+
     // Assignment helper threads
     assignmentThreads: defineTable({
         userId: v.string(),
