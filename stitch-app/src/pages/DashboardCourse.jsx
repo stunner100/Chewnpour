@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { useQuery, useConvexAuth } from 'convex/react';
 import { api } from '../../convex/_generated/api';
@@ -28,13 +28,15 @@ const DashboardCourse = () => {
         courseId ? { courseId } : 'skip'
     );
 
-    const allCourses = useQuery(api.courses.getUserCourses, userId ? { userId } : 'skip');
+    // Only fetch all user courses when no specific courseId is provided
+    const allCourses = useQuery(api.courses.getUserCourses, !courseId && userId ? { userId } : 'skip');
     const latestCourse = courseId ? null : allCourses?.[0];
     const course = courseData || (latestCourse ? { ...latestCourse, topics: [] } : null);
 
+    // Only fetch latest course topics when we don't have a direct courseId
     const latestCourseTopics = useQuery(
         api.courses.getCourseWithTopics,
-        latestCourse?._id ? { courseId: latestCourse._id } : 'skip'
+        !courseId && latestCourse?._id ? { courseId: latestCourse._id } : 'skip'
     );
 
     const displayCourse = courseData || latestCourseTopics || course;
@@ -76,7 +78,7 @@ const DashboardCourse = () => {
         }
         return 'Course generation is still running in the background. New topics will appear automatically.';
     })();
-    const syllabusItems = (() => {
+    const syllabusItems = useMemo(() => {
         if (!topics.length && plannedCount === 0) return [];
 
         const topicsByOrder = new Map(
@@ -98,7 +100,7 @@ const DashboardCourse = () => {
                 title: plannedTopicTitles[index] || `Topic ${index + 1}`,
             };
         });
-    })();
+    }, [topics, plannedCount, plannedTopicTitles]);
     const [isProcessing, setIsProcessing] = React.useState(false);
 
     React.useEffect(() => {

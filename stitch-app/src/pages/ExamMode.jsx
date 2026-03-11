@@ -5,12 +5,14 @@ import { api } from '../../convex/_generated/api';
 import { useAuth } from '../contexts/AuthContext';
 import { getSession } from '../lib/auth-client';
 import { useStudyTimer } from '../hooks/useStudyTimer';
+import { useExamTimer } from '../hooks/useExamTimer';
 import { isLikelyConvexId } from '../lib/convexId';
 import {
     resolveAutoGenerationError,
     resolveAutoGenerationResult,
 } from '../lib/examAutoGenerationState';
 import { addSentryBreadcrumb, captureSentryException, captureSentryMessage } from '../lib/sentry';
+import ExamQuestionCard from '../components/ExamQuestionCard';
 
 // ── Pure option-parsing helpers (hoisted out of the component) ──
 
@@ -390,7 +392,6 @@ const ExamMode = () => {
     const { user } = useAuth();
     const [currentQuestion, setCurrentQuestion] = useState(0);
     const [selectedAnswers, setSelectedAnswers] = useState({});
-    const [timeRemaining, setTimeRemaining] = useState(EXAM_DURATION_SECONDS);
     const [examStarted, setExamStarted] = useState(false);
     const [attemptId, setAttemptId] = useState(null);
     const [attemptQuestions, setAttemptQuestions] = useState(null);
@@ -443,6 +444,13 @@ const ExamMode = () => {
     const autoGenerationRequestIdRef = useRef(0);
     const handleSubmitRef = useRef(() => { });
     const submittingRef = useRef(false);
+
+    // Optimized timer: only re-renders when the displayed second changes
+    const { timeRemaining, formattedTime, isLowTime } = useExamTimer(
+        EXAM_DURATION_SECONDS,
+        examStarted,
+        () => handleSubmitRef.current(),
+    );
 
     useEffect(() => {
         examFlowStartTimeRef.current = Date.now();
@@ -971,29 +979,7 @@ const ExamMode = () => {
         beginExamAttempt,
     ]);
 
-    // Timer
-    useEffect(() => {
-        if (!examStarted) return;
-
-        const timer = setInterval(() => {
-            setTimeRemaining((prev) => {
-                if (prev <= 0) {
-                    clearInterval(timer);
-                    handleSubmitRef.current();
-                    return 0;
-                }
-                return prev - 1;
-            });
-        }, 1000);
-
-        return () => clearInterval(timer);
-    }, [examStarted]);
-
-    const formatTime = (seconds) => {
-        const mins = Math.floor(seconds / 60);
-        const secs = seconds % 60;
-        return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
-    };
+    // Timer managed by useExamTimer hook above
 
     const handleAnswerSelect = (questionId, answer) => {
         if (submitError) setSubmitError('');
@@ -1510,9 +1496,9 @@ const ExamMode = () => {
                             <span className="text-sm font-medium text-neutral-600 dark:text-neutral-400">
                                 {currentQuestion + 1} <span className="text-neutral-400">/ {questions.length}</span>
                             </span>
-                            <div className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full font-mono font-semibold text-sm ${timeRemaining < 300 ? 'bg-red-100 text-red-700 dark:bg-red-900/20 dark:text-red-400' : 'bg-neutral-100 text-neutral-700 dark:bg-neutral-800 dark:text-neutral-300'}`}>
+                            <div className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full font-mono font-semibold text-sm ${isLowTime ? 'bg-red-100 text-red-700 dark:bg-red-900/20 dark:text-red-400' : 'bg-neutral-100 text-neutral-700 dark:bg-neutral-800 dark:text-neutral-300'}`}>
                                 <span className="material-symbols-outlined text-base">timer</span>
-                                {formatTime(timeRemaining)}
+                                {formattedTime}
                             </div>
                         </div>
                     </div>
@@ -1538,113 +1524,24 @@ const ExamMode = () => {
                         </div>
                     )}
 
-                    {/* Question Card */}
-                    <div className="bg-white dark:bg-neutral-900 rounded-2xl shadow-sm border border-neutral-200 dark:border-neutral-800 p-6 md:p-8 mb-6">
-                        <div className="mb-6">
-                            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-primary/10 dark:bg-primary/10 text-primary dark:text-primary text-xs font-medium mb-3">
-                                <span className="material-symbols-outlined text-sm">quiz</span>
-                                <span>Question {currentQuestion + 1}</span>
-                            </span>
-                            <h2 className="text-lg md:text-xl font-bold text-neutral-900 dark:text-white leading-relaxed">
-                                {currentQ?.questionText}
-                            </h2>
-                        </div>
-
-                        {/* Options / Essay Textarea */}
-                        <div className="space-y-2">
-                            {examFormat === 'essay' ? (
-                                /* Essay textarea */
-                                <div>
-                                    <textarea
-                                        value={selectedAnswers[currentQ._id] || ''}
-                                        onChange={(e) => {
-                                            const val = e.target.value.slice(0, 1500);
-                                            handleAnswerSelect(currentQ._id, val);
-                                        }}
-                                        placeholder="Write your answer here..."
-                                        rows={6}
-                                        className="w-full p-4 rounded-xl border-2 border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-800 text-neutral-900 dark:text-white placeholder-slate-400 focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none resize-y transition-all text-sm md:text-base"
-                                        style={{ minHeight: '120px', fontSize: '16px' }}
-                                    />
-                                    <div className="flex justify-end mt-1">
-                                        <span className={`text-xs font-medium ${(selectedAnswers[currentQ._id] || '').length >= 1400
-                                            ? 'text-red-500'
-                                            : 'text-neutral-400'
-                                            }`}>
-                                            {(selectedAnswers[currentQ._id] || '').length}/1500
-                                        </span>
-                                    </div>
-                                </div>
-                            ) : finalOptions.length === 0 ? (
-                                <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
-                                    No options available for this question.
-                                </div>
-                            ) : (
-                                finalOptions.map((option, index) => {
-                                    const { label, value, text } = option;
-                                    const isSelected = selectedAnswers[currentQ._id] === value;
-
-                                    return (
-                                        <button
-                                            key={index}
-                                            onClick={() => handleAnswerSelect(currentQ._id, value)}
-                                            className={`w-full text-left p-4 rounded-xl border-2 transition-all duration-200 flex items-center gap-3 ${isSelected
-                                                ? 'border-primary bg-primary/5 dark:bg-primary/10'
-                                                : 'border-neutral-200 dark:border-neutral-700 hover:border-primary/30 hover:bg-neutral-50 dark:hover:bg-neutral-800'
-                                                }`}
-                                        >
-                                            <span className={`flex-shrink-0 w-8 h-8 rounded-lg font-bold text-sm flex items-center justify-center transition-all ${isSelected
-                                                ? 'bg-primary text-white'
-                                                : 'bg-neutral-100 dark:bg-neutral-800 text-neutral-500'
-                                                }`}>
-                                                {label}
-                                            </span>
-                                            <span className={`flex-1 text-sm md:text-base ${isSelected ? 'text-neutral-900 dark:text-white font-medium' : 'text-neutral-600 dark:text-neutral-300'}`}>
-                                                {text}
-                                            </span>
-                                            {isSelected && (
-                                                <span className="material-symbols-outlined text-primary">check_circle</span>
-                                            )}
-                                        </button>
-                                    );
-                                })
-                            )}
-                        </div>
-
-                        {/* Navigation Buttons - inside question card */}
-                        <div className="flex items-center justify-between mt-8 pt-6 border-t border-neutral-100 dark:border-neutral-800">
-                            <button
-                                onClick={handlePrevious}
-                                disabled={currentQuestion === 0}
-                                className="px-5 py-2.5 rounded-xl text-neutral-600 dark:text-neutral-400 font-semibold hover:bg-neutral-100 dark:hover:bg-neutral-800 disabled:opacity-30 disabled:hover:bg-transparent transition-colors flex items-center gap-2"
-                            >
-                                <span className="material-symbols-outlined text-lg">arrow_back</span>
-                                <span>Previous</span>
-                            </button>
-
-                            {currentQuestion === questions.length - 1 ? (
-                                <button
-                                    onClick={handleSubmit}
-                                    disabled={!attemptId || isEssaySubmitBlocked}
-                                    className="px-6 py-2.5 rounded-xl bg-accent-emerald text-white font-semibold shadow-md shadow-accent-emerald/20 hover:shadow-lg transition-all flex items-center gap-2 disabled:opacity-60"
-                                >
-                                    <span>Submit Exam</span>
-                                    <span className="material-symbols-outlined text-lg">check</span>
-                                </button>
-                            ) : (
-                                <button
-                                    onClick={handleNext}
-                                    className={`px-6 py-2.5 rounded-xl font-semibold shadow-md transition-all flex items-center gap-2 ${selectedAnswers[currentQ._id]
-                                        ? 'bg-primary text-white shadow-primary/20 hover:shadow-lg animate-[pulse_2s_ease-in-out_1]'
-                                        : 'bg-neutral-100 dark:bg-neutral-800 text-neutral-500 dark:text-neutral-400 shadow-none'
-                                        }`}
-                                >
-                                    <span>Next</span>
-                                    <span className="material-symbols-outlined text-lg">arrow_forward</span>
-                                </button>
-                            )}
-                        </div>
-                    </div>
+                    {/* Question Card - memoized to avoid re-renders from timer ticks */}
+                    <ExamQuestionCard
+                        question={currentQ}
+                        questionIndex={currentQuestion}
+                        totalQuestions={questions.length}
+                        examFormat={examFormat}
+                        selectedAnswer={selectedAnswers[currentQ?._id]}
+                        finalOptions={finalOptions}
+                        onAnswerSelect={handleAnswerSelect}
+                        onPrevious={handlePrevious}
+                        onNext={handleNext}
+                        onSubmit={handleSubmit}
+                        attemptId={attemptId}
+                        isEssaySubmitBlocked={isEssaySubmitBlocked}
+                        submitError={submitError}
+                        startExamError={startExamError}
+                        sessionExpiredMessage={getExamSessionExpiredMessage()}
+                    />
 
                     {/* Question Navigator - Mobile Only */}
                     <div className="md:hidden bg-white dark:bg-neutral-900 rounded-2xl shadow-sm border border-neutral-200 dark:border-neutral-800 p-4">
@@ -1723,10 +1620,10 @@ const ExamMode = () => {
                     {/* Timer */}
                     <div className="bg-neutral-50 dark:bg-neutral-800 rounded-2xl p-6 text-center mb-6">
                         <span className="text-xs font-medium text-neutral-500 uppercase tracking-wide block mb-2">Time Remaining</span>
-                        <div className={`text-4xl font-mono font-bold tabular-nums ${timeRemaining < 300 ? 'text-red-500' : 'text-neutral-900 dark:text-white'}`}>
-                            {formatTime(timeRemaining)}
+                        <div className={`text-4xl font-mono font-bold tabular-nums ${isLowTime ? 'text-red-500' : 'text-neutral-900 dark:text-white'}`}>
+                            {formattedTime}
                         </div>
-                        {timeRemaining < 300 && (
+                        {isLowTime && (
                             <p className="text-xs text-red-500 mt-1">Less than 5 minutes!</p>
                         )}
                     </div>

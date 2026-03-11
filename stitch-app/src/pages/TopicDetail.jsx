@@ -11,6 +11,7 @@ import TopicSidebar from '../components/TopicSidebar';
 import TopicNotesPanel from '../components/TopicNotesPanel';
 import TopicChatPanel from '../components/TopicChatPanel';
 import HighlightExplainPopover from '../components/HighlightExplainPopover';
+import LessonContentRenderer from '../components/LessonContentRenderer';
 import { useTextSelection } from '../hooks/useTextSelection';
 import {
     SECTION_TITLE_PATTERN,
@@ -381,7 +382,7 @@ const TopicDetail = () => {
 
     const scrollToTop = () => window.scrollTo({ top: 0, behavior: 'smooth' });
 
-    const cleanInline = (text) => cleanInlineText(text);
+    const cleanInline = useCallback((text) => cleanInlineText(text), []);
 
     const cleanLine = (text) => cleanDisplayLine(text);
 
@@ -845,118 +846,11 @@ const TopicDetail = () => {
                                     )}
 
                                     {normalizedContent ? (
-                                        <div className="prose prose-base md:prose-lg prose-neutral dark:prose-invert max-w-none text-neutral-700 dark:text-neutral-300 leading-relaxed [text-wrap:pretty]">
-                                            {parsed.blocks.map((block, index) => {
-                                                if (block.type === 'spacer') {
-                                                    return <div key={block.key} className="h-2 md:h-3"></div>;
-                                                }
-
-                                                const bold = (text) => parseInlineFormatting(text, cleanInline);
-                                                const animationClass = shouldAnimateBlocks ? "animate-fade-in fill-mode-forwards opacity-0" : "";
-                                                const animationStyle = shouldAnimateBlocks ? { animationDelay: `${Math.min(index, 24) * 60}ms` } : undefined;
-
-                                                if (block.type === 'header') {
-                                                    const icon = getHeaderIcon(block.text);
-
-                                                    return (
-                                                        <div
-                                                            key={block.key}
-                                                            id={block.id}
-                                                            className={`${HEADER_SIZES[block.level] || HEADER_SIZES[3]} scroll-mt-20 md:scroll-mt-32 ${animationClass}`}
-                                                            style={animationStyle}
-                                                        >
-                                                            {icon && <span className="material-symbols-outlined text-primary/70">{icon}</span>}
-                                                            {block.text}
-                                                        </div>
-                                                    );
-                                                }
-
-                                                if (block.type === 'alert') {
-                                                    const currentStyle = ALERT_STYLES[block.alertType] || ALERT_STYLES.note;
-                                                    const iconName = currentStyle.split('icon-')[1];
-
-                                                    return (
-                                                        <div key={block.key} className={`my-4 md:my-6 p-4 md:p-5 rounded-2xl border flex gap-3 md:gap-4 ${currentStyle.split('icon-')[0]} ${animationClass}`} style={animationStyle}>
-                                                            <span className="material-symbols-outlined shrink-0 text-current opacity-70">{iconName}</span>
-                                                            <div className="flex flex-col gap-1">
-                                                                <span className="text-[10px] font-black uppercase tracking-widest opacity-60">{block.alertType}</span>
-                                                                <div className="text-[15px] md:text-base font-medium leading-relaxed">{bold(block.text)}</div>
-                                                            </div>
-                                                        </div>
-                                                    );
-                                                }
-
-                                                if (block.type === 'definition') {
-                                                    return (
-                                                        <div key={block.key} className={`my-4 md:my-6 p-5 md:p-6 rounded-[2rem] bg-neutral-50 dark:bg-neutral-800/50 border border-neutral-200 dark:border-neutral-700 shadow-sm relative overflow-hidden group hover:shadow-md transition-shadow duration-300 ${animationClass}`} style={animationStyle}>
-                                                            <div className="absolute top-0 right-0 p-4 opacity-5 group-hover:opacity-10 transition-opacity">
-                                                                <span className="material-symbols-outlined text-6xl">menu_book</span>
-                                                            </div>
-                                                            <h4 className="text-sm font-bold text-primary uppercase tracking-wider mb-2 flex items-center gap-2">
-                                                                <span className="w-2 h-2 rounded-full bg-primary"></span>
-                                                                {block.term}
-                                                            </h4>
-                                                            <div className="text-base md:text-lg text-neutral-800 dark:text-neutral-100 leading-relaxed">
-                                                                {bold(block.text)}
-                                                            </div>
-                                                        </div>
-                                                    );
-                                                }
-
-                                                if (block.type === 'example') {
-                                                    return (
-                                                        <div key={block.key} className={`my-4 md:my-6 pl-5 pr-5 md:pl-6 md:pr-6 py-4 md:py-5 border-l-4 border-indigo-400 dark:border-indigo-600 bg-indigo-50/30 dark:bg-indigo-950/20 rounded-r-2xl ${animationClass}`} style={animationStyle}>
-                                                            <div className="flex items-center gap-2 text-indigo-600 dark:text-indigo-400 mb-2">
-                                                                <span className="material-symbols-outlined text-[20px]">lightbulb_circle</span>
-                                                                <span className="text-xs font-black uppercase tracking-widest">Example</span>
-                                                            </div>
-                                                            <div className="text-neutral-700 dark:text-neutral-300 text-[15px] md:text-base leading-relaxed">
-                                                                {bold(block.text)}
-                                                            </div>
-                                                        </div>
-                                                    );
-                                                }
-
-                                                if (block.type === 'bullet') {
-                                                    return (
-                                                        <div key={block.key} className={`flex items-start gap-3 ml-1 mb-3 md:mb-4 group ${animationClass}`} style={animationStyle}>
-                                                            <div className="mt-1.5 h-5 w-5 rounded-full bg-primary/10 flex items-center justify-center shrink-0 group-hover:bg-primary/20 transition-colors">
-                                                                <span className="material-symbols-outlined text-[14px] text-primary">arrow_forward</span>
-                                                            </div>
-                                                            <span className="text-[15px] md:text-base leading-7 text-neutral-700 dark:text-neutral-300">{bold(block.text)}</span>
-                                                        </div>
-                                                    );
-                                                }
-
-                                                if (block.type === 'numbered') {
-                                                    return (
-                                                        <div key={block.key} className={`flex items-start gap-4 ml-1 mb-3 md:mb-4 group ${animationClass}`} style={animationStyle}>
-                                                            <span className="flex items-center justify-center w-6 h-6 rounded-full bg-primary/10 text-primary text-xs font-bold shrink-0 mt-0.5">
-                                                                {block.num}
-                                                            </span>
-                                                            <span className="text-[15px] md:text-base leading-7 text-neutral-700 dark:text-neutral-300">{bold(block.text)}</span>
-                                                        </div>
-                                                    );
-                                                }
-
-                                                if (block.type === 'quote') {
-                                                    return (
-                                                        <div key={block.key} className={`border-l-4 border-primary/30 bg-primary/5 pl-6 md:pl-8 py-5 md:py-6 pr-5 md:pr-6 rounded-r-3xl my-6 md:my-8 relative ${animationClass}`} style={animationStyle}>
-                                                            <span className="absolute top-2 left-2 material-symbols-outlined text-primary/10 text-4xl">format_quote</span>
-                                                            <div className="text-base md:text-lg text-neutral-600 dark:text-neutral-300 leading-relaxed relative z-10 italic">
-                                                                {bold(block.text)}
-                                                            </div>
-                                                        </div>
-                                                    );
-                                                }
-
-                                                return (
-                                                    <p key={block.key} className={`my-3 md:my-4 text-base md:text-lg leading-[1.8] text-neutral-700 dark:text-neutral-300 ${animationClass}`} style={animationStyle}>
-                                                        {bold(block.text)}
-                                                    </p>
-                                                );
-                                            })}
-                                        </div>
+                                        <LessonContentRenderer
+                                            blocks={parsed.blocks}
+                                            shouldAnimateBlocks={shouldAnimateBlocks}
+                                            cleanInline={cleanInline}
+                                        />
                                     ) : (
                                         <div className="flex flex-col items-center justify-center py-16 text-center opacity-60">
                                             <div className="w-16 h-16 bg-neutral-100 dark:bg-neutral-800 rounded-full flex items-center justify-center mb-4 animate-pulse">

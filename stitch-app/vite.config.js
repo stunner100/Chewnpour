@@ -40,6 +40,9 @@ export default defineConfig(({ mode, command }) => {
     define: {
       'import.meta.env.VITE_CONVEX_URL': JSON.stringify(resolvedConvexUrl),
     },
+    worker: {
+      format: 'es',
+    },
     build: {
       rollupOptions: {
         output: {

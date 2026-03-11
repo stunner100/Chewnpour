@@ -22,36 +22,60 @@ import {
     buildUploadLimitMessageFromOptions,
 } from '../lib/pricingCurrency';
 
-let pdfWorkerInitialized = false;
-
+/**
+ * Extract PDF text in a Web Worker to avoid blocking the main thread.
+ * Falls back to main-thread extraction if Worker instantiation fails.
+ */
 const extractPdfTextFromFile = async (file) => {
     ensurePromiseWithResolvers();
-    const pdfjsLib = await import('pdfjs-dist/build/pdf.mjs');
-    if (!pdfWorkerInitialized) {
+    const arrayBuffer = await file.arrayBuffer();
+
+    try {
+        const worker = new Worker(
+            new URL('../lib/pdfExtractionWorker.js', import.meta.url),
+            { type: 'module' }
+        );
+
+        return await new Promise((resolve, reject) => {
+            worker.onmessage = (event) => {
+                worker.terminate();
+                if (event.data.success) {
+                    resolve(event.data.text);
+                } else {
+                    reject(new Error(event.data.error));
+                }
+            };
+            worker.onerror = (error) => {
+                worker.terminate();
+                reject(error);
+            };
+            worker.postMessage({ arrayBuffer }, [arrayBuffer]);
+        });
+    } catch {
+        // Fallback: run extraction on main thread if Worker fails
+        const pdfjsLib = await import('pdfjs-dist/build/pdf.mjs');
         pdfjsLib.GlobalWorkerOptions.workerSrc = new URL(
             'pdfjs-dist/build/pdf.worker.min.mjs',
             import.meta.url
         ).toString();
-        pdfWorkerInitialized = true;
+
+        const loadingTask = pdfjsLib.getDocument({ data: await file.arrayBuffer() });
+        const pdf = await loadingTask.promise;
+        const MAX_CLIENT_PAGES = 300;
+        const maxPages = Math.min(pdf.numPages, MAX_CLIENT_PAGES);
+        const parts = [];
+
+        for (let i = 1; i <= maxPages; i += 1) {
+            const page = await pdf.getPage(i);
+            const content = await page.getTextContent();
+            const pageText = content.items
+                .map((item) => (typeof item.str === 'string' ? item.str : ''))
+                .join(' ');
+            parts.push(pageText);
+        }
+
+        return parts.join('\n').trim();
     }
-
-    const arrayBuffer = await file.arrayBuffer();
-    const loadingTask = pdfjsLib.getDocument({ data: arrayBuffer });
-    const pdf = await loadingTask.promise;
-    const MAX_CLIENT_PAGES = 300;
-    const maxPages = Math.min(pdf.numPages, MAX_CLIENT_PAGES);
-    const parts = [];
-
-    for (let i = 1; i <= maxPages; i += 1) {
-        const page = await pdf.getPage(i);
-        const content = await page.getTextContent();
-        const pageText = content.items
-            .map((item) => (typeof item.str === 'string' ? item.str : ''))
-            .join(' ');
-        parts.push(pageText);
-    }
-
-    return parts.join('\n').trim();
 };
 
 const isIgnorableProcessingDispatchError = (error) => {

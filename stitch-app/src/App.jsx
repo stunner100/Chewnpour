@@ -5,8 +5,8 @@ import ProtectedRoute from './components/ProtectedRoute';
 import DashboardLayout from './components/DashboardLayout';
 import { addSentryBreadcrumb } from './lib/sentry';
 import { attemptChunkRecoveryReload, isChunkLoadError } from './lib/chunkLoadRecovery';
-import SignUpPage from './pages/SignUp';
-import DashboardAnalysisPage from './pages/DashboardAnalysis';
+const SignUpPage = lazyRoute(() => import('./pages/SignUp'), { componentName: 'SignUp' });
+const DashboardAnalysisPage = lazyRoute(() => import('./pages/DashboardAnalysis'), { componentName: 'DashboardAnalysis' });
 
 const ChunkRecoveryFallback = ({ componentName }) => (
   <div className="bg-background-light dark:bg-background-dark min-h-screen flex items-center justify-center px-6">

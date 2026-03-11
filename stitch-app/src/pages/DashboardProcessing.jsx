@@ -40,15 +40,15 @@ const DashboardProcessing = () => {
         courseId ? { courseId } : 'skip'
     );
 
-    // Get all user courses if no specific course is selected
-    const allCourses = useQuery(api.courses.getUserCourses, userId ? { userId } : 'skip');
+    // Only fetch all user courses when no specific courseId is provided
+    const allCourses = useQuery(api.courses.getUserCourses, !courseId && userId ? { userId } : 'skip');
     const latestCourse = courseId ? null : allCourses?.[0];
     const course = courseData || (latestCourse ? { ...latestCourse, topics: [] } : null);
 
-    // If we have a latest course but no topics yet, fetch its topics
+    // Only fetch latest course topics when we don't have a direct courseId
     const latestCourseTopics = useQuery(
         api.courses.getCourseWithTopics,
-        latestCourse?._id ? { courseId: latestCourse._id } : 'skip'
+        !courseId && latestCourse?._id ? { courseId: latestCourse._id } : 'skip'
     );
 
     // Get upload to track processing progress
