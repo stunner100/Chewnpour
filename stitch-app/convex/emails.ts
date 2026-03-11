@@ -227,6 +227,67 @@ export const sendResendTestEmail = internalAction({
     },
 });
 
+export const sendWeeklySummaryTestEmail = internalAction({
+    args: {
+        to: v.string(),
+        name: v.optional(v.string()),
+    },
+    handler: async (ctx, args) => {
+        const email = String(args.to || "").trim().toLowerCase();
+        if (!email || !email.includes("@")) {
+            throw new Error("A valid recipient email is required.");
+        }
+
+        const explicitName = String(args.name || "").trim();
+        const fallbackName = email.split("@")[0] || "Student";
+        const displayName = explicitName || fallbackName;
+
+        let unsubscribeUrl = `${APP_URL}/profile`;
+        try {
+            const authUsersResult = await ctx.runQuery(components.betterAuth.adapter.findMany, {
+                model: "user",
+                where: [{ field: "email", operator: "eq", value: email }],
+                paginationOpts: { cursor: null, numItems: 1 },
+            });
+            const authUser = Array.isArray(authUsersResult?.page) ? authUsersResult.page[0] : null;
+            const userId = String(authUser?.id || "").trim();
+            if (userId) {
+                const token = await ctx.runMutation(internal.emailHelpers.ensureUnsubscribeToken, { userId });
+                if (token) {
+                    unsubscribeUrl = buildUnsubscribeUrl(token, "weekly_summary");
+                }
+            }
+        } catch (error) {
+            console.warn("[emails] Failed to build unsubscribe URL for weekly summary test", {
+                email,
+                error: error instanceof Error ? error.message : String(error),
+            });
+        }
+
+        const html = weeklySummaryTemplate(
+            displayName,
+            {
+                topicsStudied: 6,
+                quizzesTaken: 11,
+                averageScore: 84,
+                streakDays: 5,
+                studyHours: 7.5,
+            },
+            unsubscribeUrl,
+        );
+        const ok = await sendEmailViaResend({
+            to: email,
+            subject: `Your ${APP_NAME} Weekly Study Summary`,
+            html,
+        });
+        return {
+            ok,
+            to: email,
+            displayName,
+        };
+    },
+});
+
 // ---------------------------------------------------------------------------
 // Streak calculation helper (mirrors profiles.ts getUserStats logic)
 // ---------------------------------------------------------------------------
