@@ -366,9 +366,9 @@ const LandingPage = () => {
                         {/* Connecting arrows (desktop only) */}
                         <div className="hidden md:flex items-center justify-center gap-0 mt-[-180px] mb-[100px] pointer-events-none relative z-10">
                             <div className="w-1/3" />
-                            <span className="material-symbols-outlined text-neutral-300 dark:text-neutral-600 text-[20px]">arrow_forward</span>
+                            <span className="material-symbols-outlined text-neutral-300 dark:text-neutral-500 text-[20px]">arrow_forward</span>
                             <div className="w-1/3" />
-                            <span className="material-symbols-outlined text-neutral-300 dark:text-neutral-600 text-[20px]">arrow_forward</span>
+                            <span className="material-symbols-outlined text-neutral-300 dark:text-neutral-500 text-[20px]">arrow_forward</span>
                             <div className="w-1/3" />
                         </div>
                     </div>

@@ -281,7 +281,7 @@ const DashboardProcessing = () => {
 
             <header className="sticky top-0 z-30 w-full glass border-b border-neutral-200/50 dark:border-neutral-800/50">
                 <div className="w-full max-w-5xl mx-auto flex items-center justify-between px-4 py-3">
-                    <Link to="/dashboard" className="flex items-center gap-2 text-neutral-600 hover:text-primary transition-colors">
+                    <Link to="/dashboard" aria-label="Go back to dashboard" className="flex items-center gap-2 text-neutral-600 hover:text-primary transition-colors">
                         <span className="material-symbols-outlined">arrow_back</span>
                         <span className="text-sm font-medium hidden sm:inline">Dashboard</span>
                     </Link>
@@ -337,7 +337,7 @@ const DashboardProcessing = () => {
                                 </div>
 
                                 {/* Step Info */}
-                                <div className="space-y-2">
+                                <div className="space-y-2" aria-live="polite">
                                     <h2 className="text-xl font-semibold text-neutral-900 dark:text-white">
                                         {currentStepInfo.label}
                                     </h2>
@@ -377,7 +377,7 @@ const DashboardProcessing = () => {
                                                         ? 'bg-green-100 text-green-600 dark:bg-green-900/30 dark:text-green-400' 
                                                         : isCurrent 
                                                             ? 'bg-blue-500 text-white shadow-md shadow-blue-500/25 scale-110' 
-                                                            : 'bg-neutral-100 text-neutral-400 dark:bg-neutral-800 dark:text-neutral-600'
+                                                            : 'bg-neutral-100 text-neutral-400 dark:bg-neutral-800 dark:text-neutral-500'
                                                 }`}
                                                 title={step.label}
                                             >

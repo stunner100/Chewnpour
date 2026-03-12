@@ -623,10 +623,10 @@ const TopicDetail = () => {
     }
 
     return (
-        <div className="bg-background-light dark:bg-background-dark font-display antialiased text-neutral-900 dark:text-white min-h-screen flex flex-col overflow-x-hidden touch-pan-y">
+        <div className="bg-background-light dark:bg-background-dark font-body antialiased text-neutral-900 dark:text-white min-h-screen flex flex-col overflow-x-hidden touch-pan-y">
             <header className="fixed top-0 inset-x-0 z-40 flex items-center justify-between px-4 py-3 bg-white/80 dark:bg-neutral-900/80 backdrop-blur-xl border-b border-neutral-200/50 dark:border-neutral-800/50">
                 <div className="flex items-center gap-3">
-                    <Link to={courseId ? `/dashboard/course/${courseId}` : "/dashboard"} className="flex items-center gap-2 text-neutral-600 dark:text-neutral-400 hover:text-primary transition-colors">
+                    <Link to={courseId ? `/dashboard/course/${courseId}` : "/dashboard"} aria-label="Go back" className="flex items-center gap-2 text-neutral-600 dark:text-neutral-400 hover:text-primary transition-colors">
                         <span className="material-symbols-outlined text-xl">arrow_back</span>
                         <span className="hidden sm:inline text-sm font-medium">Back</span>
                     </Link>
@@ -876,7 +876,7 @@ const TopicDetail = () => {
             {user && !chatOpen && !notesOpen && (
                 <button
                     onClick={openChat}
-                    className="fixed bottom-20 right-[4.5rem] z-30 w-11 h-11 rounded-full bg-primary text-white shadow-lg shadow-primary/30 flex items-center justify-center hover:scale-105 active:scale-95 transition-transform"
+                    className="fixed bottom-[calc(5rem+env(safe-area-inset-bottom))] right-[4.5rem] z-30 w-11 h-11 rounded-full bg-primary text-white shadow-lg shadow-primary/30 flex items-center justify-center hover:scale-105 active:scale-95 transition-transform"
                     aria-label="Open AI tutor"
                 >
                     <span className="material-symbols-outlined text-xl">smart_toy</span>
@@ -887,7 +887,7 @@ const TopicDetail = () => {
             {user && !notesOpen && !chatOpen && (
                 <button
                     onClick={openNotes}
-                    className="fixed bottom-20 right-6 z-30 w-11 h-11 rounded-full bg-amber-500 text-white shadow-lg shadow-amber-500/30 flex items-center justify-center hover:scale-105 active:scale-95 transition-transform"
+                    className="fixed bottom-[calc(5rem+env(safe-area-inset-bottom))] right-6 z-30 w-11 h-11 rounded-full bg-amber-500 text-white shadow-lg shadow-amber-500/30 flex items-center justify-center hover:scale-105 active:scale-95 transition-transform"
                     aria-label="Open notes"
                 >
                     <span className="material-symbols-outlined text-xl">edit_note</span>
@@ -897,7 +897,7 @@ const TopicDetail = () => {
             {showScrollTop && !notesOpen && !chatOpen && (
                 <button
                     onClick={scrollToTop}
-                    className="fixed bottom-20 md:bottom-6 left-4 md:left-auto md:right-6 z-30 w-11 h-11 rounded-full bg-primary text-white shadow-lg shadow-primary/30 flex items-center justify-center hover:scale-105 active:scale-95 transition-transform"
+                    className="fixed bottom-[calc(5rem+env(safe-area-inset-bottom))] md:bottom-6 left-4 md:left-auto md:right-6 z-30 w-11 h-11 rounded-full bg-primary text-white shadow-lg shadow-primary/30 flex items-center justify-center hover:scale-105 active:scale-95 transition-transform"
                     aria-label="Scroll to top"
                 >
                     <span className="material-symbols-outlined text-xl">arrow_upward</span>

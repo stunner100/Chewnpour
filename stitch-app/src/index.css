@@ -116,6 +116,48 @@ html.is-safari .safari-backdrop {
 }
 
 @layer utilities {
+
+    /* ── Panel Slide Animations (shared by TopicNotesPanel & TopicChatPanel) ── */
+    @keyframes panel-slide-up {
+        from { transform: translateY(100%); }
+        to { transform: translateY(0); }
+    }
+    @keyframes panel-slide-down {
+        from { transform: translateY(0); }
+        to { transform: translateY(100%); }
+    }
+    @keyframes panel-slide-left {
+        from { transform: translateX(100%); }
+        to { transform: translateX(0); }
+    }
+    @keyframes panel-slide-right {
+        from { transform: translateX(0); }
+        to { transform: translateX(100%); }
+    }
+
+    .animate-panel-slide-up {
+        animation: panel-slide-up 0.25s ease-out;
+    }
+    .animate-panel-slide-down {
+        animation: panel-slide-down 0.25s ease-in forwards;
+    }
+    .animate-panel-slide-left {
+        animation: panel-slide-left 0.25s ease-out;
+    }
+    .animate-panel-slide-right {
+        animation: panel-slide-right 0.25s ease-in forwards;
+    }
+
+    /* On md+ screens, override vertical slide to use horizontal slide */
+    @media (min-width: 768px) {
+        .animate-panel-slide-up {
+            animation: panel-slide-left 0.25s ease-out;
+        }
+        .animate-panel-slide-down {
+            animation: panel-slide-right 0.25s ease-in forwards;
+        }
+    }
+
     .no-scrollbar::-webkit-scrollbar {
         display: none;
     }

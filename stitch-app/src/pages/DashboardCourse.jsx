@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react';
-import { Link, useNavigate, useParams } from 'react-router-dom';
+import { Link, useParams } from 'react-router-dom';
 import { useQuery, useConvexAuth } from 'convex/react';
 import { api } from '../../convex/_generated/api';
 import { useAuth } from '../contexts/AuthContext';
@@ -12,7 +12,6 @@ const DashboardCourse = () => {
     const { user } = useAuth();
     const userId = user?.id;
     const { isAuthenticated: isConvexAuthenticated } = useConvexAuth();
-    const navigate = useNavigate();
 
     const uploadQuota = useQuery(
         api.subscriptions.getUploadQuotaStatus,
@@ -128,7 +127,7 @@ const DashboardCourse = () => {
             {/* Header */}
             <header className="sticky top-0 z-30 w-full glass border-b border-neutral-200/50 dark:border-neutral-800/50">
                 <div className="w-full max-w-6xl mx-auto flex items-center justify-between px-4 py-3">
-                    <Link to="/dashboard" className="flex items-center gap-2 text-neutral-600 hover:text-primary transition-colors">
+                    <Link to="/dashboard" aria-label="Go back to dashboard" className="flex items-center gap-2 text-neutral-600 hover:text-primary transition-colors">
                         <span className="material-symbols-outlined">arrow_back</span>
                         <span className="text-sm font-medium hidden sm:inline">Dashboard</span>
                     </Link>
@@ -292,9 +291,9 @@ const DashboardCourse = () => {
                             const topic = item.topic;
                             const topicIllustrationUrl = resolveTopicIllustrationUrl(topic.illustrationUrl);
                             return (
-                                <div
+                                <Link
                                     key={topic._id}
-                                    onClick={() => navigate(`/dashboard/topic/${topic._id}`)}
+                                    to={`/dashboard/topic/${topic._id}`}
                                     className="group relative p-5 rounded-2xl bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 shadow-sm hover:shadow-lg hover:-translate-y-1 transition-all cursor-pointer"
                                 >
                                     <div className="flex items-start justify-between mb-4">
@@ -332,7 +331,7 @@ const DashboardCourse = () => {
                                             <span className="material-symbols-outlined text-lg">arrow_forward</span>
                                         </div>
                                     </div>
-                                </div>
+                                </Link>
                             );
                         })
                     ) : (

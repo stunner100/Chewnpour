@@ -22,6 +22,8 @@ const isAiMessageQuotaExceededError = (error) => {
     return message.includes('AI_MESSAGE_QUOTA_EXCEEDED');
 };
 
+const EXIT_ANIMATION_MS = 250;
+
 const TopicChatPanel = memo(function TopicChatPanel({ topicId, topicTitle, open, onClose }) {
     const { isAuthenticated: isConvexAuthenticated } = useConvexAuth();
     const messages = useQuery(api.topicChat.getMessages, topicId ? { topicId } : 'skip');
@@ -35,6 +37,8 @@ const TopicChatPanel = memo(function TopicChatPanel({ topicId, topicTitle, open,
     const [input, setInput] = useState('');
     const [sending, setSending] = useState(false);
     const [error, setError] = useState('');
+    const [isClosing, setIsClosing] = useState(false);
+    const closingTimerRef = useRef(null);
 
     const aiMessageLimit = Number(aiMessageQuota?.limit);
     const aiMessageUsed = Number(aiMessageQuota?.used);
@@ -73,15 +77,37 @@ const TopicChatPanel = memo(function TopicChatPanel({ topicId, topicTitle, open,
         }
     }, [open]);
 
+    // Handle close with exit animation
+    const handleClose = useCallback(() => {
+        if (isClosing) return;
+        setIsClosing(true);
+        closingTimerRef.current = setTimeout(() => {
+            setIsClosing(false);
+            onClose();
+        }, EXIT_ANIMATION_MS);
+    }, [isClosing, onClose]);
+
+    // Clean up closing timer
+    useEffect(() => {
+        return () => {
+            if (closingTimerRef.current) clearTimeout(closingTimerRef.current);
+        };
+    }, []);
+
+    // Reset closing state when panel reopens
+    useEffect(() => {
+        if (open) setIsClosing(false);
+    }, [open]);
+
     // Escape to close
     useEffect(() => {
         if (!open) return;
         const handleKeyDown = (e) => {
-            if (e.key === 'Escape') onClose();
+            if (e.key === 'Escape') handleClose();
         };
         document.addEventListener('keydown', handleKeyDown);
         return () => document.removeEventListener('keydown', handleKeyDown);
-    }, [open, onClose]);
+    }, [open, handleClose]);
 
     useEffect(() => {
         if (!isFreeQuotaExhausted || error) return;
@@ -135,20 +161,24 @@ const TopicChatPanel = memo(function TopicChatPanel({ topicId, topicTitle, open,
         }
     }, [topicId, clearChat]);
 
-    if (!open) return null;
+    if (!open && !isClosing) return null;
 
     const messageList = Array.isArray(messages) ? messages : [];
+
+    const panelAnimClass = isClosing
+        ? 'animate-panel-slide-down md:animate-panel-slide-right'
+        : 'animate-panel-slide-up md:animate-panel-slide-left';
 
     return (
         <>
             {/* Backdrop (mobile) */}
             <div
-                className="fixed inset-0 z-40 bg-black/30 md:bg-transparent md:pointer-events-none"
-                onClick={onClose}
+                className={`fixed inset-0 z-[55] bg-black/30 md:bg-transparent md:pointer-events-none transition-opacity ${isClosing ? 'opacity-0' : 'opacity-100'}`}
+                onClick={handleClose}
             />
 
             {/* Panel */}
-            <div className="fixed z-[60] inset-0 md:inset-x-auto md:right-0 md:top-0 md:bottom-0 md:w-80 flex flex-col bg-white dark:bg-slate-900 border-t md:border-t-0 md:border-l border-slate-200 dark:border-slate-800 shadow-xl animate-chat-slide-up md:animate-chat-slide-left pb-[env(safe-area-inset-bottom)] md:pb-0">
+            <div className={`fixed z-[60] inset-0 md:inset-x-auto md:right-0 md:top-0 md:bottom-0 md:w-80 flex flex-col bg-white dark:bg-slate-900 border-t md:border-t-0 md:border-l border-slate-200 dark:border-slate-800 shadow-xl ${panelAnimClass} pb-[env(safe-area-inset-bottom)] md:pb-0`}>
                 {/* Header */}
                 <div className="flex items-center justify-between px-4 py-3 border-b border-slate-100 dark:border-slate-800">
                     <div className="flex items-center gap-2">
@@ -159,15 +189,17 @@ const TopicChatPanel = memo(function TopicChatPanel({ topicId, topicTitle, open,
                         {messageList.length > 0 && (
                             <button
                                 onClick={handleClearChat}
-                                className="w-8 h-8 rounded-full text-slate-400 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-900/20 flex items-center justify-center transition-colors"
+                                className="w-10 h-10 rounded-full text-slate-400 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-900/20 flex items-center justify-center transition-colors"
                                 title="Clear chat"
+                                aria-label="Clear chat"
                             >
                                 <span className="material-symbols-outlined text-[16px]">delete</span>
                             </button>
                         )}
                         <button
-                            onClick={onClose}
-                            className="w-8 h-8 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-500 hover:text-primary flex items-center justify-center"
+                            onClick={handleClose}
+                            className="w-10 h-10 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-500 hover:text-primary flex items-center justify-center"
+                            aria-label="Close chat panel"
                         >
                             <span className="material-symbols-outlined text-[18px]">close</span>
                         </button>
@@ -296,26 +328,7 @@ const TopicChatPanel = memo(function TopicChatPanel({ topicId, topicTitle, open,
                 </div>
             </div>
 
-            {/* Animations */}
-            <style>{`
-                @keyframes chat-slide-up {
-                    from { transform: translateY(100%); }
-                    to { transform: translateY(0); }
-                }
-                @keyframes chat-slide-left {
-                    from { transform: translateX(100%); }
-                    to { transform: translateX(0); }
-                }
-                .animate-chat-slide-up {
-                    animation: chat-slide-up 0.25s ease-out;
-                }
-                .animate-chat-slide-left {
-                    animation: chat-slide-left 0.25s ease-out;
-                }
-                @media (min-width: 768px) {
-                    .animate-chat-slide-up { animation: chat-slide-left 0.25s ease-out; }
-                }
-            `}</style>
+
         </>
     );
 });

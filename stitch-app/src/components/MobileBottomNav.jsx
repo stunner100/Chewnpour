@@ -38,7 +38,7 @@ const MobileBottomNav = () => {
     const getTabClassName = (active) => (
         `flex flex-col items-center justify-center gap-0.5 flex-1 min-w-[64px] py-2 rounded-2xl transition-all duration-200 active:scale-95 ${active
             ? 'text-primary'
-            : 'text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300'}`
+            : 'text-slate-400 dark:text-neutral-400 hover:text-slate-600 dark:hover:text-slate-300'}`
     );
 
     const renderTabContent = (tab, active) => (

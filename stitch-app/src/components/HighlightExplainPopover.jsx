@@ -108,7 +108,7 @@ const HighlightExplainPopover = memo(function HighlightExplainPopover({
             <div className="rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xl overflow-hidden">
                 {/* Selected text preview */}
                 <div className="px-3 py-2 border-b border-slate-100 dark:border-slate-800">
-                    <p className="text-xs text-slate-400 dark:text-slate-500 italic truncate">
+                    <p className="text-xs text-slate-400 dark:text-neutral-400 italic truncate">
                         &ldquo;{truncatedText}&rdquo;
                     </p>
                 </div>

@@ -372,7 +372,7 @@ const DashboardResults = () => {
     };
 
     return (
-        <div className="bg-background-light dark:bg-background-dark font-display antialiased text-neutral-900 dark:text-white min-h-screen flex flex-col">
+        <div className="bg-background-light dark:bg-background-dark font-body antialiased text-neutral-900 dark:text-white min-h-screen flex flex-col">
             <header className="w-full bg-surface-light dark:bg-surface-dark border-b border-neutral-100 dark:border-neutral-800 sticky top-0 z-30 shadow-sm">
                 <div className="max-w-7xl mx-auto flex items-center justify-between px-6 py-4">
                     <div className="flex items-center gap-4">
@@ -382,7 +382,7 @@ const DashboardResults = () => {
                         </div>
                     </div>
                     <div className="flex items-center gap-4">
-                        <Link to="/dashboard" className="flex items-center justify-center bg-neutral-100 dark:bg-neutral-800 hover:bg-neutral-200 dark:hover:bg-neutral-700 transition-colors rounded-full h-10 w-10">
+                        <Link to="/dashboard" aria-label="Close and go back to dashboard" className="flex items-center justify-center bg-neutral-100 dark:bg-neutral-800 hover:bg-neutral-200 dark:hover:bg-neutral-700 transition-colors rounded-full h-10 w-10">
                             <span className="material-symbols-outlined text-neutral-600 dark:text-neutral-300">close</span>
                         </Link>
                     </div>

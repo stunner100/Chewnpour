@@ -1117,7 +1117,7 @@ const DashboardAnalysis = () => {
                                                 className={`material-symbols-outlined text-3xl transition-all ${
                                                     star <= feedbackRating
                                                         ? 'text-amber-400 scale-110'
-                                                        : 'text-neutral-300 dark:text-neutral-600 group-hover/star:text-amber-300'
+                                                        : 'text-neutral-300 dark:text-neutral-500 group-hover/star:text-amber-300'
                                                 }`}
                                                 style={star <= feedbackRating ? { fontVariationSettings: "'FILL' 1" } : undefined}
                                             >

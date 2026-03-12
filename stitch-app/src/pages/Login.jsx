@@ -105,7 +105,7 @@ const Login = () => {
 
                 <div className="relative py-8 flex items-center animate-fade-in-up animate-delay-200">
                     <div className="flex-grow border-t border-neutral-200 dark:border-neutral-800"></div>
-                    <span className="flex-shrink-0 mx-4 text-neutral-400 dark:text-neutral-600 text-xs font-bold uppercase tracking-wider">or continue with email</span>
+                    <span className="flex-shrink-0 mx-4 text-neutral-400 dark:text-neutral-500 text-xs font-bold uppercase tracking-wider">or continue with email</span>
                     <div className="flex-grow border-t border-neutral-200 dark:border-neutral-800"></div>
                 </div>
 

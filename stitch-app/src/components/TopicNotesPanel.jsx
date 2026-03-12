@@ -3,6 +3,7 @@ import { useQuery, useMutation } from 'convex/react';
 import { api } from '../../convex/_generated/api';
 
 const SAVE_DEBOUNCE_MS = 1500;
+const EXIT_ANIMATION_MS = 250;
 
 const formatTimeSince = (timestamp) => {
     if (!timestamp) return '';
@@ -21,9 +22,11 @@ const TopicNotesPanel = memo(function TopicNotesPanel({ topicId, open, onClose, 
     const [saving, setSaving] = useState(false);
     const [lastSavedAt, setLastSavedAt] = useState(null);
     const [statusText, setStatusText] = useState('');
+    const [isClosing, setIsClosing] = useState(false);
     const saveTimerRef = useRef(null);
     const textareaRef = useRef(null);
     const initializedRef = useRef(false);
+    const closingTimerRef = useRef(null);
 
     // Initialize draft from DB on first load
     useEffect(() => {
@@ -101,28 +104,54 @@ const TopicNotesPanel = memo(function TopicNotesPanel({ topicId, open, onClose, 
         }
     }, [open]);
 
+    // Handle close with exit animation
+    const handleClose = useCallback(() => {
+        if (isClosing) return;
+        setIsClosing(true);
+        closingTimerRef.current = setTimeout(() => {
+            setIsClosing(false);
+            onClose();
+        }, EXIT_ANIMATION_MS);
+    }, [isClosing, onClose]);
+
+    // Clean up closing timer
+    useEffect(() => {
+        return () => {
+            if (closingTimerRef.current) clearTimeout(closingTimerRef.current);
+        };
+    }, []);
+
+    // Reset closing state when panel reopens
+    useEffect(() => {
+        if (open) setIsClosing(false);
+    }, [open]);
+
     // Escape to close
     useEffect(() => {
         if (!open) return;
         const handleKeyDown = (e) => {
-            if (e.key === 'Escape') onClose();
+            if (e.key === 'Escape') handleClose();
         };
         document.addEventListener('keydown', handleKeyDown);
         return () => document.removeEventListener('keydown', handleKeyDown);
-    }, [open, onClose]);
+    }, [open, handleClose]);
 
-    if (!open) return null;
+    if (!open && !isClosing) return null;
+
+    const panelAnimClass = isClosing
+        ? 'animate-panel-slide-down md:animate-panel-slide-right'
+        : 'animate-panel-slide-up md:animate-panel-slide-left';
 
     return (
         <>
             {/* Backdrop (mobile) */}
             <div
-                className="fixed inset-0 z-40 bg-black/30 md:bg-transparent md:pointer-events-none"
-                onClick={onClose}
+                className={`fixed inset-0 z-[55] bg-black/30 md:bg-transparent md:pointer-events-none transition-opacity ${isClosing ? 'opacity-0' : 'opacity-100'}`}
+                onClick={handleClose}
             />
 
             {/* Panel */}
-            <div className="fixed z-[60] inset-0 md:inset-x-auto md:right-0 md:top-0 md:bottom-0 md:w-80 flex flex-col bg-white dark:bg-slate-900 border-t md:border-t-0 md:border-l border-slate-200 dark:border-slate-800 shadow-xl animate-slide-up md:animate-slide-left pb-[env(safe-area-inset-bottom)] md:pb-0">
+            <div className={`fixed z-[60] inset-0 md:inset-x-auto md:right-0 md:top-0 md:bottom-0 md:w-80 flex flex-col bg-white dark:bg-slate-900 border-t md:border-t-0 md:border-l border-slate-200 dark:border-slate-800 shadow-xl ${panelAnimClass} pb-[env(safe-area-inset-bottom)] md:pb-0`}>
                 {/* Header */}
                 <div className="flex items-center justify-between px-4 py-3 border-b border-slate-100 dark:border-slate-800">
                     <div className="flex items-center gap-2">
@@ -130,8 +159,9 @@ const TopicNotesPanel = memo(function TopicNotesPanel({ topicId, open, onClose, 
                         <h3 className="text-base font-bold text-slate-900 dark:text-white">My Notes</h3>
                     </div>
                     <button
-                        onClick={onClose}
-                        className="w-8 h-8 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-500 hover:text-primary flex items-center justify-center"
+                        onClick={handleClose}
+                        className="w-10 h-10 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-500 hover:text-primary flex items-center justify-center"
+                        aria-label="Close notes panel"
                     >
                         <span className="material-symbols-outlined text-[18px]">close</span>
                     </button>
@@ -150,7 +180,7 @@ const TopicNotesPanel = memo(function TopicNotesPanel({ topicId, open, onClose, 
 
                 {/* Footer */}
                 <div className="px-4 py-2 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between">
-                    <span className="text-xs text-slate-400 dark:text-slate-500">
+                    <span className="text-xs text-slate-400 dark:text-neutral-400">
                         {saving && (
                             <span className="inline-flex items-center gap-1">
                                 <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" />
@@ -159,32 +189,11 @@ const TopicNotesPanel = memo(function TopicNotesPanel({ topicId, open, onClose, 
                         )}
                         {!saving && statusText && statusText}
                     </span>
-                    <span className="text-xs text-slate-400 dark:text-slate-500">
+                    <span className="text-xs text-slate-400 dark:text-neutral-400">
                         {draft.length > 0 && `${draft.length} chars`}
                     </span>
                 </div>
             </div>
-
-            {/* Animations */}
-            <style>{`
-                @keyframes slide-up {
-                    from { transform: translateY(100%); }
-                    to { transform: translateY(0); }
-                }
-                @keyframes slide-left {
-                    from { transform: translateX(100%); }
-                    to { transform: translateX(0); }
-                }
-                .animate-slide-up {
-                    animation: slide-up 0.25s ease-out;
-                }
-                .animate-slide-left {
-                    animation: slide-left 0.25s ease-out;
-                }
-                @media (min-width: 768px) {
-                    .animate-slide-up { animation: slide-left 0.25s ease-out; }
-                }
-            `}</style>
         </>
     );
 });
