@@ -446,10 +446,24 @@ const ExamMode = () => {
     const submittingRef = useRef(false);
 
     // Optimized timer: only re-renders when the displayed second changes
-    const { timeRemaining, formattedTime, isLowTime, setTimeRemaining } = useExamTimer(
+    const {
+        timeRemaining,
+        formattedTime,
+        isLowTime,
+        setTimeRemaining: setExamTimeRemaining,
+    } = useExamTimer(
         EXAM_DURATION_SECONDS,
         examStarted,
         () => handleSubmitRef.current(),
+    );
+
+    const setTimeRemaining = useCallback(
+        (nextSeconds) => {
+            if (typeof setExamTimeRemaining === 'function') {
+                setExamTimeRemaining(nextSeconds);
+            }
+        },
+        [setExamTimeRemaining],
     );
 
     useEffect(() => {
