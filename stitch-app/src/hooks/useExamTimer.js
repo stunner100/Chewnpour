@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 /**
  * Exam timer hook that only triggers a state update when the displayed
@@ -11,15 +11,26 @@ export function useExamTimer(durationSeconds, examStarted, onTimeUp) {
     const [displayTime, setDisplayTime] = useState(durationSeconds);
     const endTimeRef = useRef(null);
     const onTimeUpRef = useRef(onTimeUp);
-    onTimeUpRef.current = onTimeUp;
 
-    // Reset when exam starts
+    useEffect(() => {
+        onTimeUpRef.current = onTimeUp;
+    }, [onTimeUp]);
+
+    const setTimeRemaining = useCallback((nextSeconds) => {
+        const safeSeconds = Math.max(0, Math.round(Number(nextSeconds) || 0));
+        endTimeRef.current = Date.now() + safeSeconds * 1000;
+        setDisplayTime(safeSeconds);
+    }, []);
+
     useEffect(() => {
         if (examStarted) {
-            endTimeRef.current = Date.now() + durationSeconds * 1000;
-            setDisplayTime(durationSeconds);
+            if (!Number.isFinite(endTimeRef.current) || endTimeRef.current <= 0) {
+                endTimeRef.current = Date.now() + displayTime * 1000;
+            }
+            return;
         }
-    }, [examStarted, durationSeconds]);
+        endTimeRef.current = null;
+    }, [examStarted, displayTime]);
 
     useEffect(() => {
         if (!examStarted) return;
@@ -51,5 +62,6 @@ export function useExamTimer(durationSeconds, examStarted, onTimeUp) {
         timeRemaining: displayTime,
         formattedTime,
         isLowTime: displayTime < 300,
+        setTimeRemaining,
     };
 }

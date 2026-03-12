@@ -446,7 +446,7 @@ const ExamMode = () => {
     const submittingRef = useRef(false);
 
     // Optimized timer: only re-renders when the displayed second changes
-    const { timeRemaining, formattedTime, isLowTime } = useExamTimer(
+    const { timeRemaining, formattedTime, isLowTime, setTimeRemaining } = useExamTimer(
         EXAM_DURATION_SECONDS,
         examStarted,
         () => handleSubmitRef.current(),
@@ -698,7 +698,7 @@ const ExamMode = () => {
             attemptStartTimeRef.current = null;
             setStartingExamAttempt(false);
         }
-    }, [topicId, userId, examFormat, topicQuestions.length, startExam, START_EXAM_ATTEMPT_TIMEOUT_MS]);
+    }, [topicId, userId, examFormat, topicQuestions.length, startExam, START_EXAM_ATTEMPT_TIMEOUT_MS, setTimeRemaining]);
 
     useEffect(() => {
         const waitingForQuestions = topicData !== null && topicData !== undefined && topicQuestions.length < MIN_EXAM_QUESTIONS;
