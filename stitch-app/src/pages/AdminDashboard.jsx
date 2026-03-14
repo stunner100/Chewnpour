@@ -290,6 +290,13 @@ const OverviewPanel = ({ snapshot, totals, activeUsersDays, newUsersDays, flags 
                     icon="token"
                     color="blue"
                 />
+                <StatCard
+                    label="Hist. token est."
+                    value={totals.llmHistoricalEstimatedTokensTotal}
+                    sublabel={`${formatNumber(totals.llmHistoricalEstimatedTokensLastWindow)} in last ${activeUsersDays}d • ${formatNumber(totals.llmHistoricalEstimatedUsers)} users`}
+                    icon="history"
+                    color="amber"
+                />
             </section>
 
             <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
@@ -686,6 +693,7 @@ const ContentPanel = ({ snapshot }) => {
 
 const UsersPanel = ({ signedInUsers, recentUsers, premiumUsers, flags, snapshot, activeUsersDays }) => {
     const llmUsage = snapshot.llmUsageAnalytics || {};
+    const historicalLlmEstimate = snapshot.historicalLlmEstimateAnalytics || {};
     return (
         <div className="space-y-4">
             <SectionCard title="LLM Usage">
@@ -710,7 +718,30 @@ const UsersPanel = ({ signedInUsers, recentUsers, premiumUsers, flags, snapshot,
                         value={formatNumber(llmUsage.requestCountTotal)}
                         detail={llmUsage.lastTrackedAt ? `Last tracked ${formatDateTime(llmUsage.lastTrackedAt)}` : 'No tracked requests yet'}
                     />
+                    <StatRow
+                        label="Historical est. total"
+                        value={formatNumber(historicalLlmEstimate.totalTokens)}
+                        detail={`${formatNumber(historicalLlmEstimate.requestCountTotal)} historical requests`}
+                    />
+                    <StatRow
+                        label={`Historical est. (${activeUsersDays}d)`}
+                        value={formatNumber(historicalLlmEstimate.totalTokensLastWindow)}
+                        detail={`${formatNumber(historicalLlmEstimate.requestCountLastWindow)} requests`}
+                    />
+                    <StatRow
+                        label="Historical AI messages"
+                        value={formatNumber(historicalLlmEstimate.aiMessageCountTotal)}
+                        detail={`${formatNumber(historicalLlmEstimate.aiMessageCountLastWindow)} last ${activeUsersDays}d • ~${formatNumber(historicalLlmEstimate.estimatedAiMessageTokensPerRequest)} tokens each`}
+                    />
+                    <StatRow
+                        label="Historical humanizer"
+                        value={formatNumber(historicalLlmEstimate.humanizerCountTotal)}
+                        detail={`${formatNumber(historicalLlmEstimate.humanizerCountLastWindow)} last ${activeUsersDays}d • ~${formatNumber(historicalLlmEstimate.estimatedHumanizerTokensPerRequest)} tokens each`}
+                    />
                 </div>
+                <p className="mt-4 text-xs text-slate-500 dark:text-slate-400">
+                    {historicalLlmEstimate.coverage || 'Historical estimates use old quota counters where provider token tracking did not exist yet.'}
+                </p>
             </SectionCard>
 
             <SectionCard title="All Signed-In Users" badge={flags.activeSessionsTruncated ? 'Partial scan' : undefined}>
@@ -742,8 +773,8 @@ const UsersPanel = ({ signedInUsers, recentUsers, premiumUsers, flags, snapshot,
                                     <td className="px-3 py-3 text-slate-600 dark:text-slate-300">{record.emailVerified ? 'Yes' : 'No'}</td>
                                     <td className="px-3 py-3 text-slate-600 dark:text-slate-300">{formatNumber(record.activeSessionCount)}</td>
                                     <td className="px-3 py-3 text-slate-600 dark:text-slate-300">
-                                        {formatNumber(record.llmTokensTotal)}
-                                        <span className="ml-2 text-xs text-slate-500 dark:text-slate-400">7d {formatNumber(record.llmTokensLastWindow)}</span>
+                                        <div>{formatNumber(record.llmTokensTotal)}<span className="ml-2 text-xs text-slate-500 dark:text-slate-400">Tracked • 7d {formatNumber(record.llmTokensLastWindow)}</span></div>
+                                        <div className="mt-1 text-xs text-slate-500 dark:text-slate-400">Hist. est. {formatNumber(record.estimatedHistoricalTokensTotal)} • 7d {formatNumber(record.estimatedHistoricalTokensLastWindow)}</div>
                                     </td>
                                     <td className="px-3 py-3 text-slate-600 dark:text-slate-300">{formatDateTime(record.lastSessionAt)}</td>
                                     <td className="px-3 py-3 text-slate-600 dark:text-slate-300">{formatDateTime(record.createdAt)}</td>
@@ -783,8 +814,8 @@ const UsersPanel = ({ signedInUsers, recentUsers, premiumUsers, flags, snapshot,
                                 <td className="px-3 py-3 text-slate-600 dark:text-slate-300 capitalize">{record.status || 'unknown'}</td>
                                 <td className="px-3 py-3 text-slate-600 dark:text-slate-300">{formatMajorCurrency(record.amountMajor, record.currency)}</td>
                                 <td className="px-3 py-3 text-slate-600 dark:text-slate-300">
-                                    {formatNumber(record.llmTokensTotal)}
-                                    <span className="ml-2 text-xs text-slate-500 dark:text-slate-400">7d {formatNumber(record.llmTokensLastWindow)}</span>
+                                    <div>{formatNumber(record.llmTokensTotal)}<span className="ml-2 text-xs text-slate-500 dark:text-slate-400">Tracked • 7d {formatNumber(record.llmTokensLastWindow)}</span></div>
+                                    <div className="mt-1 text-xs text-slate-500 dark:text-slate-400">Hist. est. {formatNumber(record.estimatedHistoricalTokensTotal)} • 7d {formatNumber(record.estimatedHistoricalTokensLastWindow)}</div>
                                 </td>
                                 <td className="px-3 py-3 text-slate-600 dark:text-slate-300">{formatDateTime(record.lastPaymentAt)}</td>
                                 <td className="px-3 py-3 text-slate-600 dark:text-slate-300">{record.nextBillingDate || 'N/A'}</td>
@@ -823,8 +854,8 @@ const UsersPanel = ({ signedInUsers, recentUsers, premiumUsers, flags, snapshot,
                                 <td className="px-3 py-3 text-slate-600 dark:text-slate-300">{formatDateTime(record.lastActiveAt)}</td>
                                 <td className="px-3 py-3 text-slate-600 dark:text-slate-300">{formatNumber(record.documentsProcessed)}</td>
                                 <td className="px-3 py-3 text-slate-600 dark:text-slate-300">
-                                    {formatNumber(record.llmTokensTotal)}
-                                    <span className="ml-2 text-xs text-slate-500 dark:text-slate-400">7d {formatNumber(record.llmTokensLastWindow)}</span>
+                                    <div>{formatNumber(record.llmTokensTotal)}<span className="ml-2 text-xs text-slate-500 dark:text-slate-400">Tracked • 7d {formatNumber(record.llmTokensLastWindow)}</span></div>
+                                    <div className="mt-1 text-xs text-slate-500 dark:text-slate-400">Hist. est. {formatNumber(record.estimatedHistoricalTokensTotal)} • 7d {formatNumber(record.estimatedHistoricalTokensLastWindow)}</div>
                                 </td>
                                 <td className="px-3 py-3 text-slate-600 dark:text-slate-300">{formatNumber(record.feedbackCount)}</td>
                             </tr>

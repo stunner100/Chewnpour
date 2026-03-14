@@ -12,6 +12,12 @@ const BOOTSTRAP_ADMIN_EMAILS = ["patrickannor35@gmail.com"];
 const BETTER_AUTH_PAGE_SIZE = 200;
 const BETTER_AUTH_MAX_PAGES = 12;
 const BETTER_AUTH_USER_CHUNK_SIZE = 100;
+const DEFAULT_ESTIMATED_AI_MESSAGE_TOKENS = 1800;
+const DEFAULT_ESTIMATED_HUMANIZER_TOKENS = 5000;
+const MIN_ESTIMATED_AI_MESSAGE_TOKENS = 1200;
+const MAX_ESTIMATED_AI_MESSAGE_TOKENS = 4000;
+const MIN_ESTIMATED_HUMANIZER_TOKENS = 3000;
+const MAX_ESTIMATED_HUMANIZER_TOKENS = 9000;
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/i;
 
@@ -110,6 +116,9 @@ const toNonNegativeNumber = (value: unknown) => {
 
 const toNonNegativeInteger = (value: unknown) =>
     Math.max(0, Math.floor(toNonNegativeNumber(value)));
+
+const clampNumber = (value: number, min: number, max: number) =>
+    Math.min(max, Math.max(min, value));
 
 const normalizeCurrencyCode = (value: unknown, fallback = "GHS") => {
     const normalized = String(value || "").trim().toUpperCase();
@@ -533,8 +542,9 @@ export const getDashboardSnapshot = query({
         const sevenDaysAgo = now - ACTIVE_USER_WINDOW_DAYS * DAY_MS;
         const fourteenDaysAgo = now - (ACTIVE_USER_WINDOW_DAYS + NEW_USER_WINDOW_DAYS) * DAY_MS;
         const fiveMinutesAgo = now - ACTIVE_USERS_5M_WINDOW_MS;
+        const sevenDaysAgoDateKey = new Date(sevenDaysAgo).toISOString().slice(0, 10);
 
-        const [profiles, uploads, assignmentThreads, examAttempts, conceptAttempts, feedbackEntries, activeSessionsResult, subscriptions, paymentTransactions, courses, humanizerUsage, llmUsageDaily, userPresence, questionTargetAuditRuns] =
+        const [profiles, uploads, assignmentThreads, examAttempts, conceptAttempts, feedbackEntries, activeSessionsResult, subscriptions, paymentTransactions, courses, humanizerUsage, aiMessageUsage, llmUsageDaily, userPresence, questionTargetAuditRuns] =
             await Promise.all([
                 ctx.db.query("profiles").collect(),
                 ctx.db.query("uploads").collect(),
@@ -551,6 +561,7 @@ export const getDashboardSnapshot = query({
                 ctx.db.query("paymentTransactions").collect(),
                 ctx.db.query("courses").collect(),
                 ctx.db.query("humanizerUsage").collect(),
+                ctx.db.query("aiMessageUsage").collect(),
                 ctx.db.query("llmUsageDaily").collect(),
                 ctx.db
                     .query("userPresence")
@@ -1213,6 +1224,24 @@ export const getDashboardSnapshot = query({
                 llmUsageLastTrackedAt = updatedAt;
             }
         }
+        const historicalAiMessageTokensPerRequest = clampNumber(
+            Math.round(
+                (llmRequestsTotal > 0 && llmTokensTotal > 0
+                    ? (llmTokensTotal / llmRequestsTotal) * 0.85
+                    : DEFAULT_ESTIMATED_AI_MESSAGE_TOKENS)
+            ),
+            MIN_ESTIMATED_AI_MESSAGE_TOKENS,
+            MAX_ESTIMATED_AI_MESSAGE_TOKENS
+        );
+        const historicalHumanizerTokensPerRequest = clampNumber(
+            Math.round(
+                (llmRequestsTotal > 0 && llmTokensTotal > 0
+                    ? (llmTokensTotal / llmRequestsTotal) * 2.2
+                    : DEFAULT_ESTIMATED_HUMANIZER_TOKENS)
+            ),
+            MIN_ESTIMATED_HUMANIZER_TOKENS,
+            MAX_ESTIMATED_HUMANIZER_TOKENS
+        );
         const getUserLlmUsage = (userId: string) =>
             llmUsageByUser.get(String(userId || "").trim()) || {
                 requestCount: 0,
@@ -1225,6 +1254,88 @@ export const getDashboardSnapshot = query({
                 totalTokensLastWindow: 0,
                 updatedAt: 0,
             };
+        const historicalLlmEstimateByUser = new Map<string, {
+            aiMessageCountTotal: number;
+            aiMessageCountLastWindow: number;
+            humanizerCountTotal: number;
+            humanizerCountLastWindow: number;
+            estimatedTokensTotal: number;
+            estimatedTokensLastWindow: number;
+        }>();
+        let historicalEstimatedRequestCountTotal = 0;
+        let historicalEstimatedRequestCountLastWindow = 0;
+        let historicalEstimatedTokensTotal = 0;
+        let historicalEstimatedTokensLastWindow = 0;
+        let historicalAiMessageCountTotal = 0;
+        let historicalAiMessageCountLastWindow = 0;
+        let historicalHumanizerCountTotal = 0;
+        let historicalHumanizerCountLastWindow = 0;
+        const accumulateHistoricalEstimate = (
+            userId: string,
+            field: "aiMessageCountTotal" | "aiMessageCountLastWindow" | "humanizerCountTotal" | "humanizerCountLastWindow",
+            count: number,
+            estimatedTokens: number
+        ) => {
+            const normalizedUserId = String(userId || "").trim();
+            if (!normalizedUserId || count <= 0) return;
+            const current = historicalLlmEstimateByUser.get(normalizedUserId) || {
+                aiMessageCountTotal: 0,
+                aiMessageCountLastWindow: 0,
+                humanizerCountTotal: 0,
+                humanizerCountLastWindow: 0,
+                estimatedTokensTotal: 0,
+                estimatedTokensLastWindow: 0,
+            };
+            current[field] += count;
+            current.estimatedTokensTotal += estimatedTokens;
+            if (field === "aiMessageCountLastWindow" || field === "humanizerCountLastWindow") {
+                current.estimatedTokensLastWindow += estimatedTokens;
+            }
+            historicalLlmEstimateByUser.set(normalizedUserId, current);
+        };
+        for (const row of aiMessageUsage) {
+            const userId = String(row.userId || "").trim();
+            const count = toNonNegativeInteger(row.count);
+            if (!userId || count <= 0) continue;
+            const inLastWindow = String(row.date || "") >= sevenDaysAgoDateKey;
+            const estimatedTokens = count * historicalAiMessageTokensPerRequest;
+            historicalEstimatedRequestCountTotal += count;
+            historicalEstimatedTokensTotal += estimatedTokens;
+            historicalAiMessageCountTotal += count;
+            accumulateHistoricalEstimate(userId, "aiMessageCountTotal", count, estimatedTokens);
+            if (inLastWindow) {
+                historicalEstimatedRequestCountLastWindow += count;
+                historicalEstimatedTokensLastWindow += estimatedTokens;
+                historicalAiMessageCountLastWindow += count;
+                accumulateHistoricalEstimate(userId, "aiMessageCountLastWindow", count, estimatedTokens);
+            }
+        }
+        for (const row of humanizerUsage) {
+            const userId = String(row.userId || "").trim();
+            const count = toNonNegativeInteger(row.count);
+            if (!userId || count <= 0) continue;
+            const inLastWindow = String(row.date || "") >= sevenDaysAgoDateKey;
+            const estimatedTokens = count * historicalHumanizerTokensPerRequest;
+            historicalEstimatedRequestCountTotal += count;
+            historicalEstimatedTokensTotal += estimatedTokens;
+            historicalHumanizerCountTotal += count;
+            accumulateHistoricalEstimate(userId, "humanizerCountTotal", count, estimatedTokens);
+            if (inLastWindow) {
+                historicalEstimatedRequestCountLastWindow += count;
+                historicalEstimatedTokensLastWindow += estimatedTokens;
+                historicalHumanizerCountLastWindow += count;
+                accumulateHistoricalEstimate(userId, "humanizerCountLastWindow", count, estimatedTokens);
+            }
+        }
+        const getUserHistoricalLlmEstimate = (userId: string) =>
+            historicalLlmEstimateByUser.get(String(userId || "").trim()) || {
+                aiMessageCountTotal: 0,
+                aiMessageCountLastWindow: 0,
+                humanizerCountTotal: 0,
+                humanizerCountLastWindow: 0,
+                estimatedTokensTotal: 0,
+                estimatedTokensLastWindow: 0,
+            };
 
         const recentUsersBase = [...profiles]
             .sort((left, right) => right._creationTime - left._creationTime)
@@ -1232,6 +1343,7 @@ export const getDashboardSnapshot = query({
             .map((profile) => {
                 const userId = String(profile.userId || "").trim();
                 const llmUsage = getUserLlmUsage(userId);
+                const historicalEstimate = getUserHistoricalLlmEstimate(userId);
                 return {
                     userId,
                     fullName: profile.fullName || null,
@@ -1245,6 +1357,8 @@ export const getDashboardSnapshot = query({
                     llmTokensLastWindow: llmUsage.totalTokensLastWindow,
                     llmRequestsTotal: llmUsage.requestCount,
                     llmRequestsLastWindow: llmUsage.requestCountLastWindow,
+                    estimatedHistoricalTokensTotal: historicalEstimate.estimatedTokensTotal,
+                    estimatedHistoricalTokensLastWindow: historicalEstimate.estimatedTokensLastWindow,
                 };
             });
         const recentUserIds = Array.from(
@@ -1273,6 +1387,7 @@ export const getDashboardSnapshot = query({
                 }
                 const profile = profileByUserId.get(userId);
                 const llmUsage = getUserLlmUsage(userId);
+                const historicalEstimate = getUserHistoricalLlmEstimate(userId);
                 const lastPaymentAt = toTimestamp(subscription.lastPaymentAt, 0);
                 const status = normalizeSubscriptionStatus(subscription.status);
                 return {
@@ -1289,6 +1404,8 @@ export const getDashboardSnapshot = query({
                     llmTokensLastWindow: llmUsage.totalTokensLastWindow,
                     llmRequestsTotal: llmUsage.requestCount,
                     llmRequestsLastWindow: llmUsage.requestCountLastWindow,
+                    estimatedHistoricalTokensTotal: historicalEstimate.estimatedTokensTotal,
+                    estimatedHistoricalTokensLastWindow: historicalEstimate.estimatedTokensLastWindow,
                 };
             })
             .filter((entry): entry is NonNullable<typeof entry> => Boolean(entry))
@@ -1385,6 +1502,7 @@ export const getDashboardSnapshot = query({
                 const authUser = authUsersById.get(userId);
                 const profile = profileByUserId.get(userId);
                 const llmUsage = getUserLlmUsage(userId);
+                const historicalEstimate = getUserHistoricalLlmEstimate(userId);
                 return {
                     userId,
                     email: normalizeEmail(authUser?.email) || null,
@@ -1398,6 +1516,8 @@ export const getDashboardSnapshot = query({
                     llmTokensLastWindow: llmUsage.totalTokensLastWindow,
                     llmRequestsTotal: llmUsage.requestCount,
                     llmRequestsLastWindow: llmUsage.requestCountLastWindow,
+                    estimatedHistoricalTokensTotal: historicalEstimate.estimatedTokensTotal,
+                    estimatedHistoricalTokensLastWindow: historicalEstimate.estimatedTokensLastWindow,
                 };
             })
             .filter((record): record is NonNullable<typeof record> => Boolean(record))
@@ -1572,6 +1692,9 @@ export const getDashboardSnapshot = query({
                 llmRequestsLastWindow,
                 llmTokensTotal,
                 llmTokensLastWindow,
+                llmHistoricalEstimatedUsers: historicalLlmEstimateByUser.size,
+                llmHistoricalEstimatedTokensTotal: historicalEstimatedTokensTotal,
+                llmHistoricalEstimatedTokensLastWindow: historicalEstimatedTokensLastWindow,
             },
             documents: {
                 uploads: {
@@ -1612,6 +1735,21 @@ export const getDashboardSnapshot = query({
                 totalTokensLastWindow: llmTokensLastWindow,
                 firstTrackedAt: llmUsageFirstTrackedAt || null,
                 lastTrackedAt: llmUsageLastTrackedAt || null,
+            },
+            historicalLlmEstimateAnalytics: {
+                estimatedUsers: historicalLlmEstimateByUser.size,
+                requestCountTotal: historicalEstimatedRequestCountTotal,
+                requestCountLastWindow: historicalEstimatedRequestCountLastWindow,
+                aiMessageCountTotal: historicalAiMessageCountTotal,
+                aiMessageCountLastWindow: historicalAiMessageCountLastWindow,
+                humanizerCountTotal: historicalHumanizerCountTotal,
+                humanizerCountLastWindow: historicalHumanizerCountLastWindow,
+                totalTokens: historicalEstimatedTokensTotal,
+                totalTokensLastWindow: historicalEstimatedTokensLastWindow,
+                estimatedAiMessageTokensPerRequest: historicalAiMessageTokensPerRequest,
+                estimatedHumanizerTokensPerRequest: historicalHumanizerTokensPerRequest,
+                coverage:
+                    "Estimated from historical AI message and humanizer quota counters recorded before provider token tracking was enabled.",
             },
             adminEmails: access.adminEmails,
             recentUsers,
