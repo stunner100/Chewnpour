@@ -111,6 +111,87 @@ const countWords = (value: unknown) =>
         .filter(Boolean)
         .length;
 
+const extractNumericTokens = (value: unknown) =>
+    Array.from(
+        new Set(
+            String(value || "")
+                .match(/\b\d+(?:\.\d+)?%?\b/g)
+                ?.map((token) => token.trim()) || []
+        )
+    );
+
+const computePassageHitMetrics = (args: {
+    targetPassageIds: string[];
+    retrievedPassageIds: string[];
+}) => {
+    const targetSet = new Set(
+        (Array.isArray(args.targetPassageIds) ? args.targetPassageIds : [])
+            .map((entry) => String(entry || "").trim())
+            .filter(Boolean)
+    );
+    const retrieved = (Array.isArray(args.retrievedPassageIds) ? args.retrievedPassageIds : [])
+        .map((entry) => String(entry || "").trim())
+        .filter(Boolean);
+    const retrievedSet = new Set(retrieved);
+    const matchedCount = Array.from(targetSet).filter((passageId) => retrievedSet.has(passageId)).length;
+
+    return {
+        targetCount: targetSet.size,
+        top1Hit: retrieved.length > 0 && targetSet.has(retrieved[0]),
+        top3Hit: retrieved.slice(0, 3).some((passageId) => targetSet.has(passageId)),
+        recallAtK: targetSet.size > 0 ? matchedCount / targetSet.size : 0,
+        matchedCount,
+    };
+};
+
+const classifyBenchmarkDelta = (args: {
+    lexical: ReturnType<typeof computePassageHitMetrics>;
+    hybrid: ReturnType<typeof computePassageHitMetrics>;
+}) => {
+    const lexicalScore =
+        args.lexical.recallAtK
+        + (args.lexical.top3Hit ? 0.05 : 0)
+        + (args.lexical.top1Hit ? 0.1 : 0);
+    const hybridScore =
+        args.hybrid.recallAtK
+        + (args.hybrid.top3Hit ? 0.05 : 0)
+        + (args.hybrid.top1Hit ? 0.1 : 0);
+
+    if (hybridScore > lexicalScore + 1e-9) return "improved";
+    if (hybridScore + 1e-9 < lexicalScore) return "worsened";
+    return "unchanged";
+};
+
+const toRate = (numerator: number, denominator: number) =>
+    denominator > 0 ? numerator / denominator : 0;
+
+const average = (values: number[]) =>
+    values.length > 0
+        ? values.reduce((sum, value) => sum + Number(value || 0), 0) / values.length
+        : 0;
+
+const loadRecentTopicsForBenchmark = async (ctx: any, limit: number) => {
+    const collected: any[] = [];
+    let cursor: string | null = null;
+    let isDone = false;
+
+    while (!isDone && collected.length < limit) {
+        const batchSize = Math.max(1, Math.min(100, limit - collected.length));
+        const page = await ctx.runQuery((internal as any).grounded.listTopicsForSweep, {
+            paginationOpts: {
+                numItems: batchSize,
+                cursor,
+            },
+        });
+        const pageItems = Array.isArray(page?.page) ? page.page : [];
+        collected.push(...pageItems);
+        isDone = page?.isDone === true || !page?.continueCursor;
+        cursor = page?.continueCursor || null;
+    }
+
+    return collected.slice(0, limit);
+};
+
 const EVIDENCE_EMBEDDING_BATCH_SIZE = 16;
 const EVIDENCE_PASSAGE_WRITE_BATCH_SIZE = 6;
 
@@ -2009,6 +2090,197 @@ export const runStaleQuestionBankTargetAudit = internalAction({
             maxTopicsPerFormat,
             mcq,
             essay,
+        };
+    },
+});
+
+export const benchmarkSemanticRetrievalAB = internalAction({
+    args: {
+        limit: v.optional(v.number()),
+    },
+    handler: async (ctx, args) => {
+        const limit = Math.max(5, Math.min(100, Math.floor(Number(args.limit || 30))));
+        const topics = await loadRecentTopicsForBenchmark(ctx, limit);
+
+        const lexicalRecallValues: number[] = [];
+        const hybridRecallValues: number[] = [];
+        const lexicalLatencyValues: number[] = [];
+        const hybridLatencyValues: number[] = [];
+
+        let eligibleTopicCount = 0;
+        let comparedTopicCount = 0;
+        let vectorActiveTopicCount = 0;
+        let numericTopicCount = 0;
+        let lexicalTop1HitCount = 0;
+        let hybridTop1HitCount = 0;
+        let lexicalTop3HitCount = 0;
+        let hybridTop3HitCount = 0;
+        let improvedTopicsCount = 0;
+        let worsenedTopicsCount = 0;
+        let unchangedTopicsCount = 0;
+        let improvedVectorActiveTopicsCount = 0;
+
+        const samples: Array<{
+            topicId: Id<"topics">;
+            topicTitle: string;
+            lexicalRecallAtK: number;
+            hybridRecallAtK: number;
+            lexicalTop1Hit: boolean;
+            hybridTop1Hit: boolean;
+            vectorHitCount: number;
+            lexicalHitCount: number;
+            targetPassageCount: number;
+            queryHasNumericTokens: boolean;
+            delta: "improved" | "worsened" | "unchanged";
+        }> = [];
+
+        for (const topic of topics) {
+            const targetPassageIds = Array.isArray(topic?.sourcePassageIds)
+                ? topic.sourcePassageIds.map((entry: any) => String(entry || "").trim()).filter(Boolean)
+                : [];
+            if (targetPassageIds.length === 0) {
+                continue;
+            }
+
+            const { index, upload } = await loadGroundedEvidenceIndexForTopicSweep(ctx, topic);
+            if (!index || !upload?._id) {
+                continue;
+            }
+            eligibleTopicCount += 1;
+
+            const query = [
+                String(topic?.title || ""),
+                String(topic?.description || ""),
+            ].join(" ").trim();
+            if (!query) {
+                continue;
+            }
+            const queryHasNumericTokens = extractNumericTokens(query).length > 0;
+            if (queryHasNumericTokens) {
+                numericTopicCount += 1;
+            }
+
+            const lexical = await retrieveGroundedEvidence({
+                index,
+                query,
+                limit: 18,
+                preferFlags: ["table", "formula"],
+            });
+            const hybrid = await retrieveGroundedEvidence({
+                ctx,
+                index,
+                query,
+                limit: 18,
+                preferFlags: ["table", "formula"],
+                uploadId: upload._id,
+                embeddingBacklogCount: Math.max(
+                    0,
+                    Number(upload?.evidencePassageCount || 0) - Number(upload?.embeddedPassageCount || 0)
+                ),
+            });
+
+            comparedTopicCount += 1;
+            if (hybrid.vectorHitCount > 0) {
+                vectorActiveTopicCount += 1;
+            }
+
+            const lexicalMetrics = computePassageHitMetrics({
+                targetPassageIds,
+                retrievedPassageIds: lexical.evidence.map((entry) => String(entry?.passageId || "")),
+            });
+            const hybridMetrics = computePassageHitMetrics({
+                targetPassageIds,
+                retrievedPassageIds: hybrid.evidence.map((entry) => String(entry?.passageId || "")),
+            });
+            const delta = classifyBenchmarkDelta({
+                lexical: lexicalMetrics,
+                hybrid: hybridMetrics,
+            });
+
+            lexicalRecallValues.push(lexicalMetrics.recallAtK);
+            hybridRecallValues.push(hybridMetrics.recallAtK);
+            lexicalLatencyValues.push(Number(lexical.latencyMs || 0));
+            hybridLatencyValues.push(Number(hybrid.latencyMs || 0));
+            if (lexicalMetrics.top1Hit) lexicalTop1HitCount += 1;
+            if (hybridMetrics.top1Hit) hybridTop1HitCount += 1;
+            if (lexicalMetrics.top3Hit) lexicalTop3HitCount += 1;
+            if (hybridMetrics.top3Hit) hybridTop3HitCount += 1;
+
+            if (delta === "improved") {
+                improvedTopicsCount += 1;
+                if (hybrid.vectorHitCount > 0) {
+                    improvedVectorActiveTopicsCount += 1;
+                }
+            } else if (delta === "worsened") {
+                worsenedTopicsCount += 1;
+            } else {
+                unchangedTopicsCount += 1;
+            }
+
+            samples.push({
+                topicId: topic._id,
+                topicTitle: String(topic?.title || "Unknown Topic"),
+                lexicalRecallAtK: lexicalMetrics.recallAtK,
+                hybridRecallAtK: hybridMetrics.recallAtK,
+                lexicalTop1Hit: lexicalMetrics.top1Hit,
+                hybridTop1Hit: hybridMetrics.top1Hit,
+                vectorHitCount: Math.max(0, Number(hybrid.vectorHitCount || 0)),
+                lexicalHitCount: Math.max(0, Number(lexical.lexicalHitCount || 0)),
+                targetPassageCount: lexicalMetrics.targetCount,
+                queryHasNumericTokens,
+                delta,
+            });
+        }
+
+        const sortSampleRows = (
+            rows: typeof samples,
+            delta: "improved" | "worsened"
+        ) => rows
+            .filter((row) => row.delta === delta)
+            .sort((left, right) => {
+                const deltaLeft = left.hybridRecallAtK - left.lexicalRecallAtK;
+                const deltaRight = right.hybridRecallAtK - right.lexicalRecallAtK;
+                return delta === "improved"
+                    ? deltaRight - deltaLeft
+                    : deltaLeft - deltaRight;
+            })
+            .slice(0, 5);
+
+        return {
+            benchmark: "semantic_retrieval_ab",
+            sampledTopicCount: topics.length,
+            eligibleTopicCount,
+            comparedTopicCount,
+            vectorActiveTopicCount,
+            numericTopicCount,
+            lexical: {
+                top1HitRate: toRate(lexicalTop1HitCount, comparedTopicCount),
+                top3HitRate: toRate(lexicalTop3HitCount, comparedTopicCount),
+                averageRecallAtK: average(lexicalRecallValues),
+                averageLatencyMs: average(lexicalLatencyValues),
+            },
+            hybrid: {
+                top1HitRate: toRate(hybridTop1HitCount, comparedTopicCount),
+                top3HitRate: toRate(hybridTop3HitCount, comparedTopicCount),
+                averageRecallAtK: average(hybridRecallValues),
+                averageLatencyMs: average(hybridLatencyValues),
+            },
+            delta: {
+                top1HitRate: toRate(hybridTop1HitCount, comparedTopicCount)
+                    - toRate(lexicalTop1HitCount, comparedTopicCount),
+                top3HitRate: toRate(hybridTop3HitCount, comparedTopicCount)
+                    - toRate(lexicalTop3HitCount, comparedTopicCount),
+                averageRecallAtK: average(hybridRecallValues) - average(lexicalRecallValues),
+                averageLatencyMs: average(hybridLatencyValues) - average(lexicalLatencyValues),
+                improvedTopicsCount,
+                worsenedTopicsCount,
+                unchangedTopicsCount,
+                improvedVectorActiveTopicsCount,
+            },
+            samples: {
+                improved: sortSampleRows(samples, "improved"),
+                worsened: sortSampleRows(samples, "worsened"),
+            },
         };
     },
 });
