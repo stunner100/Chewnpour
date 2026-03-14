@@ -2288,6 +2288,88 @@ export const benchmarkSemanticRetrievalAB = internalAction({
     },
 });
 
+export const diagnoseSemanticRetrievalForTopic = internalAction({
+    args: {
+        topicId: v.id("topics"),
+    },
+    handler: async (ctx, args) => {
+        const topic = await ctx.runQuery(internal.topics.getTopicWithQuestionsInternal, {
+            topicId: args.topicId,
+        });
+        if (!topic?.courseId) {
+            return {
+                topicId: args.topicId,
+                found: false,
+                reason: "topic_not_found",
+            };
+        }
+
+        const { index, upload } = await loadGroundedEvidenceIndexForTopicSweep(ctx, topic);
+        if (!index || !upload?._id) {
+            return {
+                topicId: args.topicId,
+                found: true,
+                ready: false,
+                reason: "grounded_index_unavailable",
+            };
+        }
+
+        const targetPassageIds = Array.isArray(topic?.sourcePassageIds)
+            ? topic.sourcePassageIds.map((entry: any) => String(entry || "").trim()).filter(Boolean)
+            : [];
+        const query = [
+            String(topic?.title || ""),
+            String(topic?.description || ""),
+        ].join(" ").trim();
+
+        const lexical = await retrieveGroundedEvidence({
+            index,
+            query,
+            limit: 18,
+            preferFlags: ["table", "formula"],
+            debug: true,
+        });
+        const hybrid = await retrieveGroundedEvidence({
+            ctx,
+            index,
+            query,
+            limit: 18,
+            preferFlags: ["table", "formula"],
+            uploadId: upload._id,
+            embeddingBacklogCount: Math.max(
+                0,
+                Number(upload?.evidencePassageCount || 0) - Number(upload?.embeddedPassageCount || 0)
+            ),
+            debug: true,
+        });
+
+        return {
+            topicId: args.topicId,
+            found: true,
+            ready: true,
+            topicTitle: String(topic?.title || "Unknown Topic"),
+            query,
+            targetPassageIds,
+            lexical: {
+                retrievalMode: lexical.retrievalMode,
+                metrics: computePassageHitMetrics({
+                    targetPassageIds,
+                    retrievedPassageIds: lexical.evidence.map((entry) => String(entry?.passageId || "")),
+                }),
+                diagnostics: lexical.diagnostics,
+            },
+            hybrid: {
+                retrievalMode: hybrid.retrievalMode,
+                metrics: computePassageHitMetrics({
+                    targetPassageIds,
+                    retrievedPassageIds: hybrid.evidence.map((entry) => String(entry?.passageId || "")),
+                }),
+                diagnostics: hybrid.diagnostics,
+            },
+        };
+    },
+});
+
 export const getGroundingDiagnostics = internalAction({
     args: {
         topicId: v.optional(v.id("topics")),

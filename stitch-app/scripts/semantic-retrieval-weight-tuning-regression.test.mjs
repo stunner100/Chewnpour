@@ -6,10 +6,10 @@ const retrievalSource = await fs.readFile(
 );
 
 for (const pattern of [
-  "const shouldBackOffVectorWeight =",
-  "broadNonNumericVectorBackoff",
-  "const lexicalWeight = 0.6 + broadNonNumericVectorBackoff",
-  "const vectorWeight = Math.max(0.18, 0.4 - broadNonNumericVectorBackoff)",
+  "const resolveVectorWeightBackoff =",
+  "const vectorWeightBackoff = resolveVectorWeightBackoff",
+  "const lexicalWeight = vectorWeightBackoff.lexicalWeight",
+  "const vectorWeight = vectorWeightBackoff.vectorWeight",
   "const vectorOnlyBroadTopicPenalty =",
 ]) {
   if (!retrievalSource.includes(pattern)) {

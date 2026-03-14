@@ -17,6 +17,53 @@ export type RetrievedEvidenceResult = {
     vectorHitCount: number;
     embeddingBacklogCount: number;
     latencyMs: number;
+    diagnostics?: {
+        queryTokens: string[];
+        numericTokens: string[];
+        preferFlags: string[];
+        vectorWeightBackoff: {
+            enabled: boolean;
+            backoff: number;
+            lexicalTopCoverage: number;
+            lexicalAnchorCount: number;
+            preferFlagAnchoredCount: number;
+            lexicalWeight: number;
+            vectorWeight: number;
+        };
+        lexicalTop: Array<{
+            passageId: string;
+            page: number;
+            lexicalScore: number;
+            vectorScore: number;
+            numericAgreement: number;
+            finalScore: number;
+            retrievalSource: string;
+            sectionHint: string;
+        }>;
+        vectorTop: Array<{
+            passageId: string;
+            page: number;
+            lexicalScore: number;
+            vectorScore: number;
+            numericAgreement: number;
+            finalScore: number;
+            retrievalSource: string;
+            sectionHint: string;
+        }>;
+        rerankedTop: Array<{
+            passageId: string;
+            page: number;
+            lexicalScore: number;
+            vectorScore: number;
+            numericAgreement: number;
+            finalScore: number;
+            retrievalSource: string;
+            sectionHint: string;
+            preferFlagBoost: number;
+            vectorOnlyMissingNumericPenalty: number;
+            vectorOnlyBroadTopicPenalty: number;
+        }>;
+    };
 };
 
 const tokenize = (value: string) =>
@@ -71,27 +118,66 @@ const average = (values: number[]) =>
         ? values.reduce((sum, value) => sum + Number(value || 0), 0) / values.length
         : 0;
 
-const shouldBackOffVectorWeight = (args: {
+const resolveVectorWeightBackoff = (args: {
     lexicalTop: RetrievedEvidence[];
     numericTokens: string[];
     preferFlags?: string[];
 }) => {
-    if (args.numericTokens.length > 0) return false;
-    if ((args.preferFlags || []).some((flag) => flag === "table" || flag === "formula")) {
-        return false;
-    }
-
     const topLexical = args.lexicalTop.slice(0, 6);
-    if (topLexical.length < 3) return false;
-
     const lexicalTopCoverage = average(
         topLexical.slice(0, 3).map((entry) => Math.max(0, Math.min(1, Number(entry.lexicalScore || 0))))
     );
     const lexicalAnchorCount = topLexical.filter(
         (entry) => Math.max(0, Math.min(1, Number(entry.lexicalScore || 0))) >= 0.35
     ).length;
+    const preferFlagAnchoredCount = topLexical.filter(
+        (entry) => computePreferFlagBoost(entry, args.preferFlags) > 0
+    ).length;
 
-    return lexicalTopCoverage >= 0.34 && lexicalAnchorCount >= 3;
+    const eligible =
+        args.numericTokens.length === 0
+        && preferFlagAnchoredCount === 0
+        && topLexical.length >= 3;
+    const enabled = eligible && lexicalTopCoverage >= 0.34 && lexicalAnchorCount >= 3;
+    const backoff = enabled
+        ? Math.min(0.22, 0.08 + lexicalTopCoverage * 0.28)
+        : 0;
+
+    return {
+        enabled,
+        backoff,
+        lexicalTopCoverage,
+        lexicalAnchorCount,
+        preferFlagAnchoredCount,
+        lexicalWeight: 0.6 + backoff,
+        vectorWeight: Math.max(0.18, 0.4 - backoff),
+    };
+};
+
+const toDiagnosticsEntry = (entry: RetrievedEvidence, extras?: {
+    finalScore?: number;
+    preferFlagBoost?: number;
+    vectorOnlyMissingNumericPenalty?: number;
+    vectorOnlyBroadTopicPenalty?: number;
+}) => {
+    const finalScore = extras?.finalScore ?? entry?.score ?? 0;
+    return ({
+    passageId: String(entry?.passageId || ""),
+    page: Math.max(0, Number(entry?.page || 0)),
+    lexicalScore: Math.max(0, Math.min(1, Number(entry?.lexicalScore || 0))),
+    vectorScore: Math.max(0, Math.min(1, Number(entry?.vectorScore || 0))),
+    numericAgreement: Math.max(0, Math.min(1, Number(entry?.numericAgreement || 0))),
+    finalScore: Math.max(0, Math.min(1, Number(finalScore))),
+    retrievalSource: String(entry?.retrievalSource || ""),
+    sectionHint: String(entry?.sectionHint || ""),
+    ...(extras
+        ? {
+            preferFlagBoost: Math.max(0, Number(extras.preferFlagBoost || 0)),
+            vectorOnlyMissingNumericPenalty: Math.max(0, Number(extras.vectorOnlyMissingNumericPenalty || 0)),
+            vectorOnlyBroadTopicPenalty: Math.max(0, Number(extras.vectorOnlyBroadTopicPenalty || 0)),
+        }
+        : {}),
+    });
 };
 
 const pickWithRegionSpread = (candidates: RetrievedEvidence[], limit: number) => {
@@ -245,6 +331,7 @@ export const retrieveGroundedEvidence = async (args: {
     preferFlags?: string[];
     uploadId?: any;
     embeddingBacklogCount?: number;
+    debug?: boolean;
 }): Promise<RetrievedEvidenceResult> => {
     const startedAt = Date.now();
     const lexical = retrieveLexicalGroundedEvidence(args);
@@ -256,13 +343,11 @@ export const retrieveGroundedEvidence = async (args: {
         uploadId: args.uploadId,
     });
     const numericTokens = extractNumericTokens(args.query);
-    const broadNonNumericVectorBackoff = shouldBackOffVectorWeight({
+    const vectorWeightBackoff = resolveVectorWeightBackoff({
         lexicalTop,
         numericTokens,
         preferFlags: args.preferFlags,
-    })
-        ? 0.14
-        : 0;
+    });
 
     if (vectorCandidates.length === 0) {
         return {
@@ -272,6 +357,17 @@ export const retrieveGroundedEvidence = async (args: {
             vectorHitCount: 0,
             embeddingBacklogCount: Math.max(0, Number(args.embeddingBacklogCount || 0)),
             latencyMs: Date.now() - startedAt,
+            diagnostics: args.debug
+                ? {
+                    queryTokens: tokenize(args.query).slice(0, 48),
+                    numericTokens,
+                    preferFlags: Array.isArray(args.preferFlags) ? args.preferFlags : [],
+                    vectorWeightBackoff,
+                    lexicalTop: lexicalTop.slice(0, 8).map((entry) => toDiagnosticsEntry(entry)),
+                    vectorTop: [],
+                    rerankedTop: lexicalTop.slice(0, 8).map((entry) => toDiagnosticsEntry(entry)),
+                }
+                : undefined,
         };
     }
 
@@ -316,14 +412,14 @@ export const retrieveGroundedEvidence = async (args: {
             const vectorScore = Math.max(0, Math.min(1, Number(entry.vectorScore || 0)));
             const numericAgreement = Math.max(0, Math.min(1, Number(entry.numericAgreement || 0)));
             const preferFlagBoost = computePreferFlagBoost(entry, args.preferFlags);
-            const lexicalWeight = 0.6 + broadNonNumericVectorBackoff;
-            const vectorWeight = Math.max(0.18, 0.4 - broadNonNumericVectorBackoff);
+            const lexicalWeight = vectorWeightBackoff.lexicalWeight;
+            const vectorWeight = vectorWeightBackoff.vectorWeight;
             const vectorOnlyMissingNumericPenalty =
                 numericTokens.length > 0 && vectorScore > 0 && lexicalScore < 0.02 && numericAgreement === 0
                     ? 0.18
                     : 0;
             const vectorOnlyBroadTopicPenalty =
-                broadNonNumericVectorBackoff > 0 && vectorScore > 0 && lexicalScore < 0.02
+                vectorWeightBackoff.enabled && vectorScore > 0 && lexicalScore < 0.02
                     ? 0.12
                     : 0;
             const blendedScore = Math.max(
@@ -345,6 +441,11 @@ export const retrieveGroundedEvidence = async (args: {
                 lexicalScore,
                 vectorScore,
                 numericAgreement,
+                _diagnostics: {
+                    preferFlagBoost,
+                    vectorOnlyMissingNumericPenalty,
+                    vectorOnlyBroadTopicPenalty,
+                },
                 retrievalSource:
                     lexicalScore > 0 && vectorScore > 0
                         ? "hybrid"
@@ -368,5 +469,23 @@ export const retrieveGroundedEvidence = async (args: {
         vectorHitCount: vectorCandidates.length,
         embeddingBacklogCount: Math.max(0, Number(args.embeddingBacklogCount || 0)),
         latencyMs: Date.now() - startedAt,
+        diagnostics: args.debug
+            ? {
+                queryTokens: tokenize(args.query).slice(0, 48),
+                numericTokens,
+                preferFlags: Array.isArray(args.preferFlags) ? args.preferFlags : [],
+                vectorWeightBackoff,
+                lexicalTop: lexicalTop.slice(0, 8).map((entry) => toDiagnosticsEntry(entry)),
+                vectorTop: vectorCandidates.slice(0, 8).map((entry) => toDiagnosticsEntry(entry)),
+                rerankedTop: reranked.slice(0, 8).map((entry: RetrievedEvidence & { _diagnostics?: any }) =>
+                    toDiagnosticsEntry(entry, {
+                        finalScore: entry.score,
+                        preferFlagBoost: entry?._diagnostics?.preferFlagBoost,
+                        vectorOnlyMissingNumericPenalty: entry?._diagnostics?.vectorOnlyMissingNumericPenalty,
+                        vectorOnlyBroadTopicPenalty: entry?._diagnostics?.vectorOnlyBroadTopicPenalty,
+                    })
+                ),
+            }
+            : undefined,
     };
 };
