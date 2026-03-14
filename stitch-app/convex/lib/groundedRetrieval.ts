@@ -66,6 +66,34 @@ const computeNumericAgreement = (passage: EvidencePassage, numericTokens: string
     return Math.max(0, Math.min(1, matched / numericTokens.length));
 };
 
+const average = (values: number[]) =>
+    values.length > 0
+        ? values.reduce((sum, value) => sum + Number(value || 0), 0) / values.length
+        : 0;
+
+const shouldBackOffVectorWeight = (args: {
+    lexicalTop: RetrievedEvidence[];
+    numericTokens: string[];
+    preferFlags?: string[];
+}) => {
+    if (args.numericTokens.length > 0) return false;
+    if ((args.preferFlags || []).some((flag) => flag === "table" || flag === "formula")) {
+        return false;
+    }
+
+    const topLexical = args.lexicalTop.slice(0, 6);
+    if (topLexical.length < 3) return false;
+
+    const lexicalTopCoverage = average(
+        topLexical.slice(0, 3).map((entry) => Math.max(0, Math.min(1, Number(entry.lexicalScore || 0))))
+    );
+    const lexicalAnchorCount = topLexical.filter(
+        (entry) => Math.max(0, Math.min(1, Number(entry.lexicalScore || 0))) >= 0.35
+    ).length;
+
+    return lexicalTopCoverage >= 0.34 && lexicalAnchorCount >= 3;
+};
+
 const pickWithRegionSpread = (candidates: RetrievedEvidence[], limit: number) => {
     if (candidates.length <= limit) return candidates;
 
@@ -228,6 +256,13 @@ export const retrieveGroundedEvidence = async (args: {
         uploadId: args.uploadId,
     });
     const numericTokens = extractNumericTokens(args.query);
+    const broadNonNumericVectorBackoff = shouldBackOffVectorWeight({
+        lexicalTop,
+        numericTokens,
+        preferFlags: args.preferFlags,
+    })
+        ? 0.14
+        : 0;
 
     if (vectorCandidates.length === 0) {
         return {
@@ -281,19 +316,26 @@ export const retrieveGroundedEvidence = async (args: {
             const vectorScore = Math.max(0, Math.min(1, Number(entry.vectorScore || 0)));
             const numericAgreement = Math.max(0, Math.min(1, Number(entry.numericAgreement || 0)));
             const preferFlagBoost = computePreferFlagBoost(entry, args.preferFlags);
+            const lexicalWeight = 0.6 + broadNonNumericVectorBackoff;
+            const vectorWeight = Math.max(0.18, 0.4 - broadNonNumericVectorBackoff);
             const vectorOnlyMissingNumericPenalty =
                 numericTokens.length > 0 && vectorScore > 0 && lexicalScore < 0.02 && numericAgreement === 0
                     ? 0.18
+                    : 0;
+            const vectorOnlyBroadTopicPenalty =
+                broadNonNumericVectorBackoff > 0 && vectorScore > 0 && lexicalScore < 0.02
+                    ? 0.12
                     : 0;
             const blendedScore = Math.max(
                 0,
                 Math.min(
                     1,
-                    lexicalScore * 0.6
-                    + vectorScore * 0.4
+                    lexicalScore * lexicalWeight
+                    + vectorScore * vectorWeight
                     + preferFlagBoost * 0.5
                     + numericAgreement * 0.14
                     - vectorOnlyMissingNumericPenalty
+                    - vectorOnlyBroadTopicPenalty
                 )
             );
 
