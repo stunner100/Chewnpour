@@ -9,9 +9,24 @@ assert.equal(
 );
 assert.equal(isHardInceptionProviderFailure('inception request timed out after 60000ms'), false);
 assert.equal(
+  isHardInceptionProviderFailure('inception API error: 401 - {"error":"Incorrect API key provided"}'),
+  true
+);
+assert.equal(
+  isHardInceptionProviderFailure('inception API error: 401 (unauthorized) - invalid authentication'),
+  true
+);
+assert.equal(
   shouldFallbackToGeminiText({
     errorMessage:
       'inception API error: 400 (Arrearage) - Access denied, please make sure your account is in good standing.',
+    geminiApiKey: 'present',
+  }),
+  true
+);
+assert.equal(
+  shouldFallbackToGeminiText({
+    errorMessage: 'inception API error: 401 - {"error":"Incorrect API key provided"}',
     geminiApiKey: 'present',
   }),
   true

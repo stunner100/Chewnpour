@@ -8,6 +8,10 @@ export const isHardInceptionProviderFailure = (message) => {
         "overdue-payment",
         "insufficient balance",
         "quota exhausted",
+        "incorrect api key",
+        "invalid api key",
+        "unauthorized",
+        "invalid authentication",
     ].some((token) => normalized.includes(token));
 };
 
