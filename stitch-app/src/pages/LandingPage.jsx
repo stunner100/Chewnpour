@@ -472,7 +472,7 @@ const LandingPage = () => {
                             Simple pricing
                         </h2>
                         <p className="text-neutral-500 dark:text-neutral-400 max-w-md mx-auto text-sm md:text-base">
-                            Start free. Upgrade when you need more uploads.
+                            Start with 3 free uploads. Upgrade when you need more.
                         </p>
                     </div>
                     <div className="grid gap-5 md:grid-cols-2 lg:grid-cols-4 max-w-6xl mx-auto pt-5">
@@ -489,7 +489,7 @@ const LandingPage = () => {
                             </div>
                             <ul className="flex-1 space-y-3 mb-7">
                                 {[
-                                    '1 document upload',
+                                    '3 document uploads',
                                     'AI-powered lessons',
                                     'Interactive quizzes',
                                     'AI Tutor chat',
@@ -511,7 +511,10 @@ const LandingPage = () => {
                         </div>
 
                         {/* Starter Top-up */}
-                        <div className="flex flex-col p-6 md:p-7 rounded-2xl bg-white dark:bg-neutral-900 border border-neutral-200/80 dark:border-neutral-800 shadow-card">
+                        <div className="relative flex flex-col p-6 md:p-7 rounded-2xl bg-white dark:bg-neutral-900 border border-neutral-200/80 dark:border-neutral-800 shadow-card">
+                            <div className="absolute -top-3 left-1/2 -translate-x-1/2">
+                                <span className="px-3 py-1 bg-amber-500 text-white text-[10px] font-bold uppercase tracking-widest rounded-full shadow-button whitespace-nowrap">First purchase {formatPlanPrice(15, starterPlan.currency || 'GHS')}</span>
+                            </div>
                             <div className="mb-5">
                                 <span className="inline-flex items-center px-2.5 py-1 rounded-lg text-[11px] font-bold uppercase tracking-widest bg-primary/10 text-primary mb-3">Starter</span>
                                 <div className="flex items-baseline gap-1 flex-wrap">
