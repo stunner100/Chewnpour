@@ -4,6 +4,7 @@ import { AsyncLocalStorage } from "node:async_hooks";
 import { Buffer } from "node:buffer";
 import { randomBytes } from "node:crypto";
 import { action, internalAction } from "./_generated/server";
+import type { Id } from "./_generated/dataModel";
 import { ConvexError, v } from "convex/values";
 import { api, internal } from "./_generated/api";
 import {
@@ -4415,6 +4416,267 @@ export const askTopicTutor = action({
 
             return { success: true };
         });
+    },
+});
+
+const averageTimingValues = (values: number[]) =>
+    values.length > 0
+        ? values.reduce((sum, value) => sum + Number(value || 0), 0) / values.length
+        : 0;
+
+const percentileTimingValue = (values: number[], percentile: number) => {
+    if (values.length === 0) return 0;
+    const sorted = [...values]
+        .map((value) => Number(value || 0))
+        .filter((value) => Number.isFinite(value))
+        .sort((left, right) => left - right);
+    if (sorted.length === 0) return 0;
+    const normalizedPercentile = Math.max(0, Math.min(1, percentile));
+    const index = Math.min(
+        sorted.length - 1,
+        Math.max(0, Math.ceil(sorted.length * normalizedPercentile) - 1)
+    );
+    return sorted[index];
+};
+
+const loadRecentTopicsForAssistantBenchmark = async (ctx: any, limit: number) => {
+    const collected: any[] = [];
+    let cursor: string | null = null;
+    let isDone = false;
+
+    while (!isDone && collected.length < limit) {
+        const batchSize = Math.max(1, Math.min(50, limit - collected.length));
+        const page = await ctx.runQuery(internal.grounded.listTopicsForSweep, {
+            paginationOpts: {
+                numItems: batchSize,
+                cursor,
+            },
+        });
+        const pageItems = Array.isArray(page?.page) ? page.page : [];
+        collected.push(...pageItems);
+        isDone = page?.isDone === true || !page?.continueCursor;
+        cursor = page?.continueCursor || null;
+    }
+
+    return collected.slice(0, limit);
+};
+
+const buildSelectionExcerptForBenchmark = (value: string) => {
+    const normalized = String(value || "").replace(/\s+/g, " ").trim();
+    if (!normalized) return "";
+    const sentence = normalized.match(/(.{80,320}?[.!?])(?:\s|$)/)?.[1]?.trim();
+    if (sentence) {
+        return sentence.slice(0, 320);
+    }
+    return normalized.slice(0, 320);
+};
+
+const buildAssistantLatencyQuery = (topic: any) =>
+    `Explain the most important idea in ${String(topic?.title || "this topic").trim()} and why it matters.`;
+
+export const benchmarkTutorExplainLatency = internalAction({
+    args: {
+        limit: v.optional(v.number()),
+    },
+    handler: async (ctx, args) => {
+        const limit = Math.max(3, Math.min(12, Math.floor(Number(args.limit || 6))));
+        const seeds = await loadRecentTopicsForAssistantBenchmark(ctx, Math.min(120, limit * 5));
+
+        const tutorSamples: Array<{
+            topicId: Id<"topics">;
+            topicTitle: string;
+            retrievalMode: string;
+            vectorHitCount: number;
+            lexicalRetrievalMs: number;
+            hybridRetrievalMs: number;
+            llmMs: number;
+            totalMs: number;
+        }> = [];
+        const explainSamples: Array<{
+            topicId: Id<"topics">;
+            topicTitle: string;
+            retrievalMode: string;
+            vectorHitCount: number;
+            lexicalRetrievalMs: number;
+            hybridRetrievalMs: number;
+            llmMs: number;
+            totalMs: number;
+        }> = [];
+
+        for (const seed of seeds) {
+            if (tutorSamples.length >= limit && explainSamples.length >= limit) {
+                break;
+            }
+
+            const topic = await ctx.runQuery(internal.topics.getTopicWithQuestionsInternal, {
+                topicId: seed._id,
+            });
+            if (!topic?.courseId || !String(topic?.content || "").trim()) {
+                continue;
+            }
+
+            const { index, upload } = await loadGroundedEvidenceIndexForTopic(ctx, topic);
+            if (!index || !upload?._id) {
+                continue;
+            }
+
+            const embeddingBacklogCount = Math.max(
+                0,
+                Number(upload?.evidencePassageCount || 0) - Number(upload?.embeddedPassageCount || 0)
+            );
+
+            if (tutorSamples.length < limit) {
+                const tutorQuery = [
+                    String(topic?.title || ""),
+                    String(topic?.description || ""),
+                    buildAssistantLatencyQuery(topic),
+                ].join(" ").trim();
+                const lexicalTutor = await retrieveGroundedEvidence({
+                    index,
+                    query: tutorQuery,
+                    limit: 12,
+                    preferFlags: ["table", "formula"],
+                });
+                const tutorStartedAt = Date.now();
+                const hybridTutor = await retrieveGroundedEvidence({
+                    ctx,
+                    index,
+                    query: tutorQuery,
+                    limit: 12,
+                    preferFlags: ["table", "formula"],
+                    uploadId: upload._id,
+                    embeddingBacklogCount,
+                });
+                const tutorLlmStartedAt = Date.now();
+                await callInception([
+                    {
+                        role: "system",
+                        content:
+                            "You are a study tutor. Answer using the lesson evidence provided. "
+                            + "Keep the response under 120 words and return plain text only.",
+                    },
+                    {
+                        role: "user",
+                        content:
+                            `LESSON TITLE: ${String(topic?.title || "")}\n`
+                            + `LESSON DESCRIPTION: ${String(topic?.description || "")}\n`
+                            + `SOURCE EVIDENCE:\n${buildEvidenceSnippet(hybridTutor.evidence)}\n\n`
+                            + `QUESTION:\n${buildAssistantLatencyQuery(topic)}`,
+                    },
+                ], DEFAULT_MODEL, {
+                    maxTokens: 180,
+                    timeoutMs: 12000,
+                    temperature: 0.2,
+                });
+                tutorSamples.push({
+                    topicId: topic._id,
+                    topicTitle: String(topic?.title || "Unknown Topic"),
+                    retrievalMode: hybridTutor.retrievalMode,
+                    vectorHitCount: Math.max(0, Number(hybridTutor.vectorHitCount || 0)),
+                    lexicalRetrievalMs: Math.max(0, Number(lexicalTutor.latencyMs || 0)),
+                    hybridRetrievalMs: Math.max(0, Number(hybridTutor.latencyMs || 0)),
+                    llmMs: Date.now() - tutorLlmStartedAt,
+                    totalMs: Date.now() - tutorStartedAt,
+                });
+            }
+
+            if (explainSamples.length < limit) {
+                const selectedText = buildSelectionExcerptForBenchmark(String(topic?.content || ""));
+                if (!selectedText) {
+                    continue;
+                }
+
+                const explainQuery = [
+                    String(topic?.title || ""),
+                    String(topic?.description || ""),
+                    selectedText,
+                    "explain",
+                ].join(" ").trim();
+                const lexicalExplain = await retrieveGroundedEvidence({
+                    index,
+                    query: explainQuery,
+                    limit: 10,
+                    preferFlags: ["table", "formula"],
+                });
+                const explainStartedAt = Date.now();
+                const hybridExplain = await retrieveGroundedEvidence({
+                    ctx,
+                    index,
+                    query: explainQuery,
+                    limit: 10,
+                    preferFlags: ["table", "formula"],
+                    uploadId: upload._id,
+                    embeddingBacklogCount,
+                });
+                const explainLlmStartedAt = Date.now();
+                await callInception([
+                    {
+                        role: "system",
+                        content:
+                            "You explain selected lesson text clearly. Use the source evidence. "
+                            + "Keep the response under 120 words and return plain text only.",
+                    },
+                    {
+                        role: "user",
+                        content:
+                            `LESSON TITLE: ${String(topic?.title || "")}\n`
+                            + `SELECTED TEXT:\n${selectedText}\n\n`
+                            + `SOURCE EVIDENCE:\n${buildEvidenceSnippet(hybridExplain.evidence)}`,
+                    },
+                ], DEFAULT_MODEL, {
+                    maxTokens: 180,
+                    timeoutMs: 12000,
+                    temperature: 0.2,
+                });
+                explainSamples.push({
+                    topicId: topic._id,
+                    topicTitle: String(topic?.title || "Unknown Topic"),
+                    retrievalMode: hybridExplain.retrievalMode,
+                    vectorHitCount: Math.max(0, Number(hybridExplain.vectorHitCount || 0)),
+                    lexicalRetrievalMs: Math.max(0, Number(lexicalExplain.latencyMs || 0)),
+                    hybridRetrievalMs: Math.max(0, Number(hybridExplain.latencyMs || 0)),
+                    llmMs: Date.now() - explainLlmStartedAt,
+                    totalMs: Date.now() - explainStartedAt,
+                });
+            }
+        }
+
+        const summarizePathSamples = (samples: Array<{
+            lexicalRetrievalMs: number;
+            hybridRetrievalMs: number;
+            llmMs: number;
+            totalMs: number;
+            vectorHitCount: number;
+        }>) => {
+            const lexicalRetrievalValues = samples.map((sample) => sample.lexicalRetrievalMs);
+            const hybridRetrievalValues = samples.map((sample) => sample.hybridRetrievalMs);
+            const llmValues = samples.map((sample) => sample.llmMs);
+            const totalValues = samples.map((sample) => sample.totalMs);
+            return {
+                sampleCount: samples.length,
+                vectorActiveSampleCount: samples.filter((sample) => sample.vectorHitCount > 0).length,
+                averageLexicalRetrievalMs: averageTimingValues(lexicalRetrievalValues),
+                averageHybridRetrievalMs: averageTimingValues(hybridRetrievalValues),
+                averageAdditionalRetrievalMs:
+                    averageTimingValues(hybridRetrievalValues) - averageTimingValues(lexicalRetrievalValues),
+                averageLlmMs: averageTimingValues(llmValues),
+                averageTotalMs: averageTimingValues(totalValues),
+                p95TotalMs: percentileTimingValue(totalValues, 0.95),
+            };
+        };
+
+        return {
+            benchmark: "assistant_path_latency",
+            sampledTopicCount: seeds.length,
+            tutor: {
+                ...summarizePathSamples(tutorSamples),
+                samples: tutorSamples.slice(0, 5),
+            },
+            explainSelection: {
+                ...summarizePathSamples(explainSamples),
+                samples: explainSamples.slice(0, 5),
+            },
+        };
     },
 });
 

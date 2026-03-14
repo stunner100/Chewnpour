@@ -7,7 +7,10 @@ const groundedSource = await fs.readFile(
 
 const requiredPatterns = [
   "export const benchmarkSemanticRetrievalAB = internalAction({",
+  "numericOnly: v.optional(v.boolean())",
+  "topicIds: v.optional(v.array(v.id(\"topics\")))",
   "benchmark: \"semantic_retrieval_ab\"",
+  "numericOnly,",
   "vectorActiveTopicCount",
   "averageRecallAtK",
   "improvedTopicsCount",
