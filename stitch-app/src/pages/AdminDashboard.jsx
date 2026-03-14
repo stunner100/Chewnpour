@@ -242,10 +242,14 @@ const OverviewPanel = ({ snapshot, totals, activeUsersDays, newUsersDays, flags 
     const revenue = snapshot.revenueAnalytics || {};
     const engagement = snapshot.engagementAnalytics || {};
     const content = snapshot.contentAnalytics || {};
+    const llmUsage = snapshot.llmUsageAnalytics || {};
+    const llmTrackedSince = llmUsage.firstTrackedAt
+        ? `Tracked since ${formatDateTime(llmUsage.firstTrackedAt)}`
+        : 'Tracked from first qualifying AI request';
 
     return (
         <div className="space-y-4">
-            <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
+            <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-6">
                 <StatCard
                     label={`New users (${newUsersDays}d)`}
                     value={totals.newUsersLastWindow}
@@ -277,6 +281,13 @@ const OverviewPanel = ({ snapshot, totals, activeUsersDays, newUsersDays, flags 
                     value={totals.documentsProcessedTotal}
                     sublabel={`${formatNumber(totals.documentsProcessedLastWindow)} in last ${activeUsersDays}d`}
                     icon="description"
+                    color="blue"
+                />
+                <StatCard
+                    label={`LLM tokens (${activeUsersDays}d)`}
+                    value={totals.llmTokensLastWindow}
+                    sublabel={`${formatNumber(totals.llmTrackedUsers)} users • ${llmTrackedSince}`}
+                    icon="token"
                     color="blue"
                 />
             </section>
@@ -673,45 +684,77 @@ const ContentPanel = ({ snapshot }) => {
     );
 };
 
-const UsersPanel = ({ signedInUsers, recentUsers, premiumUsers, flags }) => (
-    <div className="space-y-4">
-        <SectionCard title="All Signed-In Users" badge={flags.activeSessionsTruncated ? 'Partial scan' : undefined}>
-            <div className="overflow-x-auto">
-                <table className="min-w-full text-sm">
-                    <thead>
-                        <tr className="border-b border-slate-200 dark:border-slate-700">
-                            <th className="px-3 py-2 text-left font-semibold text-slate-500 dark:text-slate-400">User</th>
-                            <th className="px-3 py-2 text-left font-semibold text-slate-500 dark:text-slate-400">Verified</th>
-                            <th className="px-3 py-2 text-left font-semibold text-slate-500 dark:text-slate-400">Sessions</th>
-                            <th className="px-3 py-2 text-left font-semibold text-slate-500 dark:text-slate-400">Last session</th>
-                            <th className="px-3 py-2 text-left font-semibold text-slate-500 dark:text-slate-400">Joined</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {signedInUsers.length === 0 ? (
-                            <tr>
-                                <td colSpan={5} className="px-3 py-6 text-center text-slate-500 dark:text-slate-400">
-                                    No active signed-in users right now.
-                                </td>
-                            </tr>
-                        ) : signedInUsers.map((record) => (
-                            <tr key={record.userId} className="border-b border-slate-100 dark:border-slate-800/80">
-                                <td className="px-3 py-3">
-                                    <p className="font-semibold text-slate-900 dark:text-white">{record.email || record.fullName || record.userId}</p>
-                                    <p className="text-xs text-slate-500 dark:text-slate-400">{record.department || ''}</p>
-                                </td>
-                                <td className="px-3 py-3 text-slate-600 dark:text-slate-300">{record.emailVerified ? 'Yes' : 'No'}</td>
-                                <td className="px-3 py-3 text-slate-600 dark:text-slate-300">{formatNumber(record.activeSessionCount)}</td>
-                                <td className="px-3 py-3 text-slate-600 dark:text-slate-300">{formatDateTime(record.lastSessionAt)}</td>
-                                <td className="px-3 py-3 text-slate-600 dark:text-slate-300">{formatDateTime(record.createdAt)}</td>
-                            </tr>
-                        ))}
-                    </tbody>
-                </table>
-            </div>
-        </SectionCard>
+const UsersPanel = ({ signedInUsers, recentUsers, premiumUsers, flags, snapshot, activeUsersDays }) => {
+    const llmUsage = snapshot.llmUsageAnalytics || {};
+    return (
+        <div className="space-y-4">
+            <SectionCard title="LLM Usage">
+                <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+                    <StatRow
+                        label="Tracked users"
+                        value={formatNumber(llmUsage.trackedUsers)}
+                        detail={llmUsage.firstTrackedAt ? `Since ${formatDateTime(llmUsage.firstTrackedAt)}` : 'Waiting for tracked usage'}
+                    />
+                    <StatRow
+                        label="Token total"
+                        value={formatNumber(llmUsage.totalTokens)}
+                        detail={`${formatNumber(llmUsage.promptTokensTotal)} prompt • ${formatNumber(llmUsage.completionTokensTotal)} completion`}
+                    />
+                    <StatRow
+                        label={`Tokens (${activeUsersDays}d)`}
+                        value={formatNumber(llmUsage.totalTokensLastWindow)}
+                        detail={`${formatNumber(llmUsage.requestCountLastWindow)} requests`}
+                    />
+                    <StatRow
+                        label="Requests total"
+                        value={formatNumber(llmUsage.requestCountTotal)}
+                        detail={llmUsage.lastTrackedAt ? `Last tracked ${formatDateTime(llmUsage.lastTrackedAt)}` : 'No tracked requests yet'}
+                    />
+                </div>
+            </SectionCard>
 
-        <SectionCard title="Premium Users">
+            <SectionCard title="All Signed-In Users" badge={flags.activeSessionsTruncated ? 'Partial scan' : undefined}>
+                <div className="overflow-x-auto">
+                    <table className="min-w-full text-sm">
+                        <thead>
+                            <tr className="border-b border-slate-200 dark:border-slate-700">
+                                <th className="px-3 py-2 text-left font-semibold text-slate-500 dark:text-slate-400">User</th>
+                                <th className="px-3 py-2 text-left font-semibold text-slate-500 dark:text-slate-400">Verified</th>
+                                <th className="px-3 py-2 text-left font-semibold text-slate-500 dark:text-slate-400">Sessions</th>
+                                <th className="px-3 py-2 text-left font-semibold text-slate-500 dark:text-slate-400">LLM tokens</th>
+                                <th className="px-3 py-2 text-left font-semibold text-slate-500 dark:text-slate-400">Last session</th>
+                                <th className="px-3 py-2 text-left font-semibold text-slate-500 dark:text-slate-400">Joined</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {signedInUsers.length === 0 ? (
+                                <tr>
+                                    <td colSpan={6} className="px-3 py-6 text-center text-slate-500 dark:text-slate-400">
+                                        No active signed-in users right now.
+                                    </td>
+                                </tr>
+                            ) : signedInUsers.map((record) => (
+                                <tr key={record.userId} className="border-b border-slate-100 dark:border-slate-800/80">
+                                    <td className="px-3 py-3">
+                                        <p className="font-semibold text-slate-900 dark:text-white">{record.email || record.fullName || record.userId}</p>
+                                        <p className="text-xs text-slate-500 dark:text-slate-400">{record.department || ''}</p>
+                                    </td>
+                                    <td className="px-3 py-3 text-slate-600 dark:text-slate-300">{record.emailVerified ? 'Yes' : 'No'}</td>
+                                    <td className="px-3 py-3 text-slate-600 dark:text-slate-300">{formatNumber(record.activeSessionCount)}</td>
+                                    <td className="px-3 py-3 text-slate-600 dark:text-slate-300">
+                                        {formatNumber(record.llmTokensTotal)}
+                                        <span className="ml-2 text-xs text-slate-500 dark:text-slate-400">7d {formatNumber(record.llmTokensLastWindow)}</span>
+                                    </td>
+                                    <td className="px-3 py-3 text-slate-600 dark:text-slate-300">{formatDateTime(record.lastSessionAt)}</td>
+                                    <td className="px-3 py-3 text-slate-600 dark:text-slate-300">{formatDateTime(record.createdAt)}</td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
+                </div>
+            </SectionCard>
+
+            <SectionCard title="Premium Users">
             <div className="overflow-x-auto">
                 <table className="min-w-full text-sm">
                     <thead>
@@ -719,6 +762,7 @@ const UsersPanel = ({ signedInUsers, recentUsers, premiumUsers, flags }) => (
                             <th className="px-3 py-2 text-left font-semibold text-slate-500 dark:text-slate-400">User</th>
                             <th className="px-3 py-2 text-left font-semibold text-slate-500 dark:text-slate-400">Status</th>
                             <th className="px-3 py-2 text-left font-semibold text-slate-500 dark:text-slate-400">Plan amount</th>
+                            <th className="px-3 py-2 text-left font-semibold text-slate-500 dark:text-slate-400">LLM tokens</th>
                             <th className="px-3 py-2 text-left font-semibold text-slate-500 dark:text-slate-400">Last payment</th>
                             <th className="px-3 py-2 text-left font-semibold text-slate-500 dark:text-slate-400">Next billing</th>
                         </tr>
@@ -726,7 +770,7 @@ const UsersPanel = ({ signedInUsers, recentUsers, premiumUsers, flags }) => (
                     <tbody>
                         {premiumUsers.length === 0 ? (
                             <tr>
-                                <td colSpan={5} className="px-3 py-6 text-center text-slate-500 dark:text-slate-400">
+                                <td colSpan={6} className="px-3 py-6 text-center text-slate-500 dark:text-slate-400">
                                     No premium users yet.
                                 </td>
                             </tr>
@@ -738,6 +782,10 @@ const UsersPanel = ({ signedInUsers, recentUsers, premiumUsers, flags }) => (
                                 </td>
                                 <td className="px-3 py-3 text-slate-600 dark:text-slate-300 capitalize">{record.status || 'unknown'}</td>
                                 <td className="px-3 py-3 text-slate-600 dark:text-slate-300">{formatMajorCurrency(record.amountMajor, record.currency)}</td>
+                                <td className="px-3 py-3 text-slate-600 dark:text-slate-300">
+                                    {formatNumber(record.llmTokensTotal)}
+                                    <span className="ml-2 text-xs text-slate-500 dark:text-slate-400">7d {formatNumber(record.llmTokensLastWindow)}</span>
+                                </td>
                                 <td className="px-3 py-3 text-slate-600 dark:text-slate-300">{formatDateTime(record.lastPaymentAt)}</td>
                                 <td className="px-3 py-3 text-slate-600 dark:text-slate-300">{record.nextBillingDate || 'N/A'}</td>
                             </tr>
@@ -747,7 +795,7 @@ const UsersPanel = ({ signedInUsers, recentUsers, premiumUsers, flags }) => (
             </div>
         </SectionCard>
 
-        <SectionCard title="Recent Users">
+            <SectionCard title="Recent Users">
             <div className="overflow-x-auto">
                 <table className="min-w-full text-sm">
                     <thead>
@@ -756,13 +804,14 @@ const UsersPanel = ({ signedInUsers, recentUsers, premiumUsers, flags }) => (
                             <th className="px-3 py-2 text-left font-semibold text-slate-500 dark:text-slate-400">Signed up</th>
                             <th className="px-3 py-2 text-left font-semibold text-slate-500 dark:text-slate-400">Last activity</th>
                             <th className="px-3 py-2 text-left font-semibold text-slate-500 dark:text-slate-400">Docs</th>
+                            <th className="px-3 py-2 text-left font-semibold text-slate-500 dark:text-slate-400">LLM tokens</th>
                             <th className="px-3 py-2 text-left font-semibold text-slate-500 dark:text-slate-400">Feedback</th>
                         </tr>
                     </thead>
                     <tbody>
                         {recentUsers.length === 0 ? (
                             <tr>
-                                <td colSpan={5} className="px-3 py-6 text-center text-slate-500 dark:text-slate-400">No user records yet.</td>
+                                <td colSpan={6} className="px-3 py-6 text-center text-slate-500 dark:text-slate-400">No user records yet.</td>
                             </tr>
                         ) : recentUsers.map((record) => (
                             <tr key={record.userId || record.createdAt} className="border-b border-slate-100 dark:border-slate-800/80">
@@ -773,15 +822,20 @@ const UsersPanel = ({ signedInUsers, recentUsers, premiumUsers, flags }) => (
                                 <td className="px-3 py-3 text-slate-600 dark:text-slate-300">{formatDateTime(record.createdAt)}</td>
                                 <td className="px-3 py-3 text-slate-600 dark:text-slate-300">{formatDateTime(record.lastActiveAt)}</td>
                                 <td className="px-3 py-3 text-slate-600 dark:text-slate-300">{formatNumber(record.documentsProcessed)}</td>
+                                <td className="px-3 py-3 text-slate-600 dark:text-slate-300">
+                                    {formatNumber(record.llmTokensTotal)}
+                                    <span className="ml-2 text-xs text-slate-500 dark:text-slate-400">7d {formatNumber(record.llmTokensLastWindow)}</span>
+                                </td>
                                 <td className="px-3 py-3 text-slate-600 dark:text-slate-300">{formatNumber(record.feedbackCount)}</td>
                             </tr>
                         ))}
                     </tbody>
                 </table>
             </div>
-        </SectionCard>
-    </div>
-);
+            </SectionCard>
+        </div>
+    );
+};
 
 const UploadsPanel = ({ snapshot }) => {
     const uploadBreakdown = snapshot.uploadBreakdown || {};
@@ -1043,7 +1097,7 @@ const AdminDashboard = () => {
             case 'content':
                 return <ContentPanel snapshot={snapshot} />;
             case 'users':
-                return <UsersPanel signedInUsers={signedInUsers} recentUsers={recentUsers} premiumUsers={premiumUsers} flags={flags} />;
+                return <UsersPanel signedInUsers={signedInUsers} recentUsers={recentUsers} premiumUsers={premiumUsers} flags={flags} snapshot={snapshot} activeUsersDays={activeUsersDays} />;
             case 'uploads':
                 return <UploadsPanel snapshot={snapshot} />;
             case 'feedback':

@@ -534,7 +534,7 @@ export const getDashboardSnapshot = query({
         const fourteenDaysAgo = now - (ACTIVE_USER_WINDOW_DAYS + NEW_USER_WINDOW_DAYS) * DAY_MS;
         const fiveMinutesAgo = now - ACTIVE_USERS_5M_WINDOW_MS;
 
-        const [profiles, uploads, assignmentThreads, examAttempts, conceptAttempts, feedbackEntries, activeSessionsResult, subscriptions, paymentTransactions, courses, humanizerUsage, userPresence, questionTargetAuditRuns] =
+        const [profiles, uploads, assignmentThreads, examAttempts, conceptAttempts, feedbackEntries, activeSessionsResult, subscriptions, paymentTransactions, courses, humanizerUsage, llmUsageDaily, userPresence, questionTargetAuditRuns] =
             await Promise.all([
                 ctx.db.query("profiles").collect(),
                 ctx.db.query("uploads").collect(),
@@ -551,6 +551,7 @@ export const getDashboardSnapshot = query({
                 ctx.db.query("paymentTransactions").collect(),
                 ctx.db.query("courses").collect(),
                 ctx.db.query("humanizerUsage").collect(),
+                ctx.db.query("llmUsageDaily").collect(),
                 ctx.db
                     .query("userPresence")
                     .withIndex("by_lastSeenAt", (q) => q.gte("lastSeenAt", fiveMinutesAgo))
@@ -1139,11 +1140,98 @@ export const getDashboardSnapshot = query({
             ) / 10
             : 0;
 
+        const llmUsageByUser = new Map<string, {
+            requestCount: number;
+            requestCountLastWindow: number;
+            promptTokens: number;
+            promptTokensLastWindow: number;
+            completionTokens: number;
+            completionTokensLastWindow: number;
+            totalTokens: number;
+            totalTokensLastWindow: number;
+            updatedAt: number;
+        }>();
+        let llmRequestsTotal = 0;
+        let llmRequestsLastWindow = 0;
+        let llmPromptTokensTotal = 0;
+        let llmPromptTokensLastWindow = 0;
+        let llmCompletionTokensTotal = 0;
+        let llmCompletionTokensLastWindow = 0;
+        let llmTokensTotal = 0;
+        let llmTokensLastWindow = 0;
+        let llmUsageFirstTrackedAt = 0;
+        let llmUsageLastTrackedAt = 0;
+
+        for (const entry of llmUsageDaily) {
+            const userId = String(entry.userId || "").trim();
+            if (!userId) continue;
+            const updatedAt = toTimestamp(entry.updatedAt, entry._creationTime);
+            const requestCount = toNonNegativeInteger(entry.requestCount);
+            const promptTokens = toNonNegativeInteger(entry.promptTokens);
+            const completionTokens = toNonNegativeInteger(entry.completionTokens);
+            const totalTokens = toNonNegativeInteger(entry.totalTokens);
+            const inLastWindow = updatedAt >= sevenDaysAgo;
+
+            const current = llmUsageByUser.get(userId) || {
+                requestCount: 0,
+                requestCountLastWindow: 0,
+                promptTokens: 0,
+                promptTokensLastWindow: 0,
+                completionTokens: 0,
+                completionTokensLastWindow: 0,
+                totalTokens: 0,
+                totalTokensLastWindow: 0,
+                updatedAt: 0,
+            };
+            current.requestCount += requestCount;
+            current.promptTokens += promptTokens;
+            current.completionTokens += completionTokens;
+            current.totalTokens += totalTokens;
+            if (inLastWindow) {
+                current.requestCountLastWindow += requestCount;
+                current.promptTokensLastWindow += promptTokens;
+                current.completionTokensLastWindow += completionTokens;
+                current.totalTokensLastWindow += totalTokens;
+            }
+            current.updatedAt = Math.max(current.updatedAt, updatedAt);
+            llmUsageByUser.set(userId, current);
+
+            llmRequestsTotal += requestCount;
+            llmPromptTokensTotal += promptTokens;
+            llmCompletionTokensTotal += completionTokens;
+            llmTokensTotal += totalTokens;
+            if (inLastWindow) {
+                llmRequestsLastWindow += requestCount;
+                llmPromptTokensLastWindow += promptTokens;
+                llmCompletionTokensLastWindow += completionTokens;
+                llmTokensLastWindow += totalTokens;
+            }
+            if (updatedAt > 0 && (llmUsageFirstTrackedAt === 0 || updatedAt < llmUsageFirstTrackedAt)) {
+                llmUsageFirstTrackedAt = updatedAt;
+            }
+            if (updatedAt > llmUsageLastTrackedAt) {
+                llmUsageLastTrackedAt = updatedAt;
+            }
+        }
+        const getUserLlmUsage = (userId: string) =>
+            llmUsageByUser.get(String(userId || "").trim()) || {
+                requestCount: 0,
+                requestCountLastWindow: 0,
+                promptTokens: 0,
+                promptTokensLastWindow: 0,
+                completionTokens: 0,
+                completionTokensLastWindow: 0,
+                totalTokens: 0,
+                totalTokensLastWindow: 0,
+                updatedAt: 0,
+            };
+
         const recentUsersBase = [...profiles]
             .sort((left, right) => right._creationTime - left._creationTime)
             .slice(0, RECENT_USERS_LIMIT)
             .map((profile) => {
                 const userId = String(profile.userId || "").trim();
+                const llmUsage = getUserLlmUsage(userId);
                 return {
                     userId,
                     fullName: profile.fullName || null,
@@ -1153,6 +1241,10 @@ export const getDashboardSnapshot = query({
                     lastActiveAt: lastActivityByUser.get(userId) || null,
                     documentsProcessed: docsProcessedByUser.get(userId) || 0,
                     feedbackCount: feedbackCountByUser.get(userId) || 0,
+                    llmTokensTotal: llmUsage.totalTokens,
+                    llmTokensLastWindow: llmUsage.totalTokensLastWindow,
+                    llmRequestsTotal: llmUsage.requestCount,
+                    llmRequestsLastWindow: llmUsage.requestCountLastWindow,
                 };
             });
         const recentUserIds = Array.from(
@@ -1180,6 +1272,7 @@ export const getDashboardSnapshot = query({
                     return null;
                 }
                 const profile = profileByUserId.get(userId);
+                const llmUsage = getUserLlmUsage(userId);
                 const lastPaymentAt = toTimestamp(subscription.lastPaymentAt, 0);
                 const status = normalizeSubscriptionStatus(subscription.status);
                 return {
@@ -1192,6 +1285,10 @@ export const getDashboardSnapshot = query({
                     currency: normalizeCurrencyCode(subscription.currency, "GHS"),
                     lastPaymentAt: lastPaymentAt > 0 ? lastPaymentAt : null,
                     nextBillingDate: String(subscription.nextBillingDate || "").trim() || null,
+                    llmTokensTotal: llmUsage.totalTokens,
+                    llmTokensLastWindow: llmUsage.totalTokensLastWindow,
+                    llmRequestsTotal: llmUsage.requestCount,
+                    llmRequestsLastWindow: llmUsage.requestCountLastWindow,
                 };
             })
             .filter((entry): entry is NonNullable<typeof entry> => Boolean(entry))
@@ -1287,6 +1384,7 @@ export const getDashboardSnapshot = query({
                 if (!stats) return null;
                 const authUser = authUsersById.get(userId);
                 const profile = profileByUserId.get(userId);
+                const llmUsage = getUserLlmUsage(userId);
                 return {
                     userId,
                     email: normalizeEmail(authUser?.email) || null,
@@ -1296,6 +1394,10 @@ export const getDashboardSnapshot = query({
                     lastSessionAt: stats.latestAt,
                     activeSessionCount: stats.count,
                     department: profile?.department || null,
+                    llmTokensTotal: llmUsage.totalTokens,
+                    llmTokensLastWindow: llmUsage.totalTokensLastWindow,
+                    llmRequestsTotal: llmUsage.requestCount,
+                    llmRequestsLastWindow: llmUsage.requestCountLastWindow,
                 };
             })
             .filter((record): record is NonNullable<typeof record> => Boolean(record))
@@ -1465,6 +1567,11 @@ export const getDashboardSnapshot = query({
                 feedbackWithMessageTotal,
                 feedbackWithMessageLastWindow,
                 averageFeedbackRating,
+                llmTrackedUsers: llmUsageByUser.size,
+                llmRequestsTotal,
+                llmRequestsLastWindow,
+                llmTokensTotal,
+                llmTokensLastWindow,
             },
             documents: {
                 uploads: {
@@ -1492,6 +1599,19 @@ export const getDashboardSnapshot = query({
             questionTargetAudit: {
                 latestRun: mapQuestionTargetAuditRun(latestQuestionTargetAuditRun),
                 latestRunWithRebases: mapQuestionTargetAuditRun(latestQuestionTargetAuditWithRebases),
+            },
+            llmUsageAnalytics: {
+                trackedUsers: llmUsageByUser.size,
+                requestCountTotal: llmRequestsTotal,
+                requestCountLastWindow: llmRequestsLastWindow,
+                promptTokensTotal: llmPromptTokensTotal,
+                promptTokensLastWindow: llmPromptTokensLastWindow,
+                completionTokensTotal: llmCompletionTokensTotal,
+                completionTokensLastWindow: llmCompletionTokensLastWindow,
+                totalTokens: llmTokensTotal,
+                totalTokensLastWindow: llmTokensLastWindow,
+                firstTrackedAt: llmUsageFirstTrackedAt || null,
+                lastTrackedAt: llmUsageLastTrackedAt || null,
             },
             adminEmails: access.adminEmails,
             recentUsers,

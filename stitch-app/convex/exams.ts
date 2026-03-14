@@ -755,6 +755,7 @@ export const submitEssayExam = action({
                 let gradeResult: any;
                 try {
                     gradeResult = await ctx.runAction(internal.ai.gradeEssayAnswer, {
+                        userId,
                         questionText: question.questionText || "",
                         modelAnswer: question.correctAnswer || "",
                         studentAnswer: normalizedEssayText,

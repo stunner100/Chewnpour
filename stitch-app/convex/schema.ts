@@ -318,6 +318,18 @@ export default defineSchema({
         count: v.number(),
     }).index("by_userId_date", ["userId", "date"]),
 
+    llmUsageDaily: defineTable({
+        userId: v.string(),
+        date: v.string(),
+        requestCount: v.number(),
+        promptTokens: v.number(),
+        completionTokens: v.number(),
+        totalTokens: v.number(),
+        updatedAt: v.number(),
+    })
+        .index("by_userId_date", ["userId", "date"])
+        .index("by_date", ["date"]),
+
     userPresence: defineTable({
         userId: v.string(),
         lastSeenAt: v.number(),

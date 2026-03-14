@@ -46,6 +46,7 @@ import type * as lib_questionPromptSimilarity from "../lib/questionPromptSimilar
 import type * as lib_topicGenerationProgress from "../lib/topicGenerationProgress.js";
 import type * as lib_topicOutlinePipeline from "../lib/topicOutlinePipeline.js";
 import type * as lib_voiceStreamToken from "../lib/voiceStreamToken.js";
+import type * as llmUsage from "../llmUsage.js";
 import type * as profiles from "../profiles.js";
 import type * as search from "../search.js";
 import type * as subscriptions from "../subscriptions.js";
@@ -100,6 +101,7 @@ declare const fullApi: ApiFromModules<{
   "lib/topicGenerationProgress": typeof lib_topicGenerationProgress;
   "lib/topicOutlinePipeline": typeof lib_topicOutlinePipeline;
   "lib/voiceStreamToken": typeof lib_voiceStreamToken;
+  llmUsage: typeof llmUsage;
   profiles: typeof profiles;
   search: typeof search;
   subscriptions: typeof subscriptions;
