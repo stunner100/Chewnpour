@@ -1,4 +1,4 @@
-import { mutation, query } from "./_generated/server";
+import { action, internalQuery, mutation, query } from "./_generated/server";
 import { v } from "convex/values";
 import { components } from "./_generated/api";
 
@@ -455,6 +455,19 @@ const requireAdminAccess = async (ctx: any) => {
     };
 };
 
+export const getAdminAccessStatusInternal = internalQuery({
+    args: {},
+    handler: async (ctx) => {
+        const identity = await ctx.auth.getUserIdentity().catch(() => null);
+        const access = await resolveAdminAccess(ctx, identity);
+        return {
+            authUserId: access.authUserId,
+            allowlistConfigured: access.allowlistConfigured,
+            isAllowed: access.isAllowed,
+        };
+    },
+});
+
 export const addAdminEmail = mutation({
     args: { email: v.string() },
     handler: async (ctx, args) => {
@@ -519,6 +532,25 @@ export const removeAdminEmail = mutation({
 
         await ctx.db.delete(existing._id);
         return { ok: true, removed: true, email };
+    },
+});
+
+export const diagnoseRetrievalForTopic = action({
+    args: {
+        topicId: v.id("topics"),
+    },
+    handler: async (ctx, args) => {
+        const access = await ctx.runQuery(internal.admin.getAdminAccessStatusInternal, {});
+        if (!access?.authUserId) {
+            throw new Error("Admin sign-in required.");
+        }
+        if (!access.allowlistConfigured || !access.isAllowed) {
+            throw new Error("Admin access required.");
+        }
+
+        return await ctx.runAction(internal.grounded.diagnoseSemanticRetrievalForTopic, {
+            topicId: args.topicId,
+        });
     },
 });
 

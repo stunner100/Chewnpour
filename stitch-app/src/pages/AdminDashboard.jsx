@@ -1,6 +1,6 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { useMutation, useQuery } from 'convex/react';
+import { useAction, useMutation, useQuery } from 'convex/react';
 import { api } from '../../convex/_generated/api';
 import { useAuth } from '../contexts/AuthContext';
 
@@ -9,6 +9,13 @@ const formatPercent = (value) => {
     const parsed = Number(value);
     const safe = Number.isFinite(parsed) ? parsed : 0;
     const rounded = Math.round(safe * 10) / 10;
+    return `${Number.isInteger(rounded) ? rounded.toFixed(0) : rounded.toFixed(1)}%`;
+};
+const formatRatioPercent = (value) => {
+    const parsed = Number(value);
+    if (!Number.isFinite(parsed)) return '0%';
+    const percent = parsed * 100;
+    const rounded = Math.round(percent * 10) / 10;
     return `${Number.isInteger(rounded) ? rounded.toFixed(0) : rounded.toFixed(1)}%`;
 };
 
@@ -513,7 +520,73 @@ const RevenuePanel = ({ snapshot, activeUsersDays }) => {
     );
 };
 
-const ContentPanel = ({ snapshot }) => {
+const RetrievalCandidatesTable = ({ title, rows, showPenaltyColumns = false }) => (
+    <div className="rounded-2xl border border-slate-200 dark:border-slate-700 bg-white/80 dark:bg-slate-900/40 p-4">
+        <div className="flex items-center justify-between gap-2">
+            <h3 className="text-sm font-semibold text-slate-900 dark:text-white">{title}</h3>
+            <span className="text-xs text-slate-500 dark:text-slate-400">{formatNumber(rows?.length || 0)} rows</span>
+        </div>
+        {!Array.isArray(rows) || rows.length === 0 ? (
+            <p className="mt-3 text-sm text-slate-500 dark:text-slate-400">No candidates recorded.</p>
+        ) : (
+            <div className="mt-3 overflow-x-auto">
+                <table className="min-w-full text-xs">
+                    <thead>
+                        <tr className="border-b border-slate-200 dark:border-slate-700">
+                            <th className="px-2 py-2 text-left font-semibold text-slate-500 dark:text-slate-400">Passage</th>
+                            <th className="px-2 py-2 text-left font-semibold text-slate-500 dark:text-slate-400">Page</th>
+                            <th className="px-2 py-2 text-left font-semibold text-slate-500 dark:text-slate-400">Source</th>
+                            <th className="px-2 py-2 text-left font-semibold text-slate-500 dark:text-slate-400">Final</th>
+                            <th className="px-2 py-2 text-left font-semibold text-slate-500 dark:text-slate-400">Lexical</th>
+                            <th className="px-2 py-2 text-left font-semibold text-slate-500 dark:text-slate-400">Vector</th>
+                            <th className="px-2 py-2 text-left font-semibold text-slate-500 dark:text-slate-400">Numeric</th>
+                            {showPenaltyColumns ? (
+                                <>
+                                    <th className="px-2 py-2 text-left font-semibold text-slate-500 dark:text-slate-400">Flag Boost</th>
+                                    <th className="px-2 py-2 text-left font-semibold text-slate-500 dark:text-slate-400">Num Penalty</th>
+                                    <th className="px-2 py-2 text-left font-semibold text-slate-500 dark:text-slate-400">Broad Penalty</th>
+                                </>
+                            ) : null}
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {rows.map((row) => (
+                            <tr key={`${title}-${row.passageId}-${row.page}`} className="border-b border-slate-100 dark:border-slate-800/80 align-top">
+                                <td className="px-2 py-2">
+                                    <p className="font-semibold text-slate-900 dark:text-white">{row.passageId}</p>
+                                    <p className="mt-1 max-w-xs text-[11px] text-slate-500 dark:text-slate-400">{row.sectionHint || 'No section hint'}</p>
+                                </td>
+                                <td className="px-2 py-2 text-slate-600 dark:text-slate-300">{formatNumber(row.page)}</td>
+                                <td className="px-2 py-2 text-slate-600 dark:text-slate-300 uppercase">{row.retrievalSource || 'n/a'}</td>
+                                <td className="px-2 py-2 text-slate-600 dark:text-slate-300">{formatRatioPercent(row.finalScore)}</td>
+                                <td className="px-2 py-2 text-slate-600 dark:text-slate-300">{formatRatioPercent(row.lexicalScore)}</td>
+                                <td className="px-2 py-2 text-slate-600 dark:text-slate-300">{formatRatioPercent(row.vectorScore)}</td>
+                                <td className="px-2 py-2 text-slate-600 dark:text-slate-300">{formatRatioPercent(row.numericAgreement)}</td>
+                                {showPenaltyColumns ? (
+                                    <>
+                                        <td className="px-2 py-2 text-slate-600 dark:text-slate-300">{formatRatioPercent(row.preferFlagBoost)}</td>
+                                        <td className="px-2 py-2 text-slate-600 dark:text-slate-300">{formatRatioPercent(row.vectorOnlyMissingNumericPenalty)}</td>
+                                        <td className="px-2 py-2 text-slate-600 dark:text-slate-300">{formatRatioPercent(row.vectorOnlyBroadTopicPenalty)}</td>
+                                    </>
+                                ) : null}
+                            </tr>
+                        ))}
+                    </tbody>
+                </table>
+            </div>
+        )}
+    </div>
+);
+
+const ContentPanel = ({
+    snapshot,
+    retrievalTopicId,
+    setRetrievalTopicId,
+    retrievalDiagnostics,
+    retrievalDiagnosticsError,
+    retrievalDiagnosticsLoading,
+    handleDiagnoseRetrieval,
+}) => {
     const content = snapshot.contentAnalytics || {};
     const documents = snapshot.documents || {};
     const questionTargetAudit = snapshot.questionTargetAudit || {};
@@ -683,6 +756,128 @@ const ContentPanel = ({ snapshot }) => {
                                     </table>
                                 </div>
                             )}
+                        </div>
+                    </div>
+                )}
+            </SectionCard>
+
+            <SectionCard title="Retrieval Diagnostics" badge="Per-topic grounded retrieval inspector">
+                <form onSubmit={handleDiagnoseRetrieval} className="flex flex-col gap-3 lg:flex-row lg:items-end">
+                    <div className="flex-1">
+                        <label htmlFor="retrieval-topic-id" className="block text-sm font-semibold text-slate-900 dark:text-white">
+                            Topic ID
+                        </label>
+                        <input
+                            id="retrieval-topic-id"
+                            type="text"
+                            value={retrievalTopicId}
+                            onChange={(event) => setRetrievalTopicId(event.target.value)}
+                            placeholder="k977anw9w94192fzq4kqh5x78x82tqea"
+                            className="mt-1 w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 py-2.5 text-sm text-slate-900 dark:text-white focus:border-primary focus:outline-none"
+                        />
+                    </div>
+                    <button
+                        type="submit"
+                        disabled={retrievalDiagnosticsLoading || !retrievalTopicId.trim()}
+                        className="inline-flex items-center justify-center rounded-xl bg-primary px-4 py-2.5 text-sm font-semibold text-white hover:bg-primary-hover transition-colors disabled:opacity-70 disabled:cursor-not-allowed"
+                    >
+                        {retrievalDiagnosticsLoading ? 'Inspecting...' : 'Inspect Topic Retrieval'}
+                    </button>
+                </form>
+
+                {retrievalDiagnosticsError ? (
+                    <div className="mt-3 rounded-xl border border-rose-200 dark:border-rose-700 bg-rose-50 dark:bg-rose-900/20 px-4 py-3 text-sm text-rose-700 dark:text-rose-200">
+                        {retrievalDiagnosticsError}
+                    </div>
+                ) : null}
+
+                {!retrievalDiagnostics ? (
+                    <p className="mt-4 text-sm text-slate-500 dark:text-slate-400">
+                        Enter a topic ID to inspect lexical vs hybrid retrieval, weight backoff, and the reranked candidate passages.
+                    </p>
+                ) : !retrievalDiagnostics.ready ? (
+                    <div className="mt-4 rounded-xl border border-amber-200 dark:border-amber-700 bg-amber-50 dark:bg-amber-900/20 px-4 py-3 text-sm text-amber-700 dark:text-amber-200">
+                        {retrievalDiagnostics.reason === 'grounded_index_unavailable'
+                            ? 'Grounded evidence index is not available for this topic yet.'
+                            : 'Diagnostics are not available for this topic.'}
+                    </div>
+                ) : (
+                    <div className="mt-4 space-y-4">
+                        <div className="rounded-2xl border border-slate-200 dark:border-slate-700 bg-white/80 dark:bg-slate-900/40 p-4">
+                            <div className="flex flex-wrap items-start justify-between gap-3">
+                                <div>
+                                    <h3 className="text-base font-semibold text-slate-900 dark:text-white">{retrievalDiagnostics.topicTitle || retrievalDiagnostics.topicId}</h3>
+                                    <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">{retrievalDiagnostics.topicId}</p>
+                                </div>
+                                <span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${retrievalDiagnostics.hybrid?.diagnostics?.vectorWeightBackoff?.enabled ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300' : 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300'}`}>
+                                    {retrievalDiagnostics.hybrid?.diagnostics?.vectorWeightBackoff?.enabled ? 'Vector backoff enabled' : 'Standard hybrid weighting'}
+                                </span>
+                            </div>
+                            <p className="mt-3 text-sm text-slate-600 dark:text-slate-300">{retrievalDiagnostics.query}</p>
+                            <div className="mt-4 grid gap-4 lg:grid-cols-3">
+                                <div className="rounded-xl bg-slate-100/80 dark:bg-slate-900/70 p-3 text-sm">
+                                    <p className="text-slate-500 dark:text-slate-400">Lexical</p>
+                                    <p className="mt-1 font-semibold text-slate-900 dark:text-white">
+                                        {formatRatioPercent(retrievalDiagnostics.lexical?.metrics?.recallAtK)} recall@k
+                                    </p>
+                                    <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+                                        {formatNumber(retrievalDiagnostics.lexical?.metrics?.matchedCount)} / {formatNumber(retrievalDiagnostics.lexical?.metrics?.targetCount)} target passages
+                                    </p>
+                                </div>
+                                <div className="rounded-xl bg-emerald-50 dark:bg-emerald-900/20 p-3 text-sm">
+                                    <p className="text-emerald-700 dark:text-emerald-300">Hybrid</p>
+                                    <p className="mt-1 font-semibold text-emerald-700 dark:text-emerald-300">
+                                        {formatRatioPercent(retrievalDiagnostics.hybrid?.metrics?.recallAtK)} recall@k
+                                    </p>
+                                    <p className="mt-1 text-xs text-emerald-700/80 dark:text-emerald-300/80">
+                                        {formatNumber(retrievalDiagnostics.hybrid?.metrics?.matchedCount)} / {formatNumber(retrievalDiagnostics.hybrid?.metrics?.targetCount)} target passages
+                                    </p>
+                                </div>
+                                <div className="rounded-xl bg-blue-50 dark:bg-blue-900/20 p-3 text-sm">
+                                    <p className="text-blue-700 dark:text-blue-300">Backoff</p>
+                                    <p className="mt-1 font-semibold text-blue-700 dark:text-blue-300">
+                                        {formatRatioPercent(retrievalDiagnostics.hybrid?.diagnostics?.vectorWeightBackoff?.backoff || 0)}
+                                    </p>
+                                    <p className="mt-1 text-xs text-blue-700/80 dark:text-blue-300/80">
+                                        Lexical {formatRatioPercent(retrievalDiagnostics.hybrid?.diagnostics?.vectorWeightBackoff?.lexicalWeight || 0)} • Vector {formatRatioPercent(retrievalDiagnostics.hybrid?.diagnostics?.vectorWeightBackoff?.vectorWeight || 0)}
+                                    </p>
+                                </div>
+                            </div>
+                            <div className="mt-4 grid gap-4 lg:grid-cols-2">
+                                <div className="rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50/80 dark:bg-slate-950/50 p-3 text-xs text-slate-600 dark:text-slate-300">
+                                    <p className="font-semibold text-slate-900 dark:text-white">Backoff Diagnostics</p>
+                                    <div className="mt-2 space-y-1">
+                                        <p>Lexical top coverage: {formatRatioPercent(retrievalDiagnostics.hybrid?.diagnostics?.vectorWeightBackoff?.lexicalTopCoverage || 0)}</p>
+                                        <p>Lexical anchor count: {formatNumber(retrievalDiagnostics.hybrid?.diagnostics?.vectorWeightBackoff?.lexicalAnchorCount || 0)}</p>
+                                        <p>Prefer-flag anchored count: {formatNumber(retrievalDiagnostics.hybrid?.diagnostics?.vectorWeightBackoff?.preferFlagAnchoredCount || 0)}</p>
+                                        <p>Numeric tokens: {(retrievalDiagnostics.hybrid?.diagnostics?.numericTokens || []).join(', ') || 'None'}</p>
+                                    </div>
+                                </div>
+                                <div className="rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50/80 dark:bg-slate-950/50 p-3 text-xs text-slate-600 dark:text-slate-300">
+                                    <p className="font-semibold text-slate-900 dark:text-white">Target Passages</p>
+                                    <p className="mt-2 break-all">
+                                        {Array.isArray(retrievalDiagnostics.targetPassageIds) && retrievalDiagnostics.targetPassageIds.length > 0
+                                            ? retrievalDiagnostics.targetPassageIds.join(', ')
+                                            : 'None'}
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className="grid gap-4 xl:grid-cols-3">
+                            <RetrievalCandidatesTable
+                                title="Lexical Top"
+                                rows={retrievalDiagnostics.hybrid?.diagnostics?.lexicalTop || []}
+                            />
+                            <RetrievalCandidatesTable
+                                title="Vector Top"
+                                rows={retrievalDiagnostics.hybrid?.diagnostics?.vectorTop || []}
+                            />
+                            <RetrievalCandidatesTable
+                                title="Reranked Top"
+                                rows={retrievalDiagnostics.hybrid?.diagnostics?.rerankedTop || []}
+                                showPenaltyColumns
+                            />
                         </div>
                     </div>
                 )}
@@ -1052,11 +1247,16 @@ const SettingsPanel = ({ adminEmails, handleAddAdminEmail, handleRemoveAdminEmai
 const AdminDashboard = () => {
     const { user } = useAuth();
     const snapshot = useQuery(api.admin.getDashboardSnapshot, {});
+    const diagnoseRetrievalForTopic = useAction(api.admin.diagnoseRetrievalForTopic);
     const addAdminEmail = useMutation(api.admin.addAdminEmail);
     const removeAdminEmail = useMutation(api.admin.removeAdminEmail);
     const [newAdminEmail, setNewAdminEmail] = React.useState('');
     const [adminActionLoading, setAdminActionLoading] = React.useState(false);
     const [adminActionError, setAdminActionError] = React.useState('');
+    const [retrievalTopicId, setRetrievalTopicId] = React.useState('');
+    const [retrievalDiagnostics, setRetrievalDiagnostics] = React.useState(null);
+    const [retrievalDiagnosticsLoading, setRetrievalDiagnosticsLoading] = React.useState(false);
+    const [retrievalDiagnosticsError, setRetrievalDiagnosticsError] = React.useState('');
     const [activeTab, setActiveTab] = React.useState('overview');
 
     if (snapshot === undefined) {
@@ -1117,6 +1317,22 @@ const AdminDashboard = () => {
         }
     };
 
+    const handleDiagnoseRetrieval = async (event) => {
+        event.preventDefault();
+        if (!retrievalTopicId.trim()) return;
+        setRetrievalDiagnosticsError('');
+        setRetrievalDiagnosticsLoading(true);
+        try {
+            const diagnostics = await diagnoseRetrievalForTopic({ topicId: retrievalTopicId.trim() });
+            setRetrievalDiagnostics(diagnostics);
+        } catch (error) {
+            setRetrievalDiagnostics(null);
+            setRetrievalDiagnosticsError(String(error?.message || error || 'Failed to inspect topic retrieval.'));
+        } finally {
+            setRetrievalDiagnosticsLoading(false);
+        }
+    };
+
     const renderActivePanel = () => {
         switch (activeTab) {
             case 'overview':
@@ -1126,7 +1342,17 @@ const AdminDashboard = () => {
             case 'revenue':
                 return <RevenuePanel snapshot={snapshot} activeUsersDays={activeUsersDays} />;
             case 'content':
-                return <ContentPanel snapshot={snapshot} />;
+                return (
+                    <ContentPanel
+                        snapshot={snapshot}
+                        retrievalTopicId={retrievalTopicId}
+                        setRetrievalTopicId={setRetrievalTopicId}
+                        retrievalDiagnostics={retrievalDiagnostics}
+                        retrievalDiagnosticsError={retrievalDiagnosticsError}
+                        retrievalDiagnosticsLoading={retrievalDiagnosticsLoading}
+                        handleDiagnoseRetrieval={handleDiagnoseRetrieval}
+                    />
+                );
             case 'users':
                 return <UsersPanel signedInUsers={signedInUsers} recentUsers={recentUsers} premiumUsers={premiumUsers} flags={flags} snapshot={snapshot} activeUsersDays={activeUsersDays} />;
             case 'uploads':
