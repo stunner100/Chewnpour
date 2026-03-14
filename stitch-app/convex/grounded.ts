@@ -10,9 +10,9 @@ import {
 import { retrieveGroundedEvidence } from "./lib/groundedRetrieval";
 import {
     embedTexts,
-    isGeminiEmbeddingsConfigured,
-    GEMINI_EMBEDDINGS_VERSION,
-} from "./lib/geminiEmbeddings";
+    isVoyageEmbeddingsConfigured,
+    VOYAGE_EMBEDDINGS_VERSION,
+} from "./lib/voyageEmbeddings";
 import { runDeterministicGroundingCheck } from "./lib/groundedVerifier";
 import {
     QUESTION_BANK_BACKGROUND_PROFILE,
@@ -249,16 +249,16 @@ const buildMaterializedEvidenceRows = async (args: {
         return {
             rows: [] as MaterializedEvidencePassage[],
             embeddingsStatus: "ready",
-            embeddingModel: GEMINI_EMBEDDINGS_VERSION,
+            embeddingModel: VOYAGE_EMBEDDINGS_VERSION,
             embeddedPassageCount: 0,
         };
     }
 
-    if (!isGeminiEmbeddingsConfigured()) {
+    if (!isVoyageEmbeddingsConfigured()) {
         return {
             rows: baseRows,
             embeddingsStatus: "pending",
-            embeddingModel: GEMINI_EMBEDDINGS_VERSION,
+            embeddingModel: VOYAGE_EMBEDDINGS_VERSION,
             embeddedPassageCount: 0,
         };
     }
@@ -268,7 +268,7 @@ const buildMaterializedEvidenceRows = async (args: {
             baseRows.map((row) => [row.sectionHint, row.text].filter(Boolean).join("\n\n")),
             {
                 batchSize: EVIDENCE_EMBEDDING_BATCH_SIZE,
-                taskType: "RETRIEVAL_DOCUMENT",
+                inputType: "document",
             }
         );
 
@@ -293,7 +293,7 @@ const buildMaterializedEvidenceRows = async (args: {
         return {
             rows: baseRows,
             embeddingsStatus: "failed",
-            embeddingModel: GEMINI_EMBEDDINGS_VERSION,
+            embeddingModel: VOYAGE_EMBEDDINGS_VERSION,
             embeddedPassageCount: 0,
         };
     }
@@ -727,7 +727,7 @@ export const materializeEvidencePassagesForUpload = internalAction({
                 uploadId: args.uploadId,
                 status: String(upload.status || "processing"),
                 embeddingsStatus: "pending",
-                embeddingsVersion: GEMINI_EMBEDDINGS_VERSION,
+                embeddingsVersion: VOYAGE_EMBEDDINGS_VERSION,
                 embeddedPassageCount: 0,
             });
             return {
@@ -770,7 +770,7 @@ export const materializeEvidencePassagesForUpload = internalAction({
             uploadId: args.uploadId,
             status: String(upload.status || "processing"),
             embeddingsStatus: "running",
-            embeddingsVersion: GEMINI_EMBEDDINGS_VERSION,
+            embeddingsVersion: VOYAGE_EMBEDDINGS_VERSION,
         });
 
         const materialized = await buildMaterializedEvidenceRows({
@@ -793,7 +793,7 @@ export const materializeEvidencePassagesForUpload = internalAction({
             uploadId: args.uploadId,
             status: String(upload.status || "processing"),
             embeddingsStatus: materialized.embeddingsStatus,
-            embeddingsVersion: materialized.embeddingModel || GEMINI_EMBEDDINGS_VERSION,
+            embeddingsVersion: materialized.embeddingModel || VOYAGE_EMBEDDINGS_VERSION,
             embeddedPassageCount: materialized.embeddedPassageCount,
             evidencePassageCount: materialized.rows.length,
         });
@@ -804,7 +804,7 @@ export const materializeEvidencePassagesForUpload = internalAction({
             insertedCount: materialized.rows.length,
             embeddedPassageCount: materialized.embeddedPassageCount,
             embeddingsStatus: materialized.embeddingsStatus,
-            embeddingModel: materialized.embeddingModel || GEMINI_EMBEDDINGS_VERSION,
+            embeddingModel: materialized.embeddingModel || VOYAGE_EMBEDDINGS_VERSION,
         };
     },
 });
@@ -850,7 +850,7 @@ export const buildEvidenceIndex = internalAction({
                 evidenceIndexVersion: index.version,
                 evidencePassageCount: index.passageCount,
                 embeddingsStatus: materialization?.embeddingsStatus,
-                embeddingsVersion: materialization?.embeddingModel || GEMINI_EMBEDDINGS_VERSION,
+                embeddingsVersion: materialization?.embeddingModel || VOYAGE_EMBEDDINGS_VERSION,
                 embeddedPassageCount: Number(materialization?.embeddedPassageCount || 0),
             });
 
@@ -883,7 +883,7 @@ export const buildEvidenceIndex = internalAction({
                 uploadId: args.uploadId,
                 status: String(upload.status || "processing"),
                 embeddingsStatus: "failed",
-                embeddingsVersion: GEMINI_EMBEDDINGS_VERSION,
+                embeddingsVersion: VOYAGE_EMBEDDINGS_VERSION,
                 embeddedPassageCount: 0,
             });
             throw error;

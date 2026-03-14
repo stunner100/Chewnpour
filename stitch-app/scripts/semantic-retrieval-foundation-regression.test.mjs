@@ -30,8 +30,8 @@ for (const requiredPattern of [
   'buildMaterializedEvidenceRows',
   'grounded.materializeEvidencePassagesForUpload',
   'insertEvidencePassageBatch',
-  'GEMINI_EMBEDDINGS_VERSION',
-  'taskType: "RETRIEVAL_DOCUMENT"',
+  'VOYAGE_EMBEDDINGS_VERSION',
+  'inputType: "document"',
 ]) {
   if (!groundedSource.includes(requiredPattern)) {
     throw new Error(`Expected grounded.ts to include "${requiredPattern}" for passage materialization.`);
@@ -40,12 +40,12 @@ for (const requiredPattern of [
 
 for (const requiredPattern of [
   'ctx.vectorSearch("evidencePassages", "by_embedding"',
-  'embedText(args.query, { taskType: "RETRIEVAL_QUERY" })',
+  'embedText(args.query, { inputType: "query" })',
   'numericAgreement',
   'retrievalMode: "hybrid"',
   'hybrid_lexical_only',
-  'isGeminiEmbeddingsConfigured',
-  'taskType: "RETRIEVAL_QUERY"',
+  'isVoyageEmbeddingsConfigured',
+  'inputType: "query"',
 ]) {
   if (!retrievalSource.includes(requiredPattern)) {
     throw new Error(`Expected groundedRetrieval.ts to include "${requiredPattern}" for hybrid retrieval.`);
@@ -65,8 +65,8 @@ for (const requiredPattern of [
 }
 
 for (const requiredPattern of [
-  'GEMINI_EMBEDDINGS_MODEL=gemini-embedding-001',
-  'GEMINI_EMBEDDINGS_TIMEOUT_MS=20000',
+  'VOYAGE_EMBEDDINGS_MODEL=voyage-large-2',
+  'VOYAGE_EMBEDDINGS_TIMEOUT_MS=20000',
 ]) {
   if (!envExample.includes(requiredPattern)) {
     throw new Error(`Expected .env.example to include "${requiredPattern}" for embeddings configuration.`);

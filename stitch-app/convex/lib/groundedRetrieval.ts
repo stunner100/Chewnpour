@@ -1,5 +1,5 @@
 import { internal } from "../_generated/api";
-import { embedText, isGeminiEmbeddingsConfigured } from "./geminiEmbeddings";
+import { embedText, isVoyageEmbeddingsConfigured } from "./voyageEmbeddings";
 import type { EvidencePassage, GroundedEvidenceIndex } from "./groundedEvidenceIndex";
 
 export type RetrievedEvidence = EvidencePassage & {
@@ -120,12 +120,12 @@ const fetchVectorCandidates = async (args: {
     query: string;
     uploadId?: any;
 }) => {
-    if (!args.ctx || !args.uploadId || !isGeminiEmbeddingsConfigured()) {
+    if (!args.ctx || !args.uploadId || !isVoyageEmbeddingsConfigured()) {
         return [];
     }
 
     try {
-        const embedding = await embedText(args.query, { taskType: "RETRIEVAL_QUERY" });
+        const embedding = await embedText(args.query, { inputType: "query" });
         if (!Array.isArray(embedding.embedding) || embedding.embedding.length === 0) {
             return [];
         }

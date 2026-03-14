@@ -30,7 +30,6 @@ import type * as lib_documentExtractionPipeline from "../lib/documentExtractionP
 import type * as lib_examAttemptReuse from "../lib/examAttemptReuse.js";
 import type * as lib_examQuestionSelection from "../lib/examQuestionSelection.js";
 import type * as lib_examSecurity from "../lib/examSecurity.js";
-import type * as lib_geminiEmbeddings from "../lib/geminiEmbeddings.js";
 import type * as lib_groundedContentPipeline from "../lib/groundedContentPipeline.js";
 import type * as lib_groundedEvidenceIndex from "../lib/groundedEvidenceIndex.js";
 import type * as lib_groundedGeneration from "../lib/groundedGeneration.js";
@@ -46,6 +45,7 @@ import type * as lib_questionPromptSimilarity from "../lib/questionPromptSimilar
 import type * as lib_topicGenerationProgress from "../lib/topicGenerationProgress.js";
 import type * as lib_topicOutlinePipeline from "../lib/topicOutlinePipeline.js";
 import type * as lib_voiceStreamToken from "../lib/voiceStreamToken.js";
+import type * as lib_voyageEmbeddings from "../lib/voyageEmbeddings.js";
 import type * as llmUsage from "../llmUsage.js";
 import type * as profiles from "../profiles.js";
 import type * as search from "../search.js";
@@ -85,7 +85,6 @@ declare const fullApi: ApiFromModules<{
   "lib/examAttemptReuse": typeof lib_examAttemptReuse;
   "lib/examQuestionSelection": typeof lib_examQuestionSelection;
   "lib/examSecurity": typeof lib_examSecurity;
-  "lib/geminiEmbeddings": typeof lib_geminiEmbeddings;
   "lib/groundedContentPipeline": typeof lib_groundedContentPipeline;
   "lib/groundedEvidenceIndex": typeof lib_groundedEvidenceIndex;
   "lib/groundedGeneration": typeof lib_groundedGeneration;
@@ -101,6 +100,7 @@ declare const fullApi: ApiFromModules<{
   "lib/topicGenerationProgress": typeof lib_topicGenerationProgress;
   "lib/topicOutlinePipeline": typeof lib_topicOutlinePipeline;
   "lib/voiceStreamToken": typeof lib_voiceStreamToken;
+  "lib/voyageEmbeddings": typeof lib_voyageEmbeddings;
   llmUsage: typeof llmUsage;
   profiles: typeof profiles;
   search: typeof search;
