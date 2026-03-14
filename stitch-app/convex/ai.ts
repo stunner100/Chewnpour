@@ -60,6 +60,7 @@ import {
     buildEvidenceSnippet,
     createGroundedAcceptanceMetrics,
 } from "./lib/groundedContentPipeline";
+import { shouldFallbackToGeminiText } from "./lib/llmProviderFallback";
 import { createVoiceStreamToken } from "./lib/voiceStreamToken";
 
 // Sole LLM provider: Inception Labs (OpenAI-compatible endpoint).
@@ -188,6 +189,12 @@ const CONCEPT_EXERCISE_HISTORY_LIMIT = 8;
 const CONCEPT_EXERCISE_MAX_ATTEMPTS = 3;
 const GEMINI_BASE_URL = process.env.GEMINI_BASE_URL || "https://generativelanguage.googleapis.com/v1beta";
 const GEMINI_IMAGE_MODEL = process.env.GEMINI_IMAGE_MODEL || "gemini-2.0-flash-exp-image-generation";
+const GEMINI_TEXT_MODEL = String(process.env.GEMINI_TEXT_MODEL || "gemini-2.5-flash").trim();
+const GEMINI_TEXT_TIMEOUT_MS = (() => {
+    const parsed = Number(process.env.GEMINI_TEXT_TIMEOUT_MS || DEFAULT_TIMEOUT_MS);
+    if (!Number.isFinite(parsed)) return DEFAULT_TIMEOUT_MS;
+    return Math.max(2_000, Math.min(120_000, Math.round(parsed)));
+})();
 const GEMINI_TIMEOUT_MS = Number(process.env.GEMINI_TIMEOUT_MS || 45000);
 const TOPIC_PLACEHOLDER_ILLUSTRATION_URL =
     String(process.env.TOPIC_PLACEHOLDER_ILLUSTRATION_URL || "/topic-placeholder.svg").trim()
@@ -260,6 +267,14 @@ interface GeminiGenerateContentResponse {
             }>;
         };
     }>;
+}
+
+interface GeminiErrorPayload {
+    error?: {
+        code?: number | string;
+        message?: string;
+        status?: string;
+    };
 }
 
 interface BackendSentryEnvelopeConfig {
@@ -402,9 +417,105 @@ async function callInception(
     model: string = DEFAULT_MODEL,
     options?: { temperature?: number; maxTokens?: number; timeoutMs?: number; responseFormat?: "json_object" }
 ): Promise<string> {
+    const callGeminiText = async (fallbackReason: string) => {
+        const geminiApiKey = String(process.env.GEMINI_API_KEY || "").trim();
+        if (!geminiApiKey) {
+            throw new Error("GEMINI_API_KEY environment variable not set.");
+        }
+
+        const systemInstruction = messages
+            .filter((message) => message?.role === "system")
+            .map((message) => String(message?.content || "").trim())
+            .filter(Boolean)
+            .join("\n\n");
+
+        const contents = messages
+            .filter((message) => message?.role !== "system")
+            .map((message) => ({
+                role: message.role === "assistant" ? "model" : "user",
+                parts: [{ text: String(message?.content || "") }],
+            }))
+            .filter((entry) => entry.parts[0]?.text.trim().length > 0);
+
+        if (contents.length === 0) {
+            contents.push({
+                role: "user",
+                parts: [{ text: "Follow the provided instructions and return the requested output." }],
+            });
+        }
+
+        const controller = new AbortController();
+        const timeoutMs = options?.timeoutMs ?? GEMINI_TEXT_TIMEOUT_MS;
+        const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+        try {
+            const response = await fetch(
+                `${GEMINI_BASE_URL}/models/${GEMINI_TEXT_MODEL}:generateContent?key=${geminiApiKey}`,
+                {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    signal: controller.signal,
+                    body: JSON.stringify({
+                        systemInstruction: systemInstruction
+                            ? { parts: [{ text: systemInstruction }] }
+                            : undefined,
+                        contents,
+                        generationConfig: {
+                            temperature: options?.temperature ?? 0.3,
+                            maxOutputTokens: options?.maxTokens ?? 2048,
+                            responseMimeType:
+                                options?.responseFormat === "json_object"
+                                    ? "application/json"
+                                    : "text/plain",
+                        },
+                    }),
+                }
+            );
+
+            if (!response.ok) {
+                const raw = await response.text().catch(() => "");
+                let detail = String(raw || "").trim();
+                try {
+                    const parsed = JSON.parse(raw || "{}") as GeminiErrorPayload;
+                    const errorPayload = parsed?.error;
+                    const labels = [errorPayload?.code, errorPayload?.status]
+                        .filter((value) => value !== undefined && value !== null && value !== "")
+                        .join(", ");
+                    const message = String(errorPayload?.message || "").trim();
+                    detail = labels ? `${labels} - ${message || detail}` : message || detail;
+                } catch {
+                    // keep raw text detail
+                }
+                throw new Error(`gemini API error: ${response.status} - ${detail || "Unknown provider error."}`);
+            }
+
+            const payload = await response.json() as GeminiGenerateContentResponse;
+            const responseText = (payload?.candidates || [])
+                .flatMap((candidate) => candidate?.content?.parts || [])
+                .map((part) => String(part?.text || ""))
+                .join("")
+                .trim();
+
+            if (!responseText) {
+                throw new Error("gemini API error: empty response.");
+            }
+
+            console.warn("[LLM] inception_fallback_to_gemini", {
+                model,
+                fallbackReason,
+                geminiModel: GEMINI_TEXT_MODEL,
+            });
+            return responseText;
+        } finally {
+            clearTimeout(timeoutId);
+        }
+    };
+
     const timeoutMs = options?.timeoutMs ?? DEFAULT_TIMEOUT_MS;
     const inceptionApiKey = String(process.env.INCEPTION_API_KEY || "").trim();
     if (!inceptionApiKey) {
+        if (String(process.env.GEMINI_API_KEY || "").trim()) {
+            return callGeminiText("missing_inception_api_key");
+        }
         throw new Error("INCEPTION_API_KEY environment variable not set.");
     }
 
@@ -477,11 +588,21 @@ async function callInception(
                 const errorText = await response.text();
                 const isRetryableStatus = retryableStatuses.has(response.status);
                 const isLastAttempt = attempt >= maxAttempts - 1;
+                const formattedError = formatInceptionApiError(response.status, errorText);
+                if (
+                    !isRetryableStatus &&
+                    shouldFallbackToGeminiText({
+                        errorMessage: formattedError,
+                        geminiApiKey: process.env.GEMINI_API_KEY,
+                    })
+                ) {
+                    return callGeminiText(`hard_inception_failure:${response.status}`);
+                }
                 if (isRetryableStatus && !isLastAttempt) {
                     await sleep(retryDelayForAttempt(attempt));
                     continue;
                 }
-                throw new Error(formatInceptionApiError(response.status, errorText));
+                throw new Error(formattedError);
             }
 
             const data: ChatCompletionResponse = await response.json();
@@ -498,6 +619,14 @@ async function callInception(
                 || lowerError.includes("aborted")
                 || lowerError.includes("network")
                 || lowerError.includes("failed to fetch");
+            if (
+                shouldFallbackToGeminiText({
+                    errorMessage,
+                    geminiApiKey: process.env.GEMINI_API_KEY,
+                })
+            ) {
+                return callGeminiText("hard_inception_error");
+            }
             const isLastAttempt = attempt >= maxAttempts - 1;
             if (isRetryableNetworkError && !isLastAttempt) {
                 await sleep(retryDelayForAttempt(attempt));

@@ -1,6 +1,7 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { chromium, firefox, webkit, devices } from 'playwright';
+import { classifyPostSignupPath, extractCourseIdFromDashboardUrl } from './lib/playwrightExamFlowRouting.mjs';
 
 const baseUrl = process.env.BASE_URL || 'http://127.0.0.1:5173';
 const flowMode = (process.env.FLOW_MODE || 'upload').toLowerCase();
@@ -60,6 +61,7 @@ const waitForPath = async (page, pattern, timeout = 120000) => {
     { regexSource: source, regexFlags: flags },
     { timeout }
   );
+  return new URL(page.url()).pathname;
 };
 
 const absolutizeUrl = (href) => {
@@ -292,22 +294,28 @@ const completeOnboardingAndReachDashboard = async () => {
   await page.getByPlaceholder('student@university.edu').fill(uniqueEmail);
   await page.getByPlaceholder('Create a strong password').fill(password);
   await page.getByRole('button', { name: /^continue$/i }).click();
-  await page.waitForURL(/\/onboarding\/level/, { timeout: 45000 });
-  await screenshot('03-onboarding-level');
-  recordStep('create-account', 'passed', { url: page.url() });
+  const postSignupPath = await waitForPath(page, /\/(?:dashboard|onboarding\/level|onboarding\/department)(?:\/|$)/, 90000);
+  const postSignupState = classifyPostSignupPath(postSignupPath);
+  await screenshot('03-post-signup');
+  recordStep('create-account', 'passed', { url: page.url(), postSignupState });
 
-  recordStep('complete-onboarding-level', 'started');
-  await page.getByRole('button', { name: /next/i }).first().click();
-  await page.waitForURL(/\/onboarding\/department/, { timeout: 30000 });
-  await screenshot('04-onboarding-department');
-  recordStep('complete-onboarding-level', 'passed', { url: page.url() });
+  if (postSignupState === 'level') {
+    recordStep('complete-onboarding-level', 'started');
+    await page.getByRole('button', { name: /next|continue/i }).first().click();
+    await waitForPath(page, /\/(?:dashboard|onboarding\/department)(?:\/|$)/, 30000);
+    await screenshot('04-onboarding-after-level');
+    recordStep('complete-onboarding-level', 'passed', { url: page.url() });
+  }
 
-  recordStep('complete-onboarding-department', 'started');
-  await page.getByText('Computer Science', { exact: true }).click();
-  await page.getByRole('button', { name: /start learning/i }).click();
-  await page.waitForURL(/\/dashboard/, { timeout: 60000 });
-  await screenshot('05-dashboard');
-  recordStep('complete-onboarding-department', 'passed', { url: page.url(), email: uniqueEmail, password });
+  const currentPath = classifyPostSignupPath(new URL(page.url()).pathname);
+  if (currentPath === 'department') {
+    recordStep('complete-onboarding-department', 'started');
+    await page.getByText('Computer Science', { exact: true }).click();
+    await page.getByRole('button', { name: /start learning|continue|finish/i }).click();
+    await page.waitForURL(/\/dashboard/, { timeout: 60000 });
+    await screenshot('05-dashboard');
+    recordStep('complete-onboarding-department', 'passed', { url: page.url(), email: uniqueEmail, password });
+  }
 
   return { email: uniqueEmail, password };
 };
@@ -392,11 +400,10 @@ try {
     recordStep('upload-material', 'started');
     const fileInput = page.locator('input[type="file"][accept=".pdf,.pptx,.docx"]');
     await fileInput.setInputFiles(uploadFilePath);
-    await page.waitForURL(/\/dashboard\/processing\//, { timeout: 120000 });
+    await waitForPath(page, /\/dashboard\/(?:processing|course|topic)\//, 120000);
     await screenshot('06-processing-started');
     const processingUrl = page.url();
-    const courseIdMatch = processingUrl.match(/\/dashboard\/processing\/([^/?#]+)/);
-    const courseId = courseIdMatch?.[1] || null;
+    const courseId = extractCourseIdFromDashboardUrl(processingUrl);
     if (!courseId) {
       throw new Error(`Could not extract courseId from processing URL: ${processingUrl}`);
     }
