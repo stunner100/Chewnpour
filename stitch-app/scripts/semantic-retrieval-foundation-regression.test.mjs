@@ -30,7 +30,8 @@ for (const requiredPattern of [
   'buildMaterializedEvidenceRows',
   'grounded.materializeEvidencePassagesForUpload',
   'insertEvidencePassageBatch',
-  'OPENAI_EMBEDDINGS_VERSION',
+  'GEMINI_EMBEDDINGS_VERSION',
+  'taskType: "RETRIEVAL_DOCUMENT"',
 ]) {
   if (!groundedSource.includes(requiredPattern)) {
     throw new Error(`Expected grounded.ts to include "${requiredPattern}" for passage materialization.`);
@@ -39,10 +40,12 @@ for (const requiredPattern of [
 
 for (const requiredPattern of [
   'ctx.vectorSearch("evidencePassages", "by_embedding"',
-  'embedText(args.query)',
+  'embedText(args.query, { taskType: "RETRIEVAL_QUERY" })',
   'numericAgreement',
   'retrievalMode: "hybrid"',
   'hybrid_lexical_only',
+  'isGeminiEmbeddingsConfigured',
+  'taskType: "RETRIEVAL_QUERY"',
 ]) {
   if (!retrievalSource.includes(requiredPattern)) {
     throw new Error(`Expected groundedRetrieval.ts to include "${requiredPattern}" for hybrid retrieval.`);
@@ -62,8 +65,8 @@ for (const requiredPattern of [
 }
 
 for (const requiredPattern of [
-  'OPENAI_EMBEDDINGS_API_KEY=',
-  'OPENAI_EMBEDDINGS_MODEL=text-embedding-3-small',
+  'GEMINI_EMBEDDINGS_MODEL=gemini-embedding-001',
+  'GEMINI_EMBEDDINGS_TIMEOUT_MS=20000',
 ]) {
   if (!envExample.includes(requiredPattern)) {
     throw new Error(`Expected .env.example to include "${requiredPattern}" for embeddings configuration.`);

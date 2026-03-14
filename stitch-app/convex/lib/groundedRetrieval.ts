@@ -1,5 +1,5 @@
 import { internal } from "../_generated/api";
-import { embedText, isOpenAiEmbeddingsConfigured } from "./openaiEmbeddings";
+import { embedText, isGeminiEmbeddingsConfigured } from "./geminiEmbeddings";
 import type { EvidencePassage, GroundedEvidenceIndex } from "./groundedEvidenceIndex";
 
 export type RetrievedEvidence = EvidencePassage & {
@@ -120,12 +120,12 @@ const fetchVectorCandidates = async (args: {
     query: string;
     uploadId?: any;
 }) => {
-    if (!args.ctx || !args.uploadId || !isOpenAiEmbeddingsConfigured()) {
+    if (!args.ctx || !args.uploadId || !isGeminiEmbeddingsConfigured()) {
         return [];
     }
 
     try {
-        const embedding = await embedText(args.query);
+        const embedding = await embedText(args.query, { taskType: "RETRIEVAL_QUERY" });
         if (!Array.isArray(embedding.embedding) || embedding.embedding.length === 0) {
             return [];
         }
