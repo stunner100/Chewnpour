@@ -1,4 +1,5 @@
 import { v } from "convex/values";
+import { paginationOptsValidator } from "convex/server";
 import { internalAction, internalMutation, internalQuery, query } from "./_generated/server";
 import { internal } from "./_generated/api";
 import { resolveAuthUserId } from "./lib/examSecurity";
@@ -12,10 +13,10 @@ const clampSearchLimit = (value: unknown, fallback = 8) => {
     return Math.max(1, Math.min(20, Math.floor(parsed)));
 };
 
-const clampBackfillLimit = (value: unknown, fallback = 10_000) => {
+const clampBackfillLimit = (value: unknown, fallback = 200) => {
     const parsed = Number(value);
     if (!Number.isFinite(parsed)) return fallback;
-    return Math.max(1, Math.min(10_000, Math.floor(parsed)));
+    return Math.max(1, Math.min(500, Math.floor(parsed)));
 };
 
 const normalizeBody = (value: unknown) =>
@@ -160,37 +161,37 @@ export const getNoteSearchSnapshot = internalQuery({
 
 export const listCoursesForSearchBackfill = internalQuery({
     args: {
-        limit: v.optional(v.number()),
+        paginationOpts: paginationOptsValidator,
     },
     handler: async (ctx, args) => {
         return await ctx.db
             .query("courses")
             .order("desc")
-            .take(clampBackfillLimit(args.limit, 10_000));
+            .paginate(args.paginationOpts);
     },
 });
 
 export const listTopicsForSearchBackfill = internalQuery({
     args: {
-        limit: v.optional(v.number()),
+        paginationOpts: paginationOptsValidator,
     },
     handler: async (ctx, args) => {
         return await ctx.db
             .query("topics")
             .order("desc")
-            .take(clampBackfillLimit(args.limit, 10_000));
+            .paginate(args.paginationOpts);
     },
 });
 
 export const listNotesForSearchBackfill = internalQuery({
     args: {
-        limit: v.optional(v.number()),
+        paginationOpts: paginationOptsValidator,
     },
     handler: async (ctx, args) => {
         return await ctx.db
             .query("topicNotes")
             .order("desc")
-            .take(clampBackfillLimit(args.limit, 10_000));
+            .paginate(args.paginationOpts);
     },
 });
 
@@ -347,42 +348,77 @@ export const deleteSearchDocumentsForEntity = internalAction({
 export const backfillSearchDocuments = internalAction({
     args: {
         kind: v.optional(v.string()),
-        limit: v.optional(v.number()),
+        cursor: v.optional(v.string()),
+        batchSize: v.optional(v.number()),
     },
     handler: async (ctx, args) => {
         const requestedKinds = String(args.kind || "").trim();
-        const kinds = requestedKinds
-            ? [requestedKinds].filter((kind): kind is SearchKind => SEARCH_KINDS.includes(kind as SearchKind))
-            : [...SEARCH_KINDS];
-        const limit = clampBackfillLimit(args.limit, 10_000);
+        const batchSize = clampBackfillLimit(args.batchSize, 200);
+        if (!requestedKinds) {
+            for (const kind of SEARCH_KINDS) {
+                await ctx.scheduler.runAfter(0, (internal as any).search.backfillSearchDocuments, {
+                    kind,
+                    batchSize,
+                });
+            }
+            return {
+                kinds: [...SEARCH_KINDS],
+                batchSize,
+                scheduledCount: SEARCH_KINDS.length,
+                scheduled: SEARCH_KINDS.map((kind) => ({ kind, entityId: "" })),
+                delegatedByKind: true,
+            };
+        }
+
+        const kinds = [requestedKinds].filter((kind): kind is SearchKind => SEARCH_KINDS.includes(kind as SearchKind));
+        const kind = kinds[0];
+        if (!kind) {
+            return {
+                kinds: [],
+                batchSize,
+                scheduledCount: 0,
+                scheduled: [],
+                delegatedByKind: false,
+            };
+        }
+
+        const paginationOpts = {
+            cursor: args.cursor ?? null,
+            numItems: batchSize,
+        };
+        const pageResult = kind === "course"
+            ? await ctx.runQuery((internal as any).search.listCoursesForSearchBackfill, { paginationOpts })
+            : kind === "topic"
+                ? await ctx.runQuery((internal as any).search.listTopicsForSearchBackfill, { paginationOpts })
+                : await ctx.runQuery((internal as any).search.listNotesForSearchBackfill, { paginationOpts });
 
         const scheduled: Array<{ kind: SearchKind; entityId: string }> = [];
-        for (const kind of kinds) {
-            let rows: any[] = [];
-            if (kind === "course") {
-                rows = await ctx.runQuery((internal as any).search.listCoursesForSearchBackfill, { limit });
-            } else if (kind === "topic") {
-                rows = await ctx.runQuery((internal as any).search.listTopicsForSearchBackfill, { limit });
-            } else {
-                rows = await ctx.runQuery((internal as any).search.listNotesForSearchBackfill, { limit });
-            }
+        for (const row of Array.isArray(pageResult?.page) ? pageResult.page : []) {
+            const entityId = String(row?._id || "").trim();
+            if (!entityId) continue;
+            await ctx.scheduler.runAfter(0, (internal as any).search.upsertSearchDocumentsForEntity, {
+                kind,
+                entityId,
+            });
+            scheduled.push({ kind, entityId });
+        }
 
-            for (const row of Array.isArray(rows) ? rows : []) {
-                const entityId = String(row?._id || "").trim();
-                if (!entityId) continue;
-                await ctx.scheduler.runAfter(0, (internal as any).search.upsertSearchDocumentsForEntity, {
-                    kind,
-                    entityId,
-                });
-                scheduled.push({ kind, entityId });
-            }
+        if (!pageResult?.isDone && pageResult?.continueCursor) {
+            await ctx.scheduler.runAfter(0, (internal as any).search.backfillSearchDocuments, {
+                kind,
+                batchSize,
+                cursor: pageResult.continueCursor,
+            });
         }
 
         return {
-            kinds,
-            limit,
+            kinds: [kind],
+            batchSize,
             scheduledCount: scheduled.length,
             scheduled,
+            continueCursor: pageResult?.continueCursor || null,
+            isDone: Boolean(pageResult?.isDone),
+            delegatedByKind: false,
         };
     },
 });
