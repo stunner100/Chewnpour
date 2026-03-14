@@ -120,6 +120,9 @@ export const createUpload = mutation({
             provisionalExtraction: false,
             evidenceIndexVersion: "grounded-v1",
             evidencePassageCount: 0,
+            embeddingsStatus: "pending",
+            embeddingsVersion: "openai-text-embedding-3-small-v1",
+            embeddedPassageCount: 0,
         });
 
         // Apply referral credit on first upload (non-blocking, best-effort)
@@ -227,6 +230,9 @@ export const updateUploadStatus = mutation({
         evidenceIndexStorageId: v.optional(v.id("_storage")),
         evidenceIndexVersion: v.optional(v.string()),
         evidencePassageCount: v.optional(v.number()),
+        embeddingsStatus: v.optional(v.string()),
+        embeddingsVersion: v.optional(v.string()),
+        embeddedPassageCount: v.optional(v.number()),
     },
     handler: async (ctx, args) => {
         const updateData: {
@@ -246,6 +252,9 @@ export const updateUploadStatus = mutation({
             evidenceIndexStorageId?: Id<"_storage">;
             evidenceIndexVersion?: string;
             evidencePassageCount?: number;
+            embeddingsStatus?: string;
+            embeddingsVersion?: string;
+            embeddedPassageCount?: number;
         } = {
             status: args.status,
         };
@@ -294,6 +303,15 @@ export const updateUploadStatus = mutation({
         }
         if (args.evidencePassageCount !== undefined) {
             updateData.evidencePassageCount = args.evidencePassageCount;
+        }
+        if (args.embeddingsStatus !== undefined) {
+            updateData.embeddingsStatus = args.embeddingsStatus;
+        }
+        if (args.embeddingsVersion !== undefined) {
+            updateData.embeddingsVersion = args.embeddingsVersion;
+        }
+        if (args.embeddedPassageCount !== undefined) {
+            updateData.embeddedPassageCount = args.embeddedPassageCount;
         }
 
         await ctx.db.patch(args.uploadId, updateData);

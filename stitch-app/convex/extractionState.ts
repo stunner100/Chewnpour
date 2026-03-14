@@ -1,5 +1,6 @@
 import { v } from "convex/values";
 import { internalMutation, internalQuery } from "./_generated/server";
+import { internal } from "./_generated/api";
 
 const providerTraceValidator = v.object({
     pass: v.string(),
@@ -97,6 +98,10 @@ export const patchTopicContent = internalMutation({
         await ctx.db.patch(args.topicId, {
             content: args.content,
         });
+        void ctx.scheduler.runAfter(0, (internal as any).search.upsertSearchDocumentsForEntity, {
+            kind: "topic",
+            entityId: args.topicId,
+        }).catch(() => undefined);
         return { ok: true };
     },
 });

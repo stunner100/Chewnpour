@@ -1,5 +1,6 @@
 import { v } from "convex/values";
 import { internalMutation, internalQuery, mutation, query } from "./_generated/server";
+import { internal } from "./_generated/api";
 import {
     assertAuthorizedUser,
     isUsableExamQuestion,
@@ -307,6 +308,11 @@ export const createTopic = mutation({
             orderIndex: args.orderIndex,
             isLocked: args.isLocked,
         });
+
+        void ctx.scheduler.runAfter(0, (internal as any).search.upsertSearchDocumentsForEntity, {
+            kind: "topic",
+            entityId: topicId,
+        }).catch(() => undefined);
 
         return topicId;
     },

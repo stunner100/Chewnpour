@@ -61,6 +61,9 @@ export default defineSchema({
         evidenceIndexStorageId: v.optional(v.id("_storage")),
         evidenceIndexVersion: v.optional(v.string()),
         evidencePassageCount: v.optional(v.number()),
+        embeddingsStatus: v.optional(v.string()), // 'pending' | 'running' | 'ready' | 'failed'
+        embeddingsVersion: v.optional(v.string()),
+        embeddedPassageCount: v.optional(v.number()),
     }).index("by_userId", ["userId"]),
 
     documentExtractions: defineTable({
@@ -96,6 +99,31 @@ export default defineSchema({
     })
         .index("by_uploadId", ["uploadId"])
         .index("by_uploadId_createdAt", ["uploadId", "createdAt"]),
+
+    evidencePassages: defineTable({
+        userId: v.string(),
+        uploadId: v.id("uploads"),
+        courseId: v.id("courses"),
+        topicId: v.optional(v.id("topics")),
+        passageId: v.string(),
+        page: v.number(),
+        startChar: v.number(),
+        endChar: v.number(),
+        sectionHint: v.string(),
+        flags: v.array(v.string()),
+        text: v.string(),
+        embedding: v.optional(v.array(v.float64())),
+        embeddingModel: v.optional(v.string()),
+        createdAt: v.number(),
+    })
+        .index("by_uploadId", ["uploadId"])
+        .index("by_courseId", ["courseId"])
+        .index("by_uploadId_passageId", ["uploadId", "passageId"])
+        .vectorIndex("by_embedding", {
+            vectorField: "embedding",
+            dimensions: 1536,
+            filterFields: ["userId", "uploadId", "courseId"],
+        }),
 
     questionTargetAuditRuns: defineTable({
         dryRun: v.boolean(),
@@ -167,7 +195,8 @@ export default defineSchema({
         coverColor: v.optional(v.string()), // gradient colors
         progress: v.optional(v.number()),
         status: v.string(), // 'in_progress', 'completed'
-    }).index("by_userId", ["userId"]),
+    }).index("by_userId", ["userId"])
+      .index("by_uploadId", ["uploadId"]),
 
     // Topics within courses
     topics: defineTable({
@@ -301,7 +330,24 @@ export default defineSchema({
         topicId: v.id("topics"),
         content: v.string(),
         updatedAt: v.number(),
-    }).index("by_userId_topicId", ["userId", "topicId"]),
+    }).index("by_userId_topicId", ["userId", "topicId"])
+      .index("by_topicId", ["topicId"]),
+
+    searchDocuments: defineTable({
+        userId: v.string(),
+        kind: v.string(), // 'course' | 'topic' | 'note'
+        entityId: v.string(),
+        courseId: v.optional(v.id("courses")),
+        topicId: v.optional(v.id("topics")),
+        title: v.string(),
+        body: v.string(),
+        updatedAt: v.number(),
+    })
+        .index("by_userId_kind_entityId", ["userId", "kind", "entityId"])
+        .searchIndex("search_body", {
+            searchField: "body",
+            filterFields: ["userId", "kind"],
+        }),
 
     // AI tutor chat messages per topic
     topicChatMessages: defineTable({

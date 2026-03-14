@@ -3,8 +3,16 @@ import { paginationOptsValidator } from "convex/server";
 import { internalAction, internalMutation, internalQuery } from "./_generated/server";
 import { api, internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
-import { buildGroundedEvidenceIndexFromArtifact } from "./lib/groundedEvidenceIndex";
+import {
+    buildGroundedEvidenceIndexFromArtifact,
+    type EvidencePassage,
+} from "./lib/groundedEvidenceIndex";
 import { retrieveGroundedEvidence } from "./lib/groundedRetrieval";
+import {
+    embedTexts,
+    isOpenAiEmbeddingsConfigured,
+    OPENAI_EMBEDDINGS_VERSION,
+} from "./lib/openaiEmbeddings";
 import { runDeterministicGroundingCheck } from "./lib/groundedVerifier";
 import {
     QUESTION_BANK_BACKGROUND_PROFILE,
@@ -15,12 +23,34 @@ import {
 
 type UploadDoc = {
     _id: Id<"uploads">;
+    userId?: string;
     fileName: string;
     status?: string;
     extractionStatus?: string;
     extractionArtifactStorageId?: Id<"_storage">;
     evidenceIndexStorageId?: Id<"_storage">;
+    evidencePassageCount?: number;
+    embeddingsStatus?: string;
+    embeddingsVersion?: string;
+    embeddedPassageCount?: number;
     _creationTime?: number;
+};
+
+type MaterializedEvidencePassage = {
+    userId: string;
+    uploadId: Id<"uploads">;
+    courseId: Id<"courses">;
+    topicId?: Id<"topics">;
+    passageId: string;
+    page: number;
+    startChar: number;
+    endChar: number;
+    sectionHint: string;
+    flags: string[];
+    text: string;
+    embedding?: number[];
+    embeddingModel?: string;
+    createdAt: number;
 };
 
 const DEFAULT_SWEEP_ESSAY_TARGET = 3;
@@ -81,6 +111,110 @@ const countWords = (value: unknown) =>
         .filter(Boolean)
         .length;
 
+const EVIDENCE_EMBEDDING_BATCH_SIZE = 16;
+const EVIDENCE_PASSAGE_WRITE_BATCH_SIZE = 6;
+
+const normalizePassageText = (value: string) =>
+    String(value || "")
+        .replace(/\u0000/g, "")
+        .replace(/\s+/g, " ")
+        .trim();
+
+const chunkArray = <T>(items: T[], size: number) => {
+    const normalizedSize = Math.max(1, Math.floor(Number(size || 1)));
+    const chunks: T[][] = [];
+    for (let index = 0; index < items.length; index += normalizedSize) {
+        chunks.push(items.slice(index, index + normalizedSize));
+    }
+    return chunks;
+};
+
+const buildMaterializedEvidenceRows = async (args: {
+    upload: UploadDoc;
+    courseId: Id<"courses">;
+    passages: EvidencePassage[];
+}) => {
+    const createdAt = Date.now();
+    const normalizedPassages = (Array.isArray(args.passages) ? args.passages : [])
+        .map((passage) => ({
+            passageId: String(passage?.passageId || "").trim(),
+            page: Math.max(0, Math.floor(Number(passage?.page || 0))),
+            startChar: Math.max(0, Math.floor(Number(passage?.startChar || 0))),
+            endChar: Math.max(0, Math.floor(Number(passage?.endChar || 0))),
+            sectionHint: String(passage?.sectionHint || "").trim(),
+            flags: Array.isArray(passage?.flags)
+                ? passage.flags.map((flag) => String(flag || "").trim()).filter(Boolean)
+                : [],
+            text: normalizePassageText(String(passage?.text || "")),
+        }))
+        .filter((passage) => passage.passageId && passage.text);
+
+    const baseRows: MaterializedEvidencePassage[] = normalizedPassages.map((passage) => ({
+        userId: String(args.upload.userId || "").trim(),
+        uploadId: args.upload._id,
+        courseId: args.courseId,
+        topicId: undefined,
+        passageId: passage.passageId,
+        page: passage.page,
+        startChar: passage.startChar,
+        endChar: Math.max(passage.startChar, passage.endChar),
+        sectionHint: passage.sectionHint,
+        flags: passage.flags,
+        text: passage.text,
+        createdAt,
+    }));
+
+    if (baseRows.length === 0) {
+        return {
+            rows: [] as MaterializedEvidencePassage[],
+            embeddingsStatus: "ready",
+            embeddingModel: OPENAI_EMBEDDINGS_VERSION,
+            embeddedPassageCount: 0,
+        };
+    }
+
+    if (!isOpenAiEmbeddingsConfigured()) {
+        return {
+            rows: baseRows,
+            embeddingsStatus: "pending",
+            embeddingModel: OPENAI_EMBEDDINGS_VERSION,
+            embeddedPassageCount: 0,
+        };
+    }
+
+    try {
+        const embeddingResult = await embedTexts(
+            baseRows.map((row) => [row.sectionHint, row.text].filter(Boolean).join("\n\n")),
+            { batchSize: EVIDENCE_EMBEDDING_BATCH_SIZE }
+        );
+
+        const rowsWithEmbeddings = baseRows.map((row, index) => ({
+            ...row,
+            embedding: embeddingResult.embeddings[index],
+            embeddingModel: embeddingResult.model,
+        }));
+
+        return {
+            rows: rowsWithEmbeddings,
+            embeddingsStatus: "ready",
+            embeddingModel: embeddingResult.model,
+            embeddedPassageCount: rowsWithEmbeddings.filter((row) => Array.isArray(row.embedding)).length,
+        };
+    } catch (error) {
+        console.warn("[Grounded] evidence_embedding_materialization_failed", {
+            uploadId: String(args.upload._id),
+            fileName: String(args.upload.fileName || ""),
+            message: toErrorSummary(error),
+        });
+        return {
+            rows: baseRows,
+            embeddingsStatus: "failed",
+            embeddingModel: OPENAI_EMBEDDINGS_VERSION,
+            embeddedPassageCount: 0,
+        };
+    }
+};
+
 const loadGroundedEvidenceIndexForTopicSweep = async (ctx: any, topic: any) => {
     if (!topic?.courseId) {
         return { index: null, upload: null };
@@ -136,7 +270,8 @@ const resolveMcqTargetForSweep = async (ctx: any, topic: any) => {
     const { index } = await loadGroundedEvidenceIndexForTopicSweep(ctx, topic);
     if (!index) return null;
 
-    const evidence = retrieveGroundedEvidence({
+    const retrieval = await retrieveGroundedEvidence({
+        ctx,
         index,
         query: [
             String(topic?.title || ""),
@@ -144,7 +279,13 @@ const resolveMcqTargetForSweep = async (ctx: any, topic: any) => {
         ].join(" "),
         limit: 18,
         preferFlags: ["table"],
+        uploadId: upload?._id,
+        embeddingBacklogCount: Math.max(
+            0,
+            Number(upload?.evidencePassageCount || 0) - Number(upload?.embeddedPassageCount || 0)
+        ),
     });
+    const evidence = retrieval.evidence;
     if (evidence.length === 0) return null;
 
     const wordCountTarget = calculateQuestionBankTarget({
@@ -181,7 +322,8 @@ const resolveEssayTargetForSweep = async (ctx: any, topic: any) => {
     const { index } = await loadGroundedEvidenceIndexForTopicSweep(ctx, topic);
     if (!index) return null;
 
-    const evidence = retrieveGroundedEvidence({
+    const retrieval = await retrieveGroundedEvidence({
+        ctx,
         index,
         query: [
             String(topic?.title || ""),
@@ -189,7 +331,13 @@ const resolveEssayTargetForSweep = async (ctx: any, topic: any) => {
         ].join(" "),
         limit: 24,
         preferFlags: ["table", "formula"],
+        uploadId: upload?._id,
+        embeddingBacklogCount: Math.max(
+            0,
+            Number(upload?.evidencePassageCount || 0) - Number(upload?.embeddedPassageCount || 0)
+        ),
     });
+    const evidence = retrieval.evidence;
     if (evidence.length === 0) return null;
 
     const wordCountTarget = calculateQuestionBankTarget({
@@ -268,6 +416,86 @@ export const getUploadForGrounded = internalQuery({
     },
 });
 
+export const getUploadMaterializationContext = internalQuery({
+    args: {
+        uploadId: v.id("uploads"),
+    },
+    handler: async (ctx, args) => {
+        const upload = await ctx.db.get(args.uploadId);
+        if (!upload) return null;
+
+        const course = await ctx.db
+            .query("courses")
+            .withIndex("by_uploadId", (q) => q.eq("uploadId", args.uploadId))
+            .first();
+
+        return {
+            upload,
+            courseId: course?._id || null,
+            courseUserId: course?.userId || upload.userId || null,
+        };
+    },
+});
+
+export const clearEvidencePassagesForUpload = internalMutation({
+    args: {
+        uploadId: v.id("uploads"),
+    },
+    handler: async (ctx, args) => {
+        const existing = await ctx.db
+            .query("evidencePassages")
+            .withIndex("by_uploadId", (q) => q.eq("uploadId", args.uploadId))
+            .collect();
+        for (const row of existing) {
+            await ctx.db.delete(row._id);
+        }
+        return {
+            uploadId: args.uploadId,
+            deletedCount: existing.length,
+        };
+    },
+});
+
+export const insertEvidencePassageBatch = internalMutation({
+    args: {
+        rows: v.array(v.object({
+            userId: v.string(),
+            uploadId: v.id("uploads"),
+            courseId: v.id("courses"),
+            topicId: v.optional(v.id("topics")),
+            passageId: v.string(),
+            page: v.number(),
+            startChar: v.number(),
+            endChar: v.number(),
+            sectionHint: v.string(),
+            flags: v.array(v.string()),
+            text: v.string(),
+            embedding: v.optional(v.array(v.float64())),
+            embeddingModel: v.optional(v.string()),
+            createdAt: v.number(),
+        })),
+    },
+    handler: async (ctx, args) => {
+        for (const row of args.rows) {
+            await ctx.db.insert("evidencePassages", row);
+        }
+        return {
+            uploadId: args.rows[0]?.uploadId || null,
+            insertedCount: args.rows.length,
+        };
+    },
+});
+
+export const getEvidencePassagesByIds = internalQuery({
+    args: {
+        ids: v.array(v.id("evidencePassages")),
+    },
+    handler: async (ctx, args) => {
+        const rows = await Promise.all(args.ids.map((id) => ctx.db.get(id)));
+        return rows.filter(Boolean);
+    },
+});
+
 export const listBackfillUploads = internalQuery({
     args: {
         days: v.optional(v.number()),
@@ -275,7 +503,7 @@ export const listBackfillUploads = internalQuery({
     },
     handler: async (ctx, args) => {
         const days = Math.max(1, Math.min(120, Math.floor(Number(args.days || 30))));
-        const limit = Math.max(1, Math.min(500, Math.floor(Number(args.limit || 100))));
+        const limit = Math.max(1, Math.min(10_000, Math.floor(Number(args.limit || 1_000))));
         const cutoff = Date.now() - days * 24 * 60 * 60 * 1000;
 
         const uploads = await ctx.db
@@ -295,7 +523,12 @@ export const listCoursesByUpload = internalQuery({
         uploadId: v.id("uploads"),
     },
     handler: async (ctx, args) => {
-        // No by_uploadId index currently; keep bounded scan for backfill tooling.
+        const direct = await ctx.db
+            .query("courses")
+            .withIndex("by_uploadId", (q) => q.eq("uploadId", args.uploadId))
+            .collect();
+        if (direct.length > 0) return direct;
+
         const courses = await ctx.db
             .query("courses")
             .order("desc")
@@ -383,6 +616,115 @@ export const getLatestQuestionTargetAuditDiagnostics = internalQuery({
     },
 });
 
+export const materializeEvidencePassagesForUpload = internalAction({
+    args: {
+        uploadId: v.id("uploads"),
+        evidenceIndexStorageId: v.optional(v.id("_storage")),
+        artifactStorageId: v.optional(v.id("_storage")),
+    },
+    handler: async (ctx, args) => {
+        const materializationContext = await ctx.runQuery(
+            (internal as any).grounded.getUploadMaterializationContext,
+            { uploadId: args.uploadId }
+        ) as {
+            upload: UploadDoc | null;
+            courseId: Id<"courses"> | null;
+            courseUserId: string | null;
+        } | null;
+
+        const upload = materializationContext?.upload || null;
+        if (!upload) {
+            throw new Error("Upload not found for evidence passage materialization");
+        }
+
+        const courseId = materializationContext?.courseId || null;
+        if (!courseId) {
+            await ctx.runMutation(api.uploads.updateUploadStatus, {
+                uploadId: args.uploadId,
+                status: String(upload.status || "processing"),
+                embeddingsStatus: "pending",
+                embeddingsVersion: OPENAI_EMBEDDINGS_VERSION,
+                embeddedPassageCount: 0,
+            });
+            return {
+                uploadId: args.uploadId,
+                skipped: true,
+                reason: "course_not_found",
+                insertedCount: 0,
+                embeddedPassageCount: 0,
+            };
+        }
+
+        let index: any = null;
+        const candidateIndexStorageId = args.evidenceIndexStorageId || upload.evidenceIndexStorageId;
+        const candidateArtifactStorageId = args.artifactStorageId || upload.extractionArtifactStorageId;
+
+        if (candidateIndexStorageId) {
+            try {
+                const storedIndex = await readJsonFromStorage(ctx, candidateIndexStorageId);
+                if (storedIndex && Array.isArray((storedIndex as any)?.passages)) {
+                    index = storedIndex;
+                }
+            } catch {
+                index = null;
+            }
+        }
+
+        if (!index && candidateArtifactStorageId) {
+            const artifact = await readJsonFromStorage(ctx, candidateArtifactStorageId);
+            index = buildGroundedEvidenceIndexFromArtifact({
+                artifact,
+                uploadId: String(args.uploadId),
+            });
+        }
+
+        if (!index || !Array.isArray(index?.passages)) {
+            throw new Error("Evidence index unavailable for evidence passage materialization");
+        }
+
+        await ctx.runMutation(api.uploads.updateUploadStatus, {
+            uploadId: args.uploadId,
+            status: String(upload.status || "processing"),
+            embeddingsStatus: "running",
+            embeddingsVersion: OPENAI_EMBEDDINGS_VERSION,
+        });
+
+        const materialized = await buildMaterializedEvidenceRows({
+            upload,
+            courseId,
+            passages: index.passages,
+        });
+
+        const rowChunks = chunkArray(materialized.rows, EVIDENCE_PASSAGE_WRITE_BATCH_SIZE);
+        await ctx.runMutation((internal as any).grounded.clearEvidencePassagesForUpload, {
+            uploadId: args.uploadId,
+        });
+        for (const rowChunk of rowChunks) {
+            await ctx.runMutation((internal as any).grounded.insertEvidencePassageBatch, {
+                rows: rowChunk,
+            });
+        }
+
+        await ctx.runMutation(api.uploads.updateUploadStatus, {
+            uploadId: args.uploadId,
+            status: String(upload.status || "processing"),
+            embeddingsStatus: materialized.embeddingsStatus,
+            embeddingsVersion: materialized.embeddingModel || OPENAI_EMBEDDINGS_VERSION,
+            embeddedPassageCount: materialized.embeddedPassageCount,
+            evidencePassageCount: materialized.rows.length,
+        });
+
+        return {
+            uploadId: args.uploadId,
+            skipped: false,
+            insertedCount: materialized.rows.length,
+            embeddedPassageCount: materialized.embeddedPassageCount,
+            embeddingsStatus: materialized.embeddingsStatus,
+            embeddingModel: materialized.embeddingModel || OPENAI_EMBEDDINGS_VERSION,
+        };
+    },
+});
+
 export const buildEvidenceIndex = internalAction({
     args: {
         uploadId: v.id("uploads"),
@@ -408,6 +750,14 @@ export const buildEvidenceIndex = internalAction({
                 uploadId: String(args.uploadId),
             });
             const storageId = await writeJsonToStorage(ctx, index);
+            const materialization = await ctx.runAction(
+                (internal as any).grounded.materializeEvidencePassagesForUpload,
+                {
+                    uploadId: args.uploadId,
+                    evidenceIndexStorageId: storageId,
+                    artifactStorageId,
+                }
+            );
 
             await ctx.runMutation(api.uploads.updateUploadStatus, {
                 uploadId: args.uploadId,
@@ -415,6 +765,9 @@ export const buildEvidenceIndex = internalAction({
                 evidenceIndexStorageId: storageId,
                 evidenceIndexVersion: index.version,
                 evidencePassageCount: index.passageCount,
+                embeddingsStatus: materialization?.embeddingsStatus,
+                embeddingsVersion: materialization?.embeddingModel || OPENAI_EMBEDDINGS_VERSION,
+                embeddedPassageCount: Number(materialization?.embeddedPassageCount || 0),
             });
 
             await ctx.runMutation((internal as any).grounded.insertUploadEvidenceIndexRecord, {
@@ -430,6 +783,8 @@ export const buildEvidenceIndex = internalAction({
                 storageId,
                 version: index.version,
                 passageCount: index.passageCount,
+                embeddedPassageCount: Number(materialization?.embeddedPassageCount || 0),
+                embeddingsStatus: materialization?.embeddingsStatus || "pending",
             };
         } catch (error) {
             await ctx.runMutation((internal as any).grounded.insertUploadEvidenceIndexRecord, {
@@ -439,6 +794,13 @@ export const buildEvidenceIndex = internalAction({
                 passageCount: 0,
                 status: "failed",
                 errorSummary: toErrorSummary(error),
+            });
+            await ctx.runMutation(api.uploads.updateUploadStatus, {
+                uploadId: args.uploadId,
+                status: String(upload.status || "processing"),
+                embeddingsStatus: "failed",
+                embeddingsVersion: OPENAI_EMBEDDINGS_VERSION,
+                embeddedPassageCount: 0,
             });
             throw error;
         }
@@ -517,6 +879,48 @@ export const generateGroundedConceptForTopic = internalAction({
         return {
             skipped: true,
             reason: "userId_required_for_concept_generation",
+        };
+    },
+});
+
+export const backfillEvidencePassages = internalAction({
+    args: {
+        days: v.optional(v.number()),
+        limit: v.optional(v.number()),
+    },
+    handler: async (ctx, args) => {
+        const uploads = await ctx.runQuery((internal as any).grounded.listBackfillUploads, {
+            days: args.days,
+            limit: args.limit,
+        }) as UploadDoc[];
+
+        const scheduledUploads: string[] = [];
+        for (const upload of uploads) {
+            if (upload.evidenceIndexStorageId) {
+                await ctx.scheduler.runAfter(0, (internal as any).grounded.materializeEvidencePassagesForUpload, {
+                    uploadId: upload._id,
+                    evidenceIndexStorageId: upload.evidenceIndexStorageId,
+                    artifactStorageId: upload.extractionArtifactStorageId,
+                });
+                scheduledUploads.push(String(upload._id));
+                continue;
+            }
+
+            if (upload.extractionArtifactStorageId) {
+                await ctx.scheduler.runAfter(0, (internal as any).grounded.buildEvidenceIndex, {
+                    uploadId: upload._id,
+                    artifactStorageId: upload.extractionArtifactStorageId,
+                });
+                scheduledUploads.push(String(upload._id));
+            }
+        }
+
+        return {
+            days: args.days,
+            limit: args.limit,
+            scannedCount: uploads.length,
+            scheduledCount: scheduledUploads.length,
+            scheduledUploadIds: scheduledUploads,
         };
     },
 });

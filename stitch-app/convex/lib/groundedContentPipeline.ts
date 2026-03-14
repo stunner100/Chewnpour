@@ -41,7 +41,7 @@ export const createGroundedAcceptanceMetrics = (): GroundedAcceptanceMetrics => 
     llmRejected: 0,
 });
 
-export const selectEvidenceForGroundedType = (args: {
+export const selectEvidenceForGroundedType = async (args: {
     index: GroundedEvidenceIndex;
     type: GroundedContentType;
     topicTitle: string;
@@ -61,12 +61,13 @@ export const selectEvidenceForGroundedType = (args: {
             ? ["formula"]
             : ["table"];
 
-    return retrieveGroundedEvidence({
+    const retrieval = await retrieveGroundedEvidence({
         index: args.index,
         query,
         limit: target,
         preferFlags,
     });
+    return retrieval.evidence;
 };
 
 export const buildEvidenceSnippet = (evidence: RetrievedEvidence[]) =>

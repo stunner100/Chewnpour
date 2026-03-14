@@ -855,6 +855,9 @@ const getGroundedEvidencePackForTopic = async (args: {
     topic: any;
     type: "mcq" | "essay" | "concept";
     keyPoints?: string[];
+    queryFragments?: string[];
+    limitOverride?: number;
+    preferFlagsOverride?: string[];
 }) => {
     const { index, upload } = await loadGroundedEvidenceIndexForTopic(args.ctx, args.topic);
     if (!index) {
@@ -863,32 +866,61 @@ const getGroundedEvidencePackForTopic = async (args: {
             index: null,
             evidence: [] as RetrievedEvidence[],
             evidenceSnippet: "",
+            retrievalMode: "hybrid_lexical_only" as const,
+            lexicalHitCount: 0,
+            vectorHitCount: 0,
+            embeddingBacklogCount: Math.max(
+                0,
+                Number(upload?.evidencePassageCount || 0) - Number(upload?.embeddedPassageCount || 0)
+            ),
+            retrievalLatencyMs: 0,
         };
     }
 
-    const limit = args.type === "essay" ? 24 : args.type === "mcq" ? 18 : 8;
-    const preferFlags = args.type === "essay"
+    const limit = args.limitOverride || (args.type === "essay" ? 24 : args.type === "mcq" ? 18 : 8);
+    const preferFlags = args.preferFlagsOverride || (args.type === "essay"
         ? ["table", "formula"]
         : args.type === "concept"
             ? ["formula"]
-            : ["table"];
+            : ["table"]);
     const query = [
         String(args.topic?.title || ""),
         String(args.topic?.description || ""),
         ...(Array.isArray(args.keyPoints) ? args.keyPoints : []),
+        ...(Array.isArray(args.queryFragments) ? args.queryFragments : []),
     ].join(" ");
 
-    const evidence = retrieveGroundedEvidence({
+    const retrieval = await retrieveGroundedEvidence({
+        ctx: args.ctx,
         index,
         query,
         limit,
         preferFlags,
+        uploadId: upload?._id,
+        embeddingBacklogCount: Math.max(
+            0,
+            Number(upload?.evidencePassageCount || 0) - Number(upload?.embeddedPassageCount || 0)
+        ),
+    });
+    console.info("[GroundedRetrieval] topic_retrieval_completed", {
+        topicId: String(args.topic?._id || ""),
+        type: args.type,
+        retrievalMode: retrieval.retrievalMode,
+        lexicalHitCount: retrieval.lexicalHitCount,
+        vectorHitCount: retrieval.vectorHitCount,
+        embeddingBacklogCount: retrieval.embeddingBacklogCount,
+        retrievalLatencyMs: retrieval.latencyMs,
     });
     return {
         upload,
         index,
-        evidence,
-        evidenceSnippet: buildEvidenceSnippet(evidence),
+        evidence: retrieval.evidence,
+        evidenceSnippet: buildEvidenceSnippet(retrieval.evidence),
+        retrievalMode: retrieval.retrievalMode,
+        lexicalHitCount: retrieval.lexicalHitCount,
+        vectorHitCount: retrieval.vectorHitCount,
+        embeddingBacklogCount: retrieval.embeddingBacklogCount,
+        retrievalLatencyMs: retrieval.latencyMs,
     };
 };
 
@@ -3107,13 +3139,13 @@ const generateTopicContentForIndex = async (args: {
             : []
     );
     if (args.evidenceIndex) {
-        const alignedEvidence = retrieveGroundedEvidence({
+        const alignedRetrieval = await retrieveGroundedEvidence({
             index: args.evidenceIndex,
             query: `${safeTopicTitle} ${topicData.description || ""} ${keyPoints.join(" ")}`,
             limit: 12,
             preferFlags: ["table", "formula"],
         });
-        for (const evidence of alignedEvidence) {
+        for (const evidence of alignedRetrieval.evidence) {
             const passageId = String(evidence?.passageId || "").trim();
             if (passageId) sourcePassageIds.add(passageId);
         }
@@ -4091,11 +4123,23 @@ export const askTopicTutor = action({
                 content: String(m.content || ""),
             }));
 
+        const groundedPack = await getGroundedEvidencePackForTopic({
+            ctx,
+            topic,
+            type: "essay",
+            queryFragments: [question],
+            limitOverride: 12,
+            preferFlagsOverride: ["table", "formula"],
+        });
+
         // Build topic context
         const topicContext =
             `LESSON TITLE: ${topic.title || ""}\n` +
             `LESSON DESCRIPTION: ${topic.description || ""}\n` +
             `LESSON CONTENT:\n"""\n${String(topic.content || "").slice(0, 12000)}\n"""`;
+        const sourceEvidenceContext = groundedPack.evidenceSnippet
+            ? `\nSOURCE EVIDENCE:\n${groundedPack.evidenceSnippet}`
+            : "";
 
         const tutorResponse = await callInception(
             [
@@ -4104,7 +4148,7 @@ export const askTopicTutor = action({
                     content:
                         "You are StudyMate AI Tutor. You help students understand their lesson material. " +
                         "Rules: " +
-                        "1) Answer based on the LESSON CONTENT provided below. " +
+                        "1) Answer based on the LESSON CONTENT and SOURCE EVIDENCE provided below. " +
                         "2) If the student asks something outside the lesson scope, briefly acknowledge it and redirect to what the lesson covers. " +
                         "3) Use clear, encouraging language appropriate for the student. " +
                         "4) Give concrete examples from the lesson material when possible. " +
@@ -4114,7 +4158,7 @@ export const askTopicTutor = action({
                 },
                 {
                     role: "user",
-                    content: `${topicContext}\n\nRECENT CONVERSATION:\n${formatHistoryForPrompt(recentMessages)}\n\nSTUDENT QUESTION:\n${question}`,
+                    content: `${topicContext}${sourceEvidenceContext}\n\nRECENT CONVERSATION:\n${formatHistoryForPrompt(recentMessages)}\n\nSTUDENT QUESTION:\n${question}`,
                 },
             ],
             DEFAULT_MODEL,
@@ -6973,6 +7017,16 @@ Give extra attention to explaining these concepts clearly. Weave them naturally 
 
         const requestedStyle = String(style || "Teach me like I’m 12").trim() || "Teach me like I’m 12";
         const normalizedStyle = requestedStyle.toLowerCase();
+
+        const groundedPack = await getGroundedEvidencePackForTopic({
+            ctx,
+            topic,
+            type: "essay",
+            keyPoints: extractTopicKeywords(`${topic.title} ${topic.description || ""}`),
+            queryFragments: [requestedStyle || style],
+            limitOverride: 16,
+            preferFlagsOverride: ["table", "formula"],
+        });
         if (GHANAIAN_PIDGIN_STYLE_PATTERN.test(normalizedStyle)) {
             const pidginContent = await generateGhanaianPidginRewrite({
                 topicTitle: topic.title,
@@ -7080,6 +7134,11 @@ TOPIC: ${topic.title}
 ORIGINAL LESSON:
 """
 ${(topic.content || "").slice(0, 6000)}
+"""
+
+SOURCE EVIDENCE:
+"""
+${groundedPack.evidenceSnippet || "No additional evidence available."}
 """
 
 ${styleInstruction}
@@ -7346,18 +7405,26 @@ export const explainSelection = action({
         const instruction = styleInstructions[args.style] || styleInstructions.explain;
         const selectedText = args.selectedText.slice(0, 1000);
         const topicContent = String(topic.content || "").slice(0, 8000);
+        const groundedPack = await getGroundedEvidencePackForTopic({
+            ctx,
+            topic,
+            type: "concept",
+            queryFragments: [selectedText, args.style],
+            limitOverride: 10,
+            preferFlagsOverride: ["table", "formula"],
+        });
 
         const response = await callInception([
             {
                 role: "system",
                 content: `You are a study tutor helping a ${audienceLabel} understand their lesson.
 ${instruction}
-Use the full lesson content as context but focus your explanation on the selected text.
+Use the full lesson content and retrieved source evidence as context but focus your explanation on the selected text.
 Keep your response concise — 2 to 4 short paragraphs. Use plain text only (no markdown headers or bullet points).`,
             },
             {
                 role: "user",
-                content: `FULL LESSON:\n"""\n${topicContent}\n"""\n\nSELECTED TEXT TO EXPLAIN:\n"""\n${selectedText}\n"""`,
+                content: `FULL LESSON:\n"""\n${topicContent}\n"""\n\nSOURCE EVIDENCE:\n"""\n${groundedPack.evidenceSnippet || ""}\n"""\n\nSELECTED TEXT TO EXPLAIN:\n"""\n${selectedText}\n"""`,
             },
         ], DEFAULT_MODEL, {
             maxTokens: 400,

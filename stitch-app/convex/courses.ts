@@ -1,5 +1,6 @@
 import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
+import { internal } from "./_generated/api";
 
 // Get all courses for a user
 export const getUserCourses = query({
@@ -91,6 +92,11 @@ export const createCourse = mutation({
             status: "in_progress",
         });
 
+        void ctx.scheduler.runAfter(0, (internal as any).search.upsertSearchDocumentsForEntity, {
+            kind: "course",
+            entityId: courseId,
+        }).catch(() => undefined);
+
         return courseId;
     },
 });
@@ -126,6 +132,10 @@ export const updateCourse = mutation({
         if (updates.coverColor !== undefined) cleanUpdates.coverColor = updates.coverColor;
 
         await ctx.db.patch(courseId, cleanUpdates);
+        void ctx.scheduler.runAfter(0, (internal as any).search.upsertSearchDocumentsForEntity, {
+            kind: "course",
+            entityId: courseId,
+        }).catch(() => undefined);
     },
 });
 
@@ -193,10 +203,33 @@ export const deleteCourse = mutation({
                 await ctx.db.delete(attempt._id);
             }
 
+            const notes = await ctx.db
+                .query("topicNotes")
+                .withIndex("by_topicId", (q) => q.eq("topicId", topic._id))
+                .collect();
+            for (const note of notes) {
+                await ctx.db.delete(note._id);
+                void ctx.scheduler.runAfter(0, (internal as any).search.deleteSearchDocumentsForEntity, {
+                    kind: "note",
+                    entityId: note._id,
+                    userId: note.userId,
+                }).catch(() => undefined);
+            }
+
             await ctx.db.delete(topic._id);
+            void ctx.scheduler.runAfter(0, (internal as any).search.deleteSearchDocumentsForEntity, {
+                kind: "topic",
+                entityId: topic._id,
+                userId: course.userId,
+            }).catch(() => undefined);
         }
 
         await ctx.db.delete(args.courseId);
+        void ctx.scheduler.runAfter(0, (internal as any).search.deleteSearchDocumentsForEntity, {
+            kind: "course",
+            entityId: args.courseId,
+            userId: course.userId,
+        }).catch(() => undefined);
 
         if (course.uploadId) {
             const userCourses = await ctx.db
