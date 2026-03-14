@@ -25,6 +25,7 @@ const toNonNegativeInt = (value, fallback = 0) => {
 };
 
 const DEFAULT_TOP_UP_OPTIONS = [
+    { id: 'first-time-starter', amountMajor: 15, credits: 5, currency: 'GHS' },
     { id: 'starter', amountMajor: 20, credits: 5, currency: 'GHS' },
     { id: 'max', amountMajor: 40, credits: 12, currency: 'GHS' },
     { id: 'semester', amountMajor: 60, credits: 20, currency: 'GHS', validityDays: 120, unlimitedAiChat: true },
@@ -53,10 +54,10 @@ const Subscription = () => {
     );
 
     const safeQuota = quota || {
-        freeLimit: 1,
+        freeLimit: 3,
         purchasedCredits: 0,
         consumedCredits: 0,
-        totalAllowed: 1,
+        totalAllowed: 3,
         remaining: 0,
         canTopUp: true,
         topUpPriceMajor: 20,
@@ -176,6 +177,19 @@ const Subscription = () => {
                             {error}
                         </div>
                     )}
+                    {!error && remaining === 0 && (
+                        <div className="rounded-2xl border border-red-200 bg-red-50 dark:bg-red-900/20 dark:border-red-800 px-4 py-3 flex items-start gap-3">
+                            <span className="material-symbols-outlined text-red-500 text-[20px] mt-0.5">warning</span>
+                            <div>
+                                <p className="text-sm font-bold text-red-700 dark:text-red-300">
+                                    You have no uploads remaining
+                                </p>
+                                <p className="text-xs text-red-600 dark:text-red-400 mt-0.5">
+                                    Your classmates are studying with AI right now. Top up to keep up and ace your exams.
+                                </p>
+                            </div>
+                        </div>
+                    )}
 
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                         <div className="rounded-2xl border border-neutral-200 dark:border-neutral-700 p-4">
@@ -199,10 +213,11 @@ const Subscription = () => {
                             <div>
                                 <p className="text-xs font-bold uppercase tracking-wider text-neutral-400">Top-Up Plans</p>
                             </div>
-                            <div className="grid grid-cols-1 md:grid-cols-3 gap-3 pt-4 items-start">
+                            <div className={`grid grid-cols-1 ${topUpOptions.length > 3 ? 'md:grid-cols-4' : 'md:grid-cols-3'} gap-3 pt-4 items-start`}>
                                 {topUpOptions.map((plan) => {
                                     const active = plan.id === selectedTopUpPlan?.id;
                                     const isSemester = plan.id === 'semester';
+                                    const isFirstTime = plan.id === 'first-time-starter';
                                     return (
                                         <button
                                             key={plan.id}
@@ -211,16 +226,25 @@ const Subscription = () => {
                                             className={`relative rounded-xl border px-4 py-3 text-left transition-colors ${
                                                 isSemester && active
                                                     ? 'border-emerald-500 bg-emerald-500/10 ring-1 ring-emerald-500/30'
-                                                    : active
-                                                        ? 'border-primary bg-primary/10'
-                                                        : isSemester
-                                                            ? 'border-emerald-300 dark:border-emerald-700 bg-white dark:bg-neutral-900'
-                                                            : 'border-neutral-200 dark:border-neutral-600 bg-white dark:bg-neutral-900'
+                                                    : isFirstTime && active
+                                                        ? 'border-amber-500 bg-amber-500/10 ring-1 ring-amber-500/30'
+                                                        : active
+                                                            ? 'border-primary bg-primary/10'
+                                                            : isSemester
+                                                                ? 'border-emerald-300 dark:border-emerald-700 bg-white dark:bg-neutral-900'
+                                                                : isFirstTime
+                                                                    ? 'border-amber-300 dark:border-amber-700 bg-white dark:bg-neutral-900'
+                                                                    : 'border-neutral-200 dark:border-neutral-600 bg-white dark:bg-neutral-900'
                                             }`}
                                         >
                                             {isSemester && (
                                                 <span className="absolute -top-2.5 right-3 px-2 py-0.5 bg-emerald-500 text-white text-[10px] font-bold uppercase tracking-widest rounded-full shadow-sm">
                                                     Best Value
+                                                </span>
+                                            )}
+                                            {isFirstTime && (
+                                                <span className="absolute -top-2.5 right-3 px-2 py-0.5 bg-amber-500 text-white text-[10px] font-bold uppercase tracking-widest rounded-full shadow-sm">
+                                                    First Purchase
                                                 </span>
                                             )}
                                             <p className="text-lg font-bold text-neutral-900 dark:text-white">
@@ -229,6 +253,11 @@ const Subscription = () => {
                                             <p className="text-sm text-neutral-500 dark:text-neutral-400">
                                                 +{plan.credits} uploads
                                             </p>
+                                            {isFirstTime && (
+                                                <p className="mt-1 text-xs text-amber-600 dark:text-amber-400 font-semibold">
+                                                    25% off your first top-up
+                                                </p>
+                                            )}
                                             {isSemester && (
                                                 <div className="mt-1.5 space-y-0.5">
                                                     <p className="text-xs text-emerald-600 dark:text-emerald-400 font-semibold">
@@ -253,7 +282,7 @@ const Subscription = () => {
                                 </p>
                                 <div className="inline-flex items-center gap-2 text-xs font-bold text-neutral-500">
                                     <span className="material-symbols-outlined text-base">verified_user</span>
-                                    Secured by Paystack
+                                    Mobile Money, Visa &amp; Mastercard — Secured by Paystack
                                 </div>
                             </div>
                         </div>

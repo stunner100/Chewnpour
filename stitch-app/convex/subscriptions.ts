@@ -8,7 +8,7 @@ import {
 } from "./_generated/server";
 import { internal } from "./_generated/api";
 
-export const FREE_UPLOAD_LIMIT = 1;
+export const FREE_UPLOAD_LIMIT = 3;
 export const TOPUP_CURRENCY = "GHS";
 export const TOPUP_PLANS = [
     {
@@ -32,6 +32,13 @@ export const TOPUP_PLANS = [
         unlimitedAiChat: true,
     },
 ] as const;
+
+const FIRST_TIME_STARTER_PLAN = {
+    id: "first-time-starter" as const,
+    amountMajor: 15,
+    amountMinor: 1500,
+    credits: 5,
+};
 
 const DEFAULT_TOPUP_PLAN = TOPUP_PLANS[0];
 const PAYSTACK_PROVIDER = "paystack";
@@ -76,8 +83,22 @@ const buildLocalizedTopUpPlan = (plan: typeof TOPUP_PLANS[number]) => ({
     ...("unlimitedAiChat" in plan ? { unlimitedAiChat: plan.unlimitedAiChat } : {}),
 });
 
-const buildLocalizedTopUpOptions = () =>
-    TOPUP_PLANS.map((plan) => buildLocalizedTopUpPlan(plan));
+const buildLocalizedTopUpOptions = (opts?: { includeFirstTime?: boolean }) => {
+    const plans: Array<ReturnType<typeof buildLocalizedTopUpPlan>> = [];
+    if (opts?.includeFirstTime) {
+        plans.push({
+            id: FIRST_TIME_STARTER_PLAN.id,
+            amountMajor: FIRST_TIME_STARTER_PLAN.amountMajor,
+            amountMinor: FIRST_TIME_STARTER_PLAN.amountMinor,
+            credits: FIRST_TIME_STARTER_PLAN.credits,
+            currency: TOPUP_CURRENCY,
+        });
+    }
+    for (const plan of TOPUP_PLANS) {
+        plans.push(buildLocalizedTopUpPlan(plan));
+    }
+    return plans;
+};
 
 const buildTopUpOptionsCopy = (
     options: Array<{ amountMajor: number; credits: number; currency: string }>
@@ -97,6 +118,15 @@ const resolveTopUpPlanById = (
 ) => {
     const normalizedId = String(planId || "").trim().toLowerCase();
     if (!normalizedId) return null;
+    if (normalizedId === FIRST_TIME_STARTER_PLAN.id) {
+        return {
+            id: FIRST_TIME_STARTER_PLAN.id,
+            amountMajor: FIRST_TIME_STARTER_PLAN.amountMajor,
+            amountMinor: FIRST_TIME_STARTER_PLAN.amountMinor,
+            credits: FIRST_TIME_STARTER_PLAN.credits,
+            currency: TOPUP_CURRENCY,
+        };
+    }
     const basePlan = TOPUP_PLANS.find((plan) => plan.id === normalizedId);
     if (!basePlan) return null;
     return buildLocalizedTopUpPlan(basePlan);
@@ -106,6 +136,17 @@ const resolveTopUpPlanByPayment = (amountMinor: number, currency: string) => {
     const normalizedAmountMinor = toNonNegativeInt(amountMinor);
     const normalizedCurrency = normalizeCurrency(currency);
     if (normalizedCurrency !== TOPUP_CURRENCY) return null;
+
+    // Check first-time plan
+    if (toNonNegativeInt(FIRST_TIME_STARTER_PLAN.amountMinor) === normalizedAmountMinor) {
+        return {
+            id: FIRST_TIME_STARTER_PLAN.id,
+            amountMajor: FIRST_TIME_STARTER_PLAN.amountMajor,
+            amountMinor: FIRST_TIME_STARTER_PLAN.amountMinor,
+            credits: FIRST_TIME_STARTER_PLAN.credits,
+            currency: TOPUP_CURRENCY,
+        };
+    }
 
     const plan = TOPUP_PLANS.find((item) => toNonNegativeInt(item.amountMinor) === normalizedAmountMinor);
     return plan ? buildLocalizedTopUpPlan(plan) : null;
@@ -293,7 +334,9 @@ const buildUploadQuotaSnapshot = (params: {
     const consumedCredits = toNonNegativeInt(params.consumedCredits);
     const totalAllowed = FREE_UPLOAD_LIMIT + purchasedCredits;
     const remaining = Math.max(0, totalAllowed - consumedCredits);
-    const topUpOptions = buildLocalizedTopUpOptions();
+    const topUpOptions = buildLocalizedTopUpOptions({
+        includeFirstTime: purchasedCredits === 0,
+    });
     const defaultTopUpPlan = topUpOptions[0] || buildLocalizedTopUpPlan(DEFAULT_TOPUP_PLAN);
 
     return {
