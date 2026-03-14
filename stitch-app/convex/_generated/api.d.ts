@@ -30,6 +30,7 @@ import type * as lib_documentExtractionPipeline from "../lib/documentExtractionP
 import type * as lib_examAttemptReuse from "../lib/examAttemptReuse.js";
 import type * as lib_examQuestionSelection from "../lib/examQuestionSelection.js";
 import type * as lib_examSecurity from "../lib/examSecurity.js";
+import type * as lib_geminiEmbeddings from "../lib/geminiEmbeddings.js";
 import type * as lib_groundedContentPipeline from "../lib/groundedContentPipeline.js";
 import type * as lib_groundedEvidenceIndex from "../lib/groundedEvidenceIndex.js";
 import type * as lib_groundedGeneration from "../lib/groundedGeneration.js";
@@ -40,7 +41,6 @@ import type * as lib_illustrationUrl from "../lib/illustrationUrl.js";
 import type * as lib_llmProviderFallback from "../lib/llmProviderFallback.js";
 import type * as lib_mcqUniqueness from "../lib/mcqUniqueness.js";
 import type * as lib_nativeExtractors from "../lib/nativeExtractors.js";
-import type * as lib_openaiEmbeddings from "../lib/openaiEmbeddings.js";
 import type * as lib_questionBankConfig from "../lib/questionBankConfig.js";
 import type * as lib_questionPromptSimilarity from "../lib/questionPromptSimilarity.js";
 import type * as lib_topicGenerationProgress from "../lib/topicGenerationProgress.js";
@@ -85,6 +85,7 @@ declare const fullApi: ApiFromModules<{
   "lib/examAttemptReuse": typeof lib_examAttemptReuse;
   "lib/examQuestionSelection": typeof lib_examQuestionSelection;
   "lib/examSecurity": typeof lib_examSecurity;
+  "lib/geminiEmbeddings": typeof lib_geminiEmbeddings;
   "lib/groundedContentPipeline": typeof lib_groundedContentPipeline;
   "lib/groundedEvidenceIndex": typeof lib_groundedEvidenceIndex;
   "lib/groundedGeneration": typeof lib_groundedGeneration;
@@ -95,7 +96,6 @@ declare const fullApi: ApiFromModules<{
   "lib/llmProviderFallback": typeof lib_llmProviderFallback;
   "lib/mcqUniqueness": typeof lib_mcqUniqueness;
   "lib/nativeExtractors": typeof lib_nativeExtractors;
-  "lib/openaiEmbeddings": typeof lib_openaiEmbeddings;
   "lib/questionBankConfig": typeof lib_questionBankConfig;
   "lib/questionPromptSimilarity": typeof lib_questionPromptSimilarity;
   "lib/topicGenerationProgress": typeof lib_topicGenerationProgress;
