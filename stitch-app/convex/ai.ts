@@ -2171,6 +2171,21 @@ const calculateQuestionBankTarget = (topicContent: string, profile: any) => {
     });
 };
 
+const resolveStoredTargetCount = (value: any, fallback: number) => {
+    const normalizedFallback = Math.max(1, Math.round(Number(fallback) || 1));
+    const numeric = Number(value);
+    if (!Number.isFinite(numeric) || numeric <= 0) return normalizedFallback;
+    return Math.max(1, Math.round(numeric));
+};
+
+const countUsableEssayQuestions = (questions: any[]) => {
+    const items = Array.isArray(questions) ? questions : [];
+    return items.filter((question: any) => {
+        if (String(question?.questionType || "").toLowerCase() !== "essay") return false;
+        return isUsableExamQuestion(question, { allowEssay: true });
+    }).length;
+};
+
 const normalizeTimingMs = (value: any) => {
     const numeric = Number(value);
     if (!Number.isFinite(numeric)) return 0;
@@ -3004,14 +3019,48 @@ const scheduleExamQuestionPrebuildForTopic = async (args: {
     reason: "topic_created" | "upload_completion";
 }) => {
     const { ctx, courseId, uploadId, topicId, topicIndex, reason } = args;
+    const topicSnapshot = await ctx.runQuery(internal.topics.getTopicWithQuestionsInternal, {
+        topicId,
+    });
+    const existingMcqCount = countUsableUniqueMcqQuestions(topicSnapshot?.questions || []);
+    const existingEssayCount = countUsableEssayQuestions(topicSnapshot?.questions || []);
+    const mcqTargetCount = resolveStoredTargetCount(
+        topicSnapshot?.mcqTargetCount,
+        calculateQuestionBankTarget(String(topicSnapshot?.content || ""), QUESTION_BANK_BACKGROUND_PROFILE),
+    );
+    const essayTargetCount = resolveStoredTargetCount(
+        topicSnapshot?.essayTargetCount,
+        Math.min(TOPIC_EXAM_PREBUILD_ESSAY_COUNT, ESSAY_QUESTION_TARGET_MAX_COUNT),
+    );
+    const needsMcqBackfill = existingMcqCount < mcqTargetCount;
+    const needsEssayBackfill = existingEssayCount < essayTargetCount;
 
-    await ctx.scheduler.runAfter(0, internal.ai.generateQuestionsForTopicInternal, {
-        topicId,
-    });
-    await ctx.scheduler.runAfter(0, internal.ai.generateEssayQuestionsForTopicInternal, {
-        topicId,
-        count: TOPIC_EXAM_PREBUILD_ESSAY_COUNT,
-    });
+    if (!needsMcqBackfill && !needsEssayBackfill) {
+        console.info("[CourseGeneration] exam_prebuild_skipped_already_ready", {
+            courseId,
+            uploadId,
+            topicId,
+            topicIndex,
+            reason,
+            existingMcqCount,
+            mcqTargetCount,
+            existingEssayCount,
+            essayTargetCount,
+        });
+        return;
+    }
+
+    if (needsMcqBackfill) {
+        await ctx.scheduler.runAfter(0, internal.ai.generateQuestionsForTopicInternal, {
+            topicId,
+        });
+    }
+    if (needsEssayBackfill) {
+        await ctx.scheduler.runAfter(0, internal.ai.generateEssayQuestionsForTopicInternal, {
+            topicId,
+            count: TOPIC_EXAM_PREBUILD_ESSAY_COUNT,
+        });
+    }
 
     console.info("[CourseGeneration] exam_prebuild_scheduled", {
         courseId,
@@ -3019,6 +3068,12 @@ const scheduleExamQuestionPrebuildForTopic = async (args: {
         topicId,
         topicIndex,
         reason,
+        needsMcqBackfill,
+        needsEssayBackfill,
+        existingMcqCount,
+        mcqTargetCount,
+        existingEssayCount,
+        essayTargetCount,
         essayCount: TOPIC_EXAM_PREBUILD_ESSAY_COUNT,
     });
 };
@@ -4428,6 +4483,72 @@ const generateQuestionBankForTopic = async (
     }
     const getUniqueQuestionCount = () => existingQuestionSignatures.length;
     const initialCount = getUniqueQuestionCount();
+    const quickTargetCount = resolveStoredTargetCount(
+        topicWithQuestions?.mcqTargetCount,
+        calculateQuestionBankTarget(topicContent, profile),
+    );
+    if (initialCount >= quickTargetCount) {
+        await ctx.runMutation(internal.topics.refreshTopicExamReadinessInternal, {
+            topicId,
+            mcqTargetCount: quickTargetCount,
+        });
+        timingBreakdown.setupMs = normalizeTimingMs(Date.now() - setupStartedAt);
+        const durationMs = normalizeTimingMs(Date.now() - overallStartedAt);
+        const measuredMs = timingBreakdown.lockProbeMs + timingBreakdown.setupMs;
+        const diagnostics = {
+            outcome: "already_generated_quick_path",
+            runMode,
+            startedAt: overallStartedAt,
+            finishedAt: Date.now(),
+            durationMs,
+            lock: {
+                probeMs: timingBreakdown.lockProbeMs,
+                waitMs: timingBreakdown.lockWaitMs,
+                lockedUntil: Number(options?.lockedUntil || 0),
+                ttlMs: normalizeTimingMs(options?.lockTtlMs),
+            },
+            target: {
+                initialCount,
+                finalCount: initialCount,
+                remainingNeeded: 0,
+                requestedTargetCount: quickTargetCount,
+                targetCount: quickTargetCount,
+                evidenceRichnessCap: null,
+                wordCountTarget: quickTargetCount,
+                evidenceCapEstimatedCapacity: null,
+                evidenceCapPassageDrivenCap: null,
+                evidenceCapBroadTopicPenaltyApplied: false,
+                evidenceCapUniquePassageCount: 0,
+                retrievedEvidenceCount: 0,
+                retrievedEvidencePassageCount: 0,
+            },
+            counts: {
+                ...countBreakdown,
+                nearDuplicateSkips,
+                groundingRejects,
+            },
+            timings: {
+                ...timingBreakdown,
+                otherMs: Math.max(0, durationMs - measuredMs),
+            },
+        };
+        console.info("[QuestionBank] timing_breakdown", {
+            topicId,
+            topicTitle: topicWithQuestions.title,
+            diagnostics,
+        });
+        return {
+            success: true,
+            alreadyGenerated: true,
+            count: initialCount,
+            added: 0,
+            targetCount: quickTargetCount,
+            requestedTargetCount: quickTargetCount,
+            evidenceRichnessCap: quickTargetCount,
+            wordCountTarget: quickTargetCount,
+            diagnostics,
+        };
+    }
     const groundedPack = await getGroundedEvidencePackForTopic({
         ctx,
         topic: topicWithQuestions,
@@ -5300,18 +5421,25 @@ export const generateQuestionsForTopic = action({
             await releaseMcqGenerationLock(ctx, args.topicId);
         }
 
-        // Continue expanding older/smaller topic banks in the background.
-        void ctx.scheduler.runAfter(0, internal.ai.generateQuestionsForTopicInternal, {
-            topicId: args.topicId,
-        }).catch(() => {
-            // Best effort backfill only; interactive call already returned.
-        });
-        void ctx.scheduler.runAfter(0, internal.ai.generateEssayQuestionsForTopicInternal, {
-            topicId: args.topicId,
-            count: TOPIC_EXAM_PREBUILD_ESSAY_COUNT,
-        }).catch(() => {
-            // Best effort essay backfill only; interactive call already returned.
-        });
+        const currentCount = Number(result?.count || 0);
+        const currentTargetCount = resolveStoredTargetCount(
+            result?.targetCount,
+            calculateQuestionBankTarget("", QUESTION_BANK_INTERACTIVE_PROFILE),
+        );
+        if (currentCount < currentTargetCount) {
+            // Continue expanding older/smaller topic banks in the background.
+            void ctx.scheduler.runAfter(0, internal.ai.generateQuestionsForTopicInternal, {
+                topicId: args.topicId,
+            }).catch(() => {
+                // Best effort backfill only; interactive call already returned.
+            });
+            void ctx.scheduler.runAfter(0, internal.ai.generateEssayQuestionsForTopicInternal, {
+                topicId: args.topicId,
+                count: TOPIC_EXAM_PREBUILD_ESSAY_COUNT,
+            }).catch(() => {
+                // Best effort essay backfill only; interactive call already returned.
+            });
+        }
 
         return result;
     },
@@ -5668,8 +5796,13 @@ export const generateEssayQuestionsForTopicInternal = internalAction({
             Math.round(Number(result?.targetCount || requestedCount))
         );
         const currentCount = Number(result?.count || 0);
+        const madeProgress = Number(result?.added || 0) > 0;
+        const timedOut = result?.timedOut === true;
+        const insufficientEvidence = result?.abstained === true || String(result?.reason || "") === "INSUFFICIENT_EVIDENCE";
         const shouldRetry =
             currentCount < desiredReadyCount
+            && !insufficientEvidence
+            && (timedOut || madeProgress)
             && retryAttempt < ESSAY_QUESTION_BACKGROUND_MAX_RETRIES;
 
         if (shouldRetry) {
