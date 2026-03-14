@@ -1064,33 +1064,36 @@ export const runDocumentExtractionPipeline = async (
     );
 
     const azurePollAttempts = args.mode === "background" ? 45 : 30;
-    const layoutPassWithTrace = await runPassWithTrace("azure_layout", async () =>
-        runAzurePass({
-            fileBuffer: layoutBuffer,
-            contentType,
-            fileType: normalizedFileType,
-            model: "prebuilt-layout",
-            mode: args.mode,
-            startedAt,
-            maxDurationMs: args.maxDurationMs,
-            pollAttempts: azurePollAttempts,
-            nativePages: nativePassWithTrace.result.pages,
-        })
-    );
-
-    const readPassWithTrace = await runPassWithTrace("azure_read", async () =>
-        runAzurePass({
-            fileBuffer: readBuffer,
-            contentType,
-            fileType: normalizedFileType,
-            model: "prebuilt-read",
-            mode: args.mode,
-            startedAt,
-            maxDurationMs: args.maxDurationMs,
-            pollAttempts: azurePollAttempts,
-            nativePages: nativePassWithTrace.result.pages,
-        })
-    );
+    // Run both Azure passes in parallel — they are independent of each other
+    // (both only depend on the native pass result for PPTX slide pages).
+    const [layoutPassWithTrace, readPassWithTrace] = await Promise.all([
+        runPassWithTrace("azure_layout", async () =>
+            runAzurePass({
+                fileBuffer: layoutBuffer,
+                contentType,
+                fileType: normalizedFileType,
+                model: "prebuilt-layout",
+                mode: args.mode,
+                startedAt,
+                maxDurationMs: args.maxDurationMs,
+                pollAttempts: azurePollAttempts,
+                nativePages: nativePassWithTrace.result.pages,
+            })
+        ),
+        runPassWithTrace("azure_read", async () =>
+            runAzurePass({
+                fileBuffer: readBuffer,
+                contentType,
+                fileType: normalizedFileType,
+                model: "prebuilt-read",
+                mode: args.mode,
+                startedAt,
+                maxDurationMs: args.maxDurationMs,
+                pollAttempts: azurePollAttempts,
+                nativePages: nativePassWithTrace.result.pages,
+            })
+        ),
+    ]);
 
     const mergedPages = mergePassPages(
         nativePassWithTrace.result,

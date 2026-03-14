@@ -121,7 +121,7 @@ export const createUpload = mutation({
             evidenceIndexVersion: "grounded-v1",
             evidencePassageCount: 0,
             embeddingsStatus: "pending",
-            embeddingsVersion: "openai-text-embedding-3-small-v1",
+            embeddingsVersion: "voyage-large-2-1536-v1",
             embeddedPassageCount: 0,
         });
 

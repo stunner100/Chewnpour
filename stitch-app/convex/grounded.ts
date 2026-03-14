@@ -217,7 +217,7 @@ const loadSelectedTopicsForBenchmark = async (ctx: any, args: {
 };
 
 const EVIDENCE_EMBEDDING_BATCH_SIZE = 16;
-const EVIDENCE_PASSAGE_WRITE_BATCH_SIZE = 6;
+const EVIDENCE_PASSAGE_WRITE_BATCH_SIZE = 30;
 
 const normalizePassageText = (value: string) =>
     String(value || "")
@@ -375,7 +375,7 @@ const loadGroundedEvidenceIndexForTopicSweep = async (ctx: any, topic: any) => {
 };
 
 const resolveMcqTargetForSweep = async (ctx: any, topic: any) => {
-    const { index } = await loadGroundedEvidenceIndexForTopicSweep(ctx, topic);
+    const { index, upload } = await loadGroundedEvidenceIndexForTopicSweep(ctx, topic);
     if (!index) return null;
 
     const retrieval = await retrieveGroundedEvidence({
@@ -427,7 +427,7 @@ const resolveMcqTargetForSweep = async (ctx: any, topic: any) => {
 };
 
 const resolveEssayTargetForSweep = async (ctx: any, topic: any) => {
-    const { index } = await loadGroundedEvidenceIndexForTopicSweep(ctx, topic);
+    const { index, upload } = await loadGroundedEvidenceIndexForTopicSweep(ctx, topic);
     if (!index) return null;
 
     const retrieval = await retrieveGroundedEvidence({

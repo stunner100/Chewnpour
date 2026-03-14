@@ -73,7 +73,7 @@ const tokenize = (value: string) =>
                 .toLowerCase()
                 .split(/[^a-z0-9%.-]+/)
                 .map((item) => item.trim())
-                .filter((item) => item.length >= 3)
+                .filter((item) => item.length >= 2)
         )
     );
 
@@ -81,7 +81,7 @@ const extractNumericTokens = (value: string) =>
     Array.from(
         new Set(
             String(value || "")
-                .match(/\b\d+(?:\.\d+)?%?\b/g)
+                .match(/-?\d+(?:\.\d+)?(?:e[+-]?\d+)?%?/gi)
                 ?.map((token) => token.trim()) || []
         )
     );
@@ -183,15 +183,19 @@ const toDiagnosticsEntry = (entry: RetrievedEvidence, extras?: {
 const pickWithRegionSpread = (candidates: RetrievedEvidence[], limit: number) => {
     if (candidates.length <= limit) return candidates;
 
+    const maxPage = Math.max(1, ...candidates.map((c) => Math.max(0, Number(c.page || 0))));
+    const firstThirdEnd = Math.floor(maxPage / 3);
+    const midThirdEnd = Math.floor((maxPage * 2) / 3);
+
     const firstThird: RetrievedEvidence[] = [];
     const midThird: RetrievedEvidence[] = [];
     const lastThird: RetrievedEvidence[] = [];
 
     for (const candidate of candidates) {
         const page = Math.max(0, Number(candidate.page || 0));
-        if (page <= 4) {
+        if (page <= firstThirdEnd) {
             firstThird.push(candidate);
-        } else if (page <= 12) {
+        } else if (page <= midThirdEnd) {
             midThird.push(candidate);
         } else {
             lastThird.push(candidate);

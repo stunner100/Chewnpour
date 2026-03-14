@@ -53,12 +53,27 @@ const splitIntoPassages = (pageText: string, page: number): EvidencePassage[] =>
     const sanitized = sanitizeText(pageText);
     if (!sanitized) return [];
 
-    const paragraphs = sanitized
-        .split(/\n{2,}/g)
-        .map((entry) => sanitizeText(entry))
-        .filter(Boolean);
+    // Split on double-newlines and track each paragraph's position in the
+    // sanitized string so we never need indexOf (which can fail after
+    // sanitization modifies whitespace).
+    const paragraphsWithPos: Array<{ text: string; start: number }> = [];
+    const splitRegex = /\n{2,}/g;
+    let lastEnd = 0;
+    let match: RegExpExecArray | null;
+    while ((match = splitRegex.exec(sanitized)) !== null) {
+        const chunk = sanitizeText(sanitized.slice(lastEnd, match.index));
+        if (chunk) {
+            paragraphsWithPos.push({ text: chunk, start: lastEnd });
+        }
+        lastEnd = match.index + match[0].length;
+    }
+    // Trailing text after last separator
+    const trailing = sanitizeText(sanitized.slice(lastEnd));
+    if (trailing) {
+        paragraphsWithPos.push({ text: trailing, start: lastEnd });
+    }
 
-    if (paragraphs.length === 0) {
+    if (paragraphsWithPos.length === 0) {
         return [{
             passageId: `p${page + 1}-0`,
             page,
@@ -73,7 +88,6 @@ const splitIntoPassages = (pageText: string, page: number): EvidencePassage[] =>
     const passages: EvidencePassage[] = [];
     let current = "";
     let currentStart = 0;
-    let cursor = 0;
 
     const flush = () => {
         const text = sanitizeText(current);
@@ -90,15 +104,10 @@ const splitIntoPassages = (pageText: string, page: number): EvidencePassage[] =>
         });
     };
 
-    for (const paragraph of paragraphs) {
-        const paragraphStart = sanitized.indexOf(paragraph, cursor);
-        if (paragraphStart >= 0) {
-            cursor = paragraphStart + paragraph.length;
-        }
-
+    for (const { text: paragraph, start: paragraphStart } of paragraphsWithPos) {
         if (!current) {
             current = paragraph;
-            currentStart = paragraphStart >= 0 ? paragraphStart : currentStart;
+            currentStart = paragraphStart;
             continue;
         }
 
@@ -110,7 +119,7 @@ const splitIntoPassages = (pageText: string, page: number): EvidencePassage[] =>
 
         flush();
         current = paragraph;
-        currentStart = paragraphStart >= 0 ? paragraphStart : currentStart;
+        currentStart = paragraphStart;
     }
 
     if (current) flush();

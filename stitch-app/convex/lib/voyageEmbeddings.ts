@@ -20,7 +20,7 @@ const sanitizeEmbeddingInput = (value: string) =>
         .replace(/\u0000/g, "")
         .replace(/\s+/g, " ")
         .trim()
-        .slice(0, 8_000);
+        .slice(0, 16_000);
 
 const chunk = <T>(items: T[], size: number) => {
     const normalizedSize = Math.max(1, Math.floor(Number(size || 1)));
@@ -113,9 +113,15 @@ export const embedTexts = async (
     const embeddings: number[][] = [];
     const inputType = options?.inputType || "document";
 
-    for (const batch of batches) {
-        const batchEmbeddings = await fetchEmbeddings(batch, inputType);
-        embeddings.push(...batchEmbeddings);
+    const CONCURRENCY = 3;
+    for (let i = 0; i < batches.length; i += CONCURRENCY) {
+        const concurrent = batches.slice(i, i + CONCURRENCY);
+        const results = await Promise.all(
+            concurrent.map((batch) => fetchEmbeddings(batch, inputType))
+        );
+        for (const batchEmbeddings of results) {
+            embeddings.push(...batchEmbeddings);
+        }
     }
 
     return {
