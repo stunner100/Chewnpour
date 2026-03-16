@@ -1229,7 +1229,9 @@ const FeedbackPanel = ({ recentFeedback, recentProductResearchResponses, totals,
                             || entry?.featureRequest
                         );
                         const notes = normalizeFeedbackMessage(
-                            entry?.notes
+                            entry?.additionalNotes
+                            || entry?.additionalNote
+                            || entry?.notes
                             || entry?.note
                             || entry?.message
                         );

@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { useMutation } from 'convex/react';
 import { api } from '../../convex/_generated/api';
@@ -25,23 +25,9 @@ const getTrimmedParam = (searchParams, key) => {
     return value || '';
 };
 
-const isMissingFunctionError = (message) => (
-    message.includes('Could not find public function')
-    || message.includes('Could not find function')
-);
-
-const isValidationShapeError = (message) => (
-    message.includes('ArgumentValidationError')
-    || message.includes('Object contains extra field')
-    || message.includes('Object has extra field')
-    || message.includes('Missing required field')
-    || message.includes('Value does not match validator')
-);
-
 const ProductResearch = () => {
     const [searchParams] = useSearchParams();
     const submitResponseByToken = useMutation(api.productResearch.submitResponseByToken);
-    const submitProductResearchResponse = useMutation(api.productResearch.submitProductResearchResponse);
 
     const [howUsingApp, setHowUsingApp] = useState('');
     const [wantedFeatures, setWantedFeatures] = useState('');
@@ -55,21 +41,6 @@ const ProductResearch = () => {
     const cohort = getTrimmedParam(searchParams, 'cohort');
     const tokenMissing = !token;
 
-    const payloadCandidates = useMemo(() => {
-        const trimmedNotes = notes.trim();
-        const common = {
-            token,
-            campaign: campaign || undefined,
-            cohort: cohort || undefined,
-            howUsingApp,
-            notes: trimmedNotes || undefined,
-        };
-        return [
-            { ...common, wantedFeatures },
-            { ...common, wantedFeature: wantedFeatures },
-        ];
-    }, [campaign, cohort, howUsingApp, notes, token, wantedFeatures]);
-
     const handleSubmit = async (event) => {
         event.preventDefault();
         if (tokenMissing || submitting) return;
@@ -77,36 +48,27 @@ const ProductResearch = () => {
         setSubmitting(true);
         setErrorMessage('');
 
-        const submitters = [submitResponseByToken, submitProductResearchResponse];
-        let lastError = null;
-
-        for (const submitter of submitters) {
-            for (const payload of payloadCandidates) {
-                try {
-                    await submitter(payload);
-                    setSubmitted(true);
-                    setSubmitting(false);
-                    return;
-                } catch (error) {
-                    lastError = error;
-                    const message = String(error?.message || error || '');
-                    if (isMissingFunctionError(message) || isValidationShapeError(message)) {
-                        continue;
-                    }
-                    setErrorMessage('We could not save your response right now. Please try again shortly.');
-                    setSubmitting(false);
-                    return;
-                }
+        try {
+            await submitResponseByToken({
+                token,
+                campaign: campaign || undefined,
+                cohort: cohort || undefined,
+                howUsingApp,
+                wantedFeatures,
+                additionalNotes: notes.trim() || undefined,
+                source: 'email_research_form',
+            });
+            setSubmitted(true);
+        } catch (error) {
+            const message = String(error?.message || error || '');
+            if (message.includes('invalid or expired')) {
+                setErrorMessage('This research link is no longer valid. Please use the latest email link.');
+            } else {
+                setErrorMessage('We could not save your response right now. Please try again shortly.');
             }
+        } finally {
+            setSubmitting(false);
         }
-
-        const lastMessage = String(lastError?.message || lastError || '');
-        if (isMissingFunctionError(lastMessage)) {
-            setErrorMessage('This feedback link is not fully configured yet. Please try again later.');
-        } else {
-            setErrorMessage('We could not save your response right now. Please try again shortly.');
-        }
-        setSubmitting(false);
     };
 
     if (submitted) {
