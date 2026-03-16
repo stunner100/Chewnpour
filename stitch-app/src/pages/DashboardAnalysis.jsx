@@ -24,7 +24,8 @@ import {
 // ─── Referral CTA shown when credits are low ────────────────────────────────
 
 const DashboardReferralCTA = ({ remaining, profile }) => {
-    if (remaining > 1 || !profile) return null;
+    const normalizedRemaining = Number(remaining);
+    if (!Number.isFinite(normalizedRemaining) || normalizedRemaining > 1 || !profile) return null;
 
     const referralCode = profile.referralCode || '';
     const referralLink = referralCode
@@ -46,7 +47,7 @@ const DashboardReferralCTA = ({ remaining, profile }) => {
     return (
         <div className="mt-4 w-full sm:w-72 rounded-xl border border-emerald-200 dark:border-emerald-800 bg-emerald-50 dark:bg-emerald-900/20 p-3">
             <p className="text-xs font-bold text-emerald-700 dark:text-emerald-300 mb-1">
-                {remaining === 0 ? 'Out of uploads?' : 'Running low on uploads?'}
+                {normalizedRemaining === 0 ? 'Out of uploads?' : 'Running low on uploads?'}
             </p>
             <p className="text-[11px] text-emerald-600 dark:text-emerald-400 mb-2.5">
                 Invite a friend and you both get a free upload credit!
@@ -731,7 +732,7 @@ const DashboardAnalysis = () => {
                                                 </div>
                                             </div>
                                         )}
-                                        <DashboardReferralCTA remaining={uploadQuota?.remaining ?? 0} profile={profile} />
+                                        <DashboardReferralCTA remaining={uploadQuota?.remaining} profile={profile} />
                                     </div>
                                 </div>
                                 <div className="hidden md:flex items-center justify-center relative w-1/3">
