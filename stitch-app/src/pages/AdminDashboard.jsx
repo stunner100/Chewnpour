@@ -90,6 +90,15 @@ const formatFileTypeLabel = (value) => {
 const normalizeFeedbackMessage = (value) => (
     typeof value === 'string' ? value.trim() : ''
 );
+const formatResearchChoice = (value) => {
+    const normalized = normalizeFeedbackMessage(value);
+    if (!normalized) return '';
+    return normalized
+        .replace(/[_-]+/g, ' ')
+        .replace(/\s+/g, ' ')
+        .trim()
+        .replace(/\b\w/g, (char) => char.toUpperCase());
+};
 
 // ── Reusable Components ──
 
@@ -1131,14 +1140,25 @@ const UploadsPanel = ({ snapshot }) => {
     );
 };
 
-const FeedbackPanel = ({ recentFeedback, totals, activeUsersDays }) => {
+const FeedbackPanel = ({ recentFeedback, recentProductResearchResponses, totals, activeUsersDays }) => {
     const feedbackWithMessages = recentFeedback.filter((entry) => Boolean(normalizeFeedbackMessage(entry?.message)));
     const feedbackPreview = feedbackWithMessages.slice(0, 15);
     const feedbackWithMessagesTotal = Number(totals.feedbackWithMessageTotal) || feedbackWithMessages.length;
+    const researchPreview = recentProductResearchResponses.slice(0, 15);
+    const researchResponsesTotal = Number(
+        totals.productResearchResponseTotal
+        ?? totals.productResearchResponsesTotal
+        ?? totals.researchResponsesTotal
+    ) || recentProductResearchResponses.length;
+    const researchResponsesLastWindow = Number(
+        totals.productResearchResponseLastWindow
+        ?? totals.productResearchResponsesLastWindow
+        ?? totals.researchResponsesLastWindow
+    ) || 0;
 
     return (
         <div className="space-y-4">
-            <section className="grid gap-4 sm:grid-cols-3">
+            <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
                 <StatCard
                     label="Total feedback"
                     value={totals.feedbackTotal}
@@ -1157,6 +1177,13 @@ const FeedbackPanel = ({ recentFeedback, totals, activeUsersDays }) => {
                     value={`${totals.averageFeedbackRating || 0}/5`}
                     icon="star"
                     color="amber"
+                />
+                <StatCard
+                    label="Research responses"
+                    value={researchResponsesTotal}
+                    sublabel={`${formatNumber(researchResponsesLastWindow)} in last ${activeUsersDays}d`}
+                    icon="analytics"
+                    color="emerald"
                 />
             </section>
 
@@ -1183,6 +1210,75 @@ const FeedbackPanel = ({ recentFeedback, totals, activeUsersDays }) => {
                             </p>
                         </article>
                     ))}
+                </div>
+            </SectionCard>
+
+            <SectionCard title="Product Research Responses" badge={`Showing ${researchPreview.length} of ${formatNumber(researchResponsesTotal)}`}>
+                <div className="space-y-3">
+                    {researchPreview.length === 0 ? (
+                        <p className="text-sm text-slate-500 dark:text-slate-400">No product research responses yet.</p>
+                    ) : researchPreview.map((entry, index) => {
+                        const howUsing = formatResearchChoice(
+                            entry?.howUsingApp
+                            || entry?.howUsing
+                            || entry?.usage
+                        );
+                        const wantedFeatures = formatResearchChoice(
+                            entry?.wantedFeatures
+                            || entry?.wantedFeature
+                            || entry?.featureRequest
+                        );
+                        const notes = normalizeFeedbackMessage(
+                            entry?.notes
+                            || entry?.note
+                            || entry?.message
+                        );
+                        const createdAt = Number(entry?.createdAt) || 0;
+                        const campaign = normalizeFeedbackMessage(entry?.campaign);
+                        const cohort = normalizeFeedbackMessage(entry?.cohort);
+                        const researchId = String(entry?.responseId || entry?._id || `${entry?.userId || 'unknown'}-${createdAt}-${index}`);
+                        const userLabel = entry?.email || entry?.fullName || entry?.userId || 'Unknown user';
+
+                        return (
+                            <article key={researchId} className="rounded-2xl border border-slate-200 dark:border-slate-700 bg-white/80 dark:bg-slate-900/50 p-4">
+                                <div className="flex flex-wrap items-center justify-between gap-2">
+                                    <div>
+                                        <p className="font-semibold text-slate-900 dark:text-white">{userLabel}</p>
+                                        <p className="text-xs text-slate-500 dark:text-slate-400">{entry?.department || ''}</p>
+                                    </div>
+                                    <div className="flex flex-wrap items-center gap-2 text-xs">
+                                        {campaign ? (
+                                            <span className="rounded-full bg-indigo-50 px-2.5 py-1 font-semibold text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-200">
+                                                Campaign: {campaign}
+                                            </span>
+                                        ) : null}
+                                        {cohort ? (
+                                            <span className="rounded-full bg-emerald-50 px-2.5 py-1 font-semibold text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-200">
+                                                Cohort: {cohort}
+                                            </span>
+                                        ) : null}
+                                        <span className="text-slate-500 dark:text-slate-400">{formatDateTime(createdAt)}</span>
+                                    </div>
+                                </div>
+                                <div className="mt-3 space-y-1.5 text-sm text-slate-700 dark:text-slate-200">
+                                    <p>
+                                        <span className="font-semibold text-slate-900 dark:text-white">How using app:</span>{' '}
+                                        {howUsing || 'N/A'}
+                                    </p>
+                                    <p>
+                                        <span className="font-semibold text-slate-900 dark:text-white">Wanted next:</span>{' '}
+                                        {wantedFeatures || 'N/A'}
+                                    </p>
+                                    {notes ? (
+                                        <p className="whitespace-pre-wrap break-words">
+                                            <span className="font-semibold text-slate-900 dark:text-white">Notes:</span>{' '}
+                                            {notes}
+                                        </p>
+                                    ) : null}
+                                </div>
+                            </article>
+                        );
+                    })}
                 </div>
             </SectionCard>
         </div>
@@ -1287,6 +1383,9 @@ const AdminDashboard = () => {
     const adminEmails = Array.isArray(snapshot.adminEmails) ? snapshot.adminEmails : [];
     const recentUsers = Array.isArray(snapshot.recentUsers) ? snapshot.recentUsers : [];
     const recentFeedback = Array.isArray(snapshot.recentFeedback) ? snapshot.recentFeedback : [];
+    const recentProductResearchResponses = Array.isArray(snapshot.recentProductResearchResponses)
+        ? snapshot.recentProductResearchResponses
+        : (Array.isArray(snapshot.recentResearchResponses) ? snapshot.recentResearchResponses : []);
     const signedInUsers = Array.isArray(snapshot.signedInUsers) ? snapshot.signedInUsers : [];
     const premiumUsers = Array.isArray(snapshot.premiumUsers) ? snapshot.premiumUsers : [];
 
@@ -1358,7 +1457,14 @@ const AdminDashboard = () => {
             case 'uploads':
                 return <UploadsPanel snapshot={snapshot} />;
             case 'feedback':
-                return <FeedbackPanel recentFeedback={recentFeedback} totals={totals} activeUsersDays={activeUsersDays} />;
+                return (
+                    <FeedbackPanel
+                        recentFeedback={recentFeedback}
+                        recentProductResearchResponses={recentProductResearchResponses}
+                        totals={totals}
+                        activeUsersDays={activeUsersDays}
+                    />
+                );
             case 'settings':
                 return (
                     <SettingsPanel

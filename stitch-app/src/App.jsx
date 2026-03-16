@@ -86,6 +86,7 @@ const DashboardAnalysisPage = lazyRoute(() => import('./pages/DashboardAnalysis'
 const LandingPage = lazyRoute(() => import('./pages/LandingPage'), { componentName: 'LandingPage' });
 const Login = lazyRoute(() => import('./pages/Login'), { componentName: 'Login' });
 const ResetPassword = lazyRoute(() => import('./pages/ResetPassword'), { componentName: 'ResetPassword' });
+const ProductResearch = lazyRoute(() => import('./pages/ProductResearch'), { componentName: 'ProductResearch' });
 const OnboardingName = lazyRoute(() => import('./pages/OnboardingName'), { componentName: 'OnboardingName' });
 const OnboardingLevel = lazyRoute(() => import('./pages/OnboardingLevel'), { componentName: 'OnboardingLevel' });
 const OnboardingDepartment = lazyRoute(() => import('./pages/OnboardingDepartment'), { componentName: 'OnboardingDepartment' });
@@ -189,6 +190,7 @@ function App() {
         <Route path="/login" element={withSuspense(<Login />)} />
         <Route path="/signup" element={withSuspense(<SignUpPage />)} />
         <Route path="/reset-password" element={withSuspense(<ResetPassword />)} />
+        <Route path="/research" element={withSuspense(<ProductResearch />)} />
 
         {/* Onboarding Routes — /onboarding/name is sign-up (public), level+department are protected */}
         <Route path="/onboarding/name" element={withSuspense(<OnboardingName />)} />
