@@ -8,6 +8,7 @@ const NEW_USER_WINDOW_DAYS = 7;
 const ACTIVE_USER_WINDOW_DAYS = 7;
 const RECENT_USERS_LIMIT = 20;
 const RECENT_FEEDBACK_LIMIT = 100;
+const RECENT_RESEARCH_RESPONSES_LIMIT = 100;
 const BOOTSTRAP_ADMIN_EMAILS = ["patrickannor35@gmail.com"];
 const BETTER_AUTH_PAGE_SIZE = 200;
 const BETTER_AUTH_MAX_PAGES = 12;
@@ -576,7 +577,7 @@ export const getDashboardSnapshot = query({
         const fiveMinutesAgo = now - ACTIVE_USERS_5M_WINDOW_MS;
         const sevenDaysAgoDateKey = new Date(sevenDaysAgo).toISOString().slice(0, 10);
 
-        const [profiles, uploads, assignmentThreads, examAttempts, conceptAttempts, feedbackEntries, activeSessionsResult, subscriptions, paymentTransactions, courses, humanizerUsage, aiMessageUsage, llmUsageDaily, userPresence, questionTargetAuditRuns] =
+        const [profiles, uploads, assignmentThreads, examAttempts, conceptAttempts, feedbackEntries, productResearchResponses, activeSessionsResult, subscriptions, paymentTransactions, courses, humanizerUsage, aiMessageUsage, llmUsageDaily, userPresence, questionTargetAuditRuns] =
             await Promise.all([
                 ctx.db.query("profiles").collect(),
                 ctx.db.query("uploads").collect(),
@@ -584,6 +585,7 @@ export const getDashboardSnapshot = query({
                 ctx.db.query("examAttempts").collect(),
                 ctx.db.query("conceptAttempts").collect(),
                 ctx.db.query("feedback").collect(),
+                ctx.db.query("productResearchResponses").collect(),
                 fetchBetterAuthRows(ctx, {
                     model: "session",
                     where: [{ field: "expiresAt", operator: "gt", value: Date.now() }],
@@ -1183,6 +1185,29 @@ export const getDashboardSnapshot = query({
             ) / 10
             : 0;
 
+        const productResearchResponsesTotal = productResearchResponses.length;
+        const productResearchResponsesLastWindow = productResearchResponses.filter((entry) => {
+            const timestampMs = toTimestamp(entry.createdAt, entry._creationTime);
+            return timestampMs >= sevenDaysAgo;
+        }).length;
+        const productResearchResponsesWithNotesTotal = productResearchResponses.filter(
+            (entry) => Boolean(normalizeFeedbackMessage(entry.additionalNotes))
+        ).length;
+        const productResearchResponsesWithNotesLastWindow = productResearchResponses.filter((entry) => {
+            const timestampMs = toTimestamp(entry.createdAt, entry._creationTime);
+            return timestampMs >= sevenDaysAgo && Boolean(normalizeFeedbackMessage(entry.additionalNotes));
+        }).length;
+        const productResearchRespondersTotal = new Set(
+            productResearchResponses
+                .map((entry) => String(entry.userId || "").trim())
+                .filter(Boolean)
+        ).size;
+        const productResearchCampaignCounts = new Map<string, number>();
+        for (const entry of productResearchResponses) {
+            const campaign = String(entry.campaign || "").trim() || "unknown";
+            incrementMap(productResearchCampaignCounts, campaign);
+        }
+
         const llmUsageByUser = new Map<string, {
             requestCount: number;
             requestCountLastWindow: number;
@@ -1508,6 +1533,55 @@ export const getDashboardSnapshot = query({
             };
         });
 
+        const recentProductResearchResponsesBase = [...productResearchResponses]
+            .sort((left, right) => {
+                const leftTimestamp = toTimestamp(left.createdAt, left._creationTime);
+                const rightTimestamp = toTimestamp(right.createdAt, right._creationTime);
+                return rightTimestamp - leftTimestamp;
+            })
+            .slice(0, RECENT_RESEARCH_RESPONSES_LIMIT)
+            .map((entry) => {
+                const userId = String(entry.userId || "").trim();
+                const profile = profileByUserId.get(userId);
+                return {
+                    responseId: String(entry._id),
+                    userId,
+                    email: normalizeEmail(entry.email) || null,
+                    campaign: String(entry.campaign || "").trim() || "unknown",
+                    cohort: String(entry.cohort || "").trim() || null,
+                    howUsingApp: normalizeFeedbackMessage(entry.howUsingApp),
+                    wantedFeatures: normalizeFeedbackMessage(entry.wantedFeatures),
+                    additionalNotes: normalizeFeedbackMessage(entry.additionalNotes),
+                    source: String(entry.source || "").trim() || null,
+                    createdAt: toTimestamp(entry.createdAt, entry._creationTime),
+                    fullName: profile?.fullName || null,
+                    department: profile?.department || null,
+                };
+            });
+        const recentProductResearchUserIds = Array.from(
+            new Set(
+                recentProductResearchResponsesBase
+                    .map((entry) => String(entry.userId || "").trim())
+                    .filter(Boolean)
+            )
+        );
+        const recentProductResearchAuthUsers = await fetchAuthUsersByIds(ctx, recentProductResearchUserIds);
+        const recentProductResearchAuthUsersById = new Map(
+            recentProductResearchAuthUsers
+                .map((authUser) => [normalizeAuthUserId(authUser), authUser] as const)
+                .filter(([userId]) => Boolean(userId))
+        );
+        const recentProductResearchResponses = recentProductResearchResponsesBase.map((entry) => {
+            const authUser = recentProductResearchAuthUsersById.get(entry.userId);
+            const additionalNotes = normalizeFeedbackMessage(entry.additionalNotes);
+            return {
+                ...entry,
+                email: normalizeEmail(authUser?.email) || entry.email || null,
+                hasAdditionalNotes: Boolean(additionalNotes),
+                additionalNotes,
+            };
+        });
+
         const sessionStatsByUser = new Map<string, { count: number; latestAt: number }>();
         for (const session of activeSessions) {
             const userId = normalizeSessionUserId(session);
@@ -1719,6 +1793,11 @@ export const getDashboardSnapshot = query({
                 feedbackWithMessageTotal,
                 feedbackWithMessageLastWindow,
                 averageFeedbackRating,
+                productResearchResponsesTotal,
+                productResearchResponsesLastWindow,
+                productResearchResponsesWithNotesTotal,
+                productResearchResponsesWithNotesLastWindow,
+                productResearchRespondersTotal,
                 llmTrackedUsers: llmUsageByUser.size,
                 llmRequestsTotal,
                 llmRequestsLastWindow,
@@ -1783,9 +1862,20 @@ export const getDashboardSnapshot = query({
                 coverage:
                     "Estimated from historical AI message and humanizer quota counters recorded before provider token tracking was enabled.",
             },
+            productResearchAnalytics: {
+                responseTotal: productResearchResponsesTotal,
+                responsesLastWindow: productResearchResponsesLastWindow,
+                respondersTotal: productResearchRespondersTotal,
+                withNotesTotal: productResearchResponsesWithNotesTotal,
+                withNotesLastWindow: productResearchResponsesWithNotesLastWindow,
+                campaignBreakdown: [...productResearchCampaignCounts.entries()]
+                    .map(([campaign, count]) => ({ campaign, count }))
+                    .sort((left, right) => right.count - left.count),
+            },
             adminEmails: access.adminEmails,
             recentUsers,
             recentFeedback,
+            recentProductResearchResponses,
             signedInUsers,
             premiumUsers,
             examAnalytics,

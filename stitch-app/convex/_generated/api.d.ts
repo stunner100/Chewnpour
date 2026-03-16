@@ -47,6 +47,8 @@ import type * as lib_topicOutlinePipeline from "../lib/topicOutlinePipeline.js";
 import type * as lib_voiceStreamToken from "../lib/voiceStreamToken.js";
 import type * as lib_voyageEmbeddings from "../lib/voyageEmbeddings.js";
 import type * as llmUsage from "../llmUsage.js";
+import type * as productResearch from "../productResearch.js";
+import type * as productResearchEmails from "../productResearchEmails.js";
 import type * as profiles from "../profiles.js";
 import type * as search from "../search.js";
 import type * as subscriptions from "../subscriptions.js";
@@ -102,6 +104,8 @@ declare const fullApi: ApiFromModules<{
   "lib/voiceStreamToken": typeof lib_voiceStreamToken;
   "lib/voyageEmbeddings": typeof lib_voyageEmbeddings;
   llmUsage: typeof llmUsage;
+  productResearch: typeof productResearch;
+  productResearchEmails: typeof productResearchEmails;
   profiles: typeof profiles;
   search: typeof search;
   subscriptions: typeof subscriptions;

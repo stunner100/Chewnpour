@@ -252,6 +252,7 @@ export const updateEmailPreferences = mutation({
         streakReminders: v.optional(v.boolean()),
         streakBroken: v.optional(v.boolean()),
         weeklySummary: v.optional(v.boolean()),
+        productResearch: v.optional(v.boolean()),
     },
     handler: async (ctx, args) => {
         const identity = await ctx.auth.getUserIdentity().catch(() => null);
@@ -275,12 +276,14 @@ export const updateEmailPreferences = mutation({
             streakReminders: true,
             streakBroken: true,
             weeklySummary: true,
+            productResearch: true,
         };
 
         const updated = {
             streakReminders: args.streakReminders ?? current.streakReminders,
             streakBroken: args.streakBroken ?? current.streakBroken,
             weeklySummary: args.weeklySummary ?? current.weeklySummary,
+            productResearch: args.productResearch ?? current.productResearch,
         };
 
         await ctx.db.patch(profile._id, { emailPreferences: updated });
@@ -311,19 +314,32 @@ export const unsubscribeByToken = mutation({
             streakReminders: true,
             streakBroken: true,
             weeklySummary: true,
+            productResearch: true,
         };
 
         let updated;
         if (emailType === "all") {
-            updated = { streakReminders: false, streakBroken: false, weeklySummary: false };
+            updated = {
+                streakReminders: false,
+                streakBroken: false,
+                weeklySummary: false,
+                productResearch: false,
+            };
         } else if (emailType === "streak_reminders" || emailType === "streakReminders") {
             updated = { ...current, streakReminders: false };
         } else if (emailType === "streak_broken" || emailType === "streakBroken") {
             updated = { ...current, streakBroken: false };
         } else if (emailType === "weekly_summary" || emailType === "weeklySummary") {
             updated = { ...current, weeklySummary: false };
+        } else if (emailType === "product_research" || emailType === "productResearch") {
+            updated = { ...current, productResearch: false };
         } else {
-            updated = { streakReminders: false, streakBroken: false, weeklySummary: false };
+            updated = {
+                streakReminders: false,
+                streakBroken: false,
+                weeklySummary: false,
+                productResearch: false,
+            };
         }
 
         await ctx.db.patch(profile._id, { emailPreferences: updated });

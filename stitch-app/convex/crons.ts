@@ -17,6 +17,13 @@ crons.cron(
     internal.emails.sendWeeklySummary,
 );
 
+// Send product research outreach weekly to eligible, opted-in users.
+crons.cron(
+    "product research outreach",
+    "0 13 * * 2",
+    internal.productResearchEmails.sendOutreachEmails,
+);
+
 // Rebase stale question-bank targets after generation has clearly stalled.
 crons.interval(
     "question bank target audit",

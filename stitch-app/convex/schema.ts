@@ -19,9 +19,12 @@ export default defineSchema({
             streakReminders: v.boolean(),
             streakBroken: v.boolean(),
             weeklySummary: v.boolean(),
+            productResearch: v.boolean(),
         })),
         // Token for one-click email unsubscribe
         emailUnsubscribeToken: v.optional(v.string()),
+        // Token used by product research email links
+        productResearchToken: v.optional(v.string()),
         // Referral program
         referralCode: v.optional(v.string()), // unique 6-char alphanumeric code
         referredBy: v.optional(v.string()), // referral code of the user who referred this user
@@ -32,7 +35,7 @@ export default defineSchema({
     // Tracks sent emails to avoid duplicate sends within a window
     emailLog: defineTable({
         userId: v.string(),
-        emailType: v.string(), // 'streak_at_risk' | 'streak_broken' | 'weekly_summary'
+        emailType: v.string(), // 'streak_at_risk' | 'streak_broken' | 'weekly_summary' | 'product_research'
         sentAt: v.number(),
     }).index("by_userId_emailType", ["userId", "emailType"]),
 
@@ -377,6 +380,22 @@ export default defineSchema({
         message: v.optional(v.string()),
         createdAt: v.number(),
     }).index("by_userId", ["userId"]),
+
+    // Product research responses submitted from tokenized email links.
+    productResearchResponses: defineTable({
+        userId: v.string(),
+        email: v.optional(v.string()),
+        campaign: v.string(),
+        cohort: v.optional(v.string()),
+        howUsingApp: v.string(),
+        wantedFeatures: v.string(),
+        additionalNotes: v.optional(v.string()),
+        source: v.optional(v.string()),
+        createdAt: v.number(),
+    })
+        .index("by_userId", ["userId"])
+        .index("by_createdAt", ["createdAt"])
+        .index("by_campaign_createdAt", ["campaign", "createdAt"]),
 
     adminAccess: defineTable({
         email: v.string(),

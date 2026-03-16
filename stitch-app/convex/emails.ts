@@ -310,6 +310,7 @@ export const checkStreaksAndNotify = internalAction({
                 streakReminders: true,
                 streakBroken: true,
                 weeklySummary: true,
+                productResearch: true,
             };
 
             // Fetch exam + concept attempts for this user
@@ -418,6 +419,7 @@ export const sendWeeklySummary = internalAction({
                 streakReminders: true,
                 streakBroken: true,
                 weeklySummary: true,
+                productResearch: true,
             };
             if (!prefs.weeklySummary) continue;
 
