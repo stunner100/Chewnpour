@@ -46,6 +46,8 @@ for (const pattern of [
   'api.community.getUserChannels',
   'api.community.seedDefaultChannels',
   'seedDefaultChannels({})',
+  'to="/dashboard"',
+  'Back to Dashboard',
   '/dashboard/community/${channel._id}',
 ]) {
   if (!communityPageSource.includes(pattern)) {

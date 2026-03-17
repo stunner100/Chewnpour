@@ -155,13 +155,24 @@ const Community = () => {
     return (
         <div className="min-h-screen bg-background-light dark:bg-background-dark pb-24">
             {/* Header */}
-            <div className="px-4 md:px-6 lg:px-8 pt-6 pb-2 max-w-6xl mx-auto">
-                <h1 className="text-2xl md:text-3xl font-display font-bold text-neutral-900 dark:text-white">
-                    Community
-                </h1>
-                <p className="text-sm text-neutral-500 dark:text-neutral-400 mt-1">
-                    Study together, learn faster
-                </p>
+            <div className="sticky top-0 z-30 bg-white/82 dark:bg-[#0a0a0a]/85 backdrop-blur-xl border-b border-neutral-200/60 dark:border-neutral-800/60">
+                <div className="px-4 md:px-6 lg:px-8 py-4 max-w-6xl mx-auto flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                        <h1 className="text-2xl md:text-3xl font-display font-bold text-neutral-900 dark:text-white">
+                            Community
+                        </h1>
+                        <p className="text-sm text-neutral-500 dark:text-neutral-400 mt-1">
+                            Study together, learn faster
+                        </p>
+                    </div>
+                    <Link
+                        to="/dashboard"
+                        className="shrink-0 inline-flex items-center gap-2 px-3.5 py-2 rounded-xl bg-neutral-100 dark:bg-neutral-800 text-sm font-bold text-neutral-700 dark:text-neutral-200 border border-neutral-200/80 dark:border-neutral-700/70 hover:bg-neutral-200 dark:hover:bg-neutral-700 transition-all active:scale-[0.97]"
+                    >
+                        <span className="material-symbols-outlined text-[18px]">arrow_back</span>
+                        Back to Dashboard
+                    </Link>
+                </div>
             </div>
 
             {/* Search */}
