@@ -460,14 +460,16 @@ export default defineSchema({
 
     // One channel per course, auto-created
     communityChannels: defineTable({
-        courseId: v.id("courses"),
+        courseId: v.optional(v.id("courses")),
         createdBy: v.string(),
         title: v.string(),
         description: v.string(),
+        icon: v.optional(v.string()),
         memberCount: v.number(),
         postCount: v.number(),
         lastActivityAt: v.number(),
         createdAt: v.number(),
+        isSeeded: v.optional(v.boolean()),
     }).index("by_courseId", ["courseId"])
       .index("by_lastActivity", ["lastActivityAt"]),
 

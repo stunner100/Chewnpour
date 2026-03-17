@@ -503,3 +503,49 @@ export const autoJoinOnUpload = mutation({
         return { channelId: channel._id, created: false };
     },
 });
+
+// ────────────────────────────────────────────────────────────────
+// Seed default channels
+// ────────────────────────────────────────────────────────────────
+
+const DEFAULT_CHANNELS = [
+    { title: "General", description: "Pair up with study partners, share tips, and connect with the community.", icon: "forum" },
+    { title: "Exam Prep", description: "Past questions, revision strategies, and exam tips.", icon: "school" },
+    { title: "Science", description: "Biology, Chemistry, Physics, and all things science.", icon: "science" },
+    { title: "Mathematics", description: "Calculus, statistics, algebra — numbers talk here.", icon: "calculate" },
+    { title: "Humanities", description: "History, philosophy, languages, literature, and the arts.", icon: "menu_book" },
+];
+
+// Idempotent: only creates channels that don't already exist.
+// Call once from the Convex dashboard or on app init.
+export const seedDefaultChannels = mutation({
+    args: {},
+    handler: async (ctx) => {
+        const existing = await ctx.db
+            .query("communityChannels")
+            .collect();
+
+        const existingTitles = new Set(existing.map((c) => c.title));
+        const now = Date.now();
+        const created: string[] = [];
+
+        for (const ch of DEFAULT_CHANNELS) {
+            if (existingTitles.has(ch.title)) continue;
+
+            await ctx.db.insert("communityChannels", {
+                createdBy: "system",
+                title: ch.title,
+                description: ch.description,
+                icon: ch.icon,
+                memberCount: 0,
+                postCount: 0,
+                lastActivityAt: now,
+                createdAt: now,
+                isSeeded: true,
+            });
+            created.push(ch.title);
+        }
+
+        return { created, skipped: DEFAULT_CHANNELS.length - created.length };
+    },
+});

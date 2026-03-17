@@ -47,15 +47,28 @@ const ChannelCard = ({ channel, isMember }) => {
     return (
         <div className="rounded-2xl bg-white dark:bg-neutral-900 border border-neutral-200/80 dark:border-neutral-800 shadow-card p-5 flex flex-col transition-all hover:shadow-card-hover hover:-translate-y-0.5">
             <div className="flex items-start justify-between gap-2 mb-2">
-                <h3 className="text-base font-bold text-neutral-900 dark:text-white leading-snug line-clamp-2">
-                    {channel.title}
-                </h3>
+                <div className="flex items-center gap-2.5 min-w-0">
+                    {channel.icon && (
+                        <div className="w-9 h-9 shrink-0 rounded-xl bg-primary/10 dark:bg-primary/20 flex items-center justify-center">
+                            <span className="material-symbols-outlined text-[20px] text-primary">{channel.icon}</span>
+                        </div>
+                    )}
+                    <h3 className="text-base font-bold text-neutral-900 dark:text-white leading-snug line-clamp-2">
+                        {channel.title}
+                    </h3>
+                </div>
                 {channel.postsThisWeek > 0 && (
                     <span className="shrink-0 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-primary/10 text-primary border border-primary/10">
                         {channel.postsThisWeek} this week
                     </span>
                 )}
             </div>
+
+            {channel.description && (
+                <p className="text-xs text-neutral-500 dark:text-neutral-400 leading-relaxed line-clamp-2 mb-3">
+                    {channel.description}
+                </p>
+            )}
 
             <div className="flex items-center gap-4 text-xs text-neutral-500 dark:text-neutral-400 mb-4 mt-auto">
                 <span className="inline-flex items-center gap-1">
