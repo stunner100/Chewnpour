@@ -192,6 +192,7 @@ const DashboardAnalysis = () => {
     const deleteCourse = useMutation(api.courses.deleteCourse);
     const processUploadedFile = useAction(api.ai.processUploadedFile);
     const submitFeedbackMutation = useMutation(api.feedback.submitFeedback);
+    const autoJoinCommunity = useMutation(api.community.autoJoinOnUpload);
 
     useEffect(() => {
         lastSeenStreakRef.current = null;
@@ -461,6 +462,9 @@ const DashboardAnalysis = () => {
                 description: 'Processing your study materials...',
                 uploadId,
             });
+
+            // Step 4b: Auto-create community channel and join user (fire-and-forget)
+            autoJoinCommunity({ courseId, userId }).catch(() => {});
 
             // Step 5: Trigger AI processing in the background (don't await).
             // Dispatch before navigation so quick route transitions can't drop kickoff.
@@ -782,6 +786,28 @@ const DashboardAnalysis = () => {
                             <div className="relative z-10 mt-4">
                                 <div className="flex items-center gap-2 text-white font-semibold text-sm group-hover:gap-3 transition-all">
                                     <span>Try it</span>
+                                    <span className="material-symbols-outlined text-lg group-hover:translate-x-1 transition-transform">arrow_forward</span>
+                                </div>
+                            </div>
+                        </Link>
+                        <Link to="/dashboard/community" className="relative flex flex-col justify-between overflow-hidden rounded-2xl bg-gradient-to-br from-emerald-500 to-teal-600 p-5 sm:p-6 shadow-lg shadow-emerald-500/20 transition-shadow duration-300 cursor-pointer group hover:shadow-xl hover:shadow-emerald-500/30 hover:-translate-y-1">
+                            <div className="relative z-10">
+                                <div className="flex items-center gap-2 mb-4">
+                                    <div className="w-12 h-12 rounded-xl bg-white/20 backdrop-blur-sm flex items-center justify-center text-white">
+                                        <span className="material-symbols-outlined text-[28px] filled">forum</span>
+                                    </div>
+                                    <span className="px-2 py-0.5 bg-white/20 backdrop-blur-sm rounded-full text-[10px] font-bold text-white uppercase tracking-wider">New</span>
+                                </div>
+                                <h2 className="text-xl md:text-2xl font-display font-bold text-white tracking-tight leading-tight mb-2">
+                                    Community
+                                </h2>
+                                <p className="text-white/80 text-sm leading-relaxed">
+                                    Join study groups, ask questions, and learn together with classmates.
+                                </p>
+                            </div>
+                            <div className="relative z-10 mt-4">
+                                <div className="flex items-center gap-2 text-white font-semibold text-sm group-hover:gap-3 transition-all">
+                                    <span>Explore</span>
                                     <span className="material-symbols-outlined text-lg group-hover:translate-x-1 transition-transform">arrow_forward</span>
                                 </div>
                             </div>

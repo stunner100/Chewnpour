@@ -15,10 +15,10 @@ const tabs = [
         matchPaths: ['/dashboard/assignment-helper'],
     },
     {
-        label: 'Humanizer',
-        icon: 'auto_fix_high',
-        path: '/dashboard/humanizer',
-        matchPaths: ['/dashboard/humanizer'],
+        label: 'Community',
+        icon: 'forum',
+        path: '/dashboard/community',
+        matchPaths: ['/dashboard/community'],
     },
     {
         label: 'Profile',
@@ -36,7 +36,7 @@ const MobileBottomNav = () => {
         (tab.path === '/dashboard' && location.pathname === '/dashboard');
 
     const getTabClassName = (active) => (
-        `flex flex-col items-center justify-center gap-0.5 flex-1 min-w-[64px] py-2 rounded-2xl transition-all duration-200 active:scale-95 ${active
+        `flex flex-col items-center justify-center gap-0.5 flex-1 min-w-0 py-2 rounded-2xl transition-all duration-200 active:scale-95 ${active
             ? 'text-primary'
             : 'text-slate-400 dark:text-neutral-400 hover:text-slate-600 dark:hover:text-slate-300'}`
     );
