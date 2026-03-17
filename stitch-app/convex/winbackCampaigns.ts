@@ -724,6 +724,55 @@ export const getChurnBreakdown = action({
     },
 });
 
+export const getNeverActivatedUsers = action({
+    args: {
+        campaignId: v.optional(v.string()),
+        limit: v.optional(v.number()),
+    },
+    handler: async (ctx, args) => {
+        await assertAdminAccess(ctx);
+
+        const campaignId = getCampaignId(args.campaignId);
+        const limit = toPositiveInt(args.limit, 100, 500);
+        const rows = await ctx.runQuery(internal.winbackCampaigns.getChurnBreakdownRowsInternal, {
+            campaignId,
+        });
+        const neverActivatedRows = rows.filter((row: any) => !row.hasTrackedActivity);
+        const authUsers = await fetchAuthUsersByIds(
+            ctx,
+            neverActivatedRows.map((row: any) => String(row.userId || "")),
+        );
+        const authUsersById = new Map(
+            authUsers
+                .map((authUser) => [normalizeUserId(authUser?.id), authUser] as const)
+                .filter(([userId]) => Boolean(userId)),
+        );
+
+        const users = neverActivatedRows
+            .map((row: any) => {
+                const authUser = authUsersById.get(row.userId);
+                return {
+                    userId: row.userId,
+                    fullName: row.fullName,
+                    email: normalizeEmail(authUser?.email) || null,
+                    winbackOffersEnabled: row.winbackOffersEnabled,
+                    alreadyProcessedForCampaign: row.alreadyProcessedForCampaign,
+                };
+            });
+
+        const withEmail = users.filter((user) => Boolean(user.email));
+        const withoutEmail = users.filter((user) => !user.email);
+
+        return {
+            campaignId,
+            totalNeverActivated: users.length,
+            withEmailCount: withEmail.length,
+            withoutEmailCount: withoutEmail.length,
+            users: users.slice(0, limit),
+        };
+    },
+});
+
 export const runChurnWinbackCampaign = action({
     args: {
         campaignId: v.optional(v.string()),
