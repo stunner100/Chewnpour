@@ -253,6 +253,7 @@ export const updateEmailPreferences = mutation({
         streakBroken: v.optional(v.boolean()),
         weeklySummary: v.optional(v.boolean()),
         productResearch: v.optional(v.boolean()),
+        winbackOffers: v.optional(v.boolean()),
     },
     handler: async (ctx, args) => {
         const identity = await ctx.auth.getUserIdentity().catch(() => null);
@@ -277,6 +278,7 @@ export const updateEmailPreferences = mutation({
             streakBroken: true,
             weeklySummary: true,
             productResearch: true,
+            winbackOffers: true,
         };
 
         const updated = {
@@ -284,6 +286,7 @@ export const updateEmailPreferences = mutation({
             streakBroken: args.streakBroken ?? current.streakBroken,
             weeklySummary: args.weeklySummary ?? current.weeklySummary,
             productResearch: args.productResearch ?? current.productResearch,
+            winbackOffers: args.winbackOffers ?? current.winbackOffers,
         };
 
         await ctx.db.patch(profile._id, { emailPreferences: updated });
@@ -315,6 +318,7 @@ export const unsubscribeByToken = mutation({
             streakBroken: true,
             weeklySummary: true,
             productResearch: true,
+            winbackOffers: true,
         };
 
         let updated;
@@ -324,6 +328,7 @@ export const unsubscribeByToken = mutation({
                 streakBroken: false,
                 weeklySummary: false,
                 productResearch: false,
+                winbackOffers: false,
             };
         } else if (emailType === "streak_reminders" || emailType === "streakReminders") {
             updated = { ...current, streakReminders: false };
@@ -333,12 +338,15 @@ export const unsubscribeByToken = mutation({
             updated = { ...current, weeklySummary: false };
         } else if (emailType === "product_research" || emailType === "productResearch") {
             updated = { ...current, productResearch: false };
+        } else if (emailType === "winback_offers" || emailType === "winbackOffers") {
+            updated = { ...current, winbackOffers: false };
         } else {
             updated = {
                 streakReminders: false,
                 streakBroken: false,
                 weeklySummary: false,
                 productResearch: false,
+                winbackOffers: false,
             };
         }
 

@@ -174,6 +174,7 @@ export const getOutreachCandidates = internalQuery({
                     streakBroken: true,
                     weeklySummary: true,
                     productResearch: true,
+                    winbackOffers: true,
                 };
                 if (!preferences.productResearch) return null;
 

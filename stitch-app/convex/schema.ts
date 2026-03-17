@@ -20,6 +20,7 @@ export default defineSchema({
             streakBroken: v.boolean(),
             weeklySummary: v.boolean(),
             productResearch: v.boolean(),
+            winbackOffers: v.boolean(),
         })),
         // Token for one-click email unsubscribe
         emailUnsubscribeToken: v.optional(v.string()),
@@ -396,6 +397,23 @@ export default defineSchema({
         .index("by_userId", ["userId"])
         .index("by_createdAt", ["createdAt"])
         .index("by_campaign_createdAt", ["campaign", "createdAt"]),
+
+    // One-off or scheduled promotional credit grants used by retention campaigns.
+    campaignCreditGrants: defineTable({
+        campaignId: v.string(),
+        userId: v.string(),
+        email: v.optional(v.string()),
+        creditType: v.string(), // 'upload_credits'
+        grantedCredits: v.number(),
+        grantedAt: v.number(),
+        lastActivityAt: v.number(),
+        daysInactive: v.number(),
+        emailType: v.optional(v.string()),
+        emailSentAt: v.optional(v.number()),
+        source: v.optional(v.string()),
+    })
+        .index("by_userId_campaignId", ["userId", "campaignId"])
+        .index("by_campaignId_grantedAt", ["campaignId", "grantedAt"]),
 
     adminAccess: defineTable({
         email: v.string(),

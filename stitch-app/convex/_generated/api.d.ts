@@ -57,6 +57,7 @@ import type * as topicNotes from "../topicNotes.js";
 import type * as topics from "../topics.js";
 import type * as uploads from "../uploads.js";
 import type * as voiceHttp from "../voiceHttp.js";
+import type * as winbackCampaigns from "../winbackCampaigns.js";
 
 import type {
   ApiFromModules,
@@ -114,6 +115,7 @@ declare const fullApi: ApiFromModules<{
   topics: typeof topics;
   uploads: typeof uploads;
   voiceHttp: typeof voiceHttp;
+  winbackCampaigns: typeof winbackCampaigns;
 }>;
 
 /**

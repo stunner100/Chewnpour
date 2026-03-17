@@ -311,6 +311,7 @@ export const checkStreaksAndNotify = internalAction({
                 streakBroken: true,
                 weeklySummary: true,
                 productResearch: true,
+                winbackOffers: true,
             };
 
             // Fetch exam + concept attempts for this user
@@ -420,6 +421,7 @@ export const sendWeeklySummary = internalAction({
                 streakBroken: true,
                 weeklySummary: true,
                 productResearch: true,
+                winbackOffers: true,
             };
             if (!prefs.weeklySummary) continue;
 
