@@ -1,6 +1,10 @@
-import React, { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import React, { useEffect, useState } from 'react';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
+import {
+    readCampaignAttributionFromSearch,
+    stashPendingCampaignAttribution,
+} from '../lib/campaignAttribution';
 
 const Login = () => {
     const [email, setEmail] = useState('');
@@ -9,7 +13,30 @@ const Login = () => {
     const [error, setError] = useState('');
     const [loading, setLoading] = useState(false);
     const { signIn, signInWithGoogle } = useAuth();
+    const location = useLocation();
     const navigate = useNavigate();
+    const redirectTarget = (() => {
+        const from = location.state?.from;
+        if (!from || typeof from !== 'object') return '/dashboard';
+        const pathname = typeof from.pathname === 'string' && from.pathname.startsWith('/')
+            ? from.pathname
+            : '/dashboard';
+        const search = typeof from.search === 'string' ? from.search : '';
+        const hash = typeof from.hash === 'string' ? from.hash : '';
+        return `${pathname}${search}${hash}`;
+    })();
+
+    useEffect(() => {
+        const from = location.state?.from;
+        if (!from || typeof from !== 'object') return;
+        const pendingAttribution = readCampaignAttributionFromSearch(
+            typeof from.search === 'string' ? from.search : '',
+            typeof from.pathname === 'string' ? from.pathname : '/dashboard',
+        );
+        if (pendingAttribution) {
+            stashPendingCampaignAttribution(pendingAttribution);
+        }
+    }, [location.state]);
 
     const resolveGoogleErrorMessage = (authError) => {
         const fallbackMessage = 'Failed to sign in with Google';
@@ -30,7 +57,7 @@ const Login = () => {
         setError('');
         setLoading(true);
         try {
-            const { error: signInError } = await signInWithGoogle();
+            const { error: signInError } = await signInWithGoogle(redirectTarget);
             if (signInError) {
                 setError(resolveGoogleErrorMessage(signInError));
             }
@@ -51,7 +78,7 @@ const Login = () => {
             if (error) {
                 setError(error.message);
             } else {
-                navigate('/dashboard');
+                navigate(redirectTarget, { replace: true });
             }
         } catch {
             setError('An unexpected error occurred');

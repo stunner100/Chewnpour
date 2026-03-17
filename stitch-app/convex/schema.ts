@@ -415,6 +415,22 @@ export default defineSchema({
         .index("by_userId_campaignId", ["userId", "campaignId"])
         .index("by_campaignId_grantedAt", ["campaignId", "grantedAt"]),
 
+    // Records attributed campaign landings after users click a campaign CTA.
+    campaignLandingEvents: defineTable({
+        campaignId: v.string(),
+        userId: v.string(),
+        source: v.optional(v.string()),
+        medium: v.optional(v.string()),
+        content: v.optional(v.string()),
+        landingPath: v.optional(v.string()),
+        landingSearch: v.optional(v.string()),
+        firstLandedAt: v.number(),
+        lastLandedAt: v.number(),
+        landingCount: v.number(),
+    })
+        .index("by_userId_campaignId", ["userId", "campaignId"])
+        .index("by_campaignId_firstLandedAt", ["campaignId", "firstLandedAt"]),
+
     adminAccess: defineTable({
         email: v.string(),
         addedByUserId: v.string(),

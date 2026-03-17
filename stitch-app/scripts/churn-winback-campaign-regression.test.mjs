@@ -56,6 +56,10 @@ for (const pattern of [
   'runNeverActivatedCampaign',
   'ensureCampaignCreditGrantInternal',
   'campaignCreditGrants',
+  'buildCampaignDashboardUrl',
+  'campaign_source',
+  'campaign_medium',
+  'campaign_content',
   'upload credits have already been added',
   'never got to use it',
 ]) {

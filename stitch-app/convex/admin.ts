@@ -264,6 +264,9 @@ const normalizeSessionUserId = (session: any) =>
 const normalizeAuthUserId = (user: any) =>
     String(user?._id || "").trim();
 
+const buildCampaignUserKey = (campaignId: string, userId: string) =>
+    `${campaignId}::${userId}`;
+
 const chunkArray = <T>(items: T[], chunkSize: number) => {
     const safeChunkSize = Math.max(1, Math.floor(chunkSize));
     const chunks: T[][] = [];
@@ -585,7 +588,7 @@ export const getDashboardSnapshot = query({
         const fiveMinutesAgo = now - ACTIVE_USERS_5M_WINDOW_MS;
         const sevenDaysAgoDateKey = new Date(sevenDaysAgo).toISOString().slice(0, 10);
 
-        const [profiles, uploads, assignmentThreads, examAttempts, conceptAttempts, feedbackEntries, productResearchResponses, activeSessionsResult, subscriptions, paymentTransactions, courses, humanizerUsage, aiMessageUsage, llmUsageDaily, userPresence, questionTargetAuditRuns] =
+        const [profiles, uploads, assignmentThreads, examAttempts, conceptAttempts, feedbackEntries, productResearchResponses, activeSessionsResult, subscriptions, paymentTransactions, courses, humanizerUsage, aiMessageUsage, llmUsageDaily, userPresenceLast5Minutes, allUserPresence, questionTargetAuditRuns, campaignCreditGrants, campaignLandingEvents] =
             await Promise.all([
                 ctx.db.query("profiles").collect(),
                 ctx.db.query("uploads").collect(),
@@ -609,11 +612,14 @@ export const getDashboardSnapshot = query({
                     .query("userPresence")
                     .withIndex("by_lastSeenAt", (q) => q.gte("lastSeenAt", fiveMinutesAgo))
                     .collect(),
+                ctx.db.query("userPresence").collect(),
                 ctx.db
                     .query("questionTargetAuditRuns")
                     .withIndex("by_finishedAt")
                     .order("desc")
                     .take(10),
+                ctx.db.query("campaignCreditGrants").collect(),
+                ctx.db.query("campaignLandingEvents").collect(),
             ]);
         // Topics can contain very large generated content, so avoid full-table
         // scans here and derive admin content metrics from lightweight records.
@@ -622,7 +628,7 @@ export const getDashboardSnapshot = query({
         const activeSessions = activeSessionsResult.rows;
 
         const activeUsersLast5Minutes = new Set(
-            userPresence
+            userPresenceLast5Minutes
                 .map((presence) => {
                     const userId = String(presence.userId || "").trim();
                     const lastSeenAt = toTimestamp(presence.lastSeenAt, 0);
@@ -637,6 +643,10 @@ export const getDashboardSnapshot = query({
         const feedbackCountByUser = new Map<string, number>();
         const docsProcessedByUser = new Map<string, number>();
         const lastActivityByUser = new Map<string, number>();
+        const latestPresenceByUser = new Map<string, number>();
+        const latestUploadByUser = new Map<string, number>();
+        const latestActivationByUser = new Map<string, number>();
+        const latestPaymentByUser = new Map<string, number>();
         const uploadChannelStats = new Map<string, {
             total: number;
             ready: number;
@@ -757,6 +767,7 @@ export const getDashboardSnapshot = query({
                 fileName: upload.fileName,
             });
             updateMaxTimestamp(lastActivityByUser, userId, timestampMs);
+            updateMaxTimestamp(latestUploadByUser, userId, timestampMs);
             markActiveWindow(
                 userId,
                 timestampMs,
@@ -782,6 +793,8 @@ export const getDashboardSnapshot = query({
                 fileName: thread.fileName,
             });
             updateMaxTimestamp(lastActivityByUser, userId, timestampMs);
+            updateMaxTimestamp(latestUploadByUser, userId, timestampMs);
+            updateMaxTimestamp(latestActivationByUser, userId, timestampMs);
             markActiveWindow(
                 userId,
                 timestampMs,
@@ -795,11 +808,28 @@ export const getDashboardSnapshot = query({
             }
         }
 
+        for (const course of courses) {
+            const userId = String(course.userId || "").trim();
+            const timestampMs = toTimestamp(course._creationTime, 0);
+            if (!userId) continue;
+            updateMaxTimestamp(lastActivityByUser, userId, timestampMs);
+            updateMaxTimestamp(latestActivationByUser, userId, timestampMs);
+            markActiveWindow(
+                userId,
+                timestampMs,
+                sevenDaysAgo,
+                fourteenDaysAgo,
+                activeUsersLastWindow,
+                activeUsersPrevWindow
+            );
+        }
+
         for (const attempt of examAttempts) {
             const userId = String(attempt.userId || "").trim();
             const timestampMs = toTimestamp(attempt._creationTime, 0);
             if (!userId) continue;
             updateMaxTimestamp(lastActivityByUser, userId, timestampMs);
+            updateMaxTimestamp(latestActivationByUser, userId, timestampMs);
             markActiveWindow(
                 userId,
                 timestampMs,
@@ -815,6 +845,7 @@ export const getDashboardSnapshot = query({
             const timestampMs = toTimestamp(attempt._creationTime, 0);
             if (!userId) continue;
             updateMaxTimestamp(lastActivityByUser, userId, timestampMs);
+            updateMaxTimestamp(latestActivationByUser, userId, timestampMs);
             markActiveWindow(
                 userId,
                 timestampMs,
@@ -831,6 +862,22 @@ export const getDashboardSnapshot = query({
             if (!userId) continue;
             incrementMap(feedbackCountByUser, userId);
             updateMaxTimestamp(lastActivityByUser, userId, timestampMs);
+            markActiveWindow(
+                userId,
+                timestampMs,
+                sevenDaysAgo,
+                fourteenDaysAgo,
+                activeUsersLastWindow,
+                activeUsersPrevWindow
+            );
+        }
+
+        for (const presence of allUserPresence) {
+            const userId = String(presence.userId || "").trim();
+            const timestampMs = toTimestamp(presence.lastSeenAt, 0);
+            if (!userId) continue;
+            updateMaxTimestamp(lastActivityByUser, userId, timestampMs);
+            updateMaxTimestamp(latestPresenceByUser, userId, timestampMs);
             markActiveWindow(
                 userId,
                 timestampMs,
@@ -995,6 +1042,13 @@ export const getDashboardSnapshot = query({
         const failedPayments = paymentTransactions.filter(isFailedPayment);
         const finalizedPaymentAttempts = successfulPayments.length + failedPayments.length;
 
+        for (const payment of successfulPayments) {
+            const userId = String(payment.userId || "").trim();
+            const timestampMs = resolvePaymentTimestamp(payment);
+            if (!userId) continue;
+            updateMaxTimestamp(latestPaymentByUser, userId, timestampMs);
+        }
+
         // If transaction rows are missing but subscriptions track recent paid states,
         // derive a conservative revenue snapshot from the subscription records.
         const subscriptionRevenueSnapshots = subscriptions
@@ -1009,6 +1063,13 @@ export const getDashboardSnapshot = query({
                 };
             })
             .filter((entry): entry is NonNullable<typeof entry> => Boolean(entry));
+        for (const subscription of subscriptions) {
+            const userId = String(subscription.userId || "").trim();
+            const amountMajor = toNonNegativeNumber(subscription.amount);
+            const paidAt = toTimestamp(subscription.lastPaymentAt, 0);
+            if (!userId || amountMajor <= 0 || paidAt <= 0) continue;
+            updateMaxTimestamp(latestPaymentByUser, userId, paidAt);
+        }
         const useSubscriptionRevenueFallback =
             successfulPayments.length === 0 && subscriptionRevenueSnapshots.length > 0;
 
@@ -1590,6 +1651,160 @@ export const getDashboardSnapshot = query({
             };
         });
 
+        const latestLandingByCampaignUser = new Map<string, {
+            landedAt: number;
+            landingCount: number;
+            source: string | null;
+            medium: string | null;
+            content: string | null;
+            landingPath: string | null;
+        }>();
+        for (const event of campaignLandingEvents) {
+            const campaignId = String(event.campaignId || "").trim();
+            const userId = String(event.userId || "").trim();
+            if (!campaignId || !userId) continue;
+            const landedAt = toTimestamp(event.lastLandedAt, toTimestamp(event.firstLandedAt, 0));
+            const key = buildCampaignUserKey(campaignId, userId);
+            const existing = latestLandingByCampaignUser.get(key);
+            if (existing && existing.landedAt >= landedAt) {
+                continue;
+            }
+            latestLandingByCampaignUser.set(key, {
+                landedAt,
+                landingCount: toNonNegativeInteger(event.landingCount) || 1,
+                source: String(event.source || "").trim() || null,
+                medium: String(event.medium || "").trim() || null,
+                content: String(event.content || "").trim() || null,
+                landingPath: String(event.landingPath || "").trim() || null,
+            });
+        }
+
+        const sentCampaignGrantByCampaignUser = new Map<string, {
+            campaignId: string;
+            userId: string;
+            sentAt: number;
+        }>();
+        for (const grant of campaignCreditGrants) {
+            const campaignId = String(grant.campaignId || "").trim();
+            const userId = String(grant.userId || "").trim();
+            const sentAt = toTimestamp(grant.emailSentAt, 0);
+            if (!campaignId || !userId || sentAt <= 0) continue;
+
+            const key = buildCampaignUserKey(campaignId, userId);
+            const existing = sentCampaignGrantByCampaignUser.get(key);
+            if (!existing || sentAt > existing.sentAt) {
+                sentCampaignGrantByCampaignUser.set(key, {
+                    campaignId,
+                    userId,
+                    sentAt,
+                });
+            }
+        }
+
+        const sentGrantsByCampaign = new Map<string, Array<{
+            campaignId: string;
+            userId: string;
+            sentAt: number;
+        }>>();
+        for (const grant of sentCampaignGrantByCampaignUser.values()) {
+            const existing = sentGrantsByCampaign.get(grant.campaignId) || [];
+            existing.push(grant);
+            sentGrantsByCampaign.set(grant.campaignId, existing);
+        }
+
+        const buildRate = (count: number, total: number) =>
+            total > 0 ? Math.round((count / total) * 1000) / 1000 : 0;
+
+        const campaignPerformanceReports = [...sentGrantsByCampaign.entries()]
+            .map(([campaignId, sentGrants]) => {
+                let attributedLandingCount = 0;
+                let totalAttributedLandings = 0;
+                let returnedCount = 0;
+                let uploadedCount = 0;
+                let activatedCount = 0;
+                let paidCount = 0;
+                let firstSentAt = 0;
+                let lastSentAt = 0;
+                let lastAttributedLandingAt = 0;
+
+                for (const grant of sentGrants) {
+                    const sentAt = grant.sentAt;
+                    const userId = grant.userId;
+                    if (firstSentAt === 0 || sentAt < firstSentAt) {
+                        firstSentAt = sentAt;
+                    }
+                    if (sentAt > lastSentAt) {
+                        lastSentAt = sentAt;
+                    }
+
+                    const landingInfo = latestLandingByCampaignUser.get(
+                        buildCampaignUserKey(campaignId, userId)
+                    ) || null;
+                    const hasAttributedLanding = Boolean(
+                        landingInfo && landingInfo.landedAt >= sentAt
+                    );
+                    if (hasAttributedLanding && landingInfo) {
+                        attributedLandingCount += 1;
+                        totalAttributedLandings += Math.max(1, landingInfo.landingCount);
+                        if (landingInfo.landedAt > lastAttributedLandingAt) {
+                            lastAttributedLandingAt = landingInfo.landedAt;
+                        }
+                    }
+
+                    const latestPresenceAt = latestPresenceByUser.get(userId) || 0;
+                    const latestUploadAt = latestUploadByUser.get(userId) || 0;
+                    const latestActivationAt = latestActivationByUser.get(userId) || 0;
+                    const latestPaidAt = latestPaymentByUser.get(userId) || 0;
+
+                    const hasReturned =
+                        hasAttributedLanding
+                        || latestPresenceAt >= sentAt
+                        || latestUploadAt >= sentAt
+                        || latestActivationAt >= sentAt
+                        || latestPaidAt >= sentAt;
+                    if (hasReturned) {
+                        returnedCount += 1;
+                    }
+                    if (latestUploadAt >= sentAt) {
+                        uploadedCount += 1;
+                    }
+                    if (latestActivationAt >= sentAt) {
+                        activatedCount += 1;
+                    }
+                    if (latestPaidAt >= sentAt) {
+                        paidCount += 1;
+                    }
+                }
+
+                const sentCount = sentGrants.length;
+                return {
+                    campaignId,
+                    sentCount,
+                    attributedLandingCount,
+                    totalAttributedLandings,
+                    returnedCount,
+                    uploadedCount,
+                    activatedCount,
+                    paidCount,
+                    firstSentAt,
+                    lastSentAt,
+                    lastAttributedLandingAt: lastAttributedLandingAt || null,
+                    rates: {
+                        attributedLanding: buildRate(attributedLandingCount, sentCount),
+                        returned: buildRate(returnedCount, sentCount),
+                        uploaded: buildRate(uploadedCount, sentCount),
+                        activated: buildRate(activatedCount, sentCount),
+                        paid: buildRate(paidCount, sentCount),
+                    },
+                };
+            })
+            .sort((left, right) => {
+                if ((right.lastSentAt || 0) !== (left.lastSentAt || 0)) {
+                    return (right.lastSentAt || 0) - (left.lastSentAt || 0);
+                }
+                return left.campaignId.localeCompare(right.campaignId);
+            });
+
         const sessionStatsByUser = new Map<string, { count: number; latestAt: number }>();
         for (const session of activeSessions) {
             const userId = normalizeSessionUserId(session);
@@ -1880,6 +2095,7 @@ export const getDashboardSnapshot = query({
                     .map(([campaign, count]) => ({ campaign, count }))
                     .sort((left, right) => right.count - left.count),
             },
+            campaignPerformanceReports,
             adminEmails: access.adminEmails,
             recentUsers,
             recentFeedback,

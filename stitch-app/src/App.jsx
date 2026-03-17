@@ -1,6 +1,19 @@
 import React, { Suspense, lazy, useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, useLocation } from 'react-router-dom';
-import { capturePostHogPageView } from './lib/posthog';
+import { useMutation } from 'convex/react';
+import { api } from '../convex/_generated/api';
+import { useAuth } from './contexts/AuthContext';
+import { hasConvexUrl } from './lib/convex-config';
+import {
+  buildRecordedCampaignAttributionKey,
+  clearPendingCampaignAttribution,
+  hasRecordedCampaignAttribution,
+  markRecordedCampaignAttribution,
+  readCampaignAttributionFromSearch,
+  readPendingCampaignAttribution,
+  stashPendingCampaignAttribution,
+} from './lib/campaignAttribution';
+import { capturePostHogEvent, capturePostHogPageView } from './lib/posthog';
 import ProtectedRoute from './components/ProtectedRoute';
 import DashboardLayout from './components/DashboardLayout';
 import { addSentryBreadcrumb } from './lib/sentry';
@@ -145,6 +158,70 @@ function RouteChangeTracker() {
   return null;
 }
 
+function CampaignAttributionTracker() {
+  const location = useLocation();
+  const { user } = useAuth();
+  const recordCampaignLanding = useMutation(api.campaignAttribution.recordCampaignLanding);
+
+  useEffect(() => {
+    const attributionFromUrl = readCampaignAttributionFromSearch(location.search, location.pathname);
+    if (attributionFromUrl) {
+      stashPendingCampaignAttribution(attributionFromUrl);
+    }
+  }, [location.pathname, location.search]);
+
+  useEffect(() => {
+    if (!user?.id) return undefined;
+
+    const pendingAttribution = readPendingCampaignAttribution();
+    if (!pendingAttribution?.campaignId) return undefined;
+
+    const deliveryKey = buildRecordedCampaignAttributionKey({
+      userId: user.id,
+      campaignId: pendingAttribution.campaignId,
+    });
+    if (!deliveryKey) return undefined;
+    if (hasRecordedCampaignAttribution(deliveryKey)) {
+      clearPendingCampaignAttribution();
+      return undefined;
+    }
+
+    let cancelled = false;
+
+    void recordCampaignLanding({
+      campaignId: pendingAttribution.campaignId,
+      source: pendingAttribution.source,
+      medium: pendingAttribution.medium,
+      content: pendingAttribution.content,
+      landingPath: pendingAttribution.landingPath || location.pathname,
+      landingSearch: pendingAttribution.landingSearch || location.search || '',
+    })
+      .then(() => {
+        if (cancelled) return;
+        capturePostHogEvent('campaign_landing', {
+          campaignId: pendingAttribution.campaignId,
+          campaignSource: pendingAttribution.source,
+          campaignMedium: pendingAttribution.medium,
+          campaignContent: pendingAttribution.content,
+          landingPath: pendingAttribution.landingPath || location.pathname,
+          landingSearch: pendingAttribution.landingSearch || location.search || '',
+          userId: String(user.id),
+        });
+        markRecordedCampaignAttribution(deliveryKey);
+        clearPendingCampaignAttribution();
+      })
+      .catch(() => {
+        // Leave the pending attribution in session storage so it can retry on the next navigation.
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [location.pathname, location.search, recordCampaignLanding, user?.id]);
+
+  return null;
+}
+
 const NotFound = () => (
   <div className="bg-background-light dark:bg-background-dark min-h-screen flex items-center justify-center px-6">
     <div className="text-center max-w-md">
@@ -185,6 +262,7 @@ function App() {
   return (
     <Router>
       <RouteChangeTracker />
+      {hasConvexUrl ? <CampaignAttributionTracker /> : null}
       <Routes>
         {/* Public Routes */}
         <Route path="/" element={withSuspense(<LandingPage />)} />

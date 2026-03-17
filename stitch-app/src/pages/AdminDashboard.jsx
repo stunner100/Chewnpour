@@ -1140,11 +1140,24 @@ const UploadsPanel = ({ snapshot }) => {
     );
 };
 
-const FeedbackPanel = ({ recentFeedback, recentProductResearchResponses, totals, activeUsersDays }) => {
+const FeedbackPanel = ({
+    recentFeedback,
+    recentProductResearchResponses,
+    campaignPerformanceReports,
+    totals,
+    activeUsersDays,
+}) => {
     const feedbackWithMessages = recentFeedback.filter((entry) => Boolean(normalizeFeedbackMessage(entry?.message)));
     const feedbackPreview = feedbackWithMessages.slice(0, 15);
     const feedbackWithMessagesTotal = Number(totals.feedbackWithMessageTotal) || feedbackWithMessages.length;
     const researchPreview = recentProductResearchResponses.slice(0, 15);
+    const campaignReports = Array.isArray(campaignPerformanceReports)
+        ? campaignPerformanceReports
+        : [];
+    const totalCampaignSent = campaignReports.reduce(
+        (sum, report) => sum + (Number(report?.sentCount) || 0),
+        0,
+    );
     const researchResponsesTotal = Number(
         totals.productResearchResponseTotal
         ?? totals.productResearchResponsesTotal
@@ -1186,6 +1199,85 @@ const FeedbackPanel = ({ recentFeedback, recentProductResearchResponses, totals,
                     color="emerald"
                 />
             </section>
+
+            <SectionCard
+                title="Campaign Performance"
+                badge={`${formatNumber(campaignReports.length)} campaigns • ${formatNumber(totalCampaignSent)} sent`}
+            >
+                <div className="space-y-3">
+                    {campaignReports.length === 0 ? (
+                        <p className="text-sm text-slate-500 dark:text-slate-400">No campaign send data yet.</p>
+                    ) : campaignReports.map((report) => {
+                        const campaignId = normalizeFeedbackMessage(report?.campaignId) || 'unknown_campaign';
+                        const sentCount = Number(report?.sentCount) || 0;
+                        const returnedCount = Number(report?.returnedCount) || 0;
+                        const uploadedCount = Number(report?.uploadedCount) || 0;
+                        const activatedCount = Number(report?.activatedCount) || 0;
+                        const paidCount = Number(report?.paidCount) || 0;
+                        const attributedLandingCount = Number(report?.attributedLandingCount) || 0;
+                        const totalAttributedLandings = Number(report?.totalAttributedLandings) || attributedLandingCount;
+                        const rates = report?.rates || {};
+
+                        return (
+                            <article
+                                key={campaignId}
+                                className="rounded-2xl border border-slate-200 dark:border-slate-700 bg-white/80 dark:bg-slate-900/50 p-4"
+                            >
+                                <div className="flex flex-wrap items-start justify-between gap-3">
+                                    <div>
+                                        <p className="font-semibold text-slate-900 dark:text-white break-all">{campaignId}</p>
+                                        <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+                                            First sent {formatDateTime(report?.firstSentAt)} • Last sent {formatDateTime(report?.lastSentAt)}
+                                        </p>
+                                    </div>
+                                    <span className="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-semibold text-slate-700 dark:bg-slate-800 dark:text-slate-200">
+                                        {formatNumber(sentCount)} sent
+                                    </span>
+                                </div>
+
+                                <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
+                                    <div className="rounded-xl bg-slate-50/80 px-3 py-3 dark:bg-slate-800/60">
+                                        <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">Sent</p>
+                                        <p className="mt-1 text-xl font-black text-slate-900 dark:text-white">{formatNumber(sentCount)}</p>
+                                    </div>
+                                    <div className="rounded-xl bg-slate-50/80 px-3 py-3 dark:bg-slate-800/60">
+                                        <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">Returned</p>
+                                        <p className="mt-1 text-xl font-black text-slate-900 dark:text-white">{formatNumber(returnedCount)}</p>
+                                        <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">{formatRatioPercent(rates?.returned)}</p>
+                                    </div>
+                                    <div className="rounded-xl bg-slate-50/80 px-3 py-3 dark:bg-slate-800/60">
+                                        <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">Uploaded</p>
+                                        <p className="mt-1 text-xl font-black text-slate-900 dark:text-white">{formatNumber(uploadedCount)}</p>
+                                        <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">{formatRatioPercent(rates?.uploaded)}</p>
+                                    </div>
+                                    <div className="rounded-xl bg-slate-50/80 px-3 py-3 dark:bg-slate-800/60">
+                                        <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">Activated</p>
+                                        <p className="mt-1 text-xl font-black text-slate-900 dark:text-white">{formatNumber(activatedCount)}</p>
+                                        <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">{formatRatioPercent(rates?.activated)}</p>
+                                    </div>
+                                    <div className="rounded-xl bg-slate-50/80 px-3 py-3 dark:bg-slate-800/60">
+                                        <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">Paid</p>
+                                        <p className="mt-1 text-xl font-black text-slate-900 dark:text-white">{formatNumber(paidCount)}</p>
+                                        <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">{formatRatioPercent(rates?.paid)}</p>
+                                    </div>
+                                </div>
+
+                                <div className="mt-4 rounded-xl border border-indigo-100 bg-indigo-50/70 px-3 py-3 dark:border-indigo-900/40 dark:bg-indigo-950/20">
+                                    <StatRow
+                                        label="Attributed CTA landings"
+                                        value={formatNumber(attributedLandingCount)}
+                                        detail={`${formatRatioPercent(rates?.attributedLanding)} • ${formatNumber(totalAttributedLandings)} total landings`}
+                                    />
+                                    <StatRow
+                                        label="Most recent attributed landing"
+                                        value={formatDateTime(report?.lastAttributedLandingAt)}
+                                    />
+                                </div>
+                            </article>
+                        );
+                    })}
+                </div>
+            </SectionCard>
 
             <SectionCard title="User Feedback" badge={`Showing ${feedbackPreview.length} of ${formatNumber(feedbackWithMessagesTotal)}`}>
                 <div className="space-y-3">
@@ -1388,6 +1480,9 @@ const AdminDashboard = () => {
     const recentProductResearchResponses = Array.isArray(snapshot.recentProductResearchResponses)
         ? snapshot.recentProductResearchResponses
         : (Array.isArray(snapshot.recentResearchResponses) ? snapshot.recentResearchResponses : []);
+    const campaignPerformanceReports = Array.isArray(snapshot.campaignPerformanceReports)
+        ? snapshot.campaignPerformanceReports
+        : [];
     const signedInUsers = Array.isArray(snapshot.signedInUsers) ? snapshot.signedInUsers : [];
     const premiumUsers = Array.isArray(snapshot.premiumUsers) ? snapshot.premiumUsers : [];
 
@@ -1463,6 +1558,7 @@ const AdminDashboard = () => {
                     <FeedbackPanel
                         recentFeedback={recentFeedback}
                         recentProductResearchResponses={recentProductResearchResponses}
+                        campaignPerformanceReports={campaignPerformanceReports}
                         totals={totals}
                         activeUsersDays={activeUsersDays}
                     />

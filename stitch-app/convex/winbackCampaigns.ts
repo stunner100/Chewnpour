@@ -56,12 +56,27 @@ const chunkArray = <T>(arr: T[], size: number): T[][] => {
 
 const encode = (value: string) => encodeURIComponent(value);
 
-const buildDashboardUrl = () => `${APP_URL}/dashboard`;
+const buildCampaignDashboardUrl = (args: {
+    campaignId: string;
+    content: string;
+}) => {
+    const params = new URLSearchParams({
+        campaign: normalizeString(args.campaignId, 120) || DEFAULT_CAMPAIGN_ID,
+        campaign_source: "email",
+        campaign_medium: "email_cta",
+        campaign_content: normalizeString(args.content, 120) || "winback_bonus_cta",
+    });
+    return `${APP_URL}/dashboard?${params.toString()}`;
+};
 
 const buildUnsubscribeUrl = (token: string) =>
     `${APP_URL}/unsubscribe?token=${encode(token)}&type=winback_offers`;
 
-const buildWinbackTemplate = (displayName: string, unsubscribeUrl: string) => `<!DOCTYPE html>
+const buildWinbackTemplate = (
+    displayName: string,
+    unsubscribeUrl: string,
+    ctaUrl: string,
+) => `<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="utf-8"/>
@@ -86,7 +101,7 @@ const buildWinbackTemplate = (displayName: string, unsubscribeUrl: string) => `<
       <p>It has been a while since you last studied on ${APP_NAME}, so we added a small welcome-back bonus to your account.</p>
       <div class="highlight">+${WINBACK_CREDITS} upload credits have already been added.</div>
       <p>Upload a document, generate a lesson, and get back into study mode.</p>
-      <a class="cta" href="${buildDashboardUrl()}">Use My Credits</a>
+      <a class="cta" href="${ctaUrl}">Use My Credits</a>
     </div>
     <div class="footer">
       <p>You received this because win-back offers are enabled on your account.</p>
@@ -96,7 +111,11 @@ const buildWinbackTemplate = (displayName: string, unsubscribeUrl: string) => `<
 </body>
 </html>`;
 
-const buildNeverActivatedTemplate = (displayName: string, unsubscribeUrl: string) => `<!DOCTYPE html>
+const buildNeverActivatedTemplate = (
+    displayName: string,
+    unsubscribeUrl: string,
+    ctaUrl: string,
+) => `<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="utf-8"/>
@@ -121,7 +140,7 @@ const buildNeverActivatedTemplate = (displayName: string, unsubscribeUrl: string
       <p>You signed up for ${APP_NAME} but never got to use it, so we added a small bonus to help you get started.</p>
       <div class="highlight">+${WINBACK_CREDITS} upload credits have already been added.</div>
       <p>Upload one document, generate your first lesson, and see how the app works in a few minutes.</p>
-      <a class="cta" href="${buildDashboardUrl()}">Use My Credits</a>
+      <a class="cta" href="${ctaUrl}">Use My Credits</a>
     </div>
     <div class="footer">
       <p>You received this because win-back offers are enabled on your account.</p>
@@ -739,6 +758,10 @@ export const sendChurnWinbackCampaignInternal = internalAction({
                     || email.split("@")[0]
                     || "there",
                 buildUnsubscribeUrl(unsubscribeToken),
+                buildCampaignDashboardUrl({
+                    campaignId,
+                    content: "winback_bonus_cta",
+                }),
             );
 
             const ok = await sendEmailViaResend({
@@ -901,6 +924,10 @@ export const sendNeverActivatedCampaignInternal = internalAction({
                     || email.split("@")[0]
                     || "there",
                 buildUnsubscribeUrl(unsubscribeToken),
+                buildCampaignDashboardUrl({
+                    campaignId,
+                    content: "never_activated_bonus_cta",
+                }),
             );
 
             const ok = await sendEmailViaResend({

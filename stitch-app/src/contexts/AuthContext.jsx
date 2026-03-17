@@ -545,8 +545,12 @@ const AuthProviderConvex = ({ children }) => {
         }
     };
 
-    const signInWithGoogle = async () => {
-        const callbackURL = absoluteUrl('/dashboard');
+    const signInWithGoogle = async (callbackPath = '/dashboard') => {
+        const normalizedCallbackPath =
+            typeof callbackPath === 'string' && callbackPath.trim().startsWith('/')
+                ? callbackPath.trim()
+                : '/dashboard';
+        const callbackURL = absoluteUrl(normalizedCallbackPath);
         const provider = 'google';
         let attempt = 0;
 
