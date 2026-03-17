@@ -7,11 +7,9 @@ import { query, mutation } from "./_generated/server";
 
 // List all channels ordered by last activity (most recent first)
 export const listChannels = query({
-    args: {
-        limit: v.optional(v.number()),
-    },
-    handler: async (ctx, args) => {
-        const limit = args.limit ?? 20;
+    args: {},
+    handler: async (ctx) => {
+        const limit = 20;
         const channels = await ctx.db
             .query("communityChannels")
             .withIndex("by_lastActivity")

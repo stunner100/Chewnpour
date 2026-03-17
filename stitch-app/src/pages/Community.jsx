@@ -94,7 +94,7 @@ const Community = () => {
     const userId = user?.id;
     const [searchQuery, setSearchQuery] = useState('');
 
-    const allChannels = useQuery(api.community.listChannels);
+    const allChannels = useQuery(api.community.listChannels, {});
     const userChannels = useQuery(
         api.community.getUserChannels,
         userId ? { userId } : 'skip'
