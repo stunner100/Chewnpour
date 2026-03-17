@@ -49,6 +49,7 @@ for (const pattern of [
   'getChurnBreakdown',
   'getChurnBreakdownRowsInternal',
   'getNeverActivatedUsers',
+  'getUserEmailCoverage',
   'runChurnWinbackCampaign',
   'ensureCampaignCreditGrantInternal',
   'campaignCreditGrants',

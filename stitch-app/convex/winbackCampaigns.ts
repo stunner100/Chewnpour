@@ -12,6 +12,8 @@ const DEFAULT_CURRENCY = "GHS";
 const APP_NAME = "ChewnPour";
 const APP_URL = "https://chewnpour.com";
 const BETTER_AUTH_USER_CHUNK_SIZE = 100;
+const BETTER_AUTH_PAGE_SIZE = 200;
+const BETTER_AUTH_MAX_PAGES = 20;
 const MAX_RECIPIENTS_PER_RUN = 100;
 const MAX_PREVIEW_SAMPLE = 25;
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/i;
@@ -162,6 +164,46 @@ const fetchAuthUsersByIds = async (ctx: any, userIds: string[]) => {
     return normalizedIds
         .map((id) => usersById.get(id))
         .filter((user): user is NonNullable<typeof user> => Boolean(user));
+};
+
+const fetchAllAuthUsers = async (ctx: any) => {
+    const users: any[] = [];
+    let cursor: string | null = null;
+
+    for (let pageIndex = 0; pageIndex < BETTER_AUTH_MAX_PAGES; pageIndex += 1) {
+        const result = await ctx.runQuery(components.betterAuth.adapter.findMany, {
+            model: "user",
+            paginationOpts: {
+                cursor,
+                numItems: BETTER_AUTH_PAGE_SIZE,
+            },
+        });
+
+        const pageRows = Array.isArray(result?.page) ? result.page : [];
+        users.push(...pageRows);
+
+        if (result?.isDone) {
+            return {
+                rows: users,
+                truncated: false,
+            };
+        }
+
+        const nextCursor = typeof result?.continueCursor === "string" ? result.continueCursor : null;
+        if (!nextCursor || nextCursor === cursor) {
+            return {
+                rows: users,
+                truncated: true,
+            };
+        }
+
+        cursor = nextCursor;
+    }
+
+    return {
+        rows: users,
+        truncated: true,
+    };
 };
 
 const getCampaignId = (campaignId: unknown) =>
@@ -769,6 +811,75 @@ export const getNeverActivatedUsers = action({
             withEmailCount: withEmail.length,
             withoutEmailCount: withoutEmail.length,
             users: users.slice(0, limit),
+        };
+    },
+});
+
+export const getUserEmailCoverage = action({
+    args: {
+        sampleLimit: v.optional(v.number()),
+    },
+    handler: async (ctx, args) => {
+        await assertAdminAccess(ctx);
+
+        const sampleLimit = toPositiveInt(args.sampleLimit, 10, 50);
+        const rows = await ctx.runQuery(internal.winbackCampaigns.getChurnBreakdownRowsInternal, {});
+        const { rows: authUsers, truncated } = await fetchAllAuthUsers(ctx);
+        const authUsersById = new Map(
+            authUsers
+                .map((authUser) => [normalizeUserId(authUser?.id), authUser] as const)
+                .filter(([userId]) => Boolean(userId)),
+        );
+
+        const profileUsers = rows.map((row: any) => {
+            const authUser = authUsersById.get(row.userId);
+            const email = normalizeEmail(authUser?.email);
+            return {
+                ...row,
+                email: email || null,
+            };
+        });
+        const profileUsersWithEmail = profileUsers.filter((row: any) => Boolean(row.email));
+        const profileUsersWithoutEmail = profileUsers.filter((row: any) => !row.email);
+        const activatedWithEmail = profileUsers.filter((row: any) => row.hasTrackedActivity && Boolean(row.email));
+        const activatedWithoutEmail = profileUsers.filter((row: any) => row.hasTrackedActivity && !row.email);
+        const neverActivatedWithEmail = profileUsers.filter((row: any) => !row.hasTrackedActivity && Boolean(row.email));
+        const neverActivatedWithoutEmail = profileUsers.filter((row: any) => !row.hasTrackedActivity && !row.email);
+
+        const authUsersWithEmail = authUsers.filter((authUser: any) => Boolean(normalizeEmail(authUser?.email)));
+        const authUsersWithoutEmail = authUsers.filter((authUser: any) => !normalizeEmail(authUser?.email));
+        const uniqueEmailCount = new Set(
+            authUsersWithEmail
+                .map((authUser: any) => normalizeEmail(authUser?.email))
+                .filter(Boolean),
+        ).size;
+
+        return {
+            asOf: Date.now(),
+            authUsersTruncated: truncated,
+            counts: {
+                profileUsersTotal: profileUsers.length,
+                profileUsersWithEmail: profileUsersWithEmail.length,
+                profileUsersWithoutEmail: profileUsersWithoutEmail.length,
+                activatedWithEmail: activatedWithEmail.length,
+                activatedWithoutEmail: activatedWithoutEmail.length,
+                neverActivatedWithEmail: neverActivatedWithEmail.length,
+                neverActivatedWithoutEmail: neverActivatedWithoutEmail.length,
+                authUsersTotal: authUsers.length,
+                authUsersWithEmail: authUsersWithEmail.length,
+                authUsersWithoutEmail: authUsersWithoutEmail.length,
+                authUsersUniqueEmails: uniqueEmailCount,
+            },
+            samples: {
+                profileUsersWithoutEmail: profileUsersWithoutEmail
+                    .slice(0, sampleLimit)
+                    .map((row: any) => ({
+                        userId: row.userId,
+                        fullName: row.fullName,
+                        hasTrackedActivity: row.hasTrackedActivity,
+                        daysInactive: row.daysInactive,
+                    })),
+            },
         };
     },
 });
