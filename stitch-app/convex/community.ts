@@ -14,9 +14,16 @@ export const listChannels = query({
             .query("communityChannels")
             .withIndex("by_lastActivity")
             .order("desc")
-            .take(limit);
+            .collect();
 
-        return channels;
+        const seededChannels = channels.filter((channel) => channel.isSeeded);
+        const recentChannels = channels
+            .filter((channel) => !channel.isSeeded)
+            .slice(0, limit);
+
+        return [...seededChannels, ...recentChannels].sort(
+            (a, b) => b.lastActivityAt - a.lastActivityAt
+        );
     },
 });
 

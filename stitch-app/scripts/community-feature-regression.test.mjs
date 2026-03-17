@@ -46,6 +46,7 @@ for (const pattern of [
   'api.community.getUserChannels',
   'api.community.seedDefaultChannels',
   'seedDefaultChannels({})',
+  'Available to Everyone',
   'to="/dashboard"',
   'Back to Dashboard',
   '/dashboard/community/${channel._id}',

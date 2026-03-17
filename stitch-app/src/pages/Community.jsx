@@ -124,33 +124,49 @@ const Community = () => {
         });
     }, [seedDefaultChannels, userId]);
 
-    const isLoading = allChannels === undefined;
+    const isLoading = allChannels === undefined || (userId ? userChannels === undefined : false);
 
     const userChannelIds = useMemo(() => {
         if (!userChannels) return new Set();
         return new Set(userChannels.map((c) => c._id));
     }, [userChannels]);
 
+    const combinedChannels = useMemo(() => {
+        const deduped = new Map();
+        for (const channel of userChannels ?? []) {
+            deduped.set(channel._id, channel);
+        }
+        for (const channel of allChannels ?? []) {
+            deduped.set(channel._id, { ...deduped.get(channel._id), ...channel });
+        }
+        return Array.from(deduped.values()).sort((a, b) => b.lastActivityAt - a.lastActivityAt);
+    }, [allChannels, userChannels]);
+
     const filteredChannels = useMemo(() => {
-        if (!allChannels) return [];
-        if (!searchQuery.trim()) return allChannels;
+        if (!combinedChannels.length) return [];
+        if (!searchQuery.trim()) return combinedChannels;
         const q = searchQuery.toLowerCase().trim();
-        return allChannels.filter((c) =>
+        return combinedChannels.filter((c) =>
             c.title.toLowerCase().includes(q)
         );
-    }, [allChannels, searchQuery]);
+    }, [combinedChannels, searchQuery]);
 
     const myChannels = useMemo(
         () => filteredChannels.filter((c) => userChannelIds.has(c._id)),
         [filteredChannels, userChannelIds]
     );
 
-    const discoverChannels = useMemo(
-        () => filteredChannels.filter((c) => !userChannelIds.has(c._id)),
+    const everyoneChannels = useMemo(
+        () => filteredChannels.filter((c) => c.isSeeded && !userChannelIds.has(c._id)),
         [filteredChannels, userChannelIds]
     );
 
-    const hasNoChannels = !isLoading && (!allChannels || allChannels.length === 0);
+    const discoverChannels = useMemo(
+        () => filteredChannels.filter((c) => !c.isSeeded && !userChannelIds.has(c._id)),
+        [filteredChannels, userChannelIds]
+    );
+
+    const hasNoChannels = !isLoading && combinedChannels.length === 0;
 
     return (
         <div className="min-h-screen bg-background-light dark:bg-background-dark pb-24">
@@ -246,6 +262,20 @@ const Community = () => {
                                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                                     {myChannels.map((channel) => (
                                         <ChannelCard key={channel._id} channel={channel} isMember />
+                                    ))}
+                                </div>
+                            </section>
+                        )}
+
+                        {/* Everyone */}
+                        {everyoneChannels.length > 0 && (
+                            <section className="mb-8">
+                                <h2 className="text-sm font-bold uppercase tracking-wider text-neutral-500 dark:text-neutral-400 mb-3">
+                                    Available to Everyone
+                                </h2>
+                                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                                    {everyoneChannels.map((channel) => (
+                                        <ChannelCard key={channel._id} channel={channel} isMember={false} />
                                     ))}
                                 </div>
                             </section>
