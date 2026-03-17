@@ -17,6 +17,7 @@ const Profile = () => {
     const [voiceError, setVoiceError] = useState('');
     const [darkModeEnabled, setDarkModeEnabled] = useState(() => isDarkModeEnabled());
     const [emailPrefSaving, setEmailPrefSaving] = useState(null); // key being saved
+    const [showAllExamAttempts, setShowAllExamAttempts] = useState(false);
 
     const updateEmailPreferences = useMutation(api.profiles.updateEmailPreferences);
     const ensureReferralCode = useMutation(api.profiles.ensureReferralCode);
@@ -130,6 +131,10 @@ const Profile = () => {
 
     const referralCode = referralStats?.referralCode || profile?.referralCode || '';
     const referralLink = referralCode ? `https://www.chewnpour.com/signup?ref=${referralCode}` : '';
+    const hasMoreExamAttempts = Array.isArray(examAttempts) && examAttempts.length > 3;
+    const visibleExamAttempts = hasMoreExamAttempts && !showAllExamAttempts
+        ? examAttempts.slice(0, 3)
+        : examAttempts || [];
 
     const handleCopyReferralLink = useCallback(async () => {
         if (!referralLink) return;
@@ -658,13 +663,22 @@ const Profile = () => {
                 <div>
                     <div className="flex items-center justify-between mb-3">
                         <h3 className="text-base font-bold text-neutral-900 dark:text-white">Recent Exams</h3>
-                        {examAttempts && examAttempts.length > 0 && (
-                            <Link to="/dashboard/analysis" className="text-xs font-bold text-primary hover:underline">View all</Link>
+                        {hasMoreExamAttempts && (
+                            <button
+                                type="button"
+                                onClick={() => setShowAllExamAttempts((current) => !current)}
+                                className="flex items-center gap-1 text-xs font-bold text-primary hover:underline"
+                            >
+                                {showAllExamAttempts ? 'Show less' : 'View all'}
+                                <span className="material-symbols-outlined text-[16px]">
+                                    {showAllExamAttempts ? 'expand_less' : 'chevron_right'}
+                                </span>
+                            </button>
                         )}
                     </div>
-                    {examAttempts && examAttempts.length > 0 ? (
+                    {visibleExamAttempts.length > 0 ? (
                         <div className="space-y-2">
-                            {examAttempts.slice(0, 3).map((attempt, index) => {
+                            {visibleExamAttempts.map((attempt, index) => {
                                 const scorePercent = Math.round((attempt.score / attempt.totalQuestions) * 100);
                                 const isExcellent = scorePercent >= 80;
                                 const isGood = scorePercent >= 60;
