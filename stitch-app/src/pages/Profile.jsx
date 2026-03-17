@@ -548,29 +548,6 @@ const Profile = () => {
                             </div>
                         </div>
 
-                        {/* Win-back Offers */}
-                        <div className="p-4 bg-white dark:bg-surface-dark rounded-2xl border border-neutral-100 dark:border-neutral-800 shadow-sm">
-                            <div className="flex items-center justify-between gap-4">
-                                <div className="flex items-center gap-3">
-                                    <div className="w-10 h-10 rounded-xl bg-emerald-50 dark:bg-emerald-900/20 text-emerald-500 flex items-center justify-center">
-                                        <span className="material-symbols-outlined filled">redeem</span>
-                                    </div>
-                                    <div>
-                                        <p className="font-bold text-neutral-900 dark:text-white text-sm">Win-back Offers</p>
-                                        <p className="text-xs text-neutral-400">Occasional bonus credits or special comeback offers</p>
-                                    </div>
-                                </div>
-                                <button
-                                    onClick={() => handleEmailPrefToggle('winbackOffers')}
-                                    disabled={emailPrefSaving === 'winbackOffers'}
-                                    className={`relative w-12 h-7 rounded-full transition-colors ${emailPrefs.winbackOffers ? 'bg-primary' : 'bg-neutral-300 dark:bg-neutral-600'} ${emailPrefSaving === 'winbackOffers' ? 'opacity-60 cursor-not-allowed' : ''}`}
-                                    aria-label="Toggle win-back offers"
-                                    aria-pressed={emailPrefs.winbackOffers}
-                                >
-                                    <span className={`absolute top-1 left-1 w-5 h-5 rounded-full bg-white shadow transition-transform ${emailPrefs.winbackOffers ? 'translate-x-5' : ''}`} />
-                                </button>
-                            </div>
-                        </div>
                     </div>
                 </div>
 
@@ -646,30 +623,6 @@ const Profile = () => {
                                     aria-pressed={emailPrefs.weeklySummary}
                                 >
                                     <span className={`absolute top-1 left-1 w-5 h-5 rounded-full bg-white shadow transition-transform ${emailPrefs.weeklySummary ? 'translate-x-5' : ''}`} />
-                                </button>
-                            </div>
-                        </div>
-
-                        {/* Product Research */}
-                        <div className="p-4 bg-white dark:bg-surface-dark rounded-2xl border border-neutral-100 dark:border-neutral-800 shadow-sm">
-                            <div className="flex items-center justify-between gap-4">
-                                <div className="flex items-center gap-3">
-                                    <div className="w-10 h-10 rounded-xl bg-indigo-50 dark:bg-indigo-900/20 text-indigo-500 flex items-center justify-center">
-                                        <span className="material-symbols-outlined filled">insights</span>
-                                    </div>
-                                    <div>
-                                        <p className="font-bold text-neutral-900 dark:text-white text-sm">Product Research</p>
-                                        <p className="text-xs text-neutral-400">Occasional emails about how you use the app</p>
-                                    </div>
-                                </div>
-                                <button
-                                    onClick={() => handleEmailPrefToggle('productResearch')}
-                                    disabled={emailPrefSaving === 'productResearch'}
-                                    className={`relative w-12 h-7 rounded-full transition-colors ${emailPrefs.productResearch ? 'bg-primary' : 'bg-neutral-300 dark:bg-neutral-600'} ${emailPrefSaving === 'productResearch' ? 'opacity-60 cursor-not-allowed' : ''}`}
-                                    aria-label="Toggle product research emails"
-                                    aria-pressed={emailPrefs.productResearch}
-                                >
-                                    <span className={`absolute top-1 left-1 w-5 h-5 rounded-full bg-white shadow transition-transform ${emailPrefs.productResearch ? 'translate-x-5' : ''}`} />
                                 </button>
                             </div>
                         </div>

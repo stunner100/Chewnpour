@@ -23,9 +23,14 @@ for (const pattern of ['unsubscribeByToken', 'winback_offers', 'Preferences upda
 }
 
 const profileSource = await read('src/pages/Profile.jsx');
-for (const pattern of ['winbackOffers', 'Win-back Offers']) {
+for (const pattern of ['winbackOffers: true']) {
   if (!profileSource.includes(pattern)) {
     throw new Error(`Expected Profile.jsx to include "${pattern}".`);
+  }
+}
+for (const forbiddenPattern of ['Win-back Offers', "handleEmailPrefToggle('winbackOffers')"]) {
+  if (profileSource.includes(forbiddenPattern)) {
+    throw new Error(`Expected Profile.jsx to hide "${forbiddenPattern}" from the profile UI.`);
   }
 }
 

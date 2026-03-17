@@ -27,9 +27,14 @@ for (const pattern of [
 }
 
 const profilePage = await read('src/pages/Profile.jsx');
-for (const pattern of ['productResearch', 'Product Research']) {
+for (const pattern of ['productResearch: true']) {
   if (!profilePage.includes(pattern)) {
     throw new Error(`Expected Profile.jsx to include "${pattern}".`);
+  }
+}
+for (const forbiddenPattern of ['Product Research', "handleEmailPrefToggle('productResearch')"]) {
+  if (profilePage.includes(forbiddenPattern)) {
+    throw new Error(`Expected Profile.jsx to hide "${forbiddenPattern}" from the profile UI.`);
   }
 }
 
