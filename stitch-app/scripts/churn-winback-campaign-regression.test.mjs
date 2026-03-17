@@ -46,6 +46,8 @@ for (const pattern of ['winbackOffers: v.optional(v.boolean())', 'winback_offers
 const winbackSource = await read('convex/winbackCampaigns.ts');
 for (const pattern of [
   'previewChurnWinbackCampaign',
+  'getChurnBreakdown',
+  'getChurnBreakdownRowsInternal',
   'runChurnWinbackCampaign',
   'ensureCampaignCreditGrantInternal',
   'campaignCreditGrants',

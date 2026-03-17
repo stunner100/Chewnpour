@@ -268,6 +268,87 @@ export const getEligibleChurnedUsersInternal = internalQuery({
     },
 });
 
+export const getChurnBreakdownRowsInternal = internalQuery({
+    args: {
+        campaignId: v.optional(v.string()),
+    },
+    handler: async (ctx, args) => {
+        const now = Date.now();
+        const effectiveCampaignId = getCampaignId(args.campaignId);
+
+        const [
+            profiles,
+            uploads,
+            assignmentThreads,
+            examAttempts,
+            conceptAttempts,
+            userPresence,
+            grants,
+        ] = await Promise.all([
+            ctx.db.query("profiles").collect(),
+            ctx.db.query("uploads").collect(),
+            ctx.db.query("assignmentThreads").collect(),
+            ctx.db.query("examAttempts").collect(),
+            ctx.db.query("conceptAttempts").collect(),
+            ctx.db.query("userPresence").collect(),
+            ctx.db.query("campaignCreditGrants").collect(),
+        ]);
+
+        const lastActivityByUser = new Map<string, number>();
+        const updateLastActivity = (userId: unknown, timestamp: unknown) => {
+            const normalizedUserId = normalizeUserId(userId);
+            const parsedTimestamp = Number(timestamp);
+            if (!normalizedUserId || !Number.isFinite(parsedTimestamp) || parsedTimestamp <= 0) {
+                return;
+            }
+            const previousTimestamp = lastActivityByUser.get(normalizedUserId) || 0;
+            if (parsedTimestamp > previousTimestamp) {
+                lastActivityByUser.set(normalizedUserId, parsedTimestamp);
+            }
+        };
+
+        for (const upload of uploads) updateLastActivity(upload.userId, upload._creationTime);
+        for (const thread of assignmentThreads) updateLastActivity(thread.userId, thread._creationTime);
+        for (const attempt of examAttempts) updateLastActivity(attempt.userId, attempt._creationTime);
+        for (const attempt of conceptAttempts) updateLastActivity(attempt.userId, attempt._creationTime);
+        for (const presence of userPresence) updateLastActivity(presence.userId, presence.lastSeenAt);
+
+        const processedCampaignUsers = new Set<string>();
+        for (const grant of grants) {
+            if (String(grant.campaignId || "").trim() !== effectiveCampaignId) continue;
+            const userId = normalizeUserId(grant.userId);
+            if (!userId) continue;
+            processedCampaignUsers.add(userId);
+        }
+
+        return profiles.map((profile) => {
+            const userId = normalizeUserId(profile.userId);
+            const prefs = profile.emailPreferences ?? {
+                streakReminders: true,
+                streakBroken: true,
+                weeklySummary: true,
+                productResearch: true,
+                winbackOffers: true,
+            };
+            const lastActivityAt = lastActivityByUser.get(userId) || 0;
+            const hasTrackedActivity = lastActivityAt > 0;
+            const daysInactive = hasTrackedActivity
+                ? Math.floor(Math.max(0, now - lastActivityAt) / DAY_MS)
+                : null;
+
+            return {
+                userId,
+                fullName: normalizeString(profile.fullName, 120) || null,
+                hasTrackedActivity,
+                lastActivityAt: hasTrackedActivity ? lastActivityAt : null,
+                daysInactive,
+                winbackOffersEnabled: prefs.winbackOffers !== false,
+                alreadyProcessedForCampaign: processedCampaignUsers.has(userId),
+            };
+        });
+    },
+});
+
 export const ensureCampaignCreditGrantInternal = internalMutation({
     args: {
         campaignId: v.string(),
@@ -552,6 +633,94 @@ export const previewChurnWinbackCampaign = action({
             dryRun: true,
             limit: args.limit,
         });
+    },
+});
+
+export const getChurnBreakdown = action({
+    args: {
+        campaignId: v.optional(v.string()),
+        sampleLimit: v.optional(v.number()),
+    },
+    handler: async (ctx, args) => {
+        await assertAdminAccess(ctx);
+
+        const campaignId = getCampaignId(args.campaignId);
+        const sampleLimit = toPositiveInt(args.sampleLimit, 10, 50);
+        const rows = await ctx.runQuery(internal.winbackCampaigns.getChurnBreakdownRowsInternal, {
+            campaignId,
+        });
+        const authUsers = await fetchAuthUsersByIds(
+            ctx,
+            rows.map((row: any) => String(row.userId || "")),
+        );
+        const authUsersById = new Map(
+            authUsers
+                .map((authUser) => [normalizeUserId(authUser?.id), authUser] as const)
+                .filter(([userId]) => Boolean(userId)),
+        );
+
+        const enrichedRows = rows.map((row: any) => {
+            const authUser = authUsersById.get(row.userId);
+            const email = normalizeEmail(authUser?.email);
+            return {
+                ...row,
+                email: email || null,
+            };
+        });
+
+        const neverActivated = enrichedRows.filter((row: any) => !row.hasTrackedActivity);
+        const activated = enrichedRows.filter((row: any) => row.hasTrackedActivity);
+        const inactive30 = activated.filter((row: any) => Number(row.daysInactive) >= 30);
+        const inactive60 = activated.filter((row: any) => Number(row.daysInactive) >= 60);
+        const inactive30WithEmail = inactive30.filter((row: any) => Boolean(row.email));
+        const inactive30WithoutEmail = inactive30.filter((row: any) => !row.email);
+        const inactive30OptedOut = inactive30.filter((row: any) => row.winbackOffersEnabled === false);
+        const inactive30OptedIn = inactive30.filter((row: any) => row.winbackOffersEnabled !== false);
+        const inactive30Processed = inactive30.filter((row: any) => row.alreadyProcessedForCampaign === true);
+        const inactive30Sendable = inactive30.filter((row: any) =>
+            Boolean(row.email)
+            && row.winbackOffersEnabled !== false
+            && row.alreadyProcessedForCampaign !== true
+        );
+
+        const sampleRows = (items: any[]) => items
+            .slice(0, sampleLimit)
+            .map((row) => ({
+                userId: row.userId,
+                fullName: row.fullName,
+                email: row.email,
+                daysInactive: row.daysInactive,
+                lastActivityAt: row.lastActivityAt,
+                winbackOffersEnabled: row.winbackOffersEnabled,
+                alreadyProcessedForCampaign: row.alreadyProcessedForCampaign,
+            }));
+
+        return {
+            campaignId,
+            asOf: Date.now(),
+            thresholds: {
+                inactive30Days: 30,
+                inactive60Days: 60,
+            },
+            counts: {
+                totalProfiles: enrichedRows.length,
+                activatedUsers: activated.length,
+                neverActivatedUsers: neverActivated.length,
+                inactive30Users: inactive30.length,
+                inactive60Users: inactive60.length,
+                inactive30WithEmail: inactive30WithEmail.length,
+                inactive30WithoutEmail: inactive30WithoutEmail.length,
+                inactive30OptedOut: inactive30OptedOut.length,
+                inactive30OptedIn: inactive30OptedIn.length,
+                inactive30AlreadyProcessed: inactive30Processed.length,
+                inactive30SendableNow: inactive30Sendable.length,
+            },
+            samples: {
+                neverActivated: sampleRows(neverActivated),
+                inactive30Sendable: sampleRows(inactive30Sendable),
+                inactive30WithoutEmail: sampleRows(inactive30WithoutEmail),
+            },
+        };
     },
 });
 
