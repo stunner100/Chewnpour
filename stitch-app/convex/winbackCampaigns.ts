@@ -6,6 +6,7 @@ const DAY_MS = 24 * 60 * 60 * 1000;
 const CHURN_THRESHOLD_DAYS = 30;
 const WINBACK_CREDITS = 2;
 const DEFAULT_CAMPAIGN_ID = "winback_inactive30_bonus2_2026_03_16";
+const NEVER_ACTIVATED_CAMPAIGN_ID = "activation_never_started_bonus2_2026_03_17";
 const WINBACK_EMAIL_TYPE = "winback_offers";
 const CREDIT_TYPE = "upload_credits";
 const DEFAULT_CURRENCY = "GHS";
@@ -85,6 +86,41 @@ const buildWinbackTemplate = (displayName: string, unsubscribeUrl: string) => `<
       <p>It has been a while since you last studied on ${APP_NAME}, so we added a small welcome-back bonus to your account.</p>
       <div class="highlight">+${WINBACK_CREDITS} upload credits have already been added.</div>
       <p>Upload a document, generate a lesson, and get back into study mode.</p>
+      <a class="cta" href="${buildDashboardUrl()}">Use My Credits</a>
+    </div>
+    <div class="footer">
+      <p>You received this because win-back offers are enabled on your account.</p>
+      <p><a href="${unsubscribeUrl}">Unsubscribe</a> from win-back offers.</p>
+    </div>
+  </div>
+</body>
+</html>`;
+
+const buildNeverActivatedTemplate = (displayName: string, unsubscribeUrl: string) => `<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>${APP_NAME}</title>
+<style>
+  body { margin:0; padding:0; background:#f5f7fb; font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif; }
+  .container { max-width:560px; margin:24px auto; background:#ffffff; border-radius:12px; overflow:hidden; border:1px solid #e5e7eb; }
+  .header { padding:24px; background:#0f172a; color:#ffffff; }
+  .body { padding:24px; color:#1f2937; line-height:1.6; font-size:15px; }
+  .highlight { margin:16px 0; padding:16px; border-radius:10px; background:#eff6ff; border:1px solid #bfdbfe; color:#1d4ed8; font-weight:700; }
+  .cta { display:inline-block; margin-top:16px; padding:12px 24px; border-radius:8px; text-decoration:none; background:#2563eb; color:#ffffff !important; font-weight:600; }
+  .footer { padding:16px 24px 24px; color:#6b7280; font-size:12px; }
+  .footer a { color:#6b7280; }
+</style>
+</head>
+<body>
+  <div class="container">
+    <div class="header"><strong>${APP_NAME}</strong></div>
+    <div class="body">
+      <p>Hi ${displayName},</p>
+      <p>You signed up for ${APP_NAME} but never got to use it, so we added a small bonus to help you get started.</p>
+      <div class="highlight">+${WINBACK_CREDITS} upload credits have already been added.</div>
+      <p>Upload one document, generate your first lesson, and see how the app works in a few minutes.</p>
       <a class="cta" href="${buildDashboardUrl()}">Use My Credits</a>
     </div>
     <div class="footer">
@@ -208,6 +244,9 @@ const fetchAllAuthUsers = async (ctx: any) => {
 
 const getCampaignId = (campaignId: unknown) =>
     normalizeString(campaignId, 120) || DEFAULT_CAMPAIGN_ID;
+
+const getNeverActivatedCampaignId = (campaignId: unknown) =>
+    normalizeString(campaignId, 120) || NEVER_ACTIVATED_CAMPAIGN_ID;
 
 export const getEligibleChurnedUsersInternal = internalQuery({
     args: {
@@ -388,6 +427,94 @@ export const getChurnBreakdownRowsInternal = internalQuery({
                 alreadyProcessedForCampaign: processedCampaignUsers.has(userId),
             };
         });
+    },
+});
+
+export const getEligibleNeverActivatedUsersInternal = internalQuery({
+    args: {
+        campaignId: v.optional(v.string()),
+        limit: v.optional(v.number()),
+    },
+    handler: async (ctx, args) => {
+        const effectiveCampaignId = getNeverActivatedCampaignId(args.campaignId);
+        const limit = toPositiveInt(args.limit, MAX_PREVIEW_SAMPLE, 500);
+
+        const [
+            profiles,
+            uploads,
+            assignmentThreads,
+            examAttempts,
+            conceptAttempts,
+            userPresence,
+            grants,
+        ] = await Promise.all([
+            ctx.db.query("profiles").collect(),
+            ctx.db.query("uploads").collect(),
+            ctx.db.query("assignmentThreads").collect(),
+            ctx.db.query("examAttempts").collect(),
+            ctx.db.query("conceptAttempts").collect(),
+            ctx.db.query("userPresence").collect(),
+            ctx.db.query("campaignCreditGrants").collect(),
+        ]);
+
+        const usersWithActivity = new Set<string>();
+        const markActive = (userId: unknown) => {
+            const normalizedUserId = normalizeUserId(userId);
+            if (normalizedUserId) {
+                usersWithActivity.add(normalizedUserId);
+            }
+        };
+
+        for (const upload of uploads) markActive(upload.userId);
+        for (const thread of assignmentThreads) markActive(thread.userId);
+        for (const attempt of examAttempts) markActive(attempt.userId);
+        for (const attempt of conceptAttempts) markActive(attempt.userId);
+        for (const presence of userPresence) markActive(presence.userId);
+
+        const grantByUserId = new Map<string, any>();
+        for (const grant of grants) {
+            if (String(grant.campaignId || "").trim() !== effectiveCampaignId) continue;
+            const userId = normalizeUserId(grant.userId);
+            if (!userId || grantByUserId.has(userId)) continue;
+            grantByUserId.set(userId, grant);
+        }
+
+        const candidates = profiles
+            .map((profile) => {
+                const userId = normalizeUserId(profile.userId);
+                if (!userId) return null;
+
+                const prefs = profile.emailPreferences ?? {
+                    streakReminders: true,
+                    streakBroken: true,
+                    weeklySummary: true,
+                    productResearch: true,
+                    winbackOffers: true,
+                };
+                if (!prefs.winbackOffers) return null;
+                if (usersWithActivity.has(userId)) return null;
+
+                const existingGrant = grantByUserId.get(userId) || null;
+                if (existingGrant && Number(existingGrant.emailSentAt || 0) > 0) return null;
+
+                return {
+                    userId,
+                    fullName: normalizeString(profile.fullName, 120) || null,
+                    lastActivityAt: 0,
+                    daysInactive: 0,
+                    grantId: existingGrant?._id || null,
+                    alreadyGranted: Boolean(existingGrant),
+                };
+            })
+            .filter((entry): entry is NonNullable<typeof entry> => Boolean(entry))
+            .sort((left, right) => left.userId.localeCompare(right.userId));
+
+        return {
+            campaignId: effectiveCampaignId,
+            grantCredits: WINBACK_CREDITS,
+            totalEligible: candidates.length,
+            candidates: candidates.slice(0, limit),
+        };
     },
 });
 
@@ -653,6 +780,167 @@ export const sendChurnWinbackCampaignInternal = internalAction({
     },
 });
 
+export const sendNeverActivatedCampaignInternal = internalAction({
+    args: {
+        campaignId: v.optional(v.string()),
+        dryRun: v.optional(v.boolean()),
+        limit: v.optional(v.number()),
+    },
+    handler: async (ctx, args) => {
+        const campaignId = getNeverActivatedCampaignId(args.campaignId);
+        const dryRun = args.dryRun === true;
+        const limit = toPositiveInt(args.limit, MAX_RECIPIENTS_PER_RUN, MAX_RECIPIENTS_PER_RUN);
+        const preview = await ctx.runQuery(internal.winbackCampaigns.getEligibleNeverActivatedUsersInternal, {
+            campaignId,
+            limit,
+        });
+
+        const authUsers = await fetchAuthUsersByIds(
+            ctx,
+            preview.candidates.map((candidate: any) => String(candidate.userId || "")),
+        );
+        const authUsersById = new Map(
+            authUsers
+                .map((authUser) => [normalizeUserId(authUser?._id), authUser] as const)
+                .filter(([userId]) => Boolean(userId)),
+        );
+
+        const sendableCandidates = preview.candidates
+            .map((candidate: any) => {
+                const authUser = authUsersById.get(candidate.userId);
+                const email = normalizeEmail(authUser?.email);
+                return {
+                    ...candidate,
+                    email: email || null,
+                    displayName: normalizeString(candidate.fullName, 120)
+                        || normalizeString(authUser?.name, 120)
+                        || (email ? email.split("@")[0] : "there"),
+                };
+            })
+            .filter((candidate: any) => Boolean(candidate.email))
+            .slice(0, limit);
+        const missingEmailCandidates = preview.candidates
+            .map((candidate: any) => {
+                const authUser = authUsersById.get(candidate.userId);
+                const email = normalizeEmail(authUser?.email);
+                return {
+                    ...candidate,
+                    email: email || null,
+                };
+            })
+            .filter((candidate: any) => !candidate.email)
+            .slice(0, MAX_PREVIEW_SAMPLE);
+
+        if (dryRun) {
+            return {
+                campaignId,
+                dryRun: true as const,
+                grantCredits: preview.grantCredits,
+                grantableCount: preview.totalEligible,
+                totalEligible: preview.totalEligible,
+                sendableCount: sendableCandidates.length,
+                missingEmailCount: Math.max(0, preview.totalEligible - sendableCandidates.length),
+                preview: sendableCandidates.slice(0, MAX_PREVIEW_SAMPLE).map((candidate: any) => ({
+                    userId: candidate.userId,
+                    email: candidate.email,
+                    fullName: candidate.fullName,
+                    alreadyGranted: candidate.alreadyGranted,
+                })),
+                missingEmailPreview: missingEmailCandidates.map((candidate: any) => ({
+                    userId: candidate.userId,
+                    fullName: candidate.fullName,
+                    alreadyGranted: candidate.alreadyGranted,
+                })),
+            };
+        }
+
+        let granted = 0;
+        let emailed = 0;
+        let skippedNoEmail = 0;
+        let grantedWithoutEmail = 0;
+        let emailFailures = 0;
+        const recipients: Array<{ userId: string; email: string; alreadyGranted: boolean }> = [];
+
+        for (const candidate of preview.candidates) {
+            const authUser = authUsersById.get(candidate.userId);
+            const email = normalizeEmail(authUser?.email);
+
+            const grant = await ctx.runMutation(internal.winbackCampaigns.ensureCampaignCreditGrantInternal, {
+                campaignId,
+                userId: candidate.userId,
+                email: email || undefined,
+                lastActivityAt: 0,
+                daysInactive: 0,
+            });
+            if (!grant.alreadyGranted) {
+                granted += 1;
+            }
+            if (grant.emailSentAt) {
+                continue;
+            }
+            if (!email) {
+                skippedNoEmail += 1;
+                grantedWithoutEmail += 1;
+                continue;
+            }
+            if (emailed >= limit) {
+                continue;
+            }
+
+            const unsubscribeToken = await ctx.runMutation(internal.emailHelpers.ensureUnsubscribeToken, {
+                userId: candidate.userId,
+            });
+            if (!unsubscribeToken) {
+                emailFailures += 1;
+                continue;
+            }
+
+            const html = buildNeverActivatedTemplate(
+                normalizeString(candidate.fullName, 120)
+                    || normalizeString(authUser?.name, 120)
+                    || email.split("@")[0]
+                    || "there",
+                buildUnsubscribeUrl(unsubscribeToken),
+            );
+
+            const ok = await sendEmailViaResend({
+                to: email,
+                subject: `We added +${WINBACK_CREDITS} upload credits to your ${APP_NAME} account`,
+                html,
+            });
+            if (!ok) {
+                emailFailures += 1;
+                continue;
+            }
+
+            await ctx.runMutation(internal.winbackCampaigns.markCampaignCreditGrantEmailSentInternal, {
+                grantId: grant.grantId,
+                email,
+                emailedAt: Date.now(),
+            });
+            emailed += 1;
+            recipients.push({
+                userId: candidate.userId,
+                email,
+                alreadyGranted: grant.alreadyGranted,
+            });
+        }
+
+        return {
+            campaignId,
+            dryRun: false as const,
+            grantCredits: preview.grantCredits,
+            totalEligible: preview.totalEligible,
+            granted,
+            emailed,
+            skippedNoEmail,
+            grantedWithoutEmail,
+            emailFailures,
+            recipients,
+        };
+    },
+});
+
 const assertAdminAccess = async (ctx: any) => {
     const access = await ctx.runQuery(internal.admin.getAdminAccessStatusInternal, {});
     if (!access?.authUserId) {
@@ -671,6 +959,21 @@ export const previewChurnWinbackCampaign = action({
     handler: async (ctx, args) => {
         await assertAdminAccess(ctx);
         return await ctx.runAction(internal.winbackCampaigns.sendChurnWinbackCampaignInternal, {
+            campaignId: args.campaignId,
+            dryRun: true,
+            limit: args.limit,
+        });
+    },
+});
+
+export const previewNeverActivatedCampaign = action({
+    args: {
+        campaignId: v.optional(v.string()),
+        limit: v.optional(v.number()),
+    },
+    handler: async (ctx, args) => {
+        await assertAdminAccess(ctx);
+        return await ctx.runAction(internal.winbackCampaigns.sendNeverActivatedCampaignInternal, {
             campaignId: args.campaignId,
             dryRun: true,
             limit: args.limit,
@@ -893,6 +1196,22 @@ export const runChurnWinbackCampaign = action({
     handler: async (ctx, args) => {
         await assertAdminAccess(ctx);
         return await ctx.runAction(internal.winbackCampaigns.sendChurnWinbackCampaignInternal, {
+            campaignId: args.campaignId,
+            dryRun: args.dryRun,
+            limit: args.limit,
+        });
+    },
+});
+
+export const runNeverActivatedCampaign = action({
+    args: {
+        campaignId: v.optional(v.string()),
+        dryRun: v.optional(v.boolean()),
+        limit: v.optional(v.number()),
+    },
+    handler: async (ctx, args) => {
+        await assertAdminAccess(ctx);
+        return await ctx.runAction(internal.winbackCampaigns.sendNeverActivatedCampaignInternal, {
             campaignId: args.campaignId,
             dryRun: args.dryRun,
             limit: args.limit,

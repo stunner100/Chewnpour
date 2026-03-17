@@ -46,14 +46,18 @@ for (const pattern of ['winbackOffers: v.optional(v.boolean())', 'winback_offers
 const winbackSource = await read('convex/winbackCampaigns.ts');
 for (const pattern of [
   'previewChurnWinbackCampaign',
+  'previewNeverActivatedCampaign',
   'getChurnBreakdown',
   'getChurnBreakdownRowsInternal',
+  'getEligibleNeverActivatedUsersInternal',
   'getNeverActivatedUsers',
   'getUserEmailCoverage',
   'runChurnWinbackCampaign',
+  'runNeverActivatedCampaign',
   'ensureCampaignCreditGrantInternal',
   'campaignCreditGrants',
   'upload credits have already been added',
+  'never got to use it',
 ]) {
   if (!winbackSource.includes(pattern)) {
     throw new Error(`Expected winbackCampaigns.ts to include "${pattern}".`);
