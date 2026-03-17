@@ -64,7 +64,7 @@ const fetchAuthEmailByUserId = async (ctx: any, userId: string): Promise<string>
     if (!normalizedUserId) return "";
     const result = await ctx.runQuery(components.betterAuth.adapter.findMany, {
         model: "user",
-        where: [{ field: "id", operator: "in", value: [normalizedUserId] }],
+        where: [{ field: "_id", operator: "in", value: [normalizedUserId] }],
         paginationOpts: {
             cursor: null,
             numItems: 1,

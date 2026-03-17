@@ -262,7 +262,7 @@ const normalizeSessionUserId = (session: any) =>
     String(session?.userId || "").trim();
 
 const normalizeAuthUserId = (user: any) =>
-    String(user?.id || "").trim();
+    String(user?._id || "").trim();
 
 const chunkArray = <T>(items: T[], chunkSize: number) => {
     const safeChunkSize = Math.max(1, Math.floor(chunkSize));
@@ -336,7 +336,7 @@ const fetchAuthUsersByIds = async (ctx: any, userIds: string[]) => {
     for (const idChunk of idChunks) {
         const result = await ctx.runQuery(components.betterAuth.adapter.findMany, {
             model: "user",
-            where: [{ field: "id", operator: "in", value: idChunk }],
+            where: [{ field: "_id", operator: "in", value: idChunk }],
             paginationOpts: {
                 cursor: null,
                 numItems: idChunk.length,
@@ -404,9 +404,17 @@ const listAdminEmailsFromMap = (sourceMap: Map<string, Set<"bootstrap" | "env" |
 
 const resolveAdminAccess = async (ctx: any, identity: any) => {
     const authUserIdCandidates = collectAuthUserIdCandidates(identity);
-    const resolvedAuthUsers = await fetchAuthUsersByIds(ctx, authUserIdCandidates);
+    const subjectAuthUserId = normalizeUserIdCandidate(identity?.subject);
+    let resolvedAuthUsers: any[] = [];
+    if (subjectAuthUserId) {
+        try {
+            resolvedAuthUsers = await fetchAuthUsersByIds(ctx, [subjectAuthUserId]);
+        } catch {
+            resolvedAuthUsers = [];
+        }
+    }
     const resolvedAuthUser = resolvedAuthUsers[0] || null;
-    const authUserId = normalizeAuthUserId(resolvedAuthUser) || authUserIdCandidates[0] || "";
+    const authUserId = normalizeAuthUserId(resolvedAuthUser) || subjectAuthUserId || authUserIdCandidates[0] || "";
     const authEmail = resolveIdentityEmail(identity) || normalizeEmail(resolvedAuthUser?.email);
     const adminUserIdAllowlist = parseConfiguredAdminUserIds();
     const adminEmailSourceMap = await buildAdminEmailSourceMap(ctx);

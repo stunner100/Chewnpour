@@ -149,12 +149,12 @@ const fetchAuthUsersByIds = async (ctx: any, userIds: string[]) => {
     for (const idChunk of idChunks) {
         const result = await ctx.runQuery(components.betterAuth.adapter.findMany, {
             model: "user",
-            where: [{ field: "id", operator: "in", value: idChunk }],
+            where: [{ field: "_id", operator: "in", value: idChunk }],
             paginationOpts: { cursor: null, numItems: idChunk.length },
         });
         const pageRows = Array.isArray(result?.page) ? result.page : [];
         for (const authUser of pageRows) {
-            const id = normalizeUserId(authUser?.id);
+            const id = normalizeUserId(authUser?._id);
             if (id) {
                 usersById.set(id, authUser);
             }
@@ -507,7 +507,7 @@ export const sendChurnWinbackCampaignInternal = internalAction({
         );
         const authUsersById = new Map(
             authUsers
-                .map((authUser) => [normalizeUserId(authUser?.id), authUser] as const)
+                .map((authUser) => [normalizeUserId(authUser?._id), authUser] as const)
                 .filter(([userId]) => Boolean(userId)),
         );
 
@@ -697,7 +697,7 @@ export const getChurnBreakdown = action({
         );
         const authUsersById = new Map(
             authUsers
-                .map((authUser) => [normalizeUserId(authUser?.id), authUser] as const)
+                .map((authUser) => [normalizeUserId(authUser?._id), authUser] as const)
                 .filter(([userId]) => Boolean(userId)),
         );
 
@@ -786,7 +786,7 @@ export const getNeverActivatedUsers = action({
         );
         const authUsersById = new Map(
             authUsers
-                .map((authUser) => [normalizeUserId(authUser?.id), authUser] as const)
+                .map((authUser) => [normalizeUserId(authUser?._id), authUser] as const)
                 .filter(([userId]) => Boolean(userId)),
         );
 
@@ -827,7 +827,7 @@ export const getUserEmailCoverage = action({
         const { rows: authUsers, truncated } = await fetchAllAuthUsers(ctx);
         const authUsersById = new Map(
             authUsers
-                .map((authUser) => [normalizeUserId(authUser?.id), authUser] as const)
+                .map((authUser) => [normalizeUserId(authUser?._id), authUser] as const)
                 .filter(([userId]) => Boolean(userId)),
         );
 

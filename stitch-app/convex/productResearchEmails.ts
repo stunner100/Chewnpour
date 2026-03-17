@@ -129,12 +129,12 @@ const fetchAuthUsersByIds = async (ctx: any, userIds: string[]) => {
     for (const idChunk of idChunks) {
         const result = await ctx.runQuery(components.betterAuth.adapter.findMany, {
             model: "user",
-            where: [{ field: "id", operator: "in", value: idChunk }],
+            where: [{ field: "_id", operator: "in", value: idChunk }],
             paginationOpts: { cursor: null, numItems: idChunk.length },
         });
         const pageRows = Array.isArray(result?.page) ? result.page : [];
         for (const authUser of pageRows) {
-            const id = String(authUser?.id || "").trim();
+            const id = String(authUser?._id || "").trim();
             if (id) {
                 usersById.set(id, authUser);
             }
@@ -161,7 +161,7 @@ export const sendOutreachEmails = internalAction({
             candidates.map((candidate) => String(candidate.userId || "")),
         );
         const authUsersById = new Map(
-            authUsers.map((user) => [String(user.id || "").trim(), user]),
+            authUsers.map((user) => [String(user._id || "").trim(), user]),
         );
 
         let processed = 0;
