@@ -14,6 +14,7 @@ import type * as assignments from "../assignments.js";
 import type * as auth from "../auth.js";
 import type * as authConfig from "../authConfig.js";
 import type * as campaignAttribution from "../campaignAttribution.js";
+import type * as community from "../community.js";
 import type * as concepts from "../concepts.js";
 import type * as courses from "../courses.js";
 import type * as crons from "../crons.js";
@@ -73,6 +74,7 @@ declare const fullApi: ApiFromModules<{
   auth: typeof auth;
   authConfig: typeof authConfig;
   campaignAttribution: typeof campaignAttribution;
+  community: typeof community;
   concepts: typeof concepts;
   courses: typeof courses;
   crons: typeof crons;

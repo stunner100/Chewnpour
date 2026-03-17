@@ -132,6 +132,8 @@ const AIHumanizer = lazyRoute(() => import('./pages/AIHumanizer'), {
   componentName: 'AIHumanizer',
   namedExport: 'AIHumanizer',
 });
+const Community = lazyRoute(() => import('./pages/Community'), { componentName: 'Community' });
+const CommunityChannel = lazyRoute(() => import('./pages/CommunityChannel'), { componentName: 'CommunityChannel' });
 const AdminDashboard = lazyRoute(() => import('./pages/AdminDashboard'), { componentName: 'AdminDashboard' });
 
 function RouteChangeTracker() {
@@ -291,6 +293,10 @@ function App() {
         <Route path="/dashboard/analysis" element={withSuspense(<ProtectedRoute><DashboardLayout><DashboardFullAnalysis /></DashboardLayout></ProtectedRoute>)} />
         <Route path="/dashboard/assignment-helper" element={withSuspense(<ProtectedRoute><DashboardLayout><AssignmentHelper /></DashboardLayout></ProtectedRoute>)} />
         <Route path="/dashboard/humanizer" element={withSuspense(<ProtectedRoute><DashboardLayout><AIHumanizer /></DashboardLayout></ProtectedRoute>)} />
+
+        {/* Community Routes */}
+        <Route path="/dashboard/community" element={withSuspense(<ProtectedRoute><DashboardLayout><Community /></DashboardLayout></ProtectedRoute>)} />
+        <Route path="/dashboard/community/:channelId" element={withSuspense(<ProtectedRoute><DashboardLayout><CommunityChannel /></DashboardLayout></ProtectedRoute>)} />
 
         {/* Concept Flow */}
         <Route path="/dashboard/concept-intro" element={withSuspense(<ProtectedRoute><DashboardLayout><ConceptIntro /></DashboardLayout></ProtectedRoute>)} />

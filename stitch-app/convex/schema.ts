@@ -453,4 +453,55 @@ export default defineSchema({
         .index("by_reference", ["reference"])
         .index("by_userId", ["userId"])
         .index("by_userId_createdAt", ["userId", "createdAt"]),
+
+    // ────────────────────────────────────────────────────────────────
+    // Community discussion threads
+    // ────────────────────────────────────────────────────────────────
+
+    // One channel per course, auto-created
+    communityChannels: defineTable({
+        courseId: v.id("courses"),
+        createdBy: v.string(),
+        title: v.string(),
+        description: v.string(),
+        memberCount: v.number(),
+        postCount: v.number(),
+        lastActivityAt: v.number(),
+        createdAt: v.number(),
+    }).index("by_courseId", ["courseId"])
+      .index("by_lastActivity", ["lastActivityAt"]),
+
+    // Tracks who joined which channel
+    communityMembers: defineTable({
+        channelId: v.id("communityChannels"),
+        userId: v.string(),
+        joinedAt: v.number(),
+        role: v.string(), // "member" | "creator"
+    }).index("by_channelId", ["channelId"])
+      .index("by_userId", ["userId"])
+      .index("by_channelId_userId", ["channelId", "userId"]),
+
+    // Threaded posts in channels
+    communityPosts: defineTable({
+        channelId: v.id("communityChannels"),
+        userId: v.string(),
+        parentPostId: v.optional(v.id("communityPosts")),
+        content: v.string(),
+        tag: v.optional(v.string()), // "question" | "resource" | "discussion"
+        replyCount: v.number(),
+        flagCount: v.number(),
+        isHidden: v.boolean(),
+        createdAt: v.number(),
+    }).index("by_channelId", ["channelId"])
+      .index("by_channelId_createdAt", ["channelId", "createdAt"])
+      .index("by_parentPostId", ["parentPostId"]),
+
+    // Report/flag system
+    communityFlags: defineTable({
+        postId: v.id("communityPosts"),
+        userId: v.string(),
+        reason: v.string(), // "spam" | "offensive" | "off_topic"
+        createdAt: v.number(),
+    }).index("by_postId", ["postId"])
+      .index("by_userId_postId", ["userId", "postId"]),
 });
