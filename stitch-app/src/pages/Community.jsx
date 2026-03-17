@@ -1,6 +1,6 @@
-import React, { useState, useMemo } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { useQuery } from 'convex/react';
+import { useMutation, useQuery } from 'convex/react';
 import { api } from '../../convex/_generated/api';
 import { useAuth } from '../contexts/AuthContext';
 
@@ -106,12 +106,23 @@ const Community = () => {
     const { user } = useAuth();
     const userId = user?.id;
     const [searchQuery, setSearchQuery] = useState('');
+    const hasRequestedDefaultChannels = useRef(false);
 
+    const seedDefaultChannels = useMutation(api.community.seedDefaultChannels);
     const allChannels = useQuery(api.community.listChannels, {});
     const userChannels = useQuery(
         api.community.getUserChannels,
         userId ? { userId } : 'skip'
     );
+
+    useEffect(() => {
+        if (!userId || hasRequestedDefaultChannels.current) return;
+        hasRequestedDefaultChannels.current = true;
+
+        void seedDefaultChannels({}).catch(() => {
+            hasRequestedDefaultChannels.current = false;
+        });
+    }, [seedDefaultChannels, userId]);
 
     const isLoading = allChannels === undefined;
 

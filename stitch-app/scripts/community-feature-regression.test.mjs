@@ -44,6 +44,8 @@ const communityPageSource = await read('src/pages/Community.jsx');
 for (const pattern of [
   'api.community.listChannels',
   'api.community.getUserChannels',
+  'api.community.seedDefaultChannels',
+  'seedDefaultChannels({})',
   '/dashboard/community/${channel._id}',
 ]) {
   if (!communityPageSource.includes(pattern)) {
@@ -85,6 +87,8 @@ for (const pattern of [
   'export const listChannels = query({',
   'export const getUserChannels = query({',
   'export const getWeeklyLeaderboard = query({',
+  'const DEFAULT_CHANNELS = [',
+  'export const seedDefaultChannels = mutation({',
   'export const joinChannel = mutation({',
   'export const createPost = mutation({',
   'export const autoJoinOnUpload = mutation({',
