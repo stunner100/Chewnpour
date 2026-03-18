@@ -28,6 +28,13 @@ export const insertDocumentExtraction = internalMutation({
         qualityScore: v.number(),
         coverage: v.number(),
         providerTrace: v.array(providerTraceValidator),
+        backend: v.string(),
+        parser: v.optional(v.string()),
+        winner: v.optional(v.boolean()),
+        baselineBackend: v.optional(v.string()),
+        baselineQualityScore: v.optional(v.number()),
+        baselineCoverage: v.optional(v.number()),
+        comparisonReason: v.optional(v.string()),
         artifactStorageId: v.optional(v.id("_storage")),
         startedAt: v.number(),
         finishedAt: v.number(),
@@ -41,10 +48,29 @@ export const insertDocumentExtraction = internalMutation({
             qualityScore: args.qualityScore,
             coverage: args.coverage,
             providerTrace: args.providerTrace,
+            backend: args.backend,
+            parser: args.parser,
+            winner: args.winner,
+            baselineBackend: args.baselineBackend,
+            baselineQualityScore: args.baselineQualityScore,
+            baselineCoverage: args.baselineCoverage,
+            comparisonReason: args.comparisonReason,
             artifactStorageId: args.artifactStorageId,
             startedAt: args.startedAt,
             finishedAt: args.finishedAt,
             errorSummary: args.errorSummary,
+        });
+    },
+});
+
+export const markWinningDocumentExtraction = internalMutation({
+    args: {
+        extractionId: v.id("documentExtractions"),
+        winner: v.boolean(),
+    },
+    handler: async (ctx, args) => {
+        await ctx.db.patch(args.extractionId, {
+            winner: args.winner,
         });
     },
 });
@@ -64,6 +90,20 @@ export const listDocumentExtractions = internalQuery({
             .withIndex("by_uploadId", (q) => q.eq("uploadId", args.uploadId))
             .order("desc")
             .take(limit);
+    },
+});
+
+export const getLatestWinningDocumentExtraction = internalQuery({
+    args: {
+        uploadId: v.id("uploads"),
+    },
+    handler: async (ctx, args) => {
+        const entries = await ctx.db
+            .query("documentExtractions")
+            .withIndex("by_uploadId", (q) => q.eq("uploadId", args.uploadId))
+            .order("desc")
+            .take(25);
+        return entries.find((entry) => entry.winner !== false) || null;
     },
 });
 

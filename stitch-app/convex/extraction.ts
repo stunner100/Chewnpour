@@ -6,8 +6,10 @@ import { api, internal } from "./_generated/api";
 import { internalAction } from "./_generated/server";
 import type { Id } from "./_generated/dataModel";
 import {
+    type ExtractionBackendId,
     runDocumentExtractionPipeline,
     type DocumentExtractionResult,
+    type ExtractionParserId,
     type ExtractionPassTrace,
 } from "./lib/documentExtractionPipeline";
 
@@ -109,7 +111,13 @@ const getUploadForExtraction = async (ctx: any, uploadId: Id<"uploads">): Promis
     return upload as UploadDoc;
 };
 
-const runExtraction = async (ctx: any, upload: UploadDoc, mode: "foreground" | "background"): Promise<DocumentExtractionResult> => {
+const runExtraction = async (
+    ctx: any,
+    upload: UploadDoc,
+    mode: "foreground" | "background",
+    backend?: ExtractionBackendId,
+    parser?: ExtractionParserId | null
+): Promise<DocumentExtractionResult> => {
     const fileUrl = await ctx.storage.getUrl(upload.storageId as Id<"_storage">);
     if (!fileUrl) {
         throw new Error("Could not resolve upload storage URL");
@@ -128,6 +136,8 @@ const runExtraction = async (ctx: any, upload: UploadDoc, mode: "foreground" | "
         fileBuffer,
         mode,
         maxDurationMs: mode === "foreground" ? FOREGROUND_MAX_DURATION_MS : BACKGROUND_MAX_DURATION_MS,
+        backend,
+        parser,
     });
 };
 
@@ -139,13 +149,16 @@ const recordDocumentExtraction = async (ctx: any, args: {
     finishedAt: number;
     errorSummary?: string;
 }) => {
-    await ctx.runMutation(internal.extractionState.insertDocumentExtraction, {
+    await ctx.runMutation((internal as any).extractionState.insertDocumentExtraction, {
         uploadId: args.uploadId,
         version: args.result.artifact.version,
         status: args.result.strictPass ? "complete" : "provisional",
         qualityScore: args.result.qualityScore,
         coverage: args.result.coverage,
         providerTrace: args.result.providerTrace,
+        backend: args.result.backend,
+        parser: args.result.parser,
+        winner: true,
         artifactStorageId: args.artifactStorageId,
         startedAt: args.startedAt,
         finishedAt: args.finishedAt,
@@ -161,14 +174,19 @@ const recordFailedDocumentExtraction = async (ctx: any, args: {
     providerTrace?: ExtractionPassTrace[];
     qualityScore?: number;
     coverage?: number;
+    backend?: ExtractionBackendId;
+    parser?: ExtractionParserId | null;
 }) => {
-    await ctx.runMutation(internal.extractionState.insertDocumentExtraction, {
+    await ctx.runMutation((internal as any).extractionState.insertDocumentExtraction, {
         uploadId: args.uploadId,
         version: "v2",
         status: "failed",
         qualityScore: Number(args.qualityScore || 0),
         coverage: Number(args.coverage || 0),
         providerTrace: Array.isArray(args.providerTrace) ? args.providerTrace : [],
+        backend: args.backend || "azure",
+        parser: args.parser || undefined,
+        winner: false,
         startedAt: args.startedAt,
         finishedAt: args.finishedAt,
         errorSummary: args.errorSummary,
@@ -191,6 +209,8 @@ const logExtractionTelemetry = (args: {
         fileType: String(args.upload.fileType || ""),
         fileName: args.upload.fileName,
         fileSize: Number(args.upload.fileSize || 0),
+        backend: args.result.backend,
+        parser: args.result.parser,
         pageCount: Number(args.result.pageCount || metrics?.expectedPageCount || 0),
         qualityScore: Number(args.result.qualityScore || 0),
         coverage: Number(args.result.coverage || 0),
@@ -203,6 +223,8 @@ const logExtractionTelemetry = (args: {
             mode: args.mode,
             uploadId: String(args.upload._id),
             fileType: String(args.upload.fileType || ""),
+            backend: args.result.backend,
+            parser: args.result.parser,
             providerPass: trace.pass,
             status: trace.status,
             latencyMs: Number(trace.latencyMs || 0),
@@ -242,10 +264,14 @@ const markUploadExtraction = async (ctx: any, args: {
     qualityScore?: number;
     coverage?: number;
     provisional?: boolean;
+    backend?: ExtractionBackendId;
+    parser?: ExtractionParserId | null;
+    fallbackUsed?: boolean;
+    replacementReason?: string;
     artifactStorageId?: Id<"_storage">;
     warnings?: string[];
 }) => {
-    await ctx.runMutation(api.uploads.updateUploadStatus, {
+    await ctx.runMutation((api as any).uploads.updateUploadStatus, {
         uploadId: args.uploadId,
         status: args.uploadStatus || (args.status === "failed" ? "error" : "processing"),
         extractionStatus: args.status,
@@ -253,6 +279,10 @@ const markUploadExtraction = async (ctx: any, args: {
         provisionalExtraction: args.provisional,
         extractionQualityScore: args.qualityScore,
         extractionCoverage: args.coverage,
+        extractionBackend: args.backend,
+        extractionParser: args.parser || undefined,
+        extractionFallbackUsed: args.fallbackUsed,
+        extractionReplacementReason: args.replacementReason,
         extractionArtifactStorageId: args.artifactStorageId,
         extractionWarnings: args.warnings,
     });
@@ -295,6 +325,7 @@ export const runForegroundExtraction = internalAction({
             provisional: false,
             qualityScore: 0,
             coverage: 0,
+            fallbackUsed: false,
             warnings: [],
         });
 
@@ -327,6 +358,9 @@ export const runForegroundExtraction = internalAction({
                 provisional: result.provisional,
                 qualityScore: result.qualityScore,
                 coverage: result.coverage,
+                backend: result.backend,
+                parser: result.parser,
+                fallbackUsed: result.backend === "doctra",
                 artifactStorageId,
                 warnings: result.warnings,
             });
@@ -349,6 +383,9 @@ export const runForegroundExtraction = internalAction({
                 warnings: result.warnings,
                 artifactStorageId,
                 providerTrace: result.providerTrace,
+                backend: result.backend,
+                parser: result.parser,
+                fallbackRecommendation: result.fallbackRecommendation,
             };
         } catch (error) {
             const finishedAt = Date.now();
@@ -362,6 +399,8 @@ export const runForegroundExtraction = internalAction({
                 providerTrace: result?.providerTrace,
                 qualityScore: result?.qualityScore,
                 coverage: result?.coverage,
+                backend: result?.backend,
+                parser: result?.parser,
             });
 
             await markUploadExtraction(ctx, {
@@ -371,6 +410,9 @@ export const runForegroundExtraction = internalAction({
                 provisional: false,
                 qualityScore: Number(result?.qualityScore || 0),
                 coverage: Number(result?.coverage || 0),
+                backend: result?.backend,
+                parser: result?.parser,
+                fallbackUsed: Boolean(result?.backend === "doctra"),
                 artifactStorageId,
                 warnings: result?.warnings || [],
             });
@@ -390,12 +432,20 @@ export const benchmarkUploadExtraction = internalAction({
     args: {
         uploadId: v.id("uploads"),
         mode: v.optional(v.union(v.literal("foreground"), v.literal("background"))),
+        backend: v.optional(v.union(v.literal("azure"), v.literal("doctra"))),
+        parser: v.optional(v.string()),
     },
     handler: async (ctx, args) => {
         const upload = await getUploadForExtraction(ctx, args.uploadId);
         const mode = args.mode === "background" ? "background" : "foreground";
         const startedAt = Date.now();
-        const result = await runExtraction(ctx, upload, mode);
+        const result = await runExtraction(
+            ctx,
+            upload,
+            mode,
+            args.backend as ExtractionBackendId | undefined,
+            (args.parser || undefined) as ExtractionParserId | undefined
+        );
         const finishedAt = Date.now();
 
         logExtractionTelemetry({
@@ -410,6 +460,8 @@ export const benchmarkUploadExtraction = internalAction({
             fileType: String(upload.fileType || ""),
             fileSize: Number(upload.fileSize || 0),
             mode,
+            backend: result.backend,
+            parser: result.parser,
             durationMs: finishedAt - startedAt,
             qualityScore: result.qualityScore,
             coverage: result.coverage,
@@ -420,6 +472,7 @@ export const benchmarkUploadExtraction = internalAction({
             extractedChars: String(result.text || "").length,
             providerTrace: result.providerTrace,
             metrics: result.artifact?.metrics,
+            fallbackRecommendation: result.fallbackRecommendation,
         };
     },
 });
@@ -519,6 +572,8 @@ export const runBackgroundReprocess = internalAction({
     args: {
         uploadId: v.id("uploads"),
         courseId: v.id("courses"),
+        backend: v.optional(v.union(v.literal("azure"), v.literal("doctra"))),
+        parser: v.optional(v.string()),
     },
     handler: async (ctx, args) => {
         if (!EXTRACTION_PIPELINE_V2) {
@@ -533,7 +588,13 @@ export const runBackgroundReprocess = internalAction({
         let artifactStorageId: Id<"_storage"> | undefined;
 
         try {
-            result = await runExtraction(ctx, upload, "background");
+            result = await runExtraction(
+                ctx,
+                upload,
+                "background",
+                args.backend as ExtractionBackendId | undefined,
+                (args.parser || undefined) as ExtractionParserId | undefined
+            );
             artifactStorageId = await createArtifactStorageRecord(ctx, result.artifact);
             const finishedAt = Date.now();
 
@@ -558,6 +619,9 @@ export const runBackgroundReprocess = internalAction({
                 provisional: result.provisional,
                 qualityScore: result.qualityScore,
                 coverage: result.coverage,
+                backend: result.backend,
+                parser: result.parser,
+                fallbackUsed: result.backend === "doctra",
                 artifactStorageId,
                 warnings: result.warnings,
             });
@@ -586,6 +650,9 @@ export const runBackgroundReprocess = internalAction({
                 coverage: result.coverage,
                 warnings: result.warnings,
                 artifactStorageId,
+                backend: result.backend,
+                parser: result.parser,
+                fallbackRecommendation: result.fallbackRecommendation,
             };
         } catch (error) {
             const finishedAt = Date.now();
@@ -599,6 +666,8 @@ export const runBackgroundReprocess = internalAction({
                 providerTrace: result?.providerTrace,
                 qualityScore: result?.qualityScore,
                 coverage: result?.coverage,
+                backend: result?.backend,
+                parser: result?.parser,
             });
 
             await markUploadExtraction(ctx, {
@@ -608,6 +677,9 @@ export const runBackgroundReprocess = internalAction({
                 provisional: false,
                 qualityScore: Number(result?.qualityScore || 0),
                 coverage: Number(result?.coverage || 0),
+                backend: result?.backend,
+                parser: result?.parser,
+                fallbackUsed: Boolean(result?.backend === "doctra"),
                 artifactStorageId,
                 warnings: result?.warnings || [],
             });
@@ -644,6 +716,13 @@ export const getExtractionDiagnostics = internalAction({
             qualityScore: entry.qualityScore,
             coverage: entry.coverage,
             providerTrace: entry.providerTrace,
+            backend: entry.backend,
+            parser: entry.parser,
+            winner: entry.winner,
+            baselineBackend: entry.baselineBackend,
+            baselineQualityScore: entry.baselineQualityScore,
+            baselineCoverage: entry.baselineCoverage,
+            comparisonReason: entry.comparisonReason,
             artifactStorageId: entry.artifactStorageId,
             startedAt: entry.startedAt,
             finishedAt: entry.finishedAt,

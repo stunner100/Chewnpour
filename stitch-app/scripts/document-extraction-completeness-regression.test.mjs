@@ -6,14 +6,20 @@ const root = resolve(import.meta.dirname, '..');
 const aiPath = resolve(root, 'convex', 'ai.ts');
 const schemaPath = resolve(root, 'convex', 'schema.ts');
 const extractionPipelinePath = resolve(root, 'convex', 'lib', 'documentExtractionPipeline.ts');
+const extractionPath = resolve(root, 'convex', 'extraction.ts');
+const doctraClientPath = resolve(root, 'convex', 'lib', 'doctraClient.ts');
 
 const aiSource = readFileSync(aiPath, 'utf8');
 const schemaSource = readFileSync(schemaPath, 'utf8');
 const pipelineSource = readFileSync(extractionPipelinePath, 'utf8');
+const extractionSource = readFileSync(extractionPath, 'utf8');
+const doctraClientSource = readFileSync(doctraClientPath, 'utf8');
 
 assert.ok(
-  pipelineSource.includes('runDocumentExtractionPipeline'),
-  'Expected documentExtractionPipeline to export runDocumentExtractionPipeline.'
+  pipelineSource.includes('runAzureExtractionCandidate')
+    && pipelineSource.includes('runDoctraExtractionCandidate')
+    && pipelineSource.includes('runDocumentExtractionPipeline'),
+  'Expected documentExtractionPipeline to export candidate runners plus the unified orchestrator.'
 );
 assert.ok(
   pipelineSource.includes('STRICT_QUALITY_THRESHOLD = 0.93'),
@@ -29,6 +35,11 @@ assert.ok(
   'Expected extraction pipeline to route Azure passes through resilience layer with buffer cloning.'
 );
 assert.ok(
+  pipelineSource.includes('shouldRunDoctraFallback')
+    && pipelineSource.includes('selectDoctraParser'),
+  'Expected extraction pipeline to include explicit Doctra fallback routing helpers.'
+);
+assert.ok(
   pipelineSource.includes('if (fileType === "docx")')
   && pipelineSource.includes('extractTextFromDocxNative'),
   'Expected extraction pipeline to include native DOCX extraction path.'
@@ -38,10 +49,10 @@ assert.ok(
   aiSource.includes('internal.extraction.runForegroundExtraction'),
   'Expected ai.processUploadedFile to call internal.extraction.runForegroundExtraction.'
 );
-assert.equal(
-  aiSource.includes('inception_fallback_used'),
-  false,
-  'Expected LLM reconstruction fallback to be removed from upload extraction flow.'
+assert.ok(
+  aiSource.includes('runBackgroundReprocess')
+    && aiSource.includes('fallbackRecommendation?.backend || "azure"'),
+  'Expected provisional uploads to schedule background reprocessing through the extraction orchestrator.'
 );
 
 assert.ok(
@@ -55,6 +66,30 @@ assert.ok(
 assert.ok(
   schemaSource.includes('extractionArtifactStorageId: v.optional(v.id("_storage"))'),
   'Expected uploads schema to include extraction artifact storage reference.'
+);
+assert.ok(
+  schemaSource.includes('extractionBackend: v.optional(v.string())')
+    && schemaSource.includes('extractionParser: v.optional(v.string())')
+    && schemaSource.includes('extractionFallbackUsed: v.optional(v.boolean())'),
+  'Expected uploads schema to track extraction backend, parser, and fallback usage.'
+);
+assert.ok(
+  schemaSource.includes('backend: v.string()')
+    && schemaSource.includes('winner: v.optional(v.boolean())')
+    && schemaSource.includes('comparisonReason: v.optional(v.string())'),
+  'Expected documentExtractions schema to capture backend metadata for candidate evaluation.'
+);
+assert.ok(
+  extractionSource.includes('insertDocumentExtraction')
+    && extractionSource.includes('backend: result.backend')
+    && extractionSource.includes('parser: result.parser'),
+  'Expected extraction persistence to record backend and parser metadata.'
+);
+assert.ok(
+  doctraClientSource.includes('callDoctraExtract')
+    && doctraClientSource.includes('DOCTRA_EXTRACT_URL')
+    && doctraClientSource.includes('FormData'),
+  'Expected Doctra requests to be isolated in the dedicated client helper.'
 );
 
 console.log('document-extraction-completeness-regression tests passed');

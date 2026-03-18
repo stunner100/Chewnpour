@@ -8,6 +8,26 @@ import {
     extractTextFromPdfNative,
     extractTextFromPptxNative,
 } from "./nativeExtractors";
+import {
+    callDoctraExtract,
+    type DoctraExtractResponse,
+    type DoctraParserId as DoctraClientParserId,
+    isDoctraEnabled,
+} from "./doctraClient";
+
+export type ExtractionBackendId = "azure" | "doctra";
+export type ExtractionParserId =
+    | "azure_layout_read"
+    | "enhanced_pdf"
+    | "paddleocr_vl"
+    | "docx_structured"
+    | "image_ocr";
+export type DoctraParserId = Exclude<ExtractionParserId, "azure_layout_read">;
+export type ExtractionFallbackRecommendation = {
+    backend: "doctra";
+    parser: DoctraParserId;
+    reason: string;
+};
 
 export type ExtractionPassTrace = {
     pass: string;
@@ -21,7 +41,7 @@ export type ExtractionPassTrace = {
 type ExtractionPage = {
     index: number;
     text: string;
-    source: "native" | "azure_layout" | "azure_read" | "none";
+    source: "native" | "azure_layout" | "azure_read" | "doctra" | "none";
     chars: number;
     words: number;
     lexicalRatio: number;
@@ -33,7 +53,7 @@ type ExtractionPage = {
 type CandidatePage = {
     index: number;
     text: string;
-    source: "native" | "azure_layout" | "azure_read";
+    source: "native" | "azure_layout" | "azure_read" | "doctra";
     tableCount: number;
     formulaCount: number;
 };
@@ -63,6 +83,8 @@ type PipelineMetrics = {
 };
 
 export type DocumentExtractionResult = {
+    backend: ExtractionBackendId;
+    parser: ExtractionParserId;
     text: string;
     qualityScore: number;
     coverage: number;
@@ -71,8 +93,11 @@ export type DocumentExtractionResult = {
     warnings: string[];
     pageCount: number;
     providerTrace: ExtractionPassTrace[];
+    fallbackRecommendation: ExtractionFallbackRecommendation | null;
     artifact: {
         version: string;
+        backend: ExtractionBackendId;
+        parser: ExtractionParserId;
         fileType: string;
         expectedPageCount: number;
         pages: ExtractionPage[];
@@ -89,6 +114,8 @@ export type RunDocumentExtractionArgs = {
     fileBuffer: ArrayBuffer;
     mode: "foreground" | "background";
     maxDurationMs: number;
+    backend?: ExtractionBackendId;
+    parser?: ExtractionParserId | null;
 };
 
 const EXTRACTION_VERSION = "v2";
@@ -337,6 +364,9 @@ const runNativePass = async (fileType: string, fileBuffer: ArrayBuffer): Promise
 const mapUploadTypeToContentType = (fileType: string) => {
     if (fileType === "pdf") return "application/pdf";
     if (fileType === "docx") return "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
+    if (fileType === "png") return "image/png";
+    if (fileType === "jpg" || fileType === "jpeg") return "image/jpeg";
+    if (fileType === "webp") return "image/webp";
     return "application/vnd.openxmlformats-officedocument.presentationml.presentation";
 };
 
@@ -1011,6 +1041,190 @@ const buildWarnings = (metrics: PipelineMetrics) => {
     return warnings;
 };
 
+export const shouldRunDoctraFallback = (args: {
+    fileType: string;
+    metrics: PipelineMetrics;
+    nativePass: PassResult;
+    layoutPass: PassResult;
+    readPass: PassResult;
+}): boolean => {
+    const fileType = String(args.fileType || "").toLowerCase();
+    if (!["pdf", "docx", "png", "jpg", "jpeg", "webp"].includes(fileType)) {
+        return false;
+    }
+
+    if (fileType === "pdf" && args.metrics.scannedLikely) {
+        return true;
+    }
+    if (fileType === "pdf" && args.metrics.tableRecoveryRatio < STRICT_TABLE_RECOVERY_THRESHOLD) {
+        return true;
+    }
+    if (args.metrics.weakPageRatio > args.metrics.weakPageThreshold) {
+        return true;
+    }
+    if (fileType === "docx" && args.metrics.qualityScore < STRICT_QUALITY_THRESHOLD) {
+        return true;
+    }
+
+    const nativeChars = String(args.nativePass.text || "").length;
+    const recoveredChars = Math.max(
+        String(args.layoutPass.text || "").length,
+        String(args.readPass.text || "").length
+    );
+    if ((fileType === "pdf" || fileType === "png" || fileType === "jpg" || fileType === "jpeg" || fileType === "webp")
+        && nativeChars < 400
+        && recoveredChars > 1200
+    ) {
+        return true;
+    }
+
+    return false;
+};
+
+export const selectDoctraParser = (args: {
+    fileType: string;
+    metrics: PipelineMetrics;
+    layoutPass: PassResult;
+    readPass: PassResult;
+}): DoctraParserId | null => {
+    const fileType = String(args.fileType || "").toLowerCase();
+    if (fileType === "pdf" && args.metrics.scannedLikely) {
+        return "enhanced_pdf";
+    }
+    if (
+        fileType === "pdf"
+        && (
+            args.metrics.tableRecoveryRatio < STRICT_TABLE_RECOVERY_THRESHOLD
+            || Math.max(args.layoutPass.tableCount, args.readPass.tableCount, 0) >= 2
+        )
+    ) {
+        return "paddleocr_vl";
+    }
+    if (fileType === "docx") {
+        return "docx_structured";
+    }
+    if (["png", "jpg", "jpeg", "webp"].includes(fileType)) {
+        return "image_ocr";
+    }
+    return null;
+};
+
+const getDoctraFallbackRecommendation = (args: {
+    fileType: string;
+    metrics: PipelineMetrics;
+    nativePass: PassResult;
+    layoutPass: PassResult;
+    readPass: PassResult;
+}): ExtractionFallbackRecommendation | null => {
+    if (!isDoctraEnabled()) {
+        return null;
+    }
+    if (!shouldRunDoctraFallback(args)) {
+        return null;
+    }
+
+    const parser = selectDoctraParser(args);
+    if (!parser) {
+        return null;
+    }
+
+    let reason = "weak_document_candidate";
+    if (args.metrics.scannedLikely) {
+        reason = "scanned_document_candidate";
+    } else if (args.metrics.tableRecoveryRatio < STRICT_TABLE_RECOVERY_THRESHOLD) {
+        reason = "table_recovery_candidate";
+    } else if (String(args.fileType || "").toLowerCase() === "docx") {
+        reason = "structured_docx_candidate";
+    } else if (args.metrics.weakPageRatio > args.metrics.weakPageThreshold) {
+        reason = "weak_page_ratio_candidate";
+    }
+
+    return {
+        backend: "doctra",
+        parser,
+        reason,
+    };
+};
+
+const buildDocumentExtractionResult = (args: {
+    backend: ExtractionBackendId;
+    parser: ExtractionParserId;
+    fileType: string;
+    nativePass: PassResult;
+    layoutPass: PassResult;
+    readPass: PassResult;
+    providerTrace: ExtractionPassTrace[];
+    fallbackRecommendation?: ExtractionFallbackRecommendation | null;
+}): DocumentExtractionResult => {
+    const mergedPages = mergePassPages(
+        args.nativePass,
+        args.layoutPass,
+        args.readPass
+    );
+    const mergedText = sanitizeText(
+        mergedPages
+            .map((page) => page.text)
+            .filter(Boolean)
+            .join("\n\n\f\n\n")
+    );
+
+    const metrics = buildMetrics({
+        fileType: args.fileType,
+        pages: mergedPages,
+        nativePass: args.nativePass,
+        layoutPass: args.layoutPass,
+        readPass: args.readPass,
+    });
+
+    const warnings = buildWarnings(metrics);
+
+    return {
+        backend: args.backend,
+        parser: args.parser,
+        text: mergedText,
+        qualityScore: metrics.qualityScore,
+        coverage: metrics.coverage,
+        strictPass: metrics.strictPass,
+        provisional: !metrics.strictPass,
+        warnings,
+        pageCount: metrics.expectedPageCount,
+        providerTrace: args.providerTrace,
+        fallbackRecommendation: args.fallbackRecommendation || null,
+        artifact: {
+            version: EXTRACTION_VERSION,
+            backend: args.backend,
+            parser: args.parser,
+            fileType: String(args.fileType || "").toLowerCase(),
+            expectedPageCount: metrics.expectedPageCount,
+            pages: mergedPages,
+            metrics,
+            warnings,
+            generatedAt: Date.now(),
+        },
+    };
+};
+
+const toDoctraPassResult = (payload: DoctraExtractResponse): PassResult => {
+    const rawPages = Array.isArray(payload.pages) ? payload.pages : [];
+    const pages: CandidatePage[] = rawPages
+        .map((page) => ({
+            index: Math.max(0, Number(page.index || 0)),
+            text: sanitizeText(String(page.text || "")),
+            source: "doctra" as const,
+            tableCount: Math.max(0, Number(page.tableCount || 0)),
+            formulaCount: Math.max(0, Number(page.formulaCount || 0)),
+        }))
+        .filter((page) => Boolean(page.text));
+
+    return {
+        text: sanitizeText(String(payload.text || "")),
+        pages,
+        pageCount: Math.max(Number(payload.pageCount || 0), pages.length, 1),
+        tableCount: Math.max(0, Number(payload.metrics?.tableCount || 0)),
+        formulaCount: Math.max(0, Number(payload.metrics?.formulaCount || 0)),
+    };
+};
+
 const runPassWithTrace = async (
     pass: string,
     run: () => Promise<PassResult>
@@ -1049,7 +1263,7 @@ const runPassWithTrace = async (
     }
 };
 
-export const runDocumentExtractionPipeline = async (
+export const runAzureExtractionCandidate = async (
     args: RunDocumentExtractionArgs
 ): Promise<DocumentExtractionResult> => {
     const startedAt = Date.now();
@@ -1095,59 +1309,131 @@ export const runDocumentExtractionPipeline = async (
         ),
     ]);
 
-    const mergedPages = mergePassPages(
-        nativePassWithTrace.result,
-        layoutPassWithTrace.result,
-        readPassWithTrace.result
-    );
-
-    const mergedText = sanitizeText(
-        mergedPages
-            .map((page) => page.text)
-            .filter(Boolean)
-            .join("\n\n\f\n\n")
-    );
-
-    const metrics = buildMetrics({
-        fileType: normalizedFileType,
-        pages: mergedPages,
-        nativePass: nativePassWithTrace.result,
-        layoutPass: layoutPassWithTrace.result,
-        readPass: readPassWithTrace.result,
-    });
-
-    const warnings = buildWarnings(metrics);
-
     const targetedRetryTrace: ExtractionPassTrace = {
         pass: "targeted_retry",
         status: "ok",
         latencyMs: 0,
-        chars: mergedText.length,
-        pageCount: mergedPages.length,
+        chars: 0,
+        pageCount: 0,
     };
 
-    return {
-        text: mergedText,
-        qualityScore: metrics.qualityScore,
-        coverage: metrics.coverage,
-        strictPass: metrics.strictPass,
-        provisional: !metrics.strictPass,
-        warnings,
-        pageCount: metrics.expectedPageCount,
+    const result = buildDocumentExtractionResult({
+        backend: "azure",
+        parser: "azure_layout_read",
+        fileType: normalizedFileType,
+        nativePass: nativePassWithTrace.result,
+        layoutPass: layoutPassWithTrace.result,
+        readPass: readPassWithTrace.result,
         providerTrace: [
             nativePassWithTrace.trace,
             layoutPassWithTrace.trace,
             readPassWithTrace.trace,
             targetedRetryTrace,
         ],
-        artifact: {
-            version: EXTRACTION_VERSION,
+        fallbackRecommendation: getDoctraFallbackRecommendation({
             fileType: normalizedFileType,
-            expectedPageCount: metrics.expectedPageCount,
-            pages: mergedPages,
-            metrics,
+            metrics: buildMetrics({
+                fileType: normalizedFileType,
+                pages: mergePassPages(
+                    nativePassWithTrace.result,
+                    layoutPassWithTrace.result,
+                    readPassWithTrace.result
+                ),
+                nativePass: nativePassWithTrace.result,
+                layoutPass: layoutPassWithTrace.result,
+                readPass: readPassWithTrace.result,
+            }),
+            nativePass: nativePassWithTrace.result,
+            layoutPass: layoutPassWithTrace.result,
+            readPass: readPassWithTrace.result,
+        }),
+    });
+
+    targetedRetryTrace.chars = result.text.length;
+    targetedRetryTrace.pageCount = result.pageCount;
+    return result;
+};
+
+export const runDoctraExtractionCandidate = async (
+    args: RunDocumentExtractionArgs
+): Promise<DocumentExtractionResult> => {
+    const startedAt = Date.now();
+    const normalizedFileType = String(args.fileType || "").toLowerCase();
+    const contentType = mapUploadTypeToContentType(normalizedFileType);
+    const parser = (
+        args.parser && args.parser !== "azure_layout_read"
+            ? args.parser
+            : selectDoctraParser({
+                fileType: normalizedFileType,
+                metrics: {
+                    fileType: normalizedFileType,
+                    qualityScore: 0,
+                    coverage: 0,
+                    strictPass: false,
+                    provisional: true,
+                    pagePresenceRatio: 0,
+                    weakPageRatio: 1,
+                    tableRecoveryRatio: 0,
+                    formulaMarkerLoss: 0,
+                    expectedPageCount: 1,
+                    scannedLikely: normalizedFileType === "pdf",
+                    requiredPagePresence: 0,
+                    weakPageThreshold: 1,
+                },
+                layoutPass: emptyPassResult(),
+                readPass: emptyPassResult(),
+            })
+    ) as DoctraClientParserId | null;
+
+    if (!parser) {
+        throw new Error(`No Doctra parser available for file type: ${normalizedFileType}`);
+    }
+
+    const payload = await callDoctraExtract({
+        fileName: args.fileName,
+        contentType,
+        fileBuffer: cloneArrayBuffer(args.fileBuffer),
+        parser,
+        maxPages: normalizedFileType === "pdf"
+            ? (args.mode === "background"
+                ? Math.max(PDF_BATCH_MAX_PAGES_BACKGROUND, 80)
+                : Math.max(PDF_BATCH_MAX_PAGES_FOREGROUND, 24))
+            : undefined,
+    });
+    const latencyMs = Date.now() - startedAt;
+    const doctraPass = toDoctraPassResult(payload);
+    const result = buildDocumentExtractionResult({
+        backend: "doctra",
+        parser,
+        fileType: normalizedFileType,
+        nativePass: emptyPassResult(),
+        layoutPass: emptyPassResult(),
+        readPass: doctraPass,
+        providerTrace: [{
+            pass: "doctra",
+            status: "ok",
+            latencyMs,
+            chars: doctraPass.text.length,
+            pageCount: doctraPass.pageCount,
+        }],
+        fallbackRecommendation: null,
+    });
+    const warnings = Array.from(new Set([...(payload.warnings || []), ...result.warnings]));
+    return {
+        ...result,
+        warnings,
+        artifact: {
+            ...result.artifact,
             warnings,
-            generatedAt: Date.now(),
         },
     };
+};
+
+export const runDocumentExtractionPipeline = async (
+    args: RunDocumentExtractionArgs
+): Promise<DocumentExtractionResult> => {
+    if (args.backend === "doctra") {
+        return await runDoctraExtractionCandidate(args);
+    }
+    return await runAzureExtractionCandidate(args);
 };

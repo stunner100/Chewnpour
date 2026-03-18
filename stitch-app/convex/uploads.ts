@@ -226,6 +226,10 @@ export const updateUploadStatus = mutation({
         extractionCoverage: v.optional(v.number()),
         extractionVersion: v.optional(v.string()),
         provisionalExtraction: v.optional(v.boolean()),
+        extractionBackend: v.optional(v.string()),
+        extractionParser: v.optional(v.string()),
+        extractionFallbackUsed: v.optional(v.boolean()),
+        extractionReplacementReason: v.optional(v.string()),
         extractionArtifactStorageId: v.optional(v.id("_storage")),
         evidenceIndexStorageId: v.optional(v.id("_storage")),
         evidenceIndexVersion: v.optional(v.string()),
@@ -248,6 +252,10 @@ export const updateUploadStatus = mutation({
             extractionCoverage?: number;
             extractionVersion?: string;
             provisionalExtraction?: boolean;
+            extractionBackend?: string;
+            extractionParser?: string;
+            extractionFallbackUsed?: boolean;
+            extractionReplacementReason?: string;
             extractionArtifactStorageId?: Id<"_storage">;
             evidenceIndexStorageId?: Id<"_storage">;
             evidenceIndexVersion?: string;
@@ -291,6 +299,18 @@ export const updateUploadStatus = mutation({
         }
         if (args.provisionalExtraction !== undefined) {
             updateData.provisionalExtraction = args.provisionalExtraction;
+        }
+        if (args.extractionBackend !== undefined) {
+            updateData.extractionBackend = args.extractionBackend;
+        }
+        if (args.extractionParser !== undefined) {
+            updateData.extractionParser = args.extractionParser;
+        }
+        if (args.extractionFallbackUsed !== undefined) {
+            updateData.extractionFallbackUsed = args.extractionFallbackUsed;
+        }
+        if (args.extractionReplacementReason !== undefined) {
+            updateData.extractionReplacementReason = args.extractionReplacementReason;
         }
         if (args.extractionArtifactStorageId !== undefined) {
             updateData.extractionArtifactStorageId = args.extractionArtifactStorageId;

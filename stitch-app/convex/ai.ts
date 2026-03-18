@@ -3976,6 +3976,8 @@ export const processUploadedFile = action({
             console.info("[Extraction] v2_completed", {
                 uploadId,
                 chars: extractedText.length,
+                backend: extraction?.backend,
+                parser: extraction?.parser,
                 qualityScore: extraction?.qualityScore,
                 coverage: extraction?.coverage,
                 provisional: extraction?.provisional,
@@ -3994,9 +3996,11 @@ export const processUploadedFile = action({
             });
 
             if (extraction?.provisional) {
-                await ctx.scheduler.runAfter(0, internal.extraction.runBackgroundReprocess, {
+                await ctx.scheduler.runAfter(0, (internal as any).extraction.runBackgroundReprocess, {
                     uploadId,
                     courseId,
+                    backend: extraction?.fallbackRecommendation?.backend || "azure",
+                    parser: extraction?.fallbackRecommendation?.parser,
                 });
             }
 
