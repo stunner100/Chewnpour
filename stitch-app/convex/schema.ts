@@ -442,6 +442,14 @@ export default defineSchema({
         .index("by_userId_campaignId", ["userId", "campaignId"])
         .index("by_campaignId_firstLandedAt", ["campaignId", "firstLandedAt"]),
 
+    appSettings: defineTable({
+        key: v.string(),
+        value: v.string(),
+        updatedAt: v.number(),
+        updatedByUserId: v.optional(v.string()),
+    })
+        .index("by_key", ["key"]),
+
     adminAccess: defineTable({
         email: v.string(),
         addedByUserId: v.string(),

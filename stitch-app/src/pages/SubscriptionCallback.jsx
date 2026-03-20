@@ -98,7 +98,7 @@ const SubscriptionCallback = () => {
                 <p className="text-sm text-slate-500 dark:text-slate-400 leading-relaxed">
                     {status === 'failed'
                         ? (errorMessage || 'We could not confirm your payment right now. Redirecting...')
-                        : 'Please wait while we confirm your Paystack payment and unlock uploads.'}
+                        : 'Please wait while we confirm your payment and unlock uploads.'}
                 </p>
                 <div className="mt-6 flex justify-center">
                     <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-primary"></div>

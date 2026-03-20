@@ -1379,8 +1379,57 @@ const FeedbackPanel = ({
     );
 };
 
-const SettingsPanel = ({ adminEmails, handleAddAdminEmail, handleRemoveAdminEmail, newAdminEmail, setNewAdminEmail, adminActionLoading, adminActionError }) => (
+const SettingsPanel = ({
+    adminEmails,
+    handleAddAdminEmail,
+    handleRemoveAdminEmail,
+    newAdminEmail,
+    setNewAdminEmail,
+    adminActionLoading,
+    adminActionError,
+    paymentProviderConfig,
+    paymentProviderDraft,
+    setPaymentProviderDraft,
+    handleSavePaymentProvider,
+}) => (
     <div className="space-y-4">
+        <SectionCard title="Payment Provider" badge="Fallback mode available">
+            <p className="text-sm text-slate-600 dark:text-slate-400">
+                Choose how checkouts are handled when top-up is started.
+            </p>
+            <form onSubmit={handleSavePaymentProvider} className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-end">
+                <div className="grow">
+                    <label className="block text-xs font-semibold text-slate-500 dark:text-slate-400 mb-1">
+                        Checkout provider
+                    </label>
+                    <select
+                        value={paymentProviderDraft}
+                        onChange={(event) => setPaymentProviderDraft(event.target.value)}
+                        className="w-full rounded-xl border-2 border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-4 py-2.5 text-sm text-slate-900 dark:text-white focus:outline-none focus:border-primary"
+                    >
+                        {(Array.isArray(paymentProviderConfig?.options) ? paymentProviderConfig.options : []).map((option) => (
+                            <option key={option.id} value={option.id}>
+                                {option.label}
+                            </option>
+                        ))}
+                    </select>
+                    <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+                        Current: {paymentProviderConfig?.selectedLabel || paymentProviderConfig?.selected || 'Unknown'}
+                        {paymentProviderConfig?.updatedAt ? ` • Updated ${new Date(paymentProviderConfig.updatedAt).toLocaleString()}` : null}
+                    </p>
+                </div>
+                <button
+                    type="submit"
+                    disabled={adminActionLoading || !paymentProviderDraft}
+                    className="inline-flex items-center justify-center rounded-xl bg-primary px-4 py-2.5 text-sm font-bold text-white hover:bg-primary-hover transition-colors disabled:opacity-70 disabled:cursor-not-allowed"
+                >
+                    {adminActionLoading ? 'Saving...' : 'Save provider'}
+                </button>
+            </form>
+            <p className="mt-3 text-xs text-slate-500 dark:text-slate-400">
+                Manual mode applies top-up for the current payment amount without calling Paystack and does not require a merchant API key.
+            </p>
+        </SectionCard>
         <SectionCard title="Admin Access Emails" badge="Bootstrap admin: patrickannor35@gmail.com">
             <form onSubmit={handleAddAdminEmail} className="flex flex-col gap-3 sm:flex-row">
                 <input
@@ -1440,14 +1489,21 @@ const AdminDashboard = () => {
     const diagnoseRetrievalForTopic = useAction(api.admin.diagnoseRetrievalForTopic);
     const addAdminEmail = useMutation(api.admin.addAdminEmail);
     const removeAdminEmail = useMutation(api.admin.removeAdminEmail);
+    const setPaymentProvider = useMutation(api.admin.setPaymentProvider);
     const [newAdminEmail, setNewAdminEmail] = React.useState('');
     const [adminActionLoading, setAdminActionLoading] = React.useState(false);
     const [adminActionError, setAdminActionError] = React.useState('');
+    const [paymentProviderDraft, setPaymentProviderDraft] = React.useState('paystack');
     const [retrievalTopicId, setRetrievalTopicId] = React.useState('');
     const [retrievalDiagnostics, setRetrievalDiagnostics] = React.useState(null);
     const [retrievalDiagnosticsLoading, setRetrievalDiagnosticsLoading] = React.useState(false);
     const [retrievalDiagnosticsError, setRetrievalDiagnosticsError] = React.useState('');
     const [activeTab, setActiveTab] = React.useState('overview');
+
+    React.useEffect(() => {
+        const selectedProvider = String(snapshot?.paymentProviderConfig?.selected || '').trim() || 'paystack';
+        setPaymentProviderDraft(selectedProvider);
+    }, [snapshot?.paymentProviderConfig?.selected]);
 
     if (snapshot === undefined) {
         return (
@@ -1475,6 +1531,7 @@ const AdminDashboard = () => {
     const totals = snapshot.totals || {};
     const flags = snapshot.flags || {};
     const adminEmails = Array.isArray(snapshot.adminEmails) ? snapshot.adminEmails : [];
+    const paymentProviderConfig = snapshot.paymentProviderConfig || null;
     const recentUsers = Array.isArray(snapshot.recentUsers) ? snapshot.recentUsers : [];
     const recentFeedback = Array.isArray(snapshot.recentFeedback) ? snapshot.recentFeedback : [];
     const recentProductResearchResponses = Array.isArray(snapshot.recentProductResearchResponses)
@@ -1508,6 +1565,20 @@ const AdminDashboard = () => {
             await removeAdminEmail({ email });
         } catch (error) {
             setAdminActionError(String(error?.message || error || 'Failed to remove admin email.'));
+        } finally {
+            setAdminActionLoading(false);
+        }
+    };
+
+    const handleSavePaymentProvider = async (event) => {
+        event.preventDefault();
+        if (!paymentProviderDraft.trim()) return;
+        setAdminActionError('');
+        setAdminActionLoading(true);
+        try {
+            await setPaymentProvider({ provider: paymentProviderDraft });
+        } catch (error) {
+            setAdminActionError(String(error?.message || error || 'Failed to update payment provider.'));
         } finally {
             setAdminActionLoading(false);
         }
@@ -1573,6 +1644,10 @@ const AdminDashboard = () => {
                         setNewAdminEmail={setNewAdminEmail}
                         adminActionLoading={adminActionLoading}
                         adminActionError={adminActionError}
+                        paymentProviderConfig={paymentProviderConfig}
+                        paymentProviderDraft={paymentProviderDraft}
+                        setPaymentProviderDraft={setPaymentProviderDraft}
+                        handleSavePaymentProvider={handleSavePaymentProvider}
                     />
                 );
             default:

@@ -41,7 +41,10 @@ const FIRST_TIME_STARTER_PLAN = {
 };
 
 const DEFAULT_TOPUP_PLAN = TOPUP_PLANS[0];
-const PAYSTACK_PROVIDER = "paystack";
+const PAYMENT_PROVIDER_KEY = "paymentProvider";
+const PAYMENT_PROVIDER_PAYSTACK = "paystack";
+const PAYMENT_PROVIDER_MANUAL = "manual";
+const PAYMENT_PROVIDER_FALLBACK_BY_DEFAULT = PAYMENT_PROVIDER_PAYSTACK;
 const PAYSTACK_BASE_URL = String(process.env.PAYSTACK_BASE_URL || "https://api.paystack.co").replace(/\/+$/, "");
 const PAYSTACK_SECRET_KEY = String(process.env.PAYSTACK_SECRET_KEY || "").trim();
 const PAYSTACK_WEBHOOK_FORWARD_SECRET = String(process.env.PAYSTACK_WEBHOOK_FORWARD_SECRET || "").trim();
@@ -55,6 +58,27 @@ const PAYSTACK_TIMEOUT_MS = (() => {
     if (!Number.isFinite(raw)) return 12000;
     return Math.max(3000, Math.floor(raw));
 })();
+const PAYMENT_PROVIDER_ENV_DEFAULT = String(process.env.PAYMENT_PROVIDER || PAYMENT_PROVIDER_FALLBACK_BY_DEFAULT)
+    .trim()
+    .toLowerCase();
+
+const resolvePaymentProvider = (value: unknown) => {
+    const candidate = String(value || "").trim().toLowerCase();
+    if (candidate === PAYMENT_PROVIDER_PAYSTACK || candidate === PAYMENT_PROVIDER_MANUAL) return candidate;
+    return PAYMENT_PROVIDER_FALLBACK_BY_DEFAULT;
+};
+
+const readPaymentProviderSetting = async (ctx: any) => {
+    const stored = await ctx.db
+        .query("appSettings")
+        .withIndex("by_key", (q: any) => q.eq("key", PAYMENT_PROVIDER_KEY))
+        .first();
+    if (stored && typeof stored.value === "string" && stored.value.trim()) {
+        return resolvePaymentProvider(stored.value);
+    }
+
+    return resolvePaymentProvider(PAYMENT_PROVIDER_ENV_DEFAULT);
+};
 
 const toNonNegativeInt = (value: unknown) => {
     const parsed = Number(value);
@@ -286,6 +310,15 @@ const getPaymentTransactionByReference = async (ctx: any, reference: string) => 
         .first();
 };
 
+const buildFallbackCheckoutRedirect = (reference: string, returnPath: string) => {
+    const params = new URLSearchParams({
+        reference,
+        from: returnPath,
+    });
+
+    return buildAbsoluteAppUrl(`/subscription/callback?${params.toString()}`);
+};
+
 export const getHistoricalStoredUploadCount = async (ctx: any, userId: string) => {
     const [uploads, assignmentThreads] = await Promise.all([
         ctx.db
@@ -457,6 +490,7 @@ const applyPaystackTopUpCreditGrant = async (ctx: any, args: {
     customerEmail?: string;
     paidAtMs?: number;
     source: string;
+    provider?: string;
     eventType?: string;
 }) => {
     const reference = String(args.reference || "").trim();
@@ -584,6 +618,7 @@ const applyPaystackTopUpCreditGrant = async (ctx: any, args: {
         amountMinor: topUpPlan.amountMinor,
         currency: topUpPlan.currency,
         status: "success",
+        provider: resolvePaymentProvider(args.provider),
         source: args.source,
         paidAt,
         customerEmail: args.customerEmail,
@@ -595,7 +630,7 @@ const applyPaystackTopUpCreditGrant = async (ctx: any, args: {
     } else {
         await ctx.db.insert("paymentTransactions", {
             userId: resolvedUserId,
-            provider: PAYSTACK_PROVIDER,
+            provider: resolvePaymentProvider(args.provider),
             reference,
             createdAt: Date.now(),
             ...paymentPatch,
@@ -695,6 +730,7 @@ export const recordPaymentInitializationInternal = internalMutation({
         amountMinor: v.number(),
         currency: v.string(),
         customerEmail: v.string(),
+        provider: v.string(),
         source: v.string(),
     },
     handler: async (ctx, args) => {
@@ -724,7 +760,7 @@ export const recordPaymentInitializationInternal = internalMutation({
 
         const payload = {
             userId: args.userId,
-            provider: PAYSTACK_PROVIDER,
+            provider: resolvePaymentProvider(args.provider),
             reference,
             amountMinor: selectedPlan.amountMinor,
             currency: selectedPlan.currency,
@@ -798,6 +834,7 @@ export const applyVerifiedPaystackPaymentInternal = internalMutation({
         reference: v.string(),
         amountMinor: v.number(),
         currency: v.string(),
+        provider: v.string(),
         customerEmail: v.optional(v.string()),
         paidAtMs: v.optional(v.number()),
         source: v.string(),
@@ -809,12 +846,67 @@ export const applyVerifiedPaystackPaymentInternal = internalMutation({
             reference: args.reference,
             amountMinor: args.amountMinor,
             currency: args.currency,
+            provider: args.provider,
             customerEmail: args.customerEmail,
             paidAtMs: args.paidAtMs,
             source: args.source,
             eventType: args.eventType,
         });
     },
+});
+
+const initializePaystackCheckout = async (
+    args: {
+        userId: string;
+        reference: string;
+        safeReturnPath: string;
+        callbackUrl: string;
+        plan: NonNullable<ReturnType<typeof resolveTopUpPlanById>>;
+        customerEmail: string;
+    }
+) => {
+    const initializePayload = await callPaystackApi("/transaction/initialize", {
+        method: "POST",
+        body: JSON.stringify({
+            email: args.customerEmail,
+            amount: args.plan.amountMinor,
+            currency: args.plan.currency,
+            reference: args.reference,
+            callback_url: args.callbackUrl,
+            metadata: {
+                userId: args.userId,
+                returnPath: args.safeReturnPath,
+                purpose: "upload_topup",
+                topUpPlanId: args.plan.id,
+                topUpCredits: args.plan.credits,
+                topUpAmountMajor: args.plan.amountMajor,
+                topUpCurrency: args.plan.currency,
+            },
+        }),
+    });
+
+    const authorizationUrl = String(initializePayload?.data?.authorization_url || "").trim();
+    if (!authorizationUrl) {
+        throw new ConvexError({
+            code: "CHECKOUT_INIT_FAILED",
+            message: "Could not start checkout right now. Please try again.",
+        });
+    }
+
+    return {
+        authorizationUrl,
+        provider: PAYMENT_PROVIDER_PAYSTACK,
+    };
+};
+
+const initializeManualCheckout = async (
+    args: {
+        safeReturnPath: string;
+        reference: string;
+    }
+) => ({
+    authorizationUrl: buildFallbackCheckoutRedirect(args.reference, args.safeReturnPath),
+    provider: PAYMENT_PROVIDER_MANUAL,
 });
 
 export const initializePaystackTopUpCheckout = action({
@@ -836,6 +928,7 @@ export const initializePaystackTopUpCheckout = action({
 
         const reference = buildPaymentReference(userId);
         const customerEmail = getPaystackCustomerEmail(identity, userId);
+        const provider = resolvePaymentProvider(await readPaymentProviderSetting(ctx));
 
         const callbackParams = new URLSearchParams({
             reference,
@@ -843,43 +936,17 @@ export const initializePaystackTopUpCheckout = action({
         });
 
         const callbackUrl = buildAbsoluteAppUrl(`/subscription/callback?${callbackParams.toString()}`);
-        const initializeCheckoutForPlan = async (
-            plan: NonNullable<ReturnType<typeof resolveTopUpPlanById>>,
-            source: string,
-        ) => {
+
+        try {
             await ctx.runMutation(internal.subscriptions.recordPaymentInitializationInternal, {
                 userId,
                 reference,
-                amountMinor: plan.amountMinor,
-                currency: plan.currency,
+                amountMinor: selectedPlan.amountMinor,
+                currency: selectedPlan.currency,
                 customerEmail,
-                source,
+                provider,
+                source: "checkout_init",
             });
-
-            return await callPaystackApi("/transaction/initialize", {
-                method: "POST",
-                body: JSON.stringify({
-                    email: customerEmail,
-                    amount: plan.amountMinor,
-                    currency: plan.currency,
-                    reference,
-                    callback_url: callbackUrl,
-                    metadata: {
-                        userId,
-                        returnPath: safeReturnPath,
-                        purpose: "upload_topup",
-                        topUpPlanId: plan.id,
-                        topUpCredits: plan.credits,
-                        topUpAmountMajor: plan.amountMajor,
-                        topUpCurrency: plan.currency,
-                    },
-                }),
-            });
-        };
-
-        let initializePayload;
-        try {
-            initializePayload = await initializeCheckoutForPlan(selectedPlan, "checkout_init");
         } catch {
             throw new ConvexError({
                 code: "CHECKOUT_INIT_FAILED",
@@ -887,7 +954,35 @@ export const initializePaystackTopUpCheckout = action({
             });
         }
 
-        const authorizationUrl = String(initializePayload?.data?.authorization_url || "").trim();
+        let initializePayload: {
+            authorizationUrl: string;
+            provider: string;
+        };
+
+        try {
+            if (provider === PAYMENT_PROVIDER_MANUAL) {
+                initializePayload = await initializeManualCheckout({
+                    safeReturnPath,
+                    reference,
+                });
+            } else {
+                initializePayload = await initializePaystackCheckout({
+                    userId,
+                    reference,
+                    safeReturnPath,
+                    callbackUrl,
+                    plan: selectedPlan,
+                    customerEmail,
+                });
+            }
+        } catch {
+            throw new ConvexError({
+                code: "CHECKOUT_INIT_FAILED",
+                message: "Could not start checkout right now. Please try again.",
+            });
+        }
+
+        const authorizationUrl = String(initializePayload.authorizationUrl || "").trim();
         if (!authorizationUrl) {
             throw new ConvexError({
                 code: "CHECKOUT_INIT_FAILED",
@@ -901,6 +996,7 @@ export const initializePaystackTopUpCheckout = action({
             topUpPlanId: selectedPlan.id,
             amountMajor: selectedPlan.amountMajor,
             currency: selectedPlan.currency,
+            provider: initializePayload.provider,
         };
     },
 });
@@ -939,7 +1035,48 @@ export const verifyPaystackTopUpAfterRedirect = action({
             };
         }
 
+        const provider = resolvePaymentProvider(initializedTransaction.provider);
+
         try {
+            if (provider === PAYMENT_PROVIDER_MANUAL) {
+                const expectedAmountMinor = toNonNegativeInt(initializedTransaction.amountMinor);
+                const expectedCurrency = normalizeCurrency(initializedTransaction.currency);
+
+                const expectedPlan = resolveTopUpPlanByPayment(expectedAmountMinor, expectedCurrency);
+                if (!expectedPlan) {
+                    const quota = await ctx.runQuery(internal.subscriptions.getUploadQuotaStatusInternal, { userId });
+                    return {
+                        success: false,
+                        remaining: quota.remaining,
+                        redirectTo: buildSubscriptionFailureRedirect(safeReturnPath, "payment_mismatch"),
+                    };
+                }
+
+                const applyResult = await ctx.runMutation(internal.subscriptions.applyVerifiedPaystackPaymentInternal, {
+                    userId,
+                    reference,
+                    amountMinor: expectedAmountMinor,
+                    currency: expectedCurrency,
+                    provider,
+                    customerEmail: initializedTransaction.customerEmail,
+                    paidAtMs: Date.now(),
+                    source: "callback_verify",
+                    eventType: "charge.success",
+                });
+
+                return {
+                    success: applyResult.applied || applyResult.duplicate,
+                    remaining: toNonNegativeInt(applyResult.remaining),
+                    redirectTo: safeReturnPath,
+                    grantedCredits: toNonNegativeInt(applyResult.grantedCredits),
+                    amountMajor: Number.isFinite(Number(applyResult.amountMajor))
+                        ? Number(applyResult.amountMajor)
+                        : 0,
+                    currency: String(applyResult.currency || TOPUP_CURRENCY),
+                    provider,
+                };
+            }
+
             const verifyPayload = await callPaystackApi(`/transaction/verify/${encodeURIComponent(reference)}`, {
                 method: "GET",
             });
@@ -983,6 +1120,7 @@ export const verifyPaystackTopUpAfterRedirect = action({
                 customerEmail,
                 paidAtMs: Number.isFinite(paidAtMs) ? paidAtMs : Date.now(),
                 source: "callback_verify",
+                provider,
                 eventType: "charge.success",
             });
 
@@ -995,6 +1133,7 @@ export const verifyPaystackTopUpAfterRedirect = action({
                     ? Number(applyResult.amountMajor)
                     : 0,
                 currency: String(applyResult.currency || TOPUP_CURRENCY),
+                provider,
             };
         } catch {
             const quota = await ctx.runQuery(internal.subscriptions.getUploadQuotaStatusInternal, { userId });
@@ -1052,11 +1191,22 @@ export const processPaystackWebhookEvent = mutation({
             };
         }
 
+        const provider = resolvePaymentProvider(initializedTransaction.provider);
+        if (provider !== PAYMENT_PROVIDER_PAYSTACK) {
+            return {
+                applied: false,
+                duplicate: false,
+                reason: "ignored_provider",
+                provider,
+            };
+        }
+
         const result = await applyPaystackTopUpCreditGrant(ctx, {
             userId: initializedTransaction.userId,
             reference,
             amountMinor: args.amountMinor,
             currency: args.currency,
+            provider,
             customerEmail: args.customerEmail,
             paidAtMs: args.paidAtMs,
             source: "webhook",

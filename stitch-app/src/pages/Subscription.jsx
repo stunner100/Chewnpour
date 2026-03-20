@@ -24,6 +24,13 @@ const toNonNegativeInt = (value, fallback = 0) => {
     return Math.max(0, Math.floor(parsed));
 };
 
+const normalizeProviderHint = (provider) => {
+    const normalized = String(provider || '').trim().toLowerCase();
+    if (!normalized) return 'checkout';
+    if (normalized === 'manual') return 'fallback checkout';
+    return normalized;
+};
+
 const DEFAULT_TOP_UP_OPTIONS = [
     { id: 'first-time-starter', amountMajor: 15, credits: 5, currency: 'GHS' },
     { id: 'starter', amountMajor: 20, credits: 5, currency: 'GHS' },
@@ -39,6 +46,7 @@ const Subscription = () => {
 
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
+    const [providerHint, setProviderHint] = useState('');
     const [selectedPlanId, setSelectedPlanId] = useState(DEFAULT_TOP_UP_OPTIONS[0].id);
 
     const quota = useQuery(
@@ -137,6 +145,7 @@ const Subscription = () => {
                 returnPath,
                 topUpPlanId: selectedTopUpPlan.id,
             });
+            setProviderHint(normalizeProviderHint(result?.provider));
             const authorizationUrl = String(result?.authorizationUrl || '').trim();
             if (!authorizationUrl) {
                 throw new Error('Could not start checkout right now.');
@@ -146,7 +155,7 @@ const Subscription = () => {
             setError(
                 checkoutError instanceof Error
                     ? checkoutError.message
-                    : 'Could not initialize Paystack checkout.'
+                    : 'Could not initialize checkout.'
             );
             setLoading(false);
         }
@@ -282,7 +291,7 @@ const Subscription = () => {
                                 </p>
                                 <div className="inline-flex items-center gap-2 text-xs font-bold text-neutral-500">
                                     <span className="material-symbols-outlined text-base">verified_user</span>
-                                    Mobile Money, Visa &amp; Mastercard — Secured by Paystack
+                                    Secure checkout via configured provider.
                                 </div>
                             </div>
                         </div>
@@ -297,7 +306,7 @@ const Subscription = () => {
                         {loading ? (
                             <>
                                 <span className="material-symbols-outlined text-[18px] animate-spin mr-2">progress_activity</span>
-                                Redirecting to Paystack...
+                                Redirecting to {providerHint || 'checkout'}...
                             </>
                         ) : `Pay ${formatPlanPrice(selectedTopUpPlan?.amountMajor || 0, selectedTopUpPlan?.currency || currency)} and get +${selectedTopUpPlan?.credits || 0} uploads`}
                     </button>

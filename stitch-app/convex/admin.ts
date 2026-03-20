@@ -19,6 +19,24 @@ const MIN_ESTIMATED_AI_MESSAGE_TOKENS = 1200;
 const MAX_ESTIMATED_AI_MESSAGE_TOKENS = 4000;
 const MIN_ESTIMATED_HUMANIZER_TOKENS = 3000;
 const MAX_ESTIMATED_HUMANIZER_TOKENS = 9000;
+const PAYMENT_PROVIDER_KEY = "paymentProvider";
+const PAYMENT_PROVIDER_PAYSTACK = "paystack";
+const PAYMENT_PROVIDER_MANUAL = "manual";
+const PAYMENT_PROVIDER_OPTIONS = [
+    {
+        id: PAYMENT_PROVIDER_PAYSTACK,
+        label: "Paystack",
+        requiresKey: true,
+    },
+    {
+        id: PAYMENT_PROVIDER_MANUAL,
+        label: "Manual (no API key)",
+        requiresKey: false,
+    },
+] as const;
+const PAYMENT_PROVIDER_DEFAULT = String(process.env.PAYMENT_PROVIDER || PAYMENT_PROVIDER_PAYSTACK)
+    .trim()
+    .toLowerCase();
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/i;
 
@@ -36,6 +54,42 @@ const parseConfiguredAdminEmails = () =>
 
 const parseConfiguredAdminUserIds = () =>
     new Set(parseCommaSeparated(process.env.ADMIN_USER_IDS));
+
+const resolvePaymentProvider = (value: unknown) => {
+    const normalized = String(value || "").trim().toLowerCase();
+    if (normalized === PAYMENT_PROVIDER_PAYSTACK || normalized === PAYMENT_PROVIDER_MANUAL) {
+        return normalized;
+    }
+    return PAYMENT_PROVIDER_DEFAULT;
+};
+
+const getPaymentProviderDisplayName = (provider: unknown) => {
+    const normalized = resolvePaymentProvider(provider);
+    for (const option of PAYMENT_PROVIDER_OPTIONS) {
+        if (option.id === normalized) return option.label;
+    }
+    return PAYMENT_PROVIDER_OPTIONS[0].label;
+};
+
+const readPaymentProviderSetting = async (ctx: any) => {
+    const row = await ctx.db
+        .query("appSettings")
+        .withIndex("by_key", (q: any) => q.eq("key", PAYMENT_PROVIDER_KEY))
+        .first();
+    if (row && typeof row.value === "string" && row.value.trim()) {
+        return {
+            provider: resolvePaymentProvider(row.value),
+            updatedAt: Number(row.updatedAt) || 0,
+            updatedByUserId: typeof row.updatedByUserId === "string" ? row.updatedByUserId : null,
+        };
+    }
+
+    return {
+        provider: resolvePaymentProvider(PAYMENT_PROVIDER_DEFAULT),
+        updatedAt: 0,
+        updatedByUserId: null,
+    };
+};
 
 const normalizeUserIdCandidate = (value: unknown) => {
     if (typeof value !== "string") return "";
@@ -544,6 +598,56 @@ export const removeAdminEmail = mutation({
 
         await ctx.db.delete(existing._id);
         return { ok: true, removed: true, email };
+    },
+});
+
+export const setPaymentProvider = mutation({
+    args: {
+        provider: v.string(),
+    },
+    handler: async (ctx, args) => {
+        const adminGuard = await requireAdminAccess(ctx);
+        if (adminGuard.denied) {
+            throw new Error("Admin access required.");
+        }
+
+        const normalizedProvider = String(args.provider || "").trim().toLowerCase();
+        const provider = resolvePaymentProvider(normalizedProvider);
+        if (provider !== normalizedProvider || !PAYMENT_PROVIDER_OPTIONS.some((option) => option.id === provider)) {
+            throw new Error("Unsupported payment provider.");
+        }
+
+        const existing = await ctx.db
+            .query("appSettings")
+            .withIndex("by_key", (q) => q.eq("key", PAYMENT_PROVIDER_KEY))
+            .first();
+        const now = Date.now();
+        const payload = {
+            key: PAYMENT_PROVIDER_KEY,
+            value: provider,
+            updatedAt: now,
+            updatedByUserId: adminGuard.access.authUserId,
+        };
+
+        if (existing) {
+            await ctx.db.patch(existing._id, payload);
+            return {
+                ok: true,
+                key: PAYMENT_PROVIDER_KEY,
+                provider,
+                updatedAt: now,
+                updatedByUserId: payload.updatedByUserId,
+            };
+        }
+
+        await ctx.db.insert("appSettings", payload);
+        return {
+            ok: true,
+            key: PAYMENT_PROVIDER_KEY,
+            provider,
+            updatedAt: now,
+            updatedByUserId: payload.updatedByUserId,
+        };
     },
 });
 
@@ -1991,9 +2095,22 @@ export const getDashboardSnapshot = query({
             };
         };
 
+        const paymentProviderSetting = await readPaymentProviderSetting(ctx);
+
         return {
             allowed: true as const,
             generatedAt: now,
+            paymentProviderConfig: {
+                selected: paymentProviderSetting.provider,
+                selectedLabel: getPaymentProviderDisplayName(paymentProviderSetting.provider),
+                updatedAt: paymentProviderSetting.updatedAt,
+                updatedByUserId: paymentProviderSetting.updatedByUserId,
+                options: PAYMENT_PROVIDER_OPTIONS.map((option) => ({
+                    id: option.id,
+                    label: option.label,
+                    requiresKey: option.requiresKey,
+                })),
+            },
             windows: {
                 newUsersDays: NEW_USER_WINDOW_DAYS,
                 activeUsersDays: ACTIVE_USER_WINDOW_DAYS,
