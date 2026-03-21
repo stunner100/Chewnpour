@@ -1265,7 +1265,7 @@ const ExamMode = () => {
                         <span className="material-symbols-outlined text-2xl text-text-faint-light dark:text-text-faint-dark">search_off</span>
                     </div>
                     <h2 className="text-body-lg font-semibold text-text-main-light dark:text-text-main-dark mb-2">Topic not found</h2>
-                    <p className="text-body-sm text-text-sub-light dark:text-text-sub-dark mb-6">We couldn’t find this topic. Please return to your dashboard.</p>
+                    <p className="text-body-sm text-text-sub-light dark:text-text-sub-dark mb-6">We couldn't find this topic. Please return to your dashboard.</p>
                     <Link to="/dashboard" className="btn-primary text-body-sm px-5 py-2.5 inline-flex items-center gap-2">
                         Back to Dashboard
                     </Link>
@@ -1293,7 +1293,7 @@ const ExamMode = () => {
                         disabled={generatingQuestions}
                         className="btn-primary text-body-sm px-6 py-3 disabled:opacity-60"
                     >
-                        {generatingQuestions ? ‘Generating...’ : ‘Generate Questions’}
+                        {generatingQuestions ? 'Generating...' : 'Generate Questions'}
                     </button>
                 </div>
             </div>
@@ -1326,7 +1326,7 @@ const ExamMode = () => {
                         disabled={generatingQuestions}
                         className="btn-primary text-body-sm px-6 py-3 disabled:opacity-60"
                     >
-                        {generatingQuestions ? ‘Generating...’ : ‘Generate Questions’}
+                        {generatingQuestions ? 'Generating...' : 'Generate Questions'}
                     </button>
                 </div>
             </div>
