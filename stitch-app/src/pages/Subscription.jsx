@@ -31,6 +31,30 @@ const normalizeProviderHint = (provider) => {
     return normalized;
 };
 
+const CONVEX_ERROR_WRAPPER_PATTERN = /\[CONVEX [^\]]+\]\s*\[Request ID:[^\]]+\]\s*/i;
+
+const resolveConvexActionError = (error, fallbackMessage) => {
+    const dataMessage = typeof error?.data === 'string'
+        ? error.data
+        : typeof error?.data?.message === 'string'
+            ? error.data.message
+            : '';
+    const resolved = String(dataMessage || error?.message || fallbackMessage || '')
+        .replace(/\s+/g, ' ')
+        .trim();
+    if (!resolved) return fallbackMessage;
+
+    const unwrapped = resolved
+        .replace(CONVEX_ERROR_WRAPPER_PATTERN, '')
+        .replace(/^Uncaught (ConvexError|Error):\s*/i, '')
+        .replace(/^ConvexError:\s*/i, '')
+        .replace(/^Server Error\s*/i, '')
+        .replace(/Called by client$/i, '')
+        .trim();
+
+    return unwrapped || fallbackMessage;
+};
+
 const DEFAULT_TOP_UP_OPTIONS = [
     { id: 'first-time-starter', amountMajor: 15, credits: 5, currency: 'GHS' },
     { id: 'starter', amountMajor: 20, credits: 5, currency: 'GHS' },
@@ -152,11 +176,7 @@ const Subscription = () => {
             }
             window.location.assign(authorizationUrl);
         } catch (checkoutError) {
-            setError(
-                checkoutError instanceof Error
-                    ? checkoutError.message
-                    : 'Could not initialize checkout.'
-            );
+            setError(resolveConvexActionError(checkoutError, 'Could not initialize checkout.'));
             setLoading(false);
         }
     };

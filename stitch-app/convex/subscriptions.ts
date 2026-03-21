@@ -230,6 +230,28 @@ const buildAbsoluteAppUrl = (pathWithQuery: string) => {
     return `${APP_BASE_URL}${safePath}`;
 };
 
+const getPaystackFailureCode = (payload: any) => {
+    const candidates = [
+        payload?.code,
+        payload?.data?.code,
+    ];
+    for (const candidate of candidates) {
+        const normalized = String(candidate || "").trim();
+        if (normalized) return normalized;
+    }
+    return "";
+};
+
+const buildPaystackFailureMessage = (statusCode: number, payload: any) => {
+    const baseMessage = typeof payload?.message === "string" && payload.message.trim()
+        ? payload.message.trim()
+        : `Paystack request failed with status ${statusCode}.`;
+    const providerCode = getPaystackFailureCode(payload);
+    if (!providerCode) return baseMessage;
+    if (baseMessage.toLowerCase().includes(providerCode.toLowerCase())) return baseMessage;
+    return `${baseMessage} (Paystack code: ${providerCode})`;
+};
+
 const isLikelyEmail = (value: unknown) => {
     if (typeof value !== "string") return false;
     return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value.trim());
@@ -283,10 +305,13 @@ const callPaystackApi = async (
 
         const payload = await response.json().catch(() => null);
         if (!response.ok || !payload || payload.status !== true) {
-            const message = payload?.message || `Paystack request failed with status ${response.status}.`;
+            const providerCode = getPaystackFailureCode(payload);
             throw new ConvexError({
                 code: "PAYSTACK_REQUEST_FAILED",
-                message,
+                message: buildPaystackFailureMessage(response.status, payload),
+                provider: PAYMENT_PROVIDER_PAYSTACK,
+                httpStatus: response.status,
+                ...(providerCode ? { providerCode } : {}),
             });
         }
 
@@ -988,7 +1013,10 @@ export const initializePaystackTopUpCheckout = action({
                     customerEmail,
                 });
             }
-        } catch {
+        } catch (error) {
+            if (error instanceof ConvexError) {
+                throw error;
+            }
             throw new ConvexError({
                 code: "CHECKOUT_INIT_FAILED",
                 message: "Could not start checkout right now. Please try again.",
