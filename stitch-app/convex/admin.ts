@@ -651,6 +651,124 @@ export const setPaymentProvider = mutation({
     },
 });
 
+export const grantUploadCreditsByEmail = mutation({
+    args: {
+        email: v.string(),
+        credits: v.number(),
+        grantKey: v.string(),
+        note: v.optional(v.string()),
+    },
+    handler: async (ctx, args) => {
+        const adminGuard = await requireAdminAccess(ctx);
+        if (adminGuard.denied) {
+            throw new Error("Admin access required.");
+        }
+
+        const email = normalizeEmail(args.email);
+        if (!email || !isValidEmail(email)) {
+            throw new Error("Provide a valid email address.");
+        }
+
+        const credits = toNonNegativeInteger(args.credits);
+        if (credits <= 0) {
+            throw new Error("Credits must be greater than zero.");
+        }
+
+        const grantKey = String(args.grantKey || "").trim().slice(0, 160);
+        if (!grantKey) {
+            throw new Error("Grant key is required.");
+        }
+
+        const sourceNote = typeof args.note === "string" && args.note.trim()
+            ? args.note.trim().slice(0, 200)
+            : "admin_manual_grant";
+
+        const authUsersResult = await ctx.runQuery(components.betterAuth.adapter.findMany, {
+            model: "user",
+            where: [{ field: "email", value: email }],
+            paginationOpts: {
+                cursor: null,
+                numItems: 5,
+            },
+        });
+        const authUsers = Array.isArray(authUsersResult?.page) ? authUsersResult.page : [];
+        const authUser = authUsers.find((user: any) => normalizeEmail(user?.email) === email) || null;
+        const userId = normalizeAuthUserId(authUser);
+        if (!userId) {
+            throw new Error("No account found for that email.");
+        }
+
+        const existingGrant = await ctx.db
+            .query("campaignCreditGrants")
+            .withIndex("by_userId_campaignId", (q) => q.eq("userId", userId).eq("campaignId", grantKey))
+            .first();
+
+        const subscription = await ctx.db
+            .query("subscriptions")
+            .withIndex("by_userId", (q) => q.eq("userId", userId))
+            .first();
+
+        if (existingGrant) {
+            return {
+                ok: true,
+                alreadyGranted: true,
+                email,
+                userId,
+                grantedCredits: toNonNegativeInteger(existingGrant.grantedCredits),
+                purchasedUploadCredits: toNonNegativeInteger(subscription?.purchasedUploadCredits),
+                consumedUploadCredits: toNonNegativeInteger(subscription?.consumedUploadCredits),
+            };
+        }
+
+        const purchasedUploadCredits = toNonNegativeInteger(subscription?.purchasedUploadCredits);
+        const consumedUploadCredits = toNonNegativeInteger(subscription?.consumedUploadCredits);
+        const nextPurchasedUploadCredits = purchasedUploadCredits + credits;
+
+        if (subscription) {
+            await ctx.db.patch(subscription._id, {
+                purchasedUploadCredits: nextPurchasedUploadCredits,
+                consumedUploadCredits,
+                plan: normalizeSubscriptionPlan(subscription.plan),
+                status: normalizeSubscriptionStatus(subscription.status),
+                amount: typeof subscription.amount === "number" ? subscription.amount : 0,
+                currency: normalizeCurrencyCode(subscription.currency, "GHS"),
+            });
+        } else {
+            await ctx.db.insert("subscriptions", {
+                userId,
+                plan: "free",
+                status: "active",
+                amount: 0,
+                currency: "GHS",
+                purchasedUploadCredits: credits,
+                consumedUploadCredits: 0,
+            });
+        }
+
+        await ctx.db.insert("campaignCreditGrants", {
+            campaignId: grantKey,
+            userId,
+            email,
+            creditType: "upload_credits",
+            grantedCredits: credits,
+            grantedAt: Date.now(),
+            lastActivityAt: 0,
+            daysInactive: 0,
+            source: sourceNote,
+        });
+
+        return {
+            ok: true,
+            alreadyGranted: false,
+            email,
+            userId,
+            grantedCredits: credits,
+            purchasedUploadCredits: nextPurchasedUploadCredits,
+            consumedUploadCredits,
+        };
+    },
+});
+
 export const diagnoseRetrievalForTopic = action({
     args: {
         topicId: v.id("topics"),
