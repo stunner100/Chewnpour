@@ -68,7 +68,7 @@ const resolvePaymentProvider = (value: unknown) => {
     return PAYMENT_PROVIDER_FALLBACK_BY_DEFAULT;
 };
 
-const readPaymentProviderSetting = async (ctx: any) => {
+const readPaymentProviderSetting = async (ctx: { db: any }) => {
     const stored = await ctx.db
         .query("appSettings")
         .withIndex("by_key", (q: any) => q.eq("key", PAYMENT_PROVIDER_KEY))
@@ -723,6 +723,15 @@ export const getPaymentTransactionByReferenceInternal = internalQuery({
     },
 });
 
+export const getPaymentProviderSettingInternal = internalQuery({
+    args: {},
+    handler: async (ctx) => {
+        return {
+            provider: await readPaymentProviderSetting(ctx),
+        };
+    },
+});
+
 export const recordPaymentInitializationInternal = internalMutation({
     args: {
         userId: v.string(),
@@ -928,7 +937,11 @@ export const initializePaystackTopUpCheckout = action({
 
         const reference = buildPaymentReference(userId);
         const customerEmail = getPaystackCustomerEmail(identity, userId);
-        const provider = resolvePaymentProvider(await readPaymentProviderSetting(ctx));
+        const paymentProviderSetting = await ctx.runQuery(
+            internal.subscriptions.getPaymentProviderSettingInternal,
+            {}
+        );
+        const provider = resolvePaymentProvider(paymentProviderSetting?.provider);
 
         const callbackParams = new URLSearchParams({
             reference,

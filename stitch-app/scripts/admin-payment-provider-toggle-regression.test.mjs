@@ -46,6 +46,7 @@ if (!adminSource.includes("requiresKey")) {
 for (const pattern of [
     "const initializeManualCheckout",
     "PAYMENT_PROVIDER_MANUAL",
+    "getPaymentProviderSettingInternal",
     "initializePayload.provider",
     "if (provider === PAYMENT_PROVIDER_MANUAL)",
     "ignored_provider",
@@ -55,6 +56,10 @@ for (const pattern of [
     if (!subscriptionsSource.includes(pattern)) {
         throw new Error(`Expected subscriptions.ts to include "${pattern}".`);
     }
+}
+
+if (!subscriptionsSource.includes("ctx.runQuery(\n            internal.subscriptions.getPaymentProviderSettingInternal,")) {
+    throw new Error("Expected initializePaystackTopUpCheckout to resolve payment provider through an internal query.");
 }
 
 if (!subscriptionPageSource.includes("providerHint")) {
