@@ -436,7 +436,7 @@ const LandingPage = () => {
                     <div className="mx-auto max-w-6xl px-6 lg:px-8 py-20 md:py-28">
                         <div className="text-center mb-12 md:mb-16">
                             <h2 className="text-display-lg text-text-main-light dark:text-text-main-dark mb-3">
-                                Loved by Students Across Ghana
+                                Loved by Students Across Africa
                             </h2>
                             <p className="text-text-faint-light dark:text-text-faint-dark max-w-lg mx-auto text-body-sm">
                                 Thousands of students are studying smarter with ChewnPour. Here is what they have to say.
