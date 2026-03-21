@@ -52,7 +52,7 @@ const DashboardLayout = ({ children }) => {
                     )}
                     <button
                         onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
-                        className={`btn-icon ${sidebarCollapsed ? 'hidden' : ''}`}
+                        className="btn-icon"
                         title={sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
                     >
                         <span className="material-symbols-outlined text-[20px]">
