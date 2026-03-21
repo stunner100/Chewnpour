@@ -52,7 +52,7 @@ const SignUp = () => {
                 </div>
                 <div className="relative z-10 flex flex-col justify-center px-16 xl:px-20 text-white">
                     <div className="mb-8">
-                        <img src="/chewnpourlogo.png" alt="ChewnPour" className="h-10 w-auto" />
+                        <img src="/chewnpourlogo.png" alt="ChewnPour" className="h-16 w-auto" />
                     </div>
                     <h2 className="text-display-xl text-white mb-4 max-w-lg">
                         Study smarter, not harder

@@ -169,7 +169,7 @@ const LandingPage = () => {
                 <div className="mx-auto flex max-w-6xl items-center justify-between px-6 lg:px-8">
                     {/* Logo */}
                     <Link to="/" className="flex items-center gap-2.5">
-                        <img src="/chewnpourlogo.png" alt="ChewnPour" className="h-9 w-auto" />
+                        <img src="/chewnpourlogo.png" alt="ChewnPour" className="h-16 w-auto" />
                     </Link>
 
                     {/* Desktop Nav */}
@@ -674,7 +674,7 @@ const LandingPage = () => {
                 <div className="mx-auto max-w-6xl px-6 lg:px-8">
                     <div className="flex flex-col md:flex-row justify-between items-center gap-6">
                         <div className="flex items-center gap-2.5">
-                            <img src="/chewnpourlogo.png" alt="ChewnPour" className="h-8 w-auto" />
+                            <img src="/chewnpourlogo.png" alt="ChewnPour" className="h-16 w-auto" />
                         </div>
                         <div className="flex items-center gap-5 text-body-sm">
                             <a

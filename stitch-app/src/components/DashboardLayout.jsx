@@ -42,12 +42,12 @@ const DashboardLayout = ({ children }) => {
                 <div className="flex items-center justify-between h-15 px-4 border-b border-border-subtle dark:border-border-subtle-dark">
                     {!sidebarCollapsed && (
                         <Link to="/dashboard" className="flex items-center gap-2.5">
-                            <img src="/chewnpourlogo.png" alt="ChewnPour" className="h-8 w-auto" />
+                            <img src="/chewnpourlogo.png" alt="ChewnPour" className="h-16 w-auto" />
                         </Link>
                     )}
                     {sidebarCollapsed && (
                         <Link to="/dashboard" className="mx-auto">
-                            <img src="/chewnpourlogo.png" alt="ChewnPour" className="h-8 w-auto" />
+                            <img src="/chewnpourlogo.png" alt="ChewnPour" className="h-16 w-auto" />
                         </Link>
                     )}
                     <button
