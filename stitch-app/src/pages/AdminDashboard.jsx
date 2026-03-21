@@ -113,6 +113,21 @@ const TABS = [
     { key: 'settings', label: 'Settings', icon: 'settings' },
 ];
 
+const PAYMENT_PROVIDER_FALLBACK_OPTIONS = [
+    {
+        id: 'paystack',
+        label: 'Paystack',
+        requiresKey: true,
+        helpText: 'Use the live Paystack checkout and webhook flow.',
+    },
+    {
+        id: 'manual',
+        label: 'Manual (no API key)',
+        requiresKey: false,
+        helpText: 'Skip Paystack API calls and grant credits on callback.',
+    },
+];
+
 const TabBar = ({ activeTab, onTabChange }) => (
     <div className="card-base overflow-x-auto">
         <div className="flex min-w-max">
@@ -1397,26 +1412,58 @@ const SettingsPanel = ({
             <p className="text-sm text-text-sub-light dark:text-text-faint-dark">
                 Choose how checkouts are handled when top-up is started.
             </p>
+            <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                {(
+                    Array.isArray(paymentProviderConfig?.options) && paymentProviderConfig.options.length > 0
+                        ? paymentProviderConfig.options
+                        : PAYMENT_PROVIDER_FALLBACK_OPTIONS
+                ).map((option) => {
+                    const isSelected = paymentProviderDraft === option.id;
+                    return (
+                        <button
+                            key={option.id}
+                            type="button"
+                            onClick={() => setPaymentProviderDraft(option.id)}
+                            className={`rounded-2xl border p-4 text-left transition-colors ${
+                                isSelected
+                                    ? 'border-primary bg-primary/8'
+                                    : 'border-border-light dark:border-border-dark bg-surface-light dark:bg-surface-dark hover:border-primary/40'
+                            }`}
+                        >
+                            <div className="flex items-center justify-between gap-3">
+                                <div>
+                                    <p className="text-sm font-bold text-text-main-light dark:text-text-main-dark">
+                                        {option.label}
+                                    </p>
+                                    <p className="mt-1 text-xs text-text-faint-light dark:text-text-faint-dark">
+                                        {option.helpText || (option.requiresKey ? 'Requires payment API key.' : 'No API key required.')}
+                                    </p>
+                                </div>
+                                <span
+                                    className={`material-symbols-outlined text-xl ${
+                                        isSelected
+                                            ? 'text-primary'
+                                            : 'text-text-faint-light dark:text-text-faint-dark'
+                                    }`}
+                                >
+                                    {isSelected ? 'radio_button_checked' : 'radio_button_unchecked'}
+                                </span>
+                            </div>
+                        </button>
+                    );
+                })}
+            </div>
             <form onSubmit={handleSavePaymentProvider} className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-end">
                 <div className="grow">
-                    <label className="block text-xs font-semibold text-text-faint-light dark:text-text-faint-dark mb-1">
-                        Checkout provider
-                    </label>
-                    <select
-                        value={paymentProviderDraft}
-                        onChange={(event) => setPaymentProviderDraft(event.target.value)}
-                        className="w-full rounded-xl border-2 border-border-light dark:border-border-dark bg-surface-light dark:bg-surface-dark px-4 py-2.5 text-sm text-text-main-light dark:text-text-main-dark focus:outline-none focus:border-primary"
-                    >
-                        {(Array.isArray(paymentProviderConfig?.options) ? paymentProviderConfig.options : []).map((option) => (
-                            <option key={option.id} value={option.id}>
-                                {option.label}
-                            </option>
-                        ))}
-                    </select>
                     <p className="mt-1 text-xs text-text-faint-light dark:text-text-faint-dark">
                         Current: {paymentProviderConfig?.selectedLabel || paymentProviderConfig?.selected || 'Unknown'}
                         {paymentProviderConfig?.updatedAt ? ` • Updated ${new Date(paymentProviderConfig.updatedAt).toLocaleString()}` : null}
                     </p>
+                    {!paymentProviderConfig ? (
+                        <p className="mt-2 text-xs text-amber-700 dark:text-amber-300">
+                            Dashboard settings metadata has not loaded from Convex, so the options above are using client defaults.
+                        </p>
+                    ) : null}
                 </div>
                 <button
                     type="submit"
