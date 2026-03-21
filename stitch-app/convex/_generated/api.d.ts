@@ -28,6 +28,7 @@ import type * as feedback from "../feedback.js";
 import type * as grounded from "../grounded.js";
 import type * as http from "../http.js";
 import type * as lib_conceptExerciseGeneration from "../lib/conceptExerciseGeneration.js";
+import type * as lib_doctraClient from "../lib/doctraClient.js";
 import type * as lib_documentExtractionPipeline from "../lib/documentExtractionPipeline.js";
 import type * as lib_examAttemptReuse from "../lib/examAttemptReuse.js";
 import type * as lib_examQuestionSelection from "../lib/examQuestionSelection.js";
@@ -88,6 +89,7 @@ declare const fullApi: ApiFromModules<{
   grounded: typeof grounded;
   http: typeof http;
   "lib/conceptExerciseGeneration": typeof lib_conceptExerciseGeneration;
+  "lib/doctraClient": typeof lib_doctraClient;
   "lib/documentExtractionPipeline": typeof lib_documentExtractionPipeline;
   "lib/examAttemptReuse": typeof lib_examAttemptReuse;
   "lib/examQuestionSelection": typeof lib_examQuestionSelection;

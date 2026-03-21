@@ -88,7 +88,7 @@ export default defineSchema({
             pageCount: v.number(),
             error: v.optional(v.string()),
         })),
-        backend: v.string(),
+        backend: v.optional(v.string()),
         parser: v.optional(v.string()),
         winner: v.optional(v.boolean()),
         baselineBackend: v.optional(v.string()),
