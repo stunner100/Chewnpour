@@ -1232,9 +1232,12 @@ const ExamMode = () => {
         return (
             <div className="bg-background-light dark:bg-background-dark min-h-screen flex items-center justify-center">
                 <div className="text-center max-w-md px-6">
-                    <h2 className="text-xl font-bold text-neutral-900 dark:text-white mb-2">Select a topic to start an exam</h2>
-                    <p className="text-neutral-500 font-medium mb-6">Go back to your dashboard and choose a topic to begin.</p>
-                    <Link to="/dashboard" className="inline-flex items-center justify-center px-5 py-2.5 rounded-xl bg-primary text-white font-bold shadow-lg shadow-primary/20">
+                    <div className="w-14 h-14 rounded-2xl bg-surface-light dark:bg-surface-dark border border-border-light dark:border-border-dark flex items-center justify-center mx-auto mb-4">
+                        <span className="material-symbols-outlined text-2xl text-text-faint-light dark:text-text-faint-dark">quiz</span>
+                    </div>
+                    <h2 className="text-body-lg font-semibold text-text-main-light dark:text-text-main-dark mb-2">Select a topic to start an exam</h2>
+                    <p className="text-body-sm text-text-sub-light dark:text-text-sub-dark mb-6">Go back to your dashboard and choose a topic to begin.</p>
+                    <Link to="/dashboard" className="btn-primary text-body-sm px-5 py-2.5 inline-flex items-center gap-2">
                         Back to Dashboard
                     </Link>
                 </div>
@@ -1247,8 +1250,8 @@ const ExamMode = () => {
         return (
             <div className="bg-background-light dark:bg-background-dark min-h-screen flex items-center justify-center">
                 <div className="text-center">
-                    <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary mx-auto mb-4"></div>
-                    <p className="text-neutral-500 font-medium">Preparing your exam environment...</p>
+                    <div className="animate-spin rounded-full h-10 w-10 border-2 border-border-light dark:border-border-dark border-t-primary mx-auto mb-4"></div>
+                    <p className="text-body-sm text-text-sub-light dark:text-text-sub-dark">Preparing your exam environment...</p>
                 </div>
             </div>
         );
@@ -1258,9 +1261,12 @@ const ExamMode = () => {
         return (
             <div className="bg-background-light dark:bg-background-dark min-h-screen flex items-center justify-center">
                 <div className="text-center max-w-md px-6">
-                    <h2 className="text-xl font-bold text-neutral-900 dark:text-white mb-2">Topic not found</h2>
-                    <p className="text-neutral-500 font-medium mb-6">We couldn’t find this topic. Please return to your dashboard.</p>
-                    <Link to="/dashboard" className="inline-flex items-center justify-center px-5 py-2.5 rounded-xl bg-primary text-white font-bold shadow-lg shadow-primary/20">
+                    <div className="w-14 h-14 rounded-2xl bg-surface-light dark:bg-surface-dark border border-border-light dark:border-border-dark flex items-center justify-center mx-auto mb-4">
+                        <span className="material-symbols-outlined text-2xl text-text-faint-light dark:text-text-faint-dark">search_off</span>
+                    </div>
+                    <h2 className="text-body-lg font-semibold text-text-main-light dark:text-text-main-dark mb-2">Topic not found</h2>
+                    <p className="text-body-sm text-text-sub-light dark:text-text-sub-dark mb-6">We couldn’t find this topic. Please return to your dashboard.</p>
+                    <Link to="/dashboard" className="btn-primary text-body-sm px-5 py-2.5 inline-flex items-center gap-2">
                         Back to Dashboard
                     </Link>
                 </div>
@@ -1272,19 +1278,22 @@ const ExamMode = () => {
         return (
             <div className="bg-background-light dark:bg-background-dark min-h-screen flex items-center justify-center">
                 <div className="text-center max-w-lg px-6">
-                    <h2 className="text-xl font-bold text-neutral-900 dark:text-white mb-2">No questions yet</h2>
-                    <p className="text-neutral-500 font-medium mb-6">Generate questions for this topic to start the exam.</p>
+                    <div className="w-14 h-14 rounded-2xl bg-surface-light dark:bg-surface-dark border border-border-light dark:border-border-dark flex items-center justify-center mx-auto mb-4">
+                        <span className="material-symbols-outlined text-2xl text-text-faint-light dark:text-text-faint-dark">help_outline</span>
+                    </div>
+                    <h2 className="text-body-lg font-semibold text-text-main-light dark:text-text-main-dark mb-2">No questions yet</h2>
+                    <p className="text-body-sm text-text-sub-light dark:text-text-sub-dark mb-6">Generate questions for this topic to start the exam.</p>
                     {generateQuestionsError && (
-                        <div className="mb-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-2 text-sm font-medium text-amber-800">
-                            {generateQuestionsError}
+                        <div className="mb-4 p-3 rounded-xl bg-amber-50 dark:bg-amber-900/10 border border-amber-200 dark:border-amber-900/30">
+                            <p className="text-body-sm text-amber-800 dark:text-amber-300">{generateQuestionsError}</p>
                         </div>
                     )}
                     <button
                         onClick={handleGenerateQuestions}
                         disabled={generatingQuestions}
-                        className="inline-flex items-center justify-center px-6 py-3 rounded-xl bg-primary text-white font-bold shadow-lg shadow-primary/25 hover:bg-primary/90 disabled:opacity-60"
+                        className="btn-primary text-body-sm px-6 py-3 disabled:opacity-60"
                     >
-                        {generatingQuestions ? 'Generating...' : 'Generate Questions'}
+                        {generatingQuestions ? ‘Generating...’ : ‘Generate Questions’}
                     </button>
                 </div>
             </div>
@@ -1300,21 +1309,24 @@ const ExamMode = () => {
         return (
             <div className="bg-background-light dark:bg-background-dark min-h-screen flex items-center justify-center">
                 <div className="text-center max-w-lg px-6">
-                    <h2 className="text-xl font-bold text-neutral-900 dark:text-white mb-2">Preparing question bank</h2>
-                    <p className="text-neutral-500 font-medium mb-6">
+                    <div className="w-14 h-14 rounded-2xl bg-surface-light dark:bg-surface-dark border border-border-light dark:border-border-dark flex items-center justify-center mx-auto mb-4">
+                        <span className="material-symbols-outlined text-2xl text-primary animate-pulse">hourglass_empty</span>
+                    </div>
+                    <h2 className="text-body-lg font-semibold text-text-main-light dark:text-text-main-dark mb-2">Preparing question bank</h2>
+                    <p className="text-body-sm text-text-sub-light dark:text-text-sub-dark mb-6">
                         {`We currently have ${topicQuestions.length} of ${MIN_EXAM_QUESTIONS} questions needed to start.`}
                     </p>
                     {generateQuestionsError && (
-                        <div className="mb-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-2 text-sm font-medium text-amber-800">
-                            {generateQuestionsError}
+                        <div className="mb-4 p-3 rounded-xl bg-amber-50 dark:bg-amber-900/10 border border-amber-200 dark:border-amber-900/30">
+                            <p className="text-body-sm text-amber-800 dark:text-amber-300">{generateQuestionsError}</p>
                         </div>
                     )}
                     <button
                         onClick={handleGenerateQuestions}
                         disabled={generatingQuestions}
-                        className="inline-flex items-center justify-center px-6 py-3 rounded-xl bg-primary text-white font-bold shadow-lg shadow-primary/25 hover:bg-primary/90 disabled:opacity-60"
+                        className="btn-primary text-body-sm px-6 py-3 disabled:opacity-60"
                     >
-                        {generatingQuestions ? 'Generating...' : 'Generate Questions'}
+                        {generatingQuestions ? ‘Generating...’ : ‘Generate Questions’}
                     </button>
                 </div>
             </div>
@@ -1323,26 +1335,26 @@ const ExamMode = () => {
 
     if (!examFormat && !examStarted && topicQuestions.length >= MIN_EXAM_QUESTIONS) {
         return (
-            <div className="min-h-screen bg-gradient-to-br from-neutral-50 to-neutral-100 dark:from-neutral-900 dark:to-neutral-800 flex items-center justify-center p-4">
+            <div className="min-h-screen bg-background-light dark:bg-background-dark flex items-center justify-center p-4">
                 <div className="w-full max-w-md">
-                    <div className="bg-white dark:bg-neutral-900 rounded-3xl shadow-xl border border-neutral-200 dark:border-neutral-800 p-8 text-center">
-                        <div className="w-20 h-20 mx-auto mb-6 rounded-2xl bg-primary flex items-center justify-center text-white shadow-lg shadow-primary/25">
-                            <span className="material-symbols-outlined text-4xl">quiz</span>
+                    <div className="card-base p-8 text-center">
+                        <div className="w-16 h-16 mx-auto mb-6 rounded-2xl bg-primary/10 flex items-center justify-center">
+                            <span className="material-symbols-outlined text-3xl text-primary">quiz</span>
                         </div>
-                        <h2 className="text-2xl font-bold text-neutral-900 dark:text-white mb-2">Choose Exam Format</h2>
-                        <p className="text-neutral-500 dark:text-neutral-400 mb-8">How would you like to be tested?</p>
+                        <h2 className="text-display-sm text-text-main-light dark:text-text-main-dark mb-2">Choose Exam Format</h2>
+                        <p className="text-body-sm text-text-sub-light dark:text-text-sub-dark mb-8">How would you like to be tested?</p>
 
                         <div className="space-y-3">
                             <button
                                 onClick={() => setExamFormat('mcq')}
-                                className="w-full flex items-center gap-4 p-4 rounded-2xl border-2 border-neutral-200 dark:border-neutral-700 hover:border-blue-400 hover:bg-blue-50/50 dark:hover:bg-blue-900/20 transition-all text-left group"
+                                className="w-full flex items-center gap-4 p-4 rounded-xl border border-border-light dark:border-border-dark hover:border-primary hover:bg-primary/5 transition-all text-left group"
                             >
-                                <div className="w-12 h-12 rounded-xl bg-blue-100 dark:bg-blue-900/40 flex items-center justify-center group-hover:bg-blue-200 dark:group-hover:bg-blue-800/50 transition-colors">
-                                    <span className="material-symbols-outlined text-primary dark:text-primary">radio_button_checked</span>
+                                <div className="w-11 h-11 rounded-xl bg-primary/10 flex items-center justify-center group-hover:bg-primary/15 transition-colors">
+                                    <span className="material-symbols-outlined text-primary">radio_button_checked</span>
                                 </div>
                                 <div>
-                                    <p className="font-bold text-neutral-900 dark:text-white">Multiple Choice</p>
-                                    <p className="text-sm text-neutral-500 dark:text-neutral-400">Pick the best answer from 4 options</p>
+                                    <p className="text-body-sm font-semibold text-text-main-light dark:text-text-main-dark">Multiple Choice</p>
+                                    <p className="text-caption text-text-sub-light dark:text-text-sub-dark">Pick the best answer from 4 options</p>
                                 </div>
                             </button>
 
@@ -1350,7 +1362,6 @@ const ExamMode = () => {
                                 onClick={async () => {
                                     setExamFormat('essay');
                                     setStartExamError('');
-                                    // Generate essay questions if needed
                                     setGeneratingEssayQuestions(true);
                                     try {
                                         await generateEssayQuestions({ topicId, count: ESSAY_EXAM_INTERACTIVE_START_COUNT });
@@ -1361,19 +1372,19 @@ const ExamMode = () => {
                                     }
                                 }}
                                 disabled={generatingEssayQuestions}
-                                className="w-full flex items-center gap-4 p-4 rounded-2xl border-2 border-neutral-200 dark:border-neutral-700 hover:border-purple-400 hover:bg-purple-50/50 dark:hover:bg-purple-900/20 transition-all text-left group disabled:opacity-60"
+                                className="w-full flex items-center gap-4 p-4 rounded-xl border border-border-light dark:border-border-dark hover:border-accent-emerald hover:bg-accent-emerald/5 transition-all text-left group disabled:opacity-60"
                             >
-                                <div className="w-12 h-12 rounded-xl bg-purple-100 dark:bg-purple-900/40 flex items-center justify-center group-hover:bg-purple-200 dark:group-hover:bg-purple-800/50 transition-colors">
-                                    <span className="material-symbols-outlined text-purple-600 dark:text-purple-400">edit_note</span>
+                                <div className="w-11 h-11 rounded-xl bg-accent-emerald/10 flex items-center justify-center group-hover:bg-accent-emerald/15 transition-colors">
+                                    <span className="material-symbols-outlined text-accent-emerald">edit_note</span>
                                 </div>
                                 <div>
-                                    <p className="font-bold text-neutral-900 dark:text-white">
+                                    <p className="text-body-sm font-semibold text-text-main-light dark:text-text-main-dark">
                                         {generatingEssayQuestions ? 'Preparing Essay Questions...' : 'Essay / Theory'}
                                     </p>
-                                    <p className="text-sm text-neutral-500 dark:text-neutral-400">Write your answers in your own words</p>
+                                    <p className="text-caption text-text-sub-light dark:text-text-sub-dark">Write your answers in your own words</p>
                                 </div>
                                 {generatingEssayQuestions && (
-                                    <div className="ml-auto w-5 h-5 rounded-full border-2 border-secondary border-t-transparent animate-spin"></div>
+                                    <div className="ml-auto w-5 h-5 rounded-full border-2 border-primary border-t-transparent animate-spin"></div>
                                 )}
                             </button>
                         </div>
@@ -1385,56 +1396,56 @@ const ExamMode = () => {
 
     if (startingExamAttempt || !examStarted || !attemptId || questions.length === 0) {
         return (
-            <div className="min-h-screen bg-gradient-to-br from-neutral-50 to-neutral-100 dark:from-neutral-900 dark:to-neutral-800 flex items-center justify-center p-4">
+            <div className="min-h-screen bg-background-light dark:bg-background-dark flex items-center justify-center p-4">
                 <div className="w-full max-w-md">
                     {!startExamError ? (
-                        <div className="bg-white dark:bg-neutral-900 rounded-3xl shadow-xl border border-neutral-200 dark:border-neutral-800 p-8 text-center">
-                            <div className="relative w-24 h-24 mx-auto mb-6">
-                                <div className="absolute inset-0 rounded-full border-4 border-neutral-100 dark:border-neutral-800"></div>
-                                <div className="absolute inset-0 rounded-full border-4 border-primary border-t-transparent animate-spin"></div>
-                                <div className="absolute inset-2 rounded-full bg-primary flex items-center justify-center text-white shadow-lg shadow-primary/25">
-                                    <span className="material-symbols-outlined text-3xl">quiz</span>
+                        <div className="card-base p-8 text-center">
+                            <div className="relative w-20 h-20 mx-auto mb-6">
+                                <div className="absolute inset-0 rounded-full border-2 border-border-light dark:border-border-dark"></div>
+                                <div className="absolute inset-0 rounded-full border-2 border-primary border-t-transparent animate-spin"></div>
+                                <div className="absolute inset-2 rounded-full bg-primary/10 flex items-center justify-center">
+                                    <span className="material-symbols-outlined text-2xl text-primary">quiz</span>
                                 </div>
                             </div>
 
-                            <h2 className="text-2xl font-bold text-neutral-900 dark:text-white mb-2">
+                            <h2 className="text-display-sm text-text-main-light dark:text-text-main-dark mb-2">
                                 Preparing Your Exam
                             </h2>
-                            <p className="text-neutral-500 dark:text-neutral-400 mb-6">
+                            <p className="text-body-sm text-text-sub-light dark:text-text-sub-dark mb-6">
                                 {`We're building a personalized ${loadingExamTypeLabel} test with up to ${loadingExamQuestionCap} questions based on your topic.`}
                             </p>
 
-                            <div className="space-y-3">
-                                <div className="flex items-center gap-3 text-sm text-neutral-600 dark:text-neutral-400">
-                                    <span className="material-symbols-outlined text-accent-emerald">check_circle</span>
+                            <div className="space-y-3 text-left">
+                                <div className="flex items-center gap-3 text-body-sm text-text-sub-light dark:text-text-sub-dark">
+                                    <span className="material-symbols-outlined text-accent-emerald text-[18px]">check_circle</span>
                                     <span>Analyzing topic content</span>
                                 </div>
-                                <div className="flex items-center gap-3 text-sm text-neutral-600 dark:text-neutral-400">
-                                    <span className="material-symbols-outlined text-accent-emerald">check_circle</span>
+                                <div className="flex items-center gap-3 text-body-sm text-text-sub-light dark:text-text-sub-dark">
+                                    <span className="material-symbols-outlined text-accent-emerald text-[18px]">check_circle</span>
                                     <span>Generating questions</span>
                                 </div>
-                                <div className="flex items-center gap-3 text-sm text-neutral-600 dark:text-neutral-400">
-                                    <span className="material-symbols-outlined text-primary animate-pulse">hourglass_empty</span>
+                                <div className="flex items-center gap-3 text-body-sm text-text-sub-light dark:text-text-sub-dark">
+                                    <span className="material-symbols-outlined text-primary text-[18px] animate-pulse">hourglass_empty</span>
                                     <span>Finalizing exam set</span>
                                 </div>
                             </div>
 
-                            <div className="mt-6 pt-6 border-t border-neutral-100 dark:border-neutral-800">
-                                <p className="text-xs text-neutral-400">
+                            <div className="mt-6 pt-6 border-t border-border-light dark:border-border-dark">
+                                <p className="text-caption text-text-faint-light dark:text-text-faint-dark">
                                     This usually takes 10-20 seconds
                                 </p>
                             </div>
                         </div>
                     ) : (
-                        <div className="bg-white dark:bg-neutral-900 rounded-3xl shadow-xl border border-neutral-200 dark:border-neutral-800 p-8 text-center">
-                            <div className="w-20 h-20 rounded-full bg-amber-100 dark:bg-amber-900/20 flex items-center justify-center mx-auto mb-4">
-                                <span className="material-symbols-outlined text-3xl text-amber-500">warning</span>
+                        <div className="card-base p-8 text-center">
+                            <div className="w-16 h-16 rounded-2xl bg-accent-amber/10 flex items-center justify-center mx-auto mb-4">
+                                <span className="material-symbols-outlined text-2xl text-accent-amber">warning</span>
                             </div>
 
-                            <h2 className="text-xl font-bold text-neutral-900 dark:text-white mb-2">
+                            <h2 className="text-body-lg font-semibold text-text-main-light dark:text-text-main-dark mb-2">
                                 Taking Longer Than Expected
                             </h2>
-                            <p className="text-neutral-500 dark:text-neutral-400 mb-6">
+                            <p className="text-body-sm text-text-sub-light dark:text-text-sub-dark mb-6">
                                 {startExamError}
                             </p>
 
@@ -1442,26 +1453,26 @@ const ExamMode = () => {
                                 {startExamError === getExamSessionExpiredMessage() ? (
                                     <Link
                                         to="/login"
-                                        className="flex-1 py-3 bg-primary text-white rounded-xl font-semibold shadow-md shadow-primary/20 hover:shadow-lg transition-all flex items-center justify-center gap-2"
+                                        className="flex-1 btn-primary py-3 flex items-center justify-center gap-2"
                                     >
-                                        <span className="material-symbols-outlined">login</span>
+                                        <span className="material-symbols-outlined text-[18px]">login</span>
                                         <span>Sign In</span>
                                     </Link>
                                 ) : (
                                     <button
                                         onClick={beginExamAttempt}
                                         disabled={startingExamAttempt}
-                                        className="flex-1 py-3 bg-primary text-white rounded-xl font-semibold shadow-md shadow-primary/20 hover:shadow-lg transition-all disabled:opacity-60 flex items-center justify-center gap-2"
+                                        className="flex-1 btn-primary py-3 disabled:opacity-60 flex items-center justify-center gap-2"
                                     >
-                                        <span className="material-symbols-outlined">refresh</span>
+                                        <span className="material-symbols-outlined text-[18px]">refresh</span>
                                         <span>Try Again</span>
                                     </button>
                                 )}
                                 <Link
                                     to={`/dashboard/topic/${topicId}`}
-                                    className="px-4 py-3 bg-neutral-100 dark:bg-neutral-800 text-neutral-700 dark:text-neutral-200 rounded-xl font-semibold hover:bg-neutral-200 transition-colors flex items-center justify-center"
+                                    className="btn-secondary px-4 py-3 flex items-center justify-center"
                                 >
-                                    <span className="material-symbols-outlined">arrow_back</span>
+                                    <span className="material-symbols-outlined text-[18px]">arrow_back</span>
                                 </Link>
                             </div>
                         </div>
@@ -1472,18 +1483,18 @@ const ExamMode = () => {
     }
 
     return (
-        <div className="min-h-screen bg-gradient-to-br from-neutral-50 to-neutral-100 dark:from-neutral-900 dark:to-neutral-800 flex flex-col md:flex-row">
+        <div className="min-h-screen bg-background-light dark:bg-background-dark flex flex-col md:flex-row">
             {/* Essay grading overlay */}
             {gradingEssay && (
-                <div className="fixed inset-0 z-50 bg-neutral-900/70 backdrop-blur-sm flex items-center justify-center p-4">
-                    <div className="bg-white dark:bg-neutral-900 rounded-3xl shadow-2xl p-8 text-center max-w-sm w-full">
-                        <div className="w-20 h-20 mx-auto mb-6 rounded-full bg-secondary flex items-center justify-center text-white shadow-lg shadow-secondary/25 animate-pulse">
-                            <span className="material-symbols-outlined text-4xl">psychology</span>
+                <div className="fixed inset-0 z-50 bg-background-light/80 dark:bg-background-dark/80 backdrop-blur-sm flex items-center justify-center p-4">
+                    <div className="card-base p-8 text-center max-w-sm w-full">
+                        <div className="w-16 h-16 mx-auto mb-6 rounded-2xl bg-primary/10 flex items-center justify-center animate-pulse">
+                            <span className="material-symbols-outlined text-3xl text-primary">psychology</span>
                         </div>
-                        <h3 className="text-xl font-bold text-neutral-900 dark:text-white mb-2">Grading Your Answers</h3>
-                        <p className="text-neutral-500 dark:text-neutral-400 text-sm">Our AI is reading and evaluating each of your responses. This may take a moment...</p>
-                        <div className="mt-6 w-full h-1.5 bg-neutral-100 dark:bg-neutral-800 rounded-full overflow-hidden">
-                            <div className="h-full bg-secondary rounded-full animate-[pulse_1.5s_ease-in-out_infinite]" style={{ width: '70%' }}></div>
+                        <h3 className="text-body-lg font-semibold text-text-main-light dark:text-text-main-dark mb-2">Grading Your Answers</h3>
+                        <p className="text-body-sm text-text-sub-light dark:text-text-sub-dark">Our AI is reading and evaluating each of your responses. This may take a moment...</p>
+                        <div className="mt-6 w-full h-1 bg-border-light dark:bg-border-dark rounded-full overflow-hidden">
+                            <div className="h-full bg-primary rounded-full animate-[pulse_1.5s_ease-in-out_infinite]" style={{ width: '70%' }}></div>
                         </div>
                     </div>
                 </div>
@@ -1491,29 +1502,29 @@ const ExamMode = () => {
             {/* Main Content Area */}
             <main className="flex-1 flex flex-col min-h-screen">
                 {/* Header */}
-                <header className="sticky top-0 z-40 bg-white/80 dark:bg-neutral-900/80 backdrop-blur-xl border-b border-neutral-200 dark:border-neutral-800">
+                <header className="sticky top-0 z-40 bg-surface-light/90 dark:bg-surface-dark/90 backdrop-blur-md border-b border-border-light dark:border-border-dark">
                     <div className="max-w-4xl mx-auto px-4 py-3 flex items-center justify-between">
                         <div className="flex items-center gap-3">
-                            <Link to={`/dashboard/topic/${topicId}`} className="w-9 h-9 rounded-full bg-neutral-100 dark:bg-neutral-800 flex items-center justify-center text-neutral-500 hover:bg-neutral-200 transition-colors">
+                            <Link to={`/dashboard/topic/${topicId}`} className="btn-icon w-9 h-9">
                                 <span className="material-symbols-outlined text-lg">close</span>
                             </Link>
                             <div>
-                                <h1 className="text-base font-semibold text-neutral-900 dark:text-white">Exam</h1>
-                                <p className="text-xs text-neutral-500 truncate max-w-[120px] sm:max-w-xs">{topic?.title}</p>
+                                <h1 className="text-body-sm font-semibold text-text-main-light dark:text-text-main-dark">Exam</h1>
+                                <p className="text-caption text-text-faint-light dark:text-text-faint-dark truncate max-w-[120px] sm:max-w-xs">{topic?.title}</p>
                             </div>
                         </div>
                         <div className="flex items-center gap-3">
-                            <span className="text-sm font-medium text-neutral-600 dark:text-neutral-400">
-                                {currentQuestion + 1} <span className="text-neutral-400">/ {questions.length}</span>
+                            <span className="text-body-sm text-text-sub-light dark:text-text-sub-dark">
+                                {currentQuestion + 1} <span className="text-text-faint-light dark:text-text-faint-dark">/ {questions.length}</span>
                             </span>
-                            <div className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full font-mono font-semibold text-sm ${isLowTime ? 'bg-red-100 text-red-700 dark:bg-red-900/20 dark:text-red-400' : 'bg-neutral-100 text-neutral-700 dark:bg-neutral-800 dark:text-neutral-300'}`}>
-                                <span className="material-symbols-outlined text-base">timer</span>
+                            <div className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg font-mono font-semibold text-body-sm ${isLowTime ? 'bg-red-500/10 text-red-600 dark:text-red-400' : 'bg-surface-hover-light dark:bg-surface-hover-dark text-text-main-light dark:text-text-main-dark'}`}>
+                                <span className="material-symbols-outlined text-[16px]">timer</span>
                                 {formattedTime}
                             </div>
                         </div>
                     </div>
                     {/* Progress bar */}
-                    <div className="h-1 bg-neutral-100 dark:bg-neutral-800">
+                    <div className="h-0.5 bg-border-light dark:bg-border-dark">
                         <div className="h-full bg-primary transition-all duration-300" style={{ width: `${progress}%` }}></div>
                     </div>
                 </header>
@@ -1521,20 +1532,21 @@ const ExamMode = () => {
                 {/* Question Content */}
                 <div className="flex-1 max-w-3xl mx-auto w-full px-4 py-6 pb-32">
                     {startExamError && (
-                        <div className="mb-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
-                            {startExamError}
+                        <div className="mb-4 p-3 rounded-xl bg-amber-50 dark:bg-amber-900/10 border border-amber-200 dark:border-amber-900/30">
+                            <p className="text-body-sm text-amber-800 dark:text-amber-300">{startExamError}</p>
                         </div>
                     )}
                     {submitError && (
-                        <div className="mb-4 rounded-xl border border-red-200 bg-red-50 dark:border-red-800 dark:bg-red-900/20 px-4 py-3 text-sm text-red-800 dark:text-red-300">
-                            {submitError}
-                            {submitError === getExamSessionExpiredMessage() && (
-                                <Link to="/login" className="ml-2 font-semibold underline">Sign in</Link>
-                            )}
+                        <div className="mb-4 p-3 rounded-xl bg-red-50 dark:bg-red-900/10 border border-red-200 dark:border-red-900/30">
+                            <p className="text-body-sm text-red-800 dark:text-red-300">
+                                {submitError}
+                                {submitError === getExamSessionExpiredMessage() && (
+                                    <Link to="/login" className="ml-2 font-semibold underline">Sign in</Link>
+                                )}
+                            </p>
                         </div>
                     )}
 
-                    {/* Question Card - memoized to avoid re-renders from timer ticks */}
                     <ExamQuestionCard
                         question={currentQ}
                         questionIndex={currentQuestion}
@@ -1554,10 +1566,10 @@ const ExamMode = () => {
                     />
 
                     {/* Question Navigator - Mobile Only */}
-                    <div className="md:hidden bg-white dark:bg-neutral-900 rounded-2xl shadow-sm border border-neutral-200 dark:border-neutral-800 p-4">
+                    <div className="md:hidden card-base p-4">
                         <div className="flex items-center justify-between mb-3">
-                            <span className="text-sm font-medium text-neutral-500">Question Navigator</span>
-                            <span className="text-xs text-neutral-400">{answeredQuestionCount} of {questions.length} answered</span>
+                            <span className="text-body-sm text-text-sub-light dark:text-text-sub-dark">Question Navigator</span>
+                            <span className="text-caption text-text-faint-light dark:text-text-faint-dark">{answeredQuestionCount} of {questions.length} answered</span>
                         </div>
                         <div className="grid grid-cols-8 gap-1.5">
                             {questions.map((q, index) => {
@@ -1569,11 +1581,11 @@ const ExamMode = () => {
                                     <button
                                         key={q._id}
                                         onClick={() => setCurrentQuestion(index)}
-                                        className={`aspect-square rounded-lg font-bold text-xs flex items-center justify-center transition-all ${isCurrent
+                                        className={`aspect-square rounded-lg font-semibold text-caption flex items-center justify-center transition-all ${isCurrent
                                             ? 'bg-primary text-white'
                                             : isAnswered
-                                                ? 'bg-neutral-200 dark:bg-neutral-700 text-neutral-700 dark:text-neutral-300'
-                                                : 'border border-neutral-200 dark:border-neutral-700 text-neutral-400'
+                                                ? 'bg-surface-hover-light dark:bg-surface-hover-dark text-text-sub-light dark:text-text-sub-dark'
+                                                : 'border border-border-light dark:border-border-dark text-text-faint-light dark:text-text-faint-dark'
                                             }`}
                                     >
                                         {index + 1}
@@ -1585,20 +1597,20 @@ const ExamMode = () => {
                 </div>
 
                 {/* Bottom Navigation */}
-                <div className="fixed bottom-0 inset-x-0 z-50 md:hidden bg-white dark:bg-neutral-900 border-t border-neutral-200 dark:border-neutral-800 p-4 safe-area-bottom">
+                <div className="fixed bottom-0 inset-x-0 z-50 md:hidden bg-surface-light dark:bg-surface-dark border-t border-border-light dark:border-border-dark p-4 safe-area-bottom">
                     <div className="max-w-3xl mx-auto flex items-center justify-between gap-4">
                         <button
                             onClick={handlePrevious}
                             disabled={currentQuestion === 0}
-                            className="px-4 py-2.5 rounded-xl text-neutral-600 dark:text-neutral-400 font-medium hover:bg-neutral-100 dark:hover:bg-neutral-800 disabled:opacity-30 disabled:hover:bg-transparent transition-colors flex items-center gap-1"
+                            className="btn-ghost px-4 py-2.5 flex items-center gap-1 disabled:opacity-30"
                         >
-                            <span className="material-symbols-outlined">arrow_back</span>
-                            <span className="hidden sm:inline">Prev</span>
+                            <span className="material-symbols-outlined text-[18px]">arrow_back</span>
+                            <span className="hidden sm:inline text-body-sm">Prev</span>
                         </button>
 
                         <div className="flex-1 text-center">
-                            <span className="text-sm text-neutral-500">
-                                {answeredQuestionCount} <span className="text-neutral-400">/ {questions.length}</span> answered
+                            <span className="text-body-sm text-text-sub-light dark:text-text-sub-dark">
+                                {answeredQuestionCount} <span className="text-text-faint-light dark:text-text-faint-dark">/ {questions.length}</span> answered
                             </span>
                         </div>
 
@@ -1606,18 +1618,18 @@ const ExamMode = () => {
                             <button
                                 onClick={handleSubmit}
                                 disabled={!attemptId || isEssaySubmitBlocked}
-                                className="px-6 py-2.5 rounded-xl bg-accent-emerald text-white font-semibold shadow-md hover:bg-accent-emerald/90 transition-all flex items-center gap-1 disabled:opacity-60"
+                                className="px-6 py-2.5 rounded-xl bg-accent-emerald text-white text-body-sm font-semibold hover:brightness-110 transition-all flex items-center gap-1 disabled:opacity-60"
                             >
                                 <span>Submit</span>
-                                <span className="material-symbols-outlined">check</span>
+                                <span className="material-symbols-outlined text-[18px]">check</span>
                             </button>
                         ) : (
                             <button
                                 onClick={handleNext}
-                                className="px-6 py-2.5 rounded-xl bg-primary text-white font-semibold shadow-md hover:bg-primary-hover transition-all flex items-center gap-1"
+                                className="btn-primary px-6 py-2.5 flex items-center gap-1"
                             >
                                 <span>Next</span>
-                                <span className="material-symbols-outlined">arrow_forward</span>
+                                <span className="material-symbols-outlined text-[18px]">arrow_forward</span>
                             </button>
                         )}
                     </div>
@@ -1625,33 +1637,33 @@ const ExamMode = () => {
             </main>
 
             {/* Sidebar - Desktop Only */}
-            <aside className="hidden md:flex w-80 bg-white dark:bg-neutral-900 border-l border-neutral-200 dark:border-neutral-800 flex-col h-screen sticky top-0">
-                <div className="p-6 flex-1 overflow-y-auto">
+            <aside className="hidden md:flex w-72 bg-surface-light dark:bg-surface-dark border-l border-border-light dark:border-border-dark flex-col h-screen sticky top-0">
+                <div className="p-5 flex-1 overflow-y-auto">
                     {/* Timer */}
-                    <div className="bg-neutral-50 dark:bg-neutral-800 rounded-2xl p-6 text-center mb-6">
-                        <span className="text-xs font-medium text-neutral-500 uppercase tracking-wide block mb-2">Time Remaining</span>
-                        <div className={`text-4xl font-mono font-bold tabular-nums ${isLowTime ? 'text-red-500' : 'text-neutral-900 dark:text-white'}`}>
+                    <div className="card-base p-5 text-center mb-5">
+                        <span className="text-overline text-text-faint-light dark:text-text-faint-dark block mb-2">Time Remaining</span>
+                        <div className={`text-display-lg font-mono tabular-nums ${isLowTime ? 'text-red-500' : 'text-text-main-light dark:text-text-main-dark'}`}>
                             {formattedTime}
                         </div>
                         {isLowTime && (
-                            <p className="text-xs text-red-500 mt-1">Less than 5 minutes!</p>
+                            <p className="text-caption text-red-500 mt-1">Less than 5 minutes!</p>
                         )}
                     </div>
 
                     {/* Progress */}
-                    <div className="mb-6">
+                    <div className="mb-5">
                         <div className="flex justify-between items-center mb-2">
-                            <span className="text-sm font-medium text-neutral-600 dark:text-neutral-400">Progress</span>
-                            <span className="text-sm font-bold text-primary">{Math.round(progress)}%</span>
+                            <span className="text-body-sm text-text-sub-light dark:text-text-sub-dark">Progress</span>
+                            <span className="text-body-sm font-semibold text-primary">{Math.round(progress)}%</span>
                         </div>
-                        <div className="w-full bg-neutral-100 dark:bg-neutral-800 rounded-full h-2">
+                        <div className="w-full bg-border-light dark:bg-border-dark rounded-full h-1.5">
                             <div className="bg-primary h-full rounded-full transition-all duration-300" style={{ width: `${progress}%` }}></div>
                         </div>
                     </div>
 
                     {/* Question Grid */}
-                    <div className="mb-6">
-                        <span className="text-sm font-medium text-neutral-600 dark:text-neutral-400 block mb-3">Questions</span>
+                    <div className="mb-5">
+                        <span className="text-overline text-text-faint-light dark:text-text-faint-dark block mb-3">Questions</span>
                         <div className="grid grid-cols-5 gap-1.5">
                             {questions.map((q, index) => {
                                 const isAnswered = examFormat === 'essay'
@@ -1662,11 +1674,11 @@ const ExamMode = () => {
                                     <button
                                         key={q._id}
                                         onClick={() => setCurrentQuestion(index)}
-                                        className={`aspect-square rounded-lg font-bold text-xs flex items-center justify-center transition-all ${isCurrent
-                                            ? 'bg-primary text-white shadow-md'
+                                        className={`aspect-square rounded-lg font-semibold text-caption flex items-center justify-center transition-all ${isCurrent
+                                            ? 'bg-primary text-white'
                                             : isAnswered
-                                                ? 'bg-neutral-200 dark:bg-neutral-700 text-neutral-700 dark:text-neutral-300'
-                                                : 'border border-neutral-200 dark:border-neutral-700 text-neutral-400 hover:border-neutral-300'
+                                                ? 'bg-surface-hover-light dark:bg-surface-hover-dark text-text-sub-light dark:text-text-sub-dark'
+                                                : 'border border-border-light dark:border-border-dark text-text-faint-light dark:text-text-faint-dark hover:border-text-faint-light'
                                             }`}
                                     >
                                         {index + 1}
@@ -1678,11 +1690,11 @@ const ExamMode = () => {
                 </div>
 
                 {/* Submit Button */}
-                <div className="p-6 border-t border-neutral-200 dark:border-neutral-800">
+                <div className="p-5 border-t border-border-light dark:border-border-dark">
                     <button
                         onClick={handleSubmit}
                         disabled={!attemptId || isEssaySubmitBlocked}
-                        className="w-full py-3 rounded-xl bg-primary text-white font-semibold shadow-md hover:shadow-lg transition-all disabled:opacity-60"
+                        className="w-full btn-primary py-3 disabled:opacity-60"
                     >
                         Submit Exam
                     </button>

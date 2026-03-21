@@ -270,16 +270,16 @@ const ConceptBuilder = () => {
 
     if (!topicId) {
         return (
-            <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-900 dark:to-slate-800 flex items-center justify-center p-4">
+            <div className="min-h-screen bg-background-light dark:bg-background-dark flex items-center justify-center px-4">
                 <div className="text-center max-w-md">
-                    <div className="w-16 h-16 rounded-2xl bg-blue-100 dark:bg-blue-900/20 flex items-center justify-center mx-auto mb-4">
-                        <span className="material-symbols-outlined text-3xl text-blue-500">school</span>
+                    <div className="w-14 h-14 rounded-2xl bg-primary/8 flex items-center justify-center mx-auto mb-4">
+                        <span className="material-symbols-outlined text-primary text-[24px]">school</span>
                     </div>
-                    <h2 className="text-xl font-bold text-slate-900 dark:text-white mb-2">Select a Topic</h2>
-                    <p className="text-slate-500 mb-6">Choose a topic from your dashboard to start practicing concepts.</p>
-                    <Link to="/dashboard" className="inline-flex items-center gap-2 px-6 py-3 bg-blue-500 text-white rounded-xl font-semibold hover:bg-blue-600 transition-colors">
+                    <h2 className="text-body-lg font-semibold text-text-main-light dark:text-text-main-dark mb-2">Select a Topic</h2>
+                    <p className="text-body-sm text-text-sub-light dark:text-text-sub-dark mb-6">Choose a topic from your dashboard to start practicing concepts.</p>
+                    <Link to="/dashboard" className="btn-primary inline-flex items-center gap-2 px-6 py-2.5 text-body-sm">
                         <span>Go to Dashboard</span>
-                        <span className="material-symbols-outlined">arrow_forward</span>
+                        <span className="material-symbols-outlined text-[18px]">arrow_forward</span>
                     </Link>
                 </div>
             </div>
@@ -288,13 +288,10 @@ const ConceptBuilder = () => {
 
     if (topicData === undefined || (loading && !exercise)) {
         return (
-            <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-900 dark:to-slate-800 flex items-center justify-center">
+            <div className="min-h-screen bg-background-light dark:bg-background-dark flex items-center justify-center">
                 <div className="text-center">
-                    <div className="relative w-16 h-16 mx-auto mb-4">
-                        <div className="absolute inset-0 rounded-full border-4 border-slate-100 dark:border-slate-800"></div>
-                        <div className="absolute inset-0 rounded-full border-4 border-blue-500 border-t-transparent animate-spin"></div>
-                    </div>
-                    <p className="text-slate-500 font-medium">Preparing exercise...</p>
+                    <div className="animate-spin rounded-full h-10 w-10 border-2 border-border-light dark:border-border-dark border-t-primary mx-auto mb-4"></div>
+                    <p className="text-body-sm text-text-sub-light dark:text-text-sub-dark">Preparing exercise...</p>
                 </div>
             </div>
         );
@@ -302,14 +299,14 @@ const ConceptBuilder = () => {
 
     if (topicData === null) {
         return (
-            <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-900 dark:to-slate-800 flex items-center justify-center p-4">
+            <div className="min-h-screen bg-background-light dark:bg-background-dark flex items-center justify-center px-4">
                 <div className="text-center max-w-md">
-                    <div className="w-16 h-16 rounded-2xl bg-red-100 dark:bg-red-900/20 flex items-center justify-center mx-auto mb-4">
-                        <span className="material-symbols-outlined text-3xl text-red-500">error</span>
+                    <div className="w-14 h-14 rounded-2xl bg-red-500/10 flex items-center justify-center mx-auto mb-4">
+                        <span className="material-symbols-outlined text-red-500 text-[24px]">error</span>
                     </div>
-                    <h2 className="text-xl font-bold text-slate-900 dark:text-white mb-2">Topic Not Found</h2>
-                    <p className="text-slate-500 mb-6">We couldn't find this topic.</p>
-                    <Link to="/dashboard" className="inline-flex items-center gap-2 px-6 py-3 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 rounded-xl font-semibold hover:bg-slate-200 transition-colors">
+                    <h2 className="text-body-lg font-semibold text-text-main-light dark:text-text-main-dark mb-2">Topic Not Found</h2>
+                    <p className="text-body-sm text-text-sub-light dark:text-text-sub-dark mb-6">We couldn't find this topic.</p>
+                    <Link to="/dashboard" className="btn-secondary inline-flex items-center gap-2 px-6 py-2.5 text-body-sm">
                         Back to Dashboard
                     </Link>
                 </div>
@@ -319,18 +316,18 @@ const ConceptBuilder = () => {
 
     if (loadError) {
         return (
-            <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-900 dark:to-slate-800 flex items-center justify-center p-4">
+            <div className="min-h-screen bg-background-light dark:bg-background-dark flex items-center justify-center px-4">
                 <div className="text-center max-w-md">
-                    <div className="w-16 h-16 rounded-2xl bg-amber-100 dark:bg-amber-900/20 flex items-center justify-center mx-auto mb-4">
-                        <span className="material-symbols-outlined text-3xl text-amber-500">warning</span>
+                    <div className="w-14 h-14 rounded-2xl bg-accent-amber/10 flex items-center justify-center mx-auto mb-4">
+                        <span className="material-symbols-outlined text-accent-amber text-[24px]">warning</span>
                     </div>
-                    <h2 className="text-xl font-bold text-slate-900 dark:text-white mb-2">Oops!</h2>
-                    <p className="text-slate-500 mb-6">{loadError}</p>
+                    <h2 className="text-body-lg font-semibold text-text-main-light dark:text-text-main-dark mb-2">Oops!</h2>
+                    <p className="text-body-sm text-text-sub-light dark:text-text-sub-dark mb-6">{loadError}</p>
                     <button
                         onClick={loadExercise}
-                        className="inline-flex items-center gap-2 px-6 py-3 bg-blue-500 text-white rounded-xl font-semibold hover:bg-blue-600 transition-colors"
+                        className="btn-primary inline-flex items-center gap-2 px-6 py-2.5 text-body-sm"
                     >
-                        <span className="material-symbols-outlined">refresh</span>
+                        <span className="material-symbols-outlined text-[18px]">refresh</span>
                         <span>Try Again</span>
                     </button>
                 </div>
@@ -342,58 +339,53 @@ const ConceptBuilder = () => {
     let blankCounter = 0;
 
     return (
-        <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-900 dark:to-slate-800">
-            {/* Header */}
-            <header className="sticky top-0 z-40 bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl border-b border-slate-200 dark:border-slate-800">
+        <div className="min-h-screen bg-background-light dark:bg-background-dark">
+            <header className="sticky top-0 z-40 bg-surface-light/90 dark:bg-surface-dark/90 backdrop-blur-md border-b border-border-light dark:border-border-dark">
                 <div className="max-w-4xl mx-auto px-4 py-3 flex items-center justify-between">
                     <div className="flex items-center gap-3">
-                        <Link to={`/dashboard/topic/${topicId}`} className="w-9 h-9 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-500 hover:bg-slate-200 transition-colors">
-                            <span className="material-symbols-outlined text-lg">arrow_back</span>
+                        <Link to={`/dashboard/topic/${topicId}`} className="btn-icon w-10 h-10">
+                            <span className="material-symbols-outlined text-[20px]">arrow_back</span>
                         </Link>
                         <div>
-                            <h1 className="text-base font-semibold text-slate-900 dark:text-white">Concept Practice</h1>
-                            <p className="text-xs text-slate-500 truncate max-w-[150px] sm:max-w-xs">{topicTitle}</p>
+                            <h1 className="text-body-base font-semibold text-text-main-light dark:text-text-main-dark">Concept Practice</h1>
+                            <p className="text-caption text-text-faint-light dark:text-text-faint-dark truncate max-w-[150px] sm:max-w-xs">{topicTitle}</p>
                         </div>
                     </div>
                     <div className="flex items-center gap-3">
                         {logicStrength !== null && (
                             <div className="hidden sm:flex items-center gap-2">
-                                <div className="w-20 h-1.5 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
-                                    <div className="h-full bg-green-500 rounded-full" style={{ width: `${logicStrength}%` }}></div>
+                                <div className="w-20 h-1.5 bg-surface-hover-light dark:bg-surface-hover-dark rounded-full overflow-hidden">
+                                    <div className="h-full bg-accent-emerald rounded-full" style={{ width: `${logicStrength}%` }}></div>
                                 </div>
-                                <span className="text-xs font-semibold text-slate-600 dark:text-slate-400">{logicStrength}%</span>
+                                <span className="text-caption font-semibold text-text-sub-light dark:text-text-sub-dark">{logicStrength}%</span>
                             </div>
                         )}
-                        <div className="text-xs font-medium px-2 py-1 rounded-full bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400">
+                        <div className="text-caption font-semibold px-2.5 py-1 rounded-full bg-primary/8 text-primary">
                             {filledCount}/{blanksCount}
                         </div>
                     </div>
                 </div>
-                {/* Progress bar */}
-                <div className="h-1 bg-slate-100 dark:bg-slate-800">
-                    <div 
-                        className="h-full bg-gradient-to-r from-blue-500 to-indigo-600 transition-all duration-300"
+                <div className="h-1 bg-surface-hover-light dark:bg-surface-hover-dark">
+                    <div
+                        className="h-full bg-primary transition-all duration-300"
                         style={{ width: `${progressPercent}%` }}
                     ></div>
                 </div>
             </header>
 
-            {/* Main content */}
             <main className="max-w-4xl mx-auto px-4 py-6 pb-44 md:pb-32">
-                {/* Question */}
                 <div className="mb-8">
-                    <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 text-xs font-medium mb-3">
-                        <span className="material-symbols-outlined text-sm">psychology</span>
+                    <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-primary/8 text-primary text-caption font-semibold mb-3">
+                        <span className="material-symbols-outlined text-[14px]">psychology</span>
                         <span>Fill in the blanks</span>
                     </div>
-                    <h2 className="text-xl md:text-2xl font-bold text-slate-900 dark:text-white leading-relaxed">
+                    <h2 className="text-body-lg md:text-display-sm text-text-main-light dark:text-text-main-dark leading-relaxed">
                         {exercise?.questionText || 'Complete the statement.'}
                     </h2>
                 </div>
 
-                {/* Exercise area */}
-                <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-800 p-6 md:p-8 mb-6">
-                    <div className="flex flex-wrap gap-3 items-center justify-center text-lg md:text-xl leading-relaxed">
+                <div className="card-base p-6 md:p-8 mb-4">
+                    <div className="flex flex-wrap gap-3 items-center justify-center text-body-lg md:text-display-sm leading-relaxed">
                         {templateParts.map((part, index) => {
                             if (part === '__') {
                                 const slotIndex = blankCounter;
@@ -414,12 +406,12 @@ const ConceptBuilder = () => {
                                         className={`min-h-[44px] min-w-[100px] px-4 py-2 rounded-xl flex items-center justify-center border-2 transition-all cursor-pointer ${
                                             token
                                                 ? isCorrect
-                                                    ? 'bg-green-50 border-green-400 text-green-700 dark:bg-green-900/20 dark:border-green-500 dark:text-green-400'
+                                                    ? 'bg-accent-emerald/10 border-accent-emerald text-accent-emerald'
                                                     : isWrong
-                                                        ? 'bg-red-50 border-red-400 text-red-700 dark:bg-red-900/20 dark:border-red-500 dark:text-red-400'
-                                                        : 'bg-blue-50 border-blue-400 text-blue-700 dark:bg-blue-900/20 dark:border-blue-500 dark:text-blue-400'
-                                                : 'bg-slate-50 border-dashed border-slate-300 text-slate-400 dark:bg-slate-800 dark:border-slate-600'
-                                        } ${isInteractionDisabled ? 'cursor-default' : 'hover:border-blue-400'}`}
+                                                        ? 'bg-red-50 dark:bg-red-900/10 border-red-400 dark:border-red-500 text-red-700 dark:text-red-400'
+                                                        : 'bg-primary/5 dark:bg-primary/10 border-primary text-primary'
+                                                : 'bg-surface-hover-light dark:bg-surface-hover-dark border-dashed border-border-light dark:border-border-dark text-text-faint-light dark:text-text-faint-dark'
+                                        } ${isInteractionDisabled ? 'cursor-default' : 'hover:border-primary'}`}
                                     >
                                         <span className="font-semibold">
                                             {token ? token.text : '___'}
@@ -430,7 +422,7 @@ const ConceptBuilder = () => {
                             return (
                                 <span
                                     key={`text-${index}`}
-                                    className="text-slate-600 dark:text-slate-400"
+                                    className="text-text-sub-light dark:text-text-sub-dark"
                                 >
                                     {part}
                                 </span>
@@ -439,21 +431,21 @@ const ConceptBuilder = () => {
                     </div>
 
                     {submitted && result && (
-                        <div className="mt-6 p-4 rounded-xl bg-slate-50 dark:bg-slate-800">
+                        <div className="mt-6 p-4 rounded-xl bg-surface-hover-light dark:bg-surface-hover-dark">
                             <div className="flex items-center justify-between mb-2">
-                                <span className="text-sm font-medium text-slate-600 dark:text-slate-400">Your Score</span>
-                                <span className={`text-2xl font-bold ${result.score === result.total ? 'text-green-500' : 'text-blue-500'}`}>
+                                <span className="text-body-sm font-medium text-text-sub-light dark:text-text-sub-dark">Your Score</span>
+                                <span className={`text-display-sm font-semibold ${result.score === result.total ? 'text-accent-emerald' : 'text-primary'}`}>
                                     {result.score}/{result.total}
                                 </span>
                             </div>
-                            <div className="w-full h-2 bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden">
-                                <div 
-                                    className={`h-full rounded-full ${result.score === result.total ? 'bg-green-500' : 'bg-blue-500'}`}
+                            <div className="w-full h-2 bg-border-light dark:bg-border-dark rounded-full overflow-hidden">
+                                <div
+                                    className={`h-full rounded-full ${result.score === result.total ? 'bg-accent-emerald' : 'bg-primary'}`}
                                     style={{ width: `${(result.score / result.total) * 100}%` }}
                                 ></div>
                             </div>
                             {result.score < result.total && (
-                                <div className="mt-3 text-sm text-slate-500">
+                                <div className="mt-3 text-body-sm text-text-sub-light dark:text-text-sub-dark">
                                     <span className="font-medium">Correct answers:</span> {result.correctAnswers.join(', ')}
                                 </div>
                             )}
@@ -461,12 +453,11 @@ const ConceptBuilder = () => {
                     )}
                 </div>
 
-                {/* Word bank */}
-                <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-800 p-6">
-                    <h3 className="text-sm font-semibold text-slate-500 uppercase tracking-wide mb-4">Word Bank</h3>
+                <div className="card-base p-6">
+                    <h3 className="text-overline text-text-faint-light dark:text-text-faint-dark mb-4">Word Bank</h3>
                     <div className="flex flex-wrap gap-2">
                         {availableTokens.length === 0 ? (
-                            <div className="w-full text-center py-4 text-slate-400 text-sm">
+                            <div className="w-full text-center py-4 text-text-faint-light dark:text-text-faint-dark text-body-sm">
                                 All words placed!
                             </div>
                         ) : (
@@ -477,10 +468,10 @@ const ConceptBuilder = () => {
                                     onDragStart={(event) => handleDragStart(event, token)}
                                     onClick={() => handleTokenClick(token)}
                                     disabled={isInteractionDisabled}
-                                    className={`px-4 py-2 rounded-xl font-medium transition-all ${
+                                    className={`px-4 py-2 rounded-xl font-medium text-body-sm transition-all ${
                                         isInteractionDisabled
-                                            ? 'bg-slate-100 text-slate-400 cursor-not-allowed'
-                                            : 'bg-blue-50 text-blue-700 hover:bg-blue-100 active:scale-95 cursor-pointer dark:bg-blue-900/20 dark:text-blue-400 dark:hover:bg-blue-900/30'
+                                            ? 'bg-surface-hover-light dark:bg-surface-hover-dark text-text-faint-light dark:text-text-faint-dark cursor-not-allowed'
+                                            : 'bg-primary/8 text-primary hover:bg-primary/15 active:scale-95 cursor-pointer'
                                     }`}
                                 >
                                     {token.text}
@@ -491,43 +482,38 @@ const ConceptBuilder = () => {
                 </div>
 
                 {saveError && (
-                    <div className="mt-4 p-4 rounded-xl bg-red-50 border border-red-200 text-red-700 text-sm">
+                    <div className="mt-4 p-3 rounded-xl bg-red-50 dark:bg-red-900/10 border border-red-200 dark:border-red-900/30 text-body-sm text-red-700 dark:text-red-300">
                         {saveError}
                     </div>
                 )}
             </main>
 
-            {/* Bottom action bar */}
-            <div className="fixed bottom-16 md:bottom-0 inset-x-0 bg-white dark:bg-slate-900 border-t border-slate-200 dark:border-slate-800 p-4 md:safe-area-bottom">
+            <div className="fixed bottom-16 md:bottom-0 inset-x-0 bg-surface-light dark:bg-surface-dark border-t border-border-light dark:border-border-dark p-4" style={{ paddingBottom: 'max(1rem, env(safe-area-inset-bottom, 1rem))' }}>
                 <div className="max-w-4xl mx-auto flex gap-3">
                     {submitted ? (
                         <>
                             <button
                                 onClick={() => loadExercise({ force: true })}
-                                className="flex-1 py-3 bg-blue-500 text-white rounded-xl font-semibold hover:bg-blue-600 transition-colors flex items-center justify-center gap-2"
+                                className="btn-primary flex-1 py-3 text-body-sm flex items-center justify-center gap-2"
                             >
-                                <span className="material-symbols-outlined">refresh</span>
+                                <span className="material-symbols-outlined text-[18px]">refresh</span>
                                 <span>New Exercise</span>
                             </button>
                             <Link
                                 to={`/dashboard/topic/${topicId}`}
-                                className="px-4 py-3 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 rounded-xl font-semibold hover:bg-slate-200 transition-colors flex items-center justify-center"
+                                className="btn-secondary px-4 py-3 flex items-center justify-center"
                             >
-                                <span className="material-symbols-outlined">arrow_back</span>
+                                <span className="material-symbols-outlined text-[18px]">arrow_back</span>
                             </Link>
                         </>
                     ) : (
                         <button
                             onClick={handleSubmit}
                             disabled={!allFilled || saving}
-                            className={`w-full py-3 rounded-xl font-semibold transition-all flex items-center justify-center gap-2 ${
-                                allFilled && !saving
-                                    ? 'bg-gradient-to-r from-blue-500 to-indigo-600 text-white shadow-md hover:shadow-lg'
-                                    : 'bg-slate-200 text-slate-400 cursor-not-allowed'
-                            }`}
+                            className="btn-primary w-full py-3 text-body-sm flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
                         >
                             <span>{saving ? 'Saving...' : 'Check Answer'}</span>
-                            {!saving && <span className="material-symbols-outlined">check</span>}
+                            {!saving && <span className="material-symbols-outlined text-[18px]">check</span>}
                         </button>
                     )}
                 </div>

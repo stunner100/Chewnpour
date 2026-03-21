@@ -16,20 +16,20 @@ const PostExamUpgradeCard = () => {
 
     if (hasRemaining) {
         return (
-            <section className="w-full flex justify-center">
-                <div className="w-full max-w-2xl rounded-2xl p-6 bg-gradient-to-r from-primary/10 via-purple-500/10 to-primary/10 dark:from-primary/20 dark:via-purple-500/15 dark:to-primary/20 border border-primary/20 dark:border-primary/30">
+            <section className="w-full max-w-2xl mx-auto">
+                <div className="card-base p-5 border-primary/20 dark:border-primary/30 bg-primary/5 dark:bg-primary/10">
                     <div className="flex flex-col sm:flex-row items-center gap-4">
                         <div className="flex-1 text-center sm:text-left">
-                            <h3 className="text-lg font-bold text-neutral-900 dark:text-white mb-1">
+                            <h3 className="text-body-base font-semibold text-text-main-light dark:text-text-main-dark mb-1">
                                 Ready for your next course?
                             </h3>
-                            <p className="text-sm text-neutral-600 dark:text-neutral-400">
+                            <p className="text-body-sm text-text-sub-light dark:text-text-sub-dark">
                                 Keep the momentum going and upload another course to study.
                             </p>
                         </div>
                         <Link
                             to="/dashboard/analysis"
-                            className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-primary text-white font-bold text-sm shadow-lg shadow-primary/20 hover:shadow-primary/30 hover:brightness-110 transition-all whitespace-nowrap"
+                            className="btn-primary text-body-sm px-5 py-2.5 inline-flex items-center gap-2 whitespace-nowrap"
                         >
                             Upload Another Course
                             <span className="material-symbols-outlined text-[18px]">arrow_forward</span>
@@ -41,20 +41,20 @@ const PostExamUpgradeCard = () => {
     }
 
     return (
-        <section className="w-full flex justify-center">
-            <div className="w-full max-w-2xl rounded-2xl p-6 bg-gradient-to-r from-amber-500/10 via-orange-500/10 to-amber-500/10 dark:from-amber-500/15 dark:via-orange-500/10 dark:to-amber-500/15 border border-amber-500/20 dark:border-amber-500/30">
+        <section className="w-full max-w-2xl mx-auto">
+            <div className="card-base p-5 border-accent-amber/20 dark:border-accent-amber/30 bg-accent-amber/5 dark:bg-accent-amber/10">
                 <div className="flex flex-col sm:flex-row items-center gap-4">
                     <div className="flex-1 text-center sm:text-left">
-                        <h3 className="text-lg font-bold text-neutral-900 dark:text-white mb-1">
+                        <h3 className="text-body-base font-semibold text-text-main-light dark:text-text-main-dark mb-1">
                             Want to study more courses?
                         </h3>
-                        <p className="text-sm text-neutral-600 dark:text-neutral-400">
+                        <p className="text-body-sm text-text-sub-light dark:text-text-sub-dark">
                             Get 5 more uploads starting at GHS 20
                         </p>
                     </div>
                     <Link
                         to="/subscription?reason=post_exam"
-                        className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-amber-500 text-white font-bold text-sm shadow-lg shadow-amber-500/20 hover:shadow-amber-500/30 hover:brightness-110 transition-all whitespace-nowrap"
+                        className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-accent-amber text-white text-body-sm font-semibold hover:brightness-110 transition-all whitespace-nowrap"
                     >
                         Upgrade Now
                         <span className="material-symbols-outlined text-[18px]">arrow_forward</span>
@@ -84,20 +84,20 @@ const PostQuizSharePrompt = ({ percentage, topicTitle, profile }) => {
     };
 
     return (
-        <section className="w-full flex justify-center">
-            <div className="w-full max-w-2xl rounded-2xl p-5 bg-gradient-to-r from-purple-500/10 via-primary/10 to-purple-500/10 dark:from-purple-500/15 dark:via-primary/10 dark:to-purple-500/15 border border-purple-200 dark:border-purple-800">
+        <section className="w-full max-w-2xl mx-auto">
+            <div className="card-base p-5">
                 <div className="flex flex-col items-center text-center gap-3">
-                    <p className="text-lg font-bold text-neutral-900 dark:text-white">
+                    <p className="text-body-base font-semibold text-text-main-light dark:text-text-main-dark">
                         Nice score! Challenge your friends
                     </p>
-                    <p className="text-sm text-neutral-500 dark:text-neutral-400">
+                    <p className="text-body-sm text-text-sub-light dark:text-text-sub-dark">
                         Share your result and earn a free upload credit when they sign up.
                     </p>
                     <div className="flex gap-3 mt-1">
                         <button
                             type="button"
                             onClick={handleShareWhatsApp}
-                            className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-[#25D366] text-white text-sm font-bold hover:brightness-110 transition-all"
+                            className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-[#25D366] text-white text-body-sm font-semibold hover:brightness-110 transition-all"
                         >
                             <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z"/><path d="M12 0C5.373 0 0 5.373 0 12c0 2.625.846 5.059 2.284 7.034L.789 23.492a.5.5 0 00.611.611l4.458-1.495A11.952 11.952 0 0012 24c6.627 0 12-5.373 12-12S18.627 0 12 0zm0 22c-2.291 0-4.42-.658-6.237-1.794l-.435-.27-2.642.886.886-2.642-.27-.435A9.956 9.956 0 012 12C2 6.486 6.486 2 12 2s10 4.486 10 10-4.486 10-10 10z"/></svg>
                             Share on WhatsApp
@@ -105,7 +105,7 @@ const PostQuizSharePrompt = ({ percentage, topicTitle, profile }) => {
                         <button
                             type="button"
                             onClick={handleShareTelegram}
-                            className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-[#0088cc] text-white text-sm font-bold hover:brightness-110 transition-all"
+                            className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-[#0088cc] text-white text-body-sm font-semibold hover:brightness-110 transition-all"
                         >
                             <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor"><path d="M11.944 0A12 12 0 000 12a12 12 0 0012 12 12 12 0 0012-12A12 12 0 0012 0zm4.962 7.224c.1-.002.321.023.465.14a.506.506 0 01.171.325c.016.093.036.306.02.472-.18 1.898-.962 6.502-1.36 8.627-.168.9-.499 1.201-.82 1.23-.696.065-1.225-.46-1.9-.902-1.056-.693-1.653-1.124-2.678-1.8-1.185-.78-.417-1.21.258-1.91.177-.184 3.247-2.977 3.307-3.23.007-.032.014-.15-.056-.212s-.174-.041-.249-.024c-.106.024-1.793 1.14-5.061 3.345-.479.33-.913.49-1.302.48-.428-.008-1.252-.241-1.865-.44-.752-.245-1.349-.374-1.297-.789.027-.216.325-.437.893-.663 3.498-1.524 5.83-2.529 6.998-3.014 3.332-1.386 4.025-1.627 4.476-1.635z"/></svg>
                             Share on Telegram
@@ -139,15 +139,15 @@ const DifficultyPills = ({ answers }) => {
     if (pills.length === 0) return null;
 
     const colors = {
-        easy: 'bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-300 border-green-100 dark:border-green-900/30',
-        medium: 'bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-300 border-amber-100 dark:border-amber-900/30',
-        hard: 'bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-300 border-red-100 dark:border-red-900/30',
+        easy: 'bg-accent-emerald/10 text-accent-emerald border-accent-emerald/20',
+        medium: 'bg-accent-amber/10 text-accent-amber border-accent-amber/20',
+        hard: 'bg-red-500/10 text-red-600 dark:text-red-400 border-red-500/20',
     };
 
     return (
         <div className="mt-4 flex flex-wrap gap-2 justify-center">
             {pills.map(([d, v]) => (
-                <span key={d} className={`text-xs font-bold px-3 py-1 rounded-full border ${colors[d]}`}>
+                <span key={d} className={`text-caption font-semibold px-3 py-1 rounded-full border ${colors[d]}`}>
                     {DIFFICULTY_LABELS[d]}: {v.correct}/{v.total}
                 </span>
             ))}
@@ -166,16 +166,16 @@ const StrengthsAndFocus = ({ answers }) => {
     if (strengths.length === 0 && focusAreas.length === 0) return null;
 
     return (
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 w-full max-w-2xl">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 w-full max-w-2xl">
             {strengths.length > 0 && (
-                <div className="bg-green-50 dark:bg-green-900/10 border border-green-100 dark:border-green-800/30 rounded-2xl p-4">
+                <div className="card-base p-4 border-accent-emerald/20 bg-accent-emerald/5 dark:bg-accent-emerald/10">
                     <div className="flex items-center gap-2 mb-3">
-                        <span className="material-symbols-outlined text-green-600 text-[20px]">thumb_up</span>
-                        <span className="text-xs font-bold uppercase tracking-wider text-green-700 dark:text-green-400">Your Strengths</span>
+                        <span className="material-symbols-outlined text-accent-emerald text-[18px]">thumb_up</span>
+                        <span className="text-overline text-accent-emerald">Your Strengths</span>
                     </div>
                     <ul className="space-y-2">
                         {strengths.map((a, i) => (
-                            <li key={i} className="text-xs font-medium text-neutral-700 dark:text-neutral-300 leading-snug">
+                            <li key={i} className="text-caption text-text-sub-light dark:text-text-sub-dark leading-snug">
                                 {truncate(a.questionText)}
                             </li>
                         ))}
@@ -183,14 +183,14 @@ const StrengthsAndFocus = ({ answers }) => {
                 </div>
             )}
             {focusAreas.length > 0 && (
-                <div className="bg-amber-50 dark:bg-amber-900/10 border border-amber-100 dark:border-amber-800/30 rounded-2xl p-4">
+                <div className="card-base p-4 border-accent-amber/20 bg-accent-amber/5 dark:bg-accent-amber/10">
                     <div className="flex items-center gap-2 mb-3">
-                        <span className="material-symbols-outlined text-amber-600 text-[20px]">target</span>
-                        <span className="text-xs font-bold uppercase tracking-wider text-amber-700 dark:text-amber-400">Focus Areas</span>
+                        <span className="material-symbols-outlined text-accent-amber text-[18px]">target</span>
+                        <span className="text-overline text-accent-amber">Focus Areas</span>
                     </div>
                     <ul className="space-y-2">
                         {focusAreas.map((a, i) => (
-                            <li key={i} className="text-xs font-medium text-neutral-700 dark:text-neutral-300 leading-snug">
+                            <li key={i} className="text-caption text-text-sub-light dark:text-text-sub-dark leading-snug">
                                 {truncate(a.questionText)}
                             </li>
                         ))}
@@ -204,10 +204,10 @@ const StrengthsAndFocus = ({ answers }) => {
 // ─── Tutor Report card ────────────────────────────────────────────────────────
 
 const READINESS_BADGE = {
-    'Not Ready': 'bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-300 border-red-100 dark:border-red-900/30',
-    'Almost Ready': 'bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-300 border-amber-100 dark:border-amber-900/30',
-    Ready: 'bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300 border-blue-100 dark:border-blue-900/30',
-    'Exam Ready': 'bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-300 border-green-100 dark:border-green-900/30',
+    'Not Ready': 'bg-red-500/10 text-red-600 dark:text-red-400 border-red-500/20',
+    'Almost Ready': 'bg-accent-amber/10 text-accent-amber border-accent-amber/20',
+    Ready: 'bg-primary/10 text-primary border-primary/20',
+    'Exam Ready': 'bg-accent-emerald/10 text-accent-emerald border-accent-emerald/20',
 };
 
 // #6 — use regex word boundaries for robust readiness label extraction
@@ -292,48 +292,41 @@ const TutorReport = ({ attemptId, storedFeedback }) => {
     const readinessLabel = feedback ? extractReadinessLabel(feedback) : null;
 
     return (
-        <div className="w-full max-w-2xl bg-surface-light dark:bg-surface-dark border border-neutral-100 dark:border-neutral-700 rounded-2xl shadow-soft overflow-hidden">
-            <div className="flex items-center justify-between px-6 py-4 border-b border-neutral-100 dark:border-neutral-700/60 bg-gradient-to-r from-primary/5 to-purple-500/5">
+        <div className="w-full max-w-2xl card-base overflow-hidden">
+            <div className="flex items-center justify-between px-5 py-4 border-b border-border-light dark:border-border-dark">
                 <div className="flex items-center gap-2">
-                    <span className="material-symbols-outlined text-primary text-[22px]">psychology</span>
-                    <span className="text-sm font-bold text-neutral-900 dark:text-white">Personal Tutor</span>
+                    <span className="material-symbols-outlined text-primary text-[20px]">psychology</span>
+                    <span className="text-body-sm font-semibold text-text-main-light dark:text-text-main-dark">Personal Tutor</span>
                 </div>
                 {/* #19 — only show badge when label is actually extracted */}
                 {readinessLabel && READINESS_BADGE[readinessLabel] && (
-                    <span className={`text-[11px] font-bold px-3 py-1 rounded-full border ${READINESS_BADGE[readinessLabel]}`}>
+                    <span className={`text-caption font-semibold px-3 py-1 rounded-full border ${READINESS_BADGE[readinessLabel]}`}>
                         {readinessLabel}
                     </span>
                 )}
             </div>
-            <div className="px-6 py-5">
-                {/* #16 — skeleton that better matches paragraph layout */}
+            <div className="px-5 py-5">
                 {loading && (
-                    <div className="space-y-4">
+                    <div className="space-y-4 animate-pulse">
                         <div className="space-y-2">
-                            <div className="h-3 bg-neutral-100 dark:bg-neutral-800 rounded-full w-full animate-pulse"></div>
-                            <div className="h-3 bg-neutral-100 dark:bg-neutral-800 rounded-full w-11/12 animate-pulse"></div>
-                            <div className="h-3 bg-neutral-100 dark:bg-neutral-800 rounded-full w-4/5 animate-pulse"></div>
+                            <div className="h-3 bg-border-light dark:bg-border-dark rounded w-full"></div>
+                            <div className="h-3 bg-border-light dark:bg-border-dark rounded w-11/12"></div>
+                            <div className="h-3 bg-border-light dark:bg-border-dark rounded w-4/5"></div>
                         </div>
                         <div className="space-y-2">
-                            <div className="h-3 bg-neutral-100 dark:bg-neutral-800 rounded-full w-full animate-pulse"></div>
-                            <div className="h-3 bg-neutral-100 dark:bg-neutral-800 rounded-full w-5/6 animate-pulse"></div>
-                        </div>
-                        <div className="space-y-2">
-                            <div className="h-3 bg-neutral-100 dark:bg-neutral-800 rounded-full w-full animate-pulse"></div>
-                            <div className="h-3 bg-neutral-100 dark:bg-neutral-800 rounded-full w-3/4 animate-pulse"></div>
+                            <div className="h-3 bg-border-light dark:bg-border-dark rounded w-full"></div>
+                            <div className="h-3 bg-border-light dark:bg-border-dark rounded w-5/6"></div>
                         </div>
                     </div>
                 )}
-                {/* #11 — overflow-hidden + break-words for mobile safety */}
                 {!loading && feedback && (
-                    <p className="text-sm text-neutral-700 dark:text-neutral-300 leading-relaxed whitespace-pre-line break-words overflow-hidden">{feedback}</p>
+                    <p className="text-body-sm text-text-sub-light dark:text-text-sub-dark leading-relaxed whitespace-pre-line break-words overflow-hidden">{feedback}</p>
                 )}
-                {/* #5 & #18 — show distinct error vs unavailable messages */}
                 {!loading && !feedback && error && (
-                    <p className="text-sm text-amber-600 dark:text-amber-400">Could not generate tutor feedback. Please try refreshing the page.</p>
+                    <p className="text-body-sm text-accent-amber">Could not generate tutor feedback. Please try refreshing the page.</p>
                 )}
                 {!loading && !feedback && !error && (
-                    <p className="text-sm text-neutral-400 dark:text-neutral-500">Tutor feedback unavailable for this attempt.</p>
+                    <p className="text-body-sm text-text-faint-light dark:text-text-faint-dark">Tutor feedback unavailable for this attempt.</p>
                 )}
             </div>
         </div>
@@ -355,9 +348,12 @@ const DashboardResults = () => {
         return (
             <div className="bg-background-light dark:bg-background-dark min-h-screen flex items-center justify-center">
                 <div className="text-center max-w-md px-6">
-                    <h2 className="text-xl font-bold text-neutral-900 dark:text-white mb-2">No exam selected</h2>
-                    <p className="text-neutral-500 font-medium mb-6">Return to your dashboard and open a completed exam.</p>
-                    <Link to="/dashboard" className="inline-flex items-center justify-center px-5 py-2.5 rounded-xl bg-primary text-white font-bold shadow-lg shadow-primary/20">
+                    <div className="w-14 h-14 rounded-2xl bg-surface-light dark:bg-surface-dark border border-border-light dark:border-border-dark flex items-center justify-center mx-auto mb-4">
+                        <span className="material-symbols-outlined text-2xl text-text-faint-light dark:text-text-faint-dark">quiz</span>
+                    </div>
+                    <h2 className="text-body-lg font-semibold text-text-main-light dark:text-text-main-dark mb-2">No exam selected</h2>
+                    <p className="text-body-sm text-text-sub-light dark:text-text-sub-dark mb-6">Return to your dashboard and open a completed exam.</p>
+                    <Link to="/dashboard" className="btn-primary text-body-sm px-5 py-2.5 inline-flex items-center gap-2">
                         Back to Dashboard
                     </Link>
                 </div>
@@ -369,8 +365,8 @@ const DashboardResults = () => {
         return (
             <div className="bg-background-light dark:bg-background-dark min-h-screen flex items-center justify-center">
                 <div className="text-center">
-                    <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary mx-auto mb-4"></div>
-                    <p className="text-neutral-500 font-medium">Loading exam results...</p>
+                    <div className="animate-spin rounded-full h-10 w-10 border-2 border-border-light dark:border-border-dark border-t-primary mx-auto mb-4"></div>
+                    <p className="text-body-sm text-text-sub-light dark:text-text-sub-dark">Loading exam results...</p>
                 </div>
             </div>
         );
@@ -380,9 +376,12 @@ const DashboardResults = () => {
         return (
             <div className="bg-background-light dark:bg-background-dark min-h-screen flex items-center justify-center">
                 <div className="text-center max-w-md px-6">
-                    <h2 className="text-xl font-bold text-neutral-900 dark:text-white mb-2">Results not found</h2>
-                    <p className="text-neutral-500 font-medium mb-6">We couldn't find that exam attempt.</p>
-                    <Link to="/dashboard" className="inline-flex items-center justify-center px-5 py-2.5 rounded-xl bg-primary text-white font-bold shadow-lg shadow-primary/20">
+                    <div className="w-14 h-14 rounded-2xl bg-surface-light dark:bg-surface-dark border border-border-light dark:border-border-dark flex items-center justify-center mx-auto mb-4">
+                        <span className="material-symbols-outlined text-2xl text-text-faint-light dark:text-text-faint-dark">search_off</span>
+                    </div>
+                    <h2 className="text-body-lg font-semibold text-text-main-light dark:text-text-main-dark mb-2">Results not found</h2>
+                    <p className="text-body-sm text-text-sub-light dark:text-text-sub-dark mb-6">We couldn't find that exam attempt.</p>
+                    <Link to="/dashboard" className="btn-primary text-body-sm px-5 py-2.5 inline-flex items-center gap-2">
                         Back to Dashboard
                     </Link>
                 </div>
@@ -426,49 +425,49 @@ const DashboardResults = () => {
     };
 
     return (
-        <div className="bg-background-light dark:bg-background-dark font-body antialiased text-neutral-900 dark:text-white min-h-screen flex flex-col">
-            <header className="w-full bg-surface-light dark:bg-surface-dark border-b border-neutral-100 dark:border-neutral-800 sticky top-0 z-30 shadow-sm">
-                <div className="max-w-7xl mx-auto flex items-center justify-between px-6 py-4">
-                    <div className="flex items-center gap-4">
-                        <div className="flex flex-col">
-                            <h1 className="text-xl font-bold text-neutral-900 dark:text-white leading-tight">Exam Results</h1>
-                            <span className="text-sm font-medium text-neutral-400 dark:text-neutral-500">{attempt.topicTitle || 'ChewnPour Mode'}</span>
+        <div className="bg-background-light dark:bg-background-dark min-h-screen flex flex-col">
+            <header className="w-full bg-surface-light dark:bg-surface-dark border-b border-border-light dark:border-border-dark sticky top-0 z-30">
+                <div className="max-w-5xl mx-auto flex items-center justify-between px-4 md:px-8 py-3">
+                    <div className="flex items-center gap-3">
+                        <Link to="/dashboard" className="btn-icon w-9 h-9">
+                            <span className="material-symbols-outlined text-lg">arrow_back</span>
+                        </Link>
+                        <div>
+                            <h1 className="text-body-base font-semibold text-text-main-light dark:text-text-main-dark leading-tight">Exam Results</h1>
+                            <span className="text-caption text-text-faint-light dark:text-text-faint-dark">{attempt.topicTitle || 'ChewnPour Mode'}</span>
                         </div>
                     </div>
-                    <div className="flex items-center gap-4">
-                        <Link to="/dashboard" aria-label="Close and go back to dashboard" className="flex items-center justify-center bg-neutral-100 dark:bg-neutral-800 hover:bg-neutral-200 dark:hover:bg-neutral-700 transition-colors rounded-full h-10 w-10">
-                            <span className="material-symbols-outlined text-neutral-600 dark:text-neutral-300">close</span>
-                        </Link>
-                    </div>
+                    <Link to="/dashboard" aria-label="Close" className="btn-icon w-9 h-9">
+                        <span className="material-symbols-outlined text-lg">close</span>
+                    </Link>
                 </div>
             </header>
 
-            <main className="flex-1 w-full max-w-7xl mx-auto px-6 py-8 flex flex-col gap-8">
+            <main className="flex-1 w-full max-w-5xl mx-auto px-4 md:px-8 py-8 pb-24 md:pb-12 flex flex-col items-center gap-6">
                 {/* Score card */}
-                <section className="w-full flex justify-center">
-                    <div className="w-full max-w-2xl bg-surface-light dark:bg-surface-dark border border-neutral-100 dark:border-neutral-700 rounded-2xl p-8 shadow-soft flex flex-col items-center text-center relative overflow-hidden">
-                        <div className="absolute top-0 left-0 w-full h-1.5 bg-gradient-to-r from-primary via-purple-500 to-primary"></div>
-                        <h2 className="text-sm font-bold text-neutral-400 uppercase tracking-wider mb-4">Overall Score</h2>
+                <section className="w-full max-w-2xl">
+                    <div className="card-base p-8 flex flex-col items-center text-center">
+                        <h2 className="text-overline text-text-faint-light dark:text-text-faint-dark mb-4">Overall Score</h2>
                         <div className="flex items-baseline justify-center gap-1 mb-2">
-                            <span className="text-7xl font-extrabold text-neutral-900 dark:text-white tracking-tight">{percentage}</span>
-                            <span className="text-3xl text-neutral-400 font-bold">/100</span>
+                            <span className="text-display-xl text-text-main-light dark:text-text-main-dark">{percentage}</span>
+                            <span className="text-display-sm text-text-faint-light dark:text-text-faint-dark">/100</span>
                         </div>
-                        <div className="text-sm font-semibold text-neutral-500 dark:text-neutral-400">
+                        <div className="text-body-sm text-text-sub-light dark:text-text-sub-dark">
                             {isEssay
                                 ? `${totalQuestions} essay question${totalQuestions !== 1 ? 's' : ''} — quality score`
                                 : `${attempt.score} correct out of ${totalQuestions}`}
                         </div>
-                        <div className="mt-4 flex items-center gap-3 text-xs font-bold text-neutral-500">
-                            <span className="px-3 py-1 rounded-full bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-300">
+                        <div className="mt-4 flex items-center gap-3">
+                            <span className="text-caption font-semibold px-3 py-1 rounded-full bg-accent-emerald/10 text-accent-emerald">
                                 {attempt.score} {isEssay ? 'Pass' : 'Correct'}
                             </span>
                             {incorrectCount > 0 && (
-                                <span className="px-3 py-1 rounded-full bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-300">
+                                <span className="text-caption font-semibold px-3 py-1 rounded-full bg-red-500/10 text-red-600 dark:text-red-400">
                                     {incorrectCount} {isEssay ? 'Needs Work' : 'Incorrect'}
                                 </span>
                             )}
                             {skippedCount > 0 && (
-                                <span className="px-3 py-1 rounded-full bg-neutral-50 dark:bg-neutral-800 text-neutral-500 dark:text-neutral-400">
+                                <span className="text-caption font-semibold px-3 py-1 rounded-full bg-surface-hover-light dark:bg-surface-hover-dark text-text-faint-light dark:text-text-faint-dark">
                                     {skippedCount} Skipped
                                 </span>
                             )}
@@ -493,20 +492,15 @@ const DashboardResults = () => {
                 </section>
 
                 {/* Question Review */}
-                <section className="w-full">
-                    <div className="flex items-center gap-3 mb-4">
-                        <div className="bg-primary/10 p-2 rounded-xl text-primary shadow-sm">
-                            <span className="material-symbols-outlined text-[24px]">quiz</span>
-                        </div>
-                        <h3 className="text-xl font-bold text-neutral-900 dark:text-white">Question Review</h3>
-                    </div>
+                <section className="w-full max-w-4xl">
+                    <h3 className="text-overline text-text-faint-light dark:text-text-faint-dark mb-3">Question Review</h3>
 
                     {answers.length === 0 ? (
-                        <div className="bg-surface-light dark:bg-surface-dark border border-neutral-100 dark:border-neutral-700 rounded-3xl p-6 shadow-card">
-                            <p className="text-neutral-600 dark:text-neutral-400">No answers recorded for this attempt.</p>
+                        <div className="card-base p-6">
+                            <p className="text-body-sm text-text-sub-light dark:text-text-sub-dark">No answers recorded for this attempt.</p>
                         </div>
                     ) : (
-                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
                             {answers.map((answer, index) => {
                                 const questionText = answer.questionText || `Question ${index + 1}`;
                                 const yourAnswerText = getOptionText(answer.options, answer.selectedAnswer) || 'Not answered';
@@ -514,104 +508,102 @@ const DashboardResults = () => {
                                 const isCorrect = Boolean(answer.isCorrect);
                                 const hasEssayFeedback = Boolean(answer.feedback);
                                 return (
-                                    <div key={`${answer.questionId}-${index}`} className="bg-surface-light dark:bg-surface-dark border border-neutral-100 dark:border-neutral-700 rounded-3xl p-6 shadow-card">
-                                        <div className="flex justify-between items-center mb-4">
+                                    <div key={`${answer.questionId}-${index}`} className="card-base p-5">
+                                        <div className="flex justify-between items-center mb-3">
                                             <div className="flex items-center gap-2">
-                                                <span className="text-xs font-bold text-neutral-400 uppercase tracking-wider">Question {index + 1}</span>
-                                                {/* #14 — always show difficulty, default to "Medium" */}
-                                                <span className="text-[10px] font-bold text-neutral-400 uppercase">{answer.difficulty || 'Medium'}</span>
+                                                <span className="text-overline text-text-faint-light dark:text-text-faint-dark">Question {index + 1}</span>
+                                                <span className="text-caption text-text-faint-light dark:text-text-faint-dark">{answer.difficulty || 'Medium'}</span>
                                             </div>
-                                            <span className={`text-[11px] font-bold px-3 py-1.5 rounded-lg uppercase tracking-wide border ${
+                                            <span className={`text-caption font-semibold px-2.5 py-1 rounded-md border ${
                                                 answer.skipped
-                                                    ? 'bg-neutral-50 text-neutral-500 dark:bg-neutral-800 dark:text-neutral-400 border-neutral-200 dark:border-neutral-700'
+                                                    ? 'bg-surface-hover-light dark:bg-surface-hover-dark text-text-faint-light dark:text-text-faint-dark border-border-light dark:border-border-dark'
                                                     : isCorrect
-                                                        ? 'bg-green-50 text-green-700 dark:bg-green-900/20 dark:text-green-300 border-green-100 dark:border-green-900/30'
-                                                        : 'bg-red-50 text-red-700 dark:bg-red-900/20 dark:text-red-300 border-red-100 dark:border-red-900/30'
+                                                        ? 'bg-accent-emerald/10 text-accent-emerald border-accent-emerald/20'
+                                                        : 'bg-red-500/10 text-red-600 dark:text-red-400 border-red-500/20'
                                                 }`}>
                                                 {answer.skipped ? 'Skipped' : hasEssayFeedback ? (isCorrect ? 'Pass' : 'Needs Work') : (isCorrect ? 'Correct' : 'Incorrect')}
                                             </span>
                                         </div>
-                                        <p className="text-lg font-medium text-neutral-800 dark:text-neutral-200 mb-6 leading-relaxed">
+                                        <p className="text-body-base text-text-main-light dark:text-text-main-dark mb-5 leading-relaxed">
                                             {questionText}
                                         </p>
 
                                         {/* Essay answer display */}
                                         {hasEssayFeedback ? (
-                                            <div className="space-y-4 mb-6">
-                                                <div className={`p-4 rounded-2xl border ${isCorrect
-                                                    ? 'bg-green-50 dark:bg-green-900/10 border-green-100 dark:border-green-800/30'
-                                                    : 'bg-red-50 dark:bg-red-900/10 border-red-100 dark:border-red-800/30'
+                                            <div className="space-y-3 mb-5">
+                                                <div className={`p-4 rounded-xl border ${isCorrect
+                                                    ? 'bg-accent-emerald/5 dark:bg-accent-emerald/10 border-accent-emerald/20'
+                                                    : 'bg-red-500/5 dark:bg-red-500/10 border-red-500/20'
                                                     }`}>
-                                                    <span className={`text-xs font-bold uppercase block mb-2 ${isCorrect ? 'text-green-600' : 'text-red-600'}`}>
+                                                    <span className={`text-overline block mb-2 ${isCorrect ? 'text-accent-emerald' : 'text-red-600 dark:text-red-400'}`}>
                                                         Your Answer
                                                     </span>
-                                                    <p className="text-sm text-neutral-800 dark:text-neutral-200 whitespace-pre-wrap leading-relaxed">{answer.selectedAnswer || 'Not answered'}</p>
+                                                    <p className="text-body-sm text-text-main-light dark:text-text-main-dark whitespace-pre-wrap leading-relaxed">{answer.selectedAnswer || 'Not answered'}</p>
                                                 </div>
 
                                                 {/* AI Feedback */}
-                                                <div className="flex items-start gap-3 p-4 rounded-2xl bg-purple-50 dark:bg-purple-900/10 border border-purple-100 dark:border-purple-800/30">
-                                                    <span className="material-symbols-outlined text-purple-600 mt-0.5 text-[24px]">psychology</span>
+                                                <div className="flex items-start gap-3 p-4 rounded-xl bg-primary/5 dark:bg-primary/10 border border-primary/20">
+                                                    <span className="material-symbols-outlined text-primary mt-0.5 text-[20px]">psychology</span>
                                                     <div className="flex-1">
-                                                        <span className="text-xs text-purple-600 font-bold uppercase block mb-1">AI Feedback</span>
-                                                        <span className="text-sm font-medium text-neutral-800 dark:text-white">{answer.feedback}</span>
+                                                        <span className="text-overline text-primary block mb-1">AI Feedback</span>
+                                                        <span className="text-body-sm text-text-main-light dark:text-text-main-dark">{answer.feedback}</span>
                                                     </div>
                                                 </div>
 
                                                 {/* Model answer for learning */}
                                                 {answer.correctAnswer && (
-                                                    <div className="flex items-start gap-3 p-4 rounded-2xl bg-blue-50 dark:bg-blue-900/10 border border-blue-100 dark:border-blue-800/30">
-                                                        <span className="material-symbols-outlined text-blue-600 mt-0.5 text-[24px]">school</span>
+                                                    <div className="flex items-start gap-3 p-4 rounded-xl bg-primary/5 dark:bg-primary/10 border border-primary/20">
+                                                        <span className="material-symbols-outlined text-primary mt-0.5 text-[20px]">school</span>
                                                         <div className="flex-1">
-                                                            <span className="text-xs text-blue-600 font-bold uppercase block mb-1">Model Answer</span>
-                                                            <span className="text-sm font-medium text-neutral-800 dark:text-white">{answer.correctAnswer}</span>
+                                                            <span className="text-overline text-primary block mb-1">Model Answer</span>
+                                                            <span className="text-body-sm text-text-main-light dark:text-text-main-dark">{answer.correctAnswer}</span>
                                                         </div>
                                                     </div>
                                                 )}
                                             </div>
                                         ) : (
                                             /* MCQ answer display */
-                                            <div className="space-y-4 mb-6">
-                                                <div className={`flex items-start gap-4 p-4 rounded-2xl border ${
+                                            <div className="space-y-3 mb-5">
+                                                <div className={`flex items-start gap-3 p-4 rounded-xl border ${
                                                     answer.skipped
-                                                        ? 'bg-neutral-50 dark:bg-neutral-800/30 border-neutral-200 dark:border-neutral-700'
+                                                        ? 'bg-surface-hover-light dark:bg-surface-hover-dark border-border-light dark:border-border-dark'
                                                         : isCorrect
-                                                            ? 'bg-green-50 dark:bg-green-900/10 border-green-100 dark:border-green-800/30'
-                                                            : 'bg-red-50 dark:bg-red-900/10 border-red-100 dark:border-red-800/30'
+                                                            ? 'bg-accent-emerald/5 dark:bg-accent-emerald/10 border-accent-emerald/20'
+                                                            : 'bg-red-500/5 dark:bg-red-500/10 border-red-500/20'
                                                     }`}>
-                                                    <span className={`material-symbols-outlined mt-0.5 text-[24px] ${
-                                                        answer.skipped ? 'text-neutral-400' : isCorrect ? 'text-green-600' : 'text-red-600'
+                                                    <span className={`material-symbols-outlined mt-0.5 text-[20px] ${
+                                                        answer.skipped ? 'text-text-faint-light dark:text-text-faint-dark' : isCorrect ? 'text-accent-emerald' : 'text-red-600 dark:text-red-400'
                                                     }`}>
                                                         {answer.skipped ? 'remove_circle_outline' : isCorrect ? 'check_circle' : 'cancel'}
                                                     </span>
                                                     <div className="flex-1">
-                                                        <span className={`text-xs font-bold uppercase block mb-1 ${
-                                                            answer.skipped ? 'text-neutral-400' : isCorrect ? 'text-green-600' : 'text-red-600'
+                                                        <span className={`text-overline block mb-1 ${
+                                                            answer.skipped ? 'text-text-faint-light dark:text-text-faint-dark' : isCorrect ? 'text-accent-emerald' : 'text-red-600 dark:text-red-400'
                                                         }`}>
                                                             {answer.skipped ? 'Skipped' : 'Your Answer'}
                                                         </span>
-                                                        <span className="text-base font-bold text-neutral-800 dark:text-white">
+                                                        <span className="text-body-sm font-semibold text-text-main-light dark:text-text-main-dark">
                                                             {answer.skipped ? 'No answer selected' : yourAnswerText}
                                                         </span>
                                                     </div>
                                                 </div>
                                                 {!isCorrect && (
-                                                    <div className="flex items-start gap-4 p-4 rounded-2xl bg-green-50 dark:bg-green-900/10 border border-green-100 dark:border-green-800/30">
-                                                        <span className="material-symbols-outlined text-green-600 mt-0.5 text-[24px]">check_circle</span>
+                                                    <div className="flex items-start gap-3 p-4 rounded-xl bg-accent-emerald/5 dark:bg-accent-emerald/10 border border-accent-emerald/20">
+                                                        <span className="material-symbols-outlined text-accent-emerald mt-0.5 text-[20px]">check_circle</span>
                                                         <div className="flex-1">
-                                                            <span className="text-xs text-green-600 font-bold uppercase block mb-1">Correct Answer</span>
-                                                            <span className="text-base font-bold text-neutral-800 dark:text-white">{correctAnswerText}</span>
+                                                            <span className="text-overline text-accent-emerald block mb-1">Correct Answer</span>
+                                                            <span className="text-body-sm font-semibold text-text-main-light dark:text-text-main-dark">{correctAnswerText}</span>
                                                         </div>
                                                     </div>
                                                 )}
                                             </div>
                                         )}
 
-                                        {/* #13 — show explanation for both MCQ and essay (if available) */}
                                         {answer.explanation && (
-                                            <div className="text-sm text-neutral-600 dark:text-neutral-400 leading-relaxed bg-neutral-50 dark:bg-black/20 p-5 rounded-2xl border border-neutral-100 dark:border-neutral-700/50">
+                                            <div className="text-body-sm text-text-sub-light dark:text-text-sub-dark leading-relaxed bg-surface-hover-light dark:bg-surface-hover-dark p-4 rounded-xl border border-border-light dark:border-border-dark">
                                                 <div className="flex items-center gap-2 mb-2">
-                                                    <span className="material-symbols-outlined text-primary text-[20px]">lightbulb</span>
-                                                    <span className="font-bold text-neutral-900 dark:text-white">Why?</span>
+                                                    <span className="material-symbols-outlined text-primary text-[18px]">lightbulb</span>
+                                                    <span className="text-body-sm font-semibold text-text-main-light dark:text-text-main-dark">Why?</span>
                                                 </div>
                                                 {answer.explanation}
                                             </div>

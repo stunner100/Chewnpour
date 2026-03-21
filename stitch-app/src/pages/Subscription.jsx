@@ -162,156 +162,145 @@ const Subscription = () => {
     };
 
     return (
-        <div className="bg-background-light dark:bg-background-dark min-h-screen px-4 py-10 pb-28 md:py-14 md:pb-14">
-            <div className="w-full max-w-3xl mx-auto rounded-3xl border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 shadow-xl overflow-hidden">
-                <div className="p-6 md:p-8 border-b border-neutral-100 dark:border-neutral-800 bg-gradient-to-r from-primary/10 to-blue-500/10">
-                    <Link
-                        to={returnPath}
-                        className="inline-flex items-center gap-2 text-sm font-semibold text-neutral-500 hover:text-primary transition-colors"
-                    >
-                        <span className="material-symbols-outlined text-[20px]">arrow_back</span>
-                        Back
-                    </Link>
-                    <h1 className="mt-3 text-2xl md:text-3xl font-bold text-neutral-900 dark:text-white">
-                        Choose Your Plan
-                    </h1>
-                    <p className="mt-2 text-sm text-neutral-500 dark:text-neutral-400">
-                        Add uploads anytime. Semester Pass includes unlimited AI chat and 4 months of access.
+        <div className="w-full max-w-3xl mx-auto px-4 md:px-8 py-8 pb-24 md:pb-12 space-y-6">
+            {/* Header */}
+            <div>
+                <Link
+                    to={returnPath}
+                    className="inline-flex items-center gap-1 text-caption font-semibold text-text-faint-light dark:text-text-faint-dark hover:text-primary transition-colors mb-4"
+                >
+                    <span className="material-symbols-outlined text-[16px]">arrow_back</span>
+                    Back
+                </Link>
+                <h1 className="text-display-sm text-text-main-light dark:text-text-main-dark">Choose Your Plan</h1>
+                <p className="text-body-sm text-text-sub-light dark:text-text-sub-dark mt-1">
+                    Add uploads anytime. Semester Pass includes unlimited AI chat and 4 months of access.
+                </p>
+            </div>
+
+            {/* Alerts */}
+            {error && (
+                <div className="p-3 rounded-xl bg-amber-50 dark:bg-amber-900/10 border border-amber-200 dark:border-amber-900/30">
+                    <p className="text-body-sm text-amber-800 dark:text-amber-300">{error}</p>
+                </div>
+            )}
+            {!error && remaining === 0 && (
+                <div className="p-3 rounded-xl bg-red-50 dark:bg-red-900/10 border border-red-200 dark:border-red-900/30 flex items-start gap-2.5">
+                    <span className="material-symbols-outlined text-red-500 text-[18px] mt-0.5">warning</span>
+                    <div>
+                        <p className="text-body-sm font-semibold text-red-700 dark:text-red-300">No uploads remaining</p>
+                        <p className="text-caption text-red-600 dark:text-red-400 mt-0.5">
+                            Top up to keep studying with AI and ace your exams.
+                        </p>
+                    </div>
+                </div>
+            )}
+
+            {/* Usage Stats */}
+            <div className="grid grid-cols-3 gap-3">
+                <div className="card-base p-4">
+                    <p className="text-overline text-text-faint-light dark:text-text-faint-dark">Used</p>
+                    <p className="text-display-sm text-text-main-light dark:text-text-main-dark mt-1">{consumed}</p>
+                </div>
+                <div className="card-base p-4">
+                    <p className="text-overline text-text-faint-light dark:text-text-faint-dark">Total</p>
+                    <p className="text-display-sm text-text-main-light dark:text-text-main-dark mt-1">{totalAllowed}</p>
+                </div>
+                <div className="card-base p-4">
+                    <p className="text-overline text-text-faint-light dark:text-text-faint-dark">Remaining</p>
+                    <p className={`text-display-sm mt-1 ${remaining === 0 ? 'text-red-500' : 'text-accent-emerald'}`}>
+                        {remaining}
                     </p>
                 </div>
+            </div>
 
-                <div className="p-6 md:p-8 space-y-6">
-                    {error && (
-                        <div className="rounded-2xl border border-amber-200 bg-amber-50 text-amber-800 text-sm font-medium px-4 py-3">
-                            {error}
-                        </div>
-                    )}
-                    {!error && remaining === 0 && (
-                        <div className="rounded-2xl border border-red-200 bg-red-50 dark:bg-red-900/20 dark:border-red-800 px-4 py-3 flex items-start gap-3">
-                            <span className="material-symbols-outlined text-red-500 text-[20px] mt-0.5">warning</span>
-                            <div>
-                                <p className="text-sm font-bold text-red-700 dark:text-red-300">
-                                    You have no uploads remaining
+            {/* Top-Up Plans */}
+            <div className="card-base p-5 space-y-4">
+                <h3 className="text-overline text-text-faint-light dark:text-text-faint-dark">Top-Up Plans</h3>
+                <div className={`grid grid-cols-1 ${topUpOptions.length > 3 ? 'md:grid-cols-4' : 'md:grid-cols-3'} gap-3`}>
+                    {topUpOptions.map((plan) => {
+                        const active = plan.id === selectedTopUpPlan?.id;
+                        const isSemester = plan.id === 'semester';
+                        const isFirstTime = plan.id === 'first-time-starter';
+                        return (
+                            <button
+                                key={plan.id}
+                                type="button"
+                                onClick={() => setSelectedPlanId(plan.id)}
+                                className={`relative rounded-xl border px-4 py-3 text-left transition-colors ${
+                                    active
+                                        ? isSemester
+                                            ? 'border-accent-emerald bg-accent-emerald/5 ring-1 ring-accent-emerald/20'
+                                            : isFirstTime
+                                                ? 'border-accent-amber bg-accent-amber/5 ring-1 ring-accent-amber/20'
+                                                : 'border-primary bg-primary/5 ring-1 ring-primary/20'
+                                        : 'border-border-light dark:border-border-dark bg-surface-light dark:bg-surface-dark hover:bg-surface-hover-light dark:hover:bg-surface-hover-dark'
+                                }`}
+                            >
+                                {isSemester && (
+                                    <span className="absolute -top-2.5 right-3 px-2 py-0.5 bg-accent-emerald text-white text-[10px] font-bold uppercase tracking-widest rounded-full">
+                                        Best Value
+                                    </span>
+                                )}
+                                {isFirstTime && (
+                                    <span className="absolute -top-2.5 right-3 px-2 py-0.5 bg-accent-amber text-white text-[10px] font-bold uppercase tracking-widest rounded-full">
+                                        First Purchase
+                                    </span>
+                                )}
+                                <p className="text-body-lg font-semibold text-text-main-light dark:text-text-main-dark">
+                                    {formatPlanPrice(plan.amountMajor, plan.currency)}
                                 </p>
-                                <p className="text-xs text-red-600 dark:text-red-400 mt-0.5">
-                                    Your classmates are studying with AI right now. Top up to keep up and ace your exams.
+                                <p className="text-body-sm text-text-sub-light dark:text-text-sub-dark">
+                                    +{plan.credits} uploads
                                 </p>
-                            </div>
-                        </div>
-                    )}
-
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                        <div className="rounded-2xl border border-neutral-200 dark:border-neutral-700 p-4">
-                            <p className="text-xs font-bold uppercase tracking-wider text-neutral-400">Used</p>
-                            <p className="mt-1 text-2xl font-bold text-neutral-900 dark:text-white">{consumed}</p>
-                        </div>
-                        <div className="rounded-2xl border border-neutral-200 dark:border-neutral-700 p-4">
-                            <p className="text-xs font-bold uppercase tracking-wider text-neutral-400">Total Allowed</p>
-                            <p className="mt-1 text-2xl font-bold text-neutral-900 dark:text-white">{totalAllowed}</p>
-                        </div>
-                        <div className="rounded-2xl border border-neutral-200 dark:border-neutral-700 p-4">
-                            <p className="text-xs font-bold uppercase tracking-wider text-neutral-400">Remaining</p>
-                            <p className={`mt-1 text-2xl font-bold ${remaining === 0 ? 'text-red-500' : 'text-emerald-600'}`}>
-                                {remaining}
-                            </p>
-                        </div>
+                                {isFirstTime && (
+                                    <p className="mt-1 text-caption font-semibold text-accent-amber">
+                                        25% off your first top-up
+                                    </p>
+                                )}
+                                {isSemester && (
+                                    <div className="mt-1.5 space-y-0.5">
+                                        <p className="text-caption font-semibold text-accent-emerald">
+                                            {formatPlanPrice(plan.amountMajor / plan.credits, plan.currency)}/upload
+                                        </p>
+                                        <p className="text-caption text-accent-emerald flex items-center gap-1">
+                                            <span className="material-symbols-outlined text-[14px]">all_inclusive</span>
+                                            Unlimited AI chat
+                                        </p>
+                                        <p className="text-caption text-text-faint-light dark:text-text-faint-dark">
+                                            Valid for 4 months
+                                        </p>
+                                    </div>
+                                )}
+                            </button>
+                        );
+                    })}
+                </div>
+                <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-2 pt-2 border-t border-border-light dark:border-border-dark">
+                    <p className="text-caption text-text-faint-light dark:text-text-faint-dark">
+                        Credits are added once per successful payment.
+                    </p>
+                    <div className="inline-flex items-center gap-1.5 text-caption text-text-faint-light dark:text-text-faint-dark">
+                        <span className="material-symbols-outlined text-[14px]">verified_user</span>
+                        Secure checkout
                     </div>
-
-                    <div className="rounded-2xl border border-neutral-200 dark:border-neutral-700 p-5 md:p-6 bg-neutral-50 dark:bg-neutral-800/50">
-                        <div className="space-y-4">
-                            <div>
-                                <p className="text-xs font-bold uppercase tracking-wider text-neutral-400">Top-Up Plans</p>
-                            </div>
-                            <div className={`grid grid-cols-1 ${topUpOptions.length > 3 ? 'md:grid-cols-4' : 'md:grid-cols-3'} gap-3 pt-4 items-start`}>
-                                {topUpOptions.map((plan) => {
-                                    const active = plan.id === selectedTopUpPlan?.id;
-                                    const isSemester = plan.id === 'semester';
-                                    const isFirstTime = plan.id === 'first-time-starter';
-                                    return (
-                                        <button
-                                            key={plan.id}
-                                            type="button"
-                                            onClick={() => setSelectedPlanId(plan.id)}
-                                            className={`relative rounded-xl border px-4 py-3 text-left transition-colors ${
-                                                isSemester && active
-                                                    ? 'border-emerald-500 bg-emerald-500/10 ring-1 ring-emerald-500/30'
-                                                    : isFirstTime && active
-                                                        ? 'border-amber-500 bg-amber-500/10 ring-1 ring-amber-500/30'
-                                                        : active
-                                                            ? 'border-primary bg-primary/10'
-                                                            : isSemester
-                                                                ? 'border-emerald-300 dark:border-emerald-700 bg-white dark:bg-neutral-900'
-                                                                : isFirstTime
-                                                                    ? 'border-amber-300 dark:border-amber-700 bg-white dark:bg-neutral-900'
-                                                                    : 'border-neutral-200 dark:border-neutral-600 bg-white dark:bg-neutral-900'
-                                            }`}
-                                        >
-                                            {isSemester && (
-                                                <span className="absolute -top-2.5 right-3 px-2 py-0.5 bg-emerald-500 text-white text-[10px] font-bold uppercase tracking-widest rounded-full shadow-sm">
-                                                    Best Value
-                                                </span>
-                                            )}
-                                            {isFirstTime && (
-                                                <span className="absolute -top-2.5 right-3 px-2 py-0.5 bg-amber-500 text-white text-[10px] font-bold uppercase tracking-widest rounded-full shadow-sm">
-                                                    First Purchase
-                                                </span>
-                                            )}
-                                            <p className="text-lg font-bold text-neutral-900 dark:text-white">
-                                                {formatPlanPrice(plan.amountMajor, plan.currency)}
-                                            </p>
-                                            <p className="text-sm text-neutral-500 dark:text-neutral-400">
-                                                +{plan.credits} uploads
-                                            </p>
-                                            {isFirstTime && (
-                                                <p className="mt-1 text-xs text-amber-600 dark:text-amber-400 font-semibold">
-                                                    25% off your first top-up
-                                                </p>
-                                            )}
-                                            {isSemester && (
-                                                <div className="mt-1.5 space-y-0.5">
-                                                    <p className="text-xs text-emerald-600 dark:text-emerald-400 font-semibold">
-                                                        {formatPlanPrice(plan.amountMajor / plan.credits, plan.currency)}/upload
-                                                    </p>
-                                                    <p className="text-xs text-emerald-600 dark:text-emerald-400 font-medium flex items-center gap-1">
-                                                        <span className="material-symbols-outlined text-[14px]">all_inclusive</span>
-                                                        Unlimited AI chat
-                                                    </p>
-                                                    <p className="text-[11px] text-neutral-400 dark:text-neutral-500">
-                                                        Valid for 4 months
-                                                    </p>
-                                                </div>
-                                            )}
-                                        </button>
-                                    );
-                                })}
-                            </div>
-                            <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
-                                <p className="text-sm text-neutral-500 dark:text-neutral-400">
-                                    Credits are added once per successful payment.
-                                </p>
-                                <div className="inline-flex items-center gap-2 text-xs font-bold text-neutral-500">
-                                    <span className="material-symbols-outlined text-base">verified_user</span>
-                                    Secure checkout via configured provider.
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <button
-                        type="button"
-                        onClick={handleCheckout}
-                        disabled={loading || quota === undefined || !selectedTopUpPlan}
-                        className="w-full h-14 rounded-2xl font-bold text-base transition-all disabled:cursor-not-allowed bg-gradient-to-r from-primary to-blue-600 text-white shadow-lg shadow-primary/20 hover:shadow-xl hover:shadow-primary/25"
-                    >
-                        {loading ? (
-                            <>
-                                <span className="material-symbols-outlined text-[18px] animate-spin mr-2">progress_activity</span>
-                                Redirecting to {providerHint || 'checkout'}...
-                            </>
-                        ) : `Pay ${formatPlanPrice(selectedTopUpPlan?.amountMajor || 0, selectedTopUpPlan?.currency || currency)} and get +${selectedTopUpPlan?.credits || 0} uploads`}
-                    </button>
                 </div>
             </div>
+
+            {/* Checkout Button */}
+            <button
+                type="button"
+                onClick={handleCheckout}
+                disabled={loading || quota === undefined || !selectedTopUpPlan}
+                className="w-full btn-primary text-body-base py-3 flex items-center justify-center gap-2"
+            >
+                {loading ? (
+                    <>
+                        <span className="material-symbols-outlined text-[18px] animate-spin">progress_activity</span>
+                        Redirecting to {providerHint || 'checkout'}...
+                    </>
+                ) : `Pay ${formatPlanPrice(selectedTopUpPlan?.amountMajor || 0, selectedTopUpPlan?.currency || currency)} and get +${selectedTopUpPlan?.credits || 0} uploads`}
+            </button>
         </div>
     );
 };

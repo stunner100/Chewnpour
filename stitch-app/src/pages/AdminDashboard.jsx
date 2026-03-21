@@ -124,7 +124,7 @@ const TabBar = ({ activeTab, onTabChange }) => (
                     className={`flex items-center gap-2 px-4 py-3 text-sm font-semibold border-b-2 transition-colors whitespace-nowrap ${
                         activeTab === tab.key
                             ? 'border-primary text-primary'
-                            : 'border-transparent text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200'
+                            : 'border-transparent text-text-faint-light dark:text-text-faint-dark hover:text-text-main-light dark:hover:text-text-main-dark'
                     }`}
                 >
                     <span className="material-symbols-outlined text-[18px]">{tab.icon}</span>
@@ -137,9 +137,9 @@ const TabBar = ({ activeTab, onTabChange }) => (
 
 const StatCard = ({ label, value, sublabel, icon, color = 'primary' }) => {
     const bgMap = {
-        primary: 'bg-primary/10 text-primary',
-        emerald: 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400',
-        amber: 'bg-amber-100 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400',
+        primary: 'bg-primary/8 text-primary',
+        emerald: 'bg-accent-emerald/10 text-accent-emerald',
+        amber: 'bg-accent-amber/10 text-accent-amber',
         rose: 'bg-rose-100 dark:bg-rose-900/30 text-rose-600 dark:text-rose-400',
         blue: 'bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400',
     };
@@ -147,14 +147,14 @@ const StatCard = ({ label, value, sublabel, icon, color = 'primary' }) => {
         <div className="card-base p-5">
             <div className="flex items-start justify-between gap-4">
                 <div className="min-w-0">
-                    <p className="text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                    <p className="text-xs font-semibold uppercase tracking-wider text-text-faint-light dark:text-text-faint-dark">
                         {label}
                     </p>
-                    <p className="mt-2 text-3xl font-black text-slate-900 dark:text-white truncate">
+                    <p className="mt-2 text-3xl font-black text-text-main-light dark:text-text-main-dark truncate">
                         {typeof value === 'string' ? value : formatNumber(value)}
                     </p>
                     {sublabel ? (
-                        <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">{sublabel}</p>
+                        <p className="mt-1 text-sm text-text-faint-light dark:text-text-faint-dark">{sublabel}</p>
                     ) : null}
                 </div>
                 <div className={`h-11 w-11 shrink-0 rounded-2xl flex items-center justify-center ${bgMap[color] || bgMap.primary}`}>
@@ -167,10 +167,10 @@ const StatCard = ({ label, value, sublabel, icon, color = 'primary' }) => {
 
 const StatRow = ({ label, value, detail }) => (
     <div className="flex items-center justify-between gap-3 py-2">
-        <span className="text-sm text-slate-600 dark:text-slate-300">{label}</span>
+        <span className="text-sm text-text-sub-light dark:text-text-sub-dark">{label}</span>
         <div className="text-right">
-            <span className="text-sm font-bold text-slate-900 dark:text-white">{value}</span>
-            {detail ? <span className="ml-2 text-xs text-slate-500 dark:text-slate-400">{detail}</span> : null}
+            <span className="text-sm font-bold text-text-main-light dark:text-text-main-dark">{value}</span>
+            {detail ? <span className="ml-2 text-xs text-text-faint-light dark:text-text-faint-dark">{detail}</span> : null}
         </div>
     </div>
 );
@@ -183,14 +183,14 @@ const BarChart = ({ items, maxValue }) => {
                 const pct = Math.max(((Number(item.value) || 0) / max) * 100, 2);
                 return (
                     <div key={item.label} className="flex flex-col items-center flex-1 min-w-0">
-                        <span className="text-xs font-semibold text-slate-700 dark:text-slate-200 mb-1">
+                        <span className="text-xs font-semibold text-text-main-light dark:text-text-main-dark mb-1">
                             {formatNumber(item.value)}
                         </span>
                         <div
                             className="w-full rounded-t-lg bg-primary/80 transition-all"
                             style={{ height: `${pct}%` }}
                         />
-                        <span className="mt-1.5 text-[10px] text-slate-500 dark:text-slate-400 truncate w-full text-center">
+                        <span className="mt-1.5 text-[10px] text-text-faint-light dark:text-text-faint-dark truncate w-full text-center">
                             {item.label}
                         </span>
                     </div>
@@ -203,9 +203,9 @@ const BarChart = ({ items, maxValue }) => {
 const SectionCard = ({ title, badge, children }) => (
     <div className="card-base p-5">
         <div className="flex flex-wrap items-center justify-between gap-2 mb-4">
-            <h2 className="text-lg font-bold text-slate-900 dark:text-white">{title}</h2>
+            <h2 className="text-lg font-bold text-text-main-light dark:text-text-main-dark">{title}</h2>
             {badge ? (
-                <span className="text-xs text-slate-500 dark:text-slate-400">{badge}</span>
+                <span className="text-xs text-text-faint-light dark:text-text-faint-dark">{badge}</span>
             ) : null}
         </div>
         {children}
@@ -228,12 +228,12 @@ const DeniedCard = ({ reason, signedInEmail, signedInUserId }) => {
             <div className="mx-auto w-full max-w-3xl card-base p-6 sm:p-8">
                 <div className="flex items-center gap-3 text-amber-600">
                     <span className="material-symbols-outlined">lock</span>
-                    <h1 className="text-xl font-bold text-slate-900 dark:text-white">Admin access required</h1>
+                    <h1 className="text-xl font-bold text-text-main-light dark:text-text-main-dark">Admin access required</h1>
                 </div>
-                <p className="mt-3 text-sm text-slate-600 dark:text-slate-300">{reasonMessage}</p>
-                <div className="mt-4 rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50/70 dark:bg-slate-900/50 p-4 text-sm">
-                    <p className="text-slate-600 dark:text-slate-300">
-                        Signed in as: <span className="font-semibold text-slate-900 dark:text-white">{signedInEmail || signedInUserId || 'Unknown user'}</span>
+                <p className="mt-3 text-sm text-text-sub-light dark:text-text-sub-dark">{reasonMessage}</p>
+                <div className="mt-4 rounded-2xl border border-border-light dark:border-border-dark bg-surface-hover-light dark:bg-surface-hover-dark p-4 text-sm">
+                    <p className="text-text-sub-light dark:text-text-sub-dark">
+                        Signed in as: <span className="font-semibold text-text-main-light dark:text-text-main-dark">{signedInEmail || signedInUserId || 'Unknown user'}</span>
                     </p>
                 </div>
                 <div className="mt-6">
@@ -347,7 +347,7 @@ const OverviewPanel = ({ snapshot, totals, activeUsersDays, newUsersDays, flags 
 
             <section className="grid gap-4 lg:grid-cols-2">
                 <SectionCard title="Quick Stats">
-                    <div className="divide-y divide-slate-100 dark:divide-slate-800">
+                    <div className="divide-y divide-border-light dark:divide-border-dark">
                         <StatRow label="Total users" value={formatNumber(totals.userProfiles)} />
                         <StatRow label="Concept practice attempts" value={formatNumber(concept.totalAttempts)} detail={`Avg ${formatPercent(concept.averageScorePercent)}`} />
                         <StatRow label="Voice mode users" value={formatNumber(engagement.voiceModeEnabledCount)} />
@@ -358,7 +358,7 @@ const OverviewPanel = ({ snapshot, totals, activeUsersDays, newUsersDays, flags 
                 </SectionCard>
 
                 <SectionCard title="Feedback Overview">
-                    <div className="divide-y divide-slate-100 dark:divide-slate-800">
+                    <div className="divide-y divide-border-light dark:divide-border-dark">
                         <StatRow label="Total feedback" value={formatNumber(totals.feedbackTotal)} detail={`${formatNumber(totals.feedbackLastWindow)} last ${activeUsersDays}d`} />
                         <StatRow label="With messages" value={formatNumber(totals.feedbackWithMessageTotal)} detail={`${formatNumber(totals.feedbackWithMessageLastWindow)} last ${activeUsersDays}d`} />
                         <StatRow label="Average rating" value={`${totals.averageFeedbackRating || 0}/5`} />
@@ -410,7 +410,7 @@ const LearningPanel = ({ snapshot, activeUsersDays }) => {
 
             <section className="grid gap-4 lg:grid-cols-2">
                 <SectionCard title="Exam Format Split">
-                    <div className="divide-y divide-slate-100 dark:divide-slate-800">
+                    <div className="divide-y divide-border-light dark:divide-border-dark">
                         <StatRow label="MCQ exams" value={formatNumber(exam.mcqAttempts)} detail={exam.totalAttempts > 0 ? formatPercent((exam.mcqAttempts / exam.totalAttempts) * 100) : '0%'} />
                         <StatRow label="Essay exams" value={formatNumber(exam.essayAttempts)} detail={exam.totalAttempts > 0 ? formatPercent((exam.essayAttempts / exam.totalAttempts) * 100) : '0%'} />
                     </div>
@@ -420,7 +420,7 @@ const LearningPanel = ({ snapshot, activeUsersDays }) => {
                     {scoreDistribution.length > 0 ? (
                         <BarChart items={scoreDistribution.map((b) => ({ label: b.label, value: b.count }))} />
                     ) : (
-                        <p className="text-sm text-slate-500 dark:text-slate-400">No exam data yet.</p>
+                        <p className="text-sm text-text-faint-light dark:text-text-faint-dark">No exam data yet.</p>
                     )}
                 </SectionCard>
             </section>
@@ -430,18 +430,18 @@ const LearningPanel = ({ snapshot, activeUsersDays }) => {
                     <div className="overflow-x-auto">
                         <table className="min-w-full text-sm">
                             <thead>
-                                <tr className="border-b border-slate-200 dark:border-slate-700">
-                                    <th className="px-3 py-2 text-left font-semibold text-slate-500 dark:text-slate-400">User</th>
-                                    <th className="px-3 py-2 text-left font-semibold text-slate-500 dark:text-slate-400">Attempts</th>
-                                    <th className="px-3 py-2 text-left font-semibold text-slate-500 dark:text-slate-400">Avg Score</th>
+                                <tr className="border-b border-border-light dark:border-border-dark">
+                                    <th className="px-3 py-2 text-left font-semibold text-text-faint-light dark:text-text-faint-dark">User</th>
+                                    <th className="px-3 py-2 text-left font-semibold text-text-faint-light dark:text-text-faint-dark">Attempts</th>
+                                    <th className="px-3 py-2 text-left font-semibold text-text-faint-light dark:text-text-faint-dark">Avg Score</th>
                                 </tr>
                             </thead>
                             <tbody>
                                 {topExamUsers.map((u) => (
-                                    <tr key={u.userId} className="border-b border-slate-100 dark:border-slate-800/80">
-                                        <td className="px-3 py-2 font-semibold text-slate-900 dark:text-white">{u.fullName || u.userId}</td>
-                                        <td className="px-3 py-2 text-slate-600 dark:text-slate-300">{formatNumber(u.attempts)}</td>
-                                        <td className="px-3 py-2 text-slate-600 dark:text-slate-300">{formatPercent(u.avgScore)}</td>
+                                    <tr key={u.userId} className="border-b border-border-light dark:border-border-dark">
+                                        <td className="px-3 py-2 font-semibold text-text-main-light dark:text-text-main-dark">{u.fullName || u.userId}</td>
+                                        <td className="px-3 py-2 text-text-sub-light dark:text-text-sub-dark">{formatNumber(u.attempts)}</td>
+                                        <td className="px-3 py-2 text-text-sub-light dark:text-text-sub-dark">{formatPercent(u.avgScore)}</td>
                                     </tr>
                                 ))}
                             </tbody>
@@ -497,10 +497,10 @@ const RevenuePanel = ({ snapshot, activeUsersDays }) => {
                             {planBreakdown.map((p) => (
                                 <div key={p.plan} className="space-y-1.5">
                                     <div className="flex items-center justify-between gap-2">
-                                        <span className="text-sm font-semibold text-slate-800 dark:text-slate-100 capitalize">{p.plan}</span>
-                                        <span className="text-xs text-slate-500 dark:text-slate-400">{formatNumber(p.count)} ({formatPercent(p.percent)})</span>
+                                        <span className="text-sm font-semibold text-text-main-light dark:text-text-main-dark capitalize">{p.plan}</span>
+                                        <span className="text-xs text-text-faint-light dark:text-text-faint-dark">{formatNumber(p.count)} ({formatPercent(p.percent)})</span>
                                     </div>
-                                    <div className="h-2 overflow-hidden rounded-full bg-slate-100 dark:bg-slate-800">
+                                    <div className="h-2 overflow-hidden rounded-full bg-surface-hover-light dark:bg-surface-hover-dark">
                                         <div
                                             className="h-full rounded-full bg-primary transition-all"
                                             style={{ width: `${Math.max(0, Math.min(Number(p.percent) || 0, 100))}%` }}
@@ -510,12 +510,12 @@ const RevenuePanel = ({ snapshot, activeUsersDays }) => {
                             ))}
                         </div>
                     ) : (
-                        <p className="text-sm text-slate-500 dark:text-slate-400">No subscription data yet.</p>
+                        <p className="text-sm text-text-faint-light dark:text-text-faint-dark">No subscription data yet.</p>
                     )}
                 </SectionCard>
 
                 <SectionCard title="Upload Credits">
-                    <div className="divide-y divide-slate-100 dark:divide-slate-800">
+                    <div className="divide-y divide-border-light dark:divide-border-dark">
                         <StatRow label="Purchased credits" value={formatNumber(sub.totalPurchasedCredits)} />
                         <StatRow label="Consumed credits" value={formatNumber(sub.totalConsumedCredits)} />
                         <StatRow
@@ -530,52 +530,52 @@ const RevenuePanel = ({ snapshot, activeUsersDays }) => {
 };
 
 const RetrievalCandidatesTable = ({ title, rows, showPenaltyColumns = false }) => (
-    <div className="rounded-2xl border border-slate-200 dark:border-slate-700 bg-white/80 dark:bg-slate-900/40 p-4">
+    <div className="rounded-2xl border border-border-light dark:border-border-dark bg-surface-light dark:bg-surface-dark p-4">
         <div className="flex items-center justify-between gap-2">
-            <h3 className="text-sm font-semibold text-slate-900 dark:text-white">{title}</h3>
-            <span className="text-xs text-slate-500 dark:text-slate-400">{formatNumber(rows?.length || 0)} rows</span>
+            <h3 className="text-sm font-semibold text-text-main-light dark:text-text-main-dark">{title}</h3>
+            <span className="text-xs text-text-faint-light dark:text-text-faint-dark">{formatNumber(rows?.length || 0)} rows</span>
         </div>
         {!Array.isArray(rows) || rows.length === 0 ? (
-            <p className="mt-3 text-sm text-slate-500 dark:text-slate-400">No candidates recorded.</p>
+            <p className="mt-3 text-sm text-text-faint-light dark:text-text-faint-dark">No candidates recorded.</p>
         ) : (
             <div className="mt-3 overflow-x-auto">
                 <table className="min-w-full text-xs">
                     <thead>
-                        <tr className="border-b border-slate-200 dark:border-slate-700">
-                            <th className="px-2 py-2 text-left font-semibold text-slate-500 dark:text-slate-400">Passage</th>
-                            <th className="px-2 py-2 text-left font-semibold text-slate-500 dark:text-slate-400">Page</th>
-                            <th className="px-2 py-2 text-left font-semibold text-slate-500 dark:text-slate-400">Source</th>
-                            <th className="px-2 py-2 text-left font-semibold text-slate-500 dark:text-slate-400">Final</th>
-                            <th className="px-2 py-2 text-left font-semibold text-slate-500 dark:text-slate-400">Lexical</th>
-                            <th className="px-2 py-2 text-left font-semibold text-slate-500 dark:text-slate-400">Vector</th>
-                            <th className="px-2 py-2 text-left font-semibold text-slate-500 dark:text-slate-400">Numeric</th>
+                        <tr className="border-b border-border-light dark:border-border-dark">
+                            <th className="px-2 py-2 text-left font-semibold text-text-faint-light dark:text-text-faint-dark">Passage</th>
+                            <th className="px-2 py-2 text-left font-semibold text-text-faint-light dark:text-text-faint-dark">Page</th>
+                            <th className="px-2 py-2 text-left font-semibold text-text-faint-light dark:text-text-faint-dark">Source</th>
+                            <th className="px-2 py-2 text-left font-semibold text-text-faint-light dark:text-text-faint-dark">Final</th>
+                            <th className="px-2 py-2 text-left font-semibold text-text-faint-light dark:text-text-faint-dark">Lexical</th>
+                            <th className="px-2 py-2 text-left font-semibold text-text-faint-light dark:text-text-faint-dark">Vector</th>
+                            <th className="px-2 py-2 text-left font-semibold text-text-faint-light dark:text-text-faint-dark">Numeric</th>
                             {showPenaltyColumns ? (
                                 <>
-                                    <th className="px-2 py-2 text-left font-semibold text-slate-500 dark:text-slate-400">Flag Boost</th>
-                                    <th className="px-2 py-2 text-left font-semibold text-slate-500 dark:text-slate-400">Num Penalty</th>
-                                    <th className="px-2 py-2 text-left font-semibold text-slate-500 dark:text-slate-400">Broad Penalty</th>
+                                    <th className="px-2 py-2 text-left font-semibold text-text-faint-light dark:text-text-faint-dark">Flag Boost</th>
+                                    <th className="px-2 py-2 text-left font-semibold text-text-faint-light dark:text-text-faint-dark">Num Penalty</th>
+                                    <th className="px-2 py-2 text-left font-semibold text-text-faint-light dark:text-text-faint-dark">Broad Penalty</th>
                                 </>
                             ) : null}
                         </tr>
                     </thead>
                     <tbody>
                         {rows.map((row) => (
-                            <tr key={`${title}-${row.passageId}-${row.page}`} className="border-b border-slate-100 dark:border-slate-800/80 align-top">
+                            <tr key={`${title}-${row.passageId}-${row.page}`} className="border-b border-border-light dark:border-border-dark align-top">
                                 <td className="px-2 py-2">
-                                    <p className="font-semibold text-slate-900 dark:text-white">{row.passageId}</p>
-                                    <p className="mt-1 max-w-xs text-[11px] text-slate-500 dark:text-slate-400">{row.sectionHint || 'No section hint'}</p>
+                                    <p className="font-semibold text-text-main-light dark:text-text-main-dark">{row.passageId}</p>
+                                    <p className="mt-1 max-w-xs text-[11px] text-text-faint-light dark:text-text-faint-dark">{row.sectionHint || 'No section hint'}</p>
                                 </td>
-                                <td className="px-2 py-2 text-slate-600 dark:text-slate-300">{formatNumber(row.page)}</td>
-                                <td className="px-2 py-2 text-slate-600 dark:text-slate-300 uppercase">{row.retrievalSource || 'n/a'}</td>
-                                <td className="px-2 py-2 text-slate-600 dark:text-slate-300">{formatRatioPercent(row.finalScore)}</td>
-                                <td className="px-2 py-2 text-slate-600 dark:text-slate-300">{formatRatioPercent(row.lexicalScore)}</td>
-                                <td className="px-2 py-2 text-slate-600 dark:text-slate-300">{formatRatioPercent(row.vectorScore)}</td>
-                                <td className="px-2 py-2 text-slate-600 dark:text-slate-300">{formatRatioPercent(row.numericAgreement)}</td>
+                                <td className="px-2 py-2 text-text-sub-light dark:text-text-sub-dark">{formatNumber(row.page)}</td>
+                                <td className="px-2 py-2 text-text-sub-light dark:text-text-sub-dark uppercase">{row.retrievalSource || 'n/a'}</td>
+                                <td className="px-2 py-2 text-text-sub-light dark:text-text-sub-dark">{formatRatioPercent(row.finalScore)}</td>
+                                <td className="px-2 py-2 text-text-sub-light dark:text-text-sub-dark">{formatRatioPercent(row.lexicalScore)}</td>
+                                <td className="px-2 py-2 text-text-sub-light dark:text-text-sub-dark">{formatRatioPercent(row.vectorScore)}</td>
+                                <td className="px-2 py-2 text-text-sub-light dark:text-text-sub-dark">{formatRatioPercent(row.numericAgreement)}</td>
                                 {showPenaltyColumns ? (
                                     <>
-                                        <td className="px-2 py-2 text-slate-600 dark:text-slate-300">{formatRatioPercent(row.preferFlagBoost)}</td>
-                                        <td className="px-2 py-2 text-slate-600 dark:text-slate-300">{formatRatioPercent(row.vectorOnlyMissingNumericPenalty)}</td>
-                                        <td className="px-2 py-2 text-slate-600 dark:text-slate-300">{formatRatioPercent(row.vectorOnlyBroadTopicPenalty)}</td>
+                                        <td className="px-2 py-2 text-text-sub-light dark:text-text-sub-dark">{formatRatioPercent(row.preferFlagBoost)}</td>
+                                        <td className="px-2 py-2 text-text-sub-light dark:text-text-sub-dark">{formatRatioPercent(row.vectorOnlyMissingNumericPenalty)}</td>
+                                        <td className="px-2 py-2 text-text-sub-light dark:text-text-sub-dark">{formatRatioPercent(row.vectorOnlyBroadTopicPenalty)}</td>
                                     </>
                                 ) : null}
                             </tr>
@@ -635,9 +635,9 @@ const ContentPanel = ({
             <section className="grid gap-4 lg:grid-cols-2">
                 <SectionCard title="Uploads">
                     <div className="grid grid-cols-2 gap-3 text-sm">
-                        <div className="rounded-xl bg-slate-100/80 dark:bg-slate-900/70 p-3">
-                            <p className="text-slate-500 dark:text-slate-400">Total</p>
-                            <p className="mt-1 text-xl font-bold text-slate-900 dark:text-white">{formatNumber(documents.uploads?.total)}</p>
+                        <div className="rounded-xl bg-surface-hover-light dark:bg-surface-hover-dark p-3">
+                            <p className="text-text-faint-light dark:text-text-faint-dark">Total</p>
+                            <p className="mt-1 text-xl font-bold text-text-main-light dark:text-text-main-dark">{formatNumber(documents.uploads?.total)}</p>
                         </div>
                         <div className="rounded-xl bg-emerald-50 dark:bg-emerald-900/20 p-3">
                             <p className="text-emerald-700 dark:text-emerald-300">Ready</p>
@@ -656,9 +656,9 @@ const ContentPanel = ({
 
                 <SectionCard title="Assignments">
                     <div className="grid grid-cols-2 gap-3 text-sm">
-                        <div className="rounded-xl bg-slate-100/80 dark:bg-slate-900/70 p-3">
-                            <p className="text-slate-500 dark:text-slate-400">Total</p>
-                            <p className="mt-1 text-xl font-bold text-slate-900 dark:text-white">{formatNumber(documents.assignments?.total)}</p>
+                        <div className="rounded-xl bg-surface-hover-light dark:bg-surface-hover-dark p-3">
+                            <p className="text-text-faint-light dark:text-text-faint-dark">Total</p>
+                            <p className="mt-1 text-xl font-bold text-text-main-light dark:text-text-main-dark">{formatNumber(documents.assignments?.total)}</p>
                         </div>
                         <div className="rounded-xl bg-emerald-50 dark:bg-emerald-900/20 p-3">
                             <p className="text-emerald-700 dark:text-emerald-300">Ready</p>
@@ -681,18 +681,18 @@ const ContentPanel = ({
                 badge={latestAudit ? `Latest run ${formatDateTime(latestAudit.finishedAt)}` : 'No audit runs yet'}
             >
                 {!latestAudit ? (
-                    <p className="text-sm text-slate-500 dark:text-slate-400">No target audit has been recorded yet.</p>
+                    <p className="text-sm text-text-faint-light dark:text-text-faint-dark">No target audit has been recorded yet.</p>
                 ) : (
                     <div className="space-y-4">
                         <div className="grid gap-4 lg:grid-cols-2">
-                            <div className="rounded-2xl border border-slate-200 dark:border-slate-700 bg-white/80 dark:bg-slate-900/40 p-4">
+                            <div className="rounded-2xl border border-border-light dark:border-border-dark bg-surface-light dark:bg-surface-dark p-4">
                                 <div className="flex items-center justify-between gap-2">
-                                    <h3 className="text-sm font-semibold text-slate-900 dark:text-white">Latest Audit Run</h3>
+                                    <h3 className="text-sm font-semibold text-text-main-light dark:text-text-main-dark">Latest Audit Run</h3>
                                     <span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${latestAudit.dryRun ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300' : 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300'}`}>
                                         {latestAudit.dryRun ? 'Dry run' : 'Applied'}
                                     </span>
                                 </div>
-                                <div className="mt-3 divide-y divide-slate-100 dark:divide-slate-800">
+                                <div className="mt-3 divide-y divide-border-light dark:divide-border-dark">
                                     <StatRow label="Finished" value={formatDateTime(latestAudit.finishedAt)} />
                                     <StatRow label="Stale window" value={`${formatNumber(latestAudit.staleHours)}h`} />
                                     <StatRow label="Max topics/format" value={formatNumber(latestAudit.maxTopicsPerFormat)} />
@@ -702,12 +702,12 @@ const ContentPanel = ({
                                 </div>
                             </div>
 
-                            <div className="rounded-2xl border border-slate-200 dark:border-slate-700 bg-white/80 dark:bg-slate-900/40 p-4">
-                                <h3 className="text-sm font-semibold text-slate-900 dark:text-white">Most Recent Effective Rebase</h3>
+                            <div className="rounded-2xl border border-border-light dark:border-border-dark bg-surface-light dark:bg-surface-dark p-4">
+                                <h3 className="text-sm font-semibold text-text-main-light dark:text-text-main-dark">Most Recent Effective Rebase</h3>
                                 {!latestAuditWithRebases || !latestAuditWithRebases.totalRebasedTopics ? (
-                                    <p className="mt-3 text-sm text-slate-500 dark:text-slate-400">No rebased topics recorded yet.</p>
+                                    <p className="mt-3 text-sm text-text-faint-light dark:text-text-faint-dark">No rebased topics recorded yet.</p>
                                 ) : (
-                                    <div className="mt-3 divide-y divide-slate-100 dark:divide-slate-800">
+                                    <div className="mt-3 divide-y divide-border-light dark:divide-border-dark">
                                         <StatRow label="Finished" value={formatDateTime(latestAuditWithRebases.finishedAt)} />
                                         <StatRow label="MCQ rebased" value={formatNumber(latestAuditWithRebases.mcqSummary?.rebasedTopicCount)} detail={`${formatNumber(latestAuditWithRebases.mcqSummary?.totalTargetReduction)} target reduction`} />
                                         <StatRow label="Essay rebased" value={formatNumber(latestAuditWithRebases.essaySummary?.rebasedTopicCount)} detail={`${formatNumber(latestAuditWithRebases.essaySummary?.totalTargetReduction)} target reduction`} />
@@ -717,48 +717,48 @@ const ContentPanel = ({
                             </div>
                         </div>
 
-                        <div className="rounded-2xl border border-slate-200 dark:border-slate-700 bg-white/80 dark:bg-slate-900/40 p-4">
+                        <div className="rounded-2xl border border-border-light dark:border-border-dark bg-surface-light dark:bg-surface-dark p-4">
                             <div className="flex items-center justify-between gap-2">
-                                <h3 className="text-sm font-semibold text-slate-900 dark:text-white">Rebased Topics</h3>
-                                <span className="text-xs text-slate-500 dark:text-slate-400">
+                                <h3 className="text-sm font-semibold text-text-main-light dark:text-text-main-dark">Rebased Topics</h3>
+                                <span className="text-xs text-text-faint-light dark:text-text-faint-dark">
                                     {latestAuditWithRebases?.totalRebasedTopics
                                         ? `Showing ${Math.min(latestAuditWithRebases.rebasedTopics?.length || 0, latestAuditWithRebases.totalRebasedTopics)} of ${formatNumber(latestAuditWithRebases.totalRebasedTopics)}`
                                         : 'No changed topics'}
                                 </span>
                             </div>
                             {!latestAuditWithRebases || !Array.isArray(latestAuditWithRebases.rebasedTopics) || latestAuditWithRebases.rebasedTopics.length === 0 ? (
-                                <p className="mt-3 text-sm text-slate-500 dark:text-slate-400">The latest effective audit did not include any persisted topic rows.</p>
+                                <p className="mt-3 text-sm text-text-faint-light dark:text-text-faint-dark">The latest effective audit did not include any persisted topic rows.</p>
                             ) : (
                                 <div className="mt-3 overflow-x-auto">
                                     <table className="min-w-full text-sm">
                                         <thead>
-                                            <tr className="border-b border-slate-200 dark:border-slate-700">
-                                                <th className="px-3 py-2 text-left font-semibold text-slate-500 dark:text-slate-400">Topic</th>
-                                                <th className="px-3 py-2 text-left font-semibold text-slate-500 dark:text-slate-400">Format</th>
-                                                <th className="px-3 py-2 text-left font-semibold text-slate-500 dark:text-slate-400">Target</th>
-                                                <th className="px-3 py-2 text-left font-semibold text-slate-500 dark:text-slate-400">Current Yield</th>
-                                                <th className="px-3 py-2 text-left font-semibold text-slate-500 dark:text-slate-400">Fill</th>
-                                                <th className="px-3 py-2 text-left font-semibold text-slate-500 dark:text-slate-400">Scheduled</th>
+                                            <tr className="border-b border-border-light dark:border-border-dark">
+                                                <th className="px-3 py-2 text-left font-semibold text-text-faint-light dark:text-text-faint-dark">Topic</th>
+                                                <th className="px-3 py-2 text-left font-semibold text-text-faint-light dark:text-text-faint-dark">Format</th>
+                                                <th className="px-3 py-2 text-left font-semibold text-text-faint-light dark:text-text-faint-dark">Target</th>
+                                                <th className="px-3 py-2 text-left font-semibold text-text-faint-light dark:text-text-faint-dark">Current Yield</th>
+                                                <th className="px-3 py-2 text-left font-semibold text-text-faint-light dark:text-text-faint-dark">Fill</th>
+                                                <th className="px-3 py-2 text-left font-semibold text-text-faint-light dark:text-text-faint-dark">Scheduled</th>
                                             </tr>
                                         </thead>
                                         <tbody>
                                             {latestAuditWithRebases.rebasedTopics.map((topic) => (
-                                                <tr key={`${topic.format}-${topic.topicId}`} className="border-b border-slate-100 dark:border-slate-800/80">
+                                                <tr key={`${topic.format}-${topic.topicId}`} className="border-b border-border-light dark:border-border-dark">
                                                     <td className="px-3 py-3">
-                                                        <p className="font-semibold text-slate-900 dark:text-white">{topic.topicTitle || topic.topicId}</p>
-                                                        <p className="text-xs text-slate-500 dark:text-slate-400">{topic.topicId}</p>
+                                                        <p className="font-semibold text-text-main-light dark:text-text-main-dark">{topic.topicTitle || topic.topicId}</p>
+                                                        <p className="text-xs text-text-faint-light dark:text-text-faint-dark">{topic.topicId}</p>
                                                     </td>
-                                                    <td className="px-3 py-3 text-slate-600 dark:text-slate-300 uppercase">{topic.format}</td>
-                                                    <td className="px-3 py-3 text-slate-600 dark:text-slate-300">
+                                                    <td className="px-3 py-3 text-text-sub-light dark:text-text-sub-dark uppercase">{topic.format}</td>
+                                                    <td className="px-3 py-3 text-text-sub-light dark:text-text-sub-dark">
                                                         {formatNumber(topic.currentTarget)} → {formatNumber(topic.recalculatedTarget)}
                                                     </td>
-                                                    <td className="px-3 py-3 text-slate-600 dark:text-slate-300">
+                                                    <td className="px-3 py-3 text-text-sub-light dark:text-text-sub-dark">
                                                         {topic.format === 'essay'
                                                             ? `${formatNumber(topic.usableEssayCount)} essay`
                                                             : `${formatNumber(topic.usableMcqCount)} MCQ`}
                                                     </td>
-                                                    <td className="px-3 py-3 text-slate-600 dark:text-slate-300">{formatSignedPercent((Number(topic.fillRatio) || 0) * 100)}</td>
-                                                    <td className="px-3 py-3 text-slate-600 dark:text-slate-300">{topic.scheduled ? 'Yes' : 'No'}</td>
+                                                    <td className="px-3 py-3 text-text-sub-light dark:text-text-sub-dark">{formatSignedPercent((Number(topic.fillRatio) || 0) * 100)}</td>
+                                                    <td className="px-3 py-3 text-text-sub-light dark:text-text-sub-dark">{topic.scheduled ? 'Yes' : 'No'}</td>
                                                 </tr>
                                             ))}
                                         </tbody>
@@ -773,7 +773,7 @@ const ContentPanel = ({
             <SectionCard title="Retrieval Diagnostics" badge="Per-topic grounded retrieval inspector">
                 <form onSubmit={handleDiagnoseRetrieval} className="flex flex-col gap-3 lg:flex-row lg:items-end">
                     <div className="flex-1">
-                        <label htmlFor="retrieval-topic-id" className="block text-sm font-semibold text-slate-900 dark:text-white">
+                        <label htmlFor="retrieval-topic-id" className="block text-sm font-semibold text-text-main-light dark:text-text-main-dark">
                             Topic ID
                         </label>
                         <input
@@ -782,7 +782,7 @@ const ContentPanel = ({
                             value={retrievalTopicId}
                             onChange={(event) => setRetrievalTopicId(event.target.value)}
                             placeholder="k977anw9w94192fzq4kqh5x78x82tqea"
-                            className="mt-1 w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 py-2.5 text-sm text-slate-900 dark:text-white focus:border-primary focus:outline-none"
+                            className="mt-1 w-full rounded-xl border border-border-light dark:border-border-dark bg-surface-light dark:bg-surface-dark px-3 py-2.5 text-sm text-text-main-light dark:text-text-main-dark focus:border-primary focus:outline-none"
                         />
                     </div>
                     <button
@@ -801,7 +801,7 @@ const ContentPanel = ({
                 ) : null}
 
                 {!retrievalDiagnostics ? (
-                    <p className="mt-4 text-sm text-slate-500 dark:text-slate-400">
+                    <p className="mt-4 text-sm text-text-faint-light dark:text-text-faint-dark">
                         Enter a topic ID to inspect lexical vs hybrid retrieval, weight backoff, and the reranked candidate passages.
                     </p>
                 ) : !retrievalDiagnostics.ready ? (
@@ -812,24 +812,24 @@ const ContentPanel = ({
                     </div>
                 ) : (
                     <div className="mt-4 space-y-4">
-                        <div className="rounded-2xl border border-slate-200 dark:border-slate-700 bg-white/80 dark:bg-slate-900/40 p-4">
+                        <div className="rounded-2xl border border-border-light dark:border-border-dark bg-surface-light dark:bg-surface-dark p-4">
                             <div className="flex flex-wrap items-start justify-between gap-3">
                                 <div>
-                                    <h3 className="text-base font-semibold text-slate-900 dark:text-white">{retrievalDiagnostics.topicTitle || retrievalDiagnostics.topicId}</h3>
-                                    <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">{retrievalDiagnostics.topicId}</p>
+                                    <h3 className="text-base font-semibold text-text-main-light dark:text-text-main-dark">{retrievalDiagnostics.topicTitle || retrievalDiagnostics.topicId}</h3>
+                                    <p className="mt-1 text-xs text-text-faint-light dark:text-text-faint-dark">{retrievalDiagnostics.topicId}</p>
                                 </div>
                                 <span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${retrievalDiagnostics.hybrid?.diagnostics?.vectorWeightBackoff?.enabled ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300' : 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300'}`}>
                                     {retrievalDiagnostics.hybrid?.diagnostics?.vectorWeightBackoff?.enabled ? 'Vector backoff enabled' : 'Standard hybrid weighting'}
                                 </span>
                             </div>
-                            <p className="mt-3 text-sm text-slate-600 dark:text-slate-300">{retrievalDiagnostics.query}</p>
+                            <p className="mt-3 text-sm text-text-sub-light dark:text-text-sub-dark">{retrievalDiagnostics.query}</p>
                             <div className="mt-4 grid gap-4 lg:grid-cols-3">
-                                <div className="rounded-xl bg-slate-100/80 dark:bg-slate-900/70 p-3 text-sm">
-                                    <p className="text-slate-500 dark:text-slate-400">Lexical</p>
-                                    <p className="mt-1 font-semibold text-slate-900 dark:text-white">
+                                <div className="rounded-xl bg-surface-hover-light dark:bg-surface-hover-dark p-3 text-sm">
+                                    <p className="text-text-faint-light dark:text-text-faint-dark">Lexical</p>
+                                    <p className="mt-1 font-semibold text-text-main-light dark:text-text-main-dark">
                                         {formatRatioPercent(retrievalDiagnostics.lexical?.metrics?.recallAtK)} recall@k
                                     </p>
-                                    <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+                                    <p className="mt-1 text-xs text-text-faint-light dark:text-text-faint-dark">
                                         {formatNumber(retrievalDiagnostics.lexical?.metrics?.matchedCount)} / {formatNumber(retrievalDiagnostics.lexical?.metrics?.targetCount)} target passages
                                     </p>
                                 </div>
@@ -853,8 +853,8 @@ const ContentPanel = ({
                                 </div>
                             </div>
                             <div className="mt-4 grid gap-4 lg:grid-cols-2">
-                                <div className="rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50/80 dark:bg-slate-950/50 p-3 text-xs text-slate-600 dark:text-slate-300">
-                                    <p className="font-semibold text-slate-900 dark:text-white">Backoff Diagnostics</p>
+                                <div className="rounded-xl border border-border-light dark:border-border-dark bg-surface-hover-light dark:bg-surface-hover-dark p-3 text-xs text-text-sub-light dark:text-text-sub-dark">
+                                    <p className="font-semibold text-text-main-light dark:text-text-main-dark">Backoff Diagnostics</p>
                                     <div className="mt-2 space-y-1">
                                         <p>Lexical top coverage: {formatRatioPercent(retrievalDiagnostics.hybrid?.diagnostics?.vectorWeightBackoff?.lexicalTopCoverage || 0)}</p>
                                         <p>Lexical anchor count: {formatNumber(retrievalDiagnostics.hybrid?.diagnostics?.vectorWeightBackoff?.lexicalAnchorCount || 0)}</p>
@@ -862,8 +862,8 @@ const ContentPanel = ({
                                         <p>Numeric tokens: {(retrievalDiagnostics.hybrid?.diagnostics?.numericTokens || []).join(', ') || 'None'}</p>
                                     </div>
                                 </div>
-                                <div className="rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50/80 dark:bg-slate-950/50 p-3 text-xs text-slate-600 dark:text-slate-300">
-                                    <p className="font-semibold text-slate-900 dark:text-white">Target Passages</p>
+                                <div className="rounded-xl border border-border-light dark:border-border-dark bg-surface-hover-light dark:bg-surface-hover-dark p-3 text-xs text-text-sub-light dark:text-text-sub-dark">
+                                    <p className="font-semibold text-text-main-light dark:text-text-main-dark">Target Passages</p>
                                     <p className="mt-2 break-all">
                                         {Array.isArray(retrievalDiagnostics.targetPassageIds) && retrievalDiagnostics.targetPassageIds.length > 0
                                             ? retrievalDiagnostics.targetPassageIds.join(', ')
@@ -943,7 +943,7 @@ const UsersPanel = ({ signedInUsers, recentUsers, premiumUsers, flags, snapshot,
                         detail={`${formatNumber(historicalLlmEstimate.humanizerCountLastWindow)} last ${activeUsersDays}d • ~${formatNumber(historicalLlmEstimate.estimatedHumanizerTokensPerRequest)} tokens each`}
                     />
                 </div>
-                <p className="mt-4 text-xs text-slate-500 dark:text-slate-400">
+                <p className="mt-4 text-xs text-text-faint-light dark:text-text-faint-dark">
                     {historicalLlmEstimate.coverage || 'Historical estimates use old quota counters where provider token tracking did not exist yet.'}
                 </p>
             </SectionCard>
@@ -952,36 +952,36 @@ const UsersPanel = ({ signedInUsers, recentUsers, premiumUsers, flags, snapshot,
                 <div className="overflow-x-auto">
                     <table className="min-w-full text-sm">
                         <thead>
-                            <tr className="border-b border-slate-200 dark:border-slate-700">
-                                <th className="px-3 py-2 text-left font-semibold text-slate-500 dark:text-slate-400">User</th>
-                                <th className="px-3 py-2 text-left font-semibold text-slate-500 dark:text-slate-400">Verified</th>
-                                <th className="px-3 py-2 text-left font-semibold text-slate-500 dark:text-slate-400">Sessions</th>
-                                <th className="px-3 py-2 text-left font-semibold text-slate-500 dark:text-slate-400">LLM tokens</th>
-                                <th className="px-3 py-2 text-left font-semibold text-slate-500 dark:text-slate-400">Last session</th>
-                                <th className="px-3 py-2 text-left font-semibold text-slate-500 dark:text-slate-400">Joined</th>
+                            <tr className="border-b border-border-light dark:border-border-dark">
+                                <th className="px-3 py-2 text-left font-semibold text-text-faint-light dark:text-text-faint-dark">User</th>
+                                <th className="px-3 py-2 text-left font-semibold text-text-faint-light dark:text-text-faint-dark">Verified</th>
+                                <th className="px-3 py-2 text-left font-semibold text-text-faint-light dark:text-text-faint-dark">Sessions</th>
+                                <th className="px-3 py-2 text-left font-semibold text-text-faint-light dark:text-text-faint-dark">LLM tokens</th>
+                                <th className="px-3 py-2 text-left font-semibold text-text-faint-light dark:text-text-faint-dark">Last session</th>
+                                <th className="px-3 py-2 text-left font-semibold text-text-faint-light dark:text-text-faint-dark">Joined</th>
                             </tr>
                         </thead>
                         <tbody>
                             {signedInUsers.length === 0 ? (
                                 <tr>
-                                    <td colSpan={6} className="px-3 py-6 text-center text-slate-500 dark:text-slate-400">
+                                    <td colSpan={6} className="px-3 py-6 text-center text-text-faint-light dark:text-text-faint-dark">
                                         No active signed-in users right now.
                                     </td>
                                 </tr>
                             ) : signedInUsers.map((record) => (
-                                <tr key={record.userId} className="border-b border-slate-100 dark:border-slate-800/80">
+                                <tr key={record.userId} className="border-b border-border-light dark:border-border-dark">
                                     <td className="px-3 py-3">
-                                        <p className="font-semibold text-slate-900 dark:text-white">{record.email || record.fullName || record.userId}</p>
-                                        <p className="text-xs text-slate-500 dark:text-slate-400">{record.department || ''}</p>
+                                        <p className="font-semibold text-text-main-light dark:text-text-main-dark">{record.email || record.fullName || record.userId}</p>
+                                        <p className="text-xs text-text-faint-light dark:text-text-faint-dark">{record.department || ''}</p>
                                     </td>
-                                    <td className="px-3 py-3 text-slate-600 dark:text-slate-300">{record.emailVerified ? 'Yes' : 'No'}</td>
-                                    <td className="px-3 py-3 text-slate-600 dark:text-slate-300">{formatNumber(record.activeSessionCount)}</td>
-                                    <td className="px-3 py-3 text-slate-600 dark:text-slate-300">
-                                        <div>{formatNumber(record.llmTokensTotal)}<span className="ml-2 text-xs text-slate-500 dark:text-slate-400">Tracked • 7d {formatNumber(record.llmTokensLastWindow)}</span></div>
-                                        <div className="mt-1 text-xs text-slate-500 dark:text-slate-400">Hist. est. {formatNumber(record.estimatedHistoricalTokensTotal)} • 7d {formatNumber(record.estimatedHistoricalTokensLastWindow)}</div>
+                                    <td className="px-3 py-3 text-text-sub-light dark:text-text-sub-dark">{record.emailVerified ? 'Yes' : 'No'}</td>
+                                    <td className="px-3 py-3 text-text-sub-light dark:text-text-sub-dark">{formatNumber(record.activeSessionCount)}</td>
+                                    <td className="px-3 py-3 text-text-sub-light dark:text-text-sub-dark">
+                                        <div>{formatNumber(record.llmTokensTotal)}<span className="ml-2 text-xs text-text-faint-light dark:text-text-faint-dark">Tracked • 7d {formatNumber(record.llmTokensLastWindow)}</span></div>
+                                        <div className="mt-1 text-xs text-text-faint-light dark:text-text-faint-dark">Hist. est. {formatNumber(record.estimatedHistoricalTokensTotal)} • 7d {formatNumber(record.estimatedHistoricalTokensLastWindow)}</div>
                                     </td>
-                                    <td className="px-3 py-3 text-slate-600 dark:text-slate-300">{formatDateTime(record.lastSessionAt)}</td>
-                                    <td className="px-3 py-3 text-slate-600 dark:text-slate-300">{formatDateTime(record.createdAt)}</td>
+                                    <td className="px-3 py-3 text-text-sub-light dark:text-text-sub-dark">{formatDateTime(record.lastSessionAt)}</td>
+                                    <td className="px-3 py-3 text-text-sub-light dark:text-text-sub-dark">{formatDateTime(record.createdAt)}</td>
                                 </tr>
                             ))}
                         </tbody>
@@ -993,36 +993,36 @@ const UsersPanel = ({ signedInUsers, recentUsers, premiumUsers, flags, snapshot,
             <div className="overflow-x-auto">
                 <table className="min-w-full text-sm">
                     <thead>
-                        <tr className="border-b border-slate-200 dark:border-slate-700">
-                            <th className="px-3 py-2 text-left font-semibold text-slate-500 dark:text-slate-400">User</th>
-                            <th className="px-3 py-2 text-left font-semibold text-slate-500 dark:text-slate-400">Status</th>
-                            <th className="px-3 py-2 text-left font-semibold text-slate-500 dark:text-slate-400">Plan amount</th>
-                            <th className="px-3 py-2 text-left font-semibold text-slate-500 dark:text-slate-400">LLM tokens</th>
-                            <th className="px-3 py-2 text-left font-semibold text-slate-500 dark:text-slate-400">Last payment</th>
-                            <th className="px-3 py-2 text-left font-semibold text-slate-500 dark:text-slate-400">Next billing</th>
+                        <tr className="border-b border-border-light dark:border-border-dark">
+                            <th className="px-3 py-2 text-left font-semibold text-text-faint-light dark:text-text-faint-dark">User</th>
+                            <th className="px-3 py-2 text-left font-semibold text-text-faint-light dark:text-text-faint-dark">Status</th>
+                            <th className="px-3 py-2 text-left font-semibold text-text-faint-light dark:text-text-faint-dark">Plan amount</th>
+                            <th className="px-3 py-2 text-left font-semibold text-text-faint-light dark:text-text-faint-dark">LLM tokens</th>
+                            <th className="px-3 py-2 text-left font-semibold text-text-faint-light dark:text-text-faint-dark">Last payment</th>
+                            <th className="px-3 py-2 text-left font-semibold text-text-faint-light dark:text-text-faint-dark">Next billing</th>
                         </tr>
                     </thead>
                     <tbody>
                         {premiumUsers.length === 0 ? (
                             <tr>
-                                <td colSpan={6} className="px-3 py-6 text-center text-slate-500 dark:text-slate-400">
+                                <td colSpan={6} className="px-3 py-6 text-center text-text-faint-light dark:text-text-faint-dark">
                                     No premium users yet.
                                 </td>
                             </tr>
                         ) : premiumUsers.map((record) => (
-                            <tr key={record.userId} className="border-b border-slate-100 dark:border-slate-800/80">
+                            <tr key={record.userId} className="border-b border-border-light dark:border-border-dark">
                                 <td className="px-3 py-3">
-                                    <p className="font-semibold text-slate-900 dark:text-white">{record.email || record.fullName || record.userId}</p>
-                                    <p className="text-xs text-slate-500 dark:text-slate-400">{record.department || ''}</p>
+                                    <p className="font-semibold text-text-main-light dark:text-text-main-dark">{record.email || record.fullName || record.userId}</p>
+                                    <p className="text-xs text-text-faint-light dark:text-text-faint-dark">{record.department || ''}</p>
                                 </td>
-                                <td className="px-3 py-3 text-slate-600 dark:text-slate-300 capitalize">{record.status || 'unknown'}</td>
-                                <td className="px-3 py-3 text-slate-600 dark:text-slate-300">{formatMajorCurrency(record.amountMajor, record.currency)}</td>
-                                <td className="px-3 py-3 text-slate-600 dark:text-slate-300">
-                                    <div>{formatNumber(record.llmTokensTotal)}<span className="ml-2 text-xs text-slate-500 dark:text-slate-400">Tracked • 7d {formatNumber(record.llmTokensLastWindow)}</span></div>
-                                    <div className="mt-1 text-xs text-slate-500 dark:text-slate-400">Hist. est. {formatNumber(record.estimatedHistoricalTokensTotal)} • 7d {formatNumber(record.estimatedHistoricalTokensLastWindow)}</div>
+                                <td className="px-3 py-3 text-text-sub-light dark:text-text-sub-dark capitalize">{record.status || 'unknown'}</td>
+                                <td className="px-3 py-3 text-text-sub-light dark:text-text-sub-dark">{formatMajorCurrency(record.amountMajor, record.currency)}</td>
+                                <td className="px-3 py-3 text-text-sub-light dark:text-text-sub-dark">
+                                    <div>{formatNumber(record.llmTokensTotal)}<span className="ml-2 text-xs text-text-faint-light dark:text-text-faint-dark">Tracked • 7d {formatNumber(record.llmTokensLastWindow)}</span></div>
+                                    <div className="mt-1 text-xs text-text-faint-light dark:text-text-faint-dark">Hist. est. {formatNumber(record.estimatedHistoricalTokensTotal)} • 7d {formatNumber(record.estimatedHistoricalTokensLastWindow)}</div>
                                 </td>
-                                <td className="px-3 py-3 text-slate-600 dark:text-slate-300">{formatDateTime(record.lastPaymentAt)}</td>
-                                <td className="px-3 py-3 text-slate-600 dark:text-slate-300">{record.nextBillingDate || 'N/A'}</td>
+                                <td className="px-3 py-3 text-text-sub-light dark:text-text-sub-dark">{formatDateTime(record.lastPaymentAt)}</td>
+                                <td className="px-3 py-3 text-text-sub-light dark:text-text-sub-dark">{record.nextBillingDate || 'N/A'}</td>
                             </tr>
                         ))}
                     </tbody>
@@ -1034,34 +1034,34 @@ const UsersPanel = ({ signedInUsers, recentUsers, premiumUsers, flags, snapshot,
             <div className="overflow-x-auto">
                 <table className="min-w-full text-sm">
                     <thead>
-                        <tr className="border-b border-slate-200 dark:border-slate-700">
-                            <th className="px-3 py-2 text-left font-semibold text-slate-500 dark:text-slate-400">User</th>
-                            <th className="px-3 py-2 text-left font-semibold text-slate-500 dark:text-slate-400">Signed up</th>
-                            <th className="px-3 py-2 text-left font-semibold text-slate-500 dark:text-slate-400">Last activity</th>
-                            <th className="px-3 py-2 text-left font-semibold text-slate-500 dark:text-slate-400">Docs</th>
-                            <th className="px-3 py-2 text-left font-semibold text-slate-500 dark:text-slate-400">LLM tokens</th>
-                            <th className="px-3 py-2 text-left font-semibold text-slate-500 dark:text-slate-400">Feedback</th>
+                        <tr className="border-b border-border-light dark:border-border-dark">
+                            <th className="px-3 py-2 text-left font-semibold text-text-faint-light dark:text-text-faint-dark">User</th>
+                            <th className="px-3 py-2 text-left font-semibold text-text-faint-light dark:text-text-faint-dark">Signed up</th>
+                            <th className="px-3 py-2 text-left font-semibold text-text-faint-light dark:text-text-faint-dark">Last activity</th>
+                            <th className="px-3 py-2 text-left font-semibold text-text-faint-light dark:text-text-faint-dark">Docs</th>
+                            <th className="px-3 py-2 text-left font-semibold text-text-faint-light dark:text-text-faint-dark">LLM tokens</th>
+                            <th className="px-3 py-2 text-left font-semibold text-text-faint-light dark:text-text-faint-dark">Feedback</th>
                         </tr>
                     </thead>
                     <tbody>
                         {recentUsers.length === 0 ? (
                             <tr>
-                                <td colSpan={6} className="px-3 py-6 text-center text-slate-500 dark:text-slate-400">No user records yet.</td>
+                                <td colSpan={6} className="px-3 py-6 text-center text-text-faint-light dark:text-text-faint-dark">No user records yet.</td>
                             </tr>
                         ) : recentUsers.map((record) => (
-                            <tr key={record.userId || record.createdAt} className="border-b border-slate-100 dark:border-slate-800/80">
+                            <tr key={record.userId || record.createdAt} className="border-b border-border-light dark:border-border-dark">
                                 <td className="px-3 py-3">
-                                    <p className="font-semibold text-slate-900 dark:text-white">{record.email || record.fullName || record.userId || 'Unknown'}</p>
-                                    <p className="text-xs text-slate-500 dark:text-slate-400">{record.department || 'No dept'}{record.educationLevel ? ` • ${record.educationLevel}` : ''}</p>
+                                    <p className="font-semibold text-text-main-light dark:text-text-main-dark">{record.email || record.fullName || record.userId || 'Unknown'}</p>
+                                    <p className="text-xs text-text-faint-light dark:text-text-faint-dark">{record.department || 'No dept'}{record.educationLevel ? ` • ${record.educationLevel}` : ''}</p>
                                 </td>
-                                <td className="px-3 py-3 text-slate-600 dark:text-slate-300">{formatDateTime(record.createdAt)}</td>
-                                <td className="px-3 py-3 text-slate-600 dark:text-slate-300">{formatDateTime(record.lastActiveAt)}</td>
-                                <td className="px-3 py-3 text-slate-600 dark:text-slate-300">{formatNumber(record.documentsProcessed)}</td>
-                                <td className="px-3 py-3 text-slate-600 dark:text-slate-300">
-                                    <div>{formatNumber(record.llmTokensTotal)}<span className="ml-2 text-xs text-slate-500 dark:text-slate-400">Tracked • 7d {formatNumber(record.llmTokensLastWindow)}</span></div>
-                                    <div className="mt-1 text-xs text-slate-500 dark:text-slate-400">Hist. est. {formatNumber(record.estimatedHistoricalTokensTotal)} • 7d {formatNumber(record.estimatedHistoricalTokensLastWindow)}</div>
+                                <td className="px-3 py-3 text-text-sub-light dark:text-text-sub-dark">{formatDateTime(record.createdAt)}</td>
+                                <td className="px-3 py-3 text-text-sub-light dark:text-text-sub-dark">{formatDateTime(record.lastActiveAt)}</td>
+                                <td className="px-3 py-3 text-text-sub-light dark:text-text-sub-dark">{formatNumber(record.documentsProcessed)}</td>
+                                <td className="px-3 py-3 text-text-sub-light dark:text-text-sub-dark">
+                                    <div>{formatNumber(record.llmTokensTotal)}<span className="ml-2 text-xs text-text-faint-light dark:text-text-faint-dark">Tracked • 7d {formatNumber(record.llmTokensLastWindow)}</span></div>
+                                    <div className="mt-1 text-xs text-text-faint-light dark:text-text-faint-dark">Hist. est. {formatNumber(record.estimatedHistoricalTokensTotal)} • 7d {formatNumber(record.estimatedHistoricalTokensLastWindow)}</div>
                                 </td>
-                                <td className="px-3 py-3 text-slate-600 dark:text-slate-300">{formatNumber(record.feedbackCount)}</td>
+                                <td className="px-3 py-3 text-text-sub-light dark:text-text-sub-dark">{formatNumber(record.feedbackCount)}</td>
                             </tr>
                         ))}
                     </tbody>
@@ -1082,21 +1082,21 @@ const UploadsPanel = ({ snapshot }) => {
         <div className="space-y-4">
             <SectionCard title="Where Uploads Went" badge={`${formatNumber(uploadBreakdown.total)} total tracked`}>
                 <div className="grid gap-4 xl:grid-cols-3">
-                    <div className="rounded-2xl border border-slate-200 dark:border-slate-700 bg-white/80 dark:bg-slate-900/40 p-4">
-                        <h3 className="text-sm font-semibold text-slate-900 dark:text-white">Destination Split</h3>
+                    <div className="rounded-2xl border border-border-light dark:border-border-dark bg-surface-light dark:bg-surface-dark p-4">
+                        <h3 className="text-sm font-semibold text-text-main-light dark:text-text-main-dark">Destination Split</h3>
                         <div className="mt-3 space-y-3">
                             {uploadChannels.length === 0 ? (
-                                <p className="text-sm text-slate-500 dark:text-slate-400">No upload activity yet.</p>
+                                <p className="text-sm text-text-faint-light dark:text-text-faint-dark">No upload activity yet.</p>
                             ) : uploadChannels.map((channel) => (
                                 <div key={channel.key} className="space-y-1.5">
                                     <div className="flex items-center justify-between gap-2">
-                                        <p className="text-sm font-semibold text-slate-800 dark:text-slate-100">{channel.label}</p>
-                                        <p className="text-xs text-slate-500 dark:text-slate-400">{formatNumber(channel.count)} ({formatPercent(channel.percent)})</p>
+                                        <p className="text-sm font-semibold text-text-main-light dark:text-text-main-dark">{channel.label}</p>
+                                        <p className="text-xs text-text-faint-light dark:text-text-faint-dark">{formatNumber(channel.count)} ({formatPercent(channel.percent)})</p>
                                     </div>
-                                    <div className="h-2 overflow-hidden rounded-full bg-slate-100 dark:bg-slate-800">
+                                    <div className="h-2 overflow-hidden rounded-full bg-surface-hover-light dark:bg-surface-hover-dark">
                                         <div className="h-full rounded-full bg-primary transition-all" style={{ width: `${Math.max(0, Math.min(Number(channel.percent) || 0, 100))}%` }} />
                                     </div>
-                                    <p className="text-xs text-slate-500 dark:text-slate-400">
+                                    <p className="text-xs text-text-faint-light dark:text-text-faint-dark">
                                         Ready {formatNumber(channel.statuses?.ready)} • Processing {formatNumber(channel.statuses?.processing)} • Errors {formatNumber(channel.statuses?.error)}
                                     </p>
                                 </div>
@@ -1104,30 +1104,30 @@ const UploadsPanel = ({ snapshot }) => {
                         </div>
                     </div>
 
-                    <div className="rounded-2xl border border-slate-200 dark:border-slate-700 bg-white/80 dark:bg-slate-900/40 p-4">
-                        <h3 className="text-sm font-semibold text-slate-900 dark:text-white">Top File Types</h3>
+                    <div className="rounded-2xl border border-border-light dark:border-border-dark bg-surface-light dark:bg-surface-dark p-4">
+                        <h3 className="text-sm font-semibold text-text-main-light dark:text-text-main-dark">Top File Types</h3>
                         <div className="mt-3 space-y-2.5">
                             {uploadFileTypes.length === 0 ? (
-                                <p className="text-sm text-slate-500 dark:text-slate-400">No file types captured yet.</p>
+                                <p className="text-sm text-text-faint-light dark:text-text-faint-dark">No file types captured yet.</p>
                             ) : uploadFileTypes.map((entry) => (
-                                <div key={entry.fileType} className="flex items-center justify-between gap-3 rounded-xl bg-slate-50/80 dark:bg-slate-800/60 px-3 py-2">
-                                    <p className="text-sm font-medium text-slate-800 dark:text-slate-100">{formatFileTypeLabel(entry.fileType)}</p>
-                                    <p className="text-xs text-slate-500 dark:text-slate-400">{formatNumber(entry.count)} ({formatPercent(entry.percent)})</p>
+                                <div key={entry.fileType} className="flex items-center justify-between gap-3 rounded-xl bg-surface-hover-light dark:bg-surface-hover-dark px-3 py-2">
+                                    <p className="text-sm font-medium text-text-main-light dark:text-text-main-dark">{formatFileTypeLabel(entry.fileType)}</p>
+                                    <p className="text-xs text-text-faint-light dark:text-text-faint-dark">{formatNumber(entry.count)} ({formatPercent(entry.percent)})</p>
                                 </div>
                             ))}
                         </div>
                     </div>
 
-                    <div className="rounded-2xl border border-slate-200 dark:border-slate-700 bg-white/80 dark:bg-slate-900/40 p-4">
-                        <h3 className="text-sm font-semibold text-slate-900 dark:text-white">Top Upload Users</h3>
+                    <div className="rounded-2xl border border-border-light dark:border-border-dark bg-surface-light dark:bg-surface-dark p-4">
+                        <h3 className="text-sm font-semibold text-text-main-light dark:text-text-main-dark">Top Upload Users</h3>
                         <div className="mt-3 space-y-2.5">
                             {topUploadUsers.length === 0 ? (
-                                <p className="text-sm text-slate-500 dark:text-slate-400">No user upload activity yet.</p>
+                                <p className="text-sm text-text-faint-light dark:text-text-faint-dark">No user upload activity yet.</p>
                             ) : topUploadUsers.map((entry) => (
-                                <div key={entry.userId} className="rounded-xl bg-slate-50/80 dark:bg-slate-800/60 px-3 py-2">
-                                    <p className="text-sm font-semibold text-slate-800 dark:text-slate-100">{entry.email || entry.fullName || entry.userId}</p>
-                                    <p className="text-xs text-slate-500 dark:text-slate-400">{entry.department || 'No dept'} • Total {formatNumber(entry.totalUploads)}</p>
-                                    <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+                                <div key={entry.userId} className="rounded-xl bg-surface-hover-light dark:bg-surface-hover-dark px-3 py-2">
+                                    <p className="text-sm font-semibold text-text-main-light dark:text-text-main-dark">{entry.email || entry.fullName || entry.userId}</p>
+                                    <p className="text-xs text-text-faint-light dark:text-text-faint-dark">{entry.department || 'No dept'} • Total {formatNumber(entry.totalUploads)}</p>
+                                    <p className="mt-1 text-xs text-text-faint-light dark:text-text-faint-dark">
                                         Study {formatNumber(entry.studyUploads)} • Assignment {formatNumber(entry.assignmentUploads)} • Ready {formatNumber(entry.readyUploads)} • Errors {formatNumber(entry.errorUploads)}
                                     </p>
                                 </div>
@@ -1206,7 +1206,7 @@ const FeedbackPanel = ({
             >
                 <div className="space-y-3">
                     {campaignReports.length === 0 ? (
-                        <p className="text-sm text-slate-500 dark:text-slate-400">No campaign send data yet.</p>
+                        <p className="text-sm text-text-faint-light dark:text-text-faint-dark">No campaign send data yet.</p>
                     ) : campaignReports.map((report) => {
                         const campaignId = normalizeFeedbackMessage(report?.campaignId) || 'unknown_campaign';
                         const sentCount = Number(report?.sentCount) || 0;
@@ -1221,44 +1221,44 @@ const FeedbackPanel = ({
                         return (
                             <article
                                 key={campaignId}
-                                className="rounded-2xl border border-slate-200 dark:border-slate-700 bg-white/80 dark:bg-slate-900/50 p-4"
+                                className="rounded-2xl border border-border-light dark:border-border-dark bg-surface-light dark:bg-surface-dark p-4"
                             >
                                 <div className="flex flex-wrap items-start justify-between gap-3">
                                     <div>
-                                        <p className="font-semibold text-slate-900 dark:text-white break-all">{campaignId}</p>
-                                        <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+                                        <p className="font-semibold text-text-main-light dark:text-text-main-dark break-all">{campaignId}</p>
+                                        <p className="mt-1 text-xs text-text-faint-light dark:text-text-faint-dark">
                                             First sent {formatDateTime(report?.firstSentAt)} • Last sent {formatDateTime(report?.lastSentAt)}
                                         </p>
                                     </div>
-                                    <span className="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-semibold text-slate-700 dark:bg-slate-800 dark:text-slate-200">
+                                    <span className="rounded-full bg-surface-hover-light dark:bg-surface-hover-dark px-2.5 py-1 text-xs font-semibold text-text-main-light dark:text-text-main-dark">
                                         {formatNumber(sentCount)} sent
                                     </span>
                                 </div>
 
                                 <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
-                                    <div className="rounded-xl bg-slate-50/80 px-3 py-3 dark:bg-slate-800/60">
-                                        <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">Sent</p>
-                                        <p className="mt-1 text-xl font-black text-slate-900 dark:text-white">{formatNumber(sentCount)}</p>
+                                    <div className="rounded-xl bg-surface-hover-light dark:bg-surface-hover-dark px-3 py-3">
+                                        <p className="text-[11px] font-semibold uppercase tracking-wide text-text-faint-light dark:text-text-faint-dark">Sent</p>
+                                        <p className="mt-1 text-xl font-black text-text-main-light dark:text-text-main-dark">{formatNumber(sentCount)}</p>
                                     </div>
-                                    <div className="rounded-xl bg-slate-50/80 px-3 py-3 dark:bg-slate-800/60">
-                                        <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">Returned</p>
-                                        <p className="mt-1 text-xl font-black text-slate-900 dark:text-white">{formatNumber(returnedCount)}</p>
-                                        <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">{formatRatioPercent(rates?.returned)}</p>
+                                    <div className="rounded-xl bg-surface-hover-light dark:bg-surface-hover-dark px-3 py-3">
+                                        <p className="text-[11px] font-semibold uppercase tracking-wide text-text-faint-light dark:text-text-faint-dark">Returned</p>
+                                        <p className="mt-1 text-xl font-black text-text-main-light dark:text-text-main-dark">{formatNumber(returnedCount)}</p>
+                                        <p className="mt-1 text-xs text-text-faint-light dark:text-text-faint-dark">{formatRatioPercent(rates?.returned)}</p>
                                     </div>
-                                    <div className="rounded-xl bg-slate-50/80 px-3 py-3 dark:bg-slate-800/60">
-                                        <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">Uploaded</p>
-                                        <p className="mt-1 text-xl font-black text-slate-900 dark:text-white">{formatNumber(uploadedCount)}</p>
-                                        <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">{formatRatioPercent(rates?.uploaded)}</p>
+                                    <div className="rounded-xl bg-surface-hover-light dark:bg-surface-hover-dark px-3 py-3">
+                                        <p className="text-[11px] font-semibold uppercase tracking-wide text-text-faint-light dark:text-text-faint-dark">Uploaded</p>
+                                        <p className="mt-1 text-xl font-black text-text-main-light dark:text-text-main-dark">{formatNumber(uploadedCount)}</p>
+                                        <p className="mt-1 text-xs text-text-faint-light dark:text-text-faint-dark">{formatRatioPercent(rates?.uploaded)}</p>
                                     </div>
-                                    <div className="rounded-xl bg-slate-50/80 px-3 py-3 dark:bg-slate-800/60">
-                                        <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">Activated</p>
-                                        <p className="mt-1 text-xl font-black text-slate-900 dark:text-white">{formatNumber(activatedCount)}</p>
-                                        <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">{formatRatioPercent(rates?.activated)}</p>
+                                    <div className="rounded-xl bg-surface-hover-light dark:bg-surface-hover-dark px-3 py-3">
+                                        <p className="text-[11px] font-semibold uppercase tracking-wide text-text-faint-light dark:text-text-faint-dark">Activated</p>
+                                        <p className="mt-1 text-xl font-black text-text-main-light dark:text-text-main-dark">{formatNumber(activatedCount)}</p>
+                                        <p className="mt-1 text-xs text-text-faint-light dark:text-text-faint-dark">{formatRatioPercent(rates?.activated)}</p>
                                     </div>
-                                    <div className="rounded-xl bg-slate-50/80 px-3 py-3 dark:bg-slate-800/60">
-                                        <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">Paid</p>
-                                        <p className="mt-1 text-xl font-black text-slate-900 dark:text-white">{formatNumber(paidCount)}</p>
-                                        <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">{formatRatioPercent(rates?.paid)}</p>
+                                    <div className="rounded-xl bg-surface-hover-light dark:bg-surface-hover-dark px-3 py-3">
+                                        <p className="text-[11px] font-semibold uppercase tracking-wide text-text-faint-light dark:text-text-faint-dark">Paid</p>
+                                        <p className="mt-1 text-xl font-black text-text-main-light dark:text-text-main-dark">{formatNumber(paidCount)}</p>
+                                        <p className="mt-1 text-xs text-text-faint-light dark:text-text-faint-dark">{formatRatioPercent(rates?.paid)}</p>
                                     </div>
                                 </div>
 
@@ -1282,22 +1282,22 @@ const FeedbackPanel = ({
             <SectionCard title="User Feedback" badge={`Showing ${feedbackPreview.length} of ${formatNumber(feedbackWithMessagesTotal)}`}>
                 <div className="space-y-3">
                     {feedbackPreview.length === 0 ? (
-                        <p className="text-sm text-slate-500 dark:text-slate-400">No text feedback submitted yet.</p>
+                        <p className="text-sm text-text-faint-light dark:text-text-faint-dark">No text feedback submitted yet.</p>
                     ) : feedbackPreview.map((entry) => (
-                        <article key={entry.feedbackId} className="rounded-2xl border border-slate-200 dark:border-slate-700 bg-white/80 dark:bg-slate-900/50 p-4">
+                        <article key={entry.feedbackId} className="rounded-2xl border border-border-light dark:border-border-dark bg-surface-light dark:bg-surface-dark p-4">
                             <div className="flex flex-wrap items-center justify-between gap-2">
                                 <div>
-                                    <p className="font-semibold text-slate-900 dark:text-white">{entry.email || entry.fullName || entry.userId || 'Unknown user'}</p>
-                                    <p className="text-xs text-slate-500 dark:text-slate-400">{entry.department || ''}</p>
+                                    <p className="font-semibold text-text-main-light dark:text-text-main-dark">{entry.email || entry.fullName || entry.userId || 'Unknown user'}</p>
+                                    <p className="text-xs text-text-faint-light dark:text-text-faint-dark">{entry.department || ''}</p>
                                 </div>
                                 <div className="flex items-center gap-2 text-sm">
                                     <span className="rounded-full bg-primary/10 px-2.5 py-1 text-primary font-semibold">
                                         {Number(entry.rating) > 0 ? `${entry.rating}/5` : 'No rating'}
                                     </span>
-                                    <span className="text-slate-500 dark:text-slate-400">{formatDateTime(entry.createdAt)}</span>
+                                    <span className="text-text-faint-light dark:text-text-faint-dark">{formatDateTime(entry.createdAt)}</span>
                                 </div>
                             </div>
-                            <p className="mt-3 whitespace-pre-wrap break-words text-sm text-slate-700 dark:text-slate-200">
+                            <p className="mt-3 whitespace-pre-wrap break-words text-sm text-text-main-light dark:text-text-main-dark">
                                 {normalizeFeedbackMessage(entry.message)}
                             </p>
                         </article>
@@ -1308,7 +1308,7 @@ const FeedbackPanel = ({
             <SectionCard title="Product Research Responses" badge={`Showing ${researchPreview.length} of ${formatNumber(researchResponsesTotal)}`}>
                 <div className="space-y-3">
                     {researchPreview.length === 0 ? (
-                        <p className="text-sm text-slate-500 dark:text-slate-400">No product research responses yet.</p>
+                        <p className="text-sm text-text-faint-light dark:text-text-faint-dark">No product research responses yet.</p>
                     ) : researchPreview.map((entry, index) => {
                         const howUsing = formatResearchChoice(
                             entry?.howUsingApp
@@ -1334,11 +1334,11 @@ const FeedbackPanel = ({
                         const userLabel = entry?.email || entry?.fullName || entry?.userId || 'Unknown user';
 
                         return (
-                            <article key={researchId} className="rounded-2xl border border-slate-200 dark:border-slate-700 bg-white/80 dark:bg-slate-900/50 p-4">
+                            <article key={researchId} className="rounded-2xl border border-border-light dark:border-border-dark bg-surface-light dark:bg-surface-dark p-4">
                                 <div className="flex flex-wrap items-center justify-between gap-2">
                                     <div>
-                                        <p className="font-semibold text-slate-900 dark:text-white">{userLabel}</p>
-                                        <p className="text-xs text-slate-500 dark:text-slate-400">{entry?.department || ''}</p>
+                                        <p className="font-semibold text-text-main-light dark:text-text-main-dark">{userLabel}</p>
+                                        <p className="text-xs text-text-faint-light dark:text-text-faint-dark">{entry?.department || ''}</p>
                                     </div>
                                     <div className="flex flex-wrap items-center gap-2 text-xs">
                                         {campaign ? (
@@ -1351,21 +1351,21 @@ const FeedbackPanel = ({
                                                 Cohort: {cohort}
                                             </span>
                                         ) : null}
-                                        <span className="text-slate-500 dark:text-slate-400">{formatDateTime(createdAt)}</span>
+                                        <span className="text-text-faint-light dark:text-text-faint-dark">{formatDateTime(createdAt)}</span>
                                     </div>
                                 </div>
-                                <div className="mt-3 space-y-1.5 text-sm text-slate-700 dark:text-slate-200">
+                                <div className="mt-3 space-y-1.5 text-sm text-text-main-light dark:text-text-main-dark">
                                     <p>
-                                        <span className="font-semibold text-slate-900 dark:text-white">How using app:</span>{' '}
+                                        <span className="font-semibold text-text-main-light dark:text-text-main-dark">How using app:</span>{' '}
                                         {howUsing || 'N/A'}
                                     </p>
                                     <p>
-                                        <span className="font-semibold text-slate-900 dark:text-white">Wanted next:</span>{' '}
+                                        <span className="font-semibold text-text-main-light dark:text-text-main-dark">Wanted next:</span>{' '}
                                         {wantedFeatures || 'N/A'}
                                     </p>
                                     {notes ? (
                                         <p className="whitespace-pre-wrap break-words">
-                                            <span className="font-semibold text-slate-900 dark:text-white">Notes:</span>{' '}
+                                            <span className="font-semibold text-text-main-light dark:text-text-main-dark">Notes:</span>{' '}
                                             {notes}
                                         </p>
                                     ) : null}
@@ -1394,18 +1394,18 @@ const SettingsPanel = ({
 }) => (
     <div className="space-y-4">
         <SectionCard title="Payment Provider" badge="Fallback mode available">
-            <p className="text-sm text-slate-600 dark:text-slate-400">
+            <p className="text-sm text-text-sub-light dark:text-text-faint-dark">
                 Choose how checkouts are handled when top-up is started.
             </p>
             <form onSubmit={handleSavePaymentProvider} className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-end">
                 <div className="grow">
-                    <label className="block text-xs font-semibold text-slate-500 dark:text-slate-400 mb-1">
+                    <label className="block text-xs font-semibold text-text-faint-light dark:text-text-faint-dark mb-1">
                         Checkout provider
                     </label>
                     <select
                         value={paymentProviderDraft}
                         onChange={(event) => setPaymentProviderDraft(event.target.value)}
-                        className="w-full rounded-xl border-2 border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-4 py-2.5 text-sm text-slate-900 dark:text-white focus:outline-none focus:border-primary"
+                        className="w-full rounded-xl border-2 border-border-light dark:border-border-dark bg-surface-light dark:bg-surface-dark px-4 py-2.5 text-sm text-text-main-light dark:text-text-main-dark focus:outline-none focus:border-primary"
                     >
                         {(Array.isArray(paymentProviderConfig?.options) ? paymentProviderConfig.options : []).map((option) => (
                             <option key={option.id} value={option.id}>
@@ -1413,7 +1413,7 @@ const SettingsPanel = ({
                             </option>
                         ))}
                     </select>
-                    <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+                    <p className="mt-1 text-xs text-text-faint-light dark:text-text-faint-dark">
                         Current: {paymentProviderConfig?.selectedLabel || paymentProviderConfig?.selected || 'Unknown'}
                         {paymentProviderConfig?.updatedAt ? ` • Updated ${new Date(paymentProviderConfig.updatedAt).toLocaleString()}` : null}
                     </p>
@@ -1426,7 +1426,7 @@ const SettingsPanel = ({
                     {adminActionLoading ? 'Saving...' : 'Save provider'}
                 </button>
             </form>
-            <p className="mt-3 text-xs text-slate-500 dark:text-slate-400">
+            <p className="mt-3 text-xs text-text-faint-light dark:text-text-faint-dark">
                 Manual mode applies top-up for the current payment amount without calling Paystack and does not require a merchant API key.
             </p>
         </SectionCard>
@@ -1437,7 +1437,7 @@ const SettingsPanel = ({
                     value={newAdminEmail}
                     onChange={(event) => setNewAdminEmail(event.target.value)}
                     placeholder="admin@example.com"
-                    className="w-full rounded-xl border-2 border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-4 py-2.5 text-sm text-slate-900 dark:text-white focus:outline-none focus:border-primary"
+                    className="w-full rounded-xl border-2 border-border-light dark:border-border-dark bg-surface-light dark:bg-surface-dark px-4 py-2.5 text-sm text-text-main-light dark:text-text-main-dark focus:outline-none focus:border-primary"
                 />
                 <button
                     type="submit"
@@ -1452,15 +1452,15 @@ const SettingsPanel = ({
             ) : null}
             <div className="mt-4 grid gap-2">
                 {adminEmails.length === 0 ? (
-                    <p className="text-sm text-slate-500 dark:text-slate-400">No admin emails configured.</p>
+                    <p className="text-sm text-text-faint-light dark:text-text-faint-dark">No admin emails configured.</p>
                 ) : adminEmails.map((entry) => (
                     <div
                         key={entry.email}
-                        className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white/80 dark:bg-slate-900/50 p-3"
+                        className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-border-light dark:border-border-dark bg-surface-light dark:bg-surface-dark p-3"
                     >
                         <div>
-                            <p className="font-semibold text-slate-900 dark:text-white">{entry.email}</p>
-                            <p className="text-xs text-slate-500 dark:text-slate-400">{(entry.sources || []).map(formatAdminSource).join(' • ')}</p>
+                            <p className="font-semibold text-text-main-light dark:text-text-main-dark">{entry.email}</p>
+                            <p className="text-xs text-text-faint-light dark:text-text-faint-dark">{(entry.sources || []).map(formatAdminSource).join(' • ')}</p>
                         </div>
                         {canRemoveAdminEmail(entry.sources) ? (
                             <button
@@ -1472,7 +1472,7 @@ const SettingsPanel = ({
                                 Remove
                             </button>
                         ) : (
-                            <span className="text-xs text-slate-500 dark:text-slate-400">Managed</span>
+                            <span className="text-xs text-text-faint-light dark:text-text-faint-dark">Managed</span>
                         )}
                     </div>
                 ))}
@@ -1510,7 +1510,7 @@ const AdminDashboard = () => {
             <div className="bg-background-light dark:bg-background-dark min-h-screen flex items-center justify-center">
                 <div className="flex flex-col items-center gap-4">
                     <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary"></div>
-                    <p className="text-slate-500 dark:text-slate-400 text-sm font-medium">Loading admin dashboard...</p>
+                    <p className="text-text-faint-light dark:text-text-faint-dark text-sm font-medium">Loading admin dashboard...</p>
                 </div>
             </div>
         );
@@ -1662,16 +1662,16 @@ const AdminDashboard = () => {
                     <div className="flex flex-wrap items-center justify-between gap-3">
                         <div>
                             <p className="text-xs font-semibold uppercase tracking-wider text-primary">Admin</p>
-                            <h1 className="mt-1 text-2xl font-black text-slate-900 dark:text-white">
+                            <h1 className="mt-1 text-2xl font-black text-text-main-light dark:text-text-main-dark">
                                 Stitch Operations Dashboard
                             </h1>
-                            <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">
+                            <p className="mt-2 text-sm text-text-faint-light dark:text-text-faint-dark">
                                 Updated {formatDateTime(snapshot.generatedAt)}
                             </p>
                         </div>
                         <Link
                             to="/dashboard"
-                            className="inline-flex items-center gap-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-4 py-2.5 text-sm font-semibold text-slate-700 dark:text-slate-200 hover:border-primary/40 transition-colors"
+                            className="inline-flex items-center gap-2 rounded-xl border border-border-light dark:border-border-dark bg-surface-light dark:bg-surface-dark px-4 py-2.5 text-sm font-semibold text-text-main-light dark:text-text-main-dark hover:border-primary/40 transition-colors"
                         >
                             <span className="material-symbols-outlined text-[18px]">arrow_back</span>
                             Main dashboard

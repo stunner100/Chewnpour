@@ -61,36 +61,36 @@ const Unsubscribe = () => {
     }, [emailType, label, token, unsubscribeByToken]);
 
     return (
-        <div className="min-h-screen bg-background-light dark:bg-background-dark px-4 py-10 sm:px-6">
-            <div className="mx-auto w-full max-w-xl card-base p-6 sm:p-8 text-center">
+        <div className="min-h-screen bg-background-light dark:bg-background-dark flex items-center justify-center px-4 py-10">
+            <div className="w-full max-w-xl card-base p-6 sm:p-8 text-center">
                 <div className={`mx-auto flex h-14 w-14 items-center justify-center rounded-2xl ${
                     status === 'success'
-                        ? 'bg-emerald-100 text-emerald-600 dark:bg-emerald-900/30 dark:text-emerald-300'
+                        ? 'bg-accent-emerald/10 text-accent-emerald'
                         : status === 'error'
-                            ? 'bg-rose-100 text-rose-600 dark:bg-rose-900/30 dark:text-rose-300'
-                            : 'bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-300'
+                            ? 'bg-red-500/10 text-red-600 dark:text-red-400'
+                            : 'bg-surface-hover-light dark:bg-surface-hover-dark text-text-faint-light dark:text-text-faint-dark'
                 }`}>
-                    <span className="material-symbols-outlined">
+                    <span className="material-symbols-outlined text-[24px]">
                         {status === 'success' ? 'check_circle' : status === 'error' ? 'error' : 'hourglass_top'}
                     </span>
                 </div>
-                <h1 className="mt-4 text-2xl font-black text-slate-900 dark:text-white">
+                <h1 className="mt-4 text-display-sm text-text-main-light dark:text-text-main-dark">
                     {status === 'success' ? 'Preferences updated' : status === 'error' ? 'Unsubscribe failed' : 'Updating preferences'}
                 </h1>
-                <p className="mt-3 text-sm text-slate-600 dark:text-slate-300">
+                <p className="mt-2 text-body-sm text-text-sub-light dark:text-text-sub-dark">
                     {status === 'loading' ? 'Please wait while we update your email preferences.' : message}
                 </p>
                 <div className="mt-6 flex flex-wrap items-center justify-center gap-3">
                     <Link
                         to="/dashboard"
-                        className="inline-flex items-center gap-2 rounded-xl bg-primary px-4 py-2.5 text-sm font-bold text-white hover:bg-primary-hover transition-colors"
+                        className="btn-primary inline-flex items-center gap-2 px-5 py-2.5 text-body-sm"
                     >
                         <span className="material-symbols-outlined text-[18px]">home</span>
                         Back to dashboard
                     </Link>
                     <Link
                         to="/profile"
-                        className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 hover:border-primary/40 transition-colors dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
+                        className="btn-secondary inline-flex items-center gap-2 px-5 py-2.5 text-body-sm"
                     >
                         <span className="material-symbols-outlined text-[18px]">settings</span>
                         Email settings

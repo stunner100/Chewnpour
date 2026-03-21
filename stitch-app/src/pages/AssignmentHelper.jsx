@@ -708,18 +708,18 @@ const AssignmentHelper = () => {
     };
 
     return (
-        <div className="bg-background-light dark:bg-background-dark font-body antialiased min-h-screen flex flex-col">
-            <header className="sticky top-0 z-50 w-full glass border-b border-neutral-200/50 dark:border-neutral-800/50">
-                <div className="max-w-[1600px] mx-auto px-4 md:px-6 h-16 md:h-18 flex items-center justify-between gap-4">
+        <div className="bg-background-light dark:bg-background-dark antialiased min-h-screen flex flex-col">
+            <header className="sticky top-0 z-50 w-full bg-surface-light/90 dark:bg-surface-dark/90 backdrop-blur-md border-b border-border-light dark:border-border-dark">
+                <div className="max-w-[1600px] mx-auto px-4 md:px-6 h-14 flex items-center justify-between gap-4">
                     <div className="flex items-center gap-3">
-                        <Link to="/dashboard" aria-label="Back to dashboard" className="flex size-9 items-center justify-center rounded-full bg-neutral-100 dark:bg-neutral-800 text-neutral-500 hover:text-primary hover:bg-neutral-200 dark:hover:bg-neutral-700 transition-colors">
+                        <Link to="/dashboard" aria-label="Back to dashboard" className="btn-icon w-10 h-10">
                             <span className="material-symbols-outlined text-[20px]">arrow_back</span>
                         </Link>
                         <div className="flex items-center gap-2">
                             <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center text-white">
-                                <span className="material-symbols-outlined text-[18px] filled">assignment</span>
+                                <span className="material-symbols-outlined text-[18px]">assignment</span>
                             </div>
-                            <h1 className="text-base md:text-lg font-display font-bold text-neutral-900 dark:text-white">Assignment Helper</h1>
+                            <h1 className="text-body-base font-semibold text-text-main-light dark:text-text-main-dark">Assignment Helper</h1>
                         </div>
                     </div>
                     <div className="flex items-center gap-2">
@@ -728,7 +728,7 @@ const AssignmentHelper = () => {
                             onClick={handleCameraClick}
                             disabled={busy}
                             aria-label="Take photo of assignment"
-                            className="inline-flex items-center gap-1.5 h-9 px-3 rounded-lg border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-800 text-neutral-600 dark:text-neutral-300 text-sm font-medium hover:border-primary/30 hover:text-primary transition-colors disabled:opacity-60"
+                            className="btn-secondary inline-flex items-center gap-1.5 h-9 px-3 text-body-sm"
                         >
                             <span className="material-symbols-outlined text-[18px]">photo_camera</span>
                             <span className="hidden sm:inline">Camera</span>
@@ -738,7 +738,7 @@ const AssignmentHelper = () => {
                             onClick={handleUploadClick}
                             disabled={busy}
                             aria-label="Upload assignment file"
-                            className="inline-flex items-center gap-1.5 h-9 px-3 rounded-lg bg-primary text-white text-sm font-semibold shadow-md shadow-primary/20 hover:shadow-lg hover:shadow-primary/30 transition-all disabled:opacity-60"
+                            className="btn-primary inline-flex items-center gap-1.5 h-9 px-3 text-body-sm"
                         >
                             <span className="material-symbols-outlined text-[18px]">{busy ? 'hourglass_empty' : 'upload_file'}</span>
                             <span className="hidden sm:inline">{busy ? 'Processing...' : 'Upload'}</span>
@@ -767,12 +767,12 @@ const AssignmentHelper = () => {
                 {(error || successMessage) && (
                     <div className="mb-5 space-y-2">
                         {error && (
-                            <div className="rounded-xl border border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-900/20 px-4 py-3 text-sm font-medium text-red-700 dark:text-red-300">
+                            <div className="p-3 rounded-xl border border-red-200 dark:border-red-900/30 bg-red-50 dark:bg-red-900/10 text-body-sm font-medium text-red-700 dark:text-red-300">
                                 {error}
                             </div>
                         )}
                         {successMessage && (
-                            <div className="rounded-xl border border-emerald-200 dark:border-emerald-800 bg-emerald-50 dark:bg-emerald-900/20 px-4 py-3 text-sm font-medium text-emerald-700 dark:text-emerald-300">
+                            <div className="p-3 rounded-xl border border-emerald-200 dark:border-emerald-900/30 bg-accent-emerald/10 text-body-sm font-medium text-accent-emerald">
                                 {successMessage}
                             </div>
                         )}
@@ -780,28 +780,28 @@ const AssignmentHelper = () => {
                 )}
 
                 <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 min-h-[72vh]">
-                    <aside className={`lg:col-span-4 xl:col-span-3 rounded-2xl border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 shadow-sm flex flex-col max-h-[60vh] lg:max-h-none overflow-hidden ${selectedThread ? 'hidden lg:flex' : ''}`}>
-                        <div className="flex items-center justify-between p-4 border-b border-neutral-100 dark:border-neutral-800">
+                    <aside className={`lg:col-span-4 xl:col-span-3 card-base flex flex-col max-h-[60vh] lg:max-h-none overflow-hidden ${selectedThread ? 'hidden lg:flex' : ''}`}>
+                        <div className="flex items-center justify-between p-4 border-b border-border-light dark:border-border-dark">
                             <div className="flex items-center gap-2">
-                                <span className="material-symbols-outlined text-neutral-400 text-lg">forum</span>
-                                <h2 className="text-sm font-semibold text-neutral-700 dark:text-neutral-300">Conversations</h2>
+                                <span className="material-symbols-outlined text-text-faint-light dark:text-text-faint-dark text-[18px]">forum</span>
+                                <h2 className="text-body-sm font-semibold text-text-main-light dark:text-text-main-dark">Conversations</h2>
                             </div>
-                            <span className="text-xs font-medium px-2 py-0.5 bg-neutral-100 dark:bg-neutral-800 text-neutral-500 rounded-full">{sortedThreads.length}</span>
+                            <span className="text-caption font-medium px-2 py-0.5 bg-surface-hover-light dark:bg-surface-hover-dark text-text-faint-light dark:text-text-faint-dark rounded-full">{sortedThreads.length}</span>
                         </div>
                         <div className="flex-1 overflow-y-auto p-3 space-y-2" role="list">
                             {threads === undefined ? (
                                 <div className="space-y-2">
                                     {[0, 1, 2].map((i) => (
-                                        <div key={i} className="animate-pulse rounded-xl bg-neutral-100 dark:bg-neutral-800 h-20" />
+                                        <div key={i} className="animate-pulse rounded-xl bg-surface-hover-light dark:bg-surface-hover-dark h-20" />
                                     ))}
                                 </div>
                             ) : sortedThreads.length === 0 ? (
                                 <div className="h-full flex flex-col items-center justify-center text-center px-4 py-8">
-                                    <div className="w-14 h-14 rounded-xl bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 flex items-center justify-center mb-3">
-                                        <span className="material-symbols-outlined text-2xl text-primary/60">chat_add_on</span>
+                                    <div className="w-14 h-14 rounded-xl bg-primary/8 flex items-center justify-center mb-3">
+                                        <span className="material-symbols-outlined text-[24px] text-primary/60">chat_add_on</span>
                                     </div>
-                                    <p className="text-sm font-semibold text-neutral-700 dark:text-neutral-300">No assignments yet</p>
-                                    <p className="text-xs text-neutral-500 mt-1 max-w-[200px]">Upload your first assignment to get started</p>
+                                    <p className="text-body-sm font-semibold text-text-main-light dark:text-text-main-dark">No assignments yet</p>
+                                    <p className="text-caption text-text-faint-light dark:text-text-faint-dark mt-1 max-w-[200px]">Upload your first assignment to get started</p>
                                 </div>
                             ) : (
                                 sortedThreads.map((thread) => {
@@ -813,8 +813,8 @@ const AssignmentHelper = () => {
                                             key={thread._id}
                                             role="listitem"
                                             className={`group rounded-xl p-3 transition-all relative ${isActive
-                                                ? 'bg-primary/5 dark:bg-primary/10 border-2 border-primary shadow-sm'
-                                                : 'bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-700 hover:border-primary/30 dark:hover:border-primary/30'
+                                                ? 'bg-primary/5 dark:bg-primary/10 border-2 border-primary'
+                                                : 'border border-border-light dark:border-border-dark hover:border-primary/30'
                                                 } ${isDeleting ? 'opacity-50' : ''}`}
                                         >
                                             <button
@@ -824,26 +824,24 @@ const AssignmentHelper = () => {
                                                 className="w-full text-left"
                                             >
                                                 <div className="flex items-start gap-3">
-                                                    <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 transition-colors ${isActive ? 'bg-primary text-white shadow-md shadow-primary/20' : 'bg-neutral-100 dark:bg-neutral-800 text-neutral-500'}`}>
-                                                        <span className="material-symbols-outlined text-xl">description</span>
+                                                    <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 transition-colors ${isActive ? 'bg-primary text-white' : 'bg-surface-hover-light dark:bg-surface-hover-dark text-text-faint-light dark:text-text-faint-dark'}`}>
+                                                        <span className="material-symbols-outlined text-[20px]">description</span>
                                                     </div>
                                                     <div className="flex-1 min-w-0 pr-6">
-                                                        <div className="flex items-center gap-2">
-                                                            <h3 className={`text-sm font-semibold truncate ${isActive ? 'text-primary dark:text-primary' : 'text-neutral-900 dark:text-white'}`}>
-                                                                {thread.title}
-                                                            </h3>
-                                                        </div>
-                                                        <p className="text-xs text-neutral-500 truncate mt-0.5">{thread.fileName}</p>
+                                                        <h3 className={`text-body-sm font-semibold truncate ${isActive ? 'text-primary' : 'text-text-main-light dark:text-text-main-dark'}`}>
+                                                            {thread.title}
+                                                        </h3>
+                                                        <p className="text-caption text-text-faint-light dark:text-text-faint-dark truncate mt-0.5">{thread.fileName}</p>
                                                         <div className="flex items-center gap-2 mt-1.5">
-                                                            <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded-full ${thread.status === 'ready'
-                                                                ? 'bg-green-100 text-green-700'
+                                                            <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded-full ${thread.status === 'ready'
+                                                                ? 'bg-accent-emerald/10 text-accent-emerald'
                                                                 : thread.status === 'error'
-                                                                    ? 'bg-red-100 text-red-700'
-                                                                    : 'bg-amber-100 text-amber-700'
+                                                                    ? 'bg-red-100 dark:bg-red-900/20 text-red-700 dark:text-red-400'
+                                                                    : 'bg-accent-amber/10 text-accent-amber'
                                                                 }`}>
                                                                 {thread.status === 'ready' ? 'Ready' : thread.status === 'error' ? 'Failed' : 'Processing'}
                                                             </span>
-                                                            <span className="text-[10px] text-neutral-400">{formatRelativeTime(thread.updatedAt)}</span>
+                                                            <span className="text-[10px] text-text-faint-light dark:text-text-faint-dark">{formatRelativeTime(thread.updatedAt)}</span>
                                                         </div>
                                                     </div>
                                                 </div>
@@ -860,7 +858,7 @@ const AssignmentHelper = () => {
                                                     <button
                                                         type="button"
                                                         onClick={(e) => { e.stopPropagation(); setConfirmDeleteId(null); }}
-                                                        className="text-[10px] font-medium text-neutral-500 hover:text-neutral-700 px-1.5 py-1 rounded-lg transition-colors"
+                                                        className="text-[10px] font-medium text-text-faint-light dark:text-text-faint-dark hover:text-text-main-light dark:hover:text-text-main-dark px-1.5 py-1 rounded-lg transition-colors"
                                                     >
                                                         Cancel
                                                     </button>
@@ -874,9 +872,9 @@ const AssignmentHelper = () => {
                                                     }}
                                                     disabled={isDeleting}
                                                     aria-label="Delete conversation"
-                                                    className="absolute right-2 top-2 w-7 h-7 flex items-center justify-center rounded-lg text-neutral-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 opacity-100 lg:opacity-0 lg:group-hover:opacity-100 transition-all"
+                                                    className="absolute right-2 top-2 w-7 h-7 flex items-center justify-center rounded-lg text-text-faint-light dark:text-text-faint-dark hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 opacity-100 lg:opacity-0 lg:group-hover:opacity-100 transition-all"
                                                 >
-                                                    <span className="material-symbols-outlined text-lg">
+                                                    <span className="material-symbols-outlined text-[18px]">
                                                         {isDeleting ? 'hourglass_empty' : 'close'}
                                                     </span>
                                                 </button>
@@ -888,16 +886,16 @@ const AssignmentHelper = () => {
                         </div>
                     </aside>
 
-                    <section className="lg:col-span-8 xl:col-span-9 rounded-2xl border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 shadow-sm flex flex-col h-[calc(100svh-10rem)] lg:h-[72vh] overflow-hidden">
+                    <section className="lg:col-span-8 xl:col-span-9 card-base flex flex-col h-[calc(100svh-10rem)] lg:h-[72vh] overflow-hidden">
                         {!selectedThread ? (
                             <div className="flex-1 flex flex-col items-center justify-center text-center px-6 py-16">
                                 <div className="mb-6">
-                                    <div className="w-20 h-20 rounded-2xl bg-primary flex items-center justify-center text-white shadow-xl shadow-primary/30">
-                                        <span className="material-symbols-outlined text-4xl">assignment</span>
+                                    <div className="w-20 h-20 rounded-2xl bg-primary/8 flex items-center justify-center text-primary">
+                                        <span className="material-symbols-outlined text-[36px]">assignment</span>
                                     </div>
                                 </div>
-                                <h2 className="text-xl font-bold text-neutral-900 dark:text-white mb-2">Start with an Assignment</h2>
-                                <p className="text-neutral-500 dark:text-neutral-400 text-sm max-w-xs mb-8">
+                                <h2 className="text-body-lg font-semibold text-text-main-light dark:text-text-main-dark mb-2">Start with an Assignment</h2>
+                                <p className="text-body-sm text-text-sub-light dark:text-text-sub-dark max-w-xs mb-8">
                                     Upload a PDF, DOCX, or photo. Our AI will solve it and you can ask follow-up questions.
                                 </p>
                                 <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 w-full sm:w-auto max-w-xs sm:max-w-none">
@@ -905,60 +903,60 @@ const AssignmentHelper = () => {
                                         type="button"
                                         onClick={handleUploadClick}
                                         disabled={busy}
-                                        className="flex-1 sm:flex-none inline-flex items-center justify-center gap-2 h-11 px-6 rounded-xl bg-primary text-white text-sm font-semibold shadow-lg shadow-primary/25 hover:shadow-xl hover:shadow-primary/30 hover:-translate-y-0.5 active:translate-y-0 transition-all disabled:opacity-60 disabled:transform-none"
+                                        className="btn-primary flex-1 sm:flex-none inline-flex items-center justify-center gap-2 h-11 px-6 text-body-sm"
                                     >
-                                        <span className="material-symbols-outlined text-lg">{busy ? 'hourglass_empty' : 'upload_file'}</span>
+                                        <span className="material-symbols-outlined text-[18px]">{busy ? 'hourglass_empty' : 'upload_file'}</span>
                                         Upload File
                                     </button>
                                     <button
                                         type="button"
                                         onClick={handleCameraClick}
                                         disabled={busy}
-                                        className="flex-1 sm:flex-none inline-flex items-center justify-center gap-2 h-11 px-6 rounded-xl border-2 border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-800 text-neutral-700 dark:text-neutral-200 text-sm font-semibold hover:border-blue-400 hover:text-blue-600 dark:hover:border-blue-500 dark:hover:text-primary/60 transition-all disabled:opacity-60"
+                                        className="btn-secondary flex-1 sm:flex-none inline-flex items-center justify-center gap-2 h-11 px-6 text-body-sm"
                                     >
-                                        <span className="material-symbols-outlined text-lg">photo_camera</span>
+                                        <span className="material-symbols-outlined text-[18px]">photo_camera</span>
                                         Take Photo
                                     </button>
                                 </div>
-                                <div className="mt-6 flex items-center gap-4 text-xs text-neutral-400">
+                                <div className="mt-6 flex items-center gap-4 text-caption text-text-faint-light dark:text-text-faint-dark">
                                     <span className="flex items-center gap-1">
-                                        <span className="material-symbols-outlined text-sm">check_circle</span>
+                                        <span className="material-symbols-outlined text-[14px]">check_circle</span>
                                         PDF
                                     </span>
                                     <span className="flex items-center gap-1">
-                                        <span className="material-symbols-outlined text-sm">check_circle</span>
+                                        <span className="material-symbols-outlined text-[14px]">check_circle</span>
                                         DOCX
                                     </span>
                                     <span className="flex items-center gap-1">
-                                        <span className="material-symbols-outlined text-sm">check_circle</span>
+                                        <span className="material-symbols-outlined text-[14px]">check_circle</span>
                                         Images
                                     </span>
                                 </div>
                             </div>
                         ) : (
                             <>
-                                <div className="px-4 py-3 border-b border-neutral-100 dark:border-neutral-800 bg-white dark:bg-neutral-900">
+                                <div className="px-4 py-3 border-b border-border-light dark:border-border-dark bg-surface-light dark:bg-surface-dark">
                                     <div className="flex items-center gap-3">
                                         <button
                                             type="button"
                                             onClick={() => setSelectedThreadId(null)}
-                                            className="lg:hidden flex items-center justify-center w-9 h-9 rounded-lg bg-neutral-100 dark:bg-neutral-800 text-neutral-500 hover:text-primary transition-colors shrink-0"
+                                            className="lg:hidden btn-icon w-9 h-9"
                                             aria-label="Back to conversations"
                                         >
                                             <span className="material-symbols-outlined text-[20px]">arrow_back</span>
                                         </button>
-                                        <div className="w-9 h-9 rounded-lg bg-primary flex items-center justify-center text-white shrink-0 shadow-md shadow-primary/20">
-                                            <span className="material-symbols-outlined text-lg">description</span>
+                                        <div className="w-9 h-9 rounded-lg bg-primary flex items-center justify-center text-white shrink-0">
+                                            <span className="material-symbols-outlined text-[18px]">description</span>
                                         </div>
                                         <div className="flex-1 min-w-0">
-                                            <h2 className="text-sm font-semibold text-neutral-900 dark:text-white truncate">{selectedThread.title}</h2>
+                                            <h2 className="text-body-sm font-semibold text-text-main-light dark:text-text-main-dark truncate">{selectedThread.title}</h2>
                                             <div className="flex items-center gap-2">
-                                                <p className="text-xs text-neutral-500 truncate">{selectedThread.fileName}</p>
-                                                <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded-full ${threadStatus === 'ready'
-                                                    ? 'bg-green-100 text-green-700'
+                                                <p className="text-caption text-text-faint-light dark:text-text-faint-dark truncate">{selectedThread.fileName}</p>
+                                                <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded-full ${threadStatus === 'ready'
+                                                    ? 'bg-accent-emerald/10 text-accent-emerald'
                                                     : threadStatus === 'error'
-                                                        ? 'bg-red-100 text-red-700'
-                                                        : 'bg-amber-100 text-amber-700'
+                                                        ? 'bg-red-100 dark:bg-red-900/20 text-red-700 dark:text-red-400'
+                                                        : 'bg-accent-amber/10 text-accent-amber'
                                                     }`}>
                                                     {threadStatus === 'ready' ? 'Ready' : threadStatus === 'error' ? 'Failed' : 'Processing'}
                                                 </span>
@@ -971,7 +969,7 @@ const AssignmentHelper = () => {
                                                 Switch assignment conversation
                                             </label>
                                             <div className="relative">
-                                                <span className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 material-symbols-outlined text-[16px] text-neutral-400">
+                                                <span className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 material-symbols-outlined text-[16px] text-text-faint-light dark:text-text-faint-dark">
                                                     swap_horiz
                                                 </span>
                                                 <select
@@ -979,7 +977,7 @@ const AssignmentHelper = () => {
                                                     aria-label="Switch assignment conversation"
                                                     value={selectedThreadId ? String(selectedThreadId) : ''}
                                                     onChange={(event) => setSelectedThreadId(event.target.value || null)}
-                                                    className="w-full h-9 rounded-lg border border-neutral-200 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-800 text-neutral-800 dark:text-neutral-100 text-sm pl-8 pr-8 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary/40"
+                                                    className="input-field h-9 text-body-sm pl-8 pr-8"
                                                 >
                                                     {sortedThreads.map((thread) => (
                                                         <option key={thread._id} value={String(thread._id)}>
@@ -987,7 +985,7 @@ const AssignmentHelper = () => {
                                                         </option>
                                                     ))}
                                                 </select>
-                                                <span className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 material-symbols-outlined text-[18px] text-neutral-400">
+                                                <span className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 material-symbols-outlined text-[18px] text-text-faint-light dark:text-text-faint-dark">
                                                     expand_more
                                                 </span>
                                             </div>
@@ -995,16 +993,16 @@ const AssignmentHelper = () => {
                                     )}
                                 </div>
 
-                                <div className="flex-1 overflow-y-auto px-4 py-4 space-y-4 bg-neutral-50/50 dark:bg-neutral-900/30">
+                                <div className="flex-1 overflow-y-auto px-4 py-4 space-y-4 bg-background-light dark:bg-background-dark">
                                     {isThreadProcessing && (
-                                        <div className="rounded-xl bg-white dark:bg-neutral-800 border border-primary/20 dark:border-primary/20 p-4 shadow-sm">
+                                        <div className="card-base p-4 border-primary/20 dark:border-primary/20">
                                             <div className="flex items-start gap-3">
-                                                <div className="relative flex h-10 w-10 items-center justify-center rounded-xl bg-primary text-white shadow-lg shadow-primary/25 shrink-0">
-                                                    <span className="material-symbols-outlined text-lg animate-pulse">auto_awesome</span>
+                                                <div className="relative flex h-10 w-10 items-center justify-center rounded-xl bg-primary text-white shrink-0">
+                                                    <span className="material-symbols-outlined text-[18px] animate-pulse">auto_awesome</span>
                                                 </div>
                                                 <div className="flex-1">
-                                                    <p className="text-sm font-semibold text-neutral-900 dark:text-neutral-100">AI is solving your assignment</p>
-                                                    <p className="text-xs text-neutral-500 mt-0.5">
+                                                    <p className="text-body-sm font-semibold text-text-main-light dark:text-text-main-dark">AI is solving your assignment</p>
+                                                    <p className="text-caption text-text-faint-light dark:text-text-faint-dark mt-0.5">
                                                         {currentProcessingStage.detail}
                                                     </p>
                                                 </div>
@@ -1017,15 +1015,15 @@ const AssignmentHelper = () => {
                                                     return (
                                                         <div key={stage.title} className="flex items-center gap-1.5">
                                                             <div className={`w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold ${isDone
-                                                                ? 'bg-green-100 text-green-600'
+                                                                ? 'bg-accent-emerald/10 text-accent-emerald'
                                                                 : isActive
                                                                     ? 'bg-primary text-white animate-pulse'
-                                                                    : 'bg-neutral-100 text-neutral-400'
+                                                                    : 'bg-surface-hover-light dark:bg-surface-hover-dark text-text-faint-light dark:text-text-faint-dark'
                                                                 }`}>
                                                                 {isDone ? '✓' : index + 1}
                                                             </div>
                                                             {index < PROCESSING_STAGES.length - 1 && (
-                                                                <div className={`w-6 h-0.5 ${isDone ? 'bg-green-200' : 'bg-neutral-100'}`}></div>
+                                                                <div className={`w-6 h-0.5 ${isDone ? 'bg-accent-emerald/30' : 'bg-border-light dark:bg-border-dark'}`}></div>
                                                             )}
                                                         </div>
                                                     );
@@ -1034,21 +1032,21 @@ const AssignmentHelper = () => {
                                         </div>
                                     )}
                                     {messages.length === 0 && threadStatus === 'error' && (
-                                        <div className="rounded-xl bg-red-50 dark:bg-red-900/10 border border-red-100 dark:border-red-900/30 px-4 py-4">
+                                        <div className="rounded-xl bg-red-50 dark:bg-red-900/10 border border-red-200 dark:border-red-900/30 px-4 py-4">
                                             <div className="flex items-start gap-3">
-                                                <div className="w-10 h-10 rounded-full bg-red-100 dark:bg-red-900/30 flex items-center justify-center shrink-0">
-                                                    <span className="material-symbols-outlined text-red-500 text-xl">error</span>
+                                                <div className="w-10 h-10 rounded-xl bg-red-100 dark:bg-red-900/20 flex items-center justify-center shrink-0">
+                                                    <span className="material-symbols-outlined text-red-500 text-[20px]">error</span>
                                                 </div>
                                                 <div>
-                                                    <p className="text-sm font-semibold text-red-700 dark:text-red-400">Processing Failed</p>
-                                                    <p className="text-xs text-red-600 dark:text-red-300 mt-1">
+                                                    <p className="text-body-sm font-semibold text-red-700 dark:text-red-400">Processing Failed</p>
+                                                    <p className="text-caption text-red-600 dark:text-red-300 mt-1">
                                                         {selectedThread.errorMessage || 'Could not process this assignment. Try uploading a clearer file or taking a better photo.'}
                                                     </p>
                                                     <button
                                                         type="button"
                                                         onClick={() => retryProcessing(selectedThread)}
                                                         disabled={busy}
-                                                        className="mt-3 inline-flex items-center gap-1.5 text-xs font-medium text-red-600 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300 bg-red-100 hover:bg-red-200 dark:bg-red-900/30 dark:hover:bg-red-900/50 px-3 py-1.5 rounded-lg transition-colors disabled:opacity-50"
+                                                        className="mt-3 inline-flex items-center gap-1.5 text-caption font-medium text-red-600 hover:text-red-700 dark:text-red-400 bg-red-100 hover:bg-red-200 dark:bg-red-900/20 dark:hover:bg-red-900/30 px-3 py-1.5 rounded-lg transition-colors disabled:opacity-50"
                                                     >
                                                         <span className="material-symbols-outlined text-[14px]">refresh</span>
                                                         Retry Processing
@@ -1059,11 +1057,11 @@ const AssignmentHelper = () => {
                                     )}
                                     {messages.length === 0 && threadStatus === 'processing' && (
                                         <div className="flex flex-col items-center justify-center py-12 text-center">
-                                            <div className="w-16 h-16 rounded-full bg-neutral-100 dark:bg-neutral-800 flex items-center justify-center mb-3">
-                                                <span className="material-symbols-outlined text-3xl text-neutral-400 animate-pulse">hourglass_empty</span>
+                                            <div className="w-14 h-14 rounded-2xl bg-surface-hover-light dark:bg-surface-hover-dark flex items-center justify-center mb-3">
+                                                <span className="material-symbols-outlined text-[28px] text-text-faint-light dark:text-text-faint-dark animate-pulse">hourglass_empty</span>
                                             </div>
-                                            <p className="text-sm font-medium text-neutral-600 dark:text-neutral-400">Assignment is being processed</p>
-                                            <p className="text-xs text-neutral-400 mt-1">Answers will appear here soon</p>
+                                            <p className="text-body-sm font-medium text-text-sub-light dark:text-text-sub-dark">Assignment is being processed</p>
+                                            <p className="text-caption text-text-faint-light dark:text-text-faint-dark mt-1">Answers will appear here soon</p>
                                         </div>
                                     )}
                                     {messages.map((message, index) => {
@@ -1089,41 +1087,41 @@ const AssignmentHelper = () => {
                                                             return (
                                                                 <div
                                                                     key={qi}
-                                                                    className="rounded-xl border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-800 shadow-sm overflow-hidden"
+                                                                    className="rounded-xl border border-border-light dark:border-border-dark bg-surface-light dark:bg-surface-dark overflow-hidden"
                                                                 >
                                                                     <button
                                                                         type="button"
                                                                         onClick={() => setExpandedQuestionIndex(isOpen ? -1 : qi)}
-                                                                        className="w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-neutral-50 dark:hover:bg-neutral-750 transition-colors"
+                                                                        className="w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-surface-hover-light dark:hover:bg-surface-hover-dark transition-colors"
                                                                     >
-                                                                        <span className="w-7 h-7 rounded-full bg-primary/10 text-primary text-xs font-bold flex items-center justify-center shrink-0">
+                                                                        <span className="w-7 h-7 rounded-full bg-primary/10 text-primary text-caption font-bold flex items-center justify-center shrink-0">
                                                                             {q.number || qi + 1}
                                                                         </span>
-                                                                        <span className="flex-1 text-sm font-medium text-neutral-800 dark:text-neutral-100 truncate">
+                                                                        <span className="flex-1 text-body-sm font-medium text-text-main-light dark:text-text-main-dark truncate">
                                                                             {q.questionText || `Question ${q.number || qi + 1}`}
                                                                         </span>
-                                                                        <span className={`material-symbols-outlined text-neutral-400 text-lg transition-transform ${isOpen ? 'rotate-180' : ''}`}>
+                                                                        <span className={`material-symbols-outlined text-text-faint-light dark:text-text-faint-dark text-[18px] transition-transform ${isOpen ? 'rotate-180' : ''}`}>
                                                                             expand_more
                                                                         </span>
                                                                     </button>
 
                                                                     {isOpen && (
-                                                                        <div className="px-4 pb-4 space-y-3 border-t border-neutral-100 dark:border-neutral-700">
+                                                                        <div className="px-4 pb-4 space-y-3 border-t border-border-light dark:border-border-dark">
                                                                             {q.questionText && (
-                                                                                <p className="text-xs text-neutral-500 dark:text-neutral-400 pt-3 italic">
+                                                                                <p className="text-caption text-text-faint-light dark:text-text-faint-dark pt-3 italic">
                                                                                     {q.questionText}
                                                                                 </p>
                                                                             )}
                                                                             <div className="rounded-lg bg-primary/5 dark:bg-primary/10 border border-primary/10 dark:border-primary/20 px-3 py-3">
-                                                                                <p className="text-xs font-semibold text-primary mb-1">Answer</p>
-                                                                                <div className="text-sm text-neutral-800 dark:text-neutral-100 leading-relaxed whitespace-pre-wrap">
+                                                                                <p className="text-caption font-semibold text-primary mb-1">Answer</p>
+                                                                                <div className="text-body-sm text-text-main-light dark:text-text-main-dark leading-relaxed whitespace-pre-wrap">
                                                                                     {q.answer}
                                                                                 </div>
                                                                             </div>
                                                                             {q.workings && (
-                                                                                <div className="rounded-lg bg-neutral-50 dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-700 px-3 py-3">
-                                                                                    <p className="text-xs font-semibold text-neutral-500 dark:text-neutral-400 mb-1">Workings</p>
-                                                                                    <div className="text-xs text-neutral-600 dark:text-neutral-300 leading-relaxed whitespace-pre-wrap font-mono">
+                                                                                <div className="rounded-lg bg-surface-hover-light dark:bg-surface-hover-dark border border-border-light dark:border-border-dark px-3 py-3">
+                                                                                    <p className="text-caption font-semibold text-text-faint-light dark:text-text-faint-dark mb-1">Workings</p>
+                                                                                    <div className="text-caption text-text-sub-light dark:text-text-sub-dark leading-relaxed whitespace-pre-wrap font-mono">
                                                                                         {q.workings}
                                                                                     </div>
                                                                                 </div>
@@ -1132,7 +1130,7 @@ const AssignmentHelper = () => {
                                                                                 <button
                                                                                     type="button"
                                                                                     onClick={() => handleAskAboutQuestion(q.number || qi + 1)}
-                                                                                    className="inline-flex items-center gap-1 text-xs font-medium text-primary hover:text-primary/80 bg-primary/10 hover:bg-primary/15 px-2.5 py-1.5 rounded-lg transition-colors"
+                                                                                    className="inline-flex items-center gap-1 text-caption font-medium text-primary hover:text-primary/80 bg-primary/10 hover:bg-primary/15 px-2.5 py-1.5 rounded-lg transition-colors"
                                                                                 >
                                                                                     <span className="material-symbols-outlined text-[13px]">chat</span>
                                                                                     Ask about Q{q.number || qi + 1}
@@ -1140,7 +1138,7 @@ const AssignmentHelper = () => {
                                                                                 <button
                                                                                     type="button"
                                                                                     onClick={() => navigate('/dashboard/humanizer', { state: { text: q.answer } })}
-                                                                                    className="inline-flex items-center gap-1 text-xs font-medium text-primary hover:text-primary/80 bg-primary/10 hover:bg-primary/15 px-2.5 py-1.5 rounded-lg transition-colors"
+                                                                                    className="inline-flex items-center gap-1 text-caption font-medium text-primary hover:text-primary/80 bg-primary/10 hover:bg-primary/15 px-2.5 py-1.5 rounded-lg transition-colors"
                                                                                 >
                                                                                     <span className="material-symbols-outlined text-[13px]">auto_fix_high</span>
                                                                                     Humanize
@@ -1152,9 +1150,9 @@ const AssignmentHelper = () => {
                                                                                         <button
                                                                                             type="button"
                                                                                             onClick={() => handleCopy(q.answer + (q.workings ? `\n\nWorkings:\n${q.workings}` : ''), copyId)}
-                                                                                            className={`inline-flex items-center gap-1 text-xs font-medium px-2.5 py-1.5 rounded-lg transition-colors ${isCopied
-                                                                                                ? 'text-green-600 bg-green-50 dark:bg-green-900/20'
-                                                                                                : 'text-neutral-500 hover:text-neutral-700 bg-neutral-100 hover:bg-neutral-200 dark:bg-neutral-700 dark:hover:bg-neutral-600'
+                                                                                            className={`inline-flex items-center gap-1 text-caption font-medium px-2.5 py-1.5 rounded-lg transition-colors ${isCopied
+                                                                                                ? 'text-accent-emerald bg-accent-emerald/10'
+                                                                                                : 'text-text-faint-light dark:text-text-faint-dark bg-surface-hover-light dark:bg-surface-hover-dark hover:text-text-main-light dark:hover:text-text-main-dark'
                                                                                             }`}
                                                                                         >
                                                                                             <span className="material-symbols-outlined text-[13px]">{isCopied ? 'check' : 'content_copy'}</span>
@@ -1181,11 +1179,11 @@ const AssignmentHelper = () => {
                                             >
                                                 {isAssistant && showAvatar && (
                                                     <div className="w-8 h-8 rounded-full bg-primary flex items-center justify-center text-white shrink-0 mt-1">
-                                                        <span className="material-symbols-outlined text-sm">smart_toy</span>
+                                                        <span className="material-symbols-outlined text-[14px]">smart_toy</span>
                                                     </div>
                                                 )}
-                                                <div className={`max-w-[85%] md:max-w-[75%] rounded-2xl px-4 py-3 whitespace-pre-wrap text-sm leading-relaxed shadow-sm ${isAssistant
-                                                    ? 'bg-white dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 text-neutral-800 dark:text-neutral-100 rounded-tl-sm'
+                                                <div className={`max-w-[85%] md:max-w-[75%] rounded-2xl px-4 py-3 whitespace-pre-wrap text-body-sm leading-relaxed ${isAssistant
+                                                    ? 'bg-surface-light dark:bg-surface-dark border border-border-light dark:border-border-dark text-text-main-light dark:text-text-main-dark rounded-tl-sm'
                                                     : 'bg-primary text-white rounded-tr-sm'
                                                     }`}>
                                                     <div className="prose prose-sm max-w-none dark:prose-invert">
@@ -1196,11 +1194,11 @@ const AssignmentHelper = () => {
                                                         ))}
                                                     </div>
                                                     {isAssistant && displayContent && (
-                                                        <div className="mt-3 pt-3 border-t border-neutral-100 dark:border-neutral-700 flex items-center gap-2">
+                                                        <div className="mt-3 pt-3 border-t border-border-light dark:border-border-dark flex items-center gap-2">
                                                             <button
                                                                 type="button"
                                                                 onClick={() => navigate('/dashboard/humanizer', { state: { text: displayContent } })}
-                                                                className="inline-flex items-center gap-1.5 text-xs font-medium text-primary hover:text-primary/80 bg-primary/10 hover:bg-primary/15 dark:bg-primary/10 dark:hover:bg-primary/20 px-3 py-1.5 rounded-lg transition-colors"
+                                                                className="inline-flex items-center gap-1.5 text-caption font-medium text-primary hover:text-primary/80 bg-primary/10 hover:bg-primary/15 px-3 py-1.5 rounded-lg transition-colors"
                                                             >
                                                                 <span className="material-symbols-outlined text-[14px]">auto_fix_high</span>
                                                                 Humanize
@@ -1211,9 +1209,9 @@ const AssignmentHelper = () => {
                                                                     <button
                                                                         type="button"
                                                                         onClick={() => handleCopy(displayContent, message._id)}
-                                                                        className={`inline-flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-lg transition-colors ${isCopied
-                                                                            ? 'text-green-600 bg-green-50 dark:bg-green-900/20'
-                                                                            : 'text-neutral-500 hover:text-neutral-700 bg-neutral-100 hover:bg-neutral-200 dark:bg-neutral-700 dark:hover:bg-neutral-600'
+                                                                        className={`inline-flex items-center gap-1.5 text-caption font-medium px-3 py-1.5 rounded-lg transition-colors ${isCopied
+                                                                            ? 'text-accent-emerald bg-accent-emerald/10'
+                                                                            : 'text-text-faint-light dark:text-text-faint-dark bg-surface-hover-light dark:bg-surface-hover-dark hover:text-text-main-light dark:hover:text-text-main-dark'
                                                                         }`}
                                                                     >
                                                                         <span className="material-symbols-outlined text-[14px]">{isCopied ? 'check' : 'content_copy'}</span>
@@ -1229,12 +1227,12 @@ const AssignmentHelper = () => {
                                     })}
                                     {sending && (
                                         <div className="flex justify-start">
-                                            <div className="max-w-[92%] md:max-w-[80%] rounded-2xl px-4 py-3 bg-white dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 shadow-sm">
+                                            <div className="max-w-[92%] md:max-w-[80%] rounded-2xl px-4 py-3 bg-surface-light dark:bg-surface-dark border border-border-light dark:border-border-dark">
                                                 <div className="flex items-center gap-2">
                                                     <div className="w-6 h-6 rounded-full bg-primary flex items-center justify-center">
-                                                        <span className="material-symbols-outlined text-white text-xs">smart_toy</span>
+                                                        <span className="material-symbols-outlined text-white text-[12px]">smart_toy</span>
                                                     </div>
-                                                    <span className="text-xs text-neutral-500">
+                                                    <span className="text-caption text-text-faint-light dark:text-text-faint-dark">
                                                         AI is thinking
                                                     </span>
                                                     <div className="flex items-center gap-1">
@@ -1253,11 +1251,11 @@ const AssignmentHelper = () => {
                                     <div ref={endRef} />
                                 </div>
 
-                                <div className="px-4 py-3 border-t border-neutral-100 dark:border-neutral-800 bg-white dark:bg-neutral-900">
+                                <div className="px-4 py-3 border-t border-border-light dark:border-border-dark bg-surface-light dark:bg-surface-dark">
                                     {threadStatus === 'processing' ? (
-                                        <div className="rounded-lg bg-neutral-50 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 px-3 py-3 flex items-center justify-center gap-2">
-                                            <span className="material-symbols-outlined text-neutral-400 text-lg animate-spin">refresh</span>
-                                            <p className="text-xs text-neutral-500">
+                                        <div className="rounded-lg bg-surface-hover-light dark:bg-surface-hover-dark border border-border-light dark:border-border-dark px-3 py-3 flex items-center justify-center gap-2">
+                                            <span className="material-symbols-outlined text-text-faint-light dark:text-text-faint-dark text-[18px] animate-spin">refresh</span>
+                                            <p className="text-caption text-text-faint-light dark:text-text-faint-dark">
                                                 Processing assignment... Chat will be available soon
                                             </p>
                                         </div>
@@ -1265,14 +1263,14 @@ const AssignmentHelper = () => {
                                         <div className="flex flex-col gap-2">
                                             {activeFollowUpQuestionNumber && (
                                                 <div className="flex items-center gap-2">
-                                                    <span className="inline-flex items-center gap-1.5 text-xs font-medium text-primary bg-primary/10 px-2.5 py-1 rounded-full">
+                                                    <span className="inline-flex items-center gap-1.5 text-caption font-semibold text-primary bg-primary/10 px-2.5 py-1 rounded-full">
                                                         <span className="material-symbols-outlined text-[13px]">chat</span>
                                                         Asking about Q{activeFollowUpQuestionNumber}
                                                     </span>
                                                     <button
                                                         type="button"
                                                         onClick={() => { setActiveFollowUpQuestionNumber(null); setFollowUpQuestion(''); }}
-                                                        className="text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-300 transition-colors"
+                                                        className="text-text-faint-light dark:text-text-faint-dark hover:text-text-main-light dark:hover:text-text-main-dark transition-colors"
                                                     >
                                                         <span className="material-symbols-outlined text-[14px]">close</span>
                                                     </button>
@@ -1299,11 +1297,11 @@ const AssignmentHelper = () => {
                                                     disabled={!canAskFollowUp}
                                                     aria-label="Follow-up question"
                                                     maxLength={FOLLOWUP_MAX_LENGTH}
-                                                    className="w-full resize-none rounded-xl border border-neutral-200 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-800 px-4 py-3 pr-12 text-base text-neutral-900 dark:text-white placeholder:text-neutral-400 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary/40 disabled:opacity-50 disabled:bg-neutral-100 dark:disabled:bg-neutral-800/50 min-h-[44px] max-h-[120px] overflow-y-auto"
+                                                    className="input-field w-full resize-none px-4 py-3 pr-12 text-body-base min-h-[44px] max-h-[120px] overflow-y-auto disabled:opacity-50"
                                                     rows={1}
                                                 />
                                                 {followUpQuestion.length > FOLLOWUP_MAX_LENGTH * 0.8 && (
-                                                    <span className={`absolute right-2 bottom-1 text-[10px] ${followUpQuestion.length >= FOLLOWUP_MAX_LENGTH ? 'text-red-500' : 'text-neutral-400'}`}>
+                                                    <span className={`absolute right-2 bottom-1 text-[10px] ${followUpQuestion.length >= FOLLOWUP_MAX_LENGTH ? 'text-red-500' : 'text-text-faint-light dark:text-text-faint-dark'}`}>
                                                         {followUpQuestion.length}/{FOLLOWUP_MAX_LENGTH}
                                                     </span>
                                                 )}
@@ -1313,9 +1311,9 @@ const AssignmentHelper = () => {
                                                 onClick={handleSendFollowUp}
                                                 disabled={!canAskFollowUp || !followUpQuestion.trim() || sending || followUpQuestion.length > FOLLOWUP_MAX_LENGTH}
                                                 aria-label="Send follow-up question"
-                                                className="flex items-center justify-center w-11 h-11 rounded-xl bg-primary text-white shadow-md shadow-primary/20 hover:shadow-lg hover:shadow-primary/30 hover:scale-105 active:scale-95 transition-all disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:scale-100 shrink-0"
+                                                className="btn-primary flex items-center justify-center w-11 h-11 disabled:opacity-40 disabled:cursor-not-allowed shrink-0"
                                             >
-                                                <span className="material-symbols-outlined text-xl">{sending ? 'hourglass_empty' : 'send'}</span>
+                                                <span className="material-symbols-outlined text-[20px]">{sending ? 'hourglass_empty' : 'send'}</span>
                                             </button>
                                         </div>
                                         </div>

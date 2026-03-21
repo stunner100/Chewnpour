@@ -80,166 +80,149 @@ const DashboardSearch = () => {
     const hasAnyResults = groupedResults.some((group) => group.items.length > 0);
 
     return (
-        <div className="bg-background-light dark:bg-background-dark font-body antialiased min-h-screen flex flex-col transition-colors duration-300">
-            <header className="sticky top-0 z-50 w-full glass border-b border-neutral-200/50 dark:border-neutral-800/50">
-                <div className="max-w-[1600px] mx-auto px-4 md:px-6 h-16 md:h-20 flex items-center justify-between gap-4 md:gap-8">
-                    <div className="flex items-center gap-3 shrink-0">
-                        <Link
-                            to="/dashboard"
-                            aria-label="Go back to dashboard"
-                            className="w-10 h-10 hover:bg-neutral-100 dark:hover:bg-neutral-800 rounded-xl flex items-center justify-center text-neutral-500 transition-colors"
-                        >
-                            <span className="material-symbols-outlined">arrow_back</span>
-                        </Link>
-                        <div className="w-10 h-10 bg-gradient-to-br from-primary via-purple-500 to-primary rounded-xl flex items-center justify-center text-white shadow-lg shadow-primary/30">
-                            <span className="material-symbols-outlined text-[24px]">search</span>
-                        </div>
-                        <span className="text-xl font-display font-bold tracking-tight text-neutral-900 dark:text-white hidden sm:block">
-                            Search Results
-                        </span>
-                    </div>
-                    <div className="flex-1 max-w-xl">
-                        <div className="relative group transition-transform duration-300 focus-within:scale-[1.01]">
-                            <span className="absolute left-4 top-1/2 -translate-y-1/2 text-neutral-400 group-focus-within:text-primary transition-colors material-symbols-outlined">
-                                search
-                            </span>
-                            <input
-                                className="w-full pl-12 pr-4 py-2.5 bg-neutral-100 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 focus:border-primary/30 rounded-2xl focus:ring-4 focus:ring-primary/5 transition-colors text-sm font-medium placeholder-neutral-400"
-                                placeholder="Search courses, topics, or notes..."
-                                type="text"
-                                value={localQuery}
-                                onChange={(event) => setLocalQuery(event.target.value)}
-                                onKeyDown={handleSearchKeyDown}
-                            />
-                        </div>
-                    </div>
+        <div className="w-full max-w-4xl mx-auto px-4 md:px-8 py-8 pb-24 md:pb-12">
+            {/* Search input */}
+            <div className="mb-8">
+                <div className="relative">
+                    <span className="absolute left-4 top-1/2 -translate-y-1/2 material-symbols-outlined text-text-faint-light dark:text-text-faint-dark text-[20px]">
+                        search
+                    </span>
+                    <input
+                        className="input-lg pl-12 pr-4"
+                        placeholder="Search courses, topics, or notes..."
+                        type="text"
+                        value={localQuery}
+                        onChange={(event) => setLocalQuery(event.target.value)}
+                        onKeyDown={handleSearchKeyDown}
+                        autoFocus
+                    />
                 </div>
-            </header>
+            </div>
 
-            <main className="flex-1 w-full max-w-[1600px] mx-auto px-4 py-8 pb-20 md:px-6 md:py-12 md:pb-12">
-                <div className="mb-8">
-                    <h1 className="text-3xl lg:text-4xl font-display font-extrabold text-neutral-900 dark:text-white tracking-tight mb-2">
-                        {normalizedQuery ? (
-                            <>Results for "<span className="text-primary">{normalizedQuery}</span>"</>
-                        ) : (
-                            'Search Your Study Space'
-                        )}
+            {/* Results header */}
+            {normalizedQuery && (
+                <div className="mb-6">
+                    <h1 className="text-display-sm text-text-main-light dark:text-text-main-dark">
+                        Results for &ldquo;{normalizedQuery}&rdquo;
                     </h1>
-                    {normalizedQuery && searchResults && (
-                        <p className="text-neutral-500 dark:text-neutral-400 font-medium">
-                            Found {totalCount} matching result{totalCount === 1 ? '' : 's'} across courses, topics, and notes
+                    {searchResults && (
+                        <p className="text-body-sm text-text-sub-light dark:text-text-sub-dark mt-1">
+                            {totalCount} result{totalCount === 1 ? '' : 's'} found
                         </p>
                     )}
                 </div>
+            )}
 
-                {!normalizedQuery ? (
-                    <div className="flex flex-col items-center justify-center py-20 px-4 text-center">
-                        <div className="w-20 h-20 bg-primary/10 rounded-full flex items-center justify-center mb-6">
-                            <span className="material-symbols-outlined text-[40px] text-primary">search</span>
-                        </div>
-                        <h3 className="text-xl font-display font-bold text-neutral-900 dark:text-white mb-2">
-                            Enter a search query
-                        </h3>
-                        <p className="text-neutral-500 dark:text-neutral-400 max-w-md">
-                            Search across your courses, generated topics, and saved notes from one place.
-                        </p>
+            {/* Empty / no query state */}
+            {!normalizedQuery ? (
+                <div className="flex flex-col items-center justify-center py-20 text-center">
+                    <div className="w-16 h-16 rounded-2xl bg-surface-light dark:bg-surface-dark border border-border-light dark:border-border-dark flex items-center justify-center mb-5">
+                        <span className="material-symbols-outlined text-[28px] text-text-faint-light dark:text-text-faint-dark">search</span>
                     </div>
-                ) : !searchResults ? (
-                    <div className="space-y-10">
-                        {RESULT_GROUPS.map((group) => (
-                            <section key={group.key}>
-                                <div className="flex items-center gap-3 mb-4">
-                                    <span className="material-symbols-outlined text-primary">{group.icon}</span>
-                                    <h2 className="text-2xl font-display font-bold text-neutral-900 dark:text-white">
+                    <h3 className="text-body-lg font-semibold text-text-main-light dark:text-text-main-dark mb-1">
+                        Search your study space
+                    </h3>
+                    <p className="text-body-sm text-text-sub-light dark:text-text-sub-dark max-w-sm">
+                        Find courses, topics, and notes across all your materials.
+                    </p>
+                </div>
+
+            ) : !searchResults ? (
+                /* Loading skeleton */
+                <div className="space-y-8">
+                    {RESULT_GROUPS.map((group) => (
+                        <section key={group.key}>
+                            <div className="flex items-center gap-2 mb-3">
+                                <span className="material-symbols-outlined text-[18px] text-text-faint-light dark:text-text-faint-dark">{group.icon}</span>
+                                <h2 className="text-body-sm font-semibold text-text-sub-light dark:text-text-sub-dark uppercase tracking-wider">
+                                    {group.label}
+                                </h2>
+                            </div>
+                            <div className="space-y-2">
+                                {[1, 2].map((i) => (
+                                    <div key={`${group.key}-${i}`} className="animate-pulse h-20 rounded-xl bg-surface-light dark:bg-surface-dark border border-border-light dark:border-border-dark" />
+                                ))}
+                            </div>
+                        </section>
+                    ))}
+                </div>
+
+            ) : hasAnyResults ? (
+                /* Results list */
+                <div className="space-y-8">
+                    {groupedResults.map((group) => (
+                        <section key={group.key}>
+                            <div className="flex items-center justify-between mb-3">
+                                <div className="flex items-center gap-2">
+                                    <span className="material-symbols-outlined text-[18px] text-text-faint-light dark:text-text-faint-dark">{group.icon}</span>
+                                    <h2 className="text-body-sm font-semibold text-text-sub-light dark:text-text-sub-dark uppercase tracking-wider">
                                         {group.label}
                                     </h2>
                                 </div>
-                                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
-                                    {[1, 2].map((index) => (
-                                        <div
-                                            key={`${group.key}-${index}`}
-                                            className="animate-pulse h-40 rounded-3xl border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900"
-                                        />
-                                    ))}
-                                </div>
-                            </section>
-                        ))}
-                    </div>
-                ) : hasAnyResults ? (
-                    <div className="space-y-10">
-                        {groupedResults.map((group) => (
-                            <section key={group.key}>
-                                <div className="flex items-center justify-between gap-3 mb-4">
-                                    <div className="flex items-center gap-3">
-                                        <span className="material-symbols-outlined text-primary">{group.icon}</span>
-                                        <h2 className="text-2xl font-display font-bold text-neutral-900 dark:text-white">
-                                            {group.label}
-                                        </h2>
-                                    </div>
-                                    <span className="text-sm font-semibold text-neutral-400">
-                                        {group.items.length}
-                                    </span>
-                                </div>
+                                <span className="text-caption text-text-faint-light dark:text-text-faint-dark">
+                                    {group.items.length}
+                                </span>
+                            </div>
 
-                                {group.items.length > 0 ? (
-                                    <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
-                                        {group.items.map((item) => (
-                                            <Link
-                                                key={`${group.key}-${item.entityId}`}
-                                                to={item.path}
-                                                className="group rounded-3xl border border-neutral-200/70 dark:border-neutral-800 bg-white dark:bg-neutral-900 p-5 shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all duration-300"
-                                            >
-                                                <div className="flex items-center justify-between gap-3 mb-3">
-                                                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-neutral-100 dark:bg-neutral-800 text-xs font-semibold text-neutral-600 dark:text-neutral-300">
-                                                        <span className="material-symbols-outlined text-[14px]">
-                                                            {group.icon}
-                                                        </span>
-                                                        {group.badge}
-                                                    </span>
-                                                    <span className="text-xs text-neutral-400 font-medium">
+                            {group.items.length > 0 ? (
+                                <div className="space-y-1">
+                                    {group.items.map((item) => (
+                                        <Link
+                                            key={`${group.key}-${item.entityId}`}
+                                            to={item.path}
+                                            className="group flex items-start gap-4 p-4 rounded-xl hover:bg-surface-hover-light dark:hover:bg-surface-hover-dark transition-colors"
+                                        >
+                                            <div className="shrink-0 w-9 h-9 rounded-lg bg-primary/8 dark:bg-primary/15 flex items-center justify-center mt-0.5">
+                                                <span className="material-symbols-outlined text-[18px] text-primary">{group.icon}</span>
+                                            </div>
+                                            <div className="flex-1 min-w-0">
+                                                <div className="flex items-center gap-2 mb-0.5">
+                                                    <h3 className="text-body-base font-semibold text-text-main-light dark:text-text-main-dark group-hover:text-primary transition-colors truncate">
+                                                        {renderHighlightedText(item.title, normalizedQuery)}
+                                                    </h3>
+                                                    <span className="shrink-0 text-caption text-text-faint-light dark:text-text-faint-dark">
                                                         {new Date(item.updatedAt || Date.now()).toLocaleDateString()}
                                                     </span>
                                                 </div>
-
-                                                <h3 className="text-lg font-display font-bold text-neutral-900 dark:text-white mb-2 group-hover:text-primary transition-colors line-clamp-2">
-                                                    {renderHighlightedText(item.title, normalizedQuery)}
-                                                </h3>
-                                                <p className="text-sm text-neutral-500 dark:text-neutral-400 line-clamp-4">
+                                                <p className="text-body-sm text-text-sub-light dark:text-text-sub-dark line-clamp-2">
                                                     {renderHighlightedText(item.snippet, normalizedQuery)}
                                                 </p>
-                                            </Link>
-                                        ))}
-                                    </div>
-                                ) : (
-                                    <div className="rounded-3xl border border-dashed border-neutral-200 dark:border-neutral-800 px-6 py-8 text-sm text-neutral-500 dark:text-neutral-400">
-                                        No matching {group.label.toLowerCase()} for this query.
-                                    </div>
-                                )}
-                            </section>
-                        ))}
+                                            </div>
+                                            <span className="material-symbols-outlined text-[18px] text-text-faint-light dark:text-text-faint-dark opacity-0 group-hover:opacity-100 transition-opacity mt-1">
+                                                arrow_forward
+                                            </span>
+                                        </Link>
+                                    ))}
+                                </div>
+                            ) : (
+                                <div className="rounded-xl border border-dashed border-border-light dark:border-border-dark px-5 py-6 text-body-sm text-text-faint-light dark:text-text-faint-dark text-center">
+                                    No matching {group.label.toLowerCase()}.
+                                </div>
+                            )}
+                        </section>
+                    ))}
+                </div>
+
+            ) : (
+                /* No results */
+                <div className="flex flex-col items-center justify-center py-20 text-center">
+                    <div className="w-16 h-16 rounded-2xl bg-surface-light dark:bg-surface-dark border border-border-light dark:border-border-dark flex items-center justify-center mb-5">
+                        <span className="material-symbols-outlined text-[28px] text-text-faint-light dark:text-text-faint-dark">search_off</span>
                     </div>
-                ) : (
-                    <div className="flex flex-col items-center justify-center py-20 px-4 text-center">
-                        <div className="w-20 h-20 bg-neutral-100 dark:bg-neutral-800 rounded-full flex items-center justify-center mb-6">
-                            <span className="material-symbols-outlined text-[40px] text-neutral-400 font-light">
-                                search_off
-                            </span>
-                        </div>
-                        <h3 className="text-xl font-display font-bold text-neutral-900 dark:text-white mb-2">
-                            No matching results found
-                        </h3>
-                        <p className="text-neutral-500 dark:text-neutral-400 max-w-md">
-                            We could not find courses, topics, or notes matching "{normalizedQuery}". Try a broader keyword.
-                        </p>
-                        <Link
-                            to="/dashboard"
-                            className="mt-8 px-6 py-2.5 bg-neutral-100 dark:bg-neutral-800 hover:bg-neutral-200 dark:hover:bg-neutral-700 text-neutral-700 dark:text-neutral-200 font-semibold rounded-xl transition-colors"
-                        >
-                            Return to Dashboard
-                        </Link>
-                    </div>
-                )}
-            </main>
+                    <h3 className="text-body-lg font-semibold text-text-main-light dark:text-text-main-dark mb-1">
+                        No results found
+                    </h3>
+                    <p className="text-body-sm text-text-sub-light dark:text-text-sub-dark max-w-sm">
+                        Nothing matched &ldquo;{normalizedQuery}&rdquo;. Try a different keyword.
+                    </p>
+                    <Link
+                        to="/dashboard"
+                        className="mt-6 btn-secondary text-body-sm px-5 py-2"
+                    >
+                        Back to Dashboard
+                    </Link>
+                </div>
+            )}
         </div>
     );
 };

@@ -9,7 +9,6 @@ const TopicSidebar = memo(function TopicSidebar({
 }) {
     const [activeSection, setActiveSection] = useState('');
 
-    // Track which section heading is currently in view using IntersectionObserver
     useEffect(() => {
         if (!toc || toc.length === 0) return;
 
@@ -22,7 +21,6 @@ const TopicSidebar = memo(function TopicSidebar({
 
         const observer = new IntersectionObserver(
             (entries) => {
-                // Find the first entry that is intersecting (topmost visible heading)
                 const visible = entries
                     .filter((e) => e.isIntersecting)
                     .sort((a, b) => a.boundingClientRect.top - b.boundingClientRect.top);
@@ -41,64 +39,38 @@ const TopicSidebar = memo(function TopicSidebar({
         return () => observer.disconnect();
     }, [toc]);
 
-    const getItemClassName = useCallback(
-        (item) => {
-            const isActive = activeSection === item.id;
+    const getIndent = useCallback((level) => {
+        if (level <= 1) return '';
+        if (level === 2) return 'pl-3';
+        return 'pl-6';
+    }, []);
 
-            if (item.level === 1) {
-                return isActive
-                    ? 'font-black text-primary dark:text-primary'
-                    : 'font-black text-neutral-800 dark:text-neutral-200';
-            }
-            if (item.level === 2) {
-                return isActive
-                    ? 'pl-4 font-bold text-primary dark:text-primary'
-                    : 'pl-4 font-bold text-neutral-500 dark:text-neutral-400';
-            }
-            return isActive
-                ? 'pl-8 font-semibold text-primary dark:text-primary'
-                : 'pl-8 text-neutral-400 dark:text-neutral-500';
-        },
-        [activeSection]
-    );
+    const readingMinutes = normalizedContent ? Math.ceil(normalizedContent.split(/\s+/).length / 200) : 1;
+    const wordCount = normalizedContent ? normalizedContent.split(/\s+/).length : 0;
 
     return (
-        <div className="lg:col-span-3 space-y-6">
-            <div className="sticky top-28 space-y-6">
-                <div className="glass-card rounded-3xl p-8 border border-neutral-200/50 dark:border-neutral-700/50 overflow-hidden relative group">
-                    <div className="absolute -top-12 -right-12 w-32 h-32 bg-primary/5 rounded-full blur-2xl group-hover:bg-primary/10 transition-colors"></div>
-                    <div className="flex items-center gap-3 mb-6">
-                        <div className="w-10 h-10 bg-indigo-500/10 rounded-2xl flex items-center justify-center text-indigo-500 shadow-sm border border-indigo-500/10">
-                            <span className="material-symbols-outlined text-[20px]">analytics</span>
+        <div className="lg:col-span-3 space-y-4">
+            <div className="sticky top-20 space-y-4">
+                {/* Stats */}
+                <div className="card-base p-4">
+                    <h3 className="text-overline text-text-faint-light dark:text-text-faint-dark mb-3">Lesson Stats</h3>
+                    <div className="grid grid-cols-2 gap-3">
+                        <div>
+                            <div className="text-display-sm text-text-main-light dark:text-text-main-dark">{readingMinutes}</div>
+                            <div className="text-caption text-text-faint-light dark:text-text-faint-dark">min read</div>
                         </div>
-                        <h3 className="font-black text-xs uppercase tracking-[0.2em] text-neutral-400">Lesson Stats</h3>
-                    </div>
-                    <div className="grid grid-cols-2 gap-4">
-                        <div className="bg-neutral-50/50 dark:bg-neutral-800/50 p-4 rounded-2xl border border-neutral-100 dark:border-neutral-700/50">
-                            <div className="text-2xl font-black text-neutral-800 dark:text-white mb-1">
-                                {normalizedContent ? Math.ceil(normalizedContent.split(/\s+/).length / 200) : 1}
-                            </div>
-                            <div className="text-[10px] font-bold text-neutral-400 uppercase tracking-widest">Minutes</div>
-                        </div>
-                        <div className="bg-neutral-50/50 dark:bg-neutral-800/50 p-4 rounded-2xl border border-neutral-100 dark:border-neutral-700/50">
-                            <div className="text-2xl font-black text-neutral-800 dark:text-white mb-1">
-                                {normalizedContent ? normalizedContent.split(/\s+/).length : 0}
-                            </div>
-                            <div className="text-[10px] font-bold text-neutral-400 uppercase tracking-widest">Words</div>
+                        <div>
+                            <div className="text-display-sm text-text-main-light dark:text-text-main-dark">{wordCount.toLocaleString()}</div>
+                            <div className="text-caption text-text-faint-light dark:text-text-faint-dark">words</div>
                         </div>
                     </div>
                 </div>
 
+                {/* Table of Contents */}
                 {normalizedContent && toc.length > 0 && (
-                    <div className="glass-card rounded-3xl p-8 border border-neutral-200/50 dark:border-neutral-700/50 hidden lg:block relative overflow-hidden group">
-                        <div className="absolute -bottom-10 -left-10 w-24 h-24 bg-primary/5 rounded-full blur-xl group-hover:bg-primary/10 transition-colors"></div>
-                        <h3 className="font-black text-xs uppercase tracking-[0.2em] text-neutral-400 mb-6 flex items-center gap-3">
-                            <div className="w-8 h-8 bg-neutral-100 dark:bg-neutral-800 rounded-xl flex items-center justify-center">
-                                <span className="material-symbols-outlined text-[18px]">format_list_bulleted</span>
-                            </div>
-                            Table of Contents
-                        </h3>
-                        <nav className="space-y-1 relative z-10">
+                    <div className="card-base p-4 hidden lg:block">
+                        <h3 className="text-overline text-text-faint-light dark:text-text-faint-dark mb-3">Contents</h3>
+                        <nav className="space-y-0.5">
                             {toc.map((item) => {
                                 const isActive = activeSection === item.id;
                                 return (
@@ -109,21 +81,16 @@ const TopicSidebar = memo(function TopicSidebar({
                                             e.preventDefault();
                                             const el = document.getElementById(item.id);
                                             if (!el) return;
-                                            const offset = 120;
+                                            const offset = 80;
                                             const top = el.getBoundingClientRect().top + window.scrollY - offset;
                                             window.scrollTo({ top, behavior: 'smooth' });
                                         }}
-                                        className={`group/item flex items-center gap-3 py-2 text-sm transition-all duration-200 hover:translate-x-1 border-l-2 ${
+                                        className={`block py-1.5 text-body-sm transition-colors ${getIndent(item.level)} ${
                                             isActive
-                                                ? 'border-primary'
-                                                : 'border-transparent'
-                                        } ${getItemClassName(item)}`}
+                                                ? 'text-primary font-semibold'
+                                                : 'text-text-sub-light dark:text-text-sub-dark hover:text-text-main-light dark:hover:text-text-main-dark'
+                                        }`}
                                     >
-                                        <span className={`w-1 h-1 rounded-full transition-colors ${
-                                            isActive
-                                                ? 'bg-primary'
-                                                : 'bg-neutral-300 dark:bg-neutral-700 group-hover/item:bg-primary'
-                                        } ${item.level === 1 ? 'w-2 h-2' : ''}`}></span>
                                         {item.text}
                                     </a>
                                 );
@@ -132,15 +99,10 @@ const TopicSidebar = memo(function TopicSidebar({
                     </div>
                 )}
 
-                <div className="bg-gradient-to-br from-indigo-500 to-primary rounded-3xl p-8 text-white shadow-xl shadow-primary/20 relative overflow-hidden group">
-                    <div className="absolute top-0 right-0 p-8 opacity-10 transform scale-150 rotate-12 group-hover:rotate-45 transition-transform duration-700">
-                        <span className="material-symbols-outlined text-8xl">bolt</span>
-                    </div>
-                    <h3 className="font-black text-[10px] uppercase tracking-[0.3em] opacity-70 mb-4 flex items-center gap-2">
-                        <span className="w-1.5 h-1.5 rounded-full bg-white"></span>
-                        Lesson Snapshot
-                    </h3>
-                    <ul className="space-y-4 relative z-10">
+                {/* Key Points */}
+                <div className="card-base p-4">
+                    <h3 className="text-overline text-text-faint-light dark:text-text-faint-dark mb-3">Key Points</h3>
+                    <ul className="space-y-2">
                         {(contentLines && contentLines.length > 0 ? contentLines : [
                             cleanLine(topic?.description || 'Lesson summary loading...')
                         ]).slice(0, 3).map((line, idx) => {
@@ -148,11 +110,9 @@ const TopicSidebar = memo(function TopicSidebar({
                             const summaryLine = cleanLine(line);
                             if (!summaryLine) return null;
                             return (
-                                <li key={idx} className="flex items-start gap-4">
-                                    <div className="mt-1.5 w-5 h-5 rounded-full bg-white/20 flex items-center justify-center shrink-0 border border-white/10 group-hover:bg-white/30 transition-colors">
-                                        <span className="material-symbols-outlined text-[12px]">done_all</span>
-                                    </div>
-                                    <span className="text-xs font-bold text-white/90 leading-relaxed line-clamp-2 uppercase tracking-wide">{summaryLine}</span>
+                                <li key={idx} className="flex items-start gap-2">
+                                    <span className="material-symbols-outlined text-primary text-[14px] mt-0.5 shrink-0">check</span>
+                                    <span className="text-caption text-text-sub-light dark:text-text-sub-dark line-clamp-2">{summaryLine}</span>
                                 </li>
                             );
                         })}

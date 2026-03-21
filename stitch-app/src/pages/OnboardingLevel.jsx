@@ -55,45 +55,44 @@ const OnboardingLevel = () => {
     };
 
     return (
-        <div className="bg-background-light dark:bg-background-dark font-display antialiased text-zinc-900 dark:text-zinc-100 min-h-screen flex flex-col">
-            <div className="w-full px-8 py-6 max-w-7xl mx-auto flex items-center justify-between">
-                {/* #6 — go back in history instead of linking to /onboarding/name (avoids redirect loop) */}
+        <div className="min-h-screen bg-background-light dark:bg-background-dark flex flex-col">
+            <div className="w-full px-4 md:px-8 py-4 max-w-5xl mx-auto flex items-center justify-between">
                 <button
                     type="button"
                     onClick={() => navigate(-1)}
-                    className="flex items-center justify-center w-10 h-10 rounded-full bg-zinc-100 dark:bg-zinc-800 text-zinc-900 dark:text-white hover:bg-zinc-200 dark:hover:bg-zinc-700 transition-colors"
+                    className="btn-icon w-10 h-10"
                 >
-                    <span className="material-symbols-outlined text-[20px]" style={{ fontVariationSettings: "'FILL' 0" }}>arrow_back</span>
+                    <span className="material-symbols-outlined text-[20px]">arrow_back</span>
                 </button>
                 <div className="flex flex-col items-center gap-2">
-                    <p className="text-xs font-semibold text-zinc-500 uppercase tracking-wider">Step 2 of 3</p>
+                    <p className="text-caption font-semibold text-text-faint-light dark:text-text-faint-dark uppercase tracking-wider">Step 2 of 3</p>
                     <div aria-label="Onboarding progress: step 2 of 3" className="flex w-32 flex-row items-center gap-2">
-                        <div className="h-1.5 flex-1 rounded-full bg-black dark:bg-white"></div>
-                        <div className="h-1.5 flex-1 rounded-full bg-black dark:bg-white"></div>
-                        <div className="h-1.5 flex-1 rounded-full bg-zinc-200 dark:bg-zinc-800"></div>
+                        <div className="h-1 flex-1 rounded-full bg-primary"></div>
+                        <div className="h-1 flex-1 rounded-full bg-primary"></div>
+                        <div className="h-1 flex-1 rounded-full bg-border-light dark:bg-border-dark"></div>
                     </div>
                 </div>
-                <button onClick={handleSkip} disabled={loading} className="text-sm font-semibold text-zinc-400 dark:text-zinc-500 hover:text-zinc-900 dark:hover:text-white transition-colors disabled:opacity-50">Skip</button>
+                <button onClick={handleSkip} disabled={loading} className="text-caption font-semibold text-text-faint-light dark:text-text-faint-dark hover:text-text-main-light dark:hover:text-text-main-dark transition-colors disabled:opacity-50">Skip</button>
             </div>
 
-            <main className="flex-1 flex flex-col items-center justify-center w-full max-w-6xl mx-auto px-6 py-12">
-                <div className="text-center max-w-2xl mb-12">
-                    <h1 className="text-zinc-900 dark:text-white tracking-tight text-2xl md:text-3xl lg:text-4xl font-extrabold leading-[1.1] mb-6">
+            <main className="flex-1 flex flex-col items-center justify-center w-full max-w-4xl mx-auto px-4 md:px-6 py-12">
+                <div className="text-center max-w-xl mb-10">
+                    <h1 className="text-display-sm text-text-main-light dark:text-text-main-dark mb-3">
                         Your current level?
                     </h1>
-                    <p className="text-zinc-500 dark:text-zinc-400 text-lg md:text-xl font-medium leading-relaxed">
+                    <p className="text-body-sm text-text-sub-light dark:text-text-sub-dark">
                         Select your academic year to help us tailor the difficulty.
                     </p>
                 </div>
 
                 {error && (
-                    <div className="w-full max-w-md mb-6 p-4 rounded-xl bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-600 dark:text-red-400 text-sm font-medium text-center">
+                    <div className="w-full max-w-md mb-6 p-3 rounded-xl bg-red-50 dark:bg-red-900/10 border border-red-200 dark:border-red-900/30 text-body-sm text-red-700 dark:text-red-300 text-center">
                         {error}
                     </div>
                 )}
 
-                <div className="w-full max-w-5xl mb-16">
-                    <div className="grid grid-cols-2 lg:grid-cols-4 gap-6">
+                <div className="w-full max-w-3xl mb-12">
+                    <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
                         {[100, 200, 300, 400].map((level) => (
                             <button
                                 key={level}
@@ -101,27 +100,26 @@ const OnboardingLevel = () => {
                                 aria-label={`Level ${level} - ${levelMap[level]}`}
                                 aria-pressed={selectedLevel === level}
                                 onClick={() => setSelectedLevel(level)}
-                                // #11 — keyboard support for Enter/Space
                                 onKeyDown={(e) => {
                                     if (e.key === 'Enter' || e.key === ' ') {
                                         e.preventDefault();
                                         setSelectedLevel(level);
                                     }
                                 }}
-                                className={`group relative flex flex-col items-center justify-center p-8 aspect-[4/3] lg:aspect-square rounded-3xl border transition-all active:scale-[0.98] ${selectedLevel === level
-                                    ? 'border-[3px] border-royal-blue bg-royal-blue/5 dark:bg-royal-blue/10 shadow-md'
-                                    : 'border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 hover:border-zinc-400 dark:hover:border-zinc-600 shadow-sm hover:shadow-md'
+                                className={`group relative flex flex-col items-center justify-center p-6 aspect-[4/3] lg:aspect-square rounded-xl border transition-all active:scale-[0.98] ${selectedLevel === level
+                                    ? 'border-primary bg-primary/5 dark:bg-primary/10 ring-1 ring-primary/20'
+                                    : 'border-border-light dark:border-border-dark bg-surface-light dark:bg-surface-dark hover:bg-surface-hover-light dark:hover:bg-surface-hover-dark'
                                     }`}
                             >
                                 {selectedLevel === level && (
-                                    <div className="absolute top-4 right-4">
-                                        <span className="material-symbols-outlined text-royal-blue text-[32px]">check_circle</span>
+                                    <div className="absolute top-3 right-3">
+                                        <span className="material-symbols-outlined text-primary text-[24px]">check_circle</span>
                                     </div>
                                 )}
-                                <span className={`text-2xl lg:text-3xl font-extrabold mb-2 ${selectedLevel === level ? 'text-royal-blue' : 'text-zinc-900 dark:text-white'}`}>
+                                <span className={`text-display-sm mb-1 ${selectedLevel === level ? 'text-primary' : 'text-text-main-light dark:text-text-main-dark'}`}>
                                     {level}
                                 </span>
-                                <span className={`text-sm font-bold uppercase tracking-widest ${selectedLevel === level ? 'text-royal-blue/80 dark:text-royal-blue' : 'text-zinc-500 dark:text-zinc-400'}`}>
+                                <span className={`text-caption font-semibold uppercase tracking-widest ${selectedLevel === level ? 'text-primary/80' : 'text-text-faint-light dark:text-text-faint-dark'}`}>
                                     Level
                                 </span>
                             </button>
@@ -129,15 +127,14 @@ const OnboardingLevel = () => {
                     </div>
                 </div>
 
-                {/* #8 — safe-area padding for bottom button */}
                 <div className="w-full flex justify-center" style={{ paddingBottom: 'max(2rem, env(safe-area-inset-bottom, 2rem))' }}>
                     <button
                         onClick={handleNext}
                         disabled={loading}
-                        className="flex w-full max-w-sm cursor-pointer items-center justify-center overflow-hidden rounded-full h-16 px-8 bg-black dark:bg-white hover:bg-zinc-800 dark:hover:bg-zinc-200 text-white dark:text-black shadow-xl shadow-black/10 dark:shadow-white/5 transition-all active:scale-[0.98] disabled:opacity-50"
+                        className="btn-primary w-full max-w-sm py-3.5 text-body-base flex items-center justify-center gap-2"
                     >
-                        <span className="text-lg font-bold leading-normal tracking-wide">{loading ? 'Saving...' : 'Next'}</span>
-                        <span className="material-symbols-outlined text-[24px] ml-2" style={{ fontVariationSettings: "'FILL' 0" }}>arrow_forward</span>
+                        <span>{loading ? 'Saving...' : 'Next'}</span>
+                        <span className="material-symbols-outlined text-[20px]">arrow_forward</span>
                     </button>
                 </div>
             </main>

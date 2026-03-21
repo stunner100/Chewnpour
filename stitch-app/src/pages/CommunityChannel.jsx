@@ -28,11 +28,11 @@ function formatRelativeTime(timestamp) {
 // ── Avatar gradients (matches Profile.jsx) ───────────────────────────────────
 
 const AVATAR_GRADIENTS = [
-    'linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%)',
-    'linear-gradient(135deg, #3b82f6 0%, #06b6d4 100%)',
-    'linear-gradient(135deg, #ec4899 0%, #f43f5e 100%)',
-    'linear-gradient(135deg, #10b981 0%, #3b82f6 100%)',
-    'linear-gradient(135deg, #f59e0b 0%, #ef4444 100%)',
+    'linear-gradient(135deg, #1a73e8 0%, #4285f4 100%)',
+    'linear-gradient(135deg, #34a853 0%, #0d9488 100%)',
+    'linear-gradient(135deg, #ea4335 0%, #d93025 100%)',
+    'linear-gradient(135deg, #fbbc04 0%, #f59e0b 100%)',
+    'linear-gradient(135deg, #5f6368 0%, #3c4043 100%)',
 ];
 
 function getInitials(name) {
@@ -55,15 +55,15 @@ function resolveGradient(avatarGradient) {
 const TAG_CONFIG = {
     question: {
         label: 'Question',
-        classes: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400',
+        classes: 'bg-primary/10 text-primary',
     },
     resource: {
         label: 'Resource',
-        classes: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400',
+        classes: 'bg-accent-emerald/10 text-accent-emerald',
     },
     discussion: {
         label: 'Discussion',
-        classes: 'bg-neutral-100 text-neutral-600 dark:bg-neutral-800 dark:text-neutral-400',
+        classes: 'bg-surface-hover-light dark:bg-surface-hover-dark text-text-sub-light dark:text-text-sub-dark',
     },
 };
 
@@ -107,7 +107,7 @@ const UserAvatar = ({ profile, size = 36 }) => {
 const TagBadge = ({ tag }) => {
     const config = TAG_CONFIG[tag] || TAG_CONFIG.discussion;
     return (
-        <span className={`px-2.5 py-0.5 rounded-full text-xs font-semibold ${config.classes}`}>
+        <span className={`px-2 py-0.5 rounded-md text-[11px] font-semibold ${config.classes}`}>
             {config.label}
         </span>
     );
@@ -116,16 +116,16 @@ const TagBadge = ({ tag }) => {
 // ── Skeleton post for loading ────────────────────────────────────────────────
 
 const PostSkeleton = () => (
-    <div className="rounded-2xl bg-white dark:bg-neutral-900 border border-neutral-200/80 dark:border-neutral-800 shadow-card p-4 animate-pulse">
+    <div className="card-base p-4 animate-pulse">
         <div className="flex items-center gap-3 mb-3">
-            <div className="w-9 h-9 rounded-full bg-neutral-200 dark:bg-neutral-700" />
+            <div className="w-9 h-9 rounded-full bg-border-light dark:bg-border-dark" />
             <div>
-                <div className="h-4 w-24 bg-neutral-200 dark:bg-neutral-700 rounded mb-1" />
-                <div className="h-3 w-16 bg-neutral-100 dark:bg-neutral-800 rounded" />
+                <div className="h-4 w-24 bg-border-light dark:bg-border-dark rounded mb-1" />
+                <div className="h-3 w-16 bg-border-light dark:bg-border-dark rounded" />
             </div>
         </div>
-        <div className="h-4 w-full bg-neutral-100 dark:bg-neutral-800 rounded mb-2" />
-        <div className="h-4 w-2/3 bg-neutral-100 dark:bg-neutral-800 rounded" />
+        <div className="h-4 w-full bg-border-light dark:bg-border-dark rounded mb-2" />
+        <div className="h-4 w-2/3 bg-border-light dark:bg-border-dark rounded" />
     </div>
 );
 
@@ -177,21 +177,20 @@ const ReplySection = ({ postId, channelId, userId }) => {
                     <UserAvatar profile={reply.authorProfile} size={28} />
                     <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 mb-0.5">
-                            <span className="text-xs font-bold text-neutral-900 dark:text-white truncate">
+                            <span className="text-caption font-semibold text-text-main-light dark:text-text-main-dark truncate">
                                 {reply.authorProfile?.fullName || 'Anonymous'}
                             </span>
-                            <span className="text-[11px] text-neutral-400 dark:text-neutral-500 shrink-0">
+                            <span className="text-[11px] text-text-faint-light dark:text-text-faint-dark shrink-0">
                                 {formatRelativeTime(reply._creationTime)}
                             </span>
                         </div>
-                        <p className="text-sm text-neutral-700 dark:text-neutral-300 whitespace-pre-wrap break-words">
+                        <p className="text-body-sm text-text-sub-light dark:text-text-sub-dark whitespace-pre-wrap break-words">
                             {reply.content}
                         </p>
                     </div>
                 </div>
             ))}
 
-            {/* Reply input */}
             {userId && (
                 <div className="flex items-center gap-2">
                     <input
@@ -202,16 +201,16 @@ const ReplySection = ({ postId, channelId, userId }) => {
                         onChange={(e) => setReplyText(e.target.value)}
                         onKeyDown={handleKeyDown}
                         disabled={submitting}
-                        className="flex-1 min-w-0 px-3.5 py-2 rounded-xl bg-neutral-100 dark:bg-neutral-800/60 border border-neutral-200/80 dark:border-neutral-700/60 text-sm text-neutral-900 dark:text-white placeholder-neutral-400 dark:placeholder-neutral-500 focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary/40 transition-all disabled:opacity-50"
+                        className="input-field flex-1 min-w-0 text-body-sm py-2"
                         aria-label="Write a reply"
                     />
                     <button
                         onClick={handleSubmitReply}
                         disabled={!replyText.trim() || submitting}
-                        className="p-2 rounded-xl bg-primary text-white hover:bg-primary/90 transition-all active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed"
+                        className="btn-primary p-2 disabled:opacity-40"
                         aria-label="Send reply"
                     >
-                        <span className="material-symbols-outlined text-[18px]">send</span>
+                        <span className="material-symbols-outlined text-[16px]">send</span>
                     </button>
                 </div>
             )}
@@ -241,36 +240,34 @@ const PostCard = ({ post, channelId, userId }) => {
     const replyCount = post.replyCount ?? 0;
 
     return (
-        <div className="rounded-2xl bg-white dark:bg-neutral-900 border border-neutral-200/80 dark:border-neutral-800 shadow-card p-4 transition-all">
-            {/* Author row */}
+        <div className="card-base p-4">
             <div className="flex items-center gap-3 mb-2.5">
                 <UserAvatar profile={post.authorProfile} size={36} />
                 <div className="flex-1 min-w-0">
-                    <p className="text-sm font-bold text-neutral-900 dark:text-white truncate">
+                    <p className="text-body-sm font-semibold text-text-main-light dark:text-text-main-dark truncate">
                         {post.authorProfile?.fullName || 'Anonymous'}
                     </p>
-                    <p className="text-[11px] text-neutral-400 dark:text-neutral-500">
+                    <p className="text-[11px] text-text-faint-light dark:text-text-faint-dark">
                         {formatRelativeTime(post._creationTime)}
                     </p>
                 </div>
                 <TagBadge tag={post.tag} />
 
-                {/* 3-dot menu */}
                 <div className="relative" ref={menuRef}>
                     <button
                         onClick={() => setShowMenu(!showMenu)}
-                        className="p-1 rounded-lg hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors"
+                        className="btn-icon w-8 h-8"
                         aria-label="Post options"
                     >
-                        <span className="material-symbols-outlined text-[20px] text-neutral-400">more_vert</span>
+                        <span className="material-symbols-outlined text-[18px]">more_vert</span>
                     </button>
                     {showMenu && (
-                        <div className="absolute right-0 top-full mt-1 w-40 py-1 rounded-xl bg-white dark:bg-neutral-800 border border-neutral-200/80 dark:border-neutral-700 shadow-lg z-20">
+                        <div className="absolute right-0 top-full mt-1 w-40 py-1 rounded-xl bg-surface-light dark:bg-surface-dark border border-border-light dark:border-border-dark shadow-lg z-20">
                             <button
                                 onClick={() => setShowMenu(false)}
-                                className="w-full flex items-center gap-2 px-3 py-2 text-sm text-neutral-700 dark:text-neutral-300 hover:bg-neutral-100 dark:hover:bg-neutral-700 transition-colors"
+                                className="w-full flex items-center gap-2 px-3 py-2 text-body-sm text-text-sub-light dark:text-text-sub-dark hover:bg-surface-hover-light dark:hover:bg-surface-hover-dark transition-colors"
                             >
-                                <span className="material-symbols-outlined text-[18px]">flag</span>
+                                <span className="material-symbols-outlined text-[16px]">flag</span>
                                 Report post
                             </button>
                         </div>
@@ -278,25 +275,22 @@ const PostCard = ({ post, channelId, userId }) => {
                 </div>
             </div>
 
-            {/* Content */}
-            <p className="text-sm text-neutral-800 dark:text-neutral-200 whitespace-pre-wrap break-words leading-relaxed mb-3">
+            <p className="text-body-sm text-text-main-light dark:text-text-main-dark whitespace-pre-wrap break-words leading-relaxed mb-3">
                 {post.content}
             </p>
 
-            {/* Actions row */}
             <div className="flex items-center gap-1">
                 <button
                     onClick={() => setShowReplies(!showReplies)}
-                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold text-neutral-500 dark:text-neutral-400 hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-all active:scale-95"
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-caption font-semibold text-text-faint-light dark:text-text-faint-dark hover:bg-surface-hover-light dark:hover:bg-surface-hover-dark transition-colors"
                     aria-expanded={showReplies}
                     aria-label={`${replyCount} replies, toggle replies`}
                 >
-                    <span className="material-symbols-outlined text-[16px]">chat_bubble_outline</span>
+                    <span className="material-symbols-outlined text-[14px]">chat_bubble_outline</span>
                     {replyCount > 0 ? `${replyCount} ${replyCount === 1 ? 'reply' : 'replies'}` : 'Reply'}
                 </button>
             </div>
 
-            {/* Replies */}
             {showReplies && <ReplySection postId={post._id} channelId={channelId} userId={userId} />}
         </div>
     );
@@ -342,30 +336,21 @@ const ComposeModal = ({ channelId, userId, onClose }) => {
             aria-modal="true"
             aria-label="Create a new post"
         >
-            {/* Backdrop */}
             <div
-                className="absolute inset-0 bg-black/40 backdrop-blur-sm"
+                className="absolute inset-0 bg-black/20"
                 onClick={onClose}
                 aria-hidden="true"
             />
 
-            {/* Sheet */}
-            <div className="relative w-full sm:max-w-lg bg-white dark:bg-neutral-900 rounded-t-2xl sm:rounded-2xl border border-neutral-200/80 dark:border-neutral-800 shadow-xl max-h-[85vh] flex flex-col">
-                {/* Header */}
-                <div className="flex items-center justify-between px-5 pt-5 pb-3 border-b border-neutral-100 dark:border-neutral-800">
-                    <h2 className="text-base font-bold text-neutral-900 dark:text-white">New Post</h2>
-                    <button
-                        onClick={onClose}
-                        className="p-1 rounded-lg hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors"
-                        aria-label="Close"
-                    >
-                        <span className="material-symbols-outlined text-[22px] text-neutral-400">close</span>
+            <div className="relative w-full sm:max-w-lg bg-surface-light dark:bg-surface-dark rounded-t-2xl sm:rounded-xl border border-border-light dark:border-border-dark shadow-lg max-h-[85vh] flex flex-col">
+                <div className="flex items-center justify-between px-4 pt-4 pb-3 border-b border-border-light dark:border-border-dark">
+                    <h2 className="text-body-base font-semibold text-text-main-light dark:text-text-main-dark">New Post</h2>
+                    <button onClick={onClose} className="btn-icon w-8 h-8" aria-label="Close">
+                        <span className="material-symbols-outlined text-[18px]">close</span>
                     </button>
                 </div>
 
-                {/* Body */}
-                <div className="flex-1 overflow-y-auto px-5 py-4 space-y-4">
-                    {/* Tag selector */}
+                <div className="flex-1 overflow-y-auto px-4 py-4 space-y-4">
                     <div className="flex items-center gap-2" role="radiogroup" aria-label="Post type">
                         {TAG_OPTIONS.map((t) => {
                             const config = TAG_CONFIG[t];
@@ -376,10 +361,10 @@ const ComposeModal = ({ channelId, userId, onClose }) => {
                                     onClick={() => setTag(t)}
                                     role="radio"
                                     aria-checked={isSelected}
-                                    className={`px-3.5 py-1.5 rounded-full text-xs font-semibold transition-all active:scale-95 border ${
+                                    className={`px-3 py-1.5 rounded-lg text-caption font-semibold transition-colors ${
                                         isSelected
-                                            ? `${config.classes} border-current`
-                                            : 'bg-neutral-50 dark:bg-neutral-800/60 text-neutral-500 dark:text-neutral-400 border-neutral-200/80 dark:border-neutral-700/60 hover:bg-neutral-100 dark:hover:bg-neutral-700'
+                                            ? `${config.classes}`
+                                            : 'bg-background-light dark:bg-background-dark text-text-faint-light dark:text-text-faint-dark hover:bg-surface-hover-light dark:hover:bg-surface-hover-dark'
                                     }`}
                                 >
                                     {config.label}
@@ -388,7 +373,6 @@ const ComposeModal = ({ channelId, userId, onClose }) => {
                         })}
                     </div>
 
-                    {/* Text area */}
                     <textarea
                         ref={textareaRef}
                         value={content}
@@ -401,17 +385,16 @@ const ComposeModal = ({ channelId, userId, onClose }) => {
                                 : 'Start a discussion...'
                         }
                         rows={5}
-                        className="w-full resize-none rounded-xl bg-neutral-50 dark:bg-neutral-800/40 border border-neutral-200/80 dark:border-neutral-700/60 px-4 py-3 text-sm text-neutral-900 dark:text-white placeholder-neutral-400 dark:placeholder-neutral-500 focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary/40 transition-all"
+                        className="input-field w-full resize-none text-body-sm"
                         aria-label="Post content"
                     />
                 </div>
 
-                {/* Footer */}
-                <div className="px-5 pb-5 pt-2 border-t border-neutral-100 dark:border-neutral-800">
+                <div className="px-4 pb-4 pt-2 border-t border-border-light dark:border-border-dark">
                     <button
                         onClick={handleSubmit}
                         disabled={!content.trim() || submitting}
-                        className="w-full py-3 rounded-xl bg-primary text-white font-bold text-sm hover:bg-primary/90 shadow-lg shadow-primary/20 transition-all active:scale-[0.97] disabled:opacity-40 disabled:cursor-not-allowed"
+                        className="w-full btn-primary text-body-sm py-2.5"
                     >
                         {submitting ? 'Posting...' : 'Post'}
                     </button>
@@ -429,23 +412,23 @@ const WeeklyLeaderboard = ({ channelId }) => {
     if (!leaderboard || leaderboard.length === 0) return null;
 
     return (
-        <div className="rounded-2xl bg-white dark:bg-neutral-900 border border-neutral-200/80 dark:border-neutral-800 shadow-card p-5">
-            <h3 className="text-sm font-bold uppercase tracking-wider text-neutral-500 dark:text-neutral-400 mb-3 flex items-center gap-2">
-                <span className="material-symbols-outlined text-[18px] text-amber-500">emoji_events</span>
-                Top Contributors This Week
+        <div className="card-base p-4">
+            <h3 className="text-overline text-text-faint-light dark:text-text-faint-dark mb-3 flex items-center gap-2">
+                <span className="material-symbols-outlined text-[16px] text-accent-amber">emoji_events</span>
+                Top Contributors
             </h3>
             <div className="space-y-3">
                 {leaderboard.map((entry, index) => (
                     <div key={entry.userId} className="flex items-center gap-3">
-                        <span className="w-5 text-center text-xs font-bold text-neutral-400 dark:text-neutral-500">
+                        <span className="w-5 text-center text-caption font-semibold text-text-faint-light dark:text-text-faint-dark">
                             {index + 1}
                         </span>
-                        <UserAvatar profile={entry.profile} size={30} />
-                        <span className="flex-1 min-w-0 text-sm font-semibold text-neutral-800 dark:text-neutral-200 truncate">
+                        <UserAvatar profile={entry.profile} size={28} />
+                        <span className="flex-1 min-w-0 text-body-sm font-semibold text-text-main-light dark:text-text-main-dark truncate">
                             {entry.profile?.fullName || 'Anonymous'}
                         </span>
-                        <span className="text-xs font-bold text-neutral-500 dark:text-neutral-400 tabular-nums">
-                            {entry.postCount} {entry.postCount === 1 ? 'post' : 'posts'}
+                        <span className="text-caption text-text-faint-light dark:text-text-faint-dark tabular-nums">
+                            {entry.postCount}
                         </span>
                     </div>
                 ))}
@@ -463,7 +446,7 @@ const FILTER_TABS = [
 ];
 
 const FilterTabBar = ({ activeFilter, onChange }) => (
-    <div className="flex items-center gap-1 p-1 rounded-xl bg-neutral-100 dark:bg-neutral-800/60" role="tablist" aria-label="Filter posts by type">
+    <div className="flex items-center gap-1 p-1 rounded-lg bg-background-light dark:bg-background-dark border border-border-light dark:border-border-dark" role="tablist" aria-label="Filter posts by type">
         {FILTER_TABS.map((tab) => {
             const isActive = activeFilter === tab.key;
             return (
@@ -472,10 +455,10 @@ const FilterTabBar = ({ activeFilter, onChange }) => (
                     onClick={() => onChange(tab.key)}
                     role="tab"
                     aria-selected={isActive}
-                    className={`flex-1 py-2 px-3 rounded-lg text-xs font-bold transition-all active:scale-95 ${
+                    className={`flex-1 py-1.5 px-3 rounded-md text-caption font-semibold transition-colors ${
                         isActive
-                            ? 'bg-white dark:bg-neutral-700 text-neutral-900 dark:text-white shadow-sm'
-                            : 'text-neutral-500 dark:text-neutral-400 hover:text-neutral-700 dark:hover:text-neutral-300'
+                            ? 'bg-surface-light dark:bg-surface-dark text-text-main-light dark:text-text-main-dark shadow-sm'
+                            : 'text-text-faint-light dark:text-text-faint-dark hover:text-text-sub-light dark:hover:text-text-sub-dark'
                     }`}
                 >
                     {tab.label}
@@ -528,23 +511,19 @@ const CommunityChannel = () => {
         setShowCompose(false);
     }, []);
 
-    // Channel not found after loading
     if (channel === null) {
         return (
-            <div className="min-h-screen bg-background-light dark:bg-background-dark flex items-center justify-center px-6 pb-24">
-                <div className="text-center max-w-md">
-                    <div className="w-20 h-20 rounded-full bg-neutral-100 dark:bg-neutral-800 flex items-center justify-center mx-auto mb-5">
-                        <span className="material-symbols-outlined text-4xl text-neutral-400">forum</span>
+            <div className="w-full max-w-5xl mx-auto px-4 md:px-8 py-8 text-center">
+                <div className="py-16">
+                    <div className="w-14 h-14 rounded-2xl bg-surface-light dark:bg-surface-dark border border-border-light dark:border-border-dark flex items-center justify-center mx-auto mb-4">
+                        <span className="material-symbols-outlined text-2xl text-text-faint-light dark:text-text-faint-dark">forum</span>
                     </div>
-                    <h1 className="text-lg font-bold text-neutral-900 dark:text-white mb-2">Channel not found</h1>
-                    <p className="text-sm text-neutral-500 dark:text-neutral-400 mb-6">
-                        This community channel may have been removed or the link is invalid.
+                    <h1 className="text-body-lg font-semibold text-text-main-light dark:text-text-main-dark mb-1">Channel not found</h1>
+                    <p className="text-body-sm text-text-sub-light dark:text-text-sub-dark mb-5">
+                        This channel may have been removed or the link is invalid.
                     </p>
-                    <Link
-                        to="/dashboard/community"
-                        className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-primary text-white font-bold shadow-lg shadow-primary/20 hover:bg-primary/90 transition-all"
-                    >
-                        <span className="material-symbols-outlined text-[20px]">arrow_back</span>
+                    <Link to="/dashboard/community" className="btn-secondary text-body-sm px-5 py-2 inline-flex items-center gap-2">
+                        <span className="material-symbols-outlined text-[16px]">arrow_back</span>
                         Back to Community
                     </Link>
                 </div>
@@ -553,132 +532,112 @@ const CommunityChannel = () => {
     }
 
     return (
-        <div className="min-h-screen bg-background-light dark:bg-background-dark pb-24">
+        <div className="w-full max-w-5xl mx-auto px-4 md:px-8 py-8 pb-24 md:pb-12">
             {/* Header */}
-            <div className="sticky top-0 z-30 bg-white/82 dark:bg-[#0a0a0a]/85 backdrop-blur-xl border-b border-neutral-200/60 dark:border-neutral-800/60">
-                <div className="px-4 md:px-6 lg:px-8 max-w-6xl mx-auto flex items-center gap-3 h-14">
-                    <button
-                        onClick={() => navigate('/dashboard/community')}
-                        className="p-1.5 -ml-1.5 rounded-xl hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors"
-                        aria-label="Back to community"
-                    >
-                        <span className="material-symbols-outlined text-[22px] text-neutral-600 dark:text-neutral-300">arrow_back</span>
-                    </button>
-                    <div className="flex-1 min-w-0">
-                        {isLoading ? (
-                            <div className="h-5 w-40 bg-neutral-200 dark:bg-neutral-700 rounded-lg animate-pulse" />
-                        ) : (
-                            <h1 className="text-base font-bold text-neutral-900 dark:text-white truncate">
-                                {channel?.title}
-                            </h1>
-                        )}
-                        {!isLoading && channel && (
-                            <p className="text-[11px] text-neutral-400 dark:text-neutral-500">
-                                {channel.memberCount ?? 0} {(channel.memberCount ?? 0) === 1 ? 'member' : 'members'}
-                            </p>
-                        )}
-                    </div>
-                    {!isLoading && !isMember && userId && (
-                        <button
-                            onClick={handleJoin}
-                            className="px-4 py-2 rounded-xl bg-primary text-white text-sm font-bold hover:bg-primary/90 shadow-lg shadow-primary/20 transition-all active:scale-95"
-                        >
-                            Join Channel
-                        </button>
+            <div className="flex items-center gap-3 mb-6">
+                <button
+                    onClick={() => navigate('/dashboard/community')}
+                    className="btn-icon w-9 h-9"
+                    aria-label="Back to community"
+                >
+                    <span className="material-symbols-outlined text-[18px]">arrow_back</span>
+                </button>
+                <div className="flex-1 min-w-0">
+                    {isLoading ? (
+                        <div className="h-5 w-40 bg-border-light dark:bg-border-dark rounded animate-pulse" />
+                    ) : (
+                        <h1 className="text-display-sm text-text-main-light dark:text-text-main-dark truncate">
+                            {channel?.title}
+                        </h1>
+                    )}
+                    {!isLoading && channel && (
+                        <p className="text-caption text-text-faint-light dark:text-text-faint-dark">
+                            {channel.memberCount ?? 0} {(channel.memberCount ?? 0) === 1 ? 'member' : 'members'}
+                        </p>
                     )}
                 </div>
+                {!isLoading && !isMember && userId && (
+                    <button onClick={handleJoin} className="btn-primary text-body-sm px-4 py-2">
+                        Join Channel
+                    </button>
+                )}
             </div>
 
             {/* Body */}
-            <div className="px-4 md:px-6 lg:px-8 max-w-6xl mx-auto pt-4">
-                <div className="flex gap-6">
-                    {/* Main posts column */}
-                    <div className="flex-1 min-w-0 space-y-4">
-                        {/* Filter tab bar */}
-                        <FilterTabBar activeFilter={activeFilter} onChange={setActiveFilter} />
+            <div className="flex gap-6">
+                <div className="flex-1 min-w-0 space-y-3">
+                    <FilterTabBar activeFilter={activeFilter} onChange={setActiveFilter} />
 
-                        {/* Loading */}
-                        {isLoading && (
-                            <div className="space-y-4">
-                                {Array.from({ length: 4 }).map((_, i) => (
-                                    <PostSkeleton key={i} />
-                                ))}
+                    {isLoading && (
+                        <div className="space-y-3">
+                            {Array.from({ length: 4 }).map((_, i) => (
+                                <PostSkeleton key={i} />
+                            ))}
+                        </div>
+                    )}
+
+                    {!isLoading && filteredPosts.length > 0 && (
+                        <div className="space-y-3">
+                            {filteredPosts.map((post) => (
+                                <PostCard key={post._id} post={post} channelId={channelId} userId={userId} />
+                            ))}
+                        </div>
+                    )}
+
+                    {!isLoading && posts && filteredPosts.length === 0 && (
+                        <div className="text-center py-16">
+                            <div className="w-12 h-12 rounded-xl bg-surface-hover-light dark:bg-surface-hover-dark flex items-center justify-center mx-auto mb-3">
+                                <span className="material-symbols-outlined text-xl text-text-faint-light dark:text-text-faint-dark">
+                                    {activeFilter === 'all' ? 'chat_bubble_outline' : activeFilter === 'question' ? 'help_outline' : 'link'}
+                                </span>
                             </div>
-                        )}
+                            <p className="text-body-sm font-semibold text-text-main-light dark:text-text-main-dark mb-1">
+                                {activeFilter === 'all'
+                                    ? 'No posts yet'
+                                    : `No ${activeFilter === 'question' ? 'questions' : 'resources'} yet`}
+                            </p>
+                            <p className="text-caption text-text-faint-light dark:text-text-faint-dark">
+                                {isMember ? 'Be the first to start a conversation!' : 'Join this channel to start posting.'}
+                            </p>
+                        </div>
+                    )}
+                </div>
 
-                        {/* Posts */}
-                        {!isLoading && filteredPosts.length > 0 && (
-                            <div className="space-y-4">
-                                {filteredPosts.map((post) => (
-                                    <PostCard key={post._id} post={post} channelId={channelId} userId={userId} />
-                                ))}
+                {/* Desktop sidebar */}
+                <div className="hidden lg:block w-64 shrink-0 space-y-4">
+                    {channel && (
+                        <div className="card-base p-4">
+                            <h3 className="text-overline text-text-faint-light dark:text-text-faint-dark mb-2">About</h3>
+                            <p className="text-body-sm font-semibold text-text-main-light dark:text-text-main-dark mb-1">
+                                {channel.title}
+                            </p>
+                            <div className="flex items-center gap-3 text-caption text-text-faint-light dark:text-text-faint-dark">
+                                <span className="inline-flex items-center gap-1">
+                                    <span className="material-symbols-outlined text-[14px]">group</span>
+                                    {channel.memberCount ?? 0}
+                                </span>
+                                <span className="inline-flex items-center gap-1">
+                                    <span className="material-symbols-outlined text-[14px]">chat_bubble</span>
+                                    {channel.postCount ?? 0}
+                                </span>
                             </div>
-                        )}
-
-                        {/* Empty posts */}
-                        {!isLoading && posts && filteredPosts.length === 0 && (
-                            <div className="flex flex-col items-center py-16 text-center">
-                                <div className="w-16 h-16 rounded-full bg-neutral-100 dark:bg-neutral-800 flex items-center justify-center mb-4">
-                                    <span className="material-symbols-outlined text-3xl text-neutral-400 dark:text-neutral-500">
-                                        {activeFilter === 'all' ? 'chat_bubble_outline' : activeFilter === 'question' ? 'help_outline' : 'link'}
-                                    </span>
-                                </div>
-                                <p className="text-sm font-semibold text-neutral-700 dark:text-neutral-300 mb-1">
-                                    {activeFilter === 'all'
-                                        ? 'No posts yet'
-                                        : `No ${activeFilter === 'question' ? 'questions' : 'resources'} yet`}
-                                </p>
-                                <p className="text-xs text-neutral-400 dark:text-neutral-500">
-                                    {isMember
-                                        ? 'Be the first to start a conversation!'
-                                        : 'Join this channel to start posting.'}
-                                </p>
-                            </div>
-                        )}
-                    </div>
-
-                    {/* Desktop sidebar */}
-                    <div className="hidden lg:block w-72 shrink-0 space-y-4">
-                        {/* Channel info card */}
-                        {channel && (
-                            <div className="rounded-2xl bg-white dark:bg-neutral-900 border border-neutral-200/80 dark:border-neutral-800 shadow-card p-5">
-                                <h3 className="text-sm font-bold uppercase tracking-wider text-neutral-500 dark:text-neutral-400 mb-2">
-                                    About
-                                </h3>
-                                <p className="text-sm text-neutral-800 dark:text-neutral-200 font-semibold mb-1">
-                                    {channel.title}
-                                </p>
-                                <div className="flex items-center gap-3 text-xs text-neutral-500 dark:text-neutral-400">
-                                    <span className="inline-flex items-center gap-1">
-                                        <span className="material-symbols-outlined text-[14px]">group</span>
-                                        {channel.memberCount ?? 0} members
-                                    </span>
-                                    <span className="inline-flex items-center gap-1">
-                                        <span className="material-symbols-outlined text-[14px]">chat_bubble</span>
-                                        {channel.postCount ?? 0} posts
-                                    </span>
-                                </div>
-                            </div>
-                        )}
-
-                        {/* Leaderboard */}
-                        {channelId && <WeeklyLeaderboard channelId={channelId} />}
-                    </div>
+                        </div>
+                    )}
+                    {channelId && <WeeklyLeaderboard channelId={channelId} />}
                 </div>
             </div>
 
-            {/* Floating compose button */}
+            {/* Floating compose */}
             {isMember && (
                 <button
                     onClick={() => setShowCompose(true)}
-                    className="fixed bottom-[calc(5rem+env(safe-area-inset-bottom))] right-5 z-30 w-14 h-14 rounded-full bg-primary text-white shadow-lg shadow-primary/30 flex items-center justify-center hover:scale-105 active:scale-95 transition-transform"
+                    className="fixed bottom-[calc(5rem+env(safe-area-inset-bottom))] md:bottom-8 right-5 md:right-8 z-30 w-12 h-12 rounded-xl bg-primary text-white shadow-lg flex items-center justify-center hover:bg-primary-hover transition-colors"
                     aria-label="Create new post"
                 >
-                    <span className="material-symbols-outlined text-[26px]">edit</span>
+                    <span className="material-symbols-outlined text-[22px]">edit</span>
                 </button>
             )}
 
-            {/* Compose modal */}
             {showCompose && channelId && (
                 <ComposeModal channelId={channelId} userId={userId} onClose={handleCloseCompose} />
             )}

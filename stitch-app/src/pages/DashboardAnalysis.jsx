@@ -597,486 +597,368 @@ const DashboardAnalysis = () => {
     };
 
     return (
-        <div className="bg-background-light dark:bg-background-dark font-body antialiased min-h-screen flex flex-col transition-colors duration-300">
-            <header className="sticky top-0 z-50 w-full glass border-b border-neutral-200/50 dark:border-neutral-800/50">
-                <div className="max-w-[1600px] mx-auto px-4 md:px-6 h-16 md:h-20 flex items-center justify-between gap-4 md:gap-8">
-                    <div className="flex items-center gap-3 shrink-0">
-                        <div className="w-10 h-10 bg-primary rounded-xl flex items-center justify-center text-white shadow-lg shadow-primary/30">
-                            <span className="material-symbols-outlined text-[24px]">school</span>
-                        </div>
-                        <span className="text-xl font-display font-bold tracking-tight text-neutral-900 dark:text-white hidden sm:block">ChewnPour</span>
+        <div className="min-h-full font-body antialiased">
+            {/* Top Bar */}
+            <header className="sticky top-0 z-40 h-15 flex items-center justify-between gap-4 px-5 md:px-8 border-b border-border-subtle dark:border-border-subtle-dark bg-surface-light/80 dark:bg-surface-dark/80 backdrop-blur-xl">
+                <div className="flex items-center gap-3 min-w-0">
+                    <h1 className="text-display-sm text-text-main-light dark:text-text-main-dark truncate">Dashboard</h1>
+                    {subscription && (
+                        subscription.plan === 'premium' ? (
+                            <span className="badge bg-amber-50 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400 border border-amber-200/50 dark:border-amber-700/30">Premium</span>
+                        ) : (
+                            <span className="badge bg-surface-hover dark:bg-surface-hover-dark text-text-faint-light dark:text-text-faint-dark">Free</span>
+                        )
+                    )}
+                </div>
+                <div className="flex items-center gap-2">
+                    {/* Streak badge */}
+                    <div className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-orange-50 dark:bg-orange-900/15 border border-orange-200/50 dark:border-orange-800/30">
+                        <span className="material-symbols-outlined text-orange-500 text-[16px]" style={{ fontVariationSettings: "'FILL' 1" }}>local_fire_department</span>
+                        <span className="text-caption font-semibold text-orange-700 dark:text-orange-300">
+                            {userStats?.streakDays || 0}d
+                        </span>
                     </div>
-                    <div className="flex-1 max-w-xl hidden md:block">
-                        <div className="relative group transition-transform duration-300 focus-within:scale-[1.01]">
-                            <span className="absolute left-4 top-1/2 -translate-y-1/2 text-neutral-400 group-focus-within:text-primary transition-colors material-symbols-outlined">search</span>
-                            <input
-                                className="w-full pl-12 pr-4 py-2.5 bg-white dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 focus:border-primary/30 rounded-2xl focus:ring-4 focus:ring-primary/5 transition-colors text-sm font-medium placeholder-slate-400 shadow-sm"
-                                placeholder="Search courses, topics, or questions..."
-                                type="text"
-                                value={searchQuery}
-                                onChange={(event) => setSearchQuery(event.target.value)}
-                                onKeyDown={handleSearchKeyDown}
-                            />
-                        </div>
+                    {/* Search — desktop */}
+                    <div className="hidden md:block relative">
+                        <span className="absolute left-3 top-1/2 -translate-y-1/2 material-symbols-outlined text-[18px] text-text-faint-light dark:text-text-faint-dark">search</span>
+                        <input
+                            className="w-56 lg:w-72 pl-9 pr-3 py-2 rounded-xl bg-surface-hover dark:bg-surface-hover-dark border border-transparent focus:border-primary/20 focus:bg-surface-light dark:focus:bg-surface-dark text-body-sm placeholder:text-text-faint-light dark:placeholder:text-text-faint-dark transition-all focus:ring-2 focus:ring-primary/10"
+                            placeholder="Search courses or topics..."
+                            type="text"
+                            value={searchQuery}
+                            onChange={(e) => setSearchQuery(e.target.value)}
+                            onKeyDown={handleSearchKeyDown}
+                        />
                     </div>
-                    <div className="flex items-center gap-3 shrink-0">
-                        <div className="hidden sm:flex items-center gap-2 bg-gradient-to-r from-orange-50 to-red-50 dark:from-orange-900/20 dark:to-red-900/20 backdrop-blur-sm px-3 py-1.5 rounded-full border border-orange-200 dark:border-orange-800 select-none pointer-events-none">
-                            <span className="material-symbols-outlined text-orange-500 text-[18px] filled animate-pulse">local_fire_department</span>
-                            <span className="text-neutral-700 dark:text-neutral-200 text-xs font-bold">
-                                {userStats?.streakDays || 0} Day Streak
-                            </span>
+                    {/* Profile link */}
+                    <Link to="/profile" className="relative">
+                        <div className="w-8 h-8 rounded-full bg-primary-100 dark:bg-primary-900/30 flex items-center justify-center text-xs font-bold text-primary-700 dark:text-primary-300">
+                            {user?.name?.[0]?.toUpperCase() || 'S'}
                         </div>
-                        <Link to="/profile" className="relative group block">
-                            <div className="h-10 w-10 rounded-full p-0.5 bg-primary">
-                                <div className="w-full h-full rounded-full bg-white dark:bg-neutral-900 flex items-center justify-center overflow-hidden">
-                                    <span className="text-primary font-bold text-sm">
-                                        {user?.name?.[0]?.toUpperCase() || 'S'}
-                                    </span>
-                                </div>
-                            </div>
-                            <div className="absolute bottom-0 right-0 w-2.5 h-2.5 bg-green-500 border-2 border-white dark:border-neutral-900 rounded-full"></div>
-                        </Link>
-                    </div>
+                        <div className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 bg-accent-emerald rounded-full border-2 border-surface-light dark:border-surface-dark"></div>
+                    </Link>
                 </div>
             </header>
-            <main className="flex-1 w-full max-w-[1600px] mx-auto px-4 py-8 pb-20 md:px-6 md:py-12 md:pb-12">
-                {/* Mobile Search Bar */}
-                <div className="md:hidden w-full mb-6 relative group transition-transform duration-300 focus-within:scale-[1.01]">
-                    <span className="absolute left-4 top-1/2 -translate-y-1/2 text-neutral-400 group-focus-within:text-primary transition-colors material-symbols-outlined">search</span>
+
+            <div className="px-5 md:px-8 py-6 md:py-8 pb-24 md:pb-8 max-w-[1400px] space-y-6">
+                {/* Mobile Search */}
+                <div className="md:hidden relative">
+                    <span className="absolute left-3.5 top-1/2 -translate-y-1/2 material-symbols-outlined text-[18px] text-text-faint-light dark:text-text-faint-dark">search</span>
                     <input
-                        className="w-full pl-12 pr-4 py-3 bg-white dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 focus:border-primary/30 rounded-2xl focus:ring-4 focus:ring-primary/5 transition-colors text-base font-medium placeholder-slate-400 shadow-sm"
+                        className="input-field pl-10"
                         placeholder="Search courses or topics..."
                         type="text"
                         value={searchQuery}
-                        onChange={(event) => setSearchQuery(event.target.value)}
+                        onChange={(e) => setSearchQuery(e.target.value)}
                         onKeyDown={handleSearchKeyDown}
                     />
                 </div>
 
-                <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-                    <div className="lg:col-span-8 flex flex-col animate-slide-up">
-                        <div className="relative w-full h-full overflow-hidden rounded-3xl bg-surface-light dark:bg-surface-dark p-6 sm:p-8 md:p-10 shadow-soft border border-neutral-200/60 dark:border-neutral-800 group isolate">
-
-                            <div className="relative z-10 flex flex-col md:flex-row items-start md:items-center justify-between h-full gap-8">
-                                <div className="flex-1 space-y-5">
-                                    <span className="badge-primary">
-                                        <span className="material-symbols-outlined text-sm filled">auto_awesome</span>
-                                        AI Powered v2.0
+                {/* Hero Upload Section */}
+                <div className="card-base p-6 md:p-8 animate-fade-in">
+                    <div className="flex flex-col md:flex-row items-start md:items-center gap-6">
+                        <div className="flex-1 space-y-4">
+                            <div className="flex items-center gap-2">
+                                <span className="badge-primary">
+                                    <span className="material-symbols-outlined text-[12px]" style={{ fontVariationSettings: "'FILL' 1" }}>auto_awesome</span>
+                                    AI Powered
+                                </span>
+                            </div>
+                            <h2 className="text-display-md md:text-display-lg text-text-main-light dark:text-text-main-dark">
+                                Upload your materials
+                            </h2>
+                            <p className="text-body-md text-text-sub-light dark:text-text-sub-dark max-w-lg">
+                                Drop your PDFs, PowerPoints, or Word docs. AI transforms them into structured lessons with practice quizzes.
+                            </p>
+                            {uploadError && (
+                                <div className="p-3 rounded-xl bg-red-50 dark:bg-red-900/15 border border-red-200 dark:border-red-800/40 text-body-sm font-medium text-red-700 dark:text-red-400 flex items-center gap-2">
+                                    <span className="material-symbols-outlined text-[16px]">error</span>
+                                    {uploadError}
+                                </div>
+                            )}
+                            <div className="flex flex-col sm:flex-row items-start gap-3">
+                                <input ref={fileInputRef} type="file" accept=".pdf,.pptx,.docx" className="hidden" disabled={uploading} onChange={handleFileSelect} />
+                                <button onClick={handleUploadClick} disabled={uploading} className="btn-primary h-11 disabled:opacity-50 disabled:cursor-not-allowed">
+                                    <span className="material-symbols-outlined text-[18px]" style={{ fontVariationSettings: "'FILL' 1" }}>
+                                        {uploading ? 'hourglass_empty' : 'cloud_upload'}
                                     </span>
-                                    {subscription && (
-                                        subscription.plan === 'premium' ? (
-                                            <span className="inline-flex items-center gap-1.5 bg-amber-500/10 dark:bg-amber-500/20 px-3 py-1.5 rounded-full border border-amber-400/30">
-                                                <span className="text-amber-500 text-xs">✦</span>
-                                                <span className="text-xs font-bold uppercase tracking-wider text-amber-600 dark:text-amber-400">Premium</span>
-                                            </span>
-                                        ) : (
-                                            <span className="inline-flex items-center gap-1.5 bg-neutral-100 dark:bg-neutral-800 px-3 py-1.5 rounded-full border border-neutral-200 dark:border-neutral-700">
-                                                <span className="text-xs font-bold uppercase tracking-wider text-neutral-500 dark:text-neutral-400">Free Plan</span>
-                                            </span>
-                                        )
-                                    )}
-                                    <h1 className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-display font-extrabold text-neutral-900 dark:text-white leading-[1.15] tracking-tight">
-                                        Turn Your Slides into <br />
-                                        <span className="text-primary">Smart Lessons & Quizzes</span>
-                                    </h1>
-                                    <p className="text-neutral-500 dark:text-neutral-400 text-base md:text-lg font-medium leading-relaxed max-w-lg">
-                                        Upload PDFs, PowerPoints, or Word docs. Our AI transforms them into bite-sized lessons with practice quizzes.
-                                    </p>
-                                    <div className="pt-2">
-                                        {uploadError && (
-                                            <div className="mb-4 p-3 bg-red-50 dark:bg-red-900/20 border border-red-100 dark:border-red-800 text-red-600 dark:text-red-400 rounded-xl text-sm font-medium">
-                                                {uploadError}
-                                            </div>
-                                        )}
-                                        <input
-                                            ref={fileInputRef}
-                                            type="file"
-                                            accept=".pdf,.pptx,.docx"
-                                            className="hidden"
-                                            disabled={uploading}
-                                            onChange={handleFileSelect}
-                                        />
-                                        <button
-                                            onClick={handleUploadClick}
-                                            disabled={uploading}
-                                            className="btn-primary flex items-center justify-center gap-2 h-12 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed w-full sm:w-fit"
-                                        >
-                                            <span className="material-symbols-outlined text-[22px] filled">
-                                                {uploading ? 'hourglass_empty' : 'cloud_upload'}
-                                            </span>
-                                            {uploading ? 'Uploading...' : 'Upload Materials'}
-                                        </button>
-                                        <p className="mt-3 text-xs font-medium text-neutral-400 dark:text-neutral-500 flex items-center gap-1">
-                                            <span className="material-symbols-outlined text-[14px] text-green-500">verified</span>
-                                            Secure • PDF, PPTX, DOCX • Max 50MB
-                                        </p>
-                                        {uploadQuota && (
-                                            <div className="mt-4 w-full sm:w-72">
-                                                <div className="flex items-center justify-between mb-1.5">
-                                                    <span className="text-xs font-semibold text-neutral-600 dark:text-neutral-300">
-                                                        {uploadQuota.remaining} of {uploadQuota.totalAllowed} uploads remaining
-                                                    </span>
-                                                    <Link
-                                                        to={buildUploadLimitSubscriptionPath()}
-                                                        className="text-[11px] font-bold text-primary hover:text-primary-hover"
-                                                    >
-                                                        Top up now
-                                                    </Link>
-                                                </div>
-                                                <div className="w-full h-2 bg-neutral-200 dark:bg-neutral-700 rounded-full overflow-hidden">
-                                                    <div
-                                                        className={`h-full rounded-full transition-[width] duration-500 ${uploadQuota.remaining === 0
-                                                            ? 'bg-red-500'
-                                                            : uploadQuota.remaining <= 1
-                                                                ? 'bg-amber-500'
-                                                                : 'bg-green-500'
-                                                            }`}
-                                                        style={{ width: `${Math.round((uploadQuota.remaining / uploadQuota.totalAllowed) * 100)}%` }}
-                                                    ></div>
-                                                </div>
-                                            </div>
-                                        )}
-                                        <DashboardReferralCTA remaining={uploadQuota?.remaining} profile={profile} />
-                                    </div>
-                                </div>
-                                <div className="hidden md:flex items-center justify-center relative w-1/3">
-                                    <div className="w-48 h-48 bg-surface-light dark:bg-surface-dark rounded-[2rem] flex items-center justify-center shadow-card relative z-10 rotate-3 border border-neutral-200/50 dark:border-neutral-700/50">
-                                        <div className="absolute inset-2 bg-primary/5 rounded-[1.75rem]"></div>
-                                        <span className="material-symbols-outlined text-[64px] text-primary relative z-10" style={{ fontVariationSettings: "'FILL' 1" }}>school</span>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                    <div className="lg:col-span-4 flex flex-col h-full animate-slide-up animate-delay-100 space-y-4">
-                        <Link to="/dashboard/assignment-helper" className="relative flex-1 flex flex-col justify-between overflow-hidden rounded-2xl bg-primary p-5 sm:p-6 shadow-lg shadow-primary/20 transition-shadow duration-300 cursor-pointer group hover:shadow-xl hover:shadow-primary/30 hover:-translate-y-1">
-                            <div className="relative z-10">
-                                <div className="w-12 h-12 rounded-xl bg-white/20 backdrop-blur-sm flex items-center justify-center text-white mb-4">
-                                    <span className="material-symbols-outlined text-[28px] filled">assignment</span>
-                                </div>
-                                <h2 className="text-xl md:text-2xl font-display font-bold text-white tracking-tight leading-tight mb-2">
-                                    Assignment Helper
-                                </h2>
-                                <p className="text-white/80 text-sm leading-relaxed">
-                                    Upload assignment sheets and get AI-powered answers with chat.
-                                </p>
-                            </div>
-                            <div className="relative z-10 mt-4">
-                                <div className="flex items-center gap-2 text-white font-semibold text-sm group-hover:gap-3 transition-all">
-                                    <span>Open</span>
-                                    <span className="material-symbols-outlined text-lg group-hover:translate-x-1 transition-transform">arrow_forward</span>
-                                </div>
-                            </div>
-                        </Link>
-                        <Link to="/dashboard/humanizer" className="relative flex-1 flex flex-col justify-between overflow-hidden rounded-2xl bg-secondary p-5 sm:p-6 shadow-lg shadow-secondary/20 transition-shadow duration-300 cursor-pointer group hover:shadow-xl hover:shadow-secondary/30 hover:-translate-y-1">
-                            <div className="relative z-10">
-                                <div className="flex items-center gap-2 mb-4">
-                                    <div className="w-12 h-12 rounded-xl bg-white/20 backdrop-blur-sm flex items-center justify-center text-white">
-                                        <span className="material-symbols-outlined text-[28px] filled">auto_fix_high</span>
-                                    </div>
-                                    <span className="px-2 py-0.5 bg-white/20 backdrop-blur-sm rounded-full text-[10px] font-bold text-white uppercase tracking-wider">New</span>
-                                </div>
-                                <h2 className="text-xl md:text-2xl font-display font-bold text-white tracking-tight leading-tight mb-2">
-                                    AI Humanizer
-                                </h2>
-                                <p className="text-white/80 text-sm leading-relaxed">
-                                    Make AI text sound human and bypass detection tools.
-                                </p>
-                            </div>
-                            <div className="relative z-10 mt-4">
-                                <div className="flex items-center gap-2 text-white font-semibold text-sm group-hover:gap-3 transition-all">
-                                    <span>Try it</span>
-                                    <span className="material-symbols-outlined text-lg group-hover:translate-x-1 transition-transform">arrow_forward</span>
-                                </div>
-                            </div>
-                        </Link>
-                        <Link to="/dashboard/community" className="relative flex flex-col justify-between overflow-hidden rounded-2xl bg-gradient-to-br from-emerald-500 to-teal-600 p-5 sm:p-6 shadow-lg shadow-emerald-500/20 transition-shadow duration-300 cursor-pointer group hover:shadow-xl hover:shadow-emerald-500/30 hover:-translate-y-1">
-                            <div className="relative z-10">
-                                <div className="flex items-center gap-2 mb-4">
-                                    <div className="w-12 h-12 rounded-xl bg-white/20 backdrop-blur-sm flex items-center justify-center text-white">
-                                        <span className="material-symbols-outlined text-[28px] filled">forum</span>
-                                    </div>
-                                    <span className="px-2 py-0.5 bg-white/20 backdrop-blur-sm rounded-full text-[10px] font-bold text-white uppercase tracking-wider">New</span>
-                                </div>
-                                <h2 className="text-xl md:text-2xl font-display font-bold text-white tracking-tight leading-tight mb-2">
-                                    Community
-                                </h2>
-                                <p className="text-white/80 text-sm leading-relaxed">
-                                    Join study groups, ask questions, and learn together with classmates.
-                                </p>
-                            </div>
-                            <div className="relative z-10 mt-4">
-                                <div className="flex items-center gap-2 text-white font-semibold text-sm group-hover:gap-3 transition-all">
-                                    <span>Explore</span>
-                                    <span className="material-symbols-outlined text-lg group-hover:translate-x-1 transition-transform">arrow_forward</span>
-                                </div>
-                            </div>
-                        </Link>
-                    </div>
-                    {/* Upgrade Banner for Free Users */}
-                    {subscription && subscription.plan !== 'premium' && (
-                        <div className="col-span-1 lg:col-span-12 animate-slide-up animate-delay-150">
-                            <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-primary via-violet-600 to-fuchsia-600 p-5 sm:p-6 shadow-lg shadow-primary/20">
-                                <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full -translate-y-1/2 translate-x-1/3 blur-3xl"></div>
-                                <div className="absolute bottom-0 left-0 w-40 h-40 bg-white/5 rounded-full translate-y-1/2 -translate-x-1/4 blur-2xl"></div>
-                                <div className="relative z-10 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-                                    <div className="flex items-center gap-4">
-                                        <div className="w-12 h-12 rounded-xl bg-white/20 backdrop-blur-sm flex items-center justify-center shrink-0">
-                                            <span className="material-symbols-outlined text-2xl text-white filled">rocket_launch</span>
-                                        </div>
-                                        <div>
-                                            <h3 className="text-lg font-display font-bold text-white">Unlock More Uploads</h3>
-                                            <p className="text-white/80 text-sm">You're on the Free Plan with limited uploads. Top up to keep learning without interruptions.</p>
-                                        </div>
-                                    </div>
-                                    <Link
-                                        to="/subscription"
-                                        className="shrink-0 inline-flex items-center gap-2 px-6 py-3 bg-white text-primary rounded-xl text-sm font-bold shadow-lg hover:bg-white/90 hover:-translate-y-0.5 transition-all"
-                                    >
-                                        <span className="material-symbols-outlined text-lg filled">diamond</span>
-                                        Upgrade Now
-                                    </Link>
-                                </div>
-                            </div>
-                        </div>
-                    )}
-
-                    <div className="col-span-1 lg:col-span-12 mt-2 animate-slide-up animate-delay-200">
-                        <div className="flex items-center justify-between mb-6 px-1">
-                            <div className="flex items-center gap-3">
-                                <div className="w-10 h-10 rounded-xl bg-primary flex items-center justify-center text-white shadow-lg shadow-primary/20">
-                                    <span className="material-symbols-outlined text-xl filled">history</span>
-                                </div>
-                                <div>
-                                    <h2 className="text-xl md:text-2xl font-display font-bold text-neutral-900 dark:text-white tracking-tight">Continue Learning</h2>
-                                    <p className="text-neutral-500 dark:text-neutral-400 text-sm">Pick up where you left off</p>
-                                </div>
-                            </div>
-                            {canToggleAllCourses && (
-                                <button
-                                    type="button"
-                                    onClick={() => setShowAllCourses((current) => !current)}
-                                    className="hidden sm:flex items-center gap-1 px-3 py-1.5 bg-neutral-100 dark:bg-neutral-800 hover:bg-neutral-200 dark:hover:bg-neutral-700 rounded-full text-neutral-600 dark:text-neutral-300 text-xs font-bold transition-colors"
-                                    aria-label={showAllCourses ? 'Show fewer courses' : 'View all courses'}
-                                >
-                                    {showAllCourses ? 'Show less' : 'View all'}
-                                    <span className="material-symbols-outlined text-[16px]">
-                                        {showAllCourses ? 'expand_less' : 'chevron_right'}
-                                    </span>
+                                    {uploading ? 'Uploading...' : 'Upload Materials'}
                                 </button>
-                            )}
-                        </div>
-                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                            {displayCourses.length > 0 ? (
-                                displayCourses.map((course, index) => {
-                                    const isCompleted = course.status === 'completed';
-                                    const progress = course.progress || 0;
-                                    const isExcellent = progress >= 80;
-                                    const isGood = progress >= 50;
-                                    return (
-                                        <Link
-                                            key={course._id}
-                                            to={`/dashboard/course/${course._id}`}
-                                            className="group flex flex-col bg-white dark:bg-surface-dark rounded-2xl overflow-hidden shadow-sm border border-neutral-200/60 dark:border-neutral-800 hover:shadow-xl hover:shadow-slate-200/30 dark:hover:shadow-black/30 hover:-translate-y-1 transition-shadow duration-300 cursor-pointer h-full"
-                                        >
-                                            <div className="relative w-full aspect-[16/10] overflow-hidden bg-neutral-100 dark:bg-neutral-800">
-                                                {confirmDeleteId === course._id ? (
-                                                    <div
-                                                        onClick={(event) => { event.preventDefault(); event.stopPropagation(); }}
-                                                        className="absolute top-2 right-2 z-20 flex items-center gap-2 bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-800 rounded-xl px-3 py-2 shadow-sm"
-                                                    >
-                                                        <span className="text-xs text-red-600 dark:text-red-400 font-medium">Delete?</span>
-                                                        <button
-                                                            onClick={() => { handleDeleteCourse(course); setConfirmDeleteId(null); }}
-                                                            disabled={deletingCourseId === String(course._id)}
-                                                            className="text-xs font-bold text-red-600 dark:text-red-400 hover:text-red-700 px-2 py-0.5 rounded-lg hover:bg-red-100 dark:hover:bg-red-900/40 transition-colors disabled:opacity-60"
-                                                        >Yes</button>
-                                                        <button
-                                                            onClick={() => setConfirmDeleteId(null)}
-                                                            className="text-xs text-neutral-500 hover:text-neutral-700 dark:hover:text-neutral-300 px-2 py-0.5 rounded-lg hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors"
-                                                        >Cancel</button>
-                                                    </div>
-                                                ) : (
-                                                    <button
-                                                        onClick={(event) => {
-                                                            event.preventDefault();
-                                                            event.stopPropagation();
-                                                            setConfirmDeleteId(course._id);
-                                                        }}
-                                                        disabled={deletingCourseId === String(course._id)}
-                                                        className="absolute top-2 right-2 z-20 inline-flex h-8 w-8 items-center justify-center rounded-full bg-white/90 dark:bg-neutral-900/90 border border-neutral-200 dark:border-neutral-700 text-neutral-500 hover:text-red-500 hover:border-red-200 shadow-sm opacity-0 group-hover:opacity-100 transition-opacity disabled:opacity-60"
-                                                        title="Delete course"
-                                                        aria-label={`Delete ${course.title}`}
-                                                    >
-                                                        <span className="material-symbols-outlined text-[18px]">
-                                                            {deletingCourseId === String(course._id) ? 'hourglass_empty' : 'delete'}
-                                                        </span>
-                                                    </button>
-                                                )}
-                                                <div
-                                                    className="w-full h-full flex items-center justify-center transition-transform duration-500 group-hover:scale-105"
-                                                    style={{ background: course.coverColor || gradients[index % gradients.length] }}
-                                                >
-                                                    <span className="material-symbols-outlined text-white text-4xl drop-shadow-lg" style={{ fontVariationSettings: "'FILL' 1" }}>menu_book</span>
-                                                </div>
-                                                <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
-                                            </div>
-                                            <div className="flex flex-col p-4 gap-3">
-                                                <div className="flex items-center justify-between">
-                                                    <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider ${isCompleted
-                                                        ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400'
-                                                        : 'bg-blue-50 text-blue-700 dark:bg-blue-900/20 dark:text-blue-400'
-                                                        }`}>
-                                                        {isCompleted ? 'Completed' : 'In Progress'}
-                                                    </span>
-                                                    <span className={`text-xs font-bold ${isExcellent ? 'text-green-600' : isGood ? 'text-blue-600' : 'text-neutral-400'}`}>
-                                                        {progress}%
-                                                    </span>
-                                                </div>
-                                                <div className="flex-1">
-                                                    <h3 className="text-base font-bold text-neutral-900 dark:text-white leading-tight mb-1 line-clamp-1 group-hover:text-primary transition-colors">{course.title}</h3>
-                                                    <p className="text-neutral-500 dark:text-neutral-400 text-xs line-clamp-2">{course.description}</p>
-                                                </div>
-                                                <div className="w-full h-1.5 bg-neutral-100 dark:bg-neutral-800 rounded-full overflow-hidden">
-                                                    <div
-                                                        className={`h-full rounded-full transition-[width] duration-500 ${isExcellent ? 'bg-green-500' : isGood ? 'bg-blue-500' : 'bg-primary'}`}
-                                                        style={{ width: `${progress}%` }}
-                                                    ></div>
-                                                </div>
-                                            </div>
-                                        </Link>
-                                    );
-                                })
-                            ) : (
-                                <div className="col-span-full py-12 text-center rounded-2xl border border-dashed border-neutral-200 dark:border-neutral-800 bg-neutral-50/50 dark:bg-neutral-900/30">
-                                    <div className="w-16 h-16 bg-gradient-to-br from-slate-100 to-slate-200 dark:from-slate-800 dark:to-slate-700 rounded-2xl flex items-center justify-center mx-auto mb-3 text-neutral-400">
-                                        <span className="material-symbols-outlined text-3xl">school</span>
-                                    </div>
-                                    <h3 className="text-base font-bold text-neutral-900 dark:text-white mb-1">
-                                        {searchQuery.trim() ? 'No matching courses' : 'No courses yet'}
-                                    </h3>
-                                    <p className="text-neutral-500 dark:text-neutral-400 text-sm mb-4 max-w-xs mx-auto">
-                                        {searchQuery.trim()
-                                            ? 'Try a different keyword or press Enter to search.'
-                                            : 'Upload your first study material to get started!'}
-                                    </p>
-                                    {!searchQuery.trim() && (
-                                        <button
-                                            type="button"
-                                            onClick={handleUploadClick}
-                                            disabled={uploading}
-                                            className="inline-flex items-center gap-1 px-4 py-2 bg-primary text-white text-sm font-bold rounded-full hover:bg-primary-hover transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                                        >
-                                            <span className="material-symbols-outlined text-[18px]">cloud_upload</span>
-                                            Upload Now
-                                        </button>
-                                    )}
-                                </div>
-                            )}
-                            <button
-                                type="button"
-                                onClick={handleUploadClick}
-                                disabled={uploading}
-                                className="flex flex-col items-center justify-center bg-neutral-50 dark:bg-neutral-800/50 rounded-2xl border-2 border-dashed border-neutral-300 dark:border-neutral-700 text-neutral-500 hover:border-primary hover:bg-primary/5 hover:text-primary transition-colors duration-300 cursor-pointer min-h-[220px] group h-full disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:border-neutral-300 disabled:hover:bg-neutral-50 disabled:hover:text-neutral-500"
-                            >
-                                <div className="w-14 h-14 rounded-xl bg-white dark:bg-neutral-800 shadow-sm flex items-center justify-center mb-3 group-hover:scale-110 transition-transform duration-300">
-                                    <span className="material-symbols-outlined text-2xl text-primary">add</span>
-                                </div>
-                                <span className="font-bold text-base">Add New Course</span>
-                                <span className="text-xs text-neutral-400 mt-1">PDF, PPTX, DOCX</span>
-                            </button>
-                        </div>
-                        {deleteError && (
-                            <div className="mt-6 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-medium text-amber-800">
-                                {deleteError}
+                                <span className="text-caption text-text-faint-light dark:text-text-faint-dark flex items-center gap-1 pt-1.5 sm:pt-3">
+                                    PDF, PPTX, DOCX &middot; Max 50MB
+                                </span>
                             </div>
-                        )}
+                            {uploadQuota && (
+                                <div className="max-w-xs space-y-1.5">
+                                    <div className="flex items-center justify-between">
+                                        <span className="text-caption text-text-sub-light dark:text-text-sub-dark">
+                                            {uploadQuota.remaining}/{uploadQuota.totalAllowed} uploads
+                                        </span>
+                                        <Link to={buildUploadLimitSubscriptionPath()} className="text-caption font-semibold text-primary hover:text-primary-hover transition-colors">
+                                            Top up
+                                        </Link>
+                                    </div>
+                                    <div className="w-full h-1.5 bg-border-subtle dark:bg-border-subtle-dark rounded-full overflow-hidden">
+                                        <div
+                                            className={`h-full rounded-full transition-[width] duration-500 ${
+                                                uploadQuota.remaining === 0 ? 'bg-red-500'
+                                                : uploadQuota.remaining <= 1 ? 'bg-amber-500'
+                                                : 'bg-accent-emerald'
+                                            }`}
+                                            style={{ width: `${Math.round((uploadQuota.remaining / uploadQuota.totalAllowed) * 100)}%` }}
+                                        />
+                                    </div>
+                                </div>
+                            )}
+                            <DashboardReferralCTA remaining={uploadQuota?.remaining} profile={profile} />
+                        </div>
+                        {/* Illustration */}
+                        <div className="hidden md:flex items-center justify-center w-48">
+                            <div className="w-36 h-36 rounded-2xl bg-primary-50 dark:bg-primary-900/20 flex items-center justify-center">
+                                <span className="material-symbols-outlined text-[56px] text-primary" style={{ fontVariationSettings: "'FILL' 1" }}>school</span>
+                            </div>
+                        </div>
                     </div>
                 </div>
-                {/* Performance Insights panel — visible once user has exam history */}
-                {performanceInsights && (
-                    <div className="mt-8 animate-slide-up animate-delay-300">
-                        <div className="flex items-center gap-3 mb-6 px-1">
-                            <div className="w-10 h-10 rounded-xl bg-primary flex items-center justify-center text-white shadow-lg shadow-primary/20">
-                                <span className="material-symbols-outlined text-xl filled">insights</span>
+
+                {/* Quick Actions */}
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 animate-fade-in-up animate-delay-100">
+                    {[
+                        { to: '/dashboard/assignment-helper', icon: 'edit_note', label: 'Assignments', desc: 'AI-powered answers', color: 'bg-primary' },
+                        { to: '/dashboard/humanizer', icon: 'auto_fix_high', label: 'Humanizer', desc: 'Make AI text natural', color: 'bg-secondary', badge: 'New' },
+                        { to: '/dashboard/community', icon: 'forum', label: 'Community', desc: 'Study with peers', color: 'bg-accent-teal', badge: 'New' },
+                    ].map((item) => (
+                        <Link
+                            key={item.to}
+                            to={item.to}
+                            className="group card-interactive p-4 flex items-center gap-3.5"
+                        >
+                            <div className={`w-10 h-10 rounded-xl ${item.color} flex items-center justify-center shrink-0`}>
+                                <span className="material-symbols-outlined text-white text-[20px]" style={{ fontVariationSettings: "'FILL' 1" }}>{item.icon}</span>
+                            </div>
+                            <div className="min-w-0 flex-1">
+                                <div className="flex items-center gap-2">
+                                    <span className="text-body-sm font-semibold text-text-main-light dark:text-text-main-dark">{item.label}</span>
+                                    {item.badge && <span className="text-overline text-primary">{item.badge}</span>}
+                                </div>
+                                <span className="text-caption text-text-faint-light dark:text-text-faint-dark">{item.desc}</span>
+                            </div>
+                            <span className="material-symbols-outlined text-[18px] text-text-faint-light dark:text-text-faint-dark group-hover:text-primary group-hover:translate-x-0.5 transition-all">
+                                arrow_forward
+                            </span>
+                        </Link>
+                    ))}
+                </div>
+
+                {/* Upgrade Banner */}
+                {subscription && subscription.plan !== 'premium' && (
+                    <div className="card-base p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 bg-primary-50 dark:bg-primary-900/15 border-primary-200/50 dark:border-primary-800/30 animate-fade-in-up animate-delay-150">
+                        <div className="flex items-center gap-3">
+                            <div className="w-9 h-9 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
+                                <span className="material-symbols-outlined text-primary text-[20px]" style={{ fontVariationSettings: "'FILL' 1" }}>rocket_launch</span>
                             </div>
                             <div>
-                                <h2 className="text-xl md:text-2xl font-display font-bold text-neutral-900 dark:text-white tracking-tight">Your Progress Snapshot</h2>
-                                <p className="text-neutral-500 dark:text-neutral-400 text-sm">Based on your exam history</p>
+                                <p className="text-body-sm font-semibold text-text-main-light dark:text-text-main-dark">Unlock more uploads</p>
+                                <p className="text-caption text-text-sub-light dark:text-text-sub-dark">Top up to keep learning without interruptions.</p>
                             </div>
                         </div>
+                        <Link to="/subscription" className="btn-primary text-body-sm shrink-0">
+                            Upgrade
+                        </Link>
+                    </div>
+                )}
 
-                        {/* Preparedness gauge */}
-                        <div className="mb-6 bg-white dark:bg-surface-dark rounded-2xl border border-neutral-200/60 dark:border-neutral-800 p-5 flex items-center gap-5 shadow-sm">
-                            <div className="relative w-16 h-16 shrink-0">
-                                <svg className="w-16 h-16 -rotate-90" viewBox="0 0 64 64">
-                                    <circle cx="32" cy="32" r="26" fill="none" stroke="currentColor" strokeWidth="6" className="text-neutral-100 dark:text-neutral-800" />
+                {/* Courses */}
+                <section className="animate-fade-in-up animate-delay-200">
+                    <div className="flex items-center justify-between mb-4">
+                        <h2 className="text-display-sm text-text-main-light dark:text-text-main-dark">Your courses</h2>
+                        {canToggleAllCourses && (
+                            <button
+                                type="button"
+                                onClick={() => setShowAllCourses((c) => !c)}
+                                className="btn-ghost text-caption"
+                            >
+                                {showAllCourses ? 'Show less' : 'View all'}
+                                <span className="material-symbols-outlined text-[16px]">{showAllCourses ? 'expand_less' : 'chevron_right'}</span>
+                            </button>
+                        )}
+                    </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
+                        {displayCourses.length > 0 ? (
+                            displayCourses.map((course, index) => {
+                                const isCompleted = course.status === 'completed';
+                                const progress = course.progress || 0;
+                                const isExcellent = progress >= 80;
+                                const isGood = progress >= 50;
+                                return (
+                                    <Link
+                                        key={course._id}
+                                        to={`/dashboard/course/${course._id}`}
+                                        className="group card-interactive flex flex-col overflow-hidden"
+                                    >
+                                        <div className="relative w-full aspect-[16/9] overflow-hidden">
+                                            {confirmDeleteId === course._id ? (
+                                                <div
+                                                    onClick={(event) => { event.preventDefault(); event.stopPropagation(); }}
+                                                    className="absolute top-2 right-2 z-20 flex items-center gap-1.5 bg-surface-light dark:bg-surface-dark border border-border-light dark:border-border-dark rounded-lg px-2.5 py-1.5 shadow-card"
+                                                >
+                                                    <span className="text-caption text-red-600 dark:text-red-400">Delete?</span>
+                                                    <button
+                                                        onClick={() => { handleDeleteCourse(course); setConfirmDeleteId(null); }}
+                                                        disabled={deletingCourseId === String(course._id)}
+                                                        className="text-caption font-semibold text-red-600 hover:text-red-700 px-1.5 py-0.5 rounded hover:bg-red-50 dark:hover:bg-red-900/30 transition-colors disabled:opacity-60"
+                                                    >Yes</button>
+                                                    <button
+                                                        onClick={() => setConfirmDeleteId(null)}
+                                                        className="text-caption text-text-sub-light px-1.5 py-0.5 rounded hover:bg-surface-hover transition-colors"
+                                                    >No</button>
+                                                </div>
+                                            ) : (
+                                                <button
+                                                    onClick={(event) => { event.preventDefault(); event.stopPropagation(); setConfirmDeleteId(course._id); }}
+                                                    disabled={deletingCourseId === String(course._id)}
+                                                    className="absolute top-2 right-2 z-20 btn-icon w-7 h-7 bg-surface-light/90 dark:bg-surface-dark/90 border border-border-subtle dark:border-border-subtle-dark opacity-0 group-hover:opacity-100 hover:text-red-500 transition-all"
+                                                    title="Delete course"
+                                                    aria-label={`Delete ${course.title}`}
+                                                >
+                                                    <span className="material-symbols-outlined text-[16px]">
+                                                        {deletingCourseId === String(course._id) ? 'hourglass_empty' : 'delete'}
+                                                    </span>
+                                                </button>
+                                            )}
+                                            <div
+                                                className="w-full h-full flex items-center justify-center transition-transform duration-300 group-hover:scale-[1.03]"
+                                                style={{ background: course.coverColor || gradients[index % gradients.length] }}
+                                            >
+                                                <span className="material-symbols-outlined text-white/90 text-3xl" style={{ fontVariationSettings: "'FILL' 1" }}>menu_book</span>
+                                            </div>
+                                        </div>
+                                        <div className="flex flex-col p-3.5 gap-2.5 flex-1">
+                                            <div className="flex items-center justify-between">
+                                                <span className={`text-overline ${isCompleted ? 'text-accent-emerald' : 'text-primary'}`}>
+                                                    {isCompleted ? 'Completed' : 'In Progress'}
+                                                </span>
+                                                <span className={`text-caption font-semibold ${isExcellent ? 'text-accent-emerald' : isGood ? 'text-primary' : 'text-text-faint-light dark:text-text-faint-dark'}`}>
+                                                    {progress}%
+                                                </span>
+                                            </div>
+                                            <h3 className="text-body-sm font-semibold text-text-main-light dark:text-text-main-dark leading-snug line-clamp-1 group-hover:text-primary transition-colors">{course.title}</h3>
+                                            <p className="text-caption text-text-faint-light dark:text-text-faint-dark line-clamp-2">{course.description}</p>
+                                            <div className="w-full h-1 bg-border-subtle dark:bg-border-subtle-dark rounded-full overflow-hidden mt-auto">
+                                                <div
+                                                    className={`h-full rounded-full transition-[width] duration-500 ${isExcellent ? 'bg-accent-emerald' : isGood ? 'bg-primary' : 'bg-primary-300'}`}
+                                                    style={{ width: `${progress}%` }}
+                                                />
+                                            </div>
+                                        </div>
+                                    </Link>
+                                );
+                            })
+                        ) : (
+                            <div className="col-span-full py-12 text-center card-flat">
+                                <div className="w-14 h-14 rounded-2xl bg-surface-hover dark:bg-surface-hover-dark flex items-center justify-center mx-auto mb-3">
+                                    <span className="material-symbols-outlined text-2xl text-text-faint-light dark:text-text-faint-dark">school</span>
+                                </div>
+                                <h3 className="text-body-md font-semibold text-text-main-light dark:text-text-main-dark mb-1">
+                                    {searchQuery.trim() ? 'No matching courses' : 'No courses yet'}
+                                </h3>
+                                <p className="text-body-sm text-text-sub-light dark:text-text-sub-dark mb-4 max-w-xs mx-auto">
+                                    {searchQuery.trim() ? 'Try a different keyword.' : 'Upload your first study material to get started.'}
+                                </p>
+                                {!searchQuery.trim() && (
+                                    <button type="button" onClick={handleUploadClick} disabled={uploading} className="btn-primary text-body-sm disabled:opacity-50 disabled:cursor-not-allowed">
+                                        <span className="material-symbols-outlined text-[16px]">cloud_upload</span>
+                                        Upload Now
+                                    </button>
+                                )}
+                            </div>
+                        )}
+                        {/* Add new course tile */}
+                        <button
+                            type="button"
+                            onClick={handleUploadClick}
+                            disabled={uploading}
+                            className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-border-light dark:border-border-dark text-text-faint-light dark:text-text-faint-dark hover:border-primary hover:text-primary hover:bg-primary-50/50 dark:hover:bg-primary-900/10 transition-all duration-200 cursor-pointer min-h-[200px] group disabled:cursor-not-allowed disabled:opacity-50"
+                        >
+                            <div className="w-11 h-11 rounded-xl bg-surface-hover dark:bg-surface-hover-dark flex items-center justify-center mb-2 group-hover:bg-primary-100 dark:group-hover:bg-primary-900/30 transition-colors">
+                                <span className="material-symbols-outlined text-xl">add</span>
+                            </div>
+                            <span className="text-body-sm font-semibold">Add Course</span>
+                            <span className="text-caption mt-0.5">PDF, PPTX, DOCX</span>
+                        </button>
+                    </div>
+                    {deleteError && (
+                        <div className="mt-4 p-3 rounded-xl bg-amber-50 dark:bg-amber-900/15 border border-amber-200 dark:border-amber-800/40 text-body-sm font-medium text-amber-800 dark:text-amber-300">
+                            {deleteError}
+                        </div>
+                    )}
+                </section>
+
+                {/* Performance Insights */}
+                {performanceInsights && (
+                    <section className="space-y-4 animate-fade-in-up animate-delay-300">
+                        <h2 className="text-display-sm text-text-main-light dark:text-text-main-dark">Progress snapshot</h2>
+
+                        <div className="card-base p-5 flex items-center gap-5">
+                            <div className="relative w-14 h-14 shrink-0">
+                                <svg className="w-14 h-14 -rotate-90" viewBox="0 0 64 64">
+                                    <circle cx="32" cy="32" r="26" fill="none" stroke="currentColor" strokeWidth="5" className="text-border-subtle dark:text-border-subtle-dark" />
                                     <circle
-                                        cx="32" cy="32" r="26" fill="none" strokeWidth="6"
+                                        cx="32" cy="32" r="26" fill="none" strokeWidth="5"
                                         strokeDasharray={`${(performanceInsights.overallPreparedness / 100) * 163.4} 163.4`}
                                         strokeLinecap="round"
                                         className={
-                                            performanceInsights.overallPreparedness >= 80
-                                                ? 'text-green-500 stroke-current'
-                                                : performanceInsights.overallPreparedness >= 50
-                                                    ? 'text-blue-500 stroke-current'
-                                                    : 'text-amber-500 stroke-current'
+                                            performanceInsights.overallPreparedness >= 80 ? 'text-accent-emerald stroke-current'
+                                            : performanceInsights.overallPreparedness >= 50 ? 'text-primary stroke-current'
+                                            : 'text-accent-amber stroke-current'
                                         }
                                     />
                                 </svg>
-                                <span className="absolute inset-0 flex items-center justify-center text-sm font-extrabold text-neutral-900 dark:text-white">
+                                <span className="absolute inset-0 flex items-center justify-center text-body-sm font-bold text-text-main-light dark:text-text-main-dark">
                                     {performanceInsights.overallPreparedness}%
                                 </span>
                             </div>
                             <div>
-                                <p className="text-base font-bold text-neutral-900 dark:text-white">
-                                    {performanceInsights.overallPreparedness >= 80
-                                        ? 'Exam Ready'
-                                        : performanceInsights.overallPreparedness >= 50
-                                            ? 'Almost Ready'
-                                            : 'Needs More Practice'}
+                                <p className="text-body-md font-semibold text-text-main-light dark:text-text-main-dark">
+                                    {performanceInsights.overallPreparedness >= 80 ? 'Exam Ready'
+                                    : performanceInsights.overallPreparedness >= 50 ? 'Almost Ready'
+                                    : 'Needs More Practice'}
                                 </p>
-                                <p className="text-sm text-neutral-500 dark:text-neutral-400">
-                                    {performanceInsights.mastered.length} mastered · {performanceInsights.progressing.length} progressing · {performanceInsights.needsWork.length} needs work
+                                <p className="text-body-sm text-text-sub-light dark:text-text-sub-dark">
+                                    {performanceInsights.mastered.length} mastered &middot; {performanceInsights.progressing.length} progressing &middot; {performanceInsights.needsWork.length} needs work
                                 </p>
                             </div>
                         </div>
 
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                            {/* Strengths */}
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                             {performanceInsights.mastered.length > 0 && (
-                                <div className="bg-green-50 dark:bg-green-900/10 border border-green-100 dark:border-green-800/30 rounded-2xl p-5">
+                                <div className="card-flat p-4 bg-emerald-50/50 dark:bg-emerald-900/10 border-emerald-200/50 dark:border-emerald-800/30">
                                     <div className="flex items-center gap-2 mb-3">
-                                        <span className="material-symbols-outlined text-green-600 text-[20px]">workspace_premium</span>
-                                        <span className="text-xs font-bold uppercase tracking-wider text-green-700 dark:text-green-400">Your Strengths</span>
+                                        <span className="material-symbols-outlined text-accent-emerald text-[18px]">workspace_premium</span>
+                                        <span className="text-overline text-accent-emerald">Strengths</span>
                                     </div>
                                     <ul className="space-y-2">
                                         {performanceInsights.mastered.slice(0, 4).map((t) => (
                                             <li key={t.topicId} className="flex items-center justify-between gap-2">
-                                                <span className="text-sm font-medium text-gray-800 dark:text-gray-200 truncate">{t.title}</span>
-                                                <span className="shrink-0 text-xs font-bold text-green-600 dark:text-green-400">{t.best}%</span>
+                                                <span className="text-body-sm text-text-main-light dark:text-text-main-dark truncate">{t.title}</span>
+                                                <span className="text-caption font-semibold text-accent-emerald shrink-0">{t.best}%</span>
                                             </li>
                                         ))}
                                     </ul>
                                 </div>
                             )}
-
-                            {/* Needs Attention */}
                             {performanceInsights.needsWork.length > 0 && (
-                                <div className="bg-amber-50 dark:bg-amber-900/10 border border-amber-100 dark:border-amber-800/30 rounded-2xl p-5">
+                                <div className="card-flat p-4 bg-amber-50/50 dark:bg-amber-900/10 border-amber-200/50 dark:border-amber-800/30">
                                     <div className="flex items-center gap-2 mb-3">
-                                        <span className="material-symbols-outlined text-amber-600 text-[20px]">priority_high</span>
-                                        <span className="text-xs font-bold uppercase tracking-wider text-amber-700 dark:text-amber-400">Needs Attention</span>
+                                        <span className="material-symbols-outlined text-accent-amber text-[18px]">priority_high</span>
+                                        <span className="text-overline text-accent-amber">Needs Attention</span>
                                     </div>
                                     <ul className="space-y-2">
                                         {performanceInsights.needsWork.slice(0, 4).map((t) => (
                                             <li key={t.topicId} className="flex items-center justify-between gap-2">
-                                                <span className="text-sm font-medium text-gray-800 dark:text-gray-200 truncate">{t.title}</span>
-                                                <Link
-                                                    to={`/dashboard/topic/${t.topicId}`}
-                                                    className="shrink-0 text-xs font-bold text-amber-600 hover:text-amber-700 dark:text-amber-400 dark:hover:text-amber-300 underline underline-offset-2"
-                                                >
-                                                    Study Now
+                                                <span className="text-body-sm text-text-main-light dark:text-text-main-dark truncate">{t.title}</span>
+                                                <Link to={`/dashboard/topic/${t.topicId}`} className="text-caption font-semibold text-primary hover:text-primary-hover transition-colors shrink-0">
+                                                    Study
                                                 </Link>
                                             </li>
                                         ))}
@@ -1084,55 +966,48 @@ const DashboardAnalysis = () => {
                                 </div>
                             )}
                         </div>
-                    </div>
+                    </section>
                 )}
-                {/* Feedback Form */}
-                <div className="mt-10 animate-slide-up animate-delay-300">
-                    <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-primary/5 via-violet-50 to-fuchsia-50 dark:from-primary/10 dark:via-violet-900/10 dark:to-fuchsia-900/10 border-2 border-primary/20 dark:border-primary/30 p-6 sm:p-8 shadow-lg shadow-primary/5">
-                        <div className="absolute top-0 right-0 w-48 h-48 bg-primary/5 rounded-full -translate-y-1/2 translate-x-1/3 blur-3xl"></div>
-                        <div className="absolute bottom-0 left-0 w-32 h-32 bg-fuchsia-500/5 rounded-full translate-y-1/2 -translate-x-1/4 blur-2xl"></div>
+
+                {/* Feedback */}
+                <section className="animate-fade-in-up animate-delay-300">
+                    <div className="card-base p-5 md:p-6">
                         {feedbackSubmitted ? (
-                            <div className="relative z-10 text-center py-6">
-                                <div className="w-16 h-16 rounded-full bg-green-100 dark:bg-green-900/30 flex items-center justify-center mx-auto mb-4">
-                                    <span className="material-symbols-outlined text-4xl text-green-600 dark:text-green-400" style={{ fontVariationSettings: "'FILL' 1" }}>check_circle</span>
+                            <div className="text-center py-4">
+                                <div className="w-12 h-12 rounded-full bg-emerald-50 dark:bg-emerald-900/20 flex items-center justify-center mx-auto mb-3">
+                                    <span className="material-symbols-outlined text-2xl text-accent-emerald" style={{ fontVariationSettings: "'FILL' 1" }}>check_circle</span>
                                 </div>
-                                <h3 className="text-xl font-display font-bold text-neutral-900 dark:text-white mb-2">Thanks for your feedback!</h3>
-                                <p className="text-sm text-neutral-500 dark:text-neutral-400">Your input helps us make ChewnPour better for everyone.</p>
+                                <h3 className="text-body-lg font-semibold text-text-main-light dark:text-text-main-dark mb-1">Thanks for your feedback!</h3>
+                                <p className="text-body-sm text-text-sub-light dark:text-text-sub-dark">Your input helps us improve ChewnPour.</p>
                             </div>
                         ) : (
-                            <div className="relative z-10">
-                                <div className="flex items-center gap-4 mb-6">
-                                    <div className="w-12 h-12 rounded-xl bg-primary/10 dark:bg-primary/20 flex items-center justify-center shrink-0">
-                                        <span className="material-symbols-outlined text-2xl text-primary" style={{ fontVariationSettings: "'FILL' 1" }}>rate_review</span>
+                            <>
+                                <div className="flex items-center gap-3 mb-5">
+                                    <div className="w-9 h-9 rounded-lg bg-primary-50 dark:bg-primary-900/20 flex items-center justify-center shrink-0">
+                                        <span className="material-symbols-outlined text-primary text-[20px]" style={{ fontVariationSettings: "'FILL' 1" }}>rate_review</span>
                                     </div>
                                     <div>
-                                        <h3 className="text-lg font-display font-bold text-neutral-900 dark:text-white">How's your experience?</h3>
-                                        <p className="text-sm text-neutral-500 dark:text-neutral-400">We'd love to hear what you think</p>
+                                        <h3 className="text-body-md font-semibold text-text-main-light dark:text-text-main-dark">How's your experience?</h3>
+                                        <p className="text-caption text-text-sub-light dark:text-text-sub-dark">We'd love to hear what you think</p>
                                     </div>
                                 </div>
-                                <div className="flex items-center gap-2 mb-5">
+                                <div className="flex items-center gap-1 mb-4">
                                     {[1, 2, 3, 4, 5].map((star) => (
                                         <button
                                             key={star}
                                             type="button"
                                             onClick={() => setFeedbackRating(star)}
-                                            className="group/star p-1.5 rounded-xl hover:bg-white/60 dark:hover:bg-white/5 transition-colors"
+                                            className="p-1 rounded-lg hover:bg-surface-hover dark:hover:bg-surface-hover-dark transition-colors"
                                             aria-label={`Rate ${star} star${star > 1 ? 's' : ''}`}
                                         >
                                             <span
-                                                className={`material-symbols-outlined text-3xl transition-all ${
-                                                    star <= feedbackRating
-                                                        ? 'text-amber-400 scale-110'
-                                                        : 'text-neutral-300 dark:text-neutral-500 group-hover/star:text-amber-300'
-                                                }`}
+                                                className={`material-symbols-outlined text-2xl transition-colors ${star <= feedbackRating ? 'text-accent-amber' : 'text-border-light dark:text-border-dark hover:text-accent-amber/50'}`}
                                                 style={star <= feedbackRating ? { fontVariationSettings: "'FILL' 1" } : undefined}
-                                            >
-                                                star
-                                            </span>
+                                            >star</span>
                                         </button>
                                     ))}
                                     {feedbackRating > 0 && (
-                                        <span className="ml-2 text-sm font-semibold text-primary">
+                                        <span className="ml-2 text-caption font-semibold text-primary">
                                             {['', 'Needs work', 'Could be better', 'It\'s okay', 'Really good!', 'Love it!'][feedbackRating]}
                                         </span>
                                     )}
@@ -1142,9 +1017,9 @@ const DashboardAnalysis = () => {
                                     onChange={(e) => setFeedbackText(e.target.value)}
                                     placeholder="What can we do better? Any features you'd love to see?"
                                     rows={3}
-                                    className="w-full px-4 py-3 bg-white dark:bg-neutral-800/80 border border-neutral-200 dark:border-neutral-700 rounded-xl text-sm text-neutral-900 dark:text-white placeholder-neutral-400 focus:border-primary/40 focus:ring-4 focus:ring-primary/10 transition-colors resize-none shadow-sm"
+                                    className="input-field h-auto py-3 resize-none"
                                 />
-                                <div className="flex justify-end mt-4">
+                                <div className="flex justify-end mt-3">
                                     <button
                                         type="button"
                                         disabled={(!feedbackText.trim() && feedbackRating === 0) || feedbackSubmitting}
@@ -1152,31 +1027,22 @@ const DashboardAnalysis = () => {
                                             if (!userId) return;
                                             setFeedbackSubmitting(true);
                                             try {
-                                                await submitFeedbackMutation({
-                                                    userId,
-                                                    rating: feedbackRating || 0,
-                                                    message: feedbackText.trim() || undefined,
-                                                });
+                                                await submitFeedbackMutation({ userId, rating: feedbackRating || 0, message: feedbackText.trim() || undefined });
                                                 setFeedbackSubmitted(true);
-                                            } catch {
-                                                setStreakToastMessage('Failed to send feedback. Please try again.');
-                                            } finally {
-                                                setFeedbackSubmitting(false);
-                                            }
+                                            } catch { setStreakToastMessage('Failed to send feedback. Please try again.'); }
+                                            finally { setFeedbackSubmitting(false); }
                                         }}
-                                        className="inline-flex items-center gap-2 px-6 py-3 bg-primary text-white rounded-xl text-sm font-bold shadow-lg shadow-primary/25 hover:shadow-xl hover:-translate-y-0.5 transition-all disabled:opacity-40 disabled:cursor-not-allowed disabled:shadow-none disabled:hover:translate-y-0"
+                                        className="btn-primary text-body-sm disabled:opacity-40 disabled:cursor-not-allowed disabled:shadow-none"
                                     >
-                                        <span className="material-symbols-outlined text-lg">
-                                            {feedbackSubmitting ? 'hourglass_empty' : 'send'}
-                                        </span>
+                                        <span className="material-symbols-outlined text-[16px]">{feedbackSubmitting ? 'hourglass_empty' : 'send'}</span>
                                         {feedbackSubmitting ? 'Sending...' : 'Send Feedback'}
                                     </button>
                                 </div>
-                            </div>
+                            </>
                         )}
                     </div>
-                </div>
-            </main>
+                </section>
+            </div>
             <Toast message={streakToastMessage} onClose={() => setStreakToastMessage('')} />
         </div>
     );

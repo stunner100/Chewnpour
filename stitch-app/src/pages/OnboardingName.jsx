@@ -30,22 +30,18 @@ const OnboardingName = () => {
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [error, setError] = useState('');
-    const [touched, setTouched] = useState({
-        name: false,
-        email: false,
-        password: false,
-    });
+    const [touched, setTouched] = useState({ name: false, email: false, password: false });
     const [loading, setLoading] = useState(false);
     const { signUp, profile, loading: authLoading } = useAuth();
     const navigate = useNavigate();
     const [searchParams] = useSearchParams();
     const setReferredBy = useMutation(api.profiles.setReferredBy);
 
-    // Capture referral code from URL (?ref=CODE)
     const [referralCode] = useState(() => {
         const ref = searchParams.get('ref') || '';
         return ref.trim().toUpperCase();
     });
+
     const trimmedName = name.trim();
     const trimmedEmail = email.trim();
     const isNameValid = trimmedName.length > 0;
@@ -53,8 +49,6 @@ const OnboardingName = () => {
     const isPasswordValid = password.length >= 6;
     const isSubmitDisabled = loading || !isNameValid || !isEmailValid || !isPasswordValid;
 
-    // Only redirect if onboarding is fully completed — don't redirect mid-onboarding
-    // users back to /level, as that breaks the back button from Level → Name.
     useEffect(() => {
         if (authLoading) return;
         if (profile?.onboardingCompleted) {
@@ -64,18 +58,9 @@ const OnboardingName = () => {
 
     const handleSubmit = async (e) => {
         e.preventDefault();
-        if (!isNameValid) {
-            setError('Please enter your name');
-            return;
-        }
-        if (!isEmailValid) {
-            setError(trimmedEmail ? 'Please enter a valid email address' : 'Please enter your email');
-            return;
-        }
-        if (!isPasswordValid) {
-            setError('Password must be at least 6 characters');
-            return;
-        }
+        if (!isNameValid) { setError('Please enter your name'); return; }
+        if (!isEmailValid) { setError(trimmedEmail ? 'Please enter a valid email address' : 'Please enter your email'); return; }
+        if (!isPasswordValid) { setError('Password must be at least 6 characters'); return; }
 
         setError('');
         setLoading(true);
@@ -85,14 +70,12 @@ const OnboardingName = () => {
             if (error) {
                 setError(error.message);
             } else {
-                // Store referral code on the new user's profile (best-effort)
                 if (referralCode) {
                     const newUserId = data?.user?.id ?? data?.id;
                     if (newUserId) {
                         setReferredBy({ userId: newUserId, referralCode }).catch(() => {});
                     }
                 }
-                // Skip level/department steps — go straight to dashboard
                 navigate('/dashboard');
             }
         } catch {
@@ -102,17 +85,37 @@ const OnboardingName = () => {
         }
     };
 
+    const fieldState = (valid, touchedField, value) => {
+        if (!touchedField && !value) return 'default';
+        return valid ? 'valid' : 'error';
+    };
+
+    const fieldBorderClass = (state) => {
+        if (state === 'valid') return 'border-accent-emerald focus:border-accent-emerald focus:ring-emerald-100 dark:focus:ring-emerald-900/30';
+        if (state === 'error') return 'border-red-400 focus:border-red-400 focus:ring-red-100 dark:focus:ring-red-900/30';
+        return 'border-border-light dark:border-border-dark focus:border-primary focus:ring-primary/10';
+    };
+
     return (
-        <div className="bg-surface dark:bg-mono-dark text-mono-black dark:text-white min-h-screen flex flex-col overflow-x-hidden font-sans">
-            <header className="w-full pt-16 pb-4 flex justify-center">
-                <div className="flex flex-col items-center gap-2 w-80 max-w-full">
-                    <div aria-label="Progress" className="flex gap-4 w-full">
-                        <div className="h-1 flex-1 rounded-full bg-accent-blue shadow-[0_0_12px_rgba(41,98,255,0.6)]"></div>
+        <div className="min-h-screen flex flex-col bg-background-light dark:bg-background-dark font-body antialiased">
+            {/* Progress bar */}
+            <header className="w-full pt-6 pb-2 px-6">
+                <div className="max-w-md mx-auto">
+                    <div className="flex gap-2">
+                        <div className="h-1 flex-1 rounded-full bg-primary" />
+                        <div className="h-1 flex-1 rounded-full bg-border-light dark:bg-border-dark" />
+                        <div className="h-1 flex-1 rounded-full bg-border-light dark:bg-border-dark" />
+                    </div>
+                    <div className="flex items-center justify-between mt-4">
+                        <Link to="/signup" className="btn-icon w-9 h-9">
+                            <span className="material-symbols-outlined text-[20px]">arrow_back</span>
+                        </Link>
+                        <span className="text-caption text-text-faint-light dark:text-text-faint-dark">Step 1 of 3</span>
                     </div>
                 </div>
             </header>
-            {/* #9 — reduced bottom padding from pb-40 to pb-28 for small screens */}
-            <main className="flex-1 w-full flex flex-col items-center justify-start pb-28 px-6 pt-4">
+
+            <main className="flex-1 w-full flex flex-col items-center justify-start px-6 pt-6 pb-32">
                 <form
                     id={NAME_FORM_ID}
                     onSubmit={handleSubmit}
@@ -122,110 +125,123 @@ const OnboardingName = () => {
                             submitFormWithFallback(event.currentTarget);
                         }
                     }}
-                    className="w-full max-w-md flex flex-col items-center gap-8 animate-in fade-in slide-in-from-bottom-6 duration-700"
+                    className="w-full max-w-md animate-fade-in-up"
                 >
-                    <h1 className="text-center text-3xl md:text-4xl font-extrabold text-mono-black dark:text-white leading-[1.1] tracking-tight">
+                    <h1 className="text-display-lg text-text-main-light dark:text-text-main-dark mb-2">
                         Create your account
                     </h1>
+                    <p className="text-body-lg text-text-sub-light dark:text-text-sub-dark mb-8">
+                        Tell us a bit about yourself to get started.
+                    </p>
 
                     {referralCode && (
-                        <div className="w-full p-3 rounded-xl bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800 text-emerald-700 dark:text-emerald-300 text-sm font-medium text-center flex items-center justify-center gap-2">
-                            <span className="text-lg">🎁</span>
-                            <span>You were referred! Sign up and upload to earn a free credit.</span>
+                        <div className="mb-6 p-3.5 rounded-xl bg-emerald-50 dark:bg-emerald-900/15 border border-emerald-200 dark:border-emerald-800/40 text-sm font-medium text-emerald-700 dark:text-emerald-300 flex items-center gap-2.5">
+                            <span className="material-symbols-outlined text-[18px]">redeem</span>
+                            You were referred! Sign up and upload to earn a free credit.
                         </div>
                     )}
 
                     {error && (
-                        <div className="w-full p-4 rounded-lg bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-600 dark:text-red-400 text-sm font-medium text-center">
+                        <div className="mb-6 p-3.5 rounded-xl bg-red-50 dark:bg-red-900/15 border border-red-200 dark:border-red-800/40 text-sm font-medium text-red-700 dark:text-red-400 flex items-center gap-2.5 animate-scale-in">
+                            <span className="material-symbols-outlined text-[18px]">error</span>
                             {error}
                         </div>
                     )}
 
-                    <div className="w-full flex flex-col gap-5">
-                        <div className="flex flex-col gap-2">
-                            <label className="text-sm font-semibold text-mono-black dark:text-white ml-1">Your Name</label>
+                    <div className="space-y-5">
+                        {/* Name */}
+                        <div className="space-y-1.5">
+                            <label className="text-body-sm font-medium text-text-main-light dark:text-text-main-dark">
+                                Your name
+                            </label>
                             <input
-                                className={`w-full h-14 px-5 text-lg font-semibold rounded-xl bg-white dark:bg-gray-800 border-2 text-mono-black dark:text-white outline-none focus:ring-2 focus:ring-accent-blue/20 placeholder:text-gray-400 transition-all duration-300 ${isNameValid
-                                    ? 'border-emerald-400 dark:border-emerald-500 focus:border-emerald-500'
-                                    : 'border-gray-200 dark:border-gray-700 focus:border-accent-blue'
-                                    }`}
+                                className={`input-lg ${fieldBorderClass(fieldState(isNameValid, touched.name, name))}`}
                                 placeholder="What should we call you?"
                                 type="text"
                                 value={name}
-                                onChange={(e) => {
-                                    setName(e.target.value);
-                                    if (error) setError('');
-                                }}
+                                onChange={(e) => { setName(e.target.value); if (error) setError(''); }}
                                 onBlur={() => setTouched((prev) => ({ ...prev, name: true }))}
                                 required
                             />
                             {(touched.name || name.length > 0) && (
-                                <p className={`text-xs ml-1 ${isNameValid ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-500 dark:text-red-400'}`}>
+                                <p className={`text-caption ${isNameValid ? 'text-accent-emerald' : 'text-red-500'}`}>
                                     {isNameValid ? 'Looks good.' : 'Enter your name to continue.'}
                                 </p>
                             )}
                         </div>
 
-                        <div className="flex flex-col gap-2">
-                            <label className="text-sm font-semibold text-mono-black dark:text-white ml-1">Email Address</label>
+                        {/* Email */}
+                        <div className="space-y-1.5">
+                            <label className="text-body-sm font-medium text-text-main-light dark:text-text-main-dark">
+                                Email address
+                            </label>
                             <input
-                                className="w-full h-14 px-5 text-lg font-semibold rounded-xl bg-white dark:bg-gray-800 border-2 border-gray-200 dark:border-gray-700 text-mono-black dark:text-white outline-none focus:border-accent-blue focus:ring-2 focus:ring-accent-blue/20 placeholder:text-gray-400 transition-all duration-300"
+                                className={`input-lg ${fieldBorderClass(fieldState(isEmailValid, touched.email, email))}`}
                                 placeholder="student@university.edu"
                                 type="email"
                                 value={email}
-                                onChange={(e) => {
-                                    setEmail(e.target.value);
-                                    if (error) setError('');
-                                }}
+                                onChange={(e) => { setEmail(e.target.value); if (error) setError(''); }}
                                 onBlur={() => setTouched((prev) => ({ ...prev, email: true }))}
                                 required
                             />
                             {(touched.email || email.length > 0) && (
-                                <p className={`text-xs ml-1 ${isEmailValid ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-500 dark:text-red-400'}`}>
+                                <p className={`text-caption ${isEmailValid ? 'text-accent-emerald' : 'text-red-500'}`}>
                                     {isEmailValid ? 'Valid email address.' : 'Enter a valid email address.'}
                                 </p>
                             )}
                         </div>
 
-                        <div className="flex flex-col gap-2">
-                            <label className="text-sm font-semibold text-mono-black dark:text-white ml-1">Password</label>
+                        {/* Password */}
+                        <div className="space-y-1.5">
+                            <label className="text-body-sm font-medium text-text-main-light dark:text-text-main-dark">
+                                Password
+                            </label>
                             <input
-                                className="w-full h-14 px-5 text-lg font-semibold rounded-xl bg-white dark:bg-gray-800 border-2 border-gray-200 dark:border-gray-700 text-mono-black dark:text-white outline-none focus:border-accent-blue focus:ring-2 focus:ring-accent-blue/20 placeholder:text-gray-400 transition-all duration-300"
+                                className={`input-lg ${fieldBorderClass(fieldState(isPasswordValid, touched.password, password))}`}
                                 placeholder="Create a strong password"
                                 type="password"
                                 value={password}
-                                onChange={(e) => {
-                                    setPassword(e.target.value);
-                                    if (error) setError('');
-                                }}
+                                onChange={(e) => { setPassword(e.target.value); if (error) setError(''); }}
                                 onBlur={() => setTouched((prev) => ({ ...prev, password: true }))}
                                 minLength={6}
                                 required
                             />
                             {(touched.password || password.length > 0) && (
-                                <p className={`text-xs ml-1 ${isPasswordValid ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-500 dark:text-red-400'}`}>
+                                <p className={`text-caption ${isPasswordValid ? 'text-accent-emerald' : 'text-red-500'}`}>
                                     {isPasswordValid ? 'Strong enough.' : 'At least 6 characters required.'}
                                 </p>
                             )}
                         </div>
                     </div>
 
-                    <p className="text-center text-gray-500 dark:text-gray-400 text-sm">
-                        Already have an account? <Link to="/login" className="text-accent-blue font-bold hover:underline">Log in</Link>
+                    <p className="mt-6 text-center text-body-sm text-text-sub-light dark:text-text-sub-dark">
+                        Already have an account?{' '}
+                        <Link to="/login" className="font-semibold text-primary hover:text-primary-hover transition-colors">
+                            Sign in
+                        </Link>
                     </p>
                 </form>
             </main>
 
-            {/* #3 — added safe-area-inset-bottom via pb-[env(safe-area-inset-bottom)] */}
-            <div className="fixed bottom-0 left-0 w-full p-6 bg-gradient-to-t from-surface via-surface to-transparent dark:from-mono-dark dark:via-mono-dark pointer-events-none" style={{ paddingBottom: 'max(1.5rem, env(safe-area-inset-bottom, 1.5rem))' }}>
+            {/* Fixed bottom CTA */}
+            <div
+                className="fixed bottom-0 left-0 w-full p-5 bg-gradient-to-t from-background-light via-background-light/95 to-transparent dark:from-background-dark dark:via-background-dark/95 pointer-events-none"
+                style={{ paddingBottom: 'max(1.25rem, env(safe-area-inset-bottom, 1.25rem))' }}
+            >
                 <div className="max-w-md mx-auto pointer-events-auto">
                     <button
                         type="submit"
                         form={NAME_FORM_ID}
                         disabled={isSubmitDisabled}
-                        className="w-full h-16 bg-black dark:bg-white text-white dark:text-black hover:bg-neutral-900 dark:hover:bg-gray-100 hover:-translate-y-0.5 active:translate-y-0 active:scale-[0.98] transition-all duration-200 rounded-full font-bold text-xl shadow-xl flex items-center justify-center gap-2 disabled:cursor-not-allowed disabled:bg-gray-400 disabled:text-white dark:disabled:bg-gray-600 dark:disabled:text-white"
+                        className="btn-primary w-full h-13 text-base rounded-2xl
+                                   disabled:opacity-40 disabled:cursor-not-allowed disabled:shadow-none"
                     >
-                        {loading ? 'Creating account...' : 'Continue'}
+                        {loading ? (
+                            <div className="flex items-center gap-2">
+                                <div className="animate-spin rounded-full h-4 w-4 border-2 border-white/30 border-t-white" />
+                                <span>Creating account...</span>
+                            </div>
+                        ) : 'Continue'}
                     </button>
                 </div>
             </div>

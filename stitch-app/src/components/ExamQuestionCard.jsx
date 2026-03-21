@@ -30,13 +30,13 @@ const ExamQuestionCard = memo(function ExamQuestionCard({
     const isFirstQuestion = questionIndex === 0;
 
     return (
-        <div className="bg-white dark:bg-neutral-900 rounded-2xl shadow-sm border border-neutral-200 dark:border-neutral-800 p-6 md:p-8 mb-6">
-            <div className="mb-6">
-                <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-primary/10 dark:bg-primary/10 text-primary dark:text-primary text-xs font-medium mb-3">
-                    <span className="material-symbols-outlined text-sm">quiz</span>
+        <div className="card-base p-5 md:p-8 mb-4">
+            <div className="mb-5">
+                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-primary/8 text-primary text-caption font-semibold mb-3">
+                    <span className="material-symbols-outlined text-[14px]">quiz</span>
                     <span>Question {questionIndex + 1}</span>
                 </span>
-                <h2 className="text-lg md:text-xl font-bold text-neutral-900 dark:text-white leading-relaxed">
+                <h2 className="text-body-lg font-semibold text-text-main-light dark:text-text-main-dark leading-relaxed">
                     {question.questionText}
                 </h2>
             </div>
@@ -53,21 +53,21 @@ const ExamQuestionCard = memo(function ExamQuestionCard({
                             }}
                             placeholder="Write your answer here..."
                             rows={6}
-                            className="w-full p-4 rounded-xl border-2 border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-800 text-neutral-900 dark:text-white placeholder-slate-400 focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none resize-y transition-all text-sm md:text-base"
+                            className="input-field resize-y text-body-sm"
                             style={{ minHeight: '120px', fontSize: '16px' }}
                         />
                         <div className="flex justify-end mt-1">
-                            <span className={`text-xs font-medium ${(selectedAnswer || '').length >= 1400
+                            <span className={`text-caption ${(selectedAnswer || '').length >= 1400
                                 ? 'text-red-500'
-                                : 'text-neutral-400'
+                                : 'text-text-faint-light dark:text-text-faint-dark'
                                 }`}>
                                 {(selectedAnswer || '').length}/1500
                             </span>
                         </div>
                     </div>
                 ) : finalOptions.length === 0 ? (
-                    <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
-                        No options available for this question.
+                    <div className="p-3 rounded-xl bg-amber-50 dark:bg-amber-900/10 border border-amber-200 dark:border-amber-900/30">
+                        <p className="text-body-sm text-amber-800 dark:text-amber-300">No options available for this question.</p>
                     </div>
                 ) : (
                     finalOptions.map((option, index) => {
@@ -78,22 +78,22 @@ const ExamQuestionCard = memo(function ExamQuestionCard({
                             <button
                                 key={index}
                                 onClick={() => onAnswerSelect(question._id, value)}
-                                className={`w-full text-left p-4 rounded-xl border-2 transition-all duration-200 flex items-center gap-3 ${isSelected
+                                className={`w-full text-left p-4 rounded-xl border transition-all duration-200 flex items-center gap-3 ${isSelected
                                     ? 'border-primary bg-primary/5 dark:bg-primary/10'
-                                    : 'border-neutral-200 dark:border-neutral-700 hover:border-primary/30 hover:bg-neutral-50 dark:hover:bg-neutral-800'
+                                    : 'border-border-light dark:border-border-dark hover:border-primary/30 hover:bg-surface-hover-light dark:hover:bg-surface-hover-dark'
                                     }`}
                             >
-                                <span className={`flex-shrink-0 w-8 h-8 rounded-lg font-bold text-sm flex items-center justify-center transition-all ${isSelected
+                                <span className={`flex-shrink-0 w-8 h-8 rounded-lg font-semibold text-body-sm flex items-center justify-center transition-all ${isSelected
                                     ? 'bg-primary text-white'
-                                    : 'bg-neutral-100 dark:bg-neutral-800 text-neutral-500'
+                                    : 'bg-surface-hover-light dark:bg-surface-hover-dark text-text-faint-light dark:text-text-faint-dark'
                                     }`}>
                                     {label}
                                 </span>
-                                <span className={`flex-1 text-sm md:text-base ${isSelected ? 'text-neutral-900 dark:text-white font-medium' : 'text-neutral-600 dark:text-neutral-300'}`}>
+                                <span className={`flex-1 text-body-sm ${isSelected ? 'text-text-main-light dark:text-text-main-dark font-medium' : 'text-text-sub-light dark:text-text-sub-dark'}`}>
                                     {text}
                                 </span>
                                 {isSelected && (
-                                    <span className="material-symbols-outlined text-primary">check_circle</span>
+                                    <span className="material-symbols-outlined text-primary text-[20px]">check_circle</span>
                                 )}
                             </button>
                         );
@@ -102,35 +102,35 @@ const ExamQuestionCard = memo(function ExamQuestionCard({
             </div>
 
             {/* Navigation Buttons */}
-            <div className="flex items-center justify-between mt-8 pt-6 border-t border-neutral-100 dark:border-neutral-800">
+            <div className="hidden md:flex items-center justify-between mt-6 pt-5 border-t border-border-light dark:border-border-dark">
                 <button
                     onClick={onPrevious}
                     disabled={isFirstQuestion}
-                    className="px-5 py-2.5 rounded-xl text-neutral-600 dark:text-neutral-400 font-semibold hover:bg-neutral-100 dark:hover:bg-neutral-800 disabled:opacity-30 disabled:hover:bg-transparent transition-colors flex items-center gap-2"
+                    className="btn-ghost px-5 py-2.5 flex items-center gap-2 disabled:opacity-30"
                 >
-                    <span className="material-symbols-outlined text-lg">arrow_back</span>
-                    <span>Previous</span>
+                    <span className="material-symbols-outlined text-[18px]">arrow_back</span>
+                    <span className="text-body-sm">Previous</span>
                 </button>
 
                 {isLastQuestion ? (
                     <button
                         onClick={onSubmit}
                         disabled={!attemptId || isEssaySubmitBlocked}
-                        className="px-6 py-2.5 rounded-xl bg-accent-emerald text-white font-semibold shadow-md shadow-accent-emerald/20 hover:shadow-lg transition-all flex items-center gap-2 disabled:opacity-60"
+                        className="px-6 py-2.5 rounded-xl bg-accent-emerald text-white text-body-sm font-semibold hover:brightness-110 transition-all flex items-center gap-2 disabled:opacity-60"
                     >
                         <span>Submit Exam</span>
-                        <span className="material-symbols-outlined text-lg">check</span>
+                        <span className="material-symbols-outlined text-[18px]">check</span>
                     </button>
                 ) : (
                     <button
                         onClick={onNext}
-                        className={`px-6 py-2.5 rounded-xl font-semibold shadow-md transition-all flex items-center gap-2 ${selectedAnswer
-                            ? 'bg-primary text-white shadow-primary/20 hover:shadow-lg animate-[pulse_2s_ease-in-out_1]'
-                            : 'bg-neutral-100 dark:bg-neutral-800 text-neutral-500 dark:text-neutral-400 shadow-none'
+                        className={`px-6 py-2.5 rounded-xl text-body-sm font-semibold transition-all flex items-center gap-2 ${selectedAnswer
+                            ? 'btn-primary'
+                            : 'bg-surface-hover-light dark:bg-surface-hover-dark text-text-faint-light dark:text-text-faint-dark'
                             }`}
                     >
                         <span>Next</span>
-                        <span className="material-symbols-outlined text-lg">arrow_forward</span>
+                        <span className="material-symbols-outlined text-[18px]">arrow_forward</span>
                     </button>
                 )}
             </div>

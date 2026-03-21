@@ -118,254 +118,173 @@ const DashboardCourse = () => {
     }, [shouldShowProcessing, courseId]);
 
     return (
-        <div className="relative min-h-screen flex flex-col bg-background-light dark:bg-background-dark font-body antialiased">
-            {/* Subtle background */}
-            <div className="fixed inset-0 pointer-events-none">
-                <div className="absolute inset-0 bg-mesh-light dark:bg-mesh-dark opacity-40"></div>
+        <div className="w-full max-w-5xl mx-auto px-4 md:px-8 py-8 pb-24 md:pb-12">
+            {/* Breadcrumb */}
+            <div className="flex items-center gap-2 mb-6">
+                <Link to="/dashboard" className="text-body-sm text-text-faint-light dark:text-text-faint-dark hover:text-primary transition-colors">
+                    Dashboard
+                </Link>
+                <span className="material-symbols-outlined text-[14px] text-text-faint-light dark:text-text-faint-dark">chevron_right</span>
+                <span className="text-body-sm text-text-sub-light dark:text-text-sub-dark truncate max-w-[200px]">
+                    {displayCourse?.title || 'Course'}
+                </span>
             </div>
 
-            {/* Header */}
-            <header className="sticky top-0 z-30 w-full glass border-b border-neutral-200/50 dark:border-neutral-800/50">
-                <div className="w-full max-w-6xl mx-auto flex items-center justify-between px-4 py-3">
-                    <Link to="/dashboard" aria-label="Go back to dashboard" className="flex items-center gap-2 text-neutral-600 hover:text-primary transition-colors">
-                        <span className="material-symbols-outlined">arrow_back</span>
-                        <span className="text-sm font-medium hidden sm:inline">Dashboard</span>
-                    </Link>
-
-                    <div className="flex items-center gap-3">
-                        {uploadQuota && uploadQuota.remaining <= 3 && (
-                            uploadQuota.remaining === 0 ? (
-                                <Link
-                                    to="/subscription?reason=quota_badge"
-                                    className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800/40 hover:bg-amber-100 dark:hover:bg-amber-900/30 transition-colors"
-                                >
-                                    <span className="material-symbols-outlined text-amber-500 text-sm">cloud_off</span>
-                                    <span className="text-amber-700 dark:text-amber-400 text-xs font-medium">
-                                        0 uploads left
-                                    </span>
-                                    <span className="mx-2 text-amber-400 opacity-50 text-xs">|</span>
-                                    <span className="text-amber-700 dark:text-amber-400 text-xs font-semibold underline underline-offset-2">Upgrade</span>
-                                </Link>
-                            ) : (
-                                <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-amber-50/60 dark:bg-amber-900/10 border border-amber-200/70 dark:border-amber-800/30">
-                                    <span className="material-symbols-outlined text-amber-400 dark:text-amber-500 text-sm">cloud_upload</span>
-                                    <span className="text-amber-600 dark:text-amber-400 text-xs font-medium">
-                                        {uploadQuota.remaining} upload{uploadQuota.remaining !== 1 ? 's' : ''} left
-                                    </span>
-                                </div>
-                            )
-                        )}
-                        {backgroundGenerationActive && (
-                            <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-blue-50 dark:bg-blue-900/20 border border-blue-100 dark:border-blue-800/30">
-                                <span className="material-symbols-outlined text-blue-500 text-sm animate-spin">sync</span>
-                                <span className="text-blue-600 dark:text-blue-400 text-xs font-medium">Generating...</span>
+            {/* Course Header */}
+            <div className="mb-8">
+                {isProcessing ? (
+                    <div className="card-base p-8 text-center">
+                        <div className="relative w-14 h-14 mx-auto mb-5">
+                            <div className="absolute inset-0 rounded-full border-[3px] border-border-light dark:border-border-dark" />
+                            <div className="absolute inset-0 rounded-full border-[3px] border-primary border-t-transparent animate-spin" />
+                            <div className="absolute inset-2 rounded-full bg-primary/10 flex items-center justify-center">
+                                <span className="material-symbols-outlined text-primary text-xl">auto_awesome</span>
                             </div>
-                        )}
-                        <Link to="/profile" className="w-9 h-9 rounded-full bg-primary p-0.5">
-                            <div className="w-full h-full rounded-full bg-white dark:bg-neutral-900 flex items-center justify-center">
-                                <span className="text-primary font-bold text-xs">{user?.name?.[0]?.toUpperCase() || 'S'}</span>
-                            </div>
-                        </Link>
-                    </div>
-                </div>
-            </header>
-
-            <main className="relative z-10 w-full max-w-6xl mx-auto flex-1 px-4 py-8 pb-20">
-                {/* Course Header */}
-                <div className="mb-10">
-                    {isProcessing ? (
-                        <div className="text-center py-12">
-                            <div className="relative w-20 h-20 mx-auto mb-6">
-                                <div className="absolute inset-0 rounded-full border-4 border-neutral-100 dark:border-neutral-800"></div>
-                                <div className="absolute inset-0 rounded-full border-4 border-blue-500 border-t-transparent animate-spin"></div>
-                                <div className="absolute inset-2 rounded-full bg-primary flex items-center justify-center text-white">
-                                    <span className="material-symbols-outlined text-2xl">auto_awesome</span>
-                                </div>
-                            </div>
-                            <h1 className="text-2xl md:text-3xl font-bold text-neutral-900 dark:text-white mb-3">
-                                Creating Your Course
-                            </h1>
-                            <p className="text-neutral-500 dark:text-neutral-400 max-w-md mx-auto">
-                                Our AI is analyzing your materials and building personalized lessons. This may take a few minutes.
-                            </p>
                         </div>
-                    ) : (
-                        <div className="text-center">
-                            <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-green-50 dark:bg-green-900/20 border border-green-100 dark:border-green-800/30 mb-4">
-                                <span className="material-symbols-outlined text-green-500 text-sm">check_circle</span>
-                                <span className="text-green-600 dark:text-green-400 text-xs font-semibold">Ready to Study</span>
-                            </div>
-
-                            <h1 className="text-2xl md:text-4xl font-bold text-neutral-900 dark:text-white mb-3">
-                                {displayCourse?.title || 'Your Course'}
-                            </h1>
-
-                            <p className="text-neutral-500 dark:text-neutral-400 mb-6">
-                                {plannedCount > 0
-                                    ? `${generatedCount} of ${plannedCount} topics ready`
-                                    : `${topics.length} topics available`
-                                }
-                            </p>
-
-                            {showTopicProgress && (
-                                <div className="max-w-md mx-auto mb-6 p-4 rounded-xl bg-white dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 shadow-sm">
-                                    <div className="flex items-center justify-between mb-2">
-                                        <span className="text-sm font-medium text-neutral-700 dark:text-neutral-300">Generating remaining topics</span>
-                                        <span className="text-sm font-bold text-blue-600">{topicPercent}%</span>
-                                    </div>
-                                    <div className="h-2 bg-neutral-100 dark:bg-neutral-700 rounded-full overflow-hidden">
-                                        <div
-                                            className="h-full bg-primary rounded-full transition-all duration-500"
-                                            style={{ width: `${topicPercent}%` }}
-                                        />
-                                    </div>
-                                    <p className="mt-2 text-xs text-neutral-400">
-                                        {generatedCount} of {plannedCount} topics generated
-                                    </p>
-                                </div>
-                            )}
-
-                            {backgroundGenerationActive && (
-                                <div className="max-w-md mx-auto p-3 rounded-lg bg-blue-50 dark:bg-blue-900/10 border border-blue-100 dark:border-blue-800/30">
-                                    <div className="flex items-start gap-2">
-                                        <span className="material-symbols-outlined text-blue-500 text-sm mt-0.5">info</span>
-                                        <p className="text-xs text-blue-700 dark:text-blue-400 text-left">
-                                            {backgroundGenerationMessage}
-                                        </p>
-                                    </div>
-                                </div>
-                            )}
-                        </div>
-                    )}
-                </div>
-
-                {/* Topics Grid */}
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                    {syllabusItems.length > 0 ? (
-                        syllabusItems.map((item) => {
-                            const cardColors = [
-                                'bg-primary',
-                                'bg-accent-emerald',
-                                'bg-secondary',
-                                'bg-accent-amber',
-                            ];
-                            const cardColor = cardColors[item.index % cardColors.length];
-
-                            if (item.kind === 'pending') {
-                                return (
-                                    <div
-                                        key={`pending-${item.index}`}
-                                        className="group relative p-5 rounded-2xl bg-neutral-50 dark:bg-neutral-800/50 border border-neutral-200 dark:border-neutral-700 border-dashed"
-                                    >
-                                        <div className="flex items-start justify-between mb-4">
-                                            <span className="text-xs font-bold text-neutral-400 uppercase tracking-wider">
-                                                Topic {item.index + 1}
-                                            </span>
-                                            <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-amber-50 dark:bg-amber-900/20 border border-amber-100 dark:border-amber-800/30">
-                                                <span className="material-symbols-outlined text-amber-500 text-xs animate-spin">sync</span>
-                                                <span className="text-[10px] font-semibold text-amber-600 dark:text-amber-400">Generating</span>
-                                            </span>
-                                        </div>
-
-                                        <h3 className="text-lg font-bold text-neutral-700 dark:text-neutral-300 mb-2">
-                                            {item.title}
-                                        </h3>
-                                        <p className="text-sm text-neutral-400 mb-4">
-                                            This topic is being generated and will appear shortly.
-                                        </p>
-
-                                        <div className="flex items-center justify-between pt-4 border-t border-neutral-200 dark:border-neutral-700">
-                                            <div className="flex -space-x-2">
-                                                <div className="w-8 h-8 rounded-full bg-neutral-200 dark:bg-neutral-600 animate-pulse"></div>
-                                                <div className="w-8 h-8 rounded-full bg-neutral-300 dark:bg-neutral-500 animate-pulse"></div>
-                                                <div className="w-8 h-8 rounded-full bg-neutral-100 dark:bg-neutral-700 animate-pulse"></div>
-                                            </div>
-                                            <div className="w-10 h-10 rounded-full bg-neutral-200 dark:bg-neutral-700 flex items-center justify-center text-neutral-400">
-                                                <span className="material-symbols-outlined text-lg animate-pulse">hourglass_empty</span>
-                                            </div>
-                                        </div>
-                                    </div>
-                                );
-                            }
-
-                            const topic = item.topic;
-                            const topicIllustrationUrl = resolveTopicIllustrationUrl(topic.illustrationUrl);
-                            return (
-                                <Link
-                                    key={topic._id}
-                                    to={`/dashboard/topic/${topic._id}`}
-                                    className="group relative p-5 rounded-2xl bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 shadow-sm hover:shadow-lg hover:-translate-y-1 transition-all cursor-pointer"
-                                >
-                                    <div className="flex items-start justify-between mb-4">
-                                        <span className="text-xs font-bold text-neutral-400 uppercase tracking-wider">
-                                            Topic {item.index + 1}
-                                        </span>
-                                        <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-green-50 dark:bg-green-900/20 border border-green-100 dark:border-green-800/30">
-                                            <span className="material-symbols-outlined text-green-500 text-xs">check_circle</span>
-                                            <span className="text-[10px] font-semibold text-green-600 dark:text-green-400">Ready</span>
-                                        </span>
-                                    </div>
-
-                                    <div className="mb-4 overflow-hidden rounded-xl">
-                                        <img
-                                            src={topicIllustrationUrl}
-                                            alt={`${topic.title} illustration`}
-                                            loading="lazy"
-                                            className="h-32 w-full object-cover group-hover:scale-105 transition-transform duration-300"
-                                        />
-                                    </div>
-
-                                    <h3 className="text-lg font-bold text-neutral-900 dark:text-white mb-2 group-hover:text-primary dark:group-hover:text-primary transition-colors">
-                                        {topic.title}
-                                    </h3>
-                                    <p className="text-sm text-neutral-500 dark:text-neutral-400 line-clamp-2 mb-4">
-                                        {topic.description || `Master the key concepts of ${topic.title} with detailed explanations and practice questions.`}
-                                    </p>
-
-                                    <div className="flex items-center justify-between pt-4 border-t border-neutral-100 dark:border-neutral-800">
-                                        <div className="flex items-center gap-2 text-xs text-neutral-400">
-                                            <span className="material-symbols-outlined text-sm">menu_book</span>
-                                            <span>Read & Practice</span>
-                                        </div>
-                                        <div className={`w-10 h-10 rounded-full ${cardColor} text-white flex items-center justify-center shadow-md group-hover:scale-110 group-hover:shadow-lg transition-all`}>
-                                            <span className="material-symbols-outlined text-lg">arrow_forward</span>
-                                        </div>
-                                    </div>
-                                </Link>
-                            );
-                        })
-                    ) : (
-                        /* Loading Skeleton */
-                        <>
-                            {Array.from({ length: displayCourse?.plannedCount || topics?.length || 6 }, (_, i) => (
-                                <div key={i} className="p-5 rounded-2xl bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 animate-pulse">
-                                    <div className="flex items-center justify-between mb-4">
-                                        <div className="h-4 w-16 bg-neutral-100 dark:bg-neutral-800 rounded"></div>
-                                        <div className="h-6 w-14 bg-neutral-100 dark:bg-neutral-800 rounded-full"></div>
-                                    </div>
-                                    <div className="h-32 bg-neutral-100 dark:bg-neutral-800 rounded-xl mb-4"></div>
-                                    <div className="h-6 w-3/4 bg-neutral-100 dark:bg-neutral-800 rounded mb-2"></div>
-                                    <div className="h-4 w-full bg-neutral-100 dark:bg-neutral-800 rounded mb-1"></div>
-                                    <div className="h-4 w-2/3 bg-neutral-100 dark:bg-neutral-800 rounded"></div>
-                                </div>
-                            ))}
-                        </>
-                    )}
-                </div>
-
-                {/* Empty State */}
-                {syllabusItems.length === 0 && !isProcessing && (
-                    <div className="text-center py-16">
-                        <div className="w-20 h-20 rounded-2xl bg-neutral-100 dark:bg-neutral-800 flex items-center justify-center mx-auto mb-4">
-                            <span className="material-symbols-outlined text-3xl text-neutral-400">school</span>
-                        </div>
-                        <h3 className="text-lg font-semibold text-neutral-700 dark:text-neutral-300 mb-2">No topics yet</h3>
-                        <p className="text-sm text-neutral-500 max-w-sm mx-auto">
-                            Your course is being prepared. Topics will appear here once they're ready.
+                        <h1 className="text-display-sm text-text-main-light dark:text-text-main-dark mb-2">
+                            Creating your course
+                        </h1>
+                        <p className="text-body-sm text-text-sub-light dark:text-text-sub-dark max-w-md mx-auto">
+                            Analyzing your materials and building personalized lessons. This may take a few minutes.
                         </p>
                     </div>
+                ) : (
+                    <>
+                        <div className="flex items-start justify-between gap-4 mb-2">
+                            <h1 className="text-display-sm text-text-main-light dark:text-text-main-dark">
+                                {displayCourse?.title || 'Your Course'}
+                            </h1>
+                            {backgroundGenerationActive && (
+                                <span className="shrink-0 badge badge-primary flex items-center gap-1.5">
+                                    <span className="material-symbols-outlined text-[14px] animate-spin">sync</span>
+                                    Generating
+                                </span>
+                            )}
+                        </div>
+
+                        <p className="text-body-sm text-text-sub-light dark:text-text-sub-dark mb-4">
+                            {plannedCount > 0
+                                ? `${generatedCount} of ${plannedCount} topics ready`
+                                : `${topics.length} topic${topics.length === 1 ? '' : 's'} available`
+                            }
+                        </p>
+
+                        {showTopicProgress && (
+                            <div className="max-w-lg mb-4">
+                                <div className="flex items-center justify-between mb-1.5">
+                                    <span className="text-caption text-text-sub-light dark:text-text-sub-dark">Progress</span>
+                                    <span className="text-caption font-semibold text-primary">{topicPercent}%</span>
+                                </div>
+                                <div className="h-1.5 bg-border-light dark:bg-border-dark rounded-full overflow-hidden">
+                                    <div
+                                        className="h-full bg-primary rounded-full transition-all duration-500"
+                                        style={{ width: `${topicPercent}%` }}
+                                    />
+                                </div>
+                            </div>
+                        )}
+
+                        {backgroundGenerationActive && backgroundGenerationMessage && (
+                            <div className="max-w-lg p-3 rounded-xl bg-primary/5 dark:bg-primary/10 border border-primary/15 dark:border-primary/20 flex items-start gap-2.5">
+                                <span className="material-symbols-outlined text-primary text-[16px] mt-0.5">info</span>
+                                <p className="text-caption text-text-sub-light dark:text-text-sub-dark">
+                                    {backgroundGenerationMessage}
+                                </p>
+                            </div>
+                        )}
+                    </>
                 )}
-            </main>
+            </div>
+
+            {/* Topics Grid */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                {syllabusItems.length > 0 ? (
+                    syllabusItems.map((item) => {
+                        if (item.kind === 'pending') {
+                            return (
+                                <div
+                                    key={`pending-${item.index}`}
+                                    className="card-base border-dashed p-5 opacity-70"
+                                >
+                                    <div className="flex items-center justify-between mb-3">
+                                        <span className="text-overline text-text-faint-light dark:text-text-faint-dark">
+                                            Topic {item.index + 1}
+                                        </span>
+                                        <span className="flex items-center gap-1 text-caption text-accent-amber">
+                                            <span className="material-symbols-outlined text-[12px] animate-spin">sync</span>
+                                            Generating
+                                        </span>
+                                    </div>
+                                    <h3 className="text-body-base font-semibold text-text-sub-light dark:text-text-sub-dark mb-1">
+                                        {item.title}
+                                    </h3>
+                                    <p className="text-caption text-text-faint-light dark:text-text-faint-dark">
+                                        Will appear shortly.
+                                    </p>
+                                </div>
+                            );
+                        }
+
+                        const topic = item.topic;
+                        const topicIllustrationUrl = resolveTopicIllustrationUrl(topic.illustrationUrl);
+                        return (
+                            <Link
+                                key={topic._id}
+                                to={`/dashboard/topic/${topic._id}`}
+                                className="card-interactive p-0 overflow-hidden"
+                            >
+                                <div className="h-32 overflow-hidden">
+                                    <img
+                                        src={topicIllustrationUrl}
+                                        alt={`${topic.title} illustration`}
+                                        loading="lazy"
+                                        className="h-full w-full object-cover group-hover:scale-105 transition-transform duration-300"
+                                    />
+                                </div>
+                                <div className="p-4">
+                                    <div className="flex items-center justify-between mb-2">
+                                        <span className="text-overline text-text-faint-light dark:text-text-faint-dark">
+                                            Topic {item.index + 1}
+                                        </span>
+                                        <span className="material-symbols-outlined text-accent-emerald text-[14px]">check_circle</span>
+                                    </div>
+                                    <h3 className="text-body-base font-semibold text-text-main-light dark:text-text-main-dark mb-1 group-hover:text-primary transition-colors line-clamp-2">
+                                        {topic.title}
+                                    </h3>
+                                    <p className="text-caption text-text-sub-light dark:text-text-sub-dark line-clamp-2">
+                                        {topic.description || `Master the key concepts of ${topic.title}.`}
+                                    </p>
+                                </div>
+                            </Link>
+                        );
+                    })
+                ) : (
+                    /* Loading Skeleton */
+                    Array.from({ length: displayCourse?.plannedCount || topics?.length || 6 }, (_, i) => (
+                        <div key={i} className="card-base p-0 overflow-hidden animate-pulse">
+                            <div className="h-32 bg-surface-hover-light dark:bg-surface-hover-dark" />
+                            <div className="p-4 space-y-2">
+                                <div className="h-3 w-16 bg-border-light dark:bg-border-dark rounded" />
+                                <div className="h-5 w-3/4 bg-border-light dark:bg-border-dark rounded" />
+                                <div className="h-3 w-full bg-border-light dark:bg-border-dark rounded" />
+                            </div>
+                        </div>
+                    ))
+                )}
+            </div>
+
+            {/* Empty State */}
+            {syllabusItems.length === 0 && !isProcessing && (
+                <div className="text-center py-16">
+                    <div className="w-14 h-14 rounded-2xl bg-surface-light dark:bg-surface-dark border border-border-light dark:border-border-dark flex items-center justify-center mx-auto mb-4">
+                        <span className="material-symbols-outlined text-2xl text-text-faint-light dark:text-text-faint-dark">school</span>
+                    </div>
+                    <h3 className="text-body-lg font-semibold text-text-main-light dark:text-text-main-dark mb-1">No topics yet</h3>
+                    <p className="text-body-sm text-text-sub-light dark:text-text-sub-dark max-w-sm mx-auto">
+                        Your course is being prepared. Topics will appear here once they&apos;re ready.
+                    </p>
+                </div>
+            )}
         </div>
     );
 };

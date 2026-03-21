@@ -21,9 +21,9 @@ import { attemptChunkRecoveryReload, isChunkLoadError } from './lib/chunkLoadRec
 
 const ChunkRecoveryFallback = ({ componentName }) => (
   <div className="bg-background-light dark:bg-background-dark min-h-screen flex items-center justify-center px-6">
-    <div className="w-full max-w-md rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-6 text-center shadow-xl">
-      <h2 className="text-lg font-bold text-slate-900 dark:text-white">Refreshing app files</h2>
-      <p className="mt-2 text-sm font-medium text-slate-500 dark:text-slate-300">
+    <div className="w-full max-w-md card-base p-6 text-center">
+      <h2 className="text-body-lg font-bold text-text-main-light dark:text-text-main-dark">Refreshing app files</h2>
+      <p className="mt-2 text-body-sm font-medium text-text-faint-light dark:text-text-faint-dark">
         We hit a stale app bundle while opening {componentName}. Please reload once.
       </p>
       <button
@@ -101,6 +101,8 @@ const Login = lazyRoute(() => import('./pages/Login'), { componentName: 'Login' 
 const ResetPassword = lazyRoute(() => import('./pages/ResetPassword'), { componentName: 'ResetPassword' });
 const ProductResearch = lazyRoute(() => import('./pages/ProductResearch'), { componentName: 'ProductResearch' });
 const Unsubscribe = lazyRoute(() => import('./pages/Unsubscribe'), { componentName: 'Unsubscribe' });
+const Terms = lazyRoute(() => import('./pages/Terms'), { componentName: 'Terms' });
+const Privacy = lazyRoute(() => import('./pages/Privacy'), { componentName: 'Privacy' });
 const OnboardingName = lazyRoute(() => import('./pages/OnboardingName'), { componentName: 'OnboardingName' });
 const OnboardingLevel = lazyRoute(() => import('./pages/OnboardingLevel'), { componentName: 'OnboardingLevel' });
 const OnboardingDepartment = lazyRoute(() => import('./pages/OnboardingDepartment'), { componentName: 'OnboardingDepartment' });
@@ -227,11 +229,11 @@ function CampaignAttributionTracker() {
 const NotFound = () => (
   <div className="bg-background-light dark:bg-background-dark min-h-screen flex items-center justify-center px-6">
     <div className="text-center max-w-md">
-      <div className="w-20 h-20 bg-slate-100 dark:bg-slate-800 rounded-full flex items-center justify-center mx-auto mb-6">
-        <span className="material-symbols-outlined text-4xl text-slate-400">explore_off</span>
+      <div className="w-20 h-20 bg-surface-hover-light dark:bg-surface-hover-dark rounded-full flex items-center justify-center mx-auto mb-6">
+        <span className="material-symbols-outlined text-4xl text-text-faint-light dark:text-text-faint-dark">explore_off</span>
       </div>
-      <h1 className="text-3xl font-display font-bold text-slate-900 dark:text-white mb-2">Page not found</h1>
-      <p className="text-slate-500 dark:text-slate-400 text-sm mb-8">
+      <h1 className="text-display-sm text-text-main-light dark:text-text-main-dark mb-2">Page not found</h1>
+      <p className="text-text-faint-light dark:text-text-faint-dark text-body-sm mb-8">
         The page you're looking for doesn't exist or has been moved.
       </p>
       <a
@@ -249,7 +251,7 @@ const RouteLoader = () => (
   <div className="bg-background-light dark:bg-background-dark min-h-screen flex items-center justify-center">
     <div className="flex flex-col items-center gap-4">
       <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary"></div>
-      <p className="text-slate-500 dark:text-slate-400 text-sm font-medium">Loading...</p>
+      <p className="text-text-faint-light dark:text-text-faint-dark text-body-sm font-medium">Loading...</p>
     </div>
   </div>
 );
@@ -273,6 +275,8 @@ function App() {
         <Route path="/reset-password" element={withSuspense(<ResetPassword />)} />
         <Route path="/research" element={withSuspense(<ProductResearch />)} />
         <Route path="/unsubscribe" element={withSuspense(<Unsubscribe />)} />
+        <Route path="/terms" element={withSuspense(<Terms />)} />
+        <Route path="/privacy" element={withSuspense(<Privacy />)} />
 
         {/* Onboarding Routes — /onboarding/name is sign-up (public), level+department are protected */}
         <Route path="/onboarding/name" element={withSuspense(<OnboardingName />)} />

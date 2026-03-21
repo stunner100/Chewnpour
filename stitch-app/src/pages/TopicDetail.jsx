@@ -58,7 +58,7 @@ const TopicDetail = () => {
     const [startingExam, setStartingExam] = useState(false);
     const [startExamError, setStartExamError] = useState('');
     const [reExplainOpen, setReExplainOpen] = useState(false);
-    const [reExplainStyle, setReExplainStyle] = useState('Teach me like I’m 12');
+    const [reExplainStyle, setReExplainStyle] = useState("Teach me like I'm 12");
     const [reExplainLoading, setReExplainLoading] = useState(false);
     const [reExplainError, setReExplainError] = useState('');
     const [settingsOpen, setSettingsOpen] = useState(false);
@@ -585,13 +585,11 @@ const TopicDetail = () => {
 
     if (!topicId) {
         return (
-            <div className="bg-background-light dark:bg-background-dark min-h-screen flex items-center justify-center">
-                <div className="text-center max-w-md px-6">
-                    <h2 className="text-xl font-bold text-neutral-900 dark:text-white mb-2">Topic not found</h2>
-                    <p className="text-neutral-500 font-medium mb-6">Please return to your dashboard and select a topic.</p>
-                    <Link to="/dashboard" className="inline-flex items-center justify-center px-5 py-2.5 rounded-xl bg-primary text-white font-bold shadow-lg shadow-primary/20">
-                        Back to Dashboard
-                    </Link>
+            <div className="min-h-screen flex items-center justify-center bg-background-light dark:bg-background-dark">
+                <div className="text-center max-w-sm px-6">
+                    <h2 className="text-body-lg font-semibold text-text-main-light dark:text-text-main-dark mb-2">Topic not found</h2>
+                    <p className="text-body-sm text-text-sub-light dark:text-text-sub-dark mb-6">Please return to your dashboard and select a topic.</p>
+                    <Link to="/dashboard" className="btn-primary px-5 py-2.5 text-body-sm">Back to Dashboard</Link>
                 </div>
             </div>
         );
@@ -599,10 +597,10 @@ const TopicDetail = () => {
 
     if (topicData === undefined) {
         return (
-            <div className="bg-background-light dark:bg-background-dark min-h-screen flex items-center justify-center">
+            <div className="min-h-screen flex items-center justify-center bg-background-light dark:bg-background-dark">
                 <div className="text-center">
-                    <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary mx-auto mb-4"></div>
-                    <p className="text-neutral-500 font-medium">Loading lesson...</p>
+                    <div className="animate-spin rounded-full h-10 w-10 border-2 border-border-light dark:border-border-dark border-t-primary mx-auto mb-4" />
+                    <p className="text-body-sm text-text-sub-light dark:text-text-sub-dark">Loading lesson...</p>
                 </div>
             </div>
         );
@@ -610,192 +608,184 @@ const TopicDetail = () => {
 
     if (topicData === null) {
         return (
-            <div className="bg-background-light dark:bg-background-dark min-h-screen flex items-center justify-center">
-                <div className="text-center max-w-md px-6">
-                    <h2 className="text-xl font-bold text-neutral-900 dark:text-white mb-2">Topic not found</h2>
-                    <p className="text-neutral-500 font-medium mb-6">We couldn’t find this topic. Please return to your dashboard.</p>
-                    <Link to="/dashboard" className="inline-flex items-center justify-center px-5 py-2.5 rounded-xl bg-primary text-white font-bold shadow-lg shadow-primary/20">
-                        Back to Dashboard
-                    </Link>
+            <div className="min-h-screen flex items-center justify-center bg-background-light dark:bg-background-dark">
+                <div className="text-center max-w-sm px-6">
+                    <h2 className="text-body-lg font-semibold text-text-main-light dark:text-text-main-dark mb-2">Topic not found</h2>
+                    <p className="text-body-sm text-text-sub-light dark:text-text-sub-dark mb-6">We couldn&apos;t find this topic.</p>
+                    <Link to="/dashboard" className="btn-primary px-5 py-2.5 text-body-sm">Back to Dashboard</Link>
                 </div>
             </div>
         );
     }
 
     return (
-        <div className="bg-background-light dark:bg-background-dark font-body antialiased text-neutral-900 dark:text-white min-h-screen flex flex-col overflow-x-hidden touch-pan-y">
-            <header className="fixed top-0 inset-x-0 z-40 flex items-center justify-between px-4 py-3 bg-white/80 dark:bg-neutral-900/80 backdrop-blur-xl border-b border-neutral-200/50 dark:border-neutral-800/50">
-                <div className="flex items-center gap-3">
-                    <Link to={courseId ? `/dashboard/course/${courseId}` : "/dashboard"} aria-label="Go back" className="flex items-center gap-2 text-neutral-600 dark:text-neutral-400 hover:text-primary transition-colors">
-                        <span className="material-symbols-outlined text-xl">arrow_back</span>
-                        <span className="hidden sm:inline text-sm font-medium">Back</span>
+        <div className="bg-background-light dark:bg-background-dark font-body antialiased text-text-main-light dark:text-text-main-dark min-h-screen flex flex-col overflow-x-hidden touch-pan-y">
+            {/* Header */}
+            <header className="fixed top-0 inset-x-0 z-40 flex items-center justify-between px-4 h-14 bg-background-light/80 dark:bg-background-dark/80 backdrop-blur-xl border-b border-border-light dark:border-border-dark">
+                <div className="flex items-center gap-2 min-w-0">
+                    <Link
+                        to={courseId ? `/dashboard/course/${courseId}` : '/dashboard'}
+                        aria-label="Go back"
+                        className="btn-icon w-8 h-8 shrink-0"
+                    >
+                        <span className="material-symbols-outlined text-[18px]">arrow_back</span>
                     </Link>
-                    <div className="w-px h-5 bg-neutral-200 dark:bg-neutral-700"></div>
-                    <Link to="/dashboard" className="hidden sm:flex items-center gap-2 text-neutral-600 dark:text-neutral-400 hover:text-primary transition-colors">
-                        <span className="material-symbols-outlined text-xl">home</span>
-                        <span className="text-sm font-medium">Dashboard</span>
-                    </Link>
-                    <div className="hidden sm:block w-px h-5 bg-neutral-200 dark:bg-neutral-700"></div>
-                    <span className="text-xs sm:text-sm font-semibold text-neutral-700 dark:text-neutral-300 truncate max-w-[180px] sm:max-w-[240px] md:max-w-md">
+                    <span className="text-body-sm font-medium text-text-sub-light dark:text-text-sub-dark truncate max-w-[200px] sm:max-w-sm">
                         {headerTopicTitle}
                     </span>
                 </div>
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-1">
                     <button
-                        onClick={() => setReadingMode((value) => !value)}
-                        className="hidden lg:flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium text-neutral-600 dark:text-neutral-400 hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors"
-                        title={readingMode ? 'Switch to split view' : 'Switch to focus mode'}
+                        onClick={() => setReadingMode((v) => !v)}
+                        className="hidden lg:flex btn-icon w-8 h-8"
+                        title={readingMode ? 'Split view' : 'Focus mode'}
                     >
-                        <span className="material-symbols-outlined text-lg">{readingMode ? 'fullscreen' : 'splitscreen'}</span>
-                        <span className="hidden md:inline">{readingMode ? 'Focus' : 'Split'}</span>
+                        <span className="material-symbols-outlined text-[18px]">{readingMode ? 'splitscreen' : 'fullscreen'}</span>
                     </button>
                     <button
                         onClick={() => setSettingsOpen(true)}
-                        className="w-9 h-9 flex items-center justify-center rounded-full text-neutral-500 hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors"
+                        className="btn-icon w-8 h-8"
                         aria-label="Settings"
                     >
-                        <span className="material-symbols-outlined text-xl">settings</span>
+                        <span className="material-symbols-outlined text-[18px]">settings</span>
                     </button>
-                    <Link to="/profile" className="w-9 h-9 rounded-full bg-gradient-to-br from-primary to-purple-500 p-0.5">
-                        <div className="w-full h-full rounded-full bg-white dark:bg-neutral-900 flex items-center justify-center">
-                            <span className="text-primary font-bold text-xs">{profileInitial}</span>
-                        </div>
-                    </Link>
                 </div>
             </header>
-            <main className={`flex-1 w-full mx-auto px-4 md:px-6 lg:px-10 pt-20 md:pt-24 pb-20 md:pb-8 lg:pt-28 lg:pb-12 ${readingMode ? 'max-w-4xl' : 'max-w-[1440px]'} transition-[margin] duration-200 ${notesOpen || chatOpen ? 'md:mr-80' : ''}`}>
-                <div className={`grid grid-cols-1 ${readingMode ? '' : 'lg:grid-cols-12'} gap-8 lg:gap-12`}>
-                    <div ref={contentRef} className={`${readingMode ? '' : 'lg:col-span-9'} space-y-8`}>
-                        <div className="bg-surface-light dark:bg-surface-dark rounded-2xl md:rounded-3xl p-5 md:p-8 lg:p-10 shadow-card border border-neutral-100 dark:border-neutral-800 relative">
-                            <div className="flex flex-col gap-4 max-w-none">
-                                <span className="md:hidden inline-block w-fit px-3 py-1 text-[10px] font-extrabold tracking-widest uppercase text-primary bg-primary/10 rounded-full border border-primary/10 mb-2">{headerTopicTitle}</span>
-                                <h1 className="text-xl sm:text-2xl lg:text-5xl font-extrabold text-neutral-900 dark:text-white tracking-tight leading-tight">
-                                    {heroTopicTitle}
-                                </h1>
-                                <p className="text-neutral-500 dark:text-neutral-400 text-base lg:text-lg font-medium">{cleanLine(topic?.description || "You're doing great, let's dive in!")}</p>
-                                <div className="overflow-hidden rounded-2xl border border-neutral-200/70 dark:border-neutral-700/70 bg-neutral-50 dark:bg-neutral-900/50">
-                                    <img
-                                        src={topicIllustrationUrl}
-                                        alt={`${heroTopicTitle} illustration`}
-                                        loading="lazy"
-                                        className="h-44 w-full object-cover md:h-64"
-                                    />
-                                </div>
-                                <div className="pt-2">
+
+            {/* Main content */}
+            <main className={`flex-1 w-full mx-auto px-4 md:px-8 pt-20 pb-24 md:pb-12 ${readingMode ? 'max-w-3xl' : 'max-w-6xl'} transition-all duration-200 ${notesOpen || chatOpen ? 'md:mr-80' : ''}`}>
+                <div className={`grid grid-cols-1 ${readingMode ? '' : 'lg:grid-cols-12'} gap-8`}>
+                    {/* Lesson content */}
+                    <div ref={contentRef} className={`${readingMode ? '' : 'lg:col-span-9'} space-y-6`}>
+                        {/* Hero */}
+                        <div>
+                            <h1 className="text-display-sm md:text-display-lg text-text-main-light dark:text-text-main-dark mb-3">
+                                {heroTopicTitle}
+                            </h1>
+                            <p className="text-body-base text-text-sub-light dark:text-text-sub-dark mb-5">
+                                {cleanLine(topic?.description || "Let's dive in!")}
+                            </p>
+                            <div className="overflow-hidden rounded-xl border border-border-light dark:border-border-dark">
+                                <img
+                                    src={topicIllustrationUrl}
+                                    alt={`${heroTopicTitle} illustration`}
+                                    loading="lazy"
+                                    className="h-40 w-full object-cover md:h-56"
+                                />
+                            </div>
+                        </div>
+
+                        {/* Toolbar row */}
+                        <div className="flex items-center gap-2 flex-wrap">
+                            <button
+                                onClick={() => setReExplainOpen(true)}
+                                className="btn-secondary text-caption px-3.5 py-2 gap-1.5"
+                            >
+                                <span className="material-symbols-outlined text-[16px]">lightbulb</span>
+                                Re-explain
+                            </button>
+                            {isVoiceSupported && speechText && (
+                                <div className="hidden md:flex items-center gap-1.5">
                                     <button
-                                        onClick={() => setReExplainOpen(true)}
-                                        className="inline-flex items-center gap-2 px-4 py-2.5 bg-neutral-50 dark:bg-neutral-800/80 text-neutral-800 dark:text-white rounded-full transition-shadow duration-200 shadow-soft-ui border border-neutral-200/70 dark:border-neutral-700/70 cursor-pointer hover:shadow-soft-ui-hover hover:border-primary/30 active:scale-95 active:shadow-inner group"
+                                        onClick={() => {
+                                            if (!speechText || voiceStatus === 'loading') return;
+                                            isPaused ? resumeVoice() : playVoice(speechText);
+                                        }}
+                                        disabled={!speechText || voiceStatus === 'loading'}
+                                        className="btn-secondary text-caption px-3 py-2 gap-1 disabled:opacity-50"
                                     >
-                                        <span className="material-symbols-outlined text-[20px] text-primary group-hover:text-primary/80 transition-colors">lightbulb</span>
-                                        <span className="text-xs font-bold tracking-tight">Re-explain differently</span>
+                                        <span className="material-symbols-outlined text-[16px]">
+                                            {voiceStatus === 'loading' ? 'hourglass_top' : isPaused ? 'play_arrow' : 'volume_up'}
+                                        </span>
+                                        {voiceStatus === 'loading' ? 'Loading' : isPaused ? 'Resume' : 'Play'}
                                     </button>
+                                    {(isPlaying || isPaused) && (
+                                        <>
+                                            <button onClick={pauseVoice} disabled={!isPlaying} className="btn-icon w-8 h-8 disabled:opacity-50">
+                                                <span className="material-symbols-outlined text-[16px]">pause</span>
+                                            </button>
+                                            <button onClick={stopVoice} className="btn-icon w-8 h-8">
+                                                <span className="material-symbols-outlined text-[16px]">stop</span>
+                                            </button>
+                                        </>
+                                    )}
                                 </div>
-                            </div>
+                            )}
+                            {voicePlaybackError && (
+                                <span className="text-caption text-red-500">{voicePlaybackError}</span>
+                            )}
                         </div>
 
-                        <div className={`${readingMode ? '' : 'grid grid-cols-1 md:grid-cols-2'} gap-8`}>
-                            <div className={`flex flex-col justify-center h-full ${readingMode ? '' : 'md:col-span-2'}`}>
-                                <div className="bg-surface-light dark:bg-surface-dark rounded-3xl p-8 h-full border border-neutral-100 dark:border-neutral-800 shadow-card hover:shadow-lg transition-shadow duration-300">
-                                    <div className="flex flex-col gap-3 mb-6">
-                                        <div className="flex items-center justify-between">
-                                            <span className="inline-flex items-center px-3 py-1.5 rounded-full text-xs font-bold uppercase tracking-wider bg-primary/10 text-primary border border-primary/10">
-                                                Lesson Overview
-                                            </span>
-                                        </div>
-                                        {isVoiceSupported && speechText && (
-                                            <div className="hidden md:flex items-center gap-2 overflow-x-auto pb-1 -mb-1">
-                                                <button
-                                                    onClick={() => {
-                                                        if (!speechText) return;
-                                                        if (voiceStatus === 'loading') return;
-                                                        if (isPaused) {
-                                                            resumeVoice();
-                                                        } else {
-                                                            playVoice(speechText);
-                                                        }
-                                                    }}
-                                                    disabled={!isVoiceSupported || !speechText || voiceStatus === 'loading'}
-                                                    className="inline-flex items-center gap-1 px-3 h-9 rounded-full bg-neutral-50 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 text-xs font-bold text-neutral-700 dark:text-neutral-200 hover:border-primary/40 hover:text-primary disabled:opacity-50 disabled:cursor-not-allowed shrink-0"
-                                                >
-                                                    <span className="material-symbols-outlined text-[16px]">
-                                                        {voiceStatus === 'loading' ? 'hourglass_top' : (isPaused ? 'play_arrow' : 'volume_up')}
-                                                    </span>
-                                                    {voiceStatus === 'loading' ? 'Loading...' : (isPaused ? 'Resume' : 'Play')}
-                                                </button>
-                                                <button
-                                                    onClick={pauseVoice}
-                                                    disabled={!isPlaying}
-                                                    className="inline-flex items-center gap-1 px-3 h-9 rounded-full bg-neutral-50 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 text-xs font-bold text-neutral-700 dark:text-neutral-200 hover:border-primary/40 hover:text-primary disabled:opacity-50 disabled:cursor-not-allowed shrink-0"
-                                                >
-                                                    <span className="material-symbols-outlined text-[16px]">pause</span>
-                                                    Pause
-                                                </button>
-                                                <button
-                                                    onClick={stopVoice}
-                                                    disabled={!isPlaying && !isPaused}
-                                                    className="inline-flex items-center gap-1 px-3 h-9 rounded-full bg-neutral-50 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 text-xs font-bold text-neutral-700 dark:text-neutral-200 hover:border-primary/40 hover:text-primary disabled:opacity-50 disabled:cursor-not-allowed shrink-0"
-                                                >
-                                                    <span className="material-symbols-outlined text-[16px]">stop</span>
-                                                    Stop
-                                                </button>
-                                            </div>
-                                        )}
+                        {/* Lesson body */}
+                        <div className="card-base p-6 md:p-8">
+                            {normalizedContent ? (
+                                <LessonContentRenderer
+                                    blocks={parsed.blocks}
+                                    shouldAnimateBlocks={shouldAnimateBlocks}
+                                    cleanInline={cleanInline}
+                                />
+                            ) : (
+                                <div className="flex flex-col items-center justify-center py-16 text-center">
+                                    <div className="w-12 h-12 rounded-xl bg-surface-hover-light dark:bg-surface-hover-dark flex items-center justify-center mb-4 animate-pulse">
+                                        <span className="material-symbols-outlined text-text-faint-light dark:text-text-faint-dark text-[24px]">auto_stories</span>
                                     </div>
-                                    {isVoiceSupported && (
-                                        <div className="mb-4 hidden md:block">
-                                            {!isVoiceSupported && (
-                                                <div className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-medium text-amber-800">
-                                                    Voice mode is not supported in this browser.
-                                                </div>
-                                            )}
-                                            {isVoiceSupported && !speechText && (
-                                                <div className="rounded-xl border border-neutral-200 bg-neutral-50 px-3 py-2 text-xs font-medium text-neutral-600">
-                                                    No explanation text is available to read aloud.
-                                                </div>
-                                            )}
-                                            {isVoiceSupported && speechText && (
-                                                <div className="rounded-xl border border-neutral-200 bg-neutral-50 px-3 py-2 text-xs font-medium text-neutral-600">
-                                                    {voiceStatus === 'loading' && 'Generating voice audio...'}
-                                                    {voiceStatus === 'playing' && 'Reading explanation aloud...'}
-                                                    {voiceStatus === 'paused' && 'Reading paused.'}
-                                                    {(voiceStatus === 'idle' || voiceStatus === 'error') && 'Tap Play to hear this explanation.'}
-                                                </div>
-                                            )}
-                                            {voicePlaybackError && (
-                                                <div className="mt-2 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-medium text-amber-800">
-                                                    {voicePlaybackError}
-                                                </div>
-                                            )}
-                                        </div>
-                                    )}
-                                    {isVoiceSupported && (
-                                        <div className="mb-4 md:hidden">
-                                            <div className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-medium text-amber-800">
-                                                Voice playback is temporarily unavailable on mobile.
-                                            </div>
-                                        </div>
-                                    )}
-
-                                    {normalizedContent ? (
-                                        <LessonContentRenderer
-                                            blocks={parsed.blocks}
-                                            shouldAnimateBlocks={shouldAnimateBlocks}
-                                            cleanInline={cleanInline}
-                                        />
-                                    ) : (
-                                        <div className="flex flex-col items-center justify-center py-16 text-center opacity-60">
-                                            <div className="w-16 h-16 bg-neutral-100 dark:bg-neutral-800 rounded-full flex items-center justify-center mb-4 animate-pulse">
-                                                <span className="material-symbols-outlined text-neutral-400 text-[32px]">auto_stories</span>
-                                            </div>
-                                            <p className="text-neutral-500 font-medium text-lg">Preparing your lesson content...</p>
-                                        </div>
-                                    )}
+                                    <p className="text-body-sm text-text-sub-light dark:text-text-sub-dark">Preparing your lesson...</p>
                                 </div>
-                            </div>
+                            )}
                         </div>
 
+                        {/* Practice section */}
+                        <div className="card-base p-6 md:p-8 text-center">
+                            <h3 className="text-body-lg font-semibold text-text-main-light dark:text-text-main-dark mb-1">Ready to practice?</h3>
+                            <p className="text-body-sm text-text-sub-light dark:text-text-sub-dark mb-5">Test your understanding with questions from this lesson.</p>
+
+                            <div className="flex flex-col sm:flex-row gap-2.5 justify-center">
+                                <Link
+                                    to={topicId ? `/dashboard/concept-intro/${topicId}` : '/dashboard/concept-intro'}
+                                    className="btn-secondary px-5 py-2.5 text-body-sm gap-2"
+                                >
+                                    <span className="material-symbols-outlined text-[18px] text-accent-emerald">school</span>
+                                    Study Concepts
+                                </Link>
+                                <button
+                                    onClick={() => handleStartExam('mcq')}
+                                    disabled={startingExam}
+                                    className="btn-primary px-5 py-2.5 text-body-sm gap-2 disabled:opacity-50"
+                                >
+                                    <span className="material-symbols-outlined text-[18px]">quiz</span>
+                                    {startingExam ? 'Preparing...' : 'MCQ Quiz'}
+                                </button>
+                                <button
+                                    onClick={() => handleStartExam('essay')}
+                                    disabled={startingExam || !topicEssayStartReady}
+                                    className="btn-secondary px-5 py-2.5 text-body-sm gap-2 disabled:opacity-50"
+                                >
+                                    <span className="material-symbols-outlined text-[18px]">edit_note</span>
+                                    {startingExam
+                                        ? 'Preparing...'
+                                        : topicEssayStartReady
+                                            ? 'Essay Quiz'
+                                            : `Essay (${usableEssayCount}/${topicEssayTargetCount})`}
+                                </button>
+                            </div>
+
+                            {!topicQuizStartReady && (
+                                <p className="mt-4 text-caption text-text-faint-light dark:text-text-faint-dark">
+                                    {usableMcqCount}/{topicMcqTargetCount} MCQ and {usableEssayCount}/{topicEssayTargetCount} essay questions ready.
+                                </p>
+                            )}
+                            {topicQuizStartReady && !topicExamReady && (
+                                <p className="mt-4 text-caption text-accent-emerald">
+                                    MCQ ready. Essay questions still preparing ({usableEssayCount}/{topicEssayTargetCount}).
+                                </p>
+                            )}
+                            {startExamError && (
+                                <p className="mt-4 text-caption text-red-500">{startExamError}</p>
+                            )}
+                        </div>
                     </div>
 
+                    {/* Sidebar (split view) */}
                     {!readingMode && (
                         <TopicSidebar
                             normalizedContent={normalizedContent}
@@ -806,105 +796,39 @@ const TopicDetail = () => {
                         />
                     )}
                 </div>
-
-                <div className="mt-12 w-full flex flex-col items-center">
-                    <div className="flex items-center gap-3 mb-6">
-                        <div className="h-px w-16 bg-gradient-to-r from-transparent to-neutral-300 dark:to-neutral-600"></div>
-                        <span className="material-symbols-outlined text-primary/40 text-2xl">expand_more</span>
-                        <div className="h-px w-16 bg-gradient-to-l from-transparent to-neutral-300 dark:to-neutral-600"></div>
-                    </div>
-                    <div className="bg-white dark:bg-neutral-900 rounded-2xl p-6 md:p-8 text-center border border-neutral-200 dark:border-neutral-800 shadow-sm w-full">
-                        <h3 className="text-xl md:text-2xl font-bold text-neutral-900 dark:text-white mb-2">Ready to practice?</h3>
-                        <p className="text-neutral-500 dark:text-neutral-400 text-sm mb-6">Test your knowledge with questions based on this lesson.</p>
-
-                        <div className="flex flex-col sm:flex-row gap-3 justify-center">
-                            <Link
-                                to={topicId ? `/dashboard/concept-intro/${topicId}` : "/dashboard/concept-intro"}
-                                className="inline-flex items-center justify-center gap-2 px-6 py-3 bg-gradient-to-r from-emerald-500 to-teal-600 text-white rounded-xl text-sm font-semibold shadow-md shadow-emerald-500/20 hover:shadow-lg hover:shadow-emerald-500/30 transition-shadow"
-                            >
-                                <span className="material-symbols-outlined text-lg">school</span>
-                                <span>Study Concepts</span>
-                            </Link>
-                            <button
-                                onClick={() => handleStartExam('mcq')}
-                                disabled={startingExam}
-                                className="inline-flex items-center justify-center gap-2 px-6 py-3 bg-gradient-to-r from-blue-500 to-indigo-600 text-white rounded-xl text-sm font-semibold shadow-md shadow-blue-500/20 hover:shadow-lg hover:shadow-blue-500/30 transition-shadow disabled:opacity-60"
-                            >
-                                <span className="material-symbols-outlined text-lg">quiz</span>
-                                <span>
-                                    {startingExam
-                                        ? 'Preparing...'
-                                        : 'Take MCQ Quiz'}
-                                </span>
-                            </button>
-                            <button
-                                onClick={() => handleStartExam('essay')}
-                                disabled={startingExam || !topicEssayStartReady}
-                                className="inline-flex items-center justify-center gap-2 px-6 py-3 bg-gradient-to-r from-purple-500 to-fuchsia-600 text-white rounded-xl text-sm font-semibold shadow-md shadow-purple-500/20 hover:shadow-lg hover:shadow-purple-500/30 transition-shadow disabled:opacity-60"
-                            >
-                                <span className="material-symbols-outlined text-lg">edit_note</span>
-                                <span>
-                                    {startingExam
-                                        ? 'Preparing...'
-                                        : topicEssayStartReady
-                                            ? 'Take Essay Quiz'
-                                            : `Essay Preparing (${usableEssayCount}/${topicEssayTargetCount})`}
-                                </span>
-                            </button>
-                        </div>
-
-                        {!topicQuizStartReady && (
-                            <div className="mt-4 max-w-md mx-auto rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
-                                {`${usableMcqCount}/${topicMcqTargetCount} MCQ and ${usableEssayCount}/${topicEssayTargetCount} essay questions ready.`}
-                            </div>
-                        )}
-                        {topicQuizStartReady && !topicExamReady && (
-                            <div className="mt-4 max-w-md mx-auto rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">
-                                {`MCQ quiz is ready. Essay questions are still preparing (${usableEssayCount}/${topicEssayTargetCount}) and will continue building in the background.`}
-                            </div>
-                        )}
-                        {startExamError && (
-                            <div className="mt-4 max-w-md mx-auto rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
-                                {startExamError}
-                            </div>
-                        )}
-                    </div>
-                </div>
             </main>
 
-            {/* AI Tutor floating button */}
+            {/* Floating action buttons */}
             {user && !chatOpen && !notesOpen && (
-                <button
-                    onClick={openChat}
-                    className="fixed bottom-[calc(5rem+env(safe-area-inset-bottom))] right-[4.5rem] z-30 w-11 h-11 rounded-full bg-primary text-white shadow-lg shadow-primary/30 flex items-center justify-center hover:scale-105 active:scale-95 transition-transform"
-                    aria-label="Open AI tutor"
-                >
-                    <span className="material-symbols-outlined text-xl">smart_toy</span>
-                </button>
-            )}
-
-            {/* Notes floating button */}
-            {user && !notesOpen && !chatOpen && (
-                <button
-                    onClick={openNotes}
-                    className="fixed bottom-[calc(5rem+env(safe-area-inset-bottom))] right-6 z-30 w-11 h-11 rounded-full bg-amber-500 text-white shadow-lg shadow-amber-500/30 flex items-center justify-center hover:scale-105 active:scale-95 transition-transform"
-                    aria-label="Open notes"
-                >
-                    <span className="material-symbols-outlined text-xl">edit_note</span>
-                </button>
+                <div className="fixed bottom-[calc(5rem+env(safe-area-inset-bottom))] md:bottom-6 right-4 z-30 flex flex-col gap-2">
+                    <button
+                        onClick={openChat}
+                        className="w-11 h-11 rounded-full bg-primary text-white shadow-md flex items-center justify-center hover:scale-105 active:scale-95 transition-transform"
+                        aria-label="Open AI tutor"
+                    >
+                        <span className="material-symbols-outlined text-[20px]">smart_toy</span>
+                    </button>
+                    <button
+                        onClick={openNotes}
+                        className="w-11 h-11 rounded-full bg-surface-light dark:bg-surface-dark border border-border-light dark:border-border-dark text-text-sub-light dark:text-text-sub-dark shadow-md flex items-center justify-center hover:scale-105 active:scale-95 transition-transform"
+                        aria-label="Open notes"
+                    >
+                        <span className="material-symbols-outlined text-[20px]">edit_note</span>
+                    </button>
+                </div>
             )}
 
             {showScrollTop && !notesOpen && !chatOpen && (
                 <button
                     onClick={scrollToTop}
-                    className="fixed bottom-[calc(5rem+env(safe-area-inset-bottom))] md:bottom-6 left-4 md:left-auto md:right-6 z-30 w-11 h-11 rounded-full bg-primary text-white shadow-lg shadow-primary/30 flex items-center justify-center hover:scale-105 active:scale-95 transition-transform"
+                    className="fixed bottom-[calc(5rem+env(safe-area-inset-bottom))] md:bottom-6 left-4 z-30 btn-icon w-10 h-10 bg-surface-light dark:bg-surface-dark border border-border-light dark:border-border-dark shadow-md"
                     aria-label="Scroll to top"
                 >
-                    <span className="material-symbols-outlined text-xl">arrow_upward</span>
+                    <span className="material-symbols-outlined text-[18px]">arrow_upward</span>
                 </button>
             )}
 
-            {/* Notes panel */}
+            {/* Panels */}
             <TopicNotesPanel
                 topicId={topicId}
                 open={notesOpen}
@@ -912,7 +836,6 @@ const TopicDetail = () => {
                 appendText={notesAppendText}
             />
 
-            {/* AI Tutor chat panel */}
             <TopicChatPanel
                 topicId={topicId}
                 topicTitle={topic?.title || ''}
@@ -920,7 +843,6 @@ const TopicDetail = () => {
                 onClose={() => setChatOpen(false)}
             />
 
-            {/* Highlight explain popover */}
             {selection && (
                 <HighlightExplainPopover
                     selection={selection}

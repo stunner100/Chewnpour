@@ -173,23 +173,23 @@ const TopicChatPanel = memo(function TopicChatPanel({ topicId, topicTitle, open,
         <>
             {/* Backdrop (mobile) */}
             <div
-                className={`fixed inset-0 z-[55] bg-black/30 md:bg-transparent md:pointer-events-none transition-opacity ${isClosing ? 'opacity-0' : 'opacity-100'}`}
+                className={`fixed inset-0 z-[55] bg-black/20 md:bg-transparent md:pointer-events-none transition-opacity ${isClosing ? 'opacity-0' : 'opacity-100'}`}
                 onClick={handleClose}
             />
 
             {/* Panel */}
-            <div className={`fixed z-[60] inset-0 md:inset-x-auto md:right-0 md:top-0 md:bottom-0 md:w-80 flex flex-col bg-white dark:bg-slate-900 border-t md:border-t-0 md:border-l border-slate-200 dark:border-slate-800 shadow-xl ${panelAnimClass} pb-[env(safe-area-inset-bottom)] md:pb-0`}>
+            <div className={`fixed z-[60] inset-0 md:inset-x-auto md:right-0 md:top-0 md:bottom-0 md:w-80 flex flex-col bg-surface-light dark:bg-surface-dark border-t md:border-t-0 md:border-l border-border-light dark:border-border-dark shadow-lg ${panelAnimClass} pb-[env(safe-area-inset-bottom)] md:pb-0`}>
                 {/* Header */}
-                <div className="flex items-center justify-between px-4 py-3 border-b border-slate-100 dark:border-slate-800">
+                <div className="flex items-center justify-between px-4 h-14 border-b border-border-light dark:border-border-dark">
                     <div className="flex items-center gap-2">
-                        <span className="material-symbols-outlined text-primary text-xl">smart_toy</span>
-                        <h3 className="text-base font-bold text-slate-900 dark:text-white">AI Tutor</h3>
+                        <span className="material-symbols-outlined text-primary text-[20px]">smart_toy</span>
+                        <h3 className="text-body-sm font-semibold text-text-main-light dark:text-text-main-dark">AI Tutor</h3>
                     </div>
                     <div className="flex items-center gap-1">
                         {messageList.length > 0 && (
                             <button
                                 onClick={handleClearChat}
-                                className="w-10 h-10 rounded-full text-slate-400 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-900/20 flex items-center justify-center transition-colors"
+                                className="btn-icon w-8 h-8 text-text-faint-light dark:text-text-faint-dark hover:text-red-500"
                                 title="Clear chat"
                                 aria-label="Clear chat"
                             >
@@ -198,22 +198,20 @@ const TopicChatPanel = memo(function TopicChatPanel({ topicId, topicTitle, open,
                         )}
                         <button
                             onClick={handleClose}
-                            className="w-10 h-10 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-500 hover:text-primary flex items-center justify-center"
+                            className="btn-icon w-8 h-8"
                             aria-label="Close chat panel"
                         >
-                            <span className="material-symbols-outlined text-[18px]">close</span>
+                            <span className="material-symbols-outlined text-[16px]">close</span>
                         </button>
                     </div>
                 </div>
 
                 {isFreeQuotaTracked && (
-                    <div className="px-4 py-2 border-b border-slate-100 dark:border-slate-800 bg-slate-50/80 dark:bg-slate-800/40">
-                        <p className="text-xs text-slate-600 dark:text-slate-300">
-                            Free AI messages today:{' '}
-                            <span className="font-semibold text-slate-900 dark:text-white">{Math.max(0, aiMessageRemaining)}</span>
-                            {' '}left
+                    <div className="px-4 py-2 border-b border-border-light dark:border-border-dark bg-background-light dark:bg-background-dark">
+                        <p className="text-caption text-text-sub-light dark:text-text-sub-dark">
+                            {Math.max(0, aiMessageRemaining)} free message{aiMessageRemaining === 1 ? '' : 's'} left today
                             {Number.isFinite(aiMessageUsed) && Number.isFinite(aiMessageLimit)
-                                ? ` (${Math.max(0, aiMessageUsed)}/${Math.max(0, aiMessageLimit)} used)`
+                                ? ` (${Math.max(0, aiMessageUsed)}/${Math.max(0, aiMessageLimit)})`
                                 : ''}
                         </p>
                     </div>
@@ -226,11 +224,11 @@ const TopicChatPanel = memo(function TopicChatPanel({ topicId, topicTitle, open,
                 >
                     {messageList.length === 0 && !sending && (
                         <div className="flex gap-2.5 items-start">
-                            <div className="w-7 h-7 shrink-0 rounded-full bg-primary/10 flex items-center justify-center mt-0.5">
+                            <div className="w-7 h-7 shrink-0 rounded-lg bg-primary/10 flex items-center justify-center mt-0.5">
                                 <span className="material-symbols-outlined text-primary text-[14px]">smart_toy</span>
                             </div>
-                            <div className="rounded-2xl rounded-tl-sm bg-slate-100 dark:bg-slate-800 px-3.5 py-2.5 text-sm text-slate-700 dark:text-slate-200 max-w-[85%]">
-                                Hi! I'm your AI tutor{topicTitle ? ` for "${topicTitle}"` : ''}. Ask me anything about this lesson.
+                            <div className="rounded-xl rounded-tl-sm bg-background-light dark:bg-background-dark border border-border-light dark:border-border-dark px-3 py-2.5 text-body-sm text-text-sub-light dark:text-text-sub-dark max-w-[85%]">
+                                Hi! I&apos;m your AI tutor{topicTitle ? ` for "${topicTitle}"` : ''}. Ask me anything about this lesson.
                             </div>
                         </div>
                     )}
@@ -243,13 +241,13 @@ const TopicChatPanel = memo(function TopicChatPanel({ topicId, topicTitle, open,
                             return (
                                 <div key={msg._id} className="flex gap-2.5 items-start">
                                     {showAvatar ? (
-                                        <div className="w-7 h-7 shrink-0 rounded-full bg-primary/10 flex items-center justify-center mt-0.5">
+                                        <div className="w-7 h-7 shrink-0 rounded-lg bg-primary/10 flex items-center justify-center mt-0.5">
                                             <span className="material-symbols-outlined text-primary text-[14px]">smart_toy</span>
                                         </div>
                                     ) : (
                                         <div className="w-7 shrink-0" />
                                     )}
-                                    <div className="rounded-2xl rounded-tl-sm bg-slate-100 dark:bg-slate-800 px-3.5 py-2.5 text-sm text-slate-700 dark:text-slate-200 max-w-[85%] whitespace-pre-wrap break-words">
+                                    <div className="rounded-xl rounded-tl-sm bg-background-light dark:bg-background-dark border border-border-light dark:border-border-dark px-3 py-2.5 text-body-sm text-text-main-light dark:text-text-main-dark max-w-[85%] whitespace-pre-wrap break-words">
                                         {msg.content}
                                     </div>
                                 </div>
@@ -258,7 +256,7 @@ const TopicChatPanel = memo(function TopicChatPanel({ topicId, topicTitle, open,
 
                         return (
                             <div key={msg._id} className="flex justify-end">
-                                <div className="rounded-2xl rounded-tr-sm bg-primary px-3.5 py-2.5 text-sm text-white max-w-[85%] whitespace-pre-wrap break-words">
+                                <div className="rounded-xl rounded-tr-sm bg-primary px-3 py-2.5 text-body-sm text-white max-w-[85%] whitespace-pre-wrap break-words">
                                     {msg.content}
                                 </div>
                             </div>
@@ -267,16 +265,16 @@ const TopicChatPanel = memo(function TopicChatPanel({ topicId, topicTitle, open,
 
                     {sending && (
                         <div className="flex gap-2.5 items-start">
-                            <div className="w-7 h-7 shrink-0 rounded-full bg-primary/10 flex items-center justify-center mt-0.5">
+                            <div className="w-7 h-7 shrink-0 rounded-lg bg-primary/10 flex items-center justify-center mt-0.5">
                                 <span className="material-symbols-outlined text-primary text-[14px]">smart_toy</span>
                             </div>
-                            <div className="rounded-2xl rounded-tl-sm bg-slate-100 dark:bg-slate-800 px-3.5 py-2.5 text-sm text-slate-500 dark:text-slate-400 max-w-[85%]">
+                            <div className="rounded-xl rounded-tl-sm bg-background-light dark:bg-background-dark border border-border-light dark:border-border-dark px-3 py-2.5 text-body-sm text-text-faint-light dark:text-text-faint-dark max-w-[85%]">
                                 <span className="inline-flex items-center gap-1">
                                     Thinking
                                     <span className="inline-flex gap-0.5">
-                                        <span className="w-1 h-1 rounded-full bg-slate-400 animate-bounce" style={{ animationDelay: '0ms' }} />
-                                        <span className="w-1 h-1 rounded-full bg-slate-400 animate-bounce" style={{ animationDelay: '150ms' }} />
-                                        <span className="w-1 h-1 rounded-full bg-slate-400 animate-bounce" style={{ animationDelay: '300ms' }} />
+                                        <span className="w-1 h-1 rounded-full bg-text-faint-light dark:bg-text-faint-dark animate-bounce" style={{ animationDelay: '0ms' }} />
+                                        <span className="w-1 h-1 rounded-full bg-text-faint-light dark:bg-text-faint-dark animate-bounce" style={{ animationDelay: '150ms' }} />
+                                        <span className="w-1 h-1 rounded-full bg-text-faint-light dark:bg-text-faint-dark animate-bounce" style={{ animationDelay: '300ms' }} />
                                     </span>
                                 </span>
                             </div>
@@ -288,13 +286,13 @@ const TopicChatPanel = memo(function TopicChatPanel({ topicId, topicTitle, open,
 
                 {/* Error */}
                 {error && (
-                    <div className="px-3 py-2 border-t border-rose-100 dark:border-rose-900/30 bg-rose-50 dark:bg-rose-900/10">
-                        <p className="text-xs text-rose-600 dark:text-rose-300">{error}</p>
+                    <div className="px-3 py-2 border-t border-red-200 dark:border-red-900/30 bg-red-50 dark:bg-red-900/10">
+                        <p className="text-caption text-red-600 dark:text-red-300">{error}</p>
                         {isFreeQuotaExhausted && (
                             <Link
                                 to={aiMessageLimitPath}
                                 state={{ paywallMessage: error || aiMessageLimitMessage }}
-                                className="mt-1 inline-flex text-xs font-semibold text-primary hover:text-primary-hover transition-colors"
+                                className="mt-1 inline-flex text-caption font-semibold text-primary hover:text-primary-hover transition-colors"
                             >
                                 Upgrade to premium
                             </Link>
@@ -303,17 +301,17 @@ const TopicChatPanel = memo(function TopicChatPanel({ topicId, topicTitle, open,
                 )}
 
                 {/* Composer */}
-                <div className="px-3 py-3 border-t border-slate-100 dark:border-slate-800">
+                <div className="px-3 py-3 border-t border-border-light dark:border-border-dark">
                     <div className="flex items-end gap-2">
                         <textarea
                             ref={textareaRef}
                             value={input}
                             onChange={handleTextareaChange}
                             onKeyDown={handleKeyDown}
-                            placeholder={isFreeQuotaExhausted ? 'Daily free AI message limit reached' : 'Ask about this lesson...'}
+                            placeholder={isFreeQuotaExhausted ? 'Daily limit reached' : 'Ask about this lesson...'}
                             disabled={sending || isFreeQuotaExhausted}
                             rows={1}
-                            className="flex-1 resize-none rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 px-3 py-2.5 text-sm text-slate-800 dark:text-slate-200 placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary/50 disabled:opacity-60"
+                            className="flex-1 resize-none input-field text-body-sm py-2.5 disabled:opacity-50"
                             style={{ maxHeight: 120 }}
                         />
                         <button
@@ -327,8 +325,6 @@ const TopicChatPanel = memo(function TopicChatPanel({ topicId, topicTitle, open,
                     </div>
                 </div>
             </div>
-
-
         </>
     );
 });

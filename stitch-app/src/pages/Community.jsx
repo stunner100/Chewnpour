@@ -28,14 +28,14 @@ function formatRelativeTime(timestamp) {
 // ── Skeleton card for loading state ──────────────────────────────────────────
 
 const ChannelCardSkeleton = () => (
-    <div className="rounded-2xl bg-white dark:bg-neutral-900 border border-neutral-200/80 dark:border-neutral-800 shadow-card p-5 animate-pulse">
-        <div className="h-5 w-3/4 bg-neutral-200 dark:bg-neutral-700 rounded-lg mb-3" />
-        <div className="h-4 w-1/2 bg-neutral-100 dark:bg-neutral-800 rounded-lg mb-4" />
+    <div className="card-base p-4 animate-pulse">
+        <div className="h-5 w-3/4 bg-border-light dark:bg-border-dark rounded mb-3" />
+        <div className="h-4 w-1/2 bg-border-light dark:bg-border-dark rounded mb-4" />
         <div className="flex items-center gap-4 mb-4">
-            <div className="h-4 w-16 bg-neutral-100 dark:bg-neutral-800 rounded-lg" />
-            <div className="h-4 w-16 bg-neutral-100 dark:bg-neutral-800 rounded-lg" />
+            <div className="h-3 w-16 bg-border-light dark:bg-border-dark rounded" />
+            <div className="h-3 w-16 bg-border-light dark:bg-border-dark rounded" />
         </div>
-        <div className="h-9 w-full bg-neutral-100 dark:bg-neutral-800 rounded-xl" />
+        <div className="h-9 w-full bg-border-light dark:bg-border-dark rounded-lg" />
     </div>
 );
 
@@ -45,42 +45,42 @@ const ChannelCard = ({ channel, isMember }) => {
     const navigate = useNavigate();
 
     return (
-        <div className="rounded-2xl bg-white dark:bg-neutral-900 border border-neutral-200/80 dark:border-neutral-800 shadow-card p-5 flex flex-col transition-all hover:shadow-card-hover hover:-translate-y-0.5">
+        <div className="card-base p-4 flex flex-col hover:bg-surface-hover-light dark:hover:bg-surface-hover-dark transition-colors">
             <div className="flex items-start justify-between gap-2 mb-2">
                 <div className="flex items-center gap-2.5 min-w-0">
                     {channel.icon && (
-                        <div className="w-9 h-9 shrink-0 rounded-xl bg-primary/10 dark:bg-primary/20 flex items-center justify-center">
-                            <span className="material-symbols-outlined text-[20px] text-primary">{channel.icon}</span>
+                        <div className="w-9 h-9 shrink-0 rounded-lg bg-primary/8 dark:bg-primary/15 flex items-center justify-center">
+                            <span className="material-symbols-outlined text-[18px] text-primary">{channel.icon}</span>
                         </div>
                     )}
-                    <h3 className="text-base font-bold text-neutral-900 dark:text-white leading-snug line-clamp-2">
+                    <h3 className="text-body-base font-semibold text-text-main-light dark:text-text-main-dark leading-snug line-clamp-2">
                         {channel.title}
                     </h3>
                 </div>
                 {channel.postsThisWeek > 0 && (
-                    <span className="shrink-0 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-primary/10 text-primary border border-primary/10">
+                    <span className="badge badge-primary shrink-0">
                         {channel.postsThisWeek} this week
                     </span>
                 )}
             </div>
 
             {channel.description && (
-                <p className="text-xs text-neutral-500 dark:text-neutral-400 leading-relaxed line-clamp-2 mb-3">
+                <p className="text-caption text-text-sub-light dark:text-text-sub-dark line-clamp-2 mb-3">
                     {channel.description}
                 </p>
             )}
 
-            <div className="flex items-center gap-4 text-xs text-neutral-500 dark:text-neutral-400 mb-4 mt-auto">
+            <div className="flex items-center gap-4 text-caption text-text-faint-light dark:text-text-faint-dark mb-4 mt-auto">
                 <span className="inline-flex items-center gap-1">
-                    <span className="material-symbols-outlined text-[16px]">group</span>
-                    {channel.memberCount ?? 0} {channel.memberCount === 1 ? 'member' : 'members'}
+                    <span className="material-symbols-outlined text-[14px]">group</span>
+                    {channel.memberCount ?? 0}
                 </span>
                 <span className="inline-flex items-center gap-1">
-                    <span className="material-symbols-outlined text-[16px]">chat_bubble</span>
-                    {channel.postCount ?? 0} {channel.postCount === 1 ? 'post' : 'posts'}
+                    <span className="material-symbols-outlined text-[14px]">chat_bubble</span>
+                    {channel.postCount ?? 0}
                 </span>
                 {channel.lastActivityAt && (
-                    <span className="ml-auto text-neutral-400 dark:text-neutral-500">
+                    <span className="ml-auto">
                         {formatRelativeTime(channel.lastActivityAt)}
                     </span>
                 )}
@@ -88,10 +88,10 @@ const ChannelCard = ({ channel, isMember }) => {
 
             <button
                 onClick={() => navigate(`/dashboard/community/${channel._id}`)}
-                className={`w-full py-2.5 rounded-xl text-sm font-bold transition-all active:scale-[0.97] ${
+                className={`w-full py-2 rounded-lg text-body-sm font-semibold transition-colors ${
                     isMember
-                        ? 'bg-neutral-100 dark:bg-neutral-800 text-neutral-700 dark:text-neutral-200 hover:bg-neutral-200 dark:hover:bg-neutral-700'
-                        : 'bg-primary text-white hover:bg-primary/90 shadow-lg shadow-primary/20'
+                        ? 'btn-secondary'
+                        : 'btn-primary'
                 }`}
             >
                 {isMember ? 'Open' : 'Join'}
@@ -169,146 +169,109 @@ const Community = () => {
     const hasNoChannels = !isLoading && combinedChannels.length === 0;
 
     return (
-        <div className="min-h-screen bg-background-light dark:bg-background-dark pb-24">
+        <div className="w-full max-w-5xl mx-auto px-4 md:px-8 py-8 pb-24 md:pb-12 space-y-6">
             {/* Header */}
-            <div className="sticky top-0 z-30 bg-white/82 dark:bg-[#0a0a0a]/85 backdrop-blur-xl border-b border-neutral-200/60 dark:border-neutral-800/60">
-                <div className="px-4 md:px-6 lg:px-8 py-4 max-w-6xl mx-auto flex items-start justify-between gap-3">
-                    <div className="min-w-0">
-                        <h1 className="text-2xl md:text-3xl font-display font-bold text-neutral-900 dark:text-white">
-                            Community
-                        </h1>
-                        <p className="text-sm text-neutral-500 dark:text-neutral-400 mt-1">
-                            Study together, learn faster
-                        </p>
-                    </div>
-                    <Link
-                        to="/dashboard"
-                        className="shrink-0 inline-flex items-center gap-2 px-3.5 py-2 rounded-xl bg-neutral-100 dark:bg-neutral-800 text-sm font-bold text-neutral-700 dark:text-neutral-200 border border-neutral-200/80 dark:border-neutral-700/70 hover:bg-neutral-200 dark:hover:bg-neutral-700 transition-all active:scale-[0.97]"
-                    >
-                        <span className="material-symbols-outlined text-[18px]">arrow_back</span>
-                        Back to Dashboard
-                    </Link>
-                </div>
+            <div>
+                <h1 className="text-display-sm text-text-main-light dark:text-text-main-dark">Community</h1>
+                <p className="text-body-sm text-text-sub-light dark:text-text-sub-dark mt-1">Study together, learn faster</p>
             </div>
 
             {/* Search */}
-            <div className="px-4 md:px-6 lg:px-8 py-3 max-w-6xl mx-auto">
-                <div className="relative">
-                    <span className="material-symbols-outlined absolute left-3.5 top-1/2 -translate-y-1/2 text-[20px] text-neutral-400 dark:text-neutral-500">
-                        search
-                    </span>
-                    <input
-                        type="text"
-                        placeholder="Search channels..."
-                        value={searchQuery}
-                        onChange={(e) => setSearchQuery(e.target.value)}
-                        className="w-full pl-11 pr-4 py-3 rounded-xl bg-neutral-100 dark:bg-neutral-800/60 border border-neutral-200/80 dark:border-neutral-700/60 text-sm text-neutral-900 dark:text-white placeholder-neutral-400 dark:placeholder-neutral-500 focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary/40 transition-all"
-                        aria-label="Search community channels"
-                    />
-                    {searchQuery && (
-                        <button
-                            onClick={() => setSearchQuery('')}
-                            className="absolute right-3 top-1/2 -translate-y-1/2 p-0.5 rounded-full hover:bg-neutral-200 dark:hover:bg-neutral-700 transition-colors"
-                            aria-label="Clear search"
-                        >
-                            <span className="material-symbols-outlined text-[18px] text-neutral-400">close</span>
-                        </button>
-                    )}
+            <div className="relative">
+                <span className="material-symbols-outlined absolute left-3.5 top-1/2 -translate-y-1/2 text-[18px] text-text-faint-light dark:text-text-faint-dark">
+                    search
+                </span>
+                <input
+                    type="text"
+                    placeholder="Search channels..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="input-field pl-10 text-body-sm"
+                    aria-label="Search community channels"
+                />
+                {searchQuery && (
+                    <button
+                        onClick={() => setSearchQuery('')}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 btn-icon w-6 h-6"
+                        aria-label="Clear search"
+                    >
+                        <span className="material-symbols-outlined text-[16px]">close</span>
+                    </button>
+                )}
+            </div>
+
+            {/* Loading */}
+            {isLoading && (
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                    {Array.from({ length: 6 }).map((_, i) => (
+                        <ChannelCardSkeleton key={i} />
+                    ))}
                 </div>
-            </div>
+            )}
 
-            {/* Content */}
-            <div className="px-4 md:px-6 lg:px-8 max-w-6xl mx-auto">
-                {/* Loading state */}
-                {isLoading && (
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                        {Array.from({ length: 6 }).map((_, i) => (
-                            <ChannelCardSkeleton key={i} />
-                        ))}
+            {/* Empty */}
+            {hasNoChannels && (
+                <div className="text-center py-16">
+                    <div className="w-14 h-14 rounded-2xl bg-surface-light dark:bg-surface-dark border border-border-light dark:border-border-dark flex items-center justify-center mx-auto mb-4">
+                        <span className="material-symbols-outlined text-2xl text-text-faint-light dark:text-text-faint-dark">forum</span>
                     </div>
-                )}
+                    <h3 className="text-body-lg font-semibold text-text-main-light dark:text-text-main-dark mb-1">No community channels yet</h3>
+                    <p className="text-body-sm text-text-sub-light dark:text-text-sub-dark max-w-xs mx-auto mb-5">
+                        Upload a document to start one! Each course gets its own discussion channel.
+                    </p>
+                    <Link to="/dashboard" className="btn-primary text-body-sm px-5 py-2 inline-flex items-center gap-2">
+                        <span className="material-symbols-outlined text-[18px]">upload</span>
+                        Go to Dashboard
+                    </Link>
+                </div>
+            )}
 
-                {/* Empty state */}
-                {hasNoChannels && (
-                    <div className="flex flex-col items-center justify-center py-20 px-4 text-center">
-                        <div className="w-20 h-20 rounded-full bg-neutral-100 dark:bg-neutral-800 flex items-center justify-center mb-5">
-                            <span className="material-symbols-outlined text-4xl text-neutral-400 dark:text-neutral-500">forum</span>
-                        </div>
-                        <h2 className="text-lg font-bold text-neutral-900 dark:text-white mb-2">
-                            No community channels yet
-                        </h2>
-                        <p className="text-sm text-neutral-500 dark:text-neutral-400 mb-6 max-w-xs">
-                            Upload a document to start one! Each course gets its own discussion channel.
-                        </p>
-                        <Link
-                            to="/dashboard"
-                            className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-primary text-white font-bold shadow-lg shadow-primary/20 hover:bg-primary/90 transition-all active:scale-[0.97]"
-                        >
-                            <span className="material-symbols-outlined text-[20px]">upload</span>
-                            Go to Dashboard
-                        </Link>
-                    </div>
-                )}
-
-                {/* Channels loaded */}
-                {!isLoading && allChannels && allChannels.length > 0 && (
-                    <>
-                        {/* Your Channels */}
-                        {myChannels.length > 0 && (
-                            <section className="mb-8">
-                                <h2 className="text-sm font-bold uppercase tracking-wider text-neutral-500 dark:text-neutral-400 mb-3">
-                                    Your Channels
-                                </h2>
-                                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                                    {myChannels.map((channel) => (
-                                        <ChannelCard key={channel._id} channel={channel} isMember />
-                                    ))}
-                                </div>
-                            </section>
-                        )}
-
-                        {/* Everyone */}
-                        {everyoneChannels.length > 0 && (
-                            <section className="mb-8">
-                                <h2 className="text-sm font-bold uppercase tracking-wider text-neutral-500 dark:text-neutral-400 mb-3">
-                                    Available to Everyone
-                                </h2>
-                                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                                    {everyoneChannels.map((channel) => (
-                                        <ChannelCard key={channel._id} channel={channel} isMember={false} />
-                                    ))}
-                                </div>
-                            </section>
-                        )}
-
-                        {/* Discover */}
-                        {discoverChannels.length > 0 && (
-                            <section className="mb-8">
-                                <h2 className="text-sm font-bold uppercase tracking-wider text-neutral-500 dark:text-neutral-400 mb-3">
-                                    Discover
-                                </h2>
-                                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                                    {discoverChannels.map((channel) => (
-                                        <ChannelCard key={channel._id} channel={channel} isMember={false} />
-                                    ))}
-                                </div>
-                            </section>
-                        )}
-
-                        {/* No results for search */}
-                        {searchQuery && filteredChannels.length === 0 && (
-                            <div className="flex flex-col items-center py-16 text-center">
-                                <span className="material-symbols-outlined text-5xl text-neutral-300 dark:text-neutral-600 mb-3">
-                                    search_off
-                                </span>
-                                <p className="text-sm text-neutral-500 dark:text-neutral-400">
-                                    No channels match "<span className="font-semibold">{searchQuery}</span>"
-                                </p>
+            {/* Channels */}
+            {!isLoading && allChannels && allChannels.length > 0 && (
+                <>
+                    {myChannels.length > 0 && (
+                        <section>
+                            <h2 className="text-overline text-text-faint-light dark:text-text-faint-dark mb-3">Your Channels</h2>
+                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                                {myChannels.map((channel) => (
+                                    <ChannelCard key={channel._id} channel={channel} isMember />
+                                ))}
                             </div>
-                        )}
-                    </>
-                )}
-            </div>
+                        </section>
+                    )}
+
+                    {everyoneChannels.length > 0 && (
+                        <section>
+                            <h2 className="text-overline text-text-faint-light dark:text-text-faint-dark mb-3">Available to Everyone</h2>
+                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                                {everyoneChannels.map((channel) => (
+                                    <ChannelCard key={channel._id} channel={channel} isMember={false} />
+                                ))}
+                            </div>
+                        </section>
+                    )}
+
+                    {discoverChannels.length > 0 && (
+                        <section>
+                            <h2 className="text-overline text-text-faint-light dark:text-text-faint-dark mb-3">Discover</h2>
+                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                                {discoverChannels.map((channel) => (
+                                    <ChannelCard key={channel._id} channel={channel} isMember={false} />
+                                ))}
+                            </div>
+                        </section>
+                    )}
+
+                    {searchQuery && filteredChannels.length === 0 && (
+                        <div className="text-center py-16">
+                            <span className="material-symbols-outlined text-4xl text-text-faint-light dark:text-text-faint-dark mb-3">search_off</span>
+                            <p className="text-body-sm text-text-sub-light dark:text-text-sub-dark">
+                                No channels match &ldquo;{searchQuery}&rdquo;
+                            </p>
+                        </div>
+                    )}
+                </>
+            )}
         </div>
     );
 };

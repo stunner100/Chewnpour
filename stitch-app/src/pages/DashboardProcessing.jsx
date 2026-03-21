@@ -273,75 +273,63 @@ const DashboardProcessing = () => {
     ]);
 
     return (
-        <div className="bg-background-light dark:bg-background-dark font-body antialiased min-h-screen flex flex-col transition-colors duration-300">
-            {/* Subtle background */}
-            <div className="fixed inset-0 pointer-events-none overflow-hidden -z-10">
-                <div className="absolute inset-0 bg-mesh-light dark:bg-mesh-dark opacity-40"></div>
-            </div>
-
-            <header className="sticky top-0 z-30 w-full glass border-b border-neutral-200/50 dark:border-neutral-800/50">
+        <div className="min-h-screen bg-background-light dark:bg-background-dark flex flex-col">
+            <header className="sticky top-0 z-30 w-full bg-surface-light/90 dark:bg-surface-dark/90 backdrop-blur-md border-b border-border-light dark:border-border-dark">
                 <div className="w-full max-w-5xl mx-auto flex items-center justify-between px-4 py-3">
-                    <Link to="/dashboard" aria-label="Go back to dashboard" className="flex items-center gap-2 text-neutral-600 hover:text-primary transition-colors">
-                        <span className="material-symbols-outlined">arrow_back</span>
-                        <span className="text-sm font-medium hidden sm:inline">Dashboard</span>
+                    <Link to="/dashboard" aria-label="Go back to dashboard" className="btn-ghost inline-flex items-center gap-2 px-3 py-1.5 text-body-sm">
+                        <span className="material-symbols-outlined text-[18px]">arrow_back</span>
+                        <span className="hidden sm:inline">Dashboard</span>
                     </Link>
-                    <div className="flex items-center gap-2">
-                        <div className="flex items-center gap-1.5 bg-white/80 dark:bg-neutral-800/80 backdrop-blur-sm px-3 py-1.5 rounded-full shadow-sm border border-neutral-200/50 dark:border-neutral-700/50">
-                            <span className="material-symbols-outlined text-orange-500 text-lg filled">local_fire_department</span>
-                            <span className="text-neutral-700 dark:text-neutral-200 text-xs font-bold">Processing</span>
-                        </div>
+                    <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-primary/8 text-primary">
+                        <span className="material-symbols-outlined text-[16px]">local_fire_department</span>
+                        <span className="text-caption font-semibold">Processing</span>
                     </div>
-                    <Link to="/profile" className="w-9 h-9 rounded-full bg-primary p-0.5">
-                        <div className="w-full h-full rounded-full bg-white dark:bg-neutral-900 flex items-center justify-center">
-                            <span className="text-primary font-bold text-xs">{user?.name?.[0]?.toUpperCase() || 'S'}</span>
-                        </div>
+                    <Link to="/profile" className="btn-icon w-9 h-9 rounded-full bg-primary/8 text-primary text-caption font-bold">
+                        {user?.name?.[0]?.toUpperCase() || 'S'}
                     </Link>
                 </div>
             </header>
 
             <main className="w-full max-w-3xl mx-auto flex-1 px-4 py-8 flex flex-col items-center justify-center">
                 {!showConfirmation ? (
-                    /* Processing State */
-                    <div className="w-full flex flex-col items-center text-center animate-slide-up">
-                        {/* Modern Processing Card */}
-                        <div className="w-full bg-white dark:bg-neutral-900 rounded-3xl shadow-xl border border-neutral-100 dark:border-neutral-800 p-8 md:p-12">
+                    <div className="w-full flex flex-col items-center text-center">
+                        <div className="w-full card-base p-8 md:p-12">
                             {/* Header */}
                             <div className="mb-8">
-                                <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-blue-50 dark:bg-blue-900/20 border border-blue-100 dark:border-blue-800/30 mb-6">
+                                <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-primary/8 mb-6">
                                     <span className="relative flex h-2 w-2">
-                                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-500 opacity-75"></span>
-                                        <span className="relative inline-flex rounded-full h-2 w-2 bg-blue-500"></span>
+                                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75"></span>
+                                        <span className="relative inline-flex rounded-full h-2 w-2 bg-primary"></span>
                                     </span>
-                                    <span className="text-blue-600 dark:text-blue-400 text-sm font-semibold">Processing</span>
+                                    <span className="text-primary text-caption font-semibold">Processing</span>
                                 </div>
-                                
-                                <h1 className="text-2xl md:text-3xl font-bold text-neutral-900 dark:text-white mb-2">
+
+                                <h1 className="text-display-sm text-text-main-light dark:text-text-main-dark mb-2">
                                     Creating Your Course
                                 </h1>
-                                <p className="text-neutral-500 dark:text-neutral-400 text-sm md:text-base">
+                                <p className="text-body-sm text-text-sub-light dark:text-text-sub-dark">
                                     Our AI is analyzing your materials and building your personalized learning experience
                                 </p>
                             </div>
 
                             {/* Current Step Visual */}
                             <div className="mb-8">
-                                <div className="relative w-24 h-24 mx-auto mb-6">
-                                    <div className="absolute inset-0 rounded-full border-4 border-neutral-100 dark:border-neutral-800"></div>
-                                    <div 
-                                        className="absolute inset-0 rounded-full border-4 border-blue-500 border-t-transparent animate-spin"
+                                <div className="relative w-20 h-20 mx-auto mb-6">
+                                    <div className="absolute inset-0 rounded-full border-2 border-border-light dark:border-border-dark"></div>
+                                    <div
+                                        className="absolute inset-0 rounded-full border-2 border-primary border-t-transparent animate-spin"
                                         style={{ animationDuration: '2s' }}
                                     ></div>
-                                    <div className="absolute inset-2 rounded-full bg-primary flex items-center justify-center text-white shadow-lg shadow-primary/25">
-                                        <span className="material-symbols-outlined text-3xl">{currentStepInfo.icon}</span>
+                                    <div className="absolute inset-2 rounded-full bg-primary flex items-center justify-center text-white">
+                                        <span className="material-symbols-outlined text-[28px]">{currentStepInfo.icon}</span>
                                     </div>
                                 </div>
 
-                                {/* Step Info */}
-                                <div className="space-y-2" aria-live="polite">
-                                    <h2 className="text-xl font-semibold text-neutral-900 dark:text-white">
+                                <div className="space-y-1" aria-live="polite">
+                                    <h2 className="text-body-lg font-semibold text-text-main-light dark:text-text-main-dark">
                                         {currentStepInfo.label}
                                     </h2>
-                                    <p className="text-neutral-500 dark:text-neutral-400 text-sm max-w-md mx-auto">
+                                    <p className="text-body-sm text-text-sub-light dark:text-text-sub-dark max-w-md mx-auto">
                                         {currentStepInfo.description}
                                     </p>
                                 </div>
@@ -349,11 +337,11 @@ const DashboardProcessing = () => {
 
                             {/* Progress Display */}
                             <div className="mb-8">
-                                <div className="flex items-center justify-between mb-3">
-                                    <span className="text-sm font-medium text-neutral-600 dark:text-neutral-400">Progress</span>
-                                    <span className="text-2xl font-bold text-neutral-900 dark:text-white">{progress}%</span>
+                                <div className="flex items-center justify-between mb-2">
+                                    <span className="text-caption font-medium text-text-faint-light dark:text-text-faint-dark">Progress</span>
+                                    <span className="text-display-sm text-text-main-light dark:text-text-main-dark">{progress}%</span>
                                 </div>
-                                <div className="h-3 bg-neutral-100 dark:bg-neutral-800 rounded-full overflow-hidden">
+                                <div className="h-2 bg-surface-hover-light dark:bg-surface-hover-dark rounded-full overflow-hidden">
                                     <div
                                         className="h-full bg-primary rounded-full transition-all duration-700 ease-out relative"
                                         style={{ width: `${progress}%` }}
@@ -368,28 +356,28 @@ const DashboardProcessing = () => {
                                 {PROCESSING_STEPS.slice(0, 6).map((step, index) => {
                                     const isCompleted = index < currentStepIndex;
                                     const isCurrent = index === currentStepIndex;
-                                    
+
                                     return (
                                         <div key={step.key} className="flex items-center">
-                                            <div 
-                                                className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold transition-all duration-300 ${
-                                                    isCompleted 
-                                                        ? 'bg-green-100 text-green-600 dark:bg-green-900/30 dark:text-green-400' 
-                                                        : isCurrent 
-                                                            ? 'bg-blue-500 text-white shadow-md shadow-blue-500/25 scale-110' 
-                                                            : 'bg-neutral-100 text-neutral-400 dark:bg-neutral-800 dark:text-neutral-500'
+                                            <div
+                                                className={`w-7 h-7 rounded-full flex items-center justify-center text-caption font-bold transition-all duration-300 ${
+                                                    isCompleted
+                                                        ? 'bg-accent-emerald/10 text-accent-emerald'
+                                                        : isCurrent
+                                                            ? 'bg-primary text-white scale-110'
+                                                            : 'bg-surface-hover-light dark:bg-surface-hover-dark text-text-faint-light dark:text-text-faint-dark'
                                                 }`}
                                                 title={step.label}
                                             >
                                                 {isCompleted ? (
-                                                    <span className="material-symbols-outlined text-sm">check</span>
+                                                    <span className="material-symbols-outlined text-[14px]">check</span>
                                                 ) : (
                                                     index + 1
                                                 )}
                                             </div>
                                             {index < 5 && (
                                                 <div className={`w-4 h-0.5 mx-1 ${
-                                                    isCompleted ? 'bg-green-200' : 'bg-neutral-100 dark:bg-neutral-800'
+                                                    isCompleted ? 'bg-accent-emerald/30' : 'bg-border-light dark:bg-border-dark'
                                                 }`}></div>
                                             )}
                                         </div>
@@ -399,13 +387,13 @@ const DashboardProcessing = () => {
 
                             {/* Extraction Warnings */}
                             {upload?.extractionWarnings?.length > 0 && !hasError && (
-                                <div className="mt-6 p-4 rounded-xl bg-amber-50 dark:bg-amber-900/10 border border-amber-200 dark:border-amber-800/30">
-                                    <div className="flex items-start gap-3">
-                                        <span className="material-symbols-outlined text-amber-500 text-xl shrink-0">info</span>
+                                <div className="mt-6 p-3 rounded-xl bg-amber-50 dark:bg-amber-900/10 border border-amber-200 dark:border-amber-900/30">
+                                    <div className="flex items-start gap-2.5">
+                                        <span className="material-symbols-outlined text-amber-500 text-[18px] shrink-0 mt-0.5">info</span>
                                         <div className="text-left">
-                                            <p className="text-sm font-semibold text-amber-800 dark:text-amber-400">Heads up</p>
+                                            <p className="text-body-sm font-semibold text-amber-800 dark:text-amber-300">Heads up</p>
                                             {upload.extractionWarnings.map((w, i) => (
-                                                <p key={i} className="text-xs text-amber-700 dark:text-amber-300 mt-1">{w}</p>
+                                                <p key={i} className="text-caption text-amber-700 dark:text-amber-400 mt-1">{w}</p>
                                             ))}
                                         </div>
                                     </div>
@@ -414,14 +402,14 @@ const DashboardProcessing = () => {
 
                             {/* Error State */}
                             {hasError && (
-                                <div className="mt-8 p-4 rounded-xl bg-amber-50 dark:bg-amber-900/10 border border-amber-200 dark:border-amber-800/30">
-                                    <div className="flex items-start gap-3">
-                                        <span className="material-symbols-outlined text-amber-500 text-xl">warning</span>
+                                <div className="mt-6 p-3 rounded-xl bg-amber-50 dark:bg-amber-900/10 border border-amber-200 dark:border-amber-900/30">
+                                    <div className="flex items-start gap-2.5">
+                                        <span className="material-symbols-outlined text-amber-500 text-[18px] mt-0.5">warning</span>
                                         <div className="text-left">
-                                            <p className="text-sm font-semibold text-amber-800 dark:text-amber-400">
+                                            <p className="text-body-sm font-semibold text-amber-800 dark:text-amber-300">
                                                 Processing encountered an issue
                                             </p>
-                                            <p className="text-xs text-amber-700 dark:text-amber-300 mt-1">
+                                            <p className="text-caption text-amber-700 dark:text-amber-400 mt-1">
                                                 Redirecting to available content...
                                             </p>
                                         </div>
@@ -431,58 +419,54 @@ const DashboardProcessing = () => {
                         </div>
 
                         {/* Tip Card */}
-                        <div className="mt-6 flex items-start gap-3 max-w-lg mx-auto text-left px-4">
-                            <span className="material-symbols-outlined text-blue-500 text-xl shrink-0">lightbulb</span>
-                            <p className="text-sm text-neutral-500 dark:text-neutral-400">
-                                <span className="font-medium text-neutral-700 dark:text-neutral-300">Tip:</span> You can leave this page. We'll notify you when your course is ready.
+                        <div className="mt-5 flex items-start gap-2.5 max-w-lg mx-auto text-left px-4">
+                            <span className="material-symbols-outlined text-primary text-[18px] shrink-0 mt-0.5">lightbulb</span>
+                            <p className="text-caption text-text-sub-light dark:text-text-sub-dark">
+                                <span className="font-medium text-text-main-light dark:text-text-main-dark">Tip:</span> You can leave this page. We'll notify you when your course is ready.
                             </p>
                         </div>
                     </div>
                 ) : (
-                    /* Success State - Course Ready */
-                    <div className="w-full flex flex-col items-center text-center animate-slide-up">
-                        {/* Success Card */}
-                        <div className="w-full bg-white dark:bg-neutral-900 rounded-3xl shadow-xl border border-neutral-100 dark:border-neutral-800 p-8 md:p-12">
+                    <div className="w-full flex flex-col items-center text-center">
+                        <div className="w-full card-base p-8 md:p-12">
                             {/* Success Icon */}
-                            <div className="relative w-20 h-20 mx-auto mb-6">
-                                <div className="absolute inset-0 rounded-full bg-green-100 dark:bg-green-900/20 animate-ping opacity-50"></div>
-                                <div className="relative w-full h-full rounded-full bg-accent-emerald flex items-center justify-center text-white shadow-lg shadow-accent-emerald/30">
-                                    <span className="material-symbols-outlined text-4xl">check</span>
+                            <div className="relative w-16 h-16 mx-auto mb-5">
+                                <div className="absolute inset-0 rounded-full bg-accent-emerald/10 animate-ping opacity-50"></div>
+                                <div className="relative w-full h-full rounded-full bg-accent-emerald flex items-center justify-center text-white">
+                                    <span className="material-symbols-outlined text-[28px]">check</span>
                                 </div>
                             </div>
 
-                            {/* Badge */}
-                            <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-green-50 dark:bg-green-900/20 border border-green-100 dark:border-green-800/30 mb-4">
-                                <span className="material-symbols-outlined text-green-500 text-sm">verified</span>
-                                <span className="text-green-600 dark:text-green-400 text-xs font-semibold uppercase tracking-wide">Ready</span>
+                            <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-accent-emerald/10 mb-4">
+                                <span className="material-symbols-outlined text-accent-emerald text-[14px]">verified</span>
+                                <span className="text-accent-emerald text-caption font-semibold uppercase tracking-wide">Ready</span>
                             </div>
 
-                            {/* Course Info */}
-                            <h1 className="text-2xl md:text-3xl font-bold text-neutral-900 dark:text-white mb-2">
+                            <h1 className="text-display-sm text-text-main-light dark:text-text-main-dark mb-2">
                                 {displayCourse?.title || 'Your Course'}
                             </h1>
-                            <p className="text-neutral-500 dark:text-neutral-400 text-sm md:text-base max-w-md mx-auto mb-8">
+                            <p className="text-body-sm text-text-sub-light dark:text-text-sub-dark max-w-md mx-auto mb-8">
                                 {displayCourse?.description || 'AI-generated course from your study materials'}
                             </p>
 
                             {/* Stats */}
-                            <div className="flex items-center justify-center gap-4 mb-8">
-                                <div className="flex items-center gap-3 bg-neutral-50 dark:bg-neutral-800 px-4 py-3 rounded-2xl">
-                                    <div className="w-10 h-10 rounded-xl bg-blue-100 dark:bg-blue-900/20 flex items-center justify-center">
-                                        <span className="material-symbols-outlined text-blue-600">menu_book</span>
+                            <div className="flex items-center justify-center gap-3 mb-8">
+                                <div className="flex items-center gap-3 card-base px-4 py-3">
+                                    <div className="w-9 h-9 rounded-lg bg-primary/8 flex items-center justify-center">
+                                        <span className="material-symbols-outlined text-primary text-[18px]">menu_book</span>
                                     </div>
                                     <div className="text-left">
-                                        <span className="block text-xl font-bold text-neutral-900 dark:text-white">{topics.length}</span>
-                                        <span className="text-xs text-neutral-500">Topics</span>
+                                        <span className="block text-body-lg font-semibold text-text-main-light dark:text-text-main-dark">{topics.length}</span>
+                                        <span className="text-caption text-text-faint-light dark:text-text-faint-dark">Topics</span>
                                     </div>
                                 </div>
-                                <div className="flex items-center gap-3 bg-neutral-50 dark:bg-neutral-800 px-4 py-3 rounded-2xl">
-                                    <div className="w-10 h-10 rounded-xl bg-purple-100 dark:bg-purple-900/20 flex items-center justify-center">
-                                        <span className="material-symbols-outlined text-purple-600">quiz</span>
+                                <div className="flex items-center gap-3 card-base px-4 py-3">
+                                    <div className="w-9 h-9 rounded-lg bg-primary/8 flex items-center justify-center">
+                                        <span className="material-symbols-outlined text-primary text-[18px]">quiz</span>
                                     </div>
                                     <div className="text-left">
-                                        <span className="block text-xl font-bold text-neutral-900 dark:text-white">{topics.length * 10}+</span>
-                                        <span className="text-xs text-neutral-500">Questions</span>
+                                        <span className="block text-body-lg font-semibold text-text-main-light dark:text-text-main-dark">{topics.length * 10}+</span>
+                                        <span className="text-caption text-text-faint-light dark:text-text-faint-dark">Questions</span>
                                     </div>
                                 </div>
                             </div>
@@ -490,32 +474,32 @@ const DashboardProcessing = () => {
                             {/* Topics Preview */}
                             {topics.length > 0 && (
                                 <div className="mb-8">
-                                    <h3 className="text-sm font-semibold text-neutral-400 uppercase tracking-wider mb-4">
+                                    <h3 className="text-overline text-text-faint-light dark:text-text-faint-dark mb-3">
                                         What's Inside
                                     </h3>
                                     <div className="space-y-2 max-w-md mx-auto">
                                         {topics.slice(0, 3).map((topic, index) => (
                                             <div
                                                 key={topic._id}
-                                                className="flex items-center gap-3 bg-neutral-50 dark:bg-neutral-800/50 p-3 rounded-xl text-left"
+                                                className="flex items-center gap-3 bg-surface-hover-light dark:bg-surface-hover-dark p-3 rounded-xl text-left"
                                             >
-                                                <div className={`w-8 h-8 rounded-lg flex items-center justify-center text-white text-sm font-bold ${
-                                                    index === 0 
-                                                        ? 'bg-primary' 
-                                                        : 'bg-neutral-300 dark:bg-neutral-600'
+                                                <div className={`w-7 h-7 rounded-lg flex items-center justify-center text-white text-caption font-bold ${
+                                                    index === 0
+                                                        ? 'bg-primary'
+                                                        : 'bg-text-faint-light dark:bg-text-faint-dark'
                                                 }`}>
                                                     {index + 1}
                                                 </div>
                                                 <div className="flex-1 min-w-0">
-                                                    <h4 className="font-semibold text-neutral-900 dark:text-white text-sm truncate">{topic.title}</h4>
+                                                    <h4 className="text-body-sm font-semibold text-text-main-light dark:text-text-main-dark truncate">{topic.title}</h4>
                                                 </div>
-                                                <span className="text-xs font-medium px-2 py-1 rounded bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400">
+                                                <span className="badge badge-success">
                                                     Ready
                                                 </span>
                                             </div>
                                         ))}
                                         {topics.length > 3 && (
-                                            <p className="text-xs text-neutral-400 py-2">
+                                            <p className="text-caption text-text-faint-light dark:text-text-faint-dark py-2">
                                                 +{topics.length - 3} more topics
                                             </p>
                                         )}
@@ -523,21 +507,19 @@ const DashboardProcessing = () => {
                                 </div>
                             )}
 
-                            {/* CTA Button */}
                             <button
                                 onClick={handleStartLearning}
-                                className="btn-primary w-full sm:w-auto inline-flex items-center justify-center gap-2 px-8 py-4 text-lg"
+                                className="btn-primary w-full sm:w-auto inline-flex items-center justify-center gap-2 px-8 py-3 text-body-base"
                             >
-                                <span className="material-symbols-outlined">play_arrow</span>
+                                <span className="material-symbols-outlined text-[18px]">play_arrow</span>
                                 Start Learning
                             </button>
                         </div>
 
-                        {/* Additional Actions */}
-                        <div className="mt-6 flex items-center gap-4">
-                            <Link 
-                                to="/dashboard" 
-                                className="text-sm text-neutral-500 hover:text-neutral-700 dark:text-neutral-400 dark:hover:text-neutral-200 transition-colors"
+                        <div className="mt-5">
+                            <Link
+                                to="/dashboard"
+                                className="text-body-sm text-text-faint-light dark:text-text-faint-dark hover:text-text-main-light dark:hover:text-text-main-dark transition-colors"
                             >
                                 Back to Dashboard
                             </Link>

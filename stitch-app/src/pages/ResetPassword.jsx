@@ -74,31 +74,31 @@ const ResetPassword = () => {
     };
 
     return (
-        <div className="bg-background-light dark:bg-background-dark font-display text-[#0d111b] dark:text-white min-h-screen flex flex-col antialiased">
-            <div className="flex items-center p-4 pb-2 justify-between sticky top-0 z-10 bg-background-light dark:bg-background-dark">
-                <Link to="/login" className="flex size-12 shrink-0 items-center justify-center rounded-full hover:bg-black/5 dark:hover:bg-white/10 transition-colors">
-                    <span className="material-symbols-outlined text-[#0d111b] dark:text-white" style={{ fontSize: '24px' }}>arrow_back</span>
+        <div className="min-h-screen bg-background-light dark:bg-background-dark flex flex-col">
+            <div className="flex items-center p-4 pb-2 sticky top-0 z-10 bg-background-light dark:bg-background-dark">
+                <Link to="/login" className="btn-icon w-10 h-10">
+                    <span className="material-symbols-outlined text-[20px]">arrow_back</span>
                 </Link>
             </div>
-            <main className="flex-1 flex flex-col px-6 max-w-md mx-auto w-full pb-8">
-                <div className="pt-4 pb-8">
-                    <h1 className="text-[#0d111b] dark:text-white tracking-tight text-[32px] font-bold leading-tight text-left mb-2">
+            <main className="flex-1 flex flex-col px-4 max-w-md mx-auto w-full pb-8">
+                <div className="pt-4 pb-6">
+                    <h1 className="text-display-sm text-text-main-light dark:text-text-main-dark mb-2">
                         {token ? 'Set a new password' : 'Reset your password'}
                     </h1>
-                    <p className="text-slate-500 dark:text-slate-400 text-base font-normal leading-normal">
+                    <p className="text-body-sm text-text-sub-light dark:text-text-sub-dark">
                         {token
-                            ? 'Choose a strong password you haven’t used before.'
-                            : 'Enter your email and we’ll send a reset link.'}
+                            ? 'Choose a strong password you haven\u2019t used before.'
+                            : 'Enter your email and we\u2019ll send a reset link.'}
                     </p>
                 </div>
 
                 {error && (
-                    <div className="mb-4 p-4 rounded-lg bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-600 dark:text-red-400 text-sm font-medium">
+                    <div className="mb-4 p-3 rounded-xl bg-red-50 dark:bg-red-900/10 border border-red-200 dark:border-red-900/30 text-body-sm text-red-700 dark:text-red-300">
                         {error}
                     </div>
                 )}
                 {success && (
-                    <div className="mb-4 p-4 rounded-lg bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800 text-emerald-700 dark:text-emerald-300 text-sm font-medium">
+                    <div className="mb-4 p-3 rounded-xl bg-accent-emerald/10 border border-accent-emerald/20 text-body-sm text-accent-emerald">
                         {success}
                     </div>
                 )}
@@ -106,9 +106,9 @@ const ResetPassword = () => {
                 {!token ? (
                     <form className="flex flex-col gap-5" onSubmit={handleRequest}>
                         <div className="flex flex-col gap-1.5">
-                            <label className="text-sm font-semibold text-[#0d111b] dark:text-white ml-1" htmlFor="email">Email Address</label>
+                            <label className="text-caption font-semibold text-text-main-light dark:text-text-main-dark ml-1" htmlFor="email">Email Address</label>
                             <input
-                                className="w-full h-12 rounded-lg bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-[#0d111b] dark:text-white px-4 placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all"
+                                className="input-field"
                                 id="email"
                                 placeholder="student@university.edu"
                                 type="email"
@@ -118,19 +118,19 @@ const ResetPassword = () => {
                             />
                         </div>
                         <button
-                            className="mt-4 flex w-full cursor-pointer items-center justify-center overflow-hidden rounded-lg h-12 px-4 bg-primary hover:bg-blue-700 dark:hover:bg-blue-600 text-white gap-2 text-base font-bold leading-normal tracking-[0.015em] transition-colors shadow-lg shadow-blue-500/20 disabled:opacity-50 disabled:cursor-not-allowed"
+                            className="btn-primary w-full py-3 text-body-sm"
                             type="submit"
                             disabled={loading}
                         >
-                            <span className="truncate">{loading ? 'Sending...' : 'Send reset link'}</span>
+                            {loading ? 'Sending...' : 'Send reset link'}
                         </button>
                     </form>
                 ) : (
                     <form className="flex flex-col gap-5" onSubmit={handleReset}>
                         <div className="flex flex-col gap-1.5">
-                            <label className="text-sm font-semibold text-[#0d111b] dark:text-white ml-1" htmlFor="newPassword">New password</label>
+                            <label className="text-caption font-semibold text-text-main-light dark:text-text-main-dark ml-1" htmlFor="newPassword">New password</label>
                             <input
-                                className="w-full h-12 rounded-lg bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-[#0d111b] dark:text-white px-4 placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all"
+                                className="input-field"
                                 id="newPassword"
                                 placeholder="At least 8 characters"
                                 type="password"
@@ -140,9 +140,9 @@ const ResetPassword = () => {
                             />
                         </div>
                         <div className="flex flex-col gap-1.5">
-                            <label className="text-sm font-semibold text-[#0d111b] dark:text-white ml-1" htmlFor="confirmPassword">Confirm password</label>
+                            <label className="text-caption font-semibold text-text-main-light dark:text-text-main-dark ml-1" htmlFor="confirmPassword">Confirm password</label>
                             <input
-                                className="w-full h-12 rounded-lg bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-[#0d111b] dark:text-white px-4 placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all"
+                                className="input-field"
                                 id="confirmPassword"
                                 placeholder="Repeat new password"
                                 type="password"
@@ -152,11 +152,11 @@ const ResetPassword = () => {
                             />
                         </div>
                         <button
-                            className="mt-4 flex w-full cursor-pointer items-center justify-center overflow-hidden rounded-lg h-12 px-4 bg-primary hover:bg-blue-700 dark:hover:bg-blue-600 text-white gap-2 text-base font-bold leading-normal tracking-[0.015em] transition-colors shadow-lg shadow-blue-500/20 disabled:opacity-50 disabled:cursor-not-allowed"
+                            className="btn-primary w-full py-3 text-body-sm"
                             type="submit"
                             disabled={loading}
                         >
-                            <span className="truncate">{loading ? 'Updating...' : 'Update password'}</span>
+                            {loading ? 'Updating...' : 'Update password'}
                         </button>
                     </form>
                 )}
