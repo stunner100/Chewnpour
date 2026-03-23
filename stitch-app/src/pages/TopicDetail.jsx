@@ -24,6 +24,11 @@ import {
 } from '../lib/topicContentFormatting';
 import { resolveTopicIllustrationUrl } from '../lib/topicIllustration';
 import { isLikelyConvexId } from '../lib/convexId';
+import {
+    formatEssayPreparingMessage,
+    formatEssayQuizButtonLabel,
+    formatQuestionBankProgressMessage,
+} from '../lib/questionBankDisplay';
 
 // ── Pure rendering helpers (hoisted out of the component to avoid re-creation) ──
 
@@ -100,6 +105,12 @@ const TopicDetail = () => {
     const topicEssayStartReady = usableEssayCount >= topicEssayTargetCount;
     const topicExamReady = Boolean(topic?.examReady)
         || (topicQuizStartReady && usableEssayCount >= topicEssayTargetCount);
+    const questionBankProgressMessage = formatQuestionBankProgressMessage({
+        usableMcqCount,
+        usableEssayCount,
+        mcqReady: topicQuizStartReady,
+        examReady: topicExamReady,
+    });
     const courseId = topic?.courseId;
     const voiceModeEnabled = Boolean(profile?.voiceModeEnabled);
     const voiceQuota = useQuery(
@@ -536,9 +547,7 @@ const TopicDetail = () => {
             return;
         }
         if (preferredFormat === 'essay' && !topicEssayStartReady) {
-            setStartExamError(
-                `Essay questions are still preparing (${usableEssayCount}/${topicEssayTargetCount}). Please check back in a moment.`
-            );
+            setStartExamError(formatEssayPreparingMessage(usableEssayCount));
             return;
         }
 
@@ -761,22 +770,22 @@ const TopicDetail = () => {
                                     className="btn-secondary px-5 py-2.5 text-body-sm gap-2 disabled:opacity-50"
                                 >
                                     <span className="material-symbols-outlined text-[18px]">edit_note</span>
-                                    {startingExam
-                                        ? 'Preparing...'
-                                        : topicEssayStartReady
-                                            ? 'Essay Quiz'
-                                            : `Essay (${usableEssayCount}/${topicEssayTargetCount})`}
+                                    {formatEssayQuizButtonLabel({
+                                        startingExam,
+                                        essayReady: topicEssayStartReady,
+                                        usableEssayCount,
+                                    })}
                                 </button>
                             </div>
 
                             {!topicQuizStartReady && (
                                 <p className="mt-4 text-caption text-text-faint-light dark:text-text-faint-dark">
-                                    {usableMcqCount}/{topicMcqTargetCount} MCQ and {usableEssayCount}/{topicEssayTargetCount} essay questions ready.
+                                    {questionBankProgressMessage}
                                 </p>
                             )}
                             {topicQuizStartReady && !topicExamReady && (
                                 <p className="mt-4 text-caption text-accent-emerald">
-                                    MCQ ready. Essay questions still preparing ({usableEssayCount}/{topicEssayTargetCount}).
+                                    {questionBankProgressMessage}
                                 </p>
                             )}
                             {startExamError && (
