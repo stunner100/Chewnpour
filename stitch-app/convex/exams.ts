@@ -9,6 +9,7 @@ import {
     resolveAuthUserId,
     sanitizeExamQuestionForClient,
 } from "./lib/examSecurity";
+import { filterQuestionsForActiveAssessment } from "./lib/assessmentBlueprint.js";
 import { canReuseExamAttempt, resolveReusableAttemptQuestions } from "./lib/examAttemptReuse";
 import { selectQuestionsForAttempt } from "./lib/examQuestionSelection";
 
@@ -155,10 +156,13 @@ export const startExamAttempt = mutation({
             const loadedReusableQuestions = await Promise.all(
                 reusableQuestionIds.map((questionId) => ctx.db.get(questionId))
             );
-            const reusableQuestions = resolveReusableAttemptQuestions({
-                questionIds: reusableQuestionIds,
-                loadedQuestions: loadedReusableQuestions,
-                topicId: args.topicId,
+            const reusableQuestions = filterQuestionsForActiveAssessment({
+                topic,
+                questions: resolveReusableAttemptQuestions({
+                    questionIds: reusableQuestionIds,
+                    loadedQuestions: loadedReusableQuestions,
+                    topicId: args.topicId,
+                }),
             }).filter((question) => {
                 const matchesRequestedFormat = isEssay
                     ? question.questionType === "essay"
@@ -203,9 +207,10 @@ export const startExamAttempt = mutation({
             .withIndex("by_topicId", (q) => q.eq("topicId", args.topicId))
             .collect();
 
+        const activeQuestions = filterQuestionsForActiveAssessment({ topic, questions });
         const filteredQuestions = isEssay
-            ? questions.filter((q) => q.questionType === "essay")
-            : questions.filter((q) => q.questionType !== "essay");
+            ? activeQuestions.filter((q) => q.questionType === "essay")
+            : activeQuestions.filter((q) => q.questionType !== "essay");
         const usableQuestions = filteredQuestions.filter((question) =>
             isUsableExamQuestion(question, { allowEssay: isEssay })
         );
@@ -558,6 +563,10 @@ export const getExamAttempt = query({
                     options: question?.options || safeAnswer.options,
                     explanation: question?.explanation,
                     difficulty: question?.difficulty || safeAnswer.difficulty || "medium",
+                    learningObjective: question?.learningObjective || safeAnswer.learningObjective,
+                    bloomLevel: question?.bloomLevel || safeAnswer.bloomLevel,
+                    outcomeKey: question?.outcomeKey || safeAnswer.outcomeKey,
+                    authenticContext: question?.authenticContext || safeAnswer.authenticContext,
                 };
             })
         );

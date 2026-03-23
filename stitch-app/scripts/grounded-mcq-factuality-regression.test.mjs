@@ -21,6 +21,9 @@ if (!/applyGroundedAcceptance\(\{[\s\S]*repairCandidate:\s*async/.test(aiSource)
 if (!/createQuestionInternal,\s*\{[\s\S]*questionType:\s*"multiple_choice"[\s\S]*citations,[\s\S]*sourcePassageIds,[\s\S]*groundingScore:[\s\S]*factualityStatus:[\s\S]*generationVersion:/.test(aiSource)) {
     throw new Error("Expected persisted MCQs to include grounding metadata and citations.");
 }
+if (!/createQuestionInternal,\s*\{[\s\S]*questionType:\s*"multiple_choice"[\s\S]*learningObjective:[\s\S]*bloomLevel:[\s\S]*outcomeKey:/.test(aiSource)) {
+    throw new Error("Expected persisted MCQs to include assessment metadata.");
+}
 if (!/const finalGrounding = runDeterministicGroundingCheck\(\{[\s\S]*type:\s*"mcq"/.test(aiSource)) {
     throw new Error("Expected MCQ persistence to revalidate final options against grounded evidence.");
 }
@@ -29,6 +32,9 @@ if (!/reason:\s*"INSUFFICIENT_EVIDENCE"/.test(aiSource)) {
 }
 if (!/The marked correct option must be directly supported by the cited evidence\./.test(generationSource)) {
     throw new Error("Expected grounded MCQ prompt to require evidence-backed correct options.");
+}
+if (!/Use only outcome keys from assessmentBlueprint\.mcqPlan\.targetOutcomeKeys\./.test(generationSource)) {
+    throw new Error("Expected grounded MCQ prompt to enforce assessment blueprint outcome keys.");
 }
 if (!/Repair the multiple-choice question below so it is strictly grounded in the evidence passages\./.test(generationSource)) {
     throw new Error("Expected grounded MCQ repair prompt to exist for unsupported answer recovery.");

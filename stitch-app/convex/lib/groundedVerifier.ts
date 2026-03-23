@@ -6,11 +6,13 @@ import {
     type GroundedEvidenceIndex,
 } from "./groundedEvidenceIndex";
 import type {
+    AssessmentBlueprint,
     GroundedCitation,
     GroundedConceptCandidate,
     GroundedEssayCandidate,
     GroundedMcqCandidate,
 } from "./groundedGeneration";
+import { getAssessmentQuestionMetadataIssues } from "./assessmentBlueprint.js";
 
 export type GroundedContentType = "mcq" | "essay" | "concept";
 
@@ -278,6 +280,7 @@ export const runDeterministicGroundingCheck = (args: {
     type: GroundedContentType;
     candidate: GroundedMcqCandidate | GroundedEssayCandidate | GroundedConceptCandidate;
     evidenceIndex: GroundedEvidenceIndex;
+    assessmentBlueprint?: AssessmentBlueprint | null;
 }): GroundingCheckResult => {
     const reasons: string[] = [];
     const warnings: string[] = [];
@@ -313,6 +316,16 @@ export const runDeterministicGroundingCheck = (args: {
     }
     if (args.type === "concept" && !hasUsableConcept(args.candidate as GroundedConceptCandidate)) {
         reasons.push("invalid concept structure");
+    }
+    if ((args.type === "mcq" || args.type === "essay") && args.assessmentBlueprint) {
+        const metadataIssues = getAssessmentQuestionMetadataIssues({
+            question: args.candidate,
+            blueprint: args.assessmentBlueprint,
+            questionType: args.type,
+        });
+        if (metadataIssues.length > 0) {
+            reasons.push(...metadataIssues);
+        }
     }
     if (args.type === "mcq" && supportText) {
         const mcqSupport = validateMcqSupport(args.candidate as GroundedMcqCandidate, supportText);

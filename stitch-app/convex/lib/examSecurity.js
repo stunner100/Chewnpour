@@ -196,7 +196,6 @@ export const sanitizeExamQuestionForClient = (question) => {
             groundingScore: _GROUNDING_SCORE,
             factualityStatus: _FACTUALITY_STATUS,
             generationVersion: _GENERATION_VERSION,
-            learningObjective: _LEARNING_OBJECTIVE,
             rubricPoints: _RUBRIC_POINTS,
             qualityFlags: _QUALITY_FLAGS,
             ...safeQuestion
@@ -210,7 +209,6 @@ export const sanitizeExamQuestionForClient = (question) => {
         groundingScore: _GROUNDING_SCORE,
         factualityStatus: _FACTUALITY_STATUS,
         generationVersion: _GENERATION_VERSION,
-        learningObjective: _LEARNING_OBJECTIVE,
         rubricPoints: _RUBRIC_POINTS,
         qualityFlags: _QUALITY_FLAGS,
         options,

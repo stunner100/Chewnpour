@@ -201,6 +201,18 @@ export default defineSchema({
         createdAt: v.number(),
     }).index("by_threadId", ["threadId"]).index("by_threadId_createdAt", ["threadId", "createdAt"]),
 
+    // Join table: many uploads can belong to one course
+    courseUploads: defineTable({
+        courseId: v.id("courses"),
+        uploadId: v.id("uploads"),
+        addedAt: v.number(),
+        status: v.string(), // 'processing' | 'ready' | 'error'
+        topicCount: v.optional(v.number()),
+    })
+        .index("by_courseId", ["courseId"])
+        .index("by_uploadId", ["uploadId"])
+        .index("by_courseId_uploadId", ["courseId", "uploadId"]),
+
     // AI-generated courses from uploads
     courses: defineTable({
         uploadId: v.optional(v.id("uploads")),
@@ -216,6 +228,7 @@ export default defineSchema({
     // Topics within courses
     topics: defineTable({
         courseId: v.id("courses"),
+        sourceUploadId: v.optional(v.id("uploads")), // which upload generated this topic
         title: v.string(),
         description: v.optional(v.string()),
         content: v.optional(v.string()), // AI-generated summary content
@@ -232,6 +245,27 @@ export default defineSchema({
         examReadyUpdatedAt: v.optional(v.number()),
         mcqGenerationLockedUntil: v.optional(v.number()),
         essayGenerationLockedUntil: v.optional(v.number()),
+        assessmentBlueprint: v.optional(v.object({
+            version: v.string(),
+            outcomes: v.array(v.object({
+                key: v.string(),
+                objective: v.string(),
+                bloomLevel: v.string(),
+                evidenceFocus: v.string(),
+            })),
+            mcqPlan: v.object({
+                allowedBloomLevels: v.array(v.string()),
+                targetBloomLevels: v.array(v.string()),
+                targetOutcomeKeys: v.array(v.string()),
+            }),
+            essayPlan: v.object({
+                allowedBloomLevels: v.array(v.string()),
+                targetBloomLevels: v.array(v.string()),
+                targetOutcomeKeys: v.array(v.string()),
+                authenticScenarioRequired: v.boolean(),
+                authenticContextHint: v.optional(v.string()),
+            }),
+        })),
         orderIndex: v.number(),
         isLocked: v.boolean(),
     }).index("by_courseId", ["courseId"]),
@@ -260,6 +294,9 @@ export default defineSchema({
         factualityStatus: v.optional(v.string()), // 'verified' | 'rejected'
         generationVersion: v.optional(v.string()),
         learningObjective: v.optional(v.string()),
+        bloomLevel: v.optional(v.string()),
+        outcomeKey: v.optional(v.string()),
+        authenticContext: v.optional(v.string()),
         rubricPoints: v.optional(v.array(v.string())),
         qualityFlags: v.optional(v.array(v.string())),
     }).index("by_topicId", ["topicId"]),

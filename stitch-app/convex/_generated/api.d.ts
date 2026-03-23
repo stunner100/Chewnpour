@@ -27,6 +27,7 @@ import type * as extractionState from "../extractionState.js";
 import type * as feedback from "../feedback.js";
 import type * as grounded from "../grounded.js";
 import type * as http from "../http.js";
+import type * as lib_assessmentBlueprint from "../lib/assessmentBlueprint.js";
 import type * as lib_conceptExerciseGeneration from "../lib/conceptExerciseGeneration.js";
 import type * as lib_doctraClient from "../lib/doctraClient.js";
 import type * as lib_documentExtractionPipeline from "../lib/documentExtractionPipeline.js";
@@ -88,6 +89,7 @@ declare const fullApi: ApiFromModules<{
   feedback: typeof feedback;
   grounded: typeof grounded;
   http: typeof http;
+  "lib/assessmentBlueprint": typeof lib_assessmentBlueprint;
   "lib/conceptExerciseGeneration": typeof lib_conceptExerciseGeneration;
   "lib/doctraClient": typeof lib_doctraClient;
   "lib/documentExtractionPipeline": typeof lib_documentExtractionPipeline;

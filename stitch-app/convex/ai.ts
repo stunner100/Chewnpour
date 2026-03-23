@@ -47,6 +47,8 @@ import {
 } from "./lib/groundedEvidenceIndex";
 import { retrieveGroundedEvidence, type RetrievedEvidence } from "./lib/groundedRetrieval";
 import {
+    buildGroundedAssessmentBlueprintPrompt,
+    type AssessmentBlueprint,
     buildGroundedConceptPrompt,
     buildGroundedEssayPrompt,
     buildGroundedMcqPrompt,
@@ -67,6 +69,15 @@ import {
     shouldFallbackToInceptionText,
     shouldFallbackToOpenAiText,
 } from "./lib/llmProviderFallback";
+import {
+    ASSESSMENT_BLUEPRINT_VERSION,
+    filterQuestionsForActiveAssessment,
+    getAssessmentQuestionMetadataIssues,
+    normalizeAssessmentBlueprint,
+    normalizeBloomLevel,
+    normalizeOutcomeKey,
+    topicUsesAssessmentBlueprint,
+} from "./lib/assessmentBlueprint.js";
 import { createVoiceStreamToken } from "./lib/voiceStreamToken";
 
 // Text generation routes by feature and uses OpenAI -> Bedrock -> Inception fallback for generation.
@@ -219,6 +230,7 @@ const TOPIC_ILLUSTRATION_GENERATION_ENABLED = ["1", "true", "yes", "on"].include
 );
 const MIN_EXTRACTED_TEXT_LENGTH = 200;
 const GROUNDED_GENERATION_VERSION = "grounded-v1";
+const ASSESSMENT_QUESTION_GENERATION_VERSION = ASSESSMENT_BLUEPRINT_VERSION;
 const GROUNDED_REGEN_MAX_ATTEMPTS = 3;
 const BACKEND_SENTRY_DSN = String(process.env.SENTRY_DSN || process.env.VITE_SENTRY_DSN || "").trim();
 const BACKEND_SENTRY_ENVIRONMENT = String(
@@ -1179,6 +1191,8 @@ Required schema:
       "explanation": "string",
       "difficulty": "easy|medium|hard",
       "learningObjective": "string",
+      "bloomLevel": "Remember|Understand|Apply|Analyze",
+      "outcomeKey": "string",
       "citations": [
         {
           "passageId": "string",
@@ -1244,6 +1258,9 @@ Required schema:
       "difficulty": "easy|medium|hard",
       "questionType": "essay",
       "learningObjective": "string",
+      "bloomLevel": "Analyze|Evaluate|Create",
+      "outcomeKey": "string",
+      "authenticContext": "string",
       "rubricPoints": ["string"],
       "citations": [
         {
@@ -1278,6 +1295,167 @@ ${String(raw || "").slice(0, 20000)}
             return { questions: [] };
         }
     }
+};
+
+const parseAssessmentBlueprintWithRepair = async (
+    raw: string,
+    options?: { deadlineMs?: number; repairTimeoutMs?: number }
+): Promise<AssessmentBlueprint | null> => {
+    try {
+        return normalizeAssessmentBlueprint(parseJsonFromResponse(raw, "assessment_blueprint"));
+    } catch (error) {
+        const remainingMs = Number.isFinite(Number(options?.deadlineMs))
+            ? Number(options?.deadlineMs) - Date.now()
+            : null;
+        if (remainingMs !== null && remainingMs <= 1200) {
+            return null;
+        }
+
+        let repairTimeoutMs = Number(options?.repairTimeoutMs || DEFAULT_TIMEOUT_MS);
+        if (remainingMs !== null) {
+            repairTimeoutMs = Math.min(repairTimeoutMs, Math.max(1000, remainingMs - 200));
+        }
+        const repairPrompt = `Fix the malformed JSON-like content below and return strict JSON only.
+
+Required schema:
+{
+  "outcomes": [
+    {
+      "key": "outcome-1",
+      "objective": "string",
+      "bloomLevel": "Remember|Understand|Apply|Analyze|Evaluate|Create",
+      "evidenceFocus": "string"
+    }
+  ],
+  "mcqPlan": {
+    "targetOutcomeKeys": ["outcome-1"]
+  },
+  "essayPlan": {
+    "targetOutcomeKeys": ["outcome-2"],
+    "authenticScenarioRequired": false,
+    "authenticContextHint": "string"
+  }
+}
+
+Malformed content:
+"""
+${String(raw || "").slice(0, 20000)}
+"""`;
+
+        try {
+            const repaired = await callInception([
+                { role: "system", content: "You are a strict JSON repair assistant. Return valid JSON only." },
+                { role: "user", content: repairPrompt },
+            ], DEFAULT_MODEL, {
+                maxTokens: 1800,
+                responseFormat: "json_object",
+                timeoutMs: repairTimeoutMs,
+            });
+
+            return normalizeAssessmentBlueprint(
+                parseJsonFromResponse(repaired, "repaired assessment blueprint")
+            );
+        } catch {
+            return null;
+        }
+    }
+};
+
+const findAssessmentOutcome = (blueprint: AssessmentBlueprint | null | undefined, outcomeKey: string) => {
+    const normalizedOutcomeKey = normalizeOutcomeKey(outcomeKey);
+    return Array.isArray(blueprint?.outcomes)
+        ? blueprint?.outcomes.find((outcome) => outcome?.key === normalizedOutcomeKey)
+        : undefined;
+};
+
+const normalizeGeneratedAssessmentCandidate = (args: {
+    candidate: any;
+    blueprint: AssessmentBlueprint;
+    questionType: "mcq" | "essay";
+}) => {
+    const outcomeKey = normalizeOutcomeKey(args.candidate?.outcomeKey);
+    const outcome = findAssessmentOutcome(args.blueprint, outcomeKey);
+    const bloomLevel = normalizeBloomLevel(args.candidate?.bloomLevel || outcome?.bloomLevel || "");
+    const learningObjective = String(
+        args.candidate?.learningObjective || outcome?.objective || ""
+    ).trim();
+    const authenticContext = String(args.candidate?.authenticContext || "").trim();
+
+    return {
+        ...args.candidate,
+        bloomLevel: bloomLevel || undefined,
+        outcomeKey: outcomeKey || undefined,
+        learningObjective: learningObjective || undefined,
+        authenticContext: authenticContext || undefined,
+    };
+};
+
+const ensureAssessmentBlueprintForTopic = async (args: {
+    ctx: any;
+    topic: any;
+    evidence: RetrievedEvidence[];
+    deadlineMs?: number;
+    repairTimeoutMs?: number;
+    forceRegenerate?: boolean;
+}): Promise<AssessmentBlueprint> => {
+    const topicId = args.topic?._id;
+    if (!topicId) {
+        throw new Error("Topic not found");
+    }
+
+    if (!args.forceRegenerate && topicUsesAssessmentBlueprint(args.topic)) {
+        const normalizedStored = normalizeAssessmentBlueprint(args.topic.assessmentBlueprint);
+        if (normalizedStored) {
+            return normalizedStored;
+        }
+    }
+
+    const remainingMs = Number.isFinite(Number(args.deadlineMs))
+        ? Number(args.deadlineMs) - Date.now()
+        : null;
+    const configuredTimeoutMs = Math.max(1500, Math.round(DEFAULT_TIMEOUT_MS));
+    const timeoutMs = remainingMs === null
+        ? configuredTimeoutMs
+        : Math.min(configuredTimeoutMs, Math.max(1500, remainingMs - 200));
+
+    const response = await callInception([
+        {
+            role: "system",
+            content: "You are an assessment-design specialist. Return valid JSON only.",
+        },
+        {
+            role: "user",
+            content: buildGroundedAssessmentBlueprintPrompt({
+                topicTitle: String(args.topic?.title || ""),
+                topicDescription: String(args.topic?.description || ""),
+                evidence: args.evidence,
+            }),
+        },
+    ], DEFAULT_MODEL, {
+        maxTokens: 2200,
+        responseFormat: "json_object",
+        timeoutMs,
+    });
+
+    const blueprint = await parseAssessmentBlueprintWithRepair(response, {
+        deadlineMs: args.deadlineMs,
+        repairTimeoutMs: args.repairTimeoutMs,
+    });
+    if (!blueprint) {
+        throw new Error("Failed to generate a valid assessment blueprint.");
+    }
+
+    await args.ctx.runMutation(internal.topics.saveAssessmentBlueprintInternal, {
+        topicId,
+        assessmentBlueprint: blueprint,
+    });
+    await args.ctx.runMutation(internal.topics.refreshTopicExamReadinessInternal, {
+        topicId,
+        mcqTargetCount: args.topic?.mcqTargetCount,
+        essayTargetCount: args.topic?.essayTargetCount,
+    });
+
+    return blueprint;
 };
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
@@ -1727,6 +1905,7 @@ const repairGroundedMcqCandidate = async (args: {
     topicTitle: string;
     topicDescription?: string;
     evidence: RetrievedEvidence[];
+    assessmentBlueprint: AssessmentBlueprint;
     repairReasons?: string[];
     timeoutMs?: number;
 }) => {
@@ -1739,6 +1918,7 @@ const repairGroundedMcqCandidate = async (args: {
         topicTitle: args.topicTitle,
         topicDescription: args.topicDescription,
         evidence: repairEvidence.length > 0 ? repairEvidence : args.evidence.slice(0, 8),
+        assessmentBlueprint: args.assessmentBlueprint,
         candidate: args.candidate,
         repairReasons: args.repairReasons,
     });
@@ -1786,6 +1966,7 @@ const generateOptionsForQuestion = async (args: {
     topicTitle: string;
     topicDescription?: string;
     evidence: RetrievedEvidence[];
+    assessmentBlueprint: AssessmentBlueprint;
     timeoutMs?: number;
     repairReasons?: string[];
 }) => {
@@ -1794,6 +1975,7 @@ const generateOptionsForQuestion = async (args: {
         topicTitle: args.topicTitle,
         topicDescription: args.topicDescription,
         evidence: args.evidence,
+        assessmentBlueprint: args.assessmentBlueprint,
         repairReasons: args.repairReasons,
         timeoutMs: args.timeoutMs,
     });
@@ -5072,6 +5254,7 @@ const generateEssayQuestionCandidatesBatch = async (args: {
     topicTitle: string;
     topicDescription?: string;
     evidence: RetrievedEvidence[];
+    assessmentBlueprint: AssessmentBlueprint;
     deadlineMs?: number;
     requestTimeoutMs?: number;
     repairTimeoutMs?: number;
@@ -5082,6 +5265,7 @@ const generateEssayQuestionCandidatesBatch = async (args: {
         topicTitle: args.topicTitle,
         topicDescription: args.topicDescription,
         evidence: args.evidence,
+        assessmentBlueprint: args.assessmentBlueprint,
     });
     let questionsData: any = { questions: [] };
     const maxAttempts = Math.max(1, Math.round(Number(args.maxAttempts || 1)));
@@ -5119,7 +5303,14 @@ const generateEssayQuestionCandidatesBatch = async (args: {
         }
     }
 
-    return Array.isArray(questionsData?.questions) ? questionsData.questions : [];
+    const rawQuestions = Array.isArray(questionsData?.questions) ? questionsData.questions : [];
+    return rawQuestions.map((candidate: any) =>
+        normalizeGeneratedAssessmentCandidate({
+            candidate,
+            blueprint: args.assessmentBlueprint,
+            questionType: "essay",
+        })
+    );
 };
 
 const buildParallelBatchPlan = (args: {
@@ -5156,6 +5347,7 @@ const generateQuestionCandidatesBatch = async (args: {
     topicTitle: string;
     topicDescription?: string;
     evidence: RetrievedEvidence[];
+    assessmentBlueprint: AssessmentBlueprint;
     deadlineMs?: number;
     requestTimeoutMs?: number;
     repairTimeoutMs?: number;
@@ -5167,6 +5359,7 @@ const generateQuestionCandidatesBatch = async (args: {
         topicTitle: args.topicTitle,
         topicDescription: args.topicDescription,
         evidence: args.evidence,
+        assessmentBlueprint: args.assessmentBlueprint,
         existingQuestionSample: args.existingQuestionSample,
     });
     let questionsData: any = { questions: [] };
@@ -5205,7 +5398,14 @@ const generateQuestionCandidatesBatch = async (args: {
         }
     }
 
-    return Array.isArray(questionsData?.questions) ? questionsData.questions : [];
+    const rawQuestions = Array.isArray(questionsData?.questions) ? questionsData.questions : [];
+    return rawQuestions.map((candidate: any) =>
+        normalizeGeneratedAssessmentCandidate({
+            candidate,
+            blueprint: args.assessmentBlueprint,
+            questionType: "mcq",
+        })
+    );
 };
 
 const generateQuestionBankForTopic = async (
@@ -5262,8 +5462,34 @@ const generateQuestionBankForTopic = async (
         throw new Error("Topic not found");
     }
 
+    const groundedPack = await getGroundedEvidencePackForTopic({
+        ctx,
+        topic: topicWithQuestions,
+        type: "mcq",
+    });
+    let assessmentBlueprint = topicUsesAssessmentBlueprint(topicWithQuestions)
+        ? normalizeAssessmentBlueprint(topicWithQuestions.assessmentBlueprint)
+        : null;
+    if (groundedPack.index && groundedPack.evidence.length > 0) {
+        assessmentBlueprint = await ensureAssessmentBlueprintForTopic({
+            ctx,
+            topic: topicWithQuestions,
+            evidence: groundedPack.evidence,
+            deadlineMs: Date.now() + profile.timeBudgetMs,
+            repairTimeoutMs: profile.requestTimeoutMs,
+        });
+    }
+    const effectiveTopic = assessmentBlueprint
+        ? {
+            ...topicWithQuestions,
+            assessmentBlueprint,
+        }
+        : topicWithQuestions;
     const topicContent = String(topicWithQuestions.content || "");
-    const rawExistingQuestions = topicWithQuestions.questions || [];
+    const rawExistingQuestions = filterQuestionsForActiveAssessment({
+        topic: effectiveTopic,
+        questions: topicWithQuestions.questions || [],
+    });
     const existingQuestions = rawExistingQuestions.filter((question: any) => {
         const normalizedKey = normalizeQuestionKey(question?.questionText || "");
         if (!normalizedKey) return false;
@@ -5295,7 +5521,7 @@ const generateQuestionBankForTopic = async (
     const getUniqueQuestionCount = () => existingQuestionSignatures.length;
     const initialCount = getUniqueQuestionCount();
     const quickTargetCount = resolveStoredTargetCount(
-        topicWithQuestions?.mcqTargetCount,
+        effectiveTopic?.mcqTargetCount,
         calculateQuestionBankTarget(topicContent, profile),
     );
     if (initialCount >= quickTargetCount) {
@@ -5345,7 +5571,7 @@ const generateQuestionBankForTopic = async (
         };
         console.info("[QuestionBank] timing_breakdown", {
             topicId,
-            topicTitle: topicWithQuestions.title,
+            topicTitle: effectiveTopic.title,
             diagnostics,
         });
         return {
@@ -5360,13 +5586,8 @@ const generateQuestionBankForTopic = async (
             diagnostics,
         };
     }
-    const groundedPack = await getGroundedEvidencePackForTopic({
-        ctx,
-        topic: topicWithQuestions,
-        type: "mcq",
-    });
     const targetResolution = resolveMcqQuestionBankTarget({
-        topic: topicWithQuestions,
+        topic: effectiveTopic,
         topicContent,
         profile,
         evidence: groundedPack.evidence,
@@ -5436,7 +5657,7 @@ const generateQuestionBankForTopic = async (
         const diagnostics = buildTimingDiagnostics("already_generated");
         console.info("[QuestionBank] timing_breakdown", {
             topicId,
-            topicTitle: topicWithQuestions.title,
+            topicTitle: effectiveTopic.title,
             diagnostics,
         });
         return {
@@ -5465,7 +5686,7 @@ const generateQuestionBankForTopic = async (
         const diagnostics = buildTimingDiagnostics("insufficient_evidence");
         console.info("[QuestionBank] timing_breakdown", {
             topicId,
-            topicTitle: topicWithQuestions.title,
+            topicTitle: effectiveTopic.title,
             diagnostics,
         });
         return {
@@ -5485,7 +5706,7 @@ const generateQuestionBankForTopic = async (
     const evidenceIndex = groundedPack.index;
 
     const topicKeywords = extractTopicKeywords(
-        `${topicWithQuestions.title} ${topicWithQuestions.description || ""}`
+        `${effectiveTopic.title} ${effectiveTopic.description || ""}`
     );
 
     let added = 0;
@@ -5555,9 +5776,10 @@ const generateQuestionBankForTopic = async (
             batchPlan.map((requestedCount) =>
                 generateQuestionCandidatesBatch({
                     requestedCount,
-                    topicTitle: topicWithQuestions.title,
-                    topicDescription: topicWithQuestions.description,
+                    topicTitle: effectiveTopic.title,
+                    topicDescription: effectiveTopic.description,
                     evidence: groundedPack.evidence,
+                    assessmentBlueprint: assessmentBlueprint as AssessmentBlueprint,
                     deadlineMs,
                     requestTimeoutMs: profile.requestTimeoutMs,
                     repairTimeoutMs: profile.repairTimeoutMs,
@@ -5609,13 +5831,15 @@ const generateQuestionBankForTopic = async (
             type: "mcq",
             requestedCount: Math.max(1, remaining),
             evidenceIndex,
+            assessmentBlueprint,
             candidates: candidateQuestions,
             repairCandidate: async ({ candidate, reasons }) =>
                 repairGroundedMcqCandidate({
                     candidate,
-                    topicTitle: topicWithQuestions.title,
-                    topicDescription: topicWithQuestions.description,
+                    topicTitle: effectiveTopic.title,
+                    topicDescription: effectiveTopic.description,
                     evidence: groundedPack.evidence,
+                    assessmentBlueprint: assessmentBlueprint as AssessmentBlueprint,
                     repairReasons: reasons,
                     timeoutMs: runMode === "interactive" ? 5000 : 8000,
                 }),
@@ -5677,13 +5901,14 @@ const generateQuestionBankForTopic = async (
                         : Math.min(profile.requestTimeoutMs, Math.max(1000, remainingOptionBudgetMs - 200));
                     const optionRepairStartedAt = Date.now();
                     const generated = await generateOptionsForQuestion({
-                        question: questionRecord,
-                        topicTitle: topicWithQuestions.title,
-                        topicDescription: topicWithQuestions.description,
-                        evidence: groundedPack.evidence,
-                        timeoutMs: optionTimeoutMs,
-                        repairReasons: ["invalid mcq structure", "unusable options"],
-                    });
+                    question: questionRecord,
+                    topicTitle: effectiveTopic.title,
+                    topicDescription: effectiveTopic.description,
+                    evidence: groundedPack.evidence,
+                    assessmentBlueprint: assessmentBlueprint as AssessmentBlueprint,
+                    timeoutMs: optionTimeoutMs,
+                    repairReasons: ["invalid mcq structure", "unusable options"],
+                });
                     timingBreakdown.optionRepairMs += normalizeTimingMs(Date.now() - optionRepairStartedAt);
                     if (generated && typeof generated === "object") {
                         questionRecord = {
@@ -5722,6 +5947,7 @@ const generateQuestionBankForTopic = async (
                 type: "mcq",
                 candidate: questionRecord,
                 evidenceIndex,
+                assessmentBlueprint,
             });
             timingBreakdown.deterministicMs += normalizeTimingMs(Date.now() - finalGroundingStartedAt);
             countBreakdown.deterministicChecks += 1;
@@ -5756,6 +5982,10 @@ const generateQuestionBankForTopic = async (
 
             const correctOption = options.find((o: any) => o.isCorrect);
             const citations = finalGrounding.validCitations;
+            const resolvedOutcome = findAssessmentOutcome(
+                assessmentBlueprint,
+                String(questionRecord?.outcomeKey || "")
+            );
             const sourcePassageIds = Array.from(
                 new Set(
                     citations
@@ -5776,8 +6006,13 @@ const generateQuestionBankForTopic = async (
                 sourcePassageIds,
                 groundingScore: Number(questionRecord?.groundingScore || 0),
                 factualityStatus: String(questionRecord?.factualityStatus || "verified"),
-                generationVersion: GROUNDED_GENERATION_VERSION,
-                learningObjective: String(questionRecord?.learningObjective || "").trim() || undefined,
+                generationVersion: ASSESSMENT_QUESTION_GENERATION_VERSION,
+                learningObjective: String(
+                    questionRecord?.learningObjective || resolvedOutcome?.objective || ""
+                ).trim() || undefined,
+                bloomLevel: String(questionRecord?.bloomLevel || resolvedOutcome?.bloomLevel || "").trim() || undefined,
+                outcomeKey: String(questionRecord?.outcomeKey || resolvedOutcome?.key || "").trim() || undefined,
+                authenticContext: String(questionRecord?.authenticContext || "").trim() || undefined,
                 qualityFlags: [],
             });
             timingBreakdown.saveMs += normalizeTimingMs(Date.now() - saveStartedAt);
@@ -6090,6 +6325,20 @@ const releaseMcqGenerationLock = async (ctx: any, topicId: any) => {
     }).catch(() => { });
 };
 
+const acquireEssayGenerationLock = async (ctx: any, topicId: any) => {
+    return await ctx.runMutation(internal.topics.acquireGenerationLockInternal, {
+        topicId,
+        format: "essay",
+    });
+};
+
+const releaseEssayGenerationLock = async (ctx: any, topicId: any) => {
+    await ctx.runMutation(internal.topics.releaseGenerationLockInternal, {
+        topicId,
+        format: "essay",
+    }).catch(() => { });
+};
+
 const countUsableUniqueMcqQuestions = (questions: any[]) => {
     const items = Array.isArray(questions) ? questions : [];
     const signatures: any[] = [];
@@ -6258,6 +6507,142 @@ export const generateQuestionsForTopic = action({
     },
 });
 
+export const regenerateAssessmentQuestionBankInternal = internalAction({
+    args: {
+        topicId: v.id("topics"),
+        essayCount: v.optional(v.number()),
+    },
+    handler: async (ctx, args) => {
+        const trackingUserId = await getTopicOwnerUserIdForTracking(ctx, args.topicId);
+        const requestedEssayCount = Math.max(
+            ESSAY_QUESTION_TARGET_MIN_COUNT,
+            Math.min(TOPIC_EXAM_PREBUILD_ESSAY_COUNT, Math.round(Number(args.essayCount || TOPIC_EXAM_PREBUILD_ESSAY_COUNT)))
+        );
+
+        const mcqLockStartedAt = Date.now();
+        const mcqLock: any = await acquireMcqGenerationLock(ctx, args.topicId);
+        const mcqLockProbeMs = normalizeTimingMs(Date.now() - mcqLockStartedAt);
+        if (!mcqLock?.acquired) {
+            return {
+                success: true,
+                regenerated: false,
+                skipped: true,
+                reason: "generation_already_in_progress",
+                diagnostics: {
+                    outcome: "generation_already_in_progress",
+                    runMode: "interactive",
+                    lock: {
+                        probeMs: mcqLockProbeMs,
+                        waitMs: normalizeTimingMs(mcqLock?.lockWaitMs),
+                        lockedUntil: Number(mcqLock?.lockedUntil || 0),
+                        ttlMs: normalizeTimingMs(mcqLock?.ttlMs),
+                    },
+                },
+            };
+        }
+
+        const essayLock: any = await acquireEssayGenerationLock(ctx, args.topicId);
+        if (!essayLock?.acquired) {
+            await releaseMcqGenerationLock(ctx, args.topicId);
+            return {
+                success: true,
+                regenerated: false,
+                skipped: true,
+                reason: "generation_already_in_progress",
+                diagnostics: {
+                    outcome: "generation_already_in_progress",
+                    runMode: "interactive",
+                    lock: {
+                        probeMs: mcqLockProbeMs,
+                        waitMs: normalizeTimingMs(essayLock?.lockWaitMs),
+                        lockedUntil: Number(essayLock?.lockedUntil || 0),
+                        ttlMs: normalizeTimingMs(essayLock?.ttlMs),
+                    },
+                },
+            };
+        }
+
+        try {
+            const topic = await ctx.runQuery(internal.topics.getTopicWithQuestionsInternal, {
+                topicId: args.topicId,
+            });
+            if (!topic) {
+                throw new Error("Topic not found");
+            }
+            const groundedPack = await getGroundedEvidencePackForTopic({
+                ctx,
+                topic,
+                type: "essay",
+            });
+            if (!groundedPack.index || groundedPack.evidence.length === 0) {
+                return {
+                    success: true,
+                    regenerated: false,
+                    abstained: true,
+                    reason: "INSUFFICIENT_EVIDENCE",
+                };
+            }
+
+            await runWithLlmUsageContext(ctx, trackingUserId, "mcq_generation", async () => {
+                await ensureAssessmentBlueprintForTopic({
+                    ctx,
+                    topic,
+                    evidence: groundedPack.evidence,
+                    deadlineMs: Date.now() + DEFAULT_PROCESSING_TIMEOUT_MS,
+                    repairTimeoutMs: DEFAULT_TIMEOUT_MS,
+                    forceRegenerate: true,
+                });
+            });
+
+            await ctx.runMutation(internal.topics.deleteQuestionsByTopicInternal, {
+                topicId: args.topicId,
+            });
+
+            const mcqResult = await runWithLlmUsageContext(ctx, trackingUserId, "mcq_generation", async () =>
+                generateQuestionBankForTopic(
+                    ctx,
+                    args.topicId,
+                    QUESTION_BANK_INTERACTIVE_PROFILE,
+                    {
+                        lockProbeMs: mcqLockProbeMs,
+                        lockWaitMs: normalizeTimingMs(mcqLock?.lockWaitMs),
+                        lockedUntil: Number(mcqLock?.lockedUntil || 0),
+                        lockTtlMs: normalizeTimingMs(mcqLock?.ttlMs),
+                    },
+                )
+            );
+            const essayResult = await runWithLlmUsageContext(ctx, trackingUserId, "essay_generation", async () =>
+                generateEssayQuestionsForTopicCore(
+                    ctx,
+                    {
+                        topicId: args.topicId,
+                        count: requestedEssayCount,
+                    },
+                    {
+                        skipAccessCheck: true,
+                    },
+                )
+            );
+
+            await ctx.runMutation(internal.topics.refreshTopicExamReadinessInternal, {
+                topicId: args.topicId,
+                mcqTargetCount: mcqResult?.targetCount,
+                essayTargetCount: essayResult?.targetCount,
+            });
+
+            return {
+                success: true,
+                regenerated: true,
+                mcq: mcqResult,
+                essay: essayResult,
+            };
+        } finally {
+            await releaseMcqGenerationLock(ctx, args.topicId);
+            await releaseEssayGenerationLock(ctx, args.topicId);
+        }
+    },
+});
+
 // Force regenerate quiz questions for a topic
 export const regenerateQuestionsForTopic = action({
     args: {
@@ -6265,63 +6650,31 @@ export const regenerateQuestionsForTopic = action({
     },
     handler: async (ctx, args) => {
         const { topicId } = args;
-        const authUserId = await assertTopicQuestionGenerationAccess(ctx, topicId);
-        return await runWithLlmUsageContext(ctx, authUserId, "mcq_generation", async () => {
-            const lockStartedAt = Date.now();
-            const lock: any = await acquireMcqGenerationLock(ctx, topicId);
-            const lockProbeMs = normalizeTimingMs(Date.now() - lockStartedAt);
-            if (!lock?.acquired) {
-                return {
-                    success: true,
-                    regenerated: false,
-                    skipped: true,
-                    reason: "generation_already_in_progress",
-                    diagnostics: {
-                        outcome: "generation_already_in_progress",
-                        runMode: "interactive",
-                        lock: {
-                            probeMs: lockProbeMs,
-                            waitMs: normalizeTimingMs(lock?.lockWaitMs),
-                            lockedUntil: Number(lock?.lockedUntil || 0),
-                            ttlMs: normalizeTimingMs(lock?.ttlMs),
-                        },
-                    },
-                };
-            }
-
-            let result: any;
-            try {
-                await ctx.runMutation(internal.topics.deleteQuestionsByTopicInternal, { topicId });
-                result = await generateQuestionBankForTopic(
-                    ctx,
-                    topicId,
-                    QUESTION_BANK_INTERACTIVE_PROFILE,
-                    {
-                        lockProbeMs,
-                        lockWaitMs: normalizeTimingMs(lock?.lockWaitMs),
-                        lockedUntil: Number(lock?.lockedUntil || 0),
-                        lockTtlMs: normalizeTimingMs(lock?.ttlMs),
-                    },
-                );
-            } finally {
-                await releaseMcqGenerationLock(ctx, topicId);
-            }
-
-            await ctx.scheduler.runAfter(0, internal.ai.generateQuestionsForTopicInternal, {
-                topicId,
-            });
-            await ctx.scheduler.runAfter(0, internal.ai.generateEssayQuestionsForTopicInternal, {
-                topicId,
-                count: TOPIC_EXAM_PREBUILD_ESSAY_COUNT,
-            });
-
-            return {
-                success: true,
-                regenerated: true,
-                count: result?.count ?? 0,
-                diagnostics: result?.diagnostics,
-            };
+        await assertTopicQuestionGenerationAccess(ctx, topicId);
+        const result: any = await ctx.runAction(internal.ai.regenerateAssessmentQuestionBankInternal, {
+            topicId,
+            essayCount: TOPIC_EXAM_PREBUILD_ESSAY_COUNT,
         });
+        if (result?.skipped) {
+            return result;
+        }
+
+        await ctx.scheduler.runAfter(0, internal.ai.generateQuestionsForTopicInternal, {
+            topicId,
+        });
+        await ctx.scheduler.runAfter(0, internal.ai.generateEssayQuestionsForTopicInternal, {
+            topicId,
+            count: TOPIC_EXAM_PREBUILD_ESSAY_COUNT,
+        });
+
+        return {
+            success: true,
+            regenerated: true,
+            count: Number(result?.mcq?.count || 0),
+            mcqCount: Number(result?.mcq?.count || 0),
+            essayCount: Number(result?.essay?.count || 0),
+            diagnostics: result?.mcq?.diagnostics,
+        };
     },
 });
 
@@ -6345,22 +6698,44 @@ const generateEssayQuestionsForTopicCore = async (
     if (!topicWithQuestions) throw new Error("Topic not found");
     const rawTopicQuestions = await ctx.runQuery(internal.topics.getRawQuestionsByTopicInternal, { topicId });
     const topicContent = String(topicWithQuestions.content || "");
+    const groundedPack = await getGroundedEvidencePackForTopic({
+        ctx,
+        topic: topicWithQuestions,
+        type: "essay",
+    });
+    let assessmentBlueprint = topicUsesAssessmentBlueprint(topicWithQuestions)
+        ? normalizeAssessmentBlueprint(topicWithQuestions.assessmentBlueprint)
+        : null;
+    if (groundedPack.index && groundedPack.evidence.length > 0) {
+        assessmentBlueprint = await ensureAssessmentBlueprintForTopic({
+            ctx,
+            topic: topicWithQuestions,
+            evidence: groundedPack.evidence,
+            deadlineMs: Date.now() + ESSAY_QUESTION_TIME_BUDGET_MS,
+            repairTimeoutMs: ESSAY_QUESTION_REPAIR_TIMEOUT_MS,
+        });
+    }
+    const effectiveTopic = assessmentBlueprint
+        ? {
+            ...topicWithQuestions,
+            assessmentBlueprint,
+        }
+        : topicWithQuestions;
+    const activeTopicQuestions = filterQuestionsForActiveAssessment({
+        topic: effectiveTopic,
+        questions: rawTopicQuestions || [],
+    });
 
     // Check how many essay questions already exist
-    const existingEssay = (rawTopicQuestions || []).filter(
+    const existingEssay = activeTopicQuestions.filter(
         (q: any) => q.questionType === "essay"
     );
     const existingUsableEssay = existingEssay.filter((question: any) =>
         isUsableExamQuestion(question, { allowEssay: true })
     );
     const existingUsableEssayCount = existingUsableEssay.length;
-    const groundedPack = await getGroundedEvidencePackForTopic({
-        ctx,
-        topic: topicWithQuestions,
-        type: "essay",
-    });
     const targetResolution = resolveEssayQuestionBankTarget({
-        topic: topicWithQuestions,
+        topic: effectiveTopic,
         topicContent,
         evidence: groundedPack.evidence,
     });
@@ -6423,9 +6798,10 @@ const generateEssayQuestionsForTopicCore = async (
         batchPlan.map((batchCount) =>
             generateEssayQuestionCandidatesBatch({
                 requestedCount: batchCount,
-                topicTitle: topicWithQuestions.title,
-                topicDescription: topicWithQuestions.description,
+                topicTitle: effectiveTopic.title,
+                topicDescription: effectiveTopic.description,
                 evidence: groundedPack.evidence,
+                assessmentBlueprint: assessmentBlueprint as AssessmentBlueprint,
                 deadlineMs,
                 requestTimeoutMs: ESSAY_QUESTION_REQUEST_TIMEOUT_MS,
                 repairTimeoutMs: ESSAY_QUESTION_REPAIR_TIMEOUT_MS,
@@ -6453,9 +6829,10 @@ const generateEssayQuestionsForTopicCore = async (
         try {
             const fallbackCandidates = await generateEssayQuestionCandidatesBatch({
                 requestedCount: remainingNeeded,
-                topicTitle: topicWithQuestions.title,
-                topicDescription: topicWithQuestions.description,
+                topicTitle: effectiveTopic.title,
+                topicDescription: effectiveTopic.description,
                 evidence: groundedPack.evidence,
+                assessmentBlueprint: assessmentBlueprint as AssessmentBlueprint,
                 deadlineMs,
                 requestTimeoutMs: ESSAY_QUESTION_REQUEST_TIMEOUT_MS,
                 repairTimeoutMs: ESSAY_QUESTION_REPAIR_TIMEOUT_MS,
@@ -6475,6 +6852,7 @@ const generateEssayQuestionsForTopicCore = async (
         type: "essay",
         requestedCount: Math.max(1, remainingNeeded),
         evidenceIndex,
+        assessmentBlueprint,
         candidates,
         maxLlmVerifications: Math.min(6, Math.max(2, remainingNeeded * 2)),
         llmVerify: async (candidate) =>
@@ -6493,9 +6871,14 @@ const generateEssayQuestionsForTopicCore = async (
     );
 
     for (const question of acceptedEssays) {
-        const normalizedQuestionText = String(question?.questionText || "").trim();
-        const normalizedCorrectAnswer = String(question?.correctAnswer || "").trim();
-        const normalizedExplanation = String(question?.explanation || "").trim();
+        const groundedQuestion = normalizeGeneratedAssessmentCandidate({
+            candidate: question,
+            blueprint: assessmentBlueprint as AssessmentBlueprint,
+            questionType: "essay",
+        });
+        const normalizedQuestionText = String(groundedQuestion?.questionText || "").trim();
+        const normalizedCorrectAnswer = String(groundedQuestion?.correctAnswer || "").trim();
+        const normalizedExplanation = String(groundedQuestion?.explanation || "").trim();
         if (normalizedQuestionText.length < 12 || normalizedCorrectAnswer.length < 6) continue;
         const key = normalizeQuestionKey(normalizedQuestionText);
         if (!key || existingKeys.has(key)) continue;
@@ -6506,16 +6889,26 @@ const generateEssayQuestionsForTopicCore = async (
             options: undefined,
         };
         if (!isUsableExamQuestion(draftQuestion, { allowEssay: true })) continue;
-        const citations = Array.isArray(question?.citations) ? question.citations : [];
+        const finalGrounding = runDeterministicGroundingCheck({
+            type: "essay",
+            candidate: groundedQuestion,
+            evidenceIndex,
+            assessmentBlueprint,
+        });
+        if (!finalGrounding.deterministicPass) continue;
+        const resolvedOutcome = findAssessmentOutcome(
+            assessmentBlueprint,
+            String(groundedQuestion?.outcomeKey || "")
+        );
         const sourcePassageIds = Array.from(
             new Set(
-                citations
+                finalGrounding.validCitations
                     .map((citation: any) => String(citation?.passageId || "").trim())
                     .filter(Boolean)
             )
         );
-        const rubricPoints = Array.isArray(question?.rubricPoints)
-            ? question.rubricPoints.map((item: any) => String(item || "").trim()).filter(Boolean).slice(0, 8)
+        const rubricPoints = Array.isArray(groundedQuestion?.rubricPoints)
+            ? groundedQuestion.rubricPoints.map((item: any) => String(item || "").trim()).filter(Boolean).slice(0, 8)
             : [];
 
         await ctx.runMutation(internal.topics.createQuestionInternal, {
@@ -6525,13 +6918,18 @@ const generateEssayQuestionsForTopicCore = async (
             options: undefined,
             correctAnswer: normalizedCorrectAnswer,
             explanation: normalizedExplanation || normalizedCorrectAnswer,
-            difficulty: question.difficulty || "medium",
-            citations,
+            difficulty: groundedQuestion.difficulty || "medium",
+            citations: finalGrounding.validCitations,
             sourcePassageIds,
-            groundingScore: Number(question?.groundingScore || 0),
-            factualityStatus: String(question?.factualityStatus || "verified"),
-            generationVersion: GROUNDED_GENERATION_VERSION,
-            learningObjective: String(question?.learningObjective || "").trim() || undefined,
+            groundingScore: Number(groundedQuestion?.groundingScore || 0),
+            factualityStatus: String(groundedQuestion?.factualityStatus || "verified"),
+            generationVersion: ASSESSMENT_QUESTION_GENERATION_VERSION,
+            learningObjective: String(
+                groundedQuestion?.learningObjective || resolvedOutcome?.objective || ""
+            ).trim() || undefined,
+            bloomLevel: String(groundedQuestion?.bloomLevel || resolvedOutcome?.bloomLevel || "").trim() || undefined,
+            outcomeKey: String(groundedQuestion?.outcomeKey || resolvedOutcome?.key || "").trim() || undefined,
+            authenticContext: String(groundedQuestion?.authenticContext || "").trim() || undefined,
             rubricPoints: rubricPoints.length > 0 ? rubricPoints : undefined,
             qualityFlags: [],
         });

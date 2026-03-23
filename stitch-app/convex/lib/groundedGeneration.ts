@@ -17,6 +17,9 @@ export type GroundedMcqCandidate = {
     difficulty?: string;
     citations: GroundedCitation[];
     learningObjective?: string;
+    bloomLevel: string;
+    outcomeKey: string;
+    authenticContext?: string;
 };
 
 export type GroundedEssayCandidate = {
@@ -27,6 +30,33 @@ export type GroundedEssayCandidate = {
     citations: GroundedCitation[];
     rubricPoints?: string[];
     learningObjective?: string;
+    bloomLevel: string;
+    outcomeKey: string;
+    authenticContext?: string;
+};
+
+export type AssessmentBlueprintOutcome = {
+    key: string;
+    objective: string;
+    bloomLevel: string;
+    evidenceFocus: string;
+};
+
+export type AssessmentBlueprint = {
+    version: string;
+    outcomes: AssessmentBlueprintOutcome[];
+    mcqPlan: {
+        allowedBloomLevels: string[];
+        targetBloomLevels: string[];
+        targetOutcomeKeys: string[];
+    };
+    essayPlan: {
+        allowedBloomLevels: string[];
+        targetBloomLevels: string[];
+        targetOutcomeKeys: string[];
+        authenticScenarioRequired: boolean;
+        authenticContextHint?: string;
+    };
 };
 
 export type GroundedConceptCandidate = {
@@ -49,11 +79,61 @@ const formatEvidence = (evidence: RetrievedEvidence[], maxChars = 12000) => {
     return lines.join("\n\n").slice(0, maxChars);
 };
 
+const formatAssessmentBlueprint = (blueprint: AssessmentBlueprint) =>
+    JSON.stringify(blueprint, null, 2);
+
+export const buildGroundedAssessmentBlueprintPrompt = (args: {
+    topicTitle: string;
+    topicDescription?: string;
+    evidence: RetrievedEvidence[];
+}) => `Create an assessment blueprint for MCQ and essay generation using Bloom's taxonomy, constructive alignment, and authentic assessment.
+
+TOPIC: ${args.topicTitle}
+DESCRIPTION: ${args.topicDescription || "General concepts"}
+
+${formatEvidence(args.evidence, 14000)}
+
+Rules:
+- Use only the evidence above.
+- Return 3-6 outcomes.
+- Each outcome must include: key, objective, bloomLevel, evidenceFocus.
+- bloomLevel must be one of: Remember, Understand, Apply, Analyze, Evaluate, Create.
+- outcome key must be short and stable, such as "outcome-1" or "apply-methods".
+- outcomes should be suitable for university assessment design.
+- mcqPlan.targetOutcomeKeys must reference outcomes appropriate for MCQ only.
+- essayPlan.targetOutcomeKeys must reference outcomes appropriate for essay only.
+- MCQ outcomes should support only: Remember, Understand, Apply, Analyze.
+- Essay outcomes should support only: Analyze, Evaluate, Create.
+- Set essayPlan.authenticScenarioRequired to true only when the evidence supports realistic or professional application framing.
+- If essayPlan.authenticScenarioRequired is true, include essayPlan.authenticContextHint as a short scenario cue grounded in the evidence.
+- Do not include any fields outside the required schema.
+
+Return JSON only:
+{
+  "outcomes": [
+    {
+      "key": "outcome-1",
+      "objective": "...",
+      "bloomLevel": "Analyze",
+      "evidenceFocus": "..."
+    }
+  ],
+  "mcqPlan": {
+    "targetOutcomeKeys": ["outcome-1"]
+  },
+  "essayPlan": {
+    "targetOutcomeKeys": ["outcome-2"],
+    "authenticScenarioRequired": false,
+    "authenticContextHint": "..."
+  }
+}`;
+
 export const buildGroundedMcqPrompt = (args: {
     topicTitle: string;
     topicDescription?: string;
     requestedCount: number;
     evidence: RetrievedEvidence[];
+    assessmentBlueprint: AssessmentBlueprint;
     existingQuestionSample?: string;
 }) => {
     const existingBlock = args.existingQuestionSample
@@ -66,10 +146,15 @@ TOPIC: ${args.topicTitle}
 DESCRIPTION: ${args.topicDescription || "General concepts"}
 
 ${formatEvidence(args.evidence)}
+ASSESSMENT_BLUEPRINT:
+${formatAssessmentBlueprint(args.assessmentBlueprint)}
 ${existingBlock}
 
 Rules:
 - Each question must be answerable only from evidence above.
+- Use only outcome keys from assessmentBlueprint.mcqPlan.targetOutcomeKeys.
+- bloomLevel must exactly match the selected outcome's bloomLevel.
+- bloomLevel must be one of: Remember, Understand, Apply, Analyze.
 - Every question must include citations[] with 1-3 citation objects.
 - Every citation object must include: passageId, page, startChar, endChar, quote.
 - quote must be an exact short excerpt from the cited passage.
@@ -96,6 +181,8 @@ Return JSON only:
       "explanation": "...",
       "difficulty": "easy|medium|hard",
       "learningObjective": "...",
+      "bloomLevel": "Remember|Understand|Apply|Analyze",
+      "outcomeKey": "outcome-1",
       "citations": [
         {"passageId":"p1-0","page":0,"startChar":0,"endChar":80,"quote":"..."}
       ]
@@ -108,6 +195,7 @@ export const buildGroundedMcqRepairPrompt = (args: {
     topicTitle: string;
     topicDescription?: string;
     evidence: RetrievedEvidence[];
+    assessmentBlueprint: AssessmentBlueprint;
     candidate: any;
     repairReasons?: string[];
 }) => `Repair the multiple-choice question below so it is strictly grounded in the evidence passages.
@@ -116,6 +204,8 @@ TOPIC: ${args.topicTitle}
 DESCRIPTION: ${args.topicDescription || "General concepts"}
 
 ${formatEvidence(args.evidence, 10000)}
+ASSESSMENT_BLUEPRINT:
+${formatAssessmentBlueprint(args.assessmentBlueprint)}
 
 REPAIR REASONS:
 ${Array.isArray(args.repairReasons) && args.repairReasons.length > 0
@@ -136,6 +226,8 @@ Rules:
 - Every citation object must include: passageId, page, startChar, endChar, quote.
 - quote must be an exact short excerpt from the cited passage.
 - If the candidate cannot be repaired reliably from the evidence, return {"discard": true}.
+- Use only outcome keys from assessmentBlueprint.mcqPlan.targetOutcomeKeys.
+- bloomLevel must exactly match the selected outcome's bloomLevel.
 
 Return JSON only in one of these formats:
 {
@@ -155,6 +247,8 @@ or
   "explanation": "...",
   "difficulty": "easy|medium|hard",
   "learningObjective": "...",
+  "bloomLevel": "Remember|Understand|Apply|Analyze",
+  "outcomeKey": "outcome-1",
   "citations": [
     {"passageId":"p1-0","page":0,"startChar":0,"endChar":80,"quote":"..."}
   ]
@@ -165,17 +259,25 @@ export const buildGroundedEssayPrompt = (args: {
     topicDescription?: string;
     requestedCount: number;
     evidence: RetrievedEvidence[];
+    assessmentBlueprint: AssessmentBlueprint;
 }) => `Create ${args.requestedCount} essay questions strictly grounded in the evidence passages.
 
 TOPIC: ${args.topicTitle}
 DESCRIPTION: ${args.topicDescription || "General concepts"}
 
 ${formatEvidence(args.evidence, 14000)}
+ASSESSMENT_BLUEPRINT:
+${formatAssessmentBlueprint(args.assessmentBlueprint)}
 
 Rules:
 - Question must be answerable from evidence.
+- Use only outcome keys from assessmentBlueprint.essayPlan.targetOutcomeKeys.
+- bloomLevel must exactly match the selected outcome's bloomLevel.
+- bloomLevel must be one of: Analyze, Evaluate, Create.
 - Provide model answer and rubricPoints (2-4 points).
 - Include citations[] with exact evidence quote spans.
+- If assessmentBlueprint.essayPlan.authenticScenarioRequired is true, prefer a realistic or professional scenario framing and include authenticContext.
+- Do not invent scenario facts beyond what the evidence can support.
 
 Return JSON only:
 {
@@ -187,6 +289,9 @@ Return JSON only:
       "difficulty": "easy|medium|hard",
       "questionType": "essay",
       "learningObjective": "...",
+      "bloomLevel": "Analyze|Evaluate|Create",
+      "outcomeKey": "outcome-1",
+      "authenticContext": "...",
       "rubricPoints": ["...","..."],
       "citations": [
         {"passageId":"p1-0","page":0,"startChar":0,"endChar":80,"quote":"..."}

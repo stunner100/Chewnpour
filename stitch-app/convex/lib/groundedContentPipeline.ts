@@ -1,6 +1,7 @@
 "use node";
 
 import type { GroundedEvidenceIndex } from "./groundedEvidenceIndex";
+import type { AssessmentBlueprint } from "./groundedGeneration";
 import { retrieveGroundedEvidence, type RetrievedEvidence } from "./groundedRetrieval";
 import {
     GROUNDED_MIN_SCORE,
@@ -147,6 +148,7 @@ export const applyGroundedAcceptance = async (args: {
     type: GroundedContentType;
     requestedCount: number;
     evidenceIndex: GroundedEvidenceIndex;
+    assessmentBlueprint?: AssessmentBlueprint | null;
     candidates: any[];
     repairCandidate?: (args: {
         type: GroundedContentType;
@@ -191,6 +193,7 @@ export const applyGroundedAcceptance = async (args: {
             type: args.type,
             candidate: candidateWithCitations,
             evidenceIndex: args.evidenceIndex,
+            assessmentBlueprint: args.assessmentBlueprint,
         });
         if (args.metrics) {
             args.metrics.deterministicChecks += 1;
@@ -225,6 +228,7 @@ export const applyGroundedAcceptance = async (args: {
                         type: args.type,
                         candidate: candidateWithCitations,
                         evidenceIndex: args.evidenceIndex,
+                        assessmentBlueprint: args.assessmentBlueprint,
                     });
                     if (args.metrics) {
                         args.metrics.deterministicChecks += 1;
