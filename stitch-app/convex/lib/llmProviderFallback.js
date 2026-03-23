@@ -1,20 +1,27 @@
-export const isHardInceptionProviderFailure = (message) => {
+export const isOpenAiProviderFailure = (message) => {
     const normalized = String(message || "").toLowerCase();
     if (!normalized) return false;
     return [
-        "arrearage",
-        "access denied",
-        "account is in good standing",
-        "overdue-payment",
-        "insufficient balance",
-        "quota exhausted",
+        "openai api error",
+        "openai request timed out",
+        "insufficient_quota",
+        "quota exceeded",
+        "rate_limit",
+        "rate limit",
+        "deploymentnotfound",
+        "context_length_exceeded",
         "incorrect api key",
         "invalid api key",
         "unauthorized",
         "invalid authentication",
+        "server_error",
+        "internal server error",
+        "failed to fetch",
+        "network",
+        "aborted",
     ].some((token) => normalized.includes(token));
 };
 
-export const shouldFallbackToGeminiText = ({ errorMessage, geminiApiKey }) => {
-    return Boolean(String(geminiApiKey || "").trim()) && isHardInceptionProviderFailure(errorMessage);
+export const shouldFallbackToInceptionText = ({ errorMessage, inceptionApiKey }) => {
+    return Boolean(String(inceptionApiKey || "").trim()) && isOpenAiProviderFailure(errorMessage);
 };

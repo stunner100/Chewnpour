@@ -62,14 +62,22 @@ import {
     buildEvidenceSnippet,
     createGroundedAcceptanceMetrics,
 } from "./lib/groundedContentPipeline";
-import { shouldFallbackToGeminiText } from "./lib/llmProviderFallback";
+import { shouldFallbackToInceptionText } from "./lib/llmProviderFallback";
 import { createVoiceStreamToken } from "./lib/voiceStreamToken";
 
-// Sole LLM provider: Inception Labs (OpenAI-compatible endpoint).
+// Text generation uses an OpenAI-compatible primary provider with Inception fallback.
+const OPENAI_BASE_URL = (() => {
+    const raw = String(process.env.OPENAI_BASE_URL || "https://api.openai.com/v1/").trim();
+    if (!raw) return "https://api.openai.com/v1/";
+    return raw.endsWith("/") ? raw : `${raw}/`;
+})();
+const OPENAI_BASE_URL_IS_PLACEHOLDER = /your_resource_name/i.test(OPENAI_BASE_URL);
+const OPENAI_MODEL = String(process.env.OPENAI_MODEL || "gpt-5.4-mini").trim() || "gpt-5.4-mini";
 const INCEPTION_BASE_URL = process.env.INCEPTION_BASE_URL || "https://api.inceptionlabs.ai/v1";
 const INCEPTION_MODEL = process.env.INCEPTION_MODEL || "mercury-2";
-const DEFAULT_MODEL = INCEPTION_MODEL;
-const DEFAULT_TIMEOUT_MS = Number(process.env.INCEPTION_TIMEOUT_MS || 60000);
+const DEFAULT_MODEL = OPENAI_MODEL;
+const DEFAULT_TIMEOUT_MS = Number(process.env.OPENAI_TIMEOUT_MS || 60000);
+const INCEPTION_TIMEOUT_MS = Number(process.env.INCEPTION_TIMEOUT_MS || DEFAULT_TIMEOUT_MS);
 const INCEPTION_MAX_RETRIES = (() => {
     const parsed = Number(process.env.INCEPTION_MAX_RETRIES || 2);
     if (!Number.isFinite(parsed)) return 2;
@@ -191,12 +199,6 @@ const CONCEPT_EXERCISE_HISTORY_LIMIT = 8;
 const CONCEPT_EXERCISE_MAX_ATTEMPTS = 3;
 const GEMINI_BASE_URL = process.env.GEMINI_BASE_URL || "https://generativelanguage.googleapis.com/v1beta";
 const GEMINI_IMAGE_MODEL = process.env.GEMINI_IMAGE_MODEL || "gemini-2.0-flash-exp-image-generation";
-const GEMINI_TEXT_MODEL = String(process.env.GEMINI_TEXT_MODEL || "gemini-2.5-flash").trim();
-const GEMINI_TEXT_TIMEOUT_MS = (() => {
-    const parsed = Number(process.env.GEMINI_TEXT_TIMEOUT_MS || DEFAULT_TIMEOUT_MS);
-    if (!Number.isFinite(parsed)) return DEFAULT_TIMEOUT_MS;
-    return Math.max(2_000, Math.min(120_000, Math.round(parsed)));
-})();
 const GEMINI_TIMEOUT_MS = Number(process.env.GEMINI_TIMEOUT_MS || 45000);
 const TOPIC_PLACEHOLDER_ILLUSTRATION_URL =
     String(process.env.TOPIC_PLACEHOLDER_ILLUSTRATION_URL || "/topic-placeholder.svg").trim()
@@ -262,30 +264,12 @@ interface InceptionErrorPayload {
     };
 }
 
-interface GeminiGenerateContentResponse {
-    candidates?: Array<{
-        content?: {
-            parts?: Array<{
-                text?: string;
-                inlineData?: {
-                    mimeType?: string;
-                    data?: string;
-                };
-            }>;
-        };
-    }>;
-    usageMetadata?: {
-        promptTokenCount?: number;
-        candidatesTokenCount?: number;
-        totalTokenCount?: number;
-    };
-}
-
-interface GeminiErrorPayload {
+interface OpenAiErrorPayload {
     error?: {
         code?: number | string;
         message?: string;
-        status?: string;
+        type?: string;
+        param?: string;
     };
 }
 
@@ -507,115 +491,39 @@ async function callInception(
     model: string = DEFAULT_MODEL,
     options?: { temperature?: number; maxTokens?: number; timeoutMs?: number; responseFormat?: "json_object" }
 ): Promise<string> {
-    const callGeminiText = async (fallbackReason: string) => {
-        const geminiApiKey = String(process.env.GEMINI_API_KEY || "").trim();
-        if (!geminiApiKey) {
-            throw new Error("GEMINI_API_KEY environment variable not set.");
-        }
+    const openAiApiKey = String(process.env.OPENAI_API_KEY || "").trim();
+    const inceptionApiKey = String(process.env.INCEPTION_API_KEY || "").trim();
+    const timeoutMs = options?.timeoutMs ?? DEFAULT_TIMEOUT_MS;
 
-        const systemInstruction = messages
-            .filter((message) => message?.role === "system")
-            .map((message) => String(message?.content || "").trim())
-            .filter(Boolean)
-            .join("\n\n");
-
-        const contents = messages
-            .filter((message) => message?.role !== "system")
-            .map((message) => ({
-                role: message.role === "assistant" ? "model" : "user",
-                parts: [{ text: String(message?.content || "") }],
-            }))
-            .filter((entry) => entry.parts[0]?.text.trim().length > 0);
-
-        if (contents.length === 0) {
-            contents.push({
-                role: "user",
-                parts: [{ text: "Follow the provided instructions and return the requested output." }],
-            });
-        }
-
-        const controller = new AbortController();
-        const timeoutMs = options?.timeoutMs ?? GEMINI_TEXT_TIMEOUT_MS;
-        const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+    const parseOpenAiError = (raw: string) => {
+        const text = String(raw || "").trim();
+        if (!text) return { message: "", code: "", type: "", param: "" };
         try {
-            const response = await fetch(
-                `${GEMINI_BASE_URL}/models/${GEMINI_TEXT_MODEL}:generateContent?key=${geminiApiKey}`,
-                {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    signal: controller.signal,
-                    body: JSON.stringify({
-                        systemInstruction: systemInstruction
-                            ? { parts: [{ text: systemInstruction }] }
-                            : undefined,
-                        contents,
-                        generationConfig: {
-                            temperature: options?.temperature ?? 0.3,
-                            maxOutputTokens: options?.maxTokens ?? 2048,
-                            responseMimeType:
-                                options?.responseFormat === "json_object"
-                                    ? "application/json"
-                                    : "text/plain",
-                        },
-                    }),
-                }
-            );
-
-            if (!response.ok) {
-                const raw = await response.text().catch(() => "");
-                let detail = String(raw || "").trim();
-                try {
-                    const parsed = JSON.parse(raw || "{}") as GeminiErrorPayload;
-                    const errorPayload = parsed?.error;
-                    const labels = [errorPayload?.code, errorPayload?.status]
-                        .filter((value) => value !== undefined && value !== null && value !== "")
-                        .join(", ");
-                    const message = String(errorPayload?.message || "").trim();
-                    detail = labels ? `${labels} - ${message || detail}` : message || detail;
-                } catch {
-                    // keep raw text detail
-                }
-                throw new Error(`gemini API error: ${response.status} - ${detail || "Unknown provider error."}`);
+            const parsed = JSON.parse(text) as OpenAiErrorPayload;
+            const message = typeof parsed?.error?.message === "string" ? parsed.error.message.trim() : "";
+            const code =
+                parsed?.error?.code !== undefined && parsed?.error?.code !== null
+                    ? String(parsed.error.code).trim()
+                    : "";
+            const type = typeof parsed?.error?.type === "string" ? parsed.error.type.trim() : "";
+            const param = typeof parsed?.error?.param === "string" ? parsed.error.param.trim() : "";
+            if (message || code || type || param) {
+                return { message, code, type, param };
             }
-
-            const payload = await response.json() as GeminiGenerateContentResponse;
-            const responseText = (payload?.candidates || [])
-                .flatMap((candidate) => candidate?.content?.parts || [])
-                .map((part) => String(part?.text || ""))
-                .join("")
-                .trim();
-
-            if (!responseText) {
-                throw new Error("gemini API error: empty response.");
-            }
-
-            await recordLlmUsage({
-                provider: "gemini",
-                model: GEMINI_TEXT_MODEL,
-                promptTokens: payload?.usageMetadata?.promptTokenCount,
-                completionTokens: payload?.usageMetadata?.candidatesTokenCount,
-                totalTokens: payload?.usageMetadata?.totalTokenCount,
-            });
-
-            console.warn("[LLM] inception_fallback_to_gemini", {
-                model,
-                fallbackReason,
-                geminiModel: GEMINI_TEXT_MODEL,
-            });
-            return responseText;
-        } finally {
-            clearTimeout(timeoutId);
+        } catch {
+            // no-op: return plain text body
         }
+        return { message: text, code: "", type: "", param: "" };
     };
 
-    const timeoutMs = options?.timeoutMs ?? DEFAULT_TIMEOUT_MS;
-    const inceptionApiKey = String(process.env.INCEPTION_API_KEY || "").trim();
-    if (!inceptionApiKey) {
-        if (String(process.env.GEMINI_API_KEY || "").trim()) {
-            return callGeminiText("missing_inception_api_key");
-        }
-        throw new Error("INCEPTION_API_KEY environment variable not set.");
-    }
+    const formatOpenAiApiError = (status: number, raw: string) => {
+        const parsed = parseOpenAiError(raw);
+        const labels = Array.from(new Set([parsed.code, parsed.type, parsed.param].filter(Boolean))).join(", ");
+        const detail = parsed.message || String(raw || "").trim() || "Unknown provider error.";
+        return labels
+            ? `openai API error: ${status} (${labels}) - ${detail}`
+            : `openai API error: ${status} - ${detail}`;
+    };
 
     const parseInceptionError = (raw: string) => {
         const text = String(raw || "").trim();
@@ -648,7 +556,14 @@ async function callInception(
     const retryableStatuses = new Set([429, 500, 503]);
     const maxAttempts = INCEPTION_MAX_RETRIES + 1;
 
-    for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
+    const callOpenAiText = async () => {
+        if (!openAiApiKey) {
+            throw new Error("OPENAI_API_KEY environment variable not set.");
+        }
+        if (OPENAI_BASE_URL_IS_PLACEHOLDER) {
+            throw new Error("OPENAI_BASE_URL environment variable not configured.");
+        }
+
         const controller = new AbortController();
         let timeoutId: ReturnType<typeof setTimeout> | null = null;
 
@@ -656,21 +571,22 @@ async function callInception(
             const timeoutPromise = new Promise<never>((_, reject) => {
                 timeoutId = setTimeout(() => {
                     controller.abort();
-                    reject(new Error(`inception request timed out after ${timeoutMs}ms`));
+                    reject(new Error(`openai request timed out after ${timeoutMs}ms`));
                 }, timeoutMs);
             });
 
-            const requestPromise = fetch(`${INCEPTION_BASE_URL}/chat/completions`, {
+            const requestPromise = fetch(new URL("chat/completions", OPENAI_BASE_URL).toString(), {
                 method: "POST",
                 headers: {
                     "Content-Type": "application/json",
-                    Authorization: `Bearer ${inceptionApiKey}`,
+                    Authorization: `Bearer ${openAiApiKey}`,
+                    "api-key": openAiApiKey,
                 },
                 body: JSON.stringify({
                     model,
                     messages,
                     temperature: options?.temperature ?? 0.3,
-                    max_tokens: options?.maxTokens ?? 2048,
+                    max_completion_tokens: options?.maxTokens ?? 2048,
                     response_format: options?.responseFormat ? { type: options.responseFormat } : undefined,
                 }),
                 signal: controller.signal,
@@ -683,35 +599,25 @@ async function callInception(
             }
 
             if (!response.ok) {
-                const errorText = await response.text();
-                const isRetryableStatus = retryableStatuses.has(response.status);
-                const isLastAttempt = attempt >= maxAttempts - 1;
-                const formattedError = formatInceptionApiError(response.status, errorText);
-                if (
-                    !isRetryableStatus &&
-                    shouldFallbackToGeminiText({
-                        errorMessage: formattedError,
-                        geminiApiKey: process.env.GEMINI_API_KEY,
-                    })
-                ) {
-                    return callGeminiText(`hard_inception_failure:${response.status}`);
-                }
-                if (isRetryableStatus && !isLastAttempt) {
-                    await sleep(retryDelayForAttempt(attempt));
-                    continue;
-                }
-                throw new Error(formattedError);
+                const errorText = await response.text().catch(() => "");
+                throw new Error(formatOpenAiApiError(response.status, errorText));
             }
 
             const data: ChatCompletionResponse = await response.json();
+            const responseText = String(data?.choices?.[0]?.message?.content || "").trim();
+            if (!responseText) {
+                throw new Error("openai API error: empty response.");
+            }
+
             await recordLlmUsage({
-                provider: "inception",
+                provider: "openai",
                 model,
                 promptTokens: data?.usage?.prompt_tokens,
                 completionTokens: data?.usage?.completion_tokens,
                 totalTokens: data?.usage?.total_tokens,
             });
-            return data.choices[0]?.message?.content || "";
+
+            return responseText;
         } catch (error) {
             if (timeoutId) {
                 clearTimeout(timeoutId);
@@ -719,33 +625,148 @@ async function callInception(
 
             const errorMessage = error instanceof Error ? error.message : String(error);
             const lowerError = errorMessage.toLowerCase();
-            const isRetryableNetworkError =
-                lowerError.includes("timed out")
-                || lowerError.includes("aborted")
-                || lowerError.includes("network")
-                || lowerError.includes("failed to fetch");
-            if (
-                shouldFallbackToGeminiText({
-                    errorMessage,
-                    geminiApiKey: process.env.GEMINI_API_KEY,
-                })
-            ) {
-                return callGeminiText("hard_inception_error");
-            }
-            const isLastAttempt = attempt >= maxAttempts - 1;
-            if (isRetryableNetworkError && !isLastAttempt) {
-                await sleep(retryDelayForAttempt(attempt));
-                continue;
-            }
-
             if (lowerError.includes("timed out") || lowerError.includes("aborted")) {
-                throw new Error(`inception request timed out after ${timeoutMs}ms`);
+                throw new Error(`openai request timed out after ${timeoutMs}ms`);
+            }
+            if (lowerError.includes("network") || lowerError.includes("failed to fetch")) {
+                throw new Error(`openai API error: network - ${errorMessage}`);
             }
             throw error;
         }
+    };
+
+    const callInceptionText = async () => {
+        if (!inceptionApiKey) {
+            throw new Error("INCEPTION_API_KEY environment variable not set.");
+        }
+
+        const inceptionTimeoutMs = options?.timeoutMs ?? INCEPTION_TIMEOUT_MS;
+        const inceptionModel = String(process.env.INCEPTION_MODEL || "mercury-2").trim() || "mercury-2";
+
+        for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
+            const controller = new AbortController();
+            let timeoutId: ReturnType<typeof setTimeout> | null = null;
+
+            try {
+                const timeoutPromise = new Promise<never>((_, reject) => {
+                    timeoutId = setTimeout(() => {
+                        controller.abort();
+                        reject(new Error(`inception request timed out after ${inceptionTimeoutMs}ms`));
+                    }, inceptionTimeoutMs);
+                });
+
+                const requestPromise = fetch(`${INCEPTION_BASE_URL}/chat/completions`, {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json",
+                        Authorization: `Bearer ${inceptionApiKey}`,
+                    },
+                    body: JSON.stringify({
+                        model: inceptionModel,
+                        messages,
+                        temperature: options?.temperature ?? 0.3,
+                        max_tokens: options?.maxTokens ?? 2048,
+                        response_format: options?.responseFormat ? { type: options.responseFormat } : undefined,
+                    }),
+                    signal: controller.signal,
+                });
+
+                const response: Response = await Promise.race([requestPromise, timeoutPromise]);
+                if (timeoutId) {
+                    clearTimeout(timeoutId);
+                    timeoutId = null;
+                }
+
+                if (!response.ok) {
+                    const errorText = await response.text();
+                    const isRetryableStatus = retryableStatuses.has(response.status);
+                    const isLastAttempt = attempt >= maxAttempts - 1;
+                    const formattedError = formatInceptionApiError(response.status, errorText);
+                    if (isRetryableStatus && !isLastAttempt) {
+                        await sleep(retryDelayForAttempt(attempt));
+                        continue;
+                    }
+                    throw new Error(formattedError);
+                }
+
+                const data: ChatCompletionResponse = await response.json();
+                await recordLlmUsage({
+                    provider: "inception",
+                    model: inceptionModel,
+                    promptTokens: data?.usage?.prompt_tokens,
+                    completionTokens: data?.usage?.completion_tokens,
+                    totalTokens: data?.usage?.total_tokens,
+                });
+                return data.choices[0]?.message?.content || "";
+            } catch (error) {
+                if (timeoutId) {
+                    clearTimeout(timeoutId);
+                }
+
+                const errorMessage = error instanceof Error ? error.message : String(error);
+                const lowerError = errorMessage.toLowerCase();
+                const isRetryableNetworkError =
+                    lowerError.includes("timed out")
+                    || lowerError.includes("aborted")
+                    || lowerError.includes("network")
+                    || lowerError.includes("failed to fetch");
+                const isLastAttempt = attempt >= maxAttempts - 1;
+                if (isRetryableNetworkError && !isLastAttempt) {
+                    await sleep(retryDelayForAttempt(attempt));
+                    continue;
+                }
+
+                if (lowerError.includes("timed out") || lowerError.includes("aborted")) {
+                    throw new Error(`inception request timed out after ${inceptionTimeoutMs}ms`);
+                }
+                throw error;
+            }
+        }
+
+        throw new Error("inception request failed after retries.");
+    };
+
+    if (!openAiApiKey) {
+        if (inceptionApiKey) {
+            console.warn("[LLM] primary_provider_unavailable_using_fallback", {
+                primaryProvider: "openai",
+                fallbackProvider: "inception",
+                reason: "missing_openai_api_key",
+                fallbackModel: INCEPTION_MODEL,
+            });
+            return callInceptionText();
+        }
+        throw new Error("OPENAI_API_KEY environment variable not set.");
+    }
+    if (OPENAI_BASE_URL_IS_PLACEHOLDER) {
+        if (inceptionApiKey) {
+            console.warn("[LLM] primary_provider_unavailable_using_fallback", {
+                primaryProvider: "openai",
+                fallbackProvider: "inception",
+                reason: "invalid_openai_base_url",
+                fallbackModel: INCEPTION_MODEL,
+            });
+            return callInceptionText();
+        }
+        throw new Error("OPENAI_BASE_URL environment variable not configured.");
     }
 
-    throw new Error("inception request failed after retries.");
+    try {
+        return await callOpenAiText();
+    } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : String(error);
+        if (shouldFallbackToInceptionText({ errorMessage, inceptionApiKey })) {
+            console.warn("[LLM] primary_provider_failed_using_fallback", {
+                primaryProvider: "openai",
+                fallbackProvider: "inception",
+                primaryModel: model,
+                fallbackModel: INCEPTION_MODEL,
+                message: errorMessage,
+            });
+            return callInceptionText();
+        }
+        throw error;
+    }
 }
 
 const buildTopicIllustrationPrompt = (args: {
@@ -2029,7 +2050,11 @@ const normalizeAssignmentProcessingErrorMessage = (error: unknown) => {
         return message;
     }
     if (
-        /inception_api_key environment variable not set/i.test(message)
+        /openai_api_key environment variable not set/i.test(message)
+        || /openai_base_url environment variable not configured/i.test(message)
+        || /openai request timed out/i.test(message)
+        || /openai api error/i.test(message)
+        || /inception_api_key environment variable not set/i.test(message)
         || /inception request timed out/i.test(message)
         || /inception api error/i.test(message)
     ) {
