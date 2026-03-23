@@ -214,6 +214,8 @@ const ESSAY_QUESTION_REQUEST_TIMEOUT_MS = 18_000;
 const ESSAY_QUESTION_REPAIR_TIMEOUT_MS = 3_000;
 const ESSAY_QUESTION_TIME_BUDGET_MS = 30_000;
 const ESSAY_QUESTION_MAX_BATCH_ATTEMPTS = 2;
+const MCQ_QUESTION_BACKGROUND_RETRY_DELAY_MS = 20_000;
+const MCQ_QUESTION_BACKGROUND_MAX_RETRIES = 4;
 const ESSAY_QUESTION_BACKGROUND_RETRY_DELAY_MS = 20_000;
 const ESSAY_QUESTION_BACKGROUND_MAX_RETRIES = 4;
 const TOPIC_EXAM_PREBUILD_ESSAY_COUNT = 15;
@@ -6366,10 +6368,12 @@ const countUsableUniqueMcqQuestions = (questions: any[]) => {
 export const generateQuestionsForTopicInternal = internalAction({
     args: {
         topicId: v.id("topics"),
+        retryAttempt: v.optional(v.number()),
     },
     handler: async (ctx, args) => {
         const trackingUserId = await getTopicOwnerUserIdForTracking(ctx, args.topicId);
         return await runWithLlmUsageContext(ctx, trackingUserId, "mcq_generation", async () => {
+            const retryAttempt = Math.max(0, Math.round(Number(args.retryAttempt || 0)));
             const lockStartedAt = Date.now();
             const lock: any = await acquireMcqGenerationLock(ctx, args.topicId);
             const lockProbeMs = normalizeTimingMs(Date.now() - lockStartedAt);
@@ -6395,8 +6399,9 @@ export const generateQuestionsForTopicInternal = internalAction({
                     },
                 };
             }
+            let result: any;
             try {
-                return await generateQuestionBankForTopic(
+                result = await generateQuestionBankForTopic(
                     ctx,
                     args.topicId,
                     QUESTION_BANK_BACKGROUND_PROFILE,
@@ -6410,6 +6415,57 @@ export const generateQuestionsForTopicInternal = internalAction({
             } finally {
                 await releaseMcqGenerationLock(ctx, args.topicId);
             }
+
+            const desiredReadyCount = Math.max(
+                1,
+                Math.round(
+                    Number(
+                        result?.targetCount
+                        || calculateQuestionBankTarget("", QUESTION_BANK_BACKGROUND_PROFILE)
+                    )
+                )
+            );
+            const currentCount = Number(result?.count || 0);
+            const madeProgress = Number(result?.added || 0) > 0;
+            const timedOut = result?.timedOut === true;
+            const insufficientEvidence = result?.abstained === true || String(result?.reason || "") === "INSUFFICIENT_EVIDENCE";
+            const shouldRetry =
+                currentCount < desiredReadyCount
+                && !insufficientEvidence
+                && (timedOut || madeProgress)
+                && retryAttempt < MCQ_QUESTION_BACKGROUND_MAX_RETRIES;
+
+            if (shouldRetry) {
+                void ctx.scheduler.runAfter(
+                    MCQ_QUESTION_BACKGROUND_RETRY_DELAY_MS,
+                    internal.ai.generateQuestionsForTopicInternal,
+                    {
+                        topicId: args.topicId,
+                        retryAttempt: retryAttempt + 1,
+                    }
+                ).then(() => {
+                    console.info("[QuestionBank] retry_scheduled", {
+                        topicId: args.topicId,
+                        currentCount,
+                        desiredReadyCount,
+                        retryAttempt: retryAttempt + 1,
+                        maxRetries: MCQ_QUESTION_BACKGROUND_MAX_RETRIES,
+                        retryDelayMs: MCQ_QUESTION_BACKGROUND_RETRY_DELAY_MS,
+                    });
+                }).catch((scheduleError) => {
+                    console.warn("[QuestionBank] retry_schedule_failed", {
+                        topicId: args.topicId,
+                        retryAttempt: retryAttempt + 1,
+                        message: scheduleError instanceof Error ? scheduleError.message : String(scheduleError),
+                    });
+                });
+            }
+
+            return {
+                ...result,
+                retryAttempt,
+                retryScheduled: shouldRetry,
+            };
         });
     },
 });
