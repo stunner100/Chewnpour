@@ -62,7 +62,10 @@ import {
     buildEvidenceSnippet,
     createGroundedAcceptanceMetrics,
 } from "./lib/groundedContentPipeline";
-import { shouldFallbackToInceptionText } from "./lib/llmProviderFallback";
+import {
+    shouldFallbackToInceptionText,
+    shouldFallbackToOpenAiText,
+} from "./lib/llmProviderFallback";
 import { createVoiceStreamToken } from "./lib/voiceStreamToken";
 
 // Text generation uses an OpenAI-compatible primary provider with Inception fallback.
@@ -284,8 +287,18 @@ type LlmUsageContext = {
     userId: string;
     feature: string;
 };
+type TextProvider = "openai" | "inception";
 
 const llmUsageContextStorage = new AsyncLocalStorage<LlmUsageContext>();
+const INCEPTION_PRIMARY_FEATURES = new Set([
+    "assignment_follow_up",
+    "topic_tutor",
+]);
+const OPENAI_PRIMARY_FEATURES = new Set([
+    "course_generation",
+    "mcq_generation",
+    "essay_generation",
+]);
 
 const parseBackendSentryEnvelopeConfig = (dsn: string): BackendSentryEnvelopeConfig | null => {
     const trimmed = String(dsn || "").trim();
@@ -486,6 +499,17 @@ const getTopicOwnerUserIdForTracking = async (ctx: any, topicId: any) => {
     return String(owner?.userId || "").trim();
 };
 
+const resolvePreferredTextProvider = (): TextProvider => {
+    const feature = String(llmUsageContextStorage.getStore()?.feature || "").trim();
+    if (INCEPTION_PRIMARY_FEATURES.has(feature)) {
+        return "inception";
+    }
+    if (OPENAI_PRIMARY_FEATURES.has(feature)) {
+        return "openai";
+    }
+    return "openai";
+};
+
 async function callInception(
     messages: Message[],
     model: string = DEFAULT_MODEL,
@@ -494,6 +518,9 @@ async function callInception(
     const openAiApiKey = String(process.env.OPENAI_API_KEY || "").trim();
     const inceptionApiKey = String(process.env.INCEPTION_API_KEY || "").trim();
     const timeoutMs = options?.timeoutMs ?? DEFAULT_TIMEOUT_MS;
+    const llmFeature = String(llmUsageContextStorage.getStore()?.feature || "unknown").trim() || "unknown";
+    const preferredProvider = resolvePreferredTextProvider();
+    const openAiAvailable = Boolean(openAiApiKey) && !OPENAI_BASE_URL_IS_PLACEHOLDER;
 
     const parseOpenAiError = (raw: string) => {
         const text = String(raw || "").trim();
@@ -726,9 +753,44 @@ async function callInception(
         throw new Error("inception request failed after retries.");
     };
 
+    if (preferredProvider === "inception") {
+        if (!inceptionApiKey) {
+            if (openAiAvailable) {
+                console.warn("[LLM] primary_provider_unavailable_using_fallback", {
+                    feature: llmFeature,
+                    primaryProvider: "inception",
+                    fallbackProvider: "openai",
+                    reason: "missing_inception_api_key",
+                    fallbackModel: model,
+                });
+                return callOpenAiText();
+            }
+            throw new Error("INCEPTION_API_KEY environment variable not set.");
+        }
+
+        try {
+            return await callInceptionText();
+        } catch (error) {
+            const errorMessage = error instanceof Error ? error.message : String(error);
+            if (shouldFallbackToOpenAiText({ errorMessage, openAiAvailable })) {
+                console.warn("[LLM] primary_provider_failed_using_fallback", {
+                    feature: llmFeature,
+                    primaryProvider: "inception",
+                    fallbackProvider: "openai",
+                    primaryModel: INCEPTION_MODEL,
+                    fallbackModel: model,
+                    message: errorMessage,
+                });
+                return callOpenAiText();
+            }
+            throw error;
+        }
+    }
+
     if (!openAiApiKey) {
         if (inceptionApiKey) {
             console.warn("[LLM] primary_provider_unavailable_using_fallback", {
+                feature: llmFeature,
                 primaryProvider: "openai",
                 fallbackProvider: "inception",
                 reason: "missing_openai_api_key",
@@ -741,6 +803,7 @@ async function callInception(
     if (OPENAI_BASE_URL_IS_PLACEHOLDER) {
         if (inceptionApiKey) {
             console.warn("[LLM] primary_provider_unavailable_using_fallback", {
+                feature: llmFeature,
                 primaryProvider: "openai",
                 fallbackProvider: "inception",
                 reason: "invalid_openai_base_url",
@@ -757,6 +820,7 @@ async function callInception(
         const errorMessage = error instanceof Error ? error.message : String(error);
         if (shouldFallbackToInceptionText({ errorMessage, inceptionApiKey })) {
             console.warn("[LLM] primary_provider_failed_using_fallback", {
+                feature: llmFeature,
                 primaryProvider: "openai",
                 fallbackProvider: "inception",
                 primaryModel: model,

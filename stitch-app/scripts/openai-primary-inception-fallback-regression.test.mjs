@@ -13,6 +13,30 @@ if (!aiSource.includes("const DEFAULT_MODEL = OPENAI_MODEL;")) {
     throw new Error("Expected DEFAULT_MODEL to use OPENAI_MODEL.");
 }
 
+if (!aiSource.includes('const INCEPTION_PRIMARY_FEATURES = new Set([')) {
+    throw new Error("Expected an explicit Inception feature-routing set.");
+}
+
+if (!aiSource.includes('"assignment_follow_up"') || !aiSource.includes('"topic_tutor"')) {
+    throw new Error("Expected assignment and topic chat features to route to Inception.");
+}
+
+if (!aiSource.includes('const OPENAI_PRIMARY_FEATURES = new Set([')) {
+    throw new Error("Expected an explicit OpenAI feature-routing set.");
+}
+
+if (!aiSource.includes('"course_generation"') || !aiSource.includes('"mcq_generation"') || !aiSource.includes('"essay_generation"')) {
+    throw new Error("Expected course, MCQ, and essay generation features to route to OpenAI.");
+}
+
+if (!aiSource.includes("const preferredProvider = resolvePreferredTextProvider();")) {
+    throw new Error("Expected provider resolution to use the LLM usage feature context.");
+}
+
+if (!aiSource.includes('if (preferredProvider === "inception")')) {
+    throw new Error("Expected a dedicated Inception-primary branch for chat features.");
+}
+
 if (!aiSource.includes("OPENAI_API_KEY environment variable not set.")) {
     throw new Error("Expected primary OpenAI API key validation error.");
 }
@@ -47,6 +71,10 @@ if (!aiSource.includes("Authorization: `Bearer ${openAiApiKey}`")) {
 
 if (!aiSource.includes("return callInceptionText();")) {
     throw new Error("Expected fallback path to route into Inception.");
+}
+
+if (!aiSource.includes("return callOpenAiText();")) {
+    throw new Error("Expected chat-side fallback path to route into OpenAI.");
 }
 
 if (!envExample.includes("OPENAI_API_KEY=") || !envExample.includes("OPENAI_BASE_URL=") || !envExample.includes("OPENAI_MODEL=")) {
