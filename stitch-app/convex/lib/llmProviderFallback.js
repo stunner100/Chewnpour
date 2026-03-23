@@ -22,8 +22,37 @@ export const isOpenAiProviderFailure = (message) => {
     ].some((token) => normalized.includes(token));
 };
 
+export const shouldFallbackToBedrockText = ({ errorMessage, bedrockAvailable }) => {
+    return Boolean(bedrockAvailable) && isOpenAiProviderFailure(errorMessage);
+};
+
 export const shouldFallbackToInceptionText = ({ errorMessage, inceptionApiKey }) => {
-    return Boolean(String(inceptionApiKey || "").trim()) && isOpenAiProviderFailure(errorMessage);
+    return Boolean(String(inceptionApiKey || "").trim())
+        && (isOpenAiProviderFailure(errorMessage) || isBedrockProviderFailure(errorMessage));
+};
+
+export const isBedrockProviderFailure = (message) => {
+    const normalized = String(message || "").toLowerCase();
+    if (!normalized) return false;
+    return [
+        "bedrock api error",
+        "bedrock request timed out",
+        "throttling",
+        "too many requests",
+        "rate_limit",
+        "rate limit",
+        "incorrect api key",
+        "invalid api key",
+        "unauthorized",
+        "invalid authentication",
+        "access denied",
+        "forbidden",
+        "failed to fetch",
+        "network",
+        "aborted",
+        "server_error",
+        "internal server error",
+    ].some((token) => normalized.includes(token));
 };
 
 export const isInceptionProviderFailure = (message) => {

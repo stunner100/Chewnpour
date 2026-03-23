@@ -63,12 +63,13 @@ import {
     createGroundedAcceptanceMetrics,
 } from "./lib/groundedContentPipeline";
 import {
+    shouldFallbackToBedrockText,
     shouldFallbackToInceptionText,
     shouldFallbackToOpenAiText,
 } from "./lib/llmProviderFallback";
 import { createVoiceStreamToken } from "./lib/voiceStreamToken";
 
-// Text generation uses an OpenAI-compatible primary provider with Inception fallback.
+// Text generation routes by feature and uses OpenAI -> Bedrock -> Inception fallback for generation.
 const OPENAI_BASE_URL = (() => {
     const raw = String(process.env.OPENAI_BASE_URL || "https://api.openai.com/v1/").trim();
     if (!raw) return "https://api.openai.com/v1/";
@@ -76,10 +77,17 @@ const OPENAI_BASE_URL = (() => {
 })();
 const OPENAI_BASE_URL_IS_PLACEHOLDER = /your_resource_name/i.test(OPENAI_BASE_URL);
 const OPENAI_MODEL = String(process.env.OPENAI_MODEL || "gpt-5.4-mini").trim() || "gpt-5.4-mini";
+const BEDROCK_BASE_URL = (() => {
+    const raw = String(process.env.BEDROCK_BASE_URL || "https://bedrock-runtime.us-east-1.amazonaws.com/openai/v1/").trim();
+    if (!raw) return "https://bedrock-runtime.us-east-1.amazonaws.com/openai/v1/";
+    return raw.endsWith("/") ? raw : `${raw}/`;
+})();
+const BEDROCK_MODEL = String(process.env.BEDROCK_MODEL || "moonshotai.kimi-k2.5").trim() || "moonshotai.kimi-k2.5";
 const INCEPTION_BASE_URL = process.env.INCEPTION_BASE_URL || "https://api.inceptionlabs.ai/v1";
 const INCEPTION_MODEL = process.env.INCEPTION_MODEL || "mercury-2";
 const DEFAULT_MODEL = OPENAI_MODEL;
 const DEFAULT_TIMEOUT_MS = Number(process.env.OPENAI_TIMEOUT_MS || 60000);
+const BEDROCK_TIMEOUT_MS = Number(process.env.BEDROCK_TIMEOUT_MS || DEFAULT_TIMEOUT_MS);
 const INCEPTION_TIMEOUT_MS = Number(process.env.INCEPTION_TIMEOUT_MS || DEFAULT_TIMEOUT_MS);
 const INCEPTION_MAX_RETRIES = (() => {
     const parsed = Number(process.env.INCEPTION_MAX_RETRIES || 2);
@@ -516,11 +524,14 @@ async function callInception(
     options?: { temperature?: number; maxTokens?: number; timeoutMs?: number; responseFormat?: "json_object" }
 ): Promise<string> {
     const openAiApiKey = String(process.env.OPENAI_API_KEY || "").trim();
+    const bedrockApiKey = String(process.env.BEDROCK_API_KEY || "").trim();
     const inceptionApiKey = String(process.env.INCEPTION_API_KEY || "").trim();
     const timeoutMs = options?.timeoutMs ?? DEFAULT_TIMEOUT_MS;
     const llmFeature = String(llmUsageContextStorage.getStore()?.feature || "unknown").trim() || "unknown";
     const preferredProvider = resolvePreferredTextProvider();
     const openAiAvailable = Boolean(openAiApiKey) && !OPENAI_BASE_URL_IS_PLACEHOLDER;
+    const bedrockAvailable = Boolean(bedrockApiKey);
+    const openAiOrBedrockAvailable = openAiAvailable || bedrockAvailable;
 
     const parseOpenAiError = (raw: string) => {
         const text = String(raw || "").trim();
@@ -550,6 +561,15 @@ async function callInception(
         return labels
             ? `openai API error: ${status} (${labels}) - ${detail}`
             : `openai API error: ${status} - ${detail}`;
+    };
+
+    const formatBedrockApiError = (status: number, raw: string) => {
+        const parsed = parseOpenAiError(raw);
+        const labels = Array.from(new Set([parsed.code, parsed.type, parsed.param].filter(Boolean))).join(", ");
+        const detail = parsed.message || String(raw || "").trim() || "Unknown provider error.";
+        return labels
+            ? `bedrock API error: ${status} (${labels}) - ${detail}`
+            : `bedrock API error: ${status} - ${detail}`;
     };
 
     const parseInceptionError = (raw: string) => {
@@ -662,6 +682,82 @@ async function callInception(
         }
     };
 
+    const callBedrockText = async () => {
+        if (!bedrockApiKey) {
+            throw new Error("BEDROCK_API_KEY environment variable not set.");
+        }
+
+        const bedrockTimeoutMs = options?.timeoutMs ?? BEDROCK_TIMEOUT_MS;
+        const controller = new AbortController();
+        let timeoutId: ReturnType<typeof setTimeout> | null = null;
+
+        try {
+            const timeoutPromise = new Promise<never>((_, reject) => {
+                timeoutId = setTimeout(() => {
+                    controller.abort();
+                    reject(new Error(`bedrock request timed out after ${bedrockTimeoutMs}ms`));
+                }, bedrockTimeoutMs);
+            });
+
+            const requestPromise = fetch(new URL("chat/completions", BEDROCK_BASE_URL).toString(), {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    Authorization: `Bearer ${bedrockApiKey}`,
+                },
+                body: JSON.stringify({
+                    model: BEDROCK_MODEL,
+                    messages,
+                    temperature: options?.temperature ?? 0.3,
+                    max_completion_tokens: options?.maxTokens ?? 2048,
+                    response_format: options?.responseFormat ? { type: options.responseFormat } : undefined,
+                }),
+                signal: controller.signal,
+            });
+
+            const response: Response = await Promise.race([requestPromise, timeoutPromise]);
+            if (timeoutId) {
+                clearTimeout(timeoutId);
+                timeoutId = null;
+            }
+
+            if (!response.ok) {
+                const errorText = await response.text().catch(() => "");
+                throw new Error(formatBedrockApiError(response.status, errorText));
+            }
+
+            const data: ChatCompletionResponse = await response.json();
+            const responseText = String(data?.choices?.[0]?.message?.content || "").trim();
+            if (!responseText) {
+                throw new Error("bedrock API error: empty response.");
+            }
+
+            await recordLlmUsage({
+                provider: "bedrock",
+                model: BEDROCK_MODEL,
+                promptTokens: data?.usage?.prompt_tokens,
+                completionTokens: data?.usage?.completion_tokens,
+                totalTokens: data?.usage?.total_tokens,
+            });
+
+            return responseText;
+        } catch (error) {
+            if (timeoutId) {
+                clearTimeout(timeoutId);
+            }
+
+            const errorMessage = error instanceof Error ? error.message : String(error);
+            const lowerError = errorMessage.toLowerCase();
+            if (lowerError.includes("timed out") || lowerError.includes("aborted")) {
+                throw new Error(`bedrock request timed out after ${bedrockTimeoutMs}ms`);
+            }
+            if (lowerError.includes("network") || lowerError.includes("failed to fetch")) {
+                throw new Error(`bedrock API error: network - ${errorMessage}`);
+            }
+            throw error;
+        }
+    };
+
     const callInceptionText = async () => {
         if (!inceptionApiKey) {
             throw new Error("INCEPTION_API_KEY environment variable not set.");
@@ -753,17 +849,138 @@ async function callInception(
         throw new Error("inception request failed after retries.");
     };
 
+    const callBedrockWithOptionalInceptionFallback = async (args: {
+        sourceProvider: "openai" | "inception";
+        sourceModel: string;
+        sourceMessage: string;
+        allowInceptionFallback: boolean;
+    }) => {
+        try {
+            return await callBedrockText();
+        } catch (error) {
+            const errorMessage = error instanceof Error ? error.message : String(error);
+            if (args.allowInceptionFallback && shouldFallbackToInceptionText({ errorMessage, inceptionApiKey })) {
+                console.warn("[LLM] fallback_provider_failed_using_fallback", {
+                    feature: llmFeature,
+                    primaryProvider: args.sourceProvider,
+                    failedFallbackProvider: "bedrock",
+                    fallbackProvider: "inception",
+                    primaryModel: args.sourceModel,
+                    failedFallbackModel: BEDROCK_MODEL,
+                    fallbackModel: INCEPTION_MODEL,
+                    sourceMessage: args.sourceMessage,
+                    message: errorMessage,
+                });
+                return callInceptionText();
+            }
+            throw error;
+        }
+    };
+
+    const callOpenAiWithFallbackText = async (args: { allowInceptionFallback: boolean }) => {
+        if (!openAiApiKey) {
+            if (bedrockAvailable) {
+                console.warn("[LLM] primary_provider_unavailable_using_fallback", {
+                    feature: llmFeature,
+                    primaryProvider: "openai",
+                    fallbackProvider: "bedrock",
+                    reason: "missing_openai_api_key",
+                    fallbackModel: BEDROCK_MODEL,
+                });
+                return callBedrockWithOptionalInceptionFallback({
+                    sourceProvider: "openai",
+                    sourceModel: model,
+                    sourceMessage: "OPENAI_API_KEY environment variable not set.",
+                    allowInceptionFallback: args.allowInceptionFallback,
+                });
+            }
+            if (args.allowInceptionFallback && inceptionApiKey) {
+                console.warn("[LLM] primary_provider_unavailable_using_fallback", {
+                    feature: llmFeature,
+                    primaryProvider: "openai",
+                    fallbackProvider: "inception",
+                    reason: "missing_openai_api_key",
+                    fallbackModel: INCEPTION_MODEL,
+                });
+                return callInceptionText();
+            }
+            throw new Error("OPENAI_API_KEY environment variable not set.");
+        }
+        if (OPENAI_BASE_URL_IS_PLACEHOLDER) {
+            if (bedrockAvailable) {
+                console.warn("[LLM] primary_provider_unavailable_using_fallback", {
+                    feature: llmFeature,
+                    primaryProvider: "openai",
+                    fallbackProvider: "bedrock",
+                    reason: "invalid_openai_base_url",
+                    fallbackModel: BEDROCK_MODEL,
+                });
+                return callBedrockWithOptionalInceptionFallback({
+                    sourceProvider: "openai",
+                    sourceModel: model,
+                    sourceMessage: "OPENAI_BASE_URL environment variable not configured.",
+                    allowInceptionFallback: args.allowInceptionFallback,
+                });
+            }
+            if (args.allowInceptionFallback && inceptionApiKey) {
+                console.warn("[LLM] primary_provider_unavailable_using_fallback", {
+                    feature: llmFeature,
+                    primaryProvider: "openai",
+                    fallbackProvider: "inception",
+                    reason: "invalid_openai_base_url",
+                    fallbackModel: INCEPTION_MODEL,
+                });
+                return callInceptionText();
+            }
+            throw new Error("OPENAI_BASE_URL environment variable not configured.");
+        }
+
+        try {
+            return await callOpenAiText();
+        } catch (error) {
+            const errorMessage = error instanceof Error ? error.message : String(error);
+            if (shouldFallbackToBedrockText({ errorMessage, bedrockAvailable })) {
+                console.warn("[LLM] primary_provider_failed_using_fallback", {
+                    feature: llmFeature,
+                    primaryProvider: "openai",
+                    fallbackProvider: "bedrock",
+                    primaryModel: model,
+                    fallbackModel: BEDROCK_MODEL,
+                    message: errorMessage,
+                });
+                return callBedrockWithOptionalInceptionFallback({
+                    sourceProvider: "openai",
+                    sourceModel: model,
+                    sourceMessage: errorMessage,
+                    allowInceptionFallback: args.allowInceptionFallback,
+                });
+            }
+            if (args.allowInceptionFallback && shouldFallbackToInceptionText({ errorMessage, inceptionApiKey })) {
+                console.warn("[LLM] primary_provider_failed_using_fallback", {
+                    feature: llmFeature,
+                    primaryProvider: "openai",
+                    fallbackProvider: "inception",
+                    primaryModel: model,
+                    fallbackModel: INCEPTION_MODEL,
+                    message: errorMessage,
+                });
+                return callInceptionText();
+            }
+            throw error;
+        }
+    };
+
     if (preferredProvider === "inception") {
         if (!inceptionApiKey) {
-            if (openAiAvailable) {
+            if (openAiOrBedrockAvailable) {
                 console.warn("[LLM] primary_provider_unavailable_using_fallback", {
                     feature: llmFeature,
                     primaryProvider: "inception",
-                    fallbackProvider: "openai",
+                    fallbackProvider: openAiAvailable ? "openai" : "bedrock",
                     reason: "missing_inception_api_key",
-                    fallbackModel: model,
+                    fallbackModel: openAiAvailable ? model : BEDROCK_MODEL,
                 });
-                return callOpenAiText();
+                return callOpenAiWithFallbackText({ allowInceptionFallback: false });
             }
             throw new Error("INCEPTION_API_KEY environment variable not set.");
         }
@@ -772,65 +989,22 @@ async function callInception(
             return await callInceptionText();
         } catch (error) {
             const errorMessage = error instanceof Error ? error.message : String(error);
-            if (shouldFallbackToOpenAiText({ errorMessage, openAiAvailable })) {
+            if (shouldFallbackToOpenAiText({ errorMessage, openAiAvailable: openAiOrBedrockAvailable })) {
                 console.warn("[LLM] primary_provider_failed_using_fallback", {
                     feature: llmFeature,
                     primaryProvider: "inception",
-                    fallbackProvider: "openai",
+                    fallbackProvider: openAiAvailable ? "openai" : "bedrock",
                     primaryModel: INCEPTION_MODEL,
-                    fallbackModel: model,
+                    fallbackModel: openAiAvailable ? model : BEDROCK_MODEL,
                     message: errorMessage,
                 });
-                return callOpenAiText();
+                return callOpenAiWithFallbackText({ allowInceptionFallback: false });
             }
             throw error;
         }
     }
 
-    if (!openAiApiKey) {
-        if (inceptionApiKey) {
-            console.warn("[LLM] primary_provider_unavailable_using_fallback", {
-                feature: llmFeature,
-                primaryProvider: "openai",
-                fallbackProvider: "inception",
-                reason: "missing_openai_api_key",
-                fallbackModel: INCEPTION_MODEL,
-            });
-            return callInceptionText();
-        }
-        throw new Error("OPENAI_API_KEY environment variable not set.");
-    }
-    if (OPENAI_BASE_URL_IS_PLACEHOLDER) {
-        if (inceptionApiKey) {
-            console.warn("[LLM] primary_provider_unavailable_using_fallback", {
-                feature: llmFeature,
-                primaryProvider: "openai",
-                fallbackProvider: "inception",
-                reason: "invalid_openai_base_url",
-                fallbackModel: INCEPTION_MODEL,
-            });
-            return callInceptionText();
-        }
-        throw new Error("OPENAI_BASE_URL environment variable not configured.");
-    }
-
-    try {
-        return await callOpenAiText();
-    } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : String(error);
-        if (shouldFallbackToInceptionText({ errorMessage, inceptionApiKey })) {
-            console.warn("[LLM] primary_provider_failed_using_fallback", {
-                feature: llmFeature,
-                primaryProvider: "openai",
-                fallbackProvider: "inception",
-                primaryModel: model,
-                fallbackModel: INCEPTION_MODEL,
-                message: errorMessage,
-            });
-            return callInceptionText();
-        }
-        throw error;
-    }
+    return callOpenAiWithFallbackText({ allowInceptionFallback: true });
 }
 
 const buildTopicIllustrationPrompt = (args: {
