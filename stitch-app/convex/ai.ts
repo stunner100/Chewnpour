@@ -4466,6 +4466,175 @@ export const processUploadedFile = action({
     },
 });
 
+// Add an additional source file to an existing course (additive topic generation)
+export const addSourceToCourse = action({
+    args: {
+        uploadId: v.id("uploads"),
+        courseId: v.id("courses"),
+        userId: v.string(),
+    },
+    handler: async (ctx, args) => {
+        const { uploadId, courseId, userId } = args;
+
+        return await runWithLlmUsageContext(ctx, userId, "course_generation", async () => {
+            try {
+                const startTime = Date.now();
+                const checkTimeout = () => {
+                    if (Date.now() - startTime > DEFAULT_PROCESSING_TIMEOUT_MS) {
+                        throw new Error("Additive source processing timed out");
+                    }
+                };
+
+                const upload = await ctx.runQuery(api.uploads.getUpload, { uploadId });
+                if (!upload) throw new Error("Upload not found");
+
+                // Run extraction
+                await ctx.runMutation(api.uploads.updateUploadStatus, {
+                    uploadId,
+                    status: "processing",
+                    processingStep: "extracting",
+                    processingProgress: 5,
+                });
+
+                checkTimeout();
+                const extraction = await ctx.runAction(internal.extraction.runForegroundExtraction, {
+                    uploadId,
+                });
+
+                const extractedText = String(extraction?.text || "").trim();
+                if (!extractedText) throw new Error("Extraction returned no content.");
+
+                // Generate outline from the new file
+                await ctx.runMutation(api.uploads.updateUploadStatus, {
+                    uploadId,
+                    status: "processing",
+                    processingStep: "generating_topics",
+                    processingProgress: 40,
+                });
+
+                checkTimeout();
+                const courseOutline = await generateCourseOutlineWithPipeline(extractedText, upload.fileName);
+
+                // Get existing topics for deduplication
+                const existingTopics = await getCourseTopicsSorted(ctx, courseId);
+                const existingTitles = existingTopics.map((t: any) => t.title.toLowerCase().trim());
+
+                // Build prepared topics and filter out duplicates
+                const allPreparedTopics = buildPreparedTopics(courseOutline, extractedText, upload.fileName, courseOutline.sourceSnippets);
+                const newPreparedTopics = allPreparedTopics.filter((t) => {
+                    const normalizedTitle = t.title.toLowerCase().trim();
+                    return !existingTitles.some((existing: string) => {
+                        // Exact or near-match (one contains the other)
+                        return existing === normalizedTitle
+                            || existing.includes(normalizedTitle)
+                            || normalizedTitle.includes(existing);
+                    });
+                });
+
+                if (newPreparedTopics.length === 0) {
+                    // No new topics to add — mark as ready
+                    await ctx.runMutation(api.uploads.updateUploadStatus, {
+                        uploadId,
+                        status: "ready",
+                        processingStep: "ready",
+                        processingProgress: 100,
+                        plannedTopicCount: 0,
+                        generatedTopicCount: 0,
+                    });
+                    await ctx.runMutation(internal.courses.updateCourseUploadStatus, {
+                        courseId, uploadId, status: "ready", topicCount: 0,
+                    });
+                    return { success: true, courseId, topicCount: 0, deduplicated: allPreparedTopics.length };
+                }
+
+                // Load evidence index for the new upload
+                const { index: uploadEvidenceIndex } = await loadGroundedEvidenceIndexForUpload(ctx, uploadId);
+                const startIndex = existingTopics.length;
+                const totalNewTopics = newPreparedTopics.length;
+                const plannedTopicTitles = newPreparedTopics.map((t) => t.title);
+
+                await ctx.runMutation(api.uploads.updateUploadStatus, {
+                    uploadId,
+                    status: "processing",
+                    processingStep: "generating_first_topic",
+                    processingProgress: 55,
+                    plannedTopicCount: totalNewTopics,
+                    generatedTopicCount: 0,
+                    plannedTopicTitles,
+                });
+
+                // Generate topics sequentially, appending to existing course
+                let generatedCount = 0;
+                for (let i = 0; i < totalNewTopics; i++) {
+                    checkTimeout();
+                    // Use the absolute index in the course (after existing topics)
+                    const courseIndex = startIndex + i;
+                    await generateTopicContentForIndex({
+                        ctx,
+                        courseId,
+                        uploadId,
+                        extractedText,
+                        evidenceIndex: uploadEvidenceIndex,
+                        topicData: newPreparedTopics[i],
+                        index: courseIndex,
+                        userId,
+                        totalTopics: startIndex + totalNewTopics,
+                        allTopicTitles: [...existingTitles, ...plannedTopicTitles],
+                    });
+                    generatedCount++;
+
+                    const progressPct = i === 0 ? 60 : Math.round(60 + (30 * generatedCount / totalNewTopics));
+                    await ctx.runMutation(api.uploads.updateUploadStatus, {
+                        uploadId,
+                        status: "processing",
+                        processingStep: i === 0 ? "first_topic_ready" : "generating_remaining_topics",
+                        processingProgress: progressPct,
+                        plannedTopicCount: totalNewTopics,
+                        generatedTopicCount: generatedCount,
+                        plannedTopicTitles,
+                    });
+                }
+
+                // Schedule question banks for the new topics
+                await scheduleQuestionBanksForCourse(ctx, courseId, uploadId);
+
+                // Mark upload and courseUpload as ready
+                await ctx.runMutation(api.uploads.updateUploadStatus, {
+                    uploadId,
+                    status: "ready",
+                    processingStep: "ready",
+                    processingProgress: 100,
+                    plannedTopicCount: totalNewTopics,
+                    generatedTopicCount: generatedCount,
+                    plannedTopicTitles,
+                });
+                await ctx.runMutation(internal.courses.updateCourseUploadStatus, {
+                    courseId, uploadId, status: "ready", topicCount: generatedCount,
+                });
+
+                console.info("[AddSourceToCourse] complete", {
+                    courseId,
+                    uploadId,
+                    newTopics: generatedCount,
+                    deduplicated: allPreparedTopics.length - newPreparedTopics.length,
+                    elapsedMs: Date.now() - startTime,
+                });
+
+                return { success: true, courseId, topicCount: generatedCount };
+            } catch (error) {
+                console.error("[AddSourceToCourse] failed:", error);
+                await ctx.runMutation(api.uploads.updateUploadStatus, {
+                    uploadId, status: "error",
+                });
+                await ctx.runMutation(internal.courses.updateCourseUploadStatus, {
+                    courseId, uploadId, status: "error",
+                });
+                throw error;
+            }
+        });
+    },
+});
+
 export const processAssignmentThread = action({
     args: {
         threadId: v.id("assignmentThreads"),

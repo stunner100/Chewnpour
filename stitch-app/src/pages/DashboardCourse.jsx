@@ -1,9 +1,202 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useRef, useState, useCallback } from 'react';
 import { Link, useParams } from 'react-router-dom';
-import { useQuery, useConvexAuth } from 'convex/react';
+import { useQuery, useMutation, useAction, useConvexAuth } from 'convex/react';
 import { api } from '../../convex/_generated/api';
 import { useAuth } from '../contexts/AuthContext';
 import { resolveTopicIllustrationUrl } from '../lib/topicIllustration';
+
+const ACCEPTED_FILE_TYPES = '.pdf,.pptx,.docx';
+const MAX_FILE_SIZE = 50 * 1024 * 1024; // 50MB
+
+const FILE_TYPE_ICONS = {
+    pdf: 'picture_as_pdf',
+    pptx: 'slideshow',
+    docx: 'description',
+};
+
+function formatFileSize(bytes) {
+    if (!bytes) return '';
+    if (bytes < 1024) return `${bytes} B`;
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+// Sources panel component
+const SourcesPanel = ({ courseId, userId, isConvexAuthenticated }) => {
+    const sources = useQuery(
+        api.courses.getCourseSources,
+        courseId ? { courseId } : 'skip'
+    );
+    const generateUploadUrl = useMutation(api.uploads.generateUploadUrl);
+    const createUpload = useMutation(api.uploads.createUpload);
+    const addUploadToCourse = useMutation(api.courses.addUploadToCourse);
+    const addSourceAction = useAction(api.ai.addSourceToCourse);
+    const removeSource = useMutation(api.courses.removeSourceFromCourse);
+
+    const fileInputRef = useRef(null);
+    const [isUploading, setIsUploading] = useState(false);
+    const [uploadError, setUploadError] = useState('');
+    const [expanded, setExpanded] = useState(true);
+    const [confirmRemove, setConfirmRemove] = useState(null);
+
+    const handleAddSource = useCallback(async (e) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+        e.target.value = '';
+
+        if (file.size > MAX_FILE_SIZE) {
+            setUploadError('File must be under 50MB.');
+            return;
+        }
+        const ext = file.name.split('.').pop()?.toLowerCase();
+        if (!['pdf', 'pptx', 'docx'].includes(ext)) {
+            setUploadError('Only PDF, PPTX, and DOCX files are supported.');
+            return;
+        }
+
+        setIsUploading(true);
+        setUploadError('');
+        try {
+            const uploadUrl = await generateUploadUrl();
+            const result = await fetch(uploadUrl, {
+                method: 'POST',
+                headers: { 'Content-Type': file.type },
+                body: file,
+            });
+            const { storageId } = await result.json();
+
+            const uploadId = await createUpload({
+                userId,
+                fileName: file.name,
+                fileUrl: uploadUrl,
+                fileType: ext,
+                fileSize: file.size,
+                storageId,
+            });
+
+            await addUploadToCourse({ courseId, uploadId, userId });
+
+            // Fire-and-forget: AI processing
+            addSourceAction({ uploadId, courseId, userId }).catch((err) => {
+                console.error('Add source processing failed:', err);
+            });
+        } catch (err) {
+            setUploadError(err.message || 'Upload failed. Please try again.');
+        } finally {
+            setIsUploading(false);
+        }
+    }, [courseId, userId, generateUploadUrl, createUpload, addUploadToCourse, addSourceAction]);
+
+    const handleRemoveSource = useCallback(async (uploadId) => {
+        setConfirmRemove(null);
+        try {
+            await removeSource({ courseId, uploadId, userId });
+        } catch (err) {
+            console.error('Remove source failed:', err);
+        }
+    }, [courseId, userId, removeSource]);
+
+    if (!sources || sources.length === 0) return null;
+
+    const processingCount = sources.filter((s) => s.status === 'processing').length;
+
+    return (
+        <div className="mb-6">
+            <button
+                onClick={() => setExpanded(!expanded)}
+                className="flex items-center gap-2 text-body-sm font-medium text-text-sub-light dark:text-text-sub-dark hover:text-text-main-light dark:hover:text-text-main-dark transition-colors mb-2"
+            >
+                <span className="material-symbols-outlined text-[18px]">
+                    {expanded ? 'expand_more' : 'chevron_right'}
+                </span>
+                Sources ({sources.length})
+                {processingCount > 0 && (
+                    <span className="flex items-center gap-1 text-caption text-accent-amber">
+                        <span className="material-symbols-outlined text-[12px] animate-spin">sync</span>
+                        {processingCount} processing
+                    </span>
+                )}
+            </button>
+
+            {expanded && (
+                <div className="card-base p-3 space-y-1">
+                    {sources.map((source) => {
+                        const icon = FILE_TYPE_ICONS[source.fileType] || 'insert_drive_file';
+                        return (
+                            <div key={source.uploadId} className="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-surface-hover-light dark:hover:bg-surface-hover-dark transition-colors group">
+                                <span className="material-symbols-outlined text-[20px] text-text-faint-light dark:text-text-faint-dark">{icon}</span>
+                                <div className="flex-1 min-w-0">
+                                    <p className="text-body-sm text-text-main-light dark:text-text-main-dark truncate">
+                                        {source.fileName}
+                                    </p>
+                                    {source.fileSize && (
+                                        <p className="text-caption text-text-faint-light dark:text-text-faint-dark">
+                                            {formatFileSize(source.fileSize)}
+                                        </p>
+                                    )}
+                                </div>
+                                {source.status === 'processing' ? (
+                                    <span className="material-symbols-outlined text-[16px] text-accent-amber animate-spin">sync</span>
+                                ) : source.status === 'error' ? (
+                                    <span className="material-symbols-outlined text-[16px] text-red-500">error</span>
+                                ) : (
+                                    <span className="material-symbols-outlined text-[16px] text-accent-emerald">check_circle</span>
+                                )}
+                                {confirmRemove === source.uploadId ? (
+                                    <div className="flex items-center gap-1">
+                                        <button
+                                            onClick={() => handleRemoveSource(source.uploadId)}
+                                            className="text-caption text-red-500 hover:text-red-600 font-medium px-1"
+                                        >
+                                            Remove
+                                        </button>
+                                        <button
+                                            onClick={() => setConfirmRemove(null)}
+                                            className="text-caption text-text-faint-light dark:text-text-faint-dark hover:text-text-sub-light px-1"
+                                        >
+                                            Cancel
+                                        </button>
+                                    </div>
+                                ) : (
+                                    <button
+                                        onClick={() => setConfirmRemove(source.uploadId)}
+                                        className="opacity-0 group-hover:opacity-100 transition-opacity btn-icon !p-1"
+                                        title="Remove source"
+                                    >
+                                        <span className="material-symbols-outlined text-[16px]">close</span>
+                                    </button>
+                                )}
+                            </div>
+                        );
+                    })}
+
+                    {/* Add Source button */}
+                    <button
+                        onClick={() => fileInputRef.current?.click()}
+                        disabled={isUploading}
+                        className="flex items-center gap-2 w-full px-3 py-2 rounded-lg border border-dashed border-border-light dark:border-border-dark hover:border-primary hover:bg-primary/5 transition-colors text-body-sm text-text-faint-light dark:text-text-faint-dark hover:text-primary"
+                    >
+                        <span className="material-symbols-outlined text-[18px]">
+                            {isUploading ? 'sync' : 'add'}
+                        </span>
+                        {isUploading ? 'Uploading...' : 'Add Source'}
+                    </button>
+                    <input
+                        ref={fileInputRef}
+                        type="file"
+                        accept={ACCEPTED_FILE_TYPES}
+                        onChange={handleAddSource}
+                        className="hidden"
+                    />
+
+                    {uploadError && (
+                        <p className="text-caption text-red-500 px-3">{uploadError}</p>
+                    )}
+                </div>
+            )}
+        </div>
+    );
+};
 
 const EMPTY_LIST = [];
 
@@ -195,6 +388,15 @@ const DashboardCourse = () => {
                     </>
                 )}
             </div>
+
+            {/* Sources Panel */}
+            {!isProcessing && displayCourse?._id && (
+                <SourcesPanel
+                    courseId={displayCourse._id}
+                    userId={userId}
+                    isConvexAuthenticated={isConvexAuthenticated}
+                />
+            )}
 
             {/* Topics Grid */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
