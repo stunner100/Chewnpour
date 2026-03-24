@@ -270,6 +270,7 @@ export default defineSchema({
                     fill_blank: v.number(),
                 }),
                 targetOutcomeKeys: v.array(v.string()),
+                targetBloomLevels: v.array(v.string()),
             })),
             multipleChoicePlan: v.optional(v.object({
                 allowedBloomLevels: v.array(v.string()),

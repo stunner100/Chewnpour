@@ -113,6 +113,7 @@ if (!schemaSource.includes("objectiveTargetCount: v.optional(v.number())")) {
 for (const requiredField of [
     "usableObjectiveCount: v.optional(v.number())",
     "usableObjectiveBreakdown: v.optional(v.object({",
+    "targetBloomLevels: v.array(v.string())",
     "templateParts: v.optional(v.array(v.string()))",
     "tokens: v.optional(v.array(v.string()))",
     "acceptedAnswers: v.optional(v.array(v.string()))",
