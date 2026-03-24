@@ -360,7 +360,7 @@ export const runForegroundExtraction = internalAction({
                 coverage: result.coverage,
                 backend: result.backend,
                 parser: result.parser,
-                fallbackUsed: result.backend === "doctra",
+                fallbackUsed: result.backend !== "azure",
                 artifactStorageId,
                 warnings: result.warnings,
             });
@@ -412,7 +412,7 @@ export const runForegroundExtraction = internalAction({
                 coverage: Number(result?.coverage || 0),
                 backend: result?.backend,
                 parser: result?.parser,
-                fallbackUsed: Boolean(result?.backend === "doctra"),
+                fallbackUsed: Boolean(result?.backend && result.backend !== "azure"),
                 artifactStorageId,
                 warnings: result?.warnings || [],
             });
@@ -621,7 +621,7 @@ export const runBackgroundReprocess = internalAction({
                 coverage: result.coverage,
                 backend: result.backend,
                 parser: result.parser,
-                fallbackUsed: result.backend === "doctra",
+                fallbackUsed: result.backend !== "azure",
                 artifactStorageId,
                 warnings: result.warnings,
             });
@@ -679,7 +679,7 @@ export const runBackgroundReprocess = internalAction({
                 coverage: Number(result?.coverage || 0),
                 backend: result?.backend,
                 parser: result?.parser,
-                fallbackUsed: Boolean(result?.backend === "doctra"),
+                fallbackUsed: Boolean(result?.backend && result.backend !== "azure"),
                 artifactStorageId,
                 warnings: result?.warnings || [],
             });

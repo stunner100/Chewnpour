@@ -29,11 +29,17 @@ export type ExtractionParserId =
     | "image_ocr"
     | "llamaparse";
 export type DoctraParserId = Exclude<ExtractionParserId, "azure_layout_read" | "llamaparse">;
-export type ExtractionFallbackRecommendation = {
-    backend: "doctra";
-    parser: DoctraParserId;
-    reason: string;
-};
+export type ExtractionFallbackRecommendation =
+    | {
+        backend: "doctra";
+        parser: DoctraParserId;
+        reason: string;
+    }
+    | {
+        backend: "llamaparse";
+        parser: "llamaparse";
+        reason: string;
+    };
 
 export type ExtractionPassTrace = {
     pass: string;
@@ -1152,6 +1158,81 @@ const getDoctraFallbackRecommendation = (args: {
     };
 };
 
+export const shouldRunLlamaParseFallback = (args: {
+    fileType: string;
+    metrics: PipelineMetrics;
+}): boolean => {
+    if (!isLlamaParseEnabled()) {
+        return false;
+    }
+
+    const fileType = String(args.fileType || "").toLowerCase();
+    if (!["pdf", "pptx"].includes(fileType)) {
+        return false;
+    }
+
+    if (args.metrics.strictPass) {
+        return false;
+    }
+
+    // Keep scanned, table-heavy, and formula-loss-heavy documents on the
+    // Doctra path. LlamaParse is only a fallback for weaker Azure quality on
+    // otherwise normal PDF/PPTX layouts.
+    if (args.metrics.scannedLikely) {
+        return false;
+    }
+    if (args.metrics.tableRecoveryRatio < STRICT_TABLE_RECOVERY_THRESHOLD) {
+        return false;
+    }
+    if (args.metrics.formulaMarkerLoss > STRICT_FORMULA_LOSS_THRESHOLD) {
+        return false;
+    }
+
+    return true;
+};
+
+const getLlamaParseFallbackRecommendation = (args: {
+    fileType: string;
+    metrics: PipelineMetrics;
+}): ExtractionFallbackRecommendation | null => {
+    if (!shouldRunLlamaParseFallback(args)) {
+        return null;
+    }
+
+    let reason = "azure_quality_weak_candidate";
+    if (args.metrics.pagePresenceRatio < args.metrics.requiredPagePresence) {
+        reason = "page_coverage_candidate";
+    } else if (args.metrics.weakPageRatio > args.metrics.weakPageThreshold) {
+        reason = "weak_page_ratio_candidate";
+    }
+
+    return {
+        backend: "llamaparse",
+        parser: "llamaparse",
+        reason,
+    };
+};
+
+const getAzureFallbackRecommendation = (args: {
+    fileType: string;
+    metrics: PipelineMetrics;
+    nativePass: PassResult;
+    layoutPass: PassResult;
+    readPass: PassResult;
+}): ExtractionFallbackRecommendation | null => {
+    const doctraFallback = getDoctraFallbackRecommendation(args);
+    if (doctraFallback && doctraFallback.reason !== "weak_page_ratio_candidate") {
+        return doctraFallback;
+    }
+
+    const llamaParseFallback = getLlamaParseFallbackRecommendation(args);
+    if (llamaParseFallback) {
+        return llamaParseFallback;
+    }
+
+    return doctraFallback;
+};
+
 const buildDocumentExtractionResult = (args: {
     backend: ExtractionBackendId;
     parser: ExtractionParserId;
@@ -1364,7 +1445,7 @@ export const runAzureExtractionCandidate = async (
             readPassWithTrace.trace,
             targetedRetryTrace,
         ],
-        fallbackRecommendation: getDoctraFallbackRecommendation({
+        fallbackRecommendation: getAzureFallbackRecommendation({
             fileType: normalizedFileType,
             metrics: buildMetrics({
                 fileType: normalizedFileType,
