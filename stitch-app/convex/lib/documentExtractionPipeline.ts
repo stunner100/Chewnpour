@@ -14,15 +14,21 @@ import {
     type DoctraParserId as DoctraClientParserId,
     isDoctraEnabled,
 } from "./doctraClient";
+import {
+    callLlamaParseExtract,
+    isLlamaParseEnabled,
+    type LlamaParseExtractResponse,
+} from "./llamaParseClient";
 
-export type ExtractionBackendId = "azure" | "doctra";
+export type ExtractionBackendId = "azure" | "doctra" | "llamaparse";
 export type ExtractionParserId =
     | "azure_layout_read"
     | "enhanced_pdf"
     | "paddleocr_vl"
     | "docx_structured"
-    | "image_ocr";
-export type DoctraParserId = Exclude<ExtractionParserId, "azure_layout_read">;
+    | "image_ocr"
+    | "llamaparse";
+export type DoctraParserId = Exclude<ExtractionParserId, "azure_layout_read" | "llamaparse">;
 export type ExtractionFallbackRecommendation = {
     backend: "doctra";
     parser: DoctraParserId;
@@ -41,7 +47,7 @@ export type ExtractionPassTrace = {
 type ExtractionPage = {
     index: number;
     text: string;
-    source: "native" | "azure_layout" | "azure_read" | "doctra" | "none";
+    source: "native" | "azure_layout" | "azure_read" | "doctra" | "llamaparse" | "none";
     chars: number;
     words: number;
     lexicalRatio: number;
@@ -53,7 +59,7 @@ type ExtractionPage = {
 type CandidatePage = {
     index: number;
     text: string;
-    source: "native" | "azure_layout" | "azure_read" | "doctra";
+    source: "native" | "azure_layout" | "azure_read" | "doctra" | "llamaparse";
     tableCount: number;
     formulaCount: number;
 };
@@ -243,7 +249,7 @@ const parsePdfPagesFromNative = (value: string): CandidatePage[] => {
 
 const splitTextIntoSyntheticPages = (
     value: string,
-    source: "native" | "azure_layout" | "azure_read",
+    source: "native" | "azure_layout" | "azure_read" | "llamaparse",
     targetCharsPerPage = 2600
 ): CandidatePage[] => {
     const text = sanitizeText(value);
@@ -1225,6 +1231,34 @@ const toDoctraPassResult = (payload: DoctraExtractResponse): PassResult => {
     };
 };
 
+const toLlamaParsePassResult = (payload: LlamaParseExtractResponse): PassResult => {
+    const rawPages = Array.isArray(payload.pages) ? payload.pages : [];
+    const pages: CandidatePage[] = rawPages
+        .map((page) => {
+            const markdown = sanitizeText(String(page.markdown || ""));
+            const text = sanitizeText(String(page.text || "")) || markdown;
+            const tableCount = markdown ? (markdown.match(/^\|.+\|$/gm) || []).length : 0;
+            const formulaCount = markdown ? (markdown.match(/\$[^$\n]+\$/g) || []).length : 0;
+            return {
+                index: Math.max(0, Number(page.index || 0)),
+                text,
+                source: "llamaparse" as const,
+                tableCount,
+                formulaCount,
+            };
+        })
+        .filter((page) => Boolean(page.text));
+
+    const text = sanitizeText(String(payload.text || ""));
+    return {
+        text,
+        pages: pages.length > 0 ? pages : splitTextIntoSyntheticPages(text, "llamaparse"),
+        pageCount: Math.max(Number(payload.pageCount || 0), pages.length, 1),
+        tableCount: pages.reduce((sum, page) => sum + Number(page.tableCount || 0), 0),
+        formulaCount: pages.reduce((sum, page) => sum + Number(page.formulaCount || 0), 0),
+    };
+};
+
 const runPassWithTrace = async (
     pass: string,
     run: () => Promise<PassResult>
@@ -1429,11 +1463,51 @@ export const runDoctraExtractionCandidate = async (
     };
 };
 
+export const runLlamaParseExtractionCandidate = async (
+    args: RunDocumentExtractionArgs
+): Promise<DocumentExtractionResult> => {
+    if (!isLlamaParseEnabled()) {
+        throw new Error("LlamaParse extraction is not configured.");
+    }
+
+    const startedAt = Date.now();
+    const normalizedFileType = String(args.fileType || "").toLowerCase();
+    const contentType = mapUploadTypeToContentType(normalizedFileType);
+    const payload = await callLlamaParseExtract({
+        fileName: args.fileName,
+        contentType,
+        fileBuffer: cloneArrayBuffer(args.fileBuffer),
+        timeoutMs: args.maxDurationMs,
+    });
+    const latencyMs = Date.now() - startedAt;
+    const llamaParsePass = toLlamaParsePassResult(payload);
+
+    return buildDocumentExtractionResult({
+        backend: "llamaparse",
+        parser: "llamaparse",
+        fileType: normalizedFileType,
+        nativePass: emptyPassResult(),
+        layoutPass: emptyPassResult(),
+        readPass: llamaParsePass,
+        providerTrace: [{
+            pass: `llamaparse_${payload.tier}`,
+            status: "ok",
+            latencyMs,
+            chars: llamaParsePass.text.length,
+            pageCount: llamaParsePass.pageCount,
+        }],
+        fallbackRecommendation: null,
+    });
+};
+
 export const runDocumentExtractionPipeline = async (
     args: RunDocumentExtractionArgs
 ): Promise<DocumentExtractionResult> => {
     if (args.backend === "doctra") {
         return await runDoctraExtractionCandidate(args);
+    }
+    if (args.backend === "llamaparse") {
+        return await runLlamaParseExtractionCandidate(args);
     }
     return await runAzureExtractionCandidate(args);
 };

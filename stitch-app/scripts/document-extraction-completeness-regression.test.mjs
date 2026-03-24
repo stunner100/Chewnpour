@@ -8,16 +8,19 @@ const schemaPath = resolve(root, 'convex', 'schema.ts');
 const extractionPipelinePath = resolve(root, 'convex', 'lib', 'documentExtractionPipeline.ts');
 const extractionPath = resolve(root, 'convex', 'extraction.ts');
 const doctraClientPath = resolve(root, 'convex', 'lib', 'doctraClient.ts');
+const llamaClientPath = resolve(root, 'convex', 'lib', 'llamaParseClient.ts');
 
 const aiSource = readFileSync(aiPath, 'utf8');
 const schemaSource = readFileSync(schemaPath, 'utf8');
 const pipelineSource = readFileSync(extractionPipelinePath, 'utf8');
 const extractionSource = readFileSync(extractionPath, 'utf8');
 const doctraClientSource = readFileSync(doctraClientPath, 'utf8');
+const llamaClientSource = readFileSync(llamaClientPath, 'utf8');
 
 assert.ok(
   pipelineSource.includes('runAzureExtractionCandidate')
     && pipelineSource.includes('runDoctraExtractionCandidate')
+    && pipelineSource.includes('runLlamaParseExtractionCandidate')
     && pipelineSource.includes('runDocumentExtractionPipeline'),
   'Expected documentExtractionPipeline to export candidate runners plus the unified orchestrator.'
 );
@@ -74,7 +77,7 @@ assert.ok(
   'Expected uploads schema to track extraction backend, parser, and fallback usage.'
 );
 assert.ok(
-  schemaSource.includes('backend: v.string()')
+  schemaSource.includes('backend: v.optional(v.string())')
     && schemaSource.includes('winner: v.optional(v.boolean())')
     && schemaSource.includes('comparisonReason: v.optional(v.string())'),
   'Expected documentExtractions schema to capture backend metadata for candidate evaluation.'
@@ -90,6 +93,13 @@ assert.ok(
     && doctraClientSource.includes('DOCTRA_EXTRACT_URL')
     && doctraClientSource.includes('FormData'),
   'Expected Doctra requests to be isolated in the dedicated client helper.'
+);
+assert.ok(
+  llamaClientSource.includes('callLlamaParseExtract')
+    && llamaClientSource.includes('/api/v1/beta/files')
+    && llamaClientSource.includes('/api/v2/parse')
+    && llamaClientSource.includes('pollParseJob'),
+  'Expected LlamaParse requests to be isolated in the dedicated client helper.'
 );
 
 console.log('document-extraction-completeness-regression tests passed');

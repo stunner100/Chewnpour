@@ -41,6 +41,7 @@ import type * as lib_groundedRanking from "../lib/groundedRanking.js";
 import type * as lib_groundedRetrieval from "../lib/groundedRetrieval.js";
 import type * as lib_groundedVerifier from "../lib/groundedVerifier.js";
 import type * as lib_illustrationUrl from "../lib/illustrationUrl.js";
+import type * as lib_llamaParseClient from "../lib/llamaParseClient.js";
 import type * as lib_llmProviderFallback from "../lib/llmProviderFallback.js";
 import type * as lib_mcqUniqueness from "../lib/mcqUniqueness.js";
 import type * as lib_nativeExtractors from "../lib/nativeExtractors.js";
@@ -103,6 +104,7 @@ declare const fullApi: ApiFromModules<{
   "lib/groundedRetrieval": typeof lib_groundedRetrieval;
   "lib/groundedVerifier": typeof lib_groundedVerifier;
   "lib/illustrationUrl": typeof lib_illustrationUrl;
+  "lib/llamaParseClient": typeof lib_llamaParseClient;
   "lib/llmProviderFallback": typeof lib_llmProviderFallback;
   "lib/mcqUniqueness": typeof lib_mcqUniqueness;
   "lib/nativeExtractors": typeof lib_nativeExtractors;

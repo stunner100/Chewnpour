@@ -432,7 +432,7 @@ export const benchmarkUploadExtraction = internalAction({
     args: {
         uploadId: v.id("uploads"),
         mode: v.optional(v.union(v.literal("foreground"), v.literal("background"))),
-        backend: v.optional(v.union(v.literal("azure"), v.literal("doctra"))),
+        backend: v.optional(v.union(v.literal("azure"), v.literal("doctra"), v.literal("llamaparse"))),
         parser: v.optional(v.string()),
     },
     handler: async (ctx, args) => {
@@ -572,7 +572,7 @@ export const runBackgroundReprocess = internalAction({
     args: {
         uploadId: v.id("uploads"),
         courseId: v.id("courses"),
-        backend: v.optional(v.union(v.literal("azure"), v.literal("doctra"))),
+        backend: v.optional(v.union(v.literal("azure"), v.literal("doctra"), v.literal("llamaparse"))),
         parser: v.optional(v.string()),
     },
     handler: async (ctx, args) => {
