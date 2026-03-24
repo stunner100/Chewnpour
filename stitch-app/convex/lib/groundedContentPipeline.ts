@@ -55,7 +55,15 @@ export const selectEvidenceForGroundedType = async (args: {
         ...(args.keyPoints || []),
     ].join(" ");
 
-    const target = args.type === "essay" ? 24 : args.type === "mcq" ? 18 : 8;
+    const target = args.type === "essay"
+        ? 24
+        : args.type === "multiple_choice"
+            ? 18
+            : args.type === "true_false"
+                ? 14
+                : args.type === "fill_blank"
+                    ? 12
+                    : 8;
     const preferFlags = args.type === "essay"
         ? ["table", "formula"]
         : args.type === "concept"

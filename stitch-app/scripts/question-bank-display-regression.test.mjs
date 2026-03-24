@@ -30,21 +30,21 @@ assert.equal(
 );
 assert.equal(
     formatQuestionBankProgressMessage({
-        usableMcqCount: 3,
+        usableObjectiveCount: 3,
         usableEssayCount: 4,
-        mcqReady: false,
+        objectiveReady: false,
         examReady: false,
     }),
-    '3 MCQs ready and 4 essay questions ready so far.'
+    '3 objective questions ready and 4 essay questions ready so far.'
 );
 assert.equal(
     formatQuestionBankProgressMessage({
-        usableMcqCount: 5,
+        usableObjectiveCount: 5,
         usableEssayCount: 1,
-        mcqReady: true,
+        objectiveReady: true,
         examReady: false,
     }),
-    'MCQ ready. 1 essay question ready so far.'
+    'Objective ready. 1 essay question ready so far.'
 );
 
 console.log('question-bank-display-regression: ok');

@@ -2,6 +2,11 @@ import React, { useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { useQuery, useAction, useConvexAuth } from 'convex/react';
 import { api } from '../../convex/_generated/api';
+import {
+    QUESTION_TYPE_FILL_BLANK,
+    isEssayFormat,
+    normalizeQuestionType,
+} from '../lib/objectiveExam';
 
 // ─── Post-exam upgrade prompt ────────────────────────────────────────────────
 
@@ -390,7 +395,7 @@ const DashboardResults = () => {
     }
 
     const answers = attempt.answers || [];
-    const isEssay = attempt.examFormat === 'essay';
+    const isEssay = isEssayFormat(attempt.examFormat);
     const skippedCount = answers.filter((a) => a.skipped).length;
     const answeredCount = answers.filter((a) => !a.skipped).length;
     const correctCount = attempt.score || 0;
@@ -503,10 +508,12 @@ const DashboardResults = () => {
                         <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
                             {answers.map((answer, index) => {
                                 const questionText = answer.questionText || `Question ${index + 1}`;
+                                const questionType = normalizeQuestionType(answer.questionType);
                                 const yourAnswerText = getOptionText(answer.options, answer.selectedAnswer) || 'Not answered';
                                 const correctAnswerText = getOptionText(answer.options, answer.correctAnswer) || answer.correctAnswer;
+                                const isFillBlank = questionType === QUESTION_TYPE_FILL_BLANK;
                                 const isCorrect = Boolean(answer.isCorrect);
-                                const hasEssayFeedback = Boolean(answer.feedback);
+                                const hasEssayFeedback = isEssay && Boolean(answer.feedback);
                                 return (
                                     <div key={`${answer.questionId}-${index}`} className="card-base p-5">
                                         <div className="flex justify-between items-center mb-3">
@@ -562,7 +569,7 @@ const DashboardResults = () => {
                                                 )}
                                             </div>
                                         ) : (
-                                            /* MCQ answer display */
+                                            /* Objective answer display */
                                             <div className="space-y-3 mb-5">
                                                 <div className={`flex items-start gap-3 p-4 rounded-xl border ${
                                                     answer.skipped
@@ -583,7 +590,11 @@ const DashboardResults = () => {
                                                             {answer.skipped ? 'Skipped' : 'Your Answer'}
                                                         </span>
                                                         <span className="text-body-sm font-semibold text-text-main-light dark:text-text-main-dark">
-                                                            {answer.skipped ? 'No answer selected' : yourAnswerText}
+                                                            {answer.skipped
+                                                                ? 'No answer selected'
+                                                                : isFillBlank
+                                                                    ? (answer.selectedAnswer || 'Not answered')
+                                                                    : yourAnswerText}
                                                         </span>
                                                     </div>
                                                 </div>
@@ -592,7 +603,9 @@ const DashboardResults = () => {
                                                         <span className="material-symbols-outlined text-accent-emerald mt-0.5 text-[20px]">check_circle</span>
                                                         <div className="flex-1">
                                                             <span className="text-overline text-accent-emerald block mb-1">Correct Answer</span>
-                                                            <span className="text-body-sm font-semibold text-text-main-light dark:text-text-main-dark">{correctAnswerText}</span>
+                                                            <span className="text-body-sm font-semibold text-text-main-light dark:text-text-main-dark">
+                                                                {isFillBlank ? (answer.correctAnswer || 'Not available') : correctAnswerText}
+                                                            </span>
                                                         </div>
                                                     </div>
                                                 )}

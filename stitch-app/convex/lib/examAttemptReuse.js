@@ -1,3 +1,5 @@
+import { normalizeExamFormat } from "./objectiveExam.js";
+
 export const EXAM_ATTEMPT_REUSE_MAX_AGE_MS = 30 * 60 * 1000;
 
 export const canReuseExamAttempt = ({
@@ -10,8 +12,8 @@ export const canReuseExamAttempt = ({
     if (!attempt || !topicId) return false;
     if (String(attempt.topicId || "") !== String(topicId)) return false;
 
-    const normalizedRequestedFormat = String(examFormat || "").trim().toLowerCase();
-    const normalizedAttemptFormat = String(attempt.examFormat || "").trim().toLowerCase();
+    const normalizedRequestedFormat = normalizeExamFormat(examFormat);
+    const normalizedAttemptFormat = normalizeExamFormat(attempt.examFormat);
     if (normalizedRequestedFormat && normalizedAttemptFormat && normalizedRequestedFormat !== normalizedAttemptFormat) {
         return false;
     }

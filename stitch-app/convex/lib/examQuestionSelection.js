@@ -5,6 +5,15 @@ import {
     buildQuestionPromptSignature,
     normalizeQuestionPromptKey,
 } from "./mcqUniqueness.js";
+import {
+    getObjectiveSubtypeTargets,
+    normalizeExamFormat,
+    normalizeQuestionType,
+    OBJECTIVE_EXAM_FORMAT,
+    QUESTION_TYPE_FILL_BLANK,
+    QUESTION_TYPE_MULTIPLE_CHOICE,
+    QUESTION_TYPE_TRUE_FALSE,
+} from "./objectiveExam.js";
 
 const DIFFICULTY_DISTRIBUTION = { easy: 0.3, medium: 0.5, hard: 0.2 };
 
@@ -49,12 +58,13 @@ export const dedupeQuestionsByPrompt = (questions) => {
     const items = Array.isArray(questions) ? questions : [];
     const seenPromptKeys = new Set();
     const seenFingerprints = new Set();
-    const acceptedSignatures = [];
     const acceptedMcqSignatures = [];
+    const acceptedObjectivePromptSignatures = [];
     const deduped = [];
 
     for (const question of items) {
         if (!question) continue;
+        const normalizedQuestionType = normalizeQuestionType(question?.questionType);
         const signature = buildQuestionPromptSignature(question.questionText);
         const normalizedPrompt = signature.normalized || normalizeQuestionPromptKey(question.questionText);
         const fallbackKey = String(question._id || "");
@@ -62,29 +72,34 @@ export const dedupeQuestionsByPrompt = (questions) => {
         if (!dedupeKey) continue;
         if (seenPromptKeys.has(dedupeKey)) continue;
         if (signature.fingerprint && seenFingerprints.has(signature.fingerprint)) continue;
-        if (
-            signature.normalized
-            && acceptedSignatures.some((prior) => areQuestionPromptsNearDuplicate(signature, prior))
-        ) {
-            continue;
+
+        if (normalizedQuestionType === QUESTION_TYPE_MULTIPLE_CHOICE) {
+            if (
+                acceptedMcqSignatures.some((prior) =>
+                    areMcqQuestionsNearDuplicate(buildMcqUniquenessSignature(question), prior)
+                )
+            ) {
+                continue;
+            }
+        } else if (normalizedQuestionType !== "essay") {
+            if (
+                signature.normalized
+                && acceptedObjectivePromptSignatures.some((prior) =>
+                    areQuestionPromptsNearDuplicate(signature, prior)
+                )
+            ) {
+                continue;
+            }
         }
-        if (
-            String(question?.questionType || "") !== "essay"
-            && acceptedMcqSignatures.some((prior) =>
-                areMcqQuestionsNearDuplicate(buildMcqUniquenessSignature(question), prior)
-            )
-        ) {
-            continue;
-        }
+
         seenPromptKeys.add(dedupeKey);
         if (signature.fingerprint) {
             seenFingerprints.add(signature.fingerprint);
         }
-        if (signature.normalized) {
-            acceptedSignatures.push(signature);
-        }
-        if (String(question?.questionType || "") !== "essay") {
+        if (normalizedQuestionType === QUESTION_TYPE_MULTIPLE_CHOICE) {
             acceptedMcqSignatures.push(buildMcqUniquenessSignature(question));
+        } else if (normalizedQuestionType !== "essay" && signature.normalized) {
+            acceptedObjectivePromptSignatures.push(signature);
         }
         deduped.push(question);
     }
@@ -94,7 +109,7 @@ export const dedupeQuestionsByPrompt = (questions) => {
 
 const buildSeenQuestionIdsFromCompletedAttempts = (recentAttempts, examFormat) => {
     const attempts = Array.isArray(recentAttempts) ? recentAttempts : [];
-    const normalizedFormat = String(examFormat || "").trim().toLowerCase();
+    const normalizedFormat = normalizeExamFormat(examFormat);
 
     // Filter to only same-format completed attempts so MCQ history doesn't
     // pollute the essay seen-set (and vice versa).
@@ -102,7 +117,7 @@ const buildSeenQuestionIdsFromCompletedAttempts = (recentAttempts, examFormat) =
         const answers = Array.isArray(attempt?.answers) ? attempt.answers : [];
         if (answers.length === 0) return false;
         if (normalizedFormat) {
-            const attemptFormat = String(attempt?.examFormat || "").trim().toLowerCase();
+            const attemptFormat = normalizeExamFormat(attempt?.examFormat);
             if (attemptFormat && attemptFormat !== normalizedFormat) return false;
         }
         return true;
@@ -132,9 +147,42 @@ const buildSeenQuestionIdsFromCompletedAttempts = (recentAttempts, examFormat) =
     };
 };
 
-const pickExamSubset = (questions, subsetSize, isEssay) => {
+const pickObjectiveSubsetByMix = (questions, size) => {
+    if (questions.length <= size) return [...questions];
+
+    const buckets = {
+        [QUESTION_TYPE_MULTIPLE_CHOICE]: [],
+        [QUESTION_TYPE_TRUE_FALSE]: [],
+        [QUESTION_TYPE_FILL_BLANK]: [],
+    };
+    for (const question of questions) {
+        const questionType = normalizeQuestionType(question?.questionType);
+        if (!buckets[questionType]) continue;
+        buckets[questionType].push(question);
+    }
+
+    const targets = getObjectiveSubtypeTargets(size);
+    const selected = [
+        ...pickDifficultyBalancedSubset(buckets[QUESTION_TYPE_MULTIPLE_CHOICE], targets[QUESTION_TYPE_MULTIPLE_CHOICE]),
+        ...pickRandomSubset(buckets[QUESTION_TYPE_TRUE_FALSE], targets[QUESTION_TYPE_TRUE_FALSE]),
+        ...pickRandomSubset(buckets[QUESTION_TYPE_FILL_BLANK], targets[QUESTION_TYPE_FILL_BLANK]),
+    ];
+
+    if (selected.length < size) {
+        const selectedSet = new Set(selected);
+        const remaining = questions.filter((item) => !selectedSet.has(item));
+        selected.push(...pickRandomSubset(remaining, size - selected.length));
+    }
+
+    return selected.slice(0, size);
+};
+
+const pickExamSubset = (questions, subsetSize, isEssay, examFormat) => {
     const safeSubsetSize = Math.max(0, Number(subsetSize || 0));
     if (questions.length <= safeSubsetSize) return [...questions];
+    if (!isEssay && normalizeExamFormat(examFormat) === OBJECTIVE_EXAM_FORMAT) {
+        return pickObjectiveSubsetByMix(questions, safeSubsetSize);
+    }
     return isEssay
         ? pickRandomSubset(questions, safeSubsetSize)
         : pickDifficultyBalancedSubset(questions, safeSubsetSize);
@@ -148,7 +196,7 @@ export const selectQuestionsForAttempt = ({
     examFormat,
 }) => {
     const dedupedQuestions = dedupeQuestionsByPrompt(questions);
-    const effectiveFormat = examFormat || (isEssay ? "essay" : "mcq");
+    const effectiveFormat = normalizeExamFormat(examFormat || (isEssay ? "essay" : OBJECTIVE_EXAM_FORMAT));
     const { seenQuestionIds, questionLastSeenOrder, completedAttemptCount } =
         buildSeenQuestionIdsFromCompletedAttempts(recentAttempts, effectiveFormat);
     const unseenQuestions = dedupedQuestions.filter(
@@ -159,7 +207,7 @@ export const selectQuestionsForAttempt = ({
 
     // First attempt — no history, serve from full pool.
     if (completedAttemptCount === 0) {
-        const selectedQuestions = pickExamSubset(dedupedQuestions, targetSize, Boolean(isEssay));
+        const selectedQuestions = pickExamSubset(dedupedQuestions, targetSize, Boolean(isEssay), effectiveFormat);
         return {
             selectedQuestions,
             dedupedCount: dedupedQuestions.length,
@@ -172,7 +220,7 @@ export const selectQuestionsForAttempt = ({
     // Retake — prefer unseen questions.
     if (unseenQuestions.length >= targetSize) {
         // Enough unseen questions to fill the exam entirely with fresh ones.
-        const selectedQuestions = pickExamSubset(unseenQuestions, targetSize, Boolean(isEssay));
+        const selectedQuestions = pickExamSubset(unseenQuestions, targetSize, Boolean(isEssay), effectiveFormat);
         return {
             selectedQuestions,
             dedupedCount: dedupedQuestions.length,
@@ -202,7 +250,7 @@ export const selectQuestionsForAttempt = ({
         }
 
         // Shuffle the combined set so unseen and recycled questions are interleaved.
-        const selectedQuestions = pickExamSubset(selected, targetSize, Boolean(isEssay));
+        const selectedQuestions = pickExamSubset(selected, targetSize, Boolean(isEssay), effectiveFormat);
         return {
             selectedQuestions,
             dedupedCount: dedupedQuestions.length,

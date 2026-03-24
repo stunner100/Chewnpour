@@ -45,6 +45,8 @@ import type * as lib_llamaParseClient from "../lib/llamaParseClient.js";
 import type * as lib_llmProviderFallback from "../lib/llmProviderFallback.js";
 import type * as lib_mcqUniqueness from "../lib/mcqUniqueness.js";
 import type * as lib_nativeExtractors from "../lib/nativeExtractors.js";
+import type * as lib_objectiveAnswerGrading from "../lib/objectiveAnswerGrading.js";
+import type * as lib_objectiveExam from "../lib/objectiveExam.js";
 import type * as lib_questionBankConfig from "../lib/questionBankConfig.js";
 import type * as lib_questionPromptSimilarity from "../lib/questionPromptSimilarity.js";
 import type * as lib_topicGenerationProgress from "../lib/topicGenerationProgress.js";
@@ -108,6 +110,8 @@ declare const fullApi: ApiFromModules<{
   "lib/llmProviderFallback": typeof lib_llmProviderFallback;
   "lib/mcqUniqueness": typeof lib_mcqUniqueness;
   "lib/nativeExtractors": typeof lib_nativeExtractors;
+  "lib/objectiveAnswerGrading": typeof lib_objectiveAnswerGrading;
+  "lib/objectiveExam": typeof lib_objectiveExam;
   "lib/questionBankConfig": typeof lib_questionBankConfig;
   "lib/questionPromptSimilarity": typeof lib_questionPromptSimilarity;
   "lib/topicGenerationProgress": typeof lib_topicGenerationProgress;

@@ -238,11 +238,19 @@ export default defineSchema({
         illustrationStorageId: v.optional(v.id("_storage")),
         illustrationUrl: v.optional(v.string()),
         examReady: v.optional(v.boolean()),
+        objectiveTargetCount: v.optional(v.number()),
         mcqTargetCount: v.optional(v.number()),
         essayTargetCount: v.optional(v.number()),
+        usableObjectiveCount: v.optional(v.number()),
+        usableObjectiveBreakdown: v.optional(v.object({
+            multiple_choice: v.number(),
+            true_false: v.number(),
+            fill_blank: v.number(),
+        })),
         usableMcqCount: v.optional(v.number()),
         usableEssayCount: v.optional(v.number()),
         examReadyUpdatedAt: v.optional(v.number()),
+        objectiveGenerationLockedUntil: v.optional(v.number()),
         mcqGenerationLockedUntil: v.optional(v.number()),
         essayGenerationLockedUntil: v.optional(v.number()),
         assessmentBlueprint: v.optional(v.object({
@@ -253,11 +261,38 @@ export default defineSchema({
                 bloomLevel: v.string(),
                 evidenceFocus: v.string(),
             })),
-            mcqPlan: v.object({
+            objectivePlan: v.optional(v.object({
+                allowedQuestionTypes: v.array(v.string()),
+                targetQuestionTypes: v.array(v.string()),
+                targetMix: v.object({
+                    multiple_choice: v.number(),
+                    true_false: v.number(),
+                    fill_blank: v.number(),
+                }),
+                targetOutcomeKeys: v.array(v.string()),
+            })),
+            multipleChoicePlan: v.optional(v.object({
                 allowedBloomLevels: v.array(v.string()),
                 targetBloomLevels: v.array(v.string()),
                 targetOutcomeKeys: v.array(v.string()),
-            }),
+            })),
+            trueFalsePlan: v.optional(v.object({
+                allowedBloomLevels: v.array(v.string()),
+                targetBloomLevels: v.array(v.string()),
+                targetOutcomeKeys: v.array(v.string()),
+            })),
+            fillBlankPlan: v.optional(v.object({
+                allowedBloomLevels: v.array(v.string()),
+                targetBloomLevels: v.array(v.string()),
+                targetOutcomeKeys: v.array(v.string()),
+                tokenBankRequired: v.optional(v.boolean()),
+                exactAnswerOnly: v.optional(v.boolean()),
+            })),
+            mcqPlan: v.optional(v.object({
+                allowedBloomLevels: v.array(v.string()),
+                targetBloomLevels: v.array(v.string()),
+                targetOutcomeKeys: v.array(v.string()),
+            })),
             essayPlan: v.object({
                 allowedBloomLevels: v.array(v.string()),
                 targetBloomLevels: v.array(v.string()),
@@ -283,8 +318,8 @@ export default defineSchema({
     questions: defineTable({
         topicId: v.id("topics"),
         questionText: v.string(),
-        questionType: v.string(), // 'mcq', 'concept_build', 'theory'
-        options: v.optional(v.any()), // for MCQ
+        questionType: v.string(), // 'multiple_choice' | 'true_false' | 'fill_blank' | 'essay'
+        options: v.optional(v.any()), // for multiple_choice / true_false
         correctAnswer: v.string(),
         explanation: v.optional(v.string()),
         difficulty: v.optional(v.string()), // 'easy', 'medium', 'hard'
@@ -297,6 +332,10 @@ export default defineSchema({
         bloomLevel: v.optional(v.string()),
         outcomeKey: v.optional(v.string()),
         authenticContext: v.optional(v.string()),
+        templateParts: v.optional(v.array(v.string())),
+        tokens: v.optional(v.array(v.string())),
+        acceptedAnswers: v.optional(v.array(v.string())),
+        fillBlankMode: v.optional(v.string()),
         rubricPoints: v.optional(v.array(v.string())),
         qualityFlags: v.optional(v.array(v.string())),
     }).index("by_topicId", ["topicId"]),
@@ -317,7 +356,7 @@ export default defineSchema({
     examAttempts: defineTable({
         userId: v.string(),
         topicId: v.id("topics"),
-        examFormat: v.optional(v.string()), // 'mcq' | 'essay'
+        examFormat: v.optional(v.string()), // 'objective' | 'essay'
         score: v.number(),
         totalQuestions: v.number(),
         timeTakenSeconds: v.number(),

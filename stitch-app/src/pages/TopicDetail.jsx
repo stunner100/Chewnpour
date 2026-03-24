@@ -24,6 +24,7 @@ import {
 } from '../lib/topicContentFormatting';
 import { resolveTopicIllustrationUrl } from '../lib/topicIllustration';
 import { isLikelyConvexId } from '../lib/convexId';
+import { OBJECTIVE_EXAM_FORMAT, objectiveBreakdownMeetsTargets } from '../lib/objectiveExam';
 import {
     formatEssayPreparingMessage,
     formatEssayQuizButtonLabel,
@@ -89,26 +90,29 @@ const TopicDetail = () => {
         topicId ? { topicId } : 'skip'
     );
     const topic = topicData || null;
-    const DEFAULT_EXAM_READY_MIN_MCQ_COUNT = 10;
-    const DEFAULT_EXAM_READY_MIN_ESSAY_COUNT = 3;
-    const topicMcqTargetCount = Math.max(
+    const DEFAULT_EXAM_READY_MIN_OBJECTIVE_COUNT = 10;
+    const DEFAULT_EXAM_READY_MIN_ESSAY_COUNT = 2;
+    const topicObjectiveTargetCount = Math.max(
         1,
-        Math.round(Number(topic?.mcqTargetCount || DEFAULT_EXAM_READY_MIN_MCQ_COUNT))
+        Math.round(Number(topic?.objectiveTargetCount || DEFAULT_EXAM_READY_MIN_OBJECTIVE_COUNT))
     );
     const topicEssayTargetCount = Math.max(
         1,
         Math.round(Number(topic?.essayTargetCount || DEFAULT_EXAM_READY_MIN_ESSAY_COUNT))
     );
-    const usableMcqCount = Number(topic?.usableMcqCount || 0);
+    const usableObjectiveCount = Number(topic?.usableObjectiveCount || 0);
     const usableEssayCount = Number(topic?.usableEssayCount || 0);
-    const topicQuizStartReady = usableMcqCount >= topicMcqTargetCount;
+    const topicObjectiveStartReady = objectiveBreakdownMeetsTargets(
+        topic?.usableObjectiveBreakdown,
+        topicObjectiveTargetCount
+    ) && usableObjectiveCount >= topicObjectiveTargetCount;
     const topicEssayStartReady = usableEssayCount >= topicEssayTargetCount;
     const topicExamReady = Boolean(topic?.examReady)
-        || (topicQuizStartReady && usableEssayCount >= topicEssayTargetCount);
+        || (topicObjectiveStartReady && usableEssayCount >= topicEssayTargetCount);
     const questionBankProgressMessage = formatQuestionBankProgressMessage({
-        usableMcqCount,
+        usableObjectiveCount,
         usableEssayCount,
-        mcqReady: topicQuizStartReady,
+        objectiveReady: topicObjectiveStartReady,
         examReady: topicExamReady,
     });
     const courseId = topic?.courseId;
@@ -359,11 +363,6 @@ const TopicDetail = () => {
     const headerTopicTitle = resolvedTopicTitle;
     const heroTopicTitle = resolvedTopicTitle;
     const topicIllustrationUrl = resolveTopicIllustrationUrl(topic?.illustrationUrl);
-    const profileInitial = useMemo(() => {
-        const source = profile?.fullName || user?.name || user?.email || '';
-        const firstCharacter = String(source).trim().charAt(0);
-        return firstCharacter ? firstCharacter.toUpperCase() : 'S';
-    }, [profile?.fullName, user?.name, user?.email]);
 
     const toggleVoiceMode = async () => {
         if (!user) return;
@@ -541,9 +540,13 @@ const TopicDetail = () => {
         return { blocks, toc };
     }, [normalizedContent]);
 
-    const handleStartExam = async (preferredFormat = 'mcq') => {
+    const handleStartExam = async (preferredFormat = OBJECTIVE_EXAM_FORMAT) => {
         if (!topicId) {
             setStartExamError('Topic not found. Please return to the dashboard and try again.');
+            return;
+        }
+        if (preferredFormat === OBJECTIVE_EXAM_FORMAT && !topicObjectiveStartReady) {
+            setStartExamError(questionBankProgressMessage || 'Objective questions are still preparing.');
             return;
         }
         if (preferredFormat === 'essay' && !topicEssayStartReady) {
@@ -757,12 +760,12 @@ const TopicDetail = () => {
                                     Study Concepts
                                 </Link>
                                 <button
-                                    onClick={() => handleStartExam('mcq')}
+                                    onClick={() => handleStartExam(OBJECTIVE_EXAM_FORMAT)}
                                     disabled={startingExam}
                                     className="btn-primary px-5 py-2.5 text-body-sm gap-2 disabled:opacity-50"
                                 >
                                     <span className="material-symbols-outlined text-[18px]">quiz</span>
-                                    {startingExam ? 'Preparing...' : 'MCQ Quiz'}
+                                    {startingExam ? 'Preparing...' : 'Objective Quiz'}
                                 </button>
                                 <button
                                     onClick={() => handleStartExam('essay')}
@@ -778,12 +781,12 @@ const TopicDetail = () => {
                                 </button>
                             </div>
 
-                            {!topicQuizStartReady && (
+                            {!topicObjectiveStartReady && (
                                 <p className="mt-4 text-caption text-text-faint-light dark:text-text-faint-dark">
                                     {questionBankProgressMessage}
                                 </p>
                             )}
-                            {topicQuizStartReady && !topicExamReady && (
+                            {topicObjectiveStartReady && !topicExamReady && (
                                 <p className="mt-4 text-caption text-accent-emerald">
                                     {questionBankProgressMessage}
                                 </p>

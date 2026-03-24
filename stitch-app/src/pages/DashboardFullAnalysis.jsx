@@ -85,7 +85,7 @@ const DashboardFullAnalysis = () => {
                                     <span className="material-symbols-outlined text-[20px]">quiz</span>
                                 </div>
                                 <div>
-                                    <p className="text-body-sm font-semibold text-text-main-light dark:text-text-main-dark">MCQ Average</p>
+                                    <p className="text-body-sm font-semibold text-text-main-light dark:text-text-main-dark">Objective Average</p>
                                     <p className="text-caption text-text-faint-light dark:text-text-faint-dark">Target: 45s</p>
                                 </div>
                             </div>

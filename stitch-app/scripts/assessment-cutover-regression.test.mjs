@@ -5,10 +5,12 @@ import process from "node:process";
 import {
     ASSESSMENT_BLUEPRINT_VERSION,
     ESSAY_ALLOWED_BLOOM_LEVELS,
-    MCQ_ALLOWED_BLOOM_LEVELS,
+    FILL_BLANK_ALLOWED_BLOOM_LEVELS,
+    MULTIPLE_CHOICE_ALLOWED_BLOOM_LEVELS,
+    TRUE_FALSE_ALLOWED_BLOOM_LEVELS,
     filterQuestionsForActiveAssessment,
     getAssessmentQuestionMetadataIssues,
-    isAssessmentV1Question,
+    isAssessmentV2Question,
     normalizeAssessmentBlueprint,
 } from "../convex/lib/assessmentBlueprint.js";
 
@@ -19,29 +21,46 @@ const read = async (relativePath) =>
 const blueprint = normalizeAssessmentBlueprint({
     outcomes: [
         {
-            key: "remember facts",
+            key: "remember-facts",
             objective: "Recall the core facts from the evidence",
-            bloomLevel: "remember",
+            bloomLevel: "Remember",
             evidenceFocus: "Foundational factual statements",
         },
         {
-            key: "apply analysis",
+            key: "apply-analysis",
             objective: "Apply the evidence to a realistic case",
             bloomLevel: "Apply",
             evidenceFocus: "Procedural or contextual application points",
         },
         {
-            key: "evaluate claims",
+            key: "evaluate-claims",
             objective: "Evaluate the strength of the evidence",
             bloomLevel: "Evaluate",
             evidenceFocus: "Analytical tradeoffs and judgment",
         },
     ],
-    mcqPlan: {
-        targetOutcomeKeys: ["remember facts", "apply analysis"],
+    objectivePlan: {
+        targetQuestionTypes: ["multiple_choice", "true_false", "fill_blank"],
+        targetMix: {
+            multiple_choice: 5,
+            true_false: 3,
+            fill_blank: 2,
+        },
+        targetOutcomeKeys: ["remember-facts", "apply-analysis"],
+    },
+    multipleChoicePlan: {
+        targetOutcomeKeys: ["remember-facts", "apply-analysis"],
+    },
+    trueFalsePlan: {
+        targetOutcomeKeys: ["remember-facts", "apply-analysis"],
+    },
+    fillBlankPlan: {
+        targetOutcomeKeys: ["remember-facts", "apply-analysis"],
+        tokenBankRequired: true,
+        exactAnswerOnly: true,
     },
     essayPlan: {
-        targetOutcomeKeys: ["evaluate claims"],
+        targetOutcomeKeys: ["evaluate-claims"],
         authenticScenarioRequired: true,
         authenticContextHint: "Use a realistic institutional scenario",
     },
@@ -52,32 +71,58 @@ if (!blueprint) {
 }
 
 if (blueprint.version !== ASSESSMENT_BLUEPRINT_VERSION) {
-    throw new Error("Expected normalized blueprint to stamp the assessment-v1 version.");
+    throw new Error("Expected normalized blueprint to stamp the assessment-blueprint-v2 version.");
 }
 
-if (!blueprint.mcqPlan.targetBloomLevels.every((level) => MCQ_ALLOWED_BLOOM_LEVELS.includes(level))) {
-    throw new Error("Expected MCQ blueprint targets to remain within allowed Bloom levels.");
+if (blueprint.objectivePlan.targetMix.multiple_choice !== 5 || blueprint.objectivePlan.targetMix.true_false !== 3 || blueprint.objectivePlan.targetMix.fill_blank !== 2) {
+    throw new Error("Expected blueprint objective mix to remain 5/3/2.");
+}
+
+if (!blueprint.multipleChoicePlan.targetBloomLevels.every((level) => MULTIPLE_CHOICE_ALLOWED_BLOOM_LEVELS.includes(level))) {
+    throw new Error("Expected multiple-choice blueprint targets to remain within allowed Bloom levels.");
+}
+
+if (!blueprint.trueFalsePlan.targetBloomLevels.every((level) => TRUE_FALSE_ALLOWED_BLOOM_LEVELS.includes(level))) {
+    throw new Error("Expected true/false blueprint targets to remain within allowed Bloom levels.");
+}
+
+if (!blueprint.fillBlankPlan.targetBloomLevels.every((level) => FILL_BLANK_ALLOWED_BLOOM_LEVELS.includes(level))) {
+    throw new Error("Expected fill-blank blueprint targets to remain within allowed Bloom levels.");
 }
 
 if (!blueprint.essayPlan.targetBloomLevels.every((level) => ESSAY_ALLOWED_BLOOM_LEVELS.includes(level))) {
     throw new Error("Expected essay blueprint targets to remain within allowed Bloom levels.");
 }
 
-const mcqQuestion = {
+const validMultipleChoiceQuestion = {
     questionType: "multiple_choice",
     generationVersion: ASSESSMENT_BLUEPRINT_VERSION,
     questionText: "Which fact is stated in the evidence?",
-    outcomeKey: blueprint.mcqPlan.targetOutcomeKeys[0],
+    outcomeKey: blueprint.multipleChoicePlan.targetOutcomeKeys[0],
     bloomLevel: "Remember",
 };
 
-const legacyQuestion = {
-    questionType: "multiple_choice",
-    generationVersion: "grounded-v3",
-    questionText: "Legacy question",
+const validTrueFalseQuestion = {
+    questionType: "true_false",
+    generationVersion: ASSESSMENT_BLUEPRINT_VERSION,
+    questionText: "The evidence states that the process has two stages.",
+    outcomeKey: blueprint.trueFalsePlan.targetOutcomeKeys[0],
+    bloomLevel: "Remember",
 };
 
-const invalidAssessmentQuestion = {
+const validFillBlankQuestion = {
+    questionType: "fill_blank",
+    generationVersion: ASSESSMENT_BLUEPRINT_VERSION,
+    questionText: "The capital of Ghana is __.",
+    templateParts: ["The capital of Ghana is ", "__", "."],
+    acceptedAnswers: ["Accra"],
+    fillBlankMode: "token_bank",
+    tokens: ["Accra", "Kumasi", "Tamale", "Cape Coast"],
+    outcomeKey: blueprint.fillBlankPlan.targetOutcomeKeys[0],
+    bloomLevel: "Remember",
+};
+
+const invalidEssayQuestion = {
     questionType: "essay",
     generationVersion: ASSESSMENT_BLUEPRINT_VERSION,
     questionText: "Evaluate the claim using the evidence.",
@@ -85,21 +130,33 @@ const invalidAssessmentQuestion = {
     bloomLevel: "Evaluate",
 };
 
-if (!isAssessmentV1Question(mcqQuestion, { blueprint })) {
-    throw new Error("Expected valid assessment-v1 MCQ to pass active-assessment filter.");
+const legacyQuestion = {
+    questionType: "multiple_choice",
+    generationVersion: "assessment-blueprint-v1",
+    questionText: "Legacy question",
+};
+
+for (const validQuestion of [
+    validMultipleChoiceQuestion,
+    validTrueFalseQuestion,
+    validFillBlankQuestion,
+]) {
+    if (!isAssessmentV2Question(validQuestion, { blueprint })) {
+        throw new Error(`Expected valid assessment-v2 question to pass active-assessment filter: ${validQuestion.questionType}`);
+    }
 }
 
-if (isAssessmentV1Question(legacyQuestion, { blueprint })) {
-    throw new Error("Expected legacy question versions to be excluded from assessment-v1.");
+if (isAssessmentV2Question(legacyQuestion, { blueprint })) {
+    throw new Error("Expected legacy question versions to be excluded from assessment-v2.");
 }
 
 const essayIssues = getAssessmentQuestionMetadataIssues({
-    question: invalidAssessmentQuestion,
+    question: invalidEssayQuestion,
     blueprint,
     questionType: "essay",
 });
 if (!essayIssues.includes("missing authenticContext")) {
-    throw new Error("Expected authentic essay questions to require authenticContext when the blueprint demands it.");
+    throw new Error("Expected authentic essays to require authenticContext when the blueprint demands it.");
 }
 
 const topicWithoutBlueprint = {
@@ -112,7 +169,7 @@ const topicWithBlueprint = {
 
 const legacyVisibleBeforeCutover = filterQuestionsForActiveAssessment({
     topic: topicWithoutBlueprint,
-    questions: [legacyQuestion, mcqQuestion],
+    questions: [legacyQuestion, validMultipleChoiceQuestion],
 });
 if (legacyVisibleBeforeCutover.length !== 2) {
     throw new Error("Expected legacy questions to remain visible before blueprint cutover.");
@@ -120,30 +177,47 @@ if (legacyVisibleBeforeCutover.length !== 2) {
 
 const activeAfterCutover = filterQuestionsForActiveAssessment({
     topic: topicWithBlueprint,
-    questions: [legacyQuestion, mcqQuestion, invalidAssessmentQuestion],
+    questions: [
+        legacyQuestion,
+        validMultipleChoiceQuestion,
+        validTrueFalseQuestion,
+        validFillBlankQuestion,
+        invalidEssayQuestion,
+    ],
 });
-if (activeAfterCutover.length !== 1 || activeAfterCutover[0]?.questionText !== mcqQuestion.questionText) {
-    throw new Error("Expected migrated topics to keep only valid assessment-v1 questions active.");
+if (activeAfterCutover.length !== 3) {
+    throw new Error("Expected migrated topics to keep only valid assessment-v2 objective questions active.");
 }
 
 const topicsSource = await read("convex/topics.ts");
 const examsSource = await read("convex/exams.ts");
 const aiSource = await read("convex/ai.ts");
 
-if (!topicsSource.includes("const rawQuestions = await ctx.db")) {
-    throw new Error("Expected internal topic query to reload raw question documents.");
+for (const requiredSnippet of [
+    "const rawQuestions = await ctx.db",
+    "questions: activeQuestions,",
+    "usableObjectiveBreakdown",
+    "objectiveTargetCount",
+]) {
+    if (!topicsSource.includes(requiredSnippet)) {
+        throw new Error(`Expected topics.ts to include ${requiredSnippet}.`);
+    }
 }
 
-if (!topicsSource.includes("questions: activeQuestions,")) {
-    throw new Error("Expected internal topic payload to return raw active questions after cutover filtering.");
+if (!examsSource.includes('examFormat: isEssay ? "essay" : OBJECTIVE_EXAM_FORMAT')) {
+    throw new Error("Expected new exam attempts to be stored as objective or essay.");
 }
 
 if (!examsSource.includes("const activeQuestions = filterQuestionsForActiveAssessment({ topic, questions });")) {
-    throw new Error("Expected exam start flow to use the active-assessment question bank.");
+    throw new Error("Expected exam start flow to use the active assessment question bank.");
 }
 
 if (!aiSource.includes("export const regenerateAssessmentQuestionBankInternal = internalAction({")) {
-    throw new Error("Expected dedicated internal regeneration path for assessment-v1 question banks.");
+    throw new Error("Expected dedicated internal regeneration path for assessment-v2 question banks.");
+}
+
+if (!aiSource.includes("const generateObjectiveQuestionBankForTopic = async")) {
+    throw new Error("Expected assessment regeneration to route objective generation through the objective orchestrator.");
 }
 
 console.log("assessment-cutover-regression.test.mjs passed");

@@ -1695,7 +1695,7 @@ export const remediateStoredMcqGroundingMismatches = internalAction({
         let deletedQuestionCount = 0;
         if (!dryRun) {
             for (const topic of selectedTopics) {
-                const deletionResult = await ctx.runMutation(internal.topics.deleteMcqQuestionsByTopicInternal, {
+                const deletionResult = await ctx.runMutation(internal.topics.deleteObjectiveQuestionsByTopicInternal, {
                     topicId: topic.topicId,
                 });
                 deletedQuestionCount += Number(deletionResult?.deleted || 0);
@@ -1838,7 +1838,7 @@ export const rebaseStaleOversizedMcqTargets = internalAction({
             for (const topic of selectedTopics) {
                 await ctx.runMutation(internal.topics.refreshTopicExamReadinessInternal, {
                     topicId: topic.topicId,
-                    mcqTargetCount: topic.recalculatedTarget,
+                    objectiveTargetCount: topic.recalculatedTarget,
                 });
                 rebasedTopicCount += 1;
                 totalTargetReduction += Math.max(0, topic.currentTarget - topic.recalculatedTarget);

@@ -1,4 +1,11 @@
 import { ConvexError } from "convex/values";
+import {
+    isEssayQuestionType,
+    normalizeQuestionType,
+    QUESTION_TYPE_FILL_BLANK,
+    QUESTION_TYPE_MULTIPLE_CHOICE,
+    QUESTION_TYPE_TRUE_FALSE,
+} from "./objectiveExam.js";
 
 export const resolveAuthUserId = (identity) => {
     if (!identity || typeof identity !== "object") return "";
@@ -92,6 +99,12 @@ const DISALLOWED_EXAM_OPTION_PATTERNS = [
     /^option\s*[a-d]?$/i,
 ];
 
+const normalizeTextAnswer = (value) =>
+    String(value || "")
+        .toLowerCase()
+        .replace(/\s+/g, " ")
+        .trim();
+
 const normalizeOptionText = (value) => {
     if (value === null || value === undefined) return "";
     return String(value).replace(/\s+/g, " ").trim();
@@ -175,19 +188,56 @@ export const hasUsableExamOptions = (rawOptions) => {
     return firstFour.every((option) => !isDisallowedExamOptionText(option.text));
 };
 
+const hasUsableTrueFalseOptions = (rawOptions) => {
+    const options = coerceOptionsForValidation(rawOptions);
+    if (options.length !== 2) return false;
+    const normalized = options.map((option) => normalizeOptionKey(option.text));
+    return normalized.includes("true") && normalized.includes("false");
+};
+
+const countTemplateBlanks = (templateParts) =>
+    (Array.isArray(templateParts) ? templateParts : []).filter((part) => part === "__").length;
+
+const hasUsableFillBlankQuestion = (question) => {
+    const templateParts = Array.isArray(question?.templateParts) ? question.templateParts : [];
+    const acceptedAnswers = Array.isArray(question?.acceptedAnswers)
+        ? question.acceptedAnswers.map((item) => normalizeTextAnswer(item)).filter(Boolean)
+        : [];
+    if (countTemplateBlanks(templateParts) !== 1) return false;
+    if (acceptedAnswers.length === 0) return false;
+    const fillBlankMode = String(question?.fillBlankMode || "").trim().toLowerCase();
+    if (fillBlankMode === "token_bank") {
+        const tokens = Array.isArray(question?.tokens)
+            ? question.tokens.map((item) => normalizeTextAnswer(item)).filter(Boolean)
+            : [];
+        if (tokens.length < 2) return false;
+    }
+    return String(question?.questionText || "").replace(/\s+/g, " ").trim().length >= 12;
+};
+
 export const isUsableExamQuestion = (question, { allowEssay = false } = {}) => {
     if (!question || typeof question !== "object") return false;
     const normalizedQuestionText = String(question.questionText || "").replace(/\s+/g, " ").trim();
     if (normalizedQuestionText.length < 12) return false;
-    if (allowEssay && question.questionType === "essay") {
+    const questionType = normalizeQuestionType(question.questionType);
+    if (allowEssay && isEssayQuestionType(questionType)) {
         return String(question.correctAnswer || "").trim().length > 0;
     }
-    return hasUsableExamOptions(question.options);
+    if (questionType === QUESTION_TYPE_TRUE_FALSE) {
+        return hasUsableTrueFalseOptions(question.options);
+    }
+    if (questionType === QUESTION_TYPE_FILL_BLANK) {
+        return hasUsableFillBlankQuestion(question);
+    }
+    if (questionType === QUESTION_TYPE_MULTIPLE_CHOICE) {
+        return hasUsableExamOptions(question.options);
+    }
+    return false;
 };
 
 export const sanitizeExamQuestionForClient = (question) => {
     if (!question || typeof question !== "object") return question;
-    if (question.questionType === "essay") {
+    if (isEssayQuestionType(question.questionType)) {
         const {
             correctAnswer: _CORRECT_ANSWER,
             explanation: _EXPLANATION,
@@ -204,6 +254,7 @@ export const sanitizeExamQuestionForClient = (question) => {
     }
     const {
         correctAnswer: _CORRECT_ANSWER,
+        acceptedAnswers: _ACCEPTED_ANSWERS,
         citations: _CITATIONS,
         sourcePassageIds: _SOURCE_PASSAGE_IDS,
         groundingScore: _GROUNDING_SCORE,

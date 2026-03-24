@@ -10,9 +10,11 @@ export type GroundedCitation = {
     quote: string;
 };
 
-export type GroundedMcqCandidate = {
+export type GroundedMultipleChoiceCandidate = {
     questionText: string;
+    questionType?: "multiple_choice";
     options: Array<{ label: string; text: string; isCorrect: boolean }>;
+    correctAnswer?: string;
     explanation?: string;
     difficulty?: string;
     citations: GroundedCitation[];
@@ -22,8 +24,38 @@ export type GroundedMcqCandidate = {
     authenticContext?: string;
 };
 
+export type GroundedTrueFalseCandidate = {
+    questionText: string;
+    questionType?: "true_false";
+    options: Array<{ label: string; text: string; isCorrect: boolean }>;
+    correctAnswer?: string;
+    explanation?: string;
+    difficulty?: string;
+    citations: GroundedCitation[];
+    learningObjective?: string;
+    bloomLevel: string;
+    outcomeKey: string;
+};
+
+export type GroundedFillBlankCandidate = {
+    questionText: string;
+    questionType?: "fill_blank";
+    templateParts: string[];
+    acceptedAnswers: string[];
+    tokens?: string[];
+    fillBlankMode?: "token_bank" | "free_text";
+    correctAnswer?: string;
+    explanation?: string;
+    difficulty?: string;
+    citations: GroundedCitation[];
+    learningObjective?: string;
+    bloomLevel: string;
+    outcomeKey: string;
+};
+
 export type GroundedEssayCandidate = {
     questionText: string;
+    questionType?: "essay";
     correctAnswer: string;
     explanation?: string;
     difficulty?: string;
@@ -45,10 +77,33 @@ export type AssessmentBlueprintOutcome = {
 export type AssessmentBlueprint = {
     version: string;
     outcomes: AssessmentBlueprintOutcome[];
-    mcqPlan: {
+    objectivePlan: {
+        allowedQuestionTypes: string[];
+        targetQuestionTypes: string[];
+        targetMix: {
+            multiple_choice: number;
+            true_false: number;
+            fill_blank: number;
+        };
+        targetOutcomeKeys: string[];
+        targetBloomLevels?: string[];
+    };
+    multipleChoicePlan: {
         allowedBloomLevels: string[];
         targetBloomLevels: string[];
         targetOutcomeKeys: string[];
+    };
+    trueFalsePlan: {
+        allowedBloomLevels: string[];
+        targetBloomLevels: string[];
+        targetOutcomeKeys: string[];
+    };
+    fillBlankPlan: {
+        allowedBloomLevels: string[];
+        targetBloomLevels: string[];
+        targetOutcomeKeys: string[];
+        tokenBankRequired: boolean;
+        exactAnswerOnly: boolean;
     };
     essayPlan: {
         allowedBloomLevels: string[];
@@ -86,7 +141,7 @@ export const buildGroundedAssessmentBlueprintPrompt = (args: {
     topicTitle: string;
     topicDescription?: string;
     evidence: RetrievedEvidence[];
-}) => `Create an assessment blueprint for MCQ and essay generation using Bloom's taxonomy, constructive alignment, and authentic assessment.
+}) => `Create an assessment blueprint for objective and essay generation using Bloom's taxonomy, constructive alignment, and authentic assessment.
 
 TOPIC: ${args.topicTitle}
 DESCRIPTION: ${args.topicDescription || "General concepts"}
@@ -100,10 +155,21 @@ Rules:
 - bloomLevel must be one of: Remember, Understand, Apply, Analyze, Evaluate, Create.
 - outcome key must be short and stable, such as "outcome-1" or "apply-methods".
 - outcomes should be suitable for university assessment design.
-- mcqPlan.targetOutcomeKeys must reference outcomes appropriate for MCQ only.
+- objectivePlan.targetMix must equal:
+  - multiple_choice: 5
+  - true_false: 3
+  - fill_blank: 2
+- objectivePlan.targetQuestionTypes must include exactly: multiple_choice, true_false, fill_blank.
+- multipleChoicePlan.targetOutcomeKeys must reference outcomes appropriate for multiple-choice only.
+- trueFalsePlan.targetOutcomeKeys must reference outcomes appropriate for true/false only.
+- fillBlankPlan.targetOutcomeKeys must reference outcomes appropriate for fill-in-the-blank only.
 - essayPlan.targetOutcomeKeys must reference outcomes appropriate for essay only.
-- MCQ outcomes should support only: Remember, Understand, Apply, Analyze.
-- Essay outcomes should support only: Analyze, Evaluate, Create.
+- multiple_choice outcomes should support only: Remember, Understand, Apply, Analyze.
+- true_false outcomes should support only: Remember, Understand, Apply.
+- fill_blank outcomes should support only: Remember, Understand, Apply.
+- essay outcomes should support only: Analyze, Evaluate, Create.
+- fillBlankPlan.tokenBankRequired must be true.
+- fillBlankPlan.exactAnswerOnly must be true.
 - Set essayPlan.authenticScenarioRequired to true only when the evidence supports realistic or professional application framing.
 - If essayPlan.authenticScenarioRequired is true, include essayPlan.authenticContextHint as a short scenario cue grounded in the evidence.
 - Do not include any fields outside the required schema.
@@ -118,8 +184,25 @@ Return JSON only:
       "evidenceFocus": "..."
     }
   ],
-  "mcqPlan": {
+  "objectivePlan": {
+    "targetQuestionTypes": ["multiple_choice", "true_false", "fill_blank"],
+    "targetMix": {
+      "multiple_choice": 5,
+      "true_false": 3,
+      "fill_blank": 2
+    },
     "targetOutcomeKeys": ["outcome-1"]
+  },
+  "multipleChoicePlan": {
+    "targetOutcomeKeys": ["outcome-1"]
+  },
+  "trueFalsePlan": {
+    "targetOutcomeKeys": ["outcome-1"]
+  },
+  "fillBlankPlan": {
+    "targetOutcomeKeys": ["outcome-1"],
+    "tokenBankRequired": true,
+    "exactAnswerOnly": true
   },
   "essayPlan": {
     "targetOutcomeKeys": ["outcome-2"],
@@ -152,7 +235,8 @@ ${existingBlock}
 
 Rules:
 - Each question must be answerable only from evidence above.
-- Use only outcome keys from assessmentBlueprint.mcqPlan.targetOutcomeKeys.
+- questionType must be "multiple_choice".
+- Use only outcome keys from assessmentBlueprint.multipleChoicePlan.targetOutcomeKeys.
 - bloomLevel must exactly match the selected outcome's bloomLevel.
 - bloomLevel must be one of: Remember, Understand, Apply, Analyze.
 - Every question must include citations[] with 1-3 citation objects.
@@ -172,6 +256,7 @@ Return JSON only:
   "questions": [
     {
       "questionText": "...",
+      "questionType": "multiple_choice",
       "options": [
         {"label":"A","text":"...","isCorrect":false},
         {"label":"B","text":"...","isCorrect":true},
@@ -198,7 +283,7 @@ export const buildGroundedMcqRepairPrompt = (args: {
     assessmentBlueprint: AssessmentBlueprint;
     candidate: any;
     repairReasons?: string[];
-}) => `Repair the multiple-choice question below so it is strictly grounded in the evidence passages.
+}) => `Repair the objective multiple-choice question below so it is strictly grounded in the evidence passages.
 
 TOPIC: ${args.topicTitle}
 DESCRIPTION: ${args.topicDescription || "General concepts"}
@@ -218,6 +303,7 @@ ${JSON.stringify(args.candidate, null, 2)}
 Rules:
 - Keep the same question intent only if it is fully supported by the evidence.
 - If the current question intent is not supported, rewrite the question so it matches the evidence exactly.
+- questionType must be "multiple_choice".
 - Use exactly 4 options with one correct answer.
 - The marked correct option must be directly supported by the cited evidence.
 - If the correct option includes a number, percentage, threshold, rate, count, or limit, copy that value exactly from evidence.
@@ -226,7 +312,7 @@ Rules:
 - Every citation object must include: passageId, page, startChar, endChar, quote.
 - quote must be an exact short excerpt from the cited passage.
 - If the candidate cannot be repaired reliably from the evidence, return {"discard": true}.
-- Use only outcome keys from assessmentBlueprint.mcqPlan.targetOutcomeKeys.
+- Use only outcome keys from assessmentBlueprint.multipleChoicePlan.targetOutcomeKeys.
 - bloomLevel must exactly match the selected outcome's bloomLevel.
 
 Return JSON only in one of these formats:
@@ -238,6 +324,7 @@ or
 
 {
   "questionText": "...",
+  "questionType": "multiple_choice",
   "options": [
     {"label":"A","text":"...","isCorrect":false},
     {"label":"B","text":"...","isCorrect":true},
@@ -251,6 +338,113 @@ or
   "outcomeKey": "outcome-1",
   "citations": [
     {"passageId":"p1-0","page":0,"startChar":0,"endChar":80,"quote":"..."}
+  ]
+}`;
+
+export const buildGroundedTrueFalsePrompt = (args: {
+    topicTitle: string;
+    topicDescription?: string;
+    requestedCount: number;
+    evidence: RetrievedEvidence[];
+    assessmentBlueprint: AssessmentBlueprint;
+}) => `Create ${args.requestedCount} true/false questions strictly grounded in the evidence passages.
+
+TOPIC: ${args.topicTitle}
+DESCRIPTION: ${args.topicDescription || "General concepts"}
+
+${formatEvidence(args.evidence, 12000)}
+ASSESSMENT_BLUEPRINT:
+${formatAssessmentBlueprint(args.assessmentBlueprint)}
+
+Rules:
+- Each question must be answerable only from evidence above.
+- questionType must be "true_false".
+- Use only outcome keys from assessmentBlueprint.trueFalsePlan.targetOutcomeKeys.
+- bloomLevel must exactly match the selected outcome's bloomLevel.
+- bloomLevel must be one of: Remember, Understand, Apply.
+- Each question must be a single clear statement.
+- Use exactly 2 options: True and False.
+- Exactly one option must be correct.
+- If False is correct, the statement must be directly contradicted by the evidence, not vaguely unsupported.
+- Do not write tricky, opinion-based, or ambiguous statements.
+- Every question must include citations[] with 1-3 citation objects.
+- Every citation object must include: passageId, page, startChar, endChar, quote.
+- quote must be an exact short excerpt from the cited passage.
+
+Return JSON only:
+{
+  "questions": [
+    {
+      "questionText": "...",
+      "questionType": "true_false",
+      "options": [
+        {"label":"A","text":"True","isCorrect":false},
+        {"label":"B","text":"False","isCorrect":true}
+      ],
+      "explanation": "...",
+      "difficulty": "easy|medium|hard",
+      "learningObjective": "...",
+      "bloomLevel": "Remember|Understand|Apply",
+      "outcomeKey": "outcome-1",
+      "citations": [
+        {"passageId":"p1-0","page":0,"startChar":0,"endChar":80,"quote":"..."}
+      ]
+    }
+  ]
+}`;
+
+export const buildGroundedFillBlankPrompt = (args: {
+    topicTitle: string;
+    topicDescription?: string;
+    requestedCount: number;
+    evidence: RetrievedEvidence[];
+    assessmentBlueprint: AssessmentBlueprint;
+}) => `Create ${args.requestedCount} fill-in-the-blank questions strictly grounded in the evidence passages.
+
+TOPIC: ${args.topicTitle}
+DESCRIPTION: ${args.topicDescription || "General concepts"}
+
+${formatEvidence(args.evidence, 12000)}
+ASSESSMENT_BLUEPRINT:
+${formatAssessmentBlueprint(args.assessmentBlueprint)}
+
+Rules:
+- Each question must be answerable only from evidence above.
+- questionType must be "fill_blank".
+- Use only outcome keys from assessmentBlueprint.fillBlankPlan.targetOutcomeKeys.
+- bloomLevel must exactly match the selected outcome's bloomLevel.
+- bloomLevel must be one of: Remember, Understand, Apply.
+- Use exactly one blank only.
+- templateParts must contain exactly one "__" entry.
+- acceptedAnswers must contain the canonical correct answer first, then any exact aliases supported by the evidence.
+- Answers must be short and exact.
+- fillBlankMode must be either "token_bank" or "free_text".
+- For token_bank items, include tokens with 4-6 entries including the correct answer.
+- For free_text items, omit tokens.
+- Do not invent unsupported aliases.
+- Every question must include citations[] with 1-3 citation objects.
+- Every citation object must include: passageId, page, startChar, endChar, quote.
+- quote must be an exact short excerpt from the cited passage.
+
+Return JSON only:
+{
+  "questions": [
+    {
+      "questionText": "...",
+      "questionType": "fill_blank",
+      "templateParts": ["The capital of Ghana is ", "__", "."],
+      "acceptedAnswers": ["Accra"],
+      "tokens": ["Accra", "Kumasi", "Tamale", "Cape Coast"],
+      "fillBlankMode": "token_bank",
+      "explanation": "...",
+      "difficulty": "easy|medium|hard",
+      "learningObjective": "...",
+      "bloomLevel": "Remember|Understand|Apply",
+      "outcomeKey": "outcome-1",
+      "citations": [
+        {"passageId":"p1-0","page":0,"startChar":0,"endChar":80,"quote":"..."}
+      ]
+    }
   ]
 }`;
 

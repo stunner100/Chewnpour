@@ -9,15 +9,29 @@ import type {
     AssessmentBlueprint,
     GroundedCitation,
     GroundedConceptCandidate,
+    GroundedFillBlankCandidate,
     GroundedEssayCandidate,
-    GroundedMcqCandidate,
+    GroundedMultipleChoiceCandidate,
+    GroundedTrueFalseCandidate,
 } from "./groundedGeneration";
 import { getAssessmentQuestionMetadataIssues } from "./assessmentBlueprint.js";
+import {
+    QUESTION_TYPE_FILL_BLANK,
+    QUESTION_TYPE_MULTIPLE_CHOICE,
+    QUESTION_TYPE_TRUE_FALSE,
+} from "./objectiveExam.js";
 
-export type GroundedContentType = "mcq" | "essay" | "concept";
+export type GroundedContentType =
+    | "multiple_choice"
+    | "true_false"
+    | "fill_blank"
+    | "essay"
+    | "concept";
 
 export const GROUNDED_MIN_SCORE: Record<GroundedContentType, number> = {
-    mcq: 0.85,
+    multiple_choice: 0.85,
+    true_false: 0.85,
+    fill_blank: 0.88,
     essay: 0.88,
     concept: 0.9,
 };
@@ -230,8 +244,29 @@ const validateCitationSpans = (citations: GroundedCitation[], index: GroundedEvi
     return { valid, reasons };
 };
 
-const hasMinimalMcq = (candidate: GroundedMcqCandidate) =>
+const hasMinimalMultipleChoice = (candidate: GroundedMultipleChoiceCandidate) =>
     String(candidate?.questionText || "").trim().length >= 12;
+
+const hasUsableTrueFalse = (candidate: GroundedTrueFalseCandidate) => {
+    const questionText = String(candidate?.questionText || "").trim();
+    const options = Array.isArray(candidate?.options) ? candidate.options : [];
+    const optionTexts = options.map((option) => String(option?.text || "").trim().toLowerCase());
+    const correctCount = options.filter((option) => option?.isCorrect === true).length;
+    return questionText.length >= 12
+        && options.length === 2
+        && correctCount === 1
+        && optionTexts.includes("true")
+        && optionTexts.includes("false");
+};
+
+const hasUsableFillBlank = (candidate: GroundedFillBlankCandidate) => {
+    const templateParts = Array.isArray(candidate?.templateParts) ? candidate.templateParts : [];
+    const acceptedAnswers = Array.isArray(candidate?.acceptedAnswers) ? candidate.acceptedAnswers : [];
+    const blanks = templateParts.filter((entry) => entry === "__").length;
+    return String(candidate?.questionText || "").trim().length >= 12
+        && blanks === 1
+        && acceptedAnswers.filter((value) => String(value || "").trim()).length > 0;
+};
 
 const hasUsableEssay = (candidate: GroundedEssayCandidate) => {
     return String(candidate.questionText || "").trim().length >= 12
@@ -245,13 +280,83 @@ const hasUsableConcept = (candidate: GroundedConceptCandidate) => {
     return template.length > 0 && answers.length > 0 && blanks === answers.length;
 };
 
-const validateMcqSupport = (candidate: GroundedMcqCandidate, supportText: string) => {
+const validateObjectiveSupport = (
+    candidate: GroundedMultipleChoiceCandidate | GroundedTrueFalseCandidate | GroundedFillBlankCandidate,
+    type: GroundedContentType,
+    supportText: string,
+) => {
+    if (type === QUESTION_TYPE_TRUE_FALSE) {
+        const options = Array.isArray(candidate?.options) ? candidate.options : [];
+        const correctOptions = options.filter((option) => option && option.isCorrect === true);
+        if (correctOptions.length !== 1) {
+            return {
+                pass: false,
+                reasons: ["invalid true_false structure"],
+            };
+        }
+
+        const statementText = String(candidate?.questionText || "").trim();
+        const truthValue = String(correctOptions[0]?.text || "").trim().toLowerCase();
+        if (!statementText) {
+            return {
+                pass: false,
+                reasons: ["missing true_false statement text"],
+            };
+        }
+        if (!supportText) {
+            return {
+                pass: false,
+                reasons: ["missing citation support text"],
+            };
+        }
+
+        const statementSupported = isTextSupportedByEvidence(statementText, supportText);
+        if (truthValue === "true") {
+            return statementSupported
+                ? { pass: true, reasons: [] as string[] }
+                : { pass: false, reasons: ["true statement unsupported by cited evidence"] };
+        }
+
+        if (truthValue === "false") {
+            return statementSupported
+                ? { pass: false, reasons: ["false statement supported by cited evidence"] }
+                : { pass: true, reasons: [] as string[] };
+        }
+
+        return {
+            pass: false,
+            reasons: ["invalid true_false truth value"],
+        };
+    }
+
+    if (type === QUESTION_TYPE_FILL_BLANK) {
+        const acceptedAnswers = Array.isArray(candidate?.acceptedAnswers)
+            ? candidate.acceptedAnswers.map((value) => String(value || "").trim()).filter(Boolean)
+            : [];
+        if (acceptedAnswers.length === 0) {
+            return {
+                pass: false,
+                reasons: ["missing accepted answer text"],
+            };
+        }
+        if (!isTextSupportedByEvidence(acceptedAnswers[0], supportText)) {
+            return {
+                pass: false,
+                reasons: ["accepted answer unsupported by cited evidence"],
+            };
+        }
+        return {
+            pass: true,
+            reasons: [] as string[],
+        };
+    }
+
     const options = Array.isArray(candidate?.options) ? candidate.options : [];
     const correctOptions = options.filter((option) => option && option.isCorrect === true);
     if (correctOptions.length !== 1) {
         return {
             pass: false,
-            reasons: ["invalid mcq structure"],
+            reasons: ["invalid objective structure"],
         };
     }
 
@@ -278,7 +383,12 @@ const validateMcqSupport = (candidate: GroundedMcqCandidate, supportText: string
 
 export const runDeterministicGroundingCheck = (args: {
     type: GroundedContentType;
-    candidate: GroundedMcqCandidate | GroundedEssayCandidate | GroundedConceptCandidate;
+    candidate:
+        | GroundedMultipleChoiceCandidate
+        | GroundedTrueFalseCandidate
+        | GroundedFillBlankCandidate
+        | GroundedEssayCandidate
+        | GroundedConceptCandidate;
     evidenceIndex: GroundedEvidenceIndex;
     assessmentBlueprint?: AssessmentBlueprint | null;
 }): GroundingCheckResult => {
@@ -308,8 +418,14 @@ export const runDeterministicGroundingCheck = (args: {
         .join("\n\n")
         .trim();
 
-    if (args.type === "mcq" && !hasMinimalMcq(args.candidate as GroundedMcqCandidate)) {
-        reasons.push("invalid mcq structure");
+    if (args.type === QUESTION_TYPE_MULTIPLE_CHOICE && !hasMinimalMultipleChoice(args.candidate as GroundedMultipleChoiceCandidate)) {
+        reasons.push("invalid multiple_choice structure");
+    }
+    if (args.type === QUESTION_TYPE_TRUE_FALSE && !hasUsableTrueFalse(args.candidate as GroundedTrueFalseCandidate)) {
+        reasons.push("invalid true_false structure");
+    }
+    if (args.type === QUESTION_TYPE_FILL_BLANK && !hasUsableFillBlank(args.candidate as GroundedFillBlankCandidate)) {
+        reasons.push("invalid fill_blank structure");
     }
     if (args.type === "essay" && !hasUsableEssay(args.candidate as GroundedEssayCandidate)) {
         reasons.push("invalid essay structure");
@@ -317,7 +433,10 @@ export const runDeterministicGroundingCheck = (args: {
     if (args.type === "concept" && !hasUsableConcept(args.candidate as GroundedConceptCandidate)) {
         reasons.push("invalid concept structure");
     }
-    if ((args.type === "mcq" || args.type === "essay") && args.assessmentBlueprint) {
+    if ((args.type === QUESTION_TYPE_MULTIPLE_CHOICE
+        || args.type === QUESTION_TYPE_TRUE_FALSE
+        || args.type === QUESTION_TYPE_FILL_BLANK
+        || args.type === "essay") && args.assessmentBlueprint) {
         const metadataIssues = getAssessmentQuestionMetadataIssues({
             question: args.candidate,
             blueprint: args.assessmentBlueprint,
@@ -327,10 +446,19 @@ export const runDeterministicGroundingCheck = (args: {
             reasons.push(...metadataIssues);
         }
     }
-    if (args.type === "mcq" && supportText) {
-        const mcqSupport = validateMcqSupport(args.candidate as GroundedMcqCandidate, supportText);
-        if (!mcqSupport.pass) {
-            reasons.push(...mcqSupport.reasons);
+    if (
+        (args.type === QUESTION_TYPE_MULTIPLE_CHOICE
+            || args.type === QUESTION_TYPE_TRUE_FALSE
+            || args.type === QUESTION_TYPE_FILL_BLANK)
+        && supportText
+    ) {
+        const objectiveSupport = validateObjectiveSupport(
+            args.candidate as GroundedMultipleChoiceCandidate | GroundedTrueFalseCandidate | GroundedFillBlankCandidate,
+            args.type,
+            supportText
+        );
+        if (!objectiveSupport.pass) {
+            reasons.push(...objectiveSupport.reasons);
         }
     }
 
@@ -370,8 +498,12 @@ export const buildGroundedVerifierPrompt = (args: {
     candidate: any;
     evidenceSnippet: string;
 }) => {
-    const typeSpecificRules = args.type === "mcq"
-        ? "For MCQ candidates, verify that the marked correct option is directly supported by the evidence. Reject if any number, percentage, threshold, rate, count, or definition in the correct option does not match the evidence exactly."
+    const typeSpecificRules = args.type === QUESTION_TYPE_MULTIPLE_CHOICE
+        ? "For multiple-choice candidates, verify that the marked correct option is directly supported by the evidence. Reject if any number, percentage, threshold, rate, count, or definition in the correct option does not match the evidence exactly."
+        : args.type === QUESTION_TYPE_TRUE_FALSE
+            ? "For true/false candidates, verify that the correct truth value is directly supported by the evidence and that a false statement is explicitly contradicted by the evidence."
+            : args.type === QUESTION_TYPE_FILL_BLANK
+                ? "For fill-in-the-blank candidates, verify that the accepted answer is directly supported by the evidence and that no unsupported aliases were invented."
         : args.type === "essay"
             ? "For essay candidates, verify that every numeric or definitional claim in the model answer is supported by the evidence."
             : "For concept candidates, verify that the answers are directly supported by the evidence.";

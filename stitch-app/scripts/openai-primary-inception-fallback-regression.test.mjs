@@ -33,8 +33,8 @@ if (!aiSource.includes('const OPENAI_PRIMARY_FEATURES = new Set([')) {
     throw new Error("Expected an explicit OpenAI feature-routing set.");
 }
 
-if (!aiSource.includes('"course_generation"') || !aiSource.includes('"mcq_generation"') || !aiSource.includes('"essay_generation"')) {
-    throw new Error("Expected course, MCQ, and essay generation features to route to OpenAI.");
+if (!aiSource.includes('"course_generation"') || !aiSource.includes('"objective_generation"') || !aiSource.includes('"essay_generation"')) {
+    throw new Error("Expected course, objective, and essay generation features to route to OpenAI.");
 }
 
 if (!aiSource.includes("const preferredProvider = resolvePreferredTextProvider();")) {

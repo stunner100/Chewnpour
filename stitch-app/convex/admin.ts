@@ -1118,7 +1118,9 @@ export const getDashboardSnapshot = query({
 
         // ── Exam Analytics ──
         const examAttemptsLastWindow = examAttempts.filter((a) => a._creationTime >= sevenDaysAgo).length;
-        const mcqAttempts = examAttempts.filter((a) => a.examFormat === "mcq").length;
+        const objectiveAttempts = examAttempts.filter(
+            (a) => String(a?.examFormat || "").trim().toLowerCase() !== "essay"
+        ).length;
         const essayAttempts = examAttempts.filter((a) => a.examFormat === "essay").length;
 
         let examScoreSum = 0;
@@ -1169,7 +1171,7 @@ export const getDashboardSnapshot = query({
         const examAnalytics = {
             totalAttempts: examAttempts.length,
             attemptsLastWindow: examAttemptsLastWindow,
-            mcqAttempts,
+            objectiveAttempts,
             essayAttempts,
             averageScorePercent: examScoreCount > 0 ? Math.round((examScoreSum / examScoreCount) * 10) / 10 : 0,
             averageTimeTakenSeconds: examTimeCount > 0 ? Math.round(examTimeSum / examTimeCount) : 0,
@@ -1383,8 +1385,8 @@ export const getDashboardSnapshot = query({
         const examReadyTopics = hasTopicRows
             ? topics.filter((topic) => Boolean(topic.examReady)).length
             : inferredTopicStats.examReadyTopics;
-        const totalMcq = hasTopicRows
-            ? topics.reduce((sum, topic) => sum + toNonNegativeNumber(topic.usableMcqCount), 0)
+        const totalObjective = hasTopicRows
+            ? topics.reduce((sum, topic) => sum + toNonNegativeNumber(topic.usableObjectiveCount), 0)
             : 0;
         const totalEssay = hasTopicRows
             ? topics.reduce((sum, topic) => sum + toNonNegativeNumber(topic.usableEssayCount), 0)
@@ -1397,7 +1399,7 @@ export const getDashboardSnapshot = query({
             inProgressCourses,
             totalTopics,
             examReadyTopics,
-            averageMcqPerTopic: hasTopicRows ? Math.round((totalMcq / topicCount) * 10) / 10 : 0,
+            averageObjectivePerTopic: hasTopicRows ? Math.round((totalObjective / topicCount) * 10) / 10 : 0,
             averageEssayPerTopic: hasTopicRows ? Math.round((totalEssay / topicCount) * 10) / 10 : 0,
             source: {
                 courses: hasCourseRows ? "courses" : "uploads",
@@ -2195,6 +2197,7 @@ export const getDashboardSnapshot = query({
                         topicTitle: String(topic?.topicTitle || "Unknown Topic"),
                         currentTarget: Number(topic?.currentTarget) || 0,
                         recalculatedTarget: Number(topic?.recalculatedTarget) || 0,
+                        usableObjectiveCount: Number(topic?.usableObjectiveCount ?? topic?.usableMcqCount) || 0,
                         usableMcqCount: Number(topic?.usableMcqCount) || 0,
                         usableEssayCount: Number(topic?.usableEssayCount) || 0,
                         fillRatio: Number(topic?.fillRatio) || 0,

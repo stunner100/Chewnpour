@@ -17,16 +17,16 @@ export const formatEssayPreparingMessage = (usableEssayCount) =>
     `Essay questions are still preparing. ${formatReadyCount(usableEssayCount, 'essay question')} so far. Please check back in a moment.`;
 
 export const formatQuestionBankProgressMessage = ({
-    usableMcqCount,
+    usableObjectiveCount,
     usableEssayCount,
-    mcqReady,
+    objectiveReady,
     examReady,
 }) => {
-    if (!mcqReady) {
-        return `${formatReadyCount(usableMcqCount, 'MCQ')} and ${formatReadyCount(usableEssayCount, 'essay question')} so far.`;
+    if (!objectiveReady) {
+        return `${formatReadyCount(usableObjectiveCount, 'objective question')} and ${formatReadyCount(usableEssayCount, 'essay question')} so far.`;
     }
     if (!examReady) {
-        return `MCQ ready. ${formatReadyCount(usableEssayCount, 'essay question')} so far.`;
+        return `Objective ready. ${formatReadyCount(usableEssayCount, 'essay question')} so far.`;
     }
     return '';
 };

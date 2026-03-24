@@ -11,6 +11,12 @@ import {
     resolveAutoGenerationError,
     resolveAutoGenerationResult,
 } from '../lib/examAutoGenerationState';
+import {
+    OBJECTIVE_EXAM_FORMAT,
+    QUESTION_TYPE_FILL_BLANK,
+    normalizeExamFormat,
+    normalizeQuestionType,
+} from '../lib/objectiveExam';
 import { addSentryBreadcrumb, captureSentryException, captureSentryMessage } from '../lib/sentry';
 import ExamQuestionCard from '../components/ExamQuestionCard';
 
@@ -239,11 +245,12 @@ const TRANSIENT_TRANSPORT_ERROR_PATTERNS = [
     'fetch failed',
     'inactive server',
 ];
-const MCQ_EXAM_QUESTION_CAP = 35;
+const OBJECTIVE_EXAM_QUESTION_CAP = 35;
 const ESSAY_EXAM_QUESTION_CAP = 15;
 const ESSAY_EXAM_INTERACTIVE_START_COUNT = 3;
 const EXAM_DURATION_SECONDS = 45 * 60;
 const MIN_ESSAY_SUBMIT_CHAR_COUNT = 20;
+const EMPTY_QUESTIONS = [];
 
 const resolveConvexActionError = (error, fallbackMessage) => {
     const dataMessage = typeof error?.data === 'string'
@@ -273,7 +280,8 @@ const getConvexErrorCode = (error) => {
     }
     const normalizedMessage = resolveConvexActionError(error, '').toLowerCase();
     if (!normalizedMessage) return '';
-    if (normalizedMessage.includes('exam_questions_preparing')) return 'EXAM_QUESTIONS_PREPARING';
+    if (normalizedMessage.includes('objective_questions_preparing')) return 'OBJECTIVE_QUESTIONS_PREPARING';
+    if (normalizedMessage.includes('exam_questions_preparing')) return 'OBJECTIVE_QUESTIONS_PREPARING';
     if (normalizedMessage.includes('essay_questions_preparing')) return 'ESSAY_QUESTIONS_PREPARING';
     if (
         normalizedMessage.includes('must be signed in')
@@ -376,9 +384,19 @@ const isPreparingEssayStartError = (message) => {
 };
 
 const resolvePreferredExamFormat = (value) => {
-    const normalized = String(value || '').toLowerCase().trim();
-    if (normalized === 'mcq' || normalized === 'essay') return normalized;
-    return null;
+    if (value === undefined || value === null || String(value).trim() === '') {
+        return null;
+    }
+    const normalized = normalizeExamFormat(value);
+    return normalized === 'essay' || normalized === OBJECTIVE_EXAM_FORMAT ? normalized : null;
+};
+
+const isObjectiveQuestionAnswered = (question, answer) => {
+    const questionType = normalizeQuestionType(question?.questionType);
+    if (questionType === QUESTION_TYPE_FILL_BLANK) {
+        return String(answer ?? '').trim().length > 0;
+    }
+    return Boolean(answer);
 };
 
 // ── Component ──
@@ -402,7 +420,7 @@ const ExamMode = () => {
     const [autoGenerationPaused, setAutoGenerationPaused] = useState(false);
 
     // Essay exam state
-    const [examFormat, setExamFormat] = useState(null); // null = not chosen, 'mcq' | 'essay'
+    const [examFormat, setExamFormat] = useState(null); // null = not chosen, 'objective' | 'essay'
     const [generatingEssayQuestions, setGeneratingEssayQuestions] = useState(false);
     const [gradingEssay, setGradingEssay] = useState(false);
     const [submitError, setSubmitError] = useState('');
@@ -418,7 +436,7 @@ const ExamMode = () => {
         topicId ? { topicId } : 'skip'
     );
     const startExam = useMutation(api.exams.startExamAttempt);
-    const submitExam = useMutation(api.exams.submitExamAttempt);
+    const submitExam = useAction(api.exams.submitExamAttempt);
     const generateQuestions = useAction(api.ai.generateQuestionsForTopic);
     const generateEssayQuestions = useAction(api.ai.generateEssayQuestionsForTopic);
     const submitEssayExam = useAction(api.exams.submitEssayExam);
@@ -430,10 +448,10 @@ const ExamMode = () => {
     const AUTO_GENERATION_MAX_ATTEMPTS = 3;
 
     const topicQuestions = topicData?.questions || [];
-    const loadingExamQuestionCap = examFormat === 'essay' ? ESSAY_EXAM_QUESTION_CAP : MCQ_EXAM_QUESTION_CAP;
-    const loadingExamTypeLabel = examFormat === 'essay' ? 'essay' : 'multiple-choice';
+    const loadingExamQuestionCap = examFormat === 'essay' ? ESSAY_EXAM_QUESTION_CAP : OBJECTIVE_EXAM_QUESTION_CAP;
+    const loadingExamTypeLabel = examFormat === 'essay' ? 'essay' : 'objective';
     const hasAttemptQuestions = Array.isArray(attemptQuestions) && attemptQuestions.length > 0;
-    const questions = hasAttemptQuestions ? attemptQuestions : [];
+    const questions = hasAttemptQuestions ? attemptQuestions : EMPTY_QUESTIONS;
     const topic = topicData;
     const preferredFormatFromState = resolvePreferredExamFormat(location?.state?.preferredFormat);
     const examFlowStartTimeRef = useRef(Date.now());
@@ -524,12 +542,12 @@ const ExamMode = () => {
                 topicId,
                 topicQuestionCount: topicQuestions.length,
                 hasUserId: Boolean(userId),
-                examFormat: examFormat || 'mcq',
+                examFormat: examFormat || OBJECTIVE_EXAM_FORMAT,
             },
         });
         let timeoutHandle = null;
         try {
-            const startPromise = startExam({ topicId, examFormat: examFormat || 'mcq' });
+            const startPromise = startExam({ topicId, examFormat: examFormat || OBJECTIVE_EXAM_FORMAT });
             const timeoutPromise = new Promise((_, reject) => {
                 timeoutHandle = setTimeout(() => {
                     reject(new Error('Exam attempt initialization timed out.'));
@@ -543,7 +561,7 @@ const ExamMode = () => {
             const isDeferredPreparingState =
                 result?.deferred === true
                 && (
-                    deferredCode === 'EXAM_QUESTIONS_PREPARING'
+                    deferredCode === 'OBJECTIVE_QUESTIONS_PREPARING'
                     || deferredCode === 'ESSAY_QUESTIONS_PREPARING'
                 );
             if (isDeferredPreparingState) {
@@ -605,7 +623,7 @@ const ExamMode = () => {
         } catch (error) {
             const errorCode = getConvexErrorCode(error);
             const isPreparingQuestionsError =
-                errorCode === 'EXAM_QUESTIONS_PREPARING' ||
+                errorCode === 'OBJECTIVE_QUESTIONS_PREPARING' ||
                 errorCode === 'ESSAY_QUESTIONS_PREPARING';
             const message = resolveConvexActionError(error, 'Unable to start the exam. Please try again.');
             const authError = isConvexAuthenticationError(error);
@@ -945,7 +963,7 @@ const ExamMode = () => {
     ]);
 
     // Auto-clear deferred "preparing" errors after a short delay so the
-    // auto-start effect retries. Covers both MCQ and essay formats.
+    // auto-start effect retries. Covers both objective and essay formats.
     useEffect(() => {
         if (!startExamError) return;
         if (examStarted || startingExamAttempt || hasAttemptQuestions) return;
@@ -1219,7 +1237,7 @@ const ExamMode = () => {
             const value = selectedAnswers[question._id];
             return String(value ?? '').trim().length >= MIN_ESSAY_SUBMIT_CHAR_COUNT;
         }).length
-        : questions.filter((question) => Boolean(selectedAnswers[question._id])).length;
+        : questions.filter((question) => isObjectiveQuestionAnswered(question, selectedAnswers[question._id])).length;
     const isEssaySubmitBlocked = examFormat === 'essay' && answeredQuestionCount < questions.length;
 
     // Keep hook order stable across loading/error/exam states.
@@ -1346,15 +1364,15 @@ const ExamMode = () => {
 
                         <div className="space-y-3">
                             <button
-                                onClick={() => setExamFormat('mcq')}
+                                onClick={() => setExamFormat(OBJECTIVE_EXAM_FORMAT)}
                                 className="w-full flex items-center gap-4 p-4 rounded-xl border border-border-light dark:border-border-dark hover:border-primary hover:bg-primary/5 transition-all text-left group"
                             >
                                 <div className="w-11 h-11 rounded-xl bg-primary/10 flex items-center justify-center group-hover:bg-primary/15 transition-colors">
                                     <span className="material-symbols-outlined text-primary">radio_button_checked</span>
                                 </div>
                                 <div>
-                                    <p className="text-body-sm font-semibold text-text-main-light dark:text-text-main-dark">Multiple Choice</p>
-                                    <p className="text-caption text-text-sub-light dark:text-text-sub-dark">Pick the best answer from 4 options</p>
+                                    <p className="text-body-sm font-semibold text-text-main-light dark:text-text-main-dark">Objective</p>
+                                    <p className="text-caption text-text-sub-light dark:text-text-sub-dark">A mix of multiple choice, true/false, and fill-in-the-blank</p>
                                 </div>
                             </button>
 
@@ -1575,7 +1593,7 @@ const ExamMode = () => {
                             {questions.map((q, index) => {
                                 const isAnswered = examFormat === 'essay'
                                     ? String(selectedAnswers[q._id] ?? '').trim().length >= MIN_ESSAY_SUBMIT_CHAR_COUNT
-                                    : Boolean(selectedAnswers[q._id]);
+                                    : isObjectiveQuestionAnswered(q, selectedAnswers[q._id]);
                                 const isCurrent = index === currentQuestion;
                                 return (
                                     <button
@@ -1668,7 +1686,7 @@ const ExamMode = () => {
                             {questions.map((q, index) => {
                                 const isAnswered = examFormat === 'essay'
                                     ? String(selectedAnswers[q._id] ?? '').trim().length >= MIN_ESSAY_SUBMIT_CHAR_COUNT
-                                    : Boolean(selectedAnswers[q._id]);
+                                    : isObjectiveQuestionAnswered(q, selectedAnswers[q._id]);
                                 const isCurrent = index === currentQuestion;
                                 return (
                                     <button

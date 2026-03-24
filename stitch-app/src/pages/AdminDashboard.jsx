@@ -426,7 +426,7 @@ const LearningPanel = ({ snapshot, activeUsersDays }) => {
             <section className="grid gap-4 lg:grid-cols-2">
                 <SectionCard title="Exam Format Split">
                     <div className="divide-y divide-border-light dark:divide-border-dark">
-                        <StatRow label="MCQ exams" value={formatNumber(exam.mcqAttempts)} detail={exam.totalAttempts > 0 ? formatPercent((exam.mcqAttempts / exam.totalAttempts) * 100) : '0%'} />
+                        <StatRow label="Objective exams" value={formatNumber(exam.objectiveAttempts)} detail={exam.totalAttempts > 0 ? formatPercent((exam.objectiveAttempts / exam.totalAttempts) * 100) : '0%'} />
                         <StatRow label="Essay exams" value={formatNumber(exam.essayAttempts)} detail={exam.totalAttempts > 0 ? formatPercent((exam.essayAttempts / exam.totalAttempts) * 100) : '0%'} />
                     </div>
                 </SectionCard>
@@ -641,7 +641,7 @@ const ContentPanel = ({
                 />
                 <StatCard
                     label="Questions/topic"
-                    value={`${content.averageMcqPerTopic || 0} MCQ / ${content.averageEssayPerTopic || 0} Essay`}
+                    value={`${content.averageObjectivePerTopic || 0} Objective / ${content.averageEssayPerTopic || 0} Essay`}
                     icon="help"
                     color="emerald"
                 />
@@ -711,7 +711,7 @@ const ContentPanel = ({
                                     <StatRow label="Finished" value={formatDateTime(latestAudit.finishedAt)} />
                                     <StatRow label="Stale window" value={`${formatNumber(latestAudit.staleHours)}h`} />
                                     <StatRow label="Max topics/format" value={formatNumber(latestAudit.maxTopicsPerFormat)} />
-                                    <StatRow label="MCQ rebased" value={formatNumber(latestAudit.mcqSummary?.rebasedTopicCount)} detail={`${formatNumber(latestAudit.mcqSummary?.candidateTopicCount)} candidates`} />
+                                    <StatRow label="Objective rebased" value={formatNumber(latestAudit.mcqSummary?.rebasedTopicCount)} detail={`${formatNumber(latestAudit.mcqSummary?.candidateTopicCount)} candidates`} />
                                     <StatRow label="Essay rebased" value={formatNumber(latestAudit.essaySummary?.rebasedTopicCount)} detail={`${formatNumber(latestAudit.essaySummary?.candidateTopicCount)} candidates`} />
                                     <StatRow label="Total rebased topics" value={formatNumber(latestAudit.totalRebasedTopics)} />
                                 </div>
@@ -724,7 +724,7 @@ const ContentPanel = ({
                                 ) : (
                                     <div className="mt-3 divide-y divide-border-light dark:divide-border-dark">
                                         <StatRow label="Finished" value={formatDateTime(latestAuditWithRebases.finishedAt)} />
-                                        <StatRow label="MCQ rebased" value={formatNumber(latestAuditWithRebases.mcqSummary?.rebasedTopicCount)} detail={`${formatNumber(latestAuditWithRebases.mcqSummary?.totalTargetReduction)} target reduction`} />
+                                        <StatRow label="Objective rebased" value={formatNumber(latestAuditWithRebases.mcqSummary?.rebasedTopicCount)} detail={`${formatNumber(latestAuditWithRebases.mcqSummary?.totalTargetReduction)} target reduction`} />
                                         <StatRow label="Essay rebased" value={formatNumber(latestAuditWithRebases.essaySummary?.rebasedTopicCount)} detail={`${formatNumber(latestAuditWithRebases.essaySummary?.totalTargetReduction)} target reduction`} />
                                         <StatRow label="Topics changed" value={formatNumber(latestAuditWithRebases.totalRebasedTopics)} />
                                     </div>
@@ -770,7 +770,7 @@ const ContentPanel = ({
                                                     <td className="px-3 py-3 text-text-sub-light dark:text-text-sub-dark">
                                                         {topic.format === 'essay'
                                                             ? `${formatNumber(topic.usableEssayCount)} essay`
-                                                            : `${formatNumber(topic.usableMcqCount)} MCQ`}
+                                                            : `${formatNumber(topic.usableObjectiveCount ?? topic.usableMcqCount)} objective`}
                                                     </td>
                                                     <td className="px-3 py-3 text-text-sub-light dark:text-text-sub-dark">{formatSignedPercent((Number(topic.fillRatio) || 0) * 100)}</td>
                                                     <td className="px-3 py-3 text-text-sub-light dark:text-text-sub-dark">{topic.scheduled ? 'Yes' : 'No'}</td>

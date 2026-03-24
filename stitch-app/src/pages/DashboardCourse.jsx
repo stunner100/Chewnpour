@@ -1,6 +1,6 @@
-import React, { useMemo, useRef, useState, useCallback } from 'react';
+import React, { useRef, useState, useCallback } from 'react';
 import { Link, useParams } from 'react-router-dom';
-import { useQuery, useMutation, useAction, useConvexAuth } from 'convex/react';
+import { useQuery, useMutation, useAction } from 'convex/react';
 import { api } from '../../convex/_generated/api';
 import { useAuth } from '../contexts/AuthContext';
 import { resolveTopicIllustrationUrl } from '../lib/topicIllustration';
@@ -22,7 +22,7 @@ function formatFileSize(bytes) {
 }
 
 // Sources panel component
-const SourcesPanel = ({ courseId, userId, isConvexAuthenticated }) => {
+const SourcesPanel = ({ courseId, userId }) => {
     const sources = useQuery(
         api.courses.getCourseSources,
         courseId ? { courseId } : 'skip'
@@ -204,12 +204,6 @@ const DashboardCourse = () => {
     const { courseId } = useParams();
     const { user } = useAuth();
     const userId = user?.id;
-    const { isAuthenticated: isConvexAuthenticated } = useConvexAuth();
-
-    const uploadQuota = useQuery(
-        api.subscriptions.getUploadQuotaStatus,
-        userId && isConvexAuthenticated ? {} : 'skip'
-    );
 
     React.useEffect(() => {
         window.scrollTo({ top: 0, left: 0, behavior: 'auto' });
@@ -270,7 +264,7 @@ const DashboardCourse = () => {
         }
         return 'Course generation is still running in the background. New topics will appear automatically.';
     })();
-    const syllabusItems = useMemo(() => {
+    const syllabusItems = (() => {
         if (!topics.length && plannedCount === 0) return [];
 
         const topicsByOrder = new Map(
@@ -292,7 +286,7 @@ const DashboardCourse = () => {
                 title: plannedTopicTitles[index] || `Topic ${index + 1}`,
             };
         });
-    }, [topics, plannedCount, plannedTopicTitles]);
+    })();
     const [isProcessing, setIsProcessing] = React.useState(false);
 
     React.useEffect(() => {
@@ -394,7 +388,6 @@ const DashboardCourse = () => {
                 <SourcesPanel
                     courseId={displayCourse._id}
                     userId={userId}
-                    isConvexAuthenticated={isConvexAuthenticated}
                 />
             )}
 

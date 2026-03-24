@@ -12,6 +12,18 @@ import {
 import { filterQuestionsForActiveAssessment } from "./lib/assessmentBlueprint.js";
 import { canReuseExamAttempt, resolveReusableAttemptQuestions } from "./lib/examAttemptReuse";
 import { selectQuestionsForAttempt } from "./lib/examQuestionSelection";
+import {
+    evaluateDeterministicObjectiveAnswer,
+    resolveObjectiveCorrectAnswer,
+} from "./lib/objectiveAnswerGrading.js";
+import {
+    isEssayQuestionType,
+    isObjectiveQuestionType,
+    normalizeExamFormat,
+    normalizeQuestionType,
+    OBJECTIVE_EXAM_FORMAT,
+    QUESTION_TYPE_FILL_BLANK,
+} from "./lib/objectiveExam.js";
 
 const EXAM_QUESTION_SUBSET_SIZE = 35;
 const EXAM_ESSAY_QUESTION_SUBSET_SIZE = 15;
@@ -84,7 +96,7 @@ export const startExamAttempt = mutation({
     args: {
         userId: v.optional(v.string()),
         topicId: v.id("topics"),
-        examFormat: v.optional(v.string()), // 'mcq' | 'essay'
+        examFormat: v.optional(v.string()), // 'objective' | 'essay'
     },
     handler: async (ctx, args) => {
         const scheduleQuestionTopUp = (options: { essay: boolean; minimumCount: number }) => {
@@ -105,7 +117,7 @@ export const startExamAttempt = mutation({
             void ctx.scheduler.runAfter(0, internal.ai.generateQuestionsForTopicInternal, {
                 topicId: args.topicId,
             }).catch((err) => {
-                console.warn("[ExamStart] mcq_topup_schedule_failed", {
+                console.warn("[ExamStart] objective_topup_schedule_failed", {
                     topicId: args.topicId,
                     message: err instanceof Error ? err.message : String(err),
                 });
@@ -133,7 +145,8 @@ export const startExamAttempt = mutation({
             throw new ConvexError({ code: "UNAUTHORIZED", message: "Not authorized to access this topic." });
         }
 
-        const isEssay = args.examFormat === "essay";
+        const requestedExamFormat = normalizeExamFormat(args.examFormat);
+        const isEssay = requestedExamFormat === "essay";
         const recentAttempts = await ctx.db
             .query("examAttempts")
             .withIndex("by_userId_topicId", (q) =>
@@ -145,7 +158,7 @@ export const startExamAttempt = mutation({
             canReuseExamAttempt({
                 attempt,
                 topicId: args.topicId,
-                examFormat: isEssay ? "essay" : "mcq",
+                examFormat: isEssay ? "essay" : OBJECTIVE_EXAM_FORMAT,
             })
         );
 
@@ -165,8 +178,8 @@ export const startExamAttempt = mutation({
                 }),
             }).filter((question) => {
                 const matchesRequestedFormat = isEssay
-                    ? question.questionType === "essay"
-                    : question.questionType !== "essay";
+                    ? isEssayQuestionType(question.questionType)
+                    : isObjectiveQuestionType(question.questionType);
                 if (!matchesRequestedFormat) return false;
                 return isUsableExamQuestion(question, { allowEssay: isEssay });
             });
@@ -209,8 +222,8 @@ export const startExamAttempt = mutation({
 
         const activeQuestions = filterQuestionsForActiveAssessment({ topic, questions });
         const filteredQuestions = isEssay
-            ? activeQuestions.filter((q) => q.questionType === "essay")
-            : activeQuestions.filter((q) => q.questionType !== "essay");
+            ? activeQuestions.filter((q) => isEssayQuestionType(q.questionType))
+            : activeQuestions.filter((q) => isObjectiveQuestionType(q.questionType));
         const usableQuestions = filteredQuestions.filter((question) =>
             isUsableExamQuestion(question, { allowEssay: isEssay })
         );
@@ -224,7 +237,7 @@ export const startExamAttempt = mutation({
             recentAttempts,
             subsetSize,
             isEssay,
-            examFormat: isEssay ? "essay" : "mcq",
+            examFormat: isEssay ? "essay" : OBJECTIVE_EXAM_FORMAT,
         });
         const selectedQuestions = selection.selectedQuestions;
 
@@ -237,10 +250,10 @@ export const startExamAttempt = mutation({
             });
         }
         if (selectedQuestions.length === 0) {
-            const preparingCode = isEssay ? "ESSAY_QUESTIONS_PREPARING" : "EXAM_QUESTIONS_PREPARING";
+            const preparingCode = isEssay ? "ESSAY_QUESTIONS_PREPARING" : "OBJECTIVE_QUESTIONS_PREPARING";
             const preparingMessage = isEssay
                 ? "Essay questions are being prepared. Please try again in a few seconds."
-                : "Questions are being refreshed for quality. Please try again in a few seconds.";
+                : "Objective questions are being refreshed for quality. Please try again in a few seconds.";
 
             if (isEssay) {
                 try {
@@ -260,7 +273,7 @@ export const startExamAttempt = mutation({
                         topicId: args.topicId,
                     });
                 } catch (err) {
-                    console.warn("[ExamStart] mcq_generation_schedule_failed", {
+                    console.warn("[ExamStart] objective_generation_schedule_failed", {
                         topicId: args.topicId,
                         message: err instanceof Error ? err.message : String(err),
                     });
@@ -298,7 +311,7 @@ export const startExamAttempt = mutation({
         const attemptDocument = {
             userId: effectiveUserId,
             topicId: args.topicId,
-            examFormat: isEssay ? "essay" : "mcq",
+            examFormat: isEssay ? "essay" : OBJECTIVE_EXAM_FORMAT,
             score: 0,
             totalQuestions: selectedQuestions.length,
             timeTakenSeconds: 0,
@@ -307,22 +320,7 @@ export const startExamAttempt = mutation({
             startedAt: Date.now(),
         };
 
-        const attemptId = await (async () => {
-            try {
-                return await ctx.db.insert("examAttempts", attemptDocument);
-            } catch (insertError) {
-                const insertMessage = String((insertError as { message?: unknown })?.message || "");
-                const legacySchemaMismatch =
-                    /table "examAttempts"/i.test(insertMessage)
-                    && /extra field `examFormat`/i.test(insertMessage);
-                if (!legacySchemaMismatch) {
-                    throw insertError;
-                }
-
-                const { examFormat: _FORMAT_FIELD, ...legacyAttemptDocument } = attemptDocument;
-                return await ctx.db.insert("examAttempts", legacyAttemptDocument);
-            }
-        })();
+        const attemptId = await ctx.db.insert("examAttempts", attemptDocument);
 
         return {
             attemptId,
@@ -333,8 +331,8 @@ export const startExamAttempt = mutation({
     },
 });
 
-// Submit exam answers and calculate score
-export const submitExamAttempt = mutation({
+// Submit objective exam answers and calculate score
+export const submitExamAttempt = action({
     args: {
         attemptId: v.id("examAttempts"),
         answers: v.array(
@@ -346,15 +344,19 @@ export const submitExamAttempt = mutation({
         timeTakenSeconds: v.number(),
     },
     handler: async (ctx, args) => {
-        const identity = await ctx.auth.getUserIdentity();
-        const authUserId = resolveAuthUserId(identity);
-        assertAuthorizedUser({ authUserId });
-
-        const attempt = await ctx.db.get(args.attemptId);
+        const submissionContext: any = await ctx.runQuery(internal.exams.getExamAttemptSubmissionContext, {
+            attemptId: args.attemptId,
+        });
+        const attempt = submissionContext?.attempt;
         if (!attempt) {
             throw new Error("Exam attempt not found");
         }
-        assertAuthorizedUser({ authUserId, resourceOwnerUserId: attempt.userId });
+        if (normalizeExamFormat((attempt as any).examFormat) === "essay") {
+            throw new ConvexError({
+                code: "OBJECTIVE_SUBMISSION_INVALID",
+                message: "This exam attempt is in Essay mode.",
+            });
+        }
 
         // Idempotency guard — if already submitted, return existing result
         const existingAnswers = Array.isArray(attempt.answers) ? attempt.answers : [];
@@ -374,9 +376,13 @@ export const submitExamAttempt = mutation({
         // Validate and clamp timeTakenSeconds
         const safeTimeTaken = Math.max(0, Math.min(86400, Math.round(args.timeTakenSeconds || 0)));
 
+        const allQuestions: any[] = Array.isArray(submissionContext?.questions)
+            ? submissionContext.questions
+            : [];
+
         // Calculate score
         let correctCount = 0;
-        const gradedAnswers = [];
+        const gradedAnswers: any[] = [];
         ensureUniqueAnswerQuestionIds(args.answers);
         const attemptQuestionIds = new Set((attempt.questionIds || []).map((id) => String(id)));
         const enforceSubset = attemptQuestionIds.size > 0;
@@ -385,24 +391,59 @@ export const submitExamAttempt = mutation({
             if (enforceSubset && !attemptQuestionIds.has(String(answer.questionId))) {
                 throw new Error("Submitted answers include questions outside this exam attempt.");
             }
-            const question = await ctx.db.get(answer.questionId);
+            const question = allQuestions.find(
+                (item: any) => String(item?._id || "") === String(answer.questionId)
+            );
             if (!question) {
                 throw new Error("One or more submitted questions could not be found.");
             }
             if (question.topicId !== attempt.topicId) {
                 throw new Error("Submitted answers include questions outside this topic.");
             }
+            if (!isObjectiveQuestionType(question.questionType)) {
+                throw new Error("Submitted answers include non-objective questions.");
+            }
 
-            const answered = typeof answer.selectedAnswer === "string" && answer.selectedAnswer.trim() !== "";
-            const isCorrect = answered && question?.correctAnswer === answer.selectedAnswer;
+            const deterministicResult = evaluateDeterministicObjectiveAnswer({
+                question,
+                selectedAnswer: answer.selectedAnswer,
+            });
+
+            let isCorrect = deterministicResult.isCorrect;
+            let feedback: string | undefined;
+            let ungraded = false;
+
+            if (
+                !isCorrect
+                && deterministicResult.shouldAiGrade
+                && normalizeQuestionType(question.questionType) === QUESTION_TYPE_FILL_BLANK
+            ) {
+                const aiGradeResult: any = await ctx.runAction(internal.ai.gradeFillBlankAnswer, {
+                    userId: String(attempt.userId || "").trim() || undefined,
+                    questionText: String(question.questionText || ""),
+                    acceptedAnswers: Array.isArray(question.acceptedAnswers) ? question.acceptedAnswers : [],
+                    studentAnswer: deterministicResult.selectedAnswer,
+                });
+                if (aiGradeResult?.isCorrect === true) {
+                    isCorrect = true;
+                    feedback = "Accepted as an equivalent answer.";
+                } else if (aiGradeResult?.ungraded) {
+                    ungraded = true;
+                } else if (typeof aiGradeResult?.reason === "string" && aiGradeResult.reason.trim()) {
+                    feedback = aiGradeResult.reason.trim();
+                }
+            }
+
             if (isCorrect) correctCount++;
 
             gradedAnswers.push({
                 questionId: answer.questionId,
-                selectedAnswer: answered ? answer.selectedAnswer : "",
-                correctAnswer: question?.correctAnswer,
+                selectedAnswer: deterministicResult.selectedAnswer,
+                correctAnswer: deterministicResult.correctAnswer || resolveObjectiveCorrectAnswer(question),
                 isCorrect,
-                skipped: !answered,
+                skipped: deterministicResult.skipped,
+                ...(feedback ? { feedback } : {}),
+                ...(ungraded ? { ungraded: true } : {}),
             });
         }
 
@@ -411,11 +452,13 @@ export const submitExamAttempt = mutation({
             const answeredIds = new Set(args.answers.map((a: any) => String(a.questionId)));
             for (const qId of attempt.questionIds || []) {
                 if (!answeredIds.has(String(qId))) {
-                    const question = await safeGetQuestionById(ctx, qId);
+                    const question = allQuestions.find(
+                        (item: any) => String(item?._id || "") === String(qId)
+                    );
                     gradedAnswers.push({
                         questionId: String(qId),
                         selectedAnswer: "",
-                        correctAnswer: question?.correctAnswer || "",
+                        correctAnswer: resolveObjectiveCorrectAnswer(question),
                         isCorrect: false,
                         skipped: true,
                     });
@@ -423,39 +466,24 @@ export const submitExamAttempt = mutation({
             }
         }
 
-        const attemptExamFormat = String((attempt as { examFormat?: unknown })?.examFormat || "mcq")
-            .trim()
-            .toLowerCase();
-
         // Update the attempt
-        await ctx.db.patch(args.attemptId, {
+        await ctx.runMutation(internal.exams.updateExamAttemptScore, {
+            attemptId: args.attemptId,
             score: correctCount,
             timeTakenSeconds: safeTimeTaken,
             answers: gradedAnswers,
         });
 
-        // After each completed round, proactively expand the bank so the next
+        // After each completed round, proactively expand the objective bank so the next
         // retake can be served with fresh questions.
-        if (attemptExamFormat === "essay") {
-            void ctx.scheduler.runAfter(0, internal.ai.generateEssayQuestionsForTopicInternal, {
+        void ctx.scheduler.runAfter(0, internal.ai.generateQuestionsForTopicInternal, {
+            topicId: attempt.topicId,
+        }).catch((err) => {
+            console.warn("[ExamSubmit] objective_backfill_schedule_failed", {
                 topicId: attempt.topicId,
-                count: EXAM_ESSAY_QUESTION_SUBSET_SIZE,
-            }).catch((err) => {
-                console.warn("[ExamSubmit] essay_backfill_schedule_failed", {
-                    topicId: attempt.topicId,
-                    message: err instanceof Error ? err.message : String(err),
-                });
+                message: err instanceof Error ? err.message : String(err),
             });
-        } else {
-            void ctx.scheduler.runAfter(0, internal.ai.generateQuestionsForTopicInternal, {
-                topicId: attempt.topicId,
-            }).catch((err) => {
-                console.warn("[ExamSubmit] mcq_backfill_schedule_failed", {
-                    topicId: attempt.topicId,
-                    message: err instanceof Error ? err.message : String(err),
-                });
-            });
-        }
+        });
 
         // Get the attempt to return
         const totalQuestions = attempt.totalQuestions || (attempt.questionIds?.length ?? args.answers.length);
@@ -560,6 +588,7 @@ export const getExamAttempt = query({
                 return {
                     ...safeAnswer,
                     questionText: question?.questionText || safeAnswer.questionText || "Question unavailable",
+                    questionType: question?.questionType || safeAnswer.questionType,
                     options: question?.options || safeAnswer.options,
                     explanation: question?.explanation,
                     difficulty: question?.difficulty || safeAnswer.difficulty || "medium",
@@ -567,11 +596,14 @@ export const getExamAttempt = query({
                     bloomLevel: question?.bloomLevel || safeAnswer.bloomLevel,
                     outcomeKey: question?.outcomeKey || safeAnswer.outcomeKey,
                     authenticContext: question?.authenticContext || safeAnswer.authenticContext,
+                    templateParts: question?.templateParts || safeAnswer.templateParts,
+                    tokens: question?.tokens || safeAnswer.tokens,
+                    fillBlankMode: question?.fillBlankMode || safeAnswer.fillBlankMode,
                 };
             })
         );
 
-        const isEssayAttempt = String((attempt as any).examFormat || "").toLowerCase() === "essay";
+        const isEssayAttempt = normalizeExamFormat((attempt as any).examFormat) === "essay";
         const essayWeightedPct = (attempt as any).essayWeightedPercentage;
         // For essays: prefer weighted quality %, fall back to binary score if not yet graded
         const percentage = isEssayAttempt && typeof essayWeightedPct === "number"
@@ -591,8 +623,8 @@ export const getExamAttempt = query({
     },
 });
 
-// Get full attempt context for essay submission (includes raw question docs)
-export const getEssayAttemptSubmissionContext = internalQuery({
+// Get full attempt context for exam submission (includes raw question docs)
+export const getExamAttemptSubmissionContext = internalQuery({
     args: { attemptId: v.id("examAttempts") },
     handler: async (ctx, args) => {
         const identity = await ctx.auth.getUserIdentity();
@@ -652,7 +684,7 @@ export const submitEssayExam = action({
 
         try {
             // Load the attempt with its raw question docs (including essay answers/rubrics).
-            const submissionContext: any = await ctx.runQuery(internal.exams.getEssayAttemptSubmissionContext, {
+            const submissionContext: any = await ctx.runQuery(internal.exams.getExamAttemptSubmissionContext, {
                 attemptId: args.attemptId,
             });
             const attempt: any = submissionContext?.attempt;
@@ -750,7 +782,7 @@ export const submitEssayExam = action({
                         "One or more questions from this exam could not be found. Please restart the exam."
                     );
                 }
-                if (question.questionType !== "essay") {
+                if (!isEssayQuestionType(question.questionType)) {
                     failEssaySubmission(
                         "This exam session is out of sync. Please restart the exam in Essay mode."
                     );
@@ -904,7 +936,7 @@ export const getLatestAttemptForTopic = query({
                 })
         );
 
-        const isEssayAttempt = String((attempt as any).examFormat || "").toLowerCase() === "essay";
+        const isEssayAttempt = normalizeExamFormat((attempt as any).examFormat) === "essay";
         const essayWeightedPct = (attempt as any).essayWeightedPercentage;
         const percentage = isEssayAttempt && typeof essayWeightedPct === "number"
             ? essayWeightedPct
@@ -953,7 +985,7 @@ export const getUserPerformanceInsights = query({
         for (const attempt of completedAttempts) {
             const total = attempt.totalQuestions || (attempt.answers || []).length;
             if (total === 0) continue;
-            const isEssayAttempt = String((attempt as any).examFormat || "").toLowerCase() === "essay";
+            const isEssayAttempt = normalizeExamFormat((attempt as any).examFormat) === "essay";
             const essayWeightedPct = (attempt as any).essayWeightedPercentage;
             const pct = isEssayAttempt && typeof essayWeightedPct === "number"
                 ? essayWeightedPct

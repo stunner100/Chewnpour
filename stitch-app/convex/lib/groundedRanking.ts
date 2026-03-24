@@ -31,7 +31,7 @@ const conceptNoveltyPenalty = (text: string, accepted: any[]) => {
 };
 
 export const rankGroundedCandidates = (args: {
-    type: "mcq" | "essay" | "concept";
+    type: "multiple_choice" | "true_false" | "fill_blank" | "essay" | "concept";
     candidates: any[];
     targetCount: number;
 }) => {
