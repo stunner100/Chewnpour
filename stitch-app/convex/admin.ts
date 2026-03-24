@@ -534,6 +534,156 @@ export const getAdminAccessStatusInternal = internalQuery({
     },
 });
 
+export const getAccountStateByEmailInternal = internalQuery({
+    args: { email: v.string() },
+    handler: async (ctx, args) => {
+        const email = normalizeEmail(args.email);
+        if (!email || !isValidEmail(email)) {
+            throw new Error("Provide a valid email address.");
+        }
+
+        const authUsersResult = await fetchBetterAuthRows(ctx, {
+            model: "user",
+            where: [{ field: "email", value: email }],
+            sortBy: { field: "createdAt", direction: "asc" },
+        });
+        const authUsers = authUsersResult.rows;
+        const authUserIds = Array.from(
+            new Set(
+                authUsers
+                    .map((user) => normalizeAuthUserId(user))
+                    .filter(Boolean)
+            )
+        );
+
+        const [
+            profiles,
+            subscriptions,
+            paymentTransactions,
+            courses,
+            uploads,
+            assignmentThreads,
+            examAttempts,
+            conceptAttempts,
+        ] = await Promise.all([
+            ctx.db.query("profiles").collect(),
+            ctx.db.query("subscriptions").collect(),
+            ctx.db.query("paymentTransactions").collect(),
+            ctx.db.query("courses").collect(),
+            ctx.db.query("uploads").collect(),
+            ctx.db.query("assignmentThreads").collect(),
+            ctx.db.query("examAttempts").collect(),
+            ctx.db.query("conceptAttempts").collect(),
+        ]);
+
+        const paymentUserIdsByEmail = paymentTransactions
+            .filter((row: any) => normalizeEmail(row.customerEmail) === email)
+            .map((row: any) => String(row.userId || "").trim())
+            .filter(Boolean);
+
+        const matchingUserIds = Array.from(
+            new Set([
+                ...authUserIds,
+                ...paymentUserIdsByEmail,
+            ])
+        );
+
+        const userStates = matchingUserIds.map((userId) => {
+            const authUser = authUsers.find((row: any) => normalizeAuthUserId(row) === userId) || null;
+            const profile = profiles.find((row: any) => String(row.userId || "").trim() === userId) || null;
+            const userSubscriptions = subscriptions.filter((row: any) => String(row.userId || "").trim() === userId);
+            const latestSubscription = userSubscriptions
+                .slice()
+                .sort((left: any, right: any) => {
+                    const leftTs = toTimestamp(left.lastPaymentAt, toTimestamp(left._creationTime, 0));
+                    const rightTs = toTimestamp(right.lastPaymentAt, toTimestamp(right._creationTime, 0));
+                    return rightTs - leftTs;
+                })[0] || null;
+            const userPayments = paymentTransactions.filter((row: any) => String(row.userId || "").trim() === userId);
+            const successfulPayments = userPayments.filter(isSuccessfulPayment);
+            const latestSuccessfulPayment = successfulPayments
+                .slice()
+                .sort((left: any, right: any) => resolvePaymentTimestamp(right) - resolvePaymentTimestamp(left))[0]
+                || null;
+            const userCourses = courses
+                .filter((row: any) => String(row.userId || "").trim() === userId)
+                .sort((left: any, right: any) => toTimestamp(right._creationTime, 0) - toTimestamp(left._creationTime, 0));
+            const userUploads = uploads
+                .filter((row: any) => String(row.userId || "").trim() === userId)
+                .sort((left: any, right: any) => toTimestamp(right._creationTime, 0) - toTimestamp(left._creationTime, 0));
+            const userAssignmentThreads = assignmentThreads.filter((row: any) => String(row.userId || "").trim() === userId);
+            const userExamAttempts = examAttempts.filter((row: any) => String(row.userId || "").trim() === userId);
+            const userConceptAttempts = conceptAttempts.filter((row: any) => String(row.userId || "").trim() === userId);
+
+            return {
+                userId,
+                authUser: authUser ? {
+                    email: normalizeEmail(authUser.email) || null,
+                    emailVerified: Boolean(authUser.emailVerified),
+                    name: String(authUser.name || "").trim() || null,
+                    createdAt: toTimestamp(authUser.createdAt, 0),
+                } : null,
+                profile: profile ? {
+                    profileId: String(profile._id || ""),
+                    fullName: String(profile.fullName || "").trim() || null,
+                    department: String(profile.department || "").trim() || null,
+                    onboardingCompleted: profile.onboardingCompleted === true,
+                    createdAt: toTimestamp(profile._creationTime, 0),
+                } : null,
+                subscription: latestSubscription ? {
+                    subscriptionId: String(latestSubscription._id || ""),
+                    plan: normalizeSubscriptionPlan(latestSubscription.plan),
+                    status: normalizeSubscriptionStatus(latestSubscription.status),
+                    purchasedUploadCredits: toNonNegativeInteger(latestSubscription.purchasedUploadCredits),
+                    consumedUploadCredits: toNonNegativeInteger(latestSubscription.consumedUploadCredits),
+                    lastPaymentReference: String(latestSubscription.lastPaymentReference || "").trim() || null,
+                    lastPaymentAt: toTimestamp(latestSubscription.lastPaymentAt, 0),
+                    planExpiresAt: toTimestamp(latestSubscription.planExpiresAt, 0),
+                } : null,
+                metrics: {
+                    courseCount: userCourses.length,
+                    uploadCount: userUploads.length,
+                    assignmentThreadCount: userAssignmentThreads.length,
+                    examAttemptCount: userExamAttempts.length,
+                    conceptAttemptCount: userConceptAttempts.length,
+                    paymentTransactionCount: userPayments.length,
+                    successfulPaymentCount: successfulPayments.length,
+                },
+                recentCourses: userCourses.slice(0, 10).map((course: any) => ({
+                    courseId: String(course._id || ""),
+                    title: String(course.title || "").trim() || "Untitled course",
+                    createdAt: toTimestamp(course._creationTime, 0),
+                })),
+                recentUploads: userUploads.slice(0, 10).map((upload: any) => ({
+                    uploadId: String(upload._id || ""),
+                    fileName: String(upload.fileName || "").trim() || "Untitled upload",
+                    status: String(upload.status || "").trim() || "unknown",
+                    createdAt: toTimestamp(upload._creationTime, 0),
+                })),
+                latestSuccessfulPayment: latestSuccessfulPayment ? {
+                    reference: String(latestSuccessfulPayment.reference || "").trim() || null,
+                    amountMinor: toNonNegativeInteger(latestSuccessfulPayment.amountMinor),
+                    currency: normalizeCurrencyCode(latestSuccessfulPayment.currency),
+                    paidAt: resolvePaymentTimestamp(latestSuccessfulPayment),
+                } : null,
+            };
+        });
+
+        return {
+            email,
+            authUsersTruncated: authUsersResult.truncated,
+            authUsers: authUsers.map((authUser: any) => ({
+                userId: normalizeAuthUserId(authUser),
+                email: normalizeEmail(authUser.email) || null,
+                emailVerified: Boolean(authUser.emailVerified),
+                name: String(authUser.name || "").trim() || null,
+                createdAt: toTimestamp(authUser.createdAt, 0),
+            })),
+            userStates,
+        };
+    },
+});
+
 export const addAdminEmail = mutation({
     args: { email: v.string() },
     handler: async (ctx, args) => {
