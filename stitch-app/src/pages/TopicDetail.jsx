@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
-import { useQuery, useAction, useMutation } from 'convex/react';
+import { useQuery, useAction } from 'convex/react';
 import { api } from '../../convex/_generated/api';
 import { useAuth } from '../contexts/AuthContext';
 import { useStudyTimer } from '../hooks/useStudyTimer';
@@ -26,7 +26,6 @@ import { resolveTopicIllustrationUrl } from '../lib/topicIllustration';
 import { isLikelyConvexId } from '../lib/convexId';
 import { OBJECTIVE_EXAM_FORMAT, objectiveBreakdownMeetsTargets } from '../lib/objectiveExam';
 import {
-    formatEssayPreparingMessage,
     formatEssayQuizButtonLabel,
     formatQuestionBankProgressMessage,
 } from '../lib/questionBankDisplay';
@@ -60,7 +59,6 @@ const TopicDetail = () => {
     useStudyTimer(user?.id);
     const synthesizeTopicVoice = useAction(api.ai.synthesizeTopicVoice);
     const reExplainTopic = useAction(api.ai.reExplainTopic);
-    const requestEssayQuestionTopUp = useMutation(api.exams.requestEssayQuestionTopUp);
     const [startingExam, setStartingExam] = useState(false);
     const [startExamError, setStartExamError] = useState('');
     const [reExplainOpen, setReExplainOpen] = useState(false);
@@ -82,7 +80,6 @@ const TopicDetail = () => {
     const openNotes = useCallback(() => { setChatOpen(false); setNotesOpen(true); }, []);
     const openChat = useCallback(() => { setNotesOpen(false); setChatOpen(true); }, []);
     const contentRef = useRef(null);
-    const essayTopUpMarkerRef = useRef('');
     const { selection, clearSelection } = useTextSelection(contentRef);
     const navigate = useNavigate();
     const topicData = useQuery(
@@ -108,7 +105,7 @@ const TopicDetail = () => {
     ) && usableObjectiveCount >= topicObjectiveTargetCount;
     const topicEssayStartReady = usableEssayCount >= topicEssayTargetCount;
     const topicExamReady = Boolean(topic?.examReady)
-        || (topicObjectiveStartReady && usableEssayCount >= topicEssayTargetCount);
+        || (topicObjectiveStartReady && topicEssayStartReady);
     const questionBankProgressMessage = formatQuestionBankProgressMessage({
         usableObjectiveCount,
         usableEssayCount,
@@ -199,27 +196,6 @@ const TopicDetail = () => {
             console.warn('Failed to cache topic content', error);
         }
     }, [contentCacheKey, topic?.content]);
-
-    useEffect(() => {
-        if (!topicId) return;
-        if (usableEssayCount >= topicEssayTargetCount) return;
-
-        const scheduleMarker = `${topicId}:${usableEssayCount}`;
-        if (essayTopUpMarkerRef.current === scheduleMarker) return;
-        essayTopUpMarkerRef.current = scheduleMarker;
-
-        void requestEssayQuestionTopUp({
-            topicId,
-            minimumCount: topicEssayTargetCount,
-        }).catch((error) => {
-            console.warn('Failed to schedule essay question top-up', error);
-        });
-    }, [
-        topicId,
-        usableEssayCount,
-        topicEssayTargetCount,
-        requestEssayQuestionTopUp,
-    ]);
 
     const content = overrideContent || topic?.content || cachedContent;
     const normalizedContent = useMemo(() => {
@@ -545,10 +521,6 @@ const TopicDetail = () => {
             setStartExamError('Topic not found. Please return to the dashboard and try again.');
             return;
         }
-        if (preferredFormat === 'essay' && !topicEssayStartReady) {
-            setStartExamError(formatEssayPreparingMessage(usableEssayCount));
-            return;
-        }
 
         setStartExamError('');
         setStartingExam(true);
@@ -765,13 +737,12 @@ const TopicDetail = () => {
                                 </button>
                                 <button
                                     onClick={() => handleStartExam('essay')}
-                                    disabled={startingExam || !topicEssayStartReady}
+                                    disabled={startingExam}
                                     className="btn-secondary px-5 py-2.5 text-body-sm gap-2 disabled:opacity-50"
                                 >
                                     <span className="material-symbols-outlined text-[18px]">edit_note</span>
                                     {formatEssayQuizButtonLabel({
                                         startingExam,
-                                        essayReady: topicEssayStartReady,
                                         usableEssayCount,
                                     })}
                                 </button>

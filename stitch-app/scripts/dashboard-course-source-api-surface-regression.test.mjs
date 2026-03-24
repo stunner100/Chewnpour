@@ -47,7 +47,7 @@ const aiExpectations = [
   "export const addSourceToCourse = action({",
   "internal.courses.updateCourseUploadStatus",
   "runForegroundExtraction",
-  "scheduleQuestionBanksForCourse(ctx, courseId, uploadId)",
+  'processingStep: "ready"',
 ];
 
 for (const snippet of aiExpectations) {

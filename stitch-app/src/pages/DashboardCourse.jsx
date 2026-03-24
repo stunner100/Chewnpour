@@ -252,9 +252,6 @@ const DashboardCourse = () => {
     );
     const backgroundGenerationMessage = (() => {
         if (!backgroundGenerationActive) return '';
-        if (upload?.processingStep === 'generating_question_bank') {
-            return 'Generating question banks in the background. You can keep studying while this completes.';
-        }
         if (
             upload?.processingStep === 'generating_first_topic' ||
             upload?.processingStep === 'first_topic_ready' ||

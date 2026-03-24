@@ -10,27 +10,32 @@ const [source, examsSource] = await Promise.all([
   fs.readFile(examsPath, 'utf8'),
 ]);
 
-const startsExamWithEnoughQuestions = /topicQuestions\.length\s*>=\s*MIN_EXAM_QUESTIONS/.test(source);
-if (!startsExamWithEnoughQuestions) {
-  throw new Error('Expected ExamMode start effect to gate on topicQuestions.length >= MIN_EXAM_QUESTIONS.');
+if (/if \(!topicId \|\| topicQuestions\.length === 0\) return;/.test(source)) {
+  throw new Error('Regression detected: beginExamAttempt should not block exam start when the bank is empty.');
 }
 
-if (/!generatingQuestions\s*&&\s*!startExamError/.test(source)) {
-  throw new Error('Regression detected: exam start is blocked by generatingQuestions, which can stall exam initialization.');
+if (/topicQuestions\.length\s*>=\s*MIN_EXAM_QUESTIONS/.test(source)) {
+  throw new Error('Regression detected: ExamMode should not gate format selection or exam start on local question count.');
 }
 
-if (/topicQuestions\.length\s*>\s*0\s*&&\s*topicQuestions\.length\s*<\s*MIN_EXAM_QUESTIONS/.test(source)) {
-  throw new Error('Regression detected: auto-generation ignores 0-question topics and can leave exam setup stuck.');
+for (const removedScreen of ['No questions yet', 'Preparing question bank']) {
+  if (source.includes(removedScreen)) {
+    throw new Error(`Regression detected: ExamMode should stay in loading mode instead of rendering "${removedScreen}".`);
+  }
 }
 
-for (const pattern of ['EXAM_QUESTIONS_PREPARING', 'ESSAY_QUESTIONS_PREPARING']) {
+if (!/Pick a format and we(?:&apos;|')ll generate the exam on demand\./.test(source)) {
+  throw new Error('Expected ExamMode chooser copy to explain on-demand exam generation.');
+}
+
+for (const pattern of ['OBJECTIVE_QUESTIONS_PREPARING', 'ESSAY_QUESTIONS_PREPARING']) {
   if (!examsSource.includes(pattern)) {
     throw new Error(`Expected convex/exams.ts to preserve structured ${pattern} retry codes.`);
   }
 }
 
 for (const throwPattern of [
-  /throw new ConvexError\(\{\s*code:\s*"EXAM_QUESTIONS_PREPARING"/,
+  /throw new ConvexError\(\{\s*code:\s*"OBJECTIVE_QUESTIONS_PREPARING"/,
   /throw new ConvexError\(\{\s*code:\s*"ESSAY_QUESTIONS_PREPARING"/,
 ]) {
   if (throwPattern.test(examsSource)) {

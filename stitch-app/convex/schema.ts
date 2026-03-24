@@ -50,7 +50,7 @@ export default defineSchema({
         status: v.string(), // 'processing', 'ready', 'error'
         storageId: v.optional(v.id("_storage")),
         // Processing progress tracking
-        processingStep: v.optional(v.string()), // 'uploading', 'extracting', 'analyzing', 'generating_topics', 'generating_first_topic', 'first_topic_ready', 'generating_remaining_topics', 'generating_question_bank', 'ready'
+        processingStep: v.optional(v.string()), // 'uploading', 'extracting', 'analyzing', 'generating_topics', 'generating_first_topic', 'first_topic_ready', 'generating_remaining_topics', 'ready'
         processingProgress: v.optional(v.number()), // 0-100
         plannedTopicCount: v.optional(v.number()),
         generatedTopicCount: v.optional(v.number()),

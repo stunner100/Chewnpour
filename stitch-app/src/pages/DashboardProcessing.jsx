@@ -18,7 +18,6 @@ const PROCESSING_STEPS = [
     { key: 'generating_first_topic', label: 'Topic 1', icon: 'menu_book', description: 'Writing the first detailed topic...' },
     { key: 'first_topic_ready', label: 'First Topic Ready', icon: 'rocket_launch', description: 'Topic 1 is ready. Opening your course...' },
     { key: 'generating_remaining_topics', label: 'Remaining Topics', icon: 'library_books', description: 'Generating the remaining topics in the background...' },
-    { key: 'generating_question_bank', label: 'Question Banks', icon: 'quiz', description: 'Building large question banks for each topic...' },
     { key: 'ready', label: 'Ready', icon: 'check_circle', description: 'Your course is ready!' },
 ];
 

@@ -3877,74 +3877,6 @@ const buildToneDirective = (educationLevel: string) => {
     }
 };
 
-const scheduleExamQuestionPrebuildForTopic = async (args: {
-    ctx: any;
-    courseId: any;
-    uploadId: any;
-    topicId: any;
-    topicIndex: number;
-    reason: "topic_created" | "upload_completion";
-}) => {
-    const { ctx, courseId, uploadId, topicId, topicIndex, reason } = args;
-    const topicSnapshot = await ctx.runQuery(internal.topics.getTopicWithQuestionsInternal, {
-        topicId,
-    });
-    const existingObjectiveCount = Number(topicSnapshot?.usableObjectiveCount || 0);
-    const existingEssayCount = countUsableEssayQuestions(topicSnapshot?.questions || []);
-    const objectiveTargetCount = resolveStoredTargetCount(
-        topicSnapshot?.objectiveTargetCount,
-        DEFAULT_OBJECTIVE_TARGET_COUNT,
-    );
-    const essayTargetCount = resolveStoredTargetCount(
-        topicSnapshot?.essayTargetCount,
-        Math.min(TOPIC_EXAM_PREBUILD_ESSAY_COUNT, ESSAY_QUESTION_TARGET_MAX_COUNT),
-    );
-    const needsObjectiveBackfill = existingObjectiveCount < objectiveTargetCount;
-    const needsEssayBackfill = existingEssayCount < essayTargetCount;
-
-    if (!needsObjectiveBackfill && !needsEssayBackfill) {
-        console.info("[CourseGeneration] exam_prebuild_skipped_already_ready", {
-            courseId,
-            uploadId,
-            topicId,
-            topicIndex,
-            reason,
-            existingObjectiveCount,
-            objectiveTargetCount,
-            existingEssayCount,
-            essayTargetCount,
-        });
-        return;
-    }
-
-    if (needsObjectiveBackfill) {
-        await ctx.scheduler.runAfter(0, internal.ai.generateQuestionsForTopicInternal, {
-            topicId,
-        });
-    }
-    if (needsEssayBackfill) {
-        await ctx.scheduler.runAfter(0, internal.ai.generateEssayQuestionsForTopicInternal, {
-            topicId,
-            count: TOPIC_EXAM_PREBUILD_ESSAY_COUNT,
-        });
-    }
-
-    console.info("[CourseGeneration] exam_prebuild_scheduled", {
-        courseId,
-        uploadId,
-        topicId,
-        topicIndex,
-        reason,
-        needsObjectiveBackfill,
-        needsEssayBackfill,
-        existingObjectiveCount,
-        objectiveTargetCount,
-        existingEssayCount,
-        essayTargetCount,
-        essayCount: TOPIC_EXAM_PREBUILD_ESSAY_COUNT,
-    });
-};
-
 const generateTopicContentForIndex = async (args: {
     ctx: any;
     courseId: any;
@@ -4129,25 +4061,6 @@ Respond in this exact JSON format only:
         });
     }
 
-    try {
-        await scheduleExamQuestionPrebuildForTopic({
-            ctx,
-            courseId,
-            uploadId,
-            topicId,
-            topicIndex: index,
-            reason: "topic_created",
-        });
-    } catch (scheduleError) {
-        console.warn("[CourseGeneration] topic_exam_prebuild_schedule_failed", {
-            courseId,
-            uploadId,
-            topicId,
-            topicIndex: index,
-            message: scheduleError instanceof Error ? scheduleError.message : String(scheduleError),
-        });
-    }
-
     const duration = Date.now() - topicStart;
     console.info("[CourseGeneration] topic_ready", {
         courseId,
@@ -4159,28 +4072,6 @@ Respond in this exact JSON format only:
     });
 
     return topicId;
-};
-
-const scheduleQuestionBanksForCourse = async (ctx: any, courseId: any, uploadId: any) => {
-    const topics = await getCourseTopicsSorted(ctx, courseId);
-    let scheduledTopics = 0;
-    for (let index = 0; index < topics.length; index += 1) {
-        const topic = topics[index];
-        if (topic?.examReady === true) {
-            continue;
-        }
-
-        await scheduleExamQuestionPrebuildForTopic({
-            ctx,
-            courseId,
-            uploadId,
-            topicId: topic._id,
-            topicIndex: index,
-            reason: "upload_completion",
-        });
-        scheduledTopics += 1;
-    }
-    return scheduledTopics;
 };
 
 export const generateTopicIllustration = internalAction({
@@ -4447,30 +4338,8 @@ export const generateRemainingTopicsInBackground = internalAction({
                     });
                 }
 
-                generatedTopicCount = await safeGeneratedCount();
-                await ctx.runMutation(api.uploads.updateUploadStatus, {
-                    uploadId,
-                    status: "processing",
-                    processingStep: "generating_question_bank",
-                    processingProgress: 90,
-                    plannedTopicCount: totalTopics,
-                    generatedTopicCount,
-                    plannedTopicTitles,
-                });
-
-                let scheduledQuestionTopics = 0;
-                try {
-                    scheduledQuestionTopics = await scheduleQuestionBanksForCourse(ctx, courseId, uploadId);
-                } catch (questionScheduleError) {
-                    console.error("[CourseGeneration] question_generation_schedule_failed", {
-                        courseId,
-                        uploadId,
-                        message: questionScheduleError instanceof Error ? questionScheduleError.message : String(questionScheduleError),
-                    });
-                }
-
                 const finalGeneratedCount = normalizeGeneratedTopicCount({
-                    generatedTopicCount: Math.max(generatedTopicCount, scheduledQuestionTopics),
+                    generatedTopicCount: await safeGeneratedCount(),
                     totalTopics,
                 });
 
@@ -4497,9 +4366,9 @@ export const generateRemainingTopicsInBackground = internalAction({
                     message: error instanceof Error ? error.message : String(error),
                 });
                 const generatedTopicCount = await safeGeneratedCount();
-                const statusStep = generatedTopicCount >= totalTopics
-                    ? "generating_question_bank"
-                    : "generating_remaining_topics";
+                const statusStep = generatedTopicCount > 0
+                    ? "generating_remaining_topics"
+                    : "generating_topics";
 
                 await ctx.runMutation(api.uploads.updateUploadStatus, {
                     uploadId,
@@ -4744,9 +4613,6 @@ export const addSourceToCourse = action({
                         plannedTopicTitles,
                     });
                 }
-
-                // Schedule question banks for the new topics
-                await scheduleQuestionBanksForCourse(ctx, courseId, uploadId);
 
                 // Mark upload and courseUpload as ready
                 await ctx.runMutation(api.uploads.updateUploadStatus, {

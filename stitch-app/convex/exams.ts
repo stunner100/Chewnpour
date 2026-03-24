@@ -28,7 +28,6 @@ import {
 const EXAM_QUESTION_SUBSET_SIZE = 35;
 const EXAM_ESSAY_QUESTION_SUBSET_SIZE = 15;
 const EXAM_ATTEMPT_REUSE_LOOKBACK = 50;
-const EXAM_ESSAY_MIN_READY_COUNT = 1;
 
 const safeGetQuestionById = async (ctx: any, questionId: any) => {
     if (!questionId) return null;
@@ -39,57 +38,6 @@ const safeGetQuestionById = async (ctx: any, questionId: any) => {
         return null;
     }
 };
-
-
-export const requestEssayQuestionTopUp = mutation({
-    args: {
-        topicId: v.id("topics"),
-        minimumCount: v.optional(v.number()),
-    },
-    handler: async (ctx, args) => {
-        const identity = await ctx.auth.getUserIdentity();
-        const authUserId = resolveAuthUserId(identity);
-        assertAuthorizedUser({ authUserId });
-
-        const topic = await ctx.db.get(args.topicId);
-        if (!topic) {
-            throw new ConvexError({
-                code: "TOPIC_NOT_FOUND",
-                message: "Topic not found.",
-            });
-        }
-        const course = await ctx.db.get(topic.courseId);
-        if (!course) {
-            throw new ConvexError({
-                code: "TOPIC_NOT_FOUND",
-                message: "Topic not found.",
-            });
-        }
-        assertAuthorizedUser({
-            authUserId,
-            resourceOwnerUserId: course.userId,
-        });
-
-        const requestedCount = Math.max(
-            EXAM_ESSAY_MIN_READY_COUNT,
-            Math.min(
-                EXAM_ESSAY_QUESTION_SUBSET_SIZE,
-                Math.round(Number(args.minimumCount || EXAM_ESSAY_QUESTION_SUBSET_SIZE))
-            )
-        );
-
-        await ctx.scheduler.runAfter(0, internal.ai.generateEssayQuestionsForTopicInternal, {
-            topicId: args.topicId,
-            count: requestedCount,
-        });
-
-        return {
-            success: true,
-            scheduled: true,
-            requestedCount,
-        };
-    },
-});
 
 // Start a new exam attempt
 export const startExamAttempt = mutation({
@@ -252,8 +200,8 @@ export const startExamAttempt = mutation({
         if (selectedQuestions.length === 0) {
             const preparingCode = isEssay ? "ESSAY_QUESTIONS_PREPARING" : "OBJECTIVE_QUESTIONS_PREPARING";
             const preparingMessage = isEssay
-                ? "Essay questions are being prepared. Please try again in a few seconds."
-                : "Objective questions are being refreshed for quality. Please try again in a few seconds.";
+                ? "Essay questions are being prepared for this topic. Please try again in a few seconds."
+                : "Objective questions are being prepared for this topic. Please try again in a few seconds.";
 
             if (isEssay) {
                 try {

@@ -40,8 +40,8 @@ if (!/navigate\(`\/dashboard\/exam\/\$\{topicId\}`,\s*\{[\s\S]*preferredFormat,\
   throw new Error('Expected handleStartExam to navigate with selected preferredFormat and topic_detail source.');
 }
 
-if (!/if \(preferredFormat === 'essay' && !topicEssayStartReady\)/.test(handleStartExamSource)) {
-  throw new Error('Expected handleStartExam to block essay launch until essay readiness is met.');
+if (/if \(preferredFormat === 'essay' && !topicEssayStartReady\)/.test(handleStartExamSource)) {
+  throw new Error('Regression detected: essay launch should not be blocked on the topic page.');
 }
 
 console.log('topic-detail-exam-start-nonblocking-regression.test.mjs passed');
