@@ -716,8 +716,8 @@ const TopicDetail = () => {
 
                         {/* Practice section */}
                         <div className="card-base p-6 md:p-8 text-center">
-                            <h3 className="text-body-lg font-semibold text-text-main-light dark:text-text-main-dark mb-1">Ready to practice?</h3>
-                            <p className="text-body-sm text-text-sub-light dark:text-text-sub-dark mb-5">Test your understanding with questions from this lesson.</p>
+                            <h3 className="text-body-lg font-semibold text-text-main-light dark:text-text-main-dark mb-1">Start an exam</h3>
+                            <p className="text-body-sm text-text-sub-light dark:text-text-sub-dark mb-5">Choose an exam format below to test your understanding of this lesson.</p>
 
                             <div className="flex flex-col sm:flex-row gap-2.5 justify-center">
                                 <Link
@@ -733,7 +733,7 @@ const TopicDetail = () => {
                                     className="btn-primary px-5 py-2.5 text-body-sm gap-2 disabled:opacity-50"
                                 >
                                     <span className="material-symbols-outlined text-[18px]">quiz</span>
-                                    {startingExam ? 'Preparing...' : 'Objective Quiz'}
+                                    {startingExam ? 'Preparing...' : 'Start Objective Exam'}
                                 </button>
                                 <button
                                     onClick={() => handleStartExam('essay')}

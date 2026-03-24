@@ -9,7 +9,7 @@ export const formatReadyCount = (count, singular, plural = `${singular}s`) =>
 
 export const formatEssayQuizButtonLabel = ({ startingExam }) => {
     if (startingExam) return 'Preparing...';
-    return 'Essay Quiz';
+    return 'Start Essay Exam';
 };
 
 export const formatEssayPreparingMessage = (usableEssayCount) => {

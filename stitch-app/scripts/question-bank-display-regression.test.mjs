@@ -13,14 +13,14 @@ assert.equal(
         startingExam: false,
         usableEssayCount: 4,
     }),
-    'Essay Quiz'
+    'Start Essay Exam'
 );
 assert.equal(
     formatEssayQuizButtonLabel({
         startingExam: false,
         usableEssayCount: 4,
     }),
-    'Essay Quiz'
+    'Start Essay Exam'
 );
 assert.equal(
     formatEssayPreparingMessage(4),

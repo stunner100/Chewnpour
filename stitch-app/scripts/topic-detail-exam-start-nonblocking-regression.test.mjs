@@ -44,4 +44,8 @@ if (/if \(preferredFormat === 'essay' && !topicEssayStartReady\)/.test(handleSta
   throw new Error('Regression detected: essay launch should not be blocked on the topic page.');
 }
 
+if (!source.includes('Start Objective Exam') || !source.includes('Start an exam')) {
+  throw new Error('Expected TopicDetail to present explicit start-exam copy.');
+}
+
 console.log('topic-detail-exam-start-nonblocking-regression.test.mjs passed');
