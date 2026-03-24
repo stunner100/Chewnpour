@@ -659,6 +659,7 @@ export const submitEssayExam = action({
             if (!attempt) {
                 failEssaySubmission("Exam attempt not found.");
             }
+            const gradingUserId = String(attempt?.userId || "").trim() || undefined;
 
             // Idempotency guard — if already submitted, return existing result
             const existingEssayAnswers = Array.isArray(attempt.answers) ? attempt.answers : [];
@@ -764,7 +765,7 @@ export const submitEssayExam = action({
                 let gradeResult: any;
                 try {
                     gradeResult = await ctx.runAction(internal.ai.gradeEssayAnswer, {
-                        userId,
+                        userId: gradingUserId,
                         questionText: question.questionText || "",
                         modelAnswer: question.correctAnswer || "",
                         studentAnswer: normalizedEssayText,
