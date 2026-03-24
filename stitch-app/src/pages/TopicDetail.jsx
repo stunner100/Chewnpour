@@ -545,10 +545,6 @@ const TopicDetail = () => {
             setStartExamError('Topic not found. Please return to the dashboard and try again.');
             return;
         }
-        if (preferredFormat === OBJECTIVE_EXAM_FORMAT && !topicObjectiveStartReady) {
-            setStartExamError(questionBankProgressMessage || 'Objective questions are still preparing.');
-            return;
-        }
         if (preferredFormat === 'essay' && !topicEssayStartReady) {
             setStartExamError(formatEssayPreparingMessage(usableEssayCount));
             return;
