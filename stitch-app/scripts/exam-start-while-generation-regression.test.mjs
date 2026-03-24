@@ -57,6 +57,18 @@ if (!source.includes('result?.deferred === true') || !source.includes('Exam atte
   throw new Error('Expected ExamMode to handle deferred startExamAttempt responses without throwing.');
 }
 
+if (!source.includes('isAutoRetryableStartError(startExamError)')) {
+  throw new Error('Expected ExamMode to keep recoverable start errors inside the loading state.');
+}
+
+if (source.includes('Exam setup is taking longer than expected. Tap Retry.')) {
+  throw new Error('Regression detected: timed-out exam starts should keep retrying automatically instead of forcing manual retry.');
+}
+
+if (!/We(?:&apos;|')ll keep loading until your questions are ready\./.test(source)) {
+  throw new Error('Expected loading state copy to promise continuous exam preparation.');
+}
+
 if (/startExam\(userId\s*\?/.test(source)) {
   throw new Error('Expected ExamMode to avoid passing client userId to startExam() and rely on server auth identity.');
 }

@@ -327,8 +327,8 @@ const isTransientExamTransportError = (error, resolvedMessage = '') => {
 
 const getExamAuthNotReadyMessage = (sessionRefreshed = false) =>
     sessionRefreshed
-        ? 'Your session has been refreshed. Tap Retry to start the exam.'
-        : 'Your session is still syncing. Please wait a few seconds and tap Retry.';
+        ? "Your session has been refreshed. We'll keep retrying automatically."
+        : "Your session is still syncing. We'll keep retrying automatically.";
 
 const getExamSessionExpiredMessage = () =>
     'Your session has expired. Please go back and sign in again.';
@@ -344,7 +344,7 @@ const refreshAuthSessionQuietly = async () => {
 };
 
 const getExamTransientStartRetryMessage = () =>
-    'Connection dropped while starting the exam. Check your internet and tap Retry.';
+    "Connection dropped while starting the exam. We'll keep retrying automatically.";
 
 const getExamTransientSubmitRetryMessage = () =>
     'Connection dropped while submitting your exam. Please retry once your connection is stable.';
@@ -375,6 +375,25 @@ const isPreparingEssayStartError = (message) => {
     return (
         normalized.includes('essay_questions_preparing')
         || normalized.includes('essay questions are being prepared')
+    );
+};
+
+const isAutoRetryableStartError = (message) => {
+    const normalized = String(message || '').toLowerCase();
+    if (!normalized) return false;
+    return (
+        isPreparingEssayStartError(message)
+        || normalized.includes('objective_questions_preparing')
+        || normalized.includes('questions are being prepared')
+        || normalized.includes('questions are being refreshed for quality')
+        || normalized.includes('try again in a few seconds')
+        || normalized.includes('taking longer than expected')
+        || normalized.includes('retrying automatically')
+        || normalized.includes('connection dropped while starting the exam')
+        || normalized.includes('session is still syncing')
+        || normalized.includes('session has been refreshed')
+        || normalized.includes("we'll keep retrying automatically")
+        || normalized.includes("we’ll keep retrying automatically")
     );
 };
 
@@ -622,7 +641,7 @@ const ExamMode = () => {
             } else if (transientTransportError) {
                 setStartExamError(getExamTransientStartRetryMessage());
             } else if (timedOut) {
-                setStartExamError('Exam setup is taking longer than expected. Tap Retry.');
+                setStartExamError("Exam setup is taking longer than expected, but we'll keep retrying automatically.");
             } else if (isLikelyPostDisconnectAuthError(error)) {
                 // Opaque "Server Error" after a disconnect — likely an auth error.
                 // Attempt a session refresh so the next retry has a valid token.
@@ -632,7 +651,7 @@ const ExamMode = () => {
                 } else if (refreshed) {
                     setStartExamError(getExamAuthNotReadyMessage(true));
                 } else {
-                    setStartExamError('Something went wrong. Please wait a moment and tap Retry.');
+                    setStartExamError("Something went wrong while preparing the exam. We'll keep retrying automatically.");
                 }
             } else {
                 setStartExamError('Unable to start the exam. Please try again.');
@@ -753,15 +772,12 @@ const ExamMode = () => {
         if (!startExamError) return;
         if (examStarted || startingExamAttempt || hasAttemptQuestions) return;
 
-        const isDeferredError =
-            isPreparingEssayStartError(startExamError)
-            || /preparing|refreshed for quality|try again in a few/i.test(startExamError);
-        if (!isDeferredError) return;
+        if (!isAutoRetryableStartError(startExamError)) return;
 
         const handle = setTimeout(() => {
             if (examStarted || startingExamAttempt || hasAttemptQuestions) return;
             setStartExamError('');
-        }, 5000);
+        }, 4000);
         return () => clearTimeout(handle);
     }, [
         startExamError,
@@ -973,6 +989,8 @@ const ExamMode = () => {
         () => resolveQuestionOptions(currentQ?.options),
         [currentQ?.options]
     );
+    const shouldShowBlockingStartError =
+        Boolean(startExamError) && !isAutoRetryableStartError(startExamError);
 
     if (!topicId) {
         return (
@@ -1074,7 +1092,7 @@ const ExamMode = () => {
         return (
             <div className="min-h-screen bg-background-light dark:bg-background-dark flex items-center justify-center p-4">
                 <div className="w-full max-w-md">
-                    {!startExamError ? (
+                    {!shouldShowBlockingStartError ? (
                         <div className="card-base p-8 text-center">
                             <div className="relative w-20 h-20 mx-auto mb-6">
                                 <div className="absolute inset-0 rounded-full border-2 border-border-light dark:border-border-dark"></div>
@@ -1106,9 +1124,17 @@ const ExamMode = () => {
                                 </div>
                             </div>
 
+                            {startExamError && (
+                                <div className="mt-5 rounded-xl border border-amber-200/70 bg-amber-50/70 px-4 py-3 text-left dark:border-amber-900/30 dark:bg-amber-900/10">
+                                    <p className="text-body-sm text-amber-800 dark:text-amber-300">
+                                        {startExamError}
+                                    </p>
+                                </div>
+                            )}
+
                             <div className="mt-6 pt-6 border-t border-border-light dark:border-border-dark">
                                 <p className="text-caption text-text-faint-light dark:text-text-faint-dark">
-                                    The first run usually takes 10-20 seconds
+                                    We&apos;ll keep loading until your questions are ready. The first run usually takes 10-20 seconds.
                                 </p>
                             </div>
                         </div>
