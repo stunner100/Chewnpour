@@ -2,10 +2,6 @@
 @tailwind components;
 @tailwind utilities;
 
-:root {
-    --staging-banner-height: 56px;
-}
-
 @layer base {
     html {
         scroll-behavior: smooth;
@@ -21,10 +17,6 @@
         min-height: 100%;
     }
 
-    body.staging-banner-active {
-        padding-top: var(--staging-banner-height);
-    }
-
     ::selection {
         @apply bg-primary-100 text-primary-700;
     }
@@ -32,10 +24,6 @@
     .dark ::selection {
         @apply bg-primary-900 text-primary-200;
     }
-}
-
-body.staging-banner-active .dashboard-shell {
-    height: calc(100vh - var(--staging-banner-height));
 }
 
 /* ── Safari Workarounds ── */

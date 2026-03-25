@@ -16,10 +16,8 @@ import {
 import { capturePostHogEvent, capturePostHogPageView } from './lib/posthog';
 import ProtectedRoute from './components/ProtectedRoute';
 import DashboardLayout from './components/DashboardLayout';
-import StagingBanner from './components/StagingBanner';
 import { addSentryBreadcrumb } from './lib/sentry';
 import { attemptChunkRecoveryReload, isChunkLoadError } from './lib/chunkLoadRecovery';
-import { isStagingRuntime } from './lib/runtimeEnvironment';
 
 const ChunkRecoveryFallback = ({ componentName }) => (
   <div className="bg-background-light dark:bg-background-dark min-h-screen flex items-center justify-center px-6">
@@ -265,20 +263,8 @@ const withSuspense = (element) => (
 );
 
 function App() {
-  const showStagingBanner =
-    typeof window !== 'undefined' && isStagingRuntime(window.location.hostname);
-
-  useEffect(() => {
-    if (typeof document === 'undefined') return undefined;
-    document.body.classList.toggle('staging-banner-active', showStagingBanner);
-    return () => {
-      document.body.classList.remove('staging-banner-active');
-    };
-  }, [showStagingBanner]);
-
   return (
     <Router>
-      {showStagingBanner ? <StagingBanner /> : null}
       <RouteChangeTracker />
       {hasConvexUrl ? <CampaignAttributionTracker /> : null}
       <Routes>
