@@ -31,7 +31,7 @@ const DashboardLayout = ({ children }) => {
     const initials = displayName.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase();
 
     return (
-        <div className="flex h-screen bg-background-light dark:bg-background-dark overflow-hidden">
+        <div className="dashboard-shell flex h-screen bg-background-light dark:bg-background-dark overflow-hidden">
             {/* Desktop Sidebar */}
             <aside
                 className={`hidden md:flex flex-col flex-shrink-0 border-r border-border-subtle dark:border-border-subtle-dark bg-surface-light dark:bg-surface-dark transition-all duration-200 ease-spring ${
