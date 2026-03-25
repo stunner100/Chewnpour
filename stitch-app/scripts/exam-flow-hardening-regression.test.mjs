@@ -59,23 +59,20 @@ if (!/canReuseExamAttempt\(\{\s*[\s\S]*examFormat,/.test(examsSource)) {
 if (!/question\.questionType === "essay"/.test(examsSource)) {
   throw new Error('Expected essay format filtering in exam question selection/reuse logic.');
 }
-if (!/const EXAM_QUESTION_SUBSET_SIZE = 35;/.test(examsSource)) {
-  throw new Error('Expected MCQ exam subset size to be 35.');
-}
 if (!/const EXAM_ESSAY_QUESTION_SUBSET_SIZE = 15;/.test(examsSource)) {
   throw new Error('Expected essay exam subset size to be 15.');
 }
 if (
-  !/const resolveRequiredQuestionCount = \(examFormat: string\)/.test(examsSource)
-  || !/const requiredQuestionCount = resolveRequiredQuestionCount\(examFormat\);/.test(examsSource)
+  !/const resolveRequiredQuestionCount = \(\{[\s\S]*topicTargetCount[\s\S]*usableQuestionCount/.test(examsSource)
+  || !/const requiredQuestionCount = resolveRequiredQuestionCount\(\{[\s\S]*topicTargetCount,[\s\S]*usableQuestionCount:\s*usableQuestions\.length[\s\S]*\}\);/.test(examsSource)
 ) {
-  throw new Error('Expected exams.ts to derive a required full-set count by exam format through a shared helper.');
+  throw new Error('Expected exams.ts to derive the required start count from the topic target and current usable questions.');
 }
 if (!/usableQuestions\.length < requiredQuestionCount/.test(examsSource)) {
-  throw new Error('Expected startExamAttempt preparation to defer when the bank is smaller than the required full-set count.');
+  throw new Error('Expected startExamAttempt preparation to defer when the bank is smaller than the topic-specific target count.');
 }
 if (!/selectedQuestions\.length < requiredQuestionCount \|\| selection\.requiresFreshGeneration/.test(examsSource)) {
-  throw new Error('Expected startExamAttempt preparation to defer when selection cannot produce a full fresh set.');
+  throw new Error('Expected startExamAttempt preparation to defer when selection cannot produce the topic-specific fresh set.');
 }
 if (!/export const prepareStartExamAttemptInternal = internalMutation/.test(examsSource)) {
   throw new Error('Expected exams.ts to expose an internal start-preparation mutation.');

@@ -419,7 +419,7 @@ export const QUESTION_BANK_BACKGROUND_PROFILE = resolveQuestionBankProfile({
 });
 
 export const QUESTION_BANK_INTERACTIVE_PROFILE = resolveQuestionBankProfile({
-    minTarget: 35,
+    minTarget: 1,
     maxTarget: 35,
     wordDivisor: 120,
     batchSize: 12,

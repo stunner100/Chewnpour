@@ -235,8 +235,6 @@ const TRANSIENT_TRANSPORT_ERROR_PATTERNS = [
     'fetch failed',
     'inactive server',
 ];
-const MCQ_EXAM_QUESTION_CAP = 35;
-const ESSAY_EXAM_QUESTION_CAP = 15;
 const EXAM_DURATION_SECONDS = 45 * 60;
 const MIN_ESSAY_SUBMIT_CHAR_COUNT = 20;
 const FULL_EXAM_UNAVAILABLE_CODES = ['EXAM_FULL_EXAM_UNAVAILABLE', 'ESSAY_FULL_EXAM_UNAVAILABLE'];
@@ -411,7 +409,6 @@ const ExamMode = () => {
     const START_EXAM_ATTEMPT_TIMEOUT_MS = 120_000;
     const EXAM_LOADING_STALL_TIMEOUT_MS = 150_000;
 
-    const loadingExamQuestionCap = examFormat === 'essay' ? ESSAY_EXAM_QUESTION_CAP : MCQ_EXAM_QUESTION_CAP;
     const loadingExamTypeLabel = examFormat === 'essay' ? 'essay' : 'multiple-choice';
     const questions = useMemo(
         () => (Array.isArray(attemptQuestions) ? attemptQuestions : []),
@@ -1110,7 +1107,7 @@ const ExamMode = () => {
                                 Preparing Your Exam
                             </h2>
                             <p className="text-body-sm text-text-sub-light dark:text-text-sub-dark mb-6">
-                                {`We're preparing a full ${loadingExamQuestionCap}-question ${loadingExamTypeLabel} exam from this topic. You'll enter the exam as soon as the full set is ready.`}
+                                {`We're preparing the best ${loadingExamTypeLabel} exam this topic can support. You'll enter the exam as soon as the question set is ready.`}
                             </p>
 
                             <div className="space-y-3 text-left">
@@ -1141,7 +1138,7 @@ const ExamMode = () => {
                             </div>
 
                             <h2 className="text-body-lg font-semibold text-text-main-light dark:text-text-main-dark mb-2">
-                                {isFullExamUnavailable ? 'Full Exam Not Available' : 'Taking Longer Than Expected'}
+                                {isFullExamUnavailable ? 'Exam Not Available' : 'Taking Longer Than Expected'}
                             </h2>
                             <p className="text-body-sm text-text-sub-light dark:text-text-sub-dark mb-6">
                                 {startExamError}

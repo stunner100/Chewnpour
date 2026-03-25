@@ -13,8 +13,8 @@ const [examsSource, examModeSource, questionBankConfigSource] = await Promise.al
   fs.readFile(questionBankConfigPath, 'utf8'),
 ]);
 
-if (!/export const QUESTION_BANK_INTERACTIVE_PROFILE = resolveQuestionBankProfile\(\{[\s\S]*minTarget:\s*35,[\s\S]*maxTarget:\s*35,/m.test(questionBankConfigSource)) {
-  throw new Error('Expected on-demand MCQ generation to target the full 35-question exam size.');
+if (!/export const QUESTION_BANK_INTERACTIVE_PROFILE = resolveQuestionBankProfile\(\{[\s\S]*minTarget:\s*1,[\s\S]*maxTarget:\s*35,/m.test(questionBankConfigSource)) {
+  throw new Error('Expected on-demand MCQ generation to use a content-driven target range instead of a fixed exam size.');
 }
 
 for (const code of ['EXAM_FULL_EXAM_UNAVAILABLE', 'ESSAY_FULL_EXAM_UNAVAILABLE']) {
@@ -34,8 +34,8 @@ if (!/buildUnavailableStartResponse/.test(examsSource) || !/resolveUnavailableSt
   throw new Error('Expected exams.ts to build a non-deferred full-exam unavailable response after on-demand generation finishes.');
 }
 
-if (!/Full Exam Not Available/.test(examModeSource)) {
-  throw new Error('Expected ExamMode.jsx to render a stable unavailable state for terminal full-exam failures.');
+if (!/Exam Not Available/.test(examModeSource)) {
+  throw new Error('Expected ExamMode.jsx to render a stable unavailable state for terminal exam-start failures.');
 }
 
 console.log('exam-full-set-unavailable-regression.test.mjs passed');

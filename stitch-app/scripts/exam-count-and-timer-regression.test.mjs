@@ -13,10 +13,6 @@ const [examsSource, examModeSource, aiSource] = await Promise.all([
   fs.readFile(aiPath, "utf8"),
 ]);
 
-if (!/const EXAM_QUESTION_SUBSET_SIZE = 35;/.test(examsSource)) {
-  throw new Error("Expected convex/exams.ts to set MCQ exam cap to 35.");
-}
-
 if (!/const EXAM_ESSAY_QUESTION_SUBSET_SIZE = 15;/.test(examsSource)) {
   throw new Error("Expected convex/exams.ts to set essay exam cap to 15.");
 }
@@ -29,8 +25,8 @@ if (/25-question test/i.test(examModeSource)) {
   throw new Error("Expected src/pages/ExamMode.jsx to remove hardcoded 25-question loading copy.");
 }
 
-if (!/const ESSAY_EXAM_QUESTION_CAP = 15;/.test(examModeSource)) {
-  throw new Error("Expected ExamMode to define ESSAY_EXAM_QUESTION_CAP as 15.");
+if (/full \d+-question/i.test(examModeSource)) {
+  throw new Error("Expected ExamMode loading copy to avoid hardcoded exam sizes.");
 }
 
 if (/ESSAY_EXAM_INTERACTIVE_START_COUNT/.test(examModeSource) || /generateEssayQuestions\(\{/.test(examModeSource)) {
