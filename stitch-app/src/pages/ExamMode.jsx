@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Link, useParams, useNavigate } from 'react-router-dom';
+import { Link, useParams, useNavigate, useLocation } from 'react-router-dom';
 import { useQuery, useMutation, useAction } from 'convex/react';
 import { api } from '../../convex/_generated/api';
 import { useAuth } from '../contexts/AuthContext';
@@ -361,6 +361,13 @@ const isUserCorrectableEssaySubmitError = (message) => {
     );
 };
 
+const resolvePreferredExamFormat = (value) => {
+    const normalized = String(value || '').trim().toLowerCase();
+    if (!normalized) return null;
+    if (normalized === 'objective') return 'mcq';
+    return normalized === 'mcq' || normalized === 'essay' ? normalized : null;
+};
+
 // ── Component ──
 
 const ExamMode = () => {
@@ -368,6 +375,7 @@ const ExamMode = () => {
     const normalizedTopicId = typeof topicIdParam === 'string' ? topicIdParam.trim() : '';
     const topicId = isLikelyConvexId(normalizedTopicId) ? normalizedTopicId : '';
     const navigate = useNavigate();
+    const location = useLocation();
     const { user } = useAuth();
     const [currentQuestion, setCurrentQuestion] = useState(0);
     const [selectedAnswers, setSelectedAnswers] = useState({});
@@ -407,6 +415,7 @@ const ExamMode = () => {
     );
     const hasAttemptQuestions = questions.length > 0;
     const topic = topicData;
+    const preferredFormatFromState = resolvePreferredExamFormat(location?.state?.preferredFormat);
     const examFlowStartTimeRef = useRef(Date.now());
     const attemptStartTimeRef = useRef(null);
     const loadingStallReportedRef = useRef(false);
@@ -450,6 +459,22 @@ const ExamMode = () => {
         setSubmitError('');
     }, [
         topicId,
+    ]);
+
+    useEffect(() => {
+        if (examFormat || !preferredFormatFromState) return;
+        if (!topicId || topicData === undefined || topicData === null) return;
+        if (examStarted || startingExamAttempt || hasAttemptQuestions) return;
+        setStartExamError('');
+        setExamFormat(preferredFormatFromState);
+    }, [
+        examFormat,
+        preferredFormatFromState,
+        topicId,
+        topicData,
+        examStarted,
+        startingExamAttempt,
+        hasAttemptQuestions,
     ]);
 
     const withTimeout = useCallback((promise, timeoutMs, timeoutMessage) => {

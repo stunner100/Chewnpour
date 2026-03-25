@@ -505,7 +505,7 @@ const TopicDetail = () => {
         return { blocks, toc };
     }, [normalizedContent]);
 
-    const handleStartExam = async () => {
+    const handleStartExam = async (preferredFormat = 'mcq') => {
         if (!topicId) {
             setStartExamError('Topic not found. Please return to the dashboard and try again.');
             return;
@@ -515,7 +515,12 @@ const TopicDetail = () => {
         setStartingExam(true);
 
         try {
-            navigate(`/dashboard/exam/${topicId}`);
+            navigate(`/dashboard/exam/${topicId}`, {
+                state: {
+                    preferredFormat,
+                    source: 'topic_detail',
+                },
+            });
         } catch {
             setStartExamError('Failed to start the exam. Please try again.');
         } finally {
@@ -714,12 +719,20 @@ const TopicDetail = () => {
                                     Study Concepts
                                 </Link>
                                 <button
-                                    onClick={handleStartExam}
+                                    onClick={() => handleStartExam('mcq')}
                                     disabled={startingExam}
                                     className="btn-primary px-5 py-2.5 text-body-sm gap-2 disabled:opacity-50"
                                 >
                                     <span className="material-symbols-outlined text-[18px]">quiz</span>
-                                    {startingExam ? 'Preparing...' : 'Start Exam'}
+                                    {startingExam ? 'Preparing...' : 'MCQ Quiz'}
+                                </button>
+                                <button
+                                    onClick={() => handleStartExam('essay')}
+                                    disabled={startingExam}
+                                    className="btn-secondary px-5 py-2.5 text-body-sm gap-2 disabled:opacity-50"
+                                >
+                                    <span className="material-symbols-outlined text-[18px]">edit_note</span>
+                                    {startingExam ? 'Preparing...' : 'Essay Quiz'}
                                 </button>
                             </div>
 
