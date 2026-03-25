@@ -419,18 +419,18 @@ export const QUESTION_BANK_BACKGROUND_PROFILE = resolveQuestionBankProfile({
 });
 
 export const QUESTION_BANK_INTERACTIVE_PROFILE = resolveQuestionBankProfile({
-    minTarget: 20,
-    maxTarget: 30,
+    minTarget: 35,
+    maxTarget: 35,
     wordDivisor: 120,
-    batchSize: 10,
-    minBatchSize: 5,
+    batchSize: 12,
+    minBatchSize: 6,
     maxBatchAttempts: 1,
-    requestTimeoutMs: 12_000,
+    requestTimeoutMs: 15_000,
     repairTimeoutMs: 3_000,
     parallelRequests: 2,
-    minRounds: 2,
-    maxRounds: 6,
+    minRounds: 3,
+    maxRounds: 8,
     bufferRounds: 1,
     noProgressLimit: 3,
-    timeBudgetMs: 60_000,
+    timeBudgetMs: 90_000,
 });

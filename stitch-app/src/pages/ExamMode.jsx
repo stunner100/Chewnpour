@@ -239,6 +239,7 @@ const MCQ_EXAM_QUESTION_CAP = 35;
 const ESSAY_EXAM_QUESTION_CAP = 15;
 const EXAM_DURATION_SECONDS = 45 * 60;
 const MIN_ESSAY_SUBMIT_CHAR_COUNT = 20;
+const FULL_EXAM_UNAVAILABLE_CODES = ['EXAM_FULL_EXAM_UNAVAILABLE', 'ESSAY_FULL_EXAM_UNAVAILABLE'];
 
 const resolveConvexActionError = (error, fallbackMessage) => {
     const dataMessage = typeof error?.data === 'string'
@@ -270,6 +271,8 @@ const getConvexErrorCode = (error) => {
     if (!normalizedMessage) return '';
     if (normalizedMessage.includes('exam_questions_preparing')) return 'EXAM_QUESTIONS_PREPARING';
     if (normalizedMessage.includes('essay_questions_preparing')) return 'ESSAY_QUESTIONS_PREPARING';
+    if (normalizedMessage.includes('exam_full_exam_unavailable')) return 'EXAM_FULL_EXAM_UNAVAILABLE';
+    if (normalizedMessage.includes('essay_full_exam_unavailable')) return 'ESSAY_FULL_EXAM_UNAVAILABLE';
     if (
         normalizedMessage.includes('must be signed in')
         || normalizedMessage.includes('not authenticated')
@@ -384,6 +387,7 @@ const ExamMode = () => {
     const [attemptQuestions, setAttemptQuestions] = useState(null);
     const [startingExamAttempt, setStartingExamAttempt] = useState(false);
     const [startExamError, setStartExamError] = useState('');
+    const [startExamErrorCode, setStartExamErrorCode] = useState('');
 
     // Essay exam state
     const [examFormat, setExamFormat] = useState(null); // null = not chosen, 'mcq' | 'essay'
@@ -454,6 +458,7 @@ const ExamMode = () => {
         setAttemptQuestions(null);
         setStartingExamAttempt(false);
         setStartExamError('');
+        setStartExamErrorCode('');
         setExamFormat(null);
         setGradingEssay(false);
         setSubmitError('');
@@ -466,6 +471,7 @@ const ExamMode = () => {
         if (!topicId || topicData === undefined || topicData === null) return;
         if (examStarted || startingExamAttempt || hasAttemptQuestions) return;
         setStartExamError('');
+        setStartExamErrorCode('');
         setExamFormat(preferredFormatFromState);
     }, [
         examFormat,
@@ -496,6 +502,7 @@ const ExamMode = () => {
         if (!topicId || !examFormat || attemptStartTimeRef.current) return;
 
         setStartExamError('');
+        setStartExamErrorCode('');
         setSubmitError('');
         setStartingExamAttempt(true);
         attemptStartTimeRef.current = Date.now();
@@ -520,6 +527,12 @@ const ExamMode = () => {
             const deferredMessage = typeof result?.message === 'string'
                 ? result.message
                 : 'We could not finish preparing your exam. Please tap Retry.';
+            const isUnavailableExamState =
+                result?.deferred === false
+                && FULL_EXAM_UNAVAILABLE_CODES.includes(deferredCode)
+                && result?.attemptId === null
+                && Array.isArray(result?.questions)
+                && result.questions.length === 0;
             const isDeferredPreparingState =
                 result?.deferred === true
                 && (
@@ -545,6 +558,28 @@ const ExamMode = () => {
                         userId,
                         elapsedMs,
                         timeoutMs: START_EXAM_ATTEMPT_TIMEOUT_MS,
+                        message: deferredMessage,
+                    },
+                });
+                return;
+            }
+            if (isUnavailableExamState) {
+                setAttemptId(null);
+                setAttemptQuestions(null);
+                setExamStarted(false);
+                setStartExamErrorCode(deferredCode);
+                setStartExamError(deferredMessage);
+                captureSentryMessage('Full exam unavailable for topic', {
+                    level: 'warning',
+                    tags: {
+                        area: 'exam',
+                        operation: 'start_exam_attempt',
+                        unavailable: 'yes',
+                        errorCode: deferredCode,
+                    },
+                    extras: {
+                        topicId,
+                        userId,
                         message: deferredMessage,
                     },
                 });
@@ -594,6 +629,7 @@ const ExamMode = () => {
                 ? Date.now() - attemptStartTimeRef.current
                 : null;
             if (isPreparingQuestionsError) {
+                setStartExamErrorCode(errorCode);
                 setStartExamError(message);
                 captureSentryMessage('Exam attempt deferred while question bank prepares', {
                     level: 'warning',
@@ -614,26 +650,34 @@ const ExamMode = () => {
             } else if (authError) {
                 const { refreshed, expired } = await refreshAuthSessionQuietly();
                 if (expired) {
+                    setStartExamErrorCode('UNAUTHENTICATED');
                     setStartExamError(getExamSessionExpiredMessage());
                 } else {
+                    setStartExamErrorCode('UNAUTHENTICATED');
                     setStartExamError(getExamAuthNotReadyMessage(refreshed));
                 }
             } else if (transientTransportError) {
+                setStartExamErrorCode('');
                 setStartExamError(getExamTransientStartRetryMessage());
             } else if (timedOut) {
+                setStartExamErrorCode('');
                 setStartExamError('Exam setup is taking longer than expected. Tap Retry.');
             } else if (isLikelyPostDisconnectAuthError(error)) {
                 // Opaque "Server Error" after a disconnect — likely an auth error.
                 // Attempt a session refresh so the next retry has a valid token.
                 const { refreshed, expired } = await refreshAuthSessionQuietly();
                 if (expired) {
+                    setStartExamErrorCode('UNAUTHENTICATED');
                     setStartExamError(getExamSessionExpiredMessage());
                 } else if (refreshed) {
+                    setStartExamErrorCode('UNAUTHENTICATED');
                     setStartExamError(getExamAuthNotReadyMessage(true));
                 } else {
+                    setStartExamErrorCode('');
                     setStartExamError('Something went wrong. Please wait a moment and tap Retry.');
                 }
             } else {
+                setStartExamErrorCode(errorCode);
                 setStartExamError('Unable to start the exam. Please try again.');
             }
             const likelyPostDisconnect = isLikelyPostDisconnectAuthError(error);
@@ -926,6 +970,7 @@ const ExamMode = () => {
     const progress = questions.length > 0
         ? ((currentQuestion + 1) / questions.length) * 100
         : 0;
+    const isFullExamUnavailable = FULL_EXAM_UNAVAILABLE_CODES.includes(startExamErrorCode);
     const answeredQuestionCount = examFormat === 'essay'
         ? questions.filter((question) => {
             const value = selectedAnswers[question._id];
@@ -1096,7 +1141,7 @@ const ExamMode = () => {
                             </div>
 
                             <h2 className="text-body-lg font-semibold text-text-main-light dark:text-text-main-dark mb-2">
-                                Taking Longer Than Expected
+                                {isFullExamUnavailable ? 'Full Exam Not Available' : 'Taking Longer Than Expected'}
                             </h2>
                             <p className="text-body-sm text-text-sub-light dark:text-text-sub-dark mb-6">
                                 {startExamError}
@@ -1124,6 +1169,7 @@ const ExamMode = () => {
                                         <button
                                             onClick={() => {
                                                 setStartExamError('');
+                                                setStartExamErrorCode('');
                                                 setExamFormat(null);
                                             }}
                                             className="btn-secondary px-4 py-3 flex items-center justify-center"

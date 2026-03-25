@@ -31,6 +31,9 @@ const safeGetQuestionById = async (ctx: any, questionId: any) => {
 const resolveRequestedExamFormat = (value: unknown) =>
     String(value || "").trim().toLowerCase() === "essay" ? "essay" : "mcq";
 
+const resolveRequiredQuestionCount = (examFormat: string) =>
+    examFormat === "essay" ? EXAM_ESSAY_QUESTION_SUBSET_SIZE : EXAM_QUESTION_SUBSET_SIZE;
+
 const buildDeferredStartResponse = (examFormat: string, message?: string) => {
     const isEssay = examFormat === "essay";
     return {
@@ -47,6 +50,54 @@ const buildDeferredStartResponse = (examFormat: string, message?: string) => {
                 : "Preparing a full multiple-choice exam. Please try again in a few seconds."
         ),
     };
+};
+
+const buildUnavailableStartResponse = (examFormat: string, message?: string) => {
+    const isEssay = examFormat === "essay";
+    const requiredQuestionCount = resolveRequiredQuestionCount(examFormat);
+    return {
+        ready: false,
+        attemptId: null,
+        totalQuestions: 0,
+        questions: [],
+        reusedAttempt: false,
+        deferred: false,
+        code: isEssay ? "ESSAY_FULL_EXAM_UNAVAILABLE" : "EXAM_FULL_EXAM_UNAVAILABLE",
+        message: message || (
+            isEssay
+                ? `This topic does not have enough source material to build a full ${requiredQuestionCount}-question essay exam yet.`
+                : `This topic does not have enough source material to build a full ${requiredQuestionCount}-question multiple-choice exam yet.`
+        ),
+    };
+};
+
+const resolveUnavailableStartMessage = (args: {
+    examFormat: string;
+    reason?: unknown;
+    targetCount?: unknown;
+    generatedCount?: unknown;
+    timedOut?: unknown;
+}) => {
+    const isEssay = args.examFormat === "essay";
+    const requiredQuestionCount = resolveRequiredQuestionCount(args.examFormat);
+    const examLabel = isEssay ? "essay" : "multiple-choice";
+    const normalizedReason = String(args.reason || "").trim().toUpperCase();
+    const targetCount = Math.max(0, Math.round(Number(args.targetCount || 0)));
+    const generatedCount = Math.max(0, Math.round(Number(args.generatedCount || 0)));
+
+    if (args.timedOut === true) {
+        return `We couldn't finish preparing a full ${requiredQuestionCount}-question ${examLabel} exam in time. Please try again.`;
+    }
+
+    if (normalizedReason === "INSUFFICIENT_EVIDENCE" || targetCount < requiredQuestionCount) {
+        return `This topic doesn't have enough source material to build a full ${requiredQuestionCount}-question ${examLabel} exam yet. Add more content or try a different topic.`;
+    }
+
+    if (generatedCount > 0 && generatedCount < requiredQuestionCount) {
+        return `We could only verify ${generatedCount} questions for this topic, which isn't enough for a full ${requiredQuestionCount}-question ${examLabel} exam yet. Add more content or try again later.`;
+    }
+
+    return `We couldn't build a full ${requiredQuestionCount}-question ${examLabel} exam for this topic yet. Please try again or add more content.`;
 };
 
 
@@ -110,9 +161,7 @@ export const prepareStartExamAttemptInternal = internalMutation({
         const effectiveUserId = String(args.userId || "").trim();
         const examFormat = resolveRequestedExamFormat(args.examFormat);
         const isEssay = examFormat === "essay";
-        const requiredQuestionCount = isEssay
-            ? EXAM_ESSAY_QUESTION_SUBSET_SIZE
-            : EXAM_QUESTION_SUBSET_SIZE;
+        const requiredQuestionCount = resolveRequiredQuestionCount(examFormat);
 
         const topic = await ctx.db.get(args.topicId);
         if (!topic) {
@@ -271,6 +320,7 @@ export const startExamAttempt = action({
             requestedUserId: args.userId,
         });
         const examFormat = resolveRequestedExamFormat(args.examFormat);
+        const requiredQuestionCount = resolveRequiredQuestionCount(examFormat);
 
         const resolveReadyAttempt = async () =>
             await ctx.runMutation(internal.exams.prepareStartExamAttemptInternal, {
@@ -285,14 +335,15 @@ export const startExamAttempt = action({
             return result;
         }
 
+        let generationResult: any = null;
         try {
             if (examFormat === "essay") {
-                await ctx.runAction(internal.ai.generateEssayQuestionsForTopicOnDemandInternal, {
+                generationResult = await ctx.runAction(internal.ai.generateEssayQuestionsForTopicOnDemandInternal, {
                     topicId: args.topicId,
                     count: EXAM_ESSAY_QUESTION_SUBSET_SIZE,
                 });
             } else {
-                await ctx.runAction(internal.ai.generateQuestionsForTopicOnDemandInternal, {
+                generationResult = await ctx.runAction(internal.ai.generateQuestionsForTopicOnDemandInternal, {
                     topicId: args.topicId,
                 });
             }
@@ -317,7 +368,28 @@ export const startExamAttempt = action({
             return result;
         }
 
-        const { ready: _READY, ...result } = finalAttempt || buildDeferredStartResponse(examFormat);
+        if (String(generationResult?.reason || "").trim() === "generation_already_in_progress") {
+            const { ready: _READY, ...result } = finalAttempt || buildDeferredStartResponse(examFormat);
+            return result;
+        }
+
+        const unavailableMessage = resolveUnavailableStartMessage({
+            examFormat,
+            reason: generationResult?.reason,
+            targetCount: generationResult?.targetCount,
+            generatedCount: generationResult?.count,
+            timedOut: generationResult?.timedOut,
+        });
+        const generationTooSmallForFullExam =
+            Number(generationResult?.targetCount || 0) < requiredQuestionCount
+            || Number(generationResult?.count || 0) < requiredQuestionCount
+            || generationResult?.abstained === true;
+        if (generationTooSmallForFullExam) {
+            const { ready: _READY, ...result } = buildUnavailableStartResponse(examFormat, unavailableMessage);
+            return result;
+        }
+
+        const { ready: _READY, ...result } = buildUnavailableStartResponse(examFormat, unavailableMessage);
         return result;
     },
 });

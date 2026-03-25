@@ -65,8 +65,11 @@ if (!/const EXAM_QUESTION_SUBSET_SIZE = 35;/.test(examsSource)) {
 if (!/const EXAM_ESSAY_QUESTION_SUBSET_SIZE = 15;/.test(examsSource)) {
   throw new Error('Expected essay exam subset size to be 15.');
 }
-if (!/const requiredQuestionCount = isEssay[\s\S]*EXAM_ESSAY_QUESTION_SUBSET_SIZE[\s\S]*EXAM_QUESTION_SUBSET_SIZE/.test(examsSource)) {
-  throw new Error('Expected startExamAttempt preparation to derive a required full-set count by exam format.');
+if (
+  !/const resolveRequiredQuestionCount = \(examFormat: string\)/.test(examsSource)
+  || !/const requiredQuestionCount = resolveRequiredQuestionCount\(examFormat\);/.test(examsSource)
+) {
+  throw new Error('Expected exams.ts to derive a required full-set count by exam format through a shared helper.');
 }
 if (!/usableQuestions\.length < requiredQuestionCount/.test(examsSource)) {
   throw new Error('Expected startExamAttempt preparation to defer when the bank is smaller than the required full-set count.');
