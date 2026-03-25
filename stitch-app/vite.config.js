@@ -27,12 +27,17 @@ const readConvexProjectConfigUrl = () => {
 export default defineConfig(({ mode, command }) => {
   const env = loadEnv(mode, process.cwd(), '')
   const projectConvexUrl = readConvexProjectConfigUrl()
+  // Only the local dev server may fall back to the checked-in project config.
+  // Preview and production builds must provide an explicit deployment URL so a
+  // preview frontend can never silently point at production Convex.
   const resolvedConvexUrl = String(
-    env.VITE_CONVEX_URL || env.CONVEX_URL || projectConvexUrl || ''
+    command === 'serve'
+      ? env.VITE_CONVEX_URL || env.CONVEX_URL || projectConvexUrl || ''
+      : env.VITE_CONVEX_URL || env.CONVEX_URL || ''
   ).trim()
   if (command === 'build' && !resolvedConvexUrl) {
     throw new Error(
-      'Missing Convex URL for build. Set VITE_CONVEX_URL/CONVEX_URL or define config/convex.public.json.'
+      'Missing Convex URL for build. Set VITE_CONVEX_URL/CONVEX_URL in the target environment. Preview and production builds must not fall back to config/convex.public.json.'
     )
   }
 

@@ -58,9 +58,9 @@ if (!/loadEnv\(/.test(viteConfigSource)) {
   throw new Error('Expected vite config to load environment variables with loadEnv.');
 }
 
-if (!/env\.VITE_CONVEX_URL\s*\|\|\s*env\.CONVEX_URL\s*\|\|\s*projectConvexUrl/.test(viteConfigSource)) {
+if (!/command === 'serve'[\s\S]*env\.VITE_CONVEX_URL \|\| env\.CONVEX_URL \|\| projectConvexUrl/s.test(viteConfigSource)) {
   throw new Error(
-    'Expected vite config to resolve frontend Convex URL from VITE_CONVEX_URL, CONVEX_URL, or config/convex.public.json.'
+    'Expected vite config to allow config/convex.public.json fallback only during local serve.'
   );
 }
 
@@ -69,7 +69,11 @@ if (!/readConvexProjectConfigUrl/.test(viteConfigSource)) {
 }
 
 if (!/config\/convex\.public\.json/.test(viteConfigSource)) {
-  throw new Error('Expected vite config build guard to reference config/convex.public.json.');
+  throw new Error('Expected vite config to still reference config/convex.public.json for local serve fallback.');
+}
+
+if (!/command === 'serve'[\s\S]*: env\.VITE_CONVEX_URL \|\| env\.CONVEX_URL \|\| ''/s.test(viteConfigSource)) {
+  throw new Error('Expected vite config to require explicit env Convex URL outside local serve.');
 }
 
 if (!/import\.meta\.env\.VITE_CONVEX_URL/.test(viteConfigSource)) {
@@ -78,6 +82,10 @@ if (!/import\.meta\.env\.VITE_CONVEX_URL/.test(viteConfigSource)) {
 
 if (!/command\s*===\s*['"]build['"]\s*&&\s*!resolvedConvexUrl/.test(viteConfigSource)) {
   throw new Error('Expected vite config to fail builds when Convex URL is missing.');
+}
+
+if (!/Preview and production builds must not fall back to config\/convex\.public\.json/.test(viteConfigSource)) {
+  throw new Error('Expected vite config build guard to explain that preview and production must not use the local Convex fallback.');
 }
 
 if (!/Missing Convex URL for build/.test(viteConfigSource)) {
