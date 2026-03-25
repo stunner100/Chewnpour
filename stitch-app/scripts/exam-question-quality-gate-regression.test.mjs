@@ -11,20 +11,23 @@ if (!/isUsableExamQuestion/.test(examsSource)) {
 if (!/const\s+usableQuestions\s*=\s*filteredQuestions\.filter\(\(question\)\s*=>\s*[\s\S]*isUsableExamQuestion\(question,\s*\{\s*allowEssay:\s*isEssay\s*\}\)\s*[\s\S]*\);/.test(examsSource)) {
   throw new Error('Expected exams.ts to filter topic questions by quality before selecting exam questions.');
 }
-if (!/generateQuestionsForTopicInternal/.test(examsSource)) {
-  throw new Error('Expected exams.ts to schedule question regeneration when no usable questions exist.');
+if (!/generateQuestionsForTopicOnDemandInternal/.test(examsSource) || !/generateEssayQuestionsForTopicOnDemandInternal/.test(examsSource)) {
+  throw new Error('Expected exams.ts to trigger on-demand regeneration when a full usable exam set is not available.');
 }
-if (!/Questions are being refreshed for quality\. Please try again in a few seconds\./.test(examsSource)) {
-  throw new Error('Expected exams.ts to return a quality-refresh message when usable questions are unavailable.');
+if (!/buildDeferredStartResponse/.test(examsSource)) {
+  throw new Error('Expected exams.ts to return a structured deferred start response when the full usable set is unavailable.');
 }
 
 const topicsSource = await fs.readFile(path.join(root, 'convex', 'topics.ts'), 'utf8');
-if (!/filter\(\(question\)\s*=>\s*isUsableExamQuestion\(question\)\)/.test(topicsSource)) {
-  throw new Error('Expected topics.ts queries to filter out unusable questions.');
+if (!/const computeTopicExamReadinessFromQuestions = \(/.test(topicsSource)) {
+  throw new Error('Expected topics.ts to centralize exam readiness computation.');
+}
+if (!/isUsableExamQuestion\(question\)/.test(topicsSource) || !/isUsableExamQuestion\(question,\s*\{\s*allowEssay:\s*true\s*\}\)/.test(topicsSource)) {
+  throw new Error('Expected topics.ts readiness computation to distinguish usable MCQ and essay questions.');
 }
 
 const aiSource = await fs.readFile(path.join(root, 'convex', 'ai.ts'), 'utf8');
-if (!/const\s+rawExistingQuestions\s*=\s*topicWithQuestions\.questions\s*\|\|\s*\[\];/.test(aiSource)) {
+if (!/const\s+rawExistingQuestions\s*=\s*filterQuestionsForActiveAssessment\(/.test(aiSource)) {
   throw new Error('Expected ai.ts question-bank generation to inspect raw existing questions.');
 }
 if (!/const\s+existingQuestions\s*=\s*rawExistingQuestions\.filter/.test(aiSource)) {

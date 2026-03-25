@@ -10,32 +10,37 @@ const [source, examsSource] = await Promise.all([
   fs.readFile(examsPath, 'utf8'),
 ]);
 
-if (/if \(!topicId \|\| topicQuestions\.length === 0\) return;/.test(source)) {
-  throw new Error('Regression detected: beginExamAttempt should not block exam start when the bank is empty.');
+if (/topicQuestions\.length/.test(source)) {
+  throw new Error('Regression detected: ExamMode should not gate start flow on client-side topic question counts.');
 }
 
-if (/topicQuestions\.length\s*>=\s*MIN_EXAM_QUESTIONS/.test(source)) {
-  throw new Error('Regression detected: ExamMode should not gate format selection or exam start on local question count.');
-}
-
-for (const removedScreen of ['No questions yet', 'Preparing question bank']) {
-  if (source.includes(removedScreen)) {
-    throw new Error(`Regression detected: ExamMode should stay in loading mode instead of rendering "${removedScreen}".`);
+for (const forbiddenPattern of [
+  /generateQuestions\(\{\s*topicId\s*\}\)/,
+  /generateEssayQuestions\(\{/,
+  /generatingQuestions/,
+  /MIN_EXAM_QUESTIONS/,
+]) {
+  if (forbiddenPattern.test(source)) {
+    throw new Error('Regression detected: ExamMode should not use the old client-side generation gate.');
   }
 }
 
-if (!/Pick a format and we(?:&apos;|')ll generate the exam on demand\./.test(source)) {
-  throw new Error('Expected ExamMode chooser copy to explain on-demand exam generation.');
+if (!/const startExam = useAction\(api\.exams\.startExamAttempt\);/.test(source)) {
+  throw new Error('Expected ExamMode to call the blocking startExamAttempt action.');
 }
 
-for (const pattern of ['OBJECTIVE_QUESTIONS_PREPARING', 'ESSAY_QUESTIONS_PREPARING']) {
+if (!/topicId[\s\S]*examFormat[\s\S]*beginExamAttempt\(\);/s.test(source)) {
+  throw new Error('Expected ExamMode to begin exam preparation immediately after the user chooses a format.');
+}
+
+for (const pattern of ['EXAM_QUESTIONS_PREPARING', 'ESSAY_QUESTIONS_PREPARING']) {
   if (!examsSource.includes(pattern)) {
     throw new Error(`Expected convex/exams.ts to preserve structured ${pattern} retry codes.`);
   }
 }
 
 for (const throwPattern of [
-  /throw new ConvexError\(\{\s*code:\s*"OBJECTIVE_QUESTIONS_PREPARING"/,
+  /throw new ConvexError\(\{\s*code:\s*"EXAM_QUESTIONS_PREPARING"/,
   /throw new ConvexError\(\{\s*code:\s*"ESSAY_QUESTIONS_PREPARING"/,
 ]) {
   if (throwPattern.test(examsSource)) {
@@ -57,19 +62,7 @@ if (!source.includes('result?.deferred === true') || !source.includes('Exam atte
   throw new Error('Expected ExamMode to handle deferred startExamAttempt responses without throwing.');
 }
 
-if (!source.includes('isAutoRetryableStartError(startExamError)')) {
-  throw new Error('Expected ExamMode to keep recoverable start errors inside the loading state.');
-}
-
-if (source.includes('Exam setup is taking longer than expected. Tap Retry.')) {
-  throw new Error('Regression detected: timed-out exam starts should keep retrying automatically instead of forcing manual retry.');
-}
-
-if (!/We(?:&apos;|')ll keep loading until your questions are ready\./.test(source)) {
-  throw new Error('Expected loading state copy to promise continuous exam preparation.');
-}
-
-if (/startExam\(userId\s*\?/.test(source)) {
+if (/startExam\(\{\s*userId:/.test(source) || /startExam\(userId\s*\?/.test(source)) {
   throw new Error('Expected ExamMode to avoid passing client userId to startExam() and rely on server auth identity.');
 }
 

@@ -40,11 +40,20 @@ if (!/export const isUsableExamQuestion/.test(examSecuritySource)) {
 
 const examsSource = await fs.readFile(examsPath, 'utf8');
 const schemaSource = await fs.readFile(schemaPath, 'utf8');
+const startActionStart = examsSource.indexOf('export const startExamAttempt = action({');
+const submitMutationStart = examsSource.indexOf('export const submitExamAttempt = mutation({');
+const getAttemptsStart = examsSource.indexOf('export const getUserExamAttempts = query({');
+const startActionSource = startActionStart >= 0 && submitMutationStart > startActionStart
+  ? examsSource.slice(startActionStart, submitMutationStart)
+  : '';
+const submitMutationSource = submitMutationStart >= 0 && getAttemptsStart > submitMutationStart
+  ? examsSource.slice(submitMutationStart, getAttemptsStart)
+  : '';
 const dedupeCalls = examsSource.match(/ensureUniqueAnswerQuestionIds\(args\.answers\);/g) || [];
 if (dedupeCalls.length < 2) {
   throw new Error('Expected both MCQ and essay submit paths to enforce unique submitted questionIds.');
 }
-if (!/examFormat:\s*isEssay\s*\?\s*"essay"\s*:\s*"mcq"/.test(examsSource)) {
+if (!/canReuseExamAttempt\(\{\s*[\s\S]*examFormat,/.test(examsSource)) {
   throw new Error('Expected startExamAttempt reuse checks to include requested exam format.');
 }
 if (!/question\.questionType === "essay"/.test(examsSource)) {
@@ -56,23 +65,38 @@ if (!/const EXAM_QUESTION_SUBSET_SIZE = 35;/.test(examsSource)) {
 if (!/const EXAM_ESSAY_QUESTION_SUBSET_SIZE = 15;/.test(examsSource)) {
   throw new Error('Expected essay exam subset size to be 15.');
 }
-if (!/count:\s*EXAM_ESSAY_QUESTION_SUBSET_SIZE/.test(examsSource)) {
-  throw new Error('Expected essay fallback generation count to use EXAM_ESSAY_QUESTION_SUBSET_SIZE.');
+if (!/const requiredQuestionCount = isEssay[\s\S]*EXAM_ESSAY_QUESTION_SUBSET_SIZE[\s\S]*EXAM_QUESTION_SUBSET_SIZE/.test(examsSource)) {
+  throw new Error('Expected startExamAttempt preparation to derive a required full-set count by exam format.');
 }
-if (!/selectedQuestions\.length < EXAM_QUESTION_SUBSET_SIZE/.test(examsSource)) {
-  throw new Error('Expected MCQ startExamAttempt to trigger non-blocking top-up for low-count topics.');
+if (!/usableQuestions\.length < requiredQuestionCount/.test(examsSource)) {
+  throw new Error('Expected startExamAttempt preparation to defer when the bank is smaller than the required full-set count.');
 }
-if (!/selectedQuestions\.length < EXAM_ESSAY_QUESTION_SUBSET_SIZE/.test(examsSource)) {
-  throw new Error('Expected essay startExamAttempt to trigger non-blocking top-up for low-count topics.');
+if (!/selectedQuestions\.length < requiredQuestionCount \|\| selection\.requiresFreshGeneration/.test(examsSource)) {
+  throw new Error('Expected startExamAttempt preparation to defer when selection cannot produce a full fresh set.');
 }
-if (!/internal\.ai\.generateEssayQuestionsForTopicInternal/.test(examsSource)) {
-  throw new Error('Expected essay fallback path to schedule essay question generation.');
+if (!/export const prepareStartExamAttemptInternal = internalMutation/.test(examsSource)) {
+  throw new Error('Expected exams.ts to expose an internal start-preparation mutation.');
+}
+if (!/export const startExamAttempt = action/.test(examsSource)) {
+  throw new Error('Expected exams.ts to expose startExamAttempt as an action.');
+}
+if (!/await ctx\.runAction\(internal\.ai\.generateEssayQuestionsForTopicOnDemandInternal/.test(examsSource)) {
+  throw new Error('Expected essay start flow to trigger only the requested on-demand essay generator.');
+}
+if (!/await ctx\.runAction\(internal\.ai\.generateQuestionsForTopicOnDemandInternal/.test(examsSource)) {
+  throw new Error('Expected MCQ start flow to trigger only the requested on-demand MCQ generator.');
+}
+if (/ctx\.scheduler\.runAfter/.test(startActionSource)) {
+  throw new Error('Regression detected: startExamAttempt should not schedule background top-ups from the student start flow.');
+}
+if (/ctx\.scheduler\.runAfter/.test(submitMutationSource)) {
+  throw new Error('Regression detected: submitExamAttempt should not schedule background top-ups after submission.');
 }
 if (!/extra field `examFormat`/.test(examsSource) || !/legacyAttemptDocument/.test(examsSource)) {
   throw new Error('Expected startExamAttempt to gracefully retry insert without examFormat for legacy schema compatibility.');
 }
-if (!/Essay questions are being prepared\. Please try again in a few seconds\./.test(examsSource)) {
-  throw new Error('Expected explicit essay-generation retry message when no essay questions are available.');
+if (!/Preparing a full essay exam\./.test(examsSource) || !/Preparing a full multiple-choice exam\./.test(examsSource)) {
+  throw new Error('Expected deferred start responses to explain that a full exam set is being prepared.');
 }
 if (!/examAttempts:\s*defineTable\(\{[\s\S]*examFormat:\s*v\.optional\(v\.string\(\)\)/.test(schemaSource)) {
   throw new Error('Expected examAttempts schema to include optional examFormat field.');
@@ -101,11 +125,14 @@ if (/if \(!attemptId \|\| loading \|\| feedback\) return;/.test(dashboardResults
 }
 
 const aiSource = await fs.readFile(aiPath, 'utf8');
-if (!/export const generateEssayQuestionsForTopicInternal = internalAction/.test(aiSource)) {
-  throw new Error('Expected ai.ts to expose an internal essay question generator for scheduler fallback.');
+if (!/const runMcqGenerationWithLock = async/.test(aiSource) || !/const runEssayGenerationWithLock = async/.test(aiSource)) {
+  throw new Error('Expected ai.ts to enforce locking for both MCQ and essay generation.');
 }
-if (!/export const generateQuestionsForTopic = action/.test(aiSource) || !/internal\.ai\.generateQuestionsForTopicInternal/.test(aiSource)) {
-  throw new Error('Expected interactive question generation to schedule non-blocking background top-up.');
+if (!/export const generateQuestionsForTopicOnDemandInternal = internalAction/.test(aiSource)) {
+  throw new Error('Expected ai.ts to expose an on-demand internal MCQ generator for blocking exam starts.');
+}
+if (!/export const generateEssayQuestionsForTopicOnDemandInternal = internalAction/.test(aiSource)) {
+  throw new Error('Expected ai.ts to expose an on-demand internal essay generator for blocking exam starts.');
 }
 
 console.log('exam-flow-hardening-regression.test.mjs passed');

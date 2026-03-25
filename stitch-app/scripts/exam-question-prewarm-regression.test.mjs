@@ -1,65 +1,38 @@
-import assert from 'node:assert/strict';
-import {
-    EXAM_PREWARM_MIN_QUESTION_COUNT,
-    shouldPrewarmExamQuestions,
-} from '../src/lib/examQuestionPrewarm.js';
+import fs from 'node:fs/promises';
+import path from 'node:path';
+import process from 'node:process';
 
-const baseTopic = { _id: 'topic_1', title: 'Topic 1' };
+const root = process.cwd();
+const prewarmPath = path.join(root, 'src', 'lib', 'examQuestionPrewarm.js');
+const topicDetailPath = path.join(root, 'src', 'pages', 'TopicDetail.jsx');
+const examModePath = path.join(root, 'src', 'pages', 'ExamMode.jsx');
+const aiPath = path.join(root, 'convex', 'ai.ts');
 
-assert.equal(
-    EXAM_PREWARM_MIN_QUESTION_COUNT,
-    30,
-    'Expected prewarm minimum question threshold to be 30.'
-);
+const fileExists = async (targetPath) => {
+  try {
+    await fs.access(targetPath);
+    return true;
+  } catch {
+    return false;
+  }
+};
 
-assert.equal(
-    shouldPrewarmExamQuestions({
-        topicId: null,
-        topicData: baseTopic,
-        questionCount: 0,
-        alreadyTriggered: false,
-    }),
-    false
-);
+if (await fileExists(prewarmPath)) {
+  throw new Error('Regression detected: exam prewarm helper should be removed after the click-to-generate cutover.');
+}
 
-assert.equal(
-    shouldPrewarmExamQuestions({
-        topicId: 'topic_1',
-        topicData: undefined,
-        questionCount: 0,
-        alreadyTriggered: false,
-    }),
-    false
-);
+const [topicDetailSource, examModeSource, aiSource] = await Promise.all([
+  fs.readFile(topicDetailPath, 'utf8'),
+  fs.readFile(examModePath, 'utf8'),
+  fs.readFile(aiPath, 'utf8'),
+]);
 
-assert.equal(
-    shouldPrewarmExamQuestions({
-        topicId: 'topic_1',
-        topicData: baseTopic,
-        questionCount: EXAM_PREWARM_MIN_QUESTION_COUNT - 1,
-        alreadyTriggered: false,
-    }),
-    true
-);
+if (/prewarm/i.test(topicDetailSource) || /prewarm/i.test(examModeSource)) {
+  throw new Error('Regression detected: student exam flow should not reference prewarm behavior.');
+}
 
-assert.equal(
-    shouldPrewarmExamQuestions({
-        topicId: 'topic_1',
-        topicData: baseTopic,
-        questionCount: EXAM_PREWARM_MIN_QUESTION_COUNT,
-        alreadyTriggered: false,
-    }),
-    false
-);
-
-assert.equal(
-    shouldPrewarmExamQuestions({
-        topicId: 'topic_1',
-        topicData: baseTopic,
-        questionCount: 3,
-        alreadyTriggered: true,
-    }),
-    false
-);
+if (/scheduleExamQuestionPrebuildForTopic/.test(aiSource)) {
+  throw new Error('Regression detected: backend should not retain topic prebuild helpers after the click-to-generate cutover.');
+}
 
 console.log('exam-question-prewarm-regression tests passed');

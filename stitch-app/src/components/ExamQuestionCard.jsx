@@ -1,12 +1,6 @@
 import React, { memo } from 'react';
-import {
-    QUESTION_TYPE_FILL_BLANK,
-    QUESTION_TYPE_TRUE_FALSE,
-    normalizeQuestionType,
-} from '../lib/objectiveExam';
 
 const MIN_ESSAY_SUBMIT_CHAR_COUNT = 20;
-const MAX_FILL_BLANK_INPUT_LENGTH = 120;
 
 /**
  * Memoized exam question card.
@@ -31,34 +25,6 @@ const ExamQuestionCard = memo(function ExamQuestionCard({
 
     const isLastQuestion = questionIndex === totalQuestions - 1;
     const isFirstQuestion = questionIndex === 0;
-    const questionType = normalizeQuestionType(question.questionType);
-    const isEssay = examFormat === 'essay';
-    const isFillBlank = questionType === QUESTION_TYPE_FILL_BLANK;
-    const isTrueFalse = questionType === QUESTION_TYPE_TRUE_FALSE;
-    const templateParts = Array.isArray(question.templateParts) ? question.templateParts : [];
-    const tokenBank = Array.isArray(question.tokens) ? question.tokens : [];
-    const fillBlankMode = String(question.fillBlankMode || 'token_bank').trim().toLowerCase();
-
-    const renderFillBlankTemplate = () => {
-        if (templateParts.length === 0) return null;
-        return (
-            <div className="rounded-xl border border-border-light dark:border-border-dark bg-surface-hover-light dark:bg-surface-hover-dark p-4 text-body-sm leading-relaxed text-text-main-light dark:text-text-main-dark">
-                {templateParts.map((part, index) => {
-                    if (part === '__') {
-                        return (
-                            <span
-                                key={`blank-${index}`}
-                                className="inline-flex min-w-[7rem] items-center justify-center rounded-lg border border-dashed border-primary/40 bg-primary/5 px-3 py-1 font-semibold text-primary"
-                            >
-                                {selectedAnswer || '_____'}
-                            </span>
-                        );
-                    }
-                    return <span key={`part-${index}`}>{part}</span>;
-                })}
-            </div>
-        );
-    };
 
     return (
         <div className="card-base p-5 md:p-8 mb-4">
@@ -74,7 +40,7 @@ const ExamQuestionCard = memo(function ExamQuestionCard({
 
             {/* Options / Essay Textarea */}
             <div className="space-y-2">
-                {isEssay ? (
+                {examFormat === 'essay' ? (
                     <div>
                         <textarea
                             value={selectedAnswer || ''}
@@ -96,55 +62,17 @@ const ExamQuestionCard = memo(function ExamQuestionCard({
                             </span>
                         </div>
                     </div>
-                ) : isFillBlank ? (
-                    <div className="space-y-4">
-                        {renderFillBlankTemplate()}
-                        {fillBlankMode === 'free_text' ? (
-                            <div>
-                                <input
-                                    value={selectedAnswer || ''}
-                                    onChange={(e) => {
-                                        const value = e.target.value.slice(0, MAX_FILL_BLANK_INPUT_LENGTH);
-                                        onAnswerSelect(question._id, value);
-                                    }}
-                                    placeholder="Type the missing answer"
-                                    className="input-field text-body-sm"
-                                />
-                                <div className="mt-1 flex justify-end">
-                                    <span className="text-caption text-text-faint-light dark:text-text-faint-dark">
-                                        {(selectedAnswer || '').length}/{MAX_FILL_BLANK_INPUT_LENGTH}
-                                    </span>
-                                </div>
-                            </div>
-                        ) : tokenBank.length === 0 ? (
-                            <div className="p-3 rounded-xl bg-amber-50 dark:bg-amber-900/10 border border-amber-200 dark:border-amber-900/30">
-                                <p className="text-body-sm text-amber-800 dark:text-amber-300">No token bank available for this question.</p>
-                            </div>
-                        ) : (
-                            <div className="flex flex-wrap gap-2">
-                                {tokenBank.map((token) => {
-                                    const isSelected = String(selectedAnswer || '').trim() === String(token || '').trim();
-                                    return (
-                                        <button
-                                            key={token}
-                                            onClick={() => onAnswerSelect(question._id, token)}
-                                            className={`rounded-xl border px-4 py-2 text-body-sm font-medium transition-all ${isSelected
-                                                ? 'border-primary bg-primary/10 text-primary'
-                                                : 'border-border-light dark:border-border-dark text-text-sub-light dark:text-text-sub-dark hover:border-primary/30 hover:bg-surface-hover-light dark:hover:bg-surface-hover-dark'
-                                                }`}
-                                        >
-                                            {token}
-                                        </button>
-                                    );
-                                })}
-                            </div>
-                        )}
-                    </div>
                 ) : finalOptions.length === 0 ? (
-                    <div className="p-3 rounded-xl bg-amber-50 dark:bg-amber-900/10 border border-amber-200 dark:border-amber-900/30">
-                        <p className="text-body-sm text-amber-800 dark:text-amber-300">
-                            {isTrueFalse ? 'True/false options are unavailable for this question.' : 'No options available for this question.'}
-                        </p>
+                    <div>
+                        <input
+                            type="text"
+                            value={selectedAnswer || ''}
+                            onChange={(e) => onAnswerSelect(question._id, e.target.value.slice(0, 200))}
+                            placeholder="Type your answer..."
+                            className="input-field text-body-sm w-full"
+                            style={{ fontSize: '16px' }}
+                            autoComplete="off"
+                        />
                     </div>
                 ) : (
                     finalOptions.map((option, index) => {

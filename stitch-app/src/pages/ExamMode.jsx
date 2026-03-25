@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Link, useParams, useNavigate, useLocation } from 'react-router-dom';
+import { Link, useParams, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useAction } from 'convex/react';
 import { api } from '../../convex/_generated/api';
 import { useAuth } from '../contexts/AuthContext';
@@ -7,12 +7,6 @@ import { getSession } from '../lib/auth-client';
 import { useStudyTimer } from '../hooks/useStudyTimer';
 import { useExamTimer } from '../hooks/useExamTimer';
 import { isLikelyConvexId } from '../lib/convexId';
-import {
-    OBJECTIVE_EXAM_FORMAT,
-    QUESTION_TYPE_FILL_BLANK,
-    normalizeExamFormat,
-    normalizeQuestionType,
-} from '../lib/objectiveExam';
 import { addSentryBreadcrumb, captureSentryException, captureSentryMessage } from '../lib/sentry';
 import ExamQuestionCard from '../components/ExamQuestionCard';
 
@@ -241,11 +235,10 @@ const TRANSIENT_TRANSPORT_ERROR_PATTERNS = [
     'fetch failed',
     'inactive server',
 ];
-const OBJECTIVE_EXAM_QUESTION_CAP = 35;
+const MCQ_EXAM_QUESTION_CAP = 35;
 const ESSAY_EXAM_QUESTION_CAP = 15;
 const EXAM_DURATION_SECONDS = 45 * 60;
 const MIN_ESSAY_SUBMIT_CHAR_COUNT = 20;
-const EMPTY_QUESTIONS = [];
 
 const resolveConvexActionError = (error, fallbackMessage) => {
     const dataMessage = typeof error?.data === 'string'
@@ -275,8 +268,7 @@ const getConvexErrorCode = (error) => {
     }
     const normalizedMessage = resolveConvexActionError(error, '').toLowerCase();
     if (!normalizedMessage) return '';
-    if (normalizedMessage.includes('objective_questions_preparing')) return 'OBJECTIVE_QUESTIONS_PREPARING';
-    if (normalizedMessage.includes('exam_questions_preparing')) return 'OBJECTIVE_QUESTIONS_PREPARING';
+    if (normalizedMessage.includes('exam_questions_preparing')) return 'EXAM_QUESTIONS_PREPARING';
     if (normalizedMessage.includes('essay_questions_preparing')) return 'ESSAY_QUESTIONS_PREPARING';
     if (
         normalizedMessage.includes('must be signed in')
@@ -327,8 +319,8 @@ const isTransientExamTransportError = (error, resolvedMessage = '') => {
 
 const getExamAuthNotReadyMessage = (sessionRefreshed = false) =>
     sessionRefreshed
-        ? "Your session has been refreshed. We'll keep retrying automatically."
-        : "Your session is still syncing. We'll keep retrying automatically.";
+        ? 'Your session has been refreshed. Tap Retry to start the exam.'
+        : 'Your session is still syncing. Please wait a few seconds and tap Retry.';
 
 const getExamSessionExpiredMessage = () =>
     'Your session has expired. Please go back and sign in again.';
@@ -344,7 +336,7 @@ const refreshAuthSessionQuietly = async () => {
 };
 
 const getExamTransientStartRetryMessage = () =>
-    "Connection dropped while starting the exam. We'll keep retrying automatically.";
+    'Connection dropped while starting the exam. Check your internet and tap Retry.';
 
 const getExamTransientSubmitRetryMessage = () =>
     'Connection dropped while submitting your exam. Please retry once your connection is stable.';
@@ -369,50 +361,6 @@ const isUserCorrectableEssaySubmitError = (message) => {
     );
 };
 
-const isPreparingEssayStartError = (message) => {
-    const normalized = String(message || '').toLowerCase();
-    if (!normalized) return false;
-    return (
-        normalized.includes('essay_questions_preparing')
-        || normalized.includes('essay questions are being prepared')
-    );
-};
-
-const isAutoRetryableStartError = (message) => {
-    const normalized = String(message || '').toLowerCase();
-    if (!normalized) return false;
-    return (
-        isPreparingEssayStartError(message)
-        || normalized.includes('objective_questions_preparing')
-        || normalized.includes('questions are being prepared')
-        || normalized.includes('questions are being refreshed for quality')
-        || normalized.includes('try again in a few seconds')
-        || normalized.includes('taking longer than expected')
-        || normalized.includes('retrying automatically')
-        || normalized.includes('connection dropped while starting the exam')
-        || normalized.includes('session is still syncing')
-        || normalized.includes('session has been refreshed')
-        || normalized.includes("we'll keep retrying automatically")
-        || normalized.includes("we’ll keep retrying automatically")
-    );
-};
-
-const resolvePreferredExamFormat = (value) => {
-    if (value === undefined || value === null || String(value).trim() === '') {
-        return null;
-    }
-    const normalized = normalizeExamFormat(value);
-    return normalized === 'essay' || normalized === OBJECTIVE_EXAM_FORMAT ? normalized : null;
-};
-
-const isObjectiveQuestionAnswered = (question, answer) => {
-    const questionType = normalizeQuestionType(question?.questionType);
-    if (questionType === QUESTION_TYPE_FILL_BLANK) {
-        return String(answer ?? '').trim().length > 0;
-    }
-    return Boolean(answer);
-};
-
 // ── Component ──
 
 const ExamMode = () => {
@@ -420,7 +368,6 @@ const ExamMode = () => {
     const normalizedTopicId = typeof topicIdParam === 'string' ? topicIdParam.trim() : '';
     const topicId = isLikelyConvexId(normalizedTopicId) ? normalizedTopicId : '';
     const navigate = useNavigate();
-    const location = useLocation();
     const { user } = useAuth();
     const [currentQuestion, setCurrentQuestion] = useState(0);
     const [selectedAnswers, setSelectedAnswers] = useState({});
@@ -431,7 +378,7 @@ const ExamMode = () => {
     const [startExamError, setStartExamError] = useState('');
 
     // Essay exam state
-    const [examFormat, setExamFormat] = useState(null); // null = not chosen, 'objective' | 'essay'
+    const [examFormat, setExamFormat] = useState(null); // null = not chosen, 'mcq' | 'essay'
     const [gradingEssay, setGradingEssay] = useState(false);
     const [submitError, setSubmitError] = useState('');
 
@@ -445,20 +392,21 @@ const ExamMode = () => {
         api.topics.getTopicWithQuestions,
         topicId ? { topicId } : 'skip'
     );
-    const startExam = useMutation(api.exams.startExamAttempt);
-    const submitExam = useAction(api.exams.submitExamAttempt);
+    const startExam = useAction(api.exams.startExamAttempt);
+    const submitExam = useMutation(api.exams.submitExamAttempt);
     const submitEssayExam = useAction(api.exams.submitEssayExam);
 
-    const START_EXAM_ATTEMPT_TIMEOUT_MS = 45_000;
-    const EXAM_LOADING_STALL_TIMEOUT_MS = 90_000;
+    const START_EXAM_ATTEMPT_TIMEOUT_MS = 120_000;
+    const EXAM_LOADING_STALL_TIMEOUT_MS = 150_000;
 
-    const topicQuestions = topicData?.questions || [];
-    const loadingExamQuestionCap = examFormat === 'essay' ? ESSAY_EXAM_QUESTION_CAP : OBJECTIVE_EXAM_QUESTION_CAP;
-    const loadingExamTypeLabel = examFormat === 'essay' ? 'essay' : 'objective';
-    const hasAttemptQuestions = Array.isArray(attemptQuestions) && attemptQuestions.length > 0;
-    const questions = hasAttemptQuestions ? attemptQuestions : EMPTY_QUESTIONS;
+    const loadingExamQuestionCap = examFormat === 'essay' ? ESSAY_EXAM_QUESTION_CAP : MCQ_EXAM_QUESTION_CAP;
+    const loadingExamTypeLabel = examFormat === 'essay' ? 'essay' : 'multiple-choice';
+    const questions = useMemo(
+        () => (Array.isArray(attemptQuestions) ? attemptQuestions : []),
+        [attemptQuestions],
+    );
+    const hasAttemptQuestions = questions.length > 0;
     const topic = topicData;
-    const preferredFormatFromState = resolvePreferredExamFormat(location?.state?.preferredFormat);
     const examFlowStartTimeRef = useRef(Date.now());
     const attemptStartTimeRef = useRef(null);
     const loadingStallReportedRef = useRef(false);
@@ -488,60 +436,69 @@ const ExamMode = () => {
 
     useEffect(() => {
         examFlowStartTimeRef.current = Date.now();
+        attemptStartTimeRef.current = null;
         loadingStallReportedRef.current = false;
-    }, [topicId]);
-
-    // When entering from TopicDetail, auto-select preferred format so the flow
-    // does not stall on the intermediate chooser screen.
-    useEffect(() => {
-        if (examFormat || !preferredFormatFromState) return;
-        if (!topicId || topicData === undefined || topicData === null) return;
-        if (examStarted || startingExamAttempt || hasAttemptQuestions) return;
-        setExamFormat(preferredFormatFromState);
+        setCurrentQuestion(0);
+        setSelectedAnswers({});
+        setExamStarted(false);
+        setAttemptId(null);
+        setAttemptQuestions(null);
+        setStartingExamAttempt(false);
+        setStartExamError('');
+        setExamFormat(null);
+        setGradingEssay(false);
+        setSubmitError('');
     }, [
-        examFormat,
-        preferredFormatFromState,
         topicId,
-        topicData,
-        examStarted,
-        startingExamAttempt,
-        hasAttemptQuestions,
     ]);
 
+    const withTimeout = useCallback((promise, timeoutMs, timeoutMessage) => {
+        let timeoutHandle;
+        const timeoutPromise = new Promise((_, reject) => {
+            timeoutHandle = setTimeout(() => {
+                reject(new Error(timeoutMessage));
+            }, timeoutMs);
+        });
+
+        return Promise.race([promise, timeoutPromise]).finally(() => {
+            if (timeoutHandle) {
+                clearTimeout(timeoutHandle);
+            }
+        });
+    }, []);
+
     const beginExamAttempt = useCallback(async () => {
-        if (!topicId) return;
+        if (!topicId || !examFormat || attemptStartTimeRef.current) return;
 
         setStartExamError('');
         setSubmitError('');
         setStartingExamAttempt(true);
         attemptStartTimeRef.current = Date.now();
+        examFlowStartTimeRef.current = Date.now();
+        loadingStallReportedRef.current = false;
         addSentryBreadcrumb({
             category: 'exam',
             message: 'Starting exam attempt',
             data: {
                 topicId,
-                topicQuestionCount: topicQuestions.length,
                 hasUserId: Boolean(userId),
-                examFormat: examFormat || OBJECTIVE_EXAM_FORMAT,
+                examFormat,
             },
         });
-        let timeoutHandle = null;
         try {
-            const startPromise = startExam({ topicId, examFormat: examFormat || OBJECTIVE_EXAM_FORMAT });
-            const timeoutPromise = new Promise((_, reject) => {
-                timeoutHandle = setTimeout(() => {
-                    reject(new Error('Exam attempt initialization timed out.'));
-                }, START_EXAM_ATTEMPT_TIMEOUT_MS);
-            });
-            const result = await Promise.race([startPromise, timeoutPromise]);
+            const result = await withTimeout(
+                startExam({ topicId, examFormat }),
+                START_EXAM_ATTEMPT_TIMEOUT_MS,
+                'Exam attempt initialization timed out.'
+            );
             const deferredCode = typeof result?.code === 'string' ? result.code.toUpperCase() : '';
             const deferredMessage = typeof result?.message === 'string'
                 ? result.message
-                : 'Questions are being refreshed for quality. Please try again in a few seconds.';
+                : 'We could not finish preparing your exam. Please tap Retry.';
             const isDeferredPreparingState =
                 result?.deferred === true
                 && (
-                    deferredCode === 'OBJECTIVE_QUESTIONS_PREPARING'
+                    deferredCode === 'EXAM_QUESTIONS_PREPARING'
                     || deferredCode === 'ESSAY_QUESTIONS_PREPARING'
                 );
             if (isDeferredPreparingState) {
@@ -561,7 +518,6 @@ const ExamMode = () => {
                     extras: {
                         topicId,
                         userId,
-                        topicQuestionCount: topicQuestions.length,
                         elapsedMs,
                         timeoutMs: START_EXAM_ATTEMPT_TIMEOUT_MS,
                         message: deferredMessage,
@@ -603,7 +559,7 @@ const ExamMode = () => {
         } catch (error) {
             const errorCode = getConvexErrorCode(error);
             const isPreparingQuestionsError =
-                errorCode === 'OBJECTIVE_QUESTIONS_PREPARING' ||
+                errorCode === 'EXAM_QUESTIONS_PREPARING' ||
                 errorCode === 'ESSAY_QUESTIONS_PREPARING';
             const message = resolveConvexActionError(error, 'Unable to start the exam. Please try again.');
             const authError = isConvexAuthenticationError(error);
@@ -625,7 +581,6 @@ const ExamMode = () => {
                     extras: {
                         topicId,
                         userId,
-                        topicQuestionCount: topicQuestions.length,
                         elapsedMs,
                         timeoutMs: START_EXAM_ATTEMPT_TIMEOUT_MS,
                         message,
@@ -641,7 +596,7 @@ const ExamMode = () => {
             } else if (transientTransportError) {
                 setStartExamError(getExamTransientStartRetryMessage());
             } else if (timedOut) {
-                setStartExamError("Exam setup is taking longer than expected, but we'll keep retrying automatically.");
+                setStartExamError('Exam setup is taking longer than expected. Tap Retry.');
             } else if (isLikelyPostDisconnectAuthError(error)) {
                 // Opaque "Server Error" after a disconnect — likely an auth error.
                 // Attempt a session refresh so the next retry has a valid token.
@@ -651,7 +606,7 @@ const ExamMode = () => {
                 } else if (refreshed) {
                     setStartExamError(getExamAuthNotReadyMessage(true));
                 } else {
-                    setStartExamError("Something went wrong while preparing the exam. We'll keep retrying automatically.");
+                    setStartExamError('Something went wrong. Please wait a moment and tap Retry.');
                 }
             } else {
                 setStartExamError('Unable to start the exam. Please try again.');
@@ -674,7 +629,6 @@ const ExamMode = () => {
                     extras: {
                         topicId,
                         userId,
-                        topicQuestionCount: topicQuestions.length,
                         elapsedMs,
                         timeoutMs: START_EXAM_ATTEMPT_TIMEOUT_MS,
                         message,
@@ -693,7 +647,6 @@ const ExamMode = () => {
                     extras: {
                         topicId,
                         userId,
-                        topicQuestionCount: topicQuestions.length,
                         elapsedMs,
                         timeoutMs: START_EXAM_ATTEMPT_TIMEOUT_MS,
                         message,
@@ -704,22 +657,18 @@ const ExamMode = () => {
             setAttemptQuestions(null);
             setExamStarted(false);
         } finally {
-            if (timeoutHandle) {
-                clearTimeout(timeoutHandle);
-            }
             attemptStartTimeRef.current = null;
             setStartingExamAttempt(false);
         }
-    }, [topicId, userId, examFormat, topicQuestions.length, startExam, START_EXAM_ATTEMPT_TIMEOUT_MS, setTimeRemaining]);
+    }, [examFormat, setTimeRemaining, startExam, topicId, userId, withTimeout, START_EXAM_ATTEMPT_TIMEOUT_MS]);
 
     useEffect(() => {
-        const waitingForAttemptStart =
-            topicData !== null
-            && topicData !== undefined
-            && examFormat
+        const shouldMonitorStall =
+            Boolean(examFormat)
             && !examStarted
-            && (!attemptId || questions.length === 0);
-        const shouldMonitorStall = !examStarted && (startingExamAttempt || waitingForAttemptStart);
+            && !startExamError
+            && !hasAttemptQuestions
+            && (startingExamAttempt || Boolean(attemptStartTimeRef.current));
 
         if (!shouldMonitorStall || loadingStallReportedRef.current) {
             return;
@@ -742,7 +691,6 @@ const ExamMode = () => {
                     userId,
                     elapsedMs,
                     topicDataState: topicData === undefined ? 'loading' : topicData === null ? 'missing' : 'ready',
-                    topicQuestionCount: topicQuestions.length,
                     hasAttemptQuestions,
                     attemptId,
                     startingExamAttempt,
@@ -754,40 +702,17 @@ const ExamMode = () => {
         return () => clearTimeout(timer);
     }, [
         attemptId,
-        examStarted,
         examFormat,
+        examStarted,
         hasAttemptQuestions,
-        questions.length,
         startExamError,
         startingExamAttempt,
         topicData,
         topicId,
-        topicQuestions.length,
         userId,
     ]);
 
-    // Auto-clear deferred "preparing" errors after a short delay so the
-    // auto-start effect retries. Covers both objective and essay formats.
-    useEffect(() => {
-        if (!startExamError) return;
-        if (examStarted || startingExamAttempt || hasAttemptQuestions) return;
-
-        if (!isAutoRetryableStartError(startExamError)) return;
-
-        const handle = setTimeout(() => {
-            if (examStarted || startingExamAttempt || hasAttemptQuestions) return;
-            setStartExamError('');
-        }, 4000);
-        return () => clearTimeout(handle);
-    }, [
-        startExamError,
-        examStarted,
-        startingExamAttempt,
-        hasAttemptQuestions,
-    ]);
-
-    // Start exam as soon as the user chooses a format. The backend owns any
-    // deferred generation and retries while the loading state remains visible.
+    // Start exam only after the user chooses a format.
     useEffect(() => {
         if (
             topicId &&
@@ -981,16 +906,25 @@ const ExamMode = () => {
             const value = selectedAnswers[question._id];
             return String(value ?? '').trim().length >= MIN_ESSAY_SUBMIT_CHAR_COUNT;
         }).length
-        : questions.filter((question) => isObjectiveQuestionAnswered(question, selectedAnswers[question._id])).length;
+        : questions.filter((question) => Boolean(selectedAnswers[question._id])).length;
     const isEssaySubmitBlocked = examFormat === 'essay' && answeredQuestionCount < questions.length;
 
     // Keep hook order stable across loading/error/exam states.
-    const finalOptions = useMemo(
-        () => resolveQuestionOptions(currentQ?.options),
-        [currentQ?.options]
-    );
-    const shouldShowBlockingStartError =
-        Boolean(startExamError) && !isAutoRetryableStartError(startExamError);
+    // For fill_blank questions, build options from the tokens word bank.
+    const finalOptions = useMemo(() => {
+        const fromOptions = resolveQuestionOptions(currentQ?.options);
+        if (fromOptions.length > 0) return fromOptions;
+        // Fill-in-the-blank: convert tokens array into selectable options
+        if (Array.isArray(currentQ?.tokens) && currentQ.tokens.length > 0) {
+            return currentQ.tokens.map((token, i) => ({
+                label: String.fromCharCode(65 + i),
+                value: token,
+                text: token,
+            }));
+        }
+        return fromOptions;
+    }, [currentQ?.options, currentQ?.tokens]);
+
 
     if (!topicId) {
         return (
@@ -1038,7 +972,7 @@ const ExamMode = () => {
         );
     }
 
-    if (!examFormat && !examStarted) {
+    if (!examFormat && !examStarted && !startingExamAttempt && !hasAttemptQuestions) {
         return (
             <div className="min-h-screen bg-background-light dark:bg-background-dark flex items-center justify-center p-4">
                 <div className="w-full max-w-md">
@@ -1047,13 +981,13 @@ const ExamMode = () => {
                             <span className="material-symbols-outlined text-3xl text-primary">quiz</span>
                         </div>
                         <h2 className="text-display-sm text-text-main-light dark:text-text-main-dark mb-2">Choose Exam Format</h2>
-                        <p className="text-body-sm text-text-sub-light dark:text-text-sub-dark mb-8">Pick a format and we&apos;ll generate the exam on demand.</p>
+                        <p className="text-body-sm text-text-sub-light dark:text-text-sub-dark mb-8">How would you like to be tested?</p>
 
                         <div className="space-y-3">
                             <button
                                 onClick={() => {
                                     setStartExamError('');
-                                    setExamFormat(OBJECTIVE_EXAM_FORMAT);
+                                    setExamFormat('mcq');
                                 }}
                                 className="w-full flex items-center gap-4 p-4 rounded-xl border border-border-light dark:border-border-dark hover:border-primary hover:bg-primary/5 transition-all text-left group"
                             >
@@ -1061,8 +995,8 @@ const ExamMode = () => {
                                     <span className="material-symbols-outlined text-primary">radio_button_checked</span>
                                 </div>
                                 <div>
-                                    <p className="text-body-sm font-semibold text-text-main-light dark:text-text-main-dark">Objective</p>
-                                    <p className="text-caption text-text-sub-light dark:text-text-sub-dark">A mix of multiple choice, true/false, and fill-in-the-blank</p>
+                                    <p className="text-body-sm font-semibold text-text-main-light dark:text-text-main-dark">Multiple Choice</p>
+                                    <p className="text-caption text-text-sub-light dark:text-text-sub-dark">Pick the best answer from 4 options</p>
                                 </div>
                             </button>
 
@@ -1092,7 +1026,7 @@ const ExamMode = () => {
         return (
             <div className="min-h-screen bg-background-light dark:bg-background-dark flex items-center justify-center p-4">
                 <div className="w-full max-w-md">
-                    {!shouldShowBlockingStartError ? (
+                    {!startExamError ? (
                         <div className="card-base p-8 text-center">
                             <div className="relative w-20 h-20 mx-auto mb-6">
                                 <div className="absolute inset-0 rounded-full border-2 border-border-light dark:border-border-dark"></div>
@@ -1106,7 +1040,7 @@ const ExamMode = () => {
                                 Preparing Your Exam
                             </h2>
                             <p className="text-body-sm text-text-sub-light dark:text-text-sub-dark mb-6">
-                                {`We're generating a personalized ${loadingExamTypeLabel} test with up to ${loadingExamQuestionCap} questions based on your topic.`}
+                                {`We're preparing a full ${loadingExamQuestionCap}-question ${loadingExamTypeLabel} exam from this topic. You'll enter the exam as soon as the full set is ready.`}
                             </p>
 
                             <div className="space-y-3 text-left">
@@ -1124,17 +1058,9 @@ const ExamMode = () => {
                                 </div>
                             </div>
 
-                            {startExamError && (
-                                <div className="mt-5 rounded-xl border border-amber-200/70 bg-amber-50/70 px-4 py-3 text-left dark:border-amber-900/30 dark:bg-amber-900/10">
-                                    <p className="text-body-sm text-amber-800 dark:text-amber-300">
-                                        {startExamError}
-                                    </p>
-                                </div>
-                            )}
-
                             <div className="mt-6 pt-6 border-t border-border-light dark:border-border-dark">
                                 <p className="text-caption text-text-faint-light dark:text-text-faint-dark">
-                                    We&apos;ll keep loading until your questions are ready. The first run usually takes 10-20 seconds.
+                                    This usually takes 10-20 seconds
                                 </p>
                             </div>
                         </div>
@@ -1161,14 +1087,25 @@ const ExamMode = () => {
                                         <span>Sign In</span>
                                     </Link>
                                 ) : (
-                                    <button
-                                        onClick={beginExamAttempt}
-                                        disabled={startingExamAttempt}
-                                        className="flex-1 btn-primary py-3 disabled:opacity-60 flex items-center justify-center gap-2"
-                                    >
-                                        <span className="material-symbols-outlined text-[18px]">refresh</span>
-                                        <span>Try Again</span>
-                                    </button>
+                                    <>
+                                        <button
+                                            onClick={beginExamAttempt}
+                                            disabled={startingExamAttempt}
+                                            className="flex-1 btn-primary py-3 disabled:opacity-60 flex items-center justify-center gap-2"
+                                        >
+                                            <span className="material-symbols-outlined text-[18px]">refresh</span>
+                                            <span>Retry</span>
+                                        </button>
+                                        <button
+                                            onClick={() => {
+                                                setStartExamError('');
+                                                setExamFormat(null);
+                                            }}
+                                            className="btn-secondary px-4 py-3 flex items-center justify-center"
+                                        >
+                                            <span className="material-symbols-outlined text-[18px]">swap_horiz</span>
+                                        </button>
+                                    </>
                                 )}
                                 <Link
                                     to={`/dashboard/topic/${topicId}`}
@@ -1277,7 +1214,7 @@ const ExamMode = () => {
                             {questions.map((q, index) => {
                                 const isAnswered = examFormat === 'essay'
                                     ? String(selectedAnswers[q._id] ?? '').trim().length >= MIN_ESSAY_SUBMIT_CHAR_COUNT
-                                    : isObjectiveQuestionAnswered(q, selectedAnswers[q._id]);
+                                    : Boolean(selectedAnswers[q._id]);
                                 const isCurrent = index === currentQuestion;
                                 return (
                                     <button
@@ -1370,7 +1307,7 @@ const ExamMode = () => {
                             {questions.map((q, index) => {
                                 const isAnswered = examFormat === 'essay'
                                     ? String(selectedAnswers[q._id] ?? '').trim().length >= MIN_ESSAY_SUBMIT_CHAR_COUNT
-                                    : isObjectiveQuestionAnswered(q, selectedAnswers[q._id]);
+                                    : Boolean(selectedAnswers[q._id]);
                                 const isCurrent = index === currentQuestion;
                                 return (
                                     <button

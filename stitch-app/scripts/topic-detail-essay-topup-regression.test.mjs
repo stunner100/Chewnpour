@@ -11,16 +11,24 @@ const [examsSource, topicDetailSource] = await Promise.all([
   fs.readFile(topicDetailPath, 'utf8'),
 ]);
 
-if (/export const requestEssayQuestionTopUp = mutation\(/.test(examsSource)) {
-  throw new Error('Regression detected: exams.ts should not expose requestEssayQuestionTopUp after the on-demand cutover.');
+if (!/export const requestEssayQuestionTopUp = mutation\(/.test(examsSource)) {
+  throw new Error('Expected exams.ts to expose requestEssayQuestionTopUp mutation.');
 }
 
-if (/generateEssayQuestionsForTopicInternal/.test(topicDetailSource) || /requestEssayQuestionTopUp/.test(topicDetailSource)) {
-  throw new Error('Regression detected: TopicDetail should not schedule essay generation directly.');
+if (!/ctx\.scheduler\.runAfter\(\s*0,\s*internal\.ai\.generateEssayQuestionsForTopicInternal/s.test(examsSource)) {
+  throw new Error('Expected requestEssayQuestionTopUp to schedule internal essay generation.');
 }
 
-if (!/onClick=\{\(\) => handleStartExam\('essay'\)\}/.test(topicDetailSource)) {
-  throw new Error('Expected TopicDetail essay CTA to use handleStartExam.');
+if (/useMutation\(api\.exams\.requestEssayQuestionTopUp\)/.test(topicDetailSource)) {
+  throw new Error('Regression detected: TopicDetail should not wire essay top-up into the student flow.');
+}
+
+if (/minimumCount:\s*topicEssayTargetCount/.test(topicDetailSource) || /Failed to schedule essay question top-up/.test(topicDetailSource)) {
+  throw new Error('Regression detected: TopicDetail should not contain legacy essay top-up request logic.');
+}
+
+if (/Essay Quiz/.test(topicDetailSource)) {
+  throw new Error('Regression detected: TopicDetail should expose a single Start Exam CTA, not a dedicated essay quiz button.');
 }
 
 console.log('topic-detail-essay-topup-regression.test.mjs passed');
