@@ -27,42 +27,44 @@ for (const pattern of ['export const refreshTopicExamReadinessInternal = interna
   }
 }
 
-for (const pattern of ['const scheduleExamQuestionPrebuildForTopic = async', 'internal.ai.generateQuestionsForTopicInternal', 'internal.ai.generateEssayQuestionsForTopicInternal']) {
-  if (!aiSource.includes(pattern)) {
-    throw new Error(`Expected ai.ts to include "${pattern}" for topic prebuild scheduling.`);
+if (aiSource.includes('const scheduleExamQuestionPrebuildForTopic = async')) {
+  throw new Error('Regression detected: ai.ts should no longer define topic exam prebuild scheduling.');
+}
+
+if (/reason:\s*"topic_created"/.test(aiSource) || /reason:\s*"upload_completion"/.test(aiSource)) {
+  throw new Error('Regression detected: ai.ts should not schedule exam generation during topic creation or upload completion.');
+}
+
+if (!aiSource.includes('when the user clicks "Start Exam".')) {
+  throw new Error('Expected ai.ts upload flow to document that exam generation now starts on Start Exam click.');
+}
+
+if (!topicDetailSource.includes('const handleStartExam = async () => {')) {
+  throw new Error('Expected TopicDetail to expose a single Start Exam handler.');
+}
+
+if (!topicDetailSource.includes("{startingExam ? 'Preparing...' : 'Start Exam'}")) {
+  throw new Error('Expected TopicDetail to render a single Start Exam CTA.');
+}
+
+if (/MCQ Quiz|Essay Quiz/.test(topicDetailSource)) {
+  throw new Error('Regression detected: TopicDetail should not render separate MCQ or Essay quiz buttons.');
+}
+
+for (const removedPattern of [
+  'topicExamReady',
+  'topicQuizStartReady',
+  'topicEssayStartReady',
+  'questionBankDisplay',
+  'useMutation(api.exams.requestEssayQuestionTopUp)',
+]) {
+  if (topicDetailSource.includes(removedPattern)) {
+    throw new Error(`Regression detected: TopicDetail should not use legacy exam readiness plumbing (${removedPattern}).`);
   }
 }
 
-if (!/reason:\s*"topic_created"/.test(aiSource)) {
-  throw new Error('Expected topic creation path to schedule exam prebuild.');
-}
-
-if (!/reason:\s*"upload_completion"/.test(aiSource)) {
-  throw new Error('Expected upload-completion path to schedule exam prebuild.');
-}
-
-if (!topicDetailSource.includes('const topicExamReady =')) {
-  throw new Error('Expected TopicDetail to derive a topicExamReady state.');
-}
-
-if (!topicDetailSource.includes('const topicQuizStartReady =')) {
-  throw new Error('Expected TopicDetail to derive topicQuizStartReady from MCQ readiness.');
-}
-
-if (!topicDetailSource.includes('const topicMcqTargetCount =')) {
-  throw new Error('Expected TopicDetail to derive a per-topic MCQ target count.');
-}
-
-if (!topicDetailSource.includes("onClick={() => handleStartExam('mcq')}")) {
-  throw new Error('Expected TopicDetail Take Quiz CTA to route through the MCQ start handler.');
-}
-
-if (!topicDetailSource.includes('MCQ and ${usableEssayCount}/${topicEssayTargetCount} essay questions ready.')) {
-  throw new Error('Expected TopicDetail to show readiness progress while exam assets are still building.');
-}
-
-if (/generateQuestions\(\{\s*topicId\s*\}\)/.test(topicDetailSource)) {
-  throw new Error('Regression detected: TopicDetail should not generate quiz questions on Take Quiz click.');
+if (!/navigate\(`\/dashboard\/exam\/\$\{topicId\}`\);/.test(topicDetailSource)) {
+  throw new Error('Expected TopicDetail Start Exam CTA to route straight to ExamMode with no preferred format state.');
 }
 
 console.log('exam-ready-prebuild-regression.test.mjs passed');

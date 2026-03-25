@@ -20,9 +20,6 @@ const ExamQuestionCard = memo(function ExamQuestionCard({
     onSubmit,
     attemptId,
     isEssaySubmitBlocked,
-    submitError,
-    startExamError,
-    sessionExpiredMessage,
 }) {
     if (!question) return null;
 
@@ -66,8 +63,16 @@ const ExamQuestionCard = memo(function ExamQuestionCard({
                         </div>
                     </div>
                 ) : finalOptions.length === 0 ? (
-                    <div className="p-3 rounded-xl bg-amber-50 dark:bg-amber-900/10 border border-amber-200 dark:border-amber-900/30">
-                        <p className="text-body-sm text-amber-800 dark:text-amber-300">No options available for this question.</p>
+                    <div>
+                        <input
+                            type="text"
+                            value={selectedAnswer || ''}
+                            onChange={(e) => onAnswerSelect(question._id, e.target.value.slice(0, 200))}
+                            placeholder="Type your answer..."
+                            className="input-field text-body-sm w-full"
+                            style={{ fontSize: '16px' }}
+                            autoComplete="off"
+                        />
                     </div>
                 ) : (
                     finalOptions.map((option, index) => {

@@ -30,7 +30,7 @@ if (!examsSource.includes('EXAM_ATTEMPT_REUSE_LOOKBACK = 50')) {
 }
 
 // 2. examFormat parameter is passed to selectQuestionsForAttempt
-if (!examsSource.includes('examFormat: isEssay ? "essay" : "mcq"')) {
+if (!/selectQuestionsForAttempt\(\{[\s\S]*examFormat,/.test(examsSource)) {
   throw new Error('Expected examFormat to be passed to selectQuestionsForAttempt');
 }
 

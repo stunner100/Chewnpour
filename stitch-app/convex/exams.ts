@@ -28,6 +28,27 @@ const safeGetQuestionById = async (ctx: any, questionId: any) => {
     }
 };
 
+const resolveRequestedExamFormat = (value: unknown) =>
+    String(value || "").trim().toLowerCase() === "essay" ? "essay" : "mcq";
+
+const buildDeferredStartResponse = (examFormat: string, message?: string) => {
+    const isEssay = examFormat === "essay";
+    return {
+        ready: false,
+        attemptId: null,
+        totalQuestions: 0,
+        questions: [],
+        reusedAttempt: false,
+        deferred: true,
+        code: isEssay ? "ESSAY_QUESTIONS_PREPARING" : "EXAM_QUESTIONS_PREPARING",
+        message: message || (
+            isEssay
+                ? "Preparing a full essay exam. Please try again in a few seconds."
+                : "Preparing a full multiple-choice exam. Please try again in a few seconds."
+        ),
+    };
+};
+
 
 export const requestEssayQuestionTopUp = mutation({
     args: {
@@ -79,45 +100,19 @@ export const requestEssayQuestionTopUp = mutation({
     },
 });
 
-// Start a new exam attempt
-export const startExamAttempt = mutation({
+export const prepareStartExamAttemptInternal = internalMutation({
     args: {
-        userId: v.optional(v.string()),
+        userId: v.string(),
         topicId: v.id("topics"),
         examFormat: v.optional(v.string()), // 'mcq' | 'essay'
     },
     handler: async (ctx, args) => {
-        const scheduleQuestionTopUp = (options: { essay: boolean; minimumCount: number }) => {
-            if (options.essay) {
-                void ctx.scheduler.runAfter(0, internal.ai.generateEssayQuestionsForTopicInternal, {
-                    topicId: args.topicId,
-                    count: options.minimumCount,
-                }).catch((err) => {
-                    console.warn("[ExamStart] essay_topup_schedule_failed", {
-                        topicId: args.topicId,
-                        minimumCount: options.minimumCount,
-                        message: err instanceof Error ? err.message : String(err),
-                    });
-                });
-                return;
-            }
-
-            void ctx.scheduler.runAfter(0, internal.ai.generateQuestionsForTopicInternal, {
-                topicId: args.topicId,
-            }).catch((err) => {
-                console.warn("[ExamStart] mcq_topup_schedule_failed", {
-                    topicId: args.topicId,
-                    message: err instanceof Error ? err.message : String(err),
-                });
-            });
-        };
-
-        const identity = await ctx.auth.getUserIdentity();
-        const authUserId = resolveAuthUserId(identity);
-        const effectiveUserId = assertAuthorizedUser({
-            authUserId,
-            requestedUserId: args.userId,
-        });
+        const effectiveUserId = String(args.userId || "").trim();
+        const examFormat = resolveRequestedExamFormat(args.examFormat);
+        const isEssay = examFormat === "essay";
+        const requiredQuestionCount = isEssay
+            ? EXAM_ESSAY_QUESTION_SUBSET_SIZE
+            : EXAM_QUESTION_SUBSET_SIZE;
 
         const topic = await ctx.db.get(args.topicId);
         if (!topic) {
@@ -133,7 +128,6 @@ export const startExamAttempt = mutation({
             throw new ConvexError({ code: "UNAUTHORIZED", message: "Not authorized to access this topic." });
         }
 
-        const isEssay = args.examFormat === "essay";
         const recentAttempts = await ctx.db
             .query("examAttempts")
             .withIndex("by_userId_topicId", (q) =>
@@ -145,7 +139,7 @@ export const startExamAttempt = mutation({
             canReuseExamAttempt({
                 attempt,
                 topicId: args.topicId,
-                examFormat: isEssay ? "essay" : "mcq",
+                examFormat,
             })
         );
 
@@ -172,19 +166,6 @@ export const startExamAttempt = mutation({
             });
 
             if (reusableQuestions.length === reusableQuestionIds.length && reusableQuestions.length > 0) {
-                if (isEssay && reusableQuestions.length < EXAM_ESSAY_QUESTION_SUBSET_SIZE) {
-                    scheduleQuestionTopUp({
-                        essay: true,
-                        minimumCount: EXAM_ESSAY_QUESTION_SUBSET_SIZE,
-                    });
-                }
-                if (!isEssay && reusableQuestions.length < EXAM_QUESTION_SUBSET_SIZE) {
-                    scheduleQuestionTopUp({
-                        essay: false,
-                        minimumCount: EXAM_QUESTION_SUBSET_SIZE,
-                    });
-                }
-
                 // Mark attempt as claimed to prevent concurrent reuse from another session
                 await ctx.db.patch(reusableAttempt._id, { claimedAt: Date.now() });
 
@@ -192,6 +173,7 @@ export const startExamAttempt = mutation({
                     sanitizeExamQuestionForClient(question)
                 );
                 return {
+                    ready: true,
                     attemptId: reusableAttempt._id,
                     totalQuestions: reusableQuestions.length,
                     questions: safeQuestions,
@@ -214,81 +196,21 @@ export const startExamAttempt = mutation({
         const usableQuestions = filteredQuestions.filter((question) =>
             isUsableExamQuestion(question, { allowEssay: isEssay })
         );
-
-        const subsetSize = isEssay
-            ? Math.min(EXAM_ESSAY_QUESTION_SUBSET_SIZE, usableQuestions.length)
-            : EXAM_QUESTION_SUBSET_SIZE;
+        if (usableQuestions.length < requiredQuestionCount) {
+            return buildDeferredStartResponse(examFormat);
+        }
 
         const selection = selectQuestionsForAttempt({
             questions: usableQuestions,
             recentAttempts,
-            subsetSize,
+            subsetSize: requiredQuestionCount,
             isEssay,
-            examFormat: isEssay ? "essay" : "mcq",
+            examFormat,
         });
         const selectedQuestions = selection.selectedQuestions;
 
-        // When the bank needs expansion, trigger background generation but
-        // still serve whatever questions we have (recycled or partial).
-        if (selection.requiresFreshGeneration) {
-            scheduleQuestionTopUp({
-                essay: isEssay,
-                minimumCount: isEssay ? EXAM_ESSAY_QUESTION_SUBSET_SIZE : EXAM_QUESTION_SUBSET_SIZE,
-            });
-        }
-        if (selectedQuestions.length === 0) {
-            const preparingCode = isEssay ? "ESSAY_QUESTIONS_PREPARING" : "EXAM_QUESTIONS_PREPARING";
-            const preparingMessage = isEssay
-                ? "Essay questions are being prepared. Please try again in a few seconds."
-                : "Questions are being refreshed for quality. Please try again in a few seconds.";
-
-            if (isEssay) {
-                try {
-                    await ctx.scheduler.runAfter(0, internal.ai.generateEssayQuestionsForTopicInternal, {
-                        topicId: args.topicId,
-                        count: EXAM_ESSAY_QUESTION_SUBSET_SIZE,
-                    });
-                } catch (err) {
-                    console.warn("[ExamStart] essay_generation_schedule_failed", {
-                        topicId: args.topicId,
-                        message: err instanceof Error ? err.message : String(err),
-                    });
-                }
-            } else {
-                try {
-                    await ctx.scheduler.runAfter(0, internal.ai.generateQuestionsForTopicInternal, {
-                        topicId: args.topicId,
-                    });
-                } catch (err) {
-                    console.warn("[ExamStart] mcq_generation_schedule_failed", {
-                        topicId: args.topicId,
-                        message: err instanceof Error ? err.message : String(err),
-                    });
-                }
-            }
-
-            return {
-                attemptId: null,
-                totalQuestions: 0,
-                questions: [],
-                reusedAttempt: false,
-                deferred: true,
-                code: preparingCode,
-                message: preparingMessage,
-            };
-        }
-
-        if (isEssay && selectedQuestions.length < EXAM_ESSAY_QUESTION_SUBSET_SIZE) {
-            scheduleQuestionTopUp({
-                essay: true,
-                minimumCount: EXAM_ESSAY_QUESTION_SUBSET_SIZE,
-            });
-        }
-        if (!isEssay && selectedQuestions.length < EXAM_QUESTION_SUBSET_SIZE) {
-            scheduleQuestionTopUp({
-                essay: false,
-                minimumCount: EXAM_QUESTION_SUBSET_SIZE,
-            });
+        if (selectedQuestions.length < requiredQuestionCount || selection.requiresFreshGeneration) {
+            return buildDeferredStartResponse(examFormat);
         }
 
         const questionIds = selectedQuestions.map((question) => question._id);
@@ -298,7 +220,7 @@ export const startExamAttempt = mutation({
         const attemptDocument = {
             userId: effectiveUserId,
             topicId: args.topicId,
-            examFormat: isEssay ? "essay" : "mcq",
+            examFormat,
             score: 0,
             totalQuestions: selectedQuestions.length,
             timeTakenSeconds: 0,
@@ -325,11 +247,78 @@ export const startExamAttempt = mutation({
         })();
 
         return {
+            ready: true,
             attemptId,
             totalQuestions: selectedQuestions.length,
             questions: safeQuestions,
             reusedAttempt: false,
         };
+    },
+});
+
+// Start a new exam attempt
+export const startExamAttempt = action({
+    args: {
+        userId: v.optional(v.string()),
+        topicId: v.id("topics"),
+        examFormat: v.optional(v.string()), // 'mcq' | 'essay'
+    },
+    handler: async (ctx, args) => {
+        const identity = await ctx.auth.getUserIdentity();
+        const authUserId = resolveAuthUserId(identity);
+        const effectiveUserId = assertAuthorizedUser({
+            authUserId,
+            requestedUserId: args.userId,
+        });
+        const examFormat = resolveRequestedExamFormat(args.examFormat);
+
+        const resolveReadyAttempt = async () =>
+            await ctx.runMutation(internal.exams.prepareStartExamAttemptInternal, {
+                userId: effectiveUserId,
+                topicId: args.topicId,
+                examFormat,
+            });
+
+        const initialAttempt = await resolveReadyAttempt();
+        if (initialAttempt?.ready) {
+            const { ready: _READY, ...result } = initialAttempt;
+            return result;
+        }
+
+        try {
+            if (examFormat === "essay") {
+                await ctx.runAction(internal.ai.generateEssayQuestionsForTopicOnDemandInternal, {
+                    topicId: args.topicId,
+                    count: EXAM_ESSAY_QUESTION_SUBSET_SIZE,
+                });
+            } else {
+                await ctx.runAction(internal.ai.generateQuestionsForTopicOnDemandInternal, {
+                    topicId: args.topicId,
+                });
+            }
+        } catch (error) {
+            console.warn("[ExamStart] generation_failed", {
+                topicId: args.topicId,
+                examFormat,
+                message: error instanceof Error ? error.message : String(error),
+            });
+            const { ready: _READY, ...result } = buildDeferredStartResponse(
+                examFormat,
+                examFormat === "essay"
+                    ? "We couldn't prepare the full essay exam yet. Please try again."
+                    : "We couldn't prepare the full multiple-choice exam yet. Please try again."
+            );
+            return result;
+        }
+
+        const finalAttempt = await resolveReadyAttempt();
+        if (finalAttempt?.ready) {
+            const { ready: _READY, ...result } = finalAttempt;
+            return result;
+        }
+
+        const { ready: _READY, ...result } = finalAttempt || buildDeferredStartResponse(examFormat);
+        return result;
     },
 });
 
@@ -394,7 +383,19 @@ export const submitExamAttempt = mutation({
             }
 
             const answered = typeof answer.selectedAnswer === "string" && answer.selectedAnswer.trim() !== "";
-            const isCorrect = answered && question?.correctAnswer === answer.selectedAnswer;
+            const correctAnswer = String(question?.correctAnswer || "");
+            const selectedNorm = answer.selectedAnswer.trim().toLowerCase();
+            const correctNorm = correctAnswer.trim().toLowerCase();
+            // Exact match for normal MCQ (label like "A"), or case-insensitive
+            // match for fill-in-the-blank text answers including accepted variants.
+            const acceptedAnswers: string[] = Array.isArray((question as any)?.acceptedAnswers)
+                ? (question as any).acceptedAnswers
+                : [];
+            const isCorrect = answered && (
+                correctAnswer === answer.selectedAnswer
+                || correctNorm === selectedNorm
+                || acceptedAnswers.some((aa: string) => String(aa).trim().toLowerCase() === selectedNorm)
+            );
             if (isCorrect) correctCount++;
 
             gradedAnswers.push({
@@ -423,39 +424,12 @@ export const submitExamAttempt = mutation({
             }
         }
 
-        const attemptExamFormat = String((attempt as { examFormat?: unknown })?.examFormat || "mcq")
-            .trim()
-            .toLowerCase();
-
         // Update the attempt
         await ctx.db.patch(args.attemptId, {
             score: correctCount,
             timeTakenSeconds: safeTimeTaken,
             answers: gradedAnswers,
         });
-
-        // After each completed round, proactively expand the bank so the next
-        // retake can be served with fresh questions.
-        if (attemptExamFormat === "essay") {
-            void ctx.scheduler.runAfter(0, internal.ai.generateEssayQuestionsForTopicInternal, {
-                topicId: attempt.topicId,
-                count: EXAM_ESSAY_QUESTION_SUBSET_SIZE,
-            }).catch((err) => {
-                console.warn("[ExamSubmit] essay_backfill_schedule_failed", {
-                    topicId: attempt.topicId,
-                    message: err instanceof Error ? err.message : String(err),
-                });
-            });
-        } else {
-            void ctx.scheduler.runAfter(0, internal.ai.generateQuestionsForTopicInternal, {
-                topicId: attempt.topicId,
-            }).catch((err) => {
-                console.warn("[ExamSubmit] mcq_backfill_schedule_failed", {
-                    topicId: attempt.topicId,
-                    message: err instanceof Error ? err.message : String(err),
-                });
-            });
-        }
 
         // Get the attempt to return
         const totalQuestions = attempt.totalQuestions || (attempt.questionIds?.length ?? args.answers.length);
@@ -770,6 +744,9 @@ export const submitEssayExam = action({
                         modelAnswer: question.correctAnswer || "",
                         studentAnswer: normalizedEssayText,
                         rubricHints: question.explanation || undefined,
+                        rubricPoints: Array.isArray(question.rubricPoints) && question.rubricPoints.length > 0
+                            ? question.rubricPoints
+                            : undefined,
                     });
                 } catch (gradingError) {
                     console.warn("[EssaySubmit] individual_grading_failed", {
@@ -805,6 +782,9 @@ export const submitEssayExam = action({
                     isCorrect,
                     essayScore,
                     feedback: gradeResult?.feedback || "",
+                    ...(Array.isArray(gradeResult?.criteriaFeedback) && gradeResult.criteriaFeedback.length > 0
+                        ? { criteriaFeedback: gradeResult.criteriaFeedback }
+                        : {}),
                 });
             }
 

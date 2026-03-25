@@ -11,32 +11,31 @@ const [examModeSource, topicDetailSource] = await Promise.all([
   fs.readFile(topicDetailPath, 'utf8'),
 ]);
 
-if (!/useNavigate,\s*useLocation/.test(examModeSource)) {
-  throw new Error('Expected ExamMode to import useLocation for preferred-format handoff.');
+if (/useLocation/.test(examModeSource)) {
+  throw new Error('Regression detected: ExamMode should not import useLocation for preferred-format handoff.');
 }
 
-if (!examModeSource.includes('const preferredFormatFromState = resolvePreferredExamFormat(location?.state?.preferredFormat);')) {
-  throw new Error('Expected ExamMode to resolve preferredFormat from route state.');
+for (const forbiddenPattern of [
+  'preferredFormatFromState',
+  'location?.state?.preferredFormat',
+  "handleStartExam('mcq')",
+  "handleStartExam('essay')",
+]) {
+  if (examModeSource.includes(forbiddenPattern) || topicDetailSource.includes(forbiddenPattern)) {
+    throw new Error(`Regression detected: preferred-format autostart should be removed (${forbiddenPattern}).`);
+  }
 }
 
-if (!examModeSource.includes('if (examFormat || !preferredFormatFromState) return;')) {
-  throw new Error('Expected ExamMode preferred-format effect to skip when format is already selected.');
+if (!examModeSource.includes('Choose Exam Format')) {
+  throw new Error('Expected ExamMode to let the user choose format inside the exam flow.');
 }
 
-if (!examModeSource.includes('setExamFormat(preferredFormatFromState);')) {
-  throw new Error('Expected ExamMode preferred-format effect to auto-select route format.');
+if (!topicDetailSource.includes('const handleStartExam = async () => {')) {
+  throw new Error('Expected TopicDetail to route through a single Start Exam handler.');
 }
 
-if (!topicDetailSource.includes("const handleStartExam = async (preferredFormat = 'mcq') => {")) {
-  throw new Error('Expected TopicDetail handleStartExam to accept preferredFormat override.');
-}
-
-if (!/onClick=\{\(\) => handleStartExam\('mcq'\)\}/.test(topicDetailSource)) {
-  throw new Error('Expected TopicDetail to expose explicit MCQ exam launch.');
-}
-
-if (!/onClick=\{\(\) => handleStartExam\('essay'\)\}/.test(topicDetailSource)) {
-  throw new Error('Expected TopicDetail to expose explicit Essay exam launch.');
+if (!/navigate\(`\/dashboard\/exam\/\$\{topicId\}`\);/.test(topicDetailSource)) {
+  throw new Error('Expected TopicDetail to navigate to ExamMode without route-state format hints.');
 }
 
 console.log('exam-preferred-format-autostart-regression.test.mjs passed');

@@ -20,28 +20,21 @@ if (endIndex === -1) {
 
 const handleStartExamSource = source.slice(startIndex, endIndex);
 
-if (/await\s+generateQuestions\(\{\s*topicId\s*\}\)/.test(handleStartExamSource)) {
-  throw new Error('Regression detected: handleStartExam blocks navigation by awaiting question generation.');
+for (const forbiddenPattern of [
+  /await\s+generateQuestions\(\{\s*topicId\s*\}\)/,
+  /generateQuestions\(\{\s*topicId\s*\}\)/,
+  /generateEssayQuestions\(\{/,
+  /preferredFormat/,
+  /topicQuizStartReady/,
+  /topicEssayStartReady/,
+]) {
+  if (forbiddenPattern.test(handleStartExamSource)) {
+    throw new Error('Regression detected: TopicDetail Start Exam should not do format-specific generation or readiness checks.');
+  }
 }
 
-if (/generateQuestions\(\{\s*topicId\s*\}\)/.test(handleStartExamSource)) {
-  throw new Error('Regression detected: handleStartExam should not trigger on-demand question generation.');
-}
-
-if (/if\s*\(!topicQuizStartReady\)/.test(handleStartExamSource)) {
-  throw new Error('Regression detected: MCQ launch should no longer be blocked by topicQuizStartReady.');
-}
-
-if (/Quiz is still preparing \(/.test(handleStartExamSource)) {
-  throw new Error('Regression detected: MCQ launch should not show quiz readiness blocking errors.');
-}
-
-if (!/navigate\(`\/dashboard\/exam\/\$\{topicId\}`,\s*\{[\s\S]*preferredFormat,\s*[\s\S]*source:\s*'topic_detail'/.test(handleStartExamSource)) {
-  throw new Error('Expected handleStartExam to navigate with selected preferredFormat and topic_detail source.');
-}
-
-if (!/if \(preferredFormat === 'essay' && !topicEssayStartReady\)/.test(handleStartExamSource)) {
-  throw new Error('Expected handleStartExam to block essay launch until essay readiness is met.');
+if (!/navigate\(`\/dashboard\/exam\/\$\{topicId\}`\);/.test(handleStartExamSource)) {
+  throw new Error('Expected handleStartExam to navigate directly to ExamMode.');
 }
 
 console.log('topic-detail-exam-start-nonblocking-regression.test.mjs passed');

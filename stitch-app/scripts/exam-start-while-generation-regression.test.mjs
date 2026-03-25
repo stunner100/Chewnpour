@@ -10,17 +10,27 @@ const [source, examsSource] = await Promise.all([
   fs.readFile(examsPath, 'utf8'),
 ]);
 
-const startsExamWithEnoughQuestions = /topicQuestions\.length\s*>=\s*MIN_EXAM_QUESTIONS/.test(source);
-if (!startsExamWithEnoughQuestions) {
-  throw new Error('Expected ExamMode start effect to gate on topicQuestions.length >= MIN_EXAM_QUESTIONS.');
+if (/topicQuestions\.length/.test(source)) {
+  throw new Error('Regression detected: ExamMode should not gate start flow on client-side topic question counts.');
 }
 
-if (/!generatingQuestions\s*&&\s*!startExamError/.test(source)) {
-  throw new Error('Regression detected: exam start is blocked by generatingQuestions, which can stall exam initialization.');
+for (const forbiddenPattern of [
+  /generateQuestions\(\{\s*topicId\s*\}\)/,
+  /generateEssayQuestions\(\{/,
+  /generatingQuestions/,
+  /MIN_EXAM_QUESTIONS/,
+]) {
+  if (forbiddenPattern.test(source)) {
+    throw new Error('Regression detected: ExamMode should not use the old client-side generation gate.');
+  }
 }
 
-if (/topicQuestions\.length\s*>\s*0\s*&&\s*topicQuestions\.length\s*<\s*MIN_EXAM_QUESTIONS/.test(source)) {
-  throw new Error('Regression detected: auto-generation ignores 0-question topics and can leave exam setup stuck.');
+if (!/const startExam = useAction\(api\.exams\.startExamAttempt\);/.test(source)) {
+  throw new Error('Expected ExamMode to call the blocking startExamAttempt action.');
+}
+
+if (!/topicId[\s\S]*examFormat[\s\S]*beginExamAttempt\(\);/s.test(source)) {
+  throw new Error('Expected ExamMode to begin exam preparation immediately after the user chooses a format.');
 }
 
 for (const pattern of ['EXAM_QUESTIONS_PREPARING', 'ESSAY_QUESTIONS_PREPARING']) {
@@ -52,7 +62,7 @@ if (!source.includes('result?.deferred === true') || !source.includes('Exam atte
   throw new Error('Expected ExamMode to handle deferred startExamAttempt responses without throwing.');
 }
 
-if (/startExam\(userId\s*\?/.test(source)) {
+if (/startExam\(\{\s*userId:/.test(source) || /startExam\(userId\s*\?/.test(source)) {
   throw new Error('Expected ExamMode to avoid passing client userId to startExam() and rely on server auth identity.');
 }
 

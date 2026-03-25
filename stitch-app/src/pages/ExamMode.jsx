@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Link, useParams, useNavigate, useLocation } from 'react-router-dom';
+import { Link, useParams, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useAction } from 'convex/react';
 import { api } from '../../convex/_generated/api';
 import { useAuth } from '../contexts/AuthContext';
@@ -7,10 +7,6 @@ import { getSession } from '../lib/auth-client';
 import { useStudyTimer } from '../hooks/useStudyTimer';
 import { useExamTimer } from '../hooks/useExamTimer';
 import { isLikelyConvexId } from '../lib/convexId';
-import {
-    resolveAutoGenerationError,
-    resolveAutoGenerationResult,
-} from '../lib/examAutoGenerationState';
 import { addSentryBreadcrumb, captureSentryException, captureSentryMessage } from '../lib/sentry';
 import ExamQuestionCard from '../components/ExamQuestionCard';
 
@@ -241,7 +237,6 @@ const TRANSIENT_TRANSPORT_ERROR_PATTERNS = [
 ];
 const MCQ_EXAM_QUESTION_CAP = 35;
 const ESSAY_EXAM_QUESTION_CAP = 15;
-const ESSAY_EXAM_INTERACTIVE_START_COUNT = 3;
 const EXAM_DURATION_SECONDS = 45 * 60;
 const MIN_ESSAY_SUBMIT_CHAR_COUNT = 20;
 
@@ -366,21 +361,6 @@ const isUserCorrectableEssaySubmitError = (message) => {
     );
 };
 
-const isPreparingEssayStartError = (message) => {
-    const normalized = String(message || '').toLowerCase();
-    if (!normalized) return false;
-    return (
-        normalized.includes('essay_questions_preparing')
-        || normalized.includes('essay questions are being prepared')
-    );
-};
-
-const resolvePreferredExamFormat = (value) => {
-    const normalized = String(value || '').toLowerCase().trim();
-    if (normalized === 'mcq' || normalized === 'essay') return normalized;
-    return null;
-};
-
 // ── Component ──
 
 const ExamMode = () => {
@@ -388,7 +368,6 @@ const ExamMode = () => {
     const normalizedTopicId = typeof topicIdParam === 'string' ? topicIdParam.trim() : '';
     const topicId = isLikelyConvexId(normalizedTopicId) ? normalizedTopicId : '';
     const navigate = useNavigate();
-    const location = useLocation();
     const { user } = useAuth();
     const [currentQuestion, setCurrentQuestion] = useState(0);
     const [selectedAnswers, setSelectedAnswers] = useState({});
@@ -397,13 +376,9 @@ const ExamMode = () => {
     const [attemptQuestions, setAttemptQuestions] = useState(null);
     const [startingExamAttempt, setStartingExamAttempt] = useState(false);
     const [startExamError, setStartExamError] = useState('');
-    const [generatingQuestions, setGeneratingQuestions] = useState(false);
-    const [generateQuestionsError, setGenerateQuestionsError] = useState('');
-    const [autoGenerationPaused, setAutoGenerationPaused] = useState(false);
 
     // Essay exam state
     const [examFormat, setExamFormat] = useState(null); // null = not chosen, 'mcq' | 'essay'
-    const [generatingEssayQuestions, setGeneratingEssayQuestions] = useState(false);
     const [gradingEssay, setGradingEssay] = useState(false);
     const [submitError, setSubmitError] = useState('');
 
@@ -417,31 +392,24 @@ const ExamMode = () => {
         api.topics.getTopicWithQuestions,
         topicId ? { topicId } : 'skip'
     );
-    const startExam = useMutation(api.exams.startExamAttempt);
+    const startExam = useAction(api.exams.startExamAttempt);
     const submitExam = useMutation(api.exams.submitExamAttempt);
-    const generateQuestions = useAction(api.ai.generateQuestionsForTopic);
-    const generateEssayQuestions = useAction(api.ai.generateEssayQuestionsForTopic);
     const submitEssayExam = useAction(api.exams.submitEssayExam);
 
-    const MIN_EXAM_QUESTIONS = 1;
-    const START_EXAM_ATTEMPT_TIMEOUT_MS = 45_000;
-    const EXAM_LOADING_STALL_TIMEOUT_MS = 90_000;
-    const QUESTION_GENERATION_REQUEST_TIMEOUT_MS = 60_000;
-    const AUTO_GENERATION_MAX_ATTEMPTS = 3;
+    const START_EXAM_ATTEMPT_TIMEOUT_MS = 120_000;
+    const EXAM_LOADING_STALL_TIMEOUT_MS = 150_000;
 
-    const topicQuestions = topicData?.questions || [];
     const loadingExamQuestionCap = examFormat === 'essay' ? ESSAY_EXAM_QUESTION_CAP : MCQ_EXAM_QUESTION_CAP;
     const loadingExamTypeLabel = examFormat === 'essay' ? 'essay' : 'multiple-choice';
-    const hasAttemptQuestions = Array.isArray(attemptQuestions) && attemptQuestions.length > 0;
-    const questions = hasAttemptQuestions ? attemptQuestions : [];
+    const questions = useMemo(
+        () => (Array.isArray(attemptQuestions) ? attemptQuestions : []),
+        [attemptQuestions],
+    );
+    const hasAttemptQuestions = questions.length > 0;
     const topic = topicData;
-    const preferredFormatFromState = resolvePreferredExamFormat(location?.state?.preferredFormat);
     const examFlowStartTimeRef = useRef(Date.now());
     const attemptStartTimeRef = useRef(null);
     const loadingStallReportedRef = useRef(false);
-    const autoGenerationAttemptsRef = useRef(0);
-    const autoGenerationInFlightRef = useRef(false);
-    const autoGenerationRequestIdRef = useRef(0);
     const handleSubmitRef = useRef(() => { });
     const submittingRef = useRef(false);
 
@@ -468,31 +436,20 @@ const ExamMode = () => {
 
     useEffect(() => {
         examFlowStartTimeRef.current = Date.now();
+        attemptStartTimeRef.current = null;
         loadingStallReportedRef.current = false;
-        autoGenerationAttemptsRef.current = 0;
-        autoGenerationInFlightRef.current = false;
-        autoGenerationRequestIdRef.current = 0;
-        setAutoGenerationPaused(false);
-    }, [topicId]);
-
-    // When entering from TopicDetail, auto-select preferred format so the flow
-    // does not stall on the intermediate chooser screen.
-    useEffect(() => {
-        if (examFormat || !preferredFormatFromState) return;
-        if (!topicId || topicData === undefined || topicData === null) return;
-        if (examStarted || startingExamAttempt || hasAttemptQuestions) return;
-        if (topicQuestions.length < MIN_EXAM_QUESTIONS) return;
-        setExamFormat(preferredFormatFromState);
+        setCurrentQuestion(0);
+        setSelectedAnswers({});
+        setExamStarted(false);
+        setAttemptId(null);
+        setAttemptQuestions(null);
+        setStartingExamAttempt(false);
+        setStartExamError('');
+        setExamFormat(null);
+        setGradingEssay(false);
+        setSubmitError('');
     }, [
-        examFormat,
-        preferredFormatFromState,
         topicId,
-        topicData,
-        examStarted,
-        startingExamAttempt,
-        hasAttemptQuestions,
-        topicQuestions.length,
-        MIN_EXAM_QUESTIONS,
     ]);
 
     const withTimeout = useCallback((promise, timeoutMs, timeoutMessage) => {
@@ -511,35 +468,33 @@ const ExamMode = () => {
     }, []);
 
     const beginExamAttempt = useCallback(async () => {
-        if (!topicId || topicQuestions.length === 0) return;
+        if (!topicId || !examFormat || attemptStartTimeRef.current) return;
 
         setStartExamError('');
         setSubmitError('');
         setStartingExamAttempt(true);
         attemptStartTimeRef.current = Date.now();
+        examFlowStartTimeRef.current = Date.now();
+        loadingStallReportedRef.current = false;
         addSentryBreadcrumb({
             category: 'exam',
             message: 'Starting exam attempt',
             data: {
                 topicId,
-                topicQuestionCount: topicQuestions.length,
                 hasUserId: Boolean(userId),
-                examFormat: examFormat || 'mcq',
+                examFormat,
             },
         });
-        let timeoutHandle = null;
         try {
-            const startPromise = startExam({ topicId, examFormat: examFormat || 'mcq' });
-            const timeoutPromise = new Promise((_, reject) => {
-                timeoutHandle = setTimeout(() => {
-                    reject(new Error('Exam attempt initialization timed out.'));
-                }, START_EXAM_ATTEMPT_TIMEOUT_MS);
-            });
-            const result = await Promise.race([startPromise, timeoutPromise]);
+            const result = await withTimeout(
+                startExam({ topicId, examFormat }),
+                START_EXAM_ATTEMPT_TIMEOUT_MS,
+                'Exam attempt initialization timed out.'
+            );
             const deferredCode = typeof result?.code === 'string' ? result.code.toUpperCase() : '';
             const deferredMessage = typeof result?.message === 'string'
                 ? result.message
-                : 'Questions are being refreshed for quality. Please try again in a few seconds.';
+                : 'We could not finish preparing your exam. Please tap Retry.';
             const isDeferredPreparingState =
                 result?.deferred === true
                 && (
@@ -563,7 +518,6 @@ const ExamMode = () => {
                     extras: {
                         topicId,
                         userId,
-                        topicQuestionCount: topicQuestions.length,
                         elapsedMs,
                         timeoutMs: START_EXAM_ATTEMPT_TIMEOUT_MS,
                         message: deferredMessage,
@@ -627,7 +581,6 @@ const ExamMode = () => {
                     extras: {
                         topicId,
                         userId,
-                        topicQuestionCount: topicQuestions.length,
                         elapsedMs,
                         timeoutMs: START_EXAM_ATTEMPT_TIMEOUT_MS,
                         message,
@@ -676,7 +629,6 @@ const ExamMode = () => {
                     extras: {
                         topicId,
                         userId,
-                        topicQuestionCount: topicQuestions.length,
                         elapsedMs,
                         timeoutMs: START_EXAM_ATTEMPT_TIMEOUT_MS,
                         message,
@@ -695,7 +647,6 @@ const ExamMode = () => {
                     extras: {
                         topicId,
                         userId,
-                        topicQuestionCount: topicQuestions.length,
                         elapsedMs,
                         timeoutMs: START_EXAM_ATTEMPT_TIMEOUT_MS,
                         message,
@@ -706,18 +657,18 @@ const ExamMode = () => {
             setAttemptQuestions(null);
             setExamStarted(false);
         } finally {
-            if (timeoutHandle) {
-                clearTimeout(timeoutHandle);
-            }
             attemptStartTimeRef.current = null;
             setStartingExamAttempt(false);
         }
-    }, [topicId, userId, examFormat, topicQuestions.length, startExam, START_EXAM_ATTEMPT_TIMEOUT_MS, setTimeRemaining]);
+    }, [examFormat, setTimeRemaining, startExam, topicId, userId, withTimeout, START_EXAM_ATTEMPT_TIMEOUT_MS]);
 
     useEffect(() => {
-        const waitingForQuestions = topicData !== null && topicData !== undefined && topicQuestions.length < MIN_EXAM_QUESTIONS;
-        const waitingForAttemptStart = topicQuestions.length >= MIN_EXAM_QUESTIONS && !examStarted && (!attemptId || questions.length === 0);
-        const shouldMonitorStall = !examStarted && (startingExamAttempt || waitingForQuestions || waitingForAttemptStart);
+        const shouldMonitorStall =
+            Boolean(examFormat)
+            && !examStarted
+            && !startExamError
+            && !hasAttemptQuestions
+            && (startingExamAttempt || Boolean(attemptStartTimeRef.current));
 
         if (!shouldMonitorStall || loadingStallReportedRef.current) {
             return;
@@ -740,12 +691,10 @@ const ExamMode = () => {
                     userId,
                     elapsedMs,
                     topicDataState: topicData === undefined ? 'loading' : topicData === null ? 'missing' : 'ready',
-                    topicQuestionCount: topicQuestions.length,
                     hasAttemptQuestions,
                     attemptId,
                     startingExamAttempt,
                     startExamError,
-                    generateQuestionsError,
                 },
             });
         }, EXAM_LOADING_STALL_TIMEOUT_MS);
@@ -753,243 +702,35 @@ const ExamMode = () => {
         return () => clearTimeout(timer);
     }, [
         attemptId,
+        examFormat,
         examStarted,
-        generateQuestionsError,
         hasAttemptQuestions,
-        questions.length,
         startExamError,
         startingExamAttempt,
         topicData,
         topicId,
-        topicQuestions.length,
         userId,
     ]);
 
-    useEffect(() => {
-        if (!generatingQuestions) {
-            return;
-        }
-
-        const watchdog = setTimeout(() => {
-            autoGenerationInFlightRef.current = false;
-            autoGenerationAttemptsRef.current = AUTO_GENERATION_MAX_ATTEMPTS;
-            setAutoGenerationPaused(true);
-            setGeneratingQuestions(false);
-            setGenerateQuestionsError('Question generation timed out. Tap Generate Questions to retry.');
-            captureSentryMessage('Question generation watchdog timeout reached', {
-                level: 'warning',
-                tags: {
-                    area: 'exam',
-                    operation: 'question_generation_watchdog',
-                },
-                extras: {
-                    topicId,
-                    topicQuestionCount: topicQuestions.length,
-                    timeoutMs: QUESTION_GENERATION_REQUEST_TIMEOUT_MS,
-                },
-            });
-        }, QUESTION_GENERATION_REQUEST_TIMEOUT_MS + 2000);
-
-        return () => clearTimeout(watchdog);
-    }, [
-        generatingQuestions,
-        topicId,
-        topicQuestions.length,
-        QUESTION_GENERATION_REQUEST_TIMEOUT_MS,
-        AUTO_GENERATION_MAX_ATTEMPTS,
-    ]);
-
-    // Auto-generate questions if too few exist (safety net for race condition)
-    useEffect(() => {
-        if (
-            topicId &&
-            topicData !== undefined &&
-            topicData !== null &&
-            !autoGenerationPaused &&
-            !autoGenerationInFlightRef.current &&
-            !generatingQuestions &&
-            !examStarted &&
-            !hasAttemptQuestions &&
-            topicQuestions.length < MIN_EXAM_QUESTIONS
-        ) {
-            let cancelled = false;
-            const previousQuestionCount = topicQuestions.length;
-            autoGenerationInFlightRef.current = true;
-            const requestId = autoGenerationRequestIdRef.current + 1;
-            autoGenerationRequestIdRef.current = requestId;
-            setGeneratingQuestions(true);
-            setGenerateQuestionsError('');
-            withTimeout(
-                generateQuestions({ topicId }),
-                QUESTION_GENERATION_REQUEST_TIMEOUT_MS,
-                'Question generation request timed out.'
-            )
-                .then((result) => {
-                    if (cancelled) return;
-                    const outcome = resolveAutoGenerationResult({
-                        result,
-                        previousQuestionCount,
-                        attemptCount: autoGenerationAttemptsRef.current,
-                        maxAttempts: AUTO_GENERATION_MAX_ATTEMPTS,
-                        minExamQuestions: MIN_EXAM_QUESTIONS,
-                    });
-                    autoGenerationAttemptsRef.current = outcome.nextAttemptCount;
-
-                    if (outcome.pauseAutoGeneration) {
-                        setAutoGenerationPaused(true);
-                        setGenerateQuestionsError(outcome.errorMessage);
-                        captureSentryMessage('Exam auto-generation paused after retries', {
-                            level: 'warning',
-                            tags: {
-                                area: 'exam',
-                                operation: 'auto_generate_questions',
-                            },
-                            extras: {
-                                topicId,
-                                previousQuestionCount,
-                                latestQuestionCount: outcome.latestQuestionCount,
-                                attemptCount: outcome.nextAttemptCount,
-                                maxAttempts: AUTO_GENERATION_MAX_ATTEMPTS,
-                            },
-                        });
-                        return;
-                    }
-
-                    if (outcome.errorMessage) {
-                        setGenerateQuestionsError(outcome.errorMessage);
-                    }
-                })
-                .catch(async (error) => {
-                    if (cancelled) return;
-
-                    // Auth errors during auto-generation: refresh session and pause
-                    // instead of counting as a generation failure
-                    if (isConvexAuthenticationError(error) || isLikelyPostDisconnectAuthError(error)) {
-                        const { refreshed, expired } = await refreshAuthSessionQuietly();
-                        autoGenerationAttemptsRef.current = AUTO_GENERATION_MAX_ATTEMPTS;
-                        setAutoGenerationPaused(true);
-                        setGenerateQuestionsError(
-                            expired
-                                ? getExamSessionExpiredMessage()
-                                : refreshed
-                                    ? 'Your session has been refreshed. Tap Generate Questions to retry.'
-                                    : 'Your session may have expired. Please wait a moment and retry.'
-                        );
-                        captureSentryMessage('Exam auto-generation paused due to auth error', {
-                            level: 'warning',
-                            tags: {
-                                area: 'exam',
-                                operation: 'auto_generate_questions',
-                                authError: 'yes',
-                                likelyPostDisconnect: isLikelyPostDisconnectAuthError(error) ? 'yes' : 'no',
-                                sessionRefreshed: refreshed ? 'yes' : 'no',
-                            },
-                            extras: { topicId, expired },
-                        });
-                        return;
-                    }
-
-                    console.error('Auto question generation failed:', error);
-                    const outcome = resolveAutoGenerationError({
-                        error,
-                        attemptCount: autoGenerationAttemptsRef.current,
-                        maxAttempts: AUTO_GENERATION_MAX_ATTEMPTS,
-                    });
-                    autoGenerationAttemptsRef.current = outcome.nextAttemptCount;
-                    if (outcome.pauseAutoGeneration) {
-                        setAutoGenerationPaused(true);
-                    }
-                    setGenerateQuestionsError(outcome.errorMessage);
-
-                    captureSentryException(error, {
-                        level: 'warning',
-                        tags: {
-                            area: 'exam',
-                            operation: 'auto_generate_questions',
-                            timedOut: outcome.timedOut,
-                        },
-                        extras: {
-                            topicId,
-                            topicQuestionCount: topicQuestions.length,
-                            previousQuestionCount,
-                            attemptCount: outcome.nextAttemptCount,
-                            maxAttempts: AUTO_GENERATION_MAX_ATTEMPTS,
-                            timeoutMs: QUESTION_GENERATION_REQUEST_TIMEOUT_MS,
-                        },
-                    });
-                })
-                .finally(() => {
-                    if (autoGenerationRequestIdRef.current !== requestId) return;
-                    autoGenerationInFlightRef.current = false;
-                    if (!cancelled) {
-                        setGeneratingQuestions(false);
-                    }
-                });
-            return () => {
-                cancelled = true;
-            };
-        }
-    }, [
-        topicId,
-        topicData,
-        topicQuestions.length,
-        examStarted,
-        hasAttemptQuestions,
-        generateQuestions,
-        generatingQuestions,
-        autoGenerationPaused,
-        withTimeout,
-        MIN_EXAM_QUESTIONS,
-        AUTO_GENERATION_MAX_ATTEMPTS,
-        QUESTION_GENERATION_REQUEST_TIMEOUT_MS,
-    ]);
-
-    // Auto-clear deferred "preparing" errors after a short delay so the
-    // auto-start effect retries. Covers both MCQ and essay formats.
-    useEffect(() => {
-        if (!startExamError) return;
-        if (examStarted || startingExamAttempt || hasAttemptQuestions) return;
-
-        const isDeferredError =
-            isPreparingEssayStartError(startExamError)
-            || /preparing|refreshed for quality|try again in a few/i.test(startExamError);
-        if (!isDeferredError) return;
-
-        const handle = setTimeout(() => {
-            if (examStarted || startingExamAttempt || hasAttemptQuestions) return;
-            setStartExamError('');
-        }, 5000);
-        return () => clearTimeout(handle);
-    }, [
-        startExamError,
-        examStarted,
-        startingExamAttempt,
-        hasAttemptQuestions,
-    ]);
-
-    // Start exam once enough questions exist AND user has chosen a format. Keep generation in background.
+    // Start exam only after the user chooses a format.
     useEffect(() => {
         if (
             topicId &&
             examFormat &&
-            !(examFormat === 'essay' && generatingEssayQuestions) &&
             !examStarted &&
             !startingExamAttempt &&
             !hasAttemptQuestions &&
-            !startExamError &&
-            topicQuestions.length >= MIN_EXAM_QUESTIONS
+            !startExamError
         ) {
             beginExamAttempt();
         }
     }, [
         topicId,
         examFormat,
-        generatingEssayQuestions,
         examStarted,
         startingExamAttempt,
         hasAttemptQuestions,
         startExamError,
-        topicQuestions.length,
         beginExamAttempt,
     ]);
 
@@ -1156,60 +897,6 @@ const ExamMode = () => {
     }, [attemptId, attemptQuestions, questions, selectedAnswers, examFormat, timeRemaining, topicId, navigate, submitExam, submitEssayExam]);
     handleSubmitRef.current = handleSubmit;
 
-    const handleGenerateQuestions = async () => {
-        if (!topicId) return;
-        autoGenerationAttemptsRef.current = 0;
-        setAutoGenerationPaused(false);
-        setGenerateQuestionsError('');
-        autoGenerationInFlightRef.current = true;
-        setGeneratingQuestions(true);
-        addSentryBreadcrumb({
-            category: 'exam',
-            message: 'Manual question generation requested',
-            data: {
-                topicId,
-                topicQuestionCount: topicQuestions.length,
-            },
-        });
-        try {
-            const result = await withTimeout(
-                generateQuestions({ topicId }),
-                QUESTION_GENERATION_REQUEST_TIMEOUT_MS,
-                'Question generation request timed out.'
-            );
-            const generatedCount = result?.count ?? 0;
-            if (!result?.success || generatedCount === 0) {
-                setGenerateQuestionsError('Unable to generate questions yet. Please try again.');
-            } else if (generatedCount < MIN_EXAM_QUESTIONS) {
-                setGenerateQuestionsError(`Generated ${generatedCount} of ${MIN_EXAM_QUESTIONS} required questions. Try again in a few seconds.`);
-            }
-        } catch (error) {
-            const message = String(error?.message || '');
-            const timedOut = /timed out/i.test(message);
-            setGenerateQuestionsError(
-                timedOut
-                    ? 'Question generation timed out. Please try again.'
-                    : 'Failed to generate questions. Please try again.'
-            );
-            captureSentryException(error, {
-                level: 'warning',
-                tags: {
-                    area: 'exam',
-                    operation: 'manual_generate_questions',
-                    timedOut,
-                },
-                extras: {
-                    topicId,
-                    topicQuestionCount: topicQuestions.length,
-                    timeoutMs: QUESTION_GENERATION_REQUEST_TIMEOUT_MS,
-                },
-            });
-        } finally {
-            autoGenerationInFlightRef.current = false;
-            setGeneratingQuestions(false);
-        }
-    };
-
     const currentQ = questions[currentQuestion];
     const progress = questions.length > 0
         ? ((currentQuestion + 1) / questions.length) * 100
@@ -1223,10 +910,21 @@ const ExamMode = () => {
     const isEssaySubmitBlocked = examFormat === 'essay' && answeredQuestionCount < questions.length;
 
     // Keep hook order stable across loading/error/exam states.
-    const finalOptions = useMemo(
-        () => resolveQuestionOptions(currentQ?.options),
-        [currentQ?.options]
-    );
+    // For fill_blank questions, build options from the tokens word bank.
+    const finalOptions = useMemo(() => {
+        const fromOptions = resolveQuestionOptions(currentQ?.options);
+        if (fromOptions.length > 0) return fromOptions;
+        // Fill-in-the-blank: convert tokens array into selectable options
+        if (Array.isArray(currentQ?.tokens) && currentQ.tokens.length > 0) {
+            return currentQ.tokens.map((token, i) => ({
+                label: String.fromCharCode(65 + i),
+                value: token,
+                text: token,
+            }));
+        }
+        return fromOptions;
+    }, [currentQ?.options, currentQ?.tokens]);
+
 
     if (!topicId) {
         return (
@@ -1274,66 +972,7 @@ const ExamMode = () => {
         );
     }
 
-    if (topicQuestions.length === 0) {
-        return (
-            <div className="bg-background-light dark:bg-background-dark min-h-screen flex items-center justify-center">
-                <div className="text-center max-w-lg px-6">
-                    <div className="w-14 h-14 rounded-2xl bg-surface-light dark:bg-surface-dark border border-border-light dark:border-border-dark flex items-center justify-center mx-auto mb-4">
-                        <span className="material-symbols-outlined text-2xl text-text-faint-light dark:text-text-faint-dark">help_outline</span>
-                    </div>
-                    <h2 className="text-body-lg font-semibold text-text-main-light dark:text-text-main-dark mb-2">No questions yet</h2>
-                    <p className="text-body-sm text-text-sub-light dark:text-text-sub-dark mb-6">Generate questions for this topic to start the exam.</p>
-                    {generateQuestionsError && (
-                        <div className="mb-4 p-3 rounded-xl bg-amber-50 dark:bg-amber-900/10 border border-amber-200 dark:border-amber-900/30">
-                            <p className="text-body-sm text-amber-800 dark:text-amber-300">{generateQuestionsError}</p>
-                        </div>
-                    )}
-                    <button
-                        onClick={handleGenerateQuestions}
-                        disabled={generatingQuestions}
-                        className="btn-primary text-body-sm px-6 py-3 disabled:opacity-60"
-                    >
-                        {generatingQuestions ? 'Generating...' : 'Generate Questions'}
-                    </button>
-                </div>
-            </div>
-        );
-    }
-
-    if (
-        !examStarted &&
-        !startingExamAttempt &&
-        !hasAttemptQuestions &&
-        topicQuestions.length < MIN_EXAM_QUESTIONS
-    ) {
-        return (
-            <div className="bg-background-light dark:bg-background-dark min-h-screen flex items-center justify-center">
-                <div className="text-center max-w-lg px-6">
-                    <div className="w-14 h-14 rounded-2xl bg-surface-light dark:bg-surface-dark border border-border-light dark:border-border-dark flex items-center justify-center mx-auto mb-4">
-                        <span className="material-symbols-outlined text-2xl text-primary animate-pulse">hourglass_empty</span>
-                    </div>
-                    <h2 className="text-body-lg font-semibold text-text-main-light dark:text-text-main-dark mb-2">Preparing question bank</h2>
-                    <p className="text-body-sm text-text-sub-light dark:text-text-sub-dark mb-6">
-                        {`We currently have ${topicQuestions.length} of ${MIN_EXAM_QUESTIONS} questions needed to start.`}
-                    </p>
-                    {generateQuestionsError && (
-                        <div className="mb-4 p-3 rounded-xl bg-amber-50 dark:bg-amber-900/10 border border-amber-200 dark:border-amber-900/30">
-                            <p className="text-body-sm text-amber-800 dark:text-amber-300">{generateQuestionsError}</p>
-                        </div>
-                    )}
-                    <button
-                        onClick={handleGenerateQuestions}
-                        disabled={generatingQuestions}
-                        className="btn-primary text-body-sm px-6 py-3 disabled:opacity-60"
-                    >
-                        {generatingQuestions ? 'Generating...' : 'Generate Questions'}
-                    </button>
-                </div>
-            </div>
-        );
-    }
-
-    if (!examFormat && !examStarted && topicQuestions.length >= MIN_EXAM_QUESTIONS) {
+    if (!examFormat && !examStarted && !startingExamAttempt && !hasAttemptQuestions) {
         return (
             <div className="min-h-screen bg-background-light dark:bg-background-dark flex items-center justify-center p-4">
                 <div className="w-full max-w-md">
@@ -1346,7 +985,10 @@ const ExamMode = () => {
 
                         <div className="space-y-3">
                             <button
-                                onClick={() => setExamFormat('mcq')}
+                                onClick={() => {
+                                    setStartExamError('');
+                                    setExamFormat('mcq');
+                                }}
                                 className="w-full flex items-center gap-4 p-4 rounded-xl border border-border-light dark:border-border-dark hover:border-primary hover:bg-primary/5 transition-all text-left group"
                             >
                                 <div className="w-11 h-11 rounded-xl bg-primary/10 flex items-center justify-center group-hover:bg-primary/15 transition-colors">
@@ -1359,33 +1001,19 @@ const ExamMode = () => {
                             </button>
 
                             <button
-                                onClick={async () => {
-                                    setExamFormat('essay');
+                                onClick={() => {
                                     setStartExamError('');
-                                    setGeneratingEssayQuestions(true);
-                                    try {
-                                        await generateEssayQuestions({ topicId, count: ESSAY_EXAM_INTERACTIVE_START_COUNT });
-                                    } catch (e) {
-                                        console.error('Essay question generation failed:', e);
-                                    } finally {
-                                        setGeneratingEssayQuestions(false);
-                                    }
+                                    setExamFormat('essay');
                                 }}
-                                disabled={generatingEssayQuestions}
-                                className="w-full flex items-center gap-4 p-4 rounded-xl border border-border-light dark:border-border-dark hover:border-accent-emerald hover:bg-accent-emerald/5 transition-all text-left group disabled:opacity-60"
+                                className="w-full flex items-center gap-4 p-4 rounded-xl border border-border-light dark:border-border-dark hover:border-accent-emerald hover:bg-accent-emerald/5 transition-all text-left group"
                             >
                                 <div className="w-11 h-11 rounded-xl bg-accent-emerald/10 flex items-center justify-center group-hover:bg-accent-emerald/15 transition-colors">
                                     <span className="material-symbols-outlined text-accent-emerald">edit_note</span>
                                 </div>
                                 <div>
-                                    <p className="text-body-sm font-semibold text-text-main-light dark:text-text-main-dark">
-                                        {generatingEssayQuestions ? 'Preparing Essay Questions...' : 'Essay / Theory'}
-                                    </p>
+                                    <p className="text-body-sm font-semibold text-text-main-light dark:text-text-main-dark">Essay / Theory</p>
                                     <p className="text-caption text-text-sub-light dark:text-text-sub-dark">Write your answers in your own words</p>
                                 </div>
-                                {generatingEssayQuestions && (
-                                    <div className="ml-auto w-5 h-5 rounded-full border-2 border-primary border-t-transparent animate-spin"></div>
-                                )}
                             </button>
                         </div>
                     </div>
@@ -1412,7 +1040,7 @@ const ExamMode = () => {
                                 Preparing Your Exam
                             </h2>
                             <p className="text-body-sm text-text-sub-light dark:text-text-sub-dark mb-6">
-                                {`We're building a personalized ${loadingExamTypeLabel} test with up to ${loadingExamQuestionCap} questions based on your topic.`}
+                                {`We're preparing a full ${loadingExamQuestionCap}-question ${loadingExamTypeLabel} exam from this topic. You'll enter the exam as soon as the full set is ready.`}
                             </p>
 
                             <div className="space-y-3 text-left">
@@ -1459,14 +1087,25 @@ const ExamMode = () => {
                                         <span>Sign In</span>
                                     </Link>
                                 ) : (
-                                    <button
-                                        onClick={beginExamAttempt}
-                                        disabled={startingExamAttempt}
-                                        className="flex-1 btn-primary py-3 disabled:opacity-60 flex items-center justify-center gap-2"
-                                    >
-                                        <span className="material-symbols-outlined text-[18px]">refresh</span>
-                                        <span>Try Again</span>
-                                    </button>
+                                    <>
+                                        <button
+                                            onClick={beginExamAttempt}
+                                            disabled={startingExamAttempt}
+                                            className="flex-1 btn-primary py-3 disabled:opacity-60 flex items-center justify-center gap-2"
+                                        >
+                                            <span className="material-symbols-outlined text-[18px]">refresh</span>
+                                            <span>Retry</span>
+                                        </button>
+                                        <button
+                                            onClick={() => {
+                                                setStartExamError('');
+                                                setExamFormat(null);
+                                            }}
+                                            className="btn-secondary px-4 py-3 flex items-center justify-center"
+                                        >
+                                            <span className="material-symbols-outlined text-[18px]">swap_horiz</span>
+                                        </button>
+                                    </>
                                 )}
                                 <Link
                                     to={`/dashboard/topic/${topicId}`}

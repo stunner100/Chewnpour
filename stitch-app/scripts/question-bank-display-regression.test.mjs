@@ -1,50 +1,27 @@
-import assert from 'node:assert/strict';
+import fs from 'node:fs/promises';
+import path from 'node:path';
+import process from 'node:process';
 
-import {
-    formatEssayPreparingMessage,
-    formatEssayQuizButtonLabel,
-    formatQuestionBankProgressMessage,
-    formatReadyCount,
-} from '../src/lib/questionBankDisplay.js';
+const root = process.cwd();
+const helperPath = path.join(root, 'src', 'lib', 'questionBankDisplay.js');
+const topicDetailPath = path.join(root, 'src', 'pages', 'TopicDetail.jsx');
 
-assert.equal(formatReadyCount(4, 'essay question'), '4 essay questions ready');
-assert.equal(
-    formatEssayQuizButtonLabel({
-        startingExam: false,
-        essayReady: false,
-        usableEssayCount: 4,
-    }),
-    'Essay (4 ready)'
-);
-assert.equal(
-    formatEssayQuizButtonLabel({
-        startingExam: false,
-        essayReady: true,
-        usableEssayCount: 4,
-    }),
-    'Essay Quiz'
-);
-assert.equal(
-    formatEssayPreparingMessage(4),
-    'Essay questions are still preparing. 4 essay questions ready so far. Please check back in a moment.'
-);
-assert.equal(
-    formatQuestionBankProgressMessage({
-        usableMcqCount: 3,
-        usableEssayCount: 4,
-        mcqReady: false,
-        examReady: false,
-    }),
-    '3 MCQs ready and 4 essay questions ready so far.'
-);
-assert.equal(
-    formatQuestionBankProgressMessage({
-        usableMcqCount: 5,
-        usableEssayCount: 1,
-        mcqReady: true,
-        examReady: false,
-    }),
-    'MCQ ready. 1 essay question ready so far.'
-);
+const fileExists = async (targetPath) => {
+  try {
+    await fs.access(targetPath);
+    return true;
+  } catch {
+    return false;
+  }
+};
+
+if (await fileExists(helperPath)) {
+  throw new Error('Regression detected: question-bank display helper should be removed after the Start Exam cutover.');
+}
+
+const topicDetailSource = await fs.readFile(topicDetailPath, 'utf8');
+if (/questionBankDisplay/.test(topicDetailSource) || /essay questions ready so far/i.test(topicDetailSource)) {
+  throw new Error('Regression detected: TopicDetail should not show question-bank readiness copy in the click-to-generate flow.');
+}
 
 console.log('question-bank-display-regression: ok');

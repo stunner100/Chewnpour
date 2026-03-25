@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
-import { useQuery, useAction, useMutation } from 'convex/react';
+import { useQuery, useAction } from 'convex/react';
 import { api } from '../../convex/_generated/api';
 import { useAuth } from '../contexts/AuthContext';
 import { useStudyTimer } from '../hooks/useStudyTimer';
@@ -24,11 +24,6 @@ import {
 } from '../lib/topicContentFormatting';
 import { resolveTopicIllustrationUrl } from '../lib/topicIllustration';
 import { isLikelyConvexId } from '../lib/convexId';
-import {
-    formatEssayPreparingMessage,
-    formatEssayQuizButtonLabel,
-    formatQuestionBankProgressMessage,
-} from '../lib/questionBankDisplay';
 
 // ── Pure rendering helpers (hoisted out of the component to avoid re-creation) ──
 
@@ -59,7 +54,6 @@ const TopicDetail = () => {
     useStudyTimer(user?.id);
     const synthesizeTopicVoice = useAction(api.ai.synthesizeTopicVoice);
     const reExplainTopic = useAction(api.ai.reExplainTopic);
-    const requestEssayQuestionTopUp = useMutation(api.exams.requestEssayQuestionTopUp);
     const [startingExam, setStartingExam] = useState(false);
     const [startExamError, setStartExamError] = useState('');
     const [reExplainOpen, setReExplainOpen] = useState(false);
@@ -81,7 +75,7 @@ const TopicDetail = () => {
     const openNotes = useCallback(() => { setChatOpen(false); setNotesOpen(true); }, []);
     const openChat = useCallback(() => { setNotesOpen(false); setChatOpen(true); }, []);
     const contentRef = useRef(null);
-    const essayTopUpMarkerRef = useRef('');
+    const mainRef = useRef(null);
     const { selection, clearSelection } = useTextSelection(contentRef);
     const navigate = useNavigate();
     const topicData = useQuery(
@@ -89,28 +83,6 @@ const TopicDetail = () => {
         topicId ? { topicId } : 'skip'
     );
     const topic = topicData || null;
-    const DEFAULT_EXAM_READY_MIN_MCQ_COUNT = 10;
-    const DEFAULT_EXAM_READY_MIN_ESSAY_COUNT = 3;
-    const topicMcqTargetCount = Math.max(
-        1,
-        Math.round(Number(topic?.mcqTargetCount || DEFAULT_EXAM_READY_MIN_MCQ_COUNT))
-    );
-    const topicEssayTargetCount = Math.max(
-        1,
-        Math.round(Number(topic?.essayTargetCount || DEFAULT_EXAM_READY_MIN_ESSAY_COUNT))
-    );
-    const usableMcqCount = Number(topic?.usableMcqCount || 0);
-    const usableEssayCount = Number(topic?.usableEssayCount || 0);
-    const topicQuizStartReady = usableMcqCount >= topicMcqTargetCount;
-    const topicEssayStartReady = usableEssayCount >= topicEssayTargetCount;
-    const topicExamReady = Boolean(topic?.examReady)
-        || (topicQuizStartReady && usableEssayCount >= topicEssayTargetCount);
-    const questionBankProgressMessage = formatQuestionBankProgressMessage({
-        usableMcqCount,
-        usableEssayCount,
-        mcqReady: topicQuizStartReady,
-        examReady: topicExamReady,
-    });
     const courseId = topic?.courseId;
     const voiceModeEnabled = Boolean(profile?.voiceModeEnabled);
     const voiceQuota = useQuery(
@@ -196,26 +168,6 @@ const TopicDetail = () => {
         }
     }, [contentCacheKey, topic?.content]);
 
-    useEffect(() => {
-        if (!topicId) return;
-        if (usableEssayCount >= topicEssayTargetCount) return;
-
-        const scheduleMarker = `${topicId}:${usableEssayCount}`;
-        if (essayTopUpMarkerRef.current === scheduleMarker) return;
-        essayTopUpMarkerRef.current = scheduleMarker;
-
-        void requestEssayQuestionTopUp({
-            topicId,
-            minimumCount: topicEssayTargetCount,
-        }).catch((error) => {
-            console.warn('Failed to schedule essay question top-up', error);
-        });
-    }, [
-        topicId,
-        usableEssayCount,
-        topicEssayTargetCount,
-        requestEssayQuestionTopUp,
-    ]);
 
     const content = overrideContent || topic?.content || cachedContent;
     const normalizedContent = useMemo(() => {
@@ -316,13 +268,30 @@ const TopicDetail = () => {
         };
     }, []);
 
+    // Scroll to top on mount/navigation
     useEffect(() => {
-        const handleScroll = () => setShowScrollTop(window.scrollY > 600);
+        if (mainRef.current) mainRef.current.scrollTop = 0;
+        window.scrollTo(0, 0);
+    }, [topicId]);
+
+    useEffect(() => {
+        const handleScroll = () => {
+            const scrollY = mainRef.current ? mainRef.current.scrollTop : window.scrollY;
+            setShowScrollTop(scrollY > 600);
+        };
+        const target = mainRef.current;
+        if (target) target.addEventListener('scroll', handleScroll, { passive: true });
         window.addEventListener('scroll', handleScroll, { passive: true });
-        return () => window.removeEventListener('scroll', handleScroll);
+        return () => {
+            if (target) target.removeEventListener('scroll', handleScroll);
+            window.removeEventListener('scroll', handleScroll);
+        };
     }, []);
 
-    const scrollToTop = () => window.scrollTo({ top: 0, behavior: 'smooth' });
+    const scrollToTop = () => {
+        if (mainRef.current) mainRef.current.scrollTo({ top: 0, behavior: 'smooth' });
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+    };
 
     const cleanInline = useCallback((text) => cleanInlineText(text), []);
 
@@ -359,11 +328,6 @@ const TopicDetail = () => {
     const headerTopicTitle = resolvedTopicTitle;
     const heroTopicTitle = resolvedTopicTitle;
     const topicIllustrationUrl = resolveTopicIllustrationUrl(topic?.illustrationUrl);
-    const profileInitial = useMemo(() => {
-        const source = profile?.fullName || user?.name || user?.email || '';
-        const firstCharacter = String(source).trim().charAt(0);
-        return firstCharacter ? firstCharacter.toUpperCase() : 'S';
-    }, [profile?.fullName, user?.name, user?.email]);
 
     const toggleVoiceMode = async () => {
         if (!user) return;
@@ -541,13 +505,9 @@ const TopicDetail = () => {
         return { blocks, toc };
     }, [normalizedContent]);
 
-    const handleStartExam = async (preferredFormat = 'mcq') => {
+    const handleStartExam = async () => {
         if (!topicId) {
             setStartExamError('Topic not found. Please return to the dashboard and try again.');
-            return;
-        }
-        if (preferredFormat === 'essay' && !topicEssayStartReady) {
-            setStartExamError(formatEssayPreparingMessage(usableEssayCount));
             return;
         }
 
@@ -555,12 +515,7 @@ const TopicDetail = () => {
         setStartingExam(true);
 
         try {
-            navigate(`/dashboard/exam/${topicId}`, {
-                state: {
-                    preferredFormat,
-                    source: 'topic_detail',
-                },
-            });
+            navigate(`/dashboard/exam/${topicId}`);
         } catch {
             setStartExamError('Failed to start the exam. Please try again.');
         } finally {
@@ -628,7 +583,7 @@ const TopicDetail = () => {
     }
 
     return (
-        <div className="bg-background-light dark:bg-background-dark font-body antialiased text-text-main-light dark:text-text-main-dark min-h-screen flex flex-col overflow-x-hidden touch-pan-y">
+        <div className="bg-background-light dark:bg-background-dark font-body antialiased text-text-main-light dark:text-text-main-dark min-h-screen lg:h-screen flex flex-col overflow-x-hidden lg:overflow-hidden touch-pan-y">
             {/* Header */}
             <header className="fixed top-0 inset-x-0 z-40 flex items-center justify-between px-4 h-14 bg-background-light/80 dark:bg-background-dark/80 backdrop-blur-xl border-b border-border-light dark:border-border-dark">
                 <div className="flex items-center gap-2 min-w-0">
@@ -661,8 +616,10 @@ const TopicDetail = () => {
                 </div>
             </header>
 
-            {/* Main content */}
-            <main className={`flex-1 w-full mx-auto px-4 md:px-8 pt-20 pb-24 md:pb-12 ${readingMode ? 'max-w-3xl' : 'max-w-6xl'} transition-all duration-200 ${notesOpen || chatOpen ? 'md:mr-80' : ''}`}>
+            {/* Main content + side panels */}
+            <div className="flex-1 flex flex-row pt-14 lg:min-h-0">
+            <main ref={mainRef} className={`flex-1 min-w-0 w-full px-4 md:px-8 pt-6 pb-24 md:pb-12 transition-all duration-200 lg:overflow-y-auto`}>
+            <div className={`mx-auto ${readingMode ? 'max-w-3xl' : 'max-w-6xl'} transition-all duration-200`}>
                 <div className={`grid grid-cols-1 ${readingMode ? '' : 'lg:grid-cols-12'} gap-8`}>
                     {/* Lesson content */}
                     <div ref={contentRef} className={`${readingMode ? '' : 'lg:col-span-9'} space-y-6`}>
@@ -757,37 +714,15 @@ const TopicDetail = () => {
                                     Study Concepts
                                 </Link>
                                 <button
-                                    onClick={() => handleStartExam('mcq')}
+                                    onClick={handleStartExam}
                                     disabled={startingExam}
                                     className="btn-primary px-5 py-2.5 text-body-sm gap-2 disabled:opacity-50"
                                 >
                                     <span className="material-symbols-outlined text-[18px]">quiz</span>
-                                    {startingExam ? 'Preparing...' : 'MCQ Quiz'}
-                                </button>
-                                <button
-                                    onClick={() => handleStartExam('essay')}
-                                    disabled={startingExam || !topicEssayStartReady}
-                                    className="btn-secondary px-5 py-2.5 text-body-sm gap-2 disabled:opacity-50"
-                                >
-                                    <span className="material-symbols-outlined text-[18px]">edit_note</span>
-                                    {formatEssayQuizButtonLabel({
-                                        startingExam,
-                                        essayReady: topicEssayStartReady,
-                                        usableEssayCount,
-                                    })}
+                                    {startingExam ? 'Preparing...' : 'Start Exam'}
                                 </button>
                             </div>
 
-                            {!topicQuizStartReady && (
-                                <p className="mt-4 text-caption text-text-faint-light dark:text-text-faint-dark">
-                                    {questionBankProgressMessage}
-                                </p>
-                            )}
-                            {topicQuizStartReady && !topicExamReady && (
-                                <p className="mt-4 text-caption text-accent-emerald">
-                                    {questionBankProgressMessage}
-                                </p>
-                            )}
                             {startExamError && (
                                 <p className="mt-4 text-caption text-red-500">{startExamError}</p>
                             )}
@@ -805,7 +740,24 @@ const TopicDetail = () => {
                         />
                     )}
                 </div>
+            </div>
             </main>
+
+            {/* Side panels (in-flow on lg, fixed overlay below lg) */}
+            <TopicNotesPanel
+                topicId={topicId}
+                open={notesOpen}
+                onClose={() => setNotesOpen(false)}
+                appendText={notesAppendText}
+            />
+
+            <TopicChatPanel
+                topicId={topicId}
+                topicTitle={topic?.title || ''}
+                open={chatOpen}
+                onClose={() => setChatOpen(false)}
+            />
+            </div>
 
             {/* Floating action buttons */}
             {user && !chatOpen && !notesOpen && (
@@ -836,21 +788,6 @@ const TopicDetail = () => {
                     <span className="material-symbols-outlined text-[18px]">arrow_upward</span>
                 </button>
             )}
-
-            {/* Panels */}
-            <TopicNotesPanel
-                topicId={topicId}
-                open={notesOpen}
-                onClose={() => setNotesOpen(false)}
-                appendText={notesAppendText}
-            />
-
-            <TopicChatPanel
-                topicId={topicId}
-                topicTitle={topic?.title || ''}
-                open={chatOpen}
-                onClose={() => setChatOpen(false)}
-            />
 
             {selection && (
                 <HighlightExplainPopover

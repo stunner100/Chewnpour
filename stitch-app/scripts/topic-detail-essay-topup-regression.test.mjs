@@ -19,16 +19,16 @@ if (!/ctx\.scheduler\.runAfter\(\s*0,\s*internal\.ai\.generateEssayQuestionsForT
   throw new Error('Expected requestEssayQuestionTopUp to schedule internal essay generation.');
 }
 
-if (!/useMutation\(api\.exams\.requestEssayQuestionTopUp\)/.test(topicDetailSource)) {
-  throw new Error('Expected TopicDetail to wire requestEssayQuestionTopUp mutation.');
+if (/useMutation\(api\.exams\.requestEssayQuestionTopUp\)/.test(topicDetailSource)) {
+  throw new Error('Regression detected: TopicDetail should not wire essay top-up into the student flow.');
 }
 
-if (!/minimumCount:\s*topicEssayTargetCount/.test(topicDetailSource)) {
-  throw new Error('Expected TopicDetail essay top-up request to use the derived per-topic essay target.');
+if (/minimumCount:\s*topicEssayTargetCount/.test(topicDetailSource) || /Failed to schedule essay question top-up/.test(topicDetailSource)) {
+  throw new Error('Regression detected: TopicDetail should not contain legacy essay top-up request logic.');
 }
 
-if (!/Failed to schedule essay question top-up/.test(topicDetailSource)) {
-  throw new Error('Expected TopicDetail to log essay top-up scheduling failures.');
+if (/Essay Quiz/.test(topicDetailSource)) {
+  throw new Error('Regression detected: TopicDetail should expose a single Start Exam CTA, not a dedicated essay quiz button.');
 }
 
 console.log('topic-detail-essay-topup-regression.test.mjs passed');

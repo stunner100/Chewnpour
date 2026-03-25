@@ -11,7 +11,7 @@ const examModeSource = await read('src/pages/ExamMode.jsx');
 
 for (const pattern of [
   "const [submitError, setSubmitError] = useState('');",
-  'const MIN_ESSAY_SUBMIT_CHAR_COUNT = 1;',
+  'const MIN_ESSAY_SUBMIT_CHAR_COUNT = 20;',
   'const answeredQuestionCount = examFormat === \'essay\'',
   'const isEssaySubmitBlocked = examFormat === \'essay\' && answeredQuestionCount < questions.length;',
   'setSubmitError(\'\');',
@@ -20,7 +20,7 @@ for (const pattern of [
   'isUserCorrectableEssaySubmitError(message)',
   '{submitError && (',
   "Failed to submit essay exam:",
-  '[topicId, userId, examFormat, topicQuestions.length, startExam, START_EXAM_ATTEMPT_TIMEOUT_MS]',
+  '[attemptId, attemptQuestions, questions, selectedAnswers, examFormat, timeRemaining, topicId, navigate, submitExam, submitEssayExam]',
 ]) {
   if (!examModeSource.includes(pattern)) {
     throw new Error(`Expected ExamMode.jsx to include "${pattern}".`);
@@ -31,13 +31,13 @@ const examsSource = await read('convex/exams.ts');
 
 for (const pattern of [
   'import { ConvexError, v } from "convex/values";',
-  'export const getEssayAttemptSubmissionContext = query({',
-  'api.exams.getEssayAttemptSubmissionContext',
+  'export const getEssayAttemptSubmissionContext = internalQuery({',
+  'internal.exams.getEssayAttemptSubmissionContext',
   'const failEssaySubmission = (message: string, code = "ESSAY_SUBMISSION_INVALID"): never => {',
   'Please answer all essay questions before submitting.',
   'const requiredQuestionCount = Number(attempt.totalQuestions || 0) > 0',
   'This exam session is out of sync. Please restart the exam in Essay mode.',
-  'if (gradeResult?.ungraded) {',
+  'if (gradeResult?.ungraded || !Number.isFinite(Number(gradeResult?.score))) {',
   'ESSAY_GRADING_UNAVAILABLE',
   'if (error instanceof ConvexError) {',
   'code: "ESSAY_SUBMISSION_FAILED"',
