@@ -6,6 +6,7 @@ import {
     QUESTION_TYPE_FILL_BLANK,
     QUESTION_TYPE_MULTIPLE_CHOICE,
     QUESTION_TYPE_TRUE_FALSE,
+    getObjectiveSubtypeTargets,
     objectiveBreakdownMeetsTargets,
 } from "../convex/lib/objectiveExam.js";
 
@@ -29,6 +30,8 @@ const makeMcq = (index) => ({
         { label: "D", text: `Wrong ${index}-3`, isCorrect: false },
     ],
     correctAnswer: "B",
+    outcomeKey: "outcome-1",
+    bloomLevel: "Understand",
 });
 
 const makeTrueFalse = (index) => ({
@@ -47,6 +50,8 @@ const makeTrueFalse = (index) => ({
         { label: "B", text: "False", isCorrect: index % 2 !== 0 },
     ],
     correctAnswer: index % 2 === 0 ? "A" : "B",
+    outcomeKey: "outcome-1",
+    bloomLevel: "Understand",
 });
 
 const makeFillBlank = (index) => ({
@@ -64,7 +69,38 @@ const makeFillBlank = (index) => ({
     correctAnswer: `answer-${index}`,
     fillBlankMode: index % 2 === 0 ? "token_bank" : "free_text",
     tokens: index % 2 === 0 ? [`answer-${index}`, `wrong-${index}-1`, `wrong-${index}-2`, `wrong-${index}-3`] : undefined,
+    outcomeKey: "outcome-1",
+    bloomLevel: "Understand",
 });
+
+const assessmentBlueprint = {
+    outcomes: [
+        {
+            key: "outcome-1",
+            objective: "Recall core facts from the lesson.",
+            bloomLevel: "Understand",
+            evidenceFocus: "Use explicit statements from the source material.",
+        },
+        {
+            key: "outcome-essay",
+            objective: "Explain the lesson with evidence and reasoning.",
+            bloomLevel: "Analyze",
+            evidenceFocus: "Synthesize the source material into a short explanation.",
+        },
+    ],
+    multipleChoicePlan: {
+        targetOutcomeKeys: ["outcome-1"],
+    },
+    trueFalsePlan: {
+        targetOutcomeKeys: ["outcome-1"],
+    },
+    fillBlankPlan: {
+        targetOutcomeKeys: ["outcome-1"],
+    },
+    essayPlan: {
+        targetOutcomeKeys: ["outcome-essay"],
+    },
+};
 
 const objectiveBank = [
     ...Array.from({ length: 6 }, (_, index) => makeMcq(index + 1)),
@@ -78,10 +114,12 @@ const firstAttemptSelection = selectQuestionsForAttempt({
     subsetSize: 10,
     isEssay: false,
     examFormat: OBJECTIVE_EXAM_FORMAT,
+    assessmentBlueprint,
+    bankTargetCount: 10,
 });
 
 assert.equal(firstAttemptSelection.selectedQuestions.length, 10);
-assert.equal(firstAttemptSelection.requiresFreshGeneration, false);
+assert.equal(firstAttemptSelection.requiresGeneration, false);
 
 const breakdown = firstAttemptSelection.selectedQuestions.reduce(
     (acc, question) => {
@@ -107,6 +145,25 @@ assert.equal(
     false
 );
 
+assert.deepEqual(
+    getObjectiveSubtypeTargets(2),
+    {
+        [QUESTION_TYPE_MULTIPLE_CHOICE]: 1,
+        [QUESTION_TYPE_TRUE_FALSE]: 1,
+        [QUESTION_TYPE_FILL_BLANK]: 0,
+    },
+    "Small objective targets should not require every subtype."
+);
+assert.deepEqual(
+    getObjectiveSubtypeTargets(1),
+    {
+        [QUESTION_TYPE_MULTIPLE_CHOICE]: 1,
+        [QUESTION_TYPE_TRUE_FALSE]: 0,
+        [QUESTION_TYPE_FILL_BLANK]: 0,
+    },
+    "Single-question objective targets should fall back to one multiple-choice item."
+);
+
 const seenAttemptSelection = selectQuestionsForAttempt({
     questions: objectiveBank,
     recentAttempts: [
@@ -119,6 +176,8 @@ const seenAttemptSelection = selectQuestionsForAttempt({
     subsetSize: 10,
     isEssay: false,
     examFormat: OBJECTIVE_EXAM_FORMAT,
+    assessmentBlueprint,
+    bankTargetCount: 10,
 });
 
 assert.equal(seenAttemptSelection.selectedQuestions.length, 10);

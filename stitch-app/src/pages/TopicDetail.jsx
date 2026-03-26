@@ -724,7 +724,7 @@ const TopicDetail = () => {
                                     className="btn-primary px-5 py-2.5 text-body-sm gap-2 disabled:opacity-50"
                                 >
                                     <span className="material-symbols-outlined text-[18px]">quiz</span>
-                                    {startingExam ? 'Preparing...' : 'MCQ Quiz'}
+                                    {startingExam ? 'Preparing...' : 'Objective Quiz'}
                                 </button>
                                 <button
                                     onClick={() => handleStartExam('essay')}

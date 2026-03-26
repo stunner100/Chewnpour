@@ -127,33 +127,31 @@ export const getObjectiveSubtypeTargets = (objectiveTargetCount = DEFAULT_OBJECT
 
     const baseTotal = DEFAULT_OBJECTIVE_TARGET_COUNT;
     const scaled = createEmptyObjectiveBreakdown();
+    const rawTargets = {};
     let assigned = 0;
     for (const questionType of OBJECTIVE_QUESTION_TYPES) {
         const raw = (OBJECTIVE_TARGET_MIX[questionType] / baseTotal) * safeObjectiveTarget;
-        const rounded = Math.max(1, Math.floor(raw));
+        rawTargets[questionType] = raw;
+        const rounded = Math.max(0, Math.floor(raw));
         scaled[questionType] = rounded;
         assigned += rounded;
+    }
+
+    if (assigned === 0) {
+        scaled[QUESTION_TYPE_MULTIPLE_CHOICE] = 1;
+        assigned = 1;
     }
 
     while (assigned < safeObjectiveTarget) {
         const nextType = OBJECTIVE_QUESTION_TYPES
             .slice()
             .sort((left, right) => {
-                const leftGap = (OBJECTIVE_TARGET_MIX[left] / baseTotal) - (scaled[left] / safeObjectiveTarget);
-                const rightGap = (OBJECTIVE_TARGET_MIX[right] / baseTotal) - (scaled[right] / safeObjectiveTarget);
+                const leftGap = Number(rawTargets[left] || 0) - scaled[left];
+                const rightGap = Number(rawTargets[right] || 0) - scaled[right];
                 return rightGap - leftGap;
             })[0];
         scaled[nextType] += 1;
         assigned += 1;
-    }
-
-    while (assigned > safeObjectiveTarget) {
-        const nextType = OBJECTIVE_QUESTION_TYPES
-            .slice()
-            .sort((left, right) => scaled[right] - scaled[left])[0];
-        if (scaled[nextType] <= 1) break;
-        scaled[nextType] -= 1;
-        assigned -= 1;
     }
 
     return scaled;

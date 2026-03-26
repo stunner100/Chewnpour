@@ -457,7 +457,7 @@ const ExamMode = () => {
         if (!Number.isFinite(numeric) || numeric <= 0) return 0;
         return Math.max(1, Math.round(numeric));
     })();
-    const loadingExamTypeLabel = examFormat === 'essay' ? 'essay' : 'multiple-choice';
+    const loadingExamTypeLabel = examFormat === 'essay' ? 'essay' : 'objective';
     const preparationStatus = typeof preparation?.status === 'string' ? preparation.status : '';
     const preparationStage = typeof preparation?.stage === 'string' ? preparation.stage : 'queued';
     const isPreparationRunning =
@@ -1113,8 +1113,8 @@ const ExamMode = () => {
                                     <span className="material-symbols-outlined text-primary">radio_button_checked</span>
                                 </div>
                                 <div>
-                                    <p className="text-body-sm font-semibold text-text-main-light dark:text-text-main-dark">Multiple Choice</p>
-                                    <p className="text-caption text-text-sub-light dark:text-text-sub-dark">Pick the best answer from 4 options</p>
+                                    <p className="text-body-sm font-semibold text-text-main-light dark:text-text-main-dark">Objective Quiz</p>
+                                    <p className="text-caption text-text-sub-light dark:text-text-sub-dark">Multiple choice, true/false, and fill in the blank</p>
                                 </div>
                             </button>
 

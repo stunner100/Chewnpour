@@ -53,8 +53,10 @@ import {
     type AssessmentCoverageTarget,
     buildGroundedConceptPrompt,
     buildGroundedEssayPrompt,
+    buildGroundedFillBlankPrompt,
     buildGroundedMcqPrompt,
     buildGroundedMcqRepairPrompt,
+    buildGroundedTrueFalsePrompt,
 } from "./lib/groundedGeneration";
 import {
     buildGroundedVerifierPrompt,
@@ -75,6 +77,7 @@ import {
 import {
     ASSESSMENT_BLUEPRINT_VERSION,
     filterQuestionsForActiveAssessment,
+    getAssessmentPlanForQuestionType,
     getAssessmentQuestionMetadataIssues,
     normalizeAssessmentBlueprint,
     normalizeBloomLevel,
@@ -85,6 +88,14 @@ import {
     resolveAssessmentGenerationPolicy,
     selectCoverageGapTargets,
 } from "./lib/assessmentPolicy.js";
+import {
+    countObjectiveQuestionBreakdown,
+    getObjectiveSubtypeTargets,
+    normalizeQuestionType,
+    QUESTION_TYPE_FILL_BLANK,
+    QUESTION_TYPE_MULTIPLE_CHOICE,
+    QUESTION_TYPE_TRUE_FALSE,
+} from "./lib/objectiveExam.js";
 import { createVoiceStreamToken } from "./lib/voiceStreamToken";
 
 // Text generation routes by feature and uses OpenAI -> Bedrock -> Inception fallback for generation.
@@ -1274,6 +1285,7 @@ const coerceMcqCandidate = (candidate: any) => {
 
     return {
         questionText,
+        questionType: QUESTION_TYPE_MULTIPLE_CHOICE,
         options,
         explanation: explanation || undefined,
         difficulty: normalizeDifficultyLabel(candidate?.difficulty),
@@ -1281,6 +1293,147 @@ const coerceMcqCandidate = (candidate: any) => {
         bloomLevel: String(candidate?.bloomLevel || "").trim() || undefined,
         outcomeKey: String(candidate?.outcomeKey || "").trim() || undefined,
         authenticContext: String(candidate?.authenticContext || "").trim() || undefined,
+        citations,
+        qualityFlags: normalizeQualityFlags(qualityFlags),
+    };
+};
+
+const buildTrueFalseOptionsFromCorrectAnswer = (correctAnswer: any) => {
+    const normalizedCorrectAnswer = String(correctAnswer || "").trim().toLowerCase();
+    const trueIsCorrect =
+        normalizedCorrectAnswer === "a"
+        || normalizedCorrectAnswer === "true";
+    const falseIsCorrect =
+        normalizedCorrectAnswer === "b"
+        || normalizedCorrectAnswer === "false";
+    return [
+        { label: "A", text: "True", isCorrect: trueIsCorrect && !falseIsCorrect },
+        { label: "B", text: "False", isCorrect: falseIsCorrect && !trueIsCorrect },
+    ];
+};
+
+const normalizeTrueFalseOptions = (candidate: any) => {
+    const rawOptions = Array.isArray(candidate?.options) ? candidate.options : [];
+    const normalizedOptions = rawOptions
+        .map((option, index) => normalizeMcqOptionCandidate(option, index, candidate?.correctAnswer))
+        .filter(Boolean);
+    const trueOption = normalizedOptions.find(
+        (option: any) => String(option?.text || "").trim().toLowerCase() === "true"
+    );
+    const falseOption = normalizedOptions.find(
+        (option: any) => String(option?.text || "").trim().toLowerCase() === "false"
+    );
+
+    if (trueOption || falseOption) {
+        const fallback = buildTrueFalseOptionsFromCorrectAnswer(candidate?.correctAnswer);
+        return [
+            {
+                label: "A",
+                text: "True",
+                isCorrect: trueOption?.isCorrect === true || fallback[0].isCorrect,
+            },
+            {
+                label: "B",
+                text: "False",
+                isCorrect: falseOption?.isCorrect === true || fallback[1].isCorrect,
+            },
+        ];
+    }
+
+    return buildTrueFalseOptionsFromCorrectAnswer(candidate?.correctAnswer);
+};
+
+const coerceTrueFalseCandidate = (candidate: any) => {
+    const questionText = String(candidate?.questionText || candidate?.prompt || "").trim();
+    if (questionText.length < 12) {
+        return null;
+    }
+
+    const citations = normalizeCitationCandidates(candidate?.citations);
+    const explanation = String(candidate?.explanation || "").trim();
+    const learningObjective = String(candidate?.learningObjective || "").trim();
+    const qualityFlags = normalizeQualityFlags(candidate?.qualityFlags);
+    const options = ensureSingleCorrect(normalizeTrueFalseOptions(candidate));
+
+    if (citations.length === 0) {
+        qualityFlags.push("missing_citations");
+    }
+
+    return {
+        questionText,
+        questionType: QUESTION_TYPE_TRUE_FALSE,
+        options,
+        correctAnswer: options.find((option: any) => option?.isCorrect)?.label || undefined,
+        explanation: explanation || undefined,
+        difficulty: normalizeDifficultyLabel(candidate?.difficulty),
+        learningObjective: learningObjective || undefined,
+        bloomLevel: String(candidate?.bloomLevel || "").trim() || undefined,
+        outcomeKey: String(candidate?.outcomeKey || "").trim() || undefined,
+        citations,
+        qualityFlags: normalizeQualityFlags(qualityFlags),
+    };
+};
+
+const coerceFillBlankCandidate = (candidate: any) => {
+    const templateParts = (Array.isArray(candidate?.templateParts) ? candidate.templateParts : [])
+        .map((part: any) => String(part || ""))
+        .filter((part: string) => part.length > 0 || part === "__");
+    const acceptedAnswers = Array.from(
+        new Set(
+            (Array.isArray(candidate?.acceptedAnswers) ? candidate.acceptedAnswers : [])
+                .map((answer: any) => String(answer || "").trim())
+                .filter(Boolean)
+        )
+    ).slice(0, 6);
+
+    if (templateParts.filter((part: string) => part === "__").length !== 1 || acceptedAnswers.length === 0) {
+        return null;
+    }
+
+    const rawTokens = Array.from(
+        new Set(
+            (Array.isArray(candidate?.tokens) ? candidate.tokens : [])
+                .map((token: any) => String(token || "").trim())
+                .filter(Boolean)
+        )
+    );
+    const fillBlankMode = rawTokens.length >= 2 ? "token_bank" : "free_text";
+    const tokens = fillBlankMode === "token_bank"
+        ? Array.from(new Set([acceptedAnswers[0], ...rawTokens])).slice(0, 6)
+        : undefined;
+    const questionText = String(
+        candidate?.questionText
+        || candidate?.prompt
+        || templateParts.map((part: string) => (part === "__" ? "_____" : part)).join("")
+    ).trim();
+    if (questionText.length < 12) {
+        return null;
+    }
+
+    const citations = normalizeCitationCandidates(candidate?.citations);
+    const explanation = String(candidate?.explanation || "").trim();
+    const learningObjective = String(candidate?.learningObjective || "").trim();
+    const qualityFlags = normalizeQualityFlags(candidate?.qualityFlags);
+    if (citations.length === 0) {
+        qualityFlags.push("missing_citations");
+    }
+    if (fillBlankMode === "free_text") {
+        qualityFlags.push("free_text_fill_blank");
+    }
+
+    return {
+        questionText,
+        questionType: QUESTION_TYPE_FILL_BLANK,
+        templateParts,
+        acceptedAnswers,
+        tokens,
+        fillBlankMode,
+        correctAnswer: acceptedAnswers[0],
+        explanation: explanation || undefined,
+        difficulty: normalizeDifficultyLabel(candidate?.difficulty),
+        learningObjective: learningObjective || undefined,
+        bloomLevel: String(candidate?.bloomLevel || "").trim() || undefined,
+        outcomeKey: String(candidate?.outcomeKey || "").trim() || undefined,
         citations,
         qualityFlags: normalizeQualityFlags(qualityFlags),
     };
@@ -1326,50 +1479,81 @@ const coerceEssayCandidate = (candidate: any) => {
 
 const coerceGeneratedQuestionSet = (args: {
     payload: any;
-    questionType: "mcq" | "essay";
+    questionType: "mcq" | "true_false" | "fill_blank" | "essay";
 }) => {
     const rawQuestions = extractQuestionsEnvelope(args.payload);
     const questions = rawQuestions
-        .map((candidate) =>
-            args.questionType === "essay"
-                ? coerceEssayCandidate(candidate)
-                : coerceMcqCandidate(candidate)
-        )
+        .map((candidate) => {
+            if (args.questionType === "essay") return coerceEssayCandidate(candidate);
+            if (args.questionType === "true_false") return coerceTrueFalseCandidate(candidate);
+            if (args.questionType === "fill_blank") return coerceFillBlankCandidate(candidate);
+            return coerceMcqCandidate(candidate);
+        })
         .filter(Boolean);
 
     return { questions };
 };
 
-const parseQuestionsWithRepair = async (
-    raw: string,
-    options?: { deadlineMs?: number; repairTimeoutMs?: number }
-) => {
-    try {
-        const parsed = parseJsonFromResponse(raw, "questions");
-        const coerced = coerceGeneratedQuestionSet({
-            payload: parsed,
-            questionType: "mcq",
-        });
-        if (coerced.questions.length > 0) {
-            return coerced;
+const buildObjectiveQuestionRepairSchema = (questionType: "mcq" | "true_false" | "fill_blank") => {
+    if (questionType === "true_false") {
+        return `{
+  "questions": [
+    {
+      "questionText": "string",
+      "options": [
+        {"label":"A","text":"True","isCorrect":false},
+        {"label":"B","text":"False","isCorrect":true}
+      ],
+      "correctAnswer": "A|B|True|False",
+      "explanation": "string",
+      "difficulty": "easy|medium|hard",
+      "learningObjective": "string",
+      "bloomLevel": "Remember|Understand|Apply",
+      "outcomeKey": "string",
+      "citations": [
+        {
+          "passageId": "string",
+          "page": 0,
+          "startChar": 0,
+          "endChar": 20,
+          "quote": "string"
         }
-        throw new Error("No valid questions after coercion.");
-    } catch (error) {
-        const remainingMs = Number.isFinite(Number(options?.deadlineMs))
-            ? Number(options?.deadlineMs) - Date.now()
-            : null;
-        if (remainingMs !== null && remainingMs <= 1200) {
-            return { questions: [] };
-        }
+      ]
+    }
+  ]
+}`;
+    }
 
-        let repairTimeoutMs = Number(options?.repairTimeoutMs || DEFAULT_TIMEOUT_MS);
-        if (remainingMs !== null) {
-            repairTimeoutMs = Math.min(repairTimeoutMs, Math.max(1000, remainingMs - 200));
+    if (questionType === "fill_blank") {
+        return `{
+  "questions": [
+    {
+      "questionText": "string",
+      "templateParts": ["Prompt ", "__", "."],
+      "acceptedAnswers": ["string"],
+      "tokens": ["string", "string", "string", "string"],
+      "fillBlankMode": "token_bank|free_text",
+      "correctAnswer": "string",
+      "explanation": "string",
+      "difficulty": "easy|medium|hard",
+      "learningObjective": "string",
+      "bloomLevel": "Remember|Understand|Apply",
+      "outcomeKey": "string",
+      "citations": [
+        {
+          "passageId": "string",
+          "page": 0,
+          "startChar": 0,
+          "endChar": 20,
+          "quote": "string"
         }
-        const repairPrompt = `Fix the malformed JSON-like content below and return strict JSON only.
+      ]
+    }
+  ]
+}`;
+    }
 
-Required schema:
-{
+    return `{
   "questions": [
     {
       "questionText": "string",
@@ -1395,7 +1579,40 @@ Required schema:
       ]
     }
   ]
-}
+}`;
+};
+
+const parseQuestionsWithRepair = async (
+    raw: string,
+    questionType: "mcq" | "true_false" | "fill_blank" = "mcq",
+    options?: { deadlineMs?: number; repairTimeoutMs?: number }
+) => {
+    try {
+        const parsed = parseJsonFromResponse(raw, "questions");
+        const coerced = coerceGeneratedQuestionSet({
+            payload: parsed,
+            questionType,
+        });
+        if (coerced.questions.length > 0) {
+            return coerced;
+        }
+        throw new Error("No valid questions after coercion.");
+    } catch (error) {
+        const remainingMs = Number.isFinite(Number(options?.deadlineMs))
+            ? Number(options?.deadlineMs) - Date.now()
+            : null;
+        if (remainingMs !== null && remainingMs <= 1200) {
+            return { questions: [] };
+        }
+
+        let repairTimeoutMs = Number(options?.repairTimeoutMs || DEFAULT_TIMEOUT_MS);
+        if (remainingMs !== null) {
+            repairTimeoutMs = Math.min(repairTimeoutMs, Math.max(1000, remainingMs - 200));
+        }
+        const repairPrompt = `Fix the malformed JSON-like content below and return strict JSON only.
+
+Required schema:
+${buildObjectiveQuestionRepairSchema(questionType)}
 
 Malformed content:
 """
@@ -1414,7 +1631,7 @@ ${String(raw || "").slice(0, 20000)}
 
             return coerceGeneratedQuestionSet({
                 payload: parseJsonFromResponse(repaired, "repaired questions"),
-                questionType: "mcq",
+                questionType,
             });
         } catch (repairError) {
             return { questions: [] };
@@ -1576,7 +1793,7 @@ const findAssessmentOutcome = (blueprint: AssessmentBlueprint | null | undefined
 const normalizeGeneratedAssessmentCandidate = (args: {
     candidate: any;
     blueprint: AssessmentBlueprint;
-    questionType: "mcq" | "essay";
+    questionType: "mcq" | "true_false" | "fill_blank" | "essay";
 }) => {
     const outcomeKey = normalizeOutcomeKey(args.candidate?.outcomeKey);
     const outcome = findAssessmentOutcome(args.blueprint, outcomeKey);
@@ -1705,6 +1922,124 @@ const buildGapCoverageTargets = (args: {
         evidenceFocus: target.evidenceFocus,
         requestedCount: target.requestedCount,
     }));
+
+const buildObjectiveSubtypeMixPolicy = (args: {
+    questions: any[];
+    targetCount: number;
+}) => {
+    const currentBreakdown = countObjectiveQuestionBreakdown(
+        Array.isArray(args.questions) ? args.questions : [],
+        (question) => isUsableExamQuestion(question)
+    );
+    const targetBreakdown = getObjectiveSubtypeTargets(args.targetCount);
+    const deficits = [QUESTION_TYPE_MULTIPLE_CHOICE, QUESTION_TYPE_TRUE_FALSE, QUESTION_TYPE_FILL_BLANK]
+        .map((questionType) => ({
+            questionType,
+            requestedCount: Math.max(
+                0,
+                Number(targetBreakdown[questionType] || 0) - Number(currentBreakdown[questionType] || 0)
+            ),
+        }))
+        .filter((entry) => entry.requestedCount > 0);
+
+    return {
+        currentBreakdown,
+        targetBreakdown,
+        deficits,
+        totalGapCount: deficits.reduce((sum, entry) => sum + Number(entry.requestedCount || 0), 0),
+        ready: deficits.length === 0,
+    };
+};
+
+const buildObjectiveSubtypeBatchRequests = (args: {
+    deficits: Array<{ questionType: string; requestedCount: number }>;
+    batchSize: number;
+}) => {
+    const deficits = (Array.isArray(args.deficits) ? args.deficits : [])
+        .map((entry) => ({
+            questionType: normalizeQuestionType(entry?.questionType),
+            requestedCount: Math.max(0, Math.round(Number(entry?.requestedCount || 0))),
+        }))
+        .filter((entry) => entry.requestedCount > 0);
+    if (deficits.length === 0) return [];
+
+    const totalDeficit = deficits.reduce((sum, entry) => sum + entry.requestedCount, 0);
+    const safeBatchSize = Math.max(1, Math.min(Math.round(Number(args.batchSize || 1)), totalDeficit));
+    if (safeBatchSize >= totalDeficit) {
+        return deficits;
+    }
+
+    const allocations = deficits.map((entry) => {
+        const raw = (entry.requestedCount / totalDeficit) * safeBatchSize;
+        const allocated = Math.floor(raw);
+        return {
+            questionType: entry.questionType,
+            requestedCount: allocated,
+            maxRequestedCount: entry.requestedCount,
+            remainder: raw - allocated,
+        };
+    });
+
+    let assigned = allocations.reduce((sum, entry) => sum + entry.requestedCount, 0);
+    while (assigned < safeBatchSize) {
+        const next = allocations
+            .filter((entry) => entry.requestedCount < entry.maxRequestedCount)
+            .sort((left, right) => right.remainder - left.remainder)[0];
+        if (!next) break;
+        next.requestedCount += 1;
+        assigned += 1;
+    }
+
+    if (assigned === 0) {
+        const next = allocations
+            .slice()
+            .sort((left, right) => right.maxRequestedCount - left.maxRequestedCount)[0];
+        if (next) {
+            next.requestedCount = 1;
+        }
+    }
+
+    return allocations
+        .filter((entry) => entry.requestedCount > 0)
+        .map(({ questionType, requestedCount }) => ({ questionType, requestedCount }));
+};
+
+const buildQuestionTypeCoverageTargets = (args: {
+    questionType: string;
+    coveragePolicy: ReturnType<typeof resolveAssessmentGenerationPolicy>;
+    assessmentBlueprint: AssessmentBlueprint;
+    requestedCount: number;
+}) => {
+    const plan = getAssessmentPlanForQuestionType(args.assessmentBlueprint, args.questionType);
+    const allowedOutcomeKeys = new Set(
+        (Array.isArray(plan?.targetOutcomeKeys) ? plan.targetOutcomeKeys : [])
+            .map((value) => normalizeOutcomeKey(value))
+            .filter(Boolean)
+    );
+    const allowedBloomLevels = new Set(
+        (Array.isArray(plan?.targetBloomLevels) ? plan.targetBloomLevels : [])
+            .map((value) => normalizeBloomLevel(value))
+            .filter(Boolean)
+    );
+
+    const filteredGapSlots = (Array.isArray(args.coveragePolicy?.gapSlots) ? args.coveragePolicy.gapSlots : [])
+        .filter((slot) => {
+            const outcomeKey = normalizeOutcomeKey(slot?.outcomeKey);
+            const bloomLevel = normalizeBloomLevel(slot?.bloomLevel || "");
+            if (!outcomeKey || !bloomLevel) return false;
+            if (allowedOutcomeKeys.size > 0 && !allowedOutcomeKeys.has(outcomeKey)) return false;
+            if (allowedBloomLevels.size > 0 && !allowedBloomLevels.has(bloomLevel)) return false;
+            return true;
+        });
+
+    return buildGapCoverageTargets({
+        coveragePolicy: {
+            ...args.coveragePolicy,
+            gapSlots: filteredGapSlots,
+        },
+        requestedCount: args.requestedCount,
+    });
+};
 
 const QUESTION_FRESHNESS_BUCKET_FRESH = "fresh";
 
@@ -1849,7 +2184,7 @@ const getGroundedEvidencePackForTopic = async (args: {
 };
 
 const verifyGroundedCandidateWithLlm = async (args: {
-    type: "mcq" | "essay" | "concept";
+    type: "mcq" | "true_false" | "fill_blank" | "essay" | "concept";
     candidate: any;
     evidenceSnippet: string;
     timeoutMs?: number;
@@ -5721,6 +6056,138 @@ const generateQuestionCandidatesBatch = async (args: {
     );
 };
 
+const generateTrueFalseQuestionCandidatesBatch = async (args: {
+    requestedCount: number;
+    topicTitle: string;
+    topicDescription?: string;
+    evidence: RetrievedEvidence[];
+    assessmentBlueprint: AssessmentBlueprint;
+    coverageTargets?: AssessmentCoverageTarget[];
+    deadlineMs?: number;
+    requestTimeoutMs?: number;
+    repairTimeoutMs?: number;
+    maxAttempts?: number;
+}) => {
+    const prompt = buildGroundedTrueFalsePrompt({
+        requestedCount: args.requestedCount,
+        topicTitle: args.topicTitle,
+        topicDescription: args.topicDescription,
+        evidence: args.evidence,
+        assessmentBlueprint: args.assessmentBlueprint,
+        coverageTargets: args.coverageTargets,
+    });
+    let questionsData: any = { questions: [] };
+    const maxAttempts = Math.max(1, Math.round(Number(args.maxAttempts || 1)));
+    for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
+        const remainingMs = Number.isFinite(Number(args.deadlineMs))
+            ? Number(args.deadlineMs) - Date.now()
+            : null;
+        if (remainingMs !== null && remainingMs <= 1200) {
+            break;
+        }
+
+        const configuredTimeoutMs = Math.max(1000, Math.round(Number(args.requestTimeoutMs || DEFAULT_TIMEOUT_MS)));
+        const timeoutMs = remainingMs === null
+            ? configuredTimeoutMs
+            : Math.min(configuredTimeoutMs, Math.max(1000, remainingMs - 200));
+
+        const response = await callInception([
+            {
+                role: "system",
+                content: "You are an expert educator creating true/false questions. Always respond with valid JSON only.",
+            },
+            { role: "user", content: prompt },
+        ], DEFAULT_MODEL, {
+            maxTokens: 1800,
+            responseFormat: "json_object",
+            timeoutMs,
+        });
+
+        questionsData = await parseQuestionsWithRepair(response, "true_false", {
+            deadlineMs: args.deadlineMs,
+            repairTimeoutMs: args.repairTimeoutMs,
+        });
+        if (Array.isArray(questionsData?.questions) && questionsData.questions.length > 0) {
+            break;
+        }
+    }
+
+    const rawQuestions = Array.isArray(questionsData?.questions) ? questionsData.questions : [];
+    return rawQuestions.map((candidate: any) =>
+        normalizeGeneratedAssessmentCandidate({
+            candidate,
+            blueprint: args.assessmentBlueprint,
+            questionType: "true_false",
+        })
+    );
+};
+
+const generateFillBlankQuestionCandidatesBatch = async (args: {
+    requestedCount: number;
+    topicTitle: string;
+    topicDescription?: string;
+    evidence: RetrievedEvidence[];
+    assessmentBlueprint: AssessmentBlueprint;
+    coverageTargets?: AssessmentCoverageTarget[];
+    deadlineMs?: number;
+    requestTimeoutMs?: number;
+    repairTimeoutMs?: number;
+    maxAttempts?: number;
+}) => {
+    const prompt = buildGroundedFillBlankPrompt({
+        requestedCount: args.requestedCount,
+        topicTitle: args.topicTitle,
+        topicDescription: args.topicDescription,
+        evidence: args.evidence,
+        assessmentBlueprint: args.assessmentBlueprint,
+        coverageTargets: args.coverageTargets,
+    });
+    let questionsData: any = { questions: [] };
+    const maxAttempts = Math.max(1, Math.round(Number(args.maxAttempts || 1)));
+    for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
+        const remainingMs = Number.isFinite(Number(args.deadlineMs))
+            ? Number(args.deadlineMs) - Date.now()
+            : null;
+        if (remainingMs !== null && remainingMs <= 1200) {
+            break;
+        }
+
+        const configuredTimeoutMs = Math.max(1000, Math.round(Number(args.requestTimeoutMs || DEFAULT_TIMEOUT_MS)));
+        const timeoutMs = remainingMs === null
+            ? configuredTimeoutMs
+            : Math.min(configuredTimeoutMs, Math.max(1000, remainingMs - 200));
+
+        const response = await callInception([
+            {
+                role: "system",
+                content: "You are an expert educator creating fill-in-the-blank questions. Always respond with valid JSON only.",
+            },
+            { role: "user", content: prompt },
+        ], DEFAULT_MODEL, {
+            maxTokens: 2000,
+            responseFormat: "json_object",
+            timeoutMs,
+        });
+
+        questionsData = await parseQuestionsWithRepair(response, "fill_blank", {
+            deadlineMs: args.deadlineMs,
+            repairTimeoutMs: args.repairTimeoutMs,
+        });
+        if (Array.isArray(questionsData?.questions) && questionsData.questions.length > 0) {
+            break;
+        }
+    }
+
+    const rawQuestions = Array.isArray(questionsData?.questions) ? questionsData.questions : [];
+    return rawQuestions.map((candidate: any) =>
+        normalizeGeneratedAssessmentCandidate({
+            candidate,
+            blueprint: args.assessmentBlueprint,
+            questionType: "fill_blank",
+        })
+    );
+};
+
 const generateMcqQuestionGapBatch = async (args: {
     requestedCount: number;
     topicTitle: string;
@@ -5750,6 +6217,70 @@ const generateMcqQuestionGapBatch = async (args: {
         repairTimeoutMs: args.repairTimeoutMs,
         maxAttempts: args.maxAttempts,
         existingQuestionSample: args.existingQuestionSample,
+    });
+};
+
+const generateTrueFalseQuestionGapBatch = async (args: {
+    requestedCount: number;
+    topicTitle: string;
+    topicDescription?: string;
+    evidence: RetrievedEvidence[];
+    assessmentBlueprint: AssessmentBlueprint;
+    coveragePolicy: any;
+    deadlineMs?: number;
+    requestTimeoutMs?: number;
+    repairTimeoutMs?: number;
+    maxAttempts?: number;
+}) => {
+    const coverageTargets = buildQuestionTypeCoverageTargets({
+        questionType: QUESTION_TYPE_TRUE_FALSE,
+        coveragePolicy: args.coveragePolicy,
+        assessmentBlueprint: args.assessmentBlueprint,
+        requestedCount: args.requestedCount,
+    });
+    return await generateTrueFalseQuestionCandidatesBatch({
+        requestedCount: args.requestedCount,
+        topicTitle: args.topicTitle,
+        topicDescription: args.topicDescription,
+        evidence: args.evidence,
+        assessmentBlueprint: args.assessmentBlueprint,
+        coverageTargets,
+        deadlineMs: args.deadlineMs,
+        requestTimeoutMs: args.requestTimeoutMs,
+        repairTimeoutMs: args.repairTimeoutMs,
+        maxAttempts: args.maxAttempts,
+    });
+};
+
+const generateFillBlankQuestionGapBatch = async (args: {
+    requestedCount: number;
+    topicTitle: string;
+    topicDescription?: string;
+    evidence: RetrievedEvidence[];
+    assessmentBlueprint: AssessmentBlueprint;
+    coveragePolicy: any;
+    deadlineMs?: number;
+    requestTimeoutMs?: number;
+    repairTimeoutMs?: number;
+    maxAttempts?: number;
+}) => {
+    const coverageTargets = buildQuestionTypeCoverageTargets({
+        questionType: QUESTION_TYPE_FILL_BLANK,
+        coveragePolicy: args.coveragePolicy,
+        assessmentBlueprint: args.assessmentBlueprint,
+        requestedCount: args.requestedCount,
+    });
+    return await generateFillBlankQuestionCandidatesBatch({
+        requestedCount: args.requestedCount,
+        topicTitle: args.topicTitle,
+        topicDescription: args.topicDescription,
+        evidence: args.evidence,
+        assessmentBlueprint: args.assessmentBlueprint,
+        coverageTargets,
+        deadlineMs: args.deadlineMs,
+        requestTimeoutMs: args.requestTimeoutMs,
+        repairTimeoutMs: args.repairTimeoutMs,
+        maxAttempts: args.maxAttempts,
     });
 };
 
@@ -5784,7 +6315,7 @@ const generateEssayQuestionGapBatch = async (args: {
 };
 
 const acceptAndPersistQuestionCandidates = async (args: {
-    type: "mcq" | "essay";
+    type: "mcq" | "true_false" | "fill_blank" | "essay";
     requestedCount: number;
     candidates: any[];
     evidenceIndex: GroundedEvidenceIndex;
@@ -5792,7 +6323,7 @@ const acceptAndPersistQuestionCandidates = async (args: {
     llmVerify?: (candidate: any) => Promise<any>;
     maxLlmVerifications?: number;
     repairCandidate?: (args: {
-        type: "mcq" | "essay";
+        type: "mcq" | "true_false" | "fill_blank" | "essay";
         candidate: any;
         reasons: string[];
     }) => Promise<any | null>;
@@ -5916,8 +6447,7 @@ const generateQuestionBankForTopic = async (
     const existingQuestions = rawExistingQuestions.filter((question: any) => {
         const normalizedKey = normalizeQuestionKey(question?.questionText || "");
         if (!normalizedKey) return false;
-        const options = sanitizeQuestionOptions(normalizeOptions(question?.options));
-        return hasUsableQuestionOptions(options);
+        return isUsableExamQuestion(question);
     });
     const existingQuestionKeys = new Set(
         existingQuestions
@@ -5954,7 +6484,11 @@ const generateQuestionBankForTopic = async (
         questions: coverageQuestions,
         targetCount: quickTargetCount,
     });
-    if (initialCount >= quickTargetCount && coveragePolicy.ready) {
+    let objectiveSubtypeMixPolicy = buildObjectiveSubtypeMixPolicy({
+        questions: coverageQuestions,
+        targetCount: quickTargetCount,
+    });
+    if (initialCount >= quickTargetCount && coveragePolicy.ready && objectiveSubtypeMixPolicy.ready) {
         await ctx.runMutation(internal.topics.refreshTopicExamReadinessInternal, {
             topicId,
             mcqTargetCount: quickTargetCount,
@@ -6031,6 +6565,10 @@ const generateQuestionBankForTopic = async (
         questions: coverageQuestions,
         targetCount,
     });
+    objectiveSubtypeMixPolicy = buildObjectiveSubtypeMixPolicy({
+        questions: coverageQuestions,
+        targetCount,
+    });
     let persistedTargetCount = targetCount;
     await ctx.runMutation(internal.topics.refreshTopicExamReadinessInternal, {
         topicId,
@@ -6063,7 +6601,11 @@ const generateQuestionBankForTopic = async (
             target: {
                 initialCount,
                 finalCount: getUniqueQuestionCount(),
-                remainingNeeded: Math.max(0, Number(coveragePolicy.totalGapCount || 0)),
+                remainingNeeded: Math.max(
+                    0,
+                    Number(coveragePolicy.totalGapCount || 0),
+                    Number(objectiveSubtypeMixPolicy.totalGapCount || 0),
+                ),
                 requestedTargetCount: targetCount,
                 targetCount: persistedTargetCount,
                 evidenceRichnessCap: targetResolution.evidenceRichnessCap,
@@ -6093,7 +6635,7 @@ const generateQuestionBankForTopic = async (
         };
     };
 
-    if (initialCount >= targetCount && coveragePolicy.ready) {
+    if (initialCount >= targetCount && coveragePolicy.ready && objectiveSubtypeMixPolicy.ready) {
         const diagnostics = buildTimingDiagnostics("already_generated");
         console.info("[QuestionBank] timing_breakdown", {
             topicId,
@@ -6149,6 +6691,251 @@ const generateQuestionBankForTopic = async (
         `${effectiveTopic.title} ${effectiveTopic.description || ""}`
     );
 
+    const persistObjectiveCandidate = async (question: any, requestedQuestionType: string) => {
+        if (Date.now() >= deadlineMs) {
+            return false;
+        }
+
+        const normalizedQuestionType = normalizeQuestionType(
+            question?.questionType || requestedQuestionType
+        );
+        if (!question?.questionText || typeof question.questionText !== "string") {
+            return false;
+        }
+
+        let questionRecord: any = {
+            ...question,
+            questionType: normalizedQuestionType,
+            questionText: anchorTextToTopic(
+                question.questionText,
+                topicWithQuestions.title,
+                topicKeywords,
+            ),
+        };
+        let options: any[] | undefined;
+        let correctAnswer = questionRecord.correctAnswer;
+
+        if (normalizedQuestionType === QUESTION_TYPE_MULTIPLE_CHOICE) {
+            options = sanitizeQuestionOptions(normalizeOptions(questionRecord.options));
+            if (!hasUsableQuestionOptions(options)) {
+                const remainingOptionBudgetMs = deadlineMs - Date.now();
+                if (remainingOptionBudgetMs > 900) {
+                    countBreakdown.optionRepairAttempts += 1;
+                    const optionTimeoutMs = runMode === "interactive"
+                        ? Math.min(3000, Math.max(900, remainingOptionBudgetMs - 200))
+                        : Math.min(profile.requestTimeoutMs, Math.max(1000, remainingOptionBudgetMs - 200));
+                    const optionRepairStartedAt = Date.now();
+                    const generated = await generateOptionsForQuestion({
+                        question: questionRecord,
+                        topicTitle: effectiveTopic.title,
+                        topicDescription: effectiveTopic.description,
+                        evidence: groundedPack.evidence,
+                        assessmentBlueprint: assessmentBlueprint as AssessmentBlueprint,
+                        timeoutMs: optionTimeoutMs,
+                        repairReasons: ["invalid mcq structure", "unusable options"],
+                    });
+                    timingBreakdown.optionRepairMs += normalizeTimingMs(Date.now() - optionRepairStartedAt);
+                    if (generated && typeof generated === "object") {
+                        questionRecord = {
+                            ...questionRecord,
+                            ...generated,
+                            questionText: anchorTextToTopic(
+                                generated.questionText || questionRecord.questionText,
+                                topicWithQuestions.title,
+                                topicKeywords,
+                            ),
+                        };
+                    }
+                    const generatedOptions = sanitizeQuestionOptions(
+                        normalizeOptions(questionRecord.options),
+                    );
+                    if (hasUsableQuestionOptions(generatedOptions)) {
+                        countBreakdown.optionRepairSuccesses += 1;
+                        options = generatedOptions;
+                    }
+                }
+            }
+
+            if (!hasUsableQuestionOptions(options)) {
+                return false;
+            }
+
+            options = ensureSingleCorrect(fillOptionLabels(options.slice(0, 4)));
+            correctAnswer = options.find((option: any) => option.isCorrect)?.label || "A";
+            questionRecord = {
+                ...questionRecord,
+                options,
+                correctAnswer,
+            };
+        } else if (normalizedQuestionType === QUESTION_TYPE_TRUE_FALSE) {
+            const normalizedCandidate = coerceTrueFalseCandidate(questionRecord);
+            if (!normalizedCandidate) {
+                return false;
+            }
+            questionRecord = {
+                ...questionRecord,
+                ...normalizedCandidate,
+                questionText: anchorTextToTopic(
+                    normalizedCandidate.questionText,
+                    topicWithQuestions.title,
+                    topicKeywords,
+                ),
+            };
+            options = ensureSingleCorrect(normalizeTrueFalseOptions(questionRecord));
+            correctAnswer = options.find((option: any) => option.isCorrect)?.label || "A";
+            questionRecord = {
+                ...questionRecord,
+                options,
+                correctAnswer,
+            };
+            if (!isUsableExamQuestion(questionRecord)) {
+                return false;
+            }
+        } else if (normalizedQuestionType === QUESTION_TYPE_FILL_BLANK) {
+            const normalizedCandidate = coerceFillBlankCandidate(questionRecord);
+            if (!normalizedCandidate) {
+                return false;
+            }
+            questionRecord = {
+                ...questionRecord,
+                ...normalizedCandidate,
+                questionText: anchorTextToTopic(
+                    normalizedCandidate.questionText,
+                    topicWithQuestions.title,
+                    topicKeywords,
+                ),
+            };
+            correctAnswer = Array.isArray(questionRecord.acceptedAnswers)
+                ? String(questionRecord.acceptedAnswers[0] || questionRecord.correctAnswer || "").trim()
+                : String(questionRecord.correctAnswer || "").trim();
+            if (!correctAnswer || !isUsableExamQuestion(questionRecord)) {
+                return false;
+            }
+        } else {
+            return false;
+        }
+
+        const finalGroundingStartedAt = Date.now();
+        const finalGrounding = runDeterministicGroundingCheck({
+            type: resolveGroundedContentType(normalizedQuestionType),
+            candidate: questionRecord,
+            evidenceIndex,
+            assessmentBlueprint,
+        });
+        timingBreakdown.deterministicMs += normalizeTimingMs(Date.now() - finalGroundingStartedAt);
+        countBreakdown.deterministicChecks += 1;
+        if (!finalGrounding.deterministicPass) {
+            groundingRejects += 1;
+            return false;
+        }
+
+        const finalQuestionText = anchorTextToTopic(
+            questionRecord.questionText,
+            topicWithQuestions.title,
+            topicKeywords,
+        );
+        const signature = buildQuestionPromptSignature(finalQuestionText);
+        const normalizedKey = String(signature?.normalized || "");
+        if (!normalizedKey || existingQuestionKeys.has(normalizedKey)) {
+            return false;
+        }
+        const fingerprint = String(signature?.fingerprint || "");
+        if (fingerprint && existingQuestionFingerprints.has(fingerprint)) {
+            nearDuplicateSkips += 1;
+            return false;
+        }
+        if (
+            existingQuestionSignatures.some((existingSignature: any) =>
+                areQuestionPromptsNearDuplicate(signature, existingSignature)
+            )
+        ) {
+            nearDuplicateSkips += 1;
+            return false;
+        }
+
+        const citations = finalGrounding.validCitations;
+        const resolvedOutcome = findAssessmentOutcome(
+            assessmentBlueprint,
+            String(questionRecord?.outcomeKey || ""),
+        );
+        const sourcePassageIds = Array.from(
+            new Set(
+                citations
+                    .map((citation: any) => String(citation?.passageId || "").trim())
+                    .filter(Boolean)
+            )
+        );
+        const questionPayload: Record<string, any> = {
+            topicId,
+            questionText: finalQuestionText,
+            questionType: normalizedQuestionType,
+            correctAnswer,
+            explanation: questionRecord.explanation,
+            difficulty: questionRecord.difficulty || "medium",
+            citations,
+            sourcePassageIds,
+            groundingScore: Number(questionRecord?.groundingScore || 0),
+            factualityStatus: String(questionRecord?.factualityStatus || "verified"),
+            generationVersion: ASSESSMENT_QUESTION_GENERATION_VERSION,
+            generationRunId,
+            learningObjective: String(
+                questionRecord?.learningObjective || resolvedOutcome?.objective || ""
+            ).trim() || undefined,
+            bloomLevel: String(questionRecord?.bloomLevel || resolvedOutcome?.bloomLevel || "").trim() || undefined,
+            outcomeKey: String(questionRecord?.outcomeKey || resolvedOutcome?.key || "").trim() || undefined,
+            authenticContext: String(questionRecord?.authenticContext || "").trim() || undefined,
+            qualityScore: Number(questionRecord?.rankingScore || questionRecord?.groundingScore || 0),
+            freshnessBucket: QUESTION_FRESHNESS_BUCKET_FRESH,
+            qualityFlags: normalizeQualityFlags(questionRecord?.qualityFlags),
+        };
+        if (Array.isArray(options) && options.length > 0) {
+            questionPayload.options = options;
+        }
+        if (normalizedQuestionType === QUESTION_TYPE_FILL_BLANK) {
+            questionPayload.templateParts = Array.isArray(questionRecord.templateParts)
+                ? questionRecord.templateParts
+                : undefined;
+            questionPayload.acceptedAnswers = Array.isArray(questionRecord.acceptedAnswers)
+                ? questionRecord.acceptedAnswers
+                : undefined;
+            questionPayload.tokens = Array.isArray(questionRecord.tokens) && questionRecord.tokens.length > 0
+                ? questionRecord.tokens
+                : undefined;
+            questionPayload.fillBlankMode = String(
+                questionRecord.fillBlankMode
+                || (Array.isArray(questionRecord.tokens) && questionRecord.tokens.length > 0 ? "token_bank" : "free_text")
+            ).trim() || undefined;
+        }
+
+        const saveStartedAt = Date.now();
+        const questionId = await ctx.runMutation(internal.topics.createQuestionInternal, questionPayload);
+        timingBreakdown.saveMs += normalizeTimingMs(Date.now() - saveStartedAt);
+
+        if (!questionId) {
+            return false;
+        }
+
+        existingQuestionKeys.add(normalizedKey);
+        existingQuestionSignatures.push(signature);
+        if (fingerprint) {
+            existingQuestionFingerprints.add(fingerprint);
+        }
+        coverageQuestions.push({
+            questionType: normalizedQuestionType,
+            questionText: finalQuestionText,
+            options,
+            templateParts: Array.isArray(questionRecord?.templateParts) ? questionRecord.templateParts : undefined,
+            acceptedAnswers: Array.isArray(questionRecord?.acceptedAnswers) ? questionRecord.acceptedAnswers : undefined,
+            tokens: Array.isArray(questionRecord?.tokens) ? questionRecord.tokens : undefined,
+            fillBlankMode: String(questionRecord?.fillBlankMode || "").trim() || undefined,
+            bloomLevel: String(questionRecord?.bloomLevel || resolvedOutcome?.bloomLevel || "").trim() || undefined,
+            outcomeKey: String(questionRecord?.outcomeKey || resolvedOutcome?.key || "").trim() || undefined,
+        });
+        added += 1;
+        countBreakdown.savedQuestionCount += 1;
+        return true;
+    };
+
     let added = 0;
     let noProgressRounds = 0;
     let usedVariationPrompt = false;
@@ -6189,23 +6976,37 @@ const generateQuestionBankForTopic = async (
     }
 
     while (
-        coveragePolicy.needsGeneration
+        (coveragePolicy.needsGeneration || !objectiveSubtypeMixPolicy.ready)
         && noProgressRounds < profile.noProgressLimit
         && round < maxRounds
         && Date.now() < deadlineMs
     ) {
         round += 1;
         countBreakdown.roundsAttempted = round;
-        const remaining = Math.max(1, Number(coveragePolicy.totalGapCount || 0));
+        const remaining = Math.max(
+            1,
+            Number(coveragePolicy.totalGapCount || 0),
+            Number(objectiveSubtypeMixPolicy.totalGapCount || 0),
+        );
         const batchSize = Math.min(
             remaining,
             clampNumber(remaining, profile.minBatchSize, profile.batchSize)
         );
-        const batchPlan = buildParallelBatchPlan({
+        const subtypeGenerationDeficits = objectiveSubtypeMixPolicy.ready
+            ? [QUESTION_TYPE_MULTIPLE_CHOICE, QUESTION_TYPE_TRUE_FALSE, QUESTION_TYPE_FILL_BLANK]
+                .map((questionType) => ({
+                    questionType,
+                    requestedCount: Number(objectiveSubtypeMixPolicy.targetBreakdown?.[questionType] || 0),
+                }))
+                .filter((entry) => entry.requestedCount > 0)
+            : objectiveSubtypeMixPolicy.deficits;
+        const batchPlan = buildObjectiveSubtypeBatchRequests({
+            deficits: subtypeGenerationDeficits,
             batchSize,
-            minBatchSize: profile.minBatchSize,
-            parallelRequests: profile.parallelRequests,
         });
+        if (batchPlan.length === 0) {
+            break;
+        }
         // Build a sample of existing questions for variation prompt (first 50 chars each)
         const existingQuestionSample = usedVariationPrompt
             ? Array.from(existingQuestionKeys).slice(0, 20).map(k => k.slice(0, 50)).join("\n- ")
@@ -6213,8 +7014,8 @@ const generateQuestionBankForTopic = async (
 
         const batchGenerationStartedAt = Date.now();
         const batchSettled = await Promise.allSettled(
-            batchPlan.map((requestedCount) =>
-                generateMcqQuestionGapBatch({
+            batchPlan.map(({ questionType, requestedCount }) => {
+                const sharedArgs = {
                     requestedCount,
                     topicTitle: effectiveTopic.title,
                     topicDescription: effectiveTopic.description,
@@ -6225,23 +7026,46 @@ const generateQuestionBankForTopic = async (
                     requestTimeoutMs: profile.requestTimeoutMs,
                     repairTimeoutMs: profile.repairTimeoutMs,
                     maxAttempts: profile.maxBatchAttempts,
-                    existingQuestionSample: existingQuestionSample || undefined,
-                })
-            )
+                };
+                const request = questionType === QUESTION_TYPE_TRUE_FALSE
+                    ? generateTrueFalseQuestionGapBatch(sharedArgs)
+                    : questionType === QUESTION_TYPE_FILL_BLANK
+                        ? generateFillBlankQuestionGapBatch(sharedArgs)
+                        : generateMcqQuestionGapBatch({
+                            ...sharedArgs,
+                            existingQuestionSample: existingQuestionSample || undefined,
+                        });
+                return request.then((candidates) => ({
+                    questionType,
+                    requestedCount,
+                    candidates,
+                }));
+            })
         );
         timingBreakdown.batchGenerationMs += normalizeTimingMs(Date.now() - batchGenerationStartedAt);
         countBreakdown.batchRequests += batchPlan.length;
-        const candidateQuestions = [];
+        const groupedCandidates = new Map<string, { requestedCount: number; candidates: any[] }>();
         for (const [batchIndex, result] of batchSettled.entries()) {
             if (result.status === "fulfilled") {
-                candidateQuestions.push(...result.value);
+                const questionType = normalizeQuestionType(result.value.questionType);
+                const existingGroup = groupedCandidates.get(questionType) || {
+                    requestedCount: 0,
+                    candidates: [],
+                };
+                existingGroup.requestedCount += Number(result.value.requestedCount || 0);
+                existingGroup.candidates.push(
+                    ...(Array.isArray(result.value.candidates) ? result.value.candidates : [])
+                );
+                groupedCandidates.set(questionType, existingGroup);
             } else {
+                const batchRequest = batchPlan[batchIndex] || {};
                 console.warn("[QuestionBank] batch_request_failed", {
                     topicId,
                     topicTitle: topicWithQuestions.title,
                     round,
                     batchIndex,
-                    requestedCount: batchPlan[batchIndex],
+                    questionType: String(batchRequest.questionType || QUESTION_TYPE_MULTIPLE_CHOICE),
+                    requestedCount: Number(batchRequest.requestedCount || 0),
                     message: result.reason instanceof Error ? result.reason.message : String(result.reason),
                 });
                 void captureBackendSentryMessage({
@@ -6257,231 +7081,93 @@ const generateQuestionBankForTopic = async (
                         topicTitle: topicWithQuestions.title,
                         round,
                         batchIndex,
-                        requestedCount: batchPlan[batchIndex],
+                        questionType: String(batchRequest.questionType || QUESTION_TYPE_MULTIPLE_CHOICE),
+                        requestedCount: Number(batchRequest.requestedCount || 0),
                         errorMessage: result.reason instanceof Error ? result.reason.message : String(result.reason),
                         timeBudgetMs: profile.timeBudgetMs,
                     },
                 });
             }
         }
-        countBreakdown.candidateCount += candidateQuestions.length;
-
-        const acceptanceMetrics = createGroundedAcceptanceMetrics();
-        const acceptanceStartedAt = Date.now();
+        countBreakdown.candidateCount += Array.from(groupedCandidates.values()).reduce(
+            (sum, group) => sum + group.candidates.length,
+            0,
+        );
         let roundAdded = 0;
-        const { acceptance } = await acceptAndPersistQuestionCandidates({
-            type: "mcq",
-            requestedCount: Math.max(1, remaining),
-            evidenceIndex,
-            assessmentBlueprint,
-            candidates: candidateQuestions,
-            repairCandidate: async ({ candidate, reasons }) =>
-                repairGroundedMcqCandidate({
-                    candidate,
-                    topicTitle: effectiveTopic.title,
-                    topicDescription: effectiveTopic.description,
-                    evidence: groundedPack.evidence,
-                    assessmentBlueprint: assessmentBlueprint as AssessmentBlueprint,
-                    repairReasons: reasons,
-                    timeoutMs: runMode === "interactive" ? 5000 : 8000,
-                }),
-            maxRepairCandidates: runMode === "interactive"
-                ? Math.min(3, Math.max(1, remaining))
-                : Math.min(8, Math.max(4, Math.ceil(remaining / 2))),
-            maxLlmVerifications: runMode === "interactive"
-                ? Math.min(4, Math.max(1, remaining))
-                : Math.min(12, Math.max(3, Math.ceil(remaining / 2))),
-            llmVerify: async (candidate) =>
-                verifyGroundedCandidateWithLlm({
-                    type: "mcq",
-                    candidate,
-                    evidenceSnippet,
-                    timeoutMs: runMode === "interactive" ? 5000 : 7000,
-                }),
-            metrics: acceptanceMetrics,
-            persistCandidate: async (question) => {
-                if (Date.now() >= deadlineMs) {
-                    return false;
-                }
-
-                if (!question?.questionText || typeof question.questionText !== "string") {
-                    return false;
-                }
-
-                let questionRecord = {
-                    ...question,
-                    questionText: anchorTextToTopic(
-                        question.questionText,
-                        topicWithQuestions.title,
-                        topicKeywords
-                    ),
-                };
-                let options = sanitizeQuestionOptions(normalizeOptions(questionRecord.options));
-                if (!hasUsableQuestionOptions(options)) {
-                    const remainingOptionBudgetMs = deadlineMs - Date.now();
-                    if (remainingOptionBudgetMs > 900) {
-                        countBreakdown.optionRepairAttempts += 1;
-                        const optionTimeoutMs = runMode === "interactive"
-                            ? Math.min(3000, Math.max(900, remainingOptionBudgetMs - 200))
-                            : Math.min(profile.requestTimeoutMs, Math.max(1000, remainingOptionBudgetMs - 200));
-                        const optionRepairStartedAt = Date.now();
-                        const generated = await generateOptionsForQuestion({
-                            question: questionRecord,
+        for (const [questionType, group] of groupedCandidates.entries()) {
+            if (!Array.isArray(group.candidates) || group.candidates.length === 0) {
+                continue;
+            }
+            const acceptanceMetrics = createGroundedAcceptanceMetrics();
+            const acceptanceStartedAt = Date.now();
+            const groundedRequestType = questionType === QUESTION_TYPE_MULTIPLE_CHOICE
+                ? "mcq"
+                : questionType === QUESTION_TYPE_TRUE_FALSE
+                    ? "true_false"
+                    : "fill_blank";
+            const { acceptance } = await acceptAndPersistQuestionCandidates({
+                type: groundedRequestType,
+                requestedCount: Math.max(1, Number(group.requestedCount || 0)),
+                evidenceIndex,
+                assessmentBlueprint,
+                candidates: group.candidates,
+                repairCandidate: groundedRequestType === "mcq"
+                    ? async ({ candidate, reasons }) =>
+                        repairGroundedMcqCandidate({
+                            candidate,
                             topicTitle: effectiveTopic.title,
                             topicDescription: effectiveTopic.description,
                             evidence: groundedPack.evidence,
                             assessmentBlueprint: assessmentBlueprint as AssessmentBlueprint,
-                            timeoutMs: optionTimeoutMs,
-                            repairReasons: ["invalid mcq structure", "unusable options"],
-                        });
-                        timingBreakdown.optionRepairMs += normalizeTimingMs(Date.now() - optionRepairStartedAt);
-                        if (generated && typeof generated === "object") {
-                            questionRecord = {
-                                ...questionRecord,
-                                ...generated,
-                                questionText: anchorTextToTopic(
-                                    generated.questionText || questionRecord.questionText,
-                                    topicWithQuestions.title,
-                                    topicKeywords
-                                ),
-                            };
-                        }
-                        const generatedOptions = sanitizeQuestionOptions(
-                            normalizeOptions(questionRecord.options)
-                        );
-                        if (hasUsableQuestionOptions(generatedOptions)) {
-                            countBreakdown.optionRepairSuccesses += 1;
-                            options = generatedOptions;
-                        }
+                            repairReasons: reasons,
+                            timeoutMs: runMode === "interactive" ? 5000 : 8000,
+                        })
+                    : undefined,
+                maxRepairCandidates: groundedRequestType === "mcq"
+                    ? runMode === "interactive"
+                        ? Math.min(3, Math.max(1, Number(group.requestedCount || 0)))
+                        : Math.min(8, Math.max(4, Math.ceil(Number(group.requestedCount || 0) / 2)))
+                    : 0,
+                maxLlmVerifications: runMode === "interactive"
+                    ? Math.min(4, Math.max(1, Number(group.requestedCount || 0)))
+                    : Math.min(12, Math.max(3, Math.ceil(Number(group.requestedCount || 0) / 2))),
+                llmVerify: async (candidate) =>
+                    verifyGroundedCandidateWithLlm({
+                        type: groundedRequestType,
+                        candidate,
+                        evidenceSnippet,
+                        timeoutMs: runMode === "interactive" ? 5000 : 7000,
+                    }),
+                metrics: acceptanceMetrics,
+                persistCandidate: async (question) => {
+                    const saved = await persistObjectiveCandidate(question, questionType);
+                    if (saved) {
+                        roundAdded += 1;
                     }
-                }
-
-                if (!hasUsableQuestionOptions(options)) {
-                    return false;
-                }
-
-                options = fillOptionLabels(options.slice(0, 4));
-                options = ensureSingleCorrect(options);
-                questionRecord = {
-                    ...questionRecord,
-                    options,
-                };
-
-                const finalGroundingStartedAt = Date.now();
-                const finalGrounding = runDeterministicGroundingCheck({
-                    type: resolveGroundedContentType("mcq"),
-                    candidate: questionRecord,
-                    evidenceIndex,
-                    assessmentBlueprint,
-                });
-                timingBreakdown.deterministicMs += normalizeTimingMs(Date.now() - finalGroundingStartedAt);
-                countBreakdown.deterministicChecks += 1;
-                if (!finalGrounding.deterministicPass) {
-                    groundingRejects += 1;
-                    return false;
-                }
-
-                const finalQuestionText = anchorTextToTopic(
-                    questionRecord.questionText,
-                    topicWithQuestions.title,
-                    topicKeywords
-                );
-                const signature = buildQuestionPromptSignature(finalQuestionText);
-                const normalizedKey = String(signature?.normalized || "");
-                if (!normalizedKey || existingQuestionKeys.has(normalizedKey)) {
-                    return false;
-                }
-                const fingerprint = String(signature?.fingerprint || "");
-                if (fingerprint && existingQuestionFingerprints.has(fingerprint)) {
-                    nearDuplicateSkips += 1;
-                    return false;
-                }
-                if (
-                    existingQuestionSignatures.some((existingSignature: any) =>
-                        areQuestionPromptsNearDuplicate(signature, existingSignature)
-                    )
-                ) {
-                    nearDuplicateSkips += 1;
-                    return false;
-                }
-
-                const correctOption = options.find((o: any) => o.isCorrect);
-                const citations = finalGrounding.validCitations;
-                const resolvedOutcome = findAssessmentOutcome(
-                    assessmentBlueprint,
-                    String(questionRecord?.outcomeKey || "")
-                );
-                const sourcePassageIds = Array.from(
-                    new Set(
-                        citations
-                            .map((citation: any) => String(citation?.passageId || "").trim())
-                            .filter(Boolean)
-                    )
-                );
-                const saveStartedAt = Date.now();
-                const questionId = await ctx.runMutation(internal.topics.createQuestionInternal, {
-                    topicId,
-                    questionText: finalQuestionText,
-                    questionType: "multiple_choice",
-                    options,
-                    correctAnswer: correctOption?.label || "A",
-                    explanation: questionRecord.explanation,
-                    difficulty: questionRecord.difficulty || "medium",
-                    citations,
-                    sourcePassageIds,
-                    groundingScore: Number(questionRecord?.groundingScore || 0),
-                    factualityStatus: String(questionRecord?.factualityStatus || "verified"),
-                    generationVersion: ASSESSMENT_QUESTION_GENERATION_VERSION,
-                    generationRunId,
-                    learningObjective: String(
-                        questionRecord?.learningObjective || resolvedOutcome?.objective || ""
-                    ).trim() || undefined,
-                    bloomLevel: String(questionRecord?.bloomLevel || resolvedOutcome?.bloomLevel || "").trim() || undefined,
-                    outcomeKey: String(questionRecord?.outcomeKey || resolvedOutcome?.key || "").trim() || undefined,
-                    authenticContext: String(questionRecord?.authenticContext || "").trim() || undefined,
-                    qualityScore: Number(questionRecord?.rankingScore || questionRecord?.groundingScore || 0),
-                    freshnessBucket: QUESTION_FRESHNESS_BUCKET_FRESH,
-                    qualityFlags: normalizeQualityFlags(questionRecord?.qualityFlags),
-                });
-                timingBreakdown.saveMs += normalizeTimingMs(Date.now() - saveStartedAt);
-
-                if (!questionId) {
-                    return false;
-                }
-
-                existingQuestionKeys.add(normalizedKey);
-                existingQuestionSignatures.push(signature);
-                if (fingerprint) {
-                    existingQuestionFingerprints.add(fingerprint);
-                }
-                coverageQuestions.push({
-                    questionType: "multiple_choice",
-                    questionText: finalQuestionText,
-                    bloomLevel: String(questionRecord?.bloomLevel || resolvedOutcome?.bloomLevel || "").trim() || undefined,
-                    outcomeKey: String(questionRecord?.outcomeKey || resolvedOutcome?.key || "").trim() || undefined,
-                });
-                added += 1;
-                roundAdded += 1;
-                countBreakdown.savedQuestionCount += 1;
-                return true;
-            },
-        });
-        timingBreakdown.acceptanceMs += normalizeTimingMs(Date.now() - acceptanceStartedAt);
-        timingBreakdown.deterministicMs += normalizeTimingMs(acceptanceMetrics.deterministicMs);
-        timingBreakdown.llmVerificationMs += normalizeTimingMs(acceptanceMetrics.llmVerificationMs);
-        timingBreakdown.repairMs += normalizeTimingMs(acceptanceMetrics.repairMs);
-        countBreakdown.acceptedCandidateCount += acceptance.accepted.length;
-        countBreakdown.rejectedCandidateCount += acceptance.rejected.length;
-        countBreakdown.deterministicChecks += acceptanceMetrics.deterministicChecks;
-        countBreakdown.llmVerificationCount += acceptanceMetrics.llmVerifications;
-        countBreakdown.llmVerificationErrorCount += acceptanceMetrics.llmVerificationErrors;
-        countBreakdown.llmRejectedCount += acceptanceMetrics.llmRejected;
-        countBreakdown.repairAttempts += acceptanceMetrics.repairAttempts;
-        countBreakdown.repairSuccesses += acceptanceMetrics.repairSuccesses;
-        groundingRejects += acceptance.rejected.length;
+                    return saved;
+                },
+            });
+            timingBreakdown.acceptanceMs += normalizeTimingMs(Date.now() - acceptanceStartedAt);
+            timingBreakdown.deterministicMs += normalizeTimingMs(acceptanceMetrics.deterministicMs);
+            timingBreakdown.llmVerificationMs += normalizeTimingMs(acceptanceMetrics.llmVerificationMs);
+            timingBreakdown.repairMs += normalizeTimingMs(acceptanceMetrics.repairMs);
+            countBreakdown.acceptedCandidateCount += acceptance.accepted.length;
+            countBreakdown.rejectedCandidateCount += acceptance.rejected.length;
+            countBreakdown.deterministicChecks += acceptanceMetrics.deterministicChecks;
+            countBreakdown.llmVerificationCount += acceptanceMetrics.llmVerifications;
+            countBreakdown.llmVerificationErrorCount += acceptanceMetrics.llmVerificationErrors;
+            countBreakdown.llmRejectedCount += acceptanceMetrics.llmRejected;
+            countBreakdown.repairAttempts += acceptanceMetrics.repairAttempts;
+            countBreakdown.repairSuccesses += acceptanceMetrics.repairSuccesses;
+            groundingRejects += acceptance.rejected.length;
+        }
         coveragePolicy = computeQuestionCoverageGaps({
             assessmentBlueprint,
             examFormat: "mcq",
+            questions: coverageQuestions,
+            targetCount,
+        });
+        objectiveSubtypeMixPolicy = buildObjectiveSubtypeMixPolicy({
             questions: coverageQuestions,
             targetCount,
         });
@@ -6799,8 +7485,7 @@ const countUsableUniqueMcqQuestions = (questions: any[]) => {
     for (const question of items) {
         const normalizedKey = normalizeQuestionKey(question?.questionText || "");
         if (!normalizedKey) continue;
-        const options = sanitizeQuestionOptions(normalizeOptions(question?.options));
-        if (!hasUsableQuestionOptions(options)) continue;
+        if (!isUsableExamQuestion(question)) continue;
         const signature = buildQuestionPromptSignature(question?.questionText || "");
         if (!signature?.normalized) continue;
         const fingerprint = String(signature?.fingerprint || "");

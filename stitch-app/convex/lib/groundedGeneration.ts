@@ -377,6 +377,7 @@ export const buildGroundedTrueFalsePrompt = (args: {
     requestedCount: number;
     evidence: RetrievedEvidence[];
     assessmentBlueprint: AssessmentBlueprint;
+    coverageTargets?: AssessmentCoverageTarget[];
 }) => `Create ${args.requestedCount} true/false questions strictly grounded in the evidence passages.
 
 TOPIC: ${args.topicTitle}
@@ -385,6 +386,9 @@ DESCRIPTION: ${args.topicDescription || "General concepts"}
 ${formatEvidence(args.evidence, 12000)}
 ASSESSMENT_BLUEPRINT:
 ${formatAssessmentBlueprint(args.assessmentBlueprint)}
+${Array.isArray(args.coverageTargets) && args.coverageTargets.length > 0
+        ? `\nCoverage gaps to prioritize first:\n${formatCoverageTargets(args.coverageTargets)}`
+        : ""}
 
 Rules:
 - Each question must be answerable only from evidence above.
@@ -392,6 +396,7 @@ Rules:
 - Use only outcome keys from assessmentBlueprint.trueFalsePlan.targetOutcomeKeys.
 - bloomLevel must exactly match the selected outcome's bloomLevel.
 - bloomLevel must be one of: Remember, Understand, Apply.
+- If coverage gaps are listed, satisfy those outcome priorities before generating extras.
 - Each question must be a single clear statement.
 - Use exactly 2 options: True and False.
 - Exactly one option must be correct.
@@ -429,6 +434,7 @@ export const buildGroundedFillBlankPrompt = (args: {
     requestedCount: number;
     evidence: RetrievedEvidence[];
     assessmentBlueprint: AssessmentBlueprint;
+    coverageTargets?: AssessmentCoverageTarget[];
 }) => `Create ${args.requestedCount} fill-in-the-blank questions strictly grounded in the evidence passages.
 
 TOPIC: ${args.topicTitle}
@@ -437,6 +443,9 @@ DESCRIPTION: ${args.topicDescription || "General concepts"}
 ${formatEvidence(args.evidence, 12000)}
 ASSESSMENT_BLUEPRINT:
 ${formatAssessmentBlueprint(args.assessmentBlueprint)}
+${Array.isArray(args.coverageTargets) && args.coverageTargets.length > 0
+        ? `\nCoverage gaps to prioritize first:\n${formatCoverageTargets(args.coverageTargets)}`
+        : ""}
 
 Rules:
 - Each question must be answerable only from evidence above.
@@ -444,6 +453,7 @@ Rules:
 - Use only outcome keys from assessmentBlueprint.fillBlankPlan.targetOutcomeKeys.
 - bloomLevel must exactly match the selected outcome's bloomLevel.
 - bloomLevel must be one of: Remember, Understand, Apply.
+- If coverage gaps are listed, satisfy those outcome priorities before generating extras.
 - Use exactly one blank only.
 - templateParts must contain exactly one "__" entry.
 - acceptedAnswers must contain the canonical correct answer first, then any exact aliases supported by the evidence.

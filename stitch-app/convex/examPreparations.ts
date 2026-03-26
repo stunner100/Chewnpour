@@ -48,29 +48,29 @@ const buildPreparationMessage = ({
     if (normalizedStatus === "ready") {
         return isEssay
             ? "Your essay exam is ready."
-            : "Your multiple-choice exam is ready.";
+            : "Your objective exam is ready.";
     }
 
     if (normalizedStatus === "preparing" || normalizedStatus === "queued") {
         return isEssay
             ? "Preparing your essay exam."
-            : "Preparing your multiple-choice exam.";
+            : "Preparing your objective exam.";
     }
 
     if (normalizedStatus === "unavailable") {
         if (normalizedReason === "INSUFFICIENT_EVIDENCE") {
             return isEssay
                 ? "We couldn't generate grounded essay questions from this topic yet."
-                : "We couldn't generate grounded multiple-choice questions from this topic yet.";
+                : "We couldn't generate grounded objective questions from this topic yet.";
         }
         if (normalizedReason === "MISSING_OUTCOME_COVERAGE") {
             return isEssay
                 ? "We couldn't generate a usable essay exam from this topic yet."
-                : "We couldn't generate a usable multiple-choice exam from this topic yet.";
+                : "We couldn't generate a usable objective exam from this topic yet.";
         }
         return isEssay
             ? "We couldn't generate a usable essay exam from this topic."
-            : "We couldn't generate a usable multiple-choice exam from this topic.";
+            : "We couldn't generate a usable objective exam from this topic.";
     }
 
     if (normalizedStatus === "failed") {
@@ -78,7 +78,7 @@ const buildPreparationMessage = ({
             || (
                 isEssay
                     ? "We hit a temporary issue while preparing your essay exam. Please retry."
-                    : "We hit a temporary issue while preparing your multiple-choice exam. Please retry."
+                    : "We hit a temporary issue while preparing your objective exam. Please retry."
             );
     }
 
@@ -86,7 +86,7 @@ const buildPreparationMessage = ({
         || (
             isEssay
                 ? "Preparing your essay exam."
-                : "Preparing your multiple-choice exam."
+                : "Preparing your objective exam."
         );
 };
 
