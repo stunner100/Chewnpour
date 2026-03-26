@@ -20,16 +20,19 @@ import {
     QUESTION_TYPE_MULTIPLE_CHOICE,
     QUESTION_TYPE_TRUE_FALSE,
 } from "./objectiveExam.js";
+import {
+    compareQuestionsByPremiumQuality,
+    summarizeQuestionSetQuality,
+} from "./premiumQuality.js";
 
 const DIFFICULTY_DISTRIBUTION = { easy: 0.3, medium: 0.5, hard: 0.2 };
 
+const sortQuestionsByPremiumQuality = (items) =>
+    [...(Array.isArray(items) ? items : [])]
+        .sort((left, right) => compareQuestionsByPremiumQuality(left, right));
+
 const pickRandomSubset = (items, size) => {
-    const copied = [...items];
-    for (let index = copied.length - 1; index > 0; index -= 1) {
-        const targetIndex = Math.floor(Math.random() * (index + 1));
-        [copied[index], copied[targetIndex]] = [copied[targetIndex], copied[index]];
-    }
-    return copied.slice(0, Math.max(0, size));
+    return sortQuestionsByPremiumQuality(items).slice(0, Math.max(0, size));
 };
 
 const pickDifficultyBalancedSubset = (items, size) => {
@@ -46,14 +49,14 @@ const pickDifficultyBalancedSubset = (items, size) => {
     const mediumTarget = size - easyTarget - hardTarget;
 
     const selected = [
-        ...pickRandomSubset(buckets.easy, easyTarget),
-        ...pickRandomSubset(buckets.medium, mediumTarget),
-        ...pickRandomSubset(buckets.hard, hardTarget),
+        ...pickRandomSubset(sortQuestionsByPremiumQuality(buckets.easy), easyTarget),
+        ...pickRandomSubset(sortQuestionsByPremiumQuality(buckets.medium), mediumTarget),
+        ...pickRandomSubset(sortQuestionsByPremiumQuality(buckets.hard), hardTarget),
     ];
 
     if (selected.length < size) {
         const selectedSet = new Set(selected);
-        const remaining = items.filter((item) => !selectedSet.has(item));
+        const remaining = sortQuestionsByPremiumQuality(items.filter((item) => !selectedSet.has(item)));
         selected.push(...pickRandomSubset(remaining, size - selected.length));
     }
 
@@ -313,6 +316,7 @@ const buildSelectionResult = ({
     const recycledCount = safeSelectedQuestions.filter((question) =>
         seenQuestionIds.has(String(question?._id))
     ).length;
+    const setQuality = summarizeQuestionSetQuality(safeSelectedQuestions);
     return {
         selectedQuestions: safeSelectedQuestions,
         dedupedCount: dedupedQuestions.length,
@@ -323,6 +327,10 @@ const buildSelectionResult = ({
         recycledCount,
         requiresGeneration: Boolean(requiresGeneration),
         unavailableReason: unavailableReason || undefined,
+        qualityTier: setQuality.qualityTier,
+        premiumTargetMet: setQuality.premiumTargetMet,
+        qualityWarnings: setQuality.qualityWarnings,
+        qualitySignals: setQuality.qualitySignals,
     };
 };
 
@@ -335,7 +343,7 @@ export const selectQuestionsForAttempt = ({
     assessmentBlueprint,
     bankTargetCount,
 }) => {
-    const dedupedQuestions = dedupeQuestionsByPrompt(questions);
+    const dedupedQuestions = sortQuestionsByPremiumQuality(dedupeQuestionsByPrompt(questions));
     const effectiveFormat = normalizeExamFormat(examFormat || (isEssay ? "essay" : OBJECTIVE_EXAM_FORMAT));
     const { seenQuestionIds, questionLastSeenOrder, completedAttemptCount } =
         buildSeenQuestionIdsFromCompletedAttempts(recentAttempts, effectiveFormat);
@@ -469,7 +477,10 @@ export const selectQuestionsForAttempt = ({
         .sort((left, right) => {
             const leftRank = questionLastSeenOrder.get(String(left?._id)) ?? Infinity;
             const rightRank = questionLastSeenOrder.get(String(right?._id)) ?? Infinity;
-            return rightRank - leftRank;
+            if (leftRank !== rightRank) {
+                return rightRank - leftRank;
+            }
+            return compareQuestionsByPremiumQuality(left, right);
         });
     const exhaustedBankSelection = evaluateCandidatePool(
         [...unseenQuestions, ...seenQuestionsByStaleness],

@@ -240,15 +240,19 @@ const MIN_ESSAY_SUBMIT_CHAR_COUNT = 20;
 const PREPARATION_STAGE_LABELS = {
     queued: 'Queueing exam preparation',
     checking_previous_attempt: 'Checking previous attempt',
-    generating_questions: 'Generating questions',
+    building_assessment_plan: 'Building assessment plan',
+    generating_candidates: 'Generating candidates',
+    reviewing_quality: 'Reviewing rigor and quality',
     finalizing_attempt: 'Finalizing exam set',
     completed: 'Exam ready',
-    unavailable: 'Full exam not available',
+    unavailable: 'Exam not available',
     failed: 'Exam preparation failed',
 };
 const PREPARATION_STAGE_ORDER = [
     'checking_previous_attempt',
-    'generating_questions',
+    'building_assessment_plan',
+    'generating_candidates',
+    'reviewing_quality',
     'finalizing_attempt',
 ];
 
@@ -265,8 +269,16 @@ const buildPreparationChecklist = (stage) => {
             state: activeIndex > 0 ? 'done' : normalizedStage === 'checking_previous_attempt' || normalizedStage === 'queued' ? 'active' : 'pending',
         },
         {
-            label: 'Generating questions',
-            state: activeIndex > 1 ? 'done' : normalizedStage === 'generating_questions' ? 'active' : 'pending',
+            label: 'Building assessment plan',
+            state: activeIndex > 1 ? 'done' : normalizedStage === 'building_assessment_plan' ? 'active' : 'pending',
+        },
+        {
+            label: 'Generating candidates',
+            state: activeIndex > 2 ? 'done' : normalizedStage === 'generating_candidates' ? 'active' : 'pending',
+        },
+        {
+            label: 'Reviewing rigor and quality',
+            state: activeIndex > 3 ? 'done' : normalizedStage === 'reviewing_quality' ? 'active' : 'pending',
         },
         {
             label: 'Finalizing exam set',
@@ -1025,6 +1037,7 @@ const ExamMode = () => {
     const preparationPanelTitle = isPreparationTerminal
         ? (preparationStatus === 'unavailable' ? 'Exam Not Available' : 'Exam Preparation Failed')
         : 'Preparing Your Exam';
+    const examQualityTier = typeof preparation?.qualityTier === 'string' ? preparation.qualityTier : '';
 
     // Keep hook order stable across loading/error/exam states.
     // For fill_blank questions, build options from the tokens word bank.
@@ -1317,6 +1330,16 @@ const ExamMode = () => {
                                     <Link to="/login" className="ml-2 font-semibold underline">Sign in</Link>
                                 )}
                             </p>
+                        </div>
+                    )}
+                    {examQualityTier === 'premium' && (
+                        <div className="mb-4 p-3 rounded-xl bg-emerald-50 dark:bg-emerald-900/10 border border-emerald-200 dark:border-emerald-900/30">
+                            <p className="text-body-sm text-emerald-800 dark:text-emerald-300">Premium exam ready. This set met the higher university-level quality targets.</p>
+                        </div>
+                    )}
+                    {examQualityTier === 'limited' && (
+                        <div className="mb-4 p-3 rounded-xl bg-blue-50 dark:bg-blue-900/10 border border-blue-200 dark:border-blue-900/30">
+                            <p className="text-body-sm text-blue-800 dark:text-blue-300">Best available exam ready. We generated the strongest grounded set available from this source, but it did not fully meet the premium quality bar.</p>
                         </div>
                     )}
 

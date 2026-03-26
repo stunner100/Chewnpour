@@ -17,7 +17,7 @@ if (!/buildQuestionPromptSignature/.test(topicsSource) || !/areQuestionPromptsNe
   throw new Error("Expected topics.ts to import prompt-similarity helpers for essay dedupe.");
 }
 
-if (!/const normalizedQuestionType = String\(args\.questionType \|\| ""\)\.trim\(\)\.toLowerCase\(\);[\s\S]*if \(normalizedQuestionType === "essay"\)/.test(topicsSource)) {
+if (!/const normalizedQuestionType = normalizeQuestionType\(args\.questionType\);[\s\S]*if \(normalizedQuestionType === "essay"\)[\s\S]*buildQuestionPromptSignature\(args\.questionText\)/.test(topicsSource)) {
   throw new Error("Expected createQuestionInternal to apply same-format dedupe logic for essays.");
 }
 
