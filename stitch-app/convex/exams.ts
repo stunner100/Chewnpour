@@ -1,6 +1,6 @@
 import { ConvexError, v } from "convex/values";
 import { action, internalMutation, internalQuery, mutation, query } from "./_generated/server";
-import { api, internal } from "./_generated/api";
+import { internal } from "./_generated/api";
 import {
     assertAuthorizedUser,
     computeExamPercentage,
@@ -31,22 +31,27 @@ const safeGetQuestionById = async (ctx: any, questionId: any) => {
 const resolveRequestedExamFormat = (value: unknown) =>
     String(value || "").trim().toLowerCase() === "essay" ? "essay" : "mcq";
 
-const buildDeferredStartResponse = (examFormat: string, message?: string) => {
-    const isEssay = examFormat === "essay";
-    return {
-        ready: false,
-        attemptId: null,
-        totalQuestions: 0,
-        questions: [],
-        reusedAttempt: false,
-        deferred: true,
-        code: isEssay ? "ESSAY_QUESTIONS_PREPARING" : "EXAM_QUESTIONS_PREPARING",
-        message: message || (
-            isEssay
-                ? "Preparing a full essay exam. Please try again in a few seconds."
-                : "Preparing a full multiple-choice exam. Please try again in a few seconds."
-        ),
-    };
+const createExamAttemptDocument = async ({
+    ctx,
+    attemptDocument,
+}: {
+    ctx: any;
+    attemptDocument: Record<string, unknown>;
+}) => {
+    try {
+        return await ctx.db.insert("examAttempts", attemptDocument);
+    } catch (insertError) {
+        const insertMessage = String((insertError as { message?: unknown })?.message || "");
+        const legacySchemaMismatch =
+            /table "examAttempts"/i.test(insertMessage)
+            && /extra field `examFormat`/i.test(insertMessage);
+        if (!legacySchemaMismatch) {
+            throw insertError;
+        }
+
+        const { examFormat: _FORMAT_FIELD, ...legacyAttemptDocument } = attemptDocument;
+        return await ctx.db.insert("examAttempts", legacyAttemptDocument);
+    }
 };
 
 
@@ -100,7 +105,7 @@ export const requestEssayQuestionTopUp = mutation({
     },
 });
 
-export const prepareStartExamAttemptInternal = internalMutation({
+export const ensurePreparedExamAttemptInternal = internalMutation({
     args: {
         userId: v.string(),
         topicId: v.id("topics"),
@@ -173,7 +178,7 @@ export const prepareStartExamAttemptInternal = internalMutation({
                     sanitizeExamQuestionForClient(question)
                 );
                 return {
-                    ready: true,
+                    status: "ready",
                     attemptId: reusableAttempt._id,
                     totalQuestions: reusableQuestions.length,
                     questions: safeQuestions,
@@ -197,7 +202,16 @@ export const prepareStartExamAttemptInternal = internalMutation({
             isUsableExamQuestion(question, { allowEssay: isEssay })
         );
         if (usableQuestions.length < requiredQuestionCount) {
-            return buildDeferredStartResponse(examFormat);
+            return {
+                status: "needs_generation",
+                reasonCode: "INSUFFICIENT_READY_QUESTIONS",
+                requiredQuestionCount,
+                usableQuestionCount: usableQuestions.length,
+                totalQuestions: 0,
+                attemptId: null,
+                questions: [],
+                reusedAttempt: false,
+            };
         }
 
         const selection = selectQuestionsForAttempt({
@@ -210,7 +224,19 @@ export const prepareStartExamAttemptInternal = internalMutation({
         const selectedQuestions = selection.selectedQuestions;
 
         if (selectedQuestions.length < requiredQuestionCount || selection.requiresFreshGeneration) {
-            return buildDeferredStartResponse(examFormat);
+            return {
+                status: "needs_generation",
+                reasonCode: selection.requiresFreshGeneration
+                    ? "INSUFFICIENT_FRESH_QUESTIONS"
+                    : "INSUFFICIENT_READY_QUESTIONS",
+                requiredQuestionCount,
+                usableQuestionCount: usableQuestions.length,
+                totalQuestions: 0,
+                attemptId: null,
+                questions: [],
+                reusedAttempt: false,
+                selection,
+            };
         }
 
         const questionIds = selectedQuestions.map((question) => question._id);
@@ -229,96 +255,19 @@ export const prepareStartExamAttemptInternal = internalMutation({
             startedAt: Date.now(),
         };
 
-        const attemptId = await (async () => {
-            try {
-                return await ctx.db.insert("examAttempts", attemptDocument);
-            } catch (insertError) {
-                const insertMessage = String((insertError as { message?: unknown })?.message || "");
-                const legacySchemaMismatch =
-                    /table "examAttempts"/i.test(insertMessage)
-                    && /extra field `examFormat`/i.test(insertMessage);
-                if (!legacySchemaMismatch) {
-                    throw insertError;
-                }
-
-                const { examFormat: _FORMAT_FIELD, ...legacyAttemptDocument } = attemptDocument;
-                return await ctx.db.insert("examAttempts", legacyAttemptDocument);
-            }
-        })();
+        const attemptId = await createExamAttemptDocument({
+            ctx,
+            attemptDocument,
+        });
 
         return {
-            ready: true,
+            status: "ready",
             attemptId,
             totalQuestions: selectedQuestions.length,
             questions: safeQuestions,
             reusedAttempt: false,
+            startedAt: attemptDocument.startedAt,
         };
-    },
-});
-
-// Start a new exam attempt
-export const startExamAttempt = action({
-    args: {
-        userId: v.optional(v.string()),
-        topicId: v.id("topics"),
-        examFormat: v.optional(v.string()), // 'mcq' | 'essay'
-    },
-    handler: async (ctx, args) => {
-        const identity = await ctx.auth.getUserIdentity();
-        const authUserId = resolveAuthUserId(identity);
-        const effectiveUserId = assertAuthorizedUser({
-            authUserId,
-            requestedUserId: args.userId,
-        });
-        const examFormat = resolveRequestedExamFormat(args.examFormat);
-
-        const resolveReadyAttempt = async () =>
-            await ctx.runMutation(internal.exams.prepareStartExamAttemptInternal, {
-                userId: effectiveUserId,
-                topicId: args.topicId,
-                examFormat,
-            });
-
-        const initialAttempt = await resolveReadyAttempt();
-        if (initialAttempt?.ready) {
-            const { ready: _READY, ...result } = initialAttempt;
-            return result;
-        }
-
-        try {
-            if (examFormat === "essay") {
-                await ctx.runAction(internal.ai.generateEssayQuestionsForTopicOnDemandInternal, {
-                    topicId: args.topicId,
-                    count: EXAM_ESSAY_QUESTION_SUBSET_SIZE,
-                });
-            } else {
-                await ctx.runAction(internal.ai.generateQuestionsForTopicOnDemandInternal, {
-                    topicId: args.topicId,
-                });
-            }
-        } catch (error) {
-            console.warn("[ExamStart] generation_failed", {
-                topicId: args.topicId,
-                examFormat,
-                message: error instanceof Error ? error.message : String(error),
-            });
-            const { ready: _READY, ...result } = buildDeferredStartResponse(
-                examFormat,
-                examFormat === "essay"
-                    ? "We couldn't prepare the full essay exam yet. Please try again."
-                    : "We couldn't prepare the full multiple-choice exam yet. Please try again."
-            );
-            return result;
-        }
-
-        const finalAttempt = await resolveReadyAttempt();
-        if (finalAttempt?.ready) {
-            const { ready: _READY, ...result } = finalAttempt;
-            return result;
-        }
-
-        const { ready: _READY, ...result } = finalAttempt || buildDeferredStartResponse(examFormat);
-        return result;
     },
 });
 

@@ -329,6 +329,29 @@ export default defineSchema({
         claimedAt: v.optional(v.number()), // timestamp when reused attempt was claimed by a session
     }).index("by_userId", ["userId"]).index("by_topicId", ["topicId"]).index("by_userId_topicId", ["userId", "topicId"]),
 
+    examPreparations: defineTable({
+        userId: v.string(),
+        topicId: v.id("topics"),
+        examFormat: v.string(), // 'mcq' | 'essay'
+        assessmentVersion: v.optional(v.string()),
+        status: v.string(), // 'queued' | 'preparing' | 'ready' | 'unavailable' | 'failed'
+        stage: v.string(),
+        attemptTargetCount: v.number(),
+        bankTargetCount: v.number(),
+        usableCount: v.number(),
+        generatedCount: v.number(),
+        reasonCode: v.optional(v.string()),
+        errorSummary: v.optional(v.string()),
+        message: v.optional(v.string()),
+        attemptId: v.optional(v.id("examAttempts")),
+        startedAt: v.number(),
+        finishedAt: v.optional(v.number()),
+    })
+        .index("by_userId_topicId", ["userId", "topicId"])
+        .index("by_topicId", ["topicId"])
+        .index("by_userId_topicId_examFormat", ["userId", "topicId", "examFormat"])
+        .index("by_status", ["status"]),
+
     // Concept practice attempts
     conceptAttempts: defineTable({
         userId: v.string(),

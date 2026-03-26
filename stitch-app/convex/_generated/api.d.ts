@@ -21,6 +21,7 @@ import type * as crons from "../crons.js";
 import type * as devAuth from "../devAuth.js";
 import type * as emailHelpers from "../emailHelpers.js";
 import type * as emails from "../emails.js";
+import type * as examPreparations from "../examPreparations.js";
 import type * as exams from "../exams.js";
 import type * as extraction from "../extraction.js";
 import type * as extractionState from "../extractionState.js";
@@ -84,6 +85,7 @@ declare const fullApi: ApiFromModules<{
   devAuth: typeof devAuth;
   emailHelpers: typeof emailHelpers;
   emails: typeof emails;
+  examPreparations: typeof examPreparations;
   exams: typeof exams;
   extraction: typeof extraction;
   extractionState: typeof extractionState;

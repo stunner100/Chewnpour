@@ -6,19 +6,25 @@ const root = process.cwd();
 const examModePath = path.join(root, 'src', 'pages', 'ExamMode.jsx');
 const aiPath = path.join(root, 'convex', 'ai.ts');
 
-const examModeSource = await fs.readFile(examModePath, 'utf8');
-const aiSource = await fs.readFile(aiPath, 'utf8');
+const [examModeSource, aiSource] = await Promise.all([
+  fs.readFile(examModePath, 'utf8'),
+  fs.readFile(aiPath, 'utf8'),
+]);
 
 if (!/START_EXAM_ATTEMPT_TIMEOUT_MS\s*=\s*120_000/.test(examModeSource)) {
-  throw new Error('Expected ExamMode to enforce a blocking startExamAttempt timeout.');
+  throw new Error('Expected ExamMode to enforce a start-preparation timeout.');
 }
 
 if (!/EXAM_LOADING_STALL_TIMEOUT_MS\s*=\s*150_000/.test(examModeSource)) {
   throw new Error('Expected ExamMode to monitor long-running exam preparation stalls.');
 }
 
-if (!/withTimeout\(\s*startExam\(\{\s*topicId,\s*examFormat\s*\}\)/s.test(examModeSource)) {
-  throw new Error('Expected ExamMode startExamAttempt calls to be wrapped with a timeout.');
+if (!/withTimeout\(\s*startExamPreparation\(\{\s*topicId,\s*examFormat\s*\}\)/s.test(examModeSource)) {
+  throw new Error('Expected ExamMode startExamPreparation calls to be wrapped with a timeout.');
+}
+
+if (!/startingExamAttempt \|\| isPreparationRunning/.test(examModeSource)) {
+  throw new Error('Expected ExamMode to treat live preparation status as part of the loading-stall watchdog.');
 }
 
 for (const forbiddenPattern of [
@@ -27,14 +33,15 @@ for (const forbiddenPattern of [
   'setAutoGenerationPaused',
   'generateQuestions({ topicId })',
   'generateEssayQuestions({',
+  'result?.deferred === true',
 ]) {
   if (examModeSource.includes(forbiddenPattern)) {
-    throw new Error(`Regression detected: ExamMode should not keep old client-side generation timeout logic (${forbiddenPattern}).`);
+    throw new Error(`Regression detected: ExamMode should not keep old start-flow timeout logic (${forbiddenPattern}).`);
   }
 }
 
 if (!/if\s*\(\s*Date\.now\(\)\s*>=\s*deadlineMs\s*\)\s*\{\s*break;\s*\}/s.test(aiSource)) {
-  throw new Error('Expected backend question-bank loop to stop work when the interactive deadline is reached.');
+  throw new Error('Expected backend question-bank loops to stop work when the interactive deadline is reached.');
 }
 
 if (!/const\s+optionTimeoutMs\s*=\s*runMode\s*===\s*"interactive"/.test(aiSource)) {
