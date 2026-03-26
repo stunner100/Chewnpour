@@ -5,6 +5,7 @@ import {
     consumeUploadCreditOrThrow,
     getHistoricalStoredUploadCount,
 } from "./subscriptions";
+import { GROUNDED_EVIDENCE_INDEX_VERSION } from "./lib/groundedEvidenceIndex";
 
 const resolveAuthUserId = (identity: any) => {
     if (!identity || typeof identity !== "object") return "";
@@ -118,7 +119,7 @@ export const createUpload = mutation({
             extractionCoverage: 0,
             extractionVersion: "v2",
             provisionalExtraction: false,
-            evidenceIndexVersion: "grounded-v1",
+            evidenceIndexVersion: GROUNDED_EVIDENCE_INDEX_VERSION,
             evidencePassageCount: 0,
             embeddingsStatus: "pending",
             embeddingsVersion: "voyage-large-2-1536-v1",

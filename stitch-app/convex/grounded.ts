@@ -5,6 +5,7 @@ import { api, internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
 import {
     buildGroundedEvidenceIndexFromArtifact,
+    GROUNDED_EVIDENCE_INDEX_VERSION,
     type EvidencePassage,
 } from "./lib/groundedEvidenceIndex";
 import { retrieveGroundedEvidence } from "./lib/groundedRetrieval";
@@ -103,6 +104,15 @@ const readJsonFromStorage = async (ctx: any, storageId: Id<"_storage">) => {
 const writeJsonToStorage = async (ctx: any, value: unknown): Promise<Id<"_storage">> => {
     const blob = new Blob([JSON.stringify(value)], { type: "application/json" });
     return await ctx.storage.store(blob);
+};
+
+const hasCurrentGroundedEvidenceIndex = (upload: any, index: any) => {
+    const storedVersion = String(index?.version || "").trim();
+    const uploadVersion = String(upload?.evidenceIndexVersion || "").trim();
+    if (storedVersion !== GROUNDED_EVIDENCE_INDEX_VERSION) {
+        return false;
+    }
+    return !uploadVersion || uploadVersion === GROUNDED_EVIDENCE_INDEX_VERSION;
 };
 
 const countWords = (value: unknown) =>
@@ -346,7 +356,11 @@ const loadGroundedEvidenceIndexForTopicSweep = async (ctx: any, topic: any) => {
     if (upload.evidenceIndexStorageId) {
         try {
             const stored = await readJsonFromStorage(ctx, upload.evidenceIndexStorageId);
-            if (stored && Array.isArray((stored as any)?.passages)) {
+            if (
+                stored
+                && Array.isArray((stored as any)?.passages)
+                && hasCurrentGroundedEvidenceIndex(upload, stored)
+            ) {
                 return { index: stored, upload };
             }
         } catch {
@@ -358,6 +372,10 @@ const loadGroundedEvidenceIndexForTopicSweep = async (ctx: any, topic: any) => {
         try {
             const artifact = await readJsonFromStorage(ctx, upload.extractionArtifactStorageId);
             if (artifact && Array.isArray((artifact as any)?.pages)) {
+                void ctx.scheduler.runAfter(0, (internal as any).grounded.buildEvidenceIndex, {
+                    uploadId: upload._id,
+                    artifactStorageId: upload.extractionArtifactStorageId,
+                }).catch(() => { });
                 return {
                     index: buildGroundedEvidenceIndexFromArtifact({
                         artifact,
@@ -897,7 +915,7 @@ export const buildEvidenceIndex = internalAction({
         } catch (error) {
             await ctx.runMutation((internal as any).grounded.insertUploadEvidenceIndexRecord, {
                 uploadId: args.uploadId,
-                version: "grounded-v1",
+                version: GROUNDED_EVIDENCE_INDEX_VERSION,
                 storageId: artifactStorageId,
                 passageCount: 0,
                 status: "failed",

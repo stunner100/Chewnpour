@@ -46,6 +46,7 @@ import {
 } from "./lib/questionPromptSimilarity";
 import {
     buildGroundedEvidenceIndexFromArtifact,
+    GROUNDED_EVIDENCE_INDEX_VERSION,
     type GroundedEvidenceIndex,
 } from "./lib/groundedEvidenceIndex";
 import { retrieveGroundedEvidence, type RetrievedEvidence } from "./lib/groundedRetrieval";
@@ -262,7 +263,7 @@ const TOPIC_ILLUSTRATION_GENERATION_ENABLED = ["1", "true", "yes", "on"].include
     String(process.env.TOPIC_ILLUSTRATION_GENERATION_ENABLED || "false").trim().toLowerCase()
 );
 const MIN_EXTRACTED_TEXT_LENGTH = 200;
-const GROUNDED_GENERATION_VERSION = "grounded-v1";
+const GROUNDED_GENERATION_VERSION = GROUNDED_EVIDENCE_INDEX_VERSION;
 const ASSESSMENT_QUESTION_GENERATION_VERSION = ASSESSMENT_BLUEPRINT_VERSION;
 const GROUNDED_REGEN_MAX_ATTEMPTS = 3;
 const BACKEND_SENTRY_DSN = String(process.env.SENTRY_DSN || process.env.VITE_SENTRY_DSN || "").trim();
@@ -2095,6 +2096,15 @@ const fetchJsonFromStorageId = async (ctx: any, storageId: any) => {
     return await response.json();
 };
 
+const hasCurrentGroundedEvidenceIndex = (upload: any, index: any) => {
+    const storedVersion = String(index?.version || "").trim();
+    const uploadVersion = String(upload?.evidenceIndexVersion || "").trim();
+    if (storedVersion !== GROUNDED_EVIDENCE_INDEX_VERSION) {
+        return false;
+    }
+    return !uploadVersion || uploadVersion === GROUNDED_EVIDENCE_INDEX_VERSION;
+};
+
 const loadGroundedEvidenceIndexForUpload = async (ctx: any, uploadId: any): Promise<{
     index: GroundedEvidenceIndex | null;
     upload: any | null;
@@ -2106,7 +2116,11 @@ const loadGroundedEvidenceIndexForUpload = async (ctx: any, uploadId: any): Prom
     let index: GroundedEvidenceIndex | null = null;
     if (upload.evidenceIndexStorageId) {
         const stored = await fetchJsonFromStorageId(ctx, upload.evidenceIndexStorageId);
-        if (stored && Array.isArray(stored?.passages)) {
+        if (
+            stored
+            && Array.isArray(stored?.passages)
+            && hasCurrentGroundedEvidenceIndex(upload, stored)
+        ) {
             index = stored as GroundedEvidenceIndex;
         }
     }
@@ -2118,7 +2132,7 @@ const loadGroundedEvidenceIndexForUpload = async (ctx: any, uploadId: any): Prom
                 artifact,
                 uploadId: String(upload._id || ""),
             });
-            // Best effort async persistence of freshly built index.
+            // Best effort async persistence of freshly built or upgraded index.
             void ctx.scheduler.runAfter(0, (internal as any).grounded.buildEvidenceIndex, {
                 uploadId: upload._id,
                 artifactStorageId: upload.extractionArtifactStorageId,
