@@ -1164,12 +1164,194 @@ const parseJsonFromResponse = (raw: string, label: string) => {
     }
 };
 
+const normalizeDifficultyLabel = (value: any) => {
+    const normalized = String(value || "").trim().toLowerCase();
+    if (normalized === "easy" || normalized === "hard") {
+        return normalized;
+    }
+    return "medium";
+};
+
+const normalizeCitationCandidate = (citation: any) => {
+    const passageId = String(citation?.passageId || "").trim();
+    const quote = String(citation?.quote || "").trim();
+    if (!passageId || !quote) {
+        return null;
+    }
+
+    const page = Math.max(0, Math.round(Number(citation?.page) || 0));
+    const startChar = Math.max(0, Math.round(Number(citation?.startChar) || 0));
+    const endChar = Math.max(startChar + 1, Math.round(Number(citation?.endChar) || 0));
+
+    return {
+        passageId,
+        page,
+        startChar,
+        endChar,
+        quote,
+    };
+};
+
+const normalizeCitationCandidates = (citations: any) =>
+    (Array.isArray(citations) ? citations : [])
+        .map((citation) => normalizeCitationCandidate(citation))
+        .filter(Boolean)
+        .slice(0, 4);
+
+const normalizeQualityFlags = (value: any) =>
+    Array.from(
+        new Set(
+            (Array.isArray(value) ? value : [])
+                .map((entry) => String(entry || "").trim())
+                .filter(Boolean)
+        )
+    ).slice(0, 8);
+
+const extractQuestionsEnvelope = (payload: any) => {
+    if (Array.isArray(payload)) {
+        return payload;
+    }
+    if (Array.isArray(payload?.questions)) {
+        return payload.questions;
+    }
+    if (Array.isArray(payload?.items)) {
+        return payload.items;
+    }
+    if (Array.isArray(payload?.data?.questions)) {
+        return payload.data.questions;
+    }
+    if (payload?.question && typeof payload.question === "object") {
+        return [payload.question];
+    }
+    return [];
+};
+
+const normalizeMcqOptionCandidate = (option: any, index: number, candidateCorrectAnswer?: string) => {
+    const label = String(option?.label || String.fromCharCode(65 + index)).trim().toUpperCase();
+    const text = String(
+        typeof option === "string"
+            ? option
+            : option?.text ?? option?.answer ?? option?.option ?? ""
+    ).trim();
+    if (!text) {
+        return null;
+    }
+
+    const normalizedCorrectAnswer = String(candidateCorrectAnswer || "").trim().toLowerCase();
+    const isCorrect = option?.isCorrect === true
+        || (normalizedCorrectAnswer && label.toLowerCase() === normalizedCorrectAnswer)
+        || (normalizedCorrectAnswer && text.toLowerCase() === normalizedCorrectAnswer);
+
+    return {
+        label: /^[A-D]$/.test(label) ? label : String.fromCharCode(65 + index),
+        text,
+        isCorrect,
+    };
+};
+
+const coerceMcqCandidate = (candidate: any) => {
+    const questionText = String(candidate?.questionText || candidate?.prompt || "").trim();
+    if (questionText.length < 12) {
+        return null;
+    }
+
+    const options = (Array.isArray(candidate?.options) ? candidate.options : [])
+        .map((option, index) => normalizeMcqOptionCandidate(option, index, candidate?.correctAnswer))
+        .filter(Boolean)
+        .slice(0, 4);
+    const citations = normalizeCitationCandidates(candidate?.citations);
+    const explanation = String(candidate?.explanation || "").trim();
+    const learningObjective = String(candidate?.learningObjective || "").trim();
+    const qualityFlags = normalizeQualityFlags(candidate?.qualityFlags);
+    if (options.length !== 4) {
+        qualityFlags.push("coerced_options");
+    }
+    if (citations.length === 0) {
+        qualityFlags.push("missing_citations");
+    }
+
+    return {
+        questionText,
+        options,
+        explanation: explanation || undefined,
+        difficulty: normalizeDifficultyLabel(candidate?.difficulty),
+        learningObjective: learningObjective || undefined,
+        bloomLevel: String(candidate?.bloomLevel || "").trim() || undefined,
+        outcomeKey: String(candidate?.outcomeKey || "").trim() || undefined,
+        authenticContext: String(candidate?.authenticContext || "").trim() || undefined,
+        citations,
+        qualityFlags: normalizeQualityFlags(qualityFlags),
+    };
+};
+
+const coerceEssayCandidate = (candidate: any) => {
+    const questionText = String(candidate?.questionText || candidate?.prompt || "").trim();
+    const correctAnswer = String(candidate?.correctAnswer || candidate?.modelAnswer || "").trim();
+    if (questionText.length < 12 || correctAnswer.length < 6) {
+        return null;
+    }
+
+    const rubricPoints = (Array.isArray(candidate?.rubricPoints) ? candidate.rubricPoints : [])
+        .map((item) => String(item || "").trim())
+        .filter(Boolean)
+        .slice(0, 8);
+    const citations = normalizeCitationCandidates(candidate?.citations);
+    const explanation = String(candidate?.explanation || "").trim();
+    const learningObjective = String(candidate?.learningObjective || "").trim();
+    const qualityFlags = normalizeQualityFlags(candidate?.qualityFlags);
+    if (rubricPoints.length === 0) {
+        qualityFlags.push("missing_rubric_points");
+    }
+    if (citations.length === 0) {
+        qualityFlags.push("missing_citations");
+    }
+
+    return {
+        questionText,
+        correctAnswer,
+        explanation: explanation || undefined,
+        difficulty: normalizeDifficultyLabel(candidate?.difficulty),
+        questionType: "essay",
+        learningObjective: learningObjective || undefined,
+        bloomLevel: String(candidate?.bloomLevel || "").trim() || undefined,
+        outcomeKey: String(candidate?.outcomeKey || "").trim() || undefined,
+        authenticContext: String(candidate?.authenticContext || "").trim() || undefined,
+        rubricPoints,
+        citations,
+        qualityFlags: normalizeQualityFlags(qualityFlags),
+    };
+};
+
+const coerceGeneratedQuestionSet = (args: {
+    payload: any;
+    questionType: "mcq" | "essay";
+}) => {
+    const rawQuestions = extractQuestionsEnvelope(args.payload);
+    const questions = rawQuestions
+        .map((candidate) =>
+            args.questionType === "essay"
+                ? coerceEssayCandidate(candidate)
+                : coerceMcqCandidate(candidate)
+        )
+        .filter(Boolean);
+
+    return { questions };
+};
+
 const parseQuestionsWithRepair = async (
     raw: string,
     options?: { deadlineMs?: number; repairTimeoutMs?: number }
 ) => {
     try {
-        return parseJsonFromResponse(raw, "questions");
+        const parsed = parseJsonFromResponse(raw, "questions");
+        const coerced = coerceGeneratedQuestionSet({
+            payload: parsed,
+            questionType: "mcq",
+        });
+        if (coerced.questions.length > 0) {
+            return coerced;
+        }
+        throw new Error("No valid questions after coercion.");
     } catch (error) {
         const remainingMs = Number.isFinite(Number(options?.deadlineMs))
             ? Number(options?.deadlineMs) - Date.now()
@@ -1228,7 +1410,10 @@ ${String(raw || "").slice(0, 20000)}
                 timeoutMs: repairTimeoutMs,
             });
 
-            return parseJsonFromResponse(repaired, "repaired questions");
+            return coerceGeneratedQuestionSet({
+                payload: parseJsonFromResponse(repaired, "repaired questions"),
+                questionType: "mcq",
+            });
         } catch (repairError) {
             return { questions: [] };
         }
@@ -1240,7 +1425,15 @@ const parseEssayQuestionsWithRepair = async (
     options?: { deadlineMs?: number; repairTimeoutMs?: number }
 ) => {
     try {
-        return parseJsonFromResponse(raw, "essay_questions");
+        const parsed = parseJsonFromResponse(raw, "essay_questions");
+        const coerced = coerceGeneratedQuestionSet({
+            payload: parsed,
+            questionType: "essay",
+        });
+        if (coerced.questions.length > 0) {
+            return coerced;
+        }
+        throw new Error("No valid essay questions after coercion.");
     } catch (error) {
         const remainingMs = Number.isFinite(Number(options?.deadlineMs))
             ? Number(options?.deadlineMs) - Date.now()
@@ -1297,7 +1490,10 @@ ${String(raw || "").slice(0, 20000)}
                 timeoutMs: repairTimeoutMs,
             });
 
-            return parseJsonFromResponse(repaired, "repaired_essay_questions");
+            return coerceGeneratedQuestionSet({
+                payload: parseJsonFromResponse(repaired, "repaired_essay_questions"),
+                questionType: "essay",
+            });
         } catch (repairError) {
             return { questions: [] };
         }
@@ -1387,6 +1583,7 @@ const normalizeGeneratedAssessmentCandidate = (args: {
         args.candidate?.learningObjective || outcome?.objective || ""
     ).trim();
     const authenticContext = String(args.candidate?.authenticContext || "").trim();
+    const qualityFlags = normalizeQualityFlags(args.candidate?.qualityFlags);
 
     return {
         ...args.candidate,
@@ -1394,6 +1591,7 @@ const normalizeGeneratedAssessmentCandidate = (args: {
         outcomeKey: outcomeKey || undefined,
         learningObjective: learningObjective || undefined,
         authenticContext: authenticContext || undefined,
+        qualityFlags,
     };
 };
 
@@ -1505,6 +1703,11 @@ const buildGapCoverageTargets = (args: {
         evidenceFocus: target.evidenceFocus,
         requestedCount: target.requestedCount,
     }));
+
+const QUESTION_FRESHNESS_BUCKET_FRESH = "fresh";
+
+const createQuestionGenerationRunId = (format: "mcq" | "essay") =>
+    `${format}-${Date.now().toString(36)}-${randomBytes(4).toString("hex")}`;
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
@@ -5631,6 +5834,7 @@ const generateQuestionBankForTopic = async (
     },
 ) => {
     const overallStartedAt = Date.now();
+    const generationRunId = createQuestionGenerationRunId("mcq");
     const profile = resolveQuestionBankProfile(rawProfile);
     const runMode = resolveQuestionBankRunMode(profile);
     const timingBreakdown = {
@@ -6220,13 +6424,16 @@ const generateQuestionBankForTopic = async (
                     groundingScore: Number(questionRecord?.groundingScore || 0),
                     factualityStatus: String(questionRecord?.factualityStatus || "verified"),
                     generationVersion: ASSESSMENT_QUESTION_GENERATION_VERSION,
+                    generationRunId,
                     learningObjective: String(
                         questionRecord?.learningObjective || resolvedOutcome?.objective || ""
                     ).trim() || undefined,
                     bloomLevel: String(questionRecord?.bloomLevel || resolvedOutcome?.bloomLevel || "").trim() || undefined,
                     outcomeKey: String(questionRecord?.outcomeKey || resolvedOutcome?.key || "").trim() || undefined,
                     authenticContext: String(questionRecord?.authenticContext || "").trim() || undefined,
-                    qualityFlags: [],
+                    qualityScore: Number(questionRecord?.rankingScore || questionRecord?.groundingScore || 0),
+                    freshnessBucket: QUESTION_FRESHNESS_BUCKET_FRESH,
+                    qualityFlags: normalizeQualityFlags(questionRecord?.qualityFlags),
                 });
                 timingBreakdown.saveMs += normalizeTimingMs(Date.now() - saveStartedAt);
 
@@ -7122,6 +7329,7 @@ const generateEssayQuestionsForTopicCore = async (
     options?: { skipAccessCheck?: boolean },
 ) => {
     const { topicId } = args;
+    const generationRunId = createQuestionGenerationRunId("essay");
     const requestedCountRaw = Math.max(
         ESSAY_QUESTION_MIN_GENERATION_COUNT,
         Math.min(ESSAY_QUESTION_MAX_GENERATION_COUNT, Number(args.count || 5))
@@ -7365,6 +7573,7 @@ const generateEssayQuestionsForTopicCore = async (
                 groundingScore: Number(groundedQuestion?.groundingScore || 0),
                 factualityStatus: String(groundedQuestion?.factualityStatus || "verified"),
                 generationVersion: ASSESSMENT_QUESTION_GENERATION_VERSION,
+                generationRunId,
                 learningObjective: String(
                     groundedQuestion?.learningObjective || resolvedOutcome?.objective || ""
                 ).trim() || undefined,
@@ -7372,7 +7581,9 @@ const generateEssayQuestionsForTopicCore = async (
                 outcomeKey: String(groundedQuestion?.outcomeKey || resolvedOutcome?.key || "").trim() || undefined,
                 authenticContext: String(groundedQuestion?.authenticContext || "").trim() || undefined,
                 rubricPoints: rubricPoints.length > 0 ? rubricPoints : undefined,
-                qualityFlags: [],
+                qualityScore: Number(groundedQuestion?.rankingScore || groundedQuestion?.groundingScore || 0),
+                freshnessBucket: QUESTION_FRESHNESS_BUCKET_FRESH,
+                qualityFlags: normalizeQualityFlags(groundedQuestion?.qualityFlags),
             });
 
             if (!questionId) return false;

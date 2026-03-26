@@ -35,11 +35,14 @@ if (!/filterQuestionsForActiveAssessment\(/.test(aiSource)) {
 if (!/return\s+hasUsableQuestionOptions\(options\);/.test(aiSource)) {
   throw new Error('Expected ai.ts to count only usable existing question options toward generation targets.');
 }
+if (!/const coerceGeneratedQuestionSet = \(/.test(aiSource) || !/const normalizeCitationCandidates =/.test(aiSource)) {
+  throw new Error('Expected ai.ts to enforce a strict parse-and-coerce layer before acceptance.');
+}
 if (!/applyGroundedAcceptance\(\{[\s\S]*type:\s*"mcq"/.test(aiSource)) {
   throw new Error('Expected ai.ts MCQ generation to apply grounded acceptance checks.');
 }
-if (!/createQuestionInternal,\s*\{[\s\S]*citations,[\s\S]*groundingScore:[\s\S]*factualityStatus:/.test(aiSource)) {
-  throw new Error('Expected ai.ts MCQ persistence to include grounding metadata.');
+if (!/createQuestionInternal,\s*\{[\s\S]*citations,[\s\S]*groundingScore:[\s\S]*factualityStatus:[\s\S]*generationRunId[\s\S]*qualityScore[\s\S]*freshnessBucket/.test(aiSource)) {
+  throw new Error('Expected ai.ts persistence to include grounding and quality metadata.');
 }
 
 console.log('exam-question-quality-gate-regression.test.mjs passed');

@@ -293,11 +293,14 @@ export default defineSchema({
         groundingScore: v.optional(v.number()), // 0-1
         factualityStatus: v.optional(v.string()), // 'verified' | 'rejected'
         generationVersion: v.optional(v.string()),
+        generationRunId: v.optional(v.string()),
         learningObjective: v.optional(v.string()),
         bloomLevel: v.optional(v.string()),
         outcomeKey: v.optional(v.string()),
         authenticContext: v.optional(v.string()),
         rubricPoints: v.optional(v.array(v.string())),
+        qualityScore: v.optional(v.number()),
+        freshnessBucket: v.optional(v.string()),
         qualityFlags: v.optional(v.array(v.string())),
     }).index("by_topicId", ["topicId"]),
 

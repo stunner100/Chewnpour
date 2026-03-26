@@ -3,6 +3,7 @@
 import type { GroundedEvidenceIndex } from "./groundedEvidenceIndex";
 import type { AssessmentBlueprint } from "./groundedGeneration";
 import { retrieveGroundedEvidence, type RetrievedEvidence } from "./groundedRetrieval";
+import { areQuestionPromptsNearDuplicate, buildQuestionPromptSignature } from "./questionPromptSimilarity";
 import {
     GROUNDED_MIN_SCORE,
     mergeGroundingScores,
@@ -144,6 +145,23 @@ const ensureCandidateCitations = (candidate: any, evidenceIndex: GroundedEvidenc
     };
 };
 
+const areGeneratedCandidatesNearDuplicate = (type: GroundedContentType, candidate: any, accepted: any[]) => {
+    if (type === "concept") {
+        return false;
+    }
+    const candidateSignature = buildQuestionPromptSignature(String(candidate?.questionText || ""));
+    if (!candidateSignature?.normalized) {
+        return false;
+    }
+
+    return accepted.some((prior) =>
+        areQuestionPromptsNearDuplicate(
+            candidateSignature,
+            buildQuestionPromptSignature(String(prior?.questionText || ""))
+        )
+    );
+};
+
 export const applyGroundedAcceptance = async (args: {
     type: GroundedContentType;
     requestedCount: number;
@@ -166,6 +184,7 @@ export const applyGroundedAcceptance = async (args: {
     metrics?: GroundedAcceptanceMetrics;
 }): Promise<GroundedAcceptanceOutcome> => {
     const acceptedPreRank: any[] = [];
+    const deterministicAccepted: any[] = [];
     const rejected: Array<{ candidate: any; reasons: string[] }> = [];
     const maxLlmVerifications = args.llmVerify
         ? Math.max(
@@ -251,6 +270,14 @@ export const applyGroundedAcceptance = async (args: {
             });
             continue;
         }
+        if (areGeneratedCandidatesNearDuplicate(args.type, candidateWithCitations, deterministicAccepted)) {
+            rejected.push({
+                candidate: candidateWithCitations,
+                reasons: ["near-duplicate generated candidate"],
+            });
+            continue;
+        }
+        deterministicAccepted.push(candidateWithCitations);
 
         let llmScore = deterministic.deterministicScore;
         let llmVerdict: "pass" | "fail" = "pass";

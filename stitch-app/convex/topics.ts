@@ -14,6 +14,7 @@ import {
 } from "./lib/assessmentBlueprint.js";
 import { resolveIllustrationUrl } from "./lib/illustrationUrl";
 import { areMcqQuestionsNearDuplicate, buildMcqUniquenessSignature } from "./lib/mcqUniqueness";
+import { areQuestionPromptsNearDuplicate, buildQuestionPromptSignature } from "./lib/questionPromptSimilarity";
 
 const DEFAULT_TOPIC_ILLUSTRATION_URL =
     String(process.env.TOPIC_PLACEHOLDER_ILLUSTRATION_URL || "/topic-placeholder.svg").trim()
@@ -85,11 +86,24 @@ const computeTopicExamReadinessFromQuestions = (
 const dedupeTopicQuestions = (questions: any[]) => {
     const items = Array.isArray(questions) ? questions : [];
     const seenMcqSignatures: any[] = [];
+    const seenEssaySignatures: any[] = [];
     const deduped = [];
 
     for (const question of items) {
         if (!question) continue;
         if (String(question?.questionType || "") === "essay") {
+            const essaySignature = buildQuestionPromptSignature(question?.questionText || "");
+            if (
+                essaySignature?.normalized
+                && seenEssaySignatures.some((prior) =>
+                    areQuestionPromptsNearDuplicate(essaySignature, prior)
+                )
+            ) {
+                continue;
+            }
+            if (essaySignature?.normalized) {
+                seenEssaySignatures.push(essaySignature);
+            }
             deduped.push(question);
             continue;
         }
@@ -569,6 +583,9 @@ export const createQuestionInternal = internalMutation({
         outcomeKey: v.optional(v.string()),
         authenticContext: v.optional(v.string()),
         rubricPoints: v.optional(v.array(v.string())),
+        generationRunId: v.optional(v.string()),
+        qualityScore: v.optional(v.number()),
+        freshnessBucket: v.optional(v.string()),
         qualityFlags: v.optional(v.array(v.string())),
     },
     handler: async (ctx, args) => {
@@ -582,11 +599,22 @@ export const createQuestionInternal = internalMutation({
             }
         }
 
-        if (String(args.questionType || "") !== "essay") {
-            const existingQuestions = await ctx.db
-                .query("questions")
-                .withIndex("by_topicId", (q) => q.eq("topicId", args.topicId))
-                .collect();
+        const existingQuestions = await ctx.db
+            .query("questions")
+            .withIndex("by_topicId", (q) => q.eq("topicId", args.topicId))
+            .collect();
+        const normalizedQuestionType = String(args.questionType || "").trim().toLowerCase();
+        if (normalizedQuestionType === "essay") {
+            const candidateSignature = buildQuestionPromptSignature(args.questionText);
+            const duplicateExists = existingQuestions
+                .filter((question: any) => String(question?.questionType || "").trim().toLowerCase() === "essay")
+                .some((question: any) =>
+                    areQuestionPromptsNearDuplicate(candidateSignature, buildQuestionPromptSignature(question?.questionText || ""))
+                );
+            if (duplicateExists) {
+                return null;
+            }
+        } else {
             const candidateSignature = buildMcqUniquenessSignature({
                 questionText: args.questionText,
                 options: args.options,
@@ -594,7 +622,7 @@ export const createQuestionInternal = internalMutation({
                 citations: args.citations,
             });
             const duplicateExists = existingQuestions
-                .filter((question: any) => String(question?.questionType || "") !== "essay")
+                .filter((question: any) => String(question?.questionType || "").trim().toLowerCase() !== "essay")
                 .some((question: any) =>
                     areMcqQuestionsNearDuplicate(candidateSignature, buildMcqUniquenessSignature(question))
                 );
@@ -616,11 +644,14 @@ export const createQuestionInternal = internalMutation({
             groundingScore: args.groundingScore,
             factualityStatus: args.factualityStatus,
             generationVersion: args.generationVersion,
+            generationRunId: args.generationRunId,
             learningObjective: args.learningObjective,
             bloomLevel: args.bloomLevel,
             outcomeKey: args.outcomeKey,
             authenticContext: args.authenticContext,
             rubricPoints: args.rubricPoints,
+            qualityScore: args.qualityScore,
+            freshnessBucket: args.freshnessBucket,
             qualityFlags: args.qualityFlags,
         });
 
