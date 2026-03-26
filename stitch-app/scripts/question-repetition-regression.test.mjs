@@ -49,6 +49,17 @@ if (!selectionSource.includes('examFormat,')) {
   throw new Error('Expected selectQuestionsForAttempt to destructure examFormat');
 }
 
+// 6. startExamAttempt should allow recycled retakes when the selector still returns questions
+if (!/const resolveAttemptQuestionCount = \(\{/.test(examsSource)) {
+  throw new Error('Expected exams.ts to resolve attempt size from the usable bank.');
+}
+if (!/if \(selectedQuestions\.length === 0\)/.test(examsSource)) {
+  throw new Error('Expected exams.ts to defer only when selection returns no questions at all.');
+}
+if (/selectedQuestions\.length < requiredQuestionCount \|\| selection\.requiresFreshGeneration/.test(examsSource)) {
+  throw new Error('Regression detected: exams.ts should not block recycled retakes just because no fresh questions remain.');
+}
+
 console.log('✓ Source-level checks passed');
 
 // ── Dynamic import for logic tests ──

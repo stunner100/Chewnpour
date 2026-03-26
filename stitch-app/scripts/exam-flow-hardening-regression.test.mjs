@@ -60,19 +60,28 @@ if (!/question\.questionType === "essay"/.test(examsSource)) {
   throw new Error('Expected essay format filtering in exam question selection/reuse logic.');
 }
 if (!/const EXAM_QUESTION_SUBSET_SIZE = 35;/.test(examsSource)) {
-  throw new Error('Expected MCQ exam subset size to be 35.');
+  throw new Error('Expected MCQ exam subset size ceiling to remain 35.');
 }
 if (!/const EXAM_ESSAY_QUESTION_SUBSET_SIZE = 15;/.test(examsSource)) {
-  throw new Error('Expected essay exam subset size to be 15.');
+  throw new Error('Expected essay exam subset size ceiling to remain 15.');
 }
-if (!/const requiredQuestionCount = isEssay[\s\S]*EXAM_ESSAY_QUESTION_SUBSET_SIZE[\s\S]*EXAM_QUESTION_SUBSET_SIZE/.test(examsSource)) {
-  throw new Error('Expected startExamAttempt preparation to derive a required full-set count by exam format.');
+if (!/const resolveAttemptQuestionCount = \(\{[\s\S]*usableQuestionCount[\s\S]*isEssay/.test(examsSource)) {
+  throw new Error('Expected exams.ts to resolve attempt size from the usable bank and exam format.');
 }
-if (!/usableQuestions\.length < requiredQuestionCount/.test(examsSource)) {
-  throw new Error('Expected startExamAttempt preparation to defer when the bank is smaller than the required full-set count.');
+if (!/const targetQuestionCount = resolveAttemptQuestionCount\(\{[\s\S]*usableQuestionCount:\s*usableQuestions\.length[\s\S]*isEssay,\s*\}\);/.test(examsSource)) {
+  throw new Error('Expected startExamAttempt preparation to derive targetQuestionCount from usableQuestions.length.');
 }
-if (!/selectedQuestions\.length < requiredQuestionCount \|\| selection\.requiresFreshGeneration/.test(examsSource)) {
-  throw new Error('Expected startExamAttempt preparation to defer when selection cannot produce a full fresh set.');
+if (!/if \(targetQuestionCount <= 0\)/.test(examsSource)) {
+  throw new Error('Expected startExamAttempt preparation to defer only when no usable questions exist.');
+}
+if (!/subsetSize:\s*targetQuestionCount/.test(examsSource)) {
+  throw new Error('Expected startExamAttempt preparation to size selections from targetQuestionCount.');
+}
+if (!/if \(selectedQuestions\.length === 0\)/.test(examsSource)) {
+  throw new Error('Expected startExamAttempt preparation to allow recycled retakes whenever the selector returns questions.');
+}
+if (/selectedQuestions\.length < requiredQuestionCount \|\| selection\.requiresFreshGeneration/.test(examsSource)) {
+  throw new Error('Regression detected: exams.ts should not block recycled retakes on requiresFreshGeneration.');
 }
 if (!/export const prepareStartExamAttemptInternal = internalMutation/.test(examsSource)) {
   throw new Error('Expected exams.ts to expose an internal start-preparation mutation.');

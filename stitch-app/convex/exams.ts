@@ -31,6 +31,39 @@ const safeGetQuestionById = async (ctx: any, questionId: any) => {
 const resolveRequestedExamFormat = (value: unknown) =>
     String(value || "").trim().toLowerCase() === "essay" ? "essay" : "mcq";
 
+const resolveConfiguredExamTargetCount = (value: unknown, fallback: number) => {
+    const numeric = Number(value);
+    if (!Number.isFinite(numeric)) {
+        return Math.max(1, Math.round(Number(fallback || 1)));
+    }
+    return Math.max(1, Math.round(numeric));
+};
+
+const resolveAttemptQuestionCount = ({
+    topic,
+    usableQuestionCount,
+    isEssay,
+}: {
+    topic: any;
+    usableQuestionCount: number;
+    isEssay: boolean;
+}) => {
+    const fallbackTargetCount = isEssay
+        ? EXAM_ESSAY_QUESTION_SUBSET_SIZE
+        : EXAM_QUESTION_SUBSET_SIZE;
+    const configuredTargetCount = resolveConfiguredExamTargetCount(
+        isEssay ? topic?.essayTargetCount : topic?.mcqTargetCount,
+        fallbackTargetCount,
+    );
+    const safeUsableQuestionCount = Math.max(0, Math.round(Number(usableQuestionCount || 0)));
+
+    if (safeUsableQuestionCount <= 0) {
+        return 0;
+    }
+
+    return Math.min(configuredTargetCount, safeUsableQuestionCount);
+};
+
 const buildDeferredStartResponse = (examFormat: string, message?: string) => {
     const isEssay = examFormat === "essay";
     return {
@@ -110,9 +143,6 @@ export const prepareStartExamAttemptInternal = internalMutation({
         const effectiveUserId = String(args.userId || "").trim();
         const examFormat = resolveRequestedExamFormat(args.examFormat);
         const isEssay = examFormat === "essay";
-        const requiredQuestionCount = isEssay
-            ? EXAM_ESSAY_QUESTION_SUBSET_SIZE
-            : EXAM_QUESTION_SUBSET_SIZE;
 
         const topic = await ctx.db.get(args.topicId);
         if (!topic) {
@@ -196,20 +226,26 @@ export const prepareStartExamAttemptInternal = internalMutation({
         const usableQuestions = filteredQuestions.filter((question) =>
             isUsableExamQuestion(question, { allowEssay: isEssay })
         );
-        if (usableQuestions.length < requiredQuestionCount) {
+        const targetQuestionCount = resolveAttemptQuestionCount({
+            topic,
+            usableQuestionCount: usableQuestions.length,
+            isEssay,
+        });
+
+        if (targetQuestionCount <= 0) {
             return buildDeferredStartResponse(examFormat);
         }
 
         const selection = selectQuestionsForAttempt({
             questions: usableQuestions,
             recentAttempts,
-            subsetSize: requiredQuestionCount,
+            subsetSize: targetQuestionCount,
             isEssay,
             examFormat,
         });
         const selectedQuestions = selection.selectedQuestions;
 
-        if (selectedQuestions.length < requiredQuestionCount || selection.requiresFreshGeneration) {
+        if (selectedQuestions.length === 0) {
             return buildDeferredStartResponse(examFormat);
         }
 
