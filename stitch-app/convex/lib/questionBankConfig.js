@@ -333,6 +333,39 @@ export const calculateEvidenceRichEssayCap = (args) => {
     return resolveEvidenceRichEssayCap(args).cap;
 };
 
+export const OBJECTIVE_PARTIAL_SUCCESS_TARGET_FLOOR = 5;
+
+export const resolveRecoveredQuestionBankTarget = ({
+    storedTargetCount,
+    requestedTargetCount,
+    supportTargetCount = 0,
+    minTarget = 1,
+    minimumRetainedTarget = minTarget,
+}) => {
+    const safeMinTarget = Math.max(1, Math.round(toSafeNumber(minTarget, 1)));
+    const safeRequestedTargetCount = Math.max(
+        safeMinTarget,
+        Math.round(toSafeNumber(requestedTargetCount, safeMinTarget))
+    );
+    const safeStoredTargetCount = Math.max(0, Math.round(toSafeNumber(storedTargetCount, 0)));
+    const safeSupportTargetCount = Math.max(0, Math.round(toSafeNumber(supportTargetCount, 0)));
+    const retainedTargetFloor = clampNumber(
+        Math.round(toSafeNumber(minimumRetainedTarget, safeMinTarget)),
+        safeMinTarget,
+        safeRequestedTargetCount,
+    );
+
+    if (safeSupportTargetCount < retainedTargetFloor) {
+        return safeStoredTargetCount;
+    }
+
+    return clampNumber(
+        Math.max(safeStoredTargetCount, retainedTargetFloor),
+        safeMinTarget,
+        safeRequestedTargetCount,
+    );
+};
+
 export const rebaseQuestionBankTargetAfterRun = ({
     targetCount,
     initialCount = 0,
@@ -340,6 +373,8 @@ export const rebaseQuestionBankTargetAfterRun = ({
     addedCount = 0,
     outcome,
     minTarget = 1,
+    supportTargetCount = 0,
+    minimumRetainedTarget = minTarget,
 }) => {
     const requestedTargetCount = Math.max(
         minTarget,
@@ -349,6 +384,13 @@ export const rebaseQuestionBankTargetAfterRun = ({
     const safeFinalCount = Math.max(0, Math.round(toSafeNumber(finalCount, 0)));
     const safeAddedCount = Math.max(0, Math.round(toSafeNumber(addedCount, 0)));
     const normalizedOutcome = String(outcome || "").trim().toLowerCase();
+    const retainedTargetCount = resolveRecoveredQuestionBankTarget({
+        storedTargetCount: safeFinalCount,
+        requestedTargetCount,
+        supportTargetCount,
+        minTarget,
+        minimumRetainedTarget,
+    });
 
     if (!normalizedOutcome || normalizedOutcome === "completed" || normalizedOutcome === "already_generated") {
         return requestedTargetCount;
@@ -370,6 +412,13 @@ export const rebaseQuestionBankTargetAfterRun = ({
     ) {
         if (safeFinalCount <= 0) {
             return Math.min(requestedTargetCount, Math.max(minTarget, safeInitialCount || 1));
+        }
+        if (
+            normalizedOutcome !== "insufficient_evidence"
+            && safeAddedCount > 0
+            && retainedTargetCount > safeFinalCount
+        ) {
+            return retainedTargetCount;
         }
         return clampNumber(safeFinalCount, minTarget, requestedTargetCount);
     }

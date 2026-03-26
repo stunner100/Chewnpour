@@ -23,10 +23,12 @@ import {
 } from "./lib/topicOutlinePipeline";
 import { assertAuthorizedUser, isUsableExamQuestion, resolveAuthUserId } from "./lib/examSecurity";
 import {
+    OBJECTIVE_PARTIAL_SUCCESS_TARGET_FLOOR,
     QUESTION_BANK_BACKGROUND_PROFILE,
     QUESTION_BANK_INTERACTIVE_PROFILE,
     calculateQuestionBankTarget as calculateQuestionBankTargetFromConfig,
     clampGeneratedTargetToStoredTopicTarget,
+    resolveRecoveredQuestionBankTarget,
     resolveEvidenceRichEssayCap,
     rebaseQuestionBankTargetAfterRun,
     deriveQuestionGenerationRounds,
@@ -3605,6 +3607,24 @@ const resolveMcqQuestionBankTarget = (args: {
         minTarget: 1,
         maxTarget: wordCountTarget,
     });
+    const requestedTargetCount = Math.min(wordCountTarget, evidenceCapResolution.cap);
+    const recoverableTargetCount = Math.min(
+        wordCountTarget,
+        Math.max(evidenceCapResolution.cap, evidenceCapResolution.estimatedCapacity),
+    );
+    const recoveredStoredTargetCount = resolveRecoveredQuestionBankTarget({
+        storedTargetCount: args.topic?.mcqTargetCount,
+        requestedTargetCount: recoverableTargetCount,
+        supportTargetCount: recoverableTargetCount,
+        minTarget: 1,
+        minimumRetainedTarget: OBJECTIVE_PARTIAL_SUCCESS_TARGET_FLOOR,
+    });
+    const resilientTargetCount = recoverableTargetCount >= OBJECTIVE_PARTIAL_SUCCESS_TARGET_FLOOR
+        ? Math.max(
+            requestedTargetCount,
+            Math.min(OBJECTIVE_PARTIAL_SUCCESS_TARGET_FLOOR, recoverableTargetCount),
+        )
+        : requestedTargetCount;
     return {
         wordCountTarget,
         evidenceRichnessCap: evidenceCapResolution.cap,
@@ -3613,8 +3633,8 @@ const resolveMcqQuestionBankTarget = (args: {
         evidenceCapBroadTopicPenaltyApplied: evidenceCapResolution.broadTopicPenaltyApplied,
         evidenceCapUniquePassageCount: evidenceCapResolution.uniquePassageCount,
         targetCount: clampGeneratedTargetToStoredTopicTarget({
-            storedTargetCount: args.topic?.mcqTargetCount,
-            targetCount: Math.min(wordCountTarget, evidenceCapResolution.cap),
+            storedTargetCount: recoveredStoredTargetCount,
+            targetCount: resilientTargetCount,
             minTarget: 1,
         }),
     };
@@ -7639,6 +7659,11 @@ const generateQuestionBankForTopic = async (
         addedCount: added,
         outcome,
         minTarget: 1,
+        supportTargetCount: Math.min(
+            targetResolution.wordCountTarget,
+            Math.max(targetResolution.evidenceRichnessCap, targetResolution.evidenceCapEstimatedCapacity),
+        ),
+        minimumRetainedTarget: OBJECTIVE_PARTIAL_SUCCESS_TARGET_FLOOR,
     });
     if (persistedTargetCount !== targetCount) {
         console.info("[QuestionBank] target_rebased", {
