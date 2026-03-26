@@ -61,6 +61,7 @@ import {
     parseGroundedVerifierResult,
     runDeterministicGroundingCheck,
 } from "./lib/groundedVerifier";
+import { resolveGroundedContentType } from "./lib/groundedContentType.js";
 import {
     applyGroundedAcceptance,
     buildEvidenceSnippet,
@@ -1853,8 +1854,9 @@ const verifyGroundedCandidateWithLlm = async (args: {
     evidenceSnippet: string;
     timeoutMs?: number;
 }) => {
+    const groundedType = resolveGroundedContentType(args.type);
     const prompt = buildGroundedVerifierPrompt({
-        type: args.type,
+        type: groundedType,
         candidate: args.candidate,
         evidenceSnippet: args.evidenceSnippet,
     });
@@ -5798,8 +5800,9 @@ const acceptAndPersistQuestionCandidates = async (args: {
     metrics?: any;
     persistCandidate: (candidate: any) => Promise<boolean>;
 }) => {
+    const groundedType = resolveGroundedContentType(args.type);
     const acceptance = await applyGroundedAcceptance({
-        type: args.type,
+        type: groundedType,
         requestedCount: args.requestedCount,
         evidenceIndex: args.evidenceIndex,
         assessmentBlueprint: args.assessmentBlueprint,
@@ -6366,7 +6369,7 @@ const generateQuestionBankForTopic = async (
 
                 const finalGroundingStartedAt = Date.now();
                 const finalGrounding = runDeterministicGroundingCheck({
-                    type: "mcq",
+                    type: resolveGroundedContentType("mcq"),
                     candidate: questionRecord,
                     evidenceIndex,
                     assessmentBlueprint,
