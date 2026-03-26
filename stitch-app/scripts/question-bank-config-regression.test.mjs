@@ -9,6 +9,7 @@ import {
     ESSAY_ATTEMPT_MIN_COUNT,
     ESSAY_ATTEMPT_MAX_COUNT,
     calculateQuestionBankTarget,
+    clampGeneratedTargetToStoredTopicTarget,
     deriveQuestionGenerationRounds,
     rebaseQuestionBankTargetAfterRun,
     resolveAssessmentCapacity,
@@ -308,6 +309,30 @@ const tests = [
             attemptTarget,
             MCQ_ATTEMPT_MIN_COUNT,
             "MCQ attempt target should enforce the minimum viable exam floor."
+        );
+    },
+    () => {
+        const target = clampGeneratedTargetToStoredTopicTarget({
+            storedTargetCount: 1,
+            targetCount: 5,
+            minTarget: 1,
+        });
+        assert.equal(
+            target,
+            1,
+            "Generated MCQ targets should honor an existing tiny grounded topic target."
+        );
+    },
+    () => {
+        const target = clampGeneratedTargetToStoredTopicTarget({
+            storedTargetCount: undefined,
+            targetCount: 5,
+            minTarget: 1,
+        });
+        assert.equal(
+            target,
+            5,
+            "Generated MCQ targets should stay unchanged when no grounded topic target exists yet."
         );
     },
     () => {

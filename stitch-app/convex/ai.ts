@@ -26,6 +26,7 @@ import {
     QUESTION_BANK_BACKGROUND_PROFILE,
     QUESTION_BANK_INTERACTIVE_PROFILE,
     calculateQuestionBankTarget as calculateQuestionBankTargetFromConfig,
+    clampGeneratedTargetToStoredTopicTarget,
     resolveEvidenceRichEssayCap,
     rebaseQuestionBankTargetAfterRun,
     deriveQuestionGenerationRounds,
@@ -3180,7 +3181,11 @@ const resolveMcqQuestionBankTarget = (args: {
         evidenceCapPassageDrivenCap: evidenceCapResolution.passageDrivenCap,
         evidenceCapBroadTopicPenaltyApplied: evidenceCapResolution.broadTopicPenaltyApplied,
         evidenceCapUniquePassageCount: evidenceCapResolution.uniquePassageCount,
-        targetCount: Math.min(wordCountTarget, evidenceCapResolution.cap),
+        targetCount: clampGeneratedTargetToStoredTopicTarget({
+            storedTargetCount: args.topic?.mcqTargetCount,
+            targetCount: Math.min(wordCountTarget, evidenceCapResolution.cap),
+            minTarget: 1,
+        }),
     };
 };
 

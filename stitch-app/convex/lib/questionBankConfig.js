@@ -57,6 +57,20 @@ export const clampNumber = (value, min, max) => {
     return Math.max(safeMin, Math.min(upperBound, numeric));
 };
 
+export const clampGeneratedTargetToStoredTopicTarget = ({
+    storedTargetCount,
+    targetCount,
+    minTarget = 1,
+}) => {
+    const safeMinTarget = Math.max(1, normalizePositiveInteger(minTarget) || 1);
+    const safeTargetCount = Math.max(safeMinTarget, normalizePositiveInteger(targetCount) || safeMinTarget);
+    const safeStoredTargetCount = normalizePositiveInteger(storedTargetCount);
+    if (safeStoredTargetCount <= 0) {
+        return safeTargetCount;
+    }
+    return clampNumber(safeTargetCount, safeMinTarget, safeStoredTargetCount);
+};
+
 export const calculateQuestionBankTarget = ({
     wordCount,
     minTarget = 10,
@@ -448,7 +462,7 @@ export const QUESTION_BANK_INTERACTIVE_PROFILE = resolveQuestionBankProfile({
     timeBudgetMs: 90_000,
 });
 
-export const MCQ_ATTEMPT_MIN_COUNT = 5;
+export const MCQ_ATTEMPT_MIN_COUNT = 1;
 export const MCQ_ATTEMPT_MAX_COUNT = QUESTION_BANK_INTERACTIVE_PROFILE.maxTarget;
 export const MCQ_BANK_MIN_COUNT = 1;
 export const MCQ_BANK_MAX_COUNT = QUESTION_BANK_BACKGROUND_PROFILE.maxTarget;
