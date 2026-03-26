@@ -34,21 +34,29 @@ const buildPreparationMessage = ({
     examFormat,
     status,
     reasonCode,
+    qualityTier,
     fallback,
 }: {
     examFormat: string;
     status: string;
     reasonCode?: string;
+    qualityTier?: string;
     fallback?: string;
 }) => {
     const isEssay = examFormat === "essay";
     const normalizedStatus = String(status || "").trim().toLowerCase();
     const normalizedReason = String(reasonCode || "").trim().toUpperCase();
+    const normalizedQualityTier = String(qualityTier || "").trim().toLowerCase();
 
     if (normalizedStatus === "ready") {
+        if (normalizedQualityTier === "premium") {
+            return isEssay
+                ? "Your premium essay exam is ready."
+                : "Your premium objective exam is ready.";
+        }
         return isEssay
-            ? "Your essay exam is ready."
-            : "Your objective exam is ready.";
+            ? "Your best available essay exam is ready."
+            : "Your best available objective exam is ready.";
     }
 
     if (normalizedStatus === "preparing" || normalizedStatus === "queued") {
@@ -241,6 +249,10 @@ export const markPreparationStageInternal = internalMutation({
         errorSummary: v.optional(v.string()),
         message: v.optional(v.string()),
         attemptId: v.optional(v.id("examAttempts")),
+        qualityTier: v.optional(v.string()),
+        premiumTargetMet: v.optional(v.boolean()),
+        qualityWarnings: v.optional(v.array(v.string())),
+        qualitySignals: v.optional(v.any()),
         finishedAt: v.optional(v.number()),
     },
     handler: async (ctx, args) => {
@@ -256,6 +268,7 @@ export const markPreparationStageInternal = internalMutation({
                 examFormat: preparation.examFormat,
                 status: nextStatus,
                 reasonCode: nextReasonCode,
+                qualityTier: args.qualityTier === undefined ? preparation.qualityTier : args.qualityTier,
                 fallback: preparation.message,
             })
             : args.message;
@@ -271,6 +284,10 @@ export const markPreparationStageInternal = internalMutation({
             errorSummary: args.errorSummary === undefined ? preparation.errorSummary : args.errorSummary,
             message: nextMessage,
             attemptId: args.attemptId === undefined ? preparation.attemptId : args.attemptId,
+            qualityTier: args.qualityTier === undefined ? preparation.qualityTier : args.qualityTier,
+            premiumTargetMet: args.premiumTargetMet === undefined ? preparation.premiumTargetMet : args.premiumTargetMet,
+            qualityWarnings: args.qualityWarnings === undefined ? preparation.qualityWarnings : args.qualityWarnings,
+            qualitySignals: args.qualitySignals === undefined ? preparation.qualitySignals : args.qualitySignals,
             finishedAt: args.finishedAt === undefined ? preparation.finishedAt : args.finishedAt,
         };
 
@@ -368,7 +385,15 @@ export const runExamPreparationInternal = internalAction({
                 bankTargetCount: Number(initialAttempt.bankTargetCount || preparation.bankTargetCount || 0),
                 attemptId: initialAttempt.attemptId,
                 finishedAt: Date.now(),
-                message: buildPreparationMessage({ examFormat, status: "ready" }),
+                message: buildPreparationMessage({
+                    examFormat,
+                    status: "ready",
+                    qualityTier: initialAttempt.qualityTier,
+                }),
+                qualityTier: initialAttempt.qualityTier,
+                premiumTargetMet: initialAttempt.premiumTargetMet,
+                qualityWarnings: initialAttempt.qualityWarnings,
+                qualitySignals: initialAttempt.qualitySignals,
             });
             return initialAttempt;
         }
@@ -387,7 +412,12 @@ export const runExamPreparationInternal = internalAction({
                     examFormat,
                     status: "unavailable",
                     reasonCode: initialAttempt?.reasonCode,
+                    qualityTier: initialAttempt?.qualityTier,
                 }),
+                qualityTier: initialAttempt?.qualityTier,
+                premiumTargetMet: initialAttempt?.premiumTargetMet,
+                qualityWarnings: initialAttempt?.qualityWarnings,
+                qualitySignals: initialAttempt?.qualitySignals,
                 finishedAt: Date.now(),
             });
             return initialAttempt;
@@ -396,7 +426,16 @@ export const runExamPreparationInternal = internalAction({
         await ctx.runMutation(internal.examPreparations.markPreparationStageInternal, {
             preparationId: args.preparationId,
             status: "preparing",
-            stage: "generating_questions",
+            stage: "building_assessment_plan",
+            usableCount: Number(initialAttempt?.usableQuestionCount || 0),
+            attemptTargetCount: Number(initialAttempt?.attemptTargetCount || preparation.attemptTargetCount || 0),
+            bankTargetCount: Number(initialAttempt?.bankTargetCount || preparation.bankTargetCount || 0),
+        });
+
+        await ctx.runMutation(internal.examPreparations.markPreparationStageInternal, {
+            preparationId: args.preparationId,
+            status: "preparing",
+            stage: "generating_candidates",
             usableCount: Number(initialAttempt?.usableQuestionCount || 0),
             attemptTargetCount: Number(initialAttempt?.attemptTargetCount || preparation.attemptTargetCount || 0),
             bankTargetCount: Number(initialAttempt?.bankTargetCount || preparation.bankTargetCount || 0),
@@ -437,11 +476,29 @@ export const runExamPreparationInternal = internalAction({
         await ctx.runMutation(internal.examPreparations.markPreparationStageInternal, {
             preparationId: args.preparationId,
             status: "preparing",
+            stage: "reviewing_quality",
+            usableCount: Number(generationResult?.count || initialAttempt?.usableQuestionCount || 0),
+            generatedCount: Number(generationResult?.count || 0),
+            attemptTargetCount: Number(generationCapacity.attemptTargetCount || initialAttempt?.attemptTargetCount || preparation.attemptTargetCount || 0),
+            bankTargetCount: Number(generationCapacity.bankTargetCount || initialAttempt?.bankTargetCount || preparation.bankTargetCount || 0),
+            qualityTier: generationResult?.qualityTier,
+            premiumTargetMet: generationResult?.premiumTargetMet,
+            qualityWarnings: generationResult?.qualityWarnings,
+            qualitySignals: generationResult?.qualitySignals,
+        });
+
+        await ctx.runMutation(internal.examPreparations.markPreparationStageInternal, {
+            preparationId: args.preparationId,
+            status: "preparing",
             stage: "finalizing_attempt",
             usableCount: Number(generationResult?.count || initialAttempt?.usableQuestionCount || 0),
             generatedCount: Number(generationResult?.count || 0),
             attemptTargetCount: Number(generationCapacity.attemptTargetCount || initialAttempt?.attemptTargetCount || preparation.attemptTargetCount || 0),
             bankTargetCount: Number(generationCapacity.bankTargetCount || initialAttempt?.bankTargetCount || preparation.bankTargetCount || 0),
+            qualityTier: generationResult?.qualityTier,
+            premiumTargetMet: generationResult?.premiumTargetMet,
+            qualityWarnings: generationResult?.qualityWarnings,
+            qualitySignals: generationResult?.qualitySignals,
         });
 
         const finalAttempt = await ctx.runMutation(internal.exams.ensurePreparedExamAttemptInternal, {
@@ -462,7 +519,15 @@ export const runExamPreparationInternal = internalAction({
                 bankTargetCount: Number(finalAttempt.bankTargetCount || generationCapacity.bankTargetCount || preparation.bankTargetCount || 0),
                 attemptId: finalAttempt.attemptId,
                 finishedAt: Date.now(),
-                message: buildPreparationMessage({ examFormat, status: "ready" }),
+                message: buildPreparationMessage({
+                    examFormat,
+                    status: "ready",
+                    qualityTier: finalAttempt.qualityTier,
+                }),
+                qualityTier: finalAttempt.qualityTier,
+                premiumTargetMet: finalAttempt.premiumTargetMet,
+                qualityWarnings: finalAttempt.qualityWarnings,
+                qualitySignals: finalAttempt.qualitySignals,
             });
             return finalAttempt;
         }
@@ -484,6 +549,10 @@ export const runExamPreparationInternal = internalAction({
             reasonCode: terminalOutcome.reasonCode,
             errorSummary: generationResult?.timedOut === true ? "Question generation timed out before the exam was ready." : undefined,
             message: terminalOutcome.message,
+            qualityTier: finalAttempt?.qualityTier || generationResult?.qualityTier,
+            premiumTargetMet: finalAttempt?.premiumTargetMet ?? generationResult?.premiumTargetMet,
+            qualityWarnings: finalAttempt?.qualityWarnings || generationResult?.qualityWarnings,
+            qualitySignals: finalAttempt?.qualitySignals || generationResult?.qualitySignals,
             finishedAt: Date.now(),
         });
 
@@ -563,11 +632,16 @@ export const getExamPreparation = query({
                 examFormat: snapshot.preparation.examFormat,
                 status: snapshot.preparation.status,
                 reasonCode: snapshot.preparation.reasonCode,
+                qualityTier: snapshot.preparation.qualityTier,
             }),
             canRetry: snapshot.preparation.status === "failed",
             startedAt: snapshot.preparation.startedAt,
             finishedAt: snapshot.preparation.finishedAt,
             attemptId: snapshot.attempt?._id || snapshot.preparation.attemptId || null,
+            qualityTier: snapshot.preparation.qualityTier || snapshot.attempt?.qualityTier || null,
+            premiumTargetMet: snapshot.preparation.premiumTargetMet ?? snapshot.attempt?.premiumTargetMet ?? false,
+            qualityWarnings: snapshot.preparation.qualityWarnings || snapshot.attempt?.qualityWarnings || [],
+            qualitySignals: snapshot.preparation.qualitySignals || snapshot.attempt?.qualitySignals || null,
             totalQuestions: Number(snapshot.attempt?.totalQuestions || snapshot.questions.length || 0),
             questions: snapshot.questions,
             attemptStartedAt: Number(snapshot.attempt?.startedAt || snapshot.attempt?._creationTime || 0) || null,
@@ -616,6 +690,10 @@ export const retryExamPreparation = mutation({
                 status: "queued",
             }),
             attemptId: undefined,
+            qualityTier: undefined,
+            premiumTargetMet: undefined,
+            qualityWarnings: undefined,
+            qualitySignals: undefined,
             startedAt: Date.now(),
             finishedAt: undefined,
         });

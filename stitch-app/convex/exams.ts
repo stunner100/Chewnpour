@@ -14,6 +14,7 @@ import { canReuseExamAttempt, resolveReusableAttemptQuestions } from "./lib/exam
 import { selectQuestionsForAttempt } from "./lib/examQuestionSelection";
 import { resolvePreparedExamStart } from "./lib/examStartPolicy.js";
 import { resolveAssessmentCapacity } from "./lib/questionBankConfig.js";
+import { summarizeQuestionSetQuality } from "./lib/premiumQuality.js";
 
 const EXAM_ATTEMPT_REUSE_LOOKBACK = 50;
 const EXAM_ESSAY_MIN_READY_COUNT = 1;
@@ -214,6 +215,7 @@ export const ensurePreparedExamAttemptInternal = internalMutation({
                 const safeQuestions = reusableQuestions.map((question) =>
                     sanitizeExamQuestionForClient(question)
                 );
+                const reusableQuality = summarizeQuestionSetQuality(reusableQuestions);
                 return {
                     status: "ready",
                     attemptId: reusableAttempt._id,
@@ -223,6 +225,10 @@ export const ensurePreparedExamAttemptInternal = internalMutation({
                     attemptTargetCount: reusableQuestions.length,
                     bankTargetCount: reusableCapacity.bankTargetCount,
                     startedAt: (reusableAttempt as any).startedAt || reusableAttempt._creationTime,
+                    qualityTier: reusableAttempt.qualityTier || reusableQuality.qualityTier,
+                    premiumTargetMet: reusableAttempt.premiumTargetMet ?? reusableQuality.premiumTargetMet,
+                    qualityWarnings: reusableAttempt.qualityWarnings || reusableQuality.qualityWarnings,
+                    qualitySignals: reusableAttempt.qualitySignals || reusableQuality.qualitySignals,
                 };
             }
         }
@@ -258,6 +264,13 @@ export const ensurePreparedExamAttemptInternal = internalMutation({
                 attemptId: null,
                 questions: [],
                 reusedAttempt: false,
+                qualityTier: "limited",
+                premiumTargetMet: false,
+                qualityWarnings: ["generation_required"],
+                qualitySignals: {
+                    usableQuestionCount: usableQuestions.length,
+                    requiredQuestionCount,
+                },
             };
         }
 
@@ -293,6 +306,10 @@ export const ensurePreparedExamAttemptInternal = internalMutation({
                 questions: [],
                 reusedAttempt: false,
                 selection,
+                qualityTier: selection.qualityTier,
+                premiumTargetMet: selection.premiumTargetMet,
+                qualityWarnings: selection.qualityWarnings,
+                qualitySignals: selection.qualitySignals,
             };
         }
 
@@ -309,11 +326,16 @@ export const ensurePreparedExamAttemptInternal = internalMutation({
                 questions: [],
                 reusedAttempt: false,
                 selection,
+                qualityTier: selection.qualityTier,
+                premiumTargetMet: selection.premiumTargetMet,
+                qualityWarnings: selection.qualityWarnings,
+                qualitySignals: selection.qualitySignals,
             };
         }
 
         const questionIds = selectedQuestions.map((question) => question._id);
         const safeQuestions = selectedQuestions.map((question) => sanitizeExamQuestionForClient(question));
+        const selectedQuality = summarizeQuestionSetQuality(selectedQuestions);
 
         // Create a new attempt record
         const attemptDocument = {
@@ -326,6 +348,10 @@ export const ensurePreparedExamAttemptInternal = internalMutation({
             questionIds,
             answers: [],
             startedAt: Date.now(),
+            qualityTier: selectedQuality.qualityTier,
+            premiumTargetMet: selectedQuality.premiumTargetMet,
+            qualityWarnings: selectedQuality.qualityWarnings,
+            qualitySignals: selectedQuality.qualitySignals,
         };
 
         const attemptId = await createExamAttemptDocument({
@@ -342,6 +368,10 @@ export const ensurePreparedExamAttemptInternal = internalMutation({
             attemptTargetCount: startResolution.attemptTargetCount,
             bankTargetCount: capacity.bankTargetCount,
             startedAt: attemptDocument.startedAt,
+            qualityTier: selectedQuality.qualityTier,
+            premiumTargetMet: selectedQuality.premiumTargetMet,
+            qualityWarnings: selectedQuality.qualityWarnings,
+            qualitySignals: selectedQuality.qualitySignals,
         };
     },
 });

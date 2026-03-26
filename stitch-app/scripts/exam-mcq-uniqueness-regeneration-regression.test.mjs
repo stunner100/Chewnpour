@@ -8,7 +8,7 @@ import {
 } from "../convex/lib/examQuestionSelection.js";
 
 const blueprint = {
-  version: "assessment-blueprint-v2",
+  version: "assessment-blueprint-v3",
   outcomes: [
     { key: "mcq-remember", objective: "Recall facts", bloomLevel: "Remember", evidenceFocus: "facts" },
     { key: "mcq-apply", objective: "Apply concepts", bloomLevel: "Apply", evidenceFocus: "application" },

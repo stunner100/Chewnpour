@@ -38,6 +38,7 @@ import type * as lib_examQuestionSelection from "../lib/examQuestionSelection.js
 import type * as lib_examSecurity from "../lib/examSecurity.js";
 import type * as lib_examStartPolicy from "../lib/examStartPolicy.js";
 import type * as lib_groundedContentPipeline from "../lib/groundedContentPipeline.js";
+import type * as lib_groundedContentType from "../lib/groundedContentType.js";
 import type * as lib_groundedEvidenceIndex from "../lib/groundedEvidenceIndex.js";
 import type * as lib_groundedGeneration from "../lib/groundedGeneration.js";
 import type * as lib_groundedRanking from "../lib/groundedRanking.js";
@@ -50,6 +51,7 @@ import type * as lib_mcqUniqueness from "../lib/mcqUniqueness.js";
 import type * as lib_nativeExtractors from "../lib/nativeExtractors.js";
 import type * as lib_objectiveAnswerGrading from "../lib/objectiveAnswerGrading.js";
 import type * as lib_objectiveExam from "../lib/objectiveExam.js";
+import type * as lib_premiumQuality from "../lib/premiumQuality.js";
 import type * as lib_questionBankConfig from "../lib/questionBankConfig.js";
 import type * as lib_questionPromptSimilarity from "../lib/questionPromptSimilarity.js";
 import type * as lib_topicGenerationProgress from "../lib/topicGenerationProgress.js";
@@ -106,6 +108,7 @@ declare const fullApi: ApiFromModules<{
   "lib/examSecurity": typeof lib_examSecurity;
   "lib/examStartPolicy": typeof lib_examStartPolicy;
   "lib/groundedContentPipeline": typeof lib_groundedContentPipeline;
+  "lib/groundedContentType": typeof lib_groundedContentType;
   "lib/groundedEvidenceIndex": typeof lib_groundedEvidenceIndex;
   "lib/groundedGeneration": typeof lib_groundedGeneration;
   "lib/groundedRanking": typeof lib_groundedRanking;
@@ -118,6 +121,7 @@ declare const fullApi: ApiFromModules<{
   "lib/nativeExtractors": typeof lib_nativeExtractors;
   "lib/objectiveAnswerGrading": typeof lib_objectiveAnswerGrading;
   "lib/objectiveExam": typeof lib_objectiveExam;
+  "lib/premiumQuality": typeof lib_premiumQuality;
   "lib/questionBankConfig": typeof lib_questionBankConfig;
   "lib/questionPromptSimilarity": typeof lib_questionPromptSimilarity;
   "lib/topicGenerationProgress": typeof lib_topicGenerationProgress;

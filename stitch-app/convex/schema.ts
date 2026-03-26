@@ -260,6 +260,9 @@ export default defineSchema({
                 objective: v.string(),
                 bloomLevel: v.string(),
                 evidenceFocus: v.string(),
+                cognitiveTask: v.optional(v.string()),
+                difficultyBand: v.optional(v.string()),
+                scenarioFrame: v.optional(v.string()),
             })),
             objectivePlan: v.optional(v.object({
                 allowedQuestionTypes: v.array(v.string()),
@@ -271,6 +274,12 @@ export default defineSchema({
                 }),
                 targetOutcomeKeys: v.array(v.string()),
                 targetBloomLevels: v.array(v.string()),
+                targetDifficultyDistribution: v.optional(v.object({
+                    easy: v.number(),
+                    medium: v.number(),
+                    hard: v.number(),
+                })),
+                minDistinctOutcomeCount: v.optional(v.number()),
             })),
             multipleChoicePlan: v.optional(v.object({
                 allowedBloomLevels: v.array(v.string()),
@@ -300,6 +309,8 @@ export default defineSchema({
                 targetOutcomeKeys: v.array(v.string()),
                 authenticScenarioRequired: v.boolean(),
                 authenticContextHint: v.optional(v.string()),
+                minDistinctOutcomeCount: v.optional(v.number()),
+                minDistinctScenarioFrameCount: v.optional(v.number()),
             }),
         })),
         orderIndex: v.number(),
@@ -340,6 +351,11 @@ export default defineSchema({
         fillBlankMode: v.optional(v.string()),
         rubricPoints: v.optional(v.array(v.string())),
         qualityScore: v.optional(v.number()),
+        qualityTier: v.optional(v.string()),
+        rigorScore: v.optional(v.number()),
+        clarityScore: v.optional(v.number()),
+        diversityCluster: v.optional(v.string()),
+        distractorScore: v.optional(v.number()),
         freshnessBucket: v.optional(v.string()),
         qualityFlags: v.optional(v.array(v.string())),
     }).index("by_topicId", ["topicId"]),
@@ -370,6 +386,10 @@ export default defineSchema({
         essayWeightedPercentage: v.optional(v.number()), // weighted essay quality % (0-100)
         startedAt: v.optional(v.number()), // timestamp when attempt was created
         claimedAt: v.optional(v.number()), // timestamp when reused attempt was claimed by a session
+        qualityTier: v.optional(v.string()),
+        premiumTargetMet: v.optional(v.boolean()),
+        qualityWarnings: v.optional(v.array(v.string())),
+        qualitySignals: v.optional(v.any()),
     }).index("by_userId", ["userId"]).index("by_topicId", ["topicId"]).index("by_userId_topicId", ["userId", "topicId"]),
 
     examPreparations: defineTable({
@@ -387,6 +407,10 @@ export default defineSchema({
         errorSummary: v.optional(v.string()),
         message: v.optional(v.string()),
         attemptId: v.optional(v.id("examAttempts")),
+        qualityTier: v.optional(v.string()),
+        premiumTargetMet: v.optional(v.boolean()),
+        qualityWarnings: v.optional(v.array(v.string())),
+        qualitySignals: v.optional(v.any()),
         startedAt: v.number(),
         finishedAt: v.optional(v.number()),
     })

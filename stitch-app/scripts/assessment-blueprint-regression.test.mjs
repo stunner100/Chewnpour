@@ -19,6 +19,11 @@ if (!generationSource.includes("Create an assessment blueprint for objective and
 }
 
 for (const requiredPrompt of [
+    "Each outcome must include: key, objective, bloomLevel, evidenceFocus, cognitiveTask, difficultyBand.",
+    "objectivePlan.targetDifficultyDistribution must sum to 1 across easy, medium, hard.",
+    "objectivePlan.minDistinctOutcomeCount should be at least 3 when the evidence supports it.",
+    "essayPlan.minDistinctOutcomeCount should be at least 2 when the evidence supports it.",
+    "essayPlan.minDistinctScenarioFrameCount should be at least 2 when the evidence supports it.",
     "multipleChoicePlan.targetOutcomeKeys",
     "trueFalsePlan.targetOutcomeKeys",
     "fillBlankPlan.targetOutcomeKeys",
@@ -41,6 +46,8 @@ for (const requiredSnippet of [
     '"questionType": "fill_blank"',
     '"bloomLevel": "Remember|Understand|Apply|Analyze"',
     '"outcomeKey": "outcome-1"',
+    '"cognitiveTask": "compare"',
+    '"difficultyBand": "hard"',
 ]) {
     if (!generationSource.includes(requiredSnippet)) {
         throw new Error(`Expected grounded generation schema example to include ${requiredSnippet}.`);
@@ -56,28 +63,29 @@ if (!generationSource.includes("If assessmentBlueprint.essayPlan.authenticScenar
 }
 
 if (!aiSource.includes("const ASSESSMENT_QUESTION_GENERATION_VERSION = ASSESSMENT_BLUEPRINT_VERSION;")) {
-    throw new Error("Expected assessment-blueprint-v2 generation version constant in ai.ts.");
+    throw new Error("Expected assessment-blueprint-v3 generation version constant in ai.ts.");
 }
 
 for (const requiredAiSnippet of [
     "const ensureAssessmentBlueprintForTopic = async",
     "buildGroundedAssessmentBlueprintPrompt({",
-    "const generateObjectiveSubtypeQuestionBankForTopic = async",
-    "const generateObjectiveQuestionBankForTopic = async",
+    "const generateMcqQuestionGapBatch = async",
+    "const generateTrueFalseQuestionGapBatch = async",
+    "const generateFillBlankQuestionGapBatch = async",
+    "const applyPremiumQualityPass = async",
     "questionType: QUESTION_TYPE_TRUE_FALSE,",
     "questionType: QUESTION_TYPE_FILL_BLANK,",
-    "export const gradeFillBlankAnswer = internalAction({",
 ]) {
     if (!aiSource.includes(requiredAiSnippet)) {
         throw new Error(`Expected ai.ts to include ${requiredAiSnippet}.`);
     }
 }
 
-if (!/createQuestionInternal,\s*\{[\s\S]*questionType:\s*"multiple_choice"[\s\S]*generationVersion:\s*ASSESSMENT_QUESTION_GENERATION_VERSION[\s\S]*learningObjective:[\s\S]*bloomLevel:[\s\S]*outcomeKey:/s.test(aiSource)) {
-    throw new Error("Expected persisted objective multiple-choice questions to include assessment metadata.");
+if (!/const questionPayload: Record<string, any> = \{[\s\S]*questionType:\s*normalizedQuestionType,[\s\S]*generationVersion:\s*ASSESSMENT_QUESTION_GENERATION_VERSION[\s\S]*learningObjective:[\s\S]*bloomLevel:[\s\S]*outcomeKey:[\s\S]*qualityTier:/s.test(aiSource)) {
+    throw new Error("Expected persisted objective questions to include premium assessment metadata.");
 }
 
-if (!/templateParts:\s*Array\.isArray\(savePayload\.templateParts\)[\s\S]*acceptedAnswers:\s*Array\.isArray\(savePayload\.acceptedAnswers\)[\s\S]*fillBlankMode:/s.test(aiSource)) {
+if (!/if \(normalizedQuestionType === QUESTION_TYPE_FILL_BLANK\) \{[\s\S]*questionPayload\.templateParts = Array\.isArray\(questionRecord\.templateParts\)[\s\S]*questionPayload\.acceptedAnswers = Array\.isArray\(questionRecord\.acceptedAnswers\)[\s\S]*questionPayload\.fillBlankMode = String\(/s.test(aiSource)) {
     throw new Error("Expected persisted fill_blank questions to include templateParts, acceptedAnswers, and fillBlankMode.");
 }
 
@@ -102,8 +110,8 @@ if (!topicsSource.includes("Assessment metadata invalid")) {
     throw new Error("Expected question persistence to hard-fail invalid assessment metadata.");
 }
 
-if (!examsSource.includes("ctx.runAction(internal.ai.gradeFillBlankAnswer")) {
-    throw new Error("Expected objective submission to use AI-assisted grading for unmatched free-text blanks.");
+if (!/acceptedAnswers\.some\(\(aa: string\) => String\(aa\)\.trim\(\)\.toLowerCase\(\) === selectedNorm\)/.test(examsSource)) {
+    throw new Error("Expected objective submission to grade fill blanks against acceptedAnswers.");
 }
 
 if (!schemaSource.includes("objectiveTargetCount: v.optional(v.number())")) {
@@ -119,6 +127,11 @@ for (const requiredField of [
     "acceptedAnswers: v.optional(v.array(v.string()))",
     "fillBlankMode: v.optional(v.string())",
     "questionType: v.string(), // 'multiple_choice' | 'true_false' | 'fill_blank' | 'essay'",
+    "qualityTier: v.optional(v.string())",
+    "rigorScore: v.optional(v.number())",
+    "clarityScore: v.optional(v.number())",
+    "diversityCluster: v.optional(v.string())",
+    "distractorScore: v.optional(v.number())",
 ]) {
     if (!schemaSource.includes(requiredField)) {
         throw new Error(`Expected schema to include ${requiredField}.`);

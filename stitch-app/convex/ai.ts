@@ -96,6 +96,15 @@ import {
     QUESTION_TYPE_MULTIPLE_CHOICE,
     QUESTION_TYPE_TRUE_FALSE,
 } from "./lib/objectiveExam.js";
+import {
+    evaluateQuestionQuality,
+    forceQuestionLimitedTier,
+    normalizeQualityTier,
+    QUALITY_TIER_LIMITED,
+    QUALITY_TIER_PREMIUM,
+    QUALITY_TIER_UNAVAILABLE,
+    summarizeQuestionSetQuality,
+} from "./lib/premiumQuality.js";
 import { createVoiceStreamToken } from "./lib/voiceStreamToken";
 
 // Text generation routes by feature and uses OpenAI -> Bedrock -> Inception fallback for generation.
@@ -230,8 +239,10 @@ const ESSAY_QUESTION_PARALLEL_REQUESTS = 2;
 const ESSAY_QUESTION_MIN_BATCH_SIZE = 4;
 const ESSAY_QUESTION_REQUEST_TIMEOUT_MS = 18_000;
 const ESSAY_QUESTION_REPAIR_TIMEOUT_MS = 3_000;
-const ESSAY_QUESTION_TIME_BUDGET_MS = 30_000;
+const ESSAY_QUESTION_TIME_BUDGET_MS = 60_000;
 const ESSAY_QUESTION_MAX_BATCH_ATTEMPTS = 2;
+const PREMIUM_REVIEW_MAX_REVISIONS = 3;
+const PREMIUM_REVIEW_MIN_IMPROVEMENT = 0.04;
 const MCQ_QUESTION_BACKGROUND_RETRY_DELAY_MS = 20_000;
 const MCQ_QUESTION_BACKGROUND_MAX_RETRIES = 4;
 const ESSAY_QUESTION_BACKGROUND_RETRY_DELAY_MS = 20_000;
@@ -1746,16 +1757,27 @@ Required schema:
       "key": "outcome-1",
       "objective": "string",
       "bloomLevel": "Remember|Understand|Apply|Analyze|Evaluate|Create",
-      "evidenceFocus": "string"
+      "evidenceFocus": "string",
+      "cognitiveTask": "define|identify|summarize|explain|apply|compare|diagnose|interpret|analyze|evaluate|critique|justify|design",
+      "difficultyBand": "easy|medium|hard",
+      "scenarioFrame": "string"
     }
   ],
-  "mcqPlan": {
-    "targetOutcomeKeys": ["outcome-1"]
+  "objectivePlan": {
+    "targetOutcomeKeys": ["outcome-1"],
+    "targetDifficultyDistribution": {
+      "easy": 0.2,
+      "medium": 0.5,
+      "hard": 0.3
+    },
+    "minDistinctOutcomeCount": 3
   },
   "essayPlan": {
     "targetOutcomeKeys": ["outcome-2"],
     "authenticScenarioRequired": false,
-    "authenticContextHint": "string"
+    "authenticContextHint": "string",
+    "minDistinctOutcomeCount": 2,
+    "minDistinctScenarioFrameCount": 2
   }
 }
 
@@ -1811,6 +1833,20 @@ const normalizeGeneratedAssessmentCandidate = (args: {
         learningObjective: learningObjective || undefined,
         authenticContext: authenticContext || undefined,
         qualityFlags,
+        qualityTier: String(args.candidate?.qualityTier || "").trim() || undefined,
+        qualityScore: Number.isFinite(Number(args.candidate?.qualityScore))
+            ? Number(args.candidate?.qualityScore)
+            : undefined,
+        rigorScore: Number.isFinite(Number(args.candidate?.rigorScore))
+            ? Number(args.candidate?.rigorScore)
+            : undefined,
+        clarityScore: Number.isFinite(Number(args.candidate?.clarityScore))
+            ? Number(args.candidate?.clarityScore)
+            : undefined,
+        diversityCluster: String(args.candidate?.diversityCluster || "").trim() || undefined,
+        distractorScore: Number.isFinite(Number(args.candidate?.distractorScore))
+            ? Number(args.candidate?.distractorScore)
+            : undefined,
     };
 };
 
@@ -2109,6 +2145,57 @@ const loadGroundedEvidenceIndexForTopic = async (ctx: any, topic: any): Promise<
     return await loadGroundedEvidenceIndexForUpload(ctx, upload._id);
 };
 
+const expandRetrievedEvidenceWithIndexFallback = ({
+    index,
+    retrievedEvidence,
+    limit,
+}: {
+    index: GroundedEvidenceIndex;
+    retrievedEvidence: RetrievedEvidence[];
+    limit: number;
+}) => {
+    const safeLimit = Math.max(1, Math.round(Number(limit || 1)));
+    const selected = Array.isArray(retrievedEvidence) ? [...retrievedEvidence] : [];
+    const seenPassageIds = new Set(
+        selected.map((entry) => String(entry?.passageId || "").trim()).filter(Boolean)
+    );
+
+    if (selected.length >= safeLimit) {
+        return {
+            evidence: selected.slice(0, safeLimit),
+            usedIndexFallback: false,
+            fallbackPassageCount: 0,
+        };
+    }
+
+    let fallbackPassageCount = 0;
+    for (const passage of Array.isArray(index?.passages) ? index.passages : []) {
+        const passageId = String(passage?.passageId || "").trim();
+        if (!passageId || seenPassageIds.has(passageId)) {
+            continue;
+        }
+        selected.push({
+            ...passage,
+            score: 0.32,
+            lexicalScore: 0.32,
+            vectorScore: 0,
+            numericAgreement: 0,
+            retrievalSource: "lexical",
+        });
+        seenPassageIds.add(passageId);
+        fallbackPassageCount += 1;
+        if (selected.length >= safeLimit) {
+            break;
+        }
+    }
+
+    return {
+        evidence: selected.slice(0, safeLimit),
+        usedIndexFallback: fallbackPassageCount > 0,
+        fallbackPassageCount,
+    };
+};
+
 const getGroundedEvidencePackForTopic = async (args: {
     ctx: any;
     topic: any;
@@ -2170,11 +2257,18 @@ const getGroundedEvidencePackForTopic = async (args: {
         embeddingBacklogCount: retrieval.embeddingBacklogCount,
         retrievalLatencyMs: retrieval.latencyMs,
     });
+    const expandedEvidence = expandRetrievedEvidenceWithIndexFallback({
+        index,
+        retrievedEvidence: retrieval.evidence,
+        limit,
+    });
     return {
         upload,
         index,
-        evidence: retrieval.evidence,
-        evidenceSnippet: buildEvidenceSnippet(retrieval.evidence),
+        evidence: expandedEvidence.evidence,
+        evidenceSnippet: buildEvidenceSnippet(expandedEvidence.evidence),
+        usedIndexFallback: expandedEvidence.usedIndexFallback,
+        fallbackPassageCount: expandedEvidence.fallbackPassageCount,
         retrievalMode: retrieval.retrievalMode,
         lexicalHitCount: retrieval.lexicalHitCount,
         vectorHitCount: retrieval.vectorHitCount,
@@ -6314,12 +6408,242 @@ const generateEssayQuestionGapBatch = async (args: {
     });
 };
 
+const buildPremiumQuestionRevisionPrompt = (args: {
+    type: "mcq" | "true_false" | "fill_blank" | "essay";
+    topicTitle: string;
+    topicDescription?: string;
+    evidence: RetrievedEvidence[];
+    assessmentBlueprint: AssessmentBlueprint;
+    candidate: any;
+    warnings: string[];
+}) => {
+    const resolvedType = normalizeQuestionType(args.type === "mcq" ? "multiple_choice" : args.type);
+    const candidateJson = JSON.stringify(args.candidate, null, 2);
+    const warningBlock = (Array.isArray(args.warnings) ? args.warnings : [])
+        .map((warning) => `- ${warning}`)
+        .join("\n") || "- improve rigor and wording without losing grounding";
+
+    return `Revise the assessment item below to reach a premium university-quality standard while staying fully grounded in the evidence.
+
+TOPIC: ${args.topicTitle}
+DESCRIPTION: ${args.topicDescription || "General concepts"}
+
+${buildEvidenceSnippet(args.evidence)}
+
+ASSESSMENT_BLUEPRINT:
+${JSON.stringify(args.assessmentBlueprint, null, 2)}
+
+CURRENT_CANDIDATE:
+${candidateJson}
+
+QUALITY ISSUES TO FIX:
+${warningBlock}
+
+Rules:
+- Keep the same questionType and outcomeKey.
+- Do not invent facts, thresholds, or scenarios beyond the evidence.
+- Preserve or improve citations.
+- Improve cognitive demand, clarity, and diversity value.
+- If the item cannot be improved safely, return {"discard": true}.
+${resolvedType === QUESTION_TYPE_MULTIPLE_CHOICE ? `- Use exactly 4 options with one correct answer.
+- Make distractors plausible and evidence-adjacent.
+- Avoid giveaway option length patterns.` : ""}
+${resolvedType === QUESTION_TYPE_TRUE_FALSE ? `- Keep a single precise claim with True/False options only.
+- If False is correct, the statement must be meaningfully wrong, not trivially altered.` : ""}
+${resolvedType === QUESTION_TYPE_FILL_BLANK ? `- Keep exactly one blank.
+- The blank must remain the concept-bearing part of the sentence.` : ""}
+${resolvedType === "essay" ? `- Use sharper task verbs and explicit response scope.
+- Strengthen rubric points so they assess claim quality, evidence use, reasoning, and completeness.` : ""}
+
+Return JSON only.
+${resolvedType === "essay"
+        ? `{
+  "questionText": "string",
+  "questionType": "essay",
+  "correctAnswer": "string",
+  "explanation": "string",
+  "difficulty": "easy|medium|hard",
+  "learningObjective": "string",
+  "bloomLevel": "Analyze|Evaluate|Create",
+  "outcomeKey": "string",
+  "authenticContext": "string",
+  "rubricPoints": ["string"],
+  "citations": [{"passageId":"p1-0","page":0,"startChar":0,"endChar":20,"quote":"string"}]
+}`
+        : buildObjectiveQuestionRepairSchema(args.type)}`;
+};
+
+const reviseCandidateForPremiumQuality = async (args: {
+    type: "mcq" | "true_false" | "fill_blank" | "essay";
+    candidate: any;
+    topicTitle: string;
+    topicDescription?: string;
+    evidence: RetrievedEvidence[];
+    assessmentBlueprint: AssessmentBlueprint;
+    warnings: string[];
+    deadlineMs?: number;
+}) => {
+    const remainingMs = Number.isFinite(Number(args.deadlineMs))
+        ? Number(args.deadlineMs) - Date.now()
+        : null;
+    if (remainingMs !== null && remainingMs <= 1200) {
+        return null;
+    }
+
+    const timeoutMs = remainingMs === null
+        ? 7000
+        : Math.min(7000, Math.max(1200, remainingMs - 200));
+    const prompt = buildPremiumQuestionRevisionPrompt(args);
+    try {
+        const response = await callInception([
+            {
+                role: "system",
+                content: "You revise assessment items to a premium university standard. Return valid JSON only.",
+            },
+            { role: "user", content: prompt },
+        ], DEFAULT_MODEL, {
+            maxTokens: args.type === "essay" ? 1800 : 1500,
+            responseFormat: "json_object",
+            temperature: 0.2,
+            timeoutMs,
+        });
+
+        if (args.type === "essay") {
+            const parsed = await parseEssayQuestionsWithRepair(response, {
+                deadlineMs: args.deadlineMs,
+                repairTimeoutMs: timeoutMs,
+            });
+            const candidate = Array.isArray(parsed?.questions) ? parsed.questions[0] : null;
+            return candidate
+                ? normalizeGeneratedAssessmentCandidate({
+                    candidate,
+                    blueprint: args.assessmentBlueprint,
+                    questionType: "essay",
+                })
+                : null;
+        }
+
+        const parsed = await parseQuestionsWithRepair(response, args.type, {
+            deadlineMs: args.deadlineMs,
+            repairTimeoutMs: timeoutMs,
+        });
+        const candidate = Array.isArray(parsed?.questions) ? parsed.questions[0] : null;
+        return candidate
+            ? normalizeGeneratedAssessmentCandidate({
+                candidate,
+                blueprint: args.assessmentBlueprint,
+                questionType: args.type,
+            })
+            : null;
+    } catch {
+        return null;
+    }
+};
+
+const applyPremiumQualityPass = async (args: {
+    type: "mcq" | "true_false" | "fill_blank" | "essay";
+    candidates: any[];
+    topicTitle: string;
+    topicDescription?: string;
+    evidence: RetrievedEvidence[];
+    assessmentBlueprint: AssessmentBlueprint;
+    deadlineMs?: number;
+    forceLimited?: boolean;
+}) => {
+    const reviewed = [];
+    let revisionsUsed = 0;
+
+    for (const originalCandidate of Array.isArray(args.candidates) ? args.candidates : []) {
+        let candidate = { ...originalCandidate };
+        let quality = evaluateQuestionQuality(candidate);
+
+        candidate = {
+            ...candidate,
+            qualityTier: quality.qualityTier,
+            qualityScore: Number(quality.qualitySignals.qualityScore || 0),
+            rigorScore: Number(quality.qualitySignals.rigorScore || 0),
+            clarityScore: Number(quality.qualitySignals.clarityScore || 0),
+            diversityCluster: String(quality.qualitySignals.diversityCluster || ""),
+            distractorScore: quality.qualitySignals.distractorScore,
+            qualityFlags: normalizeQualityFlags([
+                ...(Array.isArray(candidate?.qualityFlags) ? candidate.qualityFlags : []),
+                ...quality.qualityWarnings,
+            ]),
+        };
+
+        const remainingMs = Number.isFinite(Number(args.deadlineMs))
+            ? Number(args.deadlineMs) - Date.now()
+            : null;
+        const canRevise =
+            normalizeQualityTier(candidate.qualityTier) !== QUALITY_TIER_PREMIUM
+            && revisionsUsed < PREMIUM_REVIEW_MAX_REVISIONS
+            && Array.isArray(quality.qualityWarnings)
+            && quality.qualityWarnings.length > 0
+            && (remainingMs === null || remainingMs > 1800);
+
+        if (canRevise) {
+            const revisedCandidate = await reviseCandidateForPremiumQuality({
+                type: args.type,
+                candidate,
+                topicTitle: args.topicTitle,
+                topicDescription: args.topicDescription,
+                evidence: args.evidence,
+                assessmentBlueprint: args.assessmentBlueprint,
+                warnings: quality.qualityWarnings,
+                deadlineMs: args.deadlineMs,
+            });
+            if (revisedCandidate) {
+                const revisedQuality = evaluateQuestionQuality(revisedCandidate);
+                const revisedScore = Number(revisedQuality.qualitySignals.qualityScore || 0);
+                const currentScore = Number(quality.qualitySignals.qualityScore || 0);
+                if (revisedScore >= currentScore + PREMIUM_REVIEW_MIN_IMPROVEMENT) {
+                    revisionsUsed += 1;
+                    quality = revisedQuality;
+                    candidate = {
+                        ...revisedCandidate,
+                        qualityTier: revisedQuality.qualityTier,
+                        qualityScore: revisedScore,
+                        rigorScore: Number(revisedQuality.qualitySignals.rigorScore || 0),
+                        clarityScore: Number(revisedQuality.qualitySignals.clarityScore || 0),
+                        diversityCluster: String(revisedQuality.qualitySignals.diversityCluster || ""),
+                        distractorScore: revisedQuality.qualitySignals.distractorScore,
+                        qualityFlags: normalizeQualityFlags([
+                            ...(Array.isArray(revisedCandidate?.qualityFlags) ? revisedCandidate.qualityFlags : []),
+                            ...revisedQuality.qualityWarnings,
+                        ]),
+                    };
+                }
+            }
+        }
+
+        reviewed.push(
+            args.forceLimited
+                ? forceQuestionLimitedTier(candidate, "fallback_evidence")
+                : candidate
+        );
+    }
+
+    return reviewed.sort((left, right) => {
+        const leftTier = normalizeQualityTier(left?.qualityTier);
+        const rightTier = normalizeQualityTier(right?.qualityTier);
+        if (leftTier !== rightTier) {
+            return leftTier === QUALITY_TIER_PREMIUM ? -1 : 1;
+        }
+        return Number(right?.qualityScore || 0) - Number(left?.qualityScore || 0);
+    });
+};
+
 const acceptAndPersistQuestionCandidates = async (args: {
     type: "mcq" | "true_false" | "fill_blank" | "essay";
     requestedCount: number;
     candidates: any[];
     evidenceIndex: GroundedEvidenceIndex;
     assessmentBlueprint: AssessmentBlueprint | null | undefined;
+    topicTitle: string;
+    topicDescription?: string;
+    evidence: RetrievedEvidence[];
+    deadlineMs?: number;
+    forceLimited?: boolean;
     llmVerify?: (candidate: any) => Promise<any>;
     maxLlmVerifications?: number;
     repairCandidate?: (args: {
@@ -6346,7 +6670,19 @@ const acceptAndPersistQuestionCandidates = async (args: {
     });
 
     let persistedCount = 0;
-    for (const candidate of acceptance.accepted) {
+    const premiumReviewed = args.assessmentBlueprint
+        ? await applyPremiumQualityPass({
+            type: args.type,
+            candidates: acceptance.accepted,
+            topicTitle: args.topicTitle,
+            topicDescription: args.topicDescription,
+            evidence: args.evidence,
+            assessmentBlueprint: args.assessmentBlueprint,
+            deadlineMs: args.deadlineMs,
+            forceLimited: args.forceLimited,
+        })
+        : acceptance.accepted;
+    for (const candidate of premiumReviewed) {
         const saved = await args.persistCandidate(candidate);
         if (!saved) continue;
         persistedCount += 1;
@@ -6637,6 +6973,7 @@ const generateQuestionBankForTopic = async (
 
     if (initialCount >= targetCount && coveragePolicy.ready && objectiveSubtypeMixPolicy.ready) {
         const diagnostics = buildTimingDiagnostics("already_generated");
+        const qualitySummary = summarizeQuestionSetQuality(existingQuestions);
         console.info("[QuestionBank] timing_breakdown", {
             topicId,
             topicTitle: effectiveTopic.title,
@@ -6651,6 +6988,10 @@ const generateQuestionBankForTopic = async (
             evidenceRichnessCap: targetResolution.evidenceRichnessCap,
             wordCountTarget: targetResolution.wordCountTarget,
             diagnostics,
+            qualityTier: qualitySummary.qualityTier,
+            premiumTargetMet: qualitySummary.premiumTargetMet,
+            qualityWarnings: qualitySummary.qualityWarnings,
+            qualitySignals: qualitySummary.qualitySignals,
         };
     }
     if (!groundedPack.index || groundedPack.evidence.length === 0) {
@@ -6666,6 +7007,7 @@ const generateQuestionBankForTopic = async (
             uploadId: groundedPack.upload?._id ? String(groundedPack.upload._id) : "",
         });
         const diagnostics = buildTimingDiagnostics("insufficient_evidence");
+        const qualitySummary = summarizeQuestionSetQuality(existingQuestions);
         console.info("[QuestionBank] timing_breakdown", {
             topicId,
             topicTitle: effectiveTopic.title,
@@ -6682,6 +7024,10 @@ const generateQuestionBankForTopic = async (
             abstained: true,
             reason: "INSUFFICIENT_EVIDENCE",
             diagnostics,
+            qualityTier: qualitySummary.qualityTier,
+            premiumTargetMet: qualitySummary.premiumTargetMet,
+            qualityWarnings: qualitySummary.qualityWarnings,
+            qualitySignals: qualitySummary.qualitySignals,
         };
     }
     const evidenceSnippet = groundedPack.evidenceSnippet;
@@ -6884,7 +7230,14 @@ const generateQuestionBankForTopic = async (
             bloomLevel: String(questionRecord?.bloomLevel || resolvedOutcome?.bloomLevel || "").trim() || undefined,
             outcomeKey: String(questionRecord?.outcomeKey || resolvedOutcome?.key || "").trim() || undefined,
             authenticContext: String(questionRecord?.authenticContext || "").trim() || undefined,
-            qualityScore: Number(questionRecord?.rankingScore || questionRecord?.groundingScore || 0),
+            qualityScore: Number(questionRecord?.rankingScore || questionRecord?.qualityScore || questionRecord?.groundingScore || 0),
+            qualityTier: String(questionRecord?.qualityTier || QUALITY_TIER_LIMITED).trim() || QUALITY_TIER_LIMITED,
+            rigorScore: Number(questionRecord?.rigorScore || 0),
+            clarityScore: Number(questionRecord?.clarityScore || 0),
+            diversityCluster: String(questionRecord?.diversityCluster || "").trim() || undefined,
+            distractorScore: questionRecord?.distractorScore === undefined
+                ? undefined
+                : Number(questionRecord?.distractorScore || 0),
             freshnessBucket: QUESTION_FRESHNESS_BUCKET_FRESH,
             qualityFlags: normalizeQualityFlags(questionRecord?.qualityFlags),
         };
@@ -6930,6 +7283,14 @@ const generateQuestionBankForTopic = async (
             fillBlankMode: String(questionRecord?.fillBlankMode || "").trim() || undefined,
             bloomLevel: String(questionRecord?.bloomLevel || resolvedOutcome?.bloomLevel || "").trim() || undefined,
             outcomeKey: String(questionRecord?.outcomeKey || resolvedOutcome?.key || "").trim() || undefined,
+            qualityTier: String(questionRecord?.qualityTier || QUALITY_TIER_LIMITED).trim() || QUALITY_TIER_LIMITED,
+            qualityScore: Number(questionRecord?.rankingScore || questionRecord?.qualityScore || questionRecord?.groundingScore || 0),
+            rigorScore: Number(questionRecord?.rigorScore || 0),
+            clarityScore: Number(questionRecord?.clarityScore || 0),
+            diversityCluster: String(questionRecord?.diversityCluster || "").trim() || undefined,
+            distractorScore: questionRecord?.distractorScore === undefined
+                ? undefined
+                : Number(questionRecord?.distractorScore || 0),
         });
         added += 1;
         countBreakdown.savedQuestionCount += 1;
@@ -7110,6 +7471,11 @@ const generateQuestionBankForTopic = async (
                 requestedCount: Math.max(1, Number(group.requestedCount || 0)),
                 evidenceIndex,
                 assessmentBlueprint,
+                topicTitle: effectiveTopic.title,
+                topicDescription: effectiveTopic.description,
+                evidence: groundedPack.evidence,
+                deadlineMs,
+                forceLimited: groundedPack.usedIndexFallback === true,
                 candidates: group.candidates,
                 repairCandidate: groundedRequestType === "mcq"
                     ? async ({ candidate, reasons }) =>
@@ -7409,6 +7775,7 @@ const generateQuestionBankForTopic = async (
     });
     timingBreakdown.refreshReadinessMs += normalizeTimingMs(Date.now() - refreshReadinessStartedAt);
     const finalDiagnostics = buildTimingDiagnostics(outcome);
+    const qualitySummary = summarizeQuestionSetQuality(coverageQuestions);
     console.info("[QuestionBank] timing_breakdown", {
         topicId,
         topicTitle: topicWithQuestions.title,
@@ -7447,6 +7814,10 @@ const generateQuestionBankForTopic = async (
         wordCountTarget: targetResolution.wordCountTarget,
         timedOut,
         diagnostics: finalDiagnostics,
+        qualityTier: qualitySummary.qualityTier,
+        premiumTargetMet: qualitySummary.premiumTargetMet,
+        qualityWarnings: qualitySummary.qualityWarnings,
+        qualitySignals: qualitySummary.qualitySignals,
     };
 };
 
@@ -8098,6 +8469,7 @@ const generateEssayQuestionsForTopicCore = async (
             topicId,
             essayTargetCount: persistedEssayTargetCount,
         });
+        const qualitySummary = summarizeQuestionSetQuality(existingUsableEssay);
         return {
             success: true,
             count: existingUsableEssayCount,
@@ -8107,6 +8479,10 @@ const generateEssayQuestionsForTopicCore = async (
             requestedTargetCount: targetCount,
             existingEssayCount: existingEssay.length,
             existingUsableEssayCount,
+            qualityTier: qualitySummary.qualityTier,
+            premiumTargetMet: qualitySummary.premiumTargetMet,
+            qualityWarnings: qualitySummary.qualityWarnings,
+            qualitySignals: qualitySummary.qualitySignals,
         };
     }
     if (!groundedPack.index || groundedPack.evidence.length === 0) {
@@ -8126,6 +8502,12 @@ const generateEssayQuestionsForTopicCore = async (
             requestedTargetCount: targetCount,
             existingEssayCount: existingEssay.length,
             existingUsableEssayCount,
+            qualityTier: QUALITY_TIER_UNAVAILABLE,
+            premiumTargetMet: false,
+            qualityWarnings: ["insufficient_evidence"],
+            qualitySignals: {
+                questionCount: existingUsableEssayCount,
+            },
         };
     }
     const evidenceSnippet = groundedPack.evidenceSnippet;
@@ -8203,6 +8585,11 @@ const generateEssayQuestionsForTopicCore = async (
         requestedCount: Math.max(1, remainingNeeded),
         evidenceIndex,
         assessmentBlueprint,
+        topicTitle: effectiveTopic.title,
+        topicDescription: effectiveTopic.description,
+        evidence: groundedPack.evidence,
+        deadlineMs,
+        forceLimited: groundedPack.usedIndexFallback === true,
         candidates,
         maxLlmVerifications: Math.min(6, Math.max(2, remainingNeeded * 2)),
         llmVerify: async (candidate) =>
@@ -8274,7 +8661,11 @@ const generateEssayQuestionsForTopicCore = async (
                 outcomeKey: String(groundedQuestion?.outcomeKey || resolvedOutcome?.key || "").trim() || undefined,
                 authenticContext: String(groundedQuestion?.authenticContext || "").trim() || undefined,
                 rubricPoints: rubricPoints.length > 0 ? rubricPoints : undefined,
-                qualityScore: Number(groundedQuestion?.rankingScore || groundedQuestion?.groundingScore || 0),
+                qualityScore: Number(groundedQuestion?.rankingScore || groundedQuestion?.qualityScore || groundedQuestion?.groundingScore || 0),
+                qualityTier: String(groundedQuestion?.qualityTier || QUALITY_TIER_LIMITED).trim() || QUALITY_TIER_LIMITED,
+                rigorScore: Number(groundedQuestion?.rigorScore || 0),
+                clarityScore: Number(groundedQuestion?.clarityScore || 0),
+                diversityCluster: String(groundedQuestion?.diversityCluster || "").trim() || undefined,
                 freshnessBucket: QUESTION_FRESHNESS_BUCKET_FRESH,
                 qualityFlags: normalizeQualityFlags(groundedQuestion?.qualityFlags),
             });
@@ -8287,6 +8678,11 @@ const generateEssayQuestionsForTopicCore = async (
                 questionText: normalizedQuestionText,
                 bloomLevel: String(groundedQuestion?.bloomLevel || resolvedOutcome?.bloomLevel || "").trim() || undefined,
                 outcomeKey: String(groundedQuestion?.outcomeKey || resolvedOutcome?.key || "").trim() || undefined,
+                qualityTier: String(groundedQuestion?.qualityTier || QUALITY_TIER_LIMITED).trim() || QUALITY_TIER_LIMITED,
+                qualityScore: Number(groundedQuestion?.rankingScore || groundedQuestion?.qualityScore || groundedQuestion?.groundingScore || 0),
+                rigorScore: Number(groundedQuestion?.rigorScore || 0),
+                clarityScore: Number(groundedQuestion?.clarityScore || 0),
+                diversityCluster: String(groundedQuestion?.diversityCluster || "").trim() || undefined,
             });
             added += 1;
             return true;
@@ -8339,6 +8735,8 @@ const generateEssayQuestionsForTopicCore = async (
         essayTargetCount: persistedEssayTargetCount,
     });
 
+    const qualitySummary = summarizeQuestionSetQuality(coverageQuestions);
+
     return {
         success: true,
         count: finalUsableCount,
@@ -8346,6 +8744,10 @@ const generateEssayQuestionsForTopicCore = async (
         timedOut,
         targetCount: persistedEssayTargetCount,
         requestedTargetCount: targetCount,
+        qualityTier: qualitySummary.qualityTier,
+        premiumTargetMet: qualitySummary.premiumTargetMet,
+        qualityWarnings: qualitySummary.qualityWarnings,
+        qualitySignals: qualitySummary.qualitySignals,
     };
 };
 

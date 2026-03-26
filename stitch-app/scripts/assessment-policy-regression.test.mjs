@@ -6,11 +6,11 @@ import {
 } from "../convex/lib/assessmentPolicy.js";
 
 const blueprint = {
-  version: "assessment-blueprint-v1",
+  version: "assessment-blueprint-v3",
   outcomes: [
-    { key: "outcome-1", objective: "Recall the main process", bloomLevel: "Remember", evidenceFocus: "process steps" },
-    { key: "outcome-2", objective: "Apply the process to examples", bloomLevel: "Apply", evidenceFocus: "worked examples" },
-    { key: "outcome-3", objective: "Evaluate tradeoffs", bloomLevel: "Evaluate", evidenceFocus: "tradeoffs" },
+    { key: "outcome-1", objective: "Recall the main process", bloomLevel: "Remember", evidenceFocus: "process steps", cognitiveTask: "identify", difficultyBand: "easy" },
+    { key: "outcome-2", objective: "Apply the process to examples", bloomLevel: "Apply", evidenceFocus: "worked examples", cognitiveTask: "apply", difficultyBand: "medium", scenarioFrame: "A realistic lab case" },
+    { key: "outcome-3", objective: "Evaluate tradeoffs", bloomLevel: "Evaluate", evidenceFocus: "tradeoffs", cognitiveTask: "justify", difficultyBand: "hard", scenarioFrame: "A decision memo" },
   ],
   mcqPlan: {
     allowedBloomLevels: ["Remember", "Understand", "Apply", "Analyze"],

@@ -7,7 +7,7 @@ import {
     normalizeQuestionType,
 } from "./objectiveExam.js";
 
-export const ASSESSMENT_BLUEPRINT_VERSION = "assessment-blueprint-v2";
+export const ASSESSMENT_BLUEPRINT_VERSION = "assessment-blueprint-v3";
 
 export const BLOOM_LEVELS = [
     "Remember",
@@ -44,6 +44,23 @@ export const ESSAY_ALLOWED_BLOOM_LEVELS = [
 ];
 
 export const MCQ_ALLOWED_BLOOM_LEVELS = MULTIPLE_CHOICE_ALLOWED_BLOOM_LEVELS;
+export const COGNITIVE_TASKS = [
+    "define",
+    "identify",
+    "summarize",
+    "explain",
+    "apply",
+    "compare",
+    "diagnose",
+    "interpret",
+    "analyze",
+    "evaluate",
+    "critique",
+    "justify",
+    "design",
+];
+
+export const DIFFICULTY_BANDS = ["easy", "medium", "hard"];
 
 const QUESTION_TYPE_PLAN_KEYS = {
     [QUESTION_TYPE_MULTIPLE_CHOICE]: "multipleChoicePlan",
@@ -79,6 +96,29 @@ export const normalizeOutcomeKey = (value) =>
         .replace(/[^a-z0-9]+/g, "-")
         .replace(/^-+|-+$/g, "");
 
+export const normalizeDifficultyBand = (value) => {
+    const normalized = normalizeText(value).toLowerCase();
+    if (normalized === "hard") return "hard";
+    if (normalized === "easy") return "easy";
+    return "medium";
+};
+
+export const normalizeCognitiveTask = (value, bloomLevel = "") => {
+    const normalized = normalizeText(value).toLowerCase();
+    if (normalized && COGNITIVE_TASKS.includes(normalized)) {
+        return normalized;
+    }
+    const fallbackByBloom = {
+        Remember: "identify",
+        Understand: "explain",
+        Apply: "apply",
+        Analyze: "analyze",
+        Evaluate: "justify",
+        Create: "design",
+    };
+    return fallbackByBloom[normalizeBloomLevel(bloomLevel)] || "explain";
+};
+
 const uniqueStringArray = (values) =>
     Array.from(
         new Set(
@@ -102,6 +142,25 @@ const normalizeOutcomeRecord = (outcome, index) => {
         objective,
         bloomLevel,
         evidenceFocus,
+        cognitiveTask: normalizeCognitiveTask(outcome.cognitiveTask, bloomLevel),
+        difficultyBand: normalizeDifficultyBand(outcome.difficultyBand),
+        scenarioFrame: normalizeText(outcome.scenarioFrame || outcome.authenticContextHint) || undefined,
+    };
+};
+
+const normalizeDifficultyDistribution = (value) => {
+    const safeValue = value && typeof value === "object" ? value : {};
+    const easy = Math.max(0, Number(safeValue.easy || 0.2));
+    const medium = Math.max(0, Number(safeValue.medium || 0.5));
+    const hard = Math.max(0, Number(safeValue.hard || 0.3));
+    const total = easy + medium + hard;
+    if (total <= 0) {
+        return { easy: 0.2, medium: 0.5, hard: 0.3 };
+    }
+    return {
+        easy: easy / total,
+        medium: medium / total,
+        hard: hard / total,
     };
 };
 
@@ -254,11 +313,32 @@ export const normalizeAssessmentBlueprint = (raw) => {
             targetMix: { ...OBJECTIVE_TARGET_MIX },
             targetOutcomeKeys: objectiveOutcomeKeys,
             targetBloomLevels: objectiveTargetBloomLevels,
+            targetDifficultyDistribution: normalizeDifficultyDistribution(raw.objectivePlan?.targetDifficultyDistribution),
+            minDistinctOutcomeCount: Math.max(
+                1,
+                Math.min(
+                    objectiveOutcomeKeys.length,
+                    Math.round(Number(raw.objectivePlan?.minDistinctOutcomeCount || 3))
+                )
+            ),
         },
         multipleChoicePlan,
         trueFalsePlan,
         fillBlankPlan,
-        essayPlan,
+        essayPlan: {
+            ...essayPlan,
+            minDistinctOutcomeCount: Math.max(
+                1,
+                Math.min(
+                    essayPlan.targetOutcomeKeys.length,
+                    Math.round(Number(rawEssayPlan.minDistinctOutcomeCount || 2))
+                )
+            ),
+            minDistinctScenarioFrameCount: Math.max(
+                1,
+                Math.round(Number(rawEssayPlan.minDistinctScenarioFrameCount || 2))
+            ),
+        },
     };
 };
 

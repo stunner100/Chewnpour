@@ -5,6 +5,7 @@ import {
     buildQuestionPromptSignature,
 } from "./questionPromptSimilarity";
 import { normalizeConceptTextKey } from "./conceptExerciseGeneration";
+import { evaluateQuestionQuality } from "./premiumQuality.js";
 
 const clamp = (value: number, min: number, max: number) => Math.max(min, Math.min(max, value));
 
@@ -43,6 +44,7 @@ export const rankGroundedCandidates = (args: {
             const citationScore = citationCount / 4;
             const difficulty = String(candidate?.difficulty || "medium").toLowerCase();
             const difficultyScore = difficulty === "hard" ? 1 : difficulty === "easy" ? 0.6 : 0.8;
+            const quality = evaluateQuestionQuality(candidate);
 
             const richness = clamp(
                 (String(candidate?.explanation || candidate?.correctAnswer || "").length / 240),
@@ -51,15 +53,41 @@ export const rankGroundedCandidates = (args: {
             );
 
             const score = clamp(
-                grounding * 0.5
-                + citationScore * 0.2
-                + richness * 0.2
-                + difficultyScore * 0.1,
+                grounding * 0.28
+                + citationScore * 0.1
+                + richness * 0.1
+                + difficultyScore * 0.08
+                + clamp(Number(quality?.qualitySignals?.rigorScore || 0), 0, 1) * 0.22
+                + clamp(Number(quality?.qualitySignals?.clarityScore || 0), 0, 1) * 0.12
+                + clamp(Number(quality?.qualitySignals?.distractorScore ?? 0.7), 0, 1) * 0.1,
                 0,
                 1
             );
 
-            return { candidate, index, score };
+            return {
+                candidate: {
+                    ...candidate,
+                    qualityTier: quality.qualityTier,
+                    qualityFlags: Array.from(
+                        new Set([
+                            ...(Array.isArray(candidate?.qualityFlags) ? candidate.qualityFlags : []),
+                            ...quality.qualityWarnings,
+                        ])
+                    ),
+                    qualityScore: Math.max(
+                        clamp(Number(candidate?.qualityScore || 0), 0, 1),
+                        clamp(Number(quality?.qualitySignals?.qualityScore || 0), 0, 1),
+                    ),
+                    rigorScore: clamp(Number(quality?.qualitySignals?.rigorScore || 0), 0, 1),
+                    clarityScore: clamp(Number(quality?.qualitySignals?.clarityScore || 0), 0, 1),
+                    distractorScore: quality?.qualitySignals?.distractorScore === undefined
+                        ? undefined
+                        : clamp(Number(quality.qualitySignals.distractorScore || 0), 0, 1),
+                    diversityCluster: String(quality?.qualitySignals?.diversityCluster || ""),
+                },
+                index,
+                score,
+            };
         })
         .sort((a, b) => b.score - a.score);
 

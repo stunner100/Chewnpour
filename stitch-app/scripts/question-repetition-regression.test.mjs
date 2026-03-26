@@ -29,7 +29,7 @@ assert.ok(
 );
 
 const makeBlueprint = () => ({
-  version: "assessment-blueprint-v2",
+  version: "assessment-blueprint-v3",
   outcomes: [
     { key: "mcq-remember", objective: "Recall key facts", bloomLevel: "Remember", evidenceFocus: "fact recall" },
     { key: "mcq-apply", objective: "Apply the concept", bloomLevel: "Apply", evidenceFocus: "applied example" },
