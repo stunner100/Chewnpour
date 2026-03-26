@@ -4,11 +4,20 @@ import {
     calculateEvidenceRichEssayCap,
     QUESTION_BANK_BACKGROUND_PROFILE,
     QUESTION_BANK_INTERACTIVE_PROFILE,
+    MCQ_ATTEMPT_MIN_COUNT,
+    MCQ_ATTEMPT_MAX_COUNT,
+    ESSAY_ATTEMPT_MIN_COUNT,
+    ESSAY_ATTEMPT_MAX_COUNT,
     calculateQuestionBankTarget,
     deriveQuestionGenerationRounds,
     rebaseQuestionBankTargetAfterRun,
+    resolveAssessmentCapacity,
     resolveEvidenceRichEssayCap,
     resolveEvidenceRichMcqCap,
+    resolveEssayAttemptTarget,
+    resolveEssayBankTarget,
+    resolveMcqAttemptTarget,
+    resolveMcqBankTarget,
     resolveQuestionBankProfile,
 } from "../convex/lib/questionBankConfig.js";
 
@@ -267,6 +276,68 @@ const tests = [
             resolution.broadTopicPenaltyApplied,
             true,
             "Broad manual-style topics should trigger the essay broad-topic penalty."
+        );
+    },
+    () => {
+        const bankTarget = resolveMcqBankTarget({
+            topicTargetCount: 42,
+            usableQuestionCount: 17,
+        });
+        const attemptTarget = resolveMcqAttemptTarget({
+            topicTargetCount: 42,
+            usableQuestionCount: 17,
+        });
+        assert.equal(bankTarget, 42, "MCQ bank target should preserve the grounded topic target when present.");
+        assert.equal(
+            attemptTarget,
+            MCQ_ATTEMPT_MAX_COUNT,
+            "MCQ attempt target should clamp a large grounded bank to the interactive max."
+        );
+    },
+    () => {
+        const bankTarget = resolveMcqBankTarget({
+            topicTargetCount: 1,
+            usableQuestionCount: 1,
+        });
+        const attemptTarget = resolveMcqAttemptTarget({
+            topicTargetCount: 1,
+            usableQuestionCount: 1,
+        });
+        assert.equal(bankTarget, 1, "MCQ bank target should preserve tiny grounded banks for diagnostics.");
+        assert.equal(
+            attemptTarget,
+            MCQ_ATTEMPT_MIN_COUNT,
+            "MCQ attempt target should enforce the minimum viable exam floor."
+        );
+    },
+    () => {
+        const bankTarget = resolveEssayBankTarget({
+            topicTargetCount: 9,
+            usableQuestionCount: 4,
+        });
+        const attemptTarget = resolveEssayAttemptTarget({
+            topicTargetCount: 9,
+            usableQuestionCount: 4,
+        });
+        assert.equal(bankTarget, 9, "Essay bank target should track the grounded essay target.");
+        assert.equal(attemptTarget, 9, "Essay attempt target should follow the grounded bank when it stays within bounds.");
+    },
+    () => {
+        const capacity = resolveAssessmentCapacity({
+            examFormat: "essay",
+            topicTargetCount: 1,
+            usableQuestionCount: 1,
+        });
+        assert.equal(capacity.bankTargetCount, 1, "Assessment capacity should expose the grounded bank target.");
+        assert.equal(
+            capacity.attemptTargetCount,
+            ESSAY_ATTEMPT_MIN_COUNT,
+            "Assessment capacity should keep a minimum viable essay attempt size."
+        );
+        assert.equal(
+            capacity.maximumAttemptCount,
+            ESSAY_ATTEMPT_MAX_COUNT,
+            "Assessment capacity should expose the essay attempt ceiling."
         );
     },
 ];

@@ -52,8 +52,8 @@ if (/export const startExamAttempt = action/.test(examsSource)) {
 if (!/canReuseExamAttempt\(\{\s*[\s\S]*examFormat,/.test(examsSource)) {
   throw new Error('Expected prepared-attempt reuse checks to include requested exam format.');
 }
-if (!/const requiredQuestionCount = isEssay[\s\S]*EXAM_ESSAY_QUESTION_SUBSET_SIZE[\s\S]*EXAM_QUESTION_SUBSET_SIZE/.test(examsSource)) {
-  throw new Error('Expected the prepared-attempt mutation to derive a required full-set count by exam format.');
+if (!/resolveAssessmentCapacity/.test(examsSource) || !/const requiredQuestionCount = capacity\.attemptTargetCount/.test(examsSource)) {
+  throw new Error('Expected the prepared-attempt mutation to derive required counts from dynamic assessment capacity.');
 }
 if (!/usableQuestions\.length < requiredQuestionCount/.test(examsSource)) {
   throw new Error('Expected prepared-attempt checks to block when the bank is smaller than the required full-set count.');
@@ -80,6 +80,9 @@ for (const requiredPattern of [
 
 if (!/ctx\.scheduler\.runAfter\(0,\s*internal\.examPreparations\.runExamPreparationInternal/.test(preparationsSource)) {
   throw new Error('Expected exam preparation starts and retries to schedule the internal preparation runner.');
+}
+if (!/resolveAssessmentCapacity/.test(preparationsSource)) {
+  throw new Error('Expected exam preparations to resolve dynamic attempt and bank counts through the shared capacity helper.');
 }
 if (!/await ctx\.runAction\(internal\.ai\.generateEssayQuestionsForTopicOnDemandInternal/.test(preparationsSource)) {
   throw new Error('Expected essay preparation to trigger only the requested on-demand essay generator.');

@@ -235,8 +235,6 @@ const TRANSIENT_TRANSPORT_ERROR_PATTERNS = [
     'fetch failed',
     'inactive server',
 ];
-const MCQ_EXAM_QUESTION_CAP = 35;
-const ESSAY_EXAM_QUESTION_CAP = 15;
 const EXAM_DURATION_SECONDS = 45 * 60;
 const MIN_ESSAY_SUBMIT_CHAR_COUNT = 20;
 const PREPARATION_STAGE_LABELS = {
@@ -442,7 +440,15 @@ const ExamMode = () => {
     const START_EXAM_ATTEMPT_TIMEOUT_MS = 120_000;
     const EXAM_LOADING_STALL_TIMEOUT_MS = 150_000;
 
-    const loadingExamQuestionCap = examFormat === 'essay' ? ESSAY_EXAM_QUESTION_CAP : MCQ_EXAM_QUESTION_CAP;
+    const topic = topicData;
+    const loadingExamQuestionCap = (() => {
+        const rawTarget = examFormat === 'essay'
+            ? topic?.essayTargetCount
+            : topic?.mcqTargetCount;
+        const numeric = Number(rawTarget);
+        if (!Number.isFinite(numeric) || numeric <= 0) return 0;
+        return Math.max(1, Math.round(numeric));
+    })();
     const loadingExamTypeLabel = examFormat === 'essay' ? 'essay' : 'multiple-choice';
     const preparationStatus = typeof preparation?.status === 'string' ? preparation.status : '';
     const preparationStage = typeof preparation?.stage === 'string' ? preparation.stage : 'queued';
@@ -462,7 +468,6 @@ const ExamMode = () => {
         [attemptQuestions],
     );
     const hasAttemptQuestions = questions.length > 0;
-    const topic = topicData;
     const examFlowStartTimeRef = useRef(Date.now());
     const attemptStartTimeRef = useRef(null);
     const loadingStallReportedRef = useRef(false);

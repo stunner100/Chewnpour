@@ -7,15 +7,28 @@ import {
     sanitizeExamQuestionForClient,
 } from "./lib/examSecurity";
 import { ASSESSMENT_BLUEPRINT_VERSION } from "./lib/assessmentBlueprint.js";
-
-const EXAM_QUESTION_SUBSET_SIZE = 35;
-const EXAM_ESSAY_QUESTION_SUBSET_SIZE = 15;
+import { resolveAssessmentCapacity } from "./lib/questionBankConfig.js";
 
 const resolveRequestedExamFormat = (value: unknown) =>
     String(value || "").trim().toLowerCase() === "essay" ? "essay" : "mcq";
 
-const resolveAttemptTargetCount = (examFormat: string) =>
-    examFormat === "essay" ? EXAM_ESSAY_QUESTION_SUBSET_SIZE : EXAM_QUESTION_SUBSET_SIZE;
+const resolvePreparationCapacity = ({
+    topic,
+    examFormat,
+    topicTargetCount,
+    usableQuestionCount,
+}: {
+    topic?: any;
+    examFormat: string;
+    topicTargetCount?: number;
+    usableQuestionCount?: number;
+}) =>
+    resolveAssessmentCapacity({
+        examFormat,
+        topic,
+        topicTargetCount,
+        usableQuestionCount,
+    });
 
 const buildPreparationMessage = ({
     examFormat,
@@ -180,7 +193,12 @@ export const createOrReusePreparationInternal = internalMutation({
             }
         }
 
-        const attemptTargetCount = resolveAttemptTargetCount(examFormat);
+        const capacity = resolvePreparationCapacity({
+            topic,
+            examFormat,
+            topicTargetCount: examFormat === "essay" ? topic.essayTargetCount : topic.mcqTargetCount,
+            usableQuestionCount: examFormat === "essay" ? topic.usableEssayCount : topic.usableMcqCount,
+        });
         const preparationId = await ctx.db.insert("examPreparations", {
             userId: effectiveUserId,
             topicId: args.topicId,
@@ -188,8 +206,8 @@ export const createOrReusePreparationInternal = internalMutation({
             assessmentVersion: String(args.assessmentVersion || ASSESSMENT_BLUEPRINT_VERSION).trim() || ASSESSMENT_BLUEPRINT_VERSION,
             status: "queued",
             stage: "queued",
-            attemptTargetCount,
-            bankTargetCount: attemptTargetCount,
+            attemptTargetCount: capacity.attemptTargetCount,
+            bankTargetCount: capacity.bankTargetCount,
             usableCount: 0,
             generatedCount: 0,
             message: buildPreparationMessage({ examFormat, status: "queued" }),
@@ -341,6 +359,8 @@ export const runExamPreparationInternal = internalAction({
                 stage: "completed",
                 usableCount: Number(initialAttempt.totalQuestions || 0),
                 generatedCount: Number(initialAttempt.totalQuestions || 0),
+                attemptTargetCount: Number(initialAttempt.attemptTargetCount || initialAttempt.totalQuestions || preparation.attemptTargetCount || 0),
+                bankTargetCount: Number(initialAttempt.bankTargetCount || preparation.bankTargetCount || 0),
                 attemptId: initialAttempt.attemptId,
                 finishedAt: Date.now(),
                 message: buildPreparationMessage({ examFormat, status: "ready" }),
@@ -353,6 +373,8 @@ export const runExamPreparationInternal = internalAction({
             status: "preparing",
             stage: "generating_questions",
             usableCount: Number(initialAttempt?.usableQuestionCount || 0),
+            attemptTargetCount: Number(initialAttempt?.attemptTargetCount || preparation.attemptTargetCount || 0),
+            bankTargetCount: Number(initialAttempt?.bankTargetCount || preparation.bankTargetCount || 0),
         });
 
         let generationResult: any;
@@ -360,7 +382,7 @@ export const runExamPreparationInternal = internalAction({
             generationResult = examFormat === "essay"
                 ? await ctx.runAction(internal.ai.generateEssayQuestionsForTopicOnDemandInternal, {
                     topicId: preparation.topicId,
-                    count: resolveAttemptTargetCount(examFormat),
+                    count: Number(initialAttempt?.attemptTargetCount || preparation.attemptTargetCount || 0) || undefined,
                 })
                 : await ctx.runAction(internal.ai.generateQuestionsForTopicOnDemandInternal, {
                     topicId: preparation.topicId,
@@ -381,14 +403,20 @@ export const runExamPreparationInternal = internalAction({
             return null;
         }
 
+        const generationCapacity = resolvePreparationCapacity({
+            examFormat,
+            topicTargetCount: generationResult?.targetCount,
+            usableQuestionCount: generationResult?.count,
+        });
+
         await ctx.runMutation(internal.examPreparations.markPreparationStageInternal, {
             preparationId: args.preparationId,
             status: "preparing",
             stage: "finalizing_attempt",
             usableCount: Number(generationResult?.count || initialAttempt?.usableQuestionCount || 0),
             generatedCount: Number(generationResult?.count || 0),
-            attemptTargetCount: Number(generationResult?.targetCount || preparation.attemptTargetCount || resolveAttemptTargetCount(examFormat)),
-            bankTargetCount: Number(generationResult?.targetCount || preparation.bankTargetCount || resolveAttemptTargetCount(examFormat)),
+            attemptTargetCount: Number(generationCapacity.attemptTargetCount || initialAttempt?.attemptTargetCount || preparation.attemptTargetCount || 0),
+            bankTargetCount: Number(generationCapacity.bankTargetCount || initialAttempt?.bankTargetCount || preparation.bankTargetCount || 0),
         });
 
         const finalAttempt = await ctx.runMutation(internal.exams.ensurePreparedExamAttemptInternal, {
@@ -404,8 +432,8 @@ export const runExamPreparationInternal = internalAction({
                 stage: "completed",
                 usableCount: Number(finalAttempt.totalQuestions || generationResult?.count || 0),
                 generatedCount: Number(generationResult?.count || finalAttempt.totalQuestions || 0),
-                attemptTargetCount: Number(generationResult?.targetCount || preparation.attemptTargetCount || resolveAttemptTargetCount(examFormat)),
-                bankTargetCount: Number(generationResult?.targetCount || preparation.bankTargetCount || resolveAttemptTargetCount(examFormat)),
+                attemptTargetCount: Number(finalAttempt.attemptTargetCount || generationCapacity.attemptTargetCount || preparation.attemptTargetCount || 0),
+                bankTargetCount: Number(finalAttempt.bankTargetCount || generationCapacity.bankTargetCount || preparation.bankTargetCount || 0),
                 attemptId: finalAttempt.attemptId,
                 finishedAt: Date.now(),
                 message: buildPreparationMessage({ examFormat, status: "ready" }),
@@ -425,8 +453,8 @@ export const runExamPreparationInternal = internalAction({
             stage: terminalOutcome.status,
             usableCount: Number(finalAttempt?.usableQuestionCount || generationResult?.count || 0),
             generatedCount: Number(generationResult?.count || 0),
-            attemptTargetCount: Number(generationResult?.targetCount || preparation.attemptTargetCount || resolveAttemptTargetCount(examFormat)),
-            bankTargetCount: Number(generationResult?.targetCount || preparation.bankTargetCount || resolveAttemptTargetCount(examFormat)),
+            attemptTargetCount: Number(finalAttempt?.attemptTargetCount || generationCapacity.attemptTargetCount || preparation.attemptTargetCount || 0),
+            bankTargetCount: Number(finalAttempt?.bankTargetCount || generationCapacity.bankTargetCount || preparation.bankTargetCount || 0),
             reasonCode: terminalOutcome.reasonCode,
             errorSummary: generationResult?.timedOut === true ? "Question generation timed out before the exam was ready." : undefined,
             message: terminalOutcome.message,

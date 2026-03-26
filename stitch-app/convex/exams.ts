@@ -12,9 +12,8 @@ import {
 import { filterQuestionsForActiveAssessment } from "./lib/assessmentBlueprint.js";
 import { canReuseExamAttempt, resolveReusableAttemptQuestions } from "./lib/examAttemptReuse";
 import { selectQuestionsForAttempt } from "./lib/examQuestionSelection";
+import { resolveAssessmentCapacity } from "./lib/questionBankConfig.js";
 
-const EXAM_QUESTION_SUBSET_SIZE = 35;
-const EXAM_ESSAY_QUESTION_SUBSET_SIZE = 15;
 const EXAM_ATTEMPT_REUSE_LOOKBACK = 50;
 const EXAM_ESSAY_MIN_READY_COUNT = 1;
 
@@ -30,6 +29,31 @@ const safeGetQuestionById = async (ctx: any, questionId: any) => {
 
 const resolveRequestedExamFormat = (value: unknown) =>
     String(value || "").trim().toLowerCase() === "essay" ? "essay" : "mcq";
+
+const resolveTopicQuestionCounts = ({
+    topic,
+    examFormat,
+    usableQuestionCount,
+}: {
+    topic: any;
+    examFormat: string;
+    usableQuestionCount?: number;
+}) => {
+    const normalizedFormat = resolveRequestedExamFormat(examFormat);
+    const storedTargetCount = normalizedFormat === "essay"
+        ? topic?.essayTargetCount
+        : topic?.mcqTargetCount;
+    const fallbackUsableCount = normalizedFormat === "essay"
+        ? topic?.usableEssayCount
+        : topic?.usableMcqCount;
+
+    return resolveAssessmentCapacity({
+        examFormat: normalizedFormat,
+        topic,
+        topicTargetCount: storedTargetCount,
+        usableQuestionCount: usableQuestionCount ?? fallbackUsableCount,
+    });
+};
 
 const createExamAttemptDocument = async ({
     ctx,
@@ -84,11 +108,19 @@ export const requestEssayQuestionTopUp = mutation({
             resourceOwnerUserId: course.userId,
         });
 
+        const capacity = resolveTopicQuestionCounts({
+            topic,
+            examFormat: "essay",
+        });
         const requestedCount = Math.max(
             EXAM_ESSAY_MIN_READY_COUNT,
-            Math.min(
-                EXAM_ESSAY_QUESTION_SUBSET_SIZE,
-                Math.round(Number(args.minimumCount || EXAM_ESSAY_QUESTION_SUBSET_SIZE))
+            Math.round(
+                Number(
+                    args.minimumCount
+                    || capacity.bankTargetCount
+                    || capacity.attemptTargetCount
+                    || EXAM_ESSAY_MIN_READY_COUNT
+                )
             )
         );
 
@@ -115,9 +147,6 @@ export const ensurePreparedExamAttemptInternal = internalMutation({
         const effectiveUserId = String(args.userId || "").trim();
         const examFormat = resolveRequestedExamFormat(args.examFormat);
         const isEssay = examFormat === "essay";
-        const requiredQuestionCount = isEssay
-            ? EXAM_ESSAY_QUESTION_SUBSET_SIZE
-            : EXAM_QUESTION_SUBSET_SIZE;
 
         const topic = await ctx.db.get(args.topicId);
         if (!topic) {
@@ -171,6 +200,11 @@ export const ensurePreparedExamAttemptInternal = internalMutation({
             });
 
             if (reusableQuestions.length === reusableQuestionIds.length && reusableQuestions.length > 0) {
+                const reusableCapacity = resolveTopicQuestionCounts({
+                    topic,
+                    examFormat,
+                    usableQuestionCount: reusableQuestions.length,
+                });
                 // Mark attempt as claimed to prevent concurrent reuse from another session
                 await ctx.db.patch(reusableAttempt._id, { claimedAt: Date.now() });
 
@@ -183,6 +217,8 @@ export const ensurePreparedExamAttemptInternal = internalMutation({
                     totalQuestions: reusableQuestions.length,
                     questions: safeQuestions,
                     reusedAttempt: true,
+                    attemptTargetCount: reusableQuestions.length,
+                    bankTargetCount: reusableCapacity.bankTargetCount,
                     startedAt: (reusableAttempt as any).startedAt || reusableAttempt._creationTime,
                 };
             }
@@ -201,11 +237,19 @@ export const ensurePreparedExamAttemptInternal = internalMutation({
         const usableQuestions = filteredQuestions.filter((question) =>
             isUsableExamQuestion(question, { allowEssay: isEssay })
         );
+        const capacity = resolveTopicQuestionCounts({
+            topic,
+            examFormat,
+            usableQuestionCount: usableQuestions.length,
+        });
+        const requiredQuestionCount = capacity.attemptTargetCount;
         if (usableQuestions.length < requiredQuestionCount) {
             return {
                 status: "needs_generation",
                 reasonCode: "INSUFFICIENT_READY_QUESTIONS",
                 requiredQuestionCount,
+                attemptTargetCount: capacity.attemptTargetCount,
+                bankTargetCount: capacity.bankTargetCount,
                 usableQuestionCount: usableQuestions.length,
                 totalQuestions: 0,
                 attemptId: null,
@@ -230,6 +274,8 @@ export const ensurePreparedExamAttemptInternal = internalMutation({
                     ? "INSUFFICIENT_FRESH_QUESTIONS"
                     : "INSUFFICIENT_READY_QUESTIONS",
                 requiredQuestionCount,
+                attemptTargetCount: capacity.attemptTargetCount,
+                bankTargetCount: capacity.bankTargetCount,
                 usableQuestionCount: usableQuestions.length,
                 totalQuestions: 0,
                 attemptId: null,
@@ -266,6 +312,8 @@ export const ensurePreparedExamAttemptInternal = internalMutation({
             totalQuestions: selectedQuestions.length,
             questions: safeQuestions,
             reusedAttempt: false,
+            attemptTargetCount: capacity.attemptTargetCount,
+            bankTargetCount: capacity.bankTargetCount,
             startedAt: attemptDocument.startedAt,
         };
     },
