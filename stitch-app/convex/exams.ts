@@ -1036,6 +1036,13 @@ export const updateExamAttemptScore = internalMutation({
                 skipped: v.optional(v.boolean()),
                 essayScore: v.optional(v.union(v.number(), v.null())),
                 feedback: v.optional(v.string()),
+                criteriaFeedback: v.optional(v.array(
+                    v.object({
+                        criterion: v.string(),
+                        feedback: v.string(),
+                        score: v.number(),
+                    })
+                )),
                 ungraded: v.optional(v.boolean()),
             })
         ),
