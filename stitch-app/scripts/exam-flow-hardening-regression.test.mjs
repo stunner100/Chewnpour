@@ -58,8 +58,11 @@ if (!/resolveAssessmentCapacity/.test(examsSource) || !/const requiredQuestionCo
 if (!/usableQuestions\.length < requiredQuestionCount/.test(examsSource)) {
   throw new Error('Expected prepared-attempt checks to block when the bank is smaller than the required full-set count.');
 }
-if (!/selectedQuestions\.length < requiredQuestionCount \|\| selection\.requiresFreshGeneration/.test(examsSource)) {
-  throw new Error('Expected prepared-attempt checks to block when selection cannot produce a full fresh set.');
+if (!/if \(selection\.unavailableReason\)/.test(examsSource)) {
+  throw new Error('Expected prepared-attempt checks to surface terminal unavailable selection outcomes.');
+}
+if (!/selectedQuestions\.length < requiredQuestionCount \|\| selection\.requiresGeneration/.test(examsSource)) {
+  throw new Error('Expected prepared-attempt checks to block when selection still requires fresh generation.');
 }
 if (!/extra field `examFormat`/.test(examsSource) || !/legacyAttemptDocument/.test(examsSource)) {
   throw new Error('Expected prepared-attempt creation to preserve the legacy schema fallback for examFormat.');

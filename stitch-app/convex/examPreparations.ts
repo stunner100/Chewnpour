@@ -63,6 +63,11 @@ const buildPreparationMessage = ({
                 ? "This topic does not have enough grounded evidence for a full essay exam yet."
                 : "This topic does not have enough grounded evidence for a full multiple-choice exam yet.";
         }
+        if (normalizedReason === "MISSING_OUTCOME_COVERAGE") {
+            return isEssay
+                ? "This topic does not yet support a balanced essay exam across the required outcomes."
+                : "This topic does not yet support a balanced multiple-choice exam across the required outcomes.";
+        }
         return isEssay
             ? "We couldn't build a full essay exam from this topic."
             : "We couldn't build a full multiple-choice exam from this topic.";
@@ -364,6 +369,26 @@ export const runExamPreparationInternal = internalAction({
                 attemptId: initialAttempt.attemptId,
                 finishedAt: Date.now(),
                 message: buildPreparationMessage({ examFormat, status: "ready" }),
+            });
+            return initialAttempt;
+        }
+
+        if (initialAttempt?.status === "unavailable") {
+            await ctx.runMutation(internal.examPreparations.markPreparationStageInternal, {
+                preparationId: args.preparationId,
+                status: "unavailable",
+                stage: "unavailable",
+                usableCount: Number(initialAttempt?.usableQuestionCount || 0),
+                generatedCount: 0,
+                attemptTargetCount: Number(initialAttempt?.attemptTargetCount || preparation.attemptTargetCount || 0),
+                bankTargetCount: Number(initialAttempt?.bankTargetCount || preparation.bankTargetCount || 0),
+                reasonCode: String(initialAttempt?.reasonCode || "").trim() || "INSUFFICIENT_READY_QUESTIONS",
+                message: buildPreparationMessage({
+                    examFormat,
+                    status: "unavailable",
+                    reasonCode: initialAttempt?.reasonCode,
+                }),
+                finishedAt: Date.now(),
             });
             return initialAttempt;
         }

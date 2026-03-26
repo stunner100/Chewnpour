@@ -264,15 +264,33 @@ export const ensurePreparedExamAttemptInternal = internalMutation({
             subsetSize: requiredQuestionCount,
             isEssay,
             examFormat,
+            assessmentBlueprint: topic?.assessmentBlueprint,
+            bankTargetCount: capacity.bankTargetCount,
         });
         const selectedQuestions = selection.selectedQuestions;
 
-        if (selectedQuestions.length < requiredQuestionCount || selection.requiresFreshGeneration) {
+        if (selection.unavailableReason) {
+            return {
+                status: "unavailable",
+                reasonCode: selection.unavailableReason,
+                requiredQuestionCount,
+                attemptTargetCount: capacity.attemptTargetCount,
+                bankTargetCount: capacity.bankTargetCount,
+                usableQuestionCount: usableQuestions.length,
+                totalQuestions: 0,
+                attemptId: null,
+                questions: [],
+                reusedAttempt: false,
+                selection,
+            };
+        }
+
+        if (selectedQuestions.length < requiredQuestionCount || selection.requiresGeneration) {
             return {
                 status: "needs_generation",
-                reasonCode: selection.requiresFreshGeneration
-                    ? "INSUFFICIENT_FRESH_QUESTIONS"
-                    : "INSUFFICIENT_READY_QUESTIONS",
+                reasonCode: selection.coverageSatisfied === false
+                    ? "MISSING_OUTCOME_COVERAGE"
+                    : "INSUFFICIENT_FRESH_QUESTIONS",
                 requiredQuestionCount,
                 attemptTargetCount: capacity.attemptTargetCount,
                 bankTargetCount: capacity.bankTargetCount,
