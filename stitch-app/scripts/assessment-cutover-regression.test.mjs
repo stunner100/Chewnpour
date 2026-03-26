@@ -25,18 +25,26 @@ const blueprint = normalizeAssessmentBlueprint({
             objective: "Recall the core facts from the evidence",
             bloomLevel: "Remember",
             evidenceFocus: "Foundational factual statements",
+            cognitiveTask: "identify",
+            difficultyBand: "easy",
         },
         {
             key: "apply-analysis",
             objective: "Apply the evidence to a realistic case",
             bloomLevel: "Apply",
             evidenceFocus: "Procedural or contextual application points",
+            cognitiveTask: "apply",
+            difficultyBand: "medium",
+            scenarioFrame: "A realistic institutional scenario",
         },
         {
             key: "evaluate-claims",
             objective: "Evaluate the strength of the evidence",
             bloomLevel: "Evaluate",
             evidenceFocus: "Analytical tradeoffs and judgment",
+            cognitiveTask: "justify",
+            difficultyBand: "hard",
+            scenarioFrame: "An evidence review memo",
         },
     ],
     objectivePlan: {
@@ -47,6 +55,12 @@ const blueprint = normalizeAssessmentBlueprint({
             fill_blank: 2,
         },
         targetOutcomeKeys: ["remember-facts", "apply-analysis"],
+        targetDifficultyDistribution: {
+            easy: 0.2,
+            medium: 0.5,
+            hard: 0.3,
+        },
+        minDistinctOutcomeCount: 3,
     },
     multipleChoicePlan: {
         targetOutcomeKeys: ["remember-facts", "apply-analysis"],
@@ -63,6 +77,8 @@ const blueprint = normalizeAssessmentBlueprint({
         targetOutcomeKeys: ["evaluate-claims"],
         authenticScenarioRequired: true,
         authenticContextHint: "Use a realistic institutional scenario",
+        minDistinctOutcomeCount: 2,
+        minDistinctScenarioFrameCount: 2,
     },
 });
 
@@ -71,11 +87,23 @@ if (!blueprint) {
 }
 
 if (blueprint.version !== ASSESSMENT_BLUEPRINT_VERSION) {
-    throw new Error("Expected normalized blueprint to stamp the assessment-blueprint-v2 version.");
+    throw new Error("Expected normalized blueprint to stamp the assessment-blueprint-v3 version.");
 }
 
 if (blueprint.objectivePlan.targetMix.multiple_choice !== 5 || blueprint.objectivePlan.targetMix.true_false !== 3 || blueprint.objectivePlan.targetMix.fill_blank !== 2) {
     throw new Error("Expected blueprint objective mix to remain 5/3/2.");
+}
+
+if (!blueprint.outcomes.every((outcome) => outcome.cognitiveTask && outcome.difficultyBand)) {
+    throw new Error("Expected normalized premium blueprint outcomes to include cognitiveTask and difficultyBand.");
+}
+
+if (blueprint.objectivePlan.minDistinctOutcomeCount < 2) {
+    throw new Error("Expected premium objective blueprint to preserve a distinct outcome floor.");
+}
+
+if (blueprint.essayPlan.minDistinctOutcomeCount < 1 || blueprint.essayPlan.minDistinctScenarioFrameCount < 1) {
+    throw new Error("Expected premium essay blueprint to preserve diversity floors.");
 }
 
 if (!blueprint.multipleChoicePlan.targetBloomLevels.every((level) => MULTIPLE_CHOICE_ALLOWED_BLOOM_LEVELS.includes(level))) {
@@ -132,7 +160,7 @@ const invalidEssayQuestion = {
 
 const legacyQuestion = {
     questionType: "multiple_choice",
-    generationVersion: "assessment-blueprint-v1",
+    generationVersion: "assessment-blueprint-v2",
     questionText: "Legacy question",
 };
 
@@ -142,12 +170,12 @@ for (const validQuestion of [
     validFillBlankQuestion,
 ]) {
     if (!isAssessmentV2Question(validQuestion, { blueprint })) {
-        throw new Error(`Expected valid assessment-v2 question to pass active-assessment filter: ${validQuestion.questionType}`);
+        throw new Error(`Expected valid assessment-v3 question to pass active-assessment filter: ${validQuestion.questionType}`);
     }
 }
 
 if (isAssessmentV2Question(legacyQuestion, { blueprint })) {
-    throw new Error("Expected legacy question versions to be excluded from assessment-v2.");
+    throw new Error("Expected legacy question versions to be excluded from assessment-v3.");
 }
 
 const essayIssues = getAssessmentQuestionMetadataIssues({
@@ -186,7 +214,7 @@ const activeAfterCutover = filterQuestionsForActiveAssessment({
     ],
 });
 if (activeAfterCutover.length !== 3) {
-    throw new Error("Expected migrated topics to keep only valid assessment-v2 objective questions active.");
+    throw new Error("Expected migrated topics to keep only valid assessment-v3 objective questions active.");
 }
 
 const topicsSource = await read("convex/topics.ts");
@@ -196,16 +224,16 @@ const aiSource = await read("convex/ai.ts");
 for (const requiredSnippet of [
     "const rawQuestions = await ctx.db",
     "questions: activeQuestions,",
-    "usableObjectiveBreakdown",
-    "objectiveTargetCount",
+    "usableMcqCount",
+    "mcqTargetCount",
 ]) {
     if (!topicsSource.includes(requiredSnippet)) {
         throw new Error(`Expected topics.ts to include ${requiredSnippet}.`);
     }
 }
 
-if (!examsSource.includes('examFormat: isEssay ? "essay" : OBJECTIVE_EXAM_FORMAT')) {
-    throw new Error("Expected new exam attempts to be stored as objective or essay.");
+if (!/const attemptDocument = \{[\s\S]*examFormat,[\s\S]*qualityTier: selectedQuality\.qualityTier,/m.test(examsSource)) {
+    throw new Error("Expected new exam attempts to persist examFormat alongside premium quality metadata.");
 }
 
 if (!examsSource.includes("const activeQuestions = filterQuestionsForActiveAssessment({ topic, questions });")) {
@@ -216,8 +244,8 @@ if (!aiSource.includes("export const regenerateAssessmentQuestionBankInternal = 
     throw new Error("Expected dedicated internal regeneration path for assessment-v2 question banks.");
 }
 
-if (!aiSource.includes("const generateObjectiveQuestionBankForTopic = async")) {
-    throw new Error("Expected assessment regeneration to route objective generation through the objective orchestrator.");
+if (!aiSource.includes("const generateQuestionBankForTopic = async")) {
+    throw new Error("Expected assessment regeneration to route objective generation through the shared question bank orchestrator.");
 }
 
 console.log("assessment-cutover-regression.test.mjs passed");

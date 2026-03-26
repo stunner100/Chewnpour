@@ -6,31 +6,45 @@ const root = process.cwd();
 const examModePath = path.join(root, 'src', 'pages', 'ExamMode.jsx');
 const aiPath = path.join(root, 'convex', 'ai.ts');
 
-const examModeSource = await fs.readFile(examModePath, 'utf8');
-const aiSource = await fs.readFile(aiPath, 'utf8');
+const [examModeSource, aiSource] = await Promise.all([
+  fs.readFile(examModePath, 'utf8'),
+  fs.readFile(aiPath, 'utf8'),
+]);
 
-if (!/QUESTION_GENERATION_REQUEST_TIMEOUT_MS\s*=\s*60_000/.test(examModeSource)) {
-  throw new Error('Expected ExamMode to enforce a question-generation request timeout.');
+if (!/START_EXAM_ATTEMPT_TIMEOUT_MS\s*=\s*120_000/.test(examModeSource)) {
+  throw new Error('Expected ExamMode to enforce a start-preparation timeout.');
 }
 
-if (!/AUTO_GENERATION_MAX_ATTEMPTS\s*=\s*3/.test(examModeSource)) {
-  throw new Error('Expected ExamMode to cap automatic question-generation retries.');
+if (!/EXAM_LOADING_STALL_TIMEOUT_MS\s*=\s*150_000/.test(examModeSource)) {
+  throw new Error('Expected ExamMode to monitor long-running exam preparation stalls.');
 }
 
-if (!/setAutoGenerationPaused\(true\)/.test(examModeSource)) {
-  throw new Error('Expected ExamMode to pause auto-generation after repeated failures.');
+if (!/withTimeout\(\s*startExamPreparation\(\{\s*topicId,\s*examFormat\s*\}\)/s.test(examModeSource)) {
+  throw new Error('Expected ExamMode startExamPreparation calls to be wrapped with a timeout.');
 }
 
-if (!/withTimeout\(\s*generateQuestions\(\{\s*topicId\s*\}\)/s.test(examModeSource)) {
-  throw new Error('Expected ExamMode generateQuestions calls to be wrapped with a timeout.');
+if (!/startingExamAttempt \|\| isPreparationRunning/.test(examModeSource)) {
+  throw new Error('Expected ExamMode to treat live preparation status as part of the loading-stall watchdog.');
 }
 
-if (!/!autoGenerationInFlightRef\.current\s*&&\s*!generatingQuestions\s*&&\s*!examStarted/s.test(examModeSource)) {
-  throw new Error('Expected ExamMode auto-generation gate to wait for generatingQuestions=false so retries can restart after failed runs.');
+for (const forbiddenPattern of [
+  'QUESTION_GENERATION_REQUEST_TIMEOUT_MS',
+  'AUTO_GENERATION_MAX_ATTEMPTS',
+  'setAutoGenerationPaused',
+  'generateQuestions({ topicId })',
+  'generateEssayQuestions({',
+  'result?.deferred === true',
+]) {
+  if (examModeSource.includes(forbiddenPattern)) {
+    throw new Error(`Regression detected: ExamMode should not keep old start-flow timeout logic (${forbiddenPattern}).`);
+  }
 }
 
-if (!/if\s*\(\s*Date\.now\(\)\s*>=\s*deadlineMs\s*\)\s*\{\s*break;\s*\}/s.test(aiSource)) {
-  throw new Error('Expected backend question-bank loop to stop work when the interactive deadline is reached.');
+if (
+  !/Date\.now\(\)\s*<\s*deadlineMs/.test(aiSource)
+  || !/if\s*\(\s*Date\.now\(\)\s*>=\s*deadlineMs\s*\)\s*\{\s*return false;\s*\}/s.test(aiSource)
+) {
+  throw new Error('Expected backend question-bank loops to stop work once the interactive deadline is reached.');
 }
 
 if (!/const\s+optionTimeoutMs\s*=\s*runMode\s*===\s*"interactive"/.test(aiSource)) {

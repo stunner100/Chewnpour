@@ -3,6 +3,19 @@ const toSafeNumber = (value, fallback) => {
     return Number.isFinite(numeric) ? numeric : fallback;
 };
 
+const normalizePositiveInteger = (value) => {
+    const numeric = Number(value);
+    if (!Number.isFinite(numeric) || numeric <= 0) return 0;
+    return Math.max(1, Math.round(numeric));
+};
+
+const countWords = (value) =>
+    String(value || "")
+        .trim()
+        .split(/\s+/)
+        .filter(Boolean)
+        .length;
+
 const tokenizeEvidenceText = (value) =>
     String(value || "")
         .toLowerCase()
@@ -42,6 +55,20 @@ export const clampNumber = (value, min, max) => {
     const upperBound = safeMax >= safeMin ? safeMax : safeMin;
     const numeric = toSafeNumber(value, safeMin);
     return Math.max(safeMin, Math.min(upperBound, numeric));
+};
+
+export const clampGeneratedTargetToStoredTopicTarget = ({
+    storedTargetCount,
+    targetCount,
+    minTarget = 1,
+}) => {
+    const safeMinTarget = Math.max(1, normalizePositiveInteger(minTarget) || 1);
+    const safeTargetCount = Math.max(safeMinTarget, normalizePositiveInteger(targetCount) || safeMinTarget);
+    const safeStoredTargetCount = normalizePositiveInteger(storedTargetCount);
+    if (safeStoredTargetCount <= 0) {
+        return safeTargetCount;
+    }
+    return clampNumber(safeTargetCount, safeMinTarget, safeStoredTargetCount);
 };
 
 export const calculateQuestionBankTarget = ({
@@ -306,6 +333,39 @@ export const calculateEvidenceRichEssayCap = (args) => {
     return resolveEvidenceRichEssayCap(args).cap;
 };
 
+export const OBJECTIVE_PARTIAL_SUCCESS_TARGET_FLOOR = 5;
+
+export const resolveRecoveredQuestionBankTarget = ({
+    storedTargetCount,
+    requestedTargetCount,
+    supportTargetCount = 0,
+    minTarget = 1,
+    minimumRetainedTarget = minTarget,
+}) => {
+    const safeMinTarget = Math.max(1, Math.round(toSafeNumber(minTarget, 1)));
+    const safeRequestedTargetCount = Math.max(
+        safeMinTarget,
+        Math.round(toSafeNumber(requestedTargetCount, safeMinTarget))
+    );
+    const safeStoredTargetCount = Math.max(0, Math.round(toSafeNumber(storedTargetCount, 0)));
+    const safeSupportTargetCount = Math.max(0, Math.round(toSafeNumber(supportTargetCount, 0)));
+    const retainedTargetFloor = clampNumber(
+        Math.round(toSafeNumber(minimumRetainedTarget, safeMinTarget)),
+        safeMinTarget,
+        safeRequestedTargetCount,
+    );
+
+    if (safeSupportTargetCount < retainedTargetFloor) {
+        return safeStoredTargetCount;
+    }
+
+    return clampNumber(
+        Math.max(safeStoredTargetCount, retainedTargetFloor),
+        safeMinTarget,
+        safeRequestedTargetCount,
+    );
+};
+
 export const rebaseQuestionBankTargetAfterRun = ({
     targetCount,
     initialCount = 0,
@@ -313,6 +373,8 @@ export const rebaseQuestionBankTargetAfterRun = ({
     addedCount = 0,
     outcome,
     minTarget = 1,
+    supportTargetCount = 0,
+    minimumRetainedTarget = minTarget,
 }) => {
     const requestedTargetCount = Math.max(
         minTarget,
@@ -322,6 +384,13 @@ export const rebaseQuestionBankTargetAfterRun = ({
     const safeFinalCount = Math.max(0, Math.round(toSafeNumber(finalCount, 0)));
     const safeAddedCount = Math.max(0, Math.round(toSafeNumber(addedCount, 0)));
     const normalizedOutcome = String(outcome || "").trim().toLowerCase();
+    const retainedTargetCount = resolveRecoveredQuestionBankTarget({
+        storedTargetCount: safeFinalCount,
+        requestedTargetCount,
+        supportTargetCount,
+        minTarget,
+        minimumRetainedTarget,
+    });
 
     if (!normalizedOutcome || normalizedOutcome === "completed" || normalizedOutcome === "already_generated") {
         return requestedTargetCount;
@@ -343,6 +412,13 @@ export const rebaseQuestionBankTargetAfterRun = ({
     ) {
         if (safeFinalCount <= 0) {
             return Math.min(requestedTargetCount, Math.max(minTarget, safeInitialCount || 1));
+        }
+        if (
+            normalizedOutcome !== "insufficient_evidence"
+            && safeAddedCount > 0
+            && retainedTargetCount > safeFinalCount
+        ) {
+            return retainedTargetCount;
         }
         return clampNumber(safeFinalCount, minTarget, requestedTargetCount);
     }
@@ -419,18 +495,205 @@ export const QUESTION_BANK_BACKGROUND_PROFILE = resolveQuestionBankProfile({
 });
 
 export const QUESTION_BANK_INTERACTIVE_PROFILE = resolveQuestionBankProfile({
-    minTarget: 20,
-    maxTarget: 30,
+    minTarget: 1,
+    maxTarget: 35,
     wordDivisor: 120,
-    batchSize: 10,
-    minBatchSize: 5,
+    batchSize: 12,
+    minBatchSize: 6,
     maxBatchAttempts: 1,
-    requestTimeoutMs: 12_000,
+    requestTimeoutMs: 15_000,
     repairTimeoutMs: 3_000,
     parallelRequests: 2,
-    minRounds: 2,
-    maxRounds: 6,
+    minRounds: 3,
+    maxRounds: 8,
     bufferRounds: 1,
     noProgressLimit: 3,
-    timeBudgetMs: 60_000,
+    timeBudgetMs: 90_000,
 });
+
+export const MCQ_ATTEMPT_MIN_COUNT = 1;
+export const MCQ_ATTEMPT_MAX_COUNT = QUESTION_BANK_INTERACTIVE_PROFILE.maxTarget;
+export const MCQ_BANK_MIN_COUNT = 1;
+export const MCQ_BANK_MAX_COUNT = QUESTION_BANK_BACKGROUND_PROFILE.maxTarget;
+
+export const ESSAY_ATTEMPT_MIN_COUNT = 2;
+export const ESSAY_ATTEMPT_MAX_COUNT = 15;
+export const ESSAY_BANK_MIN_COUNT = 1;
+export const ESSAY_BANK_MAX_COUNT = 15;
+
+const buildTopicEstimateText = (topic) =>
+    [topic?.title, topic?.description, topic?.content]
+        .map((value) => String(value || "").trim())
+        .filter(Boolean)
+        .join("\n\n");
+
+const estimateMcqBankTarget = (topic) => {
+    const wordCount = countWords(buildTopicEstimateText(topic));
+    if (wordCount <= 0) {
+        return MCQ_ATTEMPT_MIN_COUNT;
+    }
+    return calculateQuestionBankTarget({
+        wordCount,
+        minTarget: MCQ_ATTEMPT_MIN_COUNT,
+        maxTarget: QUESTION_BANK_INTERACTIVE_PROFILE.maxTarget,
+        wordDivisor: QUESTION_BANK_INTERACTIVE_PROFILE.wordDivisor,
+    });
+};
+
+const estimateEssayBankTarget = (topic) => {
+    const wordCount = countWords(buildTopicEstimateText(topic));
+    if (wordCount <= 0) {
+        return ESSAY_ATTEMPT_MIN_COUNT;
+    }
+    return calculateQuestionBankTarget({
+        wordCount,
+        minTarget: ESSAY_ATTEMPT_MIN_COUNT,
+        maxTarget: ESSAY_ATTEMPT_MAX_COUNT,
+        wordDivisor: 240,
+    });
+};
+
+const resolveBankTarget = ({
+    storedTargetCount,
+    usableQuestionCount,
+    estimatedTargetCount,
+    minTarget,
+    maxTarget,
+}) => {
+    const stored = normalizePositiveInteger(storedTargetCount);
+    if (stored > 0) {
+        return clampNumber(stored, minTarget, maxTarget);
+    }
+
+    const usable = normalizePositiveInteger(usableQuestionCount);
+    if (usable > 0) {
+        return clampNumber(usable, minTarget, maxTarget);
+    }
+
+    const estimated = normalizePositiveInteger(estimatedTargetCount);
+    if (estimated > 0) {
+        return clampNumber(estimated, minTarget, maxTarget);
+    }
+
+    return clampNumber(minTarget, minTarget, maxTarget);
+};
+
+const resolveAttemptTarget = ({
+    bankTargetCount,
+    usableQuestionCount,
+    minTarget,
+    maxTarget,
+}) => {
+    const preferredTarget =
+        normalizePositiveInteger(bankTargetCount)
+        || normalizePositiveInteger(usableQuestionCount)
+        || minTarget;
+    return clampNumber(preferredTarget, minTarget, maxTarget);
+};
+
+export const resolveMcqBankTarget = ({
+    topic,
+    topicTargetCount,
+    usableQuestionCount,
+}) =>
+    resolveBankTarget({
+        storedTargetCount: topicTargetCount ?? topic?.mcqTargetCount,
+        usableQuestionCount: usableQuestionCount ?? topic?.usableMcqCount,
+        estimatedTargetCount: estimateMcqBankTarget(topic),
+        minTarget: MCQ_BANK_MIN_COUNT,
+        maxTarget: MCQ_BANK_MAX_COUNT,
+    });
+
+export const resolveEssayBankTarget = ({
+    topic,
+    topicTargetCount,
+    usableQuestionCount,
+}) =>
+    resolveBankTarget({
+        storedTargetCount: topicTargetCount ?? topic?.essayTargetCount,
+        usableQuestionCount: usableQuestionCount ?? topic?.usableEssayCount,
+        estimatedTargetCount: estimateEssayBankTarget(topic),
+        minTarget: ESSAY_BANK_MIN_COUNT,
+        maxTarget: ESSAY_BANK_MAX_COUNT,
+    });
+
+export const resolveMcqAttemptTarget = ({
+    topic,
+    topicTargetCount,
+    usableQuestionCount,
+}) =>
+    resolveAttemptTarget({
+        bankTargetCount: resolveMcqBankTarget({
+            topic,
+            topicTargetCount,
+            usableQuestionCount,
+        }),
+        usableQuestionCount,
+        minTarget: MCQ_ATTEMPT_MIN_COUNT,
+        maxTarget: MCQ_ATTEMPT_MAX_COUNT,
+    });
+
+export const resolveEssayAttemptTarget = ({
+    topic,
+    topicTargetCount,
+    usableQuestionCount,
+}) =>
+    resolveAttemptTarget({
+        bankTargetCount: resolveEssayBankTarget({
+            topic,
+            topicTargetCount,
+            usableQuestionCount,
+        }),
+        usableQuestionCount,
+        minTarget: ESSAY_ATTEMPT_MIN_COUNT,
+        maxTarget: ESSAY_ATTEMPT_MAX_COUNT,
+    });
+
+export const resolveAssessmentCapacity = ({
+    examFormat,
+    topic,
+    topicTargetCount,
+    usableQuestionCount,
+}) => {
+    const normalizedFormat = String(examFormat || "").trim().toLowerCase() === "essay"
+        ? "essay"
+        : "mcq";
+
+    if (normalizedFormat === "essay") {
+        const bankTargetCount = resolveEssayBankTarget({
+            topic,
+            topicTargetCount,
+            usableQuestionCount,
+        });
+        const attemptTargetCount = resolveEssayAttemptTarget({
+            topic,
+            topicTargetCount,
+            usableQuestionCount,
+        });
+        return {
+            examFormat: normalizedFormat,
+            bankTargetCount,
+            attemptTargetCount,
+            minimumAttemptCount: ESSAY_ATTEMPT_MIN_COUNT,
+            maximumAttemptCount: ESSAY_ATTEMPT_MAX_COUNT,
+        };
+    }
+
+    const bankTargetCount = resolveMcqBankTarget({
+        topic,
+        topicTargetCount,
+        usableQuestionCount,
+    });
+    const attemptTargetCount = resolveMcqAttemptTarget({
+        topic,
+        topicTargetCount,
+        usableQuestionCount,
+    });
+    return {
+        examFormat: normalizedFormat,
+        bankTargetCount,
+        attemptTargetCount,
+        minimumAttemptCount: MCQ_ATTEMPT_MIN_COUNT,
+        maximumAttemptCount: MCQ_ATTEMPT_MAX_COUNT,
+    };
+};

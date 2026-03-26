@@ -1,61 +1,27 @@
-import assert from 'node:assert/strict';
+import fs from 'node:fs/promises';
+import path from 'node:path';
+import process from 'node:process';
 
-import {
-    formatEssayPreparingMessage,
-    formatEssayQuizButtonLabel,
-    formatQuestionBankProgressMessage,
-    formatReadyCount,
-} from '../src/lib/questionBankDisplay.js';
+const root = process.cwd();
+const helperPath = path.join(root, 'src', 'lib', 'questionBankDisplay.js');
+const topicDetailPath = path.join(root, 'src', 'pages', 'TopicDetail.jsx');
 
-assert.equal(formatReadyCount(4, 'essay question'), '4 essay questions ready');
-assert.equal(
-    formatEssayQuizButtonLabel({
-        startingExam: false,
-        usableEssayCount: 4,
-    }),
-    'Start Essay Exam'
-);
-assert.equal(
-    formatEssayQuizButtonLabel({
-        startingExam: false,
-        usableEssayCount: 4,
-    }),
-    'Start Essay Exam'
-);
-assert.equal(
-    formatEssayPreparingMessage(4),
-    'Essay questions will finish generating when you start the exam. 4 essay questions ready so far.'
-);
-assert.equal(
-    formatEssayPreparingMessage(0),
-    'Essay questions will generate when you start the exam. The first run can take 10-20 seconds.'
-);
-assert.equal(
-    formatQuestionBankProgressMessage({
-        usableObjectiveCount: 0,
-        usableEssayCount: 0,
-        objectiveReady: false,
-        examReady: false,
-    }),
-    'Questions are generated when you start an exam. The first run usually takes 10-20 seconds.'
-);
-assert.equal(
-    formatQuestionBankProgressMessage({
-        usableObjectiveCount: 3,
-        usableEssayCount: 4,
-        objectiveReady: false,
-        examReady: false,
-    }),
-    '3 objective questions ready and 4 essay questions ready so far. Missing questions will finish when you start an exam.'
-);
-assert.equal(
-    formatQuestionBankProgressMessage({
-        usableObjectiveCount: 5,
-        usableEssayCount: 1,
-        objectiveReady: true,
-        examReady: false,
-    }),
-    'Objective ready. 1 essay question ready so far. Missing essays will finish when you start the exam.'
-);
+const fileExists = async (targetPath) => {
+  try {
+    await fs.access(targetPath);
+    return true;
+  } catch {
+    return false;
+  }
+};
+
+if (await fileExists(helperPath)) {
+  throw new Error('Regression detected: question-bank display helper should be removed after the Start Exam cutover.');
+}
+
+const topicDetailSource = await fs.readFile(topicDetailPath, 'utf8');
+if (/questionBankDisplay/.test(topicDetailSource) || /essay questions ready so far/i.test(topicDetailSource)) {
+  throw new Error('Regression detected: TopicDetail should not show question-bank readiness copy in the click-to-generate flow.');
+}
 
 console.log('question-bank-display-regression: ok');

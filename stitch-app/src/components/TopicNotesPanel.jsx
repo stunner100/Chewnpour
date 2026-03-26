@@ -144,14 +144,14 @@ const TopicNotesPanel = memo(function TopicNotesPanel({ topicId, open, onClose, 
 
     return (
         <>
-            {/* Backdrop (mobile) */}
+            {/* Backdrop (mobile/medium only) */}
             <div
-                className={`fixed inset-0 z-[55] bg-black/30 md:bg-transparent md:pointer-events-none transition-opacity ${isClosing ? 'opacity-0' : 'opacity-100'}`}
+                className={`fixed inset-0 z-[55] bg-black/30 md:bg-transparent md:pointer-events-none lg:hidden transition-opacity ${isClosing ? 'opacity-0' : 'opacity-100'}`}
                 onClick={handleClose}
             />
 
             {/* Panel */}
-            <div className={`fixed z-[60] inset-0 md:inset-x-auto md:right-0 md:top-0 md:bottom-0 md:w-80 flex flex-col bg-white dark:bg-slate-900 border-t md:border-t-0 md:border-l border-slate-200 dark:border-slate-800 shadow-xl ${panelAnimClass} pb-[env(safe-area-inset-bottom)] md:pb-0`}>
+            <div className={`fixed inset-0 z-[60] md:inset-x-auto md:right-0 md:top-0 md:bottom-0 md:w-[420px] lg:relative lg:z-auto lg:w-[420px] lg:shrink-0 lg:h-full flex flex-col bg-white dark:bg-slate-900 border-t md:border-t-0 md:border-l border-slate-200 dark:border-slate-800 shadow-xl lg:shadow-none ${panelAnimClass} pb-[env(safe-area-inset-bottom)] md:pb-0`}>
                 {/* Header */}
                 <div className="flex items-center justify-between px-4 py-3 border-b border-slate-100 dark:border-slate-800">
                     <div className="flex items-center gap-2">

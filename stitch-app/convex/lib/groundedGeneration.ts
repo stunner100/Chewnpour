@@ -72,6 +72,9 @@ export type AssessmentBlueprintOutcome = {
     objective: string;
     bloomLevel: string;
     evidenceFocus: string;
+    cognitiveTask?: string;
+    difficultyBand?: string;
+    scenarioFrame?: string;
 };
 
 export type AssessmentBlueprint = {
@@ -87,6 +90,12 @@ export type AssessmentBlueprint = {
         };
         targetOutcomeKeys: string[];
         targetBloomLevels?: string[];
+        targetDifficultyDistribution?: {
+            easy: number;
+            medium: number;
+            hard: number;
+        };
+        minDistinctOutcomeCount?: number;
     };
     multipleChoicePlan: {
         allowedBloomLevels: string[];
@@ -111,7 +120,17 @@ export type AssessmentBlueprint = {
         targetOutcomeKeys: string[];
         authenticScenarioRequired: boolean;
         authenticContextHint?: string;
+        minDistinctOutcomeCount?: number;
+        minDistinctScenarioFrameCount?: number;
     };
+};
+
+export type AssessmentCoverageTarget = {
+    outcomeKey: string;
+    bloomLevel: string;
+    objective?: string;
+    evidenceFocus?: string;
+    requestedCount: number;
 };
 
 export type GroundedConceptCandidate = {
@@ -137,6 +156,22 @@ const formatEvidence = (evidence: RetrievedEvidence[], maxChars = 12000) => {
 const formatAssessmentBlueprint = (blueprint: AssessmentBlueprint) =>
     JSON.stringify(blueprint, null, 2);
 
+const formatCoverageTargets = (coverageTargets: AssessmentCoverageTarget[] = []) => {
+    if (!Array.isArray(coverageTargets) || coverageTargets.length === 0) {
+        return "";
+    }
+
+    return coverageTargets
+        .map((target) => [
+            `- outcomeKey=${target.outcomeKey}`,
+            `bloomLevel=${target.bloomLevel}`,
+            `requestedCount=${target.requestedCount}`,
+            target.objective ? `objective="${target.objective}"` : "",
+            target.evidenceFocus ? `evidenceFocus="${target.evidenceFocus}"` : "",
+        ].filter(Boolean).join("; "))
+        .join("\n");
+};
+
 export const buildGroundedAssessmentBlueprintPrompt = (args: {
     topicTitle: string;
     topicDescription?: string;
@@ -151,15 +186,21 @@ ${formatEvidence(args.evidence, 14000)}
 Rules:
 - Use only the evidence above.
 - Return 3-6 outcomes.
-- Each outcome must include: key, objective, bloomLevel, evidenceFocus.
+- Each outcome must include: key, objective, bloomLevel, evidenceFocus, cognitiveTask, difficultyBand.
 - bloomLevel must be one of: Remember, Understand, Apply, Analyze, Evaluate, Create.
+- cognitiveTask should be one of: define, identify, summarize, explain, apply, compare, diagnose, interpret, analyze, evaluate, critique, justify, design.
+- difficultyBand must be one of: easy, medium, hard.
 - outcome key must be short and stable, such as "outcome-1" or "apply-methods".
 - outcomes should be suitable for university assessment design.
+- Prefer interpretation, application, comparison, diagnosis, critique, justification, or design over pure recall whenever the evidence allows it.
+- Include scenarioFrame when the evidence supports a realistic case, workflow, experiment, policy choice, or professional decision.
 - objectivePlan.targetMix must equal:
   - multiple_choice: 5
   - true_false: 3
   - fill_blank: 2
 - objectivePlan.targetQuestionTypes must include exactly: multiple_choice, true_false, fill_blank.
+- objectivePlan.targetDifficultyDistribution must sum to 1 across easy, medium, hard.
+- objectivePlan.minDistinctOutcomeCount should be at least 3 when the evidence supports it.
 - multipleChoicePlan.targetOutcomeKeys must reference outcomes appropriate for multiple-choice only.
 - trueFalsePlan.targetOutcomeKeys must reference outcomes appropriate for true/false only.
 - fillBlankPlan.targetOutcomeKeys must reference outcomes appropriate for fill-in-the-blank only.
@@ -172,6 +213,8 @@ Rules:
 - fillBlankPlan.exactAnswerOnly must be true.
 - Set essayPlan.authenticScenarioRequired to true only when the evidence supports realistic or professional application framing.
 - If essayPlan.authenticScenarioRequired is true, include essayPlan.authenticContextHint as a short scenario cue grounded in the evidence.
+- essayPlan.minDistinctOutcomeCount should be at least 2 when the evidence supports it.
+- essayPlan.minDistinctScenarioFrameCount should be at least 2 when the evidence supports it.
 - Do not include any fields outside the required schema.
 
 Return JSON only:
@@ -181,7 +224,10 @@ Return JSON only:
       "key": "outcome-1",
       "objective": "...",
       "bloomLevel": "Analyze",
-      "evidenceFocus": "..."
+      "evidenceFocus": "...",
+      "cognitiveTask": "compare",
+      "difficultyBand": "hard",
+      "scenarioFrame": "..."
     }
   ],
   "objectivePlan": {
@@ -191,7 +237,13 @@ Return JSON only:
       "true_false": 3,
       "fill_blank": 2
     },
-    "targetOutcomeKeys": ["outcome-1"]
+    "targetOutcomeKeys": ["outcome-1"],
+    "targetDifficultyDistribution": {
+      "easy": 0.2,
+      "medium": 0.5,
+      "hard": 0.3
+    },
+    "minDistinctOutcomeCount": 3
   },
   "multipleChoicePlan": {
     "targetOutcomeKeys": ["outcome-1"]
@@ -207,7 +259,9 @@ Return JSON only:
   "essayPlan": {
     "targetOutcomeKeys": ["outcome-2"],
     "authenticScenarioRequired": false,
-    "authenticContextHint": "..."
+    "authenticContextHint": "...",
+    "minDistinctOutcomeCount": 2,
+    "minDistinctScenarioFrameCount": 2
   }
 }`;
 
@@ -218,9 +272,13 @@ export const buildGroundedMcqPrompt = (args: {
     evidence: RetrievedEvidence[];
     assessmentBlueprint: AssessmentBlueprint;
     existingQuestionSample?: string;
+    coverageTargets?: AssessmentCoverageTarget[];
 }) => {
     const existingBlock = args.existingQuestionSample
         ? `\nExisting questions to avoid:\n${args.existingQuestionSample}`
+        : "";
+    const coverageBlock = Array.isArray(args.coverageTargets) && args.coverageTargets.length > 0
+        ? `\nCoverage gaps to prioritize first:\n${formatCoverageTargets(args.coverageTargets)}`
         : "";
 
     return `Create ${args.requestedCount} multiple-choice questions strictly grounded in the evidence passages.
@@ -231,6 +289,7 @@ DESCRIPTION: ${args.topicDescription || "General concepts"}
 ${formatEvidence(args.evidence)}
 ASSESSMENT_BLUEPRINT:
 ${formatAssessmentBlueprint(args.assessmentBlueprint)}
+${coverageBlock}
 ${existingBlock}
 
 Rules:
@@ -239,11 +298,17 @@ Rules:
 - Use only outcome keys from assessmentBlueprint.multipleChoicePlan.targetOutcomeKeys.
 - bloomLevel must exactly match the selected outcome's bloomLevel.
 - bloomLevel must be one of: Remember, Understand, Apply, Analyze.
+- If coverage gaps are listed, satisfy those outcome priorities before generating extras.
 - Every question must include citations[] with 1-3 citation objects.
 - Every citation object must include: passageId, page, startChar, endChar, quote.
 - quote must be an exact short excerpt from the cited passage.
 - Use exactly 4 options with one correct answer.
 - The marked correct option must be directly supported by the cited evidence.
+- Default to interpretation, application, comparison, or diagnosis before simple definition recall.
+- The stem should sound like a university assessment item, not a flashcard.
+- All distractors must be plausible, evidence-adjacent, and free of giveaway wording.
+- Avoid obviously longer/shorter correct options and avoid trivial eliminations.
+- When evidence permits, test reasoning about relationships, mechanisms, implications, or scenario-based decisions.
 - If the correct option includes a number, percentage, threshold, rate, count, or limit, copy that value exactly from evidence.
 - Do not invent targets, definitions, or thresholds that are not explicitly stated in the evidence.
 - Keep the correct option wording very close to the evidence. Do not add extra explanation inside the option text.
@@ -347,6 +412,7 @@ export const buildGroundedTrueFalsePrompt = (args: {
     requestedCount: number;
     evidence: RetrievedEvidence[];
     assessmentBlueprint: AssessmentBlueprint;
+    coverageTargets?: AssessmentCoverageTarget[];
 }) => `Create ${args.requestedCount} true/false questions strictly grounded in the evidence passages.
 
 TOPIC: ${args.topicTitle}
@@ -355,6 +421,9 @@ DESCRIPTION: ${args.topicDescription || "General concepts"}
 ${formatEvidence(args.evidence, 12000)}
 ASSESSMENT_BLUEPRINT:
 ${formatAssessmentBlueprint(args.assessmentBlueprint)}
+${Array.isArray(args.coverageTargets) && args.coverageTargets.length > 0
+        ? `\nCoverage gaps to prioritize first:\n${formatCoverageTargets(args.coverageTargets)}`
+        : ""}
 
 Rules:
 - Each question must be answerable only from evidence above.
@@ -362,11 +431,14 @@ Rules:
 - Use only outcome keys from assessmentBlueprint.trueFalsePlan.targetOutcomeKeys.
 - bloomLevel must exactly match the selected outcome's bloomLevel.
 - bloomLevel must be one of: Remember, Understand, Apply.
+- If coverage gaps are listed, satisfy those outcome priorities before generating extras.
 - Each question must be a single clear statement.
 - Use exactly 2 options: True and False.
 - Exactly one option must be correct.
 - If False is correct, the statement must be directly contradicted by the evidence, not vaguely unsupported.
+- Prefer claim-evaluation statements that require careful reading or application, not textbook one-liners.
 - Do not write tricky, opinion-based, or ambiguous statements.
+- False statements must be meaningfully wrong, not just a single swapped word.
 - Every question must include citations[] with 1-3 citation objects.
 - Every citation object must include: passageId, page, startChar, endChar, quote.
 - quote must be an exact short excerpt from the cited passage.
@@ -399,6 +471,7 @@ export const buildGroundedFillBlankPrompt = (args: {
     requestedCount: number;
     evidence: RetrievedEvidence[];
     assessmentBlueprint: AssessmentBlueprint;
+    coverageTargets?: AssessmentCoverageTarget[];
 }) => `Create ${args.requestedCount} fill-in-the-blank questions strictly grounded in the evidence passages.
 
 TOPIC: ${args.topicTitle}
@@ -407,6 +480,9 @@ DESCRIPTION: ${args.topicDescription || "General concepts"}
 ${formatEvidence(args.evidence, 12000)}
 ASSESSMENT_BLUEPRINT:
 ${formatAssessmentBlueprint(args.assessmentBlueprint)}
+${Array.isArray(args.coverageTargets) && args.coverageTargets.length > 0
+        ? `\nCoverage gaps to prioritize first:\n${formatCoverageTargets(args.coverageTargets)}`
+        : ""}
 
 Rules:
 - Each question must be answerable only from evidence above.
@@ -414,11 +490,14 @@ Rules:
 - Use only outcome keys from assessmentBlueprint.fillBlankPlan.targetOutcomeKeys.
 - bloomLevel must exactly match the selected outcome's bloomLevel.
 - bloomLevel must be one of: Remember, Understand, Apply.
+- If coverage gaps are listed, satisfy those outcome priorities before generating extras.
 - Use exactly one blank only.
 - templateParts must contain exactly one "__" entry.
 - acceptedAnswers must contain the canonical correct answer first, then any exact aliases supported by the evidence.
 - Answers must be short and exact.
 - fillBlankMode must be either "token_bank" or "free_text".
+- Prefer sentence-completion or concept-application blanks over isolated term recall.
+- The blank must carry the concept-bearing part of the sentence.
 - For token_bank items, include tokens with 4-6 entries including the correct answer.
 - For free_text items, omit tokens.
 - Do not invent unsupported aliases.
@@ -454,6 +533,7 @@ export const buildGroundedEssayPrompt = (args: {
     requestedCount: number;
     evidence: RetrievedEvidence[];
     assessmentBlueprint: AssessmentBlueprint;
+    coverageTargets?: AssessmentCoverageTarget[];
 }) => `Create ${args.requestedCount} essay questions strictly grounded in the evidence passages.
 
 TOPIC: ${args.topicTitle}
@@ -462,13 +542,22 @@ DESCRIPTION: ${args.topicDescription || "General concepts"}
 ${formatEvidence(args.evidence, 14000)}
 ASSESSMENT_BLUEPRINT:
 ${formatAssessmentBlueprint(args.assessmentBlueprint)}
+${Array.isArray(args.coverageTargets) && args.coverageTargets.length > 0
+        ? `\nCoverage gaps to prioritize first:\n${formatCoverageTargets(args.coverageTargets)}`
+        : ""}
 
 Rules:
 - Question must be answerable from evidence.
 - Use only outcome keys from assessmentBlueprint.essayPlan.targetOutcomeKeys.
 - bloomLevel must exactly match the selected outcome's bloomLevel.
 - bloomLevel must be one of: Analyze, Evaluate, Create.
+- If coverage gaps are listed, satisfy those outcome priorities before generating extras.
+- Across the batch, diversify outcomes and scenario frames before repeating the same one.
+- At least one prompt should require analysis/explanation and one should require evaluation/justification when the evidence supports both.
+- Use sharper university-style task verbs and explicit response scope.
 - Provide model answer and rubricPoints (2-4 points).
+- rubricPoints must cover thesis/claim quality, evidence use, reasoning quality, and completeness where applicable.
+- Model answers must demonstrate reasoning, not just repeat content.
 - Include citations[] with exact evidence quote spans.
 - If assessmentBlueprint.essayPlan.authenticScenarioRequired is true, prefer a realistic or professional scenario framing and include authenticContext.
 - Do not invent scenario facts beyond what the evidence can support.

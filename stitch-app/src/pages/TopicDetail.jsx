@@ -24,11 +24,6 @@ import {
 } from '../lib/topicContentFormatting';
 import { resolveTopicIllustrationUrl } from '../lib/topicIllustration';
 import { isLikelyConvexId } from '../lib/convexId';
-import { OBJECTIVE_EXAM_FORMAT, objectiveBreakdownMeetsTargets } from '../lib/objectiveExam';
-import {
-    formatEssayQuizButtonLabel,
-    formatQuestionBankProgressMessage,
-} from '../lib/questionBankDisplay';
 
 // ── Pure rendering helpers (hoisted out of the component to avoid re-creation) ──
 
@@ -80,6 +75,7 @@ const TopicDetail = () => {
     const openNotes = useCallback(() => { setChatOpen(false); setNotesOpen(true); }, []);
     const openChat = useCallback(() => { setNotesOpen(false); setChatOpen(true); }, []);
     const contentRef = useRef(null);
+    const mainRef = useRef(null);
     const { selection, clearSelection } = useTextSelection(contentRef);
     const navigate = useNavigate();
     const topicData = useQuery(
@@ -87,31 +83,6 @@ const TopicDetail = () => {
         topicId ? { topicId } : 'skip'
     );
     const topic = topicData || null;
-    const DEFAULT_EXAM_READY_MIN_OBJECTIVE_COUNT = 10;
-    const DEFAULT_EXAM_READY_MIN_ESSAY_COUNT = 2;
-    const topicObjectiveTargetCount = Math.max(
-        1,
-        Math.round(Number(topic?.objectiveTargetCount || DEFAULT_EXAM_READY_MIN_OBJECTIVE_COUNT))
-    );
-    const topicEssayTargetCount = Math.max(
-        1,
-        Math.round(Number(topic?.essayTargetCount || DEFAULT_EXAM_READY_MIN_ESSAY_COUNT))
-    );
-    const usableObjectiveCount = Number(topic?.usableObjectiveCount || 0);
-    const usableEssayCount = Number(topic?.usableEssayCount || 0);
-    const topicObjectiveStartReady = objectiveBreakdownMeetsTargets(
-        topic?.usableObjectiveBreakdown,
-        topicObjectiveTargetCount
-    ) && usableObjectiveCount >= topicObjectiveTargetCount;
-    const topicEssayStartReady = usableEssayCount >= topicEssayTargetCount;
-    const topicExamReady = Boolean(topic?.examReady)
-        || (topicObjectiveStartReady && topicEssayStartReady);
-    const questionBankProgressMessage = formatQuestionBankProgressMessage({
-        usableObjectiveCount,
-        usableEssayCount,
-        objectiveReady: topicObjectiveStartReady,
-        examReady: topicExamReady,
-    });
     const courseId = topic?.courseId;
     const voiceModeEnabled = Boolean(profile?.voiceModeEnabled);
     const voiceQuota = useQuery(
@@ -196,6 +167,7 @@ const TopicDetail = () => {
             console.warn('Failed to cache topic content', error);
         }
     }, [contentCacheKey, topic?.content]);
+
 
     const content = overrideContent || topic?.content || cachedContent;
     const normalizedContent = useMemo(() => {
@@ -296,13 +268,30 @@ const TopicDetail = () => {
         };
     }, []);
 
+    // Scroll to top on mount/navigation
     useEffect(() => {
-        const handleScroll = () => setShowScrollTop(window.scrollY > 600);
+        if (mainRef.current) mainRef.current.scrollTop = 0;
+        window.scrollTo(0, 0);
+    }, [topicId]);
+
+    useEffect(() => {
+        const handleScroll = () => {
+            const scrollY = mainRef.current ? mainRef.current.scrollTop : window.scrollY;
+            setShowScrollTop(scrollY > 600);
+        };
+        const target = mainRef.current;
+        if (target) target.addEventListener('scroll', handleScroll, { passive: true });
         window.addEventListener('scroll', handleScroll, { passive: true });
-        return () => window.removeEventListener('scroll', handleScroll);
+        return () => {
+            if (target) target.removeEventListener('scroll', handleScroll);
+            window.removeEventListener('scroll', handleScroll);
+        };
     }, []);
 
-    const scrollToTop = () => window.scrollTo({ top: 0, behavior: 'smooth' });
+    const scrollToTop = () => {
+        if (mainRef.current) mainRef.current.scrollTo({ top: 0, behavior: 'smooth' });
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+    };
 
     const cleanInline = useCallback((text) => cleanInlineText(text), []);
 
@@ -516,7 +505,7 @@ const TopicDetail = () => {
         return { blocks, toc };
     }, [normalizedContent]);
 
-    const handleStartExam = async (preferredFormat = OBJECTIVE_EXAM_FORMAT) => {
+    const handleStartExam = async (preferredFormat = 'mcq') => {
         if (!topicId) {
             setStartExamError('Topic not found. Please return to the dashboard and try again.');
             return;
@@ -599,7 +588,7 @@ const TopicDetail = () => {
     }
 
     return (
-        <div className="bg-background-light dark:bg-background-dark font-body antialiased text-text-main-light dark:text-text-main-dark min-h-screen flex flex-col overflow-x-hidden touch-pan-y">
+        <div className="bg-background-light dark:bg-background-dark font-body antialiased text-text-main-light dark:text-text-main-dark min-h-screen lg:h-screen flex flex-col overflow-x-hidden lg:overflow-hidden touch-pan-y">
             {/* Header */}
             <header className="fixed top-0 inset-x-0 z-40 flex items-center justify-between px-4 h-14 bg-background-light/80 dark:bg-background-dark/80 backdrop-blur-xl border-b border-border-light dark:border-border-dark">
                 <div className="flex items-center gap-2 min-w-0">
@@ -632,8 +621,10 @@ const TopicDetail = () => {
                 </div>
             </header>
 
-            {/* Main content */}
-            <main className={`flex-1 w-full mx-auto px-4 md:px-8 pt-20 pb-24 md:pb-12 ${readingMode ? 'max-w-3xl' : 'max-w-6xl'} transition-all duration-200 ${notesOpen || chatOpen ? 'md:mr-80' : ''}`}>
+            {/* Main content + side panels */}
+            <div className="flex-1 flex flex-row pt-14 lg:min-h-0">
+            <main ref={mainRef} className={`flex-1 min-w-0 w-full px-4 md:px-8 pt-6 pb-24 md:pb-12 transition-all duration-200 lg:overflow-y-auto`}>
+            <div className={`mx-auto ${readingMode ? 'max-w-3xl' : 'max-w-6xl'} transition-all duration-200`}>
                 <div className={`grid grid-cols-1 ${readingMode ? '' : 'lg:grid-cols-12'} gap-8`}>
                     {/* Lesson content */}
                     <div ref={contentRef} className={`${readingMode ? '' : 'lg:col-span-9'} space-y-6`}>
@@ -716,8 +707,8 @@ const TopicDetail = () => {
 
                         {/* Practice section */}
                         <div className="card-base p-6 md:p-8 text-center">
-                            <h3 className="text-body-lg font-semibold text-text-main-light dark:text-text-main-dark mb-1">Start an exam</h3>
-                            <p className="text-body-sm text-text-sub-light dark:text-text-sub-dark mb-5">Choose an exam format below to test your understanding of this lesson.</p>
+                            <h3 className="text-body-lg font-semibold text-text-main-light dark:text-text-main-dark mb-1">Ready to practice?</h3>
+                            <p className="text-body-sm text-text-sub-light dark:text-text-sub-dark mb-5">Test your understanding with questions from this lesson.</p>
 
                             <div className="flex flex-col sm:flex-row gap-2.5 justify-center">
                                 <Link
@@ -728,12 +719,12 @@ const TopicDetail = () => {
                                     Study Concepts
                                 </Link>
                                 <button
-                                    onClick={() => handleStartExam(OBJECTIVE_EXAM_FORMAT)}
+                                    onClick={() => handleStartExam('mcq')}
                                     disabled={startingExam}
                                     className="btn-primary px-5 py-2.5 text-body-sm gap-2 disabled:opacity-50"
                                 >
                                     <span className="material-symbols-outlined text-[18px]">quiz</span>
-                                    {startingExam ? 'Preparing...' : 'Start Objective Exam'}
+                                    {startingExam ? 'Preparing...' : 'Objective Quiz'}
                                 </button>
                                 <button
                                     onClick={() => handleStartExam('essay')}
@@ -741,23 +732,10 @@ const TopicDetail = () => {
                                     className="btn-secondary px-5 py-2.5 text-body-sm gap-2 disabled:opacity-50"
                                 >
                                     <span className="material-symbols-outlined text-[18px]">edit_note</span>
-                                    {formatEssayQuizButtonLabel({
-                                        startingExam,
-                                        usableEssayCount,
-                                    })}
+                                    {startingExam ? 'Preparing...' : 'Essay Quiz'}
                                 </button>
                             </div>
 
-                            {!topicObjectiveStartReady && (
-                                <p className="mt-4 text-caption text-text-faint-light dark:text-text-faint-dark">
-                                    {questionBankProgressMessage}
-                                </p>
-                            )}
-                            {topicObjectiveStartReady && !topicExamReady && (
-                                <p className="mt-4 text-caption text-accent-emerald">
-                                    {questionBankProgressMessage}
-                                </p>
-                            )}
                             {startExamError && (
                                 <p className="mt-4 text-caption text-red-500">{startExamError}</p>
                             )}
@@ -775,7 +753,24 @@ const TopicDetail = () => {
                         />
                     )}
                 </div>
+            </div>
             </main>
+
+            {/* Side panels (in-flow on lg, fixed overlay below lg) */}
+            <TopicNotesPanel
+                topicId={topicId}
+                open={notesOpen}
+                onClose={() => setNotesOpen(false)}
+                appendText={notesAppendText}
+            />
+
+            <TopicChatPanel
+                topicId={topicId}
+                topicTitle={topic?.title || ''}
+                open={chatOpen}
+                onClose={() => setChatOpen(false)}
+            />
+            </div>
 
             {/* Floating action buttons */}
             {user && !chatOpen && !notesOpen && (
@@ -806,21 +801,6 @@ const TopicDetail = () => {
                     <span className="material-symbols-outlined text-[18px]">arrow_upward</span>
                 </button>
             )}
-
-            {/* Panels */}
-            <TopicNotesPanel
-                topicId={topicId}
-                open={notesOpen}
-                onClose={() => setNotesOpen(false)}
-                appendText={notesAppendText}
-            />
-
-            <TopicChatPanel
-                topicId={topicId}
-                topicTitle={topic?.title || ''}
-                open={chatOpen}
-                onClose={() => setChatOpen(false)}
-            />
 
             {selection && (
                 <HighlightExplainPopover

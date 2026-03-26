@@ -1,6 +1,6 @@
 import { ConvexError, v } from "convex/values";
 import { action, internalMutation, internalQuery, mutation, query } from "./_generated/server";
-import { api, internal } from "./_generated/api";
+import { internal } from "./_generated/api";
 import {
     assertAuthorizedUser,
     computeExamPercentage,
@@ -12,22 +12,12 @@ import {
 import { filterQuestionsForActiveAssessment } from "./lib/assessmentBlueprint.js";
 import { canReuseExamAttempt, resolveReusableAttemptQuestions } from "./lib/examAttemptReuse";
 import { selectQuestionsForAttempt } from "./lib/examQuestionSelection";
-import {
-    evaluateDeterministicObjectiveAnswer,
-    resolveObjectiveCorrectAnswer,
-} from "./lib/objectiveAnswerGrading.js";
-import {
-    isEssayQuestionType,
-    isObjectiveQuestionType,
-    normalizeExamFormat,
-    normalizeQuestionType,
-    OBJECTIVE_EXAM_FORMAT,
-    QUESTION_TYPE_FILL_BLANK,
-} from "./lib/objectiveExam.js";
+import { resolvePreparedExamStart } from "./lib/examStartPolicy.js";
+import { resolveAssessmentCapacity } from "./lib/questionBankConfig.js";
+import { summarizeQuestionSetQuality } from "./lib/premiumQuality.js";
 
-const EXAM_QUESTION_SUBSET_SIZE = 35;
-const EXAM_ESSAY_QUESTION_SUBSET_SIZE = 15;
 const EXAM_ATTEMPT_REUSE_LOOKBACK = 50;
+const EXAM_ESSAY_MIN_READY_COUNT = 1;
 
 const safeGetQuestionById = async (ctx: any, questionId: any) => {
     if (!questionId) return null;
@@ -39,45 +29,128 @@ const safeGetQuestionById = async (ctx: any, questionId: any) => {
     }
 };
 
-// Start a new exam attempt
-export const startExamAttempt = mutation({
+const resolveRequestedExamFormat = (value: unknown) =>
+    String(value || "").trim().toLowerCase() === "essay" ? "essay" : "mcq";
+
+const resolveTopicQuestionCounts = ({
+    topic,
+    examFormat,
+    usableQuestionCount,
+}: {
+    topic: any;
+    examFormat: string;
+    usableQuestionCount?: number;
+}) => {
+    const normalizedFormat = resolveRequestedExamFormat(examFormat);
+    const storedTargetCount = normalizedFormat === "essay"
+        ? topic?.essayTargetCount
+        : topic?.mcqTargetCount;
+    const fallbackUsableCount = normalizedFormat === "essay"
+        ? topic?.usableEssayCount
+        : topic?.usableMcqCount;
+
+    return resolveAssessmentCapacity({
+        examFormat: normalizedFormat,
+        topic,
+        topicTargetCount: storedTargetCount,
+        usableQuestionCount: usableQuestionCount ?? fallbackUsableCount,
+    });
+};
+
+const createExamAttemptDocument = async ({
+    ctx,
+    attemptDocument,
+}: {
+    ctx: any;
+    attemptDocument: Record<string, unknown>;
+}) => {
+    try {
+        return await ctx.db.insert("examAttempts", attemptDocument);
+    } catch (insertError) {
+        const insertMessage = String((insertError as { message?: unknown })?.message || "");
+        const legacySchemaMismatch =
+            /table "examAttempts"/i.test(insertMessage)
+            && /extra field `examFormat`/i.test(insertMessage);
+        if (!legacySchemaMismatch) {
+            throw insertError;
+        }
+
+        const { examFormat: _FORMAT_FIELD, ...legacyAttemptDocument } = attemptDocument;
+        return await ctx.db.insert("examAttempts", legacyAttemptDocument);
+    }
+};
+
+
+export const requestEssayQuestionTopUp = mutation({
     args: {
-        userId: v.optional(v.string()),
         topicId: v.id("topics"),
-        examFormat: v.optional(v.string()), // 'objective' | 'essay'
+        minimumCount: v.optional(v.number()),
     },
     handler: async (ctx, args) => {
-        const scheduleQuestionTopUp = (options: { essay: boolean; minimumCount: number }) => {
-            if (options.essay) {
-                void ctx.scheduler.runAfter(0, internal.ai.generateEssayQuestionsForTopicInternal, {
-                    topicId: args.topicId,
-                    count: options.minimumCount,
-                }).catch((err) => {
-                    console.warn("[ExamStart] essay_topup_schedule_failed", {
-                        topicId: args.topicId,
-                        minimumCount: options.minimumCount,
-                        message: err instanceof Error ? err.message : String(err),
-                    });
-                });
-                return;
-            }
-
-            void ctx.scheduler.runAfter(0, internal.ai.generateQuestionsForTopicInternal, {
-                topicId: args.topicId,
-            }).catch((err) => {
-                console.warn("[ExamStart] objective_topup_schedule_failed", {
-                    topicId: args.topicId,
-                    message: err instanceof Error ? err.message : String(err),
-                });
-            });
-        };
-
         const identity = await ctx.auth.getUserIdentity();
         const authUserId = resolveAuthUserId(identity);
-        const effectiveUserId = assertAuthorizedUser({
+        assertAuthorizedUser({ authUserId });
+
+        const topic = await ctx.db.get(args.topicId);
+        if (!topic) {
+            throw new ConvexError({
+                code: "TOPIC_NOT_FOUND",
+                message: "Topic not found.",
+            });
+        }
+        const course = await ctx.db.get(topic.courseId);
+        if (!course) {
+            throw new ConvexError({
+                code: "TOPIC_NOT_FOUND",
+                message: "Topic not found.",
+            });
+        }
+        assertAuthorizedUser({
             authUserId,
-            requestedUserId: args.userId,
+            resourceOwnerUserId: course.userId,
         });
+
+        const capacity = resolveTopicQuestionCounts({
+            topic,
+            examFormat: "essay",
+        });
+        const requestedCount = Math.max(
+            EXAM_ESSAY_MIN_READY_COUNT,
+            Math.round(
+                Number(
+                    args.minimumCount
+                    || capacity.bankTargetCount
+                    || capacity.attemptTargetCount
+                    || EXAM_ESSAY_MIN_READY_COUNT
+                )
+            )
+        );
+
+        await ctx.scheduler.runAfter(0, internal.ai.generateEssayQuestionsForTopicInternal, {
+            topicId: args.topicId,
+            count: requestedCount,
+        });
+
+        return {
+            success: true,
+            scheduled: true,
+            requestedCount,
+        };
+    },
+});
+
+export const ensurePreparedExamAttemptInternal = internalMutation({
+    args: {
+        userId: v.string(),
+        topicId: v.id("topics"),
+        examFormat: v.optional(v.string()), // 'mcq' | 'essay'
+        allowPartialReady: v.optional(v.boolean()),
+    },
+    handler: async (ctx, args) => {
+        const effectiveUserId = String(args.userId || "").trim();
+        const examFormat = resolveRequestedExamFormat(args.examFormat);
+        const isEssay = examFormat === "essay";
+        const allowPartialReady = args.allowPartialReady === true;
 
         const topic = await ctx.db.get(args.topicId);
         if (!topic) {
@@ -93,8 +166,6 @@ export const startExamAttempt = mutation({
             throw new ConvexError({ code: "UNAUTHORIZED", message: "Not authorized to access this topic." });
         }
 
-        const requestedExamFormat = normalizeExamFormat(args.examFormat);
-        const isEssay = requestedExamFormat === "essay";
         const recentAttempts = await ctx.db
             .query("examAttempts")
             .withIndex("by_userId_topicId", (q) =>
@@ -106,7 +177,7 @@ export const startExamAttempt = mutation({
             canReuseExamAttempt({
                 attempt,
                 topicId: args.topicId,
-                examFormat: isEssay ? "essay" : OBJECTIVE_EXAM_FORMAT,
+                examFormat,
             })
         );
 
@@ -126,38 +197,38 @@ export const startExamAttempt = mutation({
                 }),
             }).filter((question) => {
                 const matchesRequestedFormat = isEssay
-                    ? isEssayQuestionType(question.questionType)
-                    : isObjectiveQuestionType(question.questionType);
+                    ? question.questionType === "essay"
+                    : question.questionType !== "essay";
                 if (!matchesRequestedFormat) return false;
                 return isUsableExamQuestion(question, { allowEssay: isEssay });
             });
 
             if (reusableQuestions.length === reusableQuestionIds.length && reusableQuestions.length > 0) {
-                if (isEssay && reusableQuestions.length < EXAM_ESSAY_QUESTION_SUBSET_SIZE) {
-                    scheduleQuestionTopUp({
-                        essay: true,
-                        minimumCount: EXAM_ESSAY_QUESTION_SUBSET_SIZE,
-                    });
-                }
-                if (!isEssay && reusableQuestions.length < EXAM_QUESTION_SUBSET_SIZE) {
-                    scheduleQuestionTopUp({
-                        essay: false,
-                        minimumCount: EXAM_QUESTION_SUBSET_SIZE,
-                    });
-                }
-
+                const reusableCapacity = resolveTopicQuestionCounts({
+                    topic,
+                    examFormat,
+                    usableQuestionCount: reusableQuestions.length,
+                });
                 // Mark attempt as claimed to prevent concurrent reuse from another session
                 await ctx.db.patch(reusableAttempt._id, { claimedAt: Date.now() });
 
                 const safeQuestions = reusableQuestions.map((question) =>
                     sanitizeExamQuestionForClient(question)
                 );
+                const reusableQuality = summarizeQuestionSetQuality(reusableQuestions);
                 return {
+                    status: "ready",
                     attemptId: reusableAttempt._id,
                     totalQuestions: reusableQuestions.length,
                     questions: safeQuestions,
                     reusedAttempt: true,
+                    attemptTargetCount: reusableQuestions.length,
+                    bankTargetCount: reusableCapacity.bankTargetCount,
                     startedAt: (reusableAttempt as any).startedAt || reusableAttempt._creationTime,
+                    qualityTier: reusableAttempt.qualityTier || reusableQuality.qualityTier,
+                    premiumTargetMet: reusableAttempt.premiumTargetMet ?? reusableQuality.premiumTargetMet,
+                    qualityWarnings: reusableAttempt.qualityWarnings || reusableQuality.qualityWarnings,
+                    qualitySignals: reusableAttempt.qualitySignals || reusableQuality.qualitySignals,
                 };
             }
         }
@@ -170,117 +241,143 @@ export const startExamAttempt = mutation({
 
         const activeQuestions = filterQuestionsForActiveAssessment({ topic, questions });
         const filteredQuestions = isEssay
-            ? activeQuestions.filter((q) => isEssayQuestionType(q.questionType))
-            : activeQuestions.filter((q) => isObjectiveQuestionType(q.questionType));
+            ? activeQuestions.filter((q) => q.questionType === "essay")
+            : activeQuestions.filter((q) => q.questionType !== "essay");
         const usableQuestions = filteredQuestions.filter((question) =>
             isUsableExamQuestion(question, { allowEssay: isEssay })
         );
-
-        const subsetSize = isEssay
-            ? Math.min(EXAM_ESSAY_QUESTION_SUBSET_SIZE, usableQuestions.length)
-            : EXAM_QUESTION_SUBSET_SIZE;
+        const capacity = resolveTopicQuestionCounts({
+            topic,
+            examFormat,
+            usableQuestionCount: usableQuestions.length,
+        });
+        const requiredQuestionCount = capacity.attemptTargetCount;
+        if (usableQuestions.length < requiredQuestionCount && !allowPartialReady) {
+            return {
+                status: "needs_generation",
+                reasonCode: "INSUFFICIENT_READY_QUESTIONS",
+                requiredQuestionCount,
+                attemptTargetCount: capacity.attemptTargetCount,
+                bankTargetCount: capacity.bankTargetCount,
+                usableQuestionCount: usableQuestions.length,
+                totalQuestions: 0,
+                attemptId: null,
+                questions: [],
+                reusedAttempt: false,
+                qualityTier: "limited",
+                premiumTargetMet: false,
+                qualityWarnings: ["generation_required"],
+                qualitySignals: {
+                    usableQuestionCount: usableQuestions.length,
+                    requiredQuestionCount,
+                },
+            };
+        }
 
         const selection = selectQuestionsForAttempt({
             questions: usableQuestions,
             recentAttempts,
-            subsetSize,
+            subsetSize: requiredQuestionCount,
             isEssay,
-            examFormat: isEssay ? "essay" : OBJECTIVE_EXAM_FORMAT,
+            examFormat,
+            assessmentBlueprint: topic?.assessmentBlueprint,
+            bankTargetCount: capacity.bankTargetCount,
         });
         const selectedQuestions = selection.selectedQuestions;
+        const startResolution = resolvePreparedExamStart({
+            requiredQuestionCount,
+            selectedQuestionCount: selectedQuestions.length,
+            requiresGeneration: selection.requiresGeneration,
+            unavailableReason: selection.unavailableReason,
+            coverageSatisfied: selection.coverageSatisfied,
+            allowPartialReady,
+        });
 
-        // When the bank needs expansion, trigger background generation but
-        // still serve whatever questions we have (recycled or partial).
-        if (selection.requiresFreshGeneration) {
-            scheduleQuestionTopUp({
-                essay: isEssay,
-                minimumCount: isEssay ? EXAM_ESSAY_QUESTION_SUBSET_SIZE : EXAM_QUESTION_SUBSET_SIZE,
-            });
-        }
-        if (selectedQuestions.length === 0) {
-            const preparingCode = isEssay ? "ESSAY_QUESTIONS_PREPARING" : "OBJECTIVE_QUESTIONS_PREPARING";
-            const preparingMessage = isEssay
-                ? "Essay questions are being prepared for this topic. Please try again in a few seconds."
-                : "Objective questions are being prepared for this topic. Please try again in a few seconds.";
-
-            if (isEssay) {
-                try {
-                    await ctx.scheduler.runAfter(0, internal.ai.generateEssayQuestionsForTopicInternal, {
-                        topicId: args.topicId,
-                        count: EXAM_ESSAY_QUESTION_SUBSET_SIZE,
-                    });
-                } catch (err) {
-                    console.warn("[ExamStart] essay_generation_schedule_failed", {
-                        topicId: args.topicId,
-                        message: err instanceof Error ? err.message : String(err),
-                    });
-                }
-            } else {
-                try {
-                    await ctx.scheduler.runAfter(0, internal.ai.generateQuestionsForTopicInternal, {
-                        topicId: args.topicId,
-                    });
-                } catch (err) {
-                    console.warn("[ExamStart] objective_generation_schedule_failed", {
-                        topicId: args.topicId,
-                        message: err instanceof Error ? err.message : String(err),
-                    });
-                }
-            }
-
+        if (startResolution.status === "unavailable") {
             return {
-                attemptId: null,
+                status: "unavailable",
+                reasonCode: startResolution.reasonCode,
+                requiredQuestionCount,
+                attemptTargetCount: startResolution.attemptTargetCount,
+                bankTargetCount: capacity.bankTargetCount,
+                usableQuestionCount: usableQuestions.length,
                 totalQuestions: 0,
+                attemptId: null,
                 questions: [],
                 reusedAttempt: false,
-                deferred: true,
-                code: preparingCode,
-                message: preparingMessage,
+                selection,
+                qualityTier: selection.qualityTier,
+                premiumTargetMet: selection.premiumTargetMet,
+                qualityWarnings: selection.qualityWarnings,
+                qualitySignals: selection.qualitySignals,
             };
         }
 
-        if (isEssay && selectedQuestions.length < EXAM_ESSAY_QUESTION_SUBSET_SIZE) {
-            scheduleQuestionTopUp({
-                essay: true,
-                minimumCount: EXAM_ESSAY_QUESTION_SUBSET_SIZE,
-            });
-        }
-        if (!isEssay && selectedQuestions.length < EXAM_QUESTION_SUBSET_SIZE) {
-            scheduleQuestionTopUp({
-                essay: false,
-                minimumCount: EXAM_QUESTION_SUBSET_SIZE,
-            });
+        if (startResolution.status === "needs_generation") {
+            return {
+                status: "needs_generation",
+                reasonCode: startResolution.reasonCode,
+                requiredQuestionCount,
+                attemptTargetCount: startResolution.attemptTargetCount,
+                bankTargetCount: capacity.bankTargetCount,
+                usableQuestionCount: usableQuestions.length,
+                totalQuestions: 0,
+                attemptId: null,
+                questions: [],
+                reusedAttempt: false,
+                selection,
+                qualityTier: selection.qualityTier,
+                premiumTargetMet: selection.premiumTargetMet,
+                qualityWarnings: selection.qualityWarnings,
+                qualitySignals: selection.qualitySignals,
+            };
         }
 
         const questionIds = selectedQuestions.map((question) => question._id);
         const safeQuestions = selectedQuestions.map((question) => sanitizeExamQuestionForClient(question));
+        const selectedQuality = summarizeQuestionSetQuality(selectedQuestions);
 
         // Create a new attempt record
         const attemptDocument = {
             userId: effectiveUserId,
             topicId: args.topicId,
-            examFormat: isEssay ? "essay" : OBJECTIVE_EXAM_FORMAT,
+            examFormat,
             score: 0,
             totalQuestions: selectedQuestions.length,
             timeTakenSeconds: 0,
             questionIds,
             answers: [],
             startedAt: Date.now(),
+            qualityTier: selectedQuality.qualityTier,
+            premiumTargetMet: selectedQuality.premiumTargetMet,
+            qualityWarnings: selectedQuality.qualityWarnings,
+            qualitySignals: selectedQuality.qualitySignals,
         };
 
-        const attemptId = await ctx.db.insert("examAttempts", attemptDocument);
+        const attemptId = await createExamAttemptDocument({
+            ctx,
+            attemptDocument,
+        });
 
         return {
+            status: "ready",
             attemptId,
             totalQuestions: selectedQuestions.length,
             questions: safeQuestions,
             reusedAttempt: false,
+            attemptTargetCount: startResolution.attemptTargetCount,
+            bankTargetCount: capacity.bankTargetCount,
+            startedAt: attemptDocument.startedAt,
+            qualityTier: selectedQuality.qualityTier,
+            premiumTargetMet: selectedQuality.premiumTargetMet,
+            qualityWarnings: selectedQuality.qualityWarnings,
+            qualitySignals: selectedQuality.qualitySignals,
         };
     },
 });
 
-// Submit objective exam answers and calculate score
-export const submitExamAttempt = action({
+// Submit exam answers and calculate score
+export const submitExamAttempt = mutation({
     args: {
         attemptId: v.id("examAttempts"),
         answers: v.array(
@@ -292,19 +389,15 @@ export const submitExamAttempt = action({
         timeTakenSeconds: v.number(),
     },
     handler: async (ctx, args) => {
-        const submissionContext: any = await ctx.runQuery(internal.exams.getExamAttemptSubmissionContext, {
-            attemptId: args.attemptId,
-        });
-        const attempt = submissionContext?.attempt;
+        const identity = await ctx.auth.getUserIdentity();
+        const authUserId = resolveAuthUserId(identity);
+        assertAuthorizedUser({ authUserId });
+
+        const attempt = await ctx.db.get(args.attemptId);
         if (!attempt) {
             throw new Error("Exam attempt not found");
         }
-        if (normalizeExamFormat((attempt as any).examFormat) === "essay") {
-            throw new ConvexError({
-                code: "OBJECTIVE_SUBMISSION_INVALID",
-                message: "This exam attempt is in Essay mode.",
-            });
-        }
+        assertAuthorizedUser({ authUserId, resourceOwnerUserId: attempt.userId });
 
         // Idempotency guard — if already submitted, return existing result
         const existingAnswers = Array.isArray(attempt.answers) ? attempt.answers : [];
@@ -324,13 +417,9 @@ export const submitExamAttempt = action({
         // Validate and clamp timeTakenSeconds
         const safeTimeTaken = Math.max(0, Math.min(86400, Math.round(args.timeTakenSeconds || 0)));
 
-        const allQuestions: any[] = Array.isArray(submissionContext?.questions)
-            ? submissionContext.questions
-            : [];
-
         // Calculate score
         let correctCount = 0;
-        const gradedAnswers: any[] = [];
+        const gradedAnswers = [];
         ensureUniqueAnswerQuestionIds(args.answers);
         const attemptQuestionIds = new Set((attempt.questionIds || []).map((id) => String(id)));
         const enforceSubset = attemptQuestionIds.size > 0;
@@ -339,59 +428,36 @@ export const submitExamAttempt = action({
             if (enforceSubset && !attemptQuestionIds.has(String(answer.questionId))) {
                 throw new Error("Submitted answers include questions outside this exam attempt.");
             }
-            const question = allQuestions.find(
-                (item: any) => String(item?._id || "") === String(answer.questionId)
-            );
+            const question = await ctx.db.get(answer.questionId);
             if (!question) {
                 throw new Error("One or more submitted questions could not be found.");
             }
             if (question.topicId !== attempt.topicId) {
                 throw new Error("Submitted answers include questions outside this topic.");
             }
-            if (!isObjectiveQuestionType(question.questionType)) {
-                throw new Error("Submitted answers include non-objective questions.");
-            }
 
-            const deterministicResult = evaluateDeterministicObjectiveAnswer({
-                question,
-                selectedAnswer: answer.selectedAnswer,
-            });
-
-            let isCorrect = deterministicResult.isCorrect;
-            let feedback: string | undefined;
-            let ungraded = false;
-
-            if (
-                !isCorrect
-                && deterministicResult.shouldAiGrade
-                && normalizeQuestionType(question.questionType) === QUESTION_TYPE_FILL_BLANK
-            ) {
-                const aiGradeResult: any = await ctx.runAction(internal.ai.gradeFillBlankAnswer, {
-                    userId: String(attempt.userId || "").trim() || undefined,
-                    questionText: String(question.questionText || ""),
-                    acceptedAnswers: Array.isArray(question.acceptedAnswers) ? question.acceptedAnswers : [],
-                    studentAnswer: deterministicResult.selectedAnswer,
-                });
-                if (aiGradeResult?.isCorrect === true) {
-                    isCorrect = true;
-                    feedback = "Accepted as an equivalent answer.";
-                } else if (aiGradeResult?.ungraded) {
-                    ungraded = true;
-                } else if (typeof aiGradeResult?.reason === "string" && aiGradeResult.reason.trim()) {
-                    feedback = aiGradeResult.reason.trim();
-                }
-            }
-
+            const answered = typeof answer.selectedAnswer === "string" && answer.selectedAnswer.trim() !== "";
+            const correctAnswer = String(question?.correctAnswer || "");
+            const selectedNorm = answer.selectedAnswer.trim().toLowerCase();
+            const correctNorm = correctAnswer.trim().toLowerCase();
+            // Exact match for normal MCQ (label like "A"), or case-insensitive
+            // match for fill-in-the-blank text answers including accepted variants.
+            const acceptedAnswers: string[] = Array.isArray((question as any)?.acceptedAnswers)
+                ? (question as any).acceptedAnswers
+                : [];
+            const isCorrect = answered && (
+                correctAnswer === answer.selectedAnswer
+                || correctNorm === selectedNorm
+                || acceptedAnswers.some((aa: string) => String(aa).trim().toLowerCase() === selectedNorm)
+            );
             if (isCorrect) correctCount++;
 
             gradedAnswers.push({
                 questionId: answer.questionId,
-                selectedAnswer: deterministicResult.selectedAnswer,
-                correctAnswer: deterministicResult.correctAnswer || resolveObjectiveCorrectAnswer(question),
+                selectedAnswer: answered ? answer.selectedAnswer : "",
+                correctAnswer: question?.correctAnswer,
                 isCorrect,
-                skipped: deterministicResult.skipped,
-                ...(feedback ? { feedback } : {}),
-                ...(ungraded ? { ungraded: true } : {}),
+                skipped: !answered,
             });
         }
 
@@ -400,13 +466,11 @@ export const submitExamAttempt = action({
             const answeredIds = new Set(args.answers.map((a: any) => String(a.questionId)));
             for (const qId of attempt.questionIds || []) {
                 if (!answeredIds.has(String(qId))) {
-                    const question = allQuestions.find(
-                        (item: any) => String(item?._id || "") === String(qId)
-                    );
+                    const question = await safeGetQuestionById(ctx, qId);
                     gradedAnswers.push({
                         questionId: String(qId),
                         selectedAnswer: "",
-                        correctAnswer: resolveObjectiveCorrectAnswer(question),
+                        correctAnswer: question?.correctAnswer || "",
                         isCorrect: false,
                         skipped: true,
                     });
@@ -415,22 +479,10 @@ export const submitExamAttempt = action({
         }
 
         // Update the attempt
-        await ctx.runMutation(internal.exams.updateExamAttemptScore, {
-            attemptId: args.attemptId,
+        await ctx.db.patch(args.attemptId, {
             score: correctCount,
             timeTakenSeconds: safeTimeTaken,
             answers: gradedAnswers,
-        });
-
-        // After each completed round, proactively expand the objective bank so the next
-        // retake can be served with fresh questions.
-        void ctx.scheduler.runAfter(0, internal.ai.generateQuestionsForTopicInternal, {
-            topicId: attempt.topicId,
-        }).catch((err) => {
-            console.warn("[ExamSubmit] objective_backfill_schedule_failed", {
-                topicId: attempt.topicId,
-                message: err instanceof Error ? err.message : String(err),
-            });
         });
 
         // Get the attempt to return
@@ -536,7 +588,6 @@ export const getExamAttempt = query({
                 return {
                     ...safeAnswer,
                     questionText: question?.questionText || safeAnswer.questionText || "Question unavailable",
-                    questionType: question?.questionType || safeAnswer.questionType,
                     options: question?.options || safeAnswer.options,
                     explanation: question?.explanation,
                     difficulty: question?.difficulty || safeAnswer.difficulty || "medium",
@@ -544,14 +595,11 @@ export const getExamAttempt = query({
                     bloomLevel: question?.bloomLevel || safeAnswer.bloomLevel,
                     outcomeKey: question?.outcomeKey || safeAnswer.outcomeKey,
                     authenticContext: question?.authenticContext || safeAnswer.authenticContext,
-                    templateParts: question?.templateParts || safeAnswer.templateParts,
-                    tokens: question?.tokens || safeAnswer.tokens,
-                    fillBlankMode: question?.fillBlankMode || safeAnswer.fillBlankMode,
                 };
             })
         );
 
-        const isEssayAttempt = normalizeExamFormat((attempt as any).examFormat) === "essay";
+        const isEssayAttempt = String((attempt as any).examFormat || "").toLowerCase() === "essay";
         const essayWeightedPct = (attempt as any).essayWeightedPercentage;
         // For essays: prefer weighted quality %, fall back to binary score if not yet graded
         const percentage = isEssayAttempt && typeof essayWeightedPct === "number"
@@ -571,8 +619,8 @@ export const getExamAttempt = query({
     },
 });
 
-// Get full attempt context for exam submission (includes raw question docs)
-export const getExamAttemptSubmissionContext = internalQuery({
+// Get full attempt context for essay submission (includes raw question docs)
+export const getEssayAttemptSubmissionContext = internalQuery({
     args: { attemptId: v.id("examAttempts") },
     handler: async (ctx, args) => {
         const identity = await ctx.auth.getUserIdentity();
@@ -632,7 +680,7 @@ export const submitEssayExam = action({
 
         try {
             // Load the attempt with its raw question docs (including essay answers/rubrics).
-            const submissionContext: any = await ctx.runQuery(internal.exams.getExamAttemptSubmissionContext, {
+            const submissionContext: any = await ctx.runQuery(internal.exams.getEssayAttemptSubmissionContext, {
                 attemptId: args.attemptId,
             });
             const attempt: any = submissionContext?.attempt;
@@ -730,7 +778,7 @@ export const submitEssayExam = action({
                         "One or more questions from this exam could not be found. Please restart the exam."
                     );
                 }
-                if (!isEssayQuestionType(question.questionType)) {
+                if (question.questionType !== "essay") {
                     failEssaySubmission(
                         "This exam session is out of sync. Please restart the exam in Essay mode."
                     );
@@ -750,6 +798,9 @@ export const submitEssayExam = action({
                         modelAnswer: question.correctAnswer || "",
                         studentAnswer: normalizedEssayText,
                         rubricHints: question.explanation || undefined,
+                        rubricPoints: Array.isArray(question.rubricPoints) && question.rubricPoints.length > 0
+                            ? question.rubricPoints
+                            : undefined,
                     });
                 } catch (gradingError) {
                     console.warn("[EssaySubmit] individual_grading_failed", {
@@ -785,6 +836,9 @@ export const submitEssayExam = action({
                     isCorrect,
                     essayScore,
                     feedback: gradeResult?.feedback || "",
+                    ...(Array.isArray(gradeResult?.criteriaFeedback) && gradeResult.criteriaFeedback.length > 0
+                        ? { criteriaFeedback: gradeResult.criteriaFeedback }
+                        : {}),
                 });
             }
 
@@ -884,7 +938,7 @@ export const getLatestAttemptForTopic = query({
                 })
         );
 
-        const isEssayAttempt = normalizeExamFormat((attempt as any).examFormat) === "essay";
+        const isEssayAttempt = String((attempt as any).examFormat || "").toLowerCase() === "essay";
         const essayWeightedPct = (attempt as any).essayWeightedPercentage;
         const percentage = isEssayAttempt && typeof essayWeightedPct === "number"
             ? essayWeightedPct
@@ -933,7 +987,7 @@ export const getUserPerformanceInsights = query({
         for (const attempt of completedAttempts) {
             const total = attempt.totalQuestions || (attempt.answers || []).length;
             if (total === 0) continue;
-            const isEssayAttempt = normalizeExamFormat((attempt as any).examFormat) === "essay";
+            const isEssayAttempt = String((attempt as any).examFormat || "").toLowerCase() === "essay";
             const essayWeightedPct = (attempt as any).essayWeightedPercentage;
             const pct = isEssayAttempt && typeof essayWeightedPct === "number"
                 ? essayWeightedPct
@@ -982,6 +1036,13 @@ export const updateExamAttemptScore = internalMutation({
                 skipped: v.optional(v.boolean()),
                 essayScore: v.optional(v.union(v.number(), v.null())),
                 feedback: v.optional(v.string()),
+                criteriaFeedback: v.optional(v.array(
+                    v.object({
+                        criterion: v.string(),
+                        feedback: v.string(),
+                        score: v.number(),
+                    })
+                )),
                 ungraded: v.optional(v.boolean()),
             })
         ),

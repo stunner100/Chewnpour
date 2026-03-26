@@ -50,3 +50,14 @@ Optional variables:
 - `VITE_POSTHOG_HOST` (default `https://us.i.posthog.com`)
 - `VITE_POSTHOG_UI_HOST` (default `https://us.posthog.com`)
 - `VITE_POSTHOG_DEBUG` (`true` to enable client-side debug logs)
+
+## Staging
+
+Use Vercel `Preview` as staging and point it at a non-production Convex
+deployment.
+
+Do not let Preview builds fall back to the checked-in Convex URL. The build is
+now guarded so Preview and Production must supply `VITE_CONVEX_URL` or
+`CONVEX_URL` explicitly.
+
+See [docs/staging.md](/Users/patrickannor/Desktop/stitch_onboarding_name/stitch-app/docs/staging.md).

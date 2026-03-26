@@ -33,7 +33,7 @@ const PostExamUpgradeCard = () => {
                             </p>
                         </div>
                         <Link
-                            to="/dashboard/analysis"
+                            to="/dashboard"
                             className="btn-primary text-body-sm px-5 py-2.5 inline-flex items-center gap-2 whitespace-nowrap"
                         >
                             Upload Another Course

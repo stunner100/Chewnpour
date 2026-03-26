@@ -1,404 +1,294 @@
-/**
- * Regression test: question repetition across exam attempts.
- *
- * Verifies:
- * 1. First attempt draws from the full question pool
- * 2. Second attempt gets entirely fresh (unseen) questions when the bank is large enough
- * 3. When the bank is exhausted, least-recently-seen questions are recycled (not blocked)
- * 4. Format filtering — MCQ history doesn't affect essay selection (and vice versa)
- * 5. Lookback window is 50, not the old 10
- */
-
-import fs from 'node:fs/promises';
-import path from 'node:path';
-import process from 'node:process';
+import assert from "node:assert/strict";
+import fs from "node:fs/promises";
+import path from "node:path";
+import process from "node:process";
+import { dedupeQuestionsByPrompt, selectQuestionsForAttempt } from "../convex/lib/examQuestionSelection.js";
 
 const root = process.cwd();
-const selectionPath = path.join(root, 'convex', 'lib', 'examQuestionSelection.js');
-const examsPath = path.join(root, 'convex', 'exams.ts');
+const selectionPath = path.join(root, "convex", "lib", "examQuestionSelection.js");
+const examsPath = path.join(root, "convex", "exams.ts");
 
 const [selectionSource, examsSource] = await Promise.all([
-  fs.readFile(selectionPath, 'utf8'),
-  fs.readFile(examsPath, 'utf8'),
+  fs.readFile(selectionPath, "utf8"),
+  fs.readFile(examsPath, "utf8"),
 ]);
 
-// ── Source-level checks ──
+assert.match(examsSource, /EXAM_ATTEMPT_REUSE_LOOKBACK = 50/, "Expected 50-attempt lookback.");
+assert.match(
+  examsSource,
+  /selectQuestionsForAttempt\(\{[\s\S]*assessmentBlueprint:\s*topic\?\.assessmentBlueprint,[\s\S]*bankTargetCount:\s*capacity\.bankTargetCount,/,
+  "Expected prepared attempt selection to pass blueprint and bank target metadata."
+);
+assert.ok(selectionSource.includes("coverageSatisfied"), "Expected selector diagnostics to include coverageSatisfied.");
+assert.ok(selectionSource.includes("freshnessSatisfied"), "Expected selector diagnostics to include freshnessSatisfied.");
+assert.ok(selectionSource.includes("recycledCount"), "Expected selector diagnostics to include recycledCount.");
+assert.ok(selectionSource.includes("unavailableReason"), "Expected selector diagnostics to include unavailableReason.");
+assert.ok(
+  !selectionSource.includes("requiresFreshGeneration"),
+  "Expected old requiresFreshGeneration contract to be removed."
+);
 
-// 1. Lookback is 50
-if (!examsSource.includes('EXAM_ATTEMPT_REUSE_LOOKBACK = 50')) {
-  throw new Error('Expected EXAM_ATTEMPT_REUSE_LOOKBACK = 50 in exams.ts');
-}
+const makeBlueprint = () => ({
+  version: "assessment-blueprint-v3",
+  outcomes: [
+    { key: "mcq-remember", objective: "Recall key facts", bloomLevel: "Remember", evidenceFocus: "fact recall" },
+    { key: "mcq-apply", objective: "Apply the concept", bloomLevel: "Apply", evidenceFocus: "applied example" },
+    { key: "essay-analyze", objective: "Analyze the topic", bloomLevel: "Analyze", evidenceFocus: "analysis" },
+    { key: "essay-create", objective: "Create an argument", bloomLevel: "Create", evidenceFocus: "synthesis" },
+  ],
+  objectivePlan: {
+    allowedQuestionTypes: ["multiple_choice", "true_false", "fill_blank"],
+    targetQuestionTypes: ["multiple_choice", "true_false", "fill_blank"],
+    targetMix: { multiple_choice: 5, true_false: 3, fill_blank: 2 },
+    targetOutcomeKeys: ["mcq-remember", "mcq-apply"],
+    targetBloomLevels: ["Remember", "Apply"],
+  },
+  multipleChoicePlan: {
+    allowedBloomLevels: ["Remember", "Understand", "Apply", "Analyze"],
+    targetBloomLevels: ["Remember", "Apply"],
+    targetOutcomeKeys: ["mcq-remember", "mcq-apply"],
+  },
+  trueFalsePlan: {
+    allowedBloomLevels: ["Remember", "Understand", "Apply"],
+    targetBloomLevels: ["Remember", "Apply"],
+    targetOutcomeKeys: ["mcq-remember", "mcq-apply"],
+  },
+  fillBlankPlan: {
+    allowedBloomLevels: ["Remember", "Understand", "Apply"],
+    targetBloomLevels: ["Remember", "Apply"],
+    targetOutcomeKeys: ["mcq-remember", "mcq-apply"],
+    tokenBankRequired: true,
+    exactAnswerOnly: true,
+  },
+  essayPlan: {
+    allowedBloomLevels: ["Analyze", "Evaluate", "Create"],
+    targetBloomLevels: ["Analyze", "Create"],
+    targetOutcomeKeys: ["essay-analyze", "essay-create"],
+    authenticScenarioRequired: false,
+  },
+});
 
-// 2. examFormat parameter is passed to selectQuestionsForAttempt
-if (!examsSource.includes('examFormat: isEssay ? "essay" : "mcq"')) {
-  throw new Error('Expected examFormat to be passed to selectQuestionsForAttempt');
-}
-
-// 3. Format filtering exists in buildSeenQuestionIdsFromCompletedAttempts
-if (!selectionSource.includes('buildSeenQuestionIdsFromCompletedAttempts = (recentAttempts, examFormat)')) {
-  throw new Error('Expected buildSeenQuestionIdsFromCompletedAttempts to accept examFormat parameter');
-}
-
-// 4. questionLastSeenOrder tracking exists
-if (!selectionSource.includes('questionLastSeenOrder')) {
-  throw new Error('Expected questionLastSeenOrder tracking for least-recently-seen fallback');
-}
-
-// 5. selectQuestionsForAttempt accepts examFormat
-if (!selectionSource.includes('examFormat,')) {
-  throw new Error('Expected selectQuestionsForAttempt to destructure examFormat');
-}
-
-console.log('✓ Source-level checks passed');
-
-// ── Dynamic import for logic tests ──
-
-// We need to import the module. Since it uses ESM exports, use dynamic import
-// with a file:// URL. Convex modules may use bare specifiers that won't resolve
-// in Node, so we inline the key functions for isolated testing.
-
-const makeQuestion = (id, text, type = 'mcq', difficulty = 'medium') => ({
+const makeQuestion = ({ id, text, outcomeKey, bloomLevel, type = "mcq", difficulty = "medium" }) => ({
   _id: id,
   questionText: text,
   questionType: type,
   difficulty,
-  options: type !== 'essay' ? [
-    { label: 'A', text: 'Option A', isCorrect: true },
-    { label: 'B', text: 'Option B', isCorrect: false },
-    { label: 'C', text: 'Option C', isCorrect: false },
-    { label: 'D', text: 'Option D', isCorrect: false },
-  ] : undefined,
-  correctAnswer: type === 'essay' ? 'Model answer text here' : 'Option A',
+  outcomeKey,
+  bloomLevel,
 });
 
-const makeAttempt = (id, questionIds, format = 'mcq', answered = true) => ({
+const makeAttempt = (id, questionIds, format = "mcq", answered = true) => ({
   _id: id,
-  _creationTime: Date.now() - 60000,
+  _creationTime: Date.now() - 60_000,
   examFormat: format,
-  topicId: 'topic1',
+  topicId: "topic1",
   questionIds,
-  answers: answered ? questionIds.map(qid => ({ questionId: qid, selectedAnswer: 'A' })) : [],
-  score: answered ? 1 : 0,
+  answers: answered ? questionIds.map((questionId) => ({ questionId, selectedAnswer: "A" })) : [],
+  score: answered ? questionIds.length : 0,
 });
 
-// ── Inline the core selection logic for testing ──
-
-const normalizeQuestionPromptKey = (value) => {
-  return String(value || '')
-    .toLowerCase()
-    .replace(/[\u2018\u2019]/g, "'")
-    .replace(/[\u201c\u201d]/g, '"')
-    .replace(/[^a-z0-9]+/g, ' ')
-    .trim();
-};
-
-const dedupeQuestionsByPrompt = (questions) => {
-  const items = Array.isArray(questions) ? questions : [];
-  const seenPromptKeys = new Set();
-  const deduped = [];
-  for (const question of items) {
-    if (!question) continue;
-    const normalizedPrompt = normalizeQuestionPromptKey(question.questionText);
-    const fallbackKey = String(question._id || '');
-    const dedupeKey = normalizedPrompt || fallbackKey;
-    if (!dedupeKey) continue;
-    if (seenPromptKeys.has(dedupeKey)) continue;
-    seenPromptKeys.add(dedupeKey);
-    deduped.push(question);
-  }
-  return deduped;
-};
-
-const pickRandomSubset = (items, size) => {
-  const copied = [...items];
-  for (let i = copied.length - 1; i > 0; i -= 1) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [copied[i], copied[j]] = [copied[j], copied[i]];
-  }
-  return copied.slice(0, Math.max(0, size));
-};
-
-const buildSeenQuestionIdsFromCompletedAttempts = (recentAttempts, examFormat) => {
-  const attempts = Array.isArray(recentAttempts) ? recentAttempts : [];
-  const normalizedFormat = String(examFormat || '').trim().toLowerCase();
-  const completedAttempts = attempts.filter((attempt) => {
-    const answers = Array.isArray(attempt?.answers) ? attempt.answers : [];
-    if (answers.length === 0) return false;
-    if (normalizedFormat) {
-      const attemptFormat = String(attempt?.examFormat || '').trim().toLowerCase();
-      if (attemptFormat && attemptFormat !== normalizedFormat) return false;
-    }
-    return true;
-  });
-
-  const seenQuestionIds = new Set();
-  const questionLastSeenOrder = new Map();
-  let rank = 0;
-  for (const attempt of completedAttempts) {
-    const questionIds = Array.isArray(attempt?.questionIds) ? attempt.questionIds : [];
-    for (const questionId of questionIds) {
-      const key = String(questionId);
-      seenQuestionIds.add(key);
-      if (!questionLastSeenOrder.has(key)) {
-        questionLastSeenOrder.set(key, rank);
-      }
-    }
-    rank += 1;
-  }
-  return { seenQuestionIds, questionLastSeenOrder, completedAttemptCount: completedAttempts.length };
-};
-
-const selectQuestionsForAttempt = ({ questions, recentAttempts, subsetSize, isEssay, examFormat }) => {
-  const dedupedQuestions = dedupeQuestionsByPrompt(questions);
-  const effectiveFormat = examFormat || (isEssay ? 'essay' : 'mcq');
-  const { seenQuestionIds, questionLastSeenOrder, completedAttemptCount } =
-    buildSeenQuestionIdsFromCompletedAttempts(recentAttempts, effectiveFormat);
-  const unseenQuestions = dedupedQuestions.filter(
-    (question) => !seenQuestionIds.has(String(question?._id))
-  );
-  const targetSize = Math.max(0, Number(subsetSize || 0));
-
-  if (completedAttemptCount === 0) {
-    const selectedQuestions = pickRandomSubset(dedupedQuestions, targetSize);
-    return { selectedQuestions, dedupedCount: dedupedQuestions.length, unseenCount: unseenQuestions.length, completedAttemptCount, requiresFreshGeneration: false };
-  }
-
-  if (unseenQuestions.length >= targetSize) {
-    const selectedQuestions = pickRandomSubset(unseenQuestions, targetSize);
-    return { selectedQuestions, dedupedCount: dedupedQuestions.length, unseenCount: unseenQuestions.length, completedAttemptCount, requiresFreshGeneration: false };
-  }
-
-  if (unseenQuestions.length > 0 || dedupedQuestions.length > 0) {
-    const selected = [...unseenQuestions];
-    const remainingNeeded = targetSize - selected.length;
-    if (remainingNeeded > 0) {
-      const seenQuestions = dedupedQuestions
-        .filter((q) => seenQuestionIds.has(String(q?._id)))
-        .sort((a, b) => {
-          const rankA = questionLastSeenOrder.get(String(a?._id)) ?? Infinity;
-          const rankB = questionLastSeenOrder.get(String(b?._id)) ?? Infinity;
-          return rankB - rankA;
-        });
-      selected.push(...seenQuestions.slice(0, remainingNeeded));
-    }
-    const selectedQuestions = pickRandomSubset(selected, targetSize);
-    return { selectedQuestions, dedupedCount: dedupedQuestions.length, unseenCount: unseenQuestions.length, completedAttemptCount, requiresFreshGeneration: unseenQuestions.length === 0 };
-  }
-
-  return { selectedQuestions: [], dedupedCount: 0, unseenCount: 0, completedAttemptCount, requiresFreshGeneration: true };
-};
-
-// ── Test 1: First attempt uses full pool ──
-{
-  const questions = Array.from({ length: 50 }, (_, i) => makeQuestion(`q${i}`, `Question ${i}`));
-  const result = selectQuestionsForAttempt({
-    questions,
-    recentAttempts: [],
-    subsetSize: 35,
-    isEssay: false,
-    examFormat: 'mcq',
-  });
-
-  if (result.selectedQuestions.length !== 35) {
-    throw new Error(`Test 1: Expected 35 questions, got ${result.selectedQuestions.length}`);
-  }
-  if (result.requiresFreshGeneration) {
-    throw new Error('Test 1: Should not require fresh generation on first attempt');
-  }
-  console.log('✓ Test 1: First attempt draws 35 from full pool of 50');
-}
-
-// ── Test 2: Second attempt gets entirely unseen questions ──
-{
-  const questions = Array.from({ length: 70 }, (_, i) => makeQuestion(`q${i}`, `Question ${i}`));
-  const firstAttemptIds = questions.slice(0, 35).map(q => q._id);
-  const attempt1 = makeAttempt('a1', firstAttemptIds, 'mcq', true);
-
-  const result = selectQuestionsForAttempt({
-    questions,
-    recentAttempts: [attempt1],
-    subsetSize: 35,
-    isEssay: false,
-    examFormat: 'mcq',
-  });
-
-  const selectedIds = new Set(result.selectedQuestions.map(q => q._id));
-  const overlap = firstAttemptIds.filter(id => selectedIds.has(id));
-
-  if (overlap.length > 0) {
-    throw new Error(`Test 2: Expected 0 overlap with first attempt, got ${overlap.length}: ${overlap.join(', ')}`);
-  }
-  if (result.selectedQuestions.length !== 35) {
-    throw new Error(`Test 2: Expected 35 questions, got ${result.selectedQuestions.length}`);
-  }
-  console.log('✓ Test 2: Second attempt gets 35 entirely unseen questions (0 overlap)');
-}
-
-// ── Test 3: Exhausted bank recycles least-recently-seen (never blocks) ──
-{
-  const questions = Array.from({ length: 20 }, (_, i) => makeQuestion(`q${i}`, `Question ${i}`));
-  // Two completed attempts that together cover all 20 questions.
-  const attempt1 = makeAttempt('a1', questions.slice(0, 10).map(q => q._id), 'mcq', true);
-  const attempt2 = makeAttempt('a2', questions.slice(10, 20).map(q => q._id), 'mcq', true);
-
-  const result = selectQuestionsForAttempt({
-    questions,
-    recentAttempts: [attempt2, attempt1], // most recent first
-    subsetSize: 10,
-    isEssay: false,
-    examFormat: 'mcq',
-  });
-
-  if (result.selectedQuestions.length === 0) {
-    throw new Error('Test 3: Should NOT return 0 questions when bank is exhausted — should recycle');
-  }
-  if (result.selectedQuestions.length !== 10) {
-    throw new Error(`Test 3: Expected 10 recycled questions, got ${result.selectedQuestions.length}`);
-  }
-
-  // The recycled questions should prefer the oldest (attempt1's questions).
-  // attempt1 is rank=1 (older), attempt2 is rank=0 (newer).
-  // So attempt1's questions should be preferred.
-  const selectedIds = new Set(result.selectedQuestions.map(q => q._id));
-  const fromAttempt1 = questions.slice(0, 10).filter(q => selectedIds.has(q._id)).length;
-  if (fromAttempt1 < 5) {
-    throw new Error(`Test 3: Expected recycled set to prefer oldest questions, but only ${fromAttempt1}/10 came from attempt1`);
-  }
-  console.log(`✓ Test 3: Exhausted bank recycles ${result.selectedQuestions.length} questions (${fromAttempt1} from oldest attempt)`);
-}
-
-// ── Test 4: Format filtering — essay attempts don't count as MCQ history ──
-{
-  const mcqQuestions = Array.from({ length: 40 }, (_, i) => makeQuestion(`mcq${i}`, `MCQ Question ${i}`, 'mcq'));
-  const essayAttemptIds = Array.from({ length: 15 }, (_, i) => `essay${i}`);
-  const essayAttempt = makeAttempt('ea1', essayAttemptIds, 'essay', true);
-
-  const result = selectQuestionsForAttempt({
-    questions: mcqQuestions,
-    recentAttempts: [essayAttempt],
-    subsetSize: 35,
-    isEssay: false,
-    examFormat: 'mcq',
-  });
-
-  // The essay attempt should be ignored for MCQ selection, so completedAttemptCount = 0
-  // and all questions are available.
-  if (result.completedAttemptCount !== 0) {
-    throw new Error(`Test 4: Expected 0 MCQ completed attempts (essay should be filtered), got ${result.completedAttemptCount}`);
-  }
-  if (result.selectedQuestions.length !== 35) {
-    throw new Error(`Test 4: Expected 35 MCQ questions, got ${result.selectedQuestions.length}`);
-  }
-  console.log('✓ Test 4: Essay history correctly ignored for MCQ selection');
-}
-
-// ── Test 5: Format filtering — MCQ attempts don't count as essay history ──
-{
-  const essayQuestions = Array.from({ length: 20 }, (_, i) => makeQuestion(`e${i}`, `Essay Question ${i}`, 'essay'));
-  const mcqAttemptIds = Array.from({ length: 35 }, (_, i) => `mcq${i}`);
-  const mcqAttempt = makeAttempt('ma1', mcqAttemptIds, 'mcq', true);
-
-  const result = selectQuestionsForAttempt({
-    questions: essayQuestions,
-    recentAttempts: [mcqAttempt],
-    subsetSize: 15,
-    isEssay: true,
-    examFormat: 'essay',
-  });
-
-  if (result.completedAttemptCount !== 0) {
-    throw new Error(`Test 5: Expected 0 essay completed attempts (MCQ should be filtered), got ${result.completedAttemptCount}`);
-  }
-  console.log('✓ Test 5: MCQ history correctly ignored for essay selection');
-}
-
-// ── Test 6: Many attempts — lookback covers 50 attempts worth of questions ──
-{
-  const totalQuestions = 200;
-  const questions = Array.from({ length: totalQuestions }, (_, i) => makeQuestion(`q${i}`, `Question ${i}`));
-
-  // Simulate 12 past attempts, each using 10 questions (120 questions seen total).
-  const attempts = [];
-  for (let a = 0; a < 12; a++) {
-    const ids = questions.slice(a * 10, (a + 1) * 10).map(q => q._id);
-    attempts.unshift(makeAttempt(`a${a}`, ids, 'mcq', true)); // newest first
-  }
-
-  const result = selectQuestionsForAttempt({
-    questions,
-    recentAttempts: attempts,
-    subsetSize: 35,
-    isEssay: false,
-    examFormat: 'mcq',
-  });
-
-  // 200 total - 120 seen = 80 unseen. Should get 35 fully unseen.
-  const selectedIds = new Set(result.selectedQuestions.map(q => q._id));
-  const seenIds = new Set(attempts.flatMap(a => a.questionIds));
-  const overlapCount = result.selectedQuestions.filter(q => seenIds.has(q._id)).length;
-
-  if (overlapCount > 0) {
-    throw new Error(`Test 6: Expected 0 overlap across 12 attempts, got ${overlapCount}`);
-  }
-  if (result.selectedQuestions.length !== 35) {
-    throw new Error(`Test 6: Expected 35 questions, got ${result.selectedQuestions.length}`);
-  }
-  console.log(`✓ Test 6: 12 past attempts (120 seen), still got 35 fully fresh questions from pool of 200`);
-}
-
-// ── Test 7: Partial unseen + recycled fill ──
-{
-  const questions = Array.from({ length: 40 }, (_, i) => makeQuestion(`q${i}`, `Question ${i}`));
-  // One attempt used 35 questions — only 5 unseen remain.
-  const attempt1 = makeAttempt('a1', questions.slice(0, 35).map(q => q._id), 'mcq', true);
-
-  const result = selectQuestionsForAttempt({
-    questions,
-    recentAttempts: [attempt1],
-    subsetSize: 35,
-    isEssay: false,
-    examFormat: 'mcq',
-  });
-
-  if (result.selectedQuestions.length !== 35) {
-    throw new Error(`Test 7: Expected 35 questions (5 unseen + 30 recycled), got ${result.selectedQuestions.length}`);
-  }
-
-  const selectedIds = new Set(result.selectedQuestions.map(q => q._id));
-  const unseenSelected = questions.slice(35, 40).filter(q => selectedIds.has(q._id)).length;
-  if (unseenSelected !== 5) {
-    throw new Error(`Test 7: Expected all 5 unseen questions included, got ${unseenSelected}`);
-  }
-  // requiresFreshGeneration should be false because we still had some unseen
-  if (result.requiresFreshGeneration) {
-    throw new Error('Test 7: Should not require fresh generation when some unseen exist');
-  }
-  console.log(`✓ Test 7: Partial bank (5 unseen + 30 recycled) = 35 total, no blocking`);
-}
-
-// ── Test 8: Duplicate question texts are deduped ──
-{
-  const questions = [
-    makeQuestion('q1', 'What is polymorphism?'),
-    makeQuestion('q2', 'What is polymorphism?'), // exact duplicate text
-    makeQuestion('q3', 'What is encapsulation?'),
+const buildMcqPool = (countPerOutcome = 6) => {
+  const rememberConcepts = [
+    "enzyme",
+    "catalyst",
+    "mitosis",
+    "osmosis",
+    "ribosome",
+    "neuron",
+    "alloy",
+    "vector",
+    "isotope",
+    "glacier",
+    "prism",
+    "lattice",
   ];
-
-  const result = selectQuestionsForAttempt({
-    questions,
-    recentAttempts: [],
-    subsetSize: 10,
-    isEssay: false,
-    examFormat: 'mcq',
-  });
-
-  if (result.dedupedCount !== 2) {
-    throw new Error(`Test 8: Expected 2 deduped questions, got ${result.dedupedCount}`);
+  const applyScenarios = [
+    "reactor",
+    "workshop",
+    "lab",
+    "factory",
+    "ecosystem",
+    "market",
+    "bridge",
+    "network",
+    "harvest",
+    "clinic",
+    "studio",
+    "harbor",
+  ];
+  const questions = [];
+  for (let index = 0; index < countPerOutcome; index += 1) {
+    questions.push(
+      makeQuestion({
+        id: `remember-${index + 1}`,
+        text: `Which definition best explains the ${rememberConcepts[index]} concept?`,
+        outcomeKey: "mcq-remember",
+        bloomLevel: "Remember",
+        difficulty: index % 2 === 0 ? "easy" : "medium",
+      }),
+      makeQuestion({
+        id: `apply-${index + 1}`,
+        text: `How should the idea be applied in the ${applyScenarios[index]} scenario?`,
+        outcomeKey: "mcq-apply",
+        bloomLevel: "Apply",
+        difficulty: index % 3 === 0 ? "hard" : "medium",
+      })
+    );
   }
-  if (result.selectedQuestions.length !== 2) {
-    throw new Error(`Test 8: Expected 2 selected (after dedup), got ${result.selectedQuestions.length}`);
-  }
-  console.log('✓ Test 8: Duplicate question texts correctly deduped');
+  return questions;
+};
+
+// 1. Dedupe still removes duplicate stems before selection.
+{
+  const deduped = dedupeQuestionsByPrompt([
+    makeQuestion({ id: "q1", text: "What is polymorphism?", outcomeKey: "mcq-remember", bloomLevel: "Remember" }),
+    makeQuestion({ id: "q2", text: " what is polymorphism ", outcomeKey: "mcq-remember", bloomLevel: "Remember" }),
+    makeQuestion({ id: "q3", text: "Apply the concept", outcomeKey: "mcq-apply", bloomLevel: "Apply" }),
+  ]);
+  assert.equal(deduped.length, 2, "Expected duplicate prompts to collapse before selection.");
 }
 
-console.log('\n✅ All question repetition regression tests passed.');
+// 2. First attempt satisfies coverage without recycling.
+{
+  const result = selectQuestionsForAttempt({
+    questions: buildMcqPool(6),
+    recentAttempts: [],
+    subsetSize: 8,
+    isEssay: false,
+    examFormat: "mcq",
+    assessmentBlueprint: makeBlueprint(),
+    bankTargetCount: 12,
+  });
+
+  assert.equal(result.selectedQuestions.length, 8, "Expected first attempt to build a full subset.");
+  assert.equal(result.coverageSatisfied, true, "Expected first attempt to satisfy blueprint coverage.");
+  assert.equal(result.freshnessSatisfied, true, "Expected first attempt to be fully fresh.");
+  assert.equal(result.recycledCount, 0, "Expected first attempt not to recycle seen questions.");
+  assert.equal(result.requiresGeneration, false, "Expected first attempt not to request generation.");
+}
+
+// 3. Retake with expandable bank blocks for generation instead of recycling.
+{
+  const questions = buildMcqPool(6);
+  const completedAttempt = makeAttempt("attempt-1", questions.slice(0, 8).map((question) => question._id), "mcq", true);
+  const result = selectQuestionsForAttempt({
+    questions,
+    recentAttempts: [completedAttempt],
+    subsetSize: 8,
+    isEssay: false,
+    examFormat: "mcq",
+    assessmentBlueprint: makeBlueprint(),
+    bankTargetCount: 16,
+  });
+
+  assert.equal(result.requiresGeneration, true, "Expected retake to trigger fresh generation while the bank can still grow.");
+  assert.equal(result.recycledCount, 0, "Expected expandable retake to avoid recycling.");
+  assert.equal(result.freshnessSatisfied, true, "Expected expandable retake selection to stay fully fresh.");
+  assert.equal(result.unavailableReason, undefined, "Expected expandable retake not to return a terminal unavailable reason.");
+}
+
+// 4. Exhausted bank recycles oldest seen questions to preserve coverage.
+{
+  const questions = buildMcqPool(10);
+  const olderAttemptIds = questions.slice(0, 8).map((question) => question._id);
+  const newerAttemptIds = questions.slice(8, 16).map((question) => question._id);
+  const result = selectQuestionsForAttempt({
+    questions,
+    recentAttempts: [makeAttempt("attempt-newer", newerAttemptIds, "mcq", true), makeAttempt("attempt-older", olderAttemptIds, "mcq", true)],
+    subsetSize: 8,
+    isEssay: false,
+    examFormat: "mcq",
+    assessmentBlueprint: makeBlueprint(),
+    bankTargetCount: questions.length,
+  });
+
+  const selectedIds = new Set(result.selectedQuestions.map((question) => question._id));
+  const olderSelections = olderAttemptIds.filter((questionId) => selectedIds.has(questionId)).length;
+
+  assert.equal(result.selectedQuestions.length, 8, "Expected exhausted bank retake to still build a full subset.");
+  assert.equal(result.requiresGeneration, false, "Expected exhausted bank retake not to request more generation.");
+  assert.equal(result.freshnessSatisfied, false, "Expected exhausted bank retake to report recycled questions.");
+  assert.equal(result.recycledCount, 4, "Expected exhausted bank retake to recycle only the slots that fresh questions could not fill.");
+  assert.equal(olderSelections >= 4, true, "Expected recycled selection to prefer the oldest seen questions.");
+}
+
+// 5. If exhausted bank cannot satisfy outcome coverage, the selector should return a terminal unavailable reason.
+{
+  const rememberOnlyConcepts = ["enzyme", "neuron", "isotope", "glacier", "catalyst", "ribosome", "vector", "lattice"];
+  const rememberOnlyQuestions = Array.from({ length: 8 }, (_, index) =>
+    makeQuestion({
+      id: `remember-only-${index + 1}`,
+      text: `Which statement best defines the ${rememberOnlyConcepts[index]} idea?`,
+      outcomeKey: "mcq-remember",
+      bloomLevel: "Remember",
+    })
+  );
+  const result = selectQuestionsForAttempt({
+    questions: rememberOnlyQuestions,
+    recentAttempts: [],
+    subsetSize: 6,
+    isEssay: false,
+    examFormat: "mcq",
+    assessmentBlueprint: makeBlueprint(),
+    bankTargetCount: rememberOnlyQuestions.length,
+  });
+
+  assert.equal(result.requiresGeneration, false, "Expected exhausted coverage failure to stop retrying generation.");
+  assert.equal(result.unavailableReason, "MISSING_OUTCOME_COVERAGE", "Expected exhausted coverage failure to return a terminal unavailable reason.");
+  assert.equal(result.coverageSatisfied, false, "Expected exhausted coverage failure to report coverage not satisfied.");
+}
+
+// 6. Exhausted retakes should recycle the bank instead of surfacing terminal unavailable when no fresh set exists.
+{
+  const rememberOnlyConcepts = ["enzyme", "neuron", "isotope", "glacier", "catalyst", "ribosome", "vector", "lattice"];
+  const rememberOnlyQuestions = Array.from({ length: 8 }, (_, index) =>
+    makeQuestion({
+      id: `retake-remember-only-${index + 1}`,
+      text: `Which statement best defines the ${rememberOnlyConcepts[index]} idea?`,
+      outcomeKey: "mcq-remember",
+      bloomLevel: "Remember",
+    })
+  );
+  const completedAttempt = makeAttempt(
+    "completed-remember-only",
+    rememberOnlyQuestions.slice(0, 6).map((question) => question._id),
+    "mcq",
+    true,
+  );
+  const result = selectQuestionsForAttempt({
+    questions: rememberOnlyQuestions,
+    recentAttempts: [completedAttempt],
+    subsetSize: 6,
+    isEssay: false,
+    examFormat: "mcq",
+    assessmentBlueprint: makeBlueprint(),
+    bankTargetCount: rememberOnlyQuestions.length,
+  });
+
+  assert.equal(result.selectedQuestions.length, 6, "Expected exhausted retake fallback to preserve a full recycled subset.");
+  assert.equal(result.requiresGeneration, false, "Expected exhausted retake fallback to stop retrying generation.");
+  assert.equal(result.unavailableReason, undefined, "Expected exhausted retake fallback not to surface a terminal unavailable reason.");
+  assert.equal(result.coverageSatisfied, false, "Expected exhausted retake fallback to keep reporting coverage gaps.");
+  assert.equal(result.freshnessSatisfied, false, "Expected exhausted retake fallback to report recycled questions.");
+  assert.equal(result.recycledCount, 4, "Expected exhausted retake fallback to recycle only the seen slots it needed to fill.");
+}
+
+// 7. Format filtering still prevents essay history from polluting MCQ freshness.
+{
+  const questions = buildMcqPool(6);
+  const essayAttempt = makeAttempt("essay-attempt", ["essay-1", "essay-2"], "essay", true);
+  const result = selectQuestionsForAttempt({
+    questions,
+    recentAttempts: [essayAttempt],
+    subsetSize: 8,
+    isEssay: false,
+    examFormat: "mcq",
+    assessmentBlueprint: makeBlueprint(),
+    bankTargetCount: 12,
+  });
+
+  assert.equal(result.completedAttemptCount, 0, "Expected essay attempts to be ignored for MCQ freshness.");
+  assert.equal(result.recycledCount, 0, "Expected essay history not to force MCQ recycling.");
+}
+
+console.log("question-repetition-regression.test.mjs passed");

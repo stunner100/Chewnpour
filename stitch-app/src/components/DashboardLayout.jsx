@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import MobileBottomNav from './MobileBottomNav';
 import { useAuth } from '../contexts/AuthContext';
@@ -20,7 +20,12 @@ const DashboardLayout = ({ children }) => {
     const location = useLocation();
     const { profile } = useAuth();
     const hideMobileBottomNav = location.pathname.startsWith('/dashboard/exam');
-    const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+    const isTopicPage = location.pathname.startsWith('/dashboard/topic/');
+    const [sidebarCollapsed, setSidebarCollapsed] = useState(isTopicPage);
+
+    useEffect(() => {
+        if (isTopicPage) setSidebarCollapsed(true);
+    }, [isTopicPage]);
 
     const isActive = (item) => {
         if (item.exact) return location.pathname === item.path;
@@ -31,7 +36,7 @@ const DashboardLayout = ({ children }) => {
     const initials = displayName.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase();
 
     return (
-        <div className="flex h-screen bg-background-light dark:bg-background-dark overflow-hidden">
+        <div className="dashboard-shell flex h-screen bg-background-light dark:bg-background-dark overflow-hidden">
             {/* Desktop Sidebar */}
             <aside
                 className={`hidden md:flex flex-col flex-shrink-0 border-r border-border-subtle dark:border-border-subtle-dark bg-surface-light dark:bg-surface-dark transition-all duration-200 ease-spring ${
@@ -123,7 +128,7 @@ const DashboardLayout = ({ children }) => {
             </aside>
 
             {/* Main Content */}
-            <main className="flex-1 overflow-y-auto overflow-x-hidden">
+            <main id="dashboard-main" className="flex-1 overflow-y-auto overflow-x-hidden">
                 {children}
             </main>
 

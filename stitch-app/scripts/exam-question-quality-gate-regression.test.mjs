@@ -11,33 +11,38 @@ if (!/isUsableExamQuestion/.test(examsSource)) {
 if (!/const\s+usableQuestions\s*=\s*filteredQuestions\.filter\(\(question\)\s*=>\s*[\s\S]*isUsableExamQuestion\(question,\s*\{\s*allowEssay:\s*isEssay\s*\}\)\s*[\s\S]*\);/.test(examsSource)) {
   throw new Error('Expected exams.ts to filter topic questions by quality before selecting exam questions.');
 }
-if (!/generateQuestionsForTopicInternal/.test(examsSource)) {
-  throw new Error('Expected exams.ts to schedule question regeneration when no usable questions exist.');
+if (!/status:\s*"needs_generation"/.test(examsSource)) {
+  throw new Error('Expected exams.ts to return a structured needs_generation status when a prepared exam is not ready yet.');
 }
-if (!/Questions are being refreshed for quality\. Please try again in a few seconds\./.test(examsSource)) {
-  throw new Error('Expected exams.ts to return a quality-refresh message when usable questions are unavailable.');
+
+const preparationsSource = await fs.readFile(path.join(root, 'convex', 'examPreparations.ts'), 'utf8');
+if (!/generateQuestionsForTopicOnDemandInternal/.test(preparationsSource) || !/generateEssayQuestionsForTopicOnDemandInternal/.test(preparationsSource)) {
+  throw new Error('Expected examPreparations.ts to trigger on-demand regeneration when a full usable exam set is not available.');
 }
 
 const topicsSource = await fs.readFile(path.join(root, 'convex', 'topics.ts'), 'utf8');
-if (!/filter\(\(question\)\s*=>\s*isUsableExamQuestion\(question\)\)/.test(topicsSource)) {
-  throw new Error('Expected topics.ts queries to filter out unusable questions.');
+if (!/const computeTopicExamReadinessFromQuestions = \(/.test(topicsSource)) {
+  throw new Error('Expected topics.ts to centralize exam readiness computation.');
+}
+if (!/isUsableExamQuestion\(question\)/.test(topicsSource) || !/isUsableExamQuestion\(question,\s*\{\s*allowEssay:\s*true\s*\}\)/.test(topicsSource)) {
+  throw new Error('Expected topics.ts readiness computation to distinguish usable MCQ and essay questions.');
 }
 
 const aiSource = await fs.readFile(path.join(root, 'convex', 'ai.ts'), 'utf8');
-if (!/const\s+rawExistingQuestions\s*=\s*topicWithQuestions\.questions\s*\|\|\s*\[\];/.test(aiSource)) {
-  throw new Error('Expected ai.ts question-bank generation to inspect raw existing questions.');
+if (!/filterQuestionsForActiveAssessment\(/.test(aiSource)) {
+  throw new Error('Expected ai.ts question-bank generation to inspect active assessment questions.');
 }
-if (!/const\s+existingQuestions\s*=\s*rawExistingQuestions\.filter/.test(aiSource)) {
-  throw new Error('Expected ai.ts question-bank generation to derive existingQuestions from quality-filtered records.');
+if (!/if \(!hasUsableQuestionOptions\(options\)\)/.test(aiSource) || !/if \(hasUsableQuestionOptions\(generatedOptions\)\)/.test(aiSource)) {
+  throw new Error('Expected ai.ts to gate persisted objective questions on usable option sets.');
 }
-if (!/return\s+hasUsableQuestionOptions\(options\);/.test(aiSource)) {
-  throw new Error('Expected ai.ts to count only usable existing question options toward generation targets.');
+if (!/const coerceGeneratedQuestionSet = \(/.test(aiSource) || !/const normalizeCitationCandidates =/.test(aiSource)) {
+  throw new Error('Expected ai.ts to enforce a strict parse-and-coerce layer before acceptance.');
 }
 if (!/applyGroundedAcceptance\(\{[\s\S]*type:\s*"mcq"/.test(aiSource)) {
   throw new Error('Expected ai.ts MCQ generation to apply grounded acceptance checks.');
 }
-if (!/createQuestionInternal,\s*\{[\s\S]*citations,[\s\S]*groundingScore:[\s\S]*factualityStatus:/.test(aiSource)) {
-  throw new Error('Expected ai.ts MCQ persistence to include grounding metadata.');
+if (!/const questionPayload: Record<string, any> = \{[\s\S]*citations,[\s\S]*groundingScore:[\s\S]*factualityStatus:[\s\S]*generationRunId[\s\S]*qualityScore[\s\S]*qualityTier[\s\S]*freshnessBucket/.test(aiSource)) {
+  throw new Error('Expected ai.ts objective persistence to include grounding and premium quality metadata.');
 }
 
 console.log('exam-question-quality-gate-regression.test.mjs passed');

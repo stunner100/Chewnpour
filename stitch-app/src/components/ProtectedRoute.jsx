@@ -1,9 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { Navigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
-import { resolveOnboardingPath } from '../lib/onboarding';
+import { resolveProtectedRouteState } from '../lib/protectedRouteState';
 
-const ONBOARDING_PATHS = ['/onboarding/name', '/onboarding/level', '/onboarding/department'];
 const LOADING_TIMEOUT_MS = 15000;
 
 const LoadingTimeoutGuard = ({ delayMs = LOADING_TIMEOUT_MS, children }) => {
@@ -22,17 +21,19 @@ const LoadingTimeoutGuard = ({ delayMs = LOADING_TIMEOUT_MS, children }) => {
 const ProtectedRoute = ({ children }) => {
     const { user, profile, loading, profileReady } = useAuth();
     const location = useLocation();
-    const isOnboardingRoute = ONBOARDING_PATHS.some((p) => location.pathname.startsWith(p));
+    const routeState = resolveProtectedRouteState({
+        loading,
+        user,
+        profile,
+        profileReady,
+        pathname: location.pathname,
+    });
 
-    if (loading && user && profileReady) {
-        return children;
-    }
-
-    if (loading || (user && !profileReady)) {
+    if (routeState.type === 'loading') {
         return (
             <LoadingTimeoutGuard key={location.pathname}>
                 {(loadingTimedOut) => {
-                    if (loadingTimedOut && isOnboardingRoute && !user) {
+                    if (loadingTimedOut && routeState.isOnboardingRoute) {
                         return <Navigate to="/login" state={{ from: location }} replace />;
                     }
                     return (
@@ -48,15 +49,12 @@ const ProtectedRoute = ({ children }) => {
         );
     }
 
-    if (!user) {
+    if (routeState.type === 'login') {
         return <Navigate to="/login" state={{ from: location }} replace />;
     }
 
-    // Redirect users who haven't completed onboarding to the onboarding flow
-    // (skip this check if they're already on an onboarding page)
-    const onboardingPath = resolveOnboardingPath(profile);
-    if (!isOnboardingRoute && onboardingPath !== '/dashboard') {
-        return <Navigate to={onboardingPath} replace />;
+    if (routeState.type === 'onboarding') {
+        return <Navigate to={routeState.onboardingPath} replace />;
     }
 
     return children;

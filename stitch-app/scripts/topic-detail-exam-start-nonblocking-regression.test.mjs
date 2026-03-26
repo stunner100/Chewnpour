@@ -6,7 +6,7 @@ const root = process.cwd();
 const topicDetailPath = path.join(root, 'src', 'pages', 'TopicDetail.jsx');
 const source = await fs.readFile(topicDetailPath, 'utf8');
 
-const startPattern = /const handleStartExam = async \((?:preferredFormat = (?:'mcq'|OBJECTIVE_EXAM_FORMAT))?\) => \{/;
+const startPattern = /const handleStartExam = async \((?:preferredFormat = 'mcq')?\) => \{/;
 const endMarker = '\n\n    if (!topicId) {';
 const startIndex = source.search(startPattern);
 if (startIndex === -1) {
@@ -20,32 +20,21 @@ if (endIndex === -1) {
 
 const handleStartExamSource = source.slice(startIndex, endIndex);
 
-if (/await\s+generateQuestions\(\{\s*topicId\s*\}\)/.test(handleStartExamSource)) {
-  throw new Error('Regression detected: handleStartExam blocks navigation by awaiting question generation.');
+for (const forbiddenPattern of [
+  /await\s+generateQuestions\(\{\s*topicId\s*\}\)/,
+  /generateQuestions\(\{\s*topicId\s*\}\)/,
+  /generateEssayQuestions\(\{/,
+  /preferredFormat/,
+  /topicQuizStartReady/,
+  /topicEssayStartReady/,
+]) {
+  if (forbiddenPattern.test(handleStartExamSource)) {
+    throw new Error('Regression detected: TopicDetail Start Exam should not do format-specific generation or readiness checks.');
+  }
 }
 
-if (/generateQuestions\(\{\s*topicId\s*\}\)/.test(handleStartExamSource)) {
-  throw new Error('Regression detected: handleStartExam should not trigger on-demand question generation.');
-}
-
-if (/preferredFormat === OBJECTIVE_EXAM_FORMAT && !topicObjectiveStartReady/.test(handleStartExamSource)) {
-  throw new Error('Regression detected: Objective launch should not be blocked by topicObjectiveStartReady.');
-}
-
-if (/Objective questions are still preparing/.test(handleStartExamSource)) {
-  throw new Error('Regression detected: Objective launch should not show readiness blocking errors.');
-}
-
-if (!/navigate\(`\/dashboard\/exam\/\$\{topicId\}`,\s*\{[\s\S]*preferredFormat,\s*[\s\S]*source:\s*'topic_detail'/.test(handleStartExamSource)) {
-  throw new Error('Expected handleStartExam to navigate with selected preferredFormat and topic_detail source.');
-}
-
-if (/if \(preferredFormat === 'essay' && !topicEssayStartReady\)/.test(handleStartExamSource)) {
-  throw new Error('Regression detected: essay launch should not be blocked on the topic page.');
-}
-
-if (!source.includes('Start Objective Exam') || !source.includes('Start an exam')) {
-  throw new Error('Expected TopicDetail to present explicit start-exam copy.');
+if (!/navigate\(`\/dashboard\/exam\/\$\{topicId\}`\);/.test(handleStartExamSource)) {
+  throw new Error('Expected handleStartExam to navigate directly to ExamMode.');
 }
 
 console.log('topic-detail-exam-start-nonblocking-regression.test.mjs passed');

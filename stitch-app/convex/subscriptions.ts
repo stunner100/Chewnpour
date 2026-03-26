@@ -53,6 +53,11 @@ const APP_BASE_URL = String(
     || process.env.FRONTEND_URL
     || "http://localhost:5173"
 ).replace(/\/+$/, "");
+const UPLOAD_QUOTA_BYPASS_ENV_VALUES = new Set(["1", "true", "yes", "on"]);
+const PREVIEW_HOST_SUFFIX = ".vercel.app";
+const LOCAL_FRONTEND_HOSTS = new Set(["localhost", "127.0.0.1", "::1"]);
+const STAGING_FRONTEND_HOSTS = new Set(["staging.chewnpour.com"]);
+const STAGING_UPLOAD_QUOTA_BYPASS_LIMIT = 999;
 const PAYSTACK_TIMEOUT_MS = (() => {
     const raw = Number(process.env.PAYSTACK_TIMEOUT_MS || 12000);
     if (!Number.isFinite(raw)) return 12000;
@@ -87,6 +92,70 @@ const toNonNegativeInt = (value: unknown) => {
 };
 
 const normalizeCurrency = (value: unknown) => String(value || "").trim().toUpperCase();
+const normalizeOrigin = (value: string | null | undefined) => {
+    if (!value) return null;
+    try {
+        return new URL(value).origin;
+    } catch {
+        return null;
+    }
+};
+
+const parseConfiguredFrontendOrigins = () => {
+    const configuredValues = [
+        process.env.APP_BASE_URL,
+        process.env.FRONTEND_URL,
+        ...(process.env.FRONTEND_URLS || "")
+            .split(",")
+            .map((value) => value.trim())
+            .filter(Boolean),
+    ];
+
+    return Array.from(
+        new Set(
+            configuredValues
+                .map((value) => normalizeOrigin(value))
+                .filter((value): value is string => Boolean(value))
+        )
+    );
+};
+
+const resolveQuotaBypassOrigins = () => {
+    const primaryOrigins = [process.env.APP_BASE_URL, process.env.FRONTEND_URL]
+        .map((value) => normalizeOrigin(value))
+        .filter((value): value is string => Boolean(value));
+    if (primaryOrigins.length > 0) {
+        return Array.from(new Set(primaryOrigins));
+    }
+    return parseConfiguredFrontendOrigins();
+};
+
+const isStagingLikeOrigin = (origin: string) => {
+    try {
+        const parsed = new URL(origin);
+        return STAGING_FRONTEND_HOSTS.has(parsed.hostname)
+            || LOCAL_FRONTEND_HOSTS.has(parsed.hostname)
+            || parsed.hostname.endsWith(PREVIEW_HOST_SUFFIX);
+    } catch {
+        return false;
+    }
+};
+
+const shouldBypassUploadQuota = () => {
+    const explicitOverride = String(
+        process.env.BYPASS_UPLOAD_QUOTA
+        || process.env.STAGING_UPLOAD_QUOTA_BYPASS
+        || ""
+    )
+        .trim()
+        .toLowerCase();
+    if (UPLOAD_QUOTA_BYPASS_ENV_VALUES.has(explicitOverride)) return true;
+
+    const configuredOrigins = resolveQuotaBypassOrigins();
+    return configuredOrigins.some((origin) => isStagingLikeOrigin(origin));
+};
+
+const UPLOAD_QUOTA_BYPASSED = shouldBypassUploadQuota();
 
 const TOPUP_CHECKOUT_CURRENCIES = [TOPUP_CURRENCY];
 
@@ -388,14 +457,30 @@ const buildUploadQuotaSnapshot = (params: {
     purchasedCredits: number;
     consumedCredits: number;
 }) => {
+    const topUpOptions = buildLocalizedTopUpOptions({
+        includeFirstTime: params.purchasedCredits === 0,
+    });
+    const defaultTopUpPlan = topUpOptions[0] || buildLocalizedTopUpPlan(DEFAULT_TOPUP_PLAN);
+    if (UPLOAD_QUOTA_BYPASSED) {
+        return {
+            freeLimit: FREE_UPLOAD_LIMIT,
+            purchasedCredits: 0,
+            consumedCredits: 0,
+            totalAllowed: STAGING_UPLOAD_QUOTA_BYPASS_LIMIT,
+            remaining: STAGING_UPLOAD_QUOTA_BYPASS_LIMIT,
+            canTopUp: false,
+            topUpPriceMajor: defaultTopUpPlan.amountMajor,
+            currency: defaultTopUpPlan.currency,
+            topUpCredits: defaultTopUpPlan.credits,
+            topUpOptions,
+            quotaBypassed: true,
+        };
+    }
+
     const purchasedCredits = toNonNegativeInt(params.purchasedCredits);
     const consumedCredits = toNonNegativeInt(params.consumedCredits);
     const totalAllowed = FREE_UPLOAD_LIMIT + purchasedCredits;
     const remaining = Math.max(0, totalAllowed - consumedCredits);
-    const topUpOptions = buildLocalizedTopUpOptions({
-        includeFirstTime: purchasedCredits === 0,
-    });
-    const defaultTopUpPlan = topUpOptions[0] || buildLocalizedTopUpPlan(DEFAULT_TOPUP_PLAN);
 
     return {
         freeLimit: FREE_UPLOAD_LIMIT,
@@ -408,6 +493,7 @@ const buildUploadQuotaSnapshot = (params: {
         currency: defaultTopUpPlan.currency,
         topUpCredits: defaultTopUpPlan.credits,
         topUpOptions,
+        quotaBypassed: false,
     };
 };
 
@@ -415,6 +501,13 @@ const computeUploadQuotaSnapshotForUser = async (
     ctx: any,
     userId: string,
 ) => {
+    if (UPLOAD_QUOTA_BYPASSED) {
+        return buildUploadQuotaSnapshot({
+            purchasedCredits: 0,
+            consumedCredits: 0,
+        });
+    }
+
     const [subscription, historicalStoredUploadCount] = await Promise.all([
         getSubscriptionRecordByUserId(ctx, userId),
         getHistoricalStoredUploadCount(ctx, userId),
@@ -453,6 +546,13 @@ export const consumeUploadCreditOrThrow = async (
     userId: string,
     historicalStoredUploadCount?: number,
 ) => {
+    if (UPLOAD_QUOTA_BYPASSED) {
+        return buildUploadQuotaSnapshot({
+            purchasedCredits: 0,
+            consumedCredits: 0,
+        });
+    }
+
     const subscription = await getSubscriptionRecordByUserId(ctx, userId);
     const historicalBaseline = Number.isFinite(Number(historicalStoredUploadCount))
         ? toNonNegativeInt(historicalStoredUploadCount)

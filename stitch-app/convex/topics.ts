@@ -12,24 +12,10 @@ import {
     getAssessmentQuestionMetadataIssues,
     ASSESSMENT_BLUEPRINT_VERSION,
 } from "./lib/assessmentBlueprint.js";
-import {
-    countObjectiveQuestionBreakdown,
-    createEmptyObjectiveBreakdown,
-    getObjectiveSubtypeTargets,
-    isEssayQuestionType,
-    isObjectiveQuestionType,
-    normalizeQuestionType,
-    QUESTION_TYPE_MULTIPLE_CHOICE,
-    resolveEssayTargetCount,
-    resolveObjectiveTargetCount,
-} from "./lib/objectiveExam.js";
+import { normalizeQuestionType, QUESTION_TYPE_MULTIPLE_CHOICE } from "./lib/objectiveExam.js";
 import { resolveIllustrationUrl } from "./lib/illustrationUrl";
 import { areMcqQuestionsNearDuplicate, buildMcqUniquenessSignature } from "./lib/mcqUniqueness";
-import {
-    areQuestionPromptsNearDuplicate,
-    buildQuestionPromptSignature,
-    normalizeQuestionPromptKey,
-} from "./lib/questionPromptSimilarity";
+import { areQuestionPromptsNearDuplicate, buildQuestionPromptSignature } from "./lib/questionPromptSimilarity";
 
 const DEFAULT_TOPIC_ILLUSTRATION_URL =
     String(process.env.TOPIC_PLACEHOLDER_ILLUSTRATION_URL || "/topic-placeholder.svg").trim()
@@ -48,55 +34,51 @@ const resolveDefaultTopicIllustrationUrl = () => {
         : `/${DEFAULT_TOPIC_ILLUSTRATION_URL}`;
 };
 
-const EXAM_READY_MIN_OBJECTIVE_COUNT = 10;
-const EXAM_READY_MIN_ESSAY_COUNT = 2;
+const EXAM_READY_MIN_MCQ_COUNT = 10;
+const EXAM_READY_MIN_ESSAY_COUNT = 3;
 
-const resolveTopicObjectiveTargetCount = (value: any) =>
-    resolveObjectiveTargetCount(value ?? EXAM_READY_MIN_OBJECTIVE_COUNT);
+const resolveTopicMcqTargetCount = (value: any) => {
+    const numeric = Number(value);
+    if (!Number.isFinite(numeric)) {
+        return EXAM_READY_MIN_MCQ_COUNT;
+    }
+    return Math.max(1, Math.round(numeric));
+};
 
-const resolveTopicEssayTargetCount = (value: any) =>
-    resolveEssayTargetCount(value ?? EXAM_READY_MIN_ESSAY_COUNT);
+const resolveTopicEssayTargetCount = (value: any) => {
+    const numeric = Number(value);
+    if (!Number.isFinite(numeric)) {
+        return EXAM_READY_MIN_ESSAY_COUNT;
+    }
+    return Math.max(1, Math.round(numeric));
+};
 
 const computeTopicExamReadinessFromQuestions = (
     topic: any,
     questions: any[],
-    options?: { objectiveTargetCount?: number; essayTargetCount?: number },
+    options?: { mcqTargetCount?: number; essayTargetCount?: number },
 ) => {
     const activeQuestions = filterQuestionsForActiveAssessment({ topic, questions });
-    const usableObjectiveQuestions = activeQuestions.filter(
-        (question) => isObjectiveQuestionType(question?.questionType) && isUsableExamQuestion(question)
-    );
-    const usableObjectiveBreakdown = countObjectiveQuestionBreakdown(
-        usableObjectiveQuestions,
-        () => true
-    );
-    const usableObjectiveCount = usableObjectiveQuestions.length;
+    const usableMcqCount = activeQuestions.filter(
+        (question) =>
+            question?.questionType !== "essay"
+            && isUsableExamQuestion(question)
+    ).length;
     const usableEssayCount = activeQuestions.filter(
         (question) =>
-            isEssayQuestionType(question?.questionType)
+            question?.questionType === "essay"
             && isUsableExamQuestion(question, { allowEssay: true })
     ).length;
-    const objectiveTargetCount = resolveTopicObjectiveTargetCount(
-        options?.objectiveTargetCount ?? topic?.objectiveTargetCount
-    );
+    const mcqTargetCount = resolveTopicMcqTargetCount(options?.mcqTargetCount);
     const essayTargetCount = resolveTopicEssayTargetCount(options?.essayTargetCount);
-    const subtypeTargets = getObjectiveSubtypeTargets(objectiveTargetCount);
-    const objectiveReady = topic?.assessmentBlueprint?.version === ASSESSMENT_BLUEPRINT_VERSION
-        ? usableObjectiveCount >= objectiveTargetCount
-            && Object.entries(subtypeTargets).every(
-                ([questionType, targetCount]) =>
-                    Number(usableObjectiveBreakdown[questionType] || 0) >= Number(targetCount || 0)
-            )
-        : usableObjectiveCount >= objectiveTargetCount;
     const examReady =
-        objectiveReady
+        usableMcqCount >= mcqTargetCount
         && usableEssayCount >= essayTargetCount;
 
     return {
-        objectiveTargetCount,
+        mcqTargetCount,
         essayTargetCount,
-        usableObjectiveCount,
-        usableObjectiveBreakdown,
+        usableMcqCount,
         usableEssayCount,
         examReady,
     };
@@ -105,28 +87,25 @@ const computeTopicExamReadinessFromQuestions = (
 const dedupeTopicQuestions = (questions: any[]) => {
     const items = Array.isArray(questions) ? questions : [];
     const seenMcqSignatures: any[] = [];
-    const seenObjectivePromptSignatures: any[] = [];
+    const seenEssaySignatures: any[] = [];
     const deduped = [];
 
     for (const question of items) {
         if (!question) continue;
-        if (isEssayQuestionType(question?.questionType)) {
-            deduped.push(question);
-            continue;
-        }
-
-        const normalizedQuestionType = normalizeQuestionType(question?.questionType);
-        if (normalizedQuestionType !== QUESTION_TYPE_MULTIPLE_CHOICE) {
-            const signature = buildQuestionPromptSignature(question?.questionText || "");
-            if (!signature?.normalized) continue;
-            if (seenObjectivePromptSignatures.some((prior) => areQuestionPromptsNearDuplicate(signature, prior))) {
+        if (String(question?.questionType || "") === "essay") {
+            const essaySignature = buildQuestionPromptSignature(question?.questionText || "");
+            if (
+                essaySignature?.normalized
+                && seenEssaySignatures.some((prior) =>
+                    areQuestionPromptsNearDuplicate(essaySignature, prior)
+                )
+            ) {
                 continue;
             }
-            seenObjectivePromptSignatures.push(signature);
-            deduped.push({
-                ...question,
-                questionType: normalizedQuestionType,
-            });
+            if (essaySignature?.normalized) {
+                seenEssaySignatures.push(essaySignature);
+            }
+            deduped.push(question);
             continue;
         }
 
@@ -189,7 +168,7 @@ const getTopicWithQuestionsPayload = async (ctx: any, topicId: any) => {
         )
         .map((question: any) => sanitizeExamQuestionForClient(question));
     const computedReadiness = computeTopicExamReadinessFromQuestions(topic, dedupedQuestions, {
-        objectiveTargetCount: topic?.objectiveTargetCount,
+        mcqTargetCount: topic?.mcqTargetCount,
         essayTargetCount: topic?.essayTargetCount,
     });
 
@@ -197,10 +176,9 @@ const getTopicWithQuestionsPayload = async (ctx: any, topicId: any) => {
         topic: {
             ...topic,
             illustrationUrl: freshIllustrationUrl,
-            objectiveTargetCount: computedReadiness.objectiveTargetCount,
+            mcqTargetCount: computedReadiness.mcqTargetCount,
             essayTargetCount: computedReadiness.essayTargetCount,
-            usableObjectiveCount: computedReadiness.usableObjectiveCount,
-            usableObjectiveBreakdown: computedReadiness.usableObjectiveBreakdown,
+            usableMcqCount: computedReadiness.usableMcqCount,
             usableEssayCount: computedReadiness.usableEssayCount,
             examReady: computedReadiness.examReady,
             questions: safeQuestions,
@@ -284,15 +262,14 @@ export const getTopicWithQuestionsInternal = internalQuery({
             questions: rawQuestions,
         }));
         const computedReadiness = computeTopicExamReadinessFromQuestions(payload.topic, activeQuestions, {
-            objectiveTargetCount: payload.topic?.objectiveTargetCount,
+            mcqTargetCount: payload.topic?.mcqTargetCount,
             essayTargetCount: payload.topic?.essayTargetCount,
         });
         return {
             ...payload.topic,
-            objectiveTargetCount: computedReadiness.objectiveTargetCount,
+            mcqTargetCount: computedReadiness.mcqTargetCount,
             essayTargetCount: computedReadiness.essayTargetCount,
-            usableObjectiveCount: computedReadiness.usableObjectiveCount,
-            usableObjectiveBreakdown: computedReadiness.usableObjectiveBreakdown,
+            usableMcqCount: computedReadiness.usableMcqCount,
             usableEssayCount: computedReadiness.usableEssayCount,
             examReady: computedReadiness.examReady,
             questions: activeQuestions,
@@ -380,10 +357,9 @@ export const createTopic = mutation({
             illustrationStorageId: args.illustrationStorageId,
             illustrationUrl: args.illustrationUrl || resolveDefaultTopicIllustrationUrl(),
             examReady: false,
-            objectiveTargetCount: EXAM_READY_MIN_OBJECTIVE_COUNT,
+            mcqTargetCount: EXAM_READY_MIN_MCQ_COUNT,
             essayTargetCount: EXAM_READY_MIN_ESSAY_COUNT,
-            usableObjectiveCount: 0,
-            usableObjectiveBreakdown: createEmptyObjectiveBreakdown(),
+            usableMcqCount: 0,
             usableEssayCount: 0,
             examReadyUpdatedAt: Date.now(),
             orderIndex: args.orderIndex,
@@ -402,7 +378,7 @@ export const createTopic = mutation({
 export const refreshTopicExamReadinessInternal = internalMutation({
     args: {
         topicId: v.id("topics"),
-        objectiveTargetCount: v.optional(v.number()),
+        mcqTargetCount: v.optional(v.number()),
         essayTargetCount: v.optional(v.number()),
     },
     handler: async (ctx, args) => {
@@ -412,10 +388,9 @@ export const refreshTopicExamReadinessInternal = internalMutation({
                 topicId: args.topicId,
                 exists: false,
                 examReady: false,
-                objectiveTargetCount: EXAM_READY_MIN_OBJECTIVE_COUNT,
+                mcqTargetCount: EXAM_READY_MIN_MCQ_COUNT,
                 essayTargetCount: EXAM_READY_MIN_ESSAY_COUNT,
-                usableObjectiveCount: 0,
-                usableObjectiveBreakdown: createEmptyObjectiveBreakdown(),
+                usableMcqCount: 0,
                 usableEssayCount: 0,
             };
         }
@@ -425,16 +400,15 @@ export const refreshTopicExamReadinessInternal = internalMutation({
             .withIndex("by_topicId", (q) => q.eq("topicId", args.topicId))
             .collect();
         const readiness = computeTopicExamReadinessFromQuestions(topic, questions, {
-            objectiveTargetCount: args.objectiveTargetCount ?? topic.objectiveTargetCount,
+            mcqTargetCount: args.mcqTargetCount ?? topic.mcqTargetCount,
             essayTargetCount: args.essayTargetCount ?? topic.essayTargetCount,
         });
 
         await ctx.db.patch(args.topicId, {
             examReady: readiness.examReady,
-            objectiveTargetCount: readiness.objectiveTargetCount,
+            mcqTargetCount: readiness.mcqTargetCount,
             essayTargetCount: readiness.essayTargetCount,
-            usableObjectiveCount: readiness.usableObjectiveCount,
-            usableObjectiveBreakdown: readiness.usableObjectiveBreakdown,
+            usableMcqCount: readiness.usableMcqCount,
             usableEssayCount: readiness.usableEssayCount,
             examReadyUpdatedAt: Date.now(),
         });
@@ -473,8 +447,8 @@ export const saveAssessmentBlueprintInternal = internalMutation({
 
 // Generation lock TTLs — kept close to actual generation time budgets so
 // stale locks don't block new requests for too long.
-const OBJECTIVE_GENERATION_LOCK_TTL_MS = 4 * 60 * 1000; // 4 minutes (objective budget is ~180s)
-const ESSAY_GENERATION_LOCK_TTL_MS = 60 * 1000;         // 60 seconds (essay budget is ~30s)
+const MCQ_GENERATION_LOCK_TTL_MS = 4 * 60 * 1000; // 4 minutes (MCQ budget is ~180s)
+const ESSAY_GENERATION_LOCK_TTL_MS = 60 * 1000;    // 60 seconds (essay budget is ~30s)
 
 /**
  * Attempt to acquire a generation lock for the given topic + format.
@@ -484,7 +458,7 @@ const ESSAY_GENERATION_LOCK_TTL_MS = 60 * 1000;         // 60 seconds (essay bud
 export const acquireGenerationLockInternal = internalMutation({
     args: {
         topicId: v.id("topics"),
-        format: v.string(), // 'objective' | 'essay'
+        format: v.string(), // 'mcq' | 'essay'
     },
     handler: async (ctx, args) => {
         const topic = await ctx.db.get(args.topicId);
@@ -499,14 +473,13 @@ export const acquireGenerationLockInternal = internalMutation({
         }
 
         const now = Date.now();
-        const normalizedFormat = String(args.format || "").trim().toLowerCase();
-        const lockField = normalizedFormat === "essay"
+        const lockField = args.format === "essay"
             ? "essayGenerationLockedUntil"
-            : "objectiveGenerationLockedUntil";
+            : "mcqGenerationLockedUntil";
         const currentLock = Number((topic as any)[lockField] || 0);
-        const ttlMs = normalizedFormat === "essay"
+        const ttlMs = args.format === "essay"
             ? ESSAY_GENERATION_LOCK_TTL_MS
-            : OBJECTIVE_GENERATION_LOCK_TTL_MS;
+            : MCQ_GENERATION_LOCK_TTL_MS;
 
         if (currentLock > now) {
             // Lock is still held and not expired
@@ -521,7 +494,7 @@ export const acquireGenerationLockInternal = internalMutation({
 
         const lockedUntil = now + ttlMs;
         await ctx.db.patch(args.topicId, {
-            [lockField]: lockedUntil,
+            [lockField]: now + ttlMs,
         });
 
         return {
@@ -540,16 +513,15 @@ export const acquireGenerationLockInternal = internalMutation({
 export const releaseGenerationLockInternal = internalMutation({
     args: {
         topicId: v.id("topics"),
-        format: v.string(), // 'objective' | 'essay'
+        format: v.string(), // 'mcq' | 'essay'
     },
     handler: async (ctx, args) => {
         const topic = await ctx.db.get(args.topicId);
         if (!topic) return;
 
-        const normalizedFormat = String(args.format || "").trim().toLowerCase();
-        const lockField = normalizedFormat === "essay"
+        const lockField = args.format === "essay"
             ? "essayGenerationLockedUntil"
-            : "objectiveGenerationLockedUntil";
+            : "mcqGenerationLockedUntil";
 
         await ctx.db.patch(args.topicId, {
             [lockField]: 0,
@@ -611,12 +583,20 @@ export const createQuestionInternal = internalMutation({
         bloomLevel: v.optional(v.string()),
         outcomeKey: v.optional(v.string()),
         authenticContext: v.optional(v.string()),
+        rubricPoints: v.optional(v.array(v.string())),
+        generationRunId: v.optional(v.string()),
+        qualityScore: v.optional(v.number()),
+        qualityTier: v.optional(v.string()),
+        rigorScore: v.optional(v.number()),
+        clarityScore: v.optional(v.number()),
+        diversityCluster: v.optional(v.string()),
+        distractorScore: v.optional(v.number()),
+        freshnessBucket: v.optional(v.string()),
+        qualityFlags: v.optional(v.array(v.string())),
         templateParts: v.optional(v.array(v.string())),
         tokens: v.optional(v.array(v.string())),
         acceptedAnswers: v.optional(v.array(v.string())),
         fillBlankMode: v.optional(v.string()),
-        rubricPoints: v.optional(v.array(v.string())),
-        qualityFlags: v.optional(v.array(v.string())),
     },
     handler: async (ctx, args) => {
         if (String(args.generationVersion || "").trim() === ASSESSMENT_BLUEPRINT_VERSION) {
@@ -629,34 +609,43 @@ export const createQuestionInternal = internalMutation({
             }
         }
 
+        const existingQuestions = await ctx.db
+            .query("questions")
+            .withIndex("by_topicId", (q) => q.eq("topicId", args.topicId))
+            .collect();
         const normalizedQuestionType = normalizeQuestionType(args.questionType);
-        if (!isEssayQuestionType(normalizedQuestionType)) {
-            const existingQuestions = await ctx.db
-                .query("questions")
-                .withIndex("by_topicId", (q) => q.eq("topicId", args.topicId))
-                .collect();
-            const duplicateExists = normalizedQuestionType === QUESTION_TYPE_MULTIPLE_CHOICE
-                ? (() => {
-                    const candidateSignature = buildMcqUniquenessSignature({
-                        questionText: args.questionText,
-                        options: args.options,
-                        correctAnswer: args.correctAnswer,
-                        citations: args.citations,
-                    });
-                    return existingQuestions
-                        .filter((question: any) => normalizeQuestionType(question?.questionType) === QUESTION_TYPE_MULTIPLE_CHOICE)
-                        .some((question: any) =>
-                            areMcqQuestionsNearDuplicate(candidateSignature, buildMcqUniquenessSignature(question))
-                        );
-                })()
-                : (() => {
-                    const candidateSignature = buildQuestionPromptSignature(args.questionText);
-                    return existingQuestions
-                        .filter((question: any) => isObjectiveQuestionType(question?.questionType))
-                        .some((question: any) =>
-                            areQuestionPromptsNearDuplicate(candidateSignature, buildQuestionPromptSignature(question?.questionText || ""))
-                        );
-                })();
+        if (normalizedQuestionType === "essay") {
+            const candidateSignature = buildQuestionPromptSignature(args.questionText);
+            const duplicateExists = existingQuestions
+                .filter((question: any) => String(question?.questionType || "").trim().toLowerCase() === "essay")
+                .some((question: any) =>
+                    areQuestionPromptsNearDuplicate(candidateSignature, buildQuestionPromptSignature(question?.questionText || ""))
+                );
+            if (duplicateExists) {
+                return null;
+            }
+        } else if (normalizedQuestionType === QUESTION_TYPE_MULTIPLE_CHOICE) {
+            const candidateSignature = buildMcqUniquenessSignature({
+                questionText: args.questionText,
+                options: args.options,
+                correctAnswer: args.correctAnswer,
+                citations: args.citations,
+            });
+            const duplicateExists = existingQuestions
+                .filter((question: any) => String(question?.questionType || "").trim().toLowerCase() !== "essay")
+                .some((question: any) =>
+                    areMcqQuestionsNearDuplicate(candidateSignature, buildMcqUniquenessSignature(question))
+                );
+            if (duplicateExists) {
+                return null;
+            }
+        } else {
+            const candidateSignature = buildQuestionPromptSignature(args.questionText);
+            const duplicateExists = existingQuestions
+                .filter((question: any) => normalizeQuestionType(question?.questionType) === normalizedQuestionType)
+                .some((question: any) =>
+                    areQuestionPromptsNearDuplicate(candidateSignature, buildQuestionPromptSignature(question?.questionText || ""))
+                );
             if (duplicateExists) {
                 return null;
             }
@@ -665,7 +654,7 @@ export const createQuestionInternal = internalMutation({
         const questionId = await ctx.db.insert("questions", {
             topicId: args.topicId,
             questionText: args.questionText,
-            questionType: normalizedQuestionType,
+            questionType: args.questionType,
             options: args.options,
             correctAnswer: args.correctAnswer,
             explanation: args.explanation,
@@ -675,6 +664,7 @@ export const createQuestionInternal = internalMutation({
             groundingScore: args.groundingScore,
             factualityStatus: args.factualityStatus,
             generationVersion: args.generationVersion,
+            generationRunId: args.generationRunId,
             learningObjective: args.learningObjective,
             bloomLevel: args.bloomLevel,
             outcomeKey: args.outcomeKey,
@@ -684,6 +674,13 @@ export const createQuestionInternal = internalMutation({
             acceptedAnswers: args.acceptedAnswers,
             fillBlankMode: args.fillBlankMode,
             rubricPoints: args.rubricPoints,
+            qualityScore: args.qualityScore,
+            qualityTier: args.qualityTier,
+            rigorScore: args.rigorScore,
+            clarityScore: args.clarityScore,
+            diversityCluster: args.diversityCluster,
+            distractorScore: args.distractorScore,
+            freshnessBucket: args.freshnessBucket,
             qualityFlags: args.qualityFlags,
         });
 
@@ -706,8 +703,7 @@ export const deleteQuestionsByTopicInternal = internalMutation({
 
         await ctx.db.patch(args.topicId, {
             examReady: false,
-            usableObjectiveCount: 0,
-            usableObjectiveBreakdown: createEmptyObjectiveBreakdown(),
+            usableMcqCount: 0,
             usableEssayCount: 0,
             examReadyUpdatedAt: Date.now(),
         });
@@ -716,7 +712,7 @@ export const deleteQuestionsByTopicInternal = internalMutation({
     },
 });
 
-export const deleteObjectiveQuestionsByTopicInternal = internalMutation({
+export const deleteMcqQuestionsByTopicInternal = internalMutation({
     args: { topicId: v.id("topics") },
     handler: async (ctx, args) => {
         const topic = await ctx.db.get(args.topicId);
@@ -735,7 +731,7 @@ export const deleteObjectiveQuestionsByTopicInternal = internalMutation({
         let deleted = 0;
         const remainingQuestions = [];
         for (const question of questions) {
-            if (isEssayQuestionType(question?.questionType)) {
+            if (String(question?.questionType || "") === "essay") {
                 remainingQuestions.push(question);
                 continue;
             }
@@ -744,15 +740,14 @@ export const deleteObjectiveQuestionsByTopicInternal = internalMutation({
         }
 
         const readiness = computeTopicExamReadinessFromQuestions(topic, remainingQuestions, {
-            objectiveTargetCount: topic.objectiveTargetCount,
+            mcqTargetCount: topic.mcqTargetCount,
             essayTargetCount: topic.essayTargetCount,
         });
         await ctx.db.patch(args.topicId, {
             examReady: readiness.examReady,
-            objectiveTargetCount: readiness.objectiveTargetCount,
+            mcqTargetCount: readiness.mcqTargetCount,
             essayTargetCount: readiness.essayTargetCount,
-            usableObjectiveCount: readiness.usableObjectiveCount,
-            usableObjectiveBreakdown: readiness.usableObjectiveBreakdown,
+            usableMcqCount: readiness.usableMcqCount,
             usableEssayCount: readiness.usableEssayCount,
             examReadyUpdatedAt: Date.now(),
         });
@@ -791,6 +786,11 @@ export const batchCreateQuestionsInternal = internalMutation({
                 acceptedAnswers: v.optional(v.array(v.string())),
                 fillBlankMode: v.optional(v.string()),
                 rubricPoints: v.optional(v.array(v.string())),
+                qualityTier: v.optional(v.string()),
+                rigorScore: v.optional(v.number()),
+                clarityScore: v.optional(v.number()),
+                diversityCluster: v.optional(v.string()),
+                distractorScore: v.optional(v.number()),
                 qualityFlags: v.optional(v.array(v.string())),
             })
         ),
@@ -808,12 +808,6 @@ export const batchCreateQuestionsInternal = internalMutation({
         const acceptedMcqSignatures = existingQuestions
             .filter((question: any) => normalizeQuestionType(question?.questionType) === QUESTION_TYPE_MULTIPLE_CHOICE)
             .map((question: any) => buildMcqUniquenessSignature(question));
-        const acceptedObjectivePromptSignatures = existingQuestions
-            .filter((question: any) =>
-                isObjectiveQuestionType(question?.questionType)
-                && normalizeQuestionType(question?.questionType) !== QUESTION_TYPE_MULTIPLE_CHOICE
-            )
-            .map((question: any) => buildQuestionPromptSignature(question?.questionText || ""));
         for (const q of args.questions) {
             if (String(q.generationVersion || "").trim() === ASSESSMENT_BLUEPRINT_VERSION) {
                 const metadataIssues = getAssessmentQuestionMetadataIssues({
@@ -825,25 +819,26 @@ export const batchCreateQuestionsInternal = internalMutation({
                 }
             }
             const normalizedQuestionType = normalizeQuestionType(q.questionType);
-            if (!isEssayQuestionType(normalizedQuestionType)) {
-                if (normalizedQuestionType === QUESTION_TYPE_MULTIPLE_CHOICE) {
-                    const candidateSignature = buildMcqUniquenessSignature(q);
-                    if (acceptedMcqSignatures.some((prior) => areMcqQuestionsNearDuplicate(candidateSignature, prior))) {
-                        continue;
-                    }
-                    acceptedMcqSignatures.push(candidateSignature);
-                } else {
-                    const candidateSignature = buildQuestionPromptSignature(q.questionText || "");
-                    if (acceptedObjectivePromptSignatures.some((prior) => areQuestionPromptsNearDuplicate(candidateSignature, prior))) {
-                        continue;
-                    }
-                    acceptedObjectivePromptSignatures.push(candidateSignature);
+            if (normalizedQuestionType === QUESTION_TYPE_MULTIPLE_CHOICE) {
+                const candidateSignature = buildMcqUniquenessSignature(q);
+                if (acceptedMcqSignatures.some((prior) => areMcqQuestionsNearDuplicate(candidateSignature, prior))) {
+                    continue;
+                }
+                acceptedMcqSignatures.push(candidateSignature);
+            } else if (normalizedQuestionType !== "essay") {
+                const candidateSignature = buildQuestionPromptSignature(q.questionText);
+                const duplicateExists = existingQuestions
+                    .filter((question: any) => normalizeQuestionType(question?.questionType) === normalizedQuestionType)
+                    .some((question: any) =>
+                        areQuestionPromptsNearDuplicate(candidateSignature, buildQuestionPromptSignature(question?.questionText || ""))
+                    );
+                if (duplicateExists) {
+                    continue;
                 }
             }
             const id = await ctx.db.insert("questions", {
                 topicId: args.topicId,
                 ...q,
-                questionType: normalizedQuestionType,
             });
             questionIds.push(id);
         }
@@ -853,15 +848,14 @@ export const batchCreateQuestionsInternal = internalMutation({
             .withIndex("by_topicId", (q) => q.eq("topicId", args.topicId))
             .collect();
         const readiness = computeTopicExamReadinessFromQuestions(topic, topicQuestions, {
-            objectiveTargetCount: topic.objectiveTargetCount,
+            mcqTargetCount: topic.mcqTargetCount,
             essayTargetCount: topic.essayTargetCount,
         });
         await ctx.db.patch(args.topicId, {
             examReady: readiness.examReady,
-            objectiveTargetCount: readiness.objectiveTargetCount,
+            mcqTargetCount: readiness.mcqTargetCount,
             essayTargetCount: readiness.essayTargetCount,
-            usableObjectiveCount: readiness.usableObjectiveCount,
-            usableObjectiveBreakdown: readiness.usableObjectiveBreakdown,
+            usableMcqCount: readiness.usableMcqCount,
             usableEssayCount: readiness.usableEssayCount,
             examReadyUpdatedAt: Date.now(),
         });
