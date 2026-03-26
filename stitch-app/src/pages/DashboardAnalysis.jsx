@@ -177,7 +177,6 @@ const DashboardAnalysis = () => {
         api.subscriptions.getUploadQuotaStatus,
         userId && isConvexAuthenticated ? {} : 'skip'
     );
-    const isUploadQuotaBypassed = Boolean(uploadQuota?.quotaBypassed);
     const uploadLimitMessage = useMemo(
         () => buildUploadLimitMessageFromOptions(
             uploadQuota?.topUpOptions,
@@ -343,7 +342,7 @@ const DashboardAnalysis = () => {
             return;
         }
 
-        if (!isUploadQuotaBypassed && uploadQuota && Number(uploadQuota.remaining) <= 0) {
+        if (uploadQuota && Number(uploadQuota.remaining) <= 0) {
             setUploadError(uploadLimitMessage);
             reportUploadValidationRejected({
                 flowType: 'study_material',
@@ -690,35 +689,26 @@ const DashboardAnalysis = () => {
                                 </span>
                             </div>
                             {uploadQuota && (
-                                isUploadQuotaBypassed ? (
-                                    <div className="max-w-xs rounded-xl border border-primary/20 bg-primary/5 px-3 py-2">
-                                        <p className="text-caption font-semibold text-primary">Staging uploads unlocked</p>
-                                        <p className="text-caption text-text-sub-light dark:text-text-sub-dark">
-                                            Upload limits and top-ups are disabled in this test environment.
-                                        </p>
+                                <div className="max-w-xs space-y-1.5">
+                                    <div className="flex items-center justify-between">
+                                        <span className="text-caption text-text-sub-light dark:text-text-sub-dark">
+                                            {uploadQuota.remaining}/{uploadQuota.totalAllowed} uploads
+                                        </span>
+                                        <Link to={buildUploadLimitSubscriptionPath()} className="text-caption font-semibold text-primary hover:text-primary-hover transition-colors">
+                                            Top up
+                                        </Link>
                                     </div>
-                                ) : (
-                                    <div className="max-w-xs space-y-1.5">
-                                        <div className="flex items-center justify-between">
-                                            <span className="text-caption text-text-sub-light dark:text-text-sub-dark">
-                                                {uploadQuota.remaining}/{uploadQuota.totalAllowed} uploads
-                                            </span>
-                                            <Link to={buildUploadLimitSubscriptionPath()} className="text-caption font-semibold text-primary hover:text-primary-hover transition-colors">
-                                                Top up
-                                            </Link>
-                                        </div>
-                                        <div className="w-full h-1.5 bg-border-subtle dark:bg-border-subtle-dark rounded-full overflow-hidden">
-                                            <div
-                                                className={`h-full rounded-full transition-[width] duration-500 ${
-                                                    uploadQuota.remaining === 0 ? 'bg-red-500'
-                                                    : uploadQuota.remaining <= 1 ? 'bg-amber-500'
-                                                    : 'bg-accent-emerald'
-                                                }`}
-                                                style={{ width: `${Math.round((uploadQuota.remaining / uploadQuota.totalAllowed) * 100)}%` }}
-                                            />
-                                        </div>
+                                    <div className="w-full h-1.5 bg-border-subtle dark:bg-border-subtle-dark rounded-full overflow-hidden">
+                                        <div
+                                            className={`h-full rounded-full transition-[width] duration-500 ${
+                                                uploadQuota.remaining === 0 ? 'bg-red-500'
+                                                : uploadQuota.remaining <= 1 ? 'bg-amber-500'
+                                                : 'bg-accent-emerald'
+                                            }`}
+                                            style={{ width: `${Math.round((uploadQuota.remaining / uploadQuota.totalAllowed) * 100)}%` }}
+                                        />
                                     </div>
-                                )
+                                </div>
                             )}
                             <DashboardReferralCTA remaining={uploadQuota?.remaining} profile={profile} />
                         </div>
@@ -761,7 +751,7 @@ const DashboardAnalysis = () => {
                 </div>
 
                 {/* Upgrade Banner */}
-                {subscription && subscription.plan !== 'premium' && !isUploadQuotaBypassed && (
+                {subscription && subscription.plan !== 'premium' && (
                     <div className="card-base p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 bg-primary-50 dark:bg-primary-900/15 border-primary-200/50 dark:border-primary-800/30 animate-fade-in-up animate-delay-150">
                         <div className="flex items-center gap-3">
                             <div className="w-9 h-9 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">

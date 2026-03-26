@@ -233,7 +233,6 @@ const AssignmentHelper = () => {
         api.subscriptions.getUploadQuotaStatus,
         userId && isConvexAuthenticated ? {} : 'skip'
     );
-    const isUploadQuotaBypassed = Boolean(uploadQuota?.quotaBypassed);
     const [selectedThreadId, setSelectedThreadId] = useState(null);
     const [followUpQuestion, setFollowUpQuestion] = useState('');
     const [busy, setBusy] = useState(false);
@@ -406,7 +405,7 @@ const AssignmentHelper = () => {
             return;
         }
 
-        if (!isUploadQuotaBypassed && uploadQuota && Number(uploadQuota.remaining) <= 0) {
+        if (uploadQuota && Number(uploadQuota.remaining) <= 0) {
             setError(uploadLimitMessage);
             reportUploadValidationRejected({
                 flowType: 'assignment',
