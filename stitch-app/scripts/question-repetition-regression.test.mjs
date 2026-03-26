@@ -238,7 +238,42 @@ const buildMcqPool = (countPerOutcome = 6) => {
   assert.equal(result.coverageSatisfied, false, "Expected exhausted coverage failure to report coverage not satisfied.");
 }
 
-// 6. Format filtering still prevents essay history from polluting MCQ freshness.
+// 6. Exhausted retakes should recycle the bank instead of surfacing terminal unavailable when no fresh set exists.
+{
+  const rememberOnlyConcepts = ["enzyme", "neuron", "isotope", "glacier", "catalyst", "ribosome", "vector", "lattice"];
+  const rememberOnlyQuestions = Array.from({ length: 8 }, (_, index) =>
+    makeQuestion({
+      id: `retake-remember-only-${index + 1}`,
+      text: `Which statement best defines the ${rememberOnlyConcepts[index]} idea?`,
+      outcomeKey: "mcq-remember",
+      bloomLevel: "Remember",
+    })
+  );
+  const completedAttempt = makeAttempt(
+    "completed-remember-only",
+    rememberOnlyQuestions.slice(0, 6).map((question) => question._id),
+    "mcq",
+    true,
+  );
+  const result = selectQuestionsForAttempt({
+    questions: rememberOnlyQuestions,
+    recentAttempts: [completedAttempt],
+    subsetSize: 6,
+    isEssay: false,
+    examFormat: "mcq",
+    assessmentBlueprint: makeBlueprint(),
+    bankTargetCount: rememberOnlyQuestions.length,
+  });
+
+  assert.equal(result.selectedQuestions.length, 6, "Expected exhausted retake fallback to preserve a full recycled subset.");
+  assert.equal(result.requiresGeneration, false, "Expected exhausted retake fallback to stop retrying generation.");
+  assert.equal(result.unavailableReason, undefined, "Expected exhausted retake fallback not to surface a terminal unavailable reason.");
+  assert.equal(result.coverageSatisfied, false, "Expected exhausted retake fallback to keep reporting coverage gaps.");
+  assert.equal(result.freshnessSatisfied, false, "Expected exhausted retake fallback to report recycled questions.");
+  assert.equal(result.recycledCount, 4, "Expected exhausted retake fallback to recycle only the seen slots it needed to fill.");
+}
+
+// 7. Format filtering still prevents essay history from polluting MCQ freshness.
 {
   const questions = buildMcqPool(6);
   const essayAttempt = makeAttempt("essay-attempt", ["essay-1", "essay-2"], "essay", true);

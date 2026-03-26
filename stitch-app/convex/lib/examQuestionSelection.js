@@ -489,6 +489,7 @@ export const selectQuestionsForAttempt = ({
     const exhaustedBankReady =
         exhaustedBankSelection.selectedQuestions.length >= targetSize
         && exhaustedBankSelection.coverageEvaluation?.ready === true;
+    const exhaustedBankCanRecycle = exhaustedBankSelection.selectedQuestions.length > 0;
 
     return buildSelectionResult({
         selectedQuestions: exhaustedBankSelection.selectedQuestions,
@@ -498,7 +499,7 @@ export const selectQuestionsForAttempt = ({
         seenQuestionIds,
         coverageEvaluation: exhaustedBankSelection.coverageEvaluation,
         requiresGeneration: false,
-        unavailableReason: exhaustedBankReady
+        unavailableReason: exhaustedBankReady || exhaustedBankCanRecycle
             ? undefined
             : (
                 exhaustedBankSelection.selectedQuestions.length < targetSize
