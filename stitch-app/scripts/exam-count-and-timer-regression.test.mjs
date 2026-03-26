@@ -13,8 +13,8 @@ const [examsSource, examModeSource, aiSource] = await Promise.all([
   fs.readFile(aiPath, "utf8"),
 ]);
 
-if (!/const EXAM_ESSAY_QUESTION_SUBSET_SIZE = 15;/.test(examsSource)) {
-  throw new Error("Expected convex/exams.ts to set essay exam cap to 15.");
+if (/EXAM_QUESTION_SUBSET_SIZE|EXAM_ESSAY_QUESTION_SUBSET_SIZE/.test(examsSource)) {
+  throw new Error("Regression detected: convex/exams.ts should no longer hardcode fixed exam subset sizes.");
 }
 
 if (!/const EXAM_DURATION_SECONDS = 45 \* 60;/.test(examModeSource)) {
@@ -25,8 +25,12 @@ if (/25-question test/i.test(examModeSource)) {
   throw new Error("Expected src/pages/ExamMode.jsx to remove hardcoded 25-question loading copy.");
 }
 
-if (/full \d+-question/i.test(examModeSource)) {
-  throw new Error("Expected ExamMode loading copy to avoid hardcoded exam sizes.");
+if (/MCQ_EXAM_QUESTION_CAP|ESSAY_EXAM_QUESTION_CAP/.test(examModeSource)) {
+  throw new Error("Regression detected: ExamMode should not hardcode fixed loading caps.");
+}
+
+if (!/const loadingExamQuestionCap = \(\(\) => \{[\s\S]*topic\?\.essayTargetCount[\s\S]*topic\?\.mcqTargetCount/s.test(examModeSource)) {
+  throw new Error("Expected ExamMode to derive loading counts from topic or preparation targets.");
 }
 
 if (/ESSAY_EXAM_INTERACTIVE_START_COUNT/.test(examModeSource) || /generateEssayQuestions\(\{/.test(examModeSource)) {

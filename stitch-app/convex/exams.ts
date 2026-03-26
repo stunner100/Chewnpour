@@ -1,6 +1,6 @@
 import { ConvexError, v } from "convex/values";
 import { action, internalMutation, internalQuery, mutation, query } from "./_generated/server";
-import { api, internal } from "./_generated/api";
+import { internal } from "./_generated/api";
 import {
     assertAuthorizedUser,
     computeExamPercentage,
@@ -12,8 +12,8 @@ import {
 import { filterQuestionsForActiveAssessment } from "./lib/assessmentBlueprint.js";
 import { canReuseExamAttempt, resolveReusableAttemptQuestions } from "./lib/examAttemptReuse";
 import { selectQuestionsForAttempt } from "./lib/examQuestionSelection";
+import { resolveAssessmentCapacity } from "./lib/questionBankConfig.js";
 
-const EXAM_ESSAY_QUESTION_SUBSET_SIZE = 15;
 const EXAM_ATTEMPT_REUSE_LOOKBACK = 50;
 const EXAM_ESSAY_MIN_READY_COUNT = 1;
 
@@ -30,92 +30,52 @@ const safeGetQuestionById = async (ctx: any, questionId: any) => {
 const resolveRequestedExamFormat = (value: unknown) =>
     String(value || "").trim().toLowerCase() === "essay" ? "essay" : "mcq";
 
-const resolveRequiredQuestionCount = ({
+const resolveTopicQuestionCounts = ({
+    topic,
     examFormat,
-    topicTargetCount,
     usableQuestionCount,
 }: {
+    topic: any;
     examFormat: string;
-    topicTargetCount?: unknown;
-    usableQuestionCount?: unknown;
+    usableQuestionCount?: number;
 }) => {
-    const fallbackCount = Math.max(1, Math.round(Number(usableQuestionCount || 0) || 1));
-    const numericTargetCount = Number(topicTargetCount);
-    const storedTargetCount = Number.isFinite(numericTargetCount) && numericTargetCount > 0
-        ? Math.max(1, Math.round(numericTargetCount))
-        : fallbackCount;
-    if (examFormat === "essay") {
-        return Math.max(EXAM_ESSAY_MIN_READY_COUNT, storedTargetCount);
-    }
-    return storedTargetCount;
-};
+    const normalizedFormat = resolveRequestedExamFormat(examFormat);
+    const storedTargetCount = normalizedFormat === "essay"
+        ? topic?.essayTargetCount
+        : topic?.mcqTargetCount;
+    const fallbackUsableCount = normalizedFormat === "essay"
+        ? topic?.usableEssayCount
+        : topic?.usableMcqCount;
 
-const buildDeferredStartResponse = (examFormat: string, message?: string) => {
-    const isEssay = examFormat === "essay";
-    return {
-        ready: false,
-        attemptId: null,
-        totalQuestions: 0,
-        questions: [],
-        reusedAttempt: false,
-        deferred: true,
-        code: isEssay ? "ESSAY_QUESTIONS_PREPARING" : "EXAM_QUESTIONS_PREPARING",
-        message: message || (
-            isEssay
-                ? "Preparing a full essay exam. Please try again in a few seconds."
-                : "Preparing a full multiple-choice exam. Please try again in a few seconds."
-        ),
-    };
-};
-
-const buildUnavailableStartResponse = (examFormat: string, message?: string) => {
-    const isEssay = examFormat === "essay";
-    return {
-        ready: false,
-        attemptId: null,
-        totalQuestions: 0,
-        questions: [],
-        reusedAttempt: false,
-        deferred: false,
-        code: isEssay ? "ESSAY_FULL_EXAM_UNAVAILABLE" : "EXAM_FULL_EXAM_UNAVAILABLE",
-        message: message || (
-            isEssay
-                ? "This topic does not have enough source material to build an essay exam yet."
-                : "This topic does not have enough source material to build a multiple-choice exam yet."
-        ),
-    };
-};
-
-const resolveUnavailableStartMessage = (args: {
-    examFormat: string;
-    reason?: unknown;
-    targetCount?: unknown;
-    generatedCount?: unknown;
-    timedOut?: unknown;
-}) => {
-    const isEssay = args.examFormat === "essay";
-    const examLabel = isEssay ? "essay" : "multiple-choice";
-    const normalizedReason = String(args.reason || "").trim().toUpperCase();
-    const targetCount = resolveRequiredQuestionCount({
-        examFormat: args.examFormat,
-        topicTargetCount: args.targetCount,
-        usableQuestionCount: args.generatedCount,
+    return resolveAssessmentCapacity({
+        examFormat: normalizedFormat,
+        topic,
+        topicTargetCount: storedTargetCount,
+        usableQuestionCount: usableQuestionCount ?? fallbackUsableCount,
     });
-    const generatedCount = Math.max(0, Math.round(Number(args.generatedCount || 0)));
+};
 
-    if (args.timedOut === true) {
-        return `We couldn't finish preparing a ${examLabel} exam for this topic in time. Please try again.`;
+const createExamAttemptDocument = async ({
+    ctx,
+    attemptDocument,
+}: {
+    ctx: any;
+    attemptDocument: Record<string, unknown>;
+}) => {
+    try {
+        return await ctx.db.insert("examAttempts", attemptDocument);
+    } catch (insertError) {
+        const insertMessage = String((insertError as { message?: unknown })?.message || "");
+        const legacySchemaMismatch =
+            /table "examAttempts"/i.test(insertMessage)
+            && /extra field `examFormat`/i.test(insertMessage);
+        if (!legacySchemaMismatch) {
+            throw insertError;
+        }
+
+        const { examFormat: _FORMAT_FIELD, ...legacyAttemptDocument } = attemptDocument;
+        return await ctx.db.insert("examAttempts", legacyAttemptDocument);
     }
-
-    if (normalizedReason === "INSUFFICIENT_EVIDENCE" || generatedCount === 0) {
-        return `This topic doesn't have enough source material to build a ${examLabel} exam yet. Add more content or try a different topic.`;
-    }
-
-    if (generatedCount > 0 && generatedCount < targetCount) {
-        return `We could only verify ${generatedCount} questions for this topic, which isn't enough to build a stable ${examLabel} exam yet. Add more content or try again later.`;
-    }
-
-    return `We couldn't build a fresh ${examLabel} exam for this topic yet. Add more content or try again later.`;
 };
 
 
@@ -148,11 +108,19 @@ export const requestEssayQuestionTopUp = mutation({
             resourceOwnerUserId: course.userId,
         });
 
+        const capacity = resolveTopicQuestionCounts({
+            topic,
+            examFormat: "essay",
+        });
         const requestedCount = Math.max(
             EXAM_ESSAY_MIN_READY_COUNT,
-            Math.min(
-                EXAM_ESSAY_QUESTION_SUBSET_SIZE,
-                Math.round(Number(args.minimumCount || EXAM_ESSAY_QUESTION_SUBSET_SIZE))
+            Math.round(
+                Number(
+                    args.minimumCount
+                    || capacity.bankTargetCount
+                    || capacity.attemptTargetCount
+                    || EXAM_ESSAY_MIN_READY_COUNT
+                )
             )
         );
 
@@ -169,7 +137,7 @@ export const requestEssayQuestionTopUp = mutation({
     },
 });
 
-export const prepareStartExamAttemptInternal = internalMutation({
+export const ensurePreparedExamAttemptInternal = internalMutation({
     args: {
         userId: v.string(),
         topicId: v.id("topics"),
@@ -232,6 +200,11 @@ export const prepareStartExamAttemptInternal = internalMutation({
             });
 
             if (reusableQuestions.length === reusableQuestionIds.length && reusableQuestions.length > 0) {
+                const reusableCapacity = resolveTopicQuestionCounts({
+                    topic,
+                    examFormat,
+                    usableQuestionCount: reusableQuestions.length,
+                });
                 // Mark attempt as claimed to prevent concurrent reuse from another session
                 await ctx.db.patch(reusableAttempt._id, { claimedAt: Date.now() });
 
@@ -239,11 +212,13 @@ export const prepareStartExamAttemptInternal = internalMutation({
                     sanitizeExamQuestionForClient(question)
                 );
                 return {
-                    ready: true,
+                    status: "ready",
                     attemptId: reusableAttempt._id,
                     totalQuestions: reusableQuestions.length,
                     questions: safeQuestions,
                     reusedAttempt: true,
+                    attemptTargetCount: reusableQuestions.length,
+                    bankTargetCount: reusableCapacity.bankTargetCount,
                     startedAt: (reusableAttempt as any).startedAt || reusableAttempt._creationTime,
                 };
             }
@@ -262,14 +237,25 @@ export const prepareStartExamAttemptInternal = internalMutation({
         const usableQuestions = filteredQuestions.filter((question) =>
             isUsableExamQuestion(question, { allowEssay: isEssay })
         );
-        const topicTargetCount = isEssay ? topic?.essayTargetCount : topic?.mcqTargetCount;
-        const requiredQuestionCount = resolveRequiredQuestionCount({
+        const capacity = resolveTopicQuestionCounts({
+            topic,
             examFormat,
-            topicTargetCount,
             usableQuestionCount: usableQuestions.length,
         });
+        const requiredQuestionCount = capacity.attemptTargetCount;
         if (usableQuestions.length < requiredQuestionCount) {
-            return buildDeferredStartResponse(examFormat);
+            return {
+                status: "needs_generation",
+                reasonCode: "INSUFFICIENT_READY_QUESTIONS",
+                requiredQuestionCount,
+                attemptTargetCount: capacity.attemptTargetCount,
+                bankTargetCount: capacity.bankTargetCount,
+                usableQuestionCount: usableQuestions.length,
+                totalQuestions: 0,
+                attemptId: null,
+                questions: [],
+                reusedAttempt: false,
+            };
         }
 
         const selection = selectQuestionsForAttempt({
@@ -278,11 +264,43 @@ export const prepareStartExamAttemptInternal = internalMutation({
             subsetSize: requiredQuestionCount,
             isEssay,
             examFormat,
+            assessmentBlueprint: topic?.assessmentBlueprint,
+            bankTargetCount: capacity.bankTargetCount,
         });
         const selectedQuestions = selection.selectedQuestions;
 
-        if (selectedQuestions.length < requiredQuestionCount || selection.requiresFreshGeneration) {
-            return buildDeferredStartResponse(examFormat);
+        if (selection.unavailableReason) {
+            return {
+                status: "unavailable",
+                reasonCode: selection.unavailableReason,
+                requiredQuestionCount,
+                attemptTargetCount: capacity.attemptTargetCount,
+                bankTargetCount: capacity.bankTargetCount,
+                usableQuestionCount: usableQuestions.length,
+                totalQuestions: 0,
+                attemptId: null,
+                questions: [],
+                reusedAttempt: false,
+                selection,
+            };
+        }
+
+        if (selectedQuestions.length < requiredQuestionCount || selection.requiresGeneration) {
+            return {
+                status: "needs_generation",
+                reasonCode: selection.coverageSatisfied === false
+                    ? "MISSING_OUTCOME_COVERAGE"
+                    : "INSUFFICIENT_FRESH_QUESTIONS",
+                requiredQuestionCount,
+                attemptTargetCount: capacity.attemptTargetCount,
+                bankTargetCount: capacity.bankTargetCount,
+                usableQuestionCount: usableQuestions.length,
+                totalQuestions: 0,
+                attemptId: null,
+                questions: [],
+                reusedAttempt: false,
+                selection,
+            };
         }
 
         const questionIds = selectedQuestions.map((question) => question._id);
@@ -301,123 +319,21 @@ export const prepareStartExamAttemptInternal = internalMutation({
             startedAt: Date.now(),
         };
 
-        const attemptId = await (async () => {
-            try {
-                return await ctx.db.insert("examAttempts", attemptDocument);
-            } catch (insertError) {
-                const insertMessage = String((insertError as { message?: unknown })?.message || "");
-                const legacySchemaMismatch =
-                    /table "examAttempts"/i.test(insertMessage)
-                    && /extra field `examFormat`/i.test(insertMessage);
-                if (!legacySchemaMismatch) {
-                    throw insertError;
-                }
-
-                const { examFormat: _FORMAT_FIELD, ...legacyAttemptDocument } = attemptDocument;
-                return await ctx.db.insert("examAttempts", legacyAttemptDocument);
-            }
-        })();
+        const attemptId = await createExamAttemptDocument({
+            ctx,
+            attemptDocument,
+        });
 
         return {
-            ready: true,
+            status: "ready",
             attemptId,
             totalQuestions: selectedQuestions.length,
             questions: safeQuestions,
             reusedAttempt: false,
+            attemptTargetCount: capacity.attemptTargetCount,
+            bankTargetCount: capacity.bankTargetCount,
+            startedAt: attemptDocument.startedAt,
         };
-    },
-});
-
-// Start a new exam attempt
-export const startExamAttempt = action({
-    args: {
-        userId: v.optional(v.string()),
-        topicId: v.id("topics"),
-        examFormat: v.optional(v.string()), // 'mcq' | 'essay'
-    },
-    handler: async (ctx, args) => {
-        const identity = await ctx.auth.getUserIdentity();
-        const authUserId = resolveAuthUserId(identity);
-        const effectiveUserId = assertAuthorizedUser({
-            authUserId,
-            requestedUserId: args.userId,
-        });
-        const examFormat = resolveRequestedExamFormat(args.examFormat);
-
-        const resolveReadyAttempt = async () =>
-            await ctx.runMutation(internal.exams.prepareStartExamAttemptInternal, {
-                userId: effectiveUserId,
-                topicId: args.topicId,
-                examFormat,
-            });
-
-        const initialAttempt = await resolveReadyAttempt();
-        if (initialAttempt?.ready) {
-            const { ready: _READY, ...result } = initialAttempt;
-            return result;
-        }
-
-        let generationResult: any = null;
-        try {
-            if (examFormat === "essay") {
-                generationResult = await ctx.runAction(internal.ai.generateEssayQuestionsForTopicOnDemandInternal, {
-                    topicId: args.topicId,
-                    count: EXAM_ESSAY_QUESTION_SUBSET_SIZE,
-                });
-            } else {
-                generationResult = await ctx.runAction(internal.ai.generateQuestionsForTopicOnDemandInternal, {
-                    topicId: args.topicId,
-                });
-            }
-        } catch (error) {
-            console.warn("[ExamStart] generation_failed", {
-                topicId: args.topicId,
-                examFormat,
-                message: error instanceof Error ? error.message : String(error),
-            });
-            const { ready: _READY, ...result } = buildDeferredStartResponse(
-                examFormat,
-                examFormat === "essay"
-                    ? "We couldn't prepare the full essay exam yet. Please try again."
-                    : "We couldn't prepare the full multiple-choice exam yet. Please try again."
-            );
-            return result;
-        }
-
-        const finalAttempt = await resolveReadyAttempt();
-        if (finalAttempt?.ready) {
-            const { ready: _READY, ...result } = finalAttempt;
-            return result;
-        }
-
-        if (String(generationResult?.reason || "").trim() === "generation_already_in_progress") {
-            const { ready: _READY, ...result } = finalAttempt || buildDeferredStartResponse(examFormat);
-            return result;
-        }
-
-        const unavailableMessage = resolveUnavailableStartMessage({
-            examFormat,
-            reason: generationResult?.reason,
-            targetCount: generationResult?.targetCount,
-            generatedCount: generationResult?.count,
-            timedOut: generationResult?.timedOut,
-        });
-        const requiredQuestionCount = resolveRequiredQuestionCount({
-            examFormat,
-            topicTargetCount: generationResult?.targetCount,
-            usableQuestionCount: generationResult?.count,
-        });
-        const generationTooSmallForFullExam =
-            Number(generationResult?.targetCount || 0) < requiredQuestionCount
-            || Number(generationResult?.count || 0) < requiredQuestionCount
-            || generationResult?.abstained === true;
-        if (generationTooSmallForFullExam) {
-            const { ready: _READY, ...result } = buildUnavailableStartResponse(examFormat, unavailableMessage);
-            return result;
-        }
-
-        const { ready: _READY, ...result } = buildUnavailableStartResponse(examFormat, unavailableMessage);
-        return result;
     },
 });
 

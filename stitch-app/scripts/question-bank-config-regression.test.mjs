@@ -4,11 +4,20 @@ import {
     calculateEvidenceRichEssayCap,
     QUESTION_BANK_BACKGROUND_PROFILE,
     QUESTION_BANK_INTERACTIVE_PROFILE,
+    MCQ_ATTEMPT_MIN_COUNT,
+    MCQ_ATTEMPT_MAX_COUNT,
+    ESSAY_ATTEMPT_MIN_COUNT,
+    ESSAY_ATTEMPT_MAX_COUNT,
     calculateQuestionBankTarget,
     deriveQuestionGenerationRounds,
     rebaseQuestionBankTargetAfterRun,
+    resolveAssessmentCapacity,
     resolveEvidenceRichEssayCap,
     resolveEvidenceRichMcqCap,
+    resolveEssayAttemptTarget,
+    resolveEssayBankTarget,
+    resolveMcqAttemptTarget,
+    resolveMcqBankTarget,
     resolveQuestionBankProfile,
 } from "../convex/lib/questionBankConfig.js";
 
@@ -90,7 +99,7 @@ const tests = [
         );
         assert.equal(
             QUESTION_BANK_INTERACTIVE_PROFILE.requestTimeoutMs,
-            12_000,
+            15_000,
             "Interactive request timeout should remain bounded for exam readiness."
         );
     },
@@ -106,15 +115,15 @@ const tests = [
         assert.equal(QUESTION_BANK_BACKGROUND_PROFILE.timeBudgetMs, 180_000, "Background profile timeBudgetMs should be 180000.");
     },
     () => {
-        assert.equal(QUESTION_BANK_INTERACTIVE_PROFILE.minTarget, 20, "Interactive profile minTarget should be 20.");
-        assert.equal(QUESTION_BANK_INTERACTIVE_PROFILE.maxTarget, 30, "Interactive profile maxTarget should be 30.");
+        assert.equal(QUESTION_BANK_INTERACTIVE_PROFILE.minTarget, 1, "Interactive profile minTarget should be 1.");
+        assert.equal(QUESTION_BANK_INTERACTIVE_PROFILE.maxTarget, 35, "Interactive profile maxTarget should be 35.");
         assert.equal(QUESTION_BANK_INTERACTIVE_PROFILE.wordDivisor, 120, "Interactive profile wordDivisor should be 120.");
-        assert.equal(QUESTION_BANK_INTERACTIVE_PROFILE.batchSize, 10, "Interactive profile batchSize should be 10.");
-        assert.equal(QUESTION_BANK_INTERACTIVE_PROFILE.minBatchSize, 5, "Interactive profile minBatchSize should be 5.");
-        assert.equal(QUESTION_BANK_INTERACTIVE_PROFILE.minRounds, 2, "Interactive profile minRounds should be 2.");
-        assert.equal(QUESTION_BANK_INTERACTIVE_PROFILE.maxRounds, 6, "Interactive profile maxRounds should be 6.");
+        assert.equal(QUESTION_BANK_INTERACTIVE_PROFILE.batchSize, 12, "Interactive profile batchSize should be 12.");
+        assert.equal(QUESTION_BANK_INTERACTIVE_PROFILE.minBatchSize, 6, "Interactive profile minBatchSize should be 6.");
+        assert.equal(QUESTION_BANK_INTERACTIVE_PROFILE.minRounds, 3, "Interactive profile minRounds should be 3.");
+        assert.equal(QUESTION_BANK_INTERACTIVE_PROFILE.maxRounds, 8, "Interactive profile maxRounds should be 8.");
         assert.equal(QUESTION_BANK_INTERACTIVE_PROFILE.noProgressLimit, 3, "Interactive profile noProgressLimit should be 3.");
-        assert.equal(QUESTION_BANK_INTERACTIVE_PROFILE.timeBudgetMs, 60_000, "Interactive profile timeBudgetMs should be 60000.");
+        assert.equal(QUESTION_BANK_INTERACTIVE_PROFILE.timeBudgetMs, 90_000, "Interactive profile timeBudgetMs should be 90000.");
     },
     () => {
         const cap = calculateEvidenceRichMcqCap({
@@ -267,6 +276,68 @@ const tests = [
             resolution.broadTopicPenaltyApplied,
             true,
             "Broad manual-style topics should trigger the essay broad-topic penalty."
+        );
+    },
+    () => {
+        const bankTarget = resolveMcqBankTarget({
+            topicTargetCount: 42,
+            usableQuestionCount: 17,
+        });
+        const attemptTarget = resolveMcqAttemptTarget({
+            topicTargetCount: 42,
+            usableQuestionCount: 17,
+        });
+        assert.equal(bankTarget, 42, "MCQ bank target should preserve the grounded topic target when present.");
+        assert.equal(
+            attemptTarget,
+            MCQ_ATTEMPT_MAX_COUNT,
+            "MCQ attempt target should clamp a large grounded bank to the interactive max."
+        );
+    },
+    () => {
+        const bankTarget = resolveMcqBankTarget({
+            topicTargetCount: 1,
+            usableQuestionCount: 1,
+        });
+        const attemptTarget = resolveMcqAttemptTarget({
+            topicTargetCount: 1,
+            usableQuestionCount: 1,
+        });
+        assert.equal(bankTarget, 1, "MCQ bank target should preserve tiny grounded banks for diagnostics.");
+        assert.equal(
+            attemptTarget,
+            MCQ_ATTEMPT_MIN_COUNT,
+            "MCQ attempt target should enforce the minimum viable exam floor."
+        );
+    },
+    () => {
+        const bankTarget = resolveEssayBankTarget({
+            topicTargetCount: 9,
+            usableQuestionCount: 4,
+        });
+        const attemptTarget = resolveEssayAttemptTarget({
+            topicTargetCount: 9,
+            usableQuestionCount: 4,
+        });
+        assert.equal(bankTarget, 9, "Essay bank target should track the grounded essay target.");
+        assert.equal(attemptTarget, 9, "Essay attempt target should follow the grounded bank when it stays within bounds.");
+    },
+    () => {
+        const capacity = resolveAssessmentCapacity({
+            examFormat: "essay",
+            topicTargetCount: 1,
+            usableQuestionCount: 1,
+        });
+        assert.equal(capacity.bankTargetCount, 1, "Assessment capacity should expose the grounded bank target.");
+        assert.equal(
+            capacity.attemptTargetCount,
+            ESSAY_ATTEMPT_MIN_COUNT,
+            "Assessment capacity should keep a minimum viable essay attempt size."
+        );
+        assert.equal(
+            capacity.maximumAttemptCount,
+            ESSAY_ATTEMPT_MAX_COUNT,
+            "Assessment capacity should expose the essay attempt ceiling."
         );
     },
 ];
