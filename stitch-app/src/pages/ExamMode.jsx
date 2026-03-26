@@ -461,14 +461,6 @@ const ExamMode = () => {
     const EXAM_LOADING_STALL_TIMEOUT_MS = 150_000;
 
     const topic = topicData;
-    const loadingExamQuestionCap = (() => {
-        const rawTarget = examFormat === 'essay'
-            ? topic?.essayTargetCount
-            : topic?.mcqTargetCount;
-        const numeric = Number(rawTarget);
-        if (!Number.isFinite(numeric) || numeric <= 0) return 0;
-        return Math.max(1, Math.round(numeric));
-    })();
     const loadingExamTypeLabel = examFormat === 'essay' ? 'essay' : 'objective';
     const preparationStatus = typeof preparation?.status === 'string' ? preparation.status : '';
     const preparationStage = typeof preparation?.stage === 'string' ? preparation.stage : 'queued';
@@ -479,7 +471,6 @@ const ExamMode = () => {
             || preparationStatus === 'queued'
             || preparationStatus === 'preparing'
         );
-    const effectiveLoadingQuestionCap = Number(preparation?.attemptTargetCount || loadingExamQuestionCap || 0);
     const activePreparationMessage = typeof preparation?.message === 'string' && preparation.message.trim()
         ? preparation.message.trim()
         : `We're preparing your ${loadingExamTypeLabel} exam.`;
@@ -1200,13 +1191,6 @@ const ExamMode = () => {
                                 ))}
                             </div>
 
-                            <div className="mt-6 pt-6 border-t border-border-light dark:border-border-dark">
-                                <p className="text-caption text-text-faint-light dark:text-text-faint-dark">
-                                    {effectiveLoadingQuestionCap > 0
-                                        ? `Target exam size: ${effectiveLoadingQuestionCap} ${loadingExamTypeLabel} questions`
-                                        : 'This usually takes 10-20 seconds'}
-                                </p>
-                            </div>
                         </div>
                     ) : (
                         <div className="card-base p-8 text-center">
@@ -1337,12 +1321,6 @@ const ExamMode = () => {
                             <p className="text-body-sm text-emerald-800 dark:text-emerald-300">Premium exam ready. This set met the higher university-level quality targets.</p>
                         </div>
                     )}
-                    {examQualityTier === 'limited' && (
-                        <div className="mb-4 p-3 rounded-xl bg-blue-50 dark:bg-blue-900/10 border border-blue-200 dark:border-blue-900/30">
-                            <p className="text-body-sm text-blue-800 dark:text-blue-300">Best available exam ready. We generated the strongest grounded set available from this source, but it did not fully meet the premium quality bar.</p>
-                        </div>
-                    )}
-
                     <ExamQuestionCard
                         question={currentQ}
                         questionIndex={currentQuestion}
