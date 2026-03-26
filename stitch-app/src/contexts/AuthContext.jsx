@@ -83,6 +83,19 @@ const wait = (durationMs) =>
         setTimeout(resolve, durationMs);
     });
 
+const readCachedSessionUser = () => {
+    if (typeof window === 'undefined') return null;
+    try {
+        const raw = window.localStorage.getItem('better-auth_session_data');
+        if (!raw) return null;
+        const parsed = JSON.parse(raw);
+        const cachedUser = parsed?.user;
+        return cachedUser && typeof cachedUser.id === 'string' ? cachedUser : null;
+    } catch {
+        return null;
+    }
+};
+
 const SOCIAL_SIGN_IN_MAX_RETRIES = 2;
 const SOCIAL_SIGN_IN_RETRY_BASE_DELAY_MS = 400;
 
@@ -256,7 +269,7 @@ const AuthProviderFallback = ({ children }) => {
 
 const AuthProviderConvex = ({ children }) => {
     const { data: session, isPending, refetch, error: sessionError } = useSession();
-    const [lastKnownUser, setLastKnownUser] = useState(null);
+    const [lastKnownUser, setLastKnownUser] = useState(() => readCachedSessionUser());
     const [profileOverride, setProfileOverride] = useState(null);
     const lastPresenceHeartbeatAtRef = useRef(0);
 
@@ -328,7 +341,14 @@ const AuthProviderConvex = ({ children }) => {
     // to avoid redirecting to login during short-lived network disruptions.
     const sessionUser = session?.user ?? null;
     const sessionErrorIsTransient = isTransientSessionError(sessionError);
-    const user = sessionUser ?? (sessionErrorIsTransient ? lastKnownUser : null);
+    const user = sessionUser ?? ((isPending || sessionErrorIsTransient) ? lastKnownUser : null);
+
+    useEffect(() => {
+        if (sessionUser || !isPending) return;
+        const cachedUser = readCachedSessionUser();
+        if (!cachedUser) return;
+        setLastKnownUser((currentUser) => currentUser ?? cachedUser);
+    }, [sessionUser, isPending]);
 
     useEffect(() => {
         if (sessionUser) {
