@@ -4,38 +4,39 @@ import process from 'node:process';
 
 const root = process.cwd();
 const examsPath = path.join(root, 'convex', 'exams.ts');
+const preparationsPath = path.join(root, 'convex', 'examPreparations.ts');
 const examModePath = path.join(root, 'src', 'pages', 'ExamMode.jsx');
 const questionBankConfigPath = path.join(root, 'convex', 'lib', 'questionBankConfig.js');
 
-const [examsSource, examModeSource, questionBankConfigSource] = await Promise.all([
+const [examsSource, preparationsSource, examModeSource, questionBankConfigSource] = await Promise.all([
   fs.readFile(examsPath, 'utf8'),
+  fs.readFile(preparationsPath, 'utf8'),
   fs.readFile(examModePath, 'utf8'),
   fs.readFile(questionBankConfigPath, 'utf8'),
 ]);
 
 if (!/export const QUESTION_BANK_INTERACTIVE_PROFILE = resolveQuestionBankProfile\(\{[\s\S]*minTarget:\s*1,[\s\S]*maxTarget:\s*35,/m.test(questionBankConfigSource)) {
-  throw new Error('Expected on-demand MCQ generation to use a content-driven target range instead of a fixed exam size.');
+  throw new Error('Expected on-demand MCQ generation to stay content-driven instead of reverting to a fixed exam size.');
 }
 
-for (const code of ['EXAM_FULL_EXAM_UNAVAILABLE', 'ESSAY_FULL_EXAM_UNAVAILABLE']) {
-  if (!examsSource.includes(code)) {
-    throw new Error(`Expected exams.ts to return ${code} when a full exam cannot be prepared.`);
-  }
-  if (!examModeSource.includes(code)) {
-    throw new Error(`Expected ExamMode.jsx to handle ${code} terminal start states.`);
-  }
+if (!/allowPartialReady:\s*v\.optional\(v\.boolean\(\)\)/.test(examsSource)) {
+  throw new Error('Expected exams.ts to support a partial-ready override after on-demand generation.');
 }
 
-if (!/generation_already_in_progress/.test(examsSource)) {
-  throw new Error('Expected startExamAttempt to preserve a deferred response when generation is already in progress elsewhere.');
+if (!/allowPartialReady:\s*true/.test(preparationsSource)) {
+  throw new Error('Expected examPreparations.ts to retry prepared attempt creation with allowPartialReady after generation.');
 }
 
-if (!/buildUnavailableStartResponse/.test(examsSource) || !/resolveUnavailableStartMessage/.test(examsSource)) {
-  throw new Error('Expected exams.ts to build a non-deferred full-exam unavailable response after on-demand generation finishes.');
+if (/Full Exam Not Available/.test(examModeSource)) {
+  throw new Error('Expected ExamMode.jsx to stop presenting unavailable exams as a failed full-exam requirement.');
+}
+
+if (/full multiple-choice exam|full essay exam/i.test(preparationsSource)) {
+  throw new Error('Expected unavailable preparation messages to stop requiring a full exam when partial grounded questions are allowed.');
 }
 
 if (!/Exam Not Available/.test(examModeSource)) {
-  throw new Error('Expected ExamMode.jsx to render a stable unavailable state for terminal exam-start failures.');
+  throw new Error('Expected ExamMode.jsx to render the renamed terminal unavailable state.');
 }
 
 console.log('exam-full-set-unavailable-regression.test.mjs passed');

@@ -12,6 +12,7 @@ import {
 import { filterQuestionsForActiveAssessment } from "./lib/assessmentBlueprint.js";
 import { canReuseExamAttempt, resolveReusableAttemptQuestions } from "./lib/examAttemptReuse";
 import { selectQuestionsForAttempt } from "./lib/examQuestionSelection";
+import { resolvePreparedExamStart } from "./lib/examStartPolicy.js";
 import { resolveAssessmentCapacity } from "./lib/questionBankConfig.js";
 
 const EXAM_ATTEMPT_REUSE_LOOKBACK = 50;
@@ -142,11 +143,13 @@ export const ensurePreparedExamAttemptInternal = internalMutation({
         userId: v.string(),
         topicId: v.id("topics"),
         examFormat: v.optional(v.string()), // 'mcq' | 'essay'
+        allowPartialReady: v.optional(v.boolean()),
     },
     handler: async (ctx, args) => {
         const effectiveUserId = String(args.userId || "").trim();
         const examFormat = resolveRequestedExamFormat(args.examFormat);
         const isEssay = examFormat === "essay";
+        const allowPartialReady = args.allowPartialReady === true;
 
         const topic = await ctx.db.get(args.topicId);
         if (!topic) {
@@ -243,7 +246,7 @@ export const ensurePreparedExamAttemptInternal = internalMutation({
             usableQuestionCount: usableQuestions.length,
         });
         const requiredQuestionCount = capacity.attemptTargetCount;
-        if (usableQuestions.length < requiredQuestionCount) {
+        if (usableQuestions.length < requiredQuestionCount && !allowPartialReady) {
             return {
                 status: "needs_generation",
                 reasonCode: "INSUFFICIENT_READY_QUESTIONS",
@@ -268,13 +271,21 @@ export const ensurePreparedExamAttemptInternal = internalMutation({
             bankTargetCount: capacity.bankTargetCount,
         });
         const selectedQuestions = selection.selectedQuestions;
+        const startResolution = resolvePreparedExamStart({
+            requiredQuestionCount,
+            selectedQuestionCount: selectedQuestions.length,
+            requiresGeneration: selection.requiresGeneration,
+            unavailableReason: selection.unavailableReason,
+            coverageSatisfied: selection.coverageSatisfied,
+            allowPartialReady,
+        });
 
-        if (selection.unavailableReason) {
+        if (startResolution.status === "unavailable") {
             return {
                 status: "unavailable",
-                reasonCode: selection.unavailableReason,
+                reasonCode: startResolution.reasonCode,
                 requiredQuestionCount,
-                attemptTargetCount: capacity.attemptTargetCount,
+                attemptTargetCount: startResolution.attemptTargetCount,
                 bankTargetCount: capacity.bankTargetCount,
                 usableQuestionCount: usableQuestions.length,
                 totalQuestions: 0,
@@ -285,14 +296,12 @@ export const ensurePreparedExamAttemptInternal = internalMutation({
             };
         }
 
-        if (selectedQuestions.length < requiredQuestionCount || selection.requiresGeneration) {
+        if (startResolution.status === "needs_generation") {
             return {
                 status: "needs_generation",
-                reasonCode: selection.coverageSatisfied === false
-                    ? "MISSING_OUTCOME_COVERAGE"
-                    : "INSUFFICIENT_FRESH_QUESTIONS",
+                reasonCode: startResolution.reasonCode,
                 requiredQuestionCount,
-                attemptTargetCount: capacity.attemptTargetCount,
+                attemptTargetCount: startResolution.attemptTargetCount,
                 bankTargetCount: capacity.bankTargetCount,
                 usableQuestionCount: usableQuestions.length,
                 totalQuestions: 0,
@@ -330,7 +339,7 @@ export const ensurePreparedExamAttemptInternal = internalMutation({
             totalQuestions: selectedQuestions.length,
             questions: safeQuestions,
             reusedAttempt: false,
-            attemptTargetCount: capacity.attemptTargetCount,
+            attemptTargetCount: startResolution.attemptTargetCount,
             bankTargetCount: capacity.bankTargetCount,
             startedAt: attemptDocument.startedAt,
         };

@@ -18,6 +18,7 @@ const examPreparationsPath = path.join(root, 'convex', 'examPreparations.ts');
 const schemaPath = path.join(root, 'convex', 'schema.ts');
 const examSecurityPath = path.join(root, 'convex', 'lib', 'examSecurity.js');
 const examAttemptReusePath = path.join(root, 'convex', 'lib', 'examAttemptReuse.js');
+const examStartPolicyPath = path.join(root, 'convex', 'lib', 'examStartPolicy.js');
 const aiPath = path.join(root, 'convex', 'ai.ts');
 
 if (!(await fileExists(examAttemptReusePath))) {
@@ -26,6 +27,9 @@ if (!(await fileExists(examAttemptReusePath))) {
 
 if (!(await fileExists(examPreparationsPath))) {
   throw new Error('Expected convex/examPreparations.ts to exist.');
+}
+if (!(await fileExists(examStartPolicyPath))) {
+  throw new Error('Expected convex/lib/examStartPolicy.js to exist.');
 }
 
 const examSecuritySource = await fs.readFile(examSecurityPath, 'utf8');
@@ -55,14 +59,14 @@ if (!/canReuseExamAttempt\(\{\s*[\s\S]*examFormat,/.test(examsSource)) {
 if (!/resolveAssessmentCapacity/.test(examsSource) || !/const requiredQuestionCount = capacity\.attemptTargetCount/.test(examsSource)) {
   throw new Error('Expected the prepared-attempt mutation to derive required counts from dynamic assessment capacity.');
 }
-if (!/usableQuestions\.length < requiredQuestionCount/.test(examsSource)) {
-  throw new Error('Expected prepared-attempt checks to block when the bank is smaller than the required full-set count.');
+if (!/allowPartialReady:\s*v\.optional\(v\.boolean\(\)\)/.test(examsSource)) {
+  throw new Error('Expected prepared-attempt creation to accept an allowPartialReady override after generation.');
 }
-if (!/if \(selection\.unavailableReason\)/.test(examsSource)) {
-  throw new Error('Expected prepared-attempt checks to surface terminal unavailable selection outcomes.');
+if (!/usableQuestions\.length < requiredQuestionCount && !allowPartialReady/.test(examsSource)) {
+  throw new Error('Expected prepared-attempt checks to block undersized banks only before the partial-start fallback is allowed.');
 }
-if (!/selectedQuestions\.length < requiredQuestionCount \|\| selection\.requiresGeneration/.test(examsSource)) {
-  throw new Error('Expected prepared-attempt checks to block when selection still requires fresh generation.');
+if (!/resolvePreparedExamStart/.test(examsSource)) {
+  throw new Error('Expected exams.ts to resolve post-generation partial-start decisions through the shared start-policy helper.');
 }
 if (!/extra field `examFormat`/.test(examsSource) || !/legacyAttemptDocument/.test(examsSource)) {
   throw new Error('Expected prepared-attempt creation to preserve the legacy schema fallback for examFormat.');
@@ -92,6 +96,9 @@ if (!/await ctx\.runAction\(internal\.ai\.generateEssayQuestionsForTopicOnDemand
 }
 if (!/await ctx\.runAction\(internal\.ai\.generateQuestionsForTopicOnDemandInternal/.test(preparationsSource)) {
   throw new Error('Expected MCQ preparation to trigger only the requested on-demand MCQ generator.');
+}
+if (!/allowPartialReady:\s*true/.test(preparationsSource)) {
+  throw new Error('Expected the post-generation prepared-attempt pass to allow partial ready exams when usable questions exist.');
 }
 
 if (!/examPreparations:\s*defineTable\(\{[\s\S]*status:\s*v\.string\(\)[\s\S]*stage:\s*v\.string\(\)[\s\S]*attemptTargetCount:\s*v\.number\(\)[\s\S]*bankTargetCount:\s*v\.number\(\)/.test(schemaSource)) {

@@ -1023,7 +1023,7 @@ const ExamMode = () => {
         [preparationStage],
     );
     const preparationPanelTitle = isPreparationTerminal
-        ? (preparationStatus === 'unavailable' ? 'Full Exam Not Available' : 'Exam Preparation Failed')
+        ? (preparationStatus === 'unavailable' ? 'Exam Not Available' : 'Exam Preparation Failed')
         : 'Preparing Your Exam';
 
     // Keep hook order stable across loading/error/exam states.

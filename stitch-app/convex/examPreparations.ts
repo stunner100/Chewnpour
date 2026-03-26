@@ -60,17 +60,17 @@ const buildPreparationMessage = ({
     if (normalizedStatus === "unavailable") {
         if (normalizedReason === "INSUFFICIENT_EVIDENCE") {
             return isEssay
-                ? "This topic does not have enough grounded evidence for a full essay exam yet."
-                : "This topic does not have enough grounded evidence for a full multiple-choice exam yet.";
+                ? "We couldn't generate grounded essay questions from this topic yet."
+                : "We couldn't generate grounded multiple-choice questions from this topic yet.";
         }
         if (normalizedReason === "MISSING_OUTCOME_COVERAGE") {
             return isEssay
-                ? "This topic does not yet support a balanced essay exam across the required outcomes."
-                : "This topic does not yet support a balanced multiple-choice exam across the required outcomes.";
+                ? "We couldn't generate a usable essay exam from this topic yet."
+                : "We couldn't generate a usable multiple-choice exam from this topic yet.";
         }
         return isEssay
-            ? "We couldn't build a full essay exam from this topic."
-            : "We couldn't build a full multiple-choice exam from this topic.";
+            ? "We couldn't generate a usable essay exam from this topic."
+            : "We couldn't generate a usable multiple-choice exam from this topic.";
     }
 
     if (normalizedStatus === "failed") {
@@ -448,6 +448,7 @@ export const runExamPreparationInternal = internalAction({
             userId: preparation.userId,
             topicId: preparation.topicId,
             examFormat,
+            allowPartialReady: true,
         });
 
         if (finalAttempt?.status === "ready") {
