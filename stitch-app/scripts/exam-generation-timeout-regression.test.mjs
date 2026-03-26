@@ -40,8 +40,11 @@ for (const forbiddenPattern of [
   }
 }
 
-if (!/if\s*\(\s*Date\.now\(\)\s*>=\s*deadlineMs\s*\)\s*\{\s*break;\s*\}/s.test(aiSource)) {
-  throw new Error('Expected backend question-bank loops to stop work when the interactive deadline is reached.');
+if (
+  !/Date\.now\(\)\s*<\s*deadlineMs/.test(aiSource)
+  || !/if\s*\(\s*Date\.now\(\)\s*>=\s*deadlineMs\s*\)\s*\{\s*return false;\s*\}/s.test(aiSource)
+) {
+  throw new Error('Expected backend question-bank loops to stop work once the interactive deadline is reached.');
 }
 
 if (!/const\s+optionTimeoutMs\s*=\s*runMode\s*===\s*"interactive"/.test(aiSource)) {

@@ -59,6 +59,14 @@ export type AssessmentBlueprint = {
     };
 };
 
+export type AssessmentCoverageTarget = {
+    outcomeKey: string;
+    bloomLevel: string;
+    objective?: string;
+    evidenceFocus?: string;
+    requestedCount: number;
+};
+
 export type GroundedConceptCandidate = {
     questionText: string;
     template: string[];
@@ -81,6 +89,22 @@ const formatEvidence = (evidence: RetrievedEvidence[], maxChars = 12000) => {
 
 const formatAssessmentBlueprint = (blueprint: AssessmentBlueprint) =>
     JSON.stringify(blueprint, null, 2);
+
+const formatCoverageTargets = (coverageTargets: AssessmentCoverageTarget[] = []) => {
+    if (!Array.isArray(coverageTargets) || coverageTargets.length === 0) {
+        return "";
+    }
+
+    return coverageTargets
+        .map((target) => [
+            `- outcomeKey=${target.outcomeKey}`,
+            `bloomLevel=${target.bloomLevel}`,
+            `requestedCount=${target.requestedCount}`,
+            target.objective ? `objective="${target.objective}"` : "",
+            target.evidenceFocus ? `evidenceFocus="${target.evidenceFocus}"` : "",
+        ].filter(Boolean).join("; "))
+        .join("\n");
+};
 
 export const buildGroundedAssessmentBlueprintPrompt = (args: {
     topicTitle: string;
@@ -135,9 +159,13 @@ export const buildGroundedMcqPrompt = (args: {
     evidence: RetrievedEvidence[];
     assessmentBlueprint: AssessmentBlueprint;
     existingQuestionSample?: string;
+    coverageTargets?: AssessmentCoverageTarget[];
 }) => {
     const existingBlock = args.existingQuestionSample
         ? `\nExisting questions to avoid:\n${args.existingQuestionSample}`
+        : "";
+    const coverageBlock = Array.isArray(args.coverageTargets) && args.coverageTargets.length > 0
+        ? `\nCoverage gaps to prioritize first:\n${formatCoverageTargets(args.coverageTargets)}`
         : "";
 
     return `Create ${args.requestedCount} multiple-choice questions strictly grounded in the evidence passages.
@@ -148,6 +176,7 @@ DESCRIPTION: ${args.topicDescription || "General concepts"}
 ${formatEvidence(args.evidence)}
 ASSESSMENT_BLUEPRINT:
 ${formatAssessmentBlueprint(args.assessmentBlueprint)}
+${coverageBlock}
 ${existingBlock}
 
 Rules:
@@ -155,6 +184,7 @@ Rules:
 - Use only outcome keys from assessmentBlueprint.mcqPlan.targetOutcomeKeys.
 - bloomLevel must exactly match the selected outcome's bloomLevel.
 - bloomLevel must be one of: Remember, Understand, Apply, Analyze.
+- If coverage gaps are listed, satisfy those outcome priorities before generating extras.
 - Every question must include citations[] with 1-3 citation objects.
 - Every citation object must include: passageId, page, startChar, endChar, quote.
 - quote must be an exact short excerpt from the cited passage.
@@ -260,6 +290,7 @@ export const buildGroundedEssayPrompt = (args: {
     requestedCount: number;
     evidence: RetrievedEvidence[];
     assessmentBlueprint: AssessmentBlueprint;
+    coverageTargets?: AssessmentCoverageTarget[];
 }) => `Create ${args.requestedCount} essay questions strictly grounded in the evidence passages.
 
 TOPIC: ${args.topicTitle}
@@ -268,12 +299,16 @@ DESCRIPTION: ${args.topicDescription || "General concepts"}
 ${formatEvidence(args.evidence, 14000)}
 ASSESSMENT_BLUEPRINT:
 ${formatAssessmentBlueprint(args.assessmentBlueprint)}
+${Array.isArray(args.coverageTargets) && args.coverageTargets.length > 0
+        ? `\nCoverage gaps to prioritize first:\n${formatCoverageTargets(args.coverageTargets)}`
+        : ""}
 
 Rules:
 - Question must be answerable from evidence.
 - Use only outcome keys from assessmentBlueprint.essayPlan.targetOutcomeKeys.
 - bloomLevel must exactly match the selected outcome's bloomLevel.
 - bloomLevel must be one of: Analyze, Evaluate, Create.
+- If coverage gaps are listed, satisfy those outcome priorities before generating extras.
 - Provide model answer and rubricPoints (2-4 points).
 - Include citations[] with exact evidence quote spans.
 - If assessmentBlueprint.essayPlan.authenticScenarioRequired is true, prefer a realistic or professional scenario framing and include authenticContext.
