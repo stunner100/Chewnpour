@@ -6,7 +6,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const root = path.resolve(__dirname, "..");
 
-const topicRoutesSource = await fs.readFile(path.join(root, "convex/topicRoutes.ts"), "utf8");
+const topicsSource = await fs.readFile(path.join(root, "convex/topics.ts"), "utf8");
 const topicDetailSource = await fs.readFile(path.join(root, "src/pages/TopicDetail.jsx"), "utf8");
 const examModeSource = await fs.readFile(path.join(root, "src/pages/ExamMode.jsx"), "utf8");
 const conceptIntroSource = await fs.readFile(path.join(root, "src/pages/ConceptIntro.jsx"), "utf8");
@@ -15,13 +15,13 @@ const conceptBuilderSource = await fs.readFile(path.join(root, "src/pages/Concep
 const backendExpectations = [
   'const resolveTopicIdFromRoute = (ctx: any, routeId: unknown) => {',
   'return ctx.db.normalizeId("topics", normalizedRouteId);',
-  'export const getTopicRouteState = query({',
-  'status: "resolved" as const,',
+  'export const getTopicWithQuestions = query({',
+  'args: { topicId: v.string() },',
 ];
 
 for (const snippet of backendExpectations) {
-  if (!topicRoutesSource.includes(snippet)) {
-    throw new Error(`topicRoutes.ts is missing expected route-normalization snippet: ${snippet}`);
+  if (!topicsSource.includes(snippet)) {
+    throw new Error(`topics.ts is missing expected route-normalization snippet: ${snippet}`);
   }
 }
 
@@ -33,11 +33,11 @@ const pageSources = [
 ];
 
 for (const [source, label] of pageSources) {
-  if (!source.includes("api.topicRoutes.getTopicRouteState")) {
+  if (!source.includes("api.topics.getTopicWithQuestions")) {
     throw new Error(`${label} is not using the canonical route-id topic query.`);
   }
-  if (source.includes("api.topics.getTopicWithQuestionsByRouteId")) {
-    throw new Error(`${label} still references the removed topic route query.`);
+  if (!source.includes("routeTopicId ? { topicId: routeTopicId } : 'skip'")) {
+    throw new Error(`${label} is not guarding the topic query with routeTopicId.`);
   }
   if (source.includes("isLikelyConvexId")) {
     throw new Error(`${label} still relies on isLikelyConvexId route heuristics.`);

@@ -18,11 +18,10 @@ const ConceptBuilder = () => {
         }
         navigate('/dashboard', { replace: true });
     }, [navigate]);
-    const topicRouteState = useQuery(
-        api.topicRoutes.getTopicRouteState,
-        routeTopicId ? { routeId: routeTopicId } : 'skip'
+    const topic = useQuery(
+        api.topics.getTopicWithQuestions,
+        routeTopicId ? { topicId: routeTopicId } : 'skip'
     );
-    const topic = topicRouteState?.status === 'resolved' ? topicRouteState.topic : null;
     const topicId = typeof topic?._id === 'string' ? topic._id : '';
     const conceptAttempts = useQuery(
         api.concepts.getUserConceptAttempts,
@@ -302,7 +301,7 @@ const ConceptBuilder = () => {
         );
     }
 
-    if (topicRouteState === undefined || (loading && !exercise)) {
+    if (topic === undefined || (loading && !exercise)) {
         return (
             <div className="min-h-screen bg-background-light dark:bg-background-dark flex items-center justify-center">
                 <div className="text-center">
@@ -313,7 +312,7 @@ const ConceptBuilder = () => {
         );
     }
 
-    if (topicRouteState?.status !== 'resolved') {
+    if (topic === null) {
         return (
             <div className="min-h-screen bg-background-light dark:bg-background-dark flex items-center justify-center px-4">
                 <div className="text-center max-w-md">

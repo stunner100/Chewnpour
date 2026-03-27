@@ -83,11 +83,10 @@ const TopicDetail = () => {
         }
         navigate('/dashboard', { replace: true });
     }, [navigate]);
-    const topicRouteState = useQuery(
-        api.topicRoutes.getTopicRouteState,
-        routeTopicId ? { routeId: routeTopicId } : 'skip'
+    const topic = useQuery(
+        api.topics.getTopicWithQuestions,
+        routeTopicId ? { topicId: routeTopicId } : 'skip'
     );
-    const topic = topicRouteState?.status === 'resolved' ? topicRouteState.topic : null;
     const topicId = typeof topic?._id === 'string' ? topic._id : '';
     const courseId = topic?.courseId;
     const voiceModeEnabled = Boolean(profile?.voiceModeEnabled);
@@ -570,7 +569,7 @@ const TopicDetail = () => {
         );
     }
 
-    if (topicRouteState === undefined) {
+    if (topic === undefined) {
         return (
             <div className="min-h-screen flex items-center justify-center bg-background-light dark:bg-background-dark">
                 <div className="text-center">
@@ -581,7 +580,7 @@ const TopicDetail = () => {
         );
     }
 
-    if (topicRouteState?.status !== 'resolved') {
+    if (topic === null) {
         return (
             <div className="min-h-screen flex items-center justify-center bg-background-light dark:bg-background-dark">
                 <div className="text-center max-w-sm px-6">

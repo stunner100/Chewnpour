@@ -450,9 +450,9 @@ const ExamMode = () => {
         }
         navigate('/dashboard', { replace: true });
     }, [navigate]);
-    const topicRouteState = useQuery(
-        api.topicRoutes.getTopicRouteState,
-        routeTopicId ? { routeId: routeTopicId } : 'skip'
+    const topic = useQuery(
+        api.topics.getTopicWithQuestions,
+        routeTopicId ? { topicId: routeTopicId } : 'skip'
     );
     const preparation = useQuery(
         api.examPreparations.getExamPreparation,
@@ -466,7 +466,6 @@ const ExamMode = () => {
     const START_EXAM_ATTEMPT_TIMEOUT_MS = 120_000;
     const EXAM_LOADING_STALL_TIMEOUT_MS = 150_000;
 
-    const topic = topicRouteState?.status === 'resolved' ? topicRouteState.topic : null;
     const topicId = typeof topic?._id === 'string' ? topic._id : '';
     const loadingExamTypeLabel = examFormat === 'essay' ? 'essay' : 'objective';
     const preparationStatus = typeof preparation?.status === 'string' ? preparation.status : '';
@@ -545,7 +544,7 @@ const ExamMode = () => {
     }, [location.state, navigate, routeTopicId, topicId]);
 
     useEffect(() => {
-        if (!routeTopicId || topicRouteState?.status !== 'invalid') return;
+        if (!routeTopicId || topic !== null || topic === undefined) return;
         if (invalidRouteReportedRef.current === routeTopicId) return;
         invalidRouteReportedRef.current = routeTopicId;
         captureSentryMessage('Stale exam topic route encountered', {
@@ -560,7 +559,7 @@ const ExamMode = () => {
                 referrer: typeof document !== 'undefined' ? document.referrer || '' : '',
             },
         });
-    }, [location.pathname, routeTopicId, topicRouteState?.status]);
+    }, [location.pathname, routeTopicId, topic]);
 
     const preferredFormatFromState = resolvePreferredExamFormat(location?.state?.preferredFormat);
 
@@ -826,12 +825,7 @@ const ExamMode = () => {
                     topicId,
                     userId,
                     elapsedMs,
-                    topicDataState:
-                        topicRouteState === undefined
-                            ? 'loading'
-                            : topicRouteState?.status !== 'resolved'
-                                ? 'missing'
-                                : 'ready',
+                    topicDataState: topic === undefined ? 'loading' : topic === null ? 'missing' : 'ready',
                     hasAttemptQuestions,
                     attemptId,
                     startingExamAttempt,
@@ -855,7 +849,7 @@ const ExamMode = () => {
         preparationId,
         preparationStage,
         preparationStatus,
-        topicRouteState,
+        topic,
         topicId,
         userId,
     ]);
@@ -1103,7 +1097,7 @@ const ExamMode = () => {
     }
 
     // Loading state
-    if (topicRouteState === undefined) {
+    if (topic === undefined) {
         return (
             <div className="bg-background-light dark:bg-background-dark min-h-screen flex items-center justify-center">
                 <div className="text-center">
@@ -1114,7 +1108,7 @@ const ExamMode = () => {
         );
     }
 
-    if (topicRouteState?.status !== 'resolved') {
+    if (topic === null) {
         return (
             <div className="bg-background-light dark:bg-background-dark min-h-screen flex items-center justify-center">
                 <div className="text-center max-w-md px-6">

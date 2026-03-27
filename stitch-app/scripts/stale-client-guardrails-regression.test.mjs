@@ -48,11 +48,11 @@ const guardedPages = [
 ];
 
 for (const { name, source } of guardedPages) {
-  if (!source.includes("api.topicRoutes.getTopicRouteState")) {
-    throw new Error(`Regression detected: ${name} no longer uses the topic route state query.`);
+  if (!source.includes("api.topics.getTopicWithQuestions")) {
+    throw new Error(`Regression detected: ${name} no longer uses the topic query.`);
   }
-  if (!source.includes("routeTopicId ? { routeId: routeTopicId } : 'skip'")) {
-    throw new Error(`Regression detected: ${name} no longer guards the topic route query with routeTopicId.`);
+  if (!source.includes("routeTopicId ? { topicId: routeTopicId } : 'skip'")) {
+    throw new Error(`Regression detected: ${name} no longer guards the topic query with routeTopicId.`);
   }
   if (source.includes("isLikelyConvexId")) {
     throw new Error(`Regression detected: ${name} still relies on the stale Convex ID heuristic.`);

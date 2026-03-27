@@ -12,8 +12,10 @@ import {
     getAssessmentQuestionMetadataIssues,
     ASSESSMENT_BLUEPRINT_VERSION,
 } from "./lib/assessmentBlueprint.js";
+import { normalizeQuestionType, QUESTION_TYPE_MULTIPLE_CHOICE } from "./lib/objectiveExam.js";
 import { resolveIllustrationUrl } from "./lib/illustrationUrl";
 import { areMcqQuestionsNearDuplicate, buildMcqUniquenessSignature } from "./lib/mcqUniqueness";
+import { areQuestionPromptsNearDuplicate, buildQuestionPromptSignature } from "./lib/questionPromptSimilarity";
 
 const DEFAULT_TOPIC_ILLUSTRATION_URL =
     String(process.env.TOPIC_PLACEHOLDER_ILLUSTRATION_URL || "/topic-placeholder.svg").trim()
@@ -85,11 +87,24 @@ const computeTopicExamReadinessFromQuestions = (
 const dedupeTopicQuestions = (questions: any[]) => {
     const items = Array.isArray(questions) ? questions : [];
     const seenMcqSignatures: any[] = [];
+    const seenEssaySignatures: any[] = [];
     const deduped = [];
 
     for (const question of items) {
         if (!question) continue;
         if (String(question?.questionType || "") === "essay") {
+            const essaySignature = buildQuestionPromptSignature(question?.questionText || "");
+            if (
+                essaySignature?.normalized
+                && seenEssaySignatures.some((prior) =>
+                    areQuestionPromptsNearDuplicate(essaySignature, prior)
+                )
+            ) {
+                continue;
+            }
+            if (essaySignature?.normalized) {
+                seenEssaySignatures.push(essaySignature);
+            }
             deduped.push(question);
             continue;
         }
@@ -172,6 +187,16 @@ const getTopicWithQuestionsPayload = async (ctx: any, topicId: any) => {
     };
 };
 
+const resolveTopicIdFromRoute = (ctx: any, routeId: unknown) => {
+    const normalizedRouteId = typeof routeId === "string" ? routeId.trim() : "";
+    if (!normalizedRouteId) return null;
+    try {
+        return ctx.db.normalizeId("topics", normalizedRouteId);
+    } catch {
+        return null;
+    }
+};
+
 // Get all topics for a course
 export const getTopicsByCourse = query({
     args: { courseId: v.id("courses") },
@@ -211,13 +236,16 @@ export const getTopicsByCourse = query({
 
 // Get single topic with its questions
 export const getTopicWithQuestions = query({
-    args: { topicId: v.id("topics") },
+    args: { topicId: v.string() },
     handler: async (ctx, args) => {
         const identity = await ctx.auth.getUserIdentity();
         const authUserId = resolveAuthUserId(identity);
         if (!authUserId) return null;
 
-        const payload = await getTopicWithQuestionsPayload(ctx, args.topicId);
+        const topicId = resolveTopicIdFromRoute(ctx, args.topicId);
+        if (!topicId) return null;
+
+        const payload = await getTopicWithQuestionsPayload(ctx, topicId);
         if (!payload) return null;
 
         try {
@@ -569,7 +597,19 @@ export const createQuestionInternal = internalMutation({
         outcomeKey: v.optional(v.string()),
         authenticContext: v.optional(v.string()),
         rubricPoints: v.optional(v.array(v.string())),
+        generationRunId: v.optional(v.string()),
+        qualityScore: v.optional(v.number()),
+        qualityTier: v.optional(v.string()),
+        rigorScore: v.optional(v.number()),
+        clarityScore: v.optional(v.number()),
+        diversityCluster: v.optional(v.string()),
+        distractorScore: v.optional(v.number()),
+        freshnessBucket: v.optional(v.string()),
         qualityFlags: v.optional(v.array(v.string())),
+        templateParts: v.optional(v.array(v.string())),
+        tokens: v.optional(v.array(v.string())),
+        acceptedAnswers: v.optional(v.array(v.string())),
+        fillBlankMode: v.optional(v.string()),
     },
     handler: async (ctx, args) => {
         if (String(args.generationVersion || "").trim() === ASSESSMENT_BLUEPRINT_VERSION) {
@@ -582,11 +622,22 @@ export const createQuestionInternal = internalMutation({
             }
         }
 
-        if (String(args.questionType || "") !== "essay") {
-            const existingQuestions = await ctx.db
-                .query("questions")
-                .withIndex("by_topicId", (q) => q.eq("topicId", args.topicId))
-                .collect();
+        const existingQuestions = await ctx.db
+            .query("questions")
+            .withIndex("by_topicId", (q) => q.eq("topicId", args.topicId))
+            .collect();
+        const normalizedQuestionType = normalizeQuestionType(args.questionType);
+        if (normalizedQuestionType === "essay") {
+            const candidateSignature = buildQuestionPromptSignature(args.questionText);
+            const duplicateExists = existingQuestions
+                .filter((question: any) => String(question?.questionType || "").trim().toLowerCase() === "essay")
+                .some((question: any) =>
+                    areQuestionPromptsNearDuplicate(candidateSignature, buildQuestionPromptSignature(question?.questionText || ""))
+                );
+            if (duplicateExists) {
+                return null;
+            }
+        } else if (normalizedQuestionType === QUESTION_TYPE_MULTIPLE_CHOICE) {
             const candidateSignature = buildMcqUniquenessSignature({
                 questionText: args.questionText,
                 options: args.options,
@@ -594,9 +645,19 @@ export const createQuestionInternal = internalMutation({
                 citations: args.citations,
             });
             const duplicateExists = existingQuestions
-                .filter((question: any) => String(question?.questionType || "") !== "essay")
+                .filter((question: any) => String(question?.questionType || "").trim().toLowerCase() !== "essay")
                 .some((question: any) =>
                     areMcqQuestionsNearDuplicate(candidateSignature, buildMcqUniquenessSignature(question))
+                );
+            if (duplicateExists) {
+                return null;
+            }
+        } else {
+            const candidateSignature = buildQuestionPromptSignature(args.questionText);
+            const duplicateExists = existingQuestions
+                .filter((question: any) => normalizeQuestionType(question?.questionType) === normalizedQuestionType)
+                .some((question: any) =>
+                    areQuestionPromptsNearDuplicate(candidateSignature, buildQuestionPromptSignature(question?.questionText || ""))
                 );
             if (duplicateExists) {
                 return null;
@@ -616,11 +677,23 @@ export const createQuestionInternal = internalMutation({
             groundingScore: args.groundingScore,
             factualityStatus: args.factualityStatus,
             generationVersion: args.generationVersion,
+            generationRunId: args.generationRunId,
             learningObjective: args.learningObjective,
             bloomLevel: args.bloomLevel,
             outcomeKey: args.outcomeKey,
             authenticContext: args.authenticContext,
+            templateParts: args.templateParts,
+            tokens: args.tokens,
+            acceptedAnswers: args.acceptedAnswers,
+            fillBlankMode: args.fillBlankMode,
             rubricPoints: args.rubricPoints,
+            qualityScore: args.qualityScore,
+            qualityTier: args.qualityTier,
+            rigorScore: args.rigorScore,
+            clarityScore: args.clarityScore,
+            diversityCluster: args.diversityCluster,
+            distractorScore: args.distractorScore,
+            freshnessBucket: args.freshnessBucket,
             qualityFlags: args.qualityFlags,
         });
 
@@ -721,7 +794,16 @@ export const batchCreateQuestionsInternal = internalMutation({
                 bloomLevel: v.optional(v.string()),
                 outcomeKey: v.optional(v.string()),
                 authenticContext: v.optional(v.string()),
+                templateParts: v.optional(v.array(v.string())),
+                tokens: v.optional(v.array(v.string())),
+                acceptedAnswers: v.optional(v.array(v.string())),
+                fillBlankMode: v.optional(v.string()),
                 rubricPoints: v.optional(v.array(v.string())),
+                qualityTier: v.optional(v.string()),
+                rigorScore: v.optional(v.number()),
+                clarityScore: v.optional(v.number()),
+                diversityCluster: v.optional(v.string()),
+                distractorScore: v.optional(v.number()),
                 qualityFlags: v.optional(v.array(v.string())),
             })
         ),
@@ -737,7 +819,7 @@ export const batchCreateQuestionsInternal = internalMutation({
             .withIndex("by_topicId", (q) => q.eq("topicId", args.topicId))
             .collect();
         const acceptedMcqSignatures = existingQuestions
-            .filter((question: any) => String(question?.questionType || "") !== "essay")
+            .filter((question: any) => normalizeQuestionType(question?.questionType) === QUESTION_TYPE_MULTIPLE_CHOICE)
             .map((question: any) => buildMcqUniquenessSignature(question));
         for (const q of args.questions) {
             if (String(q.generationVersion || "").trim() === ASSESSMENT_BLUEPRINT_VERSION) {
@@ -749,12 +831,23 @@ export const batchCreateQuestionsInternal = internalMutation({
                     continue;
                 }
             }
-            if (String(q.questionType || "") !== "essay") {
+            const normalizedQuestionType = normalizeQuestionType(q.questionType);
+            if (normalizedQuestionType === QUESTION_TYPE_MULTIPLE_CHOICE) {
                 const candidateSignature = buildMcqUniquenessSignature(q);
                 if (acceptedMcqSignatures.some((prior) => areMcqQuestionsNearDuplicate(candidateSignature, prior))) {
                     continue;
                 }
                 acceptedMcqSignatures.push(candidateSignature);
+            } else if (normalizedQuestionType !== "essay") {
+                const candidateSignature = buildQuestionPromptSignature(q.questionText);
+                const duplicateExists = existingQuestions
+                    .filter((question: any) => normalizeQuestionType(question?.questionType) === normalizedQuestionType)
+                    .some((question: any) =>
+                        areQuestionPromptsNearDuplicate(candidateSignature, buildQuestionPromptSignature(question?.questionText || ""))
+                    );
+                if (duplicateExists) {
+                    continue;
+                }
             }
             const id = await ctx.db.insert("questions", {
                 topicId: args.topicId,
