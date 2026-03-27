@@ -28,6 +28,14 @@ for (const snippet of dashboardExpectations) {
   }
 }
 
+if (dashboardCourseSource.includes("fileUrl: uploadUrl")) {
+  throw new Error("DashboardCourse source uploads must not pass fileUrl to uploads.createUpload.");
+}
+
+if (!dashboardCourseSource.includes("storageId,")) {
+  throw new Error("DashboardCourse source uploads must pass storageId to uploads.createUpload.");
+}
+
 const coursesExpectations = [
   "export const getCourseSources = query({",
   "export const addUploadToCourse = mutation({",

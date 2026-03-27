@@ -68,7 +68,6 @@ const SourcesPanel = ({ courseId, userId }) => {
             const uploadId = await createUpload({
                 userId,
                 fileName: file.name,
-                fileUrl: uploadUrl,
                 fileType: ext,
                 fileSize: file.size,
                 storageId,
