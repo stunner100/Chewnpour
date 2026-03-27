@@ -13,6 +13,7 @@ const [chunkRecoverySource, mainSource, convexIdSource, routeResolvedTopicSource
     read('src/pages/ConceptIntro.jsx'),
     read('src/pages/TopicDetail.jsx'),
     read('src/pages/ExamMode.jsx'),
+    read('src/pages/ConceptBuilder.jsx'),
   ]);
 
 const requiredStaleSignatures = [
@@ -57,14 +58,15 @@ const guardedPages = [
   { name: 'ConceptIntro.jsx', source: conceptIntroSource },
   { name: 'TopicDetail.jsx', source: topicDetailSource },
   { name: 'ExamMode.jsx', source: examModeSource },
+  { name: 'ConceptBuilder.jsx', source: conceptBuilderSource },
 ];
 
 for (const { name, source } of guardedPages) {
-  if (!source.includes("import { isLikelyConvexId } from '../lib/convexId';")) {
-    throw new Error(`Regression detected: ${name} no longer imports the Convex ID guard helper.`);
+  if (!source.includes("api.topics.getTopicWithQuestions")) {
+    throw new Error(`Regression detected: ${name} no longer uses the topic query.`);
   }
-  if (!source.includes('const topicId = isLikelyConvexId(normalizedTopicId) ? normalizedTopicId : \'\';')) {
-    throw new Error(`Regression detected: ${name} no longer normalizes topicId with isLikelyConvexId.`);
+  if (!source.includes("routeTopicId ? { topicId: routeTopicId } : 'skip'")) {
+    throw new Error(`Regression detected: ${name} no longer guards the topic query with routeTopicId.`);
   }
   if (!source.includes("useRouteResolvedTopic(routeTopicId, topicQueryResult)")) {
     throw new Error(`Regression detected: ${name} no longer resolves topic queries against the active route.`);

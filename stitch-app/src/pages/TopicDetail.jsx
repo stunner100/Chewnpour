@@ -24,7 +24,6 @@ import {
     slugifyText,
 } from '../lib/topicContentFormatting';
 import { resolveTopicIllustrationUrl } from '../lib/topicIllustration';
-import { isLikelyConvexId } from '../lib/convexId';
 
 // ── Pure rendering helpers (hoisted out of the component to avoid re-creation) ──
 
@@ -49,8 +48,7 @@ const isReExplainQuotaExceededError = (error) => {
 
 const TopicDetail = () => {
     const { topicId: topicIdParam } = useParams();
-    const normalizedTopicId = typeof topicIdParam === 'string' ? topicIdParam.trim() : '';
-    const topicId = isLikelyConvexId(normalizedTopicId) ? normalizedTopicId : '';
+    const routeTopicId = typeof topicIdParam === 'string' ? topicIdParam.trim() : '';
     const { user, profile, updateProfile } = useAuth();
     useStudyTimer(user?.id);
     const synthesizeTopicVoice = useAction(api.ai.synthesizeTopicVoice);
@@ -88,7 +86,7 @@ const TopicDetail = () => {
     }, [navigate]);
     const topicQueryResult = useQuery(
         api.topics.getTopicWithQuestions,
-        topicId ? { topicId } : 'skip'
+        routeTopicId ? { topicId: routeTopicId } : 'skip'
     );
     const {
         topic,
@@ -560,7 +558,7 @@ const TopicDetail = () => {
         }
     }, [topicId, reExplainStyle, reExplainTopic]);
 
-    if (!topicId) {
+    if (!routeTopicId) {
         return (
             <div className="min-h-screen flex items-center justify-center bg-background-light dark:bg-background-dark">
                 <div className="text-center max-w-sm px-6">
@@ -587,9 +585,9 @@ const TopicDetail = () => {
         return (
             <div className="min-h-screen flex items-center justify-center bg-background-light dark:bg-background-dark">
                 <div className="text-center max-w-sm px-6">
-                    <h2 className="text-body-lg font-semibold text-text-main-light dark:text-text-main-dark mb-2">Topic not found</h2>
-                    <p className="text-body-sm text-text-sub-light dark:text-text-sub-dark mb-6">We couldn&apos;t find this topic.</p>
-                    <Link to="/dashboard" className="btn-primary px-5 py-2.5 text-body-sm">Back to Dashboard</Link>
+                    <h2 className="text-body-lg font-semibold text-text-main-light dark:text-text-main-dark mb-2">This topic link is stale</h2>
+                    <p className="text-body-sm text-text-sub-light dark:text-text-sub-dark mb-6">Reload the dashboard, reopen the course, and start from the topic card again.</p>
+                    <button type="button" onClick={reloadDashboard} className="btn-primary px-5 py-2.5 text-body-sm">Reload Dashboard</button>
                 </div>
             </div>
         );

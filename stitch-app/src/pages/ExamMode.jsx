@@ -419,8 +419,7 @@ const resolvePreferredExamFormat = (value) => {
 
 const ExamMode = () => {
     const { topicId: topicIdParam } = useParams();
-    const normalizedTopicId = typeof topicIdParam === 'string' ? topicIdParam.trim() : '';
-    const topicId = isLikelyConvexId(normalizedTopicId) ? normalizedTopicId : '';
+    const routeTopicId = typeof topicIdParam === 'string' ? topicIdParam.trim() : '';
     const location = useLocation();
     const navigate = useNavigate();
     const { user } = useAuth();
@@ -437,6 +436,7 @@ const ExamMode = () => {
     const [examFormat, setExamFormat] = useState(null); // null = not chosen, 'mcq' | 'essay'
     const [gradingEssay, setGradingEssay] = useState(false);
     const [submitError, setSubmitError] = useState('');
+    const invalidRouteReportedRef = useRef('');
 
 
     // Get userId from Better Auth session
@@ -453,7 +453,7 @@ const ExamMode = () => {
     }, [navigate]);
     const topicQueryResult = useQuery(
         api.topics.getTopicWithQuestions,
-        topicId ? { topicId } : 'skip'
+        routeTopicId ? { topicId: routeTopicId } : 'skip'
     );
     const {
         topic,
@@ -540,7 +540,7 @@ const ExamMode = () => {
         resolvedPreparationRef.current = null;
         preferredFormatConsumedRef.current = false;
     }, [
-        topicId,
+        routeTopicId,
     ]);
 
     useEffect(() => {
@@ -1082,7 +1082,7 @@ const ExamMode = () => {
     }, [currentQ?.options, currentQ?.tokens]);
 
 
-    if (!topicId) {
+    if (!routeTopicId) {
         return (
             <div className="bg-background-light dark:bg-background-dark min-h-screen flex items-center justify-center">
                 <div className="text-center max-w-md px-6">
@@ -1118,11 +1118,11 @@ const ExamMode = () => {
                     <div className="w-14 h-14 rounded-2xl bg-surface-light dark:bg-surface-dark border border-border-light dark:border-border-dark flex items-center justify-center mx-auto mb-4">
                         <span className="material-symbols-outlined text-2xl text-text-faint-light dark:text-text-faint-dark">search_off</span>
                     </div>
-                    <h2 className="text-body-lg font-semibold text-text-main-light dark:text-text-main-dark mb-2">Topic not found</h2>
-                    <p className="text-body-sm text-text-sub-light dark:text-text-sub-dark mb-6">We couldn't find this topic. Please return to your dashboard.</p>
-                    <Link to="/dashboard" className="btn-primary text-body-sm px-5 py-2.5 inline-flex items-center gap-2">
-                        Back to Dashboard
-                    </Link>
+                    <h2 className="text-body-lg font-semibold text-text-main-light dark:text-text-main-dark mb-2">This exam link is stale</h2>
+                    <p className="text-body-sm text-text-sub-light dark:text-text-sub-dark mb-6">Reload the dashboard, reopen the topic, and start the exam from there.</p>
+                    <button type="button" onClick={reloadDashboard} className="btn-primary text-body-sm px-5 py-2.5 inline-flex items-center gap-2">
+                        Reload Dashboard
+                    </button>
                 </div>
             </div>
         );
