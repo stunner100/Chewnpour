@@ -4,7 +4,7 @@ import path from 'node:path';
 const root = process.cwd();
 const read = (relativePath) => fs.readFile(path.join(root, relativePath), 'utf8');
 
-const [chunkRecoverySource, mainSource, convexIdSource, conceptIntroSource, topicDetailSource, examModeSource] =
+const [chunkRecoverySource, mainSource, convexIdSource, conceptIntroSource, topicDetailSource, examModeSource, conceptBuilderSource] =
   await Promise.all([
     read('src/lib/chunkLoadRecovery.js'),
     read('src/main.jsx'),
@@ -12,6 +12,7 @@ const [chunkRecoverySource, mainSource, convexIdSource, conceptIntroSource, topi
     read('src/pages/ConceptIntro.jsx'),
     read('src/pages/TopicDetail.jsx'),
     read('src/pages/ExamMode.jsx'),
+    read('src/pages/ConceptBuilder.jsx'),
   ]);
 
 const requiredStaleSignatures = [
@@ -43,17 +44,18 @@ const guardedPages = [
   { name: 'ConceptIntro.jsx', source: conceptIntroSource },
   { name: 'TopicDetail.jsx', source: topicDetailSource },
   { name: 'ExamMode.jsx', source: examModeSource },
+  { name: 'ConceptBuilder.jsx', source: conceptBuilderSource },
 ];
 
 for (const { name, source } of guardedPages) {
-  if (!source.includes("import { isLikelyConvexId } from '../lib/convexId';")) {
-    throw new Error(`Regression detected: ${name} no longer imports the Convex ID guard helper.`);
+  if (!source.includes("api.topicRoutes.getTopicRouteState")) {
+    throw new Error(`Regression detected: ${name} no longer uses the topic route state query.`);
   }
-  if (!source.includes('const topicId = isLikelyConvexId(normalizedTopicId) ? normalizedTopicId : \'\';')) {
-    throw new Error(`Regression detected: ${name} no longer normalizes topicId with isLikelyConvexId.`);
+  if (!source.includes("routeTopicId ? { routeId: routeTopicId } : 'skip'")) {
+    throw new Error(`Regression detected: ${name} no longer guards the topic route query with routeTopicId.`);
   }
-  if (!source.includes("topicId ? { topicId } : 'skip'")) {
-    throw new Error(`Regression detected: ${name} query is no longer guarded by validated topicId.`);
+  if (source.includes("isLikelyConvexId")) {
+    throw new Error(`Regression detected: ${name} still relies on the stale Convex ID heuristic.`);
   }
 }
 
