@@ -59,6 +59,7 @@ import type * as search from "../search.js";
 import type * as subscriptions from "../subscriptions.js";
 import type * as topicChat from "../topicChat.js";
 import type * as topicNotes from "../topicNotes.js";
+import type * as topicRoutes from "../topicRoutes.js";
 import type * as topics from "../topics.js";
 import type * as uploads from "../uploads.js";
 import type * as voiceHttp from "../voiceHttp.js";
@@ -122,6 +123,7 @@ declare const fullApi: ApiFromModules<{
   subscriptions: typeof subscriptions;
   topicChat: typeof topicChat;
   topicNotes: typeof topicNotes;
+  topicRoutes: typeof topicRoutes;
   topics: typeof topics;
   uploads: typeof uploads;
   voiceHttp: typeof voiceHttp;

@@ -1,18 +1,29 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { Link, useParams } from 'react-router-dom';
+import { Link, useNavigate, useParams } from 'react-router-dom';
 import { useAction, useMutation, useQuery } from 'convex/react';
 import { api } from '../../convex/_generated/api';
 import { useAuth } from '../contexts/AuthContext';
 
 const ConceptBuilder = () => {
-    const { topicId } = useParams();
+    const { topicId: topicIdParam } = useParams();
+    const routeTopicId = typeof topicIdParam === 'string' ? topicIdParam.trim() : '';
+    const navigate = useNavigate();
     const { user } = useAuth();
     const userId = user?.id;
 
-    const topicData = useQuery(
-        api.topics.getTopicWithQuestions,
-        topicId ? { topicId } : 'skip'
+    const reloadDashboard = useCallback(() => {
+        if (typeof window !== 'undefined') {
+            window.location.assign('/dashboard');
+            return;
+        }
+        navigate('/dashboard', { replace: true });
+    }, [navigate]);
+    const topicRouteState = useQuery(
+        api.topicRoutes.getTopicRouteState,
+        routeTopicId ? { routeId: routeTopicId } : 'skip'
     );
+    const topic = topicRouteState?.status === 'resolved' ? topicRouteState.topic : null;
+    const topicId = typeof topic?._id === 'string' ? topic._id : '';
     const conceptAttempts = useQuery(
         api.concepts.getUserConceptAttempts,
         userId ? {} : 'skip'
@@ -31,7 +42,12 @@ const ConceptBuilder = () => {
     const [saveError, setSaveError] = useState('');
     const [startedAt, setStartedAt] = useState(null);
 
-    const topicTitle = topicData?.title || 'Concept Practice';
+    const topicTitle = topic?.title || 'Concept Practice';
+
+    useEffect(() => {
+        if (!routeTopicId || !topicId || routeTopicId === topicId) return;
+        navigate(`/dashboard/concept/${topicId}`, { replace: true });
+    }, [navigate, routeTopicId, topicId]);
 
     const topicAttempts = useMemo(() => {
         if (!conceptAttempts || !topicId) return [];
@@ -268,7 +284,7 @@ const ConceptBuilder = () => {
         }
     };
 
-    if (!topicId) {
+    if (!routeTopicId) {
         return (
             <div className="min-h-screen bg-background-light dark:bg-background-dark flex items-center justify-center px-4">
                 <div className="text-center max-w-md">
@@ -286,7 +302,7 @@ const ConceptBuilder = () => {
         );
     }
 
-    if (topicData === undefined || (loading && !exercise)) {
+    if (topicRouteState === undefined || (loading && !exercise)) {
         return (
             <div className="min-h-screen bg-background-light dark:bg-background-dark flex items-center justify-center">
                 <div className="text-center">
@@ -297,18 +313,18 @@ const ConceptBuilder = () => {
         );
     }
 
-    if (topicData === null) {
+    if (topicRouteState?.status !== 'resolved') {
         return (
             <div className="min-h-screen bg-background-light dark:bg-background-dark flex items-center justify-center px-4">
                 <div className="text-center max-w-md">
                     <div className="w-14 h-14 rounded-2xl bg-red-500/10 flex items-center justify-center mx-auto mb-4">
                         <span className="material-symbols-outlined text-red-500 text-[24px]">error</span>
                     </div>
-                    <h2 className="text-body-lg font-semibold text-text-main-light dark:text-text-main-dark mb-2">Topic Not Found</h2>
-                    <p className="text-body-sm text-text-sub-light dark:text-text-sub-dark mb-6">We couldn't find this topic.</p>
-                    <Link to="/dashboard" className="btn-secondary inline-flex items-center gap-2 px-6 py-2.5 text-body-sm">
-                        Back to Dashboard
-                    </Link>
+                    <h2 className="text-body-lg font-semibold text-text-main-light dark:text-text-main-dark mb-2">This concept link is stale</h2>
+                    <p className="text-body-sm text-text-sub-light dark:text-text-sub-dark mb-6">Reload the dashboard, reopen the topic, and restart concept practice from there.</p>
+                    <button type="button" onClick={reloadDashboard} className="btn-secondary inline-flex items-center gap-2 px-6 py-2.5 text-body-sm">
+                        Reload Dashboard
+                    </button>
                 </div>
             </div>
         );
@@ -343,7 +359,7 @@ const ConceptBuilder = () => {
             <header className="sticky top-0 z-40 bg-surface-light/90 dark:bg-surface-dark/90 backdrop-blur-md border-b border-border-light dark:border-border-dark">
                 <div className="max-w-4xl mx-auto px-4 py-3 flex items-center justify-between">
                     <div className="flex items-center gap-3">
-                        <Link to={`/dashboard/topic/${topicId}`} className="btn-icon w-10 h-10">
+                        <Link to={topicId ? `/dashboard/topic/${topicId}` : '/dashboard'} className="btn-icon w-10 h-10">
                             <span className="material-symbols-outlined text-[20px]">arrow_back</span>
                         </Link>
                         <div>
@@ -500,7 +516,7 @@ const ConceptBuilder = () => {
                                 <span>New Exercise</span>
                             </button>
                             <Link
-                                to={`/dashboard/topic/${topicId}`}
+                                to={topicId ? `/dashboard/topic/${topicId}` : '/dashboard'}
                                 className="btn-secondary px-4 py-3 flex items-center justify-center"
                             >
                                 <span className="material-symbols-outlined text-[18px]">arrow_back</span>

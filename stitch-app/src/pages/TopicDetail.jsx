@@ -23,7 +23,6 @@ import {
     slugifyText,
 } from '../lib/topicContentFormatting';
 import { resolveTopicIllustrationUrl } from '../lib/topicIllustration';
-import { isLikelyConvexId } from '../lib/convexId';
 
 // ── Pure rendering helpers (hoisted out of the component to avoid re-creation) ──
 
@@ -48,8 +47,7 @@ const isReExplainQuotaExceededError = (error) => {
 
 const TopicDetail = () => {
     const { topicId: topicIdParam } = useParams();
-    const normalizedTopicId = typeof topicIdParam === 'string' ? topicIdParam.trim() : '';
-    const topicId = isLikelyConvexId(normalizedTopicId) ? normalizedTopicId : '';
+    const routeTopicId = typeof topicIdParam === 'string' ? topicIdParam.trim() : '';
     const { user, profile, updateProfile } = useAuth();
     useStudyTimer(user?.id);
     const synthesizeTopicVoice = useAction(api.ai.synthesizeTopicVoice);
@@ -78,11 +76,19 @@ const TopicDetail = () => {
     const mainRef = useRef(null);
     const { selection, clearSelection } = useTextSelection(contentRef);
     const navigate = useNavigate();
-    const topicData = useQuery(
-        api.topics.getTopicWithQuestions,
-        topicId ? { topicId } : 'skip'
+    const reloadDashboard = useCallback(() => {
+        if (typeof window !== 'undefined') {
+            window.location.assign('/dashboard');
+            return;
+        }
+        navigate('/dashboard', { replace: true });
+    }, [navigate]);
+    const topicRouteState = useQuery(
+        api.topicRoutes.getTopicRouteState,
+        routeTopicId ? { routeId: routeTopicId } : 'skip'
     );
-    const topic = topicData || null;
+    const topic = topicRouteState?.status === 'resolved' ? topicRouteState.topic : null;
+    const topicId = typeof topic?._id === 'string' ? topic._id : '';
     const courseId = topic?.courseId;
     const voiceModeEnabled = Boolean(profile?.voiceModeEnabled);
     const voiceQuota = useQuery(
@@ -241,6 +247,11 @@ const TopicDetail = () => {
         if (!speechText) return;
         primeVoicePlayback(speechText);
     }, [voiceModeEnabled, isVoicePremium, speechText, primeVoicePlayback]);
+
+    useEffect(() => {
+        if (!routeTopicId || !topicId || routeTopicId === topicId) return;
+        navigate(`/dashboard/topic/${topicId}`, { replace: true });
+    }, [navigate, routeTopicId, topicId]);
 
     useEffect(() => {
         if (typeof window === 'undefined') return undefined;
@@ -547,7 +558,7 @@ const TopicDetail = () => {
         }
     }, [topicId, reExplainStyle, reExplainTopic]);
 
-    if (!topicId) {
+    if (!routeTopicId) {
         return (
             <div className="min-h-screen flex items-center justify-center bg-background-light dark:bg-background-dark">
                 <div className="text-center max-w-sm px-6">
@@ -559,7 +570,7 @@ const TopicDetail = () => {
         );
     }
 
-    if (topicData === undefined) {
+    if (topicRouteState === undefined) {
         return (
             <div className="min-h-screen flex items-center justify-center bg-background-light dark:bg-background-dark">
                 <div className="text-center">
@@ -570,13 +581,13 @@ const TopicDetail = () => {
         );
     }
 
-    if (topicData === null) {
+    if (topicRouteState?.status !== 'resolved') {
         return (
             <div className="min-h-screen flex items-center justify-center bg-background-light dark:bg-background-dark">
                 <div className="text-center max-w-sm px-6">
-                    <h2 className="text-body-lg font-semibold text-text-main-light dark:text-text-main-dark mb-2">Topic not found</h2>
-                    <p className="text-body-sm text-text-sub-light dark:text-text-sub-dark mb-6">We couldn&apos;t find this topic.</p>
-                    <Link to="/dashboard" className="btn-primary px-5 py-2.5 text-body-sm">Back to Dashboard</Link>
+                    <h2 className="text-body-lg font-semibold text-text-main-light dark:text-text-main-dark mb-2">This topic link is stale</h2>
+                    <p className="text-body-sm text-text-sub-light dark:text-text-sub-dark mb-6">Reload the dashboard, reopen the course, and start from the topic card again.</p>
+                    <button type="button" onClick={reloadDashboard} className="btn-primary px-5 py-2.5 text-body-sm">Reload Dashboard</button>
                 </div>
             </div>
         );
