@@ -8,6 +8,7 @@ const read = async (relativePath) =>
   fs.readFile(path.join(root, relativePath), 'utf8');
 
 const examsSource = await read('convex/exams.ts');
+const schemaSource = await read('convex/schema.ts');
 
 for (const pattern of [
   'const failMcqSubmission = (message: string, code = "EXAM_SUBMISSION_INVALID"): never => {',
@@ -34,6 +35,17 @@ for (const pattern of [
 ]) {
   if (!examModeSource.includes(pattern)) {
     throw new Error(`Expected src/pages/ExamMode.jsx to include "${pattern}".`);
+  }
+}
+
+for (const pattern of [
+  'premiumTargetMet: v.optional(v.boolean())',
+  'qualitySignals: v.optional(v.any())',
+  'qualityTier: v.optional(v.string())',
+  'qualityWarnings: v.optional(v.array(v.string()))',
+]) {
+  if (!schemaSource.includes(pattern)) {
+    throw new Error(`Expected convex/schema.ts to include "${pattern}".`);
   }
 }
 

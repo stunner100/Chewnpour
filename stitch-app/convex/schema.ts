@@ -318,6 +318,10 @@ export default defineSchema({
         userId: v.string(),
         topicId: v.id("topics"),
         examFormat: v.optional(v.string()), // 'mcq' | 'essay'
+        premiumTargetMet: v.optional(v.boolean()),
+        qualitySignals: v.optional(v.any()),
+        qualityTier: v.optional(v.string()),
+        qualityWarnings: v.optional(v.array(v.string())),
         score: v.number(),
         totalQuestions: v.number(),
         timeTakenSeconds: v.number(),
