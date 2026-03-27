@@ -6,6 +6,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { getSession } from '../lib/auth-client';
 import { useStudyTimer } from '../hooks/useStudyTimer';
 import { useExamTimer } from '../hooks/useExamTimer';
+import { useRouteResolvedTopic } from '../hooks/useRouteResolvedTopic';
 import { addSentryBreadcrumb, captureSentryException, captureSentryMessage } from '../lib/sentry';
 import ExamQuestionCard from '../components/ExamQuestionCard';
 
@@ -450,10 +451,18 @@ const ExamMode = () => {
         }
         navigate('/dashboard', { replace: true });
     }, [navigate]);
-    const topic = useQuery(
+    const topicQueryResult = useQuery(
         api.topics.getTopicWithQuestions,
         routeTopicId ? { topicId: routeTopicId } : 'skip'
     );
+    const {
+        topic,
+        topicId,
+        rawTopicId,
+        hasMismatchedCachedTopic,
+        isLoadingRouteTopic,
+        isMissingRouteTopic,
+    } = useRouteResolvedTopic(routeTopicId, topicQueryResult);
     const preparation = useQuery(
         api.examPreparations.getExamPreparation,
         preparationId ? { preparationId } : 'skip'
@@ -466,7 +475,6 @@ const ExamMode = () => {
     const START_EXAM_ATTEMPT_TIMEOUT_MS = 120_000;
     const EXAM_LOADING_STALL_TIMEOUT_MS = 150_000;
 
-    const topicId = typeof topic?._id === 'string' ? topic._id : '';
     const loadingExamTypeLabel = examFormat === 'essay' ? 'essay' : 'objective';
     const preparationStatus = typeof preparation?.status === 'string' ? preparation.status : '';
     const preparationStage = typeof preparation?.stage === 'string' ? preparation.stage : 'queued';
@@ -536,15 +544,7 @@ const ExamMode = () => {
     ]);
 
     useEffect(() => {
-        if (!routeTopicId || !topicId || routeTopicId === topicId) return;
-        navigate(`/dashboard/exam/${topicId}`, {
-            replace: true,
-            state: location.state,
-        });
-    }, [location.state, navigate, routeTopicId, topicId]);
-
-    useEffect(() => {
-        if (!routeTopicId || topic !== null || topic === undefined) return;
+        if (!routeTopicId || !isMissingRouteTopic) return;
         if (invalidRouteReportedRef.current === routeTopicId) return;
         invalidRouteReportedRef.current = routeTopicId;
         captureSentryMessage('Stale exam topic route encountered', {
@@ -555,11 +555,13 @@ const ExamMode = () => {
             },
             extras: {
                 routeTopicId,
+                rawTopicId,
+                hasMismatchedCachedTopic,
                 pathname: location.pathname,
                 referrer: typeof document !== 'undefined' ? document.referrer || '' : '',
             },
         });
-    }, [location.pathname, routeTopicId, topic]);
+    }, [hasMismatchedCachedTopic, isMissingRouteTopic, location.pathname, rawTopicId, routeTopicId]);
 
     const preferredFormatFromState = resolvePreferredExamFormat(location?.state?.preferredFormat);
 
@@ -825,7 +827,7 @@ const ExamMode = () => {
                     topicId,
                     userId,
                     elapsedMs,
-                    topicDataState: topic === undefined ? 'loading' : topic === null ? 'missing' : 'ready',
+                    topicDataState: isLoadingRouteTopic ? 'loading' : isMissingRouteTopic ? 'missing' : 'ready',
                     hasAttemptQuestions,
                     attemptId,
                     startingExamAttempt,
@@ -849,7 +851,8 @@ const ExamMode = () => {
         preparationId,
         preparationStage,
         preparationStatus,
-        topic,
+        isLoadingRouteTopic,
+        isMissingRouteTopic,
         topicId,
         userId,
     ]);
@@ -1097,7 +1100,7 @@ const ExamMode = () => {
     }
 
     // Loading state
-    if (topic === undefined) {
+    if (isLoadingRouteTopic) {
         return (
             <div className="bg-background-light dark:bg-background-dark min-h-screen flex items-center justify-center">
                 <div className="text-center">
@@ -1108,7 +1111,7 @@ const ExamMode = () => {
         );
     }
 
-    if (topic === null) {
+    if (isMissingRouteTopic) {
         return (
             <div className="bg-background-light dark:bg-background-dark min-h-screen flex items-center justify-center">
                 <div className="text-center max-w-md px-6">

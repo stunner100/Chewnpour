@@ -3,6 +3,7 @@ import { Link, useNavigate, useParams } from 'react-router-dom';
 import { useAction, useMutation, useQuery } from 'convex/react';
 import { api } from '../../convex/_generated/api';
 import { useAuth } from '../contexts/AuthContext';
+import { useRouteResolvedTopic } from '../hooks/useRouteResolvedTopic';
 
 const ConceptBuilder = () => {
     const { topicId: topicIdParam } = useParams();
@@ -18,11 +19,16 @@ const ConceptBuilder = () => {
         }
         navigate('/dashboard', { replace: true });
     }, [navigate]);
-    const topic = useQuery(
+    const topicQueryResult = useQuery(
         api.topics.getTopicWithQuestions,
         routeTopicId ? { topicId: routeTopicId } : 'skip'
     );
-    const topicId = typeof topic?._id === 'string' ? topic._id : '';
+    const {
+        topic,
+        topicId,
+        isLoadingRouteTopic,
+        isMissingRouteTopic,
+    } = useRouteResolvedTopic(routeTopicId, topicQueryResult);
     const conceptAttempts = useQuery(
         api.concepts.getUserConceptAttempts,
         userId ? {} : 'skip'
@@ -42,11 +48,6 @@ const ConceptBuilder = () => {
     const [startedAt, setStartedAt] = useState(null);
 
     const topicTitle = topic?.title || 'Concept Practice';
-
-    useEffect(() => {
-        if (!routeTopicId || !topicId || routeTopicId === topicId) return;
-        navigate(`/dashboard/concept/${topicId}`, { replace: true });
-    }, [navigate, routeTopicId, topicId]);
 
     const topicAttempts = useMemo(() => {
         if (!conceptAttempts || !topicId) return [];
@@ -301,7 +302,7 @@ const ConceptBuilder = () => {
         );
     }
 
-    if (topic === undefined || (loading && !exercise)) {
+    if (isLoadingRouteTopic || (loading && !exercise)) {
         return (
             <div className="min-h-screen bg-background-light dark:bg-background-dark flex items-center justify-center">
                 <div className="text-center">
@@ -312,7 +313,7 @@ const ConceptBuilder = () => {
         );
     }
 
-    if (topic === null) {
+    if (isMissingRouteTopic) {
         return (
             <div className="min-h-screen bg-background-light dark:bg-background-dark flex items-center justify-center px-4">
                 <div className="text-center max-w-md">

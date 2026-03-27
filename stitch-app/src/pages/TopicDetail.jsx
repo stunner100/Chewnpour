@@ -4,6 +4,7 @@ import { useQuery, useAction } from 'convex/react';
 import { api } from '../../convex/_generated/api';
 import { useAuth } from '../contexts/AuthContext';
 import { useStudyTimer } from '../hooks/useStudyTimer';
+import { useRouteResolvedTopic } from '../hooks/useRouteResolvedTopic';
 import { useVoicePlayback } from '../lib/useVoicePlayback';
 import TopicSettingsModal from '../components/TopicSettingsModal';
 import TopicReExplainModal from '../components/TopicReExplainModal';
@@ -83,11 +84,16 @@ const TopicDetail = () => {
         }
         navigate('/dashboard', { replace: true });
     }, [navigate]);
-    const topic = useQuery(
+    const topicQueryResult = useQuery(
         api.topics.getTopicWithQuestions,
         routeTopicId ? { topicId: routeTopicId } : 'skip'
     );
-    const topicId = typeof topic?._id === 'string' ? topic._id : '';
+    const {
+        topic,
+        topicId,
+        isLoadingRouteTopic,
+        isMissingRouteTopic,
+    } = useRouteResolvedTopic(routeTopicId, topicQueryResult);
     const courseId = topic?.courseId;
     const voiceModeEnabled = Boolean(profile?.voiceModeEnabled);
     const voiceQuota = useQuery(
@@ -246,11 +252,6 @@ const TopicDetail = () => {
         if (!speechText) return;
         primeVoicePlayback(speechText);
     }, [voiceModeEnabled, isVoicePremium, speechText, primeVoicePlayback]);
-
-    useEffect(() => {
-        if (!routeTopicId || !topicId || routeTopicId === topicId) return;
-        navigate(`/dashboard/topic/${topicId}`, { replace: true });
-    }, [navigate, routeTopicId, topicId]);
 
     useEffect(() => {
         if (typeof window === 'undefined') return undefined;
@@ -569,7 +570,7 @@ const TopicDetail = () => {
         );
     }
 
-    if (topic === undefined) {
+    if (isLoadingRouteTopic) {
         return (
             <div className="min-h-screen flex items-center justify-center bg-background-light dark:bg-background-dark">
                 <div className="text-center">
@@ -580,7 +581,7 @@ const TopicDetail = () => {
         );
     }
 
-    if (topic === null) {
+    if (isMissingRouteTopic) {
         return (
             <div className="min-h-screen flex items-center justify-center bg-background-light dark:bg-background-dark">
                 <div className="text-center max-w-sm px-6">

@@ -1,7 +1,8 @@
-import React, { useCallback, useEffect } from 'react';
+import React, { useCallback } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { useQuery } from 'convex/react';
 import { api } from '../../convex/_generated/api';
+import { useRouteResolvedTopic } from '../hooks/useRouteResolvedTopic';
 
 const ConceptIntro = () => {
     const { topicId: topicIdParam } = useParams();
@@ -14,16 +15,16 @@ const ConceptIntro = () => {
         }
         navigate('/dashboard', { replace: true });
     }, [navigate]);
-    const topic = useQuery(
+    const topicQueryResult = useQuery(
         api.topics.getTopicWithQuestions,
         routeTopicId ? { topicId: routeTopicId } : 'skip'
     );
-    const topicId = typeof topic?._id === 'string' ? topic._id : '';
-
-    useEffect(() => {
-        if (!routeTopicId || !topicId || routeTopicId === topicId) return;
-        navigate(`/dashboard/concept-intro/${topicId}`, { replace: true });
-    }, [navigate, routeTopicId, topicId]);
+    const {
+        topic,
+        topicId,
+        isLoadingRouteTopic,
+        isMissingRouteTopic,
+    } = useRouteResolvedTopic(routeTopicId, topicQueryResult);
 
     if (!routeTopicId) {
         return (
@@ -44,7 +45,7 @@ const ConceptIntro = () => {
         );
     }
 
-    if (topic === undefined) {
+    if (isLoadingRouteTopic) {
         return (
             <div className="min-h-screen bg-background-light dark:bg-background-dark flex items-center justify-center">
                 <div className="text-center">
@@ -55,7 +56,7 @@ const ConceptIntro = () => {
         );
     }
 
-    if (topic === null) {
+    if (isMissingRouteTopic) {
         return (
             <div className="min-h-screen bg-background-light dark:bg-background-dark flex items-center justify-center px-4">
                 <div className="text-center max-w-md">
