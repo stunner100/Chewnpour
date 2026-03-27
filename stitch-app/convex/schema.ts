@@ -245,27 +245,11 @@ export default defineSchema({
         examReadyUpdatedAt: v.optional(v.number()),
         mcqGenerationLockedUntil: v.optional(v.number()),
         essayGenerationLockedUntil: v.optional(v.number()),
-        assessmentBlueprint: v.optional(v.object({
-            version: v.string(),
-            outcomes: v.array(v.object({
-                key: v.string(),
-                objective: v.string(),
-                bloomLevel: v.string(),
-                evidenceFocus: v.string(),
-            })),
-            mcqPlan: v.object({
-                allowedBloomLevels: v.array(v.string()),
-                targetBloomLevels: v.array(v.string()),
-                targetOutcomeKeys: v.array(v.string()),
-            }),
-            essayPlan: v.object({
-                allowedBloomLevels: v.array(v.string()),
-                targetBloomLevels: v.array(v.string()),
-                targetOutcomeKeys: v.array(v.string()),
-                authenticScenarioRequired: v.boolean(),
-                authenticContextHint: v.optional(v.string()),
-            }),
-        })),
+        objectiveGenerationLockedUntil: v.optional(v.number()),
+        objectiveTargetCount: v.optional(v.number()),
+        usableObjectiveCount: v.optional(v.number()),
+        usableObjectiveBreakdown: v.optional(v.any()),
+        assessmentBlueprint: v.optional(v.any()),
         orderIndex: v.number(),
         isLocked: v.boolean(),
     }).index("by_courseId", ["courseId"]),
@@ -293,12 +277,25 @@ export default defineSchema({
         groundingScore: v.optional(v.number()), // 0-1
         factualityStatus: v.optional(v.string()), // 'verified' | 'rejected'
         generationVersion: v.optional(v.string()),
+        generationRunId: v.optional(v.string()),
         learningObjective: v.optional(v.string()),
         bloomLevel: v.optional(v.string()),
         outcomeKey: v.optional(v.string()),
         authenticContext: v.optional(v.string()),
+        clarityScore: v.optional(v.number()),
+        distractorScore: v.optional(v.number()),
+        diversityCluster: v.optional(v.string()),
+        freshnessBucket: v.optional(v.string()),
+        qualityScore: v.optional(v.number()),
+        qualityTier: v.optional(v.string()),
+        rigorScore: v.optional(v.number()),
         rubricPoints: v.optional(v.array(v.string())),
         qualityFlags: v.optional(v.array(v.string())),
+        // Fill-in-the-blank fields
+        tokens: v.optional(v.array(v.string())),
+        templateParts: v.optional(v.array(v.string())),
+        acceptedAnswers: v.optional(v.array(v.string())),
+        fillBlankMode: v.optional(v.string()),
     }).index("by_topicId", ["topicId"]),
 
     conceptExercises: defineTable({

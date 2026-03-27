@@ -39,6 +39,37 @@ for (const pattern of [
 }
 
 for (const pattern of [
+  'objectiveGenerationLockedUntil: v.optional(v.number())',
+  'objectiveTargetCount: v.optional(v.number())',
+  'usableObjectiveCount: v.optional(v.number())',
+  'usableObjectiveBreakdown: v.optional(v.any())',
+  'assessmentBlueprint: v.optional(v.any())',
+]) {
+  if (!schemaSource.includes(pattern)) {
+    throw new Error(`Expected convex/schema.ts to include "${pattern}".`);
+  }
+}
+
+for (const pattern of [
+  'generationRunId: v.optional(v.string())',
+  'clarityScore: v.optional(v.number())',
+  'distractorScore: v.optional(v.number())',
+  'diversityCluster: v.optional(v.string())',
+  'freshnessBucket: v.optional(v.string())',
+  'qualityScore: v.optional(v.number())',
+  'qualityTier: v.optional(v.string())',
+  'rigorScore: v.optional(v.number())',
+  'tokens: v.optional(v.array(v.string()))',
+  'templateParts: v.optional(v.array(v.string()))',
+  'acceptedAnswers: v.optional(v.array(v.string()))',
+  'fillBlankMode: v.optional(v.string())',
+]) {
+  if (!schemaSource.includes(pattern)) {
+    throw new Error(`Expected convex/schema.ts to include "${pattern}".`);
+  }
+}
+
+for (const pattern of [
   'premiumTargetMet: v.optional(v.boolean())',
   'qualitySignals: v.optional(v.any())',
   'qualityTier: v.optional(v.string())',
