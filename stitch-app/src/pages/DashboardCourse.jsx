@@ -204,9 +204,32 @@ const DashboardCourse = () => {
     const { user } = useAuth();
     const userId = user?.id;
 
-    React.useEffect(() => {
-        window.scrollTo({ top: 0, left: 0, behavior: 'auto' });
-    }, [courseId]);
+    const resetCourseScrollPosition = React.useCallback(() => {
+        if (typeof document !== 'undefined') {
+            const main = document.getElementById('dashboard-main');
+            if (main && typeof main.scrollTo === 'function') {
+                main.scrollTo({ top: 0, left: 0, behavior: 'auto' });
+            } else if (main) {
+                main.scrollTop = 0;
+            }
+        }
+        if (typeof window !== 'undefined') {
+            window.scrollTo({ top: 0, left: 0, behavior: 'auto' });
+        }
+    }, []);
+
+    React.useLayoutEffect(() => {
+        resetCourseScrollPosition();
+        if (typeof window === 'undefined') return undefined;
+
+        const frame = window.requestAnimationFrame(() => {
+            resetCourseScrollPosition();
+        });
+
+        return () => {
+            window.cancelAnimationFrame(frame);
+        };
+    }, [courseId, resetCourseScrollPosition]);
 
     const courseData = useQuery(
         api.courses.getCourseWithTopics,
