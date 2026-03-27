@@ -85,6 +85,34 @@ const applyNetworkHints = () => {
 
 const PWA_UPDATE_RELOAD_KEY = '__pwa_update_reload_ts';
 const PWA_UPDATE_RELOAD_WINDOW_MS = 30_000;
+const PWA_ENABLED_HOSTS = new Set(['www.chewnpour.com', 'chewnpour.com']);
+
+const shouldEnablePwa = () => {
+  if (!import.meta.env.PROD || typeof window === 'undefined') return false;
+  return PWA_ENABLED_HOSTS.has(window.location.hostname);
+};
+
+const clearPreviewRuntimeCaches = async () => {
+  if (typeof window === 'undefined') return;
+
+  if ('serviceWorker' in navigator) {
+    try {
+      const registrations = await navigator.serviceWorker.getRegistrations();
+      await Promise.allSettled(registrations.map((registration) => registration.unregister()));
+    } catch {
+      // Ignore cleanup failures on preview hosts.
+    }
+  }
+
+  if ('caches' in window) {
+    try {
+      const cacheKeys = await window.caches.keys();
+      await Promise.allSettled(cacheKeys.map((key) => window.caches.delete(key)));
+    } catch {
+      // Ignore cleanup failures on preview hosts.
+    }
+  }
+};
 
 const canReloadForPwaUpdate = () => {
   if (typeof window === 'undefined') return false;
@@ -121,7 +149,12 @@ const triggerPwaUpdateReload = (updateServiceWorker) => {
 };
 
 const registerServiceWorker = () => {
-  if (!import.meta.env.PROD || typeof window === 'undefined') return;
+  if (typeof window === 'undefined' || !import.meta.env.PROD) return;
+
+  if (!shouldEnablePwa()) {
+    void clearPreviewRuntimeCaches();
+    return;
+  }
 
   let updateServiceWorker = null;
   updateServiceWorker = registerSW({
