@@ -4,6 +4,7 @@ import { useQuery, useAction } from 'convex/react';
 import { api } from '../../convex/_generated/api';
 import { useAuth } from '../contexts/AuthContext';
 import { useStudyTimer } from '../hooks/useStudyTimer';
+import { useRouteResolvedTopic } from '../hooks/useRouteResolvedTopic';
 import { useVoicePlayback } from '../lib/useVoicePlayback';
 import TopicSettingsModal from '../components/TopicSettingsModal';
 import TopicReExplainModal from '../components/TopicReExplainModal';
@@ -78,11 +79,23 @@ const TopicDetail = () => {
     const mainRef = useRef(null);
     const { selection, clearSelection } = useTextSelection(contentRef);
     const navigate = useNavigate();
-    const topicData = useQuery(
+    const reloadDashboard = useCallback(() => {
+        if (typeof window !== 'undefined') {
+            window.location.assign('/dashboard');
+            return;
+        }
+        navigate('/dashboard', { replace: true });
+    }, [navigate]);
+    const topicQueryResult = useQuery(
         api.topics.getTopicWithQuestions,
         topicId ? { topicId } : 'skip'
     );
-    const topic = topicData || null;
+    const {
+        topic,
+        topicId,
+        isLoadingRouteTopic,
+        isMissingRouteTopic,
+    } = useRouteResolvedTopic(routeTopicId, topicQueryResult);
     const courseId = topic?.courseId;
     const voiceModeEnabled = Boolean(profile?.voiceModeEnabled);
     const voiceQuota = useQuery(
@@ -559,7 +572,7 @@ const TopicDetail = () => {
         );
     }
 
-    if (topicData === undefined) {
+    if (isLoadingRouteTopic) {
         return (
             <div className="min-h-screen flex items-center justify-center bg-background-light dark:bg-background-dark">
                 <div className="text-center">
@@ -570,7 +583,7 @@ const TopicDetail = () => {
         );
     }
 
-    if (topicData === null) {
+    if (isMissingRouteTopic) {
         return (
             <div className="min-h-screen flex items-center justify-center bg-background-light dark:bg-background-dark">
                 <div className="text-center max-w-sm px-6">

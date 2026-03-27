@@ -1,19 +1,32 @@
-import React from 'react';
-import { Link, useParams } from 'react-router-dom';
+import React, { useCallback } from 'react';
+import { Link, useNavigate, useParams } from 'react-router-dom';
 import { useQuery } from 'convex/react';
 import { api } from '../../convex/_generated/api';
-import { isLikelyConvexId } from '../lib/convexId';
+import { useRouteResolvedTopic } from '../hooks/useRouteResolvedTopic';
 
 const ConceptIntro = () => {
     const { topicId: topicIdParam } = useParams();
-    const normalizedTopicId = typeof topicIdParam === 'string' ? topicIdParam.trim() : '';
-    const topicId = isLikelyConvexId(normalizedTopicId) ? normalizedTopicId : '';
-    const topic = useQuery(
+    const routeTopicId = typeof topicIdParam === 'string' ? topicIdParam.trim() : '';
+    const navigate = useNavigate();
+    const reloadDashboard = useCallback(() => {
+        if (typeof window !== 'undefined') {
+            window.location.assign('/dashboard');
+            return;
+        }
+        navigate('/dashboard', { replace: true });
+    }, [navigate]);
+    const topicQueryResult = useQuery(
         api.topics.getTopicWithQuestions,
         topicId ? { topicId } : 'skip'
     );
+    const {
+        topic,
+        topicId,
+        isLoadingRouteTopic,
+        isMissingRouteTopic,
+    } = useRouteResolvedTopic(routeTopicId, topicQueryResult);
 
-    if (!topicId) {
+    if (!routeTopicId) {
         return (
             <div className="min-h-screen bg-background-light dark:bg-background-dark flex items-center justify-center px-4">
                 <div className="text-center max-w-md">
@@ -32,7 +45,7 @@ const ConceptIntro = () => {
         );
     }
 
-    if (topic === undefined) {
+    if (isLoadingRouteTopic) {
         return (
             <div className="min-h-screen bg-background-light dark:bg-background-dark flex items-center justify-center">
                 <div className="text-center">
@@ -43,7 +56,7 @@ const ConceptIntro = () => {
         );
     }
 
-    if (topic === null) {
+    if (isMissingRouteTopic) {
         return (
             <div className="min-h-screen bg-background-light dark:bg-background-dark flex items-center justify-center px-4">
                 <div className="text-center max-w-md">

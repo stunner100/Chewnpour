@@ -3,16 +3,30 @@ import { Link, useParams } from 'react-router-dom';
 import { useAction, useMutation, useQuery } from 'convex/react';
 import { api } from '../../convex/_generated/api';
 import { useAuth } from '../contexts/AuthContext';
+import { useRouteResolvedTopic } from '../hooks/useRouteResolvedTopic';
 
 const ConceptBuilder = () => {
     const { topicId } = useParams();
     const { user } = useAuth();
     const userId = user?.id;
 
-    const topicData = useQuery(
+    const reloadDashboard = useCallback(() => {
+        if (typeof window !== 'undefined') {
+            window.location.assign('/dashboard');
+            return;
+        }
+        navigate('/dashboard', { replace: true });
+    }, [navigate]);
+    const topicQueryResult = useQuery(
         api.topics.getTopicWithQuestions,
         topicId ? { topicId } : 'skip'
     );
+    const {
+        topic,
+        topicId,
+        isLoadingRouteTopic,
+        isMissingRouteTopic,
+    } = useRouteResolvedTopic(routeTopicId, topicQueryResult);
     const conceptAttempts = useQuery(
         api.concepts.getUserConceptAttempts,
         userId ? {} : 'skip'
@@ -31,7 +45,7 @@ const ConceptBuilder = () => {
     const [saveError, setSaveError] = useState('');
     const [startedAt, setStartedAt] = useState(null);
 
-    const topicTitle = topicData?.title || 'Concept Practice';
+    const topicTitle = topic?.title || 'Concept Practice';
 
     const topicAttempts = useMemo(() => {
         if (!conceptAttempts || !topicId) return [];
@@ -286,7 +300,7 @@ const ConceptBuilder = () => {
         );
     }
 
-    if (topicData === undefined || (loading && !exercise)) {
+    if (isLoadingRouteTopic || (loading && !exercise)) {
         return (
             <div className="min-h-screen bg-background-light dark:bg-background-dark flex items-center justify-center">
                 <div className="text-center">
@@ -297,7 +311,7 @@ const ConceptBuilder = () => {
         );
     }
 
-    if (topicData === null) {
+    if (isMissingRouteTopic) {
         return (
             <div className="min-h-screen bg-background-light dark:bg-background-dark flex items-center justify-center px-4">
                 <div className="text-center max-w-md">

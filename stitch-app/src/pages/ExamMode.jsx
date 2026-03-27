@@ -6,7 +6,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { getSession } from '../lib/auth-client';
 import { useStudyTimer } from '../hooks/useStudyTimer';
 import { useExamTimer } from '../hooks/useExamTimer';
-import { isLikelyConvexId } from '../lib/convexId';
+import { useRouteResolvedTopic } from '../hooks/useRouteResolvedTopic';
 import { addSentryBreadcrumb, captureSentryException, captureSentryMessage } from '../lib/sentry';
 import ExamQuestionCard from '../components/ExamQuestionCard';
 
@@ -444,10 +444,25 @@ const ExamMode = () => {
     useStudyTimer(userId);
 
     // Convex queries and mutations
-    const topicData = useQuery(
+    const reloadDashboard = useCallback(() => {
+        if (typeof window !== 'undefined') {
+            window.location.assign('/dashboard');
+            return;
+        }
+        navigate('/dashboard', { replace: true });
+    }, [navigate]);
+    const topicQueryResult = useQuery(
         api.topics.getTopicWithQuestions,
         topicId ? { topicId } : 'skip'
     );
+    const {
+        topic,
+        topicId,
+        rawTopicId,
+        hasMismatchedCachedTopic,
+        isLoadingRouteTopic,
+        isMissingRouteTopic,
+    } = useRouteResolvedTopic(routeTopicId, topicQueryResult);
     const preparation = useQuery(
         api.examPreparations.getExamPreparation,
         preparationId ? { preparationId } : 'skip'
@@ -460,7 +475,6 @@ const ExamMode = () => {
     const START_EXAM_ATTEMPT_TIMEOUT_MS = 120_000;
     const EXAM_LOADING_STALL_TIMEOUT_MS = 150_000;
 
-    const topic = topicData;
     const loadingExamTypeLabel = examFormat === 'essay' ? 'essay' : 'objective';
     const preparationStatus = typeof preparation?.status === 'string' ? preparation.status : '';
     const preparationStage = typeof preparation?.stage === 'string' ? preparation.stage : 'queued';
@@ -528,6 +542,26 @@ const ExamMode = () => {
     }, [
         topicId,
     ]);
+
+    useEffect(() => {
+        if (!routeTopicId || !isMissingRouteTopic) return;
+        if (invalidRouteReportedRef.current === routeTopicId) return;
+        invalidRouteReportedRef.current = routeTopicId;
+        captureSentryMessage('Stale exam topic route encountered', {
+            level: 'warning',
+            tags: {
+                area: 'exam_route',
+                page: 'exam_mode',
+            },
+            extras: {
+                routeTopicId,
+                rawTopicId,
+                hasMismatchedCachedTopic,
+                pathname: location.pathname,
+                referrer: typeof document !== 'undefined' ? document.referrer || '' : '',
+            },
+        });
+    }, [hasMismatchedCachedTopic, isMissingRouteTopic, location.pathname, rawTopicId, routeTopicId]);
 
     const preferredFormatFromState = resolvePreferredExamFormat(location?.state?.preferredFormat);
 
@@ -793,7 +827,7 @@ const ExamMode = () => {
                     topicId,
                     userId,
                     elapsedMs,
-                    topicDataState: topicData === undefined ? 'loading' : topicData === null ? 'missing' : 'ready',
+                    topicDataState: isLoadingRouteTopic ? 'loading' : isMissingRouteTopic ? 'missing' : 'ready',
                     hasAttemptQuestions,
                     attemptId,
                     startingExamAttempt,
@@ -817,7 +851,8 @@ const ExamMode = () => {
         preparationId,
         preparationStage,
         preparationStatus,
-        topicData,
+        isLoadingRouteTopic,
+        isMissingRouteTopic,
         topicId,
         userId,
     ]);
@@ -1065,7 +1100,7 @@ const ExamMode = () => {
     }
 
     // Loading state
-    if (topicData === undefined) {
+    if (isLoadingRouteTopic) {
         return (
             <div className="bg-background-light dark:bg-background-dark min-h-screen flex items-center justify-center">
                 <div className="text-center">
@@ -1076,7 +1111,7 @@ const ExamMode = () => {
         );
     }
 
-    if (topicData === null) {
+    if (isMissingRouteTopic) {
         return (
             <div className="bg-background-light dark:bg-background-dark min-h-screen flex items-center justify-center">
                 <div className="text-center max-w-md px-6">
