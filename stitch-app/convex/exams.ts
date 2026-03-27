@@ -82,6 +82,13 @@ const buildDeferredStartResponse = (examFormat: string, message?: string) => {
     };
 };
 
+const failMcqSubmission = (message: string, code = "EXAM_SUBMISSION_INVALID"): never => {
+    throw new ConvexError({
+        code,
+        message,
+    });
+};
+
 
 export const requestEssayQuestionTopUp = mutation({
     args: {
@@ -371,116 +378,135 @@ export const submitExamAttempt = mutation({
         timeTakenSeconds: v.number(),
     },
     handler: async (ctx, args) => {
-        const identity = await ctx.auth.getUserIdentity();
-        const authUserId = resolveAuthUserId(identity);
-        assertAuthorizedUser({ authUserId });
+        try {
+            const identity = await ctx.auth.getUserIdentity();
+            const authUserId = resolveAuthUserId(identity);
+            assertAuthorizedUser({ authUserId });
 
-        const attempt = await ctx.db.get(args.attemptId);
-        if (!attempt) {
-            throw new Error("Exam attempt not found");
-        }
-        assertAuthorizedUser({ authUserId, resourceOwnerUserId: attempt.userId });
+            const attempt = await ctx.db.get(args.attemptId);
+            if (!attempt) {
+                failMcqSubmission("Exam attempt not found.", "EXAM_ATTEMPT_NOT_FOUND");
+            }
+            assertAuthorizedUser({ authUserId, resourceOwnerUserId: attempt.userId });
 
-        // Idempotency guard — if already submitted, return existing result
-        const existingAnswers = Array.isArray(attempt.answers) ? attempt.answers : [];
-        if (existingAnswers.length > 0) {
-            return {
-                score: attempt.score || 0,
-                totalQuestions: attempt.totalQuestions || 0,
-                percentage: computeExamPercentage({
+            // Idempotency guard — if already submitted, return existing result
+            const existingAnswers = Array.isArray(attempt.answers) ? attempt.answers : [];
+            if (existingAnswers.length > 0) {
+                return {
                     score: attempt.score || 0,
                     totalQuestions: attempt.totalQuestions || 0,
-                    fallbackTotal: existingAnswers.length,
-                }),
-                timeTakenSeconds: attempt.timeTakenSeconds || 0,
-            };
-        }
-
-        // Validate and clamp timeTakenSeconds
-        const safeTimeTaken = Math.max(0, Math.min(86400, Math.round(args.timeTakenSeconds || 0)));
-
-        // Calculate score
-        let correctCount = 0;
-        const gradedAnswers = [];
-        ensureUniqueAnswerQuestionIds(args.answers);
-        const attemptQuestionIds = new Set((attempt.questionIds || []).map((id) => String(id)));
-        const enforceSubset = attemptQuestionIds.size > 0;
-
-        for (const answer of args.answers) {
-            if (enforceSubset && !attemptQuestionIds.has(String(answer.questionId))) {
-                throw new Error("Submitted answers include questions outside this exam attempt.");
-            }
-            const question = await ctx.db.get(answer.questionId);
-            if (!question) {
-                throw new Error("One or more submitted questions could not be found.");
-            }
-            if (question.topicId !== attempt.topicId) {
-                throw new Error("Submitted answers include questions outside this topic.");
+                    percentage: computeExamPercentage({
+                        score: attempt.score || 0,
+                        totalQuestions: attempt.totalQuestions || 0,
+                        fallbackTotal: existingAnswers.length,
+                    }),
+                    timeTakenSeconds: attempt.timeTakenSeconds || 0,
+                };
             }
 
-            const answered = typeof answer.selectedAnswer === "string" && answer.selectedAnswer.trim() !== "";
-            const correctAnswer = String(question?.correctAnswer || "");
-            const selectedNorm = answer.selectedAnswer.trim().toLowerCase();
-            const correctNorm = correctAnswer.trim().toLowerCase();
-            // Exact match for normal MCQ (label like "A"), or case-insensitive
-            // match for fill-in-the-blank text answers including accepted variants.
-            const acceptedAnswers: string[] = Array.isArray((question as any)?.acceptedAnswers)
-                ? (question as any).acceptedAnswers
-                : [];
-            const isCorrect = answered && (
-                correctAnswer === answer.selectedAnswer
-                || correctNorm === selectedNorm
-                || acceptedAnswers.some((aa: string) => String(aa).trim().toLowerCase() === selectedNorm)
-            );
-            if (isCorrect) correctCount++;
+            // Validate and clamp timeTakenSeconds
+            const safeTimeTaken = Math.max(0, Math.min(86400, Math.round(args.timeTakenSeconds || 0)));
 
-            gradedAnswers.push({
-                questionId: answer.questionId,
-                selectedAnswer: answered ? answer.selectedAnswer : "",
-                correctAnswer: question?.correctAnswer,
-                isCorrect,
-                skipped: !answered,
-            });
-        }
+            // Calculate score
+            let correctCount = 0;
+            const gradedAnswers = [];
+            try {
+                ensureUniqueAnswerQuestionIds(args.answers);
+            } catch {
+                failMcqSubmission("Please submit at most one answer per question.");
+            }
+            const attemptQuestionIds = new Set((attempt.questionIds || []).map((id) => String(id)));
+            const enforceSubset = attemptQuestionIds.size > 0;
 
-        // Add entries for unanswered questions (skipped by user)
-        if (enforceSubset) {
-            const answeredIds = new Set(args.answers.map((a: any) => String(a.questionId)));
-            for (const qId of attempt.questionIds || []) {
-                if (!answeredIds.has(String(qId))) {
-                    const question = await safeGetQuestionById(ctx, qId);
-                    gradedAnswers.push({
-                        questionId: String(qId),
-                        selectedAnswer: "",
-                        correctAnswer: question?.correctAnswer || "",
-                        isCorrect: false,
-                        skipped: true,
-                    });
+            for (const answer of args.answers) {
+                if (enforceSubset && !attemptQuestionIds.has(String(answer.questionId))) {
+                    failMcqSubmission("This exam session is out of sync. Please restart the exam and try again.");
+                }
+                const question = await safeGetQuestionById(ctx, answer.questionId);
+                if (!question) {
+                    failMcqSubmission("One or more questions from this exam could not be found. Please restart the exam.");
+                }
+                if (question.topicId !== attempt.topicId) {
+                    failMcqSubmission("This exam session is out of sync. Please restart the exam and try again.");
+                }
+                if (String(question.questionType || "").toLowerCase() === "essay") {
+                    failMcqSubmission("This exam session is out of sync. Please restart the exam in multiple-choice mode.");
+                }
+
+                const answered = typeof answer.selectedAnswer === "string" && answer.selectedAnswer.trim() !== "";
+                const correctAnswer = String(question?.correctAnswer || "");
+                const selectedNorm = answer.selectedAnswer.trim().toLowerCase();
+                const correctNorm = correctAnswer.trim().toLowerCase();
+                // Exact match for normal MCQ (label like "A"), or case-insensitive
+                // match for fill-in-the-blank text answers including accepted variants.
+                const acceptedAnswers: string[] = Array.isArray((question as any)?.acceptedAnswers)
+                    ? (question as any).acceptedAnswers
+                    : [];
+                const isCorrect = answered && (
+                    correctAnswer === answer.selectedAnswer
+                    || correctNorm === selectedNorm
+                    || acceptedAnswers.some((aa: string) => String(aa).trim().toLowerCase() === selectedNorm)
+                );
+                if (isCorrect) correctCount++;
+
+                gradedAnswers.push({
+                    questionId: answer.questionId,
+                    selectedAnswer: answered ? answer.selectedAnswer : "",
+                    correctAnswer: question?.correctAnswer,
+                    isCorrect,
+                    skipped: !answered,
+                });
+            }
+
+            // Add entries for unanswered questions (skipped by user)
+            if (enforceSubset) {
+                const answeredIds = new Set(args.answers.map((a: any) => String(a.questionId)));
+                for (const qId of attempt.questionIds || []) {
+                    if (!answeredIds.has(String(qId))) {
+                        const question = await safeGetQuestionById(ctx, qId);
+                        gradedAnswers.push({
+                            questionId: String(qId),
+                            selectedAnswer: "",
+                            correctAnswer: question?.correctAnswer || "",
+                            isCorrect: false,
+                            skipped: true,
+                        });
+                    }
                 }
             }
-        }
 
-        // Update the attempt
-        await ctx.db.patch(args.attemptId, {
-            score: correctCount,
-            timeTakenSeconds: safeTimeTaken,
-            answers: gradedAnswers,
-        });
+            // Update the attempt
+            await ctx.db.patch(args.attemptId, {
+                score: correctCount,
+                timeTakenSeconds: safeTimeTaken,
+                answers: gradedAnswers,
+            });
 
-        // Get the attempt to return
-        const totalQuestions = attempt.totalQuestions || (attempt.questionIds?.length ?? args.answers.length);
+            // Get the attempt to return
+            const totalQuestions = attempt.totalQuestions || (attempt.questionIds?.length ?? args.answers.length);
 
-        return {
-            score: correctCount,
-            totalQuestions,
-            percentage: computeExamPercentage({
+            return {
                 score: correctCount,
                 totalQuestions,
-                fallbackTotal: args.answers.length,
-            }),
-            timeTakenSeconds: safeTimeTaken,
-            gradedAnswers,
-        };
+                percentage: computeExamPercentage({
+                    score: correctCount,
+                    totalQuestions,
+                    fallbackTotal: args.answers.length,
+                }),
+                timeTakenSeconds: safeTimeTaken,
+                gradedAnswers,
+            };
+        } catch (error) {
+            if (error instanceof ConvexError) {
+                throw error;
+            }
+            throw new ConvexError({
+                code: "EXAM_SUBMISSION_FAILED",
+                message: error instanceof Error && error.message.trim()
+                    ? error.message
+                    : "We couldn't submit this exam right now. Please restart the exam and try again.",
+            });
+        }
     },
 });
 

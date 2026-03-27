@@ -353,9 +353,13 @@ const isUserCorrectableEssaySubmitError = (message) => {
     if (!normalized) return false;
     return (
         normalized.includes('restart the exam') ||
+        normalized.includes('out of sync') ||
         normalized.includes('essay mode') ||
+        normalized.includes('multiple-choice mode') ||
         normalized.includes('could not grade your essay right now') ||
         normalized.includes('duplicate questions') ||
+        normalized.includes('at most one answer per question') ||
+        normalized.includes('could not be found') ||
         normalized.includes('at least one question') ||
         normalized.includes('answer all essay questions')
     );
@@ -847,6 +851,7 @@ const ExamMode = () => {
             const message = resolveConvexActionError(error, 'Failed to submit exam. Please try again.');
             const authError = isConvexAuthenticationError(error) || isLikelyPostDisconnectAuthError(error);
             const transientTransportError = isTransientExamTransportError(error, message);
+            const recoverableError = isRecoverableExamSubmitError({ error, message });
             if (authError) {
                 const { refreshed, expired } = await refreshAuthSessionQuietly();
                 setSubmitError(
@@ -867,6 +872,21 @@ const ExamMode = () => {
                         operation: 'submit_exam_attempt',
                         authError: authError ? 'yes' : 'no',
                         transientTransportError: transientTransportError ? 'yes' : 'no',
+                    },
+                    extras: {
+                        topicId,
+                        attemptId,
+                        message,
+                        answerCount: answers.length,
+                        timeTakenSeconds: timeTaken,
+                    },
+                });
+            } else if (recoverableError) {
+                captureSentryMessage('Exam submission rejected by validation', {
+                    level: 'warning',
+                    tags: {
+                        area: 'exam',
+                        operation: 'submit_exam_attempt',
                     },
                     extras: {
                         topicId,
