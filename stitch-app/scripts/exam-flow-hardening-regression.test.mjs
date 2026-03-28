@@ -91,6 +91,12 @@ if (!/ctx\.scheduler\.runAfter\(0,\s*internal\.examPreparations\.runExamPreparat
 if (!/resolveAssessmentCapacity/.test(preparationsSource)) {
   throw new Error('Expected exam preparations to resolve dynamic attempt and bank counts through the shared capacity helper.');
 }
+if (!/const canCreateFreshPreparationFromCurrentBank\s*=\s*usableQuestionCount >= capacity\.attemptTargetCount/.test(preparationsSource)) {
+  throw new Error('Expected exam preparations to detect when the current bank is already large enough to replace stale terminal preparations.');
+}
+if (!/if \(preparation\.status === "failed" \|\| preparation\.status === "unavailable"\) \{\s*if \(canCreateFreshPreparationFromCurrentBank\) \{\s*continue;/s.test(preparationsSource)) {
+  throw new Error('Expected stale failed or unavailable preparations to be bypassed when the current bank can now start a fresh exam.');
+}
 if (!/await ctx\.runAction\(internal\.ai\.generateEssayQuestionsForTopicOnDemandInternal/.test(preparationsSource)) {
   throw new Error('Expected essay preparation to trigger only the requested on-demand essay generator.');
 }

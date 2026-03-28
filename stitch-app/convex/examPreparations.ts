@@ -182,6 +182,18 @@ export const createOrReusePreparationInternal = internalMutation({
             });
         }
 
+        const usableQuestionCount = Number(
+            examFormat === "essay" ? topic.usableEssayCount : topic.usableMcqCount
+        ) || 0;
+        const capacity = resolvePreparationCapacity({
+            topic,
+            examFormat,
+            topicTargetCount: examFormat === "essay" ? topic.essayTargetCount : topic.mcqTargetCount,
+            usableQuestionCount,
+        });
+        const canCreateFreshPreparationFromCurrentBank =
+            usableQuestionCount >= capacity.attemptTargetCount;
+
         const existingPreparations = await ctx.db
             .query("examPreparations")
             .withIndex("by_userId_topicId_examFormat", (q) =>
@@ -222,6 +234,9 @@ export const createOrReusePreparationInternal = internalMutation({
             }
 
             if (preparation.status === "failed" || preparation.status === "unavailable") {
+                if (canCreateFreshPreparationFromCurrentBank) {
+                    continue;
+                }
                 return {
                     created: false,
                     preparationId: preparation._id,
@@ -231,12 +246,6 @@ export const createOrReusePreparationInternal = internalMutation({
             }
         }
 
-        const capacity = resolvePreparationCapacity({
-            topic,
-            examFormat,
-            topicTargetCount: examFormat === "essay" ? topic.essayTargetCount : topic.mcqTargetCount,
-            usableQuestionCount: examFormat === "essay" ? topic.usableEssayCount : topic.usableMcqCount,
-        });
         const preparationId = await ctx.db.insert("examPreparations", {
             userId: effectiveUserId,
             topicId: args.topicId,
