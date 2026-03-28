@@ -2,6 +2,16 @@ import { v } from "convex/values";
 import { internalMutation, mutation, query } from "./_generated/server";
 import { internal } from "./_generated/api";
 
+const resolveCourseIdFromRoute = (ctx: any, routeId: unknown) => {
+    const normalizedRouteId = typeof routeId === "string" ? routeId.trim() : "";
+    if (!normalizedRouteId) return null;
+    try {
+        return ctx.db.normalizeId("courses", normalizedRouteId);
+    } catch {
+        return null;
+    }
+};
+
 // Get all courses for a user
 export const getUserCourses = query({
     args: { userId: v.optional(v.string()) },
@@ -54,14 +64,17 @@ export const getUserCourses = query({
 
 // Get single course with its topics
 export const getCourseWithTopics = query({
-    args: { courseId: v.id("courses") },
+    args: { courseId: v.string() },
     handler: async (ctx, args) => {
-        const course = await ctx.db.get(args.courseId);
+        const courseId = resolveCourseIdFromRoute(ctx, args.courseId);
+        if (!courseId) return null;
+
+        const course = await ctx.db.get(courseId);
         if (!course) return null;
 
         const topics = await ctx.db
             .query("topics")
-            .withIndex("by_courseId", (q) => q.eq("courseId", args.courseId))
+            .withIndex("by_courseId", (q) => q.eq("courseId", courseId))
             .order("asc")
             .collect();
 
@@ -103,15 +116,18 @@ export const createCourse = mutation({
 
 // Get all source uploads for a course
 export const getCourseSources = query({
-    args: { courseId: v.id("courses") },
+    args: { courseId: v.string() },
     handler: async (ctx, args) => {
-        const course = await ctx.db.get(args.courseId);
+        const courseId = resolveCourseIdFromRoute(ctx, args.courseId);
+        if (!courseId) return [];
+
+        const course = await ctx.db.get(courseId);
         if (!course) return [];
 
         // Check join table first
         const links = await ctx.db
             .query("courseUploads")
-            .withIndex("by_courseId", (q) => q.eq("courseId", args.courseId))
+            .withIndex("by_courseId", (q) => q.eq("courseId", courseId))
             .collect();
 
         if (links.length > 0) {

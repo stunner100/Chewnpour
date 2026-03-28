@@ -6,20 +6,6 @@ const root = process.cwd();
 const topicDetailPath = path.join(root, 'src', 'pages', 'TopicDetail.jsx');
 const source = await fs.readFile(topicDetailPath, 'utf8');
 
-const startPattern = /const handleStartExam = async \((?:preferredFormat = 'mcq')?\) => \{/;
-const endMarker = '\n\n    if (!topicId) {';
-const startIndex = source.search(startPattern);
-if (startIndex === -1) {
-  throw new Error('Expected TopicDetail to define handleStartExam.');
-}
-
-const endIndex = source.indexOf(endMarker, startIndex);
-if (endIndex === -1) {
-  throw new Error('Unable to isolate handleStartExam in TopicDetail.');
-}
-
-const handleStartExamSource = source.slice(startIndex, endIndex);
-
 for (const forbiddenPattern of [
   /await\s+generateQuestions\(\{\s*topicId\s*\}\)/,
   /generateQuestions\(\{\s*topicId\s*\}\)/,
@@ -28,13 +14,17 @@ for (const forbiddenPattern of [
   /topicQuizStartReady/,
   /topicEssayStartReady/,
 ]) {
-  if (forbiddenPattern.test(handleStartExamSource)) {
+  if (forbiddenPattern.test(source)) {
     throw new Error('Regression detected: TopicDetail Start Exam should not do format-specific generation or readiness checks.');
   }
 }
 
-if (!/navigate\(`\/dashboard\/exam\/\$\{topicId\}`\);/.test(handleStartExamSource)) {
-  throw new Error('Expected handleStartExam to navigate directly to ExamMode.');
+if (!source.includes('const examRoute = topicId ? `/dashboard/exam/${topicId}` : \'/dashboard\';')) {
+  throw new Error('Expected TopicDetail Start Exam CTA to compute a direct exam route.');
+}
+
+if (!source.includes('reloadDocument')) {
+  throw new Error('Expected TopicDetail Start Exam CTA to use hard document navigation.');
 }
 
 console.log('topic-detail-exam-start-nonblocking-regression.test.mjs passed');

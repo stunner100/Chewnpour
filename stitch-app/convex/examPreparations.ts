@@ -9,6 +9,16 @@ import {
 import { ASSESSMENT_BLUEPRINT_VERSION } from "./lib/assessmentBlueprint.js";
 import { resolveAssessmentCapacity } from "./lib/questionBankConfig.js";
 
+const resolveTopicIdFromRoute = (ctx: any, routeId: unknown) => {
+    const normalizedRouteId = typeof routeId === "string" ? routeId.trim() : "";
+    if (!normalizedRouteId) return null;
+    try {
+        return ctx.db.normalizeId("topics", normalizedRouteId);
+    } catch {
+        return null;
+    }
+};
+
 const resolveRequestedExamFormat = (value: unknown) =>
     String(value || "").trim().toLowerCase() === "essay" ? "essay" : "mcq";
 
@@ -563,7 +573,7 @@ export const runExamPreparationInternal = internalAction({
 export const startExamPreparation = action({
     args: {
         userId: v.optional(v.string()),
-        topicId: v.id("topics"),
+        topicId: v.string(),
         examFormat: v.optional(v.string()),
     },
     handler: async (ctx, args) => {
@@ -573,11 +583,18 @@ export const startExamPreparation = action({
             authUserId,
             requestedUserId: args.userId,
         });
+        const topicId = resolveTopicIdFromRoute(ctx, args.topicId);
+        if (!topicId) {
+            throw new ConvexError({
+                code: "TOPIC_NOT_FOUND",
+                message: "Topic not found.",
+            });
+        }
         const examFormat = resolveRequestedExamFormat(args.examFormat);
 
         const result = await ctx.runMutation(internal.examPreparations.createOrReusePreparationInternal, {
             userId: effectiveUserId,
-            topicId: args.topicId,
+            topicId,
             examFormat,
             assessmentVersion: ASSESSMENT_BLUEPRINT_VERSION,
         });

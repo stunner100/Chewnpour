@@ -53,8 +53,6 @@ const TopicDetail = () => {
     useStudyTimer(user?.id);
     const synthesizeTopicVoice = useAction(api.ai.synthesizeTopicVoice);
     const reExplainTopic = useAction(api.ai.reExplainTopic);
-    const [startingExam, setStartingExam] = useState(false);
-    const [startExamError, setStartExamError] = useState('');
     const [reExplainOpen, setReExplainOpen] = useState(false);
     const [reExplainStyle, setReExplainStyle] = useState("Teach me like I'm 12");
     const [reExplainLoading, setReExplainLoading] = useState(false);
@@ -516,23 +514,7 @@ const TopicDetail = () => {
         return { blocks, toc };
     }, [normalizedContent]);
 
-    const handleStartExam = async () => {
-        if (!topicId) {
-            setStartExamError('Topic not found. Please return to the dashboard and try again.');
-            return;
-        }
-
-        setStartExamError('');
-        setStartingExam(true);
-
-        try {
-            navigate(`/dashboard/exam/${topicId}`);
-        } catch {
-            setStartExamError('Failed to start the exam. Please try again.');
-        } finally {
-            setStartingExam(false);
-        }
-    };
+    const examRoute = topicId ? `/dashboard/exam/${topicId}` : '/dashboard';
 
     const handleReExplain = useCallback(async () => {
         if (!topicId) return;
@@ -724,19 +706,15 @@ const TopicDetail = () => {
                                     <span className="material-symbols-outlined text-[18px] text-accent-emerald">school</span>
                                     Study Concepts
                                 </Link>
-                                <button
-                                    onClick={handleStartExam}
-                                    disabled={startingExam}
-                                    className="btn-primary px-5 py-2.5 text-body-sm gap-2 disabled:opacity-50"
+                                <Link
+                                    to={examRoute}
+                                    reloadDocument
+                                    className="btn-primary px-5 py-2.5 text-body-sm gap-2"
                                 >
                                     <span className="material-symbols-outlined text-[18px]">quiz</span>
-                                    {startingExam ? 'Preparing...' : 'Start Exam'}
-                                </button>
+                                    Start Exam
+                                </Link>
                             </div>
-
-                            {startExamError && (
-                                <p className="mt-4 text-caption text-red-500">{startExamError}</p>
-                            )}
                         </div>
                     </div>
 

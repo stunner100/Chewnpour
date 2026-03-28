@@ -408,13 +408,6 @@ const isUserCorrectableEssaySubmitError = (message) => {
     );
 };
 
-const resolvePreferredExamFormat = (value) => {
-    const normalized = String(value || '').trim().toLowerCase();
-    if (normalized === 'essay') return 'essay';
-    if (normalized === 'mcq') return 'mcq';
-    return '';
-};
-
 // ── Component ──
 
 const ExamMode = () => {
@@ -499,7 +492,6 @@ const ExamMode = () => {
     const handleSubmitRef = useRef(() => { });
     const submittingRef = useRef(false);
     const resolvedPreparationRef = useRef(null);
-    const preferredFormatConsumedRef = useRef(false);
 
     // Optimized timer: only re-renders when the displayed second changes
     const {
@@ -538,7 +530,6 @@ const ExamMode = () => {
         setGradingEssay(false);
         setSubmitError('');
         resolvedPreparationRef.current = null;
-        preferredFormatConsumedRef.current = false;
     }, [
         routeTopicId,
     ]);
@@ -562,18 +553,6 @@ const ExamMode = () => {
             },
         });
     }, [hasMismatchedCachedTopic, isMissingRouteTopic, location.pathname, rawTopicId, routeTopicId]);
-
-    const preferredFormatFromState = resolvePreferredExamFormat(location?.state?.preferredFormat);
-
-    useEffect(() => {
-        if (preferredFormatConsumedRef.current || examFormat || !preferredFormatFromState) {
-            return;
-        }
-        preferredFormatConsumedRef.current = true;
-        setStartExamError('');
-        setPreparationId(null);
-        setExamFormat(preferredFormatFromState);
-    }, [examFormat, preferredFormatFromState]);
 
     const withTimeout = useCallback((promise, timeoutMs, timeoutMessage) => {
         let timeoutHandle;
