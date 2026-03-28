@@ -132,6 +132,21 @@ const loadPreparationWithAttemptSnapshot = async (ctx: any, preparationId: any) 
     };
 };
 
+export const resolveTopicRouteIdInternal = internalQuery({
+    args: {
+        topicId: v.string(),
+    },
+    handler: async (ctx, args) => {
+        const topicId = resolveTopicIdFromRoute(ctx, args.topicId);
+        if (!topicId) {
+            return null;
+        }
+
+        const topic = await ctx.db.get(topicId);
+        return topic?._id || null;
+    },
+});
+
 export const getPreparationInternal = internalQuery({
     args: {
         preparationId: v.id("examPreparations"),
@@ -583,7 +598,9 @@ export const startExamPreparation = action({
             authUserId,
             requestedUserId: args.userId,
         });
-        const topicId = resolveTopicIdFromRoute(ctx, args.topicId);
+        const topicId = await ctx.runQuery(internal.examPreparations.resolveTopicRouteIdInternal, {
+            topicId: args.topicId,
+        });
         if (!topicId) {
             throw new ConvexError({
                 code: "TOPIC_NOT_FOUND",

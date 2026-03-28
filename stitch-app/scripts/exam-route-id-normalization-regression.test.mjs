@@ -48,8 +48,12 @@ if (!/export const startExamPreparation = action\(\{\s*args:\s*\{[\s\S]*topicId:
   throw new Error('Expected startExamPreparation to accept a string topic route id.');
 }
 
-if (!/const topicId = resolveTopicIdFromRoute\(ctx, args\.topicId\);/.test(examPreparationsSource)) {
-  throw new Error('Expected startExamPreparation to normalize the route topic id before preparation.');
+if (!/export const resolveTopicRouteIdInternal = internalQuery\(\{\s*args:\s*\{\s*topicId:\s*v\.string\(\)/s.test(examPreparationsSource)) {
+  throw new Error('Expected an internal query to normalize string topic route ids for the action path.');
+}
+
+if (!/const topicId = await ctx\.runQuery\(internal\.examPreparations\.resolveTopicRouteIdInternal, \{\s*topicId:\s*args\.topicId,\s*\}\);/s.test(examPreparationsSource)) {
+  throw new Error('Expected startExamPreparation to resolve route topic ids through an internal query before preparation.');
 }
 
 if (!/code:\s*"TOPIC_NOT_FOUND"/.test(examPreparationsSource)) {
