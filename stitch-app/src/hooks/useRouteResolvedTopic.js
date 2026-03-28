@@ -1,10 +1,12 @@
 import { useEffect, useMemo, useState } from 'react';
+import { isStaleTopicRouteLookupError } from '../lib/chunkLoadRecovery.js';
 
 const STALE_ROUTE_CACHE_TIMEOUT_MS = 300;
 const ROUTE_TOPIC_RESOLUTION_TIMEOUT_MS = 3000;
 
 export const useRouteResolvedTopic = (routeTopicId, topicQueryResult) => {
     const [timedOutRouteKey, setTimedOutRouteKey] = useState('');
+    const [failedRouteKey, setFailedRouteKey] = useState('');
 
     const rawTopicId = typeof topicQueryResult?._id === 'string'
         ? topicQueryResult._id
@@ -39,8 +41,38 @@ export const useRouteResolvedTopic = (routeTopicId, topicQueryResult) => {
         return () => window.clearTimeout(timeoutId);
     }, [hasMismatchedCachedTopic, routeResolutionKey, routeTopic, routeTopicId, topicQueryResult]);
 
+    useEffect(() => {
+        if (typeof window === 'undefined' || !routeTopicId) {
+            return undefined;
+        }
+
+        const markRouteFailed = (errorLike) => {
+            if (!isStaleTopicRouteLookupError(errorLike)) return;
+            setFailedRouteKey(routeResolutionKey);
+        };
+
+        const handleError = (event) => {
+            markRouteFailed(event?.error || event?.message);
+        };
+        const handleUnhandledRejection = (event) => {
+            markRouteFailed(event?.reason);
+        };
+
+        window.addEventListener('error', handleError);
+        window.addEventListener('unhandledrejection', handleUnhandledRejection);
+
+        return () => {
+            window.removeEventListener('error', handleError);
+            window.removeEventListener('unhandledrejection', handleUnhandledRejection);
+        };
+    }, [routeResolutionKey, routeTopicId]);
+
     const routeLookupTimedOut = timedOutRouteKey === routeResolutionKey;
-    const isMissingRouteTopic = Boolean(routeTopicId) && (topicQueryResult === null || routeLookupTimedOut) && !routeTopic;
+    const routeLookupFailed = failedRouteKey === routeResolutionKey;
+    const isMissingRouteTopic =
+        Boolean(routeTopicId)
+        && (topicQueryResult === null || routeLookupTimedOut || routeLookupFailed)
+        && !routeTopic;
     const isLoadingRouteTopic = Boolean(routeTopicId) && !routeTopic && !isMissingRouteTopic;
 
     return {

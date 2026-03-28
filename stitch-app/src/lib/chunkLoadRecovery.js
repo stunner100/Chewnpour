@@ -9,6 +9,11 @@ const STALE_CONVEX_CALL_SIGNATURES = [
     /subscriptions:getVoiceGenerationQuotaStatus/i,
     /topics:getTopicWithQuestions/i,
 ];
+const STALE_TOPIC_ROUTE_LOOKUP_PATTERN = /topics:getTopicWithQuestions/i;
+const STALE_TOPIC_ROUTE_VALIDATION_PATTERN =
+    /ArgumentValidationError|validator\s+`?v\.id\("topics"\)`?|does not match the table name in validator/i;
+const STALE_TOPIC_ROUTE_PATH_PATTERN =
+    /^\/dashboard\/(?:exam|topic|concept-intro|concept)(?:\/|$)/i;
 
 const getErrorMessage = (errorLike) => {
     if (!errorLike) return '';
@@ -42,6 +47,16 @@ export const isStaleConvexClientError = (errorLike) => {
     if (!CONVEX_SERVER_ERROR_SIGNATURE_PATTERN.test(message)) return false;
     return STALE_CONVEX_CALL_SIGNATURES.some((pattern) => pattern.test(message));
 };
+
+export const isStaleTopicRouteLookupError = (errorLike) => {
+    const message = normalizeMessage(errorLike);
+    if (!message) return false;
+    if (!STALE_TOPIC_ROUTE_LOOKUP_PATTERN.test(message)) return false;
+    return STALE_TOPIC_ROUTE_VALIDATION_PATTERN.test(message);
+};
+
+export const isStaleTopicRoutePathname = (pathname) =>
+    STALE_TOPIC_ROUTE_PATH_PATTERN.test(String(pathname || ''));
 
 const toScopeKey = (scope) => {
     const normalizedScope = String(scope || 'global').trim().toLowerCase();
@@ -109,5 +124,13 @@ export const attemptChunkRecoveryReload = (scope) => {
         window.location.reload();
     });
 
+    return true;
+};
+
+export const redirectForStaleTopicRoute = () => {
+    if (typeof window === 'undefined') return false;
+    if (!isStaleTopicRoutePathname(window.location.pathname)) return false;
+    if (!canAttemptChunkRecoveryReload('stale-topic-route')) return false;
+    window.location.replace('/dashboard');
     return true;
 };

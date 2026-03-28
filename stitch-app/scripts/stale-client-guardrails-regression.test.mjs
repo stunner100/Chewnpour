@@ -37,6 +37,10 @@ if (!/onNeedRefresh\(\)\s*{[\s\S]*triggerPwaUpdateReload\(updateServiceWorker\);
   throw new Error('Regression detected: onNeedRefresh no longer triggers forced SW update reload.');
 }
 
+if (!mainSource.includes('isStaleTopicRouteLookupError') || !mainSource.includes('redirectForStaleTopicRoute')) {
+  throw new Error('Regression detected: main.jsx no longer wires stale topic route recovery.');
+}
+
 if (!convexIdSource.includes('const CONVEX_ID_PATTERN = /^[a-z0-9]{32}$/;')) {
   throw new Error('Regression detected: Convex ID guard pattern changed unexpectedly.');
 }
@@ -45,13 +49,24 @@ const routeGuardSnippets = [
   'const STALE_ROUTE_CACHE_TIMEOUT_MS = 300;',
   'const ROUTE_TOPIC_RESOLUTION_TIMEOUT_MS = 3000;',
   'const hasMismatchedCachedTopic = Boolean(routeTopicId && rawTopicId && rawTopicId !== routeTopicId);',
-  'const isMissingRouteTopic = Boolean(routeTopicId) && (topicQueryResult === null || routeLookupTimedOut) && !routeTopic;',
+  'const routeLookupFailed = failedRouteKey === routeResolutionKey;',
+  '&& (topicQueryResult === null || routeLookupTimedOut || routeLookupFailed)',
+  "import { isStaleTopicRouteLookupError } from '../lib/chunkLoadRecovery.js';",
+  'window.addEventListener(\'unhandledrejection\', handleUnhandledRejection);',
 ];
 
 for (const snippet of routeGuardSnippets) {
   if (!routeResolvedTopicSource.includes(snippet)) {
     throw new Error(`Regression detected: route topic guard missing snippet: ${snippet}`);
   }
+}
+
+if (!chunkRecoverySource.includes('export const isStaleTopicRouteLookupError = (errorLike) => {')) {
+  throw new Error('Regression detected: chunk recovery no longer identifies stale topic route lookup errors.');
+}
+
+if (!chunkRecoverySource.includes('window.location.replace(\'/dashboard\');')) {
+  throw new Error('Regression detected: stale topic route redirect no longer targets the dashboard.');
 }
 
 const guardedPages = [
