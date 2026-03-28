@@ -4,7 +4,12 @@ import { registerSW } from 'virtual:pwa-register';
 import './index.css';
 import AppErrorBoundary from './components/AppErrorBoundary.jsx';
 import AppProviders from './bootstrap/AppProviders.jsx';
-import { attemptChunkRecoveryReload, isChunkLoadError } from './lib/chunkLoadRecovery.js';
+import {
+  attemptChunkRecoveryReload,
+  isChunkLoadError,
+  isStaleTopicRouteLookupError,
+  redirectForStaleTopicRoute,
+} from './lib/chunkLoadRecovery.js';
 import { convexSiteUrl } from './lib/convex-config.js';
 import { initSentry } from './lib/sentry.js';
 import { initPostHog } from './lib/posthog.js';
@@ -171,12 +176,26 @@ const installChunkLoadRecovery = () => {
   });
 
   window.addEventListener('error', (event) => {
+    if (isStaleTopicRouteLookupError(event?.error || event?.message)) {
+      event?.preventDefault?.();
+      if (redirectForStaleTopicRoute()) {
+        return;
+      }
+    }
+
     if (isChunkLoadError(event?.error || event?.message)) {
       attemptChunkRecoveryReload();
     }
   });
 
   window.addEventListener('unhandledrejection', (event) => {
+    if (isStaleTopicRouteLookupError(event?.reason)) {
+      event?.preventDefault?.();
+      if (redirectForStaleTopicRoute()) {
+        return;
+      }
+    }
+
     if (isChunkLoadError(event?.reason)) {
       event?.preventDefault?.();
       attemptChunkRecoveryReload();

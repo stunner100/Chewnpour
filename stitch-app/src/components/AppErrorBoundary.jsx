@@ -1,8 +1,10 @@
 import { Component } from 'react';
 import {
     attemptChunkRecoveryReload,
+    redirectForStaleTopicRoute,
     isChunkLoadError,
     isStaleConvexClientError,
+    isStaleTopicRouteLookupError,
 } from '../lib/chunkLoadRecovery.js';
 import { captureSentryException } from '../lib/sentry.js';
 
@@ -18,6 +20,10 @@ class AppErrorBoundary extends Component {
 
     componentDidCatch(error, errorInfo) {
         if (isChunkLoadError(error) && attemptChunkRecoveryReload('chunk-load')) {
+            return;
+        }
+
+        if (isStaleTopicRouteLookupError(error) && redirectForStaleTopicRoute()) {
             return;
         }
 
