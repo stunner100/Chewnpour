@@ -365,20 +365,98 @@ export const selectQuestionsForAttempt = ({
         });
     }
 
+    const bankCapacityTarget = Math.max(targetSize, Math.max(0, Number(bankTargetCount || 0)));
+    const bankExhausted = dedupedQuestions.length >= bankCapacityTarget;
+
     if (!normalizedBlueprint) {
+        const evaluateLegacyCandidatePool = (candidateQuestions, { preserveOrder = false } = {}) => {
+            const selectedQuestions = preserveOrder
+                ? candidateQuestions.slice(0, targetSize)
+                : pickExamSubset(candidateQuestions, targetSize, Boolean(isEssay), effectiveFormat);
+            return {
+                selectedQuestions,
+                coverageEvaluation: {
+                    ready: selectedQuestions.length >= targetSize,
+                },
+            };
+        };
+
+        if (completedAttemptCount === 0) {
+            const initialSelection = evaluateLegacyCandidatePool(dedupedQuestions);
+            const selectionReady = initialSelection.selectedQuestions.length >= targetSize;
+            return buildSelectionResult({
+                selectedQuestions: initialSelection.selectedQuestions,
+                dedupedQuestions,
+                unseenQuestions,
+                completedAttemptCount,
+                seenQuestionIds,
+                coverageEvaluation: initialSelection.coverageEvaluation,
+                requiresGeneration: !selectionReady && !bankExhausted,
+                unavailableReason: selectionReady
+                    ? undefined
+                    : bankExhausted
+                        ? "INSUFFICIENT_READY_QUESTIONS"
+                        : undefined,
+            });
+        }
+
+        const unseenSelection = evaluateLegacyCandidatePool(unseenQuestions);
+        const unseenSelectionReady = unseenSelection.selectedQuestions.length >= targetSize;
+        if (unseenSelectionReady) {
+            return buildSelectionResult({
+                selectedQuestions: unseenSelection.selectedQuestions,
+                dedupedQuestions,
+                unseenQuestions,
+                completedAttemptCount,
+                seenQuestionIds,
+                coverageEvaluation: unseenSelection.coverageEvaluation,
+                requiresGeneration: false,
+            });
+        }
+
+        if (!bankExhausted) {
+            return buildSelectionResult({
+                selectedQuestions: unseenSelection.selectedQuestions,
+                dedupedQuestions,
+                unseenQuestions,
+                completedAttemptCount,
+                seenQuestionIds,
+                coverageEvaluation: unseenSelection.coverageEvaluation,
+                requiresGeneration: true,
+            });
+        }
+
+        const seenQuestionsByStaleness = dedupedQuestions
+            .filter((question) => seenQuestionIds.has(String(question?._id)))
+            .sort((left, right) => {
+                const leftRank = questionLastSeenOrder.get(String(left?._id)) ?? Infinity;
+                const rightRank = questionLastSeenOrder.get(String(right?._id)) ?? Infinity;
+                if (leftRank !== rightRank) {
+                    return rightRank - leftRank;
+                }
+                return compareQuestionsByPremiumQuality(left, right);
+            });
+        const recycledSelection = evaluateLegacyCandidatePool(
+            [...unseenQuestions, ...seenQuestionsByStaleness],
+            { preserveOrder: true }
+        );
+        const recycledSelectionReady = recycledSelection.selectedQuestions.length >= targetSize;
+        const recycledSelectionCanStart = recycledSelection.selectedQuestions.length > 0;
+
         return buildSelectionResult({
-            selectedQuestions: [],
+            selectedQuestions: recycledSelection.selectedQuestions,
             dedupedQuestions,
             unseenQuestions,
             completedAttemptCount,
             seenQuestionIds,
-            coverageEvaluation: null,
-            requiresGeneration: true,
+            coverageEvaluation: recycledSelection.coverageEvaluation,
+            requiresGeneration: false,
+            unavailableReason: recycledSelectionReady || recycledSelectionCanStart
+                ? undefined
+                : "INSUFFICIENT_READY_QUESTIONS",
         });
     }
 
-    const bankCapacityTarget = Math.max(targetSize, Math.max(0, Number(bankTargetCount || 0)));
-    const bankExhausted = dedupedQuestions.length >= bankCapacityTarget;
     const coverageTargetPolicy = evaluateSelectionCoverage({
         blueprint: normalizedBlueprint,
         examFormat: effectiveFormat,

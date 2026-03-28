@@ -183,4 +183,33 @@ const seenAttemptSelection = selectQuestionsForAttempt({
 assert.equal(seenAttemptSelection.selectedQuestions.length, 10);
 assert.equal(seenAttemptSelection.completedAttemptCount, 1);
 
+const legacyBankSelection = selectQuestionsForAttempt({
+    questions: [
+        {
+            _id: "legacy-mcq-1",
+            topicId: "legacy-topic",
+            questionType: QUESTION_TYPE_MULTIPLE_CHOICE,
+            questionText: "What is the term for a marriage where one man has multiple wives?",
+            difficulty: "medium",
+            options: [
+                { label: "A", text: "Monogamy", isCorrect: false },
+                { label: "B", text: "Polygyny", isCorrect: true },
+                { label: "C", text: "Polyandry", isCorrect: false },
+                { label: "D", text: "Polyamory", isCorrect: false },
+            ],
+            correctAnswer: "B",
+        },
+    ],
+    recentAttempts: [],
+    subsetSize: 1,
+    isEssay: false,
+    examFormat: OBJECTIVE_EXAM_FORMAT,
+    assessmentBlueprint: null,
+    bankTargetCount: 1,
+});
+
+assert.equal(legacyBankSelection.selectedQuestions.length, 1);
+assert.equal(legacyBankSelection.requiresGeneration, false);
+assert.equal(legacyBankSelection.unavailableReason, undefined);
+
 console.log("objective-selection-regression.test.mjs passed");
