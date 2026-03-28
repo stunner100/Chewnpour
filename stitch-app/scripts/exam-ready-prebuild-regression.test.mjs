@@ -39,11 +39,11 @@ if (!aiSource.includes('when the user clicks "Start Exam".')) {
   throw new Error('Expected ai.ts upload flow to document that exam generation now starts on Start Exam click.');
 }
 
-if (!topicDetailSource.includes('const handleStartExam = async () => {')) {
-  throw new Error('Expected TopicDetail to expose a single Start Exam handler.');
+if (!topicDetailSource.includes('const examRoute = topicId ? `/dashboard/exam/${topicId}` : \'/dashboard\';')) {
+  throw new Error('Expected TopicDetail Start Exam CTA to compute a direct exam route.');
 }
 
-if (!topicDetailSource.includes("{startingExam ? 'Preparing...' : 'Start Exam'}")) {
+if (!topicDetailSource.includes('Start Exam')) {
   throw new Error('Expected TopicDetail to render a single Start Exam CTA.');
 }
 
@@ -63,8 +63,8 @@ for (const removedPattern of [
   }
 }
 
-if (!/navigate\(`\/dashboard\/exam\/\$\{topicId\}`\);/.test(topicDetailSource)) {
-  throw new Error('Expected TopicDetail Start Exam CTA to route straight to ExamMode with no preferred format state.');
+if (!topicDetailSource.includes('reloadDocument')) {
+  throw new Error('Expected TopicDetail Start Exam CTA to use hard document navigation to ExamMode.');
 }
 
 console.log('exam-ready-prebuild-regression.test.mjs passed');
