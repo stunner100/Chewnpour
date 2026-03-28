@@ -29,12 +29,16 @@ for (const signature of requiredStaleSignatures) {
   }
 }
 
-if (!mainSource.includes('const triggerPwaUpdateReload = (updateServiceWorker) =>')) {
-  throw new Error('Regression detected: PWA update reload helper missing.');
-}
-
-if (!/onNeedRefresh\(\)\s*{[\s\S]*triggerPwaUpdateReload\(updateServiceWorker\);/.test(mainSource)) {
-  throw new Error('Regression detected: onNeedRefresh no longer triggers forced SW update reload.');
+for (const snippet of [
+  'const clearLegacyPwaRuntime = () => {',
+  'navigator.serviceWorker.getRegistrations()',
+  'registration.unregister()',
+  'window.caches.keys()',
+  'window.location.replace(window.location.href);',
+]) {
+  if (!mainSource.includes(snippet)) {
+    throw new Error(`Regression detected: stale PWA cleanup missing snippet: ${snippet}`);
+  }
 }
 
 if (!mainSource.includes('isStaleTopicRouteLookupError') || !mainSource.includes('redirectForStaleTopicRoute')) {
