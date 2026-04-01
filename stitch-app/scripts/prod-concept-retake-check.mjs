@@ -83,14 +83,9 @@ const absolutizeUrl = (href) => {
 };
 
 const openConceptBuilder = async () => {
-  const studyConceptLink = page.getByRole('link', { name: /study concepts/i }).first();
+  const studyConceptLink = page.getByRole('link', { name: /concept practice|study concepts/i }).first();
   await studyConceptLink.waitFor({ timeout: 30000 });
   await studyConceptLink.click();
-  await page.waitForURL(/\/dashboard\/concept-intro\//, { timeout: 30000 });
-
-  const conceptCtaLink = page.locator('a[href*="/dashboard/concept/"]').first();
-  await conceptCtaLink.waitFor({ timeout: 30000 });
-  await conceptCtaLink.click({ force: true });
   await page.waitForURL(/\/dashboard\/concept\//, { timeout: 45000 });
 };
 
@@ -153,11 +148,11 @@ const completeExercise = async () => {
   }
 
   await checkButton.click({ timeout: 10000 });
-  await page.getByRole('button', { name: /new exercise/i }).waitFor({ timeout: 30000 });
+  await page.getByRole('button', { name: /next item|finish session/i }).waitFor({ timeout: 30000 });
 };
 
-const clickNewExerciseAndWait = async () => {
-  await page.getByRole('button', { name: /new exercise/i }).click({ timeout: 10000 });
+const clickContinueAndWait = async () => {
+  await page.getByRole('button', { name: /next item|finish session/i }).click({ timeout: 10000 });
   return waitForExerciseReady();
 };
 
@@ -222,7 +217,7 @@ try {
   }
 
   await completeExercise();
-  const round2 = await clickNewExerciseAndWait();
+  const round2 = await clickContinueAndWait();
   result.rounds.push({ round: 2, ...round2 });
   if (seen.has(round2.signature)) result.duplicateDetected = true;
   const round2QuestionKey = round2.questionText.toLowerCase().trim();
@@ -232,7 +227,7 @@ try {
   await screenshot('05-round-2');
 
   await completeExercise();
-  const round3 = await clickNewExerciseAndWait();
+  const round3 = await clickContinueAndWait();
   result.rounds.push({ round: 3, ...round3 });
   if (seen.has(round3.signature)) result.duplicateDetected = true;
   const round3QuestionKey = round3.questionText.toLowerCase().trim();
