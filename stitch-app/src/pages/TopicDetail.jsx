@@ -718,11 +718,11 @@ const TopicDetail = () => {
 
                             <div className="flex flex-col sm:flex-row gap-2.5 justify-center">
                                 <Link
-                                    to={topicId ? `/dashboard/concept-intro/${topicId}` : '/dashboard/concept-intro'}
+                                    to={topicId ? `/dashboard/concept/${topicId}` : '/dashboard/concept'}
                                     className="btn-secondary px-5 py-2.5 text-body-sm gap-2"
                                 >
                                     <span className="material-symbols-outlined text-[18px] text-accent-emerald">school</span>
-                                    Study Concepts
+                                    Concept Practice
                                 </Link>
                                 <button
                                     onClick={handleStartExam}
