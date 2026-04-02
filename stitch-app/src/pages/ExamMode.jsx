@@ -8,6 +8,7 @@ import { useStudyTimer } from '../hooks/useStudyTimer';
 import { useExamTimer } from '../hooks/useExamTimer';
 import { useRouteResolvedTopic } from '../hooks/useRouteResolvedTopic';
 import { addSentryBreadcrumb, captureSentryException, captureSentryMessage } from '../lib/sentry';
+import { getExamPreparationLoadingState } from '../lib/examPreparationEta';
 import ExamQuestionCard from '../components/ExamQuestionCard';
 
 // ── Pure option-parsing helpers (hoisted out of the component) ──
@@ -500,6 +501,7 @@ const ExamMode = () => {
     const submittingRef = useRef(false);
     const resolvedPreparationRef = useRef(null);
     const preferredFormatConsumedRef = useRef(false);
+    const [preparationElapsedMs, setPreparationElapsedMs] = useState(0);
 
     // Optimized timer: only re-renders when the displayed second changes
     const {
@@ -881,6 +883,48 @@ const ExamMode = () => {
         beginExamAttempt,
     ]);
 
+    const shouldShowPreparationLoadingState =
+        !startExamError
+        && !examStarted
+        && !attemptId
+        && questions.length === 0
+        && (startingExamAttempt || isPreparationRunning);
+    const preparationStartedAt = useMemo(() => {
+        const backendStartedAt = Number(preparation?.startedAt || 0);
+        if (backendStartedAt > 0) {
+            return backendStartedAt;
+        }
+        const localStartedAt = Number(examFlowStartTimeRef.current || 0);
+        if (localStartedAt > 0) {
+            return localStartedAt;
+        }
+        return Date.now();
+    }, [preparation?.startedAt]);
+    const effectivePreparationStage = isPreparationRunning ? preparationStage : 'queued';
+    const preparationLoadingState = useMemo(
+        () => getExamPreparationLoadingState({
+            examFormat: examFormat || 'mcq',
+            stage: effectivePreparationStage,
+            elapsedMs: preparationElapsedMs,
+        }),
+        [effectivePreparationStage, examFormat, preparationElapsedMs],
+    );
+
+    useEffect(() => {
+        if (!shouldShowPreparationLoadingState) {
+            setPreparationElapsedMs(0);
+            return undefined;
+        }
+
+        const updateElapsed = () => {
+            setPreparationElapsedMs(Math.max(0, Date.now() - preparationStartedAt));
+        };
+
+        updateElapsed();
+        const intervalId = window.setInterval(updateElapsed, 1000);
+        return () => window.clearInterval(intervalId);
+    }, [preparationStartedAt, shouldShowPreparationLoadingState]);
+
     // Timer managed by useExamTimer hook above
 
     const handleAnswerSelect = useCallback((questionId, answer) => {
@@ -1200,6 +1244,36 @@ const ExamMode = () => {
                             <p className="text-body-sm text-text-sub-light dark:text-text-sub-dark mb-6">
                                 {activePreparationMessage}
                             </p>
+
+                            <div className="flex items-start justify-between gap-4 mb-4 text-left">
+                                <div className="min-w-0">
+                                    <p className="text-caption uppercase tracking-[0.18em] text-text-faint-light dark:text-text-faint-dark mb-1">
+                                        ETA
+                                    </p>
+                                    <p className="text-body-base font-semibold text-text-main-light dark:text-text-main-dark">
+                                        {preparationLoadingState.etaLabel}
+                                    </p>
+                                </div>
+                                <div className="min-w-0 flex-1 text-right">
+                                    <p className="text-caption uppercase tracking-[0.18em] text-text-faint-light dark:text-text-faint-dark mb-1">
+                                        Progress
+                                    </p>
+                                    <p className="text-body-sm text-text-sub-light dark:text-text-sub-dark">
+                                        {preparationLoadingState.detailLabel}
+                                    </p>
+                                </div>
+                            </div>
+
+                            <div className="w-full h-2 bg-border-light dark:bg-border-dark rounded-full overflow-hidden mb-2">
+                                <div
+                                    className="h-full bg-primary transition-all duration-500"
+                                    style={{ width: `${preparationLoadingState.progressPercent}%` }}
+                                ></div>
+                            </div>
+                            <div className="flex items-center justify-between text-caption text-text-faint-light dark:text-text-faint-dark mb-6">
+                                <span>{preparationLoadingState.progressPercent}% complete</span>
+                                <span>{preparationLoadingState.helperLabel}</span>
+                            </div>
 
                             <p className="text-caption uppercase tracking-[0.18em] text-text-faint-light dark:text-text-faint-dark mb-4">
                                 {PREPARATION_STAGE_LABELS[preparationStage] || 'Preparing exam'}
