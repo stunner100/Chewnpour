@@ -1,6 +1,7 @@
 import { ConvexError, v } from "convex/values";
 import {
     action,
+    internalAction,
     internalMutation,
     internalQuery,
     mutation,
@@ -45,9 +46,12 @@ const PAYMENT_PROVIDER_KEY = "paymentProvider";
 const PAYMENT_PROVIDER_PAYSTACK = "paystack";
 const PAYMENT_PROVIDER_MANUAL = "manual";
 const PAYMENT_PROVIDER_FALLBACK_BY_DEFAULT = PAYMENT_PROVIDER_PAYSTACK;
+const APP_NAME = "ChewnPour";
+const BOOTSTRAP_BILLING_ALERT_EMAILS = ["patrickannor35@gmail.com"];
 const PAYSTACK_BASE_URL = String(process.env.PAYSTACK_BASE_URL || "https://api.paystack.co").replace(/\/+$/, "");
 const PAYSTACK_SECRET_KEY = String(process.env.PAYSTACK_SECRET_KEY || "").trim();
 const PAYSTACK_WEBHOOK_FORWARD_SECRET = String(process.env.PAYSTACK_WEBHOOK_FORWARD_SECRET || "").trim();
+const RESEND_API_KEY = String(process.env.RESEND_API_KEY || "").trim();
 const APP_BASE_URL = String(
     process.env.APP_BASE_URL
     || process.env.FRONTEND_URL
@@ -61,6 +65,27 @@ const PAYSTACK_TIMEOUT_MS = (() => {
 const PAYMENT_PROVIDER_ENV_DEFAULT = String(process.env.PAYMENT_PROVIDER || PAYMENT_PROVIDER_FALLBACK_BY_DEFAULT)
     .trim()
     .toLowerCase();
+const PAYMENT_RECONCILE_DELAY_MS = 10 * 60 * 1000;
+const PAYMENT_RECONCILE_MIN_AGE_MS = 15 * 60 * 1000;
+const PAYMENT_RECONCILE_RETRY_INTERVAL_MS = 60 * 60 * 1000;
+const PAYMENT_NOT_FOUND_FINALIZE_AFTER_MS = 6 * 60 * 60 * 1000;
+const PAYMENT_RECONCILE_BATCH_LIMIT = 25;
+const PAYMENT_VERIFY_ERROR_ALERT_ATTEMPTS = 3;
+const PAYMENT_VERIFY_ERROR_ALERT_MIN_AGE_MS = 2 * 60 * 60 * 1000;
+
+const parseCommaSeparated = (value: string | undefined, transform?: (item: string) => string) => {
+    if (!value) return [];
+    return value
+        .split(",")
+        .map((item) => item.trim())
+        .filter(Boolean)
+        .map((item) => (transform ? transform(item) : item));
+};
+
+const normalizeEmail = (value: unknown) =>
+    typeof value === "string" && value.trim()
+        ? value.trim().toLowerCase()
+        : "";
 
 const resolvePaymentProvider = (value: unknown) => {
     const candidate = String(value || "").trim().toLowerCase();
@@ -80,6 +105,18 @@ const readPaymentProviderSetting = async (ctx: { db: any }) => {
     return resolvePaymentProvider(PAYMENT_PROVIDER_ENV_DEFAULT);
 };
 
+const buildBillingAlertRecipients = (dynamicAdminEmails: unknown[] = []) => {
+    return Array.from(
+        new Set(
+            [
+                ...BOOTSTRAP_BILLING_ALERT_EMAILS,
+                ...parseCommaSeparated(process.env.ADMIN_EMAILS, normalizeEmail),
+                ...dynamicAdminEmails.map((value) => normalizeEmail(value)),
+            ].filter(Boolean)
+        )
+    );
+};
+
 const toNonNegativeInt = (value: unknown) => {
     const parsed = Number(value);
     if (!Number.isFinite(parsed)) return 0;
@@ -87,6 +124,47 @@ const toNonNegativeInt = (value: unknown) => {
 };
 
 const normalizeCurrency = (value: unknown) => String(value || "").trim().toUpperCase();
+const normalizePaymentStatus = (value: unknown) => String(value || "").trim().toLowerCase();
+const normalizeVerificationStatus = (value: unknown) => String(value || "").trim().toLowerCase();
+const truncateMessage = (value: unknown, maxLength = 280) => {
+    const normalized = String(value || "").replace(/\s+/g, " ").trim();
+    if (!normalized) return "";
+    return normalized.length > maxLength ? `${normalized.slice(0, maxLength - 1)}…` : normalized;
+};
+
+const resolvePaymentCreatedAtMs = (payment: any) =>
+    toNonNegativeInt(payment?.createdAt) || toNonNegativeInt(payment?._creationTime);
+
+const resolvePaymentLastVerifiedAtMs = (payment: any) =>
+    toNonNegativeInt(payment?.lastVerifiedAt);
+
+const resolvePaymentVerificationAttempts = (payment: any) =>
+    toNonNegativeInt(payment?.verificationAttempts);
+
+const isFinalProviderFailureStatus = (value: unknown) => {
+    const normalized = normalizeVerificationStatus(value);
+    return normalized === "abandoned"
+        || normalized === "failed"
+        || normalized === "reversed"
+        || normalized === "cancelled";
+};
+
+const shouldFinalizeMissingReference = (payment: any, now = Date.now(), nextAttempts = 1) => {
+    const createdAt = resolvePaymentCreatedAtMs(payment);
+    const ageMs = createdAt > 0 ? Math.max(0, now - createdAt) : 0;
+    return ageMs >= PAYMENT_NOT_FOUND_FINALIZE_AFTER_MS || nextAttempts >= 3;
+};
+
+const shouldRetryInitializedPayment = (payment: any, now = Date.now()) => {
+    if (normalizePaymentStatus(payment?.status) !== "initialized") return false;
+    const createdAt = resolvePaymentCreatedAtMs(payment);
+    if (createdAt <= 0) return false;
+    const lastVerifiedAt = resolvePaymentLastVerifiedAtMs(payment);
+    const nextEligibleAt = lastVerifiedAt > 0
+        ? lastVerifiedAt + PAYMENT_RECONCILE_RETRY_INTERVAL_MS
+        : createdAt + PAYMENT_RECONCILE_MIN_AGE_MS;
+    return now >= nextEligibleAt;
+};
 
 const TOPUP_CHECKOUT_CURRENCIES = [TOPUP_CURRENCY];
 
@@ -316,6 +394,105 @@ const callPaystackApi = async (
         }
 
         return payload;
+    } finally {
+        clearTimeout(timeoutId);
+    }
+};
+
+const sendBillingAlertEmail = async (params: {
+    to: string[];
+    subject: string;
+    html: string;
+}) => {
+    if (!RESEND_API_KEY || params.to.length === 0) {
+        return false;
+    }
+
+    try {
+        const response = await fetch("https://api.resend.com/emails", {
+            method: "POST",
+            headers: {
+                Authorization: `Bearer ${RESEND_API_KEY}`,
+                "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+                from: `${APP_NAME} <noreply@chewnpour.com>`,
+                to: params.to,
+                subject: params.subject,
+                html: params.html,
+            }),
+        });
+
+        if (!response.ok) {
+            const body = await response.text().catch(() => "");
+            console.error("[billing] failed to send alert email", {
+                status: response.status,
+                body: body.slice(0, 500),
+            });
+            return false;
+        }
+
+        return true;
+    } catch (error) {
+        console.error("[billing] failed to send alert email", {
+            error: error instanceof Error ? error.message : String(error),
+        });
+        return false;
+    }
+};
+
+const verifyPaystackTransactionByReference = async (reference: string) => {
+    if (!PAYSTACK_SECRET_KEY) {
+        return {
+            ok: false as const,
+            kind: "verify_error",
+            message: "PAYSTACK_NOT_CONFIGURED",
+        };
+    }
+
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), PAYSTACK_TIMEOUT_MS);
+
+    try {
+        const response = await fetch(`${PAYSTACK_BASE_URL}/transaction/verify/${encodeURIComponent(reference)}`, {
+            method: "GET",
+            headers: {
+                Authorization: `Bearer ${PAYSTACK_SECRET_KEY}`,
+            },
+            signal: controller.signal,
+        });
+        const payload = await response.json().catch(() => null);
+
+        if (!response.ok || !payload || payload.status !== true) {
+            const message = buildPaystackFailureMessage(response.status, payload);
+            const normalizedMessage = String(payload?.message || message).toLowerCase();
+            if (response.status === 400 && normalizedMessage.includes("reference not found")) {
+                return {
+                    ok: false as const,
+                    kind: "not_found",
+                    message,
+                    httpStatus: response.status,
+                };
+            }
+            return {
+                ok: false as const,
+                kind: "verify_error",
+                message,
+                httpStatus: response.status,
+            };
+        }
+
+        return {
+            ok: true as const,
+            payload,
+            data: payload.data || {},
+        };
+    } catch (error) {
+        return {
+            ok: false as const,
+            kind: "verify_error",
+            message: error instanceof Error ? error.message : String(error),
+        };
     } finally {
         clearTimeout(timeoutId);
     }
@@ -757,6 +934,89 @@ export const getPaymentProviderSettingInternal = internalQuery({
     },
 });
 
+export const getBillingAlertRecipientsInternal = internalQuery({
+    args: {},
+    handler: async (ctx) => {
+        const adminRows = await ctx.db.query("adminAccess").collect();
+        return buildBillingAlertRecipients(adminRows.map((row: any) => row.email));
+    },
+});
+
+export const listStalePaymentTransactionsInternal = internalQuery({
+    args: {
+        limit: v.optional(v.number()),
+    },
+    handler: async (ctx, args) => {
+        const limit = Math.max(1, Math.min(100, Math.floor(Number(args.limit) || PAYMENT_RECONCILE_BATCH_LIMIT)));
+        const now = Date.now();
+        const rows = await ctx.db.query("paymentTransactions").collect();
+        return rows
+            .filter((row: any) =>
+                resolvePaymentProvider(row?.provider) === PAYMENT_PROVIDER_PAYSTACK
+                && shouldRetryInitializedPayment(row, now)
+            )
+            .sort((left: any, right: any) => resolvePaymentCreatedAtMs(left) - resolvePaymentCreatedAtMs(right))
+            .slice(0, limit);
+    },
+});
+
+export const updatePaymentVerificationStateInternal = internalMutation({
+    args: {
+        reference: v.string(),
+        status: v.optional(v.string()),
+        source: v.optional(v.string()),
+        eventType: v.optional(v.string()),
+        paidAt: v.optional(v.number()),
+        customerEmail: v.optional(v.string()),
+        lastVerifiedAt: v.optional(v.number()),
+        verificationStatus: v.optional(v.string()),
+        verificationMessage: v.optional(v.string()),
+        verificationAttemptsDelta: v.optional(v.number()),
+        alertedAt: v.optional(v.number()),
+    },
+    handler: async (ctx, args) => {
+        const reference = String(args.reference || "").trim();
+        if (!reference) return null;
+
+        const existing = await getPaymentTransactionByReference(ctx, reference);
+        if (!existing) return null;
+
+        const patch: Record<string, any> = {};
+        if (typeof args.status === "string" && args.status.trim()) patch.status = args.status.trim();
+        if (typeof args.source === "string" && args.source.trim()) patch.source = args.source.trim();
+        if (typeof args.eventType === "string" && args.eventType.trim()) patch.eventType = args.eventType.trim();
+        if (typeof args.customerEmail === "string" && args.customerEmail.trim()) {
+            patch.customerEmail = args.customerEmail.trim();
+        }
+        if (typeof args.paidAt === "number" && Number.isFinite(args.paidAt) && args.paidAt > 0) {
+            patch.paidAt = Math.floor(args.paidAt);
+        }
+        if (typeof args.lastVerifiedAt === "number" && Number.isFinite(args.lastVerifiedAt) && args.lastVerifiedAt > 0) {
+            patch.lastVerifiedAt = Math.floor(args.lastVerifiedAt);
+        }
+        if (typeof args.verificationStatus === "string" && args.verificationStatus.trim()) {
+            patch.verificationStatus = args.verificationStatus.trim();
+        }
+        if (typeof args.verificationMessage === "string") {
+            patch.verificationMessage = truncateMessage(args.verificationMessage);
+        }
+        if (typeof args.alertedAt === "number" && Number.isFinite(args.alertedAt) && args.alertedAt > 0) {
+            patch.alertedAt = Math.floor(args.alertedAt);
+        }
+
+        const attemptsDelta = toNonNegativeInt(args.verificationAttemptsDelta);
+        if (attemptsDelta > 0) {
+            patch.verificationAttempts = resolvePaymentVerificationAttempts(existing) + attemptsDelta;
+        }
+
+        await ctx.db.patch(existing._id, patch);
+        return {
+            ...existing,
+            ...patch,
+        };
+    },
+});
+
 export const recordPaymentInitializationInternal = internalMutation({
     args: {
         userId: v.string(),
@@ -803,14 +1063,26 @@ export const recordPaymentInitializationInternal = internalMutation({
             createdAt: Date.now(),
             customerEmail: args.customerEmail,
             eventType: "checkout.initialize",
+            verificationAttempts: 0,
+            verificationStatus: "initialized",
+            verificationMessage: "Checkout initialized.",
         };
 
         if (existing) {
             await ctx.db.patch(existing._id, payload);
+            void ctx.scheduler.runAfter(PAYMENT_RECONCILE_DELAY_MS, internal.subscriptions.reconcilePaymentReferenceInternal, {
+                reference,
+                trigger: "post_checkout_init",
+            });
             return existing._id;
         }
 
-        return await ctx.db.insert("paymentTransactions", payload);
+        const paymentId = await ctx.db.insert("paymentTransactions", payload);
+        void ctx.scheduler.runAfter(PAYMENT_RECONCILE_DELAY_MS, internal.subscriptions.reconcilePaymentReferenceInternal, {
+            reference,
+            trigger: "post_checkout_init",
+        });
+        return paymentId;
     },
 });
 
@@ -886,6 +1158,283 @@ export const applyVerifiedPaystackPaymentInternal = internalMutation({
             source: args.source,
             eventType: args.eventType,
         });
+    },
+});
+
+export const reconcilePaymentReferenceInternal = internalAction({
+    args: {
+        reference: v.string(),
+        trigger: v.optional(v.string()),
+        sendAlert: v.optional(v.boolean()),
+    },
+    handler: async (ctx, args) => {
+        const reference = String(args.reference || "").trim();
+        if (!reference) {
+            return {
+                ok: false,
+                result: "missing_reference",
+            };
+        }
+
+        const payment = await ctx.runQuery(internal.subscriptions.getPaymentTransactionByReferenceInternal, {
+            reference,
+        });
+        if (!payment) {
+            return {
+                ok: false,
+                reference,
+                result: "missing_transaction",
+            };
+        }
+
+        const provider = resolvePaymentProvider(payment.provider);
+        if (provider !== PAYMENT_PROVIDER_PAYSTACK) {
+            return {
+                ok: false,
+                reference,
+                result: "ignored_provider",
+                provider,
+            };
+        }
+
+        if (normalizePaymentStatus(payment.status) === "success") {
+            return {
+                ok: true,
+                reference,
+                result: "already_success",
+                provider,
+            };
+        }
+
+        const now = Date.now();
+        const trigger = String(args.trigger || "manual").trim() || "manual";
+        const verifyResult = await verifyPaystackTransactionByReference(reference);
+
+        const maybeSendAlert = async (params: {
+            subject: string;
+            headline: string;
+            body: string[];
+        }) => {
+            if (args.sendAlert === false || toNonNegativeInt(payment.alertedAt) > 0) {
+                return false;
+            }
+
+            const recipients = await ctx.runQuery(internal.subscriptions.getBillingAlertRecipientsInternal, {});
+            const to = Array.isArray(recipients) ? recipients.filter(Boolean) : [];
+            if (to.length === 0) return false;
+
+            const html = [
+                "<div style=\"font-family:Arial,sans-serif;line-height:1.5\">",
+                `<h2>${params.headline}</h2>`,
+                "<ul>",
+                ...params.body.map((line) => `<li>${line}</li>`),
+                "</ul>",
+                `<p><a href=\"${APP_BASE_URL}/admin\">Open admin dashboard</a></p>`,
+                "</div>",
+            ].join("");
+
+            const sent = await sendBillingAlertEmail({
+                to,
+                subject: params.subject,
+                html,
+            });
+            if (sent) {
+                await ctx.runMutation(internal.subscriptions.updatePaymentVerificationStateInternal, {
+                    reference,
+                    alertedAt: now,
+                });
+            }
+            return sent;
+        };
+
+        if (!verifyResult.ok) {
+            const nextAttempts = resolvePaymentVerificationAttempts(payment) + 1;
+
+            if (verifyResult.kind === "not_found") {
+                const finalizeAsFailed = shouldFinalizeMissingReference(payment, now, nextAttempts);
+                await ctx.runMutation(internal.subscriptions.updatePaymentVerificationStateInternal, {
+                    reference,
+                    status: finalizeAsFailed ? "failed" : undefined,
+                    lastVerifiedAt: now,
+                    verificationStatus: "not_found",
+                    verificationMessage: verifyResult.message,
+                    verificationAttemptsDelta: 1,
+                    eventType: finalizeAsFailed ? "charge.not_found" : undefined,
+                });
+
+                return {
+                    ok: true,
+                    reference,
+                    provider,
+                    result: finalizeAsFailed ? "not_found_failed" : "not_found_pending",
+                    verificationStatus: "not_found",
+                    verificationMessage: verifyResult.message,
+                };
+            }
+
+            await ctx.runMutation(internal.subscriptions.updatePaymentVerificationStateInternal, {
+                reference,
+                lastVerifiedAt: now,
+                verificationStatus: "verify_error",
+                verificationMessage: verifyResult.message,
+                verificationAttemptsDelta: 1,
+            });
+
+            const shouldAlert =
+                nextAttempts >= PAYMENT_VERIFY_ERROR_ALERT_ATTEMPTS
+                && (now - resolvePaymentCreatedAtMs(payment)) >= PAYMENT_VERIFY_ERROR_ALERT_MIN_AGE_MS;
+            const alertSent = shouldAlert
+                ? await maybeSendAlert({
+                    subject: `${APP_NAME} billing verification needs attention`,
+                    headline: "Billing verification is stuck",
+                    body: [
+                        `Reference: ${reference}`,
+                        `User: ${payment.customerEmail || payment.userId || "unknown"}`,
+                        `Trigger: ${trigger}`,
+                        `Attempts: ${nextAttempts}`,
+                        `Reason: ${verifyResult.message}`,
+                    ],
+                })
+                : false;
+
+            return {
+                ok: true,
+                reference,
+                provider,
+                result: "verify_error",
+                verificationStatus: "verify_error",
+                verificationMessage: verifyResult.message,
+                alertSent,
+            };
+        }
+
+        const paymentData = verifyResult.data || {};
+        const providerStatus = normalizeVerificationStatus(paymentData.status);
+        const providerMessage = truncateMessage(
+            paymentData.gateway_response || paymentData.message || paymentData.status || "Verification completed."
+        );
+
+        if (providerStatus !== "success") {
+            const finalizeAsFailed = isFinalProviderFailureStatus(providerStatus);
+            await ctx.runMutation(internal.subscriptions.updatePaymentVerificationStateInternal, {
+                reference,
+                status: finalizeAsFailed ? "failed" : undefined,
+                lastVerifiedAt: now,
+                verificationStatus: providerStatus || "provider_pending",
+                verificationMessage: providerMessage,
+                verificationAttemptsDelta: 1,
+                eventType: providerStatus ? `charge.${providerStatus}` : undefined,
+            });
+
+            return {
+                ok: true,
+                reference,
+                provider,
+                result: finalizeAsFailed ? "provider_failed" : "provider_pending",
+                verificationStatus: providerStatus || "provider_pending",
+                verificationMessage: providerMessage,
+            };
+        }
+
+        const paidAtMs = Number.isFinite(Date.parse(paymentData.paid_at))
+            ? Date.parse(paymentData.paid_at)
+            : now;
+        const applyResult = await ctx.runMutation(internal.subscriptions.applyVerifiedPaystackPaymentInternal, {
+            userId: String(payment.userId || "").trim(),
+            reference,
+            amountMinor: toNonNegativeInt(paymentData.amount || payment.amountMinor),
+            currency: normalizeCurrency(paymentData.currency || payment.currency || TOPUP_CURRENCY),
+            provider,
+            customerEmail: String(paymentData?.customer?.email || payment.customerEmail || "").trim() || undefined,
+            paidAtMs,
+            source: "reconcile_verify",
+            eventType: "charge.success",
+        });
+
+        await ctx.runMutation(internal.subscriptions.updatePaymentVerificationStateInternal, {
+            reference,
+            lastVerifiedAt: now,
+            verificationStatus: applyResult.applied ? "recovered_success" : "duplicate_success",
+            verificationMessage: applyResult.applied
+                ? "Recovered via scheduled reconciliation."
+                : "Payment was already credited before reconciliation finished.",
+            verificationAttemptsDelta: 1,
+            source: "reconcile_verify",
+            eventType: "charge.success",
+            customerEmail: String(paymentData?.customer?.email || payment.customerEmail || "").trim() || undefined,
+            paidAt: paidAtMs,
+        });
+
+        const alertSent = applyResult.applied
+            ? await maybeSendAlert({
+                subject: `${APP_NAME} recovered a missed payment credit`,
+                headline: "A missed payment credit was auto-recovered",
+                body: [
+                    `Reference: ${reference}`,
+                    `User: ${String(paymentData?.customer?.email || payment.customerEmail || payment.userId || "unknown")}`,
+                    `Amount: ${normalizeCurrency(paymentData.currency || payment.currency || TOPUP_CURRENCY)} ${((toNonNegativeInt(paymentData.amount || payment.amountMinor)) / 100).toFixed(2)}`,
+                    `Trigger: ${trigger}`,
+                    `Credits granted: ${toNonNegativeInt(applyResult.grantedCredits)}`,
+                ],
+            })
+            : false;
+
+        return {
+            ok: true,
+            reference,
+            provider,
+            result: applyResult.applied ? "applied" : "duplicate",
+            grantedCredits: toNonNegativeInt(applyResult.grantedCredits),
+            alertSent,
+        };
+    },
+});
+
+export const reconcileStalePaystackPaymentsInternal = internalAction({
+    args: {
+        limit: v.optional(v.number()),
+    },
+    handler: async (ctx, args) => {
+        const rows = await ctx.runQuery(internal.subscriptions.listStalePaymentTransactionsInternal, {
+            limit: args.limit,
+        });
+
+        const summary = {
+            scanned: rows.length,
+            applied: 0,
+            duplicates: 0,
+            pending: 0,
+            failed: 0,
+            verifyErrors: 0,
+        };
+
+        for (const row of rows) {
+            const result = await ctx.runAction(internal.subscriptions.reconcilePaymentReferenceInternal, {
+                reference: row.reference,
+                trigger: "cron",
+            });
+            switch (result?.result) {
+                case "applied":
+                    summary.applied += 1;
+                    break;
+                case "duplicate":
+                case "already_success":
+                    summary.duplicates += 1;
+                    break;
+                case "not_found_failed":
+                case "provider_failed":
+                    summary.failed += 1;
+                    break;
+                case "verify_error":
+                    summary.verifyErrors += 1;
+                    break;
+                default:
+                    summary.pending += 1;
+                    break;
+            }
+        }
+
+        return summary;
     },
 });
 
