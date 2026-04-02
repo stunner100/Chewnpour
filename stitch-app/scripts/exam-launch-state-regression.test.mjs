@@ -35,15 +35,25 @@ if (!/api\.examPreparations\.getExamLaunchState/.test(examModeSource)) {
   throw new Error("Expected ExamMode to query the launch-state summary before rendering the format picker.");
 }
 
+if (!/const isInstantExamLaunchState = \(launchState\) =>/.test(examModeSource)) {
+  throw new Error("Expected ExamMode to classify ready saved launches before leaving the format picker.");
+}
+
 for (const label of [
   "Resume Objective Quiz",
   "Open Saved Objective Quiz",
   "Resume Essay / Theory",
   "Open Saved Essay / Theory",
+  "Opening your saved objective quiz...",
+  "Opening your saved essay exam...",
 ]) {
   if (!examModeSource.includes(label)) {
     throw new Error(`Expected ExamMode to surface the saved-exam launch label "${label}".`);
   }
+}
+
+if (!/shouldHoldFormatPickerForInstantLaunch/.test(examModeSource)) {
+  throw new Error("Expected ExamMode to keep the format picker visible while opening a ready saved exam.");
 }
 
 if (!/const applyReadyPreparationState = useCallback/.test(examModeSource)) {

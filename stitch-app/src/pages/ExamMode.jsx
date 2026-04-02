@@ -293,6 +293,14 @@ const formatSavedExamCountLabel = (totalQuestions) => {
     return safeCount > 0 ? `${safeCount}-question ` : '';
 };
 
+const isInstantExamLaunchState = (launchState) => (
+    launchState?.status === 'ready'
+    && (
+        launchState?.launchMode === 'resume_saved_attempt'
+        || launchState?.launchMode === 'open_saved_exam_set'
+    )
+);
+
 const getExamFormatCardContent = ({ examFormat, launchState }) => {
     const isEssay = examFormat === 'essay';
     const savedCountLabel = formatSavedExamCountLabel(launchState?.totalQuestions);
@@ -577,6 +585,19 @@ const ExamMode = () => {
     const essayLaunchCard = useMemo(
         () => getExamFormatCardContent({ examFormat: 'essay', launchState: launchState?.essay }),
         [launchState?.essay],
+    );
+    const selectedLaunchState = useMemo(() => {
+        if (examFormat === 'essay') return launchState?.essay || null;
+        if (examFormat === 'mcq') return launchState?.mcq || null;
+        return null;
+    }, [examFormat, launchState?.essay, launchState?.mcq]);
+    const shouldHoldFormatPickerForInstantLaunch = Boolean(
+        examFormat
+        && !examStarted
+        && !hasAttemptQuestions
+        && !startExamError
+        && startingExamAttempt
+        && isInstantExamLaunchState(selectedLaunchState)
     );
 
     // Optimized timer: only re-renders when the displayed second changes
@@ -1291,7 +1312,7 @@ const ExamMode = () => {
         );
     }
 
-    if (!examFormat && !examStarted && !startingExamAttempt && !hasAttemptQuestions) {
+    if ((!examFormat && !examStarted && !startingExamAttempt && !hasAttemptQuestions) || shouldHoldFormatPickerForInstantLaunch) {
         return (
             <div className="min-h-screen bg-background-light dark:bg-background-dark flex items-center justify-center p-4">
                 <div className="w-full max-w-md">
@@ -1309,6 +1330,7 @@ const ExamMode = () => {
                                     setPreparationId(null);
                                     setExamFormat('mcq');
                                 }}
+                                disabled={startingExamAttempt}
                                 className="w-full flex items-center gap-4 p-4 rounded-xl border border-border-light dark:border-border-dark hover:border-primary hover:bg-primary/5 transition-all text-left group"
                             >
                                 <div className="w-11 h-11 rounded-xl bg-primary/10 flex items-center justify-center group-hover:bg-primary/15 transition-colors">
@@ -1322,6 +1344,9 @@ const ExamMode = () => {
                                     ) : null}
                                     <p className="text-body-sm font-semibold text-text-main-light dark:text-text-main-dark">{objectiveLaunchCard.title}</p>
                                     <p className="text-caption text-text-sub-light dark:text-text-sub-dark">{objectiveLaunchCard.description}</p>
+                                    {shouldHoldFormatPickerForInstantLaunch && examFormat === 'mcq' ? (
+                                        <p className="text-caption text-primary mt-2">Opening your saved objective quiz...</p>
+                                    ) : null}
                                 </div>
                             </button>
 
@@ -1331,6 +1356,7 @@ const ExamMode = () => {
                                     setPreparationId(null);
                                     setExamFormat('essay');
                                 }}
+                                disabled={startingExamAttempt}
                                 className="w-full flex items-center gap-4 p-4 rounded-xl border border-border-light dark:border-border-dark hover:border-accent-emerald hover:bg-accent-emerald/5 transition-all text-left group"
                             >
                                 <div className="w-11 h-11 rounded-xl bg-accent-emerald/10 flex items-center justify-center group-hover:bg-accent-emerald/15 transition-colors">
@@ -1344,6 +1370,9 @@ const ExamMode = () => {
                                     ) : null}
                                     <p className="text-body-sm font-semibold text-text-main-light dark:text-text-main-dark">{essayLaunchCard.title}</p>
                                     <p className="text-caption text-text-sub-light dark:text-text-sub-dark">{essayLaunchCard.description}</p>
+                                    {shouldHoldFormatPickerForInstantLaunch && examFormat === 'essay' ? (
+                                        <p className="text-caption text-accent-emerald mt-2">Opening your saved essay exam...</p>
+                                    ) : null}
                                 </div>
                             </button>
                         </div>
