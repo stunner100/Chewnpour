@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
+import BrandLogo from '../components/BrandLogo';
 import {
     readCampaignAttributionFromSearch,
     stashPendingCampaignAttribution,
@@ -97,7 +98,7 @@ const Login = () => {
                 </div>
                 <div className="relative z-10 flex flex-col justify-center px-16 xl:px-20 text-white">
                     <div className="mb-8">
-                        <img src="/chewnpourlogo.png" alt="ChewnPour" className="h-16 w-auto" />
+                        <BrandLogo theme="dark" className="h-12 w-auto" />
                     </div>
                     <h2 className="text-display-xl text-white mb-4 max-w-lg">
                         Your AI study companion
@@ -134,7 +135,7 @@ const Login = () => {
                 <main className="flex-1 flex flex-col justify-center px-6 sm:px-12 lg:px-16 xl:px-20 max-w-lg mx-auto w-full">
                     {/* Logo — mobile only */}
                     <div className="lg:hidden mb-8">
-                        <img src="/chewnpourlogo.png" alt="ChewnPour" className="h-16 w-auto" />
+                        <BrandLogo className="h-12 w-auto" />
                     </div>
 
                     <div className="mb-8 animate-fade-in">
