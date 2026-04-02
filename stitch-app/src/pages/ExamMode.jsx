@@ -596,7 +596,6 @@ const ExamMode = () => {
         && !examStarted
         && !hasAttemptQuestions
         && !startExamError
-        && startingExamAttempt
         && isInstantExamLaunchState(selectedLaunchState)
     );
 
