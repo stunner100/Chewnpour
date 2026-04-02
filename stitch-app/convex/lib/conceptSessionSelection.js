@@ -230,14 +230,42 @@ const scoreConceptExercise = (exercise, selectionState, attemptedKeys) => {
         + freshnessBoost;
 };
 
+const normalizeFocusConceptKeys = (focusConceptKeys = []) => {
+    return new Set(
+        (Array.isArray(focusConceptKeys) ? focusConceptKeys : [])
+            .map((value) => normalizeConceptTextKey(value).replace(/\s+/g, "_"))
+            .filter(Boolean)
+    );
+};
+
+const scoreConceptExerciseWithFocus = ({
+    exercise,
+    selectionState,
+    attemptedKeys,
+    focusConceptKeys,
+}) => {
+    const baseScore = scoreConceptExercise(exercise, selectionState, attemptedKeys);
+    if (focusConceptKeys.size === 0) return baseScore;
+
+    const conceptKey = exercise.conceptKey || deriveConceptKey(exercise.questionText);
+    const normalizedConceptKey = normalizeConceptTextKey(conceptKey).replace(/\s+/g, "_");
+    if (focusConceptKeys.has(normalizedConceptKey)) {
+        return baseScore + 1_500;
+    }
+
+    return baseScore - 120;
+};
+
 export const buildConceptSessionItems = ({
     bankExercises = [],
     attempts = [],
     sessionSize = 5,
+    focusConceptKeys = [],
 } = {}) => {
     const normalizedSize = Math.max(1, Math.floor(Number(sessionSize) || 1));
     const dedupedExercises = dedupeConceptExercises(bankExercises).filter((exercise) => exercise.active !== false);
     const attemptedKeys = new Set(extractAttemptedConceptExerciseKeys(attempts));
+    const focusConceptKeySet = normalizeFocusConceptKeys(focusConceptKeys);
     const selected = [];
     const usedExerciseKeys = new Set();
 
@@ -248,7 +276,12 @@ export const buildConceptSessionItems = ({
             .map((exercise, index) => ({
                 exercise,
                 index,
-                score: scoreConceptExercise(exercise, selectionState, attemptedKeys),
+                score: scoreConceptExerciseWithFocus({
+                    exercise,
+                    selectionState,
+                    attemptedKeys,
+                    focusConceptKeys: focusConceptKeySet,
+                }),
             }))
             .sort((left, right) => {
                 if (right.score !== left.score) return right.score - left.score;

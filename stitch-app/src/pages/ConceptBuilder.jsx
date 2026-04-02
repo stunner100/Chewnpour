@@ -1,9 +1,12 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { Link, useNavigate, useParams } from 'react-router-dom';
+import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { useAction, useMutation, useQuery } from 'convex/react';
 import { api } from '../../convex/_generated/api';
 import { useAuth } from '../contexts/AuthContext';
 import { useRouteResolvedTopic } from '../hooks/useRouteResolvedTopic';
+import {
+    parseConceptReviewKeysFromSearchParams,
+} from '../lib/conceptReviewLinks';
 
 const EXERCISE_TYPE_CLOZE = 'cloze';
 const EXERCISE_TYPE_DEFINITION_MATCH = 'definition_match';
@@ -101,13 +104,36 @@ const formatCorrectAnswerLabel = (answers = []) => {
     return items.join(', ');
 };
 
+const humanizeConceptKey = (value) => {
+    const normalized = String(value || '')
+        .replace(/[_-]+/g, ' ')
+        .replace(/\s+/g, ' ')
+        .trim();
+    if (!normalized) return 'Core Concept';
+    return normalized.replace(/\b\w/g, (match) => match.toUpperCase());
+};
+
+const formatNextReviewLabel = (timestamp) => {
+    const value = Number(timestamp);
+    if (!Number.isFinite(value) || value <= 0) return 'Not scheduled';
+    const deltaMs = value - Date.now();
+    if (deltaMs <= 0) return 'Due now';
+    const hours = Math.round(deltaMs / (60 * 60 * 1000));
+    if (hours < 24) return `In ${Math.max(1, hours)}h`;
+    const days = Math.round(hours / 24);
+    return `In ${Math.max(1, days)}d`;
+};
+
 const buildSessionSummary = (results) => {
     const items = Array.isArray(results) ? results.filter(Boolean) : [];
     const score = items.reduce((sum, item) => sum + (item.score || 0), 0);
     const total = items.reduce((sum, item) => sum + (item.total || 0), 0);
+    const weakConceptKeys = new Set();
     const weakItems = items
         .filter((item) => Number(item.score || 0) < Number(item.total || 0))
         .map((item) => ({
+            conceptKey: item.conceptKey,
+            conceptLabel: humanizeConceptKey(item.conceptKey),
             exerciseType: resolveExerciseType(item),
             questionText: item.questionText,
             correctAnswers: item.correctAnswers,
@@ -115,17 +141,25 @@ const buildSessionSummary = (results) => {
             evidenceQuotes: collectEvidenceQuotes(item.citations),
         }));
 
+    weakItems.forEach((item) => {
+        const conceptKey = String(item.conceptKey || '').trim();
+        if (conceptKey) weakConceptKeys.add(conceptKey);
+    });
+
     return {
         score,
         total,
         accuracyPercent: total > 0 ? Math.round((score / total) * 100) : 0,
         weakItems,
+        weakConceptKeys: Array.from(weakConceptKeys),
     };
 };
 
 const ConceptBuilder = () => {
     const { topicId: topicIdParam } = useParams();
+    const [searchParams] = useSearchParams();
     const routeTopicId = typeof topicIdParam === 'string' ? topicIdParam.trim() : '';
+    const requestedReviewParam = String(searchParams.get('review') || '');
     const navigate = useNavigate();
     const { user } = useAuth();
     const userId = user?.id;
@@ -151,9 +185,19 @@ const ConceptBuilder = () => {
         api.concepts.getUserConceptAttempts,
         userId ? {} : 'skip',
     );
+    const conceptMastery = useQuery(
+        api.concepts.getConceptMasteryForTopic,
+        topicId ? { topicId } : 'skip',
+    );
+    const requestedReviewConceptKeys = useMemo(
+        () => parseConceptReviewKeysFromSearchParams({
+            get: (key) => (key === 'review' ? requestedReviewParam : null),
+        }),
+        [requestedReviewParam],
+    );
 
-    const getConceptSessionForTopic = useAction('concepts:getConceptSessionForTopic');
-    const createConceptSessionAttempt = useMutation('concepts:createConceptSessionAttempt');
+    const getConceptSessionForTopic = useAction(api.concepts.getConceptSessionForTopic);
+    const createConceptSessionAttempt = useMutation(api.concepts.createConceptSessionAttempt);
 
     const [session, setSession] = useState(null);
     const [loading, setLoading] = useState(false);
@@ -190,7 +234,7 @@ const ConceptBuilder = () => {
         return Math.round((totals.score / totals.total) * 100);
     }, [topicAttempts]);
 
-    const loadSession = useCallback(async () => {
+    const loadSession = useCallback(async (overrideFocusConceptKeys = requestedReviewConceptKeys) => {
         if (!topicId || !userId) return;
 
         setLoading(true);
@@ -198,7 +242,13 @@ const ConceptBuilder = () => {
         setSaveError('');
 
         try {
-            const response = await getConceptSessionForTopic({ topicId });
+            const focusConceptKeys = Array.isArray(overrideFocusConceptKeys)
+                ? overrideFocusConceptKeys.filter(Boolean)
+                : [];
+            const response = await getConceptSessionForTopic({
+                topicId,
+                ...(focusConceptKeys.length > 0 ? { focusConceptKeys } : {}),
+            });
             const items = Array.isArray(response?.items) ? response.items : [];
             if (items.length === 0) {
                 throw new Error('No concept practice items are ready for this topic yet.');
@@ -222,7 +272,7 @@ const ConceptBuilder = () => {
         } finally {
             setLoading(false);
         }
-    }, [getConceptSessionForTopic, topicId, userId]);
+    }, [getConceptSessionForTopic, requestedReviewConceptKeys, topicId, userId]);
 
     useEffect(() => {
         void loadSession();
@@ -266,6 +316,9 @@ const ConceptBuilder = () => {
     const canSubmit = isChoiceExercise ? Boolean(selectedOptionId) : allFilled;
     const isInteractionDisabled = submitted || saving || Boolean(sessionSummary);
     const sessionLength = Array.isArray(session?.items) ? session.items.length : 0;
+    const sessionFocusConceptKeys = Array.isArray(session?.focusConceptKeys)
+        ? session.focusConceptKeys.filter(Boolean)
+        : requestedReviewConceptKeys;
     const completedCount = sessionSummary
         ? sessionLength
         : responses.filter(Boolean).length + (submitted ? 1 : 0);
@@ -569,14 +622,29 @@ const ConceptBuilder = () => {
                         </div>
                     </div>
 
-                    <div className="grid gap-4 md:grid-cols-2 mb-6">
+                    <div className="grid gap-4 md:grid-cols-3 mb-6">
                         <div className="card-base p-5">
-                            <div className="text-caption text-text-faint-light dark:text-text-faint-dark mb-1">Concept history</div>
+                            <div className="text-caption text-text-faint-light dark:text-text-faint-dark mb-1">Mastery snapshot</div>
                             <div className="text-display-sm font-semibold text-text-main-light dark:text-text-main-dark">
-                                {logicStrength !== null ? `${logicStrength}%` : 'New'}
+                                {conceptMastery?.averageStrength !== null && conceptMastery?.averageStrength !== undefined
+                                    ? `${conceptMastery.averageStrength}%`
+                                    : logicStrength !== null ? `${logicStrength}%` : 'New'}
                             </div>
                             <p className="text-body-sm text-text-sub-light dark:text-text-sub-dark mt-2">
-                                Based on your saved concept practice for this topic.
+                                {conceptMastery
+                                    ? `${conceptMastery.strongCount} strong · ${conceptMastery.shakyCount} shaky · ${conceptMastery.weakCount} weak`
+                                    : 'Based on your saved concept practice for this topic.'}
+                            </p>
+                        </div>
+                        <div className="card-base p-5">
+                            <div className="text-caption text-text-faint-light dark:text-text-faint-dark mb-1">Review queue</div>
+                            <div className="text-display-sm font-semibold text-text-main-light dark:text-text-main-dark">
+                                {conceptMastery?.dueCount ? `${conceptMastery.dueCount} due` : formatNextReviewLabel(conceptMastery?.nextReviewAt)}
+                            </div>
+                            <p className="text-body-sm text-text-sub-light dark:text-text-sub-dark mt-2">
+                                {conceptMastery?.dueCount
+                                    ? 'Review weak concepts before they fade.'
+                                    : 'Your next concept review is already scheduled.'}
                             </p>
                         </div>
                         <div className="card-base p-5">
@@ -603,6 +671,9 @@ const ConceptBuilder = () => {
                                         <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-primary/8 text-primary text-caption font-semibold mb-3">
                                             <span className="material-symbols-outlined text-[14px]">neurology</span>
                                             <span>{formatExerciseTypeLabel(item.exerciseType)}</span>
+                                        </div>
+                                        <div className="text-overline text-text-faint-light dark:text-text-faint-dark mb-2">
+                                            {item.conceptLabel}
                                         </div>
                                         <p className="text-body-sm font-semibold text-text-main-light dark:text-text-main-dark mb-2">
                                             {item.questionText}
@@ -636,11 +707,21 @@ const ConceptBuilder = () => {
                     <div className="flex flex-col sm:flex-row gap-3">
                         <button
                             type="button"
-                            onClick={() => void loadSession()}
+                            onClick={() => void loadSession(
+                                sessionSummary.weakConceptKeys.length > 0
+                                    ? sessionSummary.weakConceptKeys
+                                    : sessionFocusConceptKeys
+                            )}
                             className="btn-primary flex-1 py-3 text-body-sm flex items-center justify-center gap-2"
                         >
                             <span className="material-symbols-outlined text-[18px]">refresh</span>
-                            <span>Retry Session</span>
+                            <span>
+                                {sessionSummary.weakConceptKeys.length > 0
+                                    ? 'Review Weak Concepts'
+                                    : sessionFocusConceptKeys.length > 0
+                                        ? 'Retry Review Session'
+                                        : 'Retry Session'}
+                            </span>
                         </button>
                         <Link
                             to={`/dashboard/exam/${topicId}`}
@@ -689,6 +770,12 @@ const ConceptBuilder = () => {
                         </div>
                     </div>
                     <div className="flex items-center gap-3">
+                        {sessionFocusConceptKeys.length > 0 && (
+                            <div className="hidden sm:inline-flex items-center gap-1.5 rounded-full bg-accent-amber/10 px-2.5 py-1 text-caption font-semibold text-accent-amber">
+                                <span className="material-symbols-outlined text-[14px]">cycle</span>
+                                <span>Review mode</span>
+                            </div>
+                        )}
                         {logicStrength !== null && (
                             <div className="hidden sm:flex items-center gap-2">
                                 <div className="w-20 h-1.5 bg-surface-hover-light dark:bg-surface-hover-dark rounded-full overflow-hidden">
