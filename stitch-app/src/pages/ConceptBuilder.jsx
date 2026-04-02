@@ -1,9 +1,9 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { Link, useParams } from 'react-router-dom';
+import { Link, useNavigate, useParams } from 'react-router-dom';
 import { useAction, useMutation, useQuery } from 'convex/react';
 import { api } from '../../convex/_generated/api';
 import { useAuth } from '../contexts/AuthContext';
-import { isLikelyConvexId } from '../lib/convexId';
+import { useRouteResolvedTopic } from '../hooks/useRouteResolvedTopic';
 
 const normalizeConceptAnswer = (text) =>
     String(text || '')
@@ -74,15 +74,28 @@ const buildSessionSummary = (results) => {
 
 const ConceptBuilder = () => {
     const { topicId: topicIdParam } = useParams();
-    const normalizedTopicId = typeof topicIdParam === 'string' ? topicIdParam.trim() : '';
-    const topicId = isLikelyConvexId(normalizedTopicId) ? normalizedTopicId : '';
+    const routeTopicId = typeof topicIdParam === 'string' ? topicIdParam.trim() : '';
+    const navigate = useNavigate();
     const { user } = useAuth();
     const userId = user?.id;
+    const reloadDashboard = useCallback(() => {
+        if (typeof window !== 'undefined') {
+            window.location.assign('/dashboard');
+            return;
+        }
+        navigate('/dashboard', { replace: true });
+    }, [navigate]);
 
-    const topicData = useQuery(
+    const topicQueryResult = useQuery(
         api.topics.getTopicWithQuestions,
-        topicId ? { topicId } : 'skip'
+        routeTopicId ? { topicId: routeTopicId } : 'skip'
     );
+    const {
+        topic,
+        topicId,
+        isLoadingRouteTopic,
+        isMissingRouteTopic,
+    } = useRouteResolvedTopic(routeTopicId, topicQueryResult);
     const conceptAttempts = useQuery(
         api.concepts.getUserConceptAttempts,
         userId ? {} : 'skip'
@@ -104,7 +117,7 @@ const ConceptBuilder = () => {
     const [startedAt, setStartedAt] = useState(null);
     const [sessionSummary, setSessionSummary] = useState(null);
 
-    const topicTitle = topicData?.title || session?.topicTitle || 'Concept Practice';
+    const topicTitle = topic?.title || session?.topicTitle || 'Concept Practice';
 
     const topicAttempts = useMemo(() => {
         if (!conceptAttempts || !topicId) return [];
@@ -336,7 +349,7 @@ const ConceptBuilder = () => {
         setSaveError('');
     };
 
-    if (!topicId) {
+    if (!routeTopicId) {
         return (
             <div className="min-h-screen bg-background-light dark:bg-background-dark flex items-center justify-center px-4">
                 <div className="text-center max-w-md">
@@ -354,7 +367,7 @@ const ConceptBuilder = () => {
         );
     }
 
-    if (topicData === undefined || (loading && !session)) {
+    if (isLoadingRouteTopic || (loading && !session)) {
         return (
             <div className="min-h-screen bg-background-light dark:bg-background-dark flex items-center justify-center">
                 <div className="text-center">
@@ -365,18 +378,18 @@ const ConceptBuilder = () => {
         );
     }
 
-    if (topicData === null) {
+    if (isMissingRouteTopic) {
         return (
             <div className="min-h-screen bg-background-light dark:bg-background-dark flex items-center justify-center px-4">
                 <div className="text-center max-w-md">
                     <div className="w-14 h-14 rounded-2xl bg-red-500/10 flex items-center justify-center mx-auto mb-4">
                         <span className="material-symbols-outlined text-red-500 text-[24px]">error</span>
                     </div>
-                    <h2 className="text-body-lg font-semibold text-text-main-light dark:text-text-main-dark mb-2">Topic Not Found</h2>
-                    <p className="text-body-sm text-text-sub-light dark:text-text-sub-dark mb-6">We couldn't find this topic.</p>
-                    <Link to="/dashboard" className="btn-secondary inline-flex items-center gap-2 px-6 py-2.5 text-body-sm">
-                        Back to Dashboard
-                    </Link>
+                    <h2 className="text-body-lg font-semibold text-text-main-light dark:text-text-main-dark mb-2">This concept link is stale</h2>
+                    <p className="text-body-sm text-text-sub-light dark:text-text-sub-dark mb-6">Reload the dashboard, reopen the topic, and restart concept practice from there.</p>
+                    <button type="button" onClick={reloadDashboard} className="btn-secondary inline-flex items-center gap-2 px-6 py-2.5 text-body-sm">
+                        Reload Dashboard
+                    </button>
                 </div>
             </div>
         );

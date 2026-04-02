@@ -4,6 +4,7 @@ import { useQuery, useAction } from 'convex/react';
 import { api } from '../../convex/_generated/api';
 import { useAuth } from '../contexts/AuthContext';
 import { useStudyTimer } from '../hooks/useStudyTimer';
+import { useRouteResolvedTopic } from '../hooks/useRouteResolvedTopic';
 import { useVoicePlayback } from '../lib/useVoicePlayback';
 import TopicSettingsModal from '../components/TopicSettingsModal';
 import TopicReExplainModal from '../components/TopicReExplainModal';
@@ -23,7 +24,6 @@ import {
     slugifyText,
 } from '../lib/topicContentFormatting';
 import { resolveTopicIllustrationUrl } from '../lib/topicIllustration';
-import { isLikelyConvexId } from '../lib/convexId';
 
 // ── Pure rendering helpers (hoisted out of the component to avoid re-creation) ──
 
@@ -48,8 +48,7 @@ const isReExplainQuotaExceededError = (error) => {
 
 const TopicDetail = () => {
     const { topicId: topicIdParam } = useParams();
-    const normalizedTopicId = typeof topicIdParam === 'string' ? topicIdParam.trim() : '';
-    const topicId = isLikelyConvexId(normalizedTopicId) ? normalizedTopicId : '';
+    const routeTopicId = typeof topicIdParam === 'string' ? topicIdParam.trim() : '';
     const { user, profile, updateProfile } = useAuth();
     useStudyTimer(user?.id);
     const synthesizeTopicVoice = useAction(api.ai.synthesizeTopicVoice);
@@ -78,11 +77,23 @@ const TopicDetail = () => {
     const mainRef = useRef(null);
     const { selection, clearSelection } = useTextSelection(contentRef);
     const navigate = useNavigate();
-    const topicData = useQuery(
+    const reloadDashboard = useCallback(() => {
+        if (typeof window !== 'undefined') {
+            window.location.assign('/dashboard');
+            return;
+        }
+        navigate('/dashboard', { replace: true });
+    }, [navigate]);
+    const topicQueryResult = useQuery(
         api.topics.getTopicWithQuestions,
-        topicId ? { topicId } : 'skip'
+        routeTopicId ? { topicId: routeTopicId } : 'skip'
     );
-    const topic = topicData || null;
+    const {
+        topic,
+        topicId,
+        isLoadingRouteTopic,
+        isMissingRouteTopic,
+    } = useRouteResolvedTopic(routeTopicId, topicQueryResult);
     const courseId = topic?.courseId;
     const voiceModeEnabled = Boolean(profile?.voiceModeEnabled);
     const voiceQuota = useQuery(
@@ -505,7 +516,7 @@ const TopicDetail = () => {
         return { blocks, toc };
     }, [normalizedContent]);
 
-    const handleStartExam = async (preferredFormat = 'mcq') => {
+    const handleStartExam = async () => {
         if (!topicId) {
             setStartExamError('Topic not found. Please return to the dashboard and try again.');
             return;
@@ -515,12 +526,7 @@ const TopicDetail = () => {
         setStartingExam(true);
 
         try {
-            navigate(`/dashboard/exam/${topicId}`, {
-                state: {
-                    preferredFormat,
-                    source: 'topic_detail',
-                },
-            });
+            navigate(`/dashboard/exam/${topicId}`);
         } catch {
             setStartExamError('Failed to start the exam. Please try again.');
         } finally {
@@ -552,7 +558,7 @@ const TopicDetail = () => {
         }
     }, [topicId, reExplainStyle, reExplainTopic]);
 
-    if (!topicId) {
+    if (!routeTopicId) {
         return (
             <div className="min-h-screen flex items-center justify-center bg-background-light dark:bg-background-dark">
                 <div className="text-center max-w-sm px-6">
@@ -564,7 +570,7 @@ const TopicDetail = () => {
         );
     }
 
-    if (topicData === undefined) {
+    if (isLoadingRouteTopic) {
         return (
             <div className="min-h-screen flex items-center justify-center bg-background-light dark:bg-background-dark">
                 <div className="text-center">
@@ -575,13 +581,13 @@ const TopicDetail = () => {
         );
     }
 
-    if (topicData === null) {
+    if (isMissingRouteTopic) {
         return (
             <div className="min-h-screen flex items-center justify-center bg-background-light dark:bg-background-dark">
                 <div className="text-center max-w-sm px-6">
-                    <h2 className="text-body-lg font-semibold text-text-main-light dark:text-text-main-dark mb-2">Topic not found</h2>
-                    <p className="text-body-sm text-text-sub-light dark:text-text-sub-dark mb-6">We couldn&apos;t find this topic.</p>
-                    <Link to="/dashboard" className="btn-primary px-5 py-2.5 text-body-sm">Back to Dashboard</Link>
+                    <h2 className="text-body-lg font-semibold text-text-main-light dark:text-text-main-dark mb-2">This topic link is stale</h2>
+                    <p className="text-body-sm text-text-sub-light dark:text-text-sub-dark mb-6">Reload the dashboard, reopen the course, and start from the topic card again.</p>
+                    <button type="button" onClick={reloadDashboard} className="btn-primary px-5 py-2.5 text-body-sm">Reload Dashboard</button>
                 </div>
             </div>
         );
@@ -719,20 +725,12 @@ const TopicDetail = () => {
                                     Concept Practice
                                 </Link>
                                 <button
-                                    onClick={() => handleStartExam('mcq')}
+                                    onClick={handleStartExam}
                                     disabled={startingExam}
                                     className="btn-primary px-5 py-2.5 text-body-sm gap-2 disabled:opacity-50"
                                 >
                                     <span className="material-symbols-outlined text-[18px]">quiz</span>
-                                    {startingExam ? 'Preparing...' : 'Objective Quiz'}
-                                </button>
-                                <button
-                                    onClick={() => handleStartExam('essay')}
-                                    disabled={startingExam}
-                                    className="btn-secondary px-5 py-2.5 text-body-sm gap-2 disabled:opacity-50"
-                                >
-                                    <span className="material-symbols-outlined text-[18px]">edit_note</span>
-                                    {startingExam ? 'Preparing...' : 'Essay Quiz'}
+                                    {startingExam ? 'Preparing...' : 'Start Exam'}
                                 </button>
                             </div>
 

@@ -48,7 +48,7 @@ for (const pattern of [
   }
 }
 
-if (!/isChunkLoadError\(error\)\s*&&\s*attemptChunkRecoveryReload\(\)/.test(appErrorBoundarySource)) {
+if (!/isChunkLoadError\(error\)\s*&&\s*attemptChunkRecoveryReload\('chunk-load'\)/.test(appErrorBoundarySource)) {
   throw new Error('Expected AppErrorBoundary to auto-reload once on chunk/module import failures.');
 }
 

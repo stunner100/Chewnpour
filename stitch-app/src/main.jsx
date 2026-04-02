@@ -1,10 +1,14 @@
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
-import { registerSW } from 'virtual:pwa-register';
 import './index.css';
 import AppErrorBoundary from './components/AppErrorBoundary.jsx';
 import AppProviders from './bootstrap/AppProviders.jsx';
-import { attemptChunkRecoveryReload, isChunkLoadError } from './lib/chunkLoadRecovery.js';
+import {
+  attemptChunkRecoveryReload,
+  isChunkLoadError,
+  isStaleTopicRouteLookupError,
+  redirectForStaleTopicRoute,
+} from './lib/chunkLoadRecovery.js';
 import { convexSiteUrl } from './lib/convex-config.js';
 import { initSentry } from './lib/sentry.js';
 import { initPostHog } from './lib/posthog.js';
@@ -83,90 +87,71 @@ const applyNetworkHints = () => {
   appendResourceHint('dns-prefetch', convexSiteUrl);
 };
 
-const PWA_UPDATE_RELOAD_KEY = '__pwa_update_reload_ts';
-const PWA_UPDATE_RELOAD_WINDOW_MS = 30_000;
-const PWA_ENABLED_HOSTS = new Set(['www.chewnpour.com', 'chewnpour.com']);
+const LEGACY_PWA_CLEANUP_KEY = '__legacy_pwa_cleanup_ts';
+const LEGACY_PWA_CLEANUP_WINDOW_MS = 30_000;
 
-const shouldEnablePwa = () => {
-  if (!import.meta.env.PROD || typeof window === 'undefined') return false;
-  return PWA_ENABLED_HOSTS.has(window.location.hostname);
-};
-
-const clearPreviewRuntimeCaches = async () => {
-  if (typeof window === 'undefined') return;
-
-  if ('serviceWorker' in navigator) {
-    try {
-      const registrations = await navigator.serviceWorker.getRegistrations();
-      await Promise.allSettled(registrations.map((registration) => registration.unregister()));
-    } catch {
-      // Ignore cleanup failures on preview hosts.
-    }
-  }
-
-  if ('caches' in window) {
-    try {
-      const cacheKeys = await window.caches.keys();
-      await Promise.allSettled(cacheKeys.map((key) => window.caches.delete(key)));
-    } catch {
-      // Ignore cleanup failures on preview hosts.
-    }
-  }
-};
-
-const canReloadForPwaUpdate = () => {
+const canRunLegacyPwaCleanup = () => {
   if (typeof window === 'undefined') return false;
   const now = Date.now();
   try {
-    const lastRaw = window.sessionStorage.getItem(PWA_UPDATE_RELOAD_KEY);
+    const lastRaw = window.sessionStorage.getItem(LEGACY_PWA_CLEANUP_KEY);
     const last = Number(lastRaw);
-    if (Number.isFinite(last) && now - last < PWA_UPDATE_RELOAD_WINDOW_MS) {
+    if (Number.isFinite(last) && now - last < LEGACY_PWA_CLEANUP_WINDOW_MS) {
       return false;
     }
-    window.sessionStorage.setItem(PWA_UPDATE_RELOAD_KEY, String(now));
+    window.sessionStorage.setItem(LEGACY_PWA_CLEANUP_KEY, String(now));
     return true;
   } catch {
     return true;
   }
 };
 
-const triggerPwaUpdateReload = (updateServiceWorker) => {
-  if (!canReloadForPwaUpdate()) return;
-  const reload = () => {
-    window.setTimeout(() => {
-      window.location.reload();
-    }, 80);
+const clearLegacyPwaRuntime = () => {
+  if (!import.meta.env.PROD || typeof window === 'undefined') return;
+  if (!canRunLegacyPwaCleanup()) return;
+
+  const unregisterServiceWorkers = async () => {
+    if (!('serviceWorker' in navigator)) return;
+    try {
+      const registrations = await navigator.serviceWorker.getRegistrations();
+      await Promise.allSettled(registrations.map((registration) => registration.unregister()));
+    } catch {
+      // Ignore cleanup failures so the app can continue booting.
+    }
   };
 
-  if (typeof updateServiceWorker !== 'function') {
-    reload();
-    return;
-  }
+  const clearBrowserCaches = async () => {
+    if (!('caches' in window)) return;
+    try {
+      const cacheKeys = await window.caches.keys();
+      await Promise.allSettled(cacheKeys.map((key) => window.caches.delete(key)));
+    } catch {
+      // Ignore cleanup failures so the app can continue booting.
+    }
+  };
 
-  Promise.resolve(updateServiceWorker(true))
-    .catch(() => undefined)
-    .finally(reload);
+  void Promise.allSettled([unregisterServiceWorkers(), clearBrowserCaches()]).then(() => {
+    const currentPath = window.location.pathname || '';
+    if (currentPath.startsWith('/dashboard/')) {
+      window.setTimeout(() => {
+        window.location.replace(window.location.href);
+      }, 120);
+    }
+  });
 };
 
-const registerServiceWorker = () => {
-  if (typeof window === 'undefined' || !import.meta.env.PROD) return;
-
-  if (!shouldEnablePwa()) {
-    void clearPreviewRuntimeCaches();
-    return;
+const removeManifestLink = () => {
+  if (typeof document === 'undefined') return;
+  const manifestLink = document.querySelector('link[rel="manifest"]');
+  if (manifestLink) {
+    manifestLink.remove();
   }
+};
 
-  let updateServiceWorker = null;
-  updateServiceWorker = registerSW({
-    immediate: true,
-    onOfflineReady() {
-      console.info('[PWA] Offline mode is ready.');
-    },
-    onNeedRefresh() {
-      console.info('[PWA] New app version available. Refresh to update.');
-      triggerPwaUpdateReload(updateServiceWorker);
-    },
-  });
+const applyPwaCutover = () => {
+  if (!import.meta.env.PROD || typeof window === 'undefined') return;
+  clearLegacyPwaRuntime();
+  removeManifestLink();
 };
 
 const scheduleObservabilityInit = () => {
@@ -204,12 +189,26 @@ const installChunkLoadRecovery = () => {
   });
 
   window.addEventListener('error', (event) => {
+    if (isStaleTopicRouteLookupError(event?.error || event?.message)) {
+      event?.preventDefault?.();
+      if (redirectForStaleTopicRoute()) {
+        return;
+      }
+    }
+
     if (isChunkLoadError(event?.error || event?.message)) {
       attemptChunkRecoveryReload();
     }
   });
 
   window.addEventListener('unhandledrejection', (event) => {
+    if (isStaleTopicRouteLookupError(event?.reason)) {
+      event?.preventDefault?.();
+      if (redirectForStaleTopicRoute()) {
+        return;
+      }
+    }
+
     if (isChunkLoadError(event?.reason)) {
       event?.preventDefault?.();
       attemptChunkRecoveryReload();
@@ -230,5 +229,5 @@ createRoot(document.getElementById('root')).render(
 applyBrowserHints();
 applyNetworkHints();
 installChunkLoadRecovery();
-registerServiceWorker();
+applyPwaCutover();
 scheduleObservabilityInit();

@@ -4,7 +4,6 @@ import fs from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import react from '@vitejs/plugin-react'
-import { VitePWA } from 'vite-plugin-pwa'
 
 const thisDir = path.dirname(fileURLToPath(import.meta.url))
 const convexProjectConfigPath = path.resolve(
@@ -86,72 +85,6 @@ export default defineConfig(({ mode, command }) => {
     },
     plugins: [
       react(),
-      VitePWA({
-        injectRegister: false,
-        registerType: 'autoUpdate',
-        includeAssets: [
-          'vite.svg',
-          'icons/apple-touch-icon.png',
-          'icons/pwa-192x192.png',
-          'icons/pwa-512x512.png',
-        ],
-        manifest: {
-          name: 'StudyMate',
-          short_name: 'StudyMate',
-          description: 'Your AI-powered learning companion for study and exam prep.',
-          theme_color: '#4F46E5',
-          background_color: '#0a0a0b',
-          display: 'standalone',
-          orientation: 'portrait',
-          start_url: '/',
-          scope: '/',
-          icons: [
-            {
-              src: '/icons/pwa-192x192.png',
-              sizes: '192x192',
-              type: 'image/png',
-            },
-            {
-              src: '/icons/pwa-512x512.png',
-              sizes: '512x512',
-              type: 'image/png',
-            },
-            {
-              src: '/icons/pwa-512x512-maskable.png',
-              sizes: '512x512',
-              type: 'image/png',
-              purpose: 'maskable',
-            },
-          ],
-        },
-        workbox: {
-          globPatterns: ['**/*.{js,css,html,ico,png,svg,jpg,jpeg,webp,woff2}'],
-          maximumFileSizeToCacheInBytes: 4 * 1024 * 1024,
-          cleanupOutdatedCaches: true,
-          clientsClaim: true,
-          skipWaiting: true,
-          navigateFallback: 'index.html',
-          runtimeCaching: [
-            {
-              urlPattern: /^https:\/\/fonts\.(?:googleapis|gstatic)\.com\/.*/i,
-              handler: 'CacheFirst',
-              options: {
-                cacheName: 'google-fonts',
-                cacheableResponse: {
-                  statuses: [0, 200],
-                },
-                expiration: {
-                  maxEntries: 8,
-                  maxAgeSeconds: 60 * 60 * 24 * 365,
-                },
-              },
-            },
-          ],
-        },
-        devOptions: {
-          enabled: false,
-        },
-      }),
     ],
   }
 })

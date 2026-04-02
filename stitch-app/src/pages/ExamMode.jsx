@@ -6,7 +6,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { getSession } from '../lib/auth-client';
 import { useStudyTimer } from '../hooks/useStudyTimer';
 import { useExamTimer } from '../hooks/useExamTimer';
-import { isLikelyConvexId } from '../lib/convexId';
+import { useRouteResolvedTopic } from '../hooks/useRouteResolvedTopic';
 import { addSentryBreadcrumb, captureSentryException, captureSentryMessage } from '../lib/sentry';
 import ExamQuestionCard from '../components/ExamQuestionCard';
 
@@ -419,8 +419,7 @@ const resolvePreferredExamFormat = (value) => {
 
 const ExamMode = () => {
     const { topicId: topicIdParam } = useParams();
-    const normalizedTopicId = typeof topicIdParam === 'string' ? topicIdParam.trim() : '';
-    const topicId = isLikelyConvexId(normalizedTopicId) ? normalizedTopicId : '';
+    const routeTopicId = typeof topicIdParam === 'string' ? topicIdParam.trim() : '';
     const location = useLocation();
     const navigate = useNavigate();
     const { user } = useAuth();
@@ -437,6 +436,7 @@ const ExamMode = () => {
     const [examFormat, setExamFormat] = useState(null); // null = not chosen, 'mcq' | 'essay'
     const [gradingEssay, setGradingEssay] = useState(false);
     const [submitError, setSubmitError] = useState('');
+    const invalidRouteReportedRef = useRef('');
 
 
     // Get userId from Better Auth session
@@ -444,10 +444,25 @@ const ExamMode = () => {
     useStudyTimer(userId);
 
     // Convex queries and mutations
-    const topicData = useQuery(
+    const reloadDashboard = useCallback(() => {
+        if (typeof window !== 'undefined') {
+            window.location.assign('/dashboard');
+            return;
+        }
+        navigate('/dashboard', { replace: true });
+    }, [navigate]);
+    const topicQueryResult = useQuery(
         api.topics.getTopicWithQuestions,
-        topicId ? { topicId } : 'skip'
+        routeTopicId ? { topicId: routeTopicId } : 'skip'
     );
+    const {
+        topic,
+        topicId,
+        rawTopicId,
+        hasMismatchedCachedTopic,
+        isLoadingRouteTopic,
+        isMissingRouteTopic,
+    } = useRouteResolvedTopic(routeTopicId, topicQueryResult);
     const preparation = useQuery(
         api.examPreparations.getExamPreparation,
         preparationId ? { preparationId } : 'skip'
@@ -460,7 +475,6 @@ const ExamMode = () => {
     const START_EXAM_ATTEMPT_TIMEOUT_MS = 120_000;
     const EXAM_LOADING_STALL_TIMEOUT_MS = 150_000;
 
-    const topic = topicData;
     const loadingExamTypeLabel = examFormat === 'essay' ? 'essay' : 'objective';
     const preparationStatus = typeof preparation?.status === 'string' ? preparation.status : '';
     const preparationStage = typeof preparation?.stage === 'string' ? preparation.stage : 'queued';
@@ -526,8 +540,28 @@ const ExamMode = () => {
         resolvedPreparationRef.current = null;
         preferredFormatConsumedRef.current = false;
     }, [
-        topicId,
+        routeTopicId,
     ]);
+
+    useEffect(() => {
+        if (!routeTopicId || !isMissingRouteTopic) return;
+        if (invalidRouteReportedRef.current === routeTopicId) return;
+        invalidRouteReportedRef.current = routeTopicId;
+        captureSentryMessage('Stale exam topic route encountered', {
+            level: 'warning',
+            tags: {
+                area: 'exam_route',
+                page: 'exam_mode',
+            },
+            extras: {
+                routeTopicId,
+                rawTopicId,
+                hasMismatchedCachedTopic,
+                pathname: location.pathname,
+                referrer: typeof document !== 'undefined' ? document.referrer || '' : '',
+            },
+        });
+    }, [hasMismatchedCachedTopic, isMissingRouteTopic, location.pathname, rawTopicId, routeTopicId]);
 
     const preferredFormatFromState = resolvePreferredExamFormat(location?.state?.preferredFormat);
 
@@ -793,7 +827,7 @@ const ExamMode = () => {
                     topicId,
                     userId,
                     elapsedMs,
-                    topicDataState: topicData === undefined ? 'loading' : topicData === null ? 'missing' : 'ready',
+                    topicDataState: isLoadingRouteTopic ? 'loading' : isMissingRouteTopic ? 'missing' : 'ready',
                     hasAttemptQuestions,
                     attemptId,
                     startingExamAttempt,
@@ -817,7 +851,8 @@ const ExamMode = () => {
         preparationId,
         preparationStage,
         preparationStatus,
-        topicData,
+        isLoadingRouteTopic,
+        isMissingRouteTopic,
         topicId,
         userId,
     ]);
@@ -1047,7 +1082,7 @@ const ExamMode = () => {
     }, [currentQ?.options, currentQ?.tokens]);
 
 
-    if (!topicId) {
+    if (!routeTopicId) {
         return (
             <div className="bg-background-light dark:bg-background-dark min-h-screen flex items-center justify-center">
                 <div className="text-center max-w-md px-6">
@@ -1065,7 +1100,7 @@ const ExamMode = () => {
     }
 
     // Loading state
-    if (topicData === undefined) {
+    if (isLoadingRouteTopic) {
         return (
             <div className="bg-background-light dark:bg-background-dark min-h-screen flex items-center justify-center">
                 <div className="text-center">
@@ -1076,18 +1111,18 @@ const ExamMode = () => {
         );
     }
 
-    if (topicData === null) {
+    if (isMissingRouteTopic) {
         return (
             <div className="bg-background-light dark:bg-background-dark min-h-screen flex items-center justify-center">
                 <div className="text-center max-w-md px-6">
                     <div className="w-14 h-14 rounded-2xl bg-surface-light dark:bg-surface-dark border border-border-light dark:border-border-dark flex items-center justify-center mx-auto mb-4">
                         <span className="material-symbols-outlined text-2xl text-text-faint-light dark:text-text-faint-dark">search_off</span>
                     </div>
-                    <h2 className="text-body-lg font-semibold text-text-main-light dark:text-text-main-dark mb-2">Topic not found</h2>
-                    <p className="text-body-sm text-text-sub-light dark:text-text-sub-dark mb-6">We couldn't find this topic. Please return to your dashboard.</p>
-                    <Link to="/dashboard" className="btn-primary text-body-sm px-5 py-2.5 inline-flex items-center gap-2">
-                        Back to Dashboard
-                    </Link>
+                    <h2 className="text-body-lg font-semibold text-text-main-light dark:text-text-main-dark mb-2">This exam link is stale</h2>
+                    <p className="text-body-sm text-text-sub-light dark:text-text-sub-dark mb-6">Reload the dashboard, reopen the topic, and start the exam from there.</p>
+                    <button type="button" onClick={reloadDashboard} className="btn-primary text-body-sm px-5 py-2.5 inline-flex items-center gap-2">
+                        Reload Dashboard
+                    </button>
                 </div>
             </div>
         );

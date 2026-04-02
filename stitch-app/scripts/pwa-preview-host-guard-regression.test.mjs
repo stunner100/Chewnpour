@@ -9,15 +9,15 @@ const root = path.resolve(__dirname, "..");
 const mainSource = await fs.readFile(path.join(root, "src/main.jsx"), "utf8");
 
 const expectations = [
-  "const PWA_ENABLED_HOSTS = new Set(['www.chewnpour.com', 'chewnpour.com']);",
-  "const clearPreviewRuntimeCaches = async () => {",
+  "const PWA_RUNTIME_ENABLED = false;",
+  "const clearRuntimeCaches = async () => {",
   "if (!shouldEnablePwa()) {",
-  "void clearPreviewRuntimeCaches();",
+  "void clearRuntimeCaches();",
 ];
 
 for (const snippet of expectations) {
   if (!mainSource.includes(snippet)) {
-    throw new Error(`main.jsx is missing expected preview-PWA guard snippet: ${snippet}`);
+    throw new Error(`main.jsx is missing expected PWA shutdown guard snippet: ${snippet}`);
   }
 }
 
