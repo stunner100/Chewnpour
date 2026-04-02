@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import MobileBottomNav from './MobileBottomNav';
+import BrandLogo from './BrandLogo';
 import { useAuth } from '../contexts/AuthContext';
 
 const navItems = [
@@ -44,12 +45,12 @@ const DashboardLayout = ({ children }) => {
                 <div className="flex items-center justify-between h-15 px-4 border-b border-border-subtle dark:border-border-subtle-dark">
                     {!isSidebarCollapsed && (
                         <Link to="/dashboard" className="flex items-center gap-2.5">
-                            <img src="/chewnpourlogo.png" alt="ChewnPour" className="h-16 w-auto" />
+                            <BrandLogo className="h-10 w-auto" />
                         </Link>
                     )}
                     {isSidebarCollapsed && (
                         <Link to="/dashboard" className="mx-auto">
-                            <img src="/chewnpourlogo.png" alt="ChewnPour" className="h-16 w-auto" />
+                            <BrandLogo kind="mark" className="h-9 w-9" />
                         </Link>
                     )}
                     <button
