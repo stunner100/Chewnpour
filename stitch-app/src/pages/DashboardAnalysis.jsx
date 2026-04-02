@@ -20,6 +20,7 @@ import {
 import {
     buildUploadLimitMessageFromOptions,
 } from '../lib/pricingCurrency';
+import { buildConceptPracticePath } from '../lib/conceptReviewLinks';
 
 // ─── Referral CTA shown when credits are low ────────────────────────────────
 
@@ -172,6 +173,10 @@ const DashboardAnalysis = () => {
     const performanceInsights = useQuery(
         api.exams.getUserPerformanceInsights,
         isConvexAuthenticated ? {} : 'skip'
+    );
+    const conceptReviewQueue = useQuery(
+        api.concepts.getConceptReviewQueue,
+        isConvexAuthenticated ? { limit: 6 } : 'skip'
     );
     const uploadQuota = useQuery(
         api.subscriptions.getUploadQuotaStatus,
@@ -749,6 +754,58 @@ const DashboardAnalysis = () => {
                         </Link>
                     ))}
                 </div>
+
+                {conceptReviewQueue && conceptReviewQueue.items.length > 0 && (
+                    <section className="space-y-4 animate-fade-in-up animate-delay-150">
+                        <div className="flex items-center justify-between gap-3">
+                            <div>
+                                <h2 className="text-display-sm text-text-main-light dark:text-text-main-dark">Review weak concepts</h2>
+                                <p className="text-body-sm text-text-sub-light dark:text-text-sub-dark">
+                                    {conceptReviewQueue.dueConceptCount > 0
+                                        ? `${conceptReviewQueue.dueConceptCount} concepts are due for review across ${conceptReviewQueue.dueTopicCount} topics.`
+                                        : 'Stay ahead by revisiting concepts before they fade.'}
+                                </p>
+                            </div>
+                        </div>
+                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+                            {conceptReviewQueue.items.map((item) => (
+                                <Link
+                                    key={item.topicId}
+                                    to={buildConceptPracticePath(item.topicId, item.reviewConceptKeys)}
+                                    className="group card-interactive p-4"
+                                >
+                                    <div className="flex items-start justify-between gap-3">
+                                        <div className="min-w-0">
+                                            <div className="flex flex-wrap items-center gap-2 mb-1.5">
+                                                <span className={`rounded-full px-2.5 py-1 text-caption font-semibold ${
+                                                    item.dueCount > 0
+                                                        ? 'bg-accent-amber/10 text-accent-amber'
+                                                        : 'bg-primary/8 text-primary'
+                                                }`}>
+                                                    {item.dueCount > 0 ? `${item.dueCount} due` : 'Scheduled'}
+                                                </span>
+                                                <span className="text-caption text-text-faint-light dark:text-text-faint-dark">
+                                                    {item.weakCount} weak · {item.shakyCount} shaky · {item.strongCount} strong
+                                                </span>
+                                            </div>
+                                            <h3 className="text-body-sm font-semibold text-text-main-light dark:text-text-main-dark line-clamp-1">
+                                                {item.topicTitle}
+                                            </h3>
+                                            <p className="mt-2 text-caption text-text-sub-light dark:text-text-sub-dark line-clamp-2">
+                                                {Array.isArray(item.concepts) && item.concepts.length > 0
+                                                    ? item.concepts.map((concept) => concept.conceptLabel).join(' · ')
+                                                    : 'Open a focused review session for this topic.'}
+                                            </p>
+                                        </div>
+                                        <span className="material-symbols-outlined text-[18px] text-text-faint-light dark:text-text-faint-dark group-hover:text-primary group-hover:translate-x-0.5 transition-all">
+                                            arrow_forward
+                                        </span>
+                                    </div>
+                                </Link>
+                            ))}
+                        </div>
+                    </section>
+                )}
 
                 {/* Upgrade Banner */}
                 {subscription && subscription.plan !== 'premium' && (

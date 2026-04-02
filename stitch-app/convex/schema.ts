@@ -442,6 +442,28 @@ export default defineSchema({
         questionText: v.optional(v.string()),
     }).index("by_userId", ["userId"]).index("by_topicId", ["topicId"]).index("by_userId_topicId", ["userId", "topicId"]),
 
+    conceptMastery: defineTable({
+        userId: v.string(),
+        topicId: v.id("topics"),
+        conceptKey: v.string(),
+        conceptLabel: v.optional(v.string()),
+        strength: v.number(),
+        status: v.string(), // 'weak' | 'shaky' | 'strong'
+        correctStreak: v.number(),
+        attemptsCount: v.number(),
+        correctCount: v.number(),
+        questionCount: v.number(),
+        lastAccuracy: v.number(),
+        lastExerciseType: v.optional(v.string()),
+        lastQuestionText: v.optional(v.string()),
+        lastPracticedAt: v.number(),
+        nextReviewAt: v.number(),
+        updatedAt: v.number(),
+    })
+        .index("by_userId_topicId", ["userId", "topicId"])
+        .index("by_userId_nextReviewAt", ["userId", "nextReviewAt"])
+        .index("by_userId_topicId_conceptKey", ["userId", "topicId", "conceptKey"]),
+
     // Subscription info
     subscriptions: defineTable({
         userId: v.string(),
