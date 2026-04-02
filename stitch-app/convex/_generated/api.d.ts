@@ -39,6 +39,7 @@ import type * as lib_examAttemptReuse from "../lib/examAttemptReuse.js";
 import type * as lib_examQuestionSelection from "../lib/examQuestionSelection.js";
 import type * as lib_examSecurity from "../lib/examSecurity.js";
 import type * as lib_examStartPolicy from "../lib/examStartPolicy.js";
+import type * as lib_examVersioning from "../lib/examVersioning.js";
 import type * as lib_groundedContentPipeline from "../lib/groundedContentPipeline.js";
 import type * as lib_groundedContentType from "../lib/groundedContentType.js";
 import type * as lib_groundedEvidenceIndex from "../lib/groundedEvidenceIndex.js";
@@ -111,6 +112,7 @@ declare const fullApi: ApiFromModules<{
   "lib/examQuestionSelection": typeof lib_examQuestionSelection;
   "lib/examSecurity": typeof lib_examSecurity;
   "lib/examStartPolicy": typeof lib_examStartPolicy;
+  "lib/examVersioning": typeof lib_examVersioning;
   "lib/groundedContentPipeline": typeof lib_groundedContentPipeline;
   "lib/groundedContentType": typeof lib_groundedContentType;
   "lib/groundedEvidenceIndex": typeof lib_groundedEvidenceIndex;
