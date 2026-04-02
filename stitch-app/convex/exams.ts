@@ -9,10 +9,17 @@ import {
     resolveAuthUserId,
     sanitizeExamQuestionForClient,
 } from "./lib/examSecurity";
-import { filterQuestionsForActiveAssessment } from "./lib/assessmentBlueprint.js";
+import {
+    ASSESSMENT_BLUEPRINT_VERSION,
+    filterQuestionsForActiveAssessment,
+} from "./lib/assessmentBlueprint.js";
 import { canReuseExamAttempt, resolveReusableAttemptQuestions } from "./lib/examAttemptReuse";
 import { selectQuestionsForAttempt } from "./lib/examQuestionSelection";
 import { resolvePreparedExamStart } from "./lib/examStartPolicy.js";
+import {
+    resolveExamAssessmentVersion,
+    resolveTopicQuestionSetVersion,
+} from "./lib/examVersioning.js";
 import { resolveAssessmentCapacity } from "./lib/questionBankConfig.js";
 import { summarizeQuestionSetQuality } from "./lib/premiumQuality.js";
 
@@ -159,6 +166,10 @@ export const ensurePreparedExamAttemptInternal = internalMutation({
                 message: "Topic not found.",
             });
         }
+        const questionSetVersion = resolveTopicQuestionSetVersion(topic);
+        const assessmentVersion = resolveExamAssessmentVersion(
+            topic?.assessmentBlueprint?.version || ASSESSMENT_BLUEPRINT_VERSION
+        );
 
         // Verify topic ownership
         const course = topic.courseId ? await ctx.db.get(topic.courseId) : null;
@@ -178,6 +189,8 @@ export const ensurePreparedExamAttemptInternal = internalMutation({
                 attempt,
                 topicId: args.topicId,
                 examFormat,
+                topic,
+                assessmentVersion,
             })
         );
 
@@ -342,6 +355,8 @@ export const ensurePreparedExamAttemptInternal = internalMutation({
             userId: effectiveUserId,
             topicId: args.topicId,
             examFormat,
+            questionSetVersion,
+            assessmentVersion,
             score: 0,
             totalQuestions: selectedQuestions.length,
             timeTakenSeconds: 0,

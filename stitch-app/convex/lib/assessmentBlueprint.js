@@ -449,10 +449,15 @@ export const isAssessmentV2Question = (question, { blueprint, questionType } = {
 
 export const filterQuestionsForActiveAssessment = ({ topic, questions }) => {
     const items = Array.isArray(questions) ? questions : [];
+    const currentQuestionSetVersion = Number(topic?.questionSetVersion || 0);
+    const activeQuestionSetItems = currentQuestionSetVersion > 0
+        ? items.filter((question) => Number(question?.questionSetVersion || 0) === currentQuestionSetVersion)
+        : items;
+
     if (!topicUsesAssessmentBlueprint(topic)) {
-        return items;
+        return activeQuestionSetItems;
     }
-    return items.filter((question) =>
+    return activeQuestionSetItems.filter((question) =>
         isAssessmentV2Question(question, {
             blueprint: topic?.assessmentBlueprint,
             questionType: question?.questionType,
