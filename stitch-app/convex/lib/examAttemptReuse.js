@@ -1,13 +1,15 @@
 import { normalizeExamFormat } from "./objectiveExam.js";
-
-export const EXAM_ATTEMPT_REUSE_MAX_AGE_MS = 30 * 60 * 1000;
+import {
+    isExamSnapshotCompatible,
+    resolveExamSnapshotTimestamp,
+} from "./examVersioning.js";
 
 export const canReuseExamAttempt = ({
     attempt,
     topicId,
     examFormat,
-    nowMs = Date.now(),
-    maxAgeMs = EXAM_ATTEMPT_REUSE_MAX_AGE_MS,
+    topic,
+    assessmentVersion,
 }) => {
     if (!attempt || !topicId) return false;
     if (String(attempt.topicId || "") !== String(topicId)) return false;
@@ -30,11 +32,15 @@ export const canReuseExamAttempt = ({
     // Guard: if another session already claimed this attempt, skip it
     if (attempt.claimedAt && typeof attempt.claimedAt === 'number') return false;
 
-    const createdAt = Number(attempt._creationTime || 0);
-    if (!Number.isFinite(createdAt) || createdAt <= 0) return false;
-
-    const ageMs = Math.max(0, Number(nowMs || Date.now()) - createdAt);
-    if (ageMs >= maxAgeMs) return false;
+    if (!isExamSnapshotCompatible({
+        snapshotQuestionSetVersion: attempt.questionSetVersion,
+        snapshotAssessmentVersion: attempt.assessmentVersion,
+        topic,
+        requestedAssessmentVersion: assessmentVersion,
+        snapshotAt: resolveExamSnapshotTimestamp(attempt),
+    })) {
+        return false;
+    }
 
     return true;
 };
