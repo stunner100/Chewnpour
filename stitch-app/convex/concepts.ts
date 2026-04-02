@@ -1,10 +1,14 @@
 import { v } from "convex/values";
 import { action, internalMutation, internalQuery, mutation, query } from "./_generated/server";
 import { assertAuthorizedUser, resolveAuthUserId } from "./lib/examSecurity";
-import { buildConceptSessionItems } from "./lib/conceptSessionSelection.js";
+import { buildConceptSessionItems, summarizeConceptExerciseBank } from "./lib/conceptSessionSelection.js";
 
 const CONCEPT_SESSION_SIZE = 5;
-const MAX_CONCEPT_SESSION_GENERATION_ATTEMPTS = 6;
+const CONCEPT_BANK_TARGET_SIZE = 9;
+const CONCEPT_BANK_BATCH_SIZE = 6;
+const CONCEPT_MIN_EXERCISE_TYPES = 3;
+const CONCEPT_MIN_CONCEPT_KEYS = 4;
+const MAX_CONCEPT_SESSION_GENERATION_ATTEMPTS = 3;
 
 export const createConceptAttempt = mutation({
     args: {
@@ -101,23 +105,44 @@ export const getConceptExercisesForTopicInternal = internalQuery({
 export const createConceptExerciseInternal = internalMutation({
     args: {
         topicId: v.id("topics"),
+        exerciseType: v.optional(v.string()),
+        conceptKey: v.optional(v.string()),
+        difficulty: v.optional(v.string()),
         questionText: v.string(),
-        template: v.array(v.string()),
-        answers: v.array(v.string()),
-        tokens: v.array(v.string()),
+        explanation: v.optional(v.string()),
+        template: v.optional(v.array(v.string())),
+        answers: v.optional(v.array(v.string())),
+        tokens: v.optional(v.array(v.string())),
+        options: v.optional(v.array(v.object({
+            id: v.string(),
+            text: v.string(),
+        }))),
+        correctOptionId: v.optional(v.string()),
         citations: v.optional(v.array(v.any())),
+        sourcePassageIds: v.optional(v.array(v.string())),
         groundingScore: v.optional(v.number()),
+        qualityScore: v.optional(v.number()),
+        active: v.optional(v.boolean()),
         version: v.optional(v.string()),
     },
     handler: async (ctx, args) => {
         return await ctx.db.insert("conceptExercises", {
             topicId: args.topicId,
+            exerciseType: args.exerciseType,
+            conceptKey: args.conceptKey,
+            difficulty: args.difficulty,
             questionText: args.questionText,
+            explanation: args.explanation,
             template: args.template,
             answers: args.answers,
             tokens: args.tokens,
+            options: args.options,
+            correctOptionId: args.correctOptionId,
             citations: args.citations,
+            sourcePassageIds: args.sourcePassageIds,
             groundingScore: args.groundingScore,
+            qualityScore: args.qualityScore,
+            active: args.active !== false,
             version: args.version,
             createdAt: Date.now(),
         });
@@ -161,26 +186,61 @@ export const getConceptSessionForTopic = action({
             topicId: args.topicId,
         });
 
+        let generationCount = 0;
+        let generationAttempts = 0;
+        let bankSummary = summarizeConceptExerciseBank(bankExercises);
+
+        while (
+            generationAttempts < MAX_CONCEPT_SESSION_GENERATION_ATTEMPTS
+            && (
+                bankSummary.activeCount < CONCEPT_BANK_TARGET_SIZE
+                || bankSummary.exerciseTypeCount < CONCEPT_MIN_EXERCISE_TYPES
+                || bankSummary.conceptKeyCount < CONCEPT_MIN_CONCEPT_KEYS
+            )
+        ) {
+            const generatedExercises = await ctx.runAction(
+                "ai:generateConceptExerciseBatchForTopicInternal",
+                {
+                    topicId: args.topicId,
+                    userId,
+                    requestedCount: CONCEPT_BANK_BATCH_SIZE,
+                }
+            );
+            const insertedExercises = Array.isArray(generatedExercises) ? generatedExercises.filter(Boolean) : [];
+            if (insertedExercises.length === 0) {
+                break;
+            }
+            generationAttempts += 1;
+            generationCount += insertedExercises.length;
+            bankExercises = [...insertedExercises, ...bankExercises];
+            bankSummary = summarizeConceptExerciseBank(bankExercises);
+        }
+
         let sessionItems = buildConceptSessionItems({
             bankExercises,
             attempts,
             sessionSize: CONCEPT_SESSION_SIZE,
         });
 
-        let generationCount = 0;
         while (
             sessionItems.length < CONCEPT_SESSION_SIZE
-            && generationCount < MAX_CONCEPT_SESSION_GENERATION_ATTEMPTS
+            && generationAttempts < MAX_CONCEPT_SESSION_GENERATION_ATTEMPTS
         ) {
-            const generatedExercise = await ctx.runAction(
-                "ai:generateConceptExerciseForTopicInternal",
+            const generatedExercises = await ctx.runAction(
+                "ai:generateConceptExerciseBatchForTopicInternal",
                 {
                     topicId: args.topicId,
                     userId,
+                    requestedCount: CONCEPT_BANK_BATCH_SIZE,
                 }
             );
-            generationCount += 1;
-            bankExercises = [generatedExercise, ...bankExercises];
+            const insertedExercises = Array.isArray(generatedExercises) ? generatedExercises.filter(Boolean) : [];
+            if (insertedExercises.length === 0) {
+                break;
+            }
+            generationAttempts += 1;
+            generationCount += insertedExercises.length;
+            bankExercises = [...insertedExercises, ...bankExercises];
             sessionItems = buildConceptSessionItems({
                 bankExercises,
                 attempts,
@@ -200,11 +260,18 @@ export const getConceptSessionForTopic = action({
             generationCount,
             items: sessionItems.map((exercise: any) => ({
                 exerciseKey: exercise.exerciseKey,
+                exerciseType: exercise.exerciseType,
+                conceptKey: exercise.conceptKey,
+                difficulty: exercise.difficulty,
                 questionText: exercise.questionText,
+                explanation: exercise.explanation,
                 template: exercise.template,
                 answers: exercise.answers,
                 tokens: exercise.tokens,
+                options: exercise.options,
+                correctOptionId: exercise.correctOptionId,
                 citations: exercise.citations,
+                sourcePassageIds: exercise.sourcePassageIds,
                 groundingScore: exercise.groundingScore,
             })),
         };

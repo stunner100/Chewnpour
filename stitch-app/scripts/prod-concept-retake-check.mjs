@@ -96,6 +96,10 @@ const captureSignature = async () => {
       .map((node) => (node.textContent || '').replace(/\s+/g, ' ').trim())
       .filter(Boolean)
       .sort();
+    const optionTexts = Array.from(document.querySelectorAll('main button'))
+      .map((node) => (node.textContent || '').replace(/\s+/g, ' ').trim())
+      .filter((text) => text && !/check answer|next item|finish session|saving/i.test(text))
+      .sort();
     const blanks = Array.from(document.querySelectorAll('main span'))
       .map((node) => (node.textContent || '').trim())
       .filter((text) => text === '___').length;
@@ -103,12 +107,14 @@ const captureSignature = async () => {
     const signature = JSON.stringify({
       questionText,
       tokenTexts,
+      optionTexts,
       blanks,
     });
 
     return {
       questionText,
       tokenTexts,
+      optionTexts,
       blanks,
       signature,
     };
@@ -118,7 +124,7 @@ const captureSignature = async () => {
 const waitForExerciseReady = async () => {
   let latest = await captureSignature();
   for (let i = 0; i < 45; i += 1) {
-    if (latest.questionText && latest.blanks > 0) {
+    if (latest.questionText && (latest.blanks > 0 || latest.optionTexts.length > 0)) {
       return latest;
     }
 
@@ -142,9 +148,22 @@ const completeExercise = async () => {
       break;
     }
     const hasToken = (await page.locator('button[draggable="true"]').count()) > 0;
-    if (!hasToken) break;
-    await page.locator('button[draggable="true"]').first().click({ timeout: 5000 });
-    await page.waitForTimeout(80);
+    if (hasToken) {
+      await page.locator('button[draggable="true"]').first().click({ timeout: 5000 });
+      await page.waitForTimeout(80);
+      continue;
+    }
+
+    const optionButtons = page.locator('main button').filter({
+      hasNot: page.locator('span.material-symbols-outlined'),
+    });
+    if ((await optionButtons.count()) > 0) {
+      await optionButtons.first().click({ timeout: 5000 });
+      await page.waitForTimeout(120);
+      continue;
+    }
+
+    break;
   }
 
   await checkButton.click({ timeout: 10000 });
@@ -170,7 +189,7 @@ try {
   await page.goto(`${baseUrl}/login`, { waitUntil: 'domcontentloaded', timeout: 120000 });
   await page.getByPlaceholder('student@university.edu').fill(email);
   await page.getByPlaceholder('Enter your password').fill(password);
-  await page.getByRole('button', { name: /log in/i }).click();
+  await page.getByRole('button', { name: /sign in|log in/i }).click();
   await page.waitForURL(/\/dashboard/, { timeout: 120000 });
   await waitForDashboardCourses();
   await screenshot('01-dashboard');
