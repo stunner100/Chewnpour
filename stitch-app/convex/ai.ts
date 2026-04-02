@@ -1600,6 +1600,36 @@ const buildObjectiveQuestionRepairSchema = (questionType: "mcq" | "true_false" |
 }`;
 };
 
+const buildConceptExerciseBatchRepairSchema = () => `{
+  "items": [
+    {
+      "exerciseType": "cloze|definition_match|misconception_check",
+      "conceptKey": "string",
+      "difficulty": "easy|medium|hard",
+      "questionText": "string",
+      "explanation": "string",
+      "template": ["Prompt ", "__", "."],
+      "answers": ["string"],
+      "tokens": ["string", "string", "string", "string"],
+      "options": [
+        {"text":"string"},
+        {"text":"string"},
+        {"text":"string"}
+      ],
+      "correctOptionText": "string",
+      "citations": [
+        {
+          "passageId": "string",
+          "page": 0,
+          "startChar": 0,
+          "endChar": 20,
+          "quote": "string"
+        }
+      ]
+    }
+  ]
+}`;
+
 const parseQuestionsWithRepair = async (
     raw: string,
     questionType: "mcq" | "true_false" | "fill_blank" = "mcq",
@@ -1733,6 +1763,55 @@ ${String(raw || "").slice(0, 20000)}
             });
         } catch (repairError) {
             return { questions: [] };
+        }
+    }
+};
+
+const parseConceptExerciseBatchWithRepair = async (
+    raw: string,
+    options?: { deadlineMs?: number; repairTimeoutMs?: number }
+) => {
+    try {
+        return parseJsonFromResponse(raw, "concept exercise batch");
+    } catch (error) {
+        const remainingMs = Number.isFinite(Number(options?.deadlineMs))
+            ? Number(options?.deadlineMs) - Date.now()
+            : null;
+        if (remainingMs !== null && remainingMs <= 1200) {
+            throw error;
+        }
+
+        let repairTimeoutMs = Number(options?.repairTimeoutMs || 3500);
+        if (remainingMs !== null) {
+            repairTimeoutMs = Math.min(repairTimeoutMs, Math.max(1000, remainingMs - 200));
+        }
+
+        const repairPrompt = `Fix the malformed JSON-like content below and return strict JSON only.
+
+Required schema:
+${buildConceptExerciseBatchRepairSchema()}
+
+Malformed content:
+"""
+${String(raw || "").slice(0, 24000)}
+"""`;
+
+        try {
+            const repaired = await callInception([
+                { role: "system", content: "You are a strict JSON repair assistant. Return valid JSON only." },
+                { role: "user", content: repairPrompt },
+            ], DEFAULT_MODEL, {
+                maxTokens: 3200,
+                responseFormat: "json_object",
+                timeoutMs: repairTimeoutMs,
+            });
+
+            return parseJsonFromResponse(repaired, "repaired concept exercise batch");
+        } catch (repairError) {
+            console.error("Failed to repair concept exercise batch:", {
+                message: repairError instanceof Error ? repairError.message : String(repairError),
+            });
+            throw error;
         }
     }
 };
@@ -3022,6 +3101,7 @@ ${previousExerciseBlock}`
     const generationSeed = randomBytes(4).toString("hex");
     const acceptedExercises: any[] = [];
     let lastError: Error | null = null;
+    const generationDeadlineMs = Date.now() + 55_000;
 
     for (let attemptIndex = 0; attemptIndex < Math.max(CONCEPT_EXERCISE_MAX_ATTEMPTS, GROUNDED_REGEN_MAX_ATTEMPTS); attemptIndex += 1) {
         if (acceptedExercises.length >= requestedCount) {
@@ -3052,7 +3132,10 @@ ${previousExerciseBlock}`
                 temperature: Math.min(0.75, 0.3 + (attemptIndex * 0.2)),
             });
 
-            const parsed = parseJsonFromResponse(response, "concept exercise batch");
+            const parsed = await parseConceptExerciseBatchWithRepair(response, {
+                deadlineMs: generationDeadlineMs,
+                repairTimeoutMs: 3_500,
+            });
             const rawItems = Array.isArray(parsed?.items)
                 ? parsed.items
                 : Array.isArray(parsed)
