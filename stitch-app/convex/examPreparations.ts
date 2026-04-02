@@ -3,10 +3,20 @@ import { action, internalAction, internalMutation, internalQuery, mutation, quer
 import { internal } from "./_generated/api";
 import {
     assertAuthorizedUser,
+    isUsableExamQuestion,
     resolveAuthUserId,
     sanitizeExamQuestionForClient,
 } from "./lib/examSecurity";
-import { ASSESSMENT_BLUEPRINT_VERSION } from "./lib/assessmentBlueprint.js";
+import {
+    ASSESSMENT_BLUEPRINT_VERSION,
+    filterQuestionsForActiveAssessment,
+} from "./lib/assessmentBlueprint.js";
+import {
+    isExamSnapshotCompatible,
+    resolveExamAssessmentVersion,
+    resolveExamSnapshotTimestamp,
+    resolveTopicQuestionSetVersion,
+} from "./lib/examVersioning.js";
 import { resolveAssessmentCapacity } from "./lib/questionBankConfig.js";
 
 const resolveRequestedExamFormat = (value: unknown) =>
@@ -122,6 +132,111 @@ const loadPreparationWithAttemptSnapshot = async (ctx: any, preparationId: any) 
     };
 };
 
+const resolvePreparationCompatibility = ({
+    preparation,
+    topic,
+}: {
+    preparation: any;
+    topic: any;
+}) => isExamSnapshotCompatible({
+    snapshotQuestionSetVersion: preparation?.questionSetVersion,
+    snapshotAssessmentVersion: preparation?.assessmentVersion,
+    topic,
+    requestedAssessmentVersion: preparation?.assessmentVersion,
+    snapshotAt: resolveExamSnapshotTimestamp(preparation),
+});
+
+const loadAttemptQuestionsForReuse = async ({
+    ctx,
+    attempt,
+    topic,
+    examFormat,
+}: {
+    ctx: any;
+    attempt: any;
+    topic: any;
+    examFormat: string;
+}) => {
+    const questionIds = Array.isArray(attempt?.questionIds) ? attempt.questionIds : [];
+    if (questionIds.length === 0) {
+        return [];
+    }
+
+    const loadedQuestions = await Promise.all(
+        questionIds.map((questionId: any) => ctx.db.get(questionId))
+    );
+    const orderedQuestions = [];
+    for (let index = 0; index < questionIds.length; index += 1) {
+        const question = loadedQuestions[index];
+        if (!question) {
+            return [];
+        }
+        if (String(question._id || "") !== String(questionIds[index] || "")) {
+            return [];
+        }
+        if (String(question.topicId || "") !== String(topic?._id || "")) {
+            return [];
+        }
+        orderedQuestions.push(question);
+    }
+
+    const isEssay = examFormat === "essay";
+    const activeQuestions = filterQuestionsForActiveAssessment({
+        topic,
+        questions: orderedQuestions,
+    }).filter((question) => {
+        const matchesRequestedFormat = isEssay
+            ? question.questionType === "essay"
+            : question.questionType !== "essay";
+        if (!matchesRequestedFormat) return false;
+        return isUsableExamQuestion(question, { allowEssay: isEssay });
+    });
+
+    return activeQuestions.length === orderedQuestions.length
+        ? activeQuestions
+        : [];
+};
+
+const createExamAttemptSnapshot = async ({
+    ctx,
+    sourceAttempt,
+    userId,
+    topicId,
+    examFormat,
+    questionIds,
+    totalQuestions,
+    questionSetVersion,
+    assessmentVersion,
+}: {
+    ctx: any;
+    sourceAttempt: any;
+    userId: string;
+    topicId: any;
+    examFormat: string;
+    questionIds: any[];
+    totalQuestions: number;
+    questionSetVersion: number;
+    assessmentVersion: string;
+}) => {
+    return await ctx.db.insert("examAttempts", {
+        userId,
+        topicId,
+        examFormat,
+        questionSetVersion,
+        assessmentVersion,
+        score: 0,
+        totalQuestions,
+        timeTakenSeconds: 0,
+        questionIds,
+        answers: [],
+        startedAt: Date.now(),
+        qualityTier: sourceAttempt?.qualityTier,
+        premiumTargetMet: sourceAttempt?.premiumTargetMet,
+        qualityWarnings: sourceAttempt?.qualityWarnings,
+        qualitySignals: sourceAttempt?.qualitySignals,
+    });
+};
+
 export const getPreparationInternal = internalQuery({
     args: {
         preparationId: v.id("examPreparations"),
@@ -141,6 +256,7 @@ export const createOrReusePreparationInternal = internalMutation({
     handler: async (ctx, args) => {
         const effectiveUserId = String(args.userId || "").trim();
         const examFormat = resolveRequestedExamFormat(args.examFormat);
+        const requestedAssessmentVersion = resolveExamAssessmentVersion(args.assessmentVersion);
         const topic = await ctx.db.get(args.topicId);
         if (!topic) {
             throw new ConvexError({
@@ -148,6 +264,7 @@ export const createOrReusePreparationInternal = internalMutation({
                 message: "Topic not found.",
             });
         }
+        const questionSetVersion = resolveTopicQuestionSetVersion(topic);
 
         const course = topic.courseId ? await ctx.db.get(topic.courseId) : null;
         if (course && course.userId !== effectiveUserId) {
@@ -166,6 +283,18 @@ export const createOrReusePreparationInternal = internalMutation({
             .take(10);
 
         for (const preparation of existingPreparations) {
+            const preparationCompatible = isExamSnapshotCompatible({
+                snapshotQuestionSetVersion: preparation.questionSetVersion,
+                snapshotAssessmentVersion: preparation.assessmentVersion,
+                topic,
+                requestedAssessmentVersion,
+                snapshotAt: resolveExamSnapshotTimestamp(preparation),
+            });
+
+            if (!preparationCompatible) {
+                continue;
+            }
+
             if (preparation.status === "queued" || preparation.status === "preparing") {
                 return {
                     created: false,
@@ -177,21 +306,83 @@ export const createOrReusePreparationInternal = internalMutation({
 
             if (preparation.status === "ready" && preparation.attemptId) {
                 const attempt = await ctx.db.get(preparation.attemptId);
+                const reusableQuestions = await loadAttemptQuestionsForReuse({
+                    ctx,
+                    attempt,
+                    topic,
+                    examFormat,
+                });
+                if (reusableQuestions.length === 0) {
+                    continue;
+                }
+
                 const existingAnswers = Array.isArray(attempt?.answers) ? attempt.answers : [];
                 const matchesFormat =
                     resolveRequestedExamFormat(attempt?.examFormat) === examFormat;
+                const attemptCompatible = isExamSnapshotCompatible({
+                    snapshotQuestionSetVersion: attempt?.questionSetVersion,
+                    snapshotAssessmentVersion: attempt?.assessmentVersion,
+                    topic,
+                    requestedAssessmentVersion,
+                    snapshotAt: resolveExamSnapshotTimestamp(attempt),
+                });
                 if (
                     attempt
                     && attempt.userId === effectiveUserId
                     && attempt.topicId === args.topicId
                     && matchesFormat
+                    && attemptCompatible
                     && existingAnswers.length === 0
+                    && !(attempt?.claimedAt && typeof attempt.claimedAt === "number")
                 ) {
                     return {
                         created: false,
                         preparationId: preparation._id,
                         status: preparation.status,
                         stage: preparation.stage,
+                    };
+                }
+
+                if (
+                    attempt
+                    && attempt.userId === effectiveUserId
+                    && attempt.topicId === args.topicId
+                    && matchesFormat
+                    && attemptCompatible
+                ) {
+                    const clonedAttemptId = await createExamAttemptSnapshot({
+                        ctx,
+                        sourceAttempt: attempt,
+                        userId: effectiveUserId,
+                        topicId: args.topicId,
+                        examFormat,
+                        questionIds: reusableQuestions.map((question: any) => question._id),
+                        totalQuestions: reusableQuestions.length,
+                        questionSetVersion,
+                        assessmentVersion: requestedAssessmentVersion,
+                    });
+
+                    await ctx.db.patch(preparation._id, {
+                        attemptId: clonedAttemptId,
+                        questionSetVersion,
+                        assessmentVersion: requestedAssessmentVersion,
+                        status: "ready",
+                        stage: "completed",
+                        reasonCode: undefined,
+                        errorSummary: undefined,
+                        finishedAt: Date.now(),
+                        message: buildPreparationMessage({
+                            examFormat,
+                            status: "ready",
+                            qualityTier: attempt?.qualityTier,
+                        }),
+                    });
+
+                    return {
+                        created: false,
+                        preparationId: preparation._id,
+                        status: "ready",
+                        stage: "completed",
                     };
                 }
             }
@@ -216,7 +407,8 @@ export const createOrReusePreparationInternal = internalMutation({
             userId: effectiveUserId,
             topicId: args.topicId,
             examFormat,
-            assessmentVersion: String(args.assessmentVersion || ASSESSMENT_BLUEPRINT_VERSION).trim() || ASSESSMENT_BLUEPRINT_VERSION,
+            assessmentVersion: requestedAssessmentVersion,
+            questionSetVersion,
             status: "queued",
             stage: "queued",
             attemptTargetCount: capacity.attemptTargetCount,
@@ -361,6 +553,43 @@ export const runExamPreparationInternal = internalAction({
         }
 
         const examFormat = resolveRequestedExamFormat(preparation.examFormat);
+        const topicSnapshot = await ctx.runQuery(internal.topics.getTopicWithQuestionsInternal, {
+            topicId: preparation.topicId,
+        });
+        if (!topicSnapshot) {
+            await ctx.runMutation(internal.examPreparations.markPreparationStageInternal, {
+                preparationId: args.preparationId,
+                status: "failed",
+                stage: "failed",
+                reasonCode: "TOPIC_NOT_FOUND",
+                errorSummary: "Topic not found while preparing exam.",
+                message: buildPreparationMessage({
+                    examFormat,
+                    status: "failed",
+                }),
+                finishedAt: Date.now(),
+            });
+            return null;
+        }
+
+        if (!isExamSnapshotCompatible({
+            snapshotQuestionSetVersion: preparation.questionSetVersion,
+            snapshotAssessmentVersion: preparation.assessmentVersion,
+            topic: topicSnapshot,
+            requestedAssessmentVersion: preparation.assessmentVersion,
+            snapshotAt: resolveExamSnapshotTimestamp(preparation),
+        })) {
+            await ctx.runMutation(internal.examPreparations.markPreparationStageInternal, {
+                preparationId: args.preparationId,
+                status: "failed",
+                stage: "failed",
+                reasonCode: "STALE_PREPARATION",
+                errorSummary: "Exam preparation became stale after the topic changed.",
+                message: "This exam set is outdated because the topic changed. Start the exam again.",
+                finishedAt: Date.now(),
+            });
+            return null;
+        }
 
         await ctx.runMutation(internal.examPreparations.markPreparationStageInternal, {
             preparationId: args.preparationId,
@@ -615,6 +844,43 @@ export const getExamPreparation = query({
             resourceOwnerUserId: snapshot.preparation.userId,
         });
 
+        const topic = await ctx.db.get(snapshot.preparation.topicId);
+        const preparationCompatible = topic
+            ? resolvePreparationCompatibility({
+                preparation: snapshot.preparation,
+                topic,
+            })
+            : false;
+
+        if (!preparationCompatible) {
+            return {
+                preparationId: snapshot.preparation._id,
+                topicId: snapshot.preparation.topicId,
+                examFormat: snapshot.preparation.examFormat,
+                assessmentVersion: snapshot.preparation.assessmentVersion,
+                status: "failed",
+                stage: "failed",
+                attemptTargetCount: snapshot.preparation.attemptTargetCount,
+                bankTargetCount: snapshot.preparation.bankTargetCount,
+                usableCount: 0,
+                generatedCount: 0,
+                reasonCode: "STALE_PREPARATION",
+                errorSummary: "This saved exam set no longer matches the current topic content.",
+                message: "This saved exam set is outdated because the topic changed. Start the exam again.",
+                canRetry: true,
+                startedAt: snapshot.preparation.startedAt,
+                finishedAt: snapshot.preparation.finishedAt,
+                attemptId: null,
+                qualityTier: null,
+                premiumTargetMet: false,
+                qualityWarnings: [],
+                qualitySignals: null,
+                totalQuestions: 0,
+                questions: [],
+                attemptStartedAt: null,
+            };
+        }
+
         return {
             preparationId: snapshot.preparation._id,
             topicId: snapshot.preparation.topicId,
@@ -671,7 +937,23 @@ export const retryExamPreparation = mutation({
             resourceOwnerUserId: preparation.userId,
         });
 
-        if (preparation.status !== "failed") {
+        const topic = await ctx.db.get(preparation.topicId);
+        if (!topic) {
+            throw new ConvexError({
+                code: "TOPIC_NOT_FOUND",
+                message: "Topic not found.",
+            });
+        }
+        const questionSetVersion = resolveTopicQuestionSetVersion(topic);
+        const assessmentVersion = resolveExamAssessmentVersion(
+            topic?.assessmentBlueprint?.version || preparation.assessmentVersion || ASSESSMENT_BLUEPRINT_VERSION
+        );
+        const preparationCompatible = resolvePreparationCompatibility({
+            preparation,
+            topic,
+        });
+
+        if (preparation.status !== "failed" && preparationCompatible) {
             return {
                 success: false,
                 scheduled: false,
@@ -690,6 +972,8 @@ export const retryExamPreparation = mutation({
                 status: "queued",
             }),
             attemptId: undefined,
+            questionSetVersion,
+            assessmentVersion,
             qualityTier: undefined,
             premiumTargetMet: undefined,
             qualityWarnings: undefined,

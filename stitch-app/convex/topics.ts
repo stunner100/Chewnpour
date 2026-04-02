@@ -345,6 +345,7 @@ export const createTopic = mutation({
         isLocked: v.boolean(),
     },
     handler: async (ctx, args) => {
+        const questionSetVersion = Date.now();
         const topicId = await ctx.db.insert("topics", {
             courseId: args.courseId,
             sourceUploadId: args.sourceUploadId,
@@ -356,12 +357,13 @@ export const createTopic = mutation({
             groundingVersion: args.groundingVersion,
             illustrationStorageId: args.illustrationStorageId,
             illustrationUrl: args.illustrationUrl || resolveDefaultTopicIllustrationUrl(),
+            questionSetVersion,
             examReady: false,
             mcqTargetCount: EXAM_READY_MIN_MCQ_COUNT,
             essayTargetCount: EXAM_READY_MIN_ESSAY_COUNT,
             usableMcqCount: 0,
             usableEssayCount: 0,
-            examReadyUpdatedAt: Date.now(),
+            examReadyUpdatedAt: questionSetVersion,
             orderIndex: args.orderIndex,
             isLocked: args.isLocked,
         });
@@ -431,11 +433,13 @@ export const saveAssessmentBlueprintInternal = internalMutation({
         if (!topic) {
             throw new Error("Topic not found");
         }
+        const questionSetVersion = Date.now();
 
         await ctx.db.patch(args.topicId, {
             assessmentBlueprint: args.assessmentBlueprint,
+            questionSetVersion,
             examReady: false,
-            examReadyUpdatedAt: Date.now(),
+            examReadyUpdatedAt: questionSetVersion,
         });
 
         return {
@@ -665,6 +669,7 @@ export const createQuestionInternal = internalMutation({
             factualityStatus: args.factualityStatus,
             generationVersion: args.generationVersion,
             generationRunId: args.generationRunId,
+            questionSetVersion: Number(topic?.questionSetVersion || topic?.examReadyUpdatedAt || topic?._creationTime || 0) || undefined,
             learningObjective: args.learningObjective,
             bloomLevel: args.bloomLevel,
             outcomeKey: args.outcomeKey,
@@ -838,6 +843,7 @@ export const batchCreateQuestionsInternal = internalMutation({
             }
             const id = await ctx.db.insert("questions", {
                 topicId: args.topicId,
+                questionSetVersion: Number(topic?.questionSetVersion || topic?.examReadyUpdatedAt || topic?._creationTime || 0) || undefined,
                 ...q,
             });
             questionIds.push(id);

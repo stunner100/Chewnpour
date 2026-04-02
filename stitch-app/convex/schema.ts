@@ -237,6 +237,7 @@ export default defineSchema({
         groundingVersion: v.optional(v.string()),
         illustrationStorageId: v.optional(v.id("_storage")),
         illustrationUrl: v.optional(v.string()),
+        questionSetVersion: v.optional(v.number()),
         examReady: v.optional(v.boolean()),
         objectiveTargetCount: v.optional(v.number()),
         mcqTargetCount: v.optional(v.number()),
@@ -341,6 +342,7 @@ export default defineSchema({
         factualityStatus: v.optional(v.string()), // 'verified' | 'rejected'
         generationVersion: v.optional(v.string()),
         generationRunId: v.optional(v.string()),
+        questionSetVersion: v.optional(v.number()),
         learningObjective: v.optional(v.string()),
         bloomLevel: v.optional(v.string()),
         outcomeKey: v.optional(v.string()),
@@ -398,6 +400,8 @@ export default defineSchema({
         essayWeightedPercentage: v.optional(v.number()), // weighted essay quality % (0-100)
         startedAt: v.optional(v.number()), // timestamp when attempt was created
         claimedAt: v.optional(v.number()), // timestamp when reused attempt was claimed by a session
+        questionSetVersion: v.optional(v.number()),
+        assessmentVersion: v.optional(v.string()),
         qualityTier: v.optional(v.string()),
         premiumTargetMet: v.optional(v.boolean()),
         qualityWarnings: v.optional(v.array(v.string())),
@@ -409,6 +413,7 @@ export default defineSchema({
         topicId: v.id("topics"),
         examFormat: v.string(), // 'mcq' | 'essay'
         assessmentVersion: v.optional(v.string()),
+        questionSetVersion: v.optional(v.number()),
         status: v.string(), // 'queued' | 'preparing' | 'ready' | 'unavailable' | 'failed'
         stage: v.string(),
         attemptTargetCount: v.number(),

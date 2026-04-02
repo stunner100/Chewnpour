@@ -135,8 +135,15 @@ export const patchTopicContent = internalMutation({
         content: v.string(),
     },
     handler: async (ctx, args) => {
+        const questionSetVersion = Date.now();
         await ctx.db.patch(args.topicId, {
             content: args.content,
+            assessmentBlueprint: undefined,
+            questionSetVersion,
+            examReady: false,
+            usableMcqCount: 0,
+            usableEssayCount: 0,
+            examReadyUpdatedAt: questionSetVersion,
         });
         void ctx.scheduler.runAfter(0, (internal as any).search.upsertSearchDocumentsForEntity, {
             kind: "topic",
