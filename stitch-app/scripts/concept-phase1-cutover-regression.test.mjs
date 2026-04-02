@@ -41,6 +41,26 @@ assert.match(
 );
 assert.match(
   conceptBuilder,
+  /definition_match/,
+  'concept builder should support definition-match exercises in the session player'
+);
+assert.match(
+  conceptBuilder,
+  /misconception_check/,
+  'concept builder should support misconception-check exercises in the session player'
+);
+assert.match(
+  conceptBuilder,
+  /concept_session_v2/,
+  'concept builder should persist the Phase 2 session payload version'
+);
+assert.match(
+  conceptBuilder,
+  /Mixed concept prompts reused from your bank first/,
+  'concept builder summary should explain the mixed bank reuse strategy'
+);
+assert.match(
+  conceptBuilder,
   /Finish Session/,
   'concept builder should expose a session completion control'
 );

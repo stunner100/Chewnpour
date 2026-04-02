@@ -5,6 +5,10 @@ import { api } from '../../convex/_generated/api';
 import { useAuth } from '../contexts/AuthContext';
 import { useRouteResolvedTopic } from '../hooks/useRouteResolvedTopic';
 
+const EXERCISE_TYPE_CLOZE = 'cloze';
+const EXERCISE_TYPE_DEFINITION_MATCH = 'definition_match';
+const EXERCISE_TYPE_MISCONCEPTION_CHECK = 'misconception_check';
+
 const normalizeConceptAnswer = (text) =>
     String(text || '')
         .toLowerCase()
@@ -13,6 +17,25 @@ const normalizeConceptAnswer = (text) =>
         .replace(/[^a-z0-9]+/g, ' ')
         .replace(/\s+/g, ' ')
         .trim();
+
+const resolveExerciseType = (exercise) => {
+    const normalized = normalizeConceptAnswer(exercise?.exerciseType).replace(/\s+/g, '_');
+    if (
+        normalized === EXERCISE_TYPE_DEFINITION_MATCH
+        || normalized === 'match'
+        || normalized === 'term_match'
+    ) {
+        return EXERCISE_TYPE_DEFINITION_MATCH;
+    }
+    if (
+        normalized === EXERCISE_TYPE_MISCONCEPTION_CHECK
+        || normalized === 'misconception'
+        || normalized === 'misconception_fix'
+    ) {
+        return EXERCISE_TYPE_MISCONCEPTION_CHECK;
+    }
+    return EXERCISE_TYPE_CLOZE;
+};
 
 const createEmptySlots = (exercise) =>
     Array.from({ length: Array.isArray(exercise?.answers) ? exercise.answers.length : 0 }, () => null);
@@ -39,8 +62,7 @@ const collectEvidenceQuotes = (citations) => {
 
     for (const citation of items) {
         const quote = String(citation?.quote || '').replace(/\s+/g, ' ').trim();
-        if (!quote) continue;
-        if (seen.has(quote)) continue;
+        if (!quote || seen.has(quote)) continue;
         seen.add(quote);
         quotes.push({
             quote,
@@ -52,6 +74,33 @@ const collectEvidenceQuotes = (citations) => {
     return quotes;
 };
 
+const formatExerciseTypeLabel = (exerciseType) => {
+    switch (resolveExerciseType({ exerciseType })) {
+        case EXERCISE_TYPE_DEFINITION_MATCH:
+            return 'Definition match';
+        case EXERCISE_TYPE_MISCONCEPTION_CHECK:
+            return 'Misconception check';
+        default:
+            return 'Grounded cloze practice';
+    }
+};
+
+const formatExerciseInstructions = (exerciseType) => {
+    switch (resolveExerciseType({ exerciseType })) {
+        case EXERCISE_TYPE_DEFINITION_MATCH:
+            return 'Choose the meaning that stays closest to the source evidence.';
+        case EXERCISE_TYPE_MISCONCEPTION_CHECK:
+            return 'Choose the correction that is directly supported by the lesson.';
+        default:
+            return 'Fill every blank before checking this prompt.';
+    }
+};
+
+const formatCorrectAnswerLabel = (answers = []) => {
+    const items = Array.isArray(answers) ? answers.filter(Boolean) : [];
+    return items.join(', ');
+};
+
 const buildSessionSummary = (results) => {
     const items = Array.isArray(results) ? results.filter(Boolean) : [];
     const score = items.reduce((sum, item) => sum + (item.score || 0), 0);
@@ -59,8 +108,10 @@ const buildSessionSummary = (results) => {
     const weakItems = items
         .filter((item) => Number(item.score || 0) < Number(item.total || 0))
         .map((item) => ({
+            exerciseType: resolveExerciseType(item),
             questionText: item.questionText,
             correctAnswers: item.correctAnswers,
+            explanation: item.explanation,
             evidenceQuotes: collectEvidenceQuotes(item.citations),
         }));
 
@@ -88,7 +139,7 @@ const ConceptBuilder = () => {
 
     const topicQueryResult = useQuery(
         api.topics.getTopicWithQuestions,
-        routeTopicId ? { topicId: routeTopicId } : 'skip'
+        routeTopicId ? { topicId: routeTopicId } : 'skip',
     );
     const {
         topic,
@@ -98,7 +149,7 @@ const ConceptBuilder = () => {
     } = useRouteResolvedTopic(routeTopicId, topicQueryResult);
     const conceptAttempts = useQuery(
         api.concepts.getUserConceptAttempts,
-        userId ? {} : 'skip'
+        userId ? {} : 'skip',
     );
 
     const getConceptSessionForTopic = useAction('concepts:getConceptSessionForTopic');
@@ -109,6 +160,7 @@ const ConceptBuilder = () => {
     const [loadError, setLoadError] = useState('');
     const [currentIndex, setCurrentIndex] = useState(0);
     const [selectedTokens, setSelectedTokens] = useState([]);
+    const [selectedOptionId, setSelectedOptionId] = useState('');
     const [submitted, setSubmitted] = useState(false);
     const [currentResult, setCurrentResult] = useState(null);
     const [responses, setResponses] = useState([]);
@@ -132,7 +184,7 @@ const ConceptBuilder = () => {
                 acc.total += attempt.totalQuestions || 0;
                 return acc;
             },
-            { score: 0, total: 0 }
+            { score: 0, total: 0 },
         );
         if (totals.total === 0) return null;
         return Math.round((totals.score / totals.total) * 100);
@@ -155,6 +207,7 @@ const ConceptBuilder = () => {
             setSession(response);
             setCurrentIndex(0);
             setSelectedTokens(createEmptySlots(items[0]));
+            setSelectedOptionId('');
             setSubmitted(false);
             setCurrentResult(null);
             setResponses([]);
@@ -164,6 +217,7 @@ const ConceptBuilder = () => {
             console.error('Failed to prepare concept session:', error);
             setSession(null);
             setSelectedTokens([]);
+            setSelectedOptionId('');
             setLoadError('Failed to prepare a concept practice session. Please try again.');
         } finally {
             setLoading(false);
@@ -175,25 +229,41 @@ const ConceptBuilder = () => {
     }, [loadSession]);
 
     const currentExercise = session?.items?.[currentIndex] || null;
+    const currentExerciseType = resolveExerciseType(currentExercise);
+    const isChoiceExercise = currentExerciseType !== EXERCISE_TYPE_CLOZE;
+    const isClozeExercise = !isChoiceExercise;
 
     useEffect(() => {
         if (!currentExercise || submitted || sessionSummary) return;
-        setSelectedTokens(createEmptySlots(currentExercise));
+        if (resolveExerciseType(currentExercise) === EXERCISE_TYPE_CLOZE) {
+            setSelectedTokens(createEmptySlots(currentExercise));
+            setSelectedOptionId('');
+            return;
+        }
+        setSelectedTokens([]);
+        setSelectedOptionId('');
     }, [currentExercise, submitted, sessionSummary]);
 
     const tokenItems = useMemo(() => buildTokenItems(currentExercise), [currentExercise]);
+    const currentOptions = useMemo(
+        () => (Array.isArray(currentExercise?.options) ? currentExercise.options : []),
+        [currentExercise],
+    );
 
-    const selectedTokenIds = useMemo(() => {
-        return new Set(selectedTokens.filter(Boolean).map((token) => token.id));
-    }, [selectedTokens]);
+    const selectedTokenIds = useMemo(
+        () => new Set(selectedTokens.filter(Boolean).map((token) => token.id)),
+        [selectedTokens],
+    );
 
-    const availableTokens = useMemo(() => {
-        return tokenItems.filter((token) => !selectedTokenIds.has(token.id));
-    }, [tokenItems, selectedTokenIds]);
+    const availableTokens = useMemo(
+        () => tokenItems.filter((token) => !selectedTokenIds.has(token.id)),
+        [tokenItems, selectedTokenIds],
+    );
 
     const blanksCount = currentExercise?.answers?.length || 0;
     const filledCount = selectedTokens.filter(Boolean).length;
     const allFilled = blanksCount > 0 && filledCount === blanksCount;
+    const canSubmit = isChoiceExercise ? Boolean(selectedOptionId) : allFilled;
     const isInteractionDisabled = submitted || saving || Boolean(sessionSummary);
     const sessionLength = Array.isArray(session?.items) ? session.items.length : 0;
     const completedCount = sessionSummary
@@ -263,22 +333,61 @@ const ConceptBuilder = () => {
         event.dataTransfer.dropEffect = 'move';
     };
 
+    const handleOptionSelect = (optionId) => {
+        if (isInteractionDisabled) return;
+        setSelectedOptionId(optionId);
+    };
+
     const handleSubmit = () => {
-        if (!currentExercise || !allFilled) return;
-        const correctAnswers = currentExercise.answers.map(normalizeConceptAnswer);
+        if (!currentExercise || !canSubmit) return;
+
+        if (isChoiceExercise) {
+            const selectedOption = currentOptions.find((option) => option.id === selectedOptionId);
+            const correctOption = currentOptions.find((option) => option.id === currentExercise.correctOptionId);
+            const userAnswer = selectedOption?.text || '';
+            const correctAnswer = correctOption?.text || '';
+            const score = selectedOptionId === currentExercise.correctOptionId ? 1 : 0;
+
+            setCurrentResult({
+                exerciseKey: currentExercise.exerciseKey,
+                exerciseType: currentExerciseType,
+                conceptKey: currentExercise.conceptKey,
+                difficulty: currentExercise.difficulty,
+                questionText: currentExercise.questionText,
+                explanation: currentExercise.explanation,
+                userAnswers: [userAnswer],
+                correctAnswers: [correctAnswer],
+                options: currentOptions,
+                selectedOptionId,
+                correctOptionId: currentExercise.correctOptionId,
+                score,
+                total: 1,
+                citations: currentExercise.citations || [],
+            });
+            setSubmitted(true);
+            setSaveError('');
+            return;
+        }
+
+        const correctAnswers = Array.isArray(currentExercise.answers) ? currentExercise.answers : [];
+        const normalizedCorrectAnswers = correctAnswers.map(normalizeConceptAnswer);
         const userAnswers = selectedTokens.map((token) => token?.text || '');
         const score = userAnswers.reduce((sum, answer, index) => (
-            sum + (normalizeConceptAnswer(answer) === correctAnswers[index] ? 1 : 0)
+            sum + (normalizeConceptAnswer(answer) === normalizedCorrectAnswers[index] ? 1 : 0)
         ), 0);
 
         setCurrentResult({
             exerciseKey: currentExercise.exerciseKey,
+            exerciseType: currentExerciseType,
+            conceptKey: currentExercise.conceptKey,
+            difficulty: currentExercise.difficulty,
             questionText: currentExercise.questionText,
+            explanation: currentExercise.explanation,
             template: currentExercise.template,
             userAnswers,
-            correctAnswers: currentExercise.answers,
+            correctAnswers,
             score,
-            total: correctAnswers.length,
+            total: normalizedCorrectAnswers.length,
             citations: currentExercise.citations || [],
         });
         setSubmitted(true);
@@ -301,17 +410,24 @@ const ConceptBuilder = () => {
                 totalQuestions: summary.total,
                 timeTakenSeconds,
                 answers: {
-                    kind: 'concept_session_v1',
+                    kind: 'concept_session_v2',
                     topicTitle: session.topicTitle,
                     sessionSize: session.items.length,
                     targetSize: session.targetSize,
                     generationCount: session.generationCount,
                     items: nextResponses.map((item) => ({
                         exerciseKey: item.exerciseKey,
+                        exerciseType: item.exerciseType,
+                        conceptKey: item.conceptKey,
+                        difficulty: item.difficulty,
                         questionText: item.questionText,
+                        explanation: item.explanation,
                         template: item.template,
                         userAnswers: item.userAnswers,
                         correctAnswers: item.correctAnswers,
+                        options: item.options,
+                        selectedOptionId: item.selectedOptionId,
+                        correctOptionId: item.correctOptionId,
                         score: item.score,
                         total: item.total,
                         citations: item.citations,
@@ -443,16 +559,13 @@ const ConceptBuilder = () => {
                             <span>{sessionLength}-item session complete</span>
                         </div>
                         <h2 className="text-body-lg md:text-display-sm text-text-main-light dark:text-text-main-dark mb-3">
-                            You answered {sessionSummary.score} of {sessionSummary.total} blanks correctly.
+                            You answered {sessionSummary.score} of {sessionSummary.total} concept checks correctly.
                         </h2>
                         <p className="text-body-sm text-text-sub-light dark:text-text-sub-dark mb-5">
                             Accuracy: <span className="font-semibold text-text-main-light dark:text-text-main-dark">{sessionSummary.accuracyPercent}%</span>
                         </p>
                         <div className="w-full h-2 bg-border-light dark:bg-border-dark rounded-full overflow-hidden">
-                            <div
-                                className="h-full rounded-full bg-primary"
-                                style={{ width: `${sessionSummary.accuracyPercent}%` }}
-                            ></div>
+                            <div className="h-full rounded-full bg-primary" style={{ width: `${sessionSummary.accuracyPercent}%` }}></div>
                         </div>
                     </div>
 
@@ -472,7 +585,7 @@ const ConceptBuilder = () => {
                                 {sessionLength}/{session?.targetSize || sessionLength}
                             </div>
                             <p className="text-body-sm text-text-sub-light dark:text-text-sub-dark mt-2">
-                                Grounded prompts pulled from your topic bank first, with fresh generation only when needed.
+                                Mixed concept prompts reused from your bank first, with fresh generation only when needed.
                             </p>
                         </div>
                     </div>
@@ -487,12 +600,21 @@ const ConceptBuilder = () => {
                             <div className="space-y-4">
                                 {sessionSummary.weakItems.map((item, index) => (
                                     <div key={`${item.questionText}-${index}`} className="rounded-2xl border border-border-light dark:border-border-dark bg-surface-hover-light dark:bg-surface-hover-dark p-4">
+                                        <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-primary/8 text-primary text-caption font-semibold mb-3">
+                                            <span className="material-symbols-outlined text-[14px]">neurology</span>
+                                            <span>{formatExerciseTypeLabel(item.exerciseType)}</span>
+                                        </div>
                                         <p className="text-body-sm font-semibold text-text-main-light dark:text-text-main-dark mb-2">
                                             {item.questionText}
                                         </p>
                                         <p className="text-body-sm text-text-sub-light dark:text-text-sub-dark">
-                                            Correct answers: <span className="font-medium text-text-main-light dark:text-text-main-dark">{item.correctAnswers.join(', ')}</span>
+                                            Correct answer: <span className="font-medium text-text-main-light dark:text-text-main-dark">{formatCorrectAnswerLabel(item.correctAnswers)}</span>
                                         </p>
+                                        {item.explanation ? (
+                                            <p className="text-body-sm text-text-sub-light dark:text-text-sub-dark mt-3">
+                                                {item.explanation}
+                                            </p>
+                                        ) : null}
                                         {item.evidenceQuotes.length > 0 && (
                                             <div className="mt-3 space-y-2">
                                                 {item.evidenceQuotes.map((quote, quoteIndex) => (
@@ -581,10 +703,7 @@ const ConceptBuilder = () => {
                     </div>
                 </div>
                 <div className="h-1 bg-surface-hover-light dark:bg-surface-hover-dark">
-                    <div
-                        className="h-full bg-primary transition-all duration-300"
-                        style={{ width: `${progressPercent}%` }}
-                    ></div>
+                    <div className="h-full bg-primary transition-all duration-300" style={{ width: `${progressPercent}%` }}></div>
                 </div>
             </header>
 
@@ -592,61 +711,101 @@ const ConceptBuilder = () => {
                 <div className="mb-8">
                     <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-primary/8 text-primary text-caption font-semibold mb-3">
                         <span className="material-symbols-outlined text-[14px]">neurology</span>
-                        <span>Grounded cloze practice</span>
+                        <span>{formatExerciseTypeLabel(currentExerciseType)}</span>
                     </div>
                     <h2 className="text-body-lg md:text-display-sm text-text-main-light dark:text-text-main-dark leading-relaxed">
                         {currentExercise.questionText || 'Complete the concept statement.'}
                     </h2>
                     <p className="text-body-sm text-text-sub-light dark:text-text-sub-dark mt-3">
-                        Item {currentIndex + 1} of {sessionLength}. Fill every blank before checking this prompt.
+                        Item {currentIndex + 1} of {sessionLength}. {formatExerciseInstructions(currentExerciseType)}
                     </p>
                 </div>
 
                 <div className="card-base p-6 md:p-8 mb-4">
-                    <div className="flex flex-wrap gap-3 items-center justify-center text-body-lg md:text-display-sm leading-relaxed">
-                        {templateParts.map((part, index) => {
-                            if (part === '__') {
-                                const slotIndex = blankCounter;
-                                const token = selectedTokens[slotIndex];
-                                const isCorrect = submitted
-                                    && currentResult
-                                    && normalizeConceptAnswer(currentResult.userAnswers[slotIndex]) === normalizeConceptAnswer(currentResult.correctAnswers[slotIndex]);
-                                const isWrong = submitted
-                                    && currentResult
-                                    && normalizeConceptAnswer(currentResult.userAnswers[slotIndex]) !== normalizeConceptAnswer(currentResult.correctAnswers[slotIndex]);
-                                blankCounter += 1;
+                    {isClozeExercise ? (
+                        <div className="flex flex-wrap gap-3 items-center justify-center text-body-lg md:text-display-sm leading-relaxed">
+                            {templateParts.map((part, index) => {
+                                if (part === '__') {
+                                    const slotIndex = blankCounter;
+                                    const token = selectedTokens[slotIndex];
+                                    const isCorrect = submitted
+                                        && currentResult
+                                        && normalizeConceptAnswer(currentResult.userAnswers[slotIndex]) === normalizeConceptAnswer(currentResult.correctAnswers[slotIndex]);
+                                    const isWrong = submitted
+                                        && currentResult
+                                        && normalizeConceptAnswer(currentResult.userAnswers[slotIndex]) !== normalizeConceptAnswer(currentResult.correctAnswers[slotIndex]);
+                                    blankCounter += 1;
+                                    return (
+                                        <div
+                                            key={`blank-${index}`}
+                                            onClick={() => handleSlotClick(slotIndex)}
+                                            onDragOver={handleDragOver}
+                                            onDrop={(event) => handleDrop(event, slotIndex)}
+                                            className={`min-h-[44px] min-w-[100px] px-4 py-2 rounded-xl flex items-center justify-center border-2 transition-all cursor-pointer ${
+                                                token
+                                                    ? isCorrect
+                                                        ? 'bg-accent-emerald/10 border-accent-emerald text-accent-emerald'
+                                                        : isWrong
+                                                            ? 'bg-red-50 dark:bg-red-900/10 border-red-400 dark:border-red-500 text-red-700 dark:text-red-400'
+                                                            : 'bg-primary/5 dark:bg-primary/10 border-primary text-primary'
+                                                    : 'bg-surface-hover-light dark:bg-surface-hover-dark border-dashed border-border-light dark:border-border-dark text-text-faint-light dark:text-text-faint-dark'
+                                            } ${isInteractionDisabled ? 'cursor-default' : 'hover:border-primary'}`}
+                                        >
+                                            <span className="font-semibold">{token ? token.text : '___'}</span>
+                                        </div>
+                                    );
+                                }
+
                                 return (
-                                    <div
-                                        key={`blank-${index}`}
-                                        onClick={() => handleSlotClick(slotIndex)}
-                                        onDragOver={handleDragOver}
-                                        onDrop={(event) => handleDrop(event, slotIndex)}
-                                        className={`min-h-[44px] min-w-[100px] px-4 py-2 rounded-xl flex items-center justify-center border-2 transition-all cursor-pointer ${
-                                            token
-                                                ? isCorrect
-                                                    ? 'bg-accent-emerald/10 border-accent-emerald text-accent-emerald'
-                                                    : isWrong
-                                                        ? 'bg-red-50 dark:bg-red-900/10 border-red-400 dark:border-red-500 text-red-700 dark:text-red-400'
-                                                        : 'bg-primary/5 dark:bg-primary/10 border-primary text-primary'
-                                                : 'bg-surface-hover-light dark:bg-surface-hover-dark border-dashed border-border-light dark:border-border-dark text-text-faint-light dark:text-text-faint-dark'
-                                        } ${isInteractionDisabled ? 'cursor-default' : 'hover:border-primary'}`}
-                                    >
-                                        <span className="font-semibold">
-                                            {token ? token.text : '___'}
-                                        </span>
-                                    </div>
+                                    <span key={`text-${index}`} className="text-text-sub-light dark:text-text-sub-dark">
+                                        {part}
+                                    </span>
                                 );
-                            }
-                            return (
-                                <span
-                                    key={`text-${index}`}
-                                    className="text-text-sub-light dark:text-text-sub-dark"
-                                >
-                                    {part}
-                                </span>
-                            );
-                        })}
-                    </div>
+                            })}
+                        </div>
+                    ) : (
+                        <div className="grid gap-3">
+                            {currentOptions.map((option, index) => {
+                                const isSelected = selectedOptionId === option.id;
+                                const isCorrect = submitted && option.id === currentExercise.correctOptionId;
+                                const isWrong = submitted && isSelected && option.id !== currentExercise.correctOptionId;
+                                const optionLabel = String.fromCharCode(65 + index);
+
+                                return (
+                                    <button
+                                        key={option.id}
+                                        type="button"
+                                        onClick={() => handleOptionSelect(option.id)}
+                                        disabled={isInteractionDisabled}
+                                        className={`w-full rounded-2xl border px-4 py-4 text-left transition-all ${
+                                            isCorrect
+                                                ? 'border-accent-emerald bg-accent-emerald/10 text-accent-emerald'
+                                                : isWrong
+                                                    ? 'border-red-400 dark:border-red-500 bg-red-50 dark:bg-red-900/10 text-red-700 dark:text-red-400'
+                                                    : isSelected
+                                                        ? 'border-primary bg-primary/8 text-primary'
+                                                        : 'border-border-light dark:border-border-dark bg-surface-hover-light dark:bg-surface-hover-dark text-text-main-light dark:text-text-main-dark'
+                                        } ${isInteractionDisabled ? 'cursor-default' : 'hover:border-primary active:scale-[0.99]'}`}
+                                    >
+                                        <div className="flex items-start gap-3">
+                                            <div className={`mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full border text-caption font-semibold ${
+                                                isCorrect
+                                                    ? 'border-accent-emerald text-accent-emerald'
+                                                    : isWrong
+                                                        ? 'border-red-400 dark:border-red-500 text-red-700 dark:text-red-400'
+                                                        : isSelected
+                                                            ? 'border-primary text-primary'
+                                                            : 'border-border-light dark:border-border-dark text-text-faint-light dark:text-text-faint-dark'
+                                            }`}>
+                                                {optionLabel}
+                                            </div>
+                                            <span className="text-body-sm">{option.text}</span>
+                                        </div>
+                                    </button>
+                                );
+                            })}
+                        </div>
+                    )}
 
                     {submitted && currentResult && (
                         <div className="mt-6 p-4 rounded-xl bg-surface-hover-light dark:bg-surface-hover-dark">
@@ -664,9 +823,14 @@ const ConceptBuilder = () => {
                             </div>
                             {currentResult.score < currentResult.total && (
                                 <div className="mt-3 text-body-sm text-text-sub-light dark:text-text-sub-dark">
-                                    <span className="font-medium">Correct answers:</span> {currentResult.correctAnswers.join(', ')}
+                                    <span className="font-medium">Correct answer:</span> {formatCorrectAnswerLabel(currentResult.correctAnswers)}
                                 </div>
                             )}
+                            {currentResult.explanation ? (
+                                <div className="mt-3 text-body-sm text-text-sub-light dark:text-text-sub-dark">
+                                    {currentResult.explanation}
+                                </div>
+                            ) : null}
                             {evidenceQuotes.length > 0 && (
                                 <div className="mt-4">
                                     <div className="text-overline text-text-faint-light dark:text-text-faint-dark mb-2">Evidence from your source</div>
@@ -686,38 +850,40 @@ const ConceptBuilder = () => {
                     )}
                 </div>
 
-                <div className="card-base p-6">
-                    <div className="flex items-center justify-between gap-3 mb-4">
-                        <h3 className="text-overline text-text-faint-light dark:text-text-faint-dark">Word Bank</h3>
-                        <span className="text-caption text-text-faint-light dark:text-text-faint-dark">
-                            {filledCount}/{blanksCount} placed
-                        </span>
+                {isClozeExercise ? (
+                    <div className="card-base p-6">
+                        <div className="flex items-center justify-between gap-3 mb-4">
+                            <h3 className="text-overline text-text-faint-light dark:text-text-faint-dark">Word Bank</h3>
+                            <span className="text-caption text-text-faint-light dark:text-text-faint-dark">
+                                {filledCount}/{blanksCount} placed
+                            </span>
+                        </div>
+                        <div className="flex flex-wrap gap-2">
+                            {availableTokens.length === 0 ? (
+                                <div className="w-full text-center py-4 text-text-faint-light dark:text-text-faint-dark text-body-sm">
+                                    All words placed!
+                                </div>
+                            ) : (
+                                availableTokens.map((token) => (
+                                    <button
+                                        key={token.id}
+                                        draggable={!isInteractionDisabled}
+                                        onDragStart={(event) => handleDragStart(event, token)}
+                                        onClick={() => handleTokenClick(token)}
+                                        disabled={isInteractionDisabled}
+                                        className={`px-4 py-2 rounded-xl font-medium text-body-sm transition-all ${
+                                            isInteractionDisabled
+                                                ? 'bg-surface-hover-light dark:bg-surface-hover-dark text-text-faint-light dark:text-text-faint-dark cursor-not-allowed'
+                                                : 'bg-primary/8 text-primary hover:bg-primary/15 active:scale-95 cursor-pointer'
+                                        }`}
+                                    >
+                                        {token.text}
+                                    </button>
+                                ))
+                            )}
+                        </div>
                     </div>
-                    <div className="flex flex-wrap gap-2">
-                        {availableTokens.length === 0 ? (
-                            <div className="w-full text-center py-4 text-text-faint-light dark:text-text-faint-dark text-body-sm">
-                                All words placed!
-                            </div>
-                        ) : (
-                            availableTokens.map((token) => (
-                                <button
-                                    key={token.id}
-                                    draggable={!isInteractionDisabled}
-                                    onDragStart={(event) => handleDragStart(event, token)}
-                                    onClick={() => handleTokenClick(token)}
-                                    disabled={isInteractionDisabled}
-                                    className={`px-4 py-2 rounded-xl font-medium text-body-sm transition-all ${
-                                        isInteractionDisabled
-                                            ? 'bg-surface-hover-light dark:bg-surface-hover-dark text-text-faint-light dark:text-text-faint-dark cursor-not-allowed'
-                                            : 'bg-primary/8 text-primary hover:bg-primary/15 active:scale-95 cursor-pointer'
-                                    }`}
-                                >
-                                    {token.text}
-                                </button>
-                            ))
-                        )}
-                    </div>
-                </div>
+                ) : null}
 
                 {saveError && (
                     <div className="mt-4 p-3 rounded-xl bg-red-50 dark:bg-red-900/10 border border-red-200 dark:border-red-900/30 text-body-sm text-red-700 dark:text-red-300">
@@ -743,10 +909,7 @@ const ConceptBuilder = () => {
                                     </span>
                                 )}
                             </button>
-                            <Link
-                                to={`/dashboard/topic/${topicId}`}
-                                className="btn-secondary px-4 py-3 flex items-center justify-center"
-                            >
+                            <Link to={`/dashboard/topic/${topicId}`} className="btn-secondary px-4 py-3 flex items-center justify-center">
                                 <span className="material-symbols-outlined text-[18px]">arrow_back</span>
                             </Link>
                         </>
@@ -754,7 +917,7 @@ const ConceptBuilder = () => {
                         <button
                             type="button"
                             onClick={handleSubmit}
-                            disabled={!allFilled || saving}
+                            disabled={!canSubmit || saving}
                             className="btn-primary w-full py-3 text-body-sm flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
                         >
                             <span>Check Answer</span>

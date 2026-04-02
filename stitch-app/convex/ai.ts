@@ -37,6 +37,10 @@ import {
 } from "./lib/questionBankConfig";
 import {
     buildConceptExerciseKey,
+    CONCEPT_EXERCISE_TYPE_CLOZE,
+    deriveConceptKey,
+    normalizeConceptDifficulty,
+    normalizeConceptExerciseType,
     normalizeConceptTextKey,
 } from "./lib/conceptExerciseGeneration";
 import {
@@ -54,7 +58,7 @@ import {
     buildGroundedAssessmentBlueprintPrompt,
     type AssessmentBlueprint,
     type AssessmentCoverageTarget,
-    buildGroundedConceptPrompt,
+    buildGroundedConceptBatchPrompt,
     buildGroundedEssayPrompt,
     buildGroundedFillBlankPrompt,
     buildGroundedMcqPrompt,
@@ -2721,8 +2725,179 @@ const normalizeConceptTemplate = (rawTemplate: any): string[] => {
     });
 };
 
-const generateConceptExerciseForTopicCore = async (ctx: any, args: { topicId: any; userId: string }) => {
+const normalizeConceptOptionText = (value: any) =>
+    String(value || "")
+        .replace(/\s+/g, " ")
+        .trim();
+
+const normalizeConceptChoiceOptions = (args: {
+    options: any;
+    correctOptionText: string;
+}) => {
+    const rawOptions = Array.isArray(args.options) ? args.options : [];
+    const normalized = [];
+    const seen = new Set<string>();
+
+    rawOptions.forEach((option: any) => {
+        const text = normalizeConceptOptionText(option?.text || option);
+        const key = normalizeConceptTextKey(text);
+        if (!text || !key || seen.has(key)) return;
+        seen.add(key);
+        normalized.push({
+            id: String(option?.id || `option-${normalized.length + 1}`),
+            text,
+        });
+    });
+
+    const correctKey = normalizeConceptTextKey(args.correctOptionText);
+    if (correctKey && !normalized.some((option) => normalizeConceptTextKey(option.text) === correctKey)) {
+        normalized.unshift({
+            id: "option-correct",
+            text: normalizeConceptOptionText(args.correctOptionText),
+        });
+    }
+
+    const uniqueOptions = normalized.slice(0, 4);
+    const correctOptionId = uniqueOptions.find(
+        (option) => normalizeConceptTextKey(option.text) === correctKey
+    )?.id;
+
+    return {
+        options: uniqueOptions,
+        correctOptionId: correctOptionId || "",
+    };
+};
+
+const describeConceptExerciseForPrompt = (exercise: any) => {
+    const questionText = String(exercise?.questionText || "").trim().slice(0, 180);
+    const type = normalizeConceptExerciseType(exercise?.exerciseType);
+    const answers = Array.isArray(exercise?.answers)
+        ? exercise.answers
+        : Array.isArray(exercise?.correctAnswers)
+            ? exercise.correctAnswers
+            : [];
+    const answerLine = answers
+        .map((answer: any) => normalizeConceptTextKey(answer))
+        .filter(Boolean)
+        .slice(0, 4)
+        .join(", ");
+
+    if (questionText && answerLine) {
+        return `- [${type}] ${questionText} [answers: ${answerLine}]`;
+    }
+    if (questionText) {
+        return `- [${type}] ${questionText}`;
+    }
+    if (answerLine) {
+        return `- [${type}] answers: ${answerLine}`;
+    }
+    return "";
+};
+
+const normalizeGeneratedConceptExercise = (args: {
+    rawExercise: any;
+    topicTitle: string;
+    topicKeywords: string[];
+}) => {
+    const exerciseType = normalizeConceptExerciseType(args.rawExercise?.exerciseType);
+    const anchoredQuestionText = anchorTextToTopic(
+        args.rawExercise?.questionText || args.topicTitle,
+        args.topicTitle,
+        args.topicKeywords
+    );
+    const citations = Array.isArray(args.rawExercise?.citations) ? args.rawExercise.citations : [];
+    const sourcePassageIds = Array.from(
+        new Set(
+            citations
+                .map((citation: any) => String(citation?.passageId || "").trim())
+                .filter(Boolean)
+        )
+    );
+    const explanation = String(args.rawExercise?.explanation || "").replace(/\s+/g, " ").trim();
+    const difficulty = normalizeConceptDifficulty(args.rawExercise?.difficulty);
+
+    if (exerciseType === CONCEPT_EXERCISE_TYPE_CLOZE) {
+        const template = normalizeConceptTemplate(args.rawExercise?.template);
+        const answers = Array.isArray(args.rawExercise?.answers)
+            ? args.rawExercise.answers
+                .map((answer: any) => normalizeConceptOptionText(answer))
+                .filter(Boolean)
+            : [];
+        const tokens = Array.isArray(args.rawExercise?.tokens)
+            ? args.rawExercise.tokens
+                .map((token: any) => normalizeConceptOptionText(token))
+                .filter(Boolean)
+            : [];
+        const blankCount = template.filter((part: string) => part === "__").length;
+        if (template.length === 0 || answers.length === 0 || blankCount !== answers.length) {
+            return null;
+        }
+
+        const tokenKeys = new Set(tokens.map((token: string) => normalizeConceptTextKey(token)));
+        answers.forEach((answer: string) => {
+            const answerKey = normalizeConceptTextKey(answer);
+            if (!answerKey || tokenKeys.has(answerKey)) return;
+            tokenKeys.add(answerKey);
+            tokens.push(answer);
+        });
+
+        return {
+            exerciseType,
+            conceptKey: deriveConceptKey(
+                args.rawExercise?.conceptKey,
+                answers[0],
+                anchoredQuestionText,
+            ),
+            difficulty,
+            questionText: anchoredQuestionText,
+            explanation,
+            template,
+            answers,
+            tokens,
+            citations,
+            sourcePassageIds,
+        };
+    }
+
+    const correctOptionText = normalizeConceptOptionText(
+        args.rawExercise?.correctOptionText
+        || args.rawExercise?.correctAnswer
+        || args.rawExercise?.answer
+        || (Array.isArray(args.rawExercise?.answers) ? args.rawExercise.answers[0] : "")
+    );
+    const { options, correctOptionId } = normalizeConceptChoiceOptions({
+        options: args.rawExercise?.options,
+        correctOptionText,
+    });
+    if (!anchoredQuestionText || options.length < 3 || !correctOptionId || !correctOptionText) {
+        return null;
+    }
+
+    return {
+        exerciseType,
+        conceptKey: deriveConceptKey(
+            args.rawExercise?.conceptKey,
+            correctOptionText,
+            anchoredQuestionText,
+        ),
+        difficulty,
+        questionText: anchoredQuestionText,
+        explanation,
+        options,
+        correctOptionId,
+        answers: [correctOptionText],
+        citations,
+        sourcePassageIds,
+    };
+};
+
+const generateConceptExerciseBatchForTopicCore = async (ctx: any, args: {
+    topicId: any;
+    userId: string;
+    requestedCount?: number;
+}) => {
     const { topicId, userId } = args;
+    const requestedCount = Math.max(1, Math.min(8, Math.floor(Number(args.requestedCount) || 1)));
     const topic = await ctx.runQuery(internal.topics.getTopicWithQuestionsInternal, { topicId });
     if (!topic) {
         throw new Error("Topic not found");
@@ -2743,42 +2918,81 @@ const generateConceptExerciseForTopicCore = async (ctx: any, args: { topicId: an
     if (recentCount >= DAILY_CONCEPT_LIMIT) {
         throw new Error("You've reached the daily limit for this topic. Try again tomorrow.");
     }
+    const existingExercises = await ctx.runQuery(internal.concepts.getConceptExercisesForTopicInternal, {
+        topicId,
+    });
     const seenExerciseKeys = new Set<string>();
     const seenQuestionTextKeys = new Set<string>();
 
-    const previousExerciseBlock = topicAttempts
-        .map((attempt: any) => {
-            const questionText = String(attempt?.questionText || "").trim();
-            const promptQuestionText = questionText.slice(0, 160);
-            const correctAnswers = Array.isArray(attempt?.answers?.correctAnswers)
+    const priorPromptLines = [
+        ...existingExercises.map((exercise: any) => {
+            const exerciseKey = buildConceptExerciseKey(exercise, { includeTemplate: false });
+            if (exerciseKey) {
+                seenExerciseKeys.add(exerciseKey);
+            }
+            const normalizedQuestionKey = normalizeConceptTextKey(exercise?.questionText || "");
+            if (normalizedQuestionKey) {
+                seenQuestionTextKeys.add(normalizedQuestionKey);
+            }
+            return describeConceptExerciseForPrompt(exercise);
+        }),
+        ...topicAttempts.flatMap((attempt: any) => {
+            const sessionItems = Array.isArray(attempt?.answers?.items)
+                ? attempt.answers.items
+                : [];
+            if (sessionItems.length > 0) {
+                return sessionItems.map((item: any) => {
+                    const itemKey = buildConceptExerciseKey(
+                        {
+                            exerciseType: item?.exerciseType,
+                            conceptKey: item?.conceptKey,
+                            questionText: item?.questionText,
+                            answers: item?.correctAnswers,
+                            template: item?.template,
+                            options: item?.options,
+                            correctOptionId: item?.correctOptionId,
+                        },
+                        { includeTemplate: false }
+                    );
+                    if (itemKey) {
+                        seenExerciseKeys.add(itemKey);
+                    }
+                    const normalizedQuestionKey = normalizeConceptTextKey(item?.questionText || "");
+                    if (normalizedQuestionKey) {
+                        seenQuestionTextKeys.add(normalizedQuestionKey);
+                    }
+                    return describeConceptExerciseForPrompt(item);
+                });
+            }
+
+            const legacyAnswers = Array.isArray(attempt?.answers?.correctAnswers)
                 ? attempt.answers.correctAnswers
                 : [];
-            const answersLine = correctAnswers
-                .map((answer: any) => normalizeConceptTextKey(answer))
-                .filter(Boolean)
-                .slice(0, 6)
-                .join(", ");
+            const legacyQuestionText = String(attempt?.questionText || "").trim();
             const attemptKey = buildConceptExerciseKey(
                 {
-                    questionText,
-                    answers: correctAnswers,
+                    questionText: legacyQuestionText,
+                    answers: legacyAnswers,
                 },
                 { includeTemplate: false }
             );
             if (attemptKey) {
                 seenExerciseKeys.add(attemptKey);
             }
-            const normalizedQuestionKey = normalizeConceptTextKey(questionText);
+            const normalizedQuestionKey = normalizeConceptTextKey(legacyQuestionText);
             if (normalizedQuestionKey) {
                 seenQuestionTextKeys.add(normalizedQuestionKey);
             }
-            if (promptQuestionText && answersLine) return `- ${promptQuestionText} [answers: ${answersLine}]`;
-            if (promptQuestionText) return `- ${promptQuestionText}`;
-            if (answersLine) return `- answers: ${answersLine}`;
-            return "";
-        })
+            return [describeConceptExerciseForPrompt({
+                questionText: legacyQuestionText,
+                answers: legacyAnswers,
+            })];
+        }),
+    ]
         .filter(Boolean)
-        .join("\n");
+        .slice(0, 18);
+
+    const previousExerciseBlock = priorPromptLines.join("\n");
 
     const duplicateGuardSection = previousExerciseBlock
         ? `Avoid repeating previous concept exercises.
@@ -2806,24 +3020,20 @@ ${previousExerciseBlock}`
     const evidenceSnippet = groundedPack.evidenceSnippet;
 
     const generationSeed = randomBytes(4).toString("hex");
-    let chosenExercise: {
-        questionText: string;
-        template: string[];
-        answers: string[];
-        tokens: string[];
-        citations: any[];
-        groundingScore?: number;
-        factualityStatus?: string;
-    } | null = null;
+    const acceptedExercises: any[] = [];
     let lastError: Error | null = null;
 
     for (let attemptIndex = 0; attemptIndex < Math.max(CONCEPT_EXERCISE_MAX_ATTEMPTS, GROUNDED_REGEN_MAX_ATTEMPTS); attemptIndex += 1) {
+        if (acceptedExercises.length >= requestedCount) {
+            break;
+        }
         const retryGuidance = attemptIndex === 0
             ? ""
             : "Retry because previous output was duplicate or unsupported by evidence.";
-        const prompt = buildGroundedConceptPrompt({
+        const prompt = buildGroundedConceptBatchPrompt({
             topicTitle: topic.title,
             evidence: groundedPack.evidence,
+            requestedCount,
             duplicateGuardSection,
             retryGuidance,
             seed: `${generationSeed}-${attemptIndex}`,
@@ -2842,65 +3052,43 @@ ${previousExerciseBlock}`
                 temperature: Math.min(0.75, 0.3 + (attemptIndex * 0.2)),
             });
 
-            const exercise = parseJsonFromResponse(response, "concept exercise");
-            const template = normalizeConceptTemplate(exercise.template);
-            const answers = Array.isArray(exercise.answers) ? exercise.answers : [];
-            const tokens = Array.isArray(exercise.tokens) ? exercise.tokens : [];
+            const parsed = parseJsonFromResponse(response, "concept exercise batch");
+            const rawItems = Array.isArray(parsed?.items)
+                ? parsed.items
+                : Array.isArray(parsed)
+                    ? parsed
+                    : [];
+            const candidates = rawItems
+                .map((rawExercise: any) =>
+                    normalizeGeneratedConceptExercise({
+                        rawExercise,
+                        topicTitle: topic.title,
+                        topicKeywords,
+                    })
+                )
+                .filter(Boolean)
+                .filter((candidate: any) => {
+                    const candidateKey = buildConceptExerciseKey(candidate, { includeTemplate: false });
+                    const candidateQuestionKey = normalizeConceptTextKey(candidate?.questionText || "");
+                    if (candidateKey && seenExerciseKeys.has(candidateKey)) {
+                        return false;
+                    }
+                    if (candidateQuestionKey && seenQuestionTextKeys.has(candidateQuestionKey)) {
+                        return false;
+                    }
+                    return true;
+                });
 
-            if (template.length === 0 || answers.length === 0 || tokens.length === 0) {
-                throw new Error("Failed to generate concept exercise");
-            }
-
-            // Validate blank count matches answer count
-            const blankCount = template.filter((p: string) => p === "__").length;
-            if (blankCount !== answers.length) {
-                throw new Error(`Template has ${blankCount} blanks but ${answers.length} answers`);
-            }
-
-            // Ensure tokens contain all answers (case-insensitive)
-            const tokenSet = new Set(tokens.map((t: string) => String(t).toLowerCase().trim()));
-            for (const answer of answers) {
-                if (!tokenSet.has(String(answer).toLowerCase().trim())) {
-                    tokens.push(answer);
-                }
-            }
-
-            const anchoredQuestionText = anchorTextToTopic(
-                exercise.questionText || topic.title,
-                topic.title,
-                topicKeywords
-            );
-            const candidate = {
-                questionText: anchoredQuestionText,
-                template,
-                answers,
-                tokens,
-                citations: Array.isArray(exercise?.citations) ? exercise.citations : [],
-            };
-
-            const candidateKey = buildConceptExerciseKey(candidate, { includeTemplate: false });
-            if (candidateKey && seenExerciseKeys.has(candidateKey)) {
-                lastError = new Error("Generated duplicate concept exercise");
-                continue;
-            }
-            const candidateQuestionKey = normalizeConceptTextKey(anchoredQuestionText);
-            if (candidateQuestionKey && seenQuestionTextKeys.has(candidateQuestionKey)) {
-                lastError = new Error("Generated duplicate concept question text");
-                continue;
-            }
-            if (candidateKey) {
-                seenExerciseKeys.add(candidateKey);
-            }
-            if (candidateQuestionKey) {
-                seenQuestionTextKeys.add(candidateQuestionKey);
+            if (candidates.length === 0) {
+                throw new Error("Failed to generate concept exercise batch");
             }
 
             const acceptance = await applyGroundedAcceptance({
                 type: "concept",
-                requestedCount: 1,
+                requestedCount,
                 evidenceIndex,
-                candidates: [candidate],
-                maxLlmVerifications: 1,
+                candidates,
+                maxLlmVerifications: Math.min(4, requestedCount),
                 llmVerify: async (acceptedCandidate) =>
                     verifyGroundedCandidateWithLlm({
                         type: "concept",
@@ -2909,43 +3097,78 @@ ${previousExerciseBlock}`
                         timeoutMs: 6000,
                     }),
             });
-            if (acceptance.accepted.length === 0) {
+            const newAccepted = acceptance.accepted.filter((candidate: any) => {
+                const candidateKey = buildConceptExerciseKey(candidate, { includeTemplate: false });
+                const candidateQuestionKey = normalizeConceptTextKey(candidate?.questionText || "");
+                if (candidateKey && seenExerciseKeys.has(candidateKey)) {
+                    return false;
+                }
+                if (candidateQuestionKey && seenQuestionTextKeys.has(candidateQuestionKey)) {
+                    return false;
+                }
+                if (candidateKey) {
+                    seenExerciseKeys.add(candidateKey);
+                }
+                if (candidateQuestionKey) {
+                    seenQuestionTextKeys.add(candidateQuestionKey);
+                }
+                return true;
+            });
+
+            if (newAccepted.length === 0) {
                 lastError = new Error(acceptance.abstainCode || "INSUFFICIENT_EVIDENCE");
                 continue;
             }
 
-            const accepted = acceptance.accepted[0];
-            chosenExercise = {
-                questionText: String(accepted.questionText || anchoredQuestionText),
-                template: Array.isArray(accepted.template) ? accepted.template : template,
-                answers: Array.isArray(accepted.answers) ? accepted.answers : answers,
-                tokens: Array.isArray(accepted.tokens) ? accepted.tokens : tokens,
-                citations: Array.isArray(accepted.citations) ? accepted.citations : [],
-                groundingScore: Number(accepted.groundingScore || 0),
-                factualityStatus: String(accepted.factualityStatus || "verified"),
-            };
-            break;
+            acceptedExercises.push(...newAccepted);
         } catch (error) {
             lastError = error instanceof Error ? error : new Error(String(error));
         }
     }
 
-    if (!chosenExercise) {
-        throw lastError || new Error("Failed to generate unique concept exercise");
+    if (acceptedExercises.length === 0) {
+        throw lastError || new Error("Failed to generate unique concept exercise batch");
     }
 
-    await ctx.runMutation(internal.concepts.createConceptExerciseInternal, {
-        topicId,
-        questionText: chosenExercise.questionText,
-        template: chosenExercise.template,
-        answers: chosenExercise.answers,
-        tokens: chosenExercise.tokens,
-        citations: chosenExercise.citations,
-        groundingScore: Number(chosenExercise.groundingScore || 0),
-        version: GROUNDED_GENERATION_VERSION,
-    });
+    const persistedExercises = [];
+    for (const exercise of acceptedExercises.slice(0, requestedCount)) {
+        await ctx.runMutation(internal.concepts.createConceptExerciseInternal, {
+            topicId,
+            exerciseType: exercise.exerciseType,
+            conceptKey: exercise.conceptKey,
+            difficulty: exercise.difficulty,
+            questionText: exercise.questionText,
+            explanation: exercise.explanation,
+            template: exercise.template,
+            answers: exercise.answers,
+            tokens: exercise.tokens,
+            options: exercise.options,
+            correctOptionId: exercise.correctOptionId,
+            citations: exercise.citations,
+            sourcePassageIds: exercise.sourcePassageIds,
+            groundingScore: Number(exercise.groundingScore || 0),
+            qualityScore: Number(exercise.qualityScore || 0),
+            active: true,
+            version: GROUNDED_GENERATION_VERSION,
+        });
+        persistedExercises.push(exercise);
+    }
 
-    return chosenExercise;
+    return persistedExercises;
+};
+
+const generateConceptExerciseForTopicCore = async (ctx: any, args: {
+    topicId: any;
+    userId: string;
+}) => {
+    const [exercise] = await generateConceptExerciseBatchForTopicCore(ctx, {
+        ...args,
+        requestedCount: 1,
+    });
+    if (!exercise) {
+        throw new Error("Failed to generate concept exercise");
+    }
+    return exercise;
 };
 
 export const generateConceptExerciseForTopic = action({
@@ -2973,6 +3196,19 @@ export const generateConceptExerciseForTopicInternal = internalAction({
     handler: async (ctx, args) => {
         return await runWithLlmUsageContext(ctx, args.userId, "concept_generation", async () =>
             await generateConceptExerciseForTopicCore(ctx, args)
+        );
+    },
+});
+
+export const generateConceptExerciseBatchForTopicInternal = internalAction({
+    args: {
+        topicId: v.id("topics"),
+        userId: v.string(),
+        requestedCount: v.optional(v.number()),
+    },
+    handler: async (ctx, args) => {
+        return await runWithLlmUsageContext(ctx, args.userId, "concept_generation", async () =>
+            await generateConceptExerciseBatchForTopicCore(ctx, args)
         );
     },
 });
