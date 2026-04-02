@@ -24,6 +24,7 @@ import {
     slugifyText,
 } from '../lib/topicContentFormatting';
 import { resolveTopicIllustrationUrl } from '../lib/topicIllustration';
+import { buildConceptPracticePath } from '../lib/conceptReviewLinks';
 
 // ── Pure rendering helpers (hoisted out of the component to avoid re-creation) ──
 
@@ -95,6 +96,18 @@ const TopicDetail = () => {
         isMissingRouteTopic,
     } = useRouteResolvedTopic(routeTopicId, topicQueryResult);
     const courseId = topic?.courseId;
+    const conceptMastery = useQuery(
+        api.concepts.getConceptMasteryForTopic,
+        topicId ? { topicId } : 'skip'
+    );
+    const topicConceptPracticePath = useMemo(
+        () => buildConceptPracticePath(topicId, []),
+        [topicId]
+    );
+    const topicConceptReviewPath = useMemo(
+        () => buildConceptPracticePath(topicId, conceptMastery?.reviewConceptKeys || []),
+        [conceptMastery?.reviewConceptKeys, topicId]
+    );
     const voiceModeEnabled = Boolean(profile?.voiceModeEnabled);
     const voiceQuota = useQuery(
         api.subscriptions.getVoiceGenerationQuotaStatus,
@@ -718,7 +731,7 @@ const TopicDetail = () => {
 
                             <div className="flex flex-col sm:flex-row gap-2.5 justify-center">
                                 <Link
-                                    to={topicId ? `/dashboard/concept/${topicId}` : '/dashboard/concept'}
+                                    to={topicConceptPracticePath}
                                     className="btn-secondary px-5 py-2.5 text-body-sm gap-2"
                                 >
                                     <span className="material-symbols-outlined text-[18px] text-accent-emerald">school</span>
@@ -733,6 +746,36 @@ const TopicDetail = () => {
                                     {startingExam ? 'Preparing...' : 'Start Exam'}
                                 </button>
                             </div>
+
+                            {conceptMastery?.totalConcepts > 0 && (
+                                <div className="mt-4 flex flex-col items-center gap-3">
+                                    <div className="flex flex-wrap items-center justify-center gap-2 text-caption text-text-faint-light dark:text-text-faint-dark">
+                                        <span className="rounded-full bg-accent-emerald/10 px-2.5 py-1 text-accent-emerald">
+                                            {conceptMastery.strongCount} strong
+                                        </span>
+                                        <span className="rounded-full bg-accent-amber/10 px-2.5 py-1 text-accent-amber">
+                                            {conceptMastery.shakyCount} shaky
+                                        </span>
+                                        <span className="rounded-full bg-red-500/10 px-2.5 py-1 text-red-500">
+                                            {conceptMastery.weakCount} weak
+                                        </span>
+                                        <span>
+                                            {conceptMastery.dueCount > 0
+                                                ? `${conceptMastery.dueCount} concepts due for review`
+                                                : 'No concept review due yet'}
+                                        </span>
+                                    </div>
+                                    {conceptMastery.reviewConceptKeys?.length > 0 && (
+                                        <Link
+                                            to={topicConceptReviewPath}
+                                            className="btn-ghost px-4 py-2 text-body-sm gap-2"
+                                        >
+                                            <span className="material-symbols-outlined text-[18px]">cycle</span>
+                                            {conceptMastery.dueCount > 0 ? 'Review Weak Concepts' : 'Open Focused Review'}
+                                        </Link>
+                                    )}
+                                </div>
+                            )}
 
                             {startExamError && (
                                 <p className="mt-4 text-caption text-red-500">{startExamError}</p>

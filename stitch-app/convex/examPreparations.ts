@@ -237,6 +237,109 @@ const createExamAttemptSnapshot = async ({
     });
 };
 
+const inspectExistingPreparation = async ({
+    ctx,
+    preparation,
+    effectiveUserId,
+    topicId,
+    examFormat,
+    requestedAssessmentVersion,
+    topic,
+}: {
+    ctx: any;
+    preparation: any;
+    effectiveUserId: string;
+    topicId: any;
+    examFormat: string;
+    requestedAssessmentVersion: string;
+    topic: any;
+}) => {
+    const preparationCompatible = isExamSnapshotCompatible({
+        snapshotQuestionSetVersion: preparation?.questionSetVersion,
+        snapshotAssessmentVersion: preparation?.assessmentVersion,
+        topic,
+        requestedAssessmentVersion,
+        snapshotAt: resolveExamSnapshotTimestamp(preparation),
+    });
+
+    if (!preparationCompatible) {
+        return null;
+    }
+
+    if (preparation.status === "queued" || preparation.status === "preparing") {
+        return {
+            launchMode: "continue_preparation",
+            preparation,
+            status: preparation.status,
+            stage: preparation.stage,
+            attempt: null,
+            reusableQuestions: [],
+        };
+    }
+
+    if (preparation.status === "ready" && preparation.attemptId) {
+        const attempt = await ctx.db.get(preparation.attemptId);
+        const reusableQuestions = await loadAttemptQuestionsForReuse({
+            ctx,
+            attempt,
+            topic,
+            examFormat,
+        });
+        if (reusableQuestions.length === 0) {
+            return null;
+        }
+
+        const existingAnswers = Array.isArray(attempt?.answers) ? attempt.answers : [];
+        const matchesFormat =
+            resolveRequestedExamFormat(attempt?.examFormat) === examFormat;
+        const attemptCompatible = isExamSnapshotCompatible({
+            snapshotQuestionSetVersion: attempt?.questionSetVersion,
+            snapshotAssessmentVersion: attempt?.assessmentVersion,
+            topic,
+            requestedAssessmentVersion,
+            snapshotAt: resolveExamSnapshotTimestamp(attempt),
+        });
+
+        if (
+            !attempt
+            || attempt.userId !== effectiveUserId
+            || attempt.topicId !== topicId
+            || !matchesFormat
+            || !attemptCompatible
+        ) {
+            return null;
+        }
+
+        const hasClaimedAttempt = Boolean(attempt?.claimedAt && typeof attempt.claimedAt === "number");
+        const hasExistingAnswers = existingAnswers.length > 0;
+        const launchMode = !hasExistingAnswers && !hasClaimedAttempt
+            ? "resume_saved_attempt"
+            : "open_saved_exam_set";
+
+        return {
+            launchMode,
+            preparation,
+            status: "ready",
+            stage: preparation.stage,
+            attempt,
+            reusableQuestions,
+        };
+    }
+
+    if (preparation.status === "failed" || preparation.status === "unavailable") {
+        return {
+            launchMode: "retry_existing_preparation",
+            preparation,
+            status: preparation.status,
+            stage: preparation.stage,
+            attempt: null,
+            reusableQuestions: [],
+        };
+    }
+
+    return null;
+};
+
 export const getPreparationInternal = internalQuery({
     args: {
         preparationId: v.id("examPreparations"),
@@ -283,116 +386,86 @@ export const createOrReusePreparationInternal = internalMutation({
             .take(10);
 
         for (const preparation of existingPreparations) {
-            const preparationCompatible = isExamSnapshotCompatible({
-                snapshotQuestionSetVersion: preparation.questionSetVersion,
-                snapshotAssessmentVersion: preparation.assessmentVersion,
-                topic,
+            const existingLaunch = await inspectExistingPreparation({
+                ctx,
+                preparation,
+                effectiveUserId,
+                topicId: args.topicId,
+                examFormat,
                 requestedAssessmentVersion,
-                snapshotAt: resolveExamSnapshotTimestamp(preparation),
+                topic,
             });
-
-            if (!preparationCompatible) {
+            if (!existingLaunch) {
                 continue;
             }
 
-            if (preparation.status === "queued" || preparation.status === "preparing") {
+            if (existingLaunch.launchMode === "continue_preparation") {
                 return {
                     created: false,
                     preparationId: preparation._id,
                     status: preparation.status,
                     stage: preparation.stage,
+                    launchMode: existingLaunch.launchMode,
                 };
             }
 
-            if (preparation.status === "ready" && preparation.attemptId) {
-                const attempt = await ctx.db.get(preparation.attemptId);
-                const reusableQuestions = await loadAttemptQuestionsForReuse({
-                    ctx,
-                    attempt,
-                    topic,
-                    examFormat,
-                });
-                if (reusableQuestions.length === 0) {
-                    continue;
-                }
-
-                const existingAnswers = Array.isArray(attempt?.answers) ? attempt.answers : [];
-                const matchesFormat =
-                    resolveRequestedExamFormat(attempt?.examFormat) === examFormat;
-                const attemptCompatible = isExamSnapshotCompatible({
-                    snapshotQuestionSetVersion: attempt?.questionSetVersion,
-                    snapshotAssessmentVersion: attempt?.assessmentVersion,
-                    topic,
-                    requestedAssessmentVersion,
-                    snapshotAt: resolveExamSnapshotTimestamp(attempt),
-                });
-                if (
-                    attempt
-                    && attempt.userId === effectiveUserId
-                    && attempt.topicId === args.topicId
-                    && matchesFormat
-                    && attemptCompatible
-                    && existingAnswers.length === 0
-                    && !(attempt?.claimedAt && typeof attempt.claimedAt === "number")
-                ) {
-                    return {
-                        created: false,
-                        preparationId: preparation._id,
-                        status: preparation.status,
-                        stage: preparation.stage,
-                    };
-                }
-
-                if (
-                    attempt
-                    && attempt.userId === effectiveUserId
-                    && attempt.topicId === args.topicId
-                    && matchesFormat
-                    && attemptCompatible
-                ) {
-                    const clonedAttemptId = await createExamAttemptSnapshot({
-                        ctx,
-                        sourceAttempt: attempt,
-                        userId: effectiveUserId,
-                        topicId: args.topicId,
-                        examFormat,
-                        questionIds: reusableQuestions.map((question: any) => question._id),
-                        totalQuestions: reusableQuestions.length,
-                        questionSetVersion,
-                        assessmentVersion: requestedAssessmentVersion,
-                    });
-
-                    await ctx.db.patch(preparation._id, {
-                        attemptId: clonedAttemptId,
-                        questionSetVersion,
-                        assessmentVersion: requestedAssessmentVersion,
-                        status: "ready",
-                        stage: "completed",
-                        reasonCode: undefined,
-                        errorSummary: undefined,
-                        finishedAt: Date.now(),
-                        message: buildPreparationMessage({
-                            examFormat,
-                            status: "ready",
-                            qualityTier: attempt?.qualityTier,
-                        }),
-                    });
-
-                    return {
-                        created: false,
-                        preparationId: preparation._id,
-                        status: "ready",
-                        stage: "completed",
-                    };
-                }
-            }
-
-            if (preparation.status === "failed" || preparation.status === "unavailable") {
+            if (existingLaunch.launchMode === "resume_saved_attempt") {
                 return {
                     created: false,
                     preparationId: preparation._id,
                     status: preparation.status,
                     stage: preparation.stage,
+                    launchMode: existingLaunch.launchMode,
+                    attemptId: existingLaunch.attempt?._id || preparation.attemptId,
+                };
+            }
+
+            if (existingLaunch.launchMode === "open_saved_exam_set") {
+                const clonedAttemptId = await createExamAttemptSnapshot({
+                    ctx,
+                    sourceAttempt: existingLaunch.attempt,
+                    userId: effectiveUserId,
+                    topicId: args.topicId,
+                    examFormat,
+                    questionIds: existingLaunch.reusableQuestions.map((question: any) => question._id),
+                    totalQuestions: existingLaunch.reusableQuestions.length,
+                    questionSetVersion,
+                    assessmentVersion: requestedAssessmentVersion,
+                });
+
+                await ctx.db.patch(preparation._id, {
+                    attemptId: clonedAttemptId,
+                    questionSetVersion,
+                    assessmentVersion: requestedAssessmentVersion,
+                    status: "ready",
+                    stage: "completed",
+                    reasonCode: undefined,
+                    errorSummary: undefined,
+                    finishedAt: Date.now(),
+                    message: buildPreparationMessage({
+                        examFormat,
+                        status: "ready",
+                        qualityTier: existingLaunch.attempt?.qualityTier,
+                    }),
+                });
+
+                return {
+                    created: false,
+                    preparationId: preparation._id,
+                    status: "ready",
+                    stage: "completed",
+                    launchMode: existingLaunch.launchMode,
+                    attemptId: clonedAttemptId,
+                };
+            }
+
+            if (existingLaunch.launchMode === "retry_existing_preparation") {
+                return {
+                    created: false,
+                    preparationId: preparation._id,
+                    status: preparation.status,
+                    stage: preparation.stage,
+                    launchMode: existingLaunch.launchMode,
                 };
             }
         }
@@ -424,6 +497,7 @@ export const createOrReusePreparationInternal = internalMutation({
             preparationId,
             status: "queued",
             stage: "queued",
+            launchMode: "new_preparation",
         };
     },
 });
@@ -817,11 +891,124 @@ export const startExamPreparation = action({
             });
         }
 
-        return {
+        const response = {
             preparationId: result.preparationId,
             status: result.status,
             stage: result.stage,
+            launchMode: result.launchMode || (result.created ? "new_preparation" : "continue_preparation"),
         };
+
+        if (result?.status !== "ready" || !result?.preparationId) {
+            return response;
+        }
+
+        const snapshot = await ctx.runQuery(internal.examPreparations.getPreparationInternal, {
+            preparationId: result.preparationId,
+        });
+        const questions = Array.isArray(snapshot?.questions) ? snapshot.questions : [];
+        const attemptId = snapshot?.attempt?._id || result?.attemptId || null;
+        const attemptStartedAt = Number(snapshot?.attempt?.startedAt || snapshot?.attempt?._creationTime || 0) || null;
+
+        return {
+            ...response,
+            attemptId,
+            totalQuestions: Number(snapshot?.attempt?.totalQuestions || questions.length || 0),
+            questions,
+            attemptStartedAt,
+            qualityTier: snapshot?.preparation?.qualityTier || snapshot?.attempt?.qualityTier || null,
+            premiumTargetMet: snapshot?.preparation?.premiumTargetMet ?? snapshot?.attempt?.premiumTargetMet ?? false,
+            qualityWarnings: snapshot?.preparation?.qualityWarnings || snapshot?.attempt?.qualityWarnings || [],
+            qualitySignals: snapshot?.preparation?.qualitySignals || snapshot?.attempt?.qualitySignals || null,
+        };
+    },
+});
+
+export const getExamLaunchState = query({
+    args: {
+        topicId: v.id("topics"),
+    },
+    handler: async (ctx, args) => {
+        const identity = await ctx.auth.getUserIdentity();
+        const authUserId = resolveAuthUserId(identity);
+        if (!authUserId) {
+            return null;
+        }
+
+        const topic = await ctx.db.get(args.topicId);
+        if (!topic) {
+            return null;
+        }
+
+        const course = topic.courseId ? await ctx.db.get(topic.courseId) : null;
+        if (course) {
+            assertAuthorizedUser({
+                authUserId,
+                resourceOwnerUserId: course.userId,
+            });
+        }
+
+        const assessmentVersion = resolveExamAssessmentVersion(
+            topic?.assessmentBlueprint?.version || ASSESSMENT_BLUEPRINT_VERSION
+        );
+        const formats = ["mcq", "essay"];
+        const launchStateEntries = await Promise.all(
+            formats.map(async (examFormat) => {
+                const existingPreparations = await ctx.db
+                    .query("examPreparations")
+                    .withIndex("by_userId_topicId_examFormat", (q) =>
+                        q.eq("userId", authUserId).eq("topicId", args.topicId).eq("examFormat", examFormat)
+                    )
+                    .order("desc")
+                    .take(10);
+
+                for (const preparation of existingPreparations) {
+                    const existingLaunch = await inspectExistingPreparation({
+                        ctx,
+                        preparation,
+                        effectiveUserId: authUserId,
+                        topicId: args.topicId,
+                        examFormat,
+                        requestedAssessmentVersion: assessmentVersion,
+                        topic,
+                    });
+                    if (!existingLaunch) {
+                        continue;
+                    }
+
+                    return [
+                        examFormat,
+                        {
+                            launchMode: existingLaunch.launchMode,
+                            status: existingLaunch.status,
+                            stage: existingLaunch.stage,
+                            totalQuestions: Number(
+                                existingLaunch.attempt?.totalQuestions
+                                || existingLaunch.reusableQuestions?.length
+                                || 0
+                            ),
+                            qualityTier: preparation.qualityTier || existingLaunch.attempt?.qualityTier || null,
+                            message: preparation.message || null,
+                            updatedAt: Number(preparation.finishedAt || preparation.startedAt || preparation._creationTime || 0) || null,
+                        },
+                    ];
+                }
+
+                return [
+                    examFormat,
+                    {
+                        launchMode: "new_preparation",
+                        status: "idle",
+                        stage: "queued",
+                        totalQuestions: 0,
+                        qualityTier: null,
+                        message: null,
+                        updatedAt: null,
+                    },
+                ];
+            })
+        );
+
+        return Object.fromEntries(launchStateEntries);
     },
 });
 

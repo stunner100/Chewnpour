@@ -31,6 +31,7 @@ import type * as http from "../http.js";
 import type * as lib_assessmentBlueprint from "../lib/assessmentBlueprint.js";
 import type * as lib_assessmentPolicy from "../lib/assessmentPolicy.js";
 import type * as lib_conceptExerciseGeneration from "../lib/conceptExerciseGeneration.js";
+import type * as lib_conceptMastery from "../lib/conceptMastery.js";
 import type * as lib_conceptSessionSelection from "../lib/conceptSessionSelection.js";
 import type * as lib_doctraClient from "../lib/doctraClient.js";
 import type * as lib_documentExtractionPipeline from "../lib/documentExtractionPipeline.js";
@@ -103,6 +104,7 @@ declare const fullApi: ApiFromModules<{
   "lib/assessmentBlueprint": typeof lib_assessmentBlueprint;
   "lib/assessmentPolicy": typeof lib_assessmentPolicy;
   "lib/conceptExerciseGeneration": typeof lib_conceptExerciseGeneration;
+  "lib/conceptMastery": typeof lib_conceptMastery;
   "lib/conceptSessionSelection": typeof lib_conceptSessionSelection;
   "lib/doctraClient": typeof lib_doctraClient;
   "lib/documentExtractionPipeline": typeof lib_documentExtractionPipeline;
