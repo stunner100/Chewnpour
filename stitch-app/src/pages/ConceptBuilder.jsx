@@ -8,6 +8,7 @@ import {
     parseConceptReviewKeysFromSearchParams,
 } from '../lib/conceptReviewLinks';
 import { getConceptSessionLoadingState } from '../lib/conceptLoadingEta';
+import { isStaleTopicRouteLookupError } from '../lib/chunkLoadRecovery';
 
 const EXERCISE_TYPE_CLOZE = 'cloze';
 const EXERCISE_TYPE_DEFINITION_MATCH = 'definition_match';
@@ -156,6 +157,19 @@ const buildSessionSummary = (results) => {
     };
 };
 
+const isStaleConceptRouteError = (error) => {
+    if (isStaleTopicRouteLookupError(error)) return true;
+    const dataMessage = typeof error?.data === 'string'
+        ? error.data
+        : typeof error?.data?.message === 'string'
+            ? error.data.message
+            : '';
+    const message = String(dataMessage || error?.message || '')
+        .replace(/\s+/g, ' ')
+        .trim();
+    return /topic not found/i.test(message);
+};
+
 const ConceptBuilder = () => {
     const { topicId: topicIdParam } = useParams();
     const [searchParams] = useSearchParams();
@@ -215,6 +229,7 @@ const ConceptBuilder = () => {
     const [sessionSummary, setSessionSummary] = useState(null);
     const [loadingStartedAt, setLoadingStartedAt] = useState(null);
     const [loadingElapsedMs, setLoadingElapsedMs] = useState(0);
+    const [hasStaleSessionRouteError, setHasStaleSessionRouteError] = useState(false);
 
     const topicTitle = topic?.title || session?.topicTitle || 'Concept Practice';
 
@@ -244,6 +259,7 @@ const ConceptBuilder = () => {
         const requestStartedAt = Date.now();
         setLoadingStartedAt(requestStartedAt);
         setLoadingElapsedMs(0);
+        setHasStaleSessionRouteError(false);
         setLoadError('');
         setSaveError('');
 
@@ -274,6 +290,11 @@ const ConceptBuilder = () => {
             setSession(null);
             setSelectedTokens([]);
             setSelectedOptionId('');
+            if (isStaleConceptRouteError(error)) {
+                setHasStaleSessionRouteError(true);
+                setLoadError('');
+                return;
+            }
             setLoadError('Failed to prepare a concept practice session. Please try again.');
         } finally {
             setLoading(false);
@@ -660,7 +681,7 @@ const ConceptBuilder = () => {
         );
     }
 
-    if (isMissingRouteTopic) {
+    if (isMissingRouteTopic || hasStaleSessionRouteError) {
         return (
             <div className="min-h-screen bg-background-light dark:bg-background-dark flex items-center justify-center px-4">
                 <div className="text-center max-w-md">

@@ -73,8 +73,11 @@ if (!chunkRecoverySource.includes('window.location.replace(\'/dashboard\');')) {
   throw new Error('Regression detected: stale topic route redirect no longer targets the dashboard.');
 }
 
+if (!conceptIntroSource.includes('return <Navigate to={`/dashboard/concept/${topicId}`} replace />;')) {
+  throw new Error('Regression detected: ConceptIntro.jsx no longer hard-redirects into the concept builder.');
+}
+
 const guardedPages = [
-  { name: 'ConceptIntro.jsx', source: conceptIntroSource },
   { name: 'TopicDetail.jsx', source: topicDetailSource },
   { name: 'ExamMode.jsx', source: examModeSource },
   { name: 'ConceptBuilder.jsx', source: conceptBuilderSource },
@@ -92,6 +95,18 @@ for (const { name, source } of guardedPages) {
   }
   if (source.includes("isLikelyConvexId")) {
     throw new Error(`Regression detected: ${name} still relies on the stale Convex ID heuristic.`);
+  }
+}
+
+for (const snippet of [
+  "import { isStaleTopicRouteLookupError } from '../lib/chunkLoadRecovery';",
+  'const isStaleConceptRouteError = (error) => {',
+  'if (isStaleConceptRouteError(error)) {',
+  'setHasStaleSessionRouteError(true);',
+  'if (isMissingRouteTopic || hasStaleSessionRouteError) {',
+]) {
+  if (!conceptBuilderSource.includes(snippet)) {
+    throw new Error(`Regression detected: ConceptBuilder stale-route fallback missing snippet: ${snippet}`);
   }
 }
 
