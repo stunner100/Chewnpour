@@ -288,6 +288,69 @@ const buildPreparationChecklist = (stage) => {
     ];
 };
 
+const formatSavedExamCountLabel = (totalQuestions) => {
+    const safeCount = Number(totalQuestions || 0);
+    return safeCount > 0 ? `${safeCount}-question ` : '';
+};
+
+const getExamFormatCardContent = ({ examFormat, launchState }) => {
+    const isEssay = examFormat === 'essay';
+    const savedCountLabel = formatSavedExamCountLabel(launchState?.totalQuestions);
+
+    const defaultContent = isEssay
+        ? {
+            badge: '',
+            title: 'Essay / Theory',
+            description: 'Write your answers in your own words',
+        }
+        : {
+            badge: '',
+            title: 'Objective Quiz',
+            description: 'Multiple choice, true/false, and fill in the blank',
+        };
+
+    switch (launchState?.launchMode) {
+        case 'resume_saved_attempt':
+            return isEssay
+                ? {
+                    badge: 'Saved exam',
+                    title: 'Resume Essay / Theory',
+                    description: `Continue your saved ${savedCountLabel}essay exam instantly.`,
+                }
+                : {
+                    badge: 'Saved exam',
+                    title: 'Resume Objective Quiz',
+                    description: `Continue your saved ${savedCountLabel}objective quiz instantly.`,
+                };
+        case 'open_saved_exam_set':
+            return isEssay
+                ? {
+                    badge: 'Saved set',
+                    title: 'Open Saved Essay / Theory',
+                    description: `Reuse your saved ${savedCountLabel}essay exam set instantly.`,
+                }
+                : {
+                    badge: 'Saved set',
+                    title: 'Open Saved Objective Quiz',
+                    description: `Reuse your saved ${savedCountLabel}objective question set instantly.`,
+                };
+        case 'continue_preparation':
+            return isEssay
+                ? {
+                    badge: 'Preparing',
+                    title: 'Continue Essay / Theory',
+                    description: 'We already have an essay exam preparing for this topic.',
+                }
+                : {
+                    badge: 'Preparing',
+                    title: 'Continue Objective Quiz',
+                    description: 'We already have an objective quiz preparing for this topic.',
+                };
+        default:
+            return defaultContent;
+    }
+};
+
 const resolveConvexActionError = (error, fallbackMessage) => {
     const dataMessage = typeof error?.data === 'string'
         ? error.data
@@ -468,6 +531,10 @@ const ExamMode = () => {
         api.examPreparations.getExamPreparation,
         preparationId ? { preparationId } : 'skip'
     );
+    const launchState = useQuery(
+        api.examPreparations.getExamLaunchState,
+        topicId ? { topicId } : 'skip'
+    );
     const startExamPreparation = useAction(api.examPreparations.startExamPreparation);
     const retryPreparation = useMutation(api.examPreparations.retryExamPreparation);
     const submitExam = useMutation(api.exams.submitExamAttempt);
@@ -494,6 +561,7 @@ const ExamMode = () => {
         [attemptQuestions],
     );
     const hasAttemptQuestions = questions.length > 0;
+    const hasReadyAttemptState = Boolean(examStarted && attemptId && hasAttemptQuestions);
     const examFlowStartTimeRef = useRef(Date.now());
     const attemptStartTimeRef = useRef(null);
     const loadingStallReportedRef = useRef(false);
@@ -502,6 +570,14 @@ const ExamMode = () => {
     const resolvedPreparationRef = useRef(null);
     const preferredFormatConsumedRef = useRef(false);
     const [preparationElapsedMs, setPreparationElapsedMs] = useState(0);
+    const objectiveLaunchCard = useMemo(
+        () => getExamFormatCardContent({ examFormat: 'mcq', launchState: launchState?.mcq }),
+        [launchState?.mcq],
+    );
+    const essayLaunchCard = useMemo(
+        () => getExamFormatCardContent({ examFormat: 'essay', launchState: launchState?.essay }),
+        [launchState?.essay],
+    );
 
     // Optimized timer: only re-renders when the displayed second changes
     const {
@@ -592,6 +668,53 @@ const ExamMode = () => {
         });
     }, []);
 
+    const applyReadyPreparationState = useCallback(({
+        preparationId: nextPreparationId,
+        attemptId: nextAttemptId,
+        questions: nextQuestions,
+        attemptStartedAt,
+        stage,
+        launchMode,
+        source,
+    }) => {
+        const selectedQuestions = Array.isArray(nextQuestions) ? nextQuestions : [];
+        if (!nextPreparationId || !nextAttemptId || selectedQuestions.length === 0) {
+            return false;
+        }
+
+        resolvedPreparationRef.current = nextPreparationId;
+        setPreparationId(nextPreparationId);
+        setStartExamError('');
+        setAttemptId(nextAttemptId);
+        setAttemptQuestions(selectedQuestions);
+        setCurrentQuestion(0);
+        setSelectedAnswers({});
+
+        const startedAt = Number(attemptStartedAt || 0);
+        const elapsedSec = startedAt > 0
+            ? Math.floor((Date.now() - startedAt) / 1000)
+            : 0;
+        const remaining = Math.max(60, EXAM_DURATION_SECONDS - elapsedSec);
+        setTimeRemaining(remaining);
+        setExamStarted(true);
+
+        addSentryBreadcrumb({
+            category: 'exam',
+            message: 'Exam attempt hydrated from saved preparation',
+            data: {
+                topicId,
+                preparationId: nextPreparationId,
+                attemptId: nextAttemptId,
+                selectedQuestionCount: selectedQuestions.length,
+                source: source || 'unknown',
+                launchMode: launchMode || 'unknown',
+                stage: stage || 'completed',
+            },
+        });
+
+        return true;
+    }, [setTimeRemaining, topicId]);
+
     const beginExamAttempt = useCallback(async () => {
         if (!topicId || !examFormat || attemptStartTimeRef.current) return;
 
@@ -634,9 +757,23 @@ const ExamMode = () => {
                     topicId,
                     preparationId: result?.preparationId,
                     status: result?.status,
+                    launchMode: result?.launchMode,
                     elapsedMs,
                 },
             });
+            const readyQuestions = Array.isArray(result?.questions) ? result.questions : [];
+            const hydratedImmediately = result?.status === 'ready' && applyReadyPreparationState({
+                preparationId: result?.preparationId,
+                attemptId: result?.attemptId,
+                questions: readyQuestions,
+                attemptStartedAt: result?.attemptStartedAt,
+                stage: result?.stage,
+                launchMode: result?.launchMode,
+                source: 'start_action',
+            });
+            if (!hydratedImmediately) {
+                setPreparationId(result.preparationId);
+            }
         } catch (error) {
             const errorCode = getConvexErrorCode(error);
             const message = resolveConvexActionError(error, 'Unable to start the exam. Please try again.');
@@ -719,7 +856,7 @@ const ExamMode = () => {
             attemptStartTimeRef.current = null;
             setStartingExamAttempt(false);
         }
-    }, [examFormat, startExamPreparation, topicId, userId, withTimeout, START_EXAM_ATTEMPT_TIMEOUT_MS]);
+    }, [START_EXAM_ATTEMPT_TIMEOUT_MS, applyReadyPreparationState, examFormat, startExamPreparation, topicId, userId, withTimeout]);
 
     useEffect(() => {
         if (!preparationId || !preparation) {
@@ -740,31 +877,14 @@ const ExamMode = () => {
                 return;
             }
 
-            resolvedPreparationRef.current = preparation.preparationId;
-            setStartExamError('');
-            setAttemptId(preparation.attemptId);
-            setAttemptQuestions(selectedQuestions);
-            setCurrentQuestion(0);
-            setSelectedAnswers({});
-
-            const startedAt = Number(preparation.attemptStartedAt || 0);
-            const elapsedSec = startedAt > 0
-                ? Math.floor((Date.now() - startedAt) / 1000)
-                : 0;
-            const remaining = Math.max(60, EXAM_DURATION_SECONDS - elapsedSec);
-            setTimeRemaining(remaining);
-            setExamStarted(true);
-
-            addSentryBreadcrumb({
-                category: 'exam',
-                message: 'Exam attempt became ready from preparation state',
-                data: {
-                    topicId,
-                    preparationId: preparation.preparationId,
-                    attemptId: preparation.attemptId,
-                    selectedQuestionCount: selectedQuestions.length,
-                    stage: preparation.stage,
-                },
+            applyReadyPreparationState({
+                preparationId: preparation.preparationId,
+                attemptId: preparation.attemptId,
+                questions: selectedQuestions,
+                attemptStartedAt: preparation.attemptStartedAt,
+                stage: preparation.stage,
+                launchMode: preparation.launchMode || 'preparation_subscription',
+                source: 'preparation_subscription',
             });
             return;
         }
@@ -779,7 +899,7 @@ const ExamMode = () => {
                     : 'We could not finish preparing your exam. Please try again.'
             );
         }
-    }, [preparation, preparationId, setTimeRemaining, topicId]);
+    }, [applyReadyPreparationState, preparation, preparationId]);
 
     const handleRetryStart = useCallback(async () => {
         if (preparationId && preparation?.canRetry) {
@@ -804,9 +924,8 @@ const ExamMode = () => {
     useEffect(() => {
         const shouldMonitorStall =
             Boolean(examFormat)
-            && !examStarted
+            && !hasReadyAttemptState
             && !startExamError
-            && !hasAttemptQuestions
             && (startingExamAttempt || isPreparationRunning);
 
         if (!shouldMonitorStall || loadingStallReportedRef.current) {
@@ -814,7 +933,7 @@ const ExamMode = () => {
         }
 
         const timer = setTimeout(() => {
-            if (loadingStallReportedRef.current || examStarted) {
+            if (loadingStallReportedRef.current || hasReadyAttemptState) {
                 return;
             }
             loadingStallReportedRef.current = true;
@@ -831,6 +950,7 @@ const ExamMode = () => {
                     elapsedMs,
                     topicDataState: isLoadingRouteTopic ? 'loading' : isMissingRouteTopic ? 'missing' : 'ready',
                     hasAttemptQuestions,
+                    hasReadyAttemptState,
                     attemptId,
                     startingExamAttempt,
                     preparationId,
@@ -846,6 +966,7 @@ const ExamMode = () => {
         attemptId,
         examFormat,
         examStarted,
+        hasReadyAttemptState,
         hasAttemptQuestions,
         isPreparationRunning,
         startExamError,
@@ -885,9 +1006,7 @@ const ExamMode = () => {
 
     const shouldShowPreparationLoadingState =
         !startExamError
-        && !examStarted
-        && !attemptId
-        && questions.length === 0
+        && !hasReadyAttemptState
         && (startingExamAttempt || isPreparationRunning);
     const preparationStartedAt = useMemo(() => {
         const backendStartedAt = Number(preparation?.startedAt || 0);
@@ -1196,8 +1315,13 @@ const ExamMode = () => {
                                     <span className="material-symbols-outlined text-primary">radio_button_checked</span>
                                 </div>
                                 <div>
-                                    <p className="text-body-sm font-semibold text-text-main-light dark:text-text-main-dark">Objective Quiz</p>
-                                    <p className="text-caption text-text-sub-light dark:text-text-sub-dark">Multiple choice, true/false, and fill in the blank</p>
+                                    {objectiveLaunchCard.badge ? (
+                                        <p className="text-[11px] uppercase tracking-[0.18em] text-primary mb-1">
+                                            {objectiveLaunchCard.badge}
+                                        </p>
+                                    ) : null}
+                                    <p className="text-body-sm font-semibold text-text-main-light dark:text-text-main-dark">{objectiveLaunchCard.title}</p>
+                                    <p className="text-caption text-text-sub-light dark:text-text-sub-dark">{objectiveLaunchCard.description}</p>
                                 </div>
                             </button>
 
@@ -1213,8 +1337,13 @@ const ExamMode = () => {
                                     <span className="material-symbols-outlined text-accent-emerald">edit_note</span>
                                 </div>
                                 <div>
-                                    <p className="text-body-sm font-semibold text-text-main-light dark:text-text-main-dark">Essay / Theory</p>
-                                    <p className="text-caption text-text-sub-light dark:text-text-sub-dark">Write your answers in your own words</p>
+                                    {essayLaunchCard.badge ? (
+                                        <p className="text-[11px] uppercase tracking-[0.18em] text-accent-emerald mb-1">
+                                            {essayLaunchCard.badge}
+                                        </p>
+                                    ) : null}
+                                    <p className="text-body-sm font-semibold text-text-main-light dark:text-text-main-dark">{essayLaunchCard.title}</p>
+                                    <p className="text-caption text-text-sub-light dark:text-text-sub-dark">{essayLaunchCard.description}</p>
                                 </div>
                             </button>
                         </div>
@@ -1224,7 +1353,7 @@ const ExamMode = () => {
         );
     }
 
-    if (startingExamAttempt || !examStarted || !attemptId || questions.length === 0) {
+    if (!hasReadyAttemptState && (startingExamAttempt || !examStarted || !attemptId || questions.length === 0)) {
         return (
             <div className="min-h-screen bg-background-light dark:bg-background-dark flex items-center justify-center p-4">
                 <div className="w-full max-w-md">
