@@ -7,6 +7,7 @@ import { useRouteResolvedTopic } from '../hooks/useRouteResolvedTopic';
 import {
     parseConceptReviewKeysFromSearchParams,
 } from '../lib/conceptReviewLinks';
+import { getConceptSessionLoadingState } from '../lib/conceptLoadingEta';
 
 const EXERCISE_TYPE_CLOZE = 'cloze';
 const EXERCISE_TYPE_DEFINITION_MATCH = 'definition_match';
@@ -212,6 +213,8 @@ const ConceptBuilder = () => {
     const [saveError, setSaveError] = useState('');
     const [startedAt, setStartedAt] = useState(null);
     const [sessionSummary, setSessionSummary] = useState(null);
+    const [loadingStartedAt, setLoadingStartedAt] = useState(null);
+    const [loadingElapsedMs, setLoadingElapsedMs] = useState(0);
 
     const topicTitle = topic?.title || session?.topicTitle || 'Concept Practice';
 
@@ -238,6 +241,9 @@ const ConceptBuilder = () => {
         if (!topicId || !userId) return;
 
         setLoading(true);
+        const requestStartedAt = Date.now();
+        setLoadingStartedAt(requestStartedAt);
+        setLoadingElapsedMs(0);
         setLoadError('');
         setSaveError('');
 
@@ -277,6 +283,18 @@ const ConceptBuilder = () => {
     useEffect(() => {
         void loadSession();
     }, [loadSession]);
+
+    useEffect(() => {
+        if (!loading || session || !loadingStartedAt) return undefined;
+
+        const updateElapsed = () => {
+            setLoadingElapsedMs(Math.max(0, Date.now() - loadingStartedAt));
+        };
+
+        updateElapsed();
+        const intervalId = window.setInterval(updateElapsed, 250);
+        return () => window.clearInterval(intervalId);
+    }, [loading, loadingStartedAt, session]);
 
     const currentExercise = session?.items?.[currentIndex] || null;
     const currentExerciseType = resolveExerciseType(currentExercise);
@@ -326,6 +344,14 @@ const ConceptBuilder = () => {
         ? Math.round((completedCount / sessionLength) * 100)
         : 0;
     const evidenceQuotes = collectEvidenceQuotes(currentResult?.citations || currentExercise?.citations);
+    const reviewFocusCount = requestedReviewConceptKeys.length;
+    const loadingState = useMemo(
+        () => getConceptSessionLoadingState({
+            elapsedMs: loadingElapsedMs,
+            focusedReview: reviewFocusCount > 0,
+        }),
+        [loadingElapsedMs, reviewFocusCount],
+    );
 
     const placeTokenInSlot = (slotIndex, token) => {
         if (isInteractionDisabled) return;
@@ -536,12 +562,99 @@ const ConceptBuilder = () => {
         );
     }
 
-    if (isLoadingRouteTopic || (loading && !session)) {
+    if (isLoadingRouteTopic) {
         return (
             <div className="min-h-screen bg-background-light dark:bg-background-dark flex items-center justify-center">
                 <div className="text-center">
                     <div className="animate-spin rounded-full h-10 w-10 border-2 border-border-light dark:border-border-dark border-t-primary mx-auto mb-4"></div>
-                    <p className="text-body-sm text-text-sub-light dark:text-text-sub-dark">Preparing concept practice...</p>
+                    <p className="text-body-sm text-text-sub-light dark:text-text-sub-dark">Loading topic...</p>
+                </div>
+            </div>
+        );
+    }
+
+    if (loading && !session) {
+        return (
+            <div className="min-h-screen bg-background-light dark:bg-background-dark flex items-center justify-center px-4">
+                <div className="card-base w-full max-w-xl p-6 md:p-8">
+                    <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-primary/8 text-primary text-caption font-semibold mb-4">
+                        <span className="material-symbols-outlined text-[14px]">hourglass_top</span>
+                        <span>Preparing concept practice</span>
+                    </div>
+                    <div className="flex items-start justify-between gap-4 mb-4">
+                        <div>
+                            <h2 className="text-body-lg font-semibold text-text-main-light dark:text-text-main-dark mb-2">
+                                {loadingState.stageLabel}
+                            </h2>
+                            <p className="text-body-sm text-text-sub-light dark:text-text-sub-dark">
+                                {loadingState.detailLabel}
+                            </p>
+                        </div>
+                        <div className="text-right shrink-0">
+                            <div className="text-caption uppercase tracking-[0.12em] text-text-faint-light dark:text-text-faint-dark mb-1">
+                                ETA
+                            </div>
+                            <div className="text-body-base font-semibold text-text-main-light dark:text-text-main-dark">
+                                {loadingState.etaLabel}
+                            </div>
+                        </div>
+                    </div>
+
+                    <div className="w-full h-2 bg-border-light dark:bg-border-dark rounded-full overflow-hidden mb-2">
+                        <div
+                            className="h-full bg-primary transition-all duration-500"
+                            style={{ width: `${loadingState.progressPercent}%` }}
+                        ></div>
+                    </div>
+                    <div className="flex items-center justify-between text-caption text-text-faint-light dark:text-text-faint-dark mb-5">
+                        <span>{loadingState.progressPercent}% complete</span>
+                        <span>{loadingState.helperLabel}</span>
+                    </div>
+
+                    <div className="grid gap-2">
+                        {loadingState.steps.map((step) => {
+                            const isComplete = step.status === 'complete';
+                            const isActive = step.status === 'active';
+                            return (
+                                <div
+                                    key={step.label}
+                                    className={`flex items-center gap-3 rounded-2xl border px-4 py-3 transition-colors ${
+                                        isActive
+                                            ? 'border-primary/40 bg-primary/6'
+                                            : 'border-border-light dark:border-border-dark bg-surface-hover-light dark:bg-surface-hover-dark'
+                                    }`}
+                                >
+                                    <div
+                                        className={`w-8 h-8 rounded-full flex items-center justify-center ${
+                                            isComplete
+                                                ? 'bg-accent-emerald/12 text-accent-emerald'
+                                                : isActive
+                                                    ? 'bg-primary/12 text-primary'
+                                                    : 'bg-surface-light dark:bg-surface-dark text-text-faint-light dark:text-text-faint-dark'
+                                        }`}
+                                    >
+                                        <span className="material-symbols-outlined text-[18px]">
+                                            {isComplete ? 'check' : isActive ? 'autorenew' : 'more_horiz'}
+                                        </span>
+                                    </div>
+                                    <div className="flex-1">
+                                        <div className="text-body-sm font-medium text-text-main-light dark:text-text-main-dark">
+                                            {step.label}
+                                        </div>
+                                    </div>
+                                    <div className="text-caption text-text-faint-light dark:text-text-faint-dark capitalize">
+                                        {step.status}
+                                    </div>
+                                </div>
+                            );
+                        })}
+                    </div>
+
+                    <p className="text-caption text-text-faint-light dark:text-text-faint-dark mt-5">
+                        {reviewFocusCount > 0
+                            ? 'We are rebuilding a focused review set from your weak concepts.'
+                            : 'We are grounding the session in your source material before it opens.'}
+                    </p>
                 </div>
             </div>
         );
