@@ -274,8 +274,25 @@ const hasUsableEssay = (candidate: GroundedEssayCandidate) => {
 };
 
 const hasUsableConcept = (candidate: GroundedConceptCandidate) => {
-    const template = Array.isArray(candidate.template) ? candidate.template : [];
-    const answers = Array.isArray(candidate.answers) ? candidate.answers : [];
+    const exerciseType = String(candidate?.exerciseType || "cloze").trim().toLowerCase();
+    if (exerciseType === "definition_match" || exerciseType === "misconception_check") {
+        const questionText = String(candidate?.questionText || "").trim();
+        const options = Array.isArray(candidate?.options) ? candidate.options : [];
+        const correctOptionId = String(candidate?.correctOptionId || "").trim();
+        const uniqueOptionTexts = new Set(
+            options
+                .map((option) => String(option?.text || "").trim().toLowerCase())
+                .filter(Boolean)
+        );
+        const hasCorrectOption = options.some((option) => String(option?.id || "").trim() === correctOptionId);
+        return questionText.length >= 12
+            && uniqueOptionTexts.size >= 3
+            && uniqueOptionTexts.size === options.length
+            && hasCorrectOption;
+    }
+
+    const template = Array.isArray(candidate?.template) ? candidate.template : [];
+    const answers = Array.isArray(candidate?.answers) ? candidate.answers : [];
     const blanks = template.filter((entry) => entry === "__").length;
     return template.length > 0 && answers.length > 0 && blanks === answers.length;
 };
@@ -506,7 +523,13 @@ export const buildGroundedVerifierPrompt = (args: {
                 ? "For fill-in-the-blank candidates, verify that the accepted answer is directly supported by the evidence and that no unsupported aliases were invented."
         : args.type === "essay"
             ? "For essay candidates, verify that every numeric or definitional claim in the model answer is supported by the evidence."
-            : "For concept candidates, verify that the answers are directly supported by the evidence.";
+            : (() => {
+                const exerciseType = String((args.candidate as any)?.exerciseType || "cloze").trim().toLowerCase();
+                if (exerciseType === "definition_match" || exerciseType === "misconception_check") {
+                    return "For concept choice candidates, verify that the marked correct option is directly supported by the evidence and that the explanation stays faithful to the source.";
+                }
+                return "For concept cloze candidates, verify that the answers are directly supported by the evidence.";
+            })();
 
     return `You are a strict factuality verifier.
 

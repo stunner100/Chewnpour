@@ -135,9 +135,16 @@ export type AssessmentCoverageTarget = {
 
 export type GroundedConceptCandidate = {
     questionText: string;
-    template: string[];
-    answers: string[];
-    tokens: string[];
+    exerciseType?: "cloze" | "definition_match" | "misconception_check";
+    conceptKey?: string;
+    difficulty?: string;
+    explanation?: string;
+    template?: string[];
+    answers?: string[];
+    tokens?: string[];
+    options?: Array<{ id?: string; text: string }>;
+    correctOptionId?: string;
+    correctAnswer?: string;
     citations: GroundedCitation[];
 };
 
@@ -612,5 +619,58 @@ Return JSON only:
   "tokens": ["..."],
   "citations": [
     {"passageId":"p1-0","page":0,"startChar":0,"endChar":80,"quote":"..."}
+  ]
+}`;
+
+export const buildGroundedConceptBatchPrompt = (args: {
+    topicTitle: string;
+    evidence: RetrievedEvidence[];
+    requestedCount: number;
+    duplicateGuardSection?: string;
+    retryGuidance?: string;
+    seed: string;
+}) => `Create ${args.requestedCount} grounded concept practice items from the evidence.
+
+TOPIC: ${args.topicTitle}
+${formatEvidence(args.evidence, 11000)}
+
+${args.duplicateGuardSection || ""}
+${args.retryGuidance || ""}
+SEED: ${args.seed}
+
+Requirements:
+- Return a mix of exercise types using: "cloze", "definition_match", and "misconception_check".
+- Include at least one item of each exercise type when the evidence supports it.
+- Each item must target a specific concept and include a short conceptKey.
+- difficulty must be "easy", "medium", or "hard".
+- explanation must explain the correct answer in one or two sentences.
+- Include citations[] with exact evidence quote spans that support the correct answer.
+- For cloze items:
+  - template must include one "__" per answer.
+  - answers must align exactly to blanks.
+  - tokens must include the answers plus plausible distractors.
+- For definition_match and misconception_check items:
+  - options must contain 3 or 4 distinct answer choices.
+  - correctOptionText must match one option exactly.
+  - wrong options may be plausible misconceptions, but do not invent unsupported facts.
+
+Return JSON only:
+{
+  "items": [
+    {
+      "exerciseType": "cloze|definition_match|misconception_check",
+      "conceptKey": "...",
+      "difficulty": "easy|medium|hard",
+      "questionText": "...",
+      "explanation": "...",
+      "template": ["...", "__", "..."],
+      "answers": ["..."],
+      "tokens": ["..."],
+      "options": [{"text":"..."},{"text":"..."}],
+      "correctOptionText": "...",
+      "citations": [
+        {"passageId":"p1-0","page":0,"startChar":0,"endChar":80,"quote":"..."}
+      ]
+    }
   ]
 }`;
