@@ -1,6 +1,6 @@
 import { action, internalQuery, mutation, query } from "./_generated/server";
 import { v } from "convex/values";
-import { components } from "./_generated/api";
+import { components, internal } from "./_generated/api";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 const ACTIVE_USERS_5M_WINDOW_MS = 5 * 60 * 1000;
@@ -37,6 +37,9 @@ const PAYMENT_PROVIDER_OPTIONS = [
 const PAYMENT_PROVIDER_DEFAULT = String(process.env.PAYMENT_PROVIDER || PAYMENT_PROVIDER_PAYSTACK)
     .trim()
     .toLowerCase();
+const PAYMENT_RECONCILE_MIN_AGE_MS = 15 * 60 * 1000;
+const PAYMENT_RECONCILE_RETRY_INTERVAL_MS = 60 * 60 * 1000;
+const UNRESOLVED_PAYMENT_ROWS_LIMIT = 25;
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/i;
 
@@ -230,6 +233,33 @@ const resolvePaymentTimestamp = (payment: any) =>
         payment?.paidAt,
         toTimestamp(payment?.createdAt, toTimestamp(payment?._creationTime, 0))
     );
+
+const resolvePaymentLastVerifiedAt = (payment: any) =>
+    toTimestamp(payment?.lastVerifiedAt, 0);
+
+const resolvePaymentVerificationAttempts = (payment: any) =>
+    toNonNegativeInteger(payment?.verificationAttempts);
+
+const normalizePaymentVerificationStatus = (value: unknown) =>
+    String(value || "").trim().toLowerCase();
+
+const isUnresolvedPayment = (payment: any, now: number) => {
+    const status = normalizePaymentStatus(payment?.status);
+    const verificationStatus = normalizePaymentVerificationStatus(payment?.verificationStatus);
+    if (status !== "initialized") return false;
+
+    const createdAt = toTimestamp(payment?.createdAt, toTimestamp(payment?._creationTime, 0));
+    if (createdAt <= 0) return false;
+
+    const lastVerifiedAt = resolvePaymentLastVerifiedAt(payment);
+    const nextEligibleAt = lastVerifiedAt > 0
+        ? lastVerifiedAt + PAYMENT_RECONCILE_RETRY_INTERVAL_MS
+        : createdAt + PAYMENT_RECONCILE_MIN_AGE_MS;
+
+    if (now < nextEligibleAt) return false;
+    if (!verificationStatus) return true;
+    return verificationStatus !== "recovered_success" && verificationStatus !== "duplicate_success";
+};
 
 const normalizeFileExtension = (fileName: unknown) => {
     if (typeof fileName !== "string") return "";
@@ -798,6 +828,32 @@ export const setPaymentProvider = mutation({
             updatedAt: now,
             updatedByUserId: payload.updatedByUserId,
         };
+    },
+});
+
+export const reconcilePaymentReference = action({
+    args: {
+        reference: v.string(),
+    },
+    handler: async (ctx, args) => {
+        const access = await ctx.runQuery(internal.admin.getAdminAccessStatusInternal, {});
+        if (!access?.authUserId) {
+            throw new Error("Admin sign-in required.");
+        }
+        if (!access.allowlistConfigured || !access.isAllowed) {
+            throw new Error("Admin access required.");
+        }
+
+        const reference = String(args.reference || "").trim();
+        if (!reference) {
+            throw new Error("Payment reference is required.");
+        }
+
+        return await ctx.runAction(internal.subscriptions.reconcilePaymentReferenceInternal, {
+            reference,
+            trigger: "admin_manual",
+            sendAlert: false,
+        });
     },
 });
 
@@ -1493,6 +1549,52 @@ export const getDashboardSnapshot = query({
             source: useSubscriptionRevenueFallback
                 ? "subscriptions"
                 : "paymentTransactions",
+        };
+
+        const recoveredPayments = successfulPayments.filter(
+            (payment) => String(payment.source || "").trim() === "reconcile_verify"
+        );
+        const unresolvedPayments = paymentTransactions
+            .filter((payment) => isUnresolvedPayment(payment, now))
+            .sort((left, right) => {
+                const leftCreatedAt = toTimestamp(left.createdAt, toTimestamp(left._creationTime, 0));
+                const rightCreatedAt = toTimestamp(right.createdAt, toTimestamp(right._creationTime, 0));
+                return leftCreatedAt - rightCreatedAt;
+            });
+        const billingRecovery = {
+            unresolvedCount: unresolvedPayments.length,
+            unresolvedInitializedCount: unresolvedPayments.filter(
+                (payment) => normalizePaymentStatus(payment.status) === "initialized"
+            ).length,
+            verifyErrorCount: unresolvedPayments.filter(
+                (payment) => normalizePaymentVerificationStatus(payment.verificationStatus) === "verify_error"
+            ).length,
+            alertedCount: unresolvedPayments.filter(
+                (payment) => toTimestamp(payment.alertedAt, 0) > 0
+            ).length,
+            recoveredPaymentsTotal: recoveredPayments.length,
+            recoveredPaymentsLastWindow: recoveredPayments.filter(
+                (payment) => resolvePaymentTimestamp(payment) >= sevenDaysAgo
+            ).length,
+            unresolvedPayments: unresolvedPayments.slice(0, UNRESOLVED_PAYMENT_ROWS_LIMIT).map((payment) => {
+                const createdAt = toTimestamp(payment.createdAt, toTimestamp(payment._creationTime, 0));
+                return {
+                    reference: String(payment.reference || "").trim(),
+                    userId: String(payment.userId || "").trim() || null,
+                    customerEmail: normalizeEmail(payment.customerEmail) || null,
+                    amountMinor: toNonNegativeInteger(payment.amountMinor),
+                    currency: normalizeCurrencyCode(payment.currency, "GHS"),
+                    status: normalizePaymentStatus(payment.status) || "initialized",
+                    verificationStatus: normalizePaymentVerificationStatus(payment.verificationStatus) || "initialized",
+                    verificationMessage: String(payment.verificationMessage || "").trim() || null,
+                    provider: resolvePaymentProvider(payment.provider),
+                    createdAt,
+                    lastVerifiedAt: resolvePaymentLastVerifiedAt(payment) || null,
+                    verificationAttempts: resolvePaymentVerificationAttempts(payment),
+                    alertedAt: toTimestamp(payment.alertedAt, 0) || null,
+                    ageHours: Math.round(((now - createdAt) / (60 * 60 * 1000)) * 10) / 10,
+                };
+            }),
         };
 
         // ── Content Analytics ──
@@ -2494,6 +2596,7 @@ export const getDashboardSnapshot = query({
             conceptAnalytics,
             subscriptionAnalytics,
             revenueAnalytics,
+            billingRecovery,
             contentAnalytics,
             engagementAnalytics,
         };
