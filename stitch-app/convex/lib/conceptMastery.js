@@ -135,6 +135,67 @@ export const buildConceptMasteryUpdates = ({
     });
 };
 
+const resolveAttemptTimestamp = (attempt, fallbackNow) => {
+    const candidates = [
+        Number(attempt?._creationTime) || 0,
+        Number(attempt?.createdAt) || 0,
+        Number(attempt?.lastPracticedAt) || 0,
+        Number(fallbackNow) || 0,
+    ].filter((value) => Number.isFinite(value) && value > 0);
+
+    return candidates.length > 0 ? Math.max(...candidates) : Date.now();
+};
+
+const getConceptSessionItemsFromAttempt = (attempt) => {
+    const items = Array.isArray(attempt?.answers?.items) ? attempt.answers.items : [];
+    return items.filter(Boolean);
+};
+
+export const buildConceptMasterySummaryFromAttempts = ({
+    attempts = [],
+    topicId,
+    userId,
+    now = Date.now(),
+    maxConcepts = 6,
+}) => {
+    const sortedAttempts = (Array.isArray(attempts) ? attempts : [])
+        .filter((attempt) => getConceptSessionItemsFromAttempt(attempt).length > 0)
+        .sort((left, right) => resolveAttemptTimestamp(left, now) - resolveAttemptTimestamp(right, now));
+
+    let syntheticRecords = [];
+
+    for (const attempt of sortedAttempts) {
+        const updates = buildConceptMasteryUpdates({
+            existingRecords: syntheticRecords,
+            sessionItems: getConceptSessionItemsFromAttempt(attempt),
+            topicId: attempt?.topicId || topicId,
+            userId: attempt?.userId || userId,
+            now: resolveAttemptTimestamp(attempt, now),
+        });
+
+        const byConceptKey = new Map(
+            syntheticRecords.map((record) => [String(record?.conceptKey || "").trim(), record])
+        );
+
+        for (const update of updates) {
+            const { existingId, ...record } = update;
+            byConceptKey.set(record.conceptKey, {
+                ...byConceptKey.get(record.conceptKey),
+                ...record,
+                _id: existingId || byConceptKey.get(record.conceptKey)?._id || `fallback:${record.conceptKey}`,
+            });
+        }
+
+        syntheticRecords = Array.from(byConceptKey.values());
+    }
+
+    return buildConceptMasterySummary({
+        records: syntheticRecords,
+        now,
+        maxConcepts,
+    });
+};
+
 export const buildConceptMasterySummary = ({
     records = [],
     now = Date.now(),

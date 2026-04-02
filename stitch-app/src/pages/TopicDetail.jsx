@@ -25,6 +25,7 @@ import {
 } from '../lib/topicContentFormatting';
 import { resolveTopicIllustrationUrl } from '../lib/topicIllustration';
 import { buildConceptPracticePath } from '../lib/conceptReviewLinks';
+import { captureSentryMessage } from '../lib/sentry';
 
 // ── Pure rendering helpers (hoisted out of the component to avoid re-creation) ──
 
@@ -71,6 +72,7 @@ const TopicDetail = () => {
     const [notesOpen, setNotesOpen] = useState(false);
     const [notesAppendText, setNotesAppendText] = useState('');
     const [chatOpen, setChatOpen] = useState(false);
+    const conceptFallbackReportedRef = useRef('');
 
     const openNotes = useCallback(() => { setChatOpen(false); setNotesOpen(true); }, []);
     const openChat = useCallback(() => { setNotesOpen(false); setChatOpen(true); }, []);
@@ -108,6 +110,41 @@ const TopicDetail = () => {
         () => buildConceptPracticePath(topicId, conceptMastery?.reviewConceptKeys || []),
         [conceptMastery?.reviewConceptKeys, topicId]
     );
+
+    useEffect(() => {
+        if (!topicId || conceptMastery?.source !== 'attempt_fallback') {
+            return;
+        }
+
+        const reportKey = `${topicId}:${conceptMastery.reviewConceptKeys?.join(',') || ''}`;
+        if (conceptFallbackReportedRef.current === reportKey) {
+            return;
+        }
+        conceptFallbackReportedRef.current = reportKey;
+
+        captureSentryMessage('Topic review CTA using concept-attempt fallback', {
+            level: 'warning',
+            tags: {
+                area: 'concept_practice',
+                page: 'topic_detail',
+                fallbackSource: 'attempt_fallback',
+            },
+            extras: {
+                topicId,
+                topicTitle: topic?.title || '',
+                totalConcepts: conceptMastery?.totalConcepts || 0,
+                dueCount: conceptMastery?.dueCount || 0,
+                reviewConceptKeys: conceptMastery?.reviewConceptKeys || [],
+            },
+        });
+    }, [
+        conceptMastery?.dueCount,
+        conceptMastery?.reviewConceptKeys,
+        conceptMastery?.source,
+        conceptMastery?.totalConcepts,
+        topic?.title,
+        topicId,
+    ]);
     const voiceModeEnabled = Boolean(profile?.voiceModeEnabled);
     const voiceQuota = useQuery(
         api.subscriptions.getVoiceGenerationQuotaStatus,

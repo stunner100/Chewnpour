@@ -24,7 +24,15 @@ const DashboardLayout = ({ children }) => {
     const [sidebarCollapsed, setSidebarCollapsed] = useState(isTopicPage);
 
     useEffect(() => {
-        if (isTopicPage) setSidebarCollapsed(true);
+        if (!isTopicPage) return undefined;
+
+        const frameId = window.requestAnimationFrame(() => {
+            setSidebarCollapsed(true);
+        });
+
+        return () => {
+            window.cancelAnimationFrame(frameId);
+        };
     }, [isTopicPage]);
 
     const isActive = (item) => {

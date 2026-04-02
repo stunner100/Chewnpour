@@ -4,6 +4,7 @@ import { assertAuthorizedUser, resolveAuthUserId } from "./lib/examSecurity";
 import { buildConceptSessionItems, summarizeConceptExerciseBank } from "./lib/conceptSessionSelection.js";
 import {
     buildConceptMasterySummary,
+    buildConceptMasterySummaryFromAttempts,
     buildConceptMasteryUpdates,
 } from "./lib/conceptMastery.js";
 import { normalizeConceptTextKey } from "./lib/conceptExerciseGeneration.js";
@@ -210,12 +211,36 @@ export const getConceptMasteryForTopic = query({
         const userId = assertAuthorizedUser({ authUserId });
         const { topic } = await getTopicAndCourseForAuthorizedUser(ctx, args.topicId, authUserId);
         const records = await getConceptMasteryRecordsForTopic(ctx, userId, args.topicId);
-        const summary = buildConceptMasterySummary({ records, now: Date.now() });
+        const now = Date.now();
+        const summary = buildConceptMasterySummary({ records, now });
+        if (summary.totalConcepts > 0) {
+            return {
+                topicId: String(topic._id),
+                topicTitle: topic.title,
+                source: "mastery_records",
+                ...summary,
+            };
+        }
+
+        const recentAttempts = await ctx.db
+            .query("conceptAttempts")
+            .withIndex("by_userId_topicId", (q) =>
+                q.eq("userId", userId).eq("topicId", args.topicId)
+            )
+            .order("desc")
+            .take(10);
+        const fallbackSummary = buildConceptMasterySummaryFromAttempts({
+            attempts: recentAttempts,
+            topicId: args.topicId,
+            userId,
+            now,
+        });
 
         return {
             topicId: String(topic._id),
             topicTitle: topic.title,
-            ...summary,
+            source: fallbackSummary.totalConcepts > 0 ? "attempt_fallback" : "empty",
+            ...fallbackSummary,
         };
     },
 });
