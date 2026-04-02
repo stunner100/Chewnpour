@@ -31,4 +31,10 @@ crons.interval(
     internal.grounded.runStaleQuestionBankTargetAudit,
 );
 
+crons.interval(
+    "stale payment reconciliation",
+    { hours: 1 },
+    internal.subscriptions.reconcileStalePaystackPaymentsInternal,
+);
+
 export default crons;

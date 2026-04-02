@@ -634,6 +634,11 @@ export default defineSchema({
         paidAt: v.optional(v.number()),
         customerEmail: v.optional(v.string()),
         eventType: v.optional(v.string()),
+        lastVerifiedAt: v.optional(v.number()),
+        verificationAttempts: v.optional(v.number()),
+        verificationStatus: v.optional(v.string()),
+        verificationMessage: v.optional(v.string()),
+        alertedAt: v.optional(v.number()),
     })
         .index("by_reference", ["reference"])
         .index("by_userId", ["userId"])

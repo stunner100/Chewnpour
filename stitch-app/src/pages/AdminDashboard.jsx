@@ -28,6 +28,24 @@ const formatDateTime = (timestampMs) => {
     }).format(parsed);
 };
 
+const formatRelativeHours = (value) => {
+    const parsed = Number(value);
+    if (!Number.isFinite(parsed) || parsed <= 0) return '<1h';
+    if (parsed < 24) return `${Math.round(parsed * 10) / 10}h`;
+    const days = parsed / 24;
+    return `${Math.round(days * 10) / 10}d`;
+};
+
+const formatTokenLabel = (value) => {
+    const normalized = String(value || '').trim();
+    if (!normalized) return 'Unknown';
+    return normalized
+        .replace(/[_-]+/g, ' ')
+        .replace(/\s+/g, ' ')
+        .trim()
+        .replace(/\b\w/g, (char) => char.toUpperCase());
+};
+
 const formatTrend = (currentValue, previousValue) => {
     const current = Number(currentValue) || 0;
     const previous = Number(previousValue) || 0;
@@ -468,10 +486,19 @@ const LearningPanel = ({ snapshot, activeUsersDays }) => {
     );
 };
 
-const RevenuePanel = ({ snapshot, activeUsersDays }) => {
+const RevenuePanel = ({
+    snapshot,
+    activeUsersDays,
+    handleReconcilePayment,
+    billingActionError,
+    billingActionMessage,
+    reconcilingReferences,
+}) => {
     const revenue = snapshot.revenueAnalytics || {};
     const sub = snapshot.subscriptionAnalytics || {};
+    const billing = snapshot.billingRecovery || {};
     const planBreakdown = Array.isArray(sub.planBreakdown) ? sub.planBreakdown : [];
+    const unresolvedPayments = Array.isArray(billing.unresolvedPayments) ? billing.unresolvedPayments : [];
 
     return (
         <div className="space-y-4">
@@ -540,6 +567,98 @@ const RevenuePanel = ({ snapshot, activeUsersDays }) => {
                     </div>
                 </SectionCard>
             </section>
+
+            <section className="grid gap-4 lg:grid-cols-2">
+                <SectionCard title="Billing Recovery">
+                    <div className="divide-y divide-border-light dark:divide-border-dark">
+                        <StatRow label="Unresolved payments" value={formatNumber(billing.unresolvedCount)} detail={`${formatNumber(billing.verifyErrorCount)} verify errors`} />
+                        <StatRow label="Awaiting retry" value={formatNumber(billing.unresolvedInitializedCount)} detail={`${formatNumber(billing.alertedCount)} alerted`} />
+                        <StatRow label="Recovered payments" value={formatNumber(billing.recoveredPaymentsTotal)} detail={`${formatNumber(billing.recoveredPaymentsLastWindow)} last ${activeUsersDays}d`} />
+                    </div>
+                </SectionCard>
+
+                <SectionCard title="Billing Ops">
+                    {billingActionMessage ? (
+                        <p className="mb-3 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-700 dark:border-emerald-900/50 dark:bg-emerald-950/40 dark:text-emerald-300">
+                            {billingActionMessage}
+                        </p>
+                    ) : null}
+                    {billingActionError ? (
+                        <p className="mb-3 rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700 dark:border-rose-900/50 dark:bg-rose-950/40 dark:text-rose-300">
+                            {billingActionError}
+                        </p>
+                    ) : null}
+                    <p className="text-sm text-text-sub-light dark:text-text-sub-dark">
+                        Successful stale Paystack payments are auto-reconciled. Anything still listed below can be retried from here.
+                    </p>
+                </SectionCard>
+            </section>
+
+            <SectionCard title="Unresolved Payments" badge={`${formatNumber(unresolvedPayments.length)} shown`}>
+                {unresolvedPayments.length > 0 ? (
+                    <div className="overflow-x-auto">
+                        <table className="min-w-full text-sm">
+                            <thead>
+                                <tr className="border-b border-border-light dark:border-border-dark">
+                                    <th className="px-3 py-2 text-left font-semibold text-text-faint-light dark:text-text-faint-dark">Email</th>
+                                    <th className="px-3 py-2 text-left font-semibold text-text-faint-light dark:text-text-faint-dark">Reference</th>
+                                    <th className="px-3 py-2 text-left font-semibold text-text-faint-light dark:text-text-faint-dark">Amount</th>
+                                    <th className="px-3 py-2 text-left font-semibold text-text-faint-light dark:text-text-faint-dark">State</th>
+                                    <th className="px-3 py-2 text-left font-semibold text-text-faint-light dark:text-text-faint-dark">Age</th>
+                                    <th className="px-3 py-2 text-left font-semibold text-text-faint-light dark:text-text-faint-dark">Verified</th>
+                                    <th className="px-3 py-2 text-left font-semibold text-text-faint-light dark:text-text-faint-dark">Action</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {unresolvedPayments.map((payment) => {
+                                    const isLoading = Boolean(reconcilingReferences[payment.reference]);
+                                    return (
+                                        <tr key={payment.reference} className="border-b border-border-light dark:border-border-dark">
+                                            <td className="px-3 py-3 text-text-main-light dark:text-text-main-dark">
+                                                <div className="font-semibold">{payment.customerEmail || 'Unknown user'}</div>
+                                                {payment.userId ? (
+                                                    <div className="text-xs text-text-faint-light dark:text-text-faint-dark">{payment.userId}</div>
+                                                ) : null}
+                                            </td>
+                                            <td className="px-3 py-3 text-text-sub-light dark:text-text-sub-dark">
+                                                <div className="max-w-[260px] truncate" title={payment.reference}>{payment.reference}</div>
+                                                {payment.verificationMessage ? (
+                                                    <div className="mt-1 text-xs text-text-faint-light dark:text-text-faint-dark">{payment.verificationMessage}</div>
+                                                ) : null}
+                                            </td>
+                                            <td className="px-3 py-3 text-text-sub-light dark:text-text-sub-dark">{formatCurrency(payment.amountMinor, payment.currency)}</td>
+                                            <td className="px-3 py-3">
+                                                <div className="flex flex-col gap-1">
+                                                    <span className="inline-flex w-fit rounded-full bg-amber-100 px-2.5 py-1 text-xs font-semibold text-amber-700 dark:bg-amber-900/30 dark:text-amber-300">
+                                                        {formatTokenLabel(payment.status)}
+                                                    </span>
+                                                    <span className="text-xs text-text-faint-light dark:text-text-faint-dark">
+                                                        {formatTokenLabel(payment.verificationStatus)} • {formatNumber(payment.verificationAttempts)} tries
+                                                    </span>
+                                                </div>
+                                            </td>
+                                            <td className="px-3 py-3 text-text-sub-light dark:text-text-sub-dark">{formatRelativeHours(payment.ageHours)}</td>
+                                            <td className="px-3 py-3 text-text-sub-light dark:text-text-sub-dark">{formatDateTime(payment.lastVerifiedAt)}</td>
+                                            <td className="px-3 py-3">
+                                                <button
+                                                    type="button"
+                                                    onClick={() => handleReconcilePayment(payment.reference)}
+                                                    disabled={isLoading}
+                                                    className="btn-secondary px-3 py-1.5 text-xs disabled:opacity-50"
+                                                >
+                                                    {isLoading ? 'Reconciling...' : 'Reconcile now'}
+                                                </button>
+                                            </td>
+                                        </tr>
+                                    );
+                                })}
+                            </tbody>
+                        </table>
+                    </div>
+                ) : (
+                    <p className="text-sm text-text-faint-light dark:text-text-faint-dark">No unresolved payment references right now.</p>
+                )}
+            </SectionCard>
         </div>
     );
 };
@@ -1534,12 +1653,16 @@ const AdminDashboard = () => {
     const { user } = useAuth();
     const snapshot = useQuery(api.admin.getDashboardSnapshot, {});
     const diagnoseRetrievalForTopic = useAction(api.admin.diagnoseRetrievalForTopic);
+    const reconcilePaymentReference = useAction(api.admin.reconcilePaymentReference);
     const addAdminEmail = useMutation(api.admin.addAdminEmail);
     const removeAdminEmail = useMutation(api.admin.removeAdminEmail);
     const setPaymentProvider = useMutation(api.admin.setPaymentProvider);
     const [newAdminEmail, setNewAdminEmail] = React.useState('');
     const [adminActionLoading, setAdminActionLoading] = React.useState(false);
     const [adminActionError, setAdminActionError] = React.useState('');
+    const [billingActionError, setBillingActionError] = React.useState('');
+    const [billingActionMessage, setBillingActionMessage] = React.useState('');
+    const [reconcilingReferences, setReconcilingReferences] = React.useState({});
     const [paymentProviderDraft, setPaymentProviderDraft] = React.useState('paystack');
     const [retrievalTopicId, setRetrievalTopicId] = React.useState('');
     const [retrievalDiagnostics, setRetrievalDiagnostics] = React.useState(null);
@@ -1631,6 +1754,33 @@ const AdminDashboard = () => {
         }
     };
 
+    const handleReconcilePayment = async (reference) => {
+        const normalizedReference = String(reference || '').trim();
+        if (!normalizedReference) return;
+        setBillingActionError('');
+        setBillingActionMessage('');
+        setReconcilingReferences((current) => ({
+            ...current,
+            [normalizedReference]: true,
+        }));
+        try {
+            const result = await reconcilePaymentReference({ reference: normalizedReference });
+            const baseMessage = `Reconciliation finished: ${formatTokenLabel(result?.result)}.`;
+            const creditsMessage = Number(result?.grantedCredits) > 0
+                ? ` ${formatNumber(result.grantedCredits)} credit${Number(result.grantedCredits) === 1 ? '' : 's'} granted.`
+                : '';
+            setBillingActionMessage(`${baseMessage}${creditsMessage}`);
+        } catch (error) {
+            setBillingActionError(String(error?.message || error || 'Failed to reconcile payment reference.'));
+        } finally {
+            setReconcilingReferences((current) => {
+                const next = { ...current };
+                delete next[normalizedReference];
+                return next;
+            });
+        }
+    };
+
     const handleDiagnoseRetrieval = async (event) => {
         event.preventDefault();
         if (!retrievalTopicId.trim()) return;
@@ -1654,7 +1804,16 @@ const AdminDashboard = () => {
             case 'learning':
                 return <LearningPanel snapshot={snapshot} activeUsersDays={activeUsersDays} />;
             case 'revenue':
-                return <RevenuePanel snapshot={snapshot} activeUsersDays={activeUsersDays} />;
+                return (
+                    <RevenuePanel
+                        snapshot={snapshot}
+                        activeUsersDays={activeUsersDays}
+                        handleReconcilePayment={handleReconcilePayment}
+                        billingActionError={billingActionError}
+                        billingActionMessage={billingActionMessage}
+                        reconcilingReferences={reconcilingReferences}
+                    />
+                );
             case 'content':
                 return (
                     <ContentPanel

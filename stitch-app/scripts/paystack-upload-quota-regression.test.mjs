@@ -24,7 +24,7 @@ for (const pattern of [
 
 const subscriptionsSource = await read('convex/subscriptions.ts');
 for (const pattern of [
-  'export const FREE_UPLOAD_LIMIT = 1;',
+  'export const FREE_UPLOAD_LIMIT = 3;',
   'export const getUploadQuotaStatus = query({',
   'export const initializePaystackTopUpCheckout = action({',
   'export const verifyPaystackTopUpAfterRedirect = action({',
