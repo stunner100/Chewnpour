@@ -5,8 +5,12 @@ import {
     buildQuestionPromptSignature,
     normalizeQuestionPromptKey,
 } from "./mcqUniqueness.js";
+import {
+    HARD_OBJECTIVE_DIFFICULTY_DISTRIBUTION,
+    compareObjectiveQuestionsByQuality,
+} from "./premiumQuality.js";
 
-const DIFFICULTY_DISTRIBUTION = { easy: 0.3, medium: 0.5, hard: 0.2 };
+const DIFFICULTY_DISTRIBUTION = HARD_OBJECTIVE_DIFFICULTY_DISTRIBUTION;
 
 const pickRandomSubset = (items, size) => {
     const copied = [...items];
@@ -16,6 +20,9 @@ const pickRandomSubset = (items, size) => {
     }
     return copied.slice(0, Math.max(0, size));
 };
+
+const sortObjectiveQuestionsByQuality = (items) =>
+    [...items].sort(compareObjectiveQuestionsByQuality);
 
 const pickDifficultyBalancedSubset = (items, size) => {
     if (items.length <= size) return [...items];
@@ -27,19 +34,21 @@ const pickDifficultyBalancedSubset = (items, size) => {
     }
 
     const easyTarget = Math.floor(size * DIFFICULTY_DISTRIBUTION.easy);
-    const hardTarget = Math.floor(size * DIFFICULTY_DISTRIBUTION.hard);
-    const mediumTarget = size - easyTarget - hardTarget;
+    const mediumTarget = Math.floor(size * DIFFICULTY_DISTRIBUTION.medium);
+    const hardTarget = Math.max(0, size - easyTarget - mediumTarget);
 
     const selected = [
-        ...pickRandomSubset(buckets.easy, easyTarget),
-        ...pickRandomSubset(buckets.medium, mediumTarget),
-        ...pickRandomSubset(buckets.hard, hardTarget),
+        ...sortObjectiveQuestionsByQuality(buckets.hard).slice(0, hardTarget),
+        ...sortObjectiveQuestionsByQuality(buckets.medium).slice(0, mediumTarget),
+        ...sortObjectiveQuestionsByQuality(buckets.easy).slice(0, easyTarget),
     ];
 
     if (selected.length < size) {
         const selectedSet = new Set(selected);
-        const remaining = items.filter((item) => !selectedSet.has(item));
-        selected.push(...pickRandomSubset(remaining, size - selected.length));
+        const remaining = sortObjectiveQuestionsByQuality(
+            items.filter((item) => !selectedSet.has(item))
+        );
+        selected.push(...remaining.slice(0, size - selected.length));
     }
 
     return selected.slice(0, size);
@@ -134,7 +143,9 @@ const buildSeenQuestionIdsFromCompletedAttempts = (recentAttempts, examFormat) =
 
 const pickExamSubset = (questions, subsetSize, isEssay) => {
     const safeSubsetSize = Math.max(0, Number(subsetSize || 0));
-    if (questions.length <= safeSubsetSize) return [...questions];
+    if (questions.length <= safeSubsetSize) {
+        return isEssay ? [...questions] : sortObjectiveQuestionsByQuality(questions);
+    }
     return isEssay
         ? pickRandomSubset(questions, safeSubsetSize)
         : pickDifficultyBalancedSubset(questions, safeSubsetSize);

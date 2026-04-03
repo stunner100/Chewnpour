@@ -102,7 +102,9 @@ Rules:
 - outcomes should be suitable for university assessment design.
 - mcqPlan.targetOutcomeKeys must reference outcomes appropriate for MCQ only.
 - essayPlan.targetOutcomeKeys must reference outcomes appropriate for essay only.
-- MCQ outcomes should support only: Remember, Understand, Apply, Analyze.
+- MCQ outcomes should support only: Apply, Analyze.
+- Prefer MCQ outcomes that support application, interpretation, diagnosis, comparison, or scenario evaluation.
+- Avoid MCQ outcomes that are only direct recall or definition lookup.
 - Essay outcomes should support only: Analyze, Evaluate, Create.
 - Set essayPlan.authenticScenarioRequired to true only when the evidence supports realistic or professional application framing.
 - If essayPlan.authenticScenarioRequired is true, include essayPlan.authenticContextHint as a short scenario cue grounded in the evidence.
@@ -154,7 +156,11 @@ Rules:
 - Each question must be answerable only from evidence above.
 - Use only outcome keys from assessmentBlueprint.mcqPlan.targetOutcomeKeys.
 - bloomLevel must exactly match the selected outcome's bloomLevel.
-- bloomLevel must be one of: Remember, Understand, Apply, Analyze.
+- bloomLevel must be one of: Apply, Analyze.
+- Question must require application, interpretation, diagnosis, comparison, or scenario evaluation.
+- Avoid direct recall or definition lookup unless it is embedded inside a harder applied stem.
+- Skew the batch toward higher difficulty when the evidence supports it: roughly 10% easy, 30% medium, 60% hard.
+- If the evidence cannot support a truly hard question, use the strongest defensible medium question instead of inventing difficulty.
 - Every question must include citations[] with 1-3 citation objects.
 - Every citation object must include: passageId, page, startChar, endChar, quote.
 - quote must be an exact short excerpt from the cited passage.
@@ -181,7 +187,7 @@ Return JSON only:
       "explanation": "...",
       "difficulty": "easy|medium|hard",
       "learningObjective": "...",
-      "bloomLevel": "Remember|Understand|Apply|Analyze",
+      "bloomLevel": "Apply|Analyze",
       "outcomeKey": "outcome-1",
       "citations": [
         {"passageId":"p1-0","page":0,"startChar":0,"endChar":80,"quote":"..."}
@@ -219,6 +225,9 @@ Rules:
 - Keep the same question intent only if it is fully supported by the evidence.
 - If the current question intent is not supported, rewrite the question so it matches the evidence exactly.
 - Use exactly 4 options with one correct answer.
+- Repaired questions must still require application, interpretation, diagnosis, comparison, or scenario evaluation.
+- Avoid simple recall or pure definition lookup.
+- Prefer hard questions when the evidence supports them; otherwise back off to a strong medium question.
 - The marked correct option must be directly supported by the cited evidence.
 - If the correct option includes a number, percentage, threshold, rate, count, or limit, copy that value exactly from evidence.
 - Keep the correct option wording as close as possible to the supporting evidence.
@@ -247,7 +256,7 @@ or
   "explanation": "...",
   "difficulty": "easy|medium|hard",
   "learningObjective": "...",
-  "bloomLevel": "Remember|Understand|Apply|Analyze",
+  "bloomLevel": "Apply|Analyze",
   "outcomeKey": "outcome-1",
   "citations": [
     {"passageId":"p1-0","page":0,"startChar":0,"endChar":80,"quote":"..."}

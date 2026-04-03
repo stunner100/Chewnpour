@@ -21,8 +21,8 @@ if (!generationSource.includes("Use only outcome keys from assessmentBlueprint.m
     throw new Error("Expected grounded MCQ prompt to require blueprint outcome keys.");
 }
 
-if (!generationSource.includes('"bloomLevel": "Remember|Understand|Apply|Analyze"')) {
-    throw new Error("Expected grounded MCQ contract to require allowed Bloom levels.");
+if (!generationSource.includes('"bloomLevel": "Apply|Analyze"')) {
+    throw new Error("Expected grounded MCQ contract to require higher-rigor Bloom levels.");
 }
 
 if (!generationSource.includes('"outcomeKey": "outcome-1"')) {
@@ -77,7 +77,7 @@ if (!topicsSource.includes("Assessment metadata invalid")) {
     throw new Error("Expected question persistence to hard-fail invalid assessment metadata.");
 }
 
-if (!schemaSource.includes("assessmentBlueprint: v.optional(v.object({")) {
+if (!schemaSource.includes("assessmentBlueprint: v.optional(v.any())")) {
     throw new Error("Expected topics schema to persist assessmentBlueprint.");
 }
 

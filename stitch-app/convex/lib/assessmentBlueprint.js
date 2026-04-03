@@ -16,6 +16,11 @@ export const MCQ_ALLOWED_BLOOM_LEVELS = [
     "Analyze",
 ];
 
+export const MCQ_TARGET_BLOOM_LEVELS = [
+    "Apply",
+    "Analyze",
+];
+
 export const ESSAY_ALLOWED_BLOOM_LEVELS = [
     "Analyze",
     "Evaluate",
@@ -72,6 +77,7 @@ const normalizePlanKeys = ({
     rawKeys,
     outcomeByKey,
     allowedBloomLevels,
+    preferredBloomLevels = [],
     fallbackOutcomes,
 }) => {
     const requestedKeys = uniqueStringArray(rawKeys).map((value) => normalizeOutcomeKey(value));
@@ -81,6 +87,12 @@ const normalizePlanKeys = ({
     });
     if (acceptedKeys.length > 0) {
         return acceptedKeys;
+    }
+    const preferredKeys = fallbackOutcomes
+        .filter((outcome) => preferredBloomLevels.includes(outcome.bloomLevel))
+        .map((outcome) => outcome.key);
+    if (preferredKeys.length > 0) {
+        return preferredKeys;
     }
     return fallbackOutcomes
         .filter((outcome) => allowedBloomLevels.includes(outcome.bloomLevel))
@@ -119,6 +131,7 @@ export const normalizeAssessmentBlueprint = (raw) => {
         rawKeys: rawMcqPlan.targetOutcomeKeys,
         outcomeByKey,
         allowedBloomLevels: MCQ_ALLOWED_BLOOM_LEVELS,
+        preferredBloomLevels: MCQ_TARGET_BLOOM_LEVELS,
         fallbackOutcomes: normalizedOutcomes,
     });
     const essayTargetOutcomeKeys = normalizePlanKeys({

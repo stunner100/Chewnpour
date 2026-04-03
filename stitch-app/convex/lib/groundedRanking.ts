@@ -5,6 +5,7 @@ import {
     buildQuestionPromptSignature,
 } from "./questionPromptSimilarity";
 import { normalizeConceptTextKey } from "./conceptExerciseGeneration";
+import { evaluateObjectiveQuestionQuality } from "./premiumQuality.js";
 
 const clamp = (value: number, min: number, max: number) => Math.max(min, Math.min(max, value));
 
@@ -41,25 +42,48 @@ export const rankGroundedCandidates = (args: {
             const grounding = clamp(Number(candidate?.groundingScore || 0), 0, 1);
             const citationCount = Math.min(4, Array.isArray(candidate?.citations) ? candidate.citations.length : 0);
             const citationScore = citationCount / 4;
-            const difficulty = String(candidate?.difficulty || "medium").toLowerCase();
-            const difficultyScore = difficulty === "hard" ? 1 : difficulty === "easy" ? 0.6 : 0.8;
-
             const richness = clamp(
                 (String(candidate?.explanation || candidate?.correctAnswer || "").length / 240),
                 0,
                 1
             );
+            const objectiveQuality = args.type === "mcq"
+                ? evaluateObjectiveQuestionQuality(candidate)
+                : null;
 
-            const score = clamp(
-                grounding * 0.5
-                + citationScore * 0.2
-                + richness * 0.2
-                + difficultyScore * 0.1,
-                0,
-                1
-            );
+            const score = objectiveQuality
+                ? clamp(
+                    objectiveQuality.qualityScore * 0.7
+                    + objectiveQuality.rigorScore * 0.15
+                    + citationScore * 0.05
+                    + richness * 0.05
+                    + grounding * 0.05,
+                    0,
+                    1
+                )
+                : clamp(
+                    grounding * 0.5
+                    + citationScore * 0.2
+                    + richness * 0.3,
+                    0,
+                    1
+                );
 
-            return { candidate, index, score };
+            return {
+                candidate: objectiveQuality
+                    ? {
+                        ...candidate,
+                        qualityScore: objectiveQuality.qualityScore,
+                        qualityTier: objectiveQuality.qualityTier,
+                        rigorScore: objectiveQuality.rigorScore,
+                        clarityScore: objectiveQuality.clarityScore,
+                        distractorScore: objectiveQuality.distractorScore,
+                        qualityFlags: objectiveQuality.qualityFlags,
+                    }
+                    : candidate,
+                index,
+                score,
+            };
         })
         .sort((a, b) => b.score - a.score);
 

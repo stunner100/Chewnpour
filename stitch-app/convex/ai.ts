@@ -78,6 +78,10 @@ import {
     normalizeOutcomeKey,
     topicUsesAssessmentBlueprint,
 } from "./lib/assessmentBlueprint.js";
+import {
+    evaluateObjectiveQuestionQuality,
+    passesObjectivePremiumQuality,
+} from "./lib/premiumQuality.js";
 import { createVoiceStreamToken } from "./lib/voiceStreamToken";
 
 // Text generation routes by feature and uses OpenAI -> Bedrock -> Inception fallback for generation.
@@ -1193,7 +1197,7 @@ Required schema:
       "explanation": "string",
       "difficulty": "easy|medium|hard",
       "learningObjective": "string",
-      "bloomLevel": "Remember|Understand|Apply|Analyze",
+      "bloomLevel": "Apply|Analyze",
       "outcomeKey": "string",
       "citations": [
         {
@@ -5495,6 +5499,7 @@ const generateQuestionBankForTopic = async (
         candidateCount: 0,
         acceptedCandidateCount: 0,
         rejectedCandidateCount: 0,
+        qualityRejectedCount: 0,
         deterministicChecks: 0,
         llmVerificationCount: 0,
         llmVerificationErrorCount: 0,
@@ -6046,6 +6051,21 @@ const generateQuestionBankForTopic = async (
                         .filter(Boolean)
                 )
             );
+            const qualityCandidate = {
+                ...questionRecord,
+                questionText: finalQuestionText,
+                options,
+                citations,
+                groundingScore: Number(questionRecord?.groundingScore || 0),
+                bloomLevel: String(
+                    questionRecord?.bloomLevel || resolvedOutcome?.bloomLevel || ""
+                ).trim() || undefined,
+            };
+            const quality = evaluateObjectiveQuestionQuality(qualityCandidate);
+            if (!passesObjectivePremiumQuality(qualityCandidate)) {
+                countBreakdown.qualityRejectedCount += 1;
+                continue;
+            }
             const saveStartedAt = Date.now();
             const questionId = await ctx.runMutation(internal.topics.createQuestionInternal, {
                 topicId,
@@ -6066,7 +6086,12 @@ const generateQuestionBankForTopic = async (
                 bloomLevel: String(questionRecord?.bloomLevel || resolvedOutcome?.bloomLevel || "").trim() || undefined,
                 outcomeKey: String(questionRecord?.outcomeKey || resolvedOutcome?.key || "").trim() || undefined,
                 authenticContext: String(questionRecord?.authenticContext || "").trim() || undefined,
-                qualityFlags: [],
+                qualityScore: quality.qualityScore,
+                qualityTier: quality.qualityTier,
+                rigorScore: quality.rigorScore,
+                clarityScore: quality.clarityScore,
+                distractorScore: quality.distractorScore,
+                qualityFlags: quality.qualityFlags,
             });
             timingBreakdown.saveMs += normalizeTimingMs(Date.now() - saveStartedAt);
 
