@@ -603,6 +603,11 @@ export const createQuestionInternal = internalMutation({
         fillBlankMode: v.optional(v.string()),
     },
     handler: async (ctx, args) => {
+        const topic = await ctx.db.get(args.topicId);
+        if (!topic) {
+            throw new Error("Topic not found");
+        }
+
         if (String(args.generationVersion || "").trim() === ASSESSMENT_BLUEPRINT_VERSION) {
             const metadataIssues = getAssessmentQuestionMetadataIssues({
                 question: args,
