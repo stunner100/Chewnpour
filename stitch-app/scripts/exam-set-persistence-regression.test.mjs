@@ -49,6 +49,10 @@ if (!/export const isExamSnapshotCompatible/.test(versioningSource)) {
   throw new Error("Expected examVersioning.js to expose shared snapshot compatibility checks.");
 }
 
+if (/targetDifficultyDistribution|difficultyBand/.test(versioningSource)) {
+  throw new Error("Expected saved exam compatibility to stay independent of global difficulty-policy changes.");
+}
+
 if (!/const createExamAttemptSnapshot = async/.test(preparationsSource)) {
   throw new Error("Expected exam preparations to clone fresh attempts from a persisted exam set.");
 }

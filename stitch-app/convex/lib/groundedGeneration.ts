@@ -200,6 +200,7 @@ Rules:
 - outcome key must be short and stable, such as "outcome-1" or "apply-methods".
 - outcomes should be suitable for university assessment design.
 - Prefer interpretation, application, comparison, diagnosis, critique, justification, or design over pure recall whenever the evidence allows it.
+- All objective items must stay grounded in the topic material but be framed as application, interpretation, diagnosis, comparison, or scenario evaluation, not direct recall or definition lookup.
 - Include scenarioFrame when the evidence supports a realistic case, workflow, experiment, policy choice, or professional decision.
 - objectivePlan.targetMix must equal:
   - multiple_choice: 5
@@ -212,9 +213,9 @@ Rules:
 - trueFalsePlan.targetOutcomeKeys must reference outcomes appropriate for true/false only.
 - fillBlankPlan.targetOutcomeKeys must reference outcomes appropriate for fill-in-the-blank only.
 - essayPlan.targetOutcomeKeys must reference outcomes appropriate for essay only.
-- multiple_choice outcomes should support only: Remember, Understand, Apply, Analyze.
-- true_false outcomes should support only: Remember, Understand, Apply.
-- fill_blank outcomes should support only: Remember, Understand, Apply.
+- multiple_choice outcomes should support only: Apply, Analyze.
+- true_false outcomes should support only: Apply.
+- fill_blank outcomes should support only: Apply.
 - essay outcomes should support only: Analyze, Evaluate, Create.
 - fillBlankPlan.tokenBankRequired must be true.
 - fillBlankPlan.exactAnswerOnly must be true.
@@ -246,9 +247,9 @@ Return JSON only:
     },
     "targetOutcomeKeys": ["outcome-1"],
     "targetDifficultyDistribution": {
-      "easy": 0.2,
-      "medium": 0.5,
-      "hard": 0.3
+      "easy": 0.1,
+      "medium": 0.3,
+      "hard": 0.6
     },
     "minDistinctOutcomeCount": 3
   },
@@ -304,14 +305,14 @@ Rules:
 - questionType must be "multiple_choice".
 - Use only outcome keys from assessmentBlueprint.multipleChoicePlan.targetOutcomeKeys.
 - bloomLevel must exactly match the selected outcome's bloomLevel.
-- bloomLevel must be one of: Remember, Understand, Apply, Analyze.
+- bloomLevel must be one of: Apply, Analyze.
 - If coverage gaps are listed, satisfy those outcome priorities before generating extras.
 - Every question must include citations[] with 1-3 citation objects.
 - Every citation object must include: passageId, page, startChar, endChar, quote.
 - quote must be an exact short excerpt from the cited passage.
 - Use exactly 4 options with one correct answer.
 - The marked correct option must be directly supported by the cited evidence.
-- Default to interpretation, application, comparison, or diagnosis before simple definition recall.
+- Every question must be framed as application, interpretation, diagnosis, comparison, or scenario evaluation, not direct recall or definition lookup.
 - The stem should sound like a university assessment item, not a flashcard.
 - All distractors must be plausible, evidence-adjacent, and free of giveaway wording.
 - Avoid obviously longer/shorter correct options and avoid trivial eliminations.
@@ -338,7 +339,7 @@ Return JSON only:
       "explanation": "...",
       "difficulty": "easy|medium|hard",
       "learningObjective": "...",
-      "bloomLevel": "Remember|Understand|Apply|Analyze",
+      "bloomLevel": "Apply|Analyze",
       "outcomeKey": "outcome-1",
       "citations": [
         {"passageId":"p1-0","page":0,"startChar":0,"endChar":80,"quote":"..."}
@@ -386,6 +387,7 @@ Rules:
 - If the candidate cannot be repaired reliably from the evidence, return {"discard": true}.
 - Use only outcome keys from assessmentBlueprint.multipleChoicePlan.targetOutcomeKeys.
 - bloomLevel must exactly match the selected outcome's bloomLevel.
+- Keep the revised item application-based or analytical. Do not fall back to direct recall.
 
 Return JSON only in one of these formats:
 {
@@ -406,7 +408,7 @@ or
   "explanation": "...",
   "difficulty": "easy|medium|hard",
   "learningObjective": "...",
-  "bloomLevel": "Remember|Understand|Apply|Analyze",
+  "bloomLevel": "Apply|Analyze",
   "outcomeKey": "outcome-1",
   "citations": [
     {"passageId":"p1-0","page":0,"startChar":0,"endChar":80,"quote":"..."}
@@ -437,13 +439,13 @@ Rules:
 - questionType must be "true_false".
 - Use only outcome keys from assessmentBlueprint.trueFalsePlan.targetOutcomeKeys.
 - bloomLevel must exactly match the selected outcome's bloomLevel.
-- bloomLevel must be one of: Remember, Understand, Apply.
+- bloomLevel must be one of: Apply.
 - If coverage gaps are listed, satisfy those outcome priorities before generating extras.
 - Each question must be a single clear statement.
 - Use exactly 2 options: True and False.
 - Exactly one option must be correct.
 - If False is correct, the statement must be directly contradicted by the evidence, not vaguely unsupported.
-- Prefer claim-evaluation statements that require careful reading or application, not textbook one-liners.
+- Prefer claim-evaluation statements that require applying the evidence to a case, workflow, implication, or decision, not textbook one-liners.
 - Do not write tricky, opinion-based, or ambiguous statements.
 - False statements must be meaningfully wrong, not just a single swapped word.
 - Every question must include citations[] with 1-3 citation objects.
@@ -463,7 +465,7 @@ Return JSON only:
       "explanation": "...",
       "difficulty": "easy|medium|hard",
       "learningObjective": "...",
-      "bloomLevel": "Remember|Understand|Apply",
+      "bloomLevel": "Apply",
       "outcomeKey": "outcome-1",
       "citations": [
         {"passageId":"p1-0","page":0,"startChar":0,"endChar":80,"quote":"..."}
@@ -496,14 +498,14 @@ Rules:
 - questionType must be "fill_blank".
 - Use only outcome keys from assessmentBlueprint.fillBlankPlan.targetOutcomeKeys.
 - bloomLevel must exactly match the selected outcome's bloomLevel.
-- bloomLevel must be one of: Remember, Understand, Apply.
+- bloomLevel must be one of: Apply.
 - If coverage gaps are listed, satisfy those outcome priorities before generating extras.
 - Use exactly one blank only.
 - templateParts must contain exactly one "__" entry.
 - acceptedAnswers must contain the canonical correct answer first, then any exact aliases supported by the evidence.
 - Answers must be short and exact.
 - fillBlankMode must be either "token_bank" or "free_text".
-- Prefer sentence-completion or concept-application blanks over isolated term recall.
+- Prefer sentence-completion or concept-application blanks that require applying the evidence, not isolated term recall.
 - The blank must carry the concept-bearing part of the sentence.
 - For token_bank items, include tokens with 4-6 entries including the correct answer.
 - For free_text items, omit tokens.
@@ -525,7 +527,7 @@ Return JSON only:
       "explanation": "...",
       "difficulty": "easy|medium|hard",
       "learningObjective": "...",
-      "bloomLevel": "Remember|Understand|Apply",
+      "bloomLevel": "Apply",
       "outcomeKey": "outcome-1",
       "citations": [
         {"passageId":"p1-0","page":0,"startChar":0,"endChar":80,"quote":"..."}

@@ -104,6 +104,7 @@ import {
     QUESTION_TYPE_TRUE_FALSE,
 } from "./lib/objectiveExam.js";
 import {
+    compareQuestionsByPremiumQuality,
     evaluateQuestionQuality,
     forceQuestionLimitedTier,
     normalizeQualityTier,
@@ -1526,7 +1527,7 @@ const buildObjectiveQuestionRepairSchema = (questionType: "mcq" | "true_false" |
       "explanation": "string",
       "difficulty": "easy|medium|hard",
       "learningObjective": "string",
-      "bloomLevel": "Remember|Understand|Apply",
+      "bloomLevel": "Apply",
       "outcomeKey": "string",
       "citations": [
         {
@@ -1555,7 +1556,7 @@ const buildObjectiveQuestionRepairSchema = (questionType: "mcq" | "true_false" |
       "explanation": "string",
       "difficulty": "easy|medium|hard",
       "learningObjective": "string",
-      "bloomLevel": "Remember|Understand|Apply",
+      "bloomLevel": "Apply",
       "outcomeKey": "string",
       "citations": [
         {
@@ -1584,7 +1585,7 @@ const buildObjectiveQuestionRepairSchema = (questionType: "mcq" | "true_false" |
       "explanation": "string",
       "difficulty": "easy|medium|hard",
       "learningObjective": "string",
-      "bloomLevel": "Remember|Understand|Apply|Analyze",
+      "bloomLevel": "Apply|Analyze",
       "outcomeKey": "string",
       "citations": [
         {
@@ -1852,9 +1853,9 @@ Required schema:
   "objectivePlan": {
     "targetOutcomeKeys": ["outcome-1"],
     "targetDifficultyDistribution": {
-      "easy": 0.2,
-      "medium": 0.5,
-      "hard": 0.3
+      "easy": 0.1,
+      "medium": 0.3,
+      "hard": 0.6
     },
     "minDistinctOutcomeCount": 3
   },
@@ -6800,11 +6801,15 @@ Rules:
 - If the item cannot be improved safely, return {"discard": true}.
 ${resolvedType === QUESTION_TYPE_MULTIPLE_CHOICE ? `- Use exactly 4 options with one correct answer.
 - Make distractors plausible and evidence-adjacent.
-- Avoid giveaway option length patterns.` : ""}
+- Avoid giveaway option length patterns.
+- Keep the item application-based or analytical. Do not rewrite it into direct recall or a definition lookup.
+- Use only Apply or Analyze bloom levels.` : ""}
 ${resolvedType === QUESTION_TYPE_TRUE_FALSE ? `- Keep a single precise claim with True/False options only.
-- If False is correct, the statement must be meaningfully wrong, not trivially altered.` : ""}
+- If False is correct, the statement must be meaningfully wrong, not trivially altered.
+- Keep the item application-based. Do not fall back to direct recall.` : ""}
 ${resolvedType === QUESTION_TYPE_FILL_BLANK ? `- Keep exactly one blank.
-- The blank must remain the concept-bearing part of the sentence.` : ""}
+- The blank must remain the concept-bearing part of the sentence.
+- Keep the item application-based. Do not turn it into isolated term recall.` : ""}
 ${resolvedType === "essay" ? `- Use sharper task verbs and explicit response scope.
 - Strengthen rubric points so they assess claim quality, evidence use, reasoning, and completeness.` : ""}
 
@@ -6976,14 +6981,7 @@ const applyPremiumQualityPass = async (args: {
         );
     }
 
-    return reviewed.sort((left, right) => {
-        const leftTier = normalizeQualityTier(left?.qualityTier);
-        const rightTier = normalizeQualityTier(right?.qualityTier);
-        if (leftTier !== rightTier) {
-            return leftTier === QUALITY_TIER_PREMIUM ? -1 : 1;
-        }
-        return Number(right?.qualityScore || 0) - Number(left?.qualityScore || 0);
-    });
+    return reviewed.sort((left, right) => compareQuestionsByPremiumQuality(left, right));
 };
 
 const acceptAndPersistQuestionCandidates = async (args: {
@@ -7035,7 +7033,12 @@ const acceptAndPersistQuestionCandidates = async (args: {
             forceLimited: args.forceLimited,
         })
         : acceptance.accepted;
-    for (const candidate of premiumReviewed) {
+    const persistableCandidates = args.type === "essay"
+        ? premiumReviewed
+        : premiumReviewed.filter((candidate) =>
+            normalizeQualityTier(candidate?.qualityTier) === QUALITY_TIER_PREMIUM
+        );
+    for (const candidate of persistableCandidates) {
         const saved = await args.persistCandidate(candidate);
         if (!saved) continue;
         persistedCount += 1;

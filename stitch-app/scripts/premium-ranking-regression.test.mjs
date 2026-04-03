@@ -57,6 +57,11 @@ assert.equal(
   true,
   "Expected higher-rigor, clearer questions to outrank low-level recall questions."
 );
+assert.equal(
+  evaluatedRecall.qualityTier,
+  "limited",
+  "Expected direct-recall objective questions to fail the premium tier."
+);
 
 const premiumSetSummary = summarizeQuestionSetQuality([
   evaluatedPremium,

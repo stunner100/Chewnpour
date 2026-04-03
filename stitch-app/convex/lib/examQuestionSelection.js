@@ -25,7 +25,7 @@ import {
     summarizeQuestionSetQuality,
 } from "./premiumQuality.js";
 
-const DIFFICULTY_DISTRIBUTION = { easy: 0.3, medium: 0.5, hard: 0.2 };
+const DIFFICULTY_DISTRIBUTION = { easy: 0.1, medium: 0.3, hard: 0.6 };
 
 const sortQuestionsByPremiumQuality = (items) =>
     [...(Array.isArray(items) ? items : [])]
@@ -56,8 +56,26 @@ const pickDifficultyBalancedSubset = (items, size) => {
 
     if (selected.length < size) {
         const selectedSet = new Set(selected);
-        const remaining = sortQuestionsByPremiumQuality(items.filter((item) => !selectedSet.has(item)));
-        selected.push(...pickRandomSubset(remaining, size - selected.length));
+        const remainingByDifficulty = {
+            medium: sortQuestionsByPremiumQuality(
+                buckets.medium.filter((item) => !selectedSet.has(item))
+            ),
+            hard: sortQuestionsByPremiumQuality(
+                buckets.hard.filter((item) => !selectedSet.has(item))
+            ),
+            easy: sortQuestionsByPremiumQuality(
+                buckets.easy.filter((item) => !selectedSet.has(item))
+            ),
+        };
+        for (const difficulty of ["medium", "hard", "easy"]) {
+            if (selected.length >= size) break;
+            selected.push(
+                ...pickRandomSubset(
+                    remainingByDifficulty[difficulty],
+                    size - selected.length
+                )
+            );
+        }
     }
 
     return selected.slice(0, size);
@@ -169,8 +187,8 @@ const pickObjectiveSubsetByMix = (questions, size) => {
     const targets = getObjectiveSubtypeTargets(size);
     const selected = [
         ...pickDifficultyBalancedSubset(buckets[QUESTION_TYPE_MULTIPLE_CHOICE], targets[QUESTION_TYPE_MULTIPLE_CHOICE]),
-        ...pickRandomSubset(buckets[QUESTION_TYPE_TRUE_FALSE], targets[QUESTION_TYPE_TRUE_FALSE]),
-        ...pickRandomSubset(buckets[QUESTION_TYPE_FILL_BLANK], targets[QUESTION_TYPE_FILL_BLANK]),
+        ...pickDifficultyBalancedSubset(buckets[QUESTION_TYPE_TRUE_FALSE], targets[QUESTION_TYPE_TRUE_FALSE]),
+        ...pickDifficultyBalancedSubset(buckets[QUESTION_TYPE_FILL_BLANK], targets[QUESTION_TYPE_FILL_BLANK]),
     ];
 
     if (selected.length < size) {
