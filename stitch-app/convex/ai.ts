@@ -2233,12 +2233,30 @@ const loadGroundedEvidenceIndexForUpload = async (ctx: any, uploadId: any): Prom
 };
 
 const resolveUploadForTopic = async (ctx: any, topic: any) => {
+    const sourceUploadId = topic?.sourceUploadId;
+    if (sourceUploadId) {
+        const upload = await ctx.runQuery(api.uploads.getUpload, { uploadId: sourceUploadId });
+        if (upload) {
+            return upload;
+        }
+    }
+
     const courseId = topic?.courseId;
     if (!courseId) return null;
     const coursePayload = await ctx.runQuery(api.courses.getCourseWithTopics, { courseId });
-    const uploadId = coursePayload?.uploadId;
-    if (!uploadId) return null;
-    return await ctx.runQuery(api.uploads.getUpload, { uploadId });
+    if (coursePayload?.uploadId) {
+        const upload = await ctx.runQuery(api.uploads.getUpload, { uploadId: coursePayload.uploadId });
+        if (upload) {
+            return upload;
+        }
+    }
+
+    const sources = await ctx.runQuery(api.courses.getCourseSources, { courseId });
+    const fallbackUploadId = Array.isArray(sources)
+        ? sources.find((source: any) => source?.uploadId)?.uploadId
+        : null;
+    if (!fallbackUploadId) return null;
+    return await ctx.runQuery(api.uploads.getUpload, { uploadId: fallbackUploadId });
 };
 
 const loadGroundedEvidenceIndexForTopic = async (ctx: any, topic: any): Promise<{

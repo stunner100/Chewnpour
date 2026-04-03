@@ -273,4 +273,12 @@ if (!aiSource.includes("return storedBlueprint || normalizedBlueprint;")) {
     throw new Error("Expected fresh assessment generation to use the persisted normalized blueprint in the active run.");
 }
 
+if (!aiSource.includes("const sourceUploadId = topic?.sourceUploadId;")) {
+    throw new Error("Expected grounded upload resolution to prefer topic.sourceUploadId when available.");
+}
+
+if (!aiSource.includes("const sources = await ctx.runQuery(api.courses.getCourseSources, { courseId });")) {
+    throw new Error("Expected grounded upload resolution to fall back to course source links when course.uploadId is absent.");
+}
+
 console.log("assessment-cutover-regression.test.mjs passed");
