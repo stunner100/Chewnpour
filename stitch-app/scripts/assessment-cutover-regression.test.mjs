@@ -218,11 +218,19 @@ const activeAfterCutover = filterQuestionsForActiveAssessment({
         invalidEssayQuestion,
     ],
 });
+
+const topicsSource = await read("convex/topics.ts");
+if (!/const normalizedAssessmentBlueprint = normalizeAssessmentBlueprint\(args\.assessmentBlueprint\);/.test(topicsSource)) {
+    throw new Error("Expected assessment blueprint saves to normalize the incoming blueprint before persisting.");
+}
+
+if (!/assessmentBlueprint: normalizedAssessmentBlueprint,/.test(topicsSource)) {
+    throw new Error("Expected topic blueprint persistence to save the normalized blueprint.");
+}
 if (activeAfterCutover.length !== 3) {
     throw new Error("Expected migrated topics to keep only valid assessment-v3 objective questions active.");
 }
 
-const topicsSource = await read("convex/topics.ts");
 const examsSource = await read("convex/exams.ts");
 const aiSource = await read("convex/ai.ts");
 

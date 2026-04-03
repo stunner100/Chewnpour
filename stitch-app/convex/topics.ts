@@ -11,6 +11,7 @@ import {
     filterQuestionsForActiveAssessment,
     getAssessmentQuestionMetadataIssues,
     ASSESSMENT_BLUEPRINT_VERSION,
+    normalizeAssessmentBlueprint,
 } from "./lib/assessmentBlueprint.js";
 import { normalizeQuestionType, QUESTION_TYPE_MULTIPLE_CHOICE } from "./lib/objectiveExam.js";
 import { resolveIllustrationUrl } from "./lib/illustrationUrl";
@@ -433,10 +434,14 @@ export const saveAssessmentBlueprintInternal = internalMutation({
         if (!topic) {
             throw new Error("Topic not found");
         }
+        const normalizedAssessmentBlueprint = normalizeAssessmentBlueprint(args.assessmentBlueprint);
+        if (!normalizedAssessmentBlueprint) {
+            throw new Error("Assessment blueprint is invalid");
+        }
         const questionSetVersion = Date.now();
 
         await ctx.db.patch(args.topicId, {
-            assessmentBlueprint: args.assessmentBlueprint,
+            assessmentBlueprint: normalizedAssessmentBlueprint,
             questionSetVersion,
             examReady: false,
             examReadyUpdatedAt: questionSetVersion,
@@ -444,7 +449,7 @@ export const saveAssessmentBlueprintInternal = internalMutation({
 
         return {
             topicId: args.topicId,
-            version: String(args.assessmentBlueprint?.version || ASSESSMENT_BLUEPRINT_VERSION),
+            version: String(normalizedAssessmentBlueprint.version || ASSESSMENT_BLUEPRINT_VERSION),
         };
     },
 });
