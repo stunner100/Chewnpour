@@ -1,4 +1,7 @@
 import assert from "node:assert/strict";
+import fs from "node:fs/promises";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
 
 import {
   DEFAULT_OBJECTIVE_DIFFICULTY_DISTRIBUTION,
@@ -12,6 +15,10 @@ import {
   QUESTION_TYPE_TRUE_FALSE,
 } from "../convex/lib/objectiveExam.js";
 import { evaluateQuestionQuality } from "../convex/lib/premiumQuality.js";
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+const aiSource = await fs.readFile(path.join(__dirname, "../convex/ai.ts"), "utf8");
 
 const rawBlueprint = {
   outcomes: [
@@ -133,6 +140,11 @@ assert.equal(
   recallCandidateQuality.qualityTier,
   "limited",
   "Expected direct recall items to fail the stricter premium gate."
+);
+
+assert.ok(
+  !/const\s+persistableCandidates\s*=\s*args\.type\s*===\s*"essay"[\s\S]*QUALITY_TIER_PREMIUM/.test(aiSource),
+  "Expected objective persistence to keep best reviewed candidates instead of dropping all non-premium questions."
 );
 
 const withQuality = (question) => {

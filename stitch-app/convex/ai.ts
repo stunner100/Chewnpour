@@ -7033,12 +7033,7 @@ const acceptAndPersistQuestionCandidates = async (args: {
             forceLimited: args.forceLimited,
         })
         : acceptance.accepted;
-    const persistableCandidates = args.type === "essay"
-        ? premiumReviewed
-        : premiumReviewed.filter((candidate) =>
-            normalizeQualityTier(candidate?.qualityTier) === QUALITY_TIER_PREMIUM
-        );
-    for (const candidate of persistableCandidates) {
+    for (const candidate of premiumReviewed) {
         const saved = await args.persistCandidate(candidate);
         if (!saved) continue;
         persistedCount += 1;
