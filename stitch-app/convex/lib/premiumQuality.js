@@ -6,12 +6,12 @@ export const QUALITY_TIER_PREMIUM = "premium";
 export const QUALITY_TIER_LIMITED = "limited";
 export const QUALITY_TIER_UNAVAILABLE = "unavailable";
 
-const PREMIUM_MIN_QUESTION_SCORE = 0.76;
-const PREMIUM_MIN_RIGOR_SCORE = 0.62;
-const PREMIUM_MIN_CLARITY_SCORE = 0.7;
-const PREMIUM_MIN_DISTRACTOR_SCORE = 0.62;
-const PREMIUM_MIN_PREMIUM_RATIO = 0.65;
-const PREMIUM_MIN_DIVERSITY_RATIO = 0.55;
+const PREMIUM_MIN_QUESTION_SCORE = 0.8;
+const PREMIUM_MIN_RIGOR_SCORE = 0.74;
+const PREMIUM_MIN_CLARITY_SCORE = 0.72;
+const PREMIUM_MIN_DISTRACTOR_SCORE = 0.7;
+const PREMIUM_MIN_PREMIUM_RATIO = 0.75;
+const PREMIUM_MIN_DIVERSITY_RATIO = 0.58;
 
 const normalizeText = (value) =>
     String(value || "")
@@ -27,28 +27,28 @@ export const normalizeQualityTier = (value) => {
 };
 
 const BLOOM_SCORES = {
-    Remember: 0.34,
-    Understand: 0.46,
-    Apply: 0.64,
-    Analyze: 0.82,
+    Remember: 0.16,
+    Understand: 0.24,
+    Apply: 0.72,
+    Analyze: 0.86,
     Evaluate: 0.9,
     Create: 0.96,
 };
 
 const COGNITIVE_TASK_SCORES = {
-    explain: 0.58,
-    summarize: 0.46,
-    define: 0.34,
-    identify: 0.32,
-    compare: 0.76,
-    diagnose: 0.84,
-    interpret: 0.8,
+    explain: 0.42,
+    summarize: 0.28,
+    define: 0.16,
+    identify: 0.18,
+    compare: 0.82,
+    diagnose: 0.9,
+    interpret: 0.86,
     critique: 0.9,
     justify: 0.88,
     design: 0.94,
     evaluate: 0.9,
-    analyze: 0.84,
-    apply: 0.68,
+    analyze: 0.88,
+    apply: 0.78,
 };
 
 const difficultyScore = (difficulty) => {
@@ -59,6 +59,11 @@ const difficultyScore = (difficulty) => {
 };
 
 const bloomScore = (bloomLevel) => BLOOM_SCORES[normalizeText(bloomLevel)] || 0.45;
+
+const isRecallBloomLevel = (bloomLevel) => {
+    const normalized = normalizeText(bloomLevel);
+    return normalized === "Remember" || normalized === "Understand";
+};
 
 const inferQuestionTask = ({ cognitiveTask, questionText }) => {
     const explicit = normalizeText(cognitiveTask).toLowerCase();
@@ -105,6 +110,45 @@ const inferDistractorScore = (question) => {
     return clamp(0.56 + balanceBonus - duplicatePenalty - trivialPenalty, 0, 1);
 };
 
+const inferGroundingCompletenessScore = (question) => {
+    const baseGrounding = clamp(
+        question?.groundingScore || question?.qualityScore || question?.rankingScore || 0,
+        0,
+        1
+    );
+    const citationScore = clamp((Array.isArray(question?.citations) ? question.citations.length : 0) / 3, 0, 1);
+    const scenarioBonus = normalizeText(question?.authenticContext || question?.scenarioFrame) ? 0.06 : 0;
+    return clamp(baseGrounding * 0.82 + citationScore * 0.18 + scenarioBonus, 0, 1);
+};
+
+const inferRecallPenalty = (question, inferredTask) => {
+    const questionType = normalizeText(question?.questionType).toLowerCase();
+    const questionText = normalizeText(question?.questionText).toLowerCase();
+    const lowOrderBloomPenalty = isRecallBloomLevel(question?.bloomLevel) ? 0.22 : 0;
+    const lowOrderTaskPenalty = ["define", "identify", "summarize", "explain"].includes(inferredTask) ? 0.14 : 0;
+    const directRecallPenalty = /\bwhat is\b|\bwhich term\b|\bdefine\b|\bdefinition of\b|\baccording to the passage\b/.test(questionText)
+        ? 0.12
+        : 0;
+    const simpleTrueFalsePenalty = questionType === "true_false" && !/\bscenario\b|\bdecision\b|\bworkflow\b|\bcase\b|\bpatient\b|\bteam\b|\bprocess\b/.test(questionText)
+        ? 0.06
+        : 0;
+    const isolatedBlankPenalty = questionType === "fill_blank" && !/\bif\b|\bwhen\b|\bbased on\b|\bin order to\b|\bto determine\b/.test(questionText)
+        ? 0.06
+        : 0;
+    return lowOrderBloomPenalty + lowOrderTaskPenalty + directRecallPenalty + simpleTrueFalsePenalty + isolatedBlankPenalty;
+};
+
+const computePriorityScore = ({ rigorScore, distractorScore, groundingScore, clarityScore, qualityScore }) =>
+    clamp(
+        rigorScore * 0.38
+        + (Number.isFinite(Number(distractorScore)) ? Number(distractorScore) : 0.7) * 0.22
+        + groundingScore * 0.2
+        + clarityScore * 0.12
+        + qualityScore * 0.08,
+        0,
+        1
+    );
+
 export const buildQuestionDiversityCluster = (question) => {
     const outcomeKey = normalizeText(question?.outcomeKey).toLowerCase() || "outcome:none";
     const scenario = normalizeText(question?.authenticContext || question?.scenarioFrame)
@@ -117,10 +161,12 @@ export const buildQuestionDiversityCluster = (question) => {
 export const evaluateQuestionQuality = (question) => {
     const questionType = normalizeText(question?.questionType).toLowerCase();
     const inferredTask = inferQuestionTask(question);
+    const recallPenalty = inferRecallPenalty(question, inferredTask);
     const rigorScore = clamp(
-        bloomScore(question?.bloomLevel) * 0.55
-        + (COGNITIVE_TASK_SCORES[inferredTask] || 0.48) * 0.25
-        + difficultyScore(question?.difficulty) * 0.2,
+        bloomScore(question?.bloomLevel) * 0.58
+        + (COGNITIVE_TASK_SCORES[inferredTask] || 0.4) * 0.28
+        + difficultyScore(question?.difficulty) * 0.14
+        - recallPenalty,
         0,
         1
     );
@@ -132,21 +178,29 @@ export const evaluateQuestionQuality = (question) => {
                 ? inferDistractorScore(question)
                 : questionType === "true_false"
                     ? inferClarityScore(question?.questionText) * 0.9
-                    : 0.66,
+                    : Array.isArray(question?.tokens) && question.tokens.length >= 4
+                        ? 0.74
+                        : 0.7,
             0,
             1
         );
-    const groundingScore = clamp(question?.groundingScore || question?.qualityScore || question?.rankingScore || 0, 0, 1);
-    const citationScore = clamp((Array.isArray(question?.citations) ? question.citations.length : 0) / 3, 0, 1);
+    const groundingScore = inferGroundingCompletenessScore(question);
     const qualityScore = clamp(
-        groundingScore * 0.24
-        + rigorScore * 0.34
-        + clarityScore * 0.22
-        + (distractorScore === undefined ? 0.1 : distractorScore * 0.14)
-        + citationScore * 0.06,
+        rigorScore * 0.38
+        + (distractorScore === undefined ? 0.16 : distractorScore * 0.2)
+        + groundingScore * 0.2
+        + clarityScore * 0.14
+        + difficultyScore(question?.difficulty) * 0.08,
         0,
         1
     );
+    const priorityScore = computePriorityScore({
+        rigorScore,
+        distractorScore,
+        groundingScore,
+        clarityScore,
+        qualityScore,
+    });
 
     const warnings = [];
     if (rigorScore < PREMIUM_MIN_RIGOR_SCORE) warnings.push("low_rigor");
@@ -170,6 +224,7 @@ export const evaluateQuestionQuality = (question) => {
             rigorScore,
             clarityScore,
             distractorScore,
+            priorityScore,
             cognitiveTask: inferredTask || undefined,
             diversityCluster: buildQuestionDiversityCluster(question),
         },
@@ -267,11 +322,12 @@ export const compareQuestionsByPremiumQuality = (left, right) => {
     }
 
     const scoreKeys = [
-        "qualityScore",
+        "priorityScore",
         "rigorScore",
-        "clarityScore",
         "distractorScore",
         "groundingScore",
+        "clarityScore",
+        "qualityScore",
     ];
     for (const key of scoreKeys) {
         const delta = clamp(right?.[key] || 0, 0, 1) - clamp(left?.[key] || 0, 0, 1);

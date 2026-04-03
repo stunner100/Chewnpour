@@ -24,16 +24,26 @@ export const MULTIPLE_CHOICE_ALLOWED_BLOOM_LEVELS = [
     "Apply",
     "Analyze",
 ];
+export const MULTIPLE_CHOICE_TARGET_BLOOM_LEVELS = [
+    "Apply",
+    "Analyze",
+];
 
 export const TRUE_FALSE_ALLOWED_BLOOM_LEVELS = [
     "Remember",
     "Understand",
     "Apply",
 ];
+export const TRUE_FALSE_TARGET_BLOOM_LEVELS = [
+    "Apply",
+];
 
 export const FILL_BLANK_ALLOWED_BLOOM_LEVELS = [
     "Remember",
     "Understand",
+    "Apply",
+];
+export const FILL_BLANK_TARGET_BLOOM_LEVELS = [
     "Apply",
 ];
 
@@ -61,6 +71,12 @@ export const COGNITIVE_TASKS = [
 ];
 
 export const DIFFICULTY_BANDS = ["easy", "medium", "hard"];
+
+export const DEFAULT_OBJECTIVE_DIFFICULTY_DISTRIBUTION = {
+    easy: 0.1,
+    medium: 0.3,
+    hard: 0.6,
+};
 
 const QUESTION_TYPE_PLAN_KEYS = {
     [QUESTION_TYPE_MULTIPLE_CHOICE]: "multipleChoicePlan",
@@ -150,12 +166,12 @@ const normalizeOutcomeRecord = (outcome, index) => {
 
 const normalizeDifficultyDistribution = (value) => {
     const safeValue = value && typeof value === "object" ? value : {};
-    const easy = Math.max(0, Number(safeValue.easy || 0.2));
-    const medium = Math.max(0, Number(safeValue.medium || 0.5));
-    const hard = Math.max(0, Number(safeValue.hard || 0.3));
+    const easy = Math.max(0, Number(safeValue.easy || DEFAULT_OBJECTIVE_DIFFICULTY_DISTRIBUTION.easy));
+    const medium = Math.max(0, Number(safeValue.medium || DEFAULT_OBJECTIVE_DIFFICULTY_DISTRIBUTION.medium));
+    const hard = Math.max(0, Number(safeValue.hard || DEFAULT_OBJECTIVE_DIFFICULTY_DISTRIBUTION.hard));
     const total = easy + medium + hard;
     if (total <= 0) {
-        return { easy: 0.2, medium: 0.5, hard: 0.3 };
+        return { ...DEFAULT_OBJECTIVE_DIFFICULTY_DISTRIBUTION };
     }
     return {
         easy: easy / total,
@@ -168,16 +184,32 @@ const normalizePlanKeys = ({
     rawKeys,
     outcomeByKey,
     allowedBloomLevels,
+    preferredBloomLevels,
     fallbackOutcomes,
 }) => {
     const requestedKeys = uniqueStringArray(rawKeys).map((value) => normalizeOutcomeKey(value));
-    const acceptedKeys = requestedKeys.filter((key) => {
+    const preferredLevels = uniqueStringArray(preferredBloomLevels).filter((level) =>
+        allowedBloomLevels.includes(level)
+    );
+    const matchesAllowedBloom = (key, bloomLevels) => {
         const outcome = outcomeByKey.get(key);
-        return outcome && allowedBloomLevels.includes(outcome.bloomLevel);
-    });
+        return outcome && bloomLevels.includes(outcome.bloomLevel);
+    };
+
+    const acceptedKeys = requestedKeys.filter((key) => matchesAllowedBloom(key, allowedBloomLevels));
     if (acceptedKeys.length > 0) {
         return acceptedKeys;
     }
+
+    const preferredFallbackKeys = preferredLevels.length > 0
+        ? fallbackOutcomes
+            .filter((outcome) => preferredLevels.includes(outcome.bloomLevel))
+            .map((outcome) => outcome.key)
+        : [];
+    if (preferredFallbackKeys.length > 0) {
+        return preferredFallbackKeys;
+    }
+
     return fallbackOutcomes
         .filter((outcome) => allowedBloomLevels.includes(outcome.bloomLevel))
         .map((outcome) => outcome.key);
@@ -188,12 +220,14 @@ const normalizeSubtypePlan = ({
     outcomeByKey,
     fallbackOutcomes,
     allowedBloomLevels,
+    preferredBloomLevels,
     extraFields = {},
 }) => {
     const targetOutcomeKeys = normalizePlanKeys({
         rawKeys: rawPlan?.targetOutcomeKeys,
         outcomeByKey,
         allowedBloomLevels,
+        preferredBloomLevels,
         fallbackOutcomes,
     });
     if (targetOutcomeKeys.length === 0) {
@@ -253,18 +287,21 @@ export const normalizeAssessmentBlueprint = (raw) => {
         outcomeByKey,
         fallbackOutcomes: normalizedOutcomes,
         allowedBloomLevels: MULTIPLE_CHOICE_ALLOWED_BLOOM_LEVELS,
+        preferredBloomLevels: MULTIPLE_CHOICE_TARGET_BLOOM_LEVELS,
     });
     const trueFalsePlan = normalizeSubtypePlan({
         rawPlan: rawTrueFalsePlan,
         outcomeByKey,
         fallbackOutcomes: normalizedOutcomes,
         allowedBloomLevels: TRUE_FALSE_ALLOWED_BLOOM_LEVELS,
+        preferredBloomLevels: TRUE_FALSE_TARGET_BLOOM_LEVELS,
     });
     const fillBlankPlan = normalizeSubtypePlan({
         rawPlan: rawFillBlankPlan,
         outcomeByKey,
         fallbackOutcomes: normalizedOutcomes,
         allowedBloomLevels: FILL_BLANK_ALLOWED_BLOOM_LEVELS,
+        preferredBloomLevels: FILL_BLANK_TARGET_BLOOM_LEVELS,
         extraFields: {
             tokenBankRequired: rawFillBlankPlan.tokenBankRequired !== false,
             exactAnswerOnly: rawFillBlankPlan.exactAnswerOnly !== false,
@@ -275,6 +312,7 @@ export const normalizeAssessmentBlueprint = (raw) => {
         outcomeByKey,
         fallbackOutcomes: normalizedOutcomes,
         allowedBloomLevels: ESSAY_ALLOWED_BLOOM_LEVELS,
+        preferredBloomLevels: ESSAY_ALLOWED_BLOOM_LEVELS,
         extraFields: {
             authenticScenarioRequired: rawEssayPlan.authenticScenarioRequired === true,
             authenticContextHint: normalizeText(

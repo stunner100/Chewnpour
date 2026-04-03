@@ -30,6 +30,11 @@ for (const requiredPrompt of [
     "Use only outcome keys from assessmentBlueprint.multipleChoicePlan.targetOutcomeKeys.",
     "Use only outcome keys from assessmentBlueprint.trueFalsePlan.targetOutcomeKeys.",
     "Use only outcome keys from assessmentBlueprint.fillBlankPlan.targetOutcomeKeys.",
+    "All objective items must stay grounded in the topic material but be framed as application, interpretation, diagnosis, comparison, or scenario evaluation, not direct recall or definition lookup.",
+    "multiple_choice outcomes should support only: Apply, Analyze.",
+    "true_false outcomes should support only: Apply.",
+    "fill_blank outcomes should support only: Apply.",
+    "Every question must be framed as application, interpretation, diagnosis, comparison, or scenario evaluation, not direct recall or definition lookup.",
     "Use exactly 2 options: True and False.",
     "If False is correct, the statement must be directly contradicted by the evidence, not vaguely unsupported.",
     "templateParts must contain exactly one \"__\" entry.",
@@ -41,10 +46,14 @@ for (const requiredPrompt of [
 }
 
 for (const requiredSnippet of [
+    '"easy": 0.1',
+    '"medium": 0.3',
+    '"hard": 0.6',
     '"questionType": "multiple_choice"',
     '"questionType": "true_false"',
     '"questionType": "fill_blank"',
-    '"bloomLevel": "Remember|Understand|Apply|Analyze"',
+    '"bloomLevel": "Apply|Analyze"',
+    '"bloomLevel": "Apply"',
     '"outcomeKey": "outcome-1"',
     '"cognitiveTask": "compare"',
     '"difficultyBand": "hard"',
