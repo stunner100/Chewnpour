@@ -4,6 +4,7 @@ import process from "node:process";
 
 import {
     ASSESSMENT_BLUEPRINT_VERSION,
+    DEFAULT_OBJECTIVE_DIFFICULTY_DISTRIBUTION,
     ESSAY_ALLOWED_BLOOM_LEVELS,
     FILL_BLANK_ALLOWED_BLOOM_LEVELS,
     MULTIPLE_CHOICE_ALLOWED_BLOOM_LEVELS,
@@ -92,6 +93,10 @@ if (blueprint.version !== ASSESSMENT_BLUEPRINT_VERSION) {
 
 if (blueprint.objectivePlan.targetMix.multiple_choice !== 5 || blueprint.objectivePlan.targetMix.true_false !== 3 || blueprint.objectivePlan.targetMix.fill_blank !== 2) {
     throw new Error("Expected blueprint objective mix to remain 5/3/2.");
+}
+
+if (JSON.stringify(blueprint.objectivePlan.targetDifficultyDistribution) !== JSON.stringify(DEFAULT_OBJECTIVE_DIFFICULTY_DISTRIBUTION)) {
+    throw new Error("Expected objective difficulty distribution to cut over to the tougher default.");
 }
 
 if (!blueprint.outcomes.every((outcome) => outcome.cognitiveTask && outcome.difficultyBand)) {

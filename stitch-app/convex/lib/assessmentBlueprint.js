@@ -164,22 +164,6 @@ const normalizeOutcomeRecord = (outcome, index) => {
     };
 };
 
-const normalizeDifficultyDistribution = (value) => {
-    const safeValue = value && typeof value === "object" ? value : {};
-    const easy = Math.max(0, Number(safeValue.easy || DEFAULT_OBJECTIVE_DIFFICULTY_DISTRIBUTION.easy));
-    const medium = Math.max(0, Number(safeValue.medium || DEFAULT_OBJECTIVE_DIFFICULTY_DISTRIBUTION.medium));
-    const hard = Math.max(0, Number(safeValue.hard || DEFAULT_OBJECTIVE_DIFFICULTY_DISTRIBUTION.hard));
-    const total = easy + medium + hard;
-    if (total <= 0) {
-        return { ...DEFAULT_OBJECTIVE_DIFFICULTY_DISTRIBUTION };
-    }
-    return {
-        easy: easy / total,
-        medium: medium / total,
-        hard: hard / total,
-    };
-};
-
 const normalizePlanKeys = ({
     rawKeys,
     outcomeByKey,
@@ -351,7 +335,7 @@ export const normalizeAssessmentBlueprint = (raw) => {
             targetMix: { ...OBJECTIVE_TARGET_MIX },
             targetOutcomeKeys: objectiveOutcomeKeys,
             targetBloomLevels: objectiveTargetBloomLevels,
-            targetDifficultyDistribution: normalizeDifficultyDistribution(raw.objectivePlan?.targetDifficultyDistribution),
+            targetDifficultyDistribution: { ...DEFAULT_OBJECTIVE_DIFFICULTY_DISTRIBUTION },
             minDistinctOutcomeCount: Math.max(
                 1,
                 Math.min(

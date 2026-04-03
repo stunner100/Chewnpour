@@ -207,7 +207,10 @@ Rules:
   - true_false: 3
   - fill_blank: 2
 - objectivePlan.targetQuestionTypes must include exactly: multiple_choice, true_false, fill_blank.
-- objectivePlan.targetDifficultyDistribution must sum to 1 across easy, medium, hard.
+- objectivePlan.targetDifficultyDistribution must equal exactly:
+  - easy: 0.1
+  - medium: 0.3
+  - hard: 0.6
 - objectivePlan.minDistinctOutcomeCount should be at least 3 when the evidence supports it.
 - multipleChoicePlan.targetOutcomeKeys must reference outcomes appropriate for multiple-choice only.
 - trueFalsePlan.targetOutcomeKeys must reference outcomes appropriate for true/false only.

@@ -61,6 +61,11 @@ const rawBlueprint = {
   objectivePlan: {
     targetQuestionTypes: ["multiple_choice", "true_false", "fill_blank"],
     targetOutcomeKeys: ["recall-facts", "apply-procedure", "analyze-tradeoffs"],
+    targetDifficultyDistribution: {
+      easy: 0.2,
+      medium: 0.4,
+      hard: 0.4,
+    },
   },
   multipleChoicePlan: {},
   trueFalsePlan: {},
@@ -78,7 +83,7 @@ assert.ok(normalizedBlueprint, "Expected assessment blueprint to normalize.");
 assert.deepEqual(
   normalizedBlueprint.objectivePlan.targetDifficultyDistribution,
   DEFAULT_OBJECTIVE_DIFFICULTY_DISTRIBUTION,
-  "Expected harder default objective difficulty distribution."
+  "Expected harder default objective difficulty distribution to override model drift."
 );
 assert.deepEqual(
   normalizedBlueprint.multipleChoicePlan.targetBloomLevels,
