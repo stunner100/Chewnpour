@@ -8576,6 +8576,109 @@ export const generateQuestionsForTopicOnDemandInternal = internalAction({
     },
 });
 
+export const debugGroundedEvidenceForTopicInternal = internalAction({
+    args: {
+        topicId: v.id("topics"),
+    },
+    handler: async (ctx, args) => {
+        const topic = await ctx.runQuery(internal.topics.getTopicWithQuestionsInternal, {
+            topicId: args.topicId,
+        });
+        if (!topic) {
+            throw new Error("Topic not found");
+        }
+
+        const course = topic?.courseId
+            ? await ctx.runQuery(api.courses.getCourseWithTopics, { courseId: topic.courseId })
+            : null;
+        const courseSources = topic?.courseId
+            ? await ctx.runQuery(api.courses.getCourseSources, { courseId: topic.courseId })
+            : [];
+
+        const sourceUpload = topic?.sourceUploadId
+            ? await ctx.runQuery(api.uploads.getUpload, { uploadId: topic.sourceUploadId })
+            : null;
+        const resolvedUpload = await resolveUploadForTopic(ctx, topic);
+        const indexState = resolvedUpload?._id
+            ? await loadGroundedEvidenceIndexForUpload(ctx, resolvedUpload._id)
+            : { index: null, upload: resolvedUpload || null };
+        const groundedPack = await getGroundedEvidencePackForTopic({
+            ctx,
+            topic,
+            type: "mcq",
+        });
+
+        return {
+            topic: {
+                id: String(topic._id || ""),
+                title: String(topic.title || ""),
+                courseId: topic.courseId ? String(topic.courseId) : null,
+                sourceUploadId: topic.sourceUploadId ? String(topic.sourceUploadId) : null,
+                sourcePassageIds: Array.isArray(topic.sourcePassageIds) ? topic.sourcePassageIds : [],
+            },
+            course: course
+                ? {
+                    id: String(course._id || ""),
+                    uploadId: course.uploadId ? String(course.uploadId) : null,
+                    title: String(course.title || ""),
+                }
+                : null,
+            courseSources: Array.isArray(courseSources)
+                ? courseSources.map((source: any) => ({
+                    uploadId: source?.uploadId ? String(source.uploadId) : null,
+                    fileName: String(source?.fileName || ""),
+                    status: String(source?.status || ""),
+                }))
+                : [],
+            sourceUpload: sourceUpload
+                ? {
+                    id: String(sourceUpload._id || ""),
+                    extractionArtifactStorageId: sourceUpload.extractionArtifactStorageId
+                        ? String(sourceUpload.extractionArtifactStorageId)
+                        : null,
+                    evidenceIndexStorageId: sourceUpload.evidenceIndexStorageId
+                        ? String(sourceUpload.evidenceIndexStorageId)
+                        : null,
+                    evidencePassageCount: Number(sourceUpload.evidencePassageCount || 0),
+                    embeddedPassageCount: Number(sourceUpload.embeddedPassageCount || 0),
+                    embeddingsStatus: String(sourceUpload.embeddingsStatus || ""),
+                    evidenceIndexVersion: String(sourceUpload.evidenceIndexVersion || ""),
+                }
+                : null,
+            resolvedUpload: resolvedUpload
+                ? {
+                    id: String(resolvedUpload._id || ""),
+                    extractionArtifactStorageId: resolvedUpload.extractionArtifactStorageId
+                        ? String(resolvedUpload.extractionArtifactStorageId)
+                        : null,
+                    evidenceIndexStorageId: resolvedUpload.evidenceIndexStorageId
+                        ? String(resolvedUpload.evidenceIndexStorageId)
+                        : null,
+                    evidencePassageCount: Number(resolvedUpload.evidencePassageCount || 0),
+                    embeddedPassageCount: Number(resolvedUpload.embeddedPassageCount || 0),
+                    embeddingsStatus: String(resolvedUpload.embeddingsStatus || ""),
+                    evidenceIndexVersion: String(resolvedUpload.evidenceIndexVersion || ""),
+                }
+                : null,
+            indexState: {
+                hasIndex: Boolean(indexState?.index),
+                passageCount: Array.isArray(indexState?.index?.passages) ? indexState.index.passages.length : 0,
+                uploadId: indexState?.upload?._id ? String(indexState.upload._id) : null,
+            },
+            groundedPack: {
+                hasIndex: Boolean(groundedPack?.index),
+                evidenceCount: Array.isArray(groundedPack?.evidence) ? groundedPack.evidence.length : 0,
+                retrievalMode: String(groundedPack?.retrievalMode || ""),
+                lexicalHitCount: Number(groundedPack?.lexicalHitCount || 0),
+                vectorHitCount: Number(groundedPack?.vectorHitCount || 0),
+                embeddingBacklogCount: Number(groundedPack?.embeddingBacklogCount || 0),
+                fallbackPassageCount: Number(groundedPack?.fallbackPassageCount || 0),
+                usedIndexFallback: Boolean(groundedPack?.usedIndexFallback),
+            },
+        };
+    },
+});
+
 // Generate quiz questions for a topic on demand
 export const generateQuestionsForTopic = action({
     args: {
