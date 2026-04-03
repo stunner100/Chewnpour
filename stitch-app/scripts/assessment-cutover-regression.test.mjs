@@ -261,4 +261,16 @@ if (!aiSource.includes("const generateQuestionBankForTopic = async")) {
     throw new Error("Expected assessment regeneration to route objective generation through the shared question bank orchestrator.");
 }
 
+if (!aiSource.includes("const normalizedBlueprint = normalizeAssessmentBlueprint(blueprint);")) {
+    throw new Error("Expected fresh assessment generation to normalize the in-memory blueprint before use.");
+}
+
+if (!aiSource.includes("const refreshedTopic = await args.ctx.runQuery(internal.topics.getTopicWithQuestionsInternal, {")) {
+    throw new Error("Expected fresh assessment generation to reload the stored topic blueprint after persistence.");
+}
+
+if (!aiSource.includes("return storedBlueprint || normalizedBlueprint;")) {
+    throw new Error("Expected fresh assessment generation to use the persisted normalized blueprint in the active run.");
+}
+
 console.log("assessment-cutover-regression.test.mjs passed");

@@ -1988,13 +1988,14 @@ const ensureAssessmentBlueprintForTopic = async (args: {
         deadlineMs: args.deadlineMs,
         repairTimeoutMs: args.repairTimeoutMs,
     });
-    if (!blueprint) {
+    const normalizedBlueprint = normalizeAssessmentBlueprint(blueprint);
+    if (!normalizedBlueprint) {
         throw new Error("Failed to generate a valid assessment blueprint.");
     }
 
     await args.ctx.runMutation(internal.topics.saveAssessmentBlueprintInternal, {
         topicId,
-        assessmentBlueprint: blueprint,
+        assessmentBlueprint: normalizedBlueprint,
     });
     await args.ctx.runMutation(internal.topics.refreshTopicExamReadinessInternal, {
         topicId,
@@ -2002,7 +2003,11 @@ const ensureAssessmentBlueprintForTopic = async (args: {
         essayTargetCount: args.topic?.essayTargetCount,
     });
 
-    return blueprint;
+    const refreshedTopic = await args.ctx.runQuery(internal.topics.getTopicWithQuestionsInternal, {
+        topicId,
+    });
+    const storedBlueprint = normalizeAssessmentBlueprint(refreshedTopic?.assessmentBlueprint);
+    return storedBlueprint || normalizedBlueprint;
 };
 
 const ensureGroundedEvidenceForTopic = async (args: {
