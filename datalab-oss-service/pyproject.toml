@@ -12,8 +12,6 @@ dependencies = [
     "fastapi>=0.115.0",
     "python-multipart>=0.0.9",
     "uvicorn[standard]>=0.30.0",
-    "marker-pdf[full]>=1.10.0",
-    "chandra-ocr>=2.0.0",
 ]
 
 [project.optional-dependencies]
@@ -25,3 +23,6 @@ dev = [
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 python_files = ["test_*.py"]
+
+[tool.setuptools.packages.find]
+include = ["render_api*"]

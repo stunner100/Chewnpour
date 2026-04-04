@@ -5,6 +5,7 @@ import re
 import shutil
 import subprocess
 import tempfile
+import json
 from pathlib import Path
 from typing import Literal, TypedDict, cast
 
@@ -17,11 +18,38 @@ SUPPORTED_OFFICE_EXTENSIONS = {".doc", ".docx", ".ppt", ".pptx", ".xls", ".xlsx"
 SUPPORTED_HTML_EXTENSIONS = {".html", ".htm"}
 SUPPORTED_EPUB_EXTENSIONS = {".epub"}
 
-MARKER_CLI = str(os.getenv("MARKER_CLI", "marker_single")).strip() or "marker_single"
+SERVICE_ROOT = Path(__file__).resolve().parents[1]
+
+
+def resolve_cli(default_name: str, env_var: str, relative_candidates: list[str]) -> str:
+    explicit = str(os.getenv(env_var, "")).strip()
+    if explicit:
+        return explicit
+    for relative_candidate in relative_candidates:
+        candidate = SERVICE_ROOT / relative_candidate
+        if candidate.exists():
+            return str(candidate)
+    return default_name
+
+
+MARKER_CLI = resolve_cli(
+    "marker_single",
+    "MARKER_CLI",
+    [
+        ".venv-marker/bin/marker_single",
+        ".venv-marker/bin/marker",
+    ],
+)
 MARKER_OUTPUT_FORMAT = str(os.getenv("MARKER_OUTPUT_FORMAT", "markdown")).strip() or "markdown"
 MARKER_USE_LLM = str(os.getenv("MARKER_USE_LLM", "")).strip().lower() in {"1", "true", "yes", "on"}
-CHANDRA_CLI = str(os.getenv("CHANDRA_CLI", "chandra")).strip() or "chandra"
-CHANDRA_METHOD = str(os.getenv("CHANDRA_METHOD", "vllm")).strip() or "vllm"
+CHANDRA_CLI = resolve_cli(
+    "chandra",
+    "CHANDRA_CLI",
+    [
+        ".venv-chandra/bin/chandra",
+    ],
+)
+CHANDRA_METHOD = str(os.getenv("CHANDRA_METHOD", "hf")).strip() or "hf"
 EXTRACTION_TIMEOUT_MS = max(15000, int(os.getenv("DATALAB_OSS_TIMEOUT_MS", "240000")))
 
 
@@ -269,13 +297,22 @@ def run_cli(command: list[str], *, timeout_ms: int = EXTRACTION_TIMEOUT_MS) -> s
 def run_marker_extract(file_path: Path, *, force_ocr: bool, max_pages: int | None) -> tuple[str, list[str]]:
     warnings: list[str] = []
     with tempfile.TemporaryDirectory(prefix="marker_extract_") as output_dir:
+        config_path = Path(output_dir) / "marker_config.json"
+        config_path.write_text(
+            json.dumps({
+                "paginate_output": True,
+            }),
+            encoding="utf-8",
+        )
         command = [
             MARKER_CLI,
             str(file_path),
+            "--output_dir",
             output_dir,
             "--output_format",
             MARKER_OUTPUT_FORMAT,
-            "--paginate_output",
+            "--config_json",
+            str(config_path),
         ]
         if force_ocr:
             command.append("--force_ocr")
@@ -302,7 +339,7 @@ def run_chandra_extract(file_path: Path, *, max_pages: int | None) -> tuple[str,
         if CHANDRA_METHOD:
             command.extend(["--method", CHANDRA_METHOD])
         if max_pages is not None and max_pages > 0:
-            command.extend(["--page_range", f"0-{max_pages - 1}"])
+            command.extend(["--page-range", f"1-{max_pages}"])
 
         result = run_cli(command)
         if result.returncode != 0:
