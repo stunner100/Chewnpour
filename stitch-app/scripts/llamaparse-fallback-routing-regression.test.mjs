@@ -25,14 +25,14 @@ assert.ok(
   'Expected Azure extraction candidate to resolve fallback recommendations through the shared Azure fallback policy.'
 );
 assert.ok(
-  pipelineSource.includes('if (doctraFallback && doctraFallback.reason !== "weak_page_ratio_candidate")')
+  pipelineSource.includes('if (dataLabOssFallback && dataLabOssFallback.reason !== "weak_page_ratio_candidate")')
     && pipelineSource.includes('const llamaParseFallback = getLlamaParseFallbackRecommendation(args);'),
-  'Expected Azure fallback policy to keep Doctra for scanned/table-heavy cases and prefer LlamaParse only for weaker non-specialized Azure quality issues.'
+  'Expected Azure fallback policy to keep Datalab OSS for scanned/table-heavy cases and prefer LlamaParse only for weaker non-specialized Azure quality issues.'
 );
 assert.ok(
-  extractionSource.includes('fallbackUsed: result.backend !== "datalab"')
-    && extractionSource.includes('fallbackUsed: Boolean(result?.backend && result.backend !== "datalab")'),
-  'Expected extraction persistence to flag any non-Datalab backend run, including LlamaParse, as a fallback execution.'
+  extractionSource.includes('fallbackUsed: result.backend !== "datalab_oss"')
+    && extractionSource.includes('fallbackUsed: Boolean(result?.backend && result.backend !== "datalab_oss")'),
+  'Expected extraction persistence to flag any non-Datalab-OSS backend run, including LlamaParse, as a fallback execution.'
 );
 
 console.log('llamaparse-fallback-routing-regression tests passed');

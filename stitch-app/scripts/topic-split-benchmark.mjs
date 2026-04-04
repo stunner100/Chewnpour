@@ -446,9 +446,9 @@ const run = async () => {
 
     const pdfCandidates = [
         path.resolve("./stitch-app/Channel Ideas Without Remotion.pdf"),
-        path.resolve("./doctra-service/notebooks/sample_data/wipo_financial_report_min.pdf"),
-        path.resolve("./doctra-service/notebooks/sample_data/wipo_financial_report.pdf"),
-        path.resolve("./doctra-service/notebooks/sample_data/wipo_doc_to_restore.pdf"),
+        path.resolve("./datalab-oss-service/notebooks/sample_data/wipo_financial_report_min.pdf"),
+        path.resolve("./datalab-oss-service/notebooks/sample_data/wipo_financial_report.pdf"),
+        path.resolve("./datalab-oss-service/notebooks/sample_data/wipo_doc_to_restore.pdf"),
     ];
 
     const pdfResults = [];
