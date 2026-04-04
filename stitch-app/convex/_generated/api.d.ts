@@ -29,7 +29,7 @@ import type * as grounded from "../grounded.js";
 import type * as http from "../http.js";
 import type * as lib_assessmentBlueprint from "../lib/assessmentBlueprint.js";
 import type * as lib_conceptExerciseGeneration from "../lib/conceptExerciseGeneration.js";
-import type * as lib_datalabOssClient from "../lib/datalabOssClient.js";
+import type * as lib_datalabClient from "../lib/datalabClient.js";
 import type * as lib_documentExtractionPipeline from "../lib/documentExtractionPipeline.js";
 import type * as lib_examAttemptReuse from "../lib/examAttemptReuse.js";
 import type * as lib_examQuestionSelection from "../lib/examQuestionSelection.js";
@@ -93,7 +93,7 @@ declare const fullApi: ApiFromModules<{
   http: typeof http;
   "lib/assessmentBlueprint": typeof lib_assessmentBlueprint;
   "lib/conceptExerciseGeneration": typeof lib_conceptExerciseGeneration;
-  "lib/datalabOssClient": typeof lib_datalabOssClient;
+  "lib/datalabClient": typeof lib_datalabClient;
   "lib/documentExtractionPipeline": typeof lib_documentExtractionPipeline;
   "lib/examAttemptReuse": typeof lib_examAttemptReuse;
   "lib/examQuestionSelection": typeof lib_examQuestionSelection;

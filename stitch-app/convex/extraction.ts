@@ -184,7 +184,7 @@ const recordFailedDocumentExtraction = async (ctx: any, args: {
         qualityScore: Number(args.qualityScore || 0),
         coverage: Number(args.coverage || 0),
         providerTrace: Array.isArray(args.providerTrace) ? args.providerTrace : [],
-        backend: args.backend || "datalab_oss",
+        backend: args.backend || "datalab",
         parser: args.parser || undefined,
         winner: false,
         startedAt: args.startedAt,
@@ -360,7 +360,7 @@ export const runForegroundExtraction = internalAction({
                 coverage: result.coverage,
                 backend: result.backend,
                 parser: result.parser,
-                fallbackUsed: result.backend !== "datalab_oss",
+                fallbackUsed: result.backend !== "datalab",
                 artifactStorageId,
                 warnings: result.warnings,
             });
@@ -412,7 +412,7 @@ export const runForegroundExtraction = internalAction({
                 coverage: Number(result?.coverage || 0),
                 backend: result?.backend,
                 parser: result?.parser,
-                fallbackUsed: Boolean(result?.backend && result.backend !== "datalab_oss"),
+                fallbackUsed: Boolean(result?.backend && result.backend !== "datalab"),
                 artifactStorageId,
                 warnings: result?.warnings || [],
             });
@@ -432,7 +432,7 @@ export const benchmarkUploadExtraction = internalAction({
     args: {
         uploadId: v.id("uploads"),
         mode: v.optional(v.union(v.literal("foreground"), v.literal("background"))),
-        backend: v.optional(v.union(v.literal("datalab_oss"), v.literal("azure"), v.literal("llamaparse"))),
+        backend: v.optional(v.union(v.literal("datalab"), v.literal("azure"), v.literal("llamaparse"))),
         parser: v.optional(v.string()),
     },
     handler: async (ctx, args) => {
@@ -572,7 +572,7 @@ export const runBackgroundReprocess = internalAction({
     args: {
         uploadId: v.id("uploads"),
         courseId: v.id("courses"),
-        backend: v.optional(v.union(v.literal("datalab_oss"), v.literal("azure"), v.literal("llamaparse"))),
+        backend: v.optional(v.union(v.literal("datalab"), v.literal("azure"), v.literal("llamaparse"))),
         parser: v.optional(v.string()),
     },
     handler: async (ctx, args) => {
@@ -621,7 +621,7 @@ export const runBackgroundReprocess = internalAction({
                 coverage: result.coverage,
                 backend: result.backend,
                 parser: result.parser,
-                fallbackUsed: result.backend !== "datalab_oss",
+                fallbackUsed: result.backend !== "datalab",
                 artifactStorageId,
                 warnings: result.warnings,
             });
@@ -679,7 +679,7 @@ export const runBackgroundReprocess = internalAction({
                 coverage: Number(result?.coverage || 0),
                 backend: result?.backend,
                 parser: result?.parser,
-                fallbackUsed: Boolean(result?.backend && result.backend !== "datalab_oss"),
+                fallbackUsed: Boolean(result?.backend && result.backend !== "datalab"),
                 artifactStorageId,
                 warnings: result?.warnings || [],
             });

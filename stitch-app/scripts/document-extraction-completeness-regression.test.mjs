@@ -7,27 +7,27 @@ const aiPath = resolve(root, 'convex', 'ai.ts');
 const schemaPath = resolve(root, 'convex', 'schema.ts');
 const extractionPipelinePath = resolve(root, 'convex', 'lib', 'documentExtractionPipeline.ts');
 const extractionPath = resolve(root, 'convex', 'extraction.ts');
-const datalabOssClientPath = resolve(root, 'convex', 'lib', 'datalabOssClient.ts');
+const datalabClientPath = resolve(root, 'convex', 'lib', 'datalabClient.ts');
 const llamaClientPath = resolve(root, 'convex', 'lib', 'llamaParseClient.ts');
 
 const aiSource = readFileSync(aiPath, 'utf8');
 const schemaSource = readFileSync(schemaPath, 'utf8');
 const pipelineSource = readFileSync(extractionPipelinePath, 'utf8');
 const extractionSource = readFileSync(extractionPath, 'utf8');
-const datalabOssClientSource = readFileSync(datalabOssClientPath, 'utf8');
+const datalabClientSource = readFileSync(datalabClientPath, 'utf8');
 const llamaClientSource = readFileSync(llamaClientPath, 'utf8');
 
 assert.ok(
-  pipelineSource.includes('runDataLabOssExtractionCandidate')
+  pipelineSource.includes('runDataLabExtractionCandidate')
     && pipelineSource.includes('runAzureExtractionCandidate')
     && pipelineSource.includes('runLlamaParseExtractionCandidate')
     && pipelineSource.includes('runDocumentExtractionPipeline'),
-  'Expected documentExtractionPipeline to export Datalab OSS, Azure, and LlamaParse candidate runners plus the unified orchestrator.'
+  'Expected documentExtractionPipeline to export Datalab, Azure, and LlamaParse candidate runners plus the unified orchestrator.'
 );
 assert.ok(
   pipelineSource.includes('runAzureExtractionCandidate')
-    && pipelineSource.includes('return await runDataLabOssExtractionCandidate(args);'),
-  'Expected the extraction pipeline to hard-cut the default upload route over to Datalab OSS.'
+    && pipelineSource.includes('return await runDataLabExtractionCandidate(args);'),
+  'Expected the extraction pipeline to hard-cut the default upload route over to Datalab.'
 );
 assert.ok(
   pipelineSource.includes('STRICT_QUALITY_THRESHOLD = 0.93'),
@@ -43,9 +43,9 @@ assert.ok(
   'Expected extraction pipeline to route Azure passes through resilience layer with buffer cloning.'
 );
 assert.ok(
-  pipelineSource.includes('shouldRunDataLabOssFallback')
-    && pipelineSource.includes('selectDataLabOssParser'),
-  'Expected extraction pipeline to include explicit Datalab OSS fallback routing helpers.'
+  pipelineSource.includes('shouldRunDataLabFallback')
+    && pipelineSource.includes('backend: "datalab"'),
+  'Expected extraction pipeline to include explicit Datalab fallback routing helpers.'
 );
 assert.ok(
   pipelineSource.includes('if (fileType === "docx")')
@@ -59,7 +59,7 @@ assert.ok(
 );
 assert.ok(
   aiSource.includes('runBackgroundReprocess')
-    && aiSource.includes('fallbackRecommendation?.backend || "datalab_oss"'),
+    && aiSource.includes('fallbackRecommendation?.backend || "datalab"'),
   'Expected provisional uploads to schedule background reprocessing through the extraction orchestrator.'
 );
 
@@ -94,10 +94,11 @@ assert.ok(
   'Expected extraction persistence to record backend and parser metadata.'
 );
 assert.ok(
-  datalabOssClientSource.includes('callDataLabOssExtract')
-    && datalabOssClientSource.includes('DATALAB_OSS_EXTRACT_URL')
-    && datalabOssClientSource.includes('FormData'),
-  'Expected Datalab OSS requests to be isolated in the dedicated client helper.'
+  datalabClientSource.includes('callDataLabExtract')
+    && datalabClientSource.includes('/api/v1/convert')
+    && datalabClientSource.includes('request_check_url')
+    && datalabClientSource.includes('parsePaginatedMarkdown'),
+  'Expected hosted Datalab requests to be isolated in the dedicated client helper.'
 );
 assert.ok(
   llamaClientSource.includes('callLlamaParseExtract')

@@ -9,29 +9,25 @@ import {
     extractTextFromPptxNative,
 } from "./nativeExtractors";
 import {
-    callDataLabOssExtract,
-    isDataLabOssEnabled,
-    type DataLabOssExtractResponse,
-    type DataLabOssParserId as DataLabOssClientParserId,
-} from "./datalabOssClient";
+    callDataLabExtract,
+    isDataLabEnabled,
+    type DataLabExtractResponse,
+} from "./datalabClient";
 import {
     callLlamaParseExtract,
     isLlamaParseEnabled,
     type LlamaParseExtractResponse,
 } from "./llamaParseClient";
 
-export type ExtractionBackendId = "datalab_oss" | "azure" | "llamaparse";
+export type ExtractionBackendId = "datalab" | "azure" | "llamaparse";
 export type ExtractionParserId =
-    | "marker"
-    | "marker_ocr"
-    | "chandra"
+    | "datalab"
     | "azure_layout_read"
     | "llamaparse";
-export type DataLabOssParserId = Exclude<ExtractionParserId, "azure_layout_read" | "llamaparse">;
 export type ExtractionFallbackRecommendation =
     | {
-        backend: "datalab_oss";
-        parser: DataLabOssParserId;
+        backend: "datalab";
+        parser: "datalab";
         reason: string;
     }
     | {
@@ -52,7 +48,7 @@ export type ExtractionPassTrace = {
 type ExtractionPage = {
     index: number;
     text: string;
-    source: "native" | "azure_layout" | "azure_read" | "datalab_oss" | "llamaparse" | "none";
+    source: "native" | "azure_layout" | "azure_read" | "datalab" | "llamaparse" | "none";
     chars: number;
     words: number;
     lexicalRatio: number;
@@ -64,7 +60,7 @@ type ExtractionPage = {
 type CandidatePage = {
     index: number;
     text: string;
-    source: "native" | "azure_layout" | "azure_read" | "datalab_oss" | "llamaparse";
+    source: "native" | "azure_layout" | "azure_read" | "datalab" | "llamaparse";
     tableCount: number;
     formulaCount: number;
 };
@@ -254,7 +250,7 @@ const parsePdfPagesFromNative = (value: string): CandidatePage[] => {
 
 const splitTextIntoSyntheticPages = (
     value: string,
-    source: "native" | "azure_layout" | "azure_read" | "datalab_oss" | "llamaparse",
+    source: "native" | "azure_layout" | "azure_read" | "datalab" | "llamaparse",
     targetCharsPerPage = 2600
 ): CandidatePage[] => {
     const text = sanitizeText(value);
@@ -1052,7 +1048,7 @@ const buildWarnings = (metrics: PipelineMetrics) => {
     return warnings;
 };
 
-export const shouldRunDataLabOssFallback = (args: {
+export const shouldRunDataLabFallback = (args: {
     fileType: string;
     metrics: PipelineMetrics;
     nativePass: PassResult;
@@ -1092,49 +1088,17 @@ export const shouldRunDataLabOssFallback = (args: {
     return false;
 };
 
-export const selectDataLabOssParser = (args: {
-    fileType: string;
-    metrics: PipelineMetrics;
-    layoutPass: PassResult;
-    readPass: PassResult;
-}): DataLabOssParserId | null => {
-    const fileType = String(args.fileType || "").toLowerCase();
-    if (["png", "jpg", "jpeg", "webp", "bmp", "gif", "tif", "tiff"].includes(fileType)) {
-        return "chandra";
-    }
-    if (fileType === "pdf" && args.metrics.scannedLikely) {
-        return "chandra";
-    }
-    if (fileType === "pdf" && (
-        args.metrics.tableRecoveryRatio < STRICT_TABLE_RECOVERY_THRESHOLD
-        || args.metrics.weakPageRatio > args.metrics.weakPageThreshold
-        || args.metrics.formulaMarkerLoss > STRICT_FORMULA_LOSS_THRESHOLD
-        || Math.max(args.layoutPass.tableCount, args.readPass.tableCount, 0) >= 2
-    )) {
-        return "marker_ocr";
-    }
-    if (["pdf", "doc", "docx", "ppt", "pptx", "xls", "xlsx", "html", "htm", "epub"].includes(fileType)) {
-        return "marker";
-    }
-    return null;
-};
-
-const getDataLabOssFallbackRecommendation = (args: {
+const getDataLabFallbackRecommendation = (args: {
     fileType: string;
     metrics: PipelineMetrics;
     nativePass: PassResult;
     layoutPass: PassResult;
     readPass: PassResult;
 }): ExtractionFallbackRecommendation | null => {
-    if (!isDataLabOssEnabled()) {
+    if (!isDataLabEnabled()) {
         return null;
     }
-    if (!shouldRunDataLabOssFallback(args)) {
-        return null;
-    }
-
-    const parser = selectDataLabOssParser(args);
-    if (!parser) {
+    if (!shouldRunDataLabFallback(args)) {
         return null;
     }
 
@@ -1143,15 +1107,15 @@ const getDataLabOssFallbackRecommendation = (args: {
         reason = "scanned_document_candidate";
     } else if (args.metrics.tableRecoveryRatio < STRICT_TABLE_RECOVERY_THRESHOLD) {
         reason = "table_recovery_candidate";
+    } else if (String(args.fileType || "").toLowerCase() === "docx") {
+        reason = "structured_docx_candidate";
     } else if (args.metrics.weakPageRatio > args.metrics.weakPageThreshold) {
         reason = "weak_page_ratio_candidate";
-    } else if (["doc", "docx", "ppt", "pptx", "xls", "xlsx", "html", "htm", "epub"].includes(String(args.fileType || "").toLowerCase())) {
-        reason = "office_document_candidate";
     }
 
     return {
-        backend: "datalab_oss",
-        parser,
+        backend: "datalab",
+        parser: "datalab",
         reason,
     };
 };
@@ -1174,7 +1138,7 @@ export const shouldRunLlamaParseFallback = (args: {
     }
 
     // Keep scanned, table-heavy, and formula-loss-heavy documents on the
-    // self-hosted Datalab OSS path. LlamaParse is only a fallback for weaker Azure quality on
+    // Datalab path. LlamaParse is only a fallback for weaker Azure quality on
     // otherwise normal PDF/PPTX layouts.
     if (args.metrics.scannedLikely) {
         return false;
@@ -1218,9 +1182,9 @@ const getAzureFallbackRecommendation = (args: {
     layoutPass: PassResult;
     readPass: PassResult;
 }): ExtractionFallbackRecommendation | null => {
-    const dataLabOssFallback = getDataLabOssFallbackRecommendation(args);
-    if (dataLabOssFallback && dataLabOssFallback.reason !== "weak_page_ratio_candidate") {
-        return dataLabOssFallback;
+    const dataLabFallback = getDataLabFallbackRecommendation(args);
+    if (dataLabFallback && dataLabFallback.reason !== "weak_page_ratio_candidate") {
+        return dataLabFallback;
     }
 
     const llamaParseFallback = getLlamaParseFallbackRecommendation(args);
@@ -1228,7 +1192,7 @@ const getAzureFallbackRecommendation = (args: {
         return llamaParseFallback;
     }
 
-    return dataLabOssFallback;
+    return dataLabFallback;
 };
 
 const buildDocumentExtractionResult = (args: {
@@ -1289,24 +1253,25 @@ const buildDocumentExtractionResult = (args: {
     };
 };
 
-const toDataLabOssPassResult = (payload: DataLabOssExtractResponse): PassResult => {
+const toDataLabPassResult = (payload: DataLabExtractResponse): PassResult => {
     const rawPages = Array.isArray(payload.pages) ? payload.pages : [];
     const pages: CandidatePage[] = rawPages
         .map((page) => ({
             index: Math.max(0, Number(page.index || 0)),
-            text: sanitizeText(String(page.text || "")),
-            source: "datalab_oss" as const,
+            text: sanitizeText(String(page.text || page.markdown || "")),
+            source: "datalab" as const,
             tableCount: Math.max(0, Number(page.tableCount || 0)),
             formulaCount: Math.max(0, Number(page.formulaCount || 0)),
         }))
         .filter((page) => Boolean(page.text));
 
+    const text = sanitizeText(String(payload.text || payload.markdown || ""));
     return {
-        text: sanitizeText(String(payload.text || "")),
-        pages,
-        pageCount: Math.max(Number(payload.pageCount || 0), pages.length, 1),
-        tableCount: Math.max(0, Number(payload.metrics?.tableCount || 0)),
-        formulaCount: Math.max(0, Number(payload.metrics?.formulaCount || 0)),
+        text,
+        pages: pages.length > 0 ? pages : splitTextIntoSyntheticPages(text, "datalab"),
+        pageCount: Math.max(Number(payload.pageCount || 0), pages.length, text ? 1 : 0),
+        tableCount: pages.reduce((sum, page) => sum + Number(page.tableCount || 0), 0),
+        formulaCount: pages.reduce((sum, page) => sum + Number(page.formulaCount || 0), 0),
     };
 };
 
@@ -1467,49 +1432,22 @@ export const runAzureExtractionCandidate = async (
     return result;
 };
 
-export const runDataLabOssExtractionCandidate = async (
+export const runDataLabExtractionCandidate = async (
     args: RunDocumentExtractionArgs
 ): Promise<DocumentExtractionResult> => {
-    if (!isDataLabOssEnabled()) {
-        throw new Error("Datalab OSS extraction is not configured.");
+    if (!isDataLabEnabled()) {
+        throw new Error("Datalab extraction is not configured.");
     }
 
     const startedAt = Date.now();
     const normalizedFileType = String(args.fileType || "").toLowerCase();
     const contentType = mapUploadTypeToContentType(normalizedFileType);
-    const parser = (
-        args.parser && args.parser !== "azure_layout_read"
-            ? args.parser
-            : selectDataLabOssParser({
-                fileType: normalizedFileType,
-                metrics: {
-                    fileType: normalizedFileType,
-                    qualityScore: 0,
-                    coverage: 0,
-                    strictPass: false,
-                    provisional: true,
-                    pagePresenceRatio: 0,
-                    weakPageRatio: 1,
-                    tableRecoveryRatio: 0,
-                    formulaMarkerLoss: 0,
-                    expectedPageCount: 1,
-                    scannedLikely: normalizedFileType === "pdf",
-                    requiredPagePresence: 0,
-                    weakPageThreshold: 1,
-                },
-                layoutPass: emptyPassResult(),
-                readPass: emptyPassResult(),
-            })
-    ) as DataLabOssClientParserId | null;
-    if (!parser) {
-        throw new Error(`No Datalab OSS parser available for file type: ${normalizedFileType}`);
-    }
-
-    const payload = await callDataLabOssExtract({
+    const payload = await callDataLabExtract({
         fileName: args.fileName,
         contentType,
         fileBuffer: cloneArrayBuffer(args.fileBuffer),
-        parser,
+        timeoutMs: args.maxDurationMs,
+        mode: "accurate",
         maxPages: normalizedFileType === "pdf"
             ? (args.mode === "background"
                 ? Math.max(PDF_BATCH_MAX_PAGES_BACKGROUND, 80)
@@ -1517,20 +1455,20 @@ export const runDataLabOssExtractionCandidate = async (
             : undefined,
     });
     const latencyMs = Date.now() - startedAt;
-    const dataLabOssPass = toDataLabOssPassResult(payload);
+    const dataLabPass = toDataLabPassResult(payload);
     const result = buildDocumentExtractionResult({
-        backend: "datalab_oss",
-        parser: payload.parser,
+        backend: "datalab",
+        parser: "datalab",
         fileType: normalizedFileType,
         nativePass: emptyPassResult(),
         layoutPass: emptyPassResult(),
-        readPass: dataLabOssPass,
+        readPass: dataLabPass,
         providerTrace: [{
-            pass: `datalab_oss_${payload.parser}`,
+            pass: `datalab_${payload.mode}`,
             status: "ok",
             latencyMs,
-            chars: dataLabOssPass.text.length,
-            pageCount: dataLabOssPass.pageCount,
+            chars: dataLabPass.text.length,
+            pageCount: dataLabPass.pageCount,
         }],
         fallbackRecommendation: null,
     });
@@ -1585,8 +1523,8 @@ export const runLlamaParseExtractionCandidate = async (
 export const runDocumentExtractionPipeline = async (
     args: RunDocumentExtractionArgs
 ): Promise<DocumentExtractionResult> => {
-    if (args.backend === "datalab_oss") {
-        return await runDataLabOssExtractionCandidate(args);
+    if (args.backend === "datalab") {
+        return await runDataLabExtractionCandidate(args);
     }
     if (args.backend === "llamaparse") {
         return await runLlamaParseExtractionCandidate(args);
@@ -1594,5 +1532,5 @@ export const runDocumentExtractionPipeline = async (
     if (args.backend === "azure") {
         return await runAzureExtractionCandidate(args);
     }
-    return await runDataLabOssExtractionCandidate(args);
+    return await runDataLabExtractionCandidate(args);
 };

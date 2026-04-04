@@ -6,7 +6,7 @@ const rootDir = resolve(import.meta.dirname, '..');
 const aiPath = resolve(rootDir, 'convex/ai.ts');
 const extractionPath = resolve(rootDir, 'convex/extraction.ts');
 const pipelinePath = resolve(rootDir, 'convex/lib/documentExtractionPipeline.ts');
-const clientPath = resolve(rootDir, 'convex/lib/datalabOssClient.ts');
+const clientPath = resolve(rootDir, 'convex/lib/datalabClient.ts');
 const llamaClientPath = resolve(rootDir, 'convex/lib/llamaParseClient.ts');
 const envPath = resolve(rootDir, '.env.example');
 
@@ -18,44 +18,44 @@ const llamaClientSource = readFileSync(llamaClientPath, 'utf8');
 const envSource = readFileSync(envPath, 'utf8');
 
 assert.equal(
-  aiSource.includes('callDataLabOssExtract'),
+  aiSource.includes('callDataLabExtract'),
   false,
-  'Expected ai.ts to avoid calling the self-hosted extractor directly.'
+  'Expected ai.ts to avoid calling Datalab directly.'
 );
 assert.equal(
-  extractionSource.includes('callDataLabOssExtract'),
+  extractionSource.includes('callDataLabExtract'),
   false,
-  'Expected extraction.ts to route self-hosted extraction through documentExtractionPipeline.'
+  'Expected extraction.ts to route Datalab through documentExtractionPipeline.'
 );
 
 assert.ok(
-  pipelineSource.includes('runDataLabOssExtractionCandidate')
+  pipelineSource.includes('runDataLabExtractionCandidate')
     && pipelineSource.includes('runAzureExtractionCandidate')
     && pipelineSource.includes('runLlamaParseExtractionCandidate')
     && pipelineSource.includes('runDocumentExtractionPipeline'),
-  'Expected extraction pipeline to expose Datalab OSS, Azure, and LlamaParse candidate runners behind a single orchestrator.'
+  'Expected extraction pipeline to expose Datalab, Azure, and LlamaParse candidate runners behind a single orchestrator.'
 );
 assert.ok(
-  pipelineSource.includes('if (args.backend === "datalab_oss")')
-    && pipelineSource.includes('return await runDataLabOssExtractionCandidate(args);'),
-  'Expected the default upload extraction route to cut over to the self-hosted Datalab OSS backend.'
+  pipelineSource.includes('if (args.backend === "datalab")')
+    && pipelineSource.includes('return await runDataLabExtractionCandidate(args);'),
+  'Expected the default upload extraction route to cut over to hosted Datalab.'
 );
 assert.ok(
-  extractionSource.includes('v.literal("datalab_oss")')
+  extractionSource.includes('v.literal("datalab")')
     && extractionSource.includes('v.literal("azure")')
     && extractionSource.includes('v.literal("llamaparse")'),
-  'Expected background extraction actions to accept Datalab OSS plus the explicit diagnostic backends.'
+  'Expected background extraction actions to accept Datalab plus the explicit diagnostic backends.'
 );
 assert.ok(
-  aiSource.includes('backend: extraction?.fallbackRecommendation?.backend || "datalab_oss"'),
-  'Expected provisional uploads to schedule background extraction via the self-hosted Datalab OSS backend recommendation.'
+  aiSource.includes('backend: extraction?.fallbackRecommendation?.backend || "datalab"'),
+  'Expected provisional uploads to schedule background extraction via the Datalab-first backend recommendation.'
 );
 
 assert.ok(
-  clientSource.includes('callDataLabOssExtract')
-    && clientSource.includes('profile')
-    && clientSource.includes('DATALAB_OSS_EXTRACT_URL'),
-  'Expected Datalab OSS client helper to own the self-hosted extract request contract.'
+  clientSource.includes('callDataLabExtract')
+    && clientSource.includes('/api/v1/convert')
+    && clientSource.includes('request_check_url'),
+  'Expected the hosted Datalab client helper to own the convert-and-poll API contract.'
 );
 assert.ok(
   llamaClientSource.includes('callLlamaParseExtract')
@@ -64,14 +64,14 @@ assert.ok(
   'Expected LlamaParse client helper to own the upload-plus-parse API contract.'
 );
 assert.ok(
-  envSource.includes('DATALAB_OSS_ENABLED=')
-    && envSource.includes('DATALAB_OSS_EXTRACT_URL=')
-    && envSource.includes('DATALAB_OSS_TIMEOUT_MS=')
-    && envSource.includes('DATALAB_OSS_SHARED_SECRET=')
+  envSource.includes('DATALAB_API_KEY=')
+    && envSource.includes('DATALAB_API_BASE_URL=')
+    && envSource.includes('DATALAB_TIMEOUT_MS=')
+    && envSource.includes('DATALAB_POLL_INTERVAL_MS=')
     && envSource.includes('LLAMA_CLOUD_API_KEY=')
     && envSource.includes('LLAMAPARSE_TIER=')
     && envSource.includes('LLAMAPARSE_VERSION='),
-  'Expected .env.example to document the Datalab OSS runtime configuration and the explicit diagnostic backends.'
+  'Expected .env.example to document the hosted Datalab runtime configuration and the explicit diagnostic backends.'
 );
 
 console.log('extraction-routing-regression tests passed');

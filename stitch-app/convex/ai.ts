@@ -4349,7 +4349,7 @@ export const processUploadedFile = action({
                 await ctx.scheduler.runAfter(0, (internal as any).extraction.runBackgroundReprocess, {
                     uploadId,
                     courseId,
-                    backend: extraction?.fallbackRecommendation?.backend || "datalab_oss",
+                    backend: extraction?.fallbackRecommendation?.backend || "datalab",
                     parser: extraction?.fallbackRecommendation?.parser,
                 });
             }
