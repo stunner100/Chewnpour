@@ -9,6 +9,11 @@ import {
     extractTextFromPptxNative,
 } from "./nativeExtractors";
 import {
+    callDataLabExtract,
+    isDataLabEnabled,
+    type DataLabExtractResponse,
+} from "./datalabClient";
+import {
     callDoctraExtract,
     type DoctraExtractResponse,
     type DoctraParserId as DoctraClientParserId,
@@ -20,16 +25,22 @@ import {
     type LlamaParseExtractResponse,
 } from "./llamaParseClient";
 
-export type ExtractionBackendId = "azure" | "doctra" | "llamaparse";
+export type ExtractionBackendId = "datalab" | "azure" | "doctra" | "llamaparse";
 export type ExtractionParserId =
+    | "datalab"
     | "azure_layout_read"
     | "enhanced_pdf"
     | "paddleocr_vl"
     | "docx_structured"
     | "image_ocr"
     | "llamaparse";
-export type DoctraParserId = Exclude<ExtractionParserId, "azure_layout_read" | "llamaparse">;
+export type DoctraParserId = Exclude<ExtractionParserId, "datalab" | "azure_layout_read" | "llamaparse">;
 export type ExtractionFallbackRecommendation =
+    | {
+        backend: "datalab";
+        parser: "datalab";
+        reason: string;
+    }
     | {
         backend: "doctra";
         parser: DoctraParserId;
@@ -53,7 +64,7 @@ export type ExtractionPassTrace = {
 type ExtractionPage = {
     index: number;
     text: string;
-    source: "native" | "azure_layout" | "azure_read" | "doctra" | "llamaparse" | "none";
+    source: "native" | "azure_layout" | "azure_read" | "datalab" | "doctra" | "llamaparse" | "none";
     chars: number;
     words: number;
     lexicalRatio: number;
@@ -65,7 +76,7 @@ type ExtractionPage = {
 type CandidatePage = {
     index: number;
     text: string;
-    source: "native" | "azure_layout" | "azure_read" | "doctra" | "llamaparse";
+    source: "native" | "azure_layout" | "azure_read" | "datalab" | "doctra" | "llamaparse";
     tableCount: number;
     formulaCount: number;
 };
@@ -255,7 +266,7 @@ const parsePdfPagesFromNative = (value: string): CandidatePage[] => {
 
 const splitTextIntoSyntheticPages = (
     value: string,
-    source: "native" | "azure_layout" | "azure_read" | "llamaparse",
+    source: "native" | "azure_layout" | "azure_read" | "datalab" | "llamaparse",
     targetCharsPerPage = 2600
 ): CandidatePage[] => {
     const text = sanitizeText(value);
@@ -1312,6 +1323,28 @@ const toDoctraPassResult = (payload: DoctraExtractResponse): PassResult => {
     };
 };
 
+const toDataLabPassResult = (payload: DataLabExtractResponse): PassResult => {
+    const rawPages = Array.isArray(payload.pages) ? payload.pages : [];
+    const pages: CandidatePage[] = rawPages
+        .map((page) => ({
+            index: Math.max(0, Number(page.index || 0)),
+            text: sanitizeText(String(page.text || page.markdown || "")),
+            source: "datalab" as const,
+            tableCount: Math.max(0, Number(page.tableCount || 0)),
+            formulaCount: Math.max(0, Number(page.formulaCount || 0)),
+        }))
+        .filter((page) => Boolean(page.text));
+
+    const text = sanitizeText(String(payload.text || payload.markdown || ""));
+    return {
+        text,
+        pages: pages.length > 0 ? pages : splitTextIntoSyntheticPages(text, "datalab"),
+        pageCount: Math.max(Number(payload.pageCount || 0), pages.length, text ? 1 : 0),
+        tableCount: pages.reduce((sum, page) => sum + Number(page.tableCount || 0), 0),
+        formulaCount: pages.reduce((sum, page) => sum + Number(page.formulaCount || 0), 0),
+    };
+};
+
 const toLlamaParsePassResult = (payload: LlamaParseExtractResponse): PassResult => {
     const rawPages = Array.isArray(payload.pages) ? payload.pages : [];
     const pages: CandidatePage[] = rawPages
@@ -1469,6 +1502,57 @@ export const runAzureExtractionCandidate = async (
     return result;
 };
 
+export const runDataLabExtractionCandidate = async (
+    args: RunDocumentExtractionArgs
+): Promise<DocumentExtractionResult> => {
+    if (!isDataLabEnabled()) {
+        throw new Error("Datalab extraction is not configured.");
+    }
+
+    const startedAt = Date.now();
+    const normalizedFileType = String(args.fileType || "").toLowerCase();
+    const contentType = mapUploadTypeToContentType(normalizedFileType);
+    const payload = await callDataLabExtract({
+        fileName: args.fileName,
+        contentType,
+        fileBuffer: cloneArrayBuffer(args.fileBuffer),
+        timeoutMs: args.maxDurationMs,
+        mode: "accurate",
+        maxPages: normalizedFileType === "pdf"
+            ? (args.mode === "background"
+                ? Math.max(PDF_BATCH_MAX_PAGES_BACKGROUND, 80)
+                : Math.max(PDF_BATCH_MAX_PAGES_FOREGROUND, 24))
+            : undefined,
+    });
+    const latencyMs = Date.now() - startedAt;
+    const dataLabPass = toDataLabPassResult(payload);
+    const result = buildDocumentExtractionResult({
+        backend: "datalab",
+        parser: "datalab",
+        fileType: normalizedFileType,
+        nativePass: emptyPassResult(),
+        layoutPass: emptyPassResult(),
+        readPass: dataLabPass,
+        providerTrace: [{
+            pass: `datalab_${payload.mode}`,
+            status: "ok",
+            latencyMs,
+            chars: dataLabPass.text.length,
+            pageCount: dataLabPass.pageCount,
+        }],
+        fallbackRecommendation: null,
+    });
+    const warnings = Array.from(new Set([...(payload.warnings || []), ...result.warnings]));
+    return {
+        ...result,
+        warnings,
+        artifact: {
+            ...result.artifact,
+            warnings,
+        },
+    };
+};
+
 export const runDoctraExtractionCandidate = async (
     args: RunDocumentExtractionArgs
 ): Promise<DocumentExtractionResult> => {
@@ -1584,11 +1668,17 @@ export const runLlamaParseExtractionCandidate = async (
 export const runDocumentExtractionPipeline = async (
     args: RunDocumentExtractionArgs
 ): Promise<DocumentExtractionResult> => {
+    if (args.backend === "datalab") {
+        return await runDataLabExtractionCandidate(args);
+    }
     if (args.backend === "doctra") {
         return await runDoctraExtractionCandidate(args);
     }
     if (args.backend === "llamaparse") {
         return await runLlamaParseExtractionCandidate(args);
     }
-    return await runAzureExtractionCandidate(args);
+    if (args.backend === "azure") {
+        return await runAzureExtractionCandidate(args);
+    }
+    return await runDataLabExtractionCandidate(args);
 };
