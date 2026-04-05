@@ -1,6 +1,6 @@
 import React, { useRef, useState, useCallback } from 'react';
 import { Link, useParams } from 'react-router-dom';
-import { useQuery, useMutation, useAction } from 'convex/react';
+import { useQuery, useMutation, useAction, useConvexAuth } from 'convex/react';
 import { api } from '../../convex/_generated/api';
 import { useAuth } from '../contexts/AuthContext';
 import { resolveTopicIllustrationUrl } from '../lib/topicIllustration';
@@ -212,6 +212,7 @@ const DashboardCourse = () => {
     const { courseId } = useParams();
     const { user } = useAuth();
     const userId = user?.id;
+    const { isAuthenticated: isConvexAuthenticated } = useConvexAuth();
 
     const resetCourseScrollPosition = React.useCallback(() => {
         if (typeof document !== 'undefined') {
