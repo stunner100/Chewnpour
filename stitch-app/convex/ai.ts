@@ -2069,6 +2069,7 @@ const ensureAssessmentBlueprintForTopic = async (args: {
     ctx: any;
     topic: any;
     evidence: RetrievedEvidence[];
+    structuredTopicContext?: string;
     deadlineMs?: number;
     repairTimeoutMs?: number;
     forceRegenerate?: boolean;
@@ -2104,6 +2105,7 @@ const ensureAssessmentBlueprintForTopic = async (args: {
                 topicTitle: String(args.topic?.title || ""),
                 topicDescription: String(args.topic?.description || ""),
                 evidence: args.evidence,
+                structuredTopicContext: args.structuredTopicContext,
             }),
         },
     ], DEFAULT_MODEL, {
@@ -2138,10 +2140,14 @@ const ensureGroundedEvidenceForTopic = async (args: {
     topic: any;
     type: "mcq" | "essay" | "concept";
 }) => {
+    const structuredTopicProfile = await loadStructuredExamTopicProfileForTopic(args.ctx, args.topic);
     return await getGroundedEvidencePackForTopic({
         ctx: args.ctx,
         topic: args.topic,
         type: args.type,
+        queryFragments: buildStructuredExamQueryFragments(structuredTopicProfile),
+        keyPoints: structuredTopicProfile.learningObjectives,
+        structuredTopicProfile,
     });
 };
 
@@ -2391,6 +2397,86 @@ const loadStructuredCourseMapForUpload = async (
     return isStructuredCourseMapUsable(structuredCourseMap) ? structuredCourseMap : null;
 };
 
+type StructuredExamTopicProfile = {
+    subtopics: string[];
+    definitions: DataLabStructuredDefinition[];
+    examples: string[];
+    formulas: string[];
+    likelyConfusions: string[];
+    learningObjectives: string[];
+    sourcePages: number[];
+    sourceBlockIds: string[];
+};
+
+const emptyStructuredExamTopicProfile = (): StructuredExamTopicProfile => ({
+    subtopics: [],
+    definitions: [],
+    examples: [],
+    formulas: [],
+    likelyConfusions: [],
+    learningObjectives: [],
+    sourcePages: [],
+    sourceBlockIds: [],
+});
+
+const normalizeStructuredExamTopicProfile = (value: any): StructuredExamTopicProfile => ({
+    subtopics: normalizeStructuredTopicStringList(value?.structuredSubtopics ?? value?.subtopics, 10, 140),
+    definitions: normalizeStructuredDefinitionList(value?.structuredDefinitions ?? value?.definitions),
+    examples: normalizeStructuredTopicStringList(value?.structuredExamples ?? value?.examples, 8, 220),
+    formulas: normalizeStructuredTopicStringList(value?.structuredFormulas ?? value?.formulas, 8, 180),
+    likelyConfusions: normalizeStructuredTopicStringList(
+        value?.structuredLikelyConfusions ?? value?.likelyConfusions,
+        8,
+        180
+    ),
+    learningObjectives: normalizeStructuredTopicStringList(
+        value?.structuredLearningObjectives ?? value?.learningObjectives,
+        8,
+        180
+    ),
+    sourcePages: Array.isArray(value?.structuredSourcePages ?? value?.sourcePages)
+        ? (value.structuredSourcePages ?? value.sourcePages)
+            .map((entry: any) => Number(entry))
+            .filter((entry: number) => Number.isFinite(entry) && entry >= 0)
+            .map((entry: number) => Math.floor(entry))
+            .slice(0, 24)
+        : [],
+    sourceBlockIds: Array.isArray(value?.structuredSourceBlockIds ?? value?.sourceBlockIds)
+        ? (value.structuredSourceBlockIds ?? value.sourceBlockIds)
+            .map((entry: any) => String(entry || "").trim())
+            .filter(Boolean)
+            .slice(0, 24)
+        : [],
+});
+
+const hasStructuredExamTopicProfile = (value: StructuredExamTopicProfile | null | undefined) =>
+    Boolean(
+        value
+        && (
+            value.subtopics.length > 0
+            || value.definitions.length > 0
+            || value.examples.length > 0
+            || value.formulas.length > 0
+            || value.likelyConfusions.length > 0
+            || value.learningObjectives.length > 0
+        )
+    );
+
+const buildStructuredExamTopicContext = (profile: StructuredExamTopicProfile | null | undefined) =>
+    buildTopicStructuredSourceContext(profile);
+
+const buildStructuredExamQueryFragments = (profile: StructuredExamTopicProfile | null | undefined) => {
+    if (!profile) return [];
+    return normalizeStructuredTopicStringList([
+        ...profile.subtopics,
+        ...profile.learningObjectives,
+        ...profile.formulas,
+        ...profile.likelyConfusions,
+        ...profile.definitions.map((entry) => entry.term),
+        ...profile.examples,
+    ], 18, 180);
+};
+
 const hasCurrentGroundedEvidenceIndex = (upload: any, index: any) => {
     const storedVersion = String(index?.version || "").trim();
     const uploadVersion = String(upload?.evidenceIndexVersion || "").trim();
@@ -2445,6 +2531,66 @@ const resolveUploadForTopic = async (ctx: any, topic: any) => {
     const uploadId = coursePayload?.uploadId;
     if (!uploadId) return null;
     return await ctx.runQuery(api.uploads.getUpload, { uploadId });
+};
+
+const loadStructuredExamTopicProfileForTopic = async (
+    ctx: any,
+    topic: any
+): Promise<StructuredExamTopicProfile> => {
+    const direct = normalizeStructuredExamTopicProfile(topic);
+    if (hasStructuredExamTopicProfile(direct)) {
+        return direct;
+    }
+
+    const upload = await resolveUploadForTopic(ctx, topic);
+    if (!upload?._id) {
+        return direct;
+    }
+
+    const structuredCourseMap = await loadStructuredCourseMapForUpload(ctx, upload._id);
+    if (!isStructuredCourseMapUsable(structuredCourseMap)) {
+        return direct;
+    }
+
+    const normalizedTitle = normalizeStructuredTopicString(topic?.title, 140).toLowerCase();
+    let structuredTopic = null as DataLabStructuredTopic | null;
+    const orderedTopics = Array.isArray(structuredCourseMap.topics) ? structuredCourseMap.topics : [];
+    const orderIndex = Number(topic?.orderIndex);
+    if (Number.isFinite(orderIndex) && orderIndex >= 0 && orderedTopics[orderIndex]) {
+        structuredTopic = orderedTopics[orderIndex];
+    }
+    if (!structuredTopic && normalizedTitle) {
+        structuredTopic = orderedTopics.find((entry) =>
+            normalizeStructuredTopicString(entry?.title, 140).toLowerCase() === normalizedTitle
+        ) || null;
+    }
+    if (!structuredTopic) {
+        return direct;
+    }
+
+    const resolved = normalizeStructuredExamTopicProfile(structuredTopic);
+    if (!hasStructuredExamTopicProfile(resolved)) {
+        return direct;
+    }
+
+    return {
+        subtopics: normalizeStructuredTopicStringList([...direct.subtopics, ...resolved.subtopics], 10, 140),
+        definitions: normalizeStructuredDefinitionList([...direct.definitions, ...resolved.definitions]),
+        examples: normalizeStructuredTopicStringList([...direct.examples, ...resolved.examples], 8, 220),
+        formulas: normalizeStructuredTopicStringList([...direct.formulas, ...resolved.formulas], 8, 180),
+        likelyConfusions: normalizeStructuredTopicStringList(
+            [...direct.likelyConfusions, ...resolved.likelyConfusions],
+            8,
+            180
+        ),
+        learningObjectives: normalizeStructuredTopicStringList(
+            [...direct.learningObjectives, ...resolved.learningObjectives],
+            8,
+            180
+        ),
+        sourcePages: Array.from(new Set([...direct.sourcePages, ...resolved.sourcePages])).sort((a, b) => a - b),
+        sourceBlockIds: Array.from(new Set([...direct.sourceBlockIds, ...resolved.sourceBlockIds])),
+    };
 };
 
 const loadGroundedEvidenceIndexForTopic = async (ctx: any, topic: any): Promise<{
@@ -2513,9 +2659,12 @@ const getGroundedEvidencePackForTopic = async (args: {
     type: "mcq" | "essay" | "concept";
     keyPoints?: string[];
     queryFragments?: string[];
+    structuredTopicProfile?: StructuredExamTopicProfile;
     limitOverride?: number;
     preferFlagsOverride?: string[];
 }) => {
+    const structuredTopicProfile = args.structuredTopicProfile || emptyStructuredExamTopicProfile();
+    const structuredTopicContext = buildStructuredExamTopicContext(structuredTopicProfile);
     const { index, upload } = await loadGroundedEvidenceIndexForTopic(args.ctx, args.topic);
     if (!index) {
         return {
@@ -2531,6 +2680,8 @@ const getGroundedEvidencePackForTopic = async (args: {
                 Number(upload?.evidencePassageCount || 0) - Number(upload?.embeddedPassageCount || 0)
             ),
             retrievalLatencyMs: 0,
+            structuredTopicProfile,
+            structuredTopicContext,
         };
     }
 
@@ -2585,6 +2736,8 @@ const getGroundedEvidencePackForTopic = async (args: {
         vectorHitCount: retrieval.vectorHitCount,
         embeddingBacklogCount: retrieval.embeddingBacklogCount,
         retrievalLatencyMs: retrieval.latencyMs,
+        structuredTopicProfile,
+        structuredTopicContext,
     };
 };
 
@@ -2900,6 +3053,7 @@ const repairGroundedMcqCandidate = async (args: {
     topicDescription?: string;
     evidence: RetrievedEvidence[];
     assessmentBlueprint: AssessmentBlueprint;
+    structuredTopicContext?: string;
     repairReasons?: string[];
     timeoutMs?: number;
 }) => {
@@ -2913,6 +3067,7 @@ const repairGroundedMcqCandidate = async (args: {
         topicDescription: args.topicDescription,
         evidence: repairEvidence.length > 0 ? repairEvidence : args.evidence.slice(0, 8),
         assessmentBlueprint: args.assessmentBlueprint,
+        structuredTopicContext: args.structuredTopicContext,
         candidate: args.candidate,
         repairReasons: args.repairReasons,
     });
@@ -5723,11 +5878,20 @@ ${index === totalTopics - 1 ? "This is the final topic — summarize and connect
     });
     const topicId = await ctx.runMutation(api.topics.createTopic, {
         courseId,
+        sourceUploadId: uploadId,
         title: safeTopicTitle,
         description: topicData.description,
         content,
         sourceChunkIds: topicData.sourceChunkIds,
         sourcePassageIds: sourcePassageIdList,
+        structuredSubtopics: topicData.subtopics,
+        structuredDefinitions: topicData.definitions,
+        structuredExamples: topicData.examples,
+        structuredFormulas: topicData.formulas,
+        structuredLikelyConfusions: topicData.likelyConfusions,
+        structuredLearningObjectives: topicData.learningObjectives,
+        structuredSourcePages: topicData.sourcePages,
+        structuredSourceBlockIds: topicData.sourceBlockIds,
         groundingVersion: GROUNDED_GENERATION_VERSION,
         illustrationUrl: resolveTopicPlaceholderIllustrationUrl(),
         orderIndex: index,
@@ -7151,6 +7315,7 @@ const generateEssayQuestionCandidatesBatch = async (args: {
     topicDescription?: string;
     evidence: RetrievedEvidence[];
     assessmentBlueprint: AssessmentBlueprint;
+    structuredTopicContext?: string;
     coverageTargets?: AssessmentCoverageTarget[];
     deadlineMs?: number;
     requestTimeoutMs?: number;
@@ -7163,6 +7328,7 @@ const generateEssayQuestionCandidatesBatch = async (args: {
         topicDescription: args.topicDescription,
         evidence: args.evidence,
         assessmentBlueprint: args.assessmentBlueprint,
+        structuredTopicContext: args.structuredTopicContext,
         coverageTargets: args.coverageTargets,
     });
     let questionsData: any = { questions: [] };
@@ -7246,6 +7412,7 @@ const generateQuestionCandidatesBatch = async (args: {
     topicDescription?: string;
     evidence: RetrievedEvidence[];
     assessmentBlueprint: AssessmentBlueprint;
+    structuredTopicContext?: string;
     coverageTargets?: AssessmentCoverageTarget[];
     deadlineMs?: number;
     requestTimeoutMs?: number;
@@ -7259,6 +7426,7 @@ const generateQuestionCandidatesBatch = async (args: {
         topicDescription: args.topicDescription,
         evidence: args.evidence,
         assessmentBlueprint: args.assessmentBlueprint,
+        structuredTopicContext: args.structuredTopicContext,
         coverageTargets: args.coverageTargets,
         existingQuestionSample: args.existingQuestionSample,
     });
@@ -7314,6 +7482,7 @@ const generateTrueFalseQuestionCandidatesBatch = async (args: {
     topicDescription?: string;
     evidence: RetrievedEvidence[];
     assessmentBlueprint: AssessmentBlueprint;
+    structuredTopicContext?: string;
     coverageTargets?: AssessmentCoverageTarget[];
     deadlineMs?: number;
     requestTimeoutMs?: number;
@@ -7326,6 +7495,7 @@ const generateTrueFalseQuestionCandidatesBatch = async (args: {
         topicDescription: args.topicDescription,
         evidence: args.evidence,
         assessmentBlueprint: args.assessmentBlueprint,
+        structuredTopicContext: args.structuredTopicContext,
         coverageTargets: args.coverageTargets,
     });
     let questionsData: any = { questions: [] };
@@ -7380,6 +7550,7 @@ const generateFillBlankQuestionCandidatesBatch = async (args: {
     topicDescription?: string;
     evidence: RetrievedEvidence[];
     assessmentBlueprint: AssessmentBlueprint;
+    structuredTopicContext?: string;
     coverageTargets?: AssessmentCoverageTarget[];
     deadlineMs?: number;
     requestTimeoutMs?: number;
@@ -7392,6 +7563,7 @@ const generateFillBlankQuestionCandidatesBatch = async (args: {
         topicDescription: args.topicDescription,
         evidence: args.evidence,
         assessmentBlueprint: args.assessmentBlueprint,
+        structuredTopicContext: args.structuredTopicContext,
         coverageTargets: args.coverageTargets,
     });
     let questionsData: any = { questions: [] };
@@ -7446,6 +7618,7 @@ const generateMcqQuestionGapBatch = async (args: {
     topicDescription?: string;
     evidence: RetrievedEvidence[];
     assessmentBlueprint: AssessmentBlueprint;
+    structuredTopicContext?: string;
     coveragePolicy: any;
     deadlineMs?: number;
     requestTimeoutMs?: number;
@@ -7463,6 +7636,7 @@ const generateMcqQuestionGapBatch = async (args: {
         topicDescription: args.topicDescription,
         evidence: args.evidence,
         assessmentBlueprint: args.assessmentBlueprint,
+        structuredTopicContext: args.structuredTopicContext,
         coverageTargets,
         deadlineMs: args.deadlineMs,
         requestTimeoutMs: args.requestTimeoutMs,
@@ -7478,6 +7652,7 @@ const generateTrueFalseQuestionGapBatch = async (args: {
     topicDescription?: string;
     evidence: RetrievedEvidence[];
     assessmentBlueprint: AssessmentBlueprint;
+    structuredTopicContext?: string;
     coveragePolicy: any;
     deadlineMs?: number;
     requestTimeoutMs?: number;
@@ -7496,6 +7671,7 @@ const generateTrueFalseQuestionGapBatch = async (args: {
         topicDescription: args.topicDescription,
         evidence: args.evidence,
         assessmentBlueprint: args.assessmentBlueprint,
+        structuredTopicContext: args.structuredTopicContext,
         coverageTargets,
         deadlineMs: args.deadlineMs,
         requestTimeoutMs: args.requestTimeoutMs,
@@ -7510,6 +7686,7 @@ const generateFillBlankQuestionGapBatch = async (args: {
     topicDescription?: string;
     evidence: RetrievedEvidence[];
     assessmentBlueprint: AssessmentBlueprint;
+    structuredTopicContext?: string;
     coveragePolicy: any;
     deadlineMs?: number;
     requestTimeoutMs?: number;
@@ -7528,6 +7705,7 @@ const generateFillBlankQuestionGapBatch = async (args: {
         topicDescription: args.topicDescription,
         evidence: args.evidence,
         assessmentBlueprint: args.assessmentBlueprint,
+        structuredTopicContext: args.structuredTopicContext,
         coverageTargets,
         deadlineMs: args.deadlineMs,
         requestTimeoutMs: args.requestTimeoutMs,
@@ -7542,6 +7720,7 @@ const generateEssayQuestionGapBatch = async (args: {
     topicDescription?: string;
     evidence: RetrievedEvidence[];
     assessmentBlueprint: AssessmentBlueprint;
+    structuredTopicContext?: string;
     coveragePolicy: any;
     deadlineMs?: number;
     requestTimeoutMs?: number;
@@ -7558,6 +7737,7 @@ const generateEssayQuestionGapBatch = async (args: {
         topicDescription: args.topicDescription,
         evidence: args.evidence,
         assessmentBlueprint: args.assessmentBlueprint,
+        structuredTopicContext: args.structuredTopicContext,
         coverageTargets,
         deadlineMs: args.deadlineMs,
         requestTimeoutMs: args.requestTimeoutMs,
@@ -7572,6 +7752,7 @@ const buildPremiumQuestionRevisionPrompt = (args: {
     topicDescription?: string;
     evidence: RetrievedEvidence[];
     assessmentBlueprint: AssessmentBlueprint;
+    structuredTopicContext?: string;
     candidate: any;
     warnings: string[];
 }) => {
@@ -7585,6 +7766,7 @@ const buildPremiumQuestionRevisionPrompt = (args: {
 
 TOPIC: ${args.topicTitle}
 DESCRIPTION: ${args.topicDescription || "General concepts"}
+${args.structuredTopicContext ? `STRUCTURED_TOPIC_SCHEMA:\n"""\n${args.structuredTopicContext}\n"""\n` : ""}
 
 ${buildEvidenceSnippet(args.evidence)}
 
@@ -7600,6 +7782,7 @@ ${warningBlock}
 Rules:
 - Keep the same questionType and outcomeKey.
 - Do not invent facts, thresholds, or scenarios beyond the evidence.
+- Use the structured topic schema to preserve the document's extracted objectives, formulas, examples, and confusions when they are evidence-supported.
 - Preserve or improve citations.
 - Improve cognitive demand, clarity, and diversity value.
 - If the item cannot be improved safely, return {"discard": true}.
@@ -7642,6 +7825,7 @@ const reviseCandidateForPremiumQuality = async (args: {
     topicDescription?: string;
     evidence: RetrievedEvidence[];
     assessmentBlueprint: AssessmentBlueprint;
+    structuredTopicContext?: string;
     warnings: string[];
     deadlineMs?: number;
 }) => {
@@ -7709,6 +7893,7 @@ const applyPremiumQualityPass = async (args: {
     topicDescription?: string;
     evidence: RetrievedEvidence[];
     assessmentBlueprint: AssessmentBlueprint;
+    structuredTopicContext?: string;
     deadlineMs?: number;
     forceLimited?: boolean;
 }) => {
@@ -7751,6 +7936,7 @@ const applyPremiumQualityPass = async (args: {
                 topicDescription: args.topicDescription,
                 evidence: args.evidence,
                 assessmentBlueprint: args.assessmentBlueprint,
+                structuredTopicContext: args.structuredTopicContext,
                 warnings: quality.qualityWarnings,
                 deadlineMs: args.deadlineMs,
             });
@@ -7796,6 +7982,7 @@ const acceptAndPersistQuestionCandidates = async (args: {
     assessmentBlueprint: AssessmentBlueprint | null | undefined;
     topicTitle: string;
     topicDescription?: string;
+    structuredTopicContext?: string;
     evidence: RetrievedEvidence[];
     deadlineMs?: number;
     forceLimited?: boolean;
@@ -7831,6 +8018,7 @@ const acceptAndPersistQuestionCandidates = async (args: {
             candidates: acceptance.accepted,
             topicTitle: args.topicTitle,
             topicDescription: args.topicDescription,
+            structuredTopicContext: args.structuredTopicContext,
             evidence: args.evidence,
             assessmentBlueprint: args.assessmentBlueprint,
             deadlineMs: args.deadlineMs,
@@ -7920,6 +8108,7 @@ const generateQuestionBankForTopic = async (
             ctx,
             topic: topicWithQuestions,
             evidence: groundedPack.evidence,
+            structuredTopicContext: groundedPack.structuredTopicContext,
             deadlineMs: Date.now() + profile.timeBudgetMs,
             repairTimeoutMs: profile.requestTimeoutMs,
         });
@@ -8558,6 +8747,7 @@ const generateQuestionBankForTopic = async (
                     topicDescription: effectiveTopic.description,
                     evidence: groundedPack.evidence,
                     assessmentBlueprint: assessmentBlueprint as AssessmentBlueprint,
+                    structuredTopicContext: groundedPack.structuredTopicContext,
                     coveragePolicy,
                     deadlineMs,
                     requestTimeoutMs: profile.requestTimeoutMs,
@@ -8649,6 +8839,7 @@ const generateQuestionBankForTopic = async (
                 assessmentBlueprint,
                 topicTitle: effectiveTopic.title,
                 topicDescription: effectiveTopic.description,
+                structuredTopicContext: groundedPack.structuredTopicContext,
                 evidence: groundedPack.evidence,
                 deadlineMs,
                 forceLimited: groundedPack.usedIndexFallback === true,
@@ -8661,6 +8852,7 @@ const generateQuestionBankForTopic = async (
                             topicDescription: effectiveTopic.description,
                             evidence: groundedPack.evidence,
                             assessmentBlueprint: assessmentBlueprint as AssessmentBlueprint,
+                            structuredTopicContext: groundedPack.structuredTopicContext,
                             repairReasons: reasons,
                             timeoutMs: runMode === "interactive" ? 5000 : 8000,
                         })
@@ -9600,6 +9792,7 @@ const generateEssayQuestionsForTopicCore = async (
             ctx,
             topic: topicWithQuestions,
             evidence: groundedPack.evidence,
+            structuredTopicContext: groundedPack.structuredTopicContext,
             deadlineMs: Date.now() + ESSAY_QUESTION_TIME_BUDGET_MS,
             repairTimeoutMs: ESSAY_QUESTION_REPAIR_TIMEOUT_MS,
         });
@@ -9709,6 +9902,7 @@ const generateEssayQuestionsForTopicCore = async (
                 topicDescription: effectiveTopic.description,
                 evidence: groundedPack.evidence,
                 assessmentBlueprint: assessmentBlueprint as AssessmentBlueprint,
+                structuredTopicContext: groundedPack.structuredTopicContext,
                 coveragePolicy,
                 deadlineMs,
                 requestTimeoutMs: ESSAY_QUESTION_REQUEST_TIMEOUT_MS,
@@ -9741,6 +9935,7 @@ const generateEssayQuestionsForTopicCore = async (
                 topicDescription: effectiveTopic.description,
                 evidence: groundedPack.evidence,
                 assessmentBlueprint: assessmentBlueprint as AssessmentBlueprint,
+                structuredTopicContext: groundedPack.structuredTopicContext,
                 coveragePolicy,
                 deadlineMs,
                 requestTimeoutMs: ESSAY_QUESTION_REQUEST_TIMEOUT_MS,
@@ -9768,6 +9963,7 @@ const generateEssayQuestionsForTopicCore = async (
         assessmentBlueprint,
         topicTitle: effectiveTopic.title,
         topicDescription: effectiveTopic.description,
+        structuredTopicContext: groundedPack.structuredTopicContext,
         evidence: groundedPack.evidence,
         deadlineMs,
         forceLimited: groundedPack.usedIndexFallback === true,

@@ -234,6 +234,17 @@ export default defineSchema({
         content: v.optional(v.string()), // AI-generated summary content
         sourceChunkIds: v.optional(v.array(v.number())),
         sourcePassageIds: v.optional(v.array(v.string())),
+        structuredSubtopics: v.optional(v.array(v.string())),
+        structuredDefinitions: v.optional(v.array(v.object({
+            term: v.string(),
+            meaning: v.string(),
+        }))),
+        structuredExamples: v.optional(v.array(v.string())),
+        structuredFormulas: v.optional(v.array(v.string())),
+        structuredLikelyConfusions: v.optional(v.array(v.string())),
+        structuredLearningObjectives: v.optional(v.array(v.string())),
+        structuredSourcePages: v.optional(v.array(v.number())),
+        structuredSourceBlockIds: v.optional(v.array(v.string())),
         groundingVersion: v.optional(v.string()),
         illustrationStorageId: v.optional(v.id("_storage")),
         illustrationUrl: v.optional(v.string()),
