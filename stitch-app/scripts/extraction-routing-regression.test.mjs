@@ -64,9 +64,11 @@ assert.ok(
 
 assert.ok(
   datalabClientSource.includes('callDataLabExtract')
-    && datalabClientSource.includes('/api/v1/convert')
-    && datalabClientSource.includes('request_check_url'),
-  'Expected the Datalab client helper to own the convert-and-poll API contract.'
+    && datalabClientSource.includes('/api/v1/marker')
+    && datalabClientSource.includes('request_check_url')
+    && datalabClientSource.includes('page_schema')
+    && datalabClientSource.includes('save_checkpoint'),
+  'Expected the Datalab client helper to own the marker-and-poll structured extraction contract.'
 );
 assert.ok(
   clientSource.includes('callDoctraExtract')

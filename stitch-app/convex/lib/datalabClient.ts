@@ -4,6 +4,31 @@ import { Blob } from "node:buffer";
 
 export type DataLabMode = "fast" | "balanced" | "accurate";
 
+export type DataLabStructuredDefinition = {
+    term: string;
+    meaning: string;
+};
+
+export type DataLabStructuredTopic = {
+    title: string;
+    description: string;
+    keyPoints: string[];
+    subtopics: string[];
+    definitions: DataLabStructuredDefinition[];
+    examples: string[];
+    formulas: string[];
+    likelyConfusions: string[];
+    learningObjectives: string[];
+    sourceBlockIds: string[];
+    sourcePages: number[];
+};
+
+export type DataLabStructuredCourseMap = {
+    courseTitle: string;
+    courseDescription: string;
+    topics: DataLabStructuredTopic[];
+};
+
 export type DataLabPage = {
     index: number;
     text: string;
@@ -17,11 +42,13 @@ export type DataLabExtractResponse = {
     backend: "datalab";
     mode: DataLabMode;
     requestId: string;
+    checkpointId?: string;
     text: string;
     markdown: string;
     pageCount: number;
     pages: DataLabPage[];
     parseQualityScore: number;
+    structuredCourseMap?: DataLabStructuredCourseMap | null;
     warnings?: string[];
     metadata?: Record<string, unknown>;
 };
@@ -35,6 +62,81 @@ const DATALAB_POLL_INTERVAL_MS = Number(process.env.DATALAB_POLL_INTERVAL_MS || 
 
 const PAGINATED_MARKDOWN_PAGE_PATTERN = /^\{(\d+)\}-{20,}\s*$/gm;
 
+const DATALAB_STRUCTURED_COURSE_SCHEMA = {
+    type: "object",
+    properties: {
+        courseTitle: {
+            type: "string",
+            description: "Clear title for the full course represented by the document.",
+        },
+        courseDescription: {
+            type: "string",
+            description: "One or two sentence summary of what the learner will learn from the document.",
+        },
+        topics: {
+            type: "array",
+            description: "Ordered list of major teachable topics explicitly grounded in the document.",
+            items: {
+                type: "object",
+                properties: {
+                    title: {
+                        type: "string",
+                        description: "Focused topic title drawn from the document structure.",
+                    },
+                    description: {
+                        type: "string",
+                        description: "Brief explanation of what this topic covers.",
+                    },
+                    keyPoints: {
+                        type: "array",
+                        description: "Atomic key ideas explicitly supported by the document.",
+                        items: { type: "string" },
+                    },
+                    subtopics: {
+                        type: "array",
+                        description: "Ordered subtopics or section headings that belong to this topic.",
+                        items: { type: "string" },
+                    },
+                    definitions: {
+                        type: "array",
+                        description: "Terms and their grounded meanings from the document.",
+                        items: {
+                            type: "object",
+                            properties: {
+                                term: { type: "string" },
+                                meaning: { type: "string" },
+                            },
+                            required: ["term", "meaning"],
+                        },
+                    },
+                    examples: {
+                        type: "array",
+                        description: "Concrete examples or worked cases present in the document.",
+                        items: { type: "string" },
+                    },
+                    formulas: {
+                        type: "array",
+                        description: "Formulas, equations, or symbolic expressions present in the document.",
+                        items: { type: "string" },
+                    },
+                    likelyConfusions: {
+                        type: "array",
+                        description: "Commonly confused ideas, pitfalls, or contrast points implied by the document.",
+                        items: { type: "string" },
+                    },
+                    learningObjectives: {
+                        type: "array",
+                        description: "Things a learner should be able to explain, identify, or apply after this topic.",
+                        items: { type: "string" },
+                    },
+                },
+                required: ["title", "description", "keyPoints"],
+            },
+        },
+    },
+    required: ["courseTitle", "courseDescription", "topics"],
+} as const;
+
 const sanitizeText = (value: string) =>
     String(value || "")
         .replace(/\u0000/g, "")
@@ -42,6 +144,184 @@ const sanitizeText = (value: string) =>
         .replace(/[ \t]+\n/g, "\n")
         .replace(/\n{3,}/g, "\n\n")
         .trim();
+
+const unwrapStructuredValue = (value: any): any => {
+    if (Array.isArray(value)) {
+        return value.map((entry) => unwrapStructuredValue(entry));
+    }
+    if (value && typeof value === "object") {
+        if ("value" in value && Object.keys(value).length <= 3) {
+            return unwrapStructuredValue(value.value);
+        }
+        const normalized: Record<string, unknown> = {};
+        for (const [key, entry] of Object.entries(value)) {
+            normalized[key] = unwrapStructuredValue(entry);
+        }
+        return normalized;
+    }
+    return value;
+};
+
+const normalizeStructuredString = (value: any, maxChars = 240) =>
+    sanitizeText(String(unwrapStructuredValue(value) || "")).slice(0, maxChars);
+
+const normalizeStructuredStringList = (value: any, maxItems = 8, maxChars = 220) => {
+    const unwrapped = unwrapStructuredValue(value);
+    const source = Array.isArray(unwrapped) ? unwrapped : [];
+    const deduped: string[] = [];
+    const seen = new Set<string>();
+    for (const entry of source) {
+        const normalized = normalizeStructuredString(entry, maxChars);
+        const key = normalized.toLowerCase();
+        if (!normalized || seen.has(key)) continue;
+        seen.add(key);
+        deduped.push(normalized);
+        if (deduped.length >= maxItems) break;
+    }
+    return deduped;
+};
+
+const normalizeStructuredDefinitions = (value: any) => {
+    const unwrapped = unwrapStructuredValue(value);
+    const source = Array.isArray(unwrapped) ? unwrapped : [];
+    const definitions: DataLabStructuredDefinition[] = [];
+    const seen = new Set<string>();
+    for (const entry of source) {
+        const term = normalizeStructuredString((entry as any)?.term, 120);
+        const meaning = normalizeStructuredString((entry as any)?.meaning, 280);
+        const key = `${term.toLowerCase()}::${meaning.toLowerCase()}`;
+        if (!term || !meaning || seen.has(key)) continue;
+        seen.add(key);
+        definitions.push({ term, meaning });
+        if (definitions.length >= 12) break;
+    }
+    return definitions;
+};
+
+const collectStructuredFieldValues = (value: any, keys: string[], collector: Set<string>) => {
+    if (Array.isArray(value)) {
+        for (const entry of value) {
+            collectStructuredFieldValues(entry, keys, collector);
+        }
+        return;
+    }
+    if (!value || typeof value !== "object") return;
+
+    for (const [key, entry] of Object.entries(value)) {
+        const normalizedKey = String(key || "").toLowerCase();
+        if (keys.includes(normalizedKey)) {
+            const entries = Array.isArray(entry) ? entry : [entry];
+            for (const item of entries) {
+                const normalized = sanitizeText(String(item || ""));
+                if (normalized) collector.add(normalized);
+            }
+        }
+        collectStructuredFieldValues(entry, keys, collector);
+    }
+};
+
+const collectStructuredNumericValues = (value: any, keys: string[], collector: Set<number>) => {
+    if (Array.isArray(value)) {
+        for (const entry of value) {
+            collectStructuredNumericValues(entry, keys, collector);
+        }
+        return;
+    }
+    if (!value || typeof value !== "object") return;
+
+    for (const [key, entry] of Object.entries(value)) {
+        const normalizedKey = String(key || "").toLowerCase();
+        if (keys.includes(normalizedKey)) {
+            const entries = Array.isArray(entry) ? entry : [entry];
+            for (const item of entries) {
+                const numeric = Number(item);
+                if (Number.isFinite(numeric) && numeric >= 0) {
+                    collector.add(Math.floor(numeric));
+                }
+            }
+        }
+        collectStructuredNumericValues(entry, keys, collector);
+    }
+};
+
+const parseStructuredExtractionPayload = (value: any) => {
+    const raw = value?.extraction_schema_json;
+    if (!raw) return null;
+    if (typeof raw === "string") {
+        try {
+            return JSON.parse(raw);
+        } catch (_) {
+            return null;
+        }
+    }
+    return typeof raw === "object" ? raw : null;
+};
+
+const normalizeStructuredTopic = (value: any, index: number): DataLabStructuredTopic | null => {
+    const topic = unwrapStructuredValue(value) || {};
+    const title = normalizeStructuredString(topic?.title, 120) || `Topic ${index + 1}`;
+    const description = normalizeStructuredString(topic?.description, 320);
+    const keyPoints = normalizeStructuredStringList(topic?.keyPoints, 8, 180);
+    const subtopics = normalizeStructuredStringList(topic?.subtopics, 10, 140);
+    const definitions = normalizeStructuredDefinitions(topic?.definitions);
+    const examples = normalizeStructuredStringList(topic?.examples, 8, 220);
+    const formulas = normalizeStructuredStringList(topic?.formulas, 8, 160);
+    const likelyConfusions = normalizeStructuredStringList(topic?.likelyConfusions, 8, 180);
+    const learningObjectives = normalizeStructuredStringList(topic?.learningObjectives, 8, 180);
+    const sourceBlockIds = (() => {
+        const ids = new Set<string>();
+        collectStructuredFieldValues(topic, ["block_id", "block_ids", "blockid", "blockids"], ids);
+        return Array.from(ids).slice(0, 24);
+    })();
+    const sourcePages = (() => {
+        const pages = new Set<number>();
+        collectStructuredNumericValues(topic, ["page", "pages", "page_number", "page_numbers"], pages);
+        return Array.from(pages).sort((a, b) => a - b).slice(0, 24);
+    })();
+
+    if (!title || (!description && keyPoints.length === 0 && subtopics.length === 0)) {
+        return null;
+    }
+
+    return {
+        title,
+        description,
+        keyPoints,
+        subtopics,
+        definitions,
+        examples,
+        formulas,
+        likelyConfusions,
+        learningObjectives,
+        sourceBlockIds,
+        sourcePages,
+    };
+};
+
+const normalizeStructuredCourseMap = (value: any): DataLabStructuredCourseMap | null => {
+    const parsed = unwrapStructuredValue(value) || {};
+    const rawTopics = Array.isArray(parsed?.topics) ? parsed.topics : [];
+    const topics = rawTopics
+        .map((entry, index) => normalizeStructuredTopic(entry, index))
+        .filter(Boolean) as DataLabStructuredTopic[];
+
+    if (topics.length === 0) {
+        return null;
+    }
+
+    const courseTitle = normalizeStructuredString(parsed?.courseTitle, 160)
+        || normalizeStructuredString(parsed?.title, 160)
+        || "Generated Course";
+    const courseDescription = normalizeStructuredString(parsed?.courseDescription, 360)
+        || normalizeStructuredString(parsed?.description, 360)
+        || `Study topics extracted from ${topics.length} document sections.`;
+
+    return {
+        courseTitle,
+        courseDescription,
+        topics: topics.slice(0, 15),
+    };
+};
 
 const countMarkdownTables = (value: string) =>
     (String(value || "").match(/^\|.+\|$/gm) || []).length;
@@ -158,12 +438,14 @@ const submitConvertRequest = async (args: {
     formData.set("mode", args.mode);
     formData.set("paginate", "true");
     formData.set("token_efficient_markdown", "true");
+    formData.set("page_schema", JSON.stringify(DATALAB_STRUCTURED_COURSE_SCHEMA));
+    formData.set("save_checkpoint", "true");
     if (Number.isFinite(Number(args.maxPages)) && Number(args.maxPages) > 0) {
         formData.set("max_pages", String(Math.floor(Number(args.maxPages))));
     }
 
     const response = await withTimeout(
-        `${DATALAB_API_BASE_URL}/api/v1/convert`,
+        `${DATALAB_API_BASE_URL}/api/v1/marker`,
         {
             method: "POST",
             headers: {
@@ -177,12 +459,14 @@ const submitConvertRequest = async (args: {
     const payload = await toJson(response);
     const requestId = String(payload?.request_id || "").trim();
     const requestCheckUrl = resolveCheckUrl(String(payload?.request_check_url || ""));
+    const checkpointId = String(payload?.checkpoint_id || "").trim();
     if (!requestId) {
         throw new Error("Datalab error: submit response missing request_id");
     }
     return {
         requestId,
         requestCheckUrl,
+        checkpointId,
     };
 };
 
@@ -250,6 +534,8 @@ export const callDataLabExtract = async (args: {
     const pages = parsePaginatedMarkdown(markdown);
     const text = sanitizeText(markdown);
     const parseQualityScore = Math.max(0, Number(payload?.parse_quality_score || 0));
+    const checkpointId = sanitizeText(String(payload?.checkpoint_id || submitted.checkpointId || ""));
+    const structuredCourseMap = normalizeStructuredCourseMap(parseStructuredExtractionPayload(payload));
     const warnings: string[] = [];
     if (!text) {
         warnings.push("empty_markdown_output");
@@ -257,19 +543,30 @@ export const callDataLabExtract = async (args: {
     if (parseQualityScore > 0 && parseQualityScore < 4) {
         warnings.push(`low_parse_quality_score:${parseQualityScore}`);
     }
+    if (!structuredCourseMap) {
+        warnings.push("structured_course_map_unavailable");
+    }
+
+    const metadata = {
+        ...(typeof payload?.metadata === "object" && payload.metadata
+            ? payload.metadata as Record<string, unknown>
+            : {}),
+        checkpointId: checkpointId || undefined,
+        structuredCourseMap: structuredCourseMap || undefined,
+    };
 
     return {
         backend: "datalab",
         mode,
         requestId: submitted.requestId,
+        checkpointId: checkpointId || undefined,
         text,
         markdown,
         pageCount: Math.max(Number(payload?.page_count || 0), pages.length, text ? 1 : 0),
         pages,
         parseQualityScore,
+        structuredCourseMap,
         warnings,
-        metadata: typeof payload?.metadata === "object" && payload.metadata
-            ? payload.metadata as Record<string, unknown>
-            : undefined,
+        metadata,
     };
 };

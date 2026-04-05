@@ -98,10 +98,13 @@ assert.ok(
 );
 assert.ok(
   datalabClientSource.includes('callDataLabExtract')
-    && datalabClientSource.includes('/api/v1/convert')
+    && datalabClientSource.includes('/api/v1/marker')
     && datalabClientSource.includes('request_check_url')
-    && datalabClientSource.includes('parsePaginatedMarkdown'),
-  'Expected Datalab requests to be isolated in the dedicated client helper.'
+    && datalabClientSource.includes('parsePaginatedMarkdown')
+    && datalabClientSource.includes('page_schema')
+    && datalabClientSource.includes('save_checkpoint')
+    && datalabClientSource.includes('structuredCourseMap'),
+  'Expected Datalab requests to use the marker endpoint with checkpoint-backed structured extraction.'
 );
 assert.ok(
   doctraClientSource.includes('callDoctraExtract')

@@ -53,6 +53,11 @@ import {
     GROUNDED_EVIDENCE_INDEX_VERSION,
     type GroundedEvidenceIndex,
 } from "./lib/groundedEvidenceIndex";
+import type {
+    DataLabStructuredCourseMap,
+    DataLabStructuredDefinition,
+    DataLabStructuredTopic,
+} from "./lib/datalabClient";
 import { retrieveGroundedEvidence, type RetrievedEvidence } from "./lib/groundedRetrieval";
 import {
     buildGroundedAssessmentBlueprintPrompt,
@@ -2303,6 +2308,89 @@ const fetchJsonFromStorageId = async (ctx: any, storageId: any) => {
     return await response.json();
 };
 
+const normalizeStructuredTopicString = (value: any, maxChars = 220) =>
+    String(value || "")
+        .replace(/\u0000/g, "")
+        .replace(/\s+/g, " ")
+        .trim()
+        .slice(0, maxChars);
+
+const normalizeStructuredTopicStringList = (value: any, maxItems = 8, maxChars = 180) => {
+    const source = Array.isArray(value) ? value : [];
+    const deduped: string[] = [];
+    const seen = new Set<string>();
+    for (const entry of source) {
+        const normalized = normalizeStructuredTopicString(entry, maxChars);
+        const key = normalized.toLowerCase();
+        if (!normalized || seen.has(key)) continue;
+        seen.add(key);
+        deduped.push(normalized);
+        if (deduped.length >= maxItems) break;
+    }
+    return deduped;
+};
+
+const normalizeStructuredDefinitionList = (value: any) => {
+    const source = Array.isArray(value) ? value : [];
+    const definitions: DataLabStructuredDefinition[] = [];
+    const seen = new Set<string>();
+    for (const entry of source) {
+        const term = normalizeStructuredTopicString((entry as any)?.term, 120);
+        const meaning = normalizeStructuredTopicString((entry as any)?.meaning, 240);
+        const key = `${term.toLowerCase()}::${meaning.toLowerCase()}`;
+        if (!term || !meaning || seen.has(key)) continue;
+        seen.add(key);
+        definitions.push({ term, meaning });
+        if (definitions.length >= 12) break;
+    }
+    return definitions;
+};
+
+const buildTopicStructuredSourceContext = (topic: Partial<DataLabStructuredTopic> | null | undefined) => {
+    if (!topic) return "";
+    const sections: string[] = [];
+    const pushSection = (label: string, lines: string[]) => {
+        const filtered = lines.filter(Boolean);
+        if (filtered.length === 0) return;
+        sections.push(`${label}:\n${filtered.map((line) => `- ${line}`).join("\n")}`);
+    };
+
+    pushSection("Subtopics", normalizeStructuredTopicStringList(topic.subtopics, 8, 140));
+    pushSection(
+        "Definitions",
+        normalizeStructuredDefinitionList(topic.definitions)
+            .map((entry) => `${entry.term}: ${entry.meaning}`)
+            .slice(0, 8)
+    );
+    pushSection("Examples", normalizeStructuredTopicStringList(topic.examples, 6, 220));
+    pushSection("Formulas", normalizeStructuredTopicStringList(topic.formulas, 6, 180));
+    pushSection("Likely Confusions", normalizeStructuredTopicStringList(topic.likelyConfusions, 6, 180));
+    pushSection("Learning Objectives", normalizeStructuredTopicStringList(topic.learningObjectives, 6, 180));
+
+    return sections.join("\n\n").slice(0, TOPIC_CONTEXT_LIMIT).trim();
+};
+
+const isStructuredCourseMapUsable = (value: any): value is DataLabStructuredCourseMap =>
+    Boolean(
+        value
+        && typeof value === "object"
+        && typeof value.courseTitle === "string"
+        && Array.isArray(value.topics)
+        && value.topics.length > 0
+    );
+
+const loadStructuredCourseMapForUpload = async (
+    ctx: any,
+    uploadId: any
+): Promise<DataLabStructuredCourseMap | null> => {
+    if (!uploadId) return null;
+    const upload = await ctx.runQuery(api.uploads.getUpload, { uploadId });
+    if (!upload?.extractionArtifactStorageId) return null;
+    const artifact = await fetchJsonFromStorageId(ctx, upload.extractionArtifactStorageId);
+    const structuredCourseMap = artifact?.metadata?.structuredCourseMap;
+    return isStructuredCourseMapUsable(structuredCourseMap) ? structuredCourseMap : null;
+};
+
 const hasCurrentGroundedEvidenceIndex = (upload: any, index: any) => {
     const storedVersion = String(index?.version || "").trim();
     const uploadVersion = String(upload?.evidenceIndexVersion || "").trim();
@@ -4221,6 +4309,7 @@ const buildStructuredLessonMapPrompt = (args: {
     description?: string;
     keyPoints: string[];
     topicContext: string;
+    structuredSourceMap?: string;
     sequencingContext?: string;
     educationDirective: string;
 }) => `Create a structured lesson map as STRICT JSON ONLY.
@@ -4228,6 +4317,7 @@ const buildStructuredLessonMapPrompt = (args: {
 TOPIC: ${args.title}
 DESCRIPTION: ${args.description || "Educational topic"}
 KEY POINTS: ${(args.keyPoints || []).join(", ") || "Core concepts"}
+${args.structuredSourceMap ? `STRUCTURED SOURCE MAP:\n"""\n${args.structuredSourceMap}\n"""\n` : ""}
 ${args.sequencingContext || ""}
 
 SOURCE CONTEXT:
@@ -4247,6 +4337,7 @@ Rules:
 - Big idea must explain the topic purpose simply.
 - Key points must be 5 to 8 items.
 - Subtopics must form a logical teaching order.
+- Prefer the structured source map over inferring missing structure from loose prose.
 - Worked examples must include a question, reasoning steps, and an answer.
 - Summary must be concise and should wrap up the lesson instead of repeating all key points.
 - Quick check must include at least one recall question and one understanding question.
@@ -4747,6 +4838,67 @@ const extractOutlineFallbackSplitPoints = (sourceText: string, maxItems = 6) => 
     return merged;
 };
 
+const buildCourseOutlineFromStructuredMap = (
+    structuredCourseMap: DataLabStructuredCourseMap,
+    fileName: string
+) => {
+    const safeFileTitle = fileName.replace(/\.(pdf|pptx|docx)$/i, "") || "Generated Course";
+    const topics = (Array.isArray(structuredCourseMap?.topics) ? structuredCourseMap.topics : [])
+        .map((topic, index) => {
+            const title = sanitizeGeneratedTopicTitle(
+                normalizeStructuredTopicString(topic?.title, 120),
+                `Topic ${index + 1}`
+            );
+            const description = normalizeStructuredTopicString(topic?.description, 320)
+                || `Detailed exploration of ${title}.`;
+            const keyPoints = normalizeOutlineStringList(
+                [
+                    ...(Array.isArray(topic?.keyPoints) ? topic.keyPoints : []),
+                    ...(Array.isArray(topic?.learningObjectives) ? topic.learningObjectives : []),
+                ],
+                8
+            );
+            const sourceContext = buildTopicStructuredSourceContext(topic);
+
+            return {
+                title,
+                description,
+                keyPoints,
+                subtopics: normalizeStructuredTopicStringList(topic?.subtopics, 10, 140),
+                definitions: normalizeStructuredDefinitionList(topic?.definitions),
+                examples: normalizeStructuredTopicStringList(topic?.examples, 8, 220),
+                formulas: normalizeStructuredTopicStringList(topic?.formulas, 8, 180),
+                likelyConfusions: normalizeStructuredTopicStringList(topic?.likelyConfusions, 8, 180),
+                learningObjectives: normalizeStructuredTopicStringList(topic?.learningObjectives, 8, 180),
+                sourceContext,
+                sourcePages: Array.isArray(topic?.sourcePages)
+                    ? topic.sourcePages
+                        .map((value) => Number(value))
+                        .filter((value) => Number.isFinite(value) && value >= 0)
+                        .map((value) => Math.floor(value))
+                        .slice(0, 24)
+                    : [],
+                sourceBlockIds: Array.isArray(topic?.sourceBlockIds)
+                    ? topic.sourceBlockIds
+                        .map((value) => String(value || "").trim())
+                        .filter(Boolean)
+                        .slice(0, 24)
+                    : [],
+            };
+        })
+        .filter((topic) => topic.title && (topic.description || topic.keyPoints.length > 0))
+        .slice(0, 15);
+
+    return {
+        courseTitle: normalizeOutlineString(structuredCourseMap?.courseTitle) || safeFileTitle,
+        courseDescription: normalizeOutlineString(structuredCourseMap?.courseDescription)
+            || "AI-generated course from your study materials.",
+        topics,
+        sourceSnippets: topics.map((topic) => topic.sourceContext || ""),
+        structuredSource: true,
+    };
+};
+
 const buildOutlineLegacyPrompt = (sourceText: string) => `You are an expert educational content creator. Analyze the following study material and create a structured course outline that is easy for a layperson to understand while still being detailed.
 
 STUDY MATERIAL:
@@ -5044,11 +5196,23 @@ Rules:
     };
 };
 
-const generateCourseOutlineWithPipeline = async (extractedText: string, fileName: string) => {
+const generateCourseOutlineWithPipeline = async (args: {
+    extractedText: string;
+    fileName: string;
+    structuredCourseMap?: DataLabStructuredCourseMap | null;
+}) => {
+    const extractedText = args.extractedText;
+    const fileName = args.fileName;
     const source = String(extractedText || "").trim();
     const deterministicFallback = buildFallbackOutline(extractedText, fileName);
     if (!source) {
         return deterministicFallback;
+    }
+    if (isStructuredCourseMapUsable(args.structuredCourseMap)) {
+        const structuredOutline = buildCourseOutlineFromStructuredMap(args.structuredCourseMap, fileName);
+        if (Array.isArray(structuredOutline?.topics) && structuredOutline.topics.length > 0) {
+            return structuredOutline;
+        }
     }
 
     let cachedLegacyFallback: any | null = null;
@@ -5169,6 +5333,14 @@ type PreparedTopic = {
     sourceContext: string;
     sourceChunkIds?: number[];
     sourcePassageIds?: string[];
+    subtopics?: string[];
+    definitions?: DataLabStructuredDefinition[];
+    examples?: string[];
+    formulas?: string[];
+    likelyConfusions?: string[];
+    learningObjectives?: string[];
+    sourcePages?: number[];
+    sourceBlockIds?: string[];
 };
 
 const preparedTopicValidator = v.object({
@@ -5178,13 +5350,24 @@ const preparedTopicValidator = v.object({
     sourceContext: v.string(),
     sourceChunkIds: v.optional(v.array(v.number())),
     sourcePassageIds: v.optional(v.array(v.string())),
+    subtopics: v.optional(v.array(v.string())),
+    definitions: v.optional(v.array(v.object({
+        term: v.string(),
+        meaning: v.string(),
+    }))),
+    examples: v.optional(v.array(v.string())),
+    formulas: v.optional(v.array(v.string())),
+    likelyConfusions: v.optional(v.array(v.string())),
+    learningObjectives: v.optional(v.array(v.string())),
+    sourcePages: v.optional(v.array(v.number())),
+    sourceBlockIds: v.optional(v.array(v.string())),
 });
 
 const buildPreparedTopics = (courseOutline: any, extractedText: string, fileName: string, sourceSnippets?: string[]) => {
     const normalizedTopics = Array.isArray(courseOutline?.topics) ? [...courseOutline.topics] : [];
     let totalTopics = normalizedTopics.length;
 
-    if (totalTopics < 4 && normalizedTopics.length > 0) {
+    if (!courseOutline?.structuredSource && totalTopics < 4 && normalizedTopics.length > 0) {
         const seed = normalizedTopics[0];
         const baseKeyPoints = Array.isArray(seed?.keyPoints) ? seed.keyPoints : [];
         const fallbackSplitPoints = extractOutlineFallbackSplitPoints(extractedText, 4);
@@ -5229,7 +5412,7 @@ const buildPreparedTopics = (courseOutline: any, extractedText: string, fileName
             title: safeTopicTitle,
             description: typeof topicData?.description === "string" ? topicData.description.trim() : "",
             keyPoints,
-            sourceContext: (sourceSnippets && sourceSnippets[index]) || "",
+            sourceContext: ((sourceSnippets && sourceSnippets[index]) || buildTopicStructuredSourceContext(topicData)).trim(),
             sourceChunkIds: Array.isArray(topicData?.sourceChunkIds)
                 ? topicData.sourceChunkIds
                     .map((value: any) => Number(value))
@@ -5238,6 +5421,23 @@ const buildPreparedTopics = (courseOutline: any, extractedText: string, fileName
                 : [],
             sourcePassageIds: Array.isArray(topicData?.sourcePassageIds)
                 ? topicData.sourcePassageIds
+                    .map((value: any) => String(value || "").trim())
+                    .filter(Boolean)
+                : [],
+            subtopics: normalizeStructuredTopicStringList(topicData?.subtopics, 10, 140),
+            definitions: normalizeStructuredDefinitionList(topicData?.definitions),
+            examples: normalizeStructuredTopicStringList(topicData?.examples, 8, 220),
+            formulas: normalizeStructuredTopicStringList(topicData?.formulas, 8, 180),
+            likelyConfusions: normalizeStructuredTopicStringList(topicData?.likelyConfusions, 8, 180),
+            learningObjectives: normalizeStructuredTopicStringList(topicData?.learningObjectives, 8, 180),
+            sourcePages: Array.isArray(topicData?.sourcePages)
+                ? topicData.sourcePages
+                    .map((value: any) => Number(value))
+                    .filter((value: number) => Number.isFinite(value) && value >= 0)
+                    .map((value: number) => Math.floor(value))
+                : [],
+            sourceBlockIds: Array.isArray(topicData?.sourceBlockIds)
+                ? topicData.sourceBlockIds
                     .map((value: any) => String(value || "").trim())
                     .filter(Boolean)
                 : [],
@@ -5279,6 +5479,50 @@ const buildPreparedTopics = (courseOutline: any, extractedText: string, fileName
                     if (normalized) mergedPassageIds.add(normalized);
                 }
                 existing.sourcePassageIds = Array.from(mergedPassageIds);
+            }
+            existing.subtopics = normalizeStructuredTopicStringList(
+                [...(existing.subtopics || []), ...(topic.subtopics || [])],
+                10,
+                140
+            );
+            existing.definitions = normalizeStructuredDefinitionList([
+                ...(existing.definitions || []),
+                ...(topic.definitions || []),
+            ]);
+            existing.examples = normalizeStructuredTopicStringList(
+                [...(existing.examples || []), ...(topic.examples || [])],
+                8,
+                220
+            );
+            existing.formulas = normalizeStructuredTopicStringList(
+                [...(existing.formulas || []), ...(topic.formulas || [])],
+                8,
+                180
+            );
+            existing.likelyConfusions = normalizeStructuredTopicStringList(
+                [...(existing.likelyConfusions || []), ...(topic.likelyConfusions || [])],
+                8,
+                180
+            );
+            existing.learningObjectives = normalizeStructuredTopicStringList(
+                [...(existing.learningObjectives || []), ...(topic.learningObjectives || [])],
+                8,
+                180
+            );
+            if (Array.isArray(topic.sourcePages) && topic.sourcePages.length > 0) {
+                const mergedPages = new Set<number>(existing.sourcePages || []);
+                for (const page of topic.sourcePages) {
+                    if (Number.isFinite(page)) mergedPages.add(Math.max(0, Math.floor(page)));
+                }
+                existing.sourcePages = Array.from(mergedPages).sort((a, b) => a - b);
+            }
+            if (Array.isArray(topic.sourceBlockIds) && topic.sourceBlockIds.length > 0) {
+                const mergedBlockIds = new Set<string>(existing.sourceBlockIds || []);
+                for (const blockId of topic.sourceBlockIds) {
+                    const normalized = String(blockId || "").trim();
+                    if (normalized) mergedBlockIds.add(normalized);
+                }
+                existing.sourceBlockIds = Array.from(mergedBlockIds);
             }
             continue;
         }
@@ -5370,6 +5614,7 @@ const generateTopicContentForIndex = async (args: {
     const keyPoints = Array.isArray(topicData.keyPoints)
         ? topicData.keyPoints
         : [];
+    const structuredSourceMap = buildTopicStructuredSourceContext(topicData);
     const sourcePassageIds = new Set<string>(
         Array.isArray(topicData.sourcePassageIds)
             ? topicData.sourcePassageIds.map((value) => String(value || "").trim()).filter(Boolean)
@@ -5378,7 +5623,13 @@ const generateTopicContentForIndex = async (args: {
     if (args.evidenceIndex) {
         const alignedRetrieval = await retrieveGroundedEvidence({
             index: args.evidenceIndex,
-            query: `${safeTopicTitle} ${topicData.description || ""} ${keyPoints.join(" ")}`,
+            query: [
+                safeTopicTitle,
+                topicData.description || "",
+                keyPoints.join(" "),
+                (topicData.subtopics || []).join(" "),
+                (topicData.learningObjectives || []).join(" "),
+            ].join(" "),
             limit: 12,
             preferFlags: ["table", "formula"],
         });
@@ -5401,14 +5652,22 @@ const generateTopicContentForIndex = async (args: {
             .trim();
     })();
     const chunkBoundContext = buildTopicContextFromChunkIds(extractedText, topicData.sourceChunkIds);
-    const topicContext = evidenceContext
-        || chunkBoundContext
-        || topicData.sourceContext
-        || buildTopicContextFromSource(extractedText, {
-            title: safeTopicTitle,
-            description: topicData.description,
-            keyPoints,
-        });
+    const fallbackContext = buildTopicContextFromSource(extractedText, {
+        title: safeTopicTitle,
+        description: topicData.description,
+        keyPoints,
+    });
+    const topicContext = [
+        evidenceContext,
+        structuredSourceMap,
+        chunkBoundContext,
+        topicData.sourceContext,
+        fallbackContext,
+    ]
+        .filter(Boolean)
+        .join("\n\n")
+        .slice(0, TOPIC_CONTEXT_LIMIT)
+        .trim();
     const topicStart = Date.now();
 
     let educationLevel = "undergrad";
@@ -5439,6 +5698,7 @@ ${index === totalTopics - 1 ? "This is the final topic — summarize and connect
                     description: topicData.description,
                     keyPoints,
                     topicContext,
+                    structuredSourceMap,
                     sequencingContext,
                     educationDirective: `${tone.style}\nTarget lesson length after rendering: ${TOPIC_DETAIL_WORD_TARGET} words.`,
                 }),
@@ -5604,7 +5864,12 @@ export const generateCourseFromText = action({
 
                 checkTimeout();
                 const outlineStart = Date.now();
-                const courseOutline = await generateCourseOutlineWithPipeline(extractedText, fileName);
+                const structuredCourseMap = await loadStructuredCourseMapForUpload(ctx, uploadId);
+                const courseOutline = await generateCourseOutlineWithPipeline({
+                    extractedText,
+                    fileName,
+                    structuredCourseMap,
+                });
                 console.info("[CourseGeneration] outline_pipeline_ready", {
                     courseId,
                     uploadId,
@@ -5969,7 +6234,12 @@ export const addSourceToCourse = action({
                 });
 
                 checkTimeout();
-                const courseOutline = await generateCourseOutlineWithPipeline(extractedText, upload.fileName);
+                const structuredCourseMap = await loadStructuredCourseMapForUpload(ctx, uploadId);
+                const courseOutline = await generateCourseOutlineWithPipeline({
+                    extractedText,
+                    fileName: upload.fileName,
+                    structuredCourseMap,
+                });
 
                 // Get existing topics for deduplication
                 const existingTopics = await getCourseTopicsSorted(ctx, courseId);

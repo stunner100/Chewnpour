@@ -126,6 +126,7 @@ export type DocumentExtractionResult = {
         pages: ExtractionPage[];
         metrics: PipelineMetrics;
         warnings: string[];
+        metadata?: Record<string, unknown>;
         generatedAt: number;
     };
 };
@@ -1253,6 +1254,7 @@ const buildDocumentExtractionResult = (args: {
     readPass: PassResult;
     providerTrace: ExtractionPassTrace[];
     fallbackRecommendation?: ExtractionFallbackRecommendation | null;
+    artifactMetadata?: Record<string, unknown>;
 }): DocumentExtractionResult => {
     const mergedPages = mergePassPages(
         args.nativePass,
@@ -1297,6 +1299,7 @@ const buildDocumentExtractionResult = (args: {
             pages: mergedPages,
             metrics,
             warnings,
+            metadata: args.artifactMetadata,
             generatedAt: Date.now(),
         },
     };
@@ -1541,6 +1544,7 @@ export const runDataLabExtractionCandidate = async (
             pageCount: dataLabPass.pageCount,
         }],
         fallbackRecommendation: null,
+        artifactMetadata: payload.metadata,
     });
     const warnings = Array.from(new Set([...(payload.warnings || []), ...result.warnings]));
     return {
