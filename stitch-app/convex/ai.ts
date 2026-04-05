@@ -4885,7 +4885,7 @@ ${tone.style}
 Include ALL of these sections in order:
 1. **Big Idea** — 1-2 sentences summarizing the whole topic in the simplest words possible.
 2. **Key Ideas** — 6-10 bullet points, each one sentence, covering the core concepts.
-3. **Everyday Analogies** — At least 3 analogies connecting concepts to familiar real-world scenarios. Start each with "Think of it like…" or "Imagine…".
+3. **Everyday Analogies** — Exactly 3 analogies, each max 2 sentences, connecting concepts to familiar real-world scenarios. Omit rather than force a weak comparison. Start each with "Think of it like…" or "Imagine…".
 4. **Step-by-Step Breakdown** — Walk through the topic like a tutorial. Number each step. Each step should be 2-3 sentences.
 5. **Mini Worked Example** — Pick one specific problem or scenario and solve it step by step.
 6. **Common Mistakes** — 3-5 mistakes learners make, with clear explanations of why they're wrong.
@@ -9470,7 +9470,7 @@ const evaluateTeachTwelveConsistency = (content: string) => {
     const reasons: string[] = [];
     if (wordBankEntries < 6) reasons.push("Word Bank must include at least 6 entries.");
     if (quickCheckPairs < 3) reasons.push("Quick Check must include at least 3 question/answer pairs.");
-    if (analogyCueCount < 3) reasons.push("Use at least 3 child-friendly analogy cues.");
+    if (analogyCueCount < 3) reasons.push("Use exactly 3 child-friendly analogy cues (max 2 sentences each, omit rather than force).");
     if (bracketDefinitionCount < 3) reasons.push("Explain difficult words with bracket definitions at least 3 times.");
     if (averageSentenceWords > 22) reasons.push("Sentences are too long on average for a 12-year-old reader.");
     if (maxSentenceWords > 38) reasons.push("Some sentences are too long for the target reading level.");
@@ -9796,9 +9796,9 @@ Output schema (JSON object only):
   "bigIdea": "1-2 short sentences, simple words",
   "simpleExplanationBullets": ["6-10 bullets, each <=18 words"],
   "analogies": [
-    { "label": "School", "text": "child-friendly analogy sentence" },
-    { "label": "Game", "text": "child-friendly analogy sentence" },
-    { "label": "Home", "text": "child-friendly analogy sentence" }
+    { "label": "School", "text": "1-2 sentences max. Omit if forced." },
+    { "label": "Game", "text": "1-2 sentences max. Omit if forced." },
+    { "label": "Home", "text": "1-2 sentences max. Omit if forced." }
   ],
   "workedExample": {
     "title": "mini worked example title",
@@ -9819,7 +9819,7 @@ Hard requirements:
 - Explain difficult words with brackets in the meaning text.
 - Include exactly 3 quick-check Q/A pairs.
 - Include at least 6 word-bank terms.
-- Use at least 3 child-friendly analogies tied to school, games, sports, cartoons, or home life.
+- Use exactly 3 child-friendly analogies (max 2 sentences each) tied to school, games, sports, cartoons, or home life. Skip any that feel forced.
 - No markdown in JSON values.
 
 ${args.extraGuidance ? `Fix these issues from the previous draft: ${args.extraGuidance}` : ""}`;
@@ -10392,7 +10392,7 @@ Give extra attention to explaining these concepts clearly. Weave them naturally 
 - Explain as if the learner is 12 years old and new to the topic.
 - Use very simple words and short sentences.
 - Every complex word must be explained immediately in brackets, e.g., "photosynthesis [how plants make food]".
-- Use at least 3 child-friendly analogies (school, games, sports, cartoons, home life).
+- Use exactly 3 child-friendly analogies (max 2 sentences each; school, games, sports, cartoons, home life). Omit rather than force a weak comparison.
 - Include one mini worked example with simple numbers or steps.
 - Add a "Word Bank" section with 6-10 difficult words and kid-friendly meanings.
 - End with "Quick Check" containing 3 short questions and answers.

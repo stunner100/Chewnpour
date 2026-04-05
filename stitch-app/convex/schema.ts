@@ -469,6 +469,22 @@ export default defineSchema({
         .index("by_userId_nextReviewAt", ["userId", "nextReviewAt"])
         .index("by_userId_topicId_conceptKey", ["userId", "topicId", "conceptKey"]),
 
+     // Per-user topic progress tracking
+     userTopicProgress: defineTable({
+         userId: v.string(),
+         topicId: v.id("topics"),
+         courseId: v.id("courses"),
+        completedAt: v.optional(v.number()),
+        lastStudiedAt: v.number(),
+        bestScore: v.optional(v.number()),       // 0–100
+        attemptCount: v.optional(v.number()),
+        termsStarred: v.optional(v.array(v.string())),
+        studyMode: v.optional(v.string()),
+     })
+     .index("by_userId_topicId", ["userId", "topicId"])
+     .index("by_userId_courseId", ["userId", "courseId"])
+     .index("by_userId_lastStudied", ["userId", "lastStudiedAt"]),
+
     // Subscription info
     subscriptions: defineTable({
         userId: v.string(),

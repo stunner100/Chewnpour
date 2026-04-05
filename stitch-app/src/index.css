@@ -201,6 +201,26 @@ html.is-safari .safari-backdrop {
         }
     }
 
+    /* On lg+ screens, panels are in-flow — use subtle fade+slide instead of full translateX */
+    @keyframes panel-expand {
+        from { opacity: 0; transform: translateX(20px); }
+        to { opacity: 1; transform: translateX(0); }
+    }
+    @keyframes panel-collapse {
+        from { opacity: 1; transform: translateX(0); }
+        to { opacity: 0; transform: translateX(20px); }
+    }
+    @media (min-width: 1024px) {
+        .animate-panel-slide-up,
+        .animate-panel-slide-left {
+            animation: panel-expand 0.25s ease-out;
+        }
+        .animate-panel-slide-down,
+        .animate-panel-slide-right {
+            animation: panel-collapse 0.25s ease-in forwards;
+        }
+    }
+
     .no-scrollbar::-webkit-scrollbar {
         display: none;
     }
