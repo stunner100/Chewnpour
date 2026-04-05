@@ -520,6 +520,8 @@ export const markPreparationStageInternal = internalMutation({
         qualityWarnings: v.optional(v.array(v.string())),
         qualitySignals: v.optional(v.any()),
         finishedAt: v.optional(v.number()),
+        questionSetVersion: v.optional(v.number()),
+        assessmentVersion: v.optional(v.string()),
     },
     handler: async (ctx, args) => {
         const preparation = await ctx.db.get(args.preparationId);
@@ -555,6 +557,8 @@ export const markPreparationStageInternal = internalMutation({
             qualityWarnings: args.qualityWarnings === undefined ? preparation.qualityWarnings : args.qualityWarnings,
             qualitySignals: args.qualitySignals === undefined ? preparation.qualitySignals : args.qualitySignals,
             finishedAt: args.finishedAt === undefined ? preparation.finishedAt : args.finishedAt,
+            questionSetVersion: args.questionSetVersion === undefined ? preparation.questionSetVersion : args.questionSetVersion,
+            assessmentVersion: args.assessmentVersion === undefined ? preparation.assessmentVersion : args.assessmentVersion,
         };
 
         await ctx.db.patch(args.preparationId, patch);
@@ -646,6 +650,11 @@ export const runExamPreparationInternal = internalAction({
             return null;
         }
 
+        const latestQuestionSetVersion = resolveTopicQuestionSetVersion(topicSnapshot);
+        const latestAssessmentVersion = resolveExamAssessmentVersion(
+            topicSnapshot?.assessmentBlueprint?.version || preparation.assessmentVersion || ASSESSMENT_BLUEPRINT_VERSION
+        );
+
         if (!isExamSnapshotCompatible({
             snapshotQuestionSetVersion: preparation.questionSetVersion,
             snapshotAssessmentVersion: preparation.assessmentVersion,
@@ -653,16 +662,35 @@ export const runExamPreparationInternal = internalAction({
             requestedAssessmentVersion: preparation.assessmentVersion,
             snapshotAt: resolveExamSnapshotTimestamp(preparation),
         })) {
-            await ctx.runMutation(internal.examPreparations.markPreparationStageInternal, {
-                preparationId: args.preparationId,
-                status: "failed",
-                stage: "failed",
-                reasonCode: "STALE_PREPARATION",
-                errorSummary: "Exam preparation became stale after the topic changed.",
-                message: "This exam set is outdated because the topic changed. Start the exam again.",
-                finishedAt: Date.now(),
-            });
-            return null;
+            if (!preparation.attemptId && (preparation.status === "queued" || preparation.status === "preparing")) {
+                await ctx.runMutation(internal.examPreparations.markPreparationStageInternal, {
+                    preparationId: args.preparationId,
+                    status: "queued",
+                    stage: "queued",
+                    reasonCode: undefined,
+                    errorSummary: undefined,
+                    message: buildPreparationMessage({
+                        examFormat,
+                        status: "queued",
+                    }),
+                    finishedAt: undefined,
+                    questionSetVersion: latestQuestionSetVersion,
+                    assessmentVersion: latestAssessmentVersion,
+                });
+            } else {
+                await ctx.runMutation(internal.examPreparations.markPreparationStageInternal, {
+                    preparationId: args.preparationId,
+                    status: "failed",
+                    stage: "failed",
+                    reasonCode: "STALE_PREPARATION",
+                    errorSummary: "Exam preparation became stale after the topic changed.",
+                    message: "This exam set is outdated because the topic changed. Start the exam again.",
+                    finishedAt: Date.now(),
+                    questionSetVersion: latestQuestionSetVersion,
+                    assessmentVersion: latestAssessmentVersion,
+                });
+                return null;
+            }
         }
 
         await ctx.runMutation(internal.examPreparations.markPreparationStageInternal, {
@@ -831,6 +859,8 @@ export const runExamPreparationInternal = internalAction({
                 premiumTargetMet: finalAttempt.premiumTargetMet,
                 qualityWarnings: finalAttempt.qualityWarnings,
                 qualitySignals: finalAttempt.qualitySignals,
+                questionSetVersion: Number(finalAttempt.questionSetVersion || latestQuestionSetVersion || 0) || latestQuestionSetVersion,
+                assessmentVersion: resolveExamAssessmentVersion(finalAttempt.assessmentVersion || latestAssessmentVersion),
             });
             return finalAttempt;
         }
@@ -857,6 +887,8 @@ export const runExamPreparationInternal = internalAction({
             qualityWarnings: finalAttempt?.qualityWarnings || generationResult?.qualityWarnings,
             qualitySignals: finalAttempt?.qualitySignals || generationResult?.qualitySignals,
             finishedAt: Date.now(),
+            questionSetVersion: Number(finalAttempt?.questionSetVersion || latestQuestionSetVersion || 0) || latestQuestionSetVersion,
+            assessmentVersion: resolveExamAssessmentVersion(finalAttempt?.assessmentVersion || latestAssessmentVersion),
         });
 
         return terminalOutcome;
