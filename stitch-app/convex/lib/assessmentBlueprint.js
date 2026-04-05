@@ -101,6 +101,157 @@ const normalizeText = (value) =>
         .replace(/\s+/g, " ")
         .trim();
 
+const ALIGNMENT_STOPWORDS = new Set([
+    "a",
+    "an",
+    "and",
+    "are",
+    "as",
+    "at",
+    "be",
+    "by",
+    "can",
+    "does",
+    "for",
+    "from",
+    "how",
+    "if",
+    "in",
+    "into",
+    "is",
+    "it",
+    "its",
+    "of",
+    "on",
+    "or",
+    "same",
+    "show",
+    "student",
+    "students",
+    "that",
+    "the",
+    "their",
+    "them",
+    "they",
+    "this",
+    "to",
+    "using",
+    "what",
+    "when",
+    "which",
+    "with",
+]);
+
+const tokenizeAlignmentText = (value) =>
+    Array.from(
+        new Set(
+            normalizeText(value)
+                .toLowerCase()
+                .replace(/[^a-z0-9/.\s-]+/g, " ")
+                .split(/\s+/)
+                .map((token) => token.trim())
+                .filter((token) => token.length >= 3 && !ALIGNMENT_STOPWORDS.has(token))
+        )
+    );
+
+const measureTokenOverlap = (haystackTokens, needleTokens) => {
+    if (!needleTokens.length) return 0;
+    const haystack = new Set(haystackTokens);
+    let overlapCount = 0;
+    for (const token of needleTokens) {
+        if (haystack.has(token)) overlapCount += 1;
+    }
+    return overlapCount / needleTokens.length;
+};
+
+const extractAlignmentPhrases = (value) =>
+    normalizeText(value)
+        .split(/[.;:]/)
+        .map((phrase) => normalizeText(phrase).toLowerCase())
+        .filter((phrase) => phrase.length >= 8);
+
+const countPhraseHits = (questionText, phrases) => {
+    const haystack = normalizeText(questionText).toLowerCase();
+    if (!haystack || phrases.length === 0) return 0;
+    let hits = 0;
+    for (const phrase of phrases) {
+        if (haystack.includes(phrase)) hits += 1;
+    }
+    return hits;
+};
+
+const buildQuestionAlignmentText = (question) => {
+    const options = Array.isArray(question?.options)
+        ? question.options.map((option) => option?.text || option).join(" ")
+        : "";
+    const templateParts = Array.isArray(question?.templateParts)
+        ? question.templateParts.filter((part) => part !== "__").join(" ")
+        : "";
+    const acceptedAnswers = Array.isArray(question?.acceptedAnswers)
+        ? question.acceptedAnswers.join(" ")
+        : "";
+
+    return [
+        question?.questionText,
+        question?.explanation,
+        question?.learningObjective,
+        question?.authenticContext,
+        options,
+        templateParts,
+        acceptedAnswers,
+    ].filter(Boolean).join(" ");
+};
+
+const scoreOutcomeAlignment = (question, outcome) => {
+    const questionText = buildQuestionAlignmentText(question);
+    const questionTokens = tokenizeAlignmentText(buildQuestionAlignmentText(question));
+    const evidenceFocusTokens = tokenizeAlignmentText(outcome?.evidenceFocus);
+    const objectiveTokens = tokenizeAlignmentText(outcome?.objective);
+    const scenarioTokens = tokenizeAlignmentText(outcome?.scenarioFrame);
+    const evidenceFocusOverlap = measureTokenOverlap(questionTokens, evidenceFocusTokens);
+    const objectiveOverlap = measureTokenOverlap(questionTokens, objectiveTokens);
+    const scenarioOverlap = measureTokenOverlap(questionTokens, scenarioTokens);
+    const phraseHits = countPhraseHits(questionText, [
+        ...extractAlignmentPhrases(outcome?.evidenceFocus),
+        ...extractAlignmentPhrases(outcome?.scenarioFrame),
+    ]);
+    const arithmeticContextBonus = /[0-9]\s*\/\s*[0-9]|[=+\-*/]/.test(questionText)
+        && /denominator|numerator|fraction addition|adding fractions|same denominator|add denominators directly|1\/4 \+ 2\/4/i.test(
+            `${outcome?.evidenceFocus || ""} ${outcome?.objective || ""} ${outcome?.scenarioFrame || ""}`
+        )
+        ? 0.12
+        : 0;
+
+    return (
+        evidenceFocusOverlap * 0.5
+        + objectiveOverlap * 0.35
+        + scenarioOverlap * 0.15
+        + Math.min(0.2, phraseHits * 0.1)
+        + arithmeticContextBonus
+    );
+};
+
+const resolveBestAlignedOutcome = ({ question, blueprint, questionType }) => {
+    const candidates = Array.isArray(blueprint?.outcomes)
+        ? blueprint.outcomes
+        : [];
+
+    let bestOutcome = null;
+    let bestScore = 0;
+    for (const outcome of candidates) {
+        const score = scoreOutcomeAlignment(question, outcome);
+        if (score > bestScore) {
+            bestScore = score;
+            bestOutcome = outcome;
+        }
+    }
+
+    return {
+        outcome: bestOutcome,
+        score: bestScore,
+    };
+};
+
 export const normalizeBloomLevel = (value) => {
     const normalized = normalizeText(value).toLowerCase();
     return BLOOM_LEVEL_INDEX.get(normalized) || "";
@@ -414,6 +565,7 @@ export const getAssessmentQuestionMetadataIssues = ({
     const plan = getAssessmentPlanForQuestionType(blueprint, resolvedType);
     const outcomeKey = normalizeOutcomeKey(question?.outcomeKey);
     const bloomLevel = normalizeBloomLevel(question?.bloomLevel);
+    const normalizedQuestionText = normalizeText(buildQuestionAlignmentText(question)).toLowerCase();
     const issues = [];
 
     if (!outcomeKey) {
@@ -469,6 +621,38 @@ export const getAssessmentQuestionMetadataIssues = ({
     }
     if (resolvedType === QUESTION_TYPE_ESSAY && plan?.authenticScenarioRequired && !normalizeText(question?.authenticContext)) {
         issues.push("missing authenticContext");
+    }
+
+    const questionSignalsFractionAddition =
+        /same denominator|add denominators|adding fractions|fraction addition|denominator stays the same/.test(normalizedQuestionText)
+        || /[0-9]\s*\/\s*[0-9]\s*[+=-]\s*[0-9]\s*\/\s*[0-9]/.test(normalizedQuestionText);
+    if (questionSignalsFractionAddition) {
+        const outcomeText = normalizeText(
+            `${outcome?.evidenceFocus || ""} ${outcome?.objective || ""} ${outcome?.scenarioFrame || ""}`
+        ).toLowerCase();
+        const outcomeSupportsFractionAddition =
+            /same denominator|add denominators|adding fractions|fraction addition|denominator rule/.test(outcomeText)
+            || /[0-9]\s*\/\s*[0-9]\s*[+=-]\s*[0-9]\s*\/\s*[0-9]/.test(outcomeText);
+        if (!outcomeSupportsFractionAddition) {
+            issues.push("outcomeKey weakly aligned to question");
+        }
+    }
+
+    const assignedAlignmentScore = scoreOutcomeAlignment(question, outcome);
+    const bestAligned = resolveBestAlignedOutcome({
+        question,
+        blueprint,
+        questionType: resolvedType,
+    });
+    if (assignedAlignmentScore < 0.2) {
+        issues.push("outcomeKey weakly aligned to question");
+    }
+    if (
+        bestAligned?.outcome?.key
+        && bestAligned.outcome.key !== outcomeKey
+        && bestAligned.score >= assignedAlignmentScore + 0.18
+    ) {
+        issues.push(`question aligns better to ${bestAligned.outcome.key}`);
     }
 
     return issues;

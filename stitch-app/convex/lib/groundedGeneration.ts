@@ -314,9 +314,12 @@ Rules:
 - The marked correct option must be directly supported by the cited evidence.
 - Every question must be framed as application, interpretation, diagnosis, comparison, or scenario evaluation, not direct recall or definition lookup.
 - The stem should sound like a university assessment item, not a flashcard.
+- Do not ask "according to the passage" or write a stem that simply asks for a quoted definition.
+- Do not reuse the cited sentence almost verbatim as the stem or as the correct option unless no other grounded wording is possible.
 - All distractors must be plausible, evidence-adjacent, and free of giveaway wording.
 - Avoid obviously longer/shorter correct options and avoid trivial eliminations.
 - When evidence permits, test reasoning about relationships, mechanisms, implications, or scenario-based decisions.
+- Use plain ASCII math like 1/4, 2/4, 3/4. Never emit unicode vulgar fractions, byte-fragment placeholders, or control characters.
 - If the correct option includes a number, percentage, threshold, rate, count, or limit, copy that value exactly from evidence.
 - Do not invent targets, definitions, or thresholds that are not explicitly stated in the evidence.
 - Keep the correct option wording very close to the evidence. Do not add extra explanation inside the option text.
@@ -446,8 +449,10 @@ Rules:
 - Exactly one option must be correct.
 - If False is correct, the statement must be directly contradicted by the evidence, not vaguely unsupported.
 - Prefer claim-evaluation statements that require applying the evidence to a case, workflow, implication, or decision, not textbook one-liners.
+- Prefer checking a student's worked method, conclusion, or error diagnosis over repeating a fact sentence from the notes.
 - Do not write tricky, opinion-based, or ambiguous statements.
 - False statements must be meaningfully wrong, not just a single swapped word.
+- Use plain ASCII math like 1/4, 2/4, 3/4. Never emit unicode vulgar fractions, byte-fragment placeholders, or control characters.
 - Every question must include citations[] with 1-3 citation objects.
 - Every citation object must include: passageId, page, startChar, endChar, quote.
 - quote must be an exact short excerpt from the cited passage.
@@ -509,6 +514,7 @@ Rules:
 - The blank must carry the concept-bearing part of the sentence.
 - For token_bank items, include tokens with 4-6 entries including the correct answer.
 - For free_text items, omit tokens.
+- Use plain ASCII math like 1/4, 2/4, 3/4. Never emit unicode vulgar fractions, byte-fragment placeholders, or control characters.
 - Do not invent unsupported aliases.
 - Every question must include citations[] with 1-3 citation objects.
 - Every citation object must include: passageId, page, startChar, endChar, quote.

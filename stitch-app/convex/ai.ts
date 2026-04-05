@@ -252,6 +252,9 @@ const ESSAY_QUESTION_TIME_BUDGET_MS = 60_000;
 const ESSAY_QUESTION_MAX_BATCH_ATTEMPTS = 2;
 const PREMIUM_REVIEW_MAX_REVISIONS = 3;
 const PREMIUM_REVIEW_MIN_IMPROVEMENT = 0.04;
+const OBJECTIVE_MIN_USABLE_RIGOR_SCORE = 0.62;
+const OBJECTIVE_MIN_USABLE_CLARITY_SCORE = 0.72;
+const OBJECTIVE_MIN_USABLE_DISTRACTOR_SCORE = 0.7;
 const MCQ_QUESTION_BACKGROUND_RETRY_DELAY_MS = 20_000;
 const MCQ_QUESTION_BACKGROUND_MAX_RETRIES = 4;
 const ESSAY_QUESTION_BACKGROUND_RETRY_DELAY_MS = 20_000;
@@ -1278,13 +1281,44 @@ const extractQuestionsEnvelope = (payload: any) => {
     return [];
 };
 
+const GENERATED_TEXT_CONTROL_CHAR_PATTERN = /[\u0000-\u0008\u000b\u000c\u000e-\u001f]/g;
+const GENERATED_TEXT_MALFORMED_FRACTION_PLACEHOLDER_PATTERN = /(?:^|[\s(=+\-*/])(?:bc|bd|be)(?=$|[\s).,;:=+\-*/])/i;
+const VULGAR_FRACTION_REPLACEMENTS: Array<[RegExp, string]> = [
+    [/\u00bc/g, "1/4"],
+    [/\u00bd/g, "1/2"],
+    [/\u00be/g, "3/4"],
+];
+
+const normalizeGeneratedAssessmentText = (value: unknown) => {
+    let normalized = String(value || "");
+    const hadMalformedFractionPlaceholder = GENERATED_TEXT_MALFORMED_FRACTION_PLACEHOLDER_PATTERN.test(normalized);
+
+    normalized = normalized.replace(GENERATED_TEXT_CONTROL_CHAR_PATTERN, " ");
+    for (const [pattern, replacement] of VULGAR_FRACTION_REPLACEMENTS) {
+        normalized = normalized.replace(pattern, replacement);
+    }
+
+    normalized = normalized
+        .replace(/\r\n/g, "\n")
+        .replace(/[ \t]+\n/g, "\n")
+        .replace(/\n{3,}/g, "\n\n")
+        .replace(/\s+/g, " ")
+        .trim();
+
+    return {
+        text: normalized,
+        malformed: hadMalformedFractionPlaceholder || GENERATED_TEXT_MALFORMED_FRACTION_PLACEHOLDER_PATTERN.test(normalized),
+    };
+};
+
 const normalizeMcqOptionCandidate = (option: any, index: number, candidateCorrectAnswer?: string) => {
     const label = String(option?.label || String.fromCharCode(65 + index)).trim().toUpperCase();
-    const text = String(
+    const normalizedText = normalizeGeneratedAssessmentText(
         typeof option === "string"
             ? option
             : option?.text ?? option?.answer ?? option?.option ?? ""
-    ).trim();
+    );
+    const text = normalizedText.text;
     if (!text) {
         return null;
     }
@@ -1298,11 +1332,13 @@ const normalizeMcqOptionCandidate = (option: any, index: number, candidateCorrec
         label: /^[A-D]$/.test(label) ? label : String.fromCharCode(65 + index),
         text,
         isCorrect,
+        malformed: normalizedText.malformed,
     };
 };
 
 const coerceMcqCandidate = (candidate: any) => {
-    const questionText = String(candidate?.questionText || candidate?.prompt || "").trim();
+    const normalizedQuestionText = normalizeGeneratedAssessmentText(candidate?.questionText || candidate?.prompt || "");
+    const questionText = normalizedQuestionText.text;
     if (questionText.length < 12) {
         return null;
     }
@@ -1312,14 +1348,18 @@ const coerceMcqCandidate = (candidate: any) => {
         .filter(Boolean)
         .slice(0, 4);
     const citations = normalizeCitationCandidates(candidate?.citations);
-    const explanation = String(candidate?.explanation || "").trim();
-    const learningObjective = String(candidate?.learningObjective || "").trim();
+    const explanation = normalizeGeneratedAssessmentText(candidate?.explanation || "").text;
+    const learningObjective = normalizeGeneratedAssessmentText(candidate?.learningObjective || "").text;
+    const authenticContext = normalizeGeneratedAssessmentText(candidate?.authenticContext || "").text;
     const qualityFlags = normalizeQualityFlags(candidate?.qualityFlags);
     if (options.length !== 4) {
         qualityFlags.push("coerced_options");
     }
     if (citations.length === 0) {
         qualityFlags.push("missing_citations");
+    }
+    if (normalizedQuestionText.malformed || options.some((option: any) => option?.malformed)) {
+        qualityFlags.push("malformed_text");
     }
 
     return {
@@ -1331,7 +1371,7 @@ const coerceMcqCandidate = (candidate: any) => {
         learningObjective: learningObjective || undefined,
         bloomLevel: String(candidate?.bloomLevel || "").trim() || undefined,
         outcomeKey: String(candidate?.outcomeKey || "").trim() || undefined,
-        authenticContext: String(candidate?.authenticContext || "").trim() || undefined,
+        authenticContext: authenticContext || undefined,
         citations,
         qualityFlags: normalizeQualityFlags(qualityFlags),
     };
@@ -1383,19 +1423,23 @@ const normalizeTrueFalseOptions = (candidate: any) => {
 };
 
 const coerceTrueFalseCandidate = (candidate: any) => {
-    const questionText = String(candidate?.questionText || candidate?.prompt || "").trim();
+    const normalizedQuestionText = normalizeGeneratedAssessmentText(candidate?.questionText || candidate?.prompt || "");
+    const questionText = normalizedQuestionText.text;
     if (questionText.length < 12) {
         return null;
     }
 
     const citations = normalizeCitationCandidates(candidate?.citations);
-    const explanation = String(candidate?.explanation || "").trim();
-    const learningObjective = String(candidate?.learningObjective || "").trim();
+    const explanation = normalizeGeneratedAssessmentText(candidate?.explanation || "").text;
+    const learningObjective = normalizeGeneratedAssessmentText(candidate?.learningObjective || "").text;
     const qualityFlags = normalizeQualityFlags(candidate?.qualityFlags);
     const options = ensureSingleCorrect(normalizeTrueFalseOptions(candidate));
 
     if (citations.length === 0) {
         qualityFlags.push("missing_citations");
+    }
+    if (normalizedQuestionText.malformed) {
+        qualityFlags.push("malformed_text");
     }
 
     return {
@@ -1415,12 +1459,12 @@ const coerceTrueFalseCandidate = (candidate: any) => {
 
 const coerceFillBlankCandidate = (candidate: any) => {
     const templateParts = (Array.isArray(candidate?.templateParts) ? candidate.templateParts : [])
-        .map((part: any) => String(part || ""))
+        .map((part: any) => normalizeGeneratedAssessmentText(part).text)
         .filter((part: string) => part.length > 0 || part === "__");
     const acceptedAnswers = Array.from(
         new Set(
             (Array.isArray(candidate?.acceptedAnswers) ? candidate.acceptedAnswers : [])
-                .map((answer: any) => String(answer || "").trim())
+                .map((answer: any) => normalizeGeneratedAssessmentText(answer).text)
                 .filter(Boolean)
         )
     ).slice(0, 6);
@@ -1432,7 +1476,7 @@ const coerceFillBlankCandidate = (candidate: any) => {
     const rawTokens = Array.from(
         new Set(
             (Array.isArray(candidate?.tokens) ? candidate.tokens : [])
-                .map((token: any) => String(token || "").trim())
+                .map((token: any) => normalizeGeneratedAssessmentText(token).text)
                 .filter(Boolean)
         )
     );
@@ -1440,24 +1484,28 @@ const coerceFillBlankCandidate = (candidate: any) => {
     const tokens = fillBlankMode === "token_bank"
         ? Array.from(new Set([acceptedAnswers[0], ...rawTokens])).slice(0, 6)
         : undefined;
-    const questionText = String(
+    const normalizedQuestionText = normalizeGeneratedAssessmentText(
         candidate?.questionText
         || candidate?.prompt
         || templateParts.map((part: string) => (part === "__" ? "_____" : part)).join("")
-    ).trim();
+    );
+    const questionText = normalizedQuestionText.text;
     if (questionText.length < 12) {
         return null;
     }
 
     const citations = normalizeCitationCandidates(candidate?.citations);
-    const explanation = String(candidate?.explanation || "").trim();
-    const learningObjective = String(candidate?.learningObjective || "").trim();
+    const explanation = normalizeGeneratedAssessmentText(candidate?.explanation || "").text;
+    const learningObjective = normalizeGeneratedAssessmentText(candidate?.learningObjective || "").text;
     const qualityFlags = normalizeQualityFlags(candidate?.qualityFlags);
     if (citations.length === 0) {
         qualityFlags.push("missing_citations");
     }
     if (fillBlankMode === "free_text") {
         qualityFlags.push("free_text_fill_blank");
+    }
+    if (normalizedQuestionText.malformed) {
+        qualityFlags.push("malformed_text");
     }
 
     return {
@@ -1479,25 +1527,31 @@ const coerceFillBlankCandidate = (candidate: any) => {
 };
 
 const coerceEssayCandidate = (candidate: any) => {
-    const questionText = String(candidate?.questionText || candidate?.prompt || "").trim();
-    const correctAnswer = String(candidate?.correctAnswer || candidate?.modelAnswer || "").trim();
+    const normalizedQuestionText = normalizeGeneratedAssessmentText(candidate?.questionText || candidate?.prompt || "");
+    const normalizedCorrectAnswer = normalizeGeneratedAssessmentText(candidate?.correctAnswer || candidate?.modelAnswer || "");
+    const questionText = normalizedQuestionText.text;
+    const correctAnswer = normalizedCorrectAnswer.text;
     if (questionText.length < 12 || correctAnswer.length < 6) {
         return null;
     }
 
     const rubricPoints = (Array.isArray(candidate?.rubricPoints) ? candidate.rubricPoints : [])
-        .map((item) => String(item || "").trim())
+        .map((item) => normalizeGeneratedAssessmentText(item).text)
         .filter(Boolean)
         .slice(0, 8);
     const citations = normalizeCitationCandidates(candidate?.citations);
-    const explanation = String(candidate?.explanation || "").trim();
-    const learningObjective = String(candidate?.learningObjective || "").trim();
+    const explanation = normalizeGeneratedAssessmentText(candidate?.explanation || "").text;
+    const learningObjective = normalizeGeneratedAssessmentText(candidate?.learningObjective || "").text;
+    const authenticContext = normalizeGeneratedAssessmentText(candidate?.authenticContext || "").text;
     const qualityFlags = normalizeQualityFlags(candidate?.qualityFlags);
     if (rubricPoints.length === 0) {
         qualityFlags.push("missing_rubric_points");
     }
     if (citations.length === 0) {
         qualityFlags.push("missing_citations");
+    }
+    if (normalizedQuestionText.malformed || normalizedCorrectAnswer.malformed) {
+        qualityFlags.push("malformed_text");
     }
 
     return {
@@ -1509,7 +1563,7 @@ const coerceEssayCandidate = (candidate: any) => {
         learningObjective: learningObjective || undefined,
         bloomLevel: String(candidate?.bloomLevel || "").trim() || undefined,
         outcomeKey: String(candidate?.outcomeKey || "").trim() || undefined,
-        authenticContext: String(candidate?.authenticContext || "").trim() || undefined,
+        authenticContext: authenticContext || undefined,
         rubricPoints,
         citations,
         qualityFlags: normalizeQualityFlags(qualityFlags),
@@ -1954,6 +2008,55 @@ const normalizeGeneratedAssessmentCandidate = (args: {
         distractorScore: Number.isFinite(Number(args.candidate?.distractorScore))
             ? Number(args.candidate?.distractorScore)
             : undefined,
+    };
+};
+
+const meetsObjectiveQuestionQualityGate = (question: any) => {
+    const quality = evaluateQuestionQuality(question);
+    const rigorScore = Number(quality?.qualitySignals?.rigorScore || 0);
+    const clarityScore = Number(quality?.qualitySignals?.clarityScore || 0);
+    const distractorScore = quality?.qualitySignals?.distractorScore;
+    const hasMalformedFlag = (Array.isArray(question?.qualityFlags) ? question.qualityFlags : [])
+        .map((flag: any) => String(flag || "").trim().toLowerCase())
+        .includes("malformed_text");
+
+    if (hasMalformedFlag) {
+        return {
+            quality,
+            passes: false,
+            reason: "malformed_text",
+        };
+    }
+    if (rigorScore < OBJECTIVE_MIN_USABLE_RIGOR_SCORE) {
+        return {
+            quality,
+            passes: false,
+            reason: "low_rigor",
+        };
+    }
+    if (clarityScore < OBJECTIVE_MIN_USABLE_CLARITY_SCORE) {
+        return {
+            quality,
+            passes: false,
+            reason: "low_clarity",
+        };
+    }
+    if (
+        normalizeQuestionType(question?.questionType) === QUESTION_TYPE_MULTIPLE_CHOICE
+        && distractorScore !== undefined
+        && Number(distractorScore) < OBJECTIVE_MIN_USABLE_DISTRACTOR_SCORE
+    ) {
+        return {
+            quality,
+            passes: false,
+            reason: "weak_distractors",
+        };
+    }
+
+    return {
+        quality,
+        passes: true,
+        reason: null,
     };
 };
 
@@ -7962,6 +8065,27 @@ const generateQuestionBankForTopic = async (
             topicWithQuestions.title,
             topicKeywords,
         );
+        const objectiveQualityGate = meetsObjectiveQuestionQualityGate({
+            ...questionRecord,
+            questionText: finalQuestionText,
+            options,
+        });
+        if (!objectiveQualityGate.passes) {
+            return false;
+        }
+        questionRecord = {
+            ...questionRecord,
+            qualityTier: objectiveQualityGate.quality.qualityTier,
+            qualityScore: Number(objectiveQualityGate.quality.qualitySignals.qualityScore || 0),
+            rigorScore: Number(objectiveQualityGate.quality.qualitySignals.rigorScore || 0),
+            clarityScore: Number(objectiveQualityGate.quality.qualitySignals.clarityScore || 0),
+            diversityCluster: String(objectiveQualityGate.quality.qualitySignals.diversityCluster || ""),
+            distractorScore: objectiveQualityGate.quality.qualitySignals.distractorScore,
+            qualityFlags: normalizeQualityFlags([
+                ...(Array.isArray(questionRecord?.qualityFlags) ? questionRecord.qualityFlags : []),
+                ...objectiveQualityGate.quality.qualityWarnings,
+            ]),
+        };
         const signature = buildQuestionPromptSignature(finalQuestionText);
         const normalizedKey = String(signature?.normalized || "");
         if (!normalizedKey || existingQuestionKeys.has(normalizedKey)) {
