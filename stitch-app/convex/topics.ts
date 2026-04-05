@@ -187,6 +187,16 @@ const getTopicWithQuestionsPayload = async (ctx: any, topicId: any) => {
     };
 };
 
+const resolveTopicIdFromRoute = (ctx: any, routeId: unknown) => {
+    const normalizedRouteId = typeof routeId === "string" ? routeId.trim() : "";
+    if (!normalizedRouteId) return null;
+    try {
+        return ctx.db.normalizeId("topics", normalizedRouteId);
+    } catch {
+        return null;
+    }
+};
+
 // Get all topics for a course
 export const getTopicsByCourse = query({
     args: { courseId: v.id("courses") },
@@ -226,13 +236,16 @@ export const getTopicsByCourse = query({
 
 // Get single topic with its questions
 export const getTopicWithQuestions = query({
-    args: { topicId: v.id("topics") },
+    args: { topicId: v.string() },
     handler: async (ctx, args) => {
         const identity = await ctx.auth.getUserIdentity();
         const authUserId = resolveAuthUserId(identity);
         if (!authUserId) return null;
 
-        const payload = await getTopicWithQuestionsPayload(ctx, args.topicId);
+        const topicId = resolveTopicIdFromRoute(ctx, args.topicId);
+        if (!topicId) return null;
+
+        const payload = await getTopicWithQuestionsPayload(ctx, topicId);
         if (!payload) return null;
 
         try {
