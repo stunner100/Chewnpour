@@ -1,7 +1,8 @@
 import React, { useEffect, useState } from 'react';
-import { Link, useParams } from 'react-router-dom';
+import { Link, useParams, useNavigate } from 'react-router-dom';
 import { useQuery, useAction, useConvexAuth } from 'convex/react';
 import { api } from '../../convex/_generated/api';
+import NextStepsGuidance from '../components/NextStepsGuidance';
 
 // ─── Post-exam upgrade prompt ────────────────────────────────────────────────
 
@@ -151,6 +152,51 @@ const DifficultyPills = ({ answers }) => {
                     {DIFFICULTY_LABELS[d]}: {v.correct}/{v.total}
                 </span>
             ))}
+        </div>
+    );
+};
+
+// ─── Bloom level breakdown helpers ───────────────────────────────────────────
+
+const BLOOM_LABELS = ['Remember', 'Understand', 'Apply', 'Analyze', 'Evaluate', 'Create'];
+
+const BLOOM_COLORS = {
+    Remember: 'bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/20',
+    Understand: 'bg-teal-500/10 text-teal-600 dark:text-teal-400 border-teal-500/20',
+    Apply: 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20',
+    Analyze: 'bg-orange-500/10 text-orange-600 dark:text-orange-400 border-orange-500/20',
+    Evaluate: 'bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-500/20',
+    Create: 'bg-purple-500/10 text-purple-600 dark:text-purple-400 border-purple-500/20',
+};
+
+const buildBloomBreakdown = (answers) => {
+    const buckets = {};
+    for (const a of answers) {
+        if (a.skipped) continue;
+        const bloom = String(a.bloomLevel || '').trim();
+        if (!bloom) continue;
+        if (!buckets[bloom]) buckets[bloom] = { correct: 0, total: 0 };
+        buckets[bloom].total += 1;
+        if (a.isCorrect) buckets[bloom].correct += 1;
+    }
+    return buckets;
+};
+
+const BloomBreakdown = ({ answers }) => {
+    const breakdown = buildBloomBreakdown(answers);
+    const pills = BLOOM_LABELS.filter((l) => breakdown[l]?.total > 0);
+    if (pills.length === 0) return null;
+
+    return (
+        <div className="mt-3 flex flex-wrap gap-2 justify-center">
+            {pills.map((level) => {
+                const { correct, total } = breakdown[level];
+                return (
+                    <span key={level} className={`text-caption font-semibold px-3 py-1 rounded-full border ${BLOOM_COLORS[level] || ''}`}>
+                        {level}: {correct}/{total}
+                    </span>
+                );
+            })}
         </div>
     );
 };
@@ -473,6 +519,7 @@ const DashboardResults = () => {
                             )}
                         </div>
                         {answers.length > 0 && <DifficultyPills answers={answers} />}
+                        {answers.length > 0 && <BloomBreakdown answers={answers} />}
                     </div>
                 </section>
 
@@ -489,6 +536,22 @@ const DashboardResults = () => {
                 {/* Tutor Report */}
                 <section className="w-full flex justify-center">
                     <TutorReport key={attemptId} attemptId={attemptId} storedFeedback={attempt.tutorFeedback} />
+                </section>
+
+                {/* Next Steps Guidance */}
+                <section className="w-full max-w-2xl">
+                    <div className="card-base p-5">
+                        <NextStepsGuidance
+                            topicId={attempt.topicId}
+                            topicTitle={attempt.topicTitle}
+                            percentage={percentage}
+                            completedAt={null}
+                            bestScore={null}
+                            hasWordBank={false}
+                            onOpenChat={null}
+                            variant="exam"
+                        />
+                    </div>
                 </section>
 
                 {/* Question Review */}
@@ -510,9 +573,14 @@ const DashboardResults = () => {
                                 return (
                                     <div key={`${answer.questionId}-${index}`} className="card-base p-5">
                                         <div className="flex justify-between items-center mb-3">
-                                            <div className="flex items-center gap-2">
+                                            <div className="flex items-center gap-2 flex-wrap">
                                                 <span className="text-overline text-text-faint-light dark:text-text-faint-dark">Question {index + 1}</span>
                                                 <span className="text-caption text-text-faint-light dark:text-text-faint-dark">{answer.difficulty || 'Medium'}</span>
+                                                {answer.bloomLevel && BLOOM_COLORS[answer.bloomLevel] && (
+                                                    <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full border ${BLOOM_COLORS[answer.bloomLevel]}`}>
+                                                        {answer.bloomLevel}
+                                                    </span>
+                                                )}
                                             </div>
                                             <span className={`text-caption font-semibold px-2.5 py-1 rounded-md border ${
                                                 answer.skipped
@@ -524,9 +592,15 @@ const DashboardResults = () => {
                                                 {answer.skipped ? 'Skipped' : hasEssayFeedback ? (isCorrect ? 'Pass' : 'Needs Work') : (isCorrect ? 'Correct' : 'Incorrect')}
                                             </span>
                                         </div>
-                                        <p className="text-body-base text-text-main-light dark:text-text-main-dark mb-5 leading-relaxed">
+                                        <p className="text-body-base text-text-main-light dark:text-text-main-dark leading-relaxed">
                                             {questionText}
                                         </p>
+                                        {answer.learningObjective && (
+                                            <p className="text-caption text-text-faint-light dark:text-text-faint-dark mt-1 mb-5 leading-snug">
+                                                <span className="font-medium">Objective:</span> {answer.learningObjective}
+                                            </p>
+                                        )}
+                                        {!answer.learningObjective && <div className="mb-5" />}
 
                                         {/* Essay answer display */}
                                         {hasEssayFeedback ? (
@@ -541,14 +615,41 @@ const DashboardResults = () => {
                                                     <p className="text-body-sm text-text-main-light dark:text-text-main-dark whitespace-pre-wrap leading-relaxed">{answer.selectedAnswer || 'Not answered'}</p>
                                                 </div>
 
-                                                {/* AI Feedback */}
-                                                <div className="flex items-start gap-3 p-4 rounded-xl bg-primary/5 dark:bg-primary/10 border border-primary/20">
-                                                    <span className="material-symbols-outlined text-primary mt-0.5 text-[20px]">psychology</span>
-                                                    <div className="flex-1">
-                                                        <span className="text-overline text-primary block mb-1">AI Feedback</span>
-                                                        <span className="text-body-sm text-text-main-light dark:text-text-main-dark">{answer.feedback}</span>
+                                                {/* Per-criterion rubric feedback */}
+                                                {Array.isArray(answer.criteriaFeedback) && answer.criteriaFeedback.length > 0 ? (
+                                                    <div className="p-4 rounded-xl bg-primary/5 dark:bg-primary/10 border border-primary/20 space-y-3">
+                                                        <div className="flex items-center gap-2 mb-1">
+                                                            <span className="material-symbols-outlined text-primary text-[20px]">rubric</span>
+                                                            <span className="text-overline text-primary">Rubric Assessment</span>
+                                                        </div>
+                                                        {answer.criteriaFeedback.map((cf, cfIdx) => (
+                                                            <div key={cfIdx} className="flex items-start gap-3 pl-1">
+                                                                <span className={`flex-shrink-0 w-7 h-7 rounded-lg text-caption font-bold flex items-center justify-center ${
+                                                                    cf.score >= 4 ? 'bg-accent-emerald/15 text-accent-emerald'
+                                                                        : cf.score >= 3 ? 'bg-amber-500/15 text-amber-600 dark:text-amber-400'
+                                                                        : 'bg-red-500/15 text-red-600 dark:text-red-400'
+                                                                }`}>{cf.score}</span>
+                                                                <div className="flex-1 min-w-0">
+                                                                    <p className="text-body-sm font-medium text-text-main-light dark:text-text-main-dark">{cf.criterion}</p>
+                                                                    {cf.feedback && <p className="text-caption text-text-sub-light dark:text-text-sub-dark mt-0.5">{cf.feedback}</p>}
+                                                                </div>
+                                                            </div>
+                                                        ))}
+                                                        {answer.feedback && (
+                                                            <div className="pt-2 border-t border-primary/10">
+                                                                <p className="text-body-sm text-text-main-light dark:text-text-main-dark">{answer.feedback}</p>
+                                                            </div>
+                                                        )}
                                                     </div>
-                                                </div>
+                                                ) : (
+                                                    <div className="flex items-start gap-3 p-4 rounded-xl bg-primary/5 dark:bg-primary/10 border border-primary/20">
+                                                        <span className="material-symbols-outlined text-primary mt-0.5 text-[20px]">psychology</span>
+                                                        <div className="flex-1">
+                                                            <span className="text-overline text-primary block mb-1">AI Feedback</span>
+                                                            <span className="text-body-sm text-text-main-light dark:text-text-main-dark">{answer.feedback}</span>
+                                                        </div>
+                                                    </div>
+                                                )}
 
                                                 {/* Model answer for learning */}
                                                 {answer.correctAnswer && (
