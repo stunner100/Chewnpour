@@ -199,6 +199,15 @@ const SourcesPanel = ({ courseId, userId, isConvexAuthenticated }) => {
 
 const EMPTY_LIST = [];
 
+const difficultyBadgeClass = (label) =>
+    ({ Easy: 'badge-success', Medium: 'badge-warning', Hard: 'badge-danger' }[label] ?? 'badge');
+
+const estimateReadingMinutes = (content) => {
+    if (!content) return null;
+    const words = content.split(/\s+/).length;
+    return Math.max(1, Math.ceil(words / 200));
+};
+
 const DashboardCourse = () => {
     const { courseId } = useParams();
     const { user } = useAuth();
@@ -211,6 +220,8 @@ const DashboardCourse = () => {
     );
 
     React.useEffect(() => {
+        const main = document.getElementById('dashboard-main');
+        if (main) main.scrollTop = 0;
         window.scrollTo({ top: 0, left: 0, behavior: 'auto' });
     }, [courseId]);
 
@@ -232,6 +243,11 @@ const DashboardCourse = () => {
 
     const displayCourse = courseData || latestCourseTopics || course;
     const topics = Array.isArray(displayCourse?.topics) ? displayCourse.topics : EMPTY_LIST;
+    const resolvedCourseId = displayCourse?._id;
+    const courseProgress = useQuery(
+        api.topics.getUserCourseProgress,
+        resolvedCourseId && isConvexAuthenticated ? { courseId: resolvedCourseId } : 'skip'
+    );
     const upload = useQuery(
         api.uploads.getUpload,
         displayCourse?.uploadId ? { uploadId: displayCourse.uploadId } : 'skip'
@@ -447,14 +463,47 @@ const DashboardCourse = () => {
                                         <span className="text-overline text-text-faint-light dark:text-text-faint-dark">
                                             Topic {item.index + 1}
                                         </span>
-                                        <span className="material-symbols-outlined text-accent-emerald text-[14px]">check_circle</span>
+                                        {courseProgress?.[topic._id]?.completedAt ? (
+                                            <span className="material-symbols-outlined text-accent-emerald text-[14px]" style={{ fontVariationSettings: "'FILL' 1" }}>check_circle</span>
+                                        ) : courseProgress?.[topic._id] ? (
+                                            <span className="material-symbols-outlined text-primary text-[14px]">pending</span>
+                                        ) : (
+                                            <span className="material-symbols-outlined text-text-faint-light dark:text-text-faint-dark text-[14px]">radio_button_unchecked</span>
+                                        )}
                                     </div>
                                     <h3 className="text-body-base font-semibold text-text-main-light dark:text-text-main-dark mb-1 group-hover:text-primary transition-colors line-clamp-2">
                                         {topic.title}
                                     </h3>
-                                    <p className="text-caption text-text-sub-light dark:text-text-sub-dark line-clamp-2">
+                                    <p className="text-caption text-text-sub-light dark:text-text-sub-dark line-clamp-2 mb-3">
                                         {topic.description || `Master the key concepts of ${topic.title}.`}
                                     </p>
+                                    {/* Topic metadata badges */}
+                                    <div className="flex items-center gap-1.5 flex-wrap">
+                                        {estimateReadingMinutes(topic.content) && (
+                                            <span className="badge gap-1">
+                                                <span className="material-symbols-outlined text-[11px]">schedule</span>
+                                                {estimateReadingMinutes(topic.content)}m
+                                            </span>
+                                        )}
+                                        {typeof topic.usableMcqCount === 'number' && topic.usableMcqCount > 0 && (
+                                            <span className="badge gap-1">
+                                                <span className="material-symbols-outlined text-[11px]">quiz</span>
+                                                {topic.usableMcqCount}q
+                                            </span>
+                                        )}
+                                        {courseProgress?.[topic._id]?.completedAt && (
+                                            <span className="badge badge-success gap-1">Done</span>
+                                        )}
+                                    </div>
+                                    {/* Progress bar for best score */}
+                                    {courseProgress?.[topic._id]?.bestScore != null && (
+                                        <div className="mt-2.5 h-1 bg-border-light dark:bg-border-dark rounded-full overflow-hidden">
+                                            <div
+                                                className="h-full bg-primary rounded-full transition-all duration-500"
+                                                style={{ width: `${courseProgress[topic._id].bestScore}%` }}
+                                            />
+                                        </div>
+                                    )}
                                 </div>
                             </Link>
                         );

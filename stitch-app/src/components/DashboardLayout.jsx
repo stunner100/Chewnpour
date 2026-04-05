@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import MobileBottomNav from './MobileBottomNav';
 import { useAuth } from '../contexts/AuthContext';
@@ -20,7 +20,13 @@ const DashboardLayout = ({ children }) => {
     const location = useLocation();
     const { profile } = useAuth();
     const hideMobileBottomNav = location.pathname.startsWith('/dashboard/exam');
-    const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+    const isTopicPage = location.pathname.startsWith('/dashboard/topic/');
+    const [sidebarCollapsed, setSidebarCollapsed] = useState(isTopicPage);
+
+    // Auto-collapse sidebar on topic pages, expand on other pages
+    useEffect(() => {
+        if (isTopicPage) setSidebarCollapsed(true);
+    }, [isTopicPage]);
 
     const isActive = (item) => {
         if (item.exact) return location.pathname === item.path;
@@ -123,7 +129,7 @@ const DashboardLayout = ({ children }) => {
             </aside>
 
             {/* Main Content */}
-            <main className="flex-1 overflow-y-auto overflow-x-hidden">
+            <main id="dashboard-main" className="flex-1 overflow-y-auto overflow-x-hidden">
                 {children}
             </main>
 

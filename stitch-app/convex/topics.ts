@@ -876,3 +876,175 @@ export const batchCreateQuestionsInternal = internalMutation({
         return questionIds;
     },
 });
+
+// ─── User Topic Progress ────────────────────────────────────────────
+
+export const upsertTopicProgress = mutation({
+    args: {
+        topicId: v.string(),
+        lastStudiedAt: v.optional(v.number()),
+        completedAt: v.optional(v.number()),
+        bestScore: v.optional(v.number()),
+        attemptCount: v.optional(v.number()),
+        termsStarred: v.optional(v.array(v.string())),
+        studyMode: v.optional(v.string()),
+    },
+    handler: async (ctx, args) => {
+        const identity = await ctx.auth.getUserIdentity();
+        const authUserId = resolveAuthUserId(identity);
+        if (!authUserId) throw new Error("Unauthenticated");
+
+        const topicId = resolveTopicIdFromRoute(ctx, args.topicId);
+        if (!topicId) throw new Error("Invalid topicId");
+
+        const topic = await ctx.db.get(topicId);
+        if (!topic) throw new Error("Topic not found");
+
+        const existing = await ctx.db
+            .query("userTopicProgress")
+            .withIndex("by_userId_topicId", (q) =>
+                q.eq("userId", authUserId).eq("topicId", topicId)
+            )
+            .first();
+
+        const now = Date.now();
+        const patch: Record<string, any> = {
+            lastStudiedAt: args.lastStudiedAt ?? now,
+        };
+        if (args.completedAt !== undefined) patch.completedAt = args.completedAt;
+        if (args.bestScore !== undefined) patch.bestScore = args.bestScore;
+        if (args.attemptCount !== undefined) patch.attemptCount = args.attemptCount;
+        if (args.termsStarred !== undefined) patch.termsStarred = args.termsStarred;
+        if (args.studyMode !== undefined) patch.studyMode = args.studyMode;
+
+        if (existing) {
+            // Only update bestScore if the new score is higher
+            if (
+                args.bestScore !== undefined &&
+                existing.bestScore !== undefined &&
+                args.bestScore <= existing.bestScore
+            ) {
+                delete patch.bestScore;
+            }
+            await ctx.db.patch(existing._id, patch);
+            return existing._id;
+        }
+
+        return await ctx.db.insert("userTopicProgress", {
+            userId: authUserId,
+            topicId,
+            courseId: topic.courseId,
+            ...patch,
+        });
+    },
+});
+
+export const getUserTopicProgress = query({
+    args: { topicId: v.string() },
+    handler: async (ctx, args) => {
+        const identity = await ctx.auth.getUserIdentity();
+        const authUserId = resolveAuthUserId(identity);
+        if (!authUserId) return null;
+
+        const topicId = resolveTopicIdFromRoute(ctx, args.topicId);
+        if (!topicId) return null;
+
+        return await ctx.db
+            .query("userTopicProgress")
+            .withIndex("by_userId_topicId", (q) =>
+                q.eq("userId", authUserId).eq("topicId", topicId)
+            )
+            .first();
+    },
+});
+
+export const getUserCourseProgress = query({
+    args: { courseId: v.id("courses") },
+    handler: async (ctx, args) => {
+        const identity = await ctx.auth.getUserIdentity();
+        const authUserId = resolveAuthUserId(identity);
+        if (!authUserId) return {};
+
+        const rows = await ctx.db
+            .query("userTopicProgress")
+            .withIndex("by_userId_courseId", (q) =>
+                q.eq("userId", authUserId).eq("courseId", args.courseId)
+            )
+            .collect();
+
+        const result: Record<string, typeof rows[number]> = {};
+        for (const row of rows) {
+            result[row.topicId] = row;
+        }
+        return result;
+    },
+});
+
+export const getResumeTarget = query({
+    handler: async (ctx) => {
+        const identity = await ctx.auth.getUserIdentity();
+        const authUserId = resolveAuthUserId(identity);
+        if (!authUserId) return null;
+
+        const row = await ctx.db
+            .query("userTopicProgress")
+            .withIndex("by_userId_lastStudied", (q) =>
+                q.eq("userId", authUserId)
+            )
+            .order("desc")
+            .first();
+
+        if (!row) return null;
+
+        const topic = await ctx.db.get(row.topicId);
+        if (!topic) return null;
+
+        return {
+            topicId: row.topicId,
+            topicTitle: topic.title,
+            courseId: row.courseId,
+            lastStudiedAt: row.lastStudiedAt,
+            bestScore: row.bestScore,
+            completedAt: row.completedAt,
+        };
+    },
+});
+
+export const getTopicSourcePassages = query({
+    args: { topicId: v.string() },
+    handler: async (ctx, args) => {
+        const identity = await ctx.auth.getUserIdentity();
+        const authUserId = resolveAuthUserId(identity);
+        if (!authUserId) return [];
+
+        const topicId = resolveTopicIdFromRoute(ctx, args.topicId);
+        if (!topicId) return [];
+
+        const topic = await ctx.db.get(topicId);
+        if (!topic || !topic.sourceUploadId) return [];
+
+        const passageIds = topic.sourcePassageIds ?? [];
+        if (passageIds.length === 0) return [];
+
+        const passages = await Promise.all(
+            passageIds.slice(0, 12).map(async (pid: string) => {
+                const passage = await ctx.db
+                    .query("evidencePassages")
+                    .withIndex("by_uploadId_passageId", (q) =>
+                        q.eq("uploadId", topic.sourceUploadId!).eq("passageId", pid)
+                    )
+                    .first();
+                return passage;
+            })
+        );
+
+        return passages
+            .filter(Boolean)
+            .map((p: any) => ({
+                passageId: p.passageId,
+                page: p.page,
+                sectionHint: p.sectionHint,
+                text: p.text?.slice(0, 400) ?? '',
+            }));
+    },
+});
