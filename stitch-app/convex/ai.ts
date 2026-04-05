@@ -2769,77 +2769,561 @@ const parseLessonContentCandidate = (raw: string) => {
     return cleanLessonMarkdown(trimmed);
 };
 
+type StructuredLessonMap = {
+    title: string;
+    bigIdea: string[];
+    subtopics: string[];
+    definitions: Array<{ term: string; meaning: string }>;
+    examples: Array<{ question: string; reasoning: string[]; answer: string }>;
+    formulas: Array<{ name: string; expression: string; explanation?: string }>;
+    keyPoints: string[];
+    likelyConfusions: Array<{ confusion: string; correction: string }>;
+    summary: string;
+    quickCheck: Array<{ question: string; answer: string; skillType?: string }>;
+};
+
+const LESSON_KEY_IDEA_MIN = 5;
+const LESSON_KEY_IDEA_MAX = 8;
+
+const normalizeLessonSentence = (value: any, maxWords = 26) => {
+    const normalized = normalizeOutlineString(value)
+        .replace(/^[\-\d\.\)\s]+/, "")
+        .replace(/\s*[;:,-]\s*$/g, "")
+        .trim();
+    if (!normalized) return "";
+    const words = normalized.split(/\s+/).filter(Boolean);
+    const limited = words.slice(0, Math.max(6, maxWords)).join(" ");
+    return limited.replace(/\s*[;:,-]\s*$/g, "").trim();
+};
+
+const splitLessonSentences = (value: string, maxItems = 14) =>
+    String(value || "")
+        .replace(/\s+/g, " ")
+        .split(/(?<=[.!?])\s+/)
+        .map((sentence) => normalizeLessonSentence(sentence, 28))
+        .filter((sentence) => sentence.length >= 18)
+        .slice(0, maxItems);
+
+const buildLessonSemanticKey = (value: string) =>
+    normalizeLessonSentence(value, 40)
+        .toLowerCase()
+        .replace(/[^a-z0-9\s]/g, " ")
+        .split(/\s+/)
+        .filter((token) => token.length >= 4)
+        .slice(0, 10)
+        .join(" ");
+
+const dedupeLessonStringList = (values: any[], maxItems = 8, maxWords = 24) => {
+    const deduped: string[] = [];
+    const seen = new Set<string>();
+    for (const value of values || []) {
+        const normalized = normalizeLessonSentence(value, maxWords);
+        const key = buildLessonSemanticKey(normalized);
+        if (!normalized || !key || seen.has(key)) continue;
+        seen.add(key);
+        deduped.push(normalized);
+        if (deduped.length >= maxItems) break;
+    }
+    return deduped;
+};
+
+const normalizeDefinitionEntries = (rawDefinitions: any, fallbackTerms: string[]) => {
+    const definitions = Array.isArray(rawDefinitions) ? rawDefinitions : [];
+    const normalized: Array<{ term: string; meaning: string }> = [];
+    const seen = new Set<string>();
+
+    const pushDefinition = (termRaw: any, meaningRaw: any) => {
+        const term = normalizeLessonSentence(termRaw, 5)
+            .replace(/[^A-Za-z0-9\s\-/]/g, "")
+            .trim();
+        const meaning = normalizeLessonSentence(meaningRaw, 22);
+        const key = term.toLowerCase();
+        if (!term || !meaning || seen.has(key)) return;
+        seen.add(key);
+        normalized.push({ term, meaning });
+    };
+
+    for (const item of definitions) {
+        if (typeof item === "string") {
+            const [term, meaning] = item.split(/\s[:\-–]\s/, 2);
+            pushDefinition(term, meaning || `${item} explained in clear words.`);
+            continue;
+        }
+        if (!item || typeof item !== "object") continue;
+        pushDefinition(
+            item.term ?? item.word ?? item.name,
+            item.meaning ?? item.definition ?? item.explanation
+        );
+    }
+
+    for (const fallbackTerm of fallbackTerms) {
+        if (normalized.length >= 8) break;
+        pushDefinition(
+            fallbackTerm,
+            `${fallbackTerm} is one of the important ideas used in this topic.`
+        );
+    }
+
+    return normalized.slice(0, 8);
+};
+
+const normalizeWorkedExamples = (rawExamples: any, fallbackQuestion: string, fallbackReasoning: string[]) => {
+    const examples = Array.isArray(rawExamples) ? rawExamples : [];
+    const normalized: Array<{ question: string; reasoning: string[]; answer: string }> = [];
+
+    const pushExample = (questionRaw: any, reasoningRaw: any, answerRaw: any) => {
+        const question = normalizeLessonSentence(questionRaw, 20);
+        const reasoning = dedupeLessonStringList(
+            Array.isArray(reasoningRaw) ? reasoningRaw : [reasoningRaw],
+            4,
+            20
+        );
+        const answer = normalizeLessonSentence(answerRaw, 18);
+        if (!question || reasoning.length < 2 || !answer) return;
+        normalized.push({ question, reasoning, answer });
+    };
+
+    for (const item of examples) {
+        if (!item || typeof item !== "object") continue;
+        pushExample(
+            item.question ?? item.prompt ?? item.title,
+            item.reasoning ?? item.steps ?? item.explanation,
+            item.answer ?? item.solution
+        );
+        if (normalized.length >= 1) break;
+    }
+
+    if (normalized.length === 0) {
+        normalized.push({
+            question: fallbackQuestion,
+            reasoning: fallbackReasoning.slice(0, 3),
+            answer: "The correct answer comes from following the steps in order and checking the result against the topic rules.",
+        });
+    }
+
+    return normalized.slice(0, 1);
+};
+
+const normalizeFormulaEntries = (rawFormulas: any) => {
+    const formulas = Array.isArray(rawFormulas) ? rawFormulas : [];
+    const normalized: Array<{ name: string; expression: string; explanation?: string }> = [];
+    for (const item of formulas) {
+        if (!item || typeof item !== "object") continue;
+        const name = normalizeLessonSentence(item.name ?? item.title, 6);
+        const expression = normalizeOutlineString(item.expression ?? item.formula ?? item.value);
+        const explanation = normalizeLessonSentence(item.explanation ?? item.meaning, 18);
+        if (!expression) continue;
+        normalized.push({
+            name: name || "Formula",
+            expression,
+            explanation: explanation || undefined,
+        });
+        if (normalized.length >= 4) break;
+    }
+    return normalized;
+};
+
+const normalizeConfusionEntries = (rawConfusions: any, fallbackKeyPoints: string[]) => {
+    const items = Array.isArray(rawConfusions) ? rawConfusions : [];
+    const normalized: Array<{ confusion: string; correction: string }> = [];
+    const seen = new Set<string>();
+
+    const pushConfusion = (confusionRaw: any, correctionRaw: any) => {
+        const confusion = normalizeLessonSentence(confusionRaw, 16);
+        const correction = normalizeLessonSentence(correctionRaw, 20);
+        const key = buildLessonSemanticKey(confusion);
+        if (!confusion || !correction || !key || seen.has(key)) return;
+        seen.add(key);
+        normalized.push({ confusion, correction });
+    };
+
+    for (const item of items) {
+        if (typeof item === "string") {
+            pushConfusion(item, "Check the exact definition, the sequence of steps, and the example before answering.");
+            continue;
+        }
+        if (!item || typeof item !== "object") continue;
+        pushConfusion(
+            item.confusion ?? item.mistake ?? item.issue,
+            item.correction ?? item.fix ?? item.reason
+        );
+    }
+
+    for (const point of fallbackKeyPoints) {
+        if (normalized.length >= 4) break;
+        pushConfusion(
+            `Mixing up ${point}`,
+            `Go back to the exact meaning of ${point} and connect it to one clear example before moving on.`
+        );
+    }
+
+    return normalized.slice(0, 4);
+};
+
+const normalizeQuickCheckEntries = (rawQuickCheck: any, keyPoints: string[], topicTitle: string) => {
+    const items = Array.isArray(rawQuickCheck) ? rawQuickCheck : [];
+    const normalized: Array<{ question: string; answer: string; skillType?: string }> = [];
+
+    const pushQuickCheck = (questionRaw: any, answerRaw: any, skillTypeRaw: any) => {
+        let question = normalizeLessonSentence(questionRaw, 18);
+        const answer = normalizeLessonSentence(answerRaw, 18);
+        const skillType = normalizeOutlineString(skillTypeRaw).toLowerCase();
+        if (!question || !answer) return;
+        if (!question.endsWith("?")) question = `${question}?`;
+        normalized.push({
+            question,
+            answer,
+            skillType: skillType || undefined,
+        });
+    };
+
+    for (const item of items) {
+        if (typeof item === "string") {
+            pushQuickCheck(item, "Use one short sentence from the lesson to answer this.", "");
+            continue;
+        }
+        if (!item || typeof item !== "object") continue;
+        pushQuickCheck(
+            item.question ?? item.q,
+            item.answer ?? item.a,
+            item.skillType ?? item.skill ?? item.level
+        );
+    }
+
+    const safePoint = keyPoints[0] || topicTitle;
+    const fallbackItems = [
+        {
+            question: `What does ${safePoint} mean in this topic?`,
+            answer: `${safePoint} is one of the main ideas that supports the topic purpose.`,
+            skillType: "recall",
+        },
+        {
+            question: `Why does ${safePoint} matter when studying ${topicTitle}?`,
+            answer: `It helps you explain the topic purpose and connect the steps clearly.`,
+            skillType: "understanding",
+        },
+        {
+            question: `How would you use ${safePoint} in a simple example?`,
+            answer: "Start with the definition, follow the steps, and check the result against the worked example.",
+            skillType: "application",
+        },
+    ];
+
+    for (const fallback of fallbackItems) {
+        if (normalized.length >= 3) break;
+        pushQuickCheck(fallback.question, fallback.answer, fallback.skillType);
+    }
+
+    return normalized.slice(0, 3);
+};
+
+const buildStructuredLessonFallbackMap = (args: {
+    title: string;
+    description?: string;
+    keyPoints: string[];
+    topicContext: string;
+}): StructuredLessonMap => {
+    const contextSentences = splitLessonSentences(args.topicContext, 16);
+    const keyPoints = dedupeLessonStringList(
+        [...args.keyPoints, ...contextSentences],
+        LESSON_KEY_IDEA_MAX,
+        18
+    );
+    const subtopics = dedupeLessonStringList(
+        [args.description || "", ...keyPoints, ...contextSentences.slice(0, 6)],
+        6,
+        14
+    );
+    const fallbackTerms = dedupeLessonStringList(
+        [...keyPoints, ...subtopics].map((item) => String(item).split(/\s+/).slice(0, 3).join(" ")),
+        8,
+        4
+    );
+    const definitions = normalizeDefinitionEntries([], fallbackTerms);
+    const examples = normalizeWorkedExamples(
+        [],
+        `How do you solve a simple problem involving ${args.title}?`,
+        [
+            "Start by finding the main idea or definition that fits the problem.",
+            "Follow the steps in order and explain what each step changes.",
+            "Check the final answer against the topic rules and the example context.",
+        ]
+    );
+    const likelyConfusions = normalizeConfusionEntries([], keyPoints);
+    const quickCheck = normalizeQuickCheckEntries([], keyPoints, args.title);
+    const bigIdea = dedupeLessonStringList(
+        [
+            args.description || "",
+            contextSentences[0] || "",
+            `${args.title} matters because it helps you explain the purpose, the key ideas, and how to apply them correctly.`,
+        ],
+        2,
+        22
+    );
+    const summary = dedupeLessonStringList(
+        [
+            contextSentences[1] || "",
+            `${args.title} becomes easier when you focus on the purpose, the key steps, and the worked example.`,
+        ],
+        2,
+        18
+    ).join(" ");
+
+    return {
+        title: args.title,
+        bigIdea,
+        subtopics,
+        definitions,
+        examples,
+        formulas: [],
+        keyPoints: keyPoints.length >= LESSON_KEY_IDEA_MIN
+            ? keyPoints
+            : dedupeLessonStringList(
+                [
+                    ...keyPoints,
+                    "Start with the purpose of the topic before memorizing details.",
+                    "Use one clear definition for each important term.",
+                    "Follow the steps in the right order when solving a problem.",
+                    "Check examples to confirm that your understanding is correct.",
+                    "Review common confusions before moving to harder questions.",
+                ],
+                LESSON_KEY_IDEA_MAX,
+                18
+            ),
+        likelyConfusions,
+        summary,
+        quickCheck,
+    };
+};
+
+const buildStructuredLessonMapPrompt = (args: {
+    title: string;
+    description?: string;
+    keyPoints: string[];
+    topicContext: string;
+    sequencingContext?: string;
+    educationDirective: string;
+}) => `Create a structured lesson map as STRICT JSON ONLY.
+
+TOPIC: ${args.title}
+DESCRIPTION: ${args.description || "Educational topic"}
+KEY POINTS: ${(args.keyPoints || []).join(", ") || "Core concepts"}
+${args.sequencingContext || ""}
+
+SOURCE CONTEXT:
+"""
+${args.topicContext}
+"""
+
+${args.educationDirective}
+
+Rules:
+- Build the lesson from the source context and key points only.
+- Do not return markdown.
+- Avoid repeated ideas across fields.
+- Do not include weak or forced analogies.
+- Keep every key point atomic and self-contained.
+- Use concise, accurate wording.
+- Big idea must explain the topic purpose simply.
+- Key points must be 5 to 8 items.
+- Subtopics must form a logical teaching order.
+- Worked examples must include a question, reasoning steps, and an answer.
+- Summary must be concise and should wrap up the lesson instead of repeating all key points.
+- Quick check must include at least one recall question and one understanding question.
+
+Return JSON only in this shape:
+{
+  "title": "string",
+  "bigIdea": ["paragraph 1", "optional paragraph 2"],
+  "subtopics": ["step-ready subtopic", "next subtopic"],
+  "definitions": [
+    { "term": "string", "meaning": "string" }
+  ],
+  "examples": [
+    {
+      "question": "string",
+      "reasoning": ["step 1", "step 2", "step 3"],
+      "answer": "string"
+    }
+  ],
+  "formulas": [
+    { "name": "string", "expression": "string", "explanation": "string" }
+  ],
+  "keyPoints": ["atomic point"],
+  "likelyConfusions": [
+    { "confusion": "string", "correction": "string" }
+  ],
+  "summary": "string",
+  "quickCheck": [
+    { "question": "string?", "answer": "string", "skillType": "recall|understanding|application|analysis" }
+  ]
+}`;
+
+const normalizeStructuredLessonMap = (rawMap: any, args: {
+    title: string;
+    description?: string;
+    keyPoints: string[];
+    topicContext: string;
+}): StructuredLessonMap => {
+    const fallback = buildStructuredLessonFallbackMap(args);
+    const keyPoints = dedupeLessonStringList(
+        Array.isArray(rawMap?.keyPoints) ? rawMap.keyPoints : fallback.keyPoints,
+        LESSON_KEY_IDEA_MAX,
+        18
+    );
+    const subtopics = dedupeLessonStringList(
+        Array.isArray(rawMap?.subtopics) ? rawMap.subtopics : fallback.subtopics,
+        6,
+        14
+    );
+    const fallbackTerms = dedupeLessonStringList(
+        [...keyPoints, ...subtopics].map((item) => String(item).split(/\s+/).slice(0, 3).join(" ")),
+        8,
+        4
+    );
+    const definitions = normalizeDefinitionEntries(rawMap?.definitions, fallbackTerms);
+    const examples = normalizeWorkedExamples(
+        rawMap?.examples,
+        fallback.examples[0]?.question || `How do you solve a simple problem involving ${args.title}?`,
+        fallback.examples[0]?.reasoning || []
+    );
+    const formulas = normalizeFormulaEntries(rawMap?.formulas);
+    const likelyConfusions = normalizeConfusionEntries(rawMap?.likelyConfusions, keyPoints);
+    const quickCheck = normalizeQuickCheckEntries(rawMap?.quickCheck, keyPoints, args.title);
+    const bigIdea = dedupeLessonStringList(
+        Array.isArray(rawMap?.bigIdea) ? rawMap.bigIdea : fallback.bigIdea,
+        2,
+        22
+    );
+    const summary = dedupeLessonStringList(
+        [rawMap?.summary, fallback.summary],
+        2,
+        18
+    ).join(" ");
+
+    return {
+        title: normalizeLessonSentence(rawMap?.title || args.title, 10) || args.title,
+        bigIdea: bigIdea.length > 0 ? bigIdea : fallback.bigIdea,
+        subtopics: subtopics.length > 0 ? subtopics : fallback.subtopics,
+        definitions: definitions.length > 0 ? definitions : fallback.definitions,
+        examples,
+        formulas,
+        keyPoints: keyPoints.length >= LESSON_KEY_IDEA_MIN ? keyPoints : fallback.keyPoints,
+        likelyConfusions: likelyConfusions.length > 0 ? likelyConfusions : fallback.likelyConfusions,
+        summary: summary || fallback.summary,
+        quickCheck,
+    };
+};
+
+const buildLessonMarkdownFromStructuredMap = (map: StructuredLessonMap) => {
+    const bigIdeaParagraphs = map.bigIdea.slice(0, 2).filter(Boolean);
+    const keyIdeas = map.keyPoints.slice(0, LESSON_KEY_IDEA_MAX);
+    const orderedSubtopics = map.subtopics.slice(0, 6);
+    const workedExample = map.examples[0];
+    const wordBank = map.definitions.slice(0, 8);
+    const confusions = map.likelyConfusions.slice(0, 4);
+    const quickCheck = map.quickCheck.slice(0, 3);
+    const summarySentences = splitLessonSentences(map.summary, 3);
+
+    return cleanLessonMarkdown(`
+## ${map.title}
+
+## Big Idea
+${bigIdeaParagraphs.join("\n\n")}
+
+## Key Ideas
+${keyIdeas.map((point) => `- ${point}`).join("\n")}
+
+## Step-by-Step Breakdown
+${orderedSubtopics.map((step, index) => `${index + 1}. ${step}`).join("\n")}
+
+## Worked Example
+**Question:** ${workedExample.question}
+
+**Reasoning:**
+${workedExample.reasoning.map((step, index) => `${index + 1}. ${step}`).join("\n")}
+
+**Answer:** ${workedExample.answer}
+
+${wordBank.length > 0 ? `## Word Bank
+${wordBank.map((entry) => `- ${entry.term} — ${entry.meaning}`).join("\n")}
+
+` : ""}${map.formulas.length > 0 ? `## Formula Guide
+${map.formulas.map((entry) => `- ${entry.name}: \`${entry.expression}\`${entry.explanation ? ` — ${entry.explanation}` : ""}`).join("\n")}
+
+` : ""}## Common Confusions
+${confusions.map((entry) => `- ${entry.confusion}: ${entry.correction}`).join("\n")}
+
+## Summary
+${summarySentences.join(" ")}
+
+## Quick Check
+${quickCheck.map((entry, index) => `${index + 1}. **Q:** ${entry.question}\n   **A:** ${entry.answer}`).join("\n")}
+    `);
+};
+
+const evaluateStructuredLessonQuality = (content: string) => {
+    const normalized = parseLessonContentCandidate(content);
+    const bigIdeaLines = extractSectionLines(normalized, /big idea/i);
+    const keyIdeaLines = extractSectionLines(normalized, /key ideas?/i).filter((line) => /^[-*]\s+/.test(line));
+    const stepLines = extractSectionLines(normalized, /step-by-step breakdown/i);
+    const workedExampleLines = extractSectionLines(normalized, /worked example/i);
+    const summaryLines = extractSectionLines(normalized, /summary/i);
+    const quickCheckPairs = countQuickCheckPairs(normalized);
+
+    const reasons: string[] = [];
+    const bigIdeaParagraphs = bigIdeaLines.filter((line) => !/^[-*]|\d+\./.test(line));
+    if (bigIdeaParagraphs.length === 0 || bigIdeaParagraphs.length > 2) {
+        reasons.push("Big Idea must contain 1-2 short explanatory paragraphs.");
+    }
+    if (keyIdeaLines.length < LESSON_KEY_IDEA_MIN || keyIdeaLines.length > LESSON_KEY_IDEA_MAX) {
+        reasons.push("Key Ideas must contain 5-8 atomic bullets.");
+    }
+    if (keyIdeaLines.some((line) => line.split(/\s+/).length > 28 || /;/.test(line))) {
+        reasons.push("Key Ideas bullets must remain atomic and concise.");
+    }
+    if (stepLines.length < 3 || stepLines.some((line) => !/^\d+\.\s+/.test(line))) {
+        reasons.push("Step-by-Step Breakdown must use numbered steps only.");
+    }
+    const workedJoined = workedExampleLines.join("\n");
+    if (!/\*\*Question:\*\*/.test(workedJoined) || !/\*\*Reasoning:\*\*/.test(workedJoined) || !/\*\*Answer:\*\*/.test(workedJoined)) {
+        reasons.push("Worked Example must include question, reasoning, and answer.");
+    }
+    const summaryWordCount = countWords(stripMarkdownLikeFormatting(summaryLines.join(" ")));
+    if (summaryWordCount > 80 || summaryLines.length > 3) {
+        reasons.push("Summary must stay concise and avoid bloated repetition.");
+    }
+    if (quickCheckPairs < 3) {
+        reasons.push("Quick Check must include 3 question/answer pairs.");
+    }
+
+    const semanticKeys = [
+        ...keyIdeaLines.map((line) => buildLessonSemanticKey(line)),
+        ...stepLines.map((line) => buildLessonSemanticKey(line)),
+        ...summaryLines.map((line) => buildLessonSemanticKey(line)),
+    ].filter(Boolean);
+    if (new Set(semanticKeys).size < Math.max(3, semanticKeys.length - 2)) {
+        reasons.push("Lesson sections are repeating the same points too often.");
+    }
+
+    if (/##\s+Everyday Analog/i.test(normalized)) {
+        reasons.push("Weak analogy sections are not allowed in the lesson template.");
+    }
+
+    return {
+        passed: reasons.length === 0,
+        reasons,
+    };
+};
+
 const buildTopicLessonFallback = (args: {
     title: string;
     description?: string;
     keyPoints: string[];
     topicContext: string;
 }) => {
-    const contextSentences = String(args.topicContext || "")
-        .replace(/\s+/g, " ")
-        .split(/(?<=[.!?])\s+/)
-        .map((sentence) => sentence.trim())
-        .filter((sentence) => sentence.length > 35)
-        .slice(0, 10);
-
-    const primaryPoints = Array.from(
-        new Set(
-            [...args.keyPoints, ...contextSentences]
-                .map((point) => point.replace(/^[\-\d\.\s]+/, "").replace(/\s+/g, " ").trim())
-                .filter((point) => point.length > 8)
-        )
-    ).slice(0, 8);
-
-    const introSentence = contextSentences[0]
-        || `${args.title} focuses on practical understanding, clear definitions, and how to apply the ideas step by step.`;
-    const supportSentence = contextSentences[1]
-        || `The goal is to make each concept easy to understand using plain language and relatable examples.`;
-    const analogySentence = contextSentences[2]
-        || `Think of this topic like learning a map: once you understand landmarks, finding the route becomes much easier.`;
-    const practiceSentence = contextSentences[3]
-        || `When you practice with small examples first, the larger problems become easier to solve with confidence.`;
-
-    const bulletLines = (primaryPoints.length > 0 ? primaryPoints : [
-        "Understand the main idea before memorizing details.",
-        "Break larger tasks into smaller, clear steps.",
-        "Use examples to check if your understanding is correct.",
-        "Review common mistakes to improve accuracy quickly.",
-    ]).map((point) => `- ${point}`);
-
-    const stepLines = (primaryPoints.length > 0 ? primaryPoints.slice(0, 5) : bulletLines.slice(0, 4)).map((point, index) =>
-        `${index + 1}. ${String(point).replace(/^- /, "").replace(/\.$/, "")}: explain it in your own words, then test it with a short example.`
-    );
-
-    return cleanLessonMarkdown(`
-## ${args.title}
-
-### Simple Introduction
-${args.description || introSentence}
-
-${supportSentence}
-
-### Key Ideas in Plain English
-${bulletLines.join("\n")}
-
-### Step-by-Step Breakdown
-${stepLines.join("\n")}
-
-### Worked Example
-${introSentence}
-
-${practiceSentence}
-
-### Common Mistakes and Misconceptions
-- Jumping to final answers without checking intermediate steps.
-- Skipping definitions and trying to memorize formulas in isolation.
-- Mixing related terms that look similar but mean different things.
-
-### Everyday Analogy
-${analogySentence}
-
-### Summary
-${args.title} becomes easier when you break it into clear steps, use examples, and review mistakes as part of learning.
-    `);
+    const fallbackMap = buildStructuredLessonFallbackMap(args);
+    return buildLessonMarkdownFromStructuredMap(fallbackMap);
 };
 
 const ensureTopicLessonContent = async (args: {
@@ -2847,51 +3331,25 @@ const ensureTopicLessonContent = async (args: {
     description?: string;
     keyPoints: string[];
     topicContext: string;
-    draftContent: string;
+    structuredLessonMap?: any;
 }) => {
-    const initial = parseLessonContentCandidate(args.draftContent);
-    const initialWordCount = countWords(stripMarkdownLikeFormatting(initial));
-    if (initialWordCount >= MIN_TOPIC_CONTENT_WORDS) {
-        return initial;
+    const normalizedMap = normalizeStructuredLessonMap(args.structuredLessonMap, args);
+    const rendered = buildLessonMarkdownFromStructuredMap(normalizedMap);
+    const renderedWordCount = countWords(stripMarkdownLikeFormatting(rendered));
+    const renderedQuality = evaluateStructuredLessonQuality(rendered);
+    if (renderedWordCount >= MIN_TOPIC_CONTENT_WORDS && renderedQuality.passed) {
+        return rendered;
     }
 
-    try {
-        const expansionPrompt = `Create a complete lesson in clean markdown for the topic below.
-
-TOPIC: ${args.title}
-DESCRIPTION: ${args.description || "Educational lesson"}
-KEY POINTS: ${(args.keyPoints || []).join(", ") || "Core concepts"}
-SOURCE CONTEXT:
-"""
-${args.topicContext}
-"""
-
-Requirements:
-- clear student-friendly language
-- sections with real explanations (not just headings)
-- include examples and common mistakes
-- minimum ${MIN_TOPIC_CONTENT_WORDS} words
-- avoid escaped markdown characters like \\# or \\*
-- no JSON, return markdown only`;
-
-        const expandedResponse = await callInception([
-            { role: "system", content: "You are an expert educator. Return markdown only." },
-            { role: "user", content: expansionPrompt },
-        ], DEFAULT_MODEL, { maxTokens: 2600 });
-
-        const expanded = parseLessonContentCandidate(expandedResponse);
-        const expandedWordCount = countWords(stripMarkdownLikeFormatting(expanded));
-        if (expandedWordCount >= MIN_TOPIC_CONTENT_WORDS) {
-            return expanded;
-        }
-    } catch (error) {
-        console.warn("[CourseGeneration] lesson_expansion_fallback", {
+    const fallback = buildTopicLessonFallback(args);
+    const fallbackQuality = evaluateStructuredLessonQuality(fallback);
+    if (!fallbackQuality.passed) {
+        console.warn("[CourseGeneration] structured_lesson_quality_fallback", {
             topicTitle: args.title,
-            message: error instanceof Error ? error.message : String(error),
+            reasons: [...renderedQuality.reasons, ...fallbackQuality.reasons].slice(0, 6),
         });
     }
-
-    return buildTopicLessonFallback(args);
+    return fallback;
 };
 
 const normalizeQuestionKey = (value: string) => {
@@ -3828,85 +4286,38 @@ ${index > 0 ? `PREVIOUS TOPICS: ${allTopicTitles.slice(0, index).join(", ")}\nBu
 ${index === totalTopics - 1 ? "This is the final topic — summarize and connect all concepts learned throughout the course." : ""}`
         : "";
 
-    const lessonPrompt = `Create deeply detailed lesson content for this study topic.
-
-TOPIC: ${safeTopicTitle}
-DESCRIPTION: ${topicData.description}
-KEY POINTS: ${keyPoints.join(", ") || "General concepts"}
-${sequencingContext}
-CONTEXT FROM STUDY MATERIAL:
-"""
-${topicContext}
-"""
-
-Target length: ${TOPIC_DETAIL_WORD_TARGET} words.
-
-${tone.style}
-
-Include ALL of these sections in order:
-1. **Big Idea** — 1-2 sentences summarizing the whole topic in the simplest words possible.
-2. **Key Ideas** — 6-10 bullet points, each one sentence, covering the core concepts.
-3. **Everyday Analogies** — Exactly 3 analogies, each max 2 sentences, connecting concepts to familiar real-world scenarios. Omit rather than force a weak comparison. Start each with "Think of it like…" or "Imagine…".
-4. **Step-by-Step Breakdown** — Walk through the topic like a tutorial. Number each step. Each step should be 2-3 sentences.
-5. **Mini Worked Example** — Pick one specific problem or scenario and solve it step by step.
-6. **Common Mistakes** — 3-5 mistakes learners make, with clear explanations of why they're wrong.
-7. **Word Bank** — 8-12 key terms from the topic. Format each as a bullet: "- Term — meaning". Do NOT bold the term with ** markers.
-8. **Quick Check** — 3 short questions with answers so the student can test themselves.
-9. **Summary** — 3-4 sentences wrapping up what was learned.
-
-Format the content in clear markdown with headers (##) and bullet points.
-Make it engaging and easy to follow while keeping all facts correct.
-
-IMPORTANT FORMATTING RULES:
-- Do NOT include citation brackets, reference numbers, or footnote markers like [1], [2], [3.], [*, etc.
-- Do NOT use orphaned brackets [ or ] that don't form complete markdown links.
-- Square brackets are ONLY for inline word explanations like [simple meaning].
-- Every bullet point or list item must be complete — no trailing symbols or orphaned markers.
-- Use clean, properly closed markdown only.
-
-SOURCE QUOTING:
-- When the source material contains specific definitions, formulas, theorems, or key statements, quote them directly in a blockquote (> prefix).
-- Label quoted material: "> **From your notes:** [quoted text]"
-- This grounds the lesson in the student's actual study material.
-
-SPECIAL CONTENT:
-- If the source contains mathematical formulas or equations (marked with [Formula] or LaTeX-like notation), reproduce them accurately in the lesson.
-- If the source contains code snippets, preserve them in fenced code blocks with the appropriate language tag.
-- If tables are present ([Table] markers), include the relevant data in your explanation.
-- If footnotes appear ([Footnote] markers), incorporate the additional context into the lesson naturally.
-
-Respond in this exact JSON format only:
-{
-  "lessonContent": "Markdown lesson content"
-}`;
-
-    let lessonData: any = null;
+    let structuredLessonMap: any = null;
     try {
         const lessonResponse = await callInception([
             { role: "system", content: tone.systemMessage },
-            { role: "user", content: lessonPrompt },
+            {
+                role: "user",
+                content: buildStructuredLessonMapPrompt({
+                    title: safeTopicTitle,
+                    description: topicData.description,
+                    keyPoints,
+                    topicContext,
+                    sequencingContext,
+                    educationDirective: `${tone.style}\nTarget lesson length after rendering: ${TOPIC_DETAIL_WORD_TARGET} words.`,
+                }),
+            },
         ], DEFAULT_MODEL, { maxTokens: 6000, responseFormat: "json_object" });
-        lessonData = parseJsonFromResponse(lessonResponse, "lesson content");
+        structuredLessonMap = parseJsonFromResponse(lessonResponse, "structured lesson map");
     } catch (lessonError) {
-        console.warn("[CourseGeneration] lesson_generation_fallback", {
+        console.warn("[CourseGeneration] structured_lesson_map_fallback", {
             courseId,
             uploadId,
             topicIndex: index,
             topicTitle: safeTopicTitle,
             message: lessonError instanceof Error ? lessonError.message : String(lessonError),
         });
-        lessonData = {
-            lessonContent: keyPoints.map((point: string) => `- ${point}`).join("\n") || "",
-        };
     }
-
-    const contentDraft = String(lessonData?.lessonContent || topicData.keyPoints?.join("\n• ") || "").trim();
     const content = await ensureTopicLessonContent({
         title: safeTopicTitle,
         description: topicData.description,
         keyPoints,
         topicContext,
-        draftContent: contentDraft,
+        structuredLessonMap,
     });
     const topicId = await ctx.runMutation(api.topics.createTopic, {
         courseId,
