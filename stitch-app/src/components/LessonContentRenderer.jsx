@@ -71,11 +71,19 @@ const parseInlineFormatting = (text, cleanInline) => {
  * Receives only the parsed blocks, animation flag, and cleanInline function.
  * Isolated from parent state changes (sidebar, notes, chat, voice, scroll).
  */
+const TUTOR_PROMPTS = [
+    { icon: 'lightbulb', label: 'Explain simply', prompt: 'Explain this section in simpler terms:' },
+    { icon: 'add_circle', label: 'Give an example', prompt: 'Give me another example for this section:' },
+    { icon: 'quiz', label: 'Test me', prompt: 'Ask me a quick question about this section:' },
+    { icon: 'compare_arrows', label: 'Compare', prompt: 'Compare this concept with a related one from this section:' },
+];
+
 const LessonContentRenderer = memo(function LessonContentRenderer({
     blocks,
     shouldAnimateBlocks,
     cleanInline,
     onViewSource,
+    onAskTutor,
 }) {
     const bold = (text) => parseInlineFormatting(text, cleanInline);
 
@@ -91,26 +99,42 @@ const LessonContentRenderer = memo(function LessonContentRenderer({
 
                 if (block.type === 'header') {
                     const icon = getHeaderIcon(block.text);
+                    const showTutorPrompts = onAskTutor && block.level === 2;
                     return (
-                        <div
-                            key={block.key}
-                            id={block.id}
-                            className={`${HEADER_SIZES[block.level] || HEADER_SIZES[3]} scroll-mt-20 md:scroll-mt-32 ${animationClass}`}
-                            style={animationStyle}
-                        >
-                            {icon && <span className="material-symbols-outlined text-primary/70">{icon}</span>}
-                            <span className="flex-1">{block.text}</span>
-                            {onViewSource && (
-                                <button
-                                    onClick={() => onViewSource(block.id)}
-                                    className="ml-auto text-caption text-text-faint-light dark:text-text-faint-dark hover:text-primary flex items-center gap-1 opacity-0 group-hover:opacity-100 hover:opacity-100 focus:opacity-100 transition-opacity shrink-0"
-                                    style={{ opacity: undefined }}
-                                    title="View source"
-                                >
-                                    <span className="material-symbols-outlined text-[14px]">link</span>
-                                </button>
+                        <React.Fragment key={block.key}>
+                            <div
+                                id={block.id}
+                                className={`${HEADER_SIZES[block.level] || HEADER_SIZES[3]} scroll-mt-20 md:scroll-mt-32 ${animationClass}`}
+                                style={animationStyle}
+                            >
+                                {icon && <span className="material-symbols-outlined text-primary/70">{icon}</span>}
+                                <span className="flex-1">{block.text}</span>
+                                {onViewSource && (
+                                    <button
+                                        onClick={() => onViewSource(block.id)}
+                                        className="ml-auto text-caption text-text-faint-light dark:text-text-faint-dark hover:text-primary flex items-center gap-1 opacity-0 group-hover:opacity-100 hover:opacity-100 focus:opacity-100 transition-opacity shrink-0"
+                                        style={{ opacity: undefined }}
+                                        title="View source"
+                                    >
+                                        <span className="material-symbols-outlined text-[14px]">link</span>
+                                    </button>
+                                )}
+                            </div>
+                            {showTutorPrompts && (
+                                <div className={`flex items-center gap-1.5 flex-wrap mb-3 -mt-1 ${animationClass}`} style={animationStyle}>
+                                    {TUTOR_PROMPTS.map((tp) => (
+                                        <button
+                                            key={tp.label}
+                                            onClick={() => onAskTutor(`${tp.prompt} "${block.text}"`)}
+                                            className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-caption text-text-faint-light dark:text-text-faint-dark hover:text-primary hover:bg-primary/5 border border-transparent hover:border-primary/20 transition-all"
+                                        >
+                                            <span className="material-symbols-outlined text-[14px]">{tp.icon}</span>
+                                            {tp.label}
+                                        </button>
+                                    ))}
+                                </div>
                             )}
-                        </div>
+                        </React.Fragment>
                     );
                 }
 

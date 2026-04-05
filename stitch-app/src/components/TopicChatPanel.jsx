@@ -24,7 +24,7 @@ const isAiMessageQuotaExceededError = (error) => {
 
 const EXIT_ANIMATION_MS = 250;
 
-const TopicChatPanel = memo(function TopicChatPanel({ topicId, topicTitle, open, onClose }) {
+const TopicChatPanel = memo(function TopicChatPanel({ topicId, topicTitle, open, onClose, initialPrompt }) {
     const { isAuthenticated: isConvexAuthenticated } = useConvexAuth();
     const messages = useQuery(api.topicChat.getMessages, topicId ? { topicId } : 'skip');
     const aiMessageQuota = useQuery(
@@ -98,6 +98,13 @@ const TopicChatPanel = memo(function TopicChatPanel({ topicId, topicTitle, open,
     useEffect(() => {
         if (open) setIsClosing(false);
     }, [open]);
+
+    // Pre-fill input from initialPrompt (tutor entry points)
+    useEffect(() => {
+        if (open && initialPrompt) {
+            setInput(initialPrompt);
+        }
+    }, [open, initialPrompt]);
 
     // Escape to close
     useEffect(() => {

@@ -17,6 +17,7 @@ import InteractiveQuickCheck from '../components/InteractiveQuickCheck';
 import InteractiveWordBank from '../components/InteractiveWordBank';
 import StudyModeSelector from '../components/StudyModeSelector';
 import SourcePanel from '../components/SourcePanel';
+import NextStepsGuidance from '../components/NextStepsGuidance';
 import { useTextSelection } from '../hooks/useTextSelection';
 import {
     SECTION_TITLE_PATTERN,
@@ -83,8 +84,14 @@ const TopicDetail = () => {
         try { return sessionStorage.getItem(`studyMode:${routeTopicId}`); } catch { return null; }
     });
 
+    const [chatInitialPrompt, setChatInitialPrompt] = useState('');
     const openNotes = useCallback(() => { setChatOpen(false); setNotesOpen(true); }, []);
-    const openChat = useCallback(() => { setNotesOpen(false); setChatOpen(true); }, []);
+    const openChat = useCallback(() => { setChatInitialPrompt(''); setNotesOpen(false); setChatOpen(true); }, []);
+    const handleAskTutor = useCallback((prompt) => {
+        setChatInitialPrompt(prompt);
+        setNotesOpen(false);
+        setChatOpen(true);
+    }, []);
     const contentRef = useRef(null);
     const mainRef = useRef(null);
     const { selection, clearSelection } = useTextSelection(contentRef);
@@ -944,6 +951,7 @@ const TopicDetail = () => {
                                     shouldAnimateBlocks={shouldAnimateBlocks}
                                     cleanInline={cleanInline}
                                     onViewSource={() => setSourceOpen(true)}
+                                    onAskTutor={handleAskTutor}
                                 />
                                 {parsed.quickCheckPairs?.length > 0 && (
                                     <InteractiveQuickCheck
@@ -1081,6 +1089,19 @@ const TopicDetail = () => {
                             {startExamError && (
                                 <p className="mt-4 text-caption text-red-500">{startExamError}</p>
                             )}
+
+                            <div className="mt-6 pt-6 border-t border-border-light dark:border-border-dark text-left">
+                                <NextStepsGuidance
+                                    topicId={topicId}
+                                    topicTitle={resolvedTopicTitle}
+                                    percentage={null}
+                                    completedAt={topicProgress?.completedAt}
+                                    bestScore={topicProgress?.bestScore}
+                                    hasWordBank={parsed.wordBankTerms?.length > 0}
+                                    onOpenChat={openChat}
+                                    variant="lesson"
+                                />
+                            </div>
                         </div>
                     </div>
 
@@ -1111,6 +1132,7 @@ const TopicDetail = () => {
                 topicTitle={topic?.title || ''}
                 open={chatOpen}
                 onClose={() => setChatOpen(false)}
+                initialPrompt={chatInitialPrompt}
             />
 
             <SourcePanel
