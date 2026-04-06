@@ -233,12 +233,17 @@ const lexicalRatio = (value: string) => {
     return clamp(letterLike / Math.max(text.length, 1), 0, 1);
 };
 
+const PPTX_SLIDE_SEPARATOR_PATTERN = /(?:^|\n\n)--- Slide\s+\d+\s+---\s*/g;
+
 const parsePptxSlidesFromNative = (value: string): CandidatePage[] => {
     const text = sanitizeText(value);
     if (!text) return [];
-    const split = text.split(/\n\n--- Slide\s+\d+\s+---\n/g).filter(Boolean);
+    const split = text
+        .split(PPTX_SLIDE_SEPARATOR_PATTERN)
+        .map((entry) => sanitizeText(entry))
+        .filter(Boolean);
     if (split.length <= 1) {
-        return [{ index: 0, text, source: "native", tableCount: 0, formulaCount: 0 }];
+        return [{ index: 0, text: split[0] || text, source: "native", tableCount: 0, formulaCount: 0 }];
     }
     return split.map((pageText, index) => ({
         index,
@@ -1515,7 +1520,10 @@ export const runDataLabExtractionCandidate = async (
     const startedAt = Date.now();
     const normalizedFileType = String(args.fileType || "").toLowerCase();
     const contentType = mapUploadTypeToContentType(normalizedFileType);
-    const payload = await callDataLabExtract({
+    const nativePassPromise = normalizedFileType === "pptx" || normalizedFileType === "docx"
+        ? runNativePass(normalizedFileType, cloneArrayBuffer(args.fileBuffer))
+        : Promise.resolve(emptyPassResult());
+    const payloadPromise = callDataLabExtract({
         fileName: args.fileName,
         contentType,
         fileBuffer: cloneArrayBuffer(args.fileBuffer),
@@ -1527,13 +1535,14 @@ export const runDataLabExtractionCandidate = async (
                 : Math.max(PDF_BATCH_MAX_PAGES_FOREGROUND, 24))
             : undefined,
     });
+    const [nativePass, payload] = await Promise.all([nativePassPromise, payloadPromise]);
     const latencyMs = Date.now() - startedAt;
     const dataLabPass = toDataLabPassResult(payload);
     const result = buildDocumentExtractionResult({
         backend: "datalab",
         parser: "datalab",
         fileType: normalizedFileType,
-        nativePass: emptyPassResult(),
+        nativePass,
         layoutPass: emptyPassResult(),
         readPass: dataLabPass,
         providerTrace: [{

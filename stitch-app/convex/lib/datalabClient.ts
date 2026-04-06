@@ -656,33 +656,41 @@ export const callDataLabExtract = async (args: {
         timeoutMs,
         purpose: "convert",
     });
-    const checkpointId = sanitizeText(String(convertPayload?.checkpoint_id || submitted.checkpointId || ""));
-    if (!checkpointId) {
-        throw new Error("Datalab error: convert response missing checkpoint_id");
-    }
-    const extractSubmitted = await submitStructuredExtractRequest({
-        checkpointId,
-        mode,
-        maxPages: args.maxPages,
-        timeoutMs,
-    });
-    const extractPayload = await pollRequest({
-        requestCheckUrl: extractSubmitted.requestCheckUrl,
-        timeoutMs,
-        purpose: "extract",
-    });
-
     const blocks = flattenChunkBlocks(convertPayload?.chunks);
     const blockPageById = new Map(blocks.map((block) => [block.id, block.page]));
     const pages = buildPagesFromChunkBlocks(blocks);
     const markdown = pages.map((page) => page.markdown).join("\n\n").trim();
     const text = sanitizeText(markdown);
     const parseQualityScore = Math.max(0, Number(convertPayload?.parse_quality_score || 0));
+    const warnings: string[] = [];
+    const checkpointId = sanitizeText(String(convertPayload?.checkpoint_id || submitted.checkpointId || ""));
+    let extractPayload: any = null;
+    if (checkpointId) {
+        try {
+            const extractSubmitted = await submitStructuredExtractRequest({
+                checkpointId,
+                mode,
+                maxPages: args.maxPages,
+                timeoutMs,
+            });
+            extractPayload = await pollRequest({
+                requestCheckUrl: extractSubmitted.requestCheckUrl,
+                timeoutMs,
+                purpose: "extract",
+            });
+        } catch (error) {
+            const message = sanitizeText(error instanceof Error ? error.message : String(error)).slice(0, 160);
+            if (message) {
+                warnings.push(`structured_extract_failed:${message}`);
+            }
+        }
+    } else {
+        warnings.push("checkpoint_unavailable");
+    }
     const structuredCourseMap = normalizeStructuredCourseMap(
-        parseStructuredExtractionPayload(extractPayload),
+        parseStructuredExtractionPayload(extractPayload || convertPayload),
         blockPageById
     );
-    const warnings: string[] = [];
     if (!text) {
         warnings.push("empty_block_output");
     }
