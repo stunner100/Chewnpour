@@ -188,13 +188,13 @@ export const buildGroundedAssessmentBlueprintPrompt = (args: {
 
 TOPIC: ${args.topicTitle}
 DESCRIPTION: ${args.topicDescription || "General concepts"}
-${args.structuredTopicContext ? `STRUCTURED_TOPIC_SCHEMA:\n"""\n${args.structuredTopicContext}\n"""\n` : ""}
+${args.structuredTopicContext ? `TOPIC_CONTENT_GRAPH:\n"""\n${args.structuredTopicContext}\n"""\n` : ""}
 
 ${formatEvidence(args.evidence, 14000)}
 
 Rules:
 - Use only the evidence above.
-- Use the structured topic schema as curriculum guidance when selecting outcomes, objectives, formulas, confusions, and scenario frames, but do not invent facts beyond the evidence.
+- Use the topic content graph as curriculum guidance when selecting outcomes, objectives, formulas, confusions, and scenario frames, but do not invent facts beyond the evidence.
 - Return 3-6 outcomes.
 - Each outcome must include: key, objective, bloomLevel, evidenceFocus, cognitiveTask, difficultyBand.
 - bloomLevel must be one of: Remember, Understand, Apply, Analyze, Evaluate, Create.
@@ -297,7 +297,7 @@ export const buildGroundedMcqPrompt = (args: {
 
 TOPIC: ${args.topicTitle}
 DESCRIPTION: ${args.topicDescription || "General concepts"}
-${args.structuredTopicContext ? `STRUCTURED_TOPIC_SCHEMA:\n"""\n${args.structuredTopicContext}\n"""\n` : ""}
+${args.structuredTopicContext ? `TOPIC_CONTENT_GRAPH:\n"""\n${args.structuredTopicContext}\n"""\n` : ""}
 
 ${formatEvidence(args.evidence)}
 ASSESSMENT_BLUEPRINT:
@@ -312,7 +312,7 @@ Rules:
 - bloomLevel must exactly match the selected outcome's bloomLevel.
 - bloomLevel must be one of: Apply, Analyze.
 - If coverage gaps are listed, satisfy those outcome priorities before generating extras.
-- Use the structured topic schema to prefer the document's extracted learning objectives, definitions, formulas, examples, and confusions when framing stems and selecting outcomes.
+- Use the topic content graph to prefer the document's extracted learning objectives, definitions, formulas, examples, source passages, and confusions when framing stems and selecting outcomes.
 - Every question must include citations[] with 1-3 citation objects.
 - Every citation object must include: passageId, page, startChar, endChar, quote.
 - quote must be an exact short excerpt from the cited passage.
@@ -370,7 +370,7 @@ export const buildGroundedMcqRepairPrompt = (args: {
 
 TOPIC: ${args.topicTitle}
 DESCRIPTION: ${args.topicDescription || "General concepts"}
-${args.structuredTopicContext ? `STRUCTURED_TOPIC_SCHEMA:\n"""\n${args.structuredTopicContext}\n"""\n` : ""}
+${args.structuredTopicContext ? `TOPIC_CONTENT_GRAPH:\n"""\n${args.structuredTopicContext}\n"""\n` : ""}
 
 ${formatEvidence(args.evidence, 10000)}
 ASSESSMENT_BLUEPRINT:
@@ -387,7 +387,7 @@ ${JSON.stringify(args.candidate, null, 2)}
 Rules:
 - Keep the same question intent only if it is fully supported by the evidence.
 - If the current question intent is not supported, rewrite the question so it matches the evidence exactly.
-- Use the structured topic schema to preserve the document's extracted objectives, definitions, formulas, examples, and confusions when they are evidence-supported.
+- Use the topic content graph to preserve the document's extracted objectives, definitions, formulas, examples, source passages, and confusions when they are evidence-supported.
 - questionType must be "multiple_choice".
 - Use exactly 4 options with one correct answer.
 - The marked correct option must be directly supported by the cited evidence.
@@ -439,7 +439,7 @@ export const buildGroundedTrueFalsePrompt = (args: {
 
 TOPIC: ${args.topicTitle}
 DESCRIPTION: ${args.topicDescription || "General concepts"}
-${args.structuredTopicContext ? `STRUCTURED_TOPIC_SCHEMA:\n"""\n${args.structuredTopicContext}\n"""\n` : ""}
+${args.structuredTopicContext ? `TOPIC_CONTENT_GRAPH:\n"""\n${args.structuredTopicContext}\n"""\n` : ""}
 
 ${formatEvidence(args.evidence, 12000)}
 ASSESSMENT_BLUEPRINT:
@@ -455,7 +455,7 @@ Rules:
 - bloomLevel must exactly match the selected outcome's bloomLevel.
 - bloomLevel must be one of: Apply.
 - If coverage gaps are listed, satisfy those outcome priorities before generating extras.
-- Use the structured topic schema to prefer the document's extracted objectives, examples, formulas, and confusions when choosing claims to test.
+- Use the topic content graph to prefer the document's extracted objectives, examples, formulas, source passages, and confusions when choosing claims to test.
 - Each question must be a single clear statement.
 - Use exactly 2 options: True and False.
 - Exactly one option must be correct.
@@ -503,7 +503,7 @@ export const buildGroundedFillBlankPrompt = (args: {
 
 TOPIC: ${args.topicTitle}
 DESCRIPTION: ${args.topicDescription || "General concepts"}
-${args.structuredTopicContext ? `STRUCTURED_TOPIC_SCHEMA:\n"""\n${args.structuredTopicContext}\n"""\n` : ""}
+${args.structuredTopicContext ? `TOPIC_CONTENT_GRAPH:\n"""\n${args.structuredTopicContext}\n"""\n` : ""}
 
 ${formatEvidence(args.evidence, 12000)}
 ASSESSMENT_BLUEPRINT:
@@ -519,7 +519,7 @@ Rules:
 - bloomLevel must exactly match the selected outcome's bloomLevel.
 - bloomLevel must be one of: Apply.
 - If coverage gaps are listed, satisfy those outcome priorities before generating extras.
-- Use the structured topic schema to prefer the document's extracted objectives, definitions, formulas, and examples when choosing what the blank should test.
+- Use the topic content graph to prefer the document's extracted objectives, definitions, formulas, examples, and source passages when choosing what the blank should test.
 - Use exactly one blank only.
 - templateParts must contain exactly one "__" entry.
 - acceptedAnswers must contain the canonical correct answer first, then any exact aliases supported by the evidence.
@@ -569,7 +569,7 @@ export const buildGroundedEssayPrompt = (args: {
 
 TOPIC: ${args.topicTitle}
 DESCRIPTION: ${args.topicDescription || "General concepts"}
-${args.structuredTopicContext ? `STRUCTURED_TOPIC_SCHEMA:\n"""\n${args.structuredTopicContext}\n"""\n` : ""}
+${args.structuredTopicContext ? `TOPIC_CONTENT_GRAPH:\n"""\n${args.structuredTopicContext}\n"""\n` : ""}
 
 ${formatEvidence(args.evidence, 14000)}
 ASSESSMENT_BLUEPRINT:
@@ -584,7 +584,7 @@ Rules:
 - bloomLevel must exactly match the selected outcome's bloomLevel.
 - bloomLevel must be one of: Analyze, Evaluate, Create.
 - If coverage gaps are listed, satisfy those outcome priorities before generating extras.
-- Use the structured topic schema to prefer the document's extracted objectives, examples, formulas, and confusions when framing authentic tasks.
+- Use the topic content graph to prefer the document's extracted objectives, examples, formulas, source passages, and confusions when framing authentic tasks.
 - Across the batch, diversify outcomes and scenario frames before repeating the same one.
 - At least one prompt should require analysis/explanation and one should require evaluation/justification when the evidence supports both.
 - Use sharper university-style task verbs and explicit response scope.

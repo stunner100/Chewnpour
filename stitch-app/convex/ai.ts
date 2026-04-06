@@ -2397,7 +2397,17 @@ const loadStructuredCourseMapForUpload = async (
     return isStructuredCourseMapUsable(structuredCourseMap) ? structuredCourseMap : null;
 };
 
-type StructuredExamTopicProfile = {
+type TopicContentGraphSourcePassage = {
+    passageId: string;
+    page: number;
+    sectionHint?: string;
+    text: string;
+};
+
+type TopicContentGraph = {
+    title: string;
+    description?: string;
+    keyPoints: string[];
     subtopics: string[];
     definitions: DataLabStructuredDefinition[];
     examples: string[];
@@ -2406,9 +2416,13 @@ type StructuredExamTopicProfile = {
     learningObjectives: string[];
     sourcePages: number[];
     sourceBlockIds: string[];
+    sourcePassages: TopicContentGraphSourcePassage[];
 };
 
-const emptyStructuredExamTopicProfile = (): StructuredExamTopicProfile => ({
+const emptyTopicContentGraph = (): TopicContentGraph => ({
+    title: "",
+    description: "",
+    keyPoints: [],
     subtopics: [],
     definitions: [],
     examples: [],
@@ -2417,65 +2431,198 @@ const emptyStructuredExamTopicProfile = (): StructuredExamTopicProfile => ({
     learningObjectives: [],
     sourcePages: [],
     sourceBlockIds: [],
+    sourcePassages: [],
 });
 
-const normalizeStructuredExamTopicProfile = (value: any): StructuredExamTopicProfile => ({
-    subtopics: normalizeStructuredTopicStringList(value?.structuredSubtopics ?? value?.subtopics, 10, 140),
-    definitions: normalizeStructuredDefinitionList(value?.structuredDefinitions ?? value?.definitions),
-    examples: normalizeStructuredTopicStringList(value?.structuredExamples ?? value?.examples, 8, 220),
-    formulas: normalizeStructuredTopicStringList(value?.structuredFormulas ?? value?.formulas, 8, 180),
-    likelyConfusions: normalizeStructuredTopicStringList(
-        value?.structuredLikelyConfusions ?? value?.likelyConfusions,
-        8,
-        180
-    ),
-    learningObjectives: normalizeStructuredTopicStringList(
-        value?.structuredLearningObjectives ?? value?.learningObjectives,
-        8,
-        180
-    ),
-    sourcePages: Array.isArray(value?.structuredSourcePages ?? value?.sourcePages)
-        ? (value.structuredSourcePages ?? value.sourcePages)
-            .map((entry: any) => Number(entry))
-            .filter((entry: number) => Number.isFinite(entry) && entry >= 0)
-            .map((entry: number) => Math.floor(entry))
-            .slice(0, 24)
-        : [],
-    sourceBlockIds: Array.isArray(value?.structuredSourceBlockIds ?? value?.sourceBlockIds)
-        ? (value.structuredSourceBlockIds ?? value.sourceBlockIds)
-            .map((entry: any) => String(entry || "").trim())
-            .filter(Boolean)
-            .slice(0, 24)
-        : [],
-});
+const normalizeTopicContentGraphSourcePassages = (value: any): TopicContentGraphSourcePassage[] => {
+    const items = Array.isArray(value) ? value : [];
+    const passages: TopicContentGraphSourcePassage[] = [];
+    const seen = new Set<string>();
+    for (const entry of items) {
+        const passageId = String(entry?.passageId || "").trim();
+        const text = normalizeStructuredTopicString(entry?.text, 520);
+        const page = Number(entry?.page);
+        const sectionHint = normalizeStructuredTopicString(entry?.sectionHint, 180);
+        const key = `${passageId}::${page}::${text.toLowerCase()}`;
+        if (!passageId || !text || !Number.isFinite(page) || page < 0 || seen.has(key)) continue;
+        seen.add(key);
+        passages.push({
+            passageId,
+            page: Math.floor(page),
+            sectionHint: sectionHint || undefined,
+            text,
+        });
+        if (passages.length >= 10) break;
+    }
+    return passages;
+};
 
-const hasStructuredExamTopicProfile = (value: StructuredExamTopicProfile | null | undefined) =>
+const normalizeTopicContentGraph = (value: any): TopicContentGraph => {
+    const graph = value?.contentGraph && typeof value.contentGraph === "object"
+        ? value.contentGraph
+        : value;
+    return {
+        title: normalizeStructuredTopicString(graph?.title, 140),
+        description: normalizeStructuredTopicString(graph?.description, 360),
+        keyPoints: normalizeOutlineStringList(
+            [
+                ...(Array.isArray(graph?.keyPoints) ? graph.keyPoints : []),
+                ...(Array.isArray(graph?.structuredLearningObjectives) ? graph.structuredLearningObjectives : []),
+            ],
+            8
+        ),
+        subtopics: normalizeStructuredTopicStringList(graph?.structuredSubtopics ?? graph?.subtopics, 10, 140),
+        definitions: normalizeStructuredDefinitionList(graph?.structuredDefinitions ?? graph?.definitions),
+        examples: normalizeStructuredTopicStringList(graph?.structuredExamples ?? graph?.examples, 8, 220),
+        formulas: normalizeStructuredTopicStringList(graph?.structuredFormulas ?? graph?.formulas, 8, 180),
+        likelyConfusions: normalizeStructuredTopicStringList(
+            graph?.structuredLikelyConfusions ?? graph?.likelyConfusions,
+            8,
+            180
+        ),
+        learningObjectives: normalizeStructuredTopicStringList(
+            graph?.structuredLearningObjectives ?? graph?.learningObjectives,
+            8,
+            180
+        ),
+        sourcePages: Array.isArray(graph?.structuredSourcePages ?? graph?.sourcePages)
+            ? (graph.structuredSourcePages ?? graph.sourcePages)
+                .map((entry: any) => Number(entry))
+                .filter((entry: number) => Number.isFinite(entry) && entry >= 0)
+                .map((entry: number) => Math.floor(entry))
+                .slice(0, 24)
+            : [],
+        sourceBlockIds: Array.isArray(graph?.structuredSourceBlockIds ?? graph?.sourceBlockIds)
+            ? (graph.structuredSourceBlockIds ?? graph.sourceBlockIds)
+                .map((entry: any) => String(entry || "").trim())
+                .filter(Boolean)
+                .slice(0, 24)
+            : [],
+        sourcePassages: normalizeTopicContentGraphSourcePassages(graph?.sourcePassages),
+    };
+};
+
+const hasTopicContentGraph = (value: TopicContentGraph | null | undefined) =>
     Boolean(
         value
         && (
-            value.subtopics.length > 0
+            value.keyPoints.length > 0
+            || value.subtopics.length > 0
             || value.definitions.length > 0
             || value.examples.length > 0
             || value.formulas.length > 0
             || value.likelyConfusions.length > 0
             || value.learningObjectives.length > 0
+            || value.sourcePassages.length > 0
         )
     );
 
-const buildStructuredExamTopicContext = (profile: StructuredExamTopicProfile | null | undefined) =>
-    buildTopicStructuredSourceContext(profile);
-
-const buildStructuredExamQueryFragments = (profile: StructuredExamTopicProfile | null | undefined) => {
-    if (!profile) return [];
-    return normalizeStructuredTopicStringList([
-        ...profile.subtopics,
-        ...profile.learningObjectives,
-        ...profile.formulas,
-        ...profile.likelyConfusions,
-        ...profile.definitions.map((entry) => entry.term),
-        ...profile.examples,
-    ], 18, 180);
+const mergeTopicContentGraph = (
+    primary: TopicContentGraph | null | undefined,
+    secondary: TopicContentGraph | null | undefined
+): TopicContentGraph => {
+    const left = primary || emptyTopicContentGraph();
+    const right = secondary || emptyTopicContentGraph();
+    return {
+        title: left.title || right.title,
+        description: left.description || right.description,
+        keyPoints: normalizeOutlineStringList([...left.keyPoints, ...right.keyPoints], 8),
+        subtopics: normalizeStructuredTopicStringList([...left.subtopics, ...right.subtopics], 10, 140),
+        definitions: normalizeStructuredDefinitionList([...left.definitions, ...right.definitions]),
+        examples: normalizeStructuredTopicStringList([...left.examples, ...right.examples], 8, 220),
+        formulas: normalizeStructuredTopicStringList([...left.formulas, ...right.formulas], 8, 180),
+        likelyConfusions: normalizeStructuredTopicStringList(
+            [...left.likelyConfusions, ...right.likelyConfusions],
+            8,
+            180
+        ),
+        learningObjectives: normalizeStructuredTopicStringList(
+            [...left.learningObjectives, ...right.learningObjectives],
+            8,
+            180
+        ),
+        sourcePages: Array.from(new Set([...left.sourcePages, ...right.sourcePages])).sort((a, b) => a - b),
+        sourceBlockIds: Array.from(new Set([...left.sourceBlockIds, ...right.sourceBlockIds])),
+        sourcePassages: normalizeTopicContentGraphSourcePassages([
+            ...left.sourcePassages,
+            ...right.sourcePassages,
+        ]),
+    };
 };
+
+const buildTopicContentGraphContext = (
+    graph: TopicContentGraph | null | undefined,
+    maxChars = TOPIC_CONTEXT_LIMIT
+) => {
+    const normalized = normalizeTopicContentGraph(graph);
+    if (!hasTopicContentGraph(normalized)) return "";
+    const payload = {
+        title: normalized.title,
+        description: normalized.description,
+        keyPoints: normalized.keyPoints,
+        subtopics: normalized.subtopics,
+        definitions: normalized.definitions,
+        examples: normalized.examples,
+        formulas: normalized.formulas,
+        likelyConfusions: normalized.likelyConfusions,
+        learningObjectives: normalized.learningObjectives,
+        sourcePages: normalized.sourcePages,
+        sourceBlockIds: normalized.sourceBlockIds,
+        sourcePassages: normalized.sourcePassages,
+    };
+    return JSON.stringify(payload, null, 2).slice(0, maxChars).trim();
+};
+
+const buildTopicContentGraphQueryFragments = (graph: TopicContentGraph | null | undefined) => {
+    if (!graph) return [];
+    return normalizeStructuredTopicStringList([
+        ...graph.keyPoints,
+        ...graph.subtopics,
+        ...graph.learningObjectives,
+        ...graph.formulas,
+        ...graph.likelyConfusions,
+        ...graph.examples,
+        ...graph.definitions.map((entry) => entry.term),
+        ...graph.sourcePassages.map((entry) => entry.sectionHint || ""),
+    ], 20, 180);
+};
+
+const buildTopicContentGraph = (args: {
+    title: string;
+    description?: string;
+    keyPoints: string[];
+    topicData: PreparedTopic;
+    sourcePassages: TopicContentGraphSourcePassage[];
+}): TopicContentGraph => normalizeTopicContentGraph({
+    title: args.title,
+    description: args.description,
+    keyPoints: args.keyPoints,
+    subtopics: args.topicData.subtopics,
+    definitions: args.topicData.definitions,
+    examples: args.topicData.examples,
+    formulas: args.topicData.formulas,
+    likelyConfusions: args.topicData.likelyConfusions,
+    learningObjectives: args.topicData.learningObjectives,
+    sourcePages: args.topicData.sourcePages,
+    sourceBlockIds: args.topicData.sourceBlockIds,
+    sourcePassages: args.sourcePassages,
+});
+
+type StructuredExamTopicProfile = TopicContentGraph;
+
+const emptyStructuredExamTopicProfile = (): StructuredExamTopicProfile => emptyTopicContentGraph();
+
+const normalizeStructuredExamTopicProfile = (value: any): StructuredExamTopicProfile =>
+    normalizeTopicContentGraph(value);
+
+const hasStructuredExamTopicProfile = (value: StructuredExamTopicProfile | null | undefined) =>
+    hasTopicContentGraph(value);
+
+const buildStructuredExamTopicContext = (profile: StructuredExamTopicProfile | null | undefined) =>
+    buildTopicContentGraphContext(profile);
+
+const buildStructuredExamQueryFragments = (profile: StructuredExamTopicProfile | null | undefined) =>
+    buildTopicContentGraphQueryFragments(profile);
 
 const hasCurrentGroundedEvidenceIndex = (upload: any, index: any) => {
     const storedVersion = String(index?.version || "").trim();
@@ -2573,24 +2720,7 @@ const loadStructuredExamTopicProfileForTopic = async (
         return direct;
     }
 
-    return {
-        subtopics: normalizeStructuredTopicStringList([...direct.subtopics, ...resolved.subtopics], 10, 140),
-        definitions: normalizeStructuredDefinitionList([...direct.definitions, ...resolved.definitions]),
-        examples: normalizeStructuredTopicStringList([...direct.examples, ...resolved.examples], 8, 220),
-        formulas: normalizeStructuredTopicStringList([...direct.formulas, ...resolved.formulas], 8, 180),
-        likelyConfusions: normalizeStructuredTopicStringList(
-            [...direct.likelyConfusions, ...resolved.likelyConfusions],
-            8,
-            180
-        ),
-        learningObjectives: normalizeStructuredTopicStringList(
-            [...direct.learningObjectives, ...resolved.learningObjectives],
-            8,
-            180
-        ),
-        sourcePages: Array.from(new Set([...direct.sourcePages, ...resolved.sourcePages])).sort((a, b) => a - b),
-        sourceBlockIds: Array.from(new Set([...direct.sourceBlockIds, ...resolved.sourceBlockIds])),
-    };
+    return mergeTopicContentGraph(direct, resolved);
 };
 
 const loadGroundedEvidenceIndexForTopic = async (ctx: any, topic: any): Promise<{
@@ -4385,15 +4515,27 @@ const buildStructuredLessonFallbackMap = (args: {
     description?: string;
     keyPoints: string[];
     topicContext: string;
+    contentGraph?: TopicContentGraph | null;
 }): StructuredLessonMap => {
+    const contentGraph = normalizeTopicContentGraph(args.contentGraph);
     const contextSentences = splitLessonSentences(args.topicContext, 16);
     const keyPoints = dedupeLessonStringList(
-        [...args.keyPoints, ...contextSentences],
+        [
+            ...contentGraph.keyPoints,
+            ...contentGraph.learningObjectives,
+            ...args.keyPoints,
+            ...contextSentences,
+        ],
         LESSON_KEY_IDEA_MAX,
         18
     );
     const subtopics = dedupeLessonStringList(
-        [args.description || "", ...keyPoints, ...contextSentences.slice(0, 6)],
+        [
+            ...contentGraph.subtopics,
+            args.description || "",
+            ...keyPoints,
+            ...contextSentences.slice(0, 6),
+        ],
         6,
         14
     );
@@ -4402,9 +4544,17 @@ const buildStructuredLessonFallbackMap = (args: {
         8,
         4
     );
-    const definitions = normalizeDefinitionEntries([], fallbackTerms);
+    const definitions = normalizeDefinitionEntries(contentGraph.definitions, fallbackTerms);
     const examples = normalizeWorkedExamples(
-        [],
+        contentGraph.examples.map((example) => ({
+            question: `Using the source material, what does this example show about ${args.title}?`,
+            reasoning: [
+                `Identify the exact example described in the source: ${example}`,
+                "Connect that example to the main topic idea and the relevant key point.",
+                "State the conclusion in plain language without adding facts not present in the source.",
+            ],
+            answer: example,
+        })),
         `How do you solve a simple problem involving ${args.title}?`,
         [
             "Start by finding the main idea or definition that fits the problem.",
@@ -4412,11 +4562,28 @@ const buildStructuredLessonFallbackMap = (args: {
             "Check the final answer against the topic rules and the example context.",
         ]
     );
-    const likelyConfusions = normalizeConfusionEntries([], keyPoints);
+    const formulas = normalizeFormulaEntries(
+        contentGraph.formulas.map((formula, index) => ({
+            name: `Formula ${index + 1}`,
+            expression: formula,
+            explanation: "Use the formula exactly as preserved from the source material.",
+        }))
+    );
+    const likelyConfusions = normalizeConfusionEntries(
+        contentGraph.likelyConfusions.map((confusion) => ({
+            confusion,
+            correction: contentGraph.keyPoints[0]
+                || contentGraph.learningObjectives[0]
+                || `Return to the source evidence for ${args.title} and restate the idea precisely.`,
+        })),
+        keyPoints
+    );
     const quickCheck = normalizeQuickCheckEntries([], keyPoints, args.title);
     const bigIdea = dedupeLessonStringList(
         [
             args.description || "",
+            contentGraph.description || "",
+            contentGraph.sourcePassages[0]?.text || "",
             contextSentences[0] || "",
             `${args.title} matters because it helps you explain the purpose, the key ideas, and how to apply them correctly.`,
         ],
@@ -4425,6 +4592,8 @@ const buildStructuredLessonFallbackMap = (args: {
     );
     const summary = dedupeLessonStringList(
         [
+            contentGraph.keyPoints[0] || "",
+            contentGraph.learningObjectives[0] || "",
             contextSentences[1] || "",
             `${args.title} becomes easier when you focus on the purpose, the key steps, and the worked example.`,
         ],
@@ -4438,7 +4607,7 @@ const buildStructuredLessonFallbackMap = (args: {
         subtopics,
         definitions,
         examples,
-        formulas: [],
+        formulas,
         keyPoints: keyPoints.length >= LESSON_KEY_IDEA_MIN
             ? keyPoints
             : dedupeLessonStringList(
@@ -4464,6 +4633,7 @@ const buildStructuredLessonMapPrompt = (args: {
     description?: string;
     keyPoints: string[];
     topicContext: string;
+    contentGraphContext?: string;
     structuredSourceMap?: string;
     sequencingContext?: string;
     educationDirective: string;
@@ -4472,6 +4642,7 @@ const buildStructuredLessonMapPrompt = (args: {
 TOPIC: ${args.title}
 DESCRIPTION: ${args.description || "Educational topic"}
 KEY POINTS: ${(args.keyPoints || []).join(", ") || "Core concepts"}
+${args.contentGraphContext ? `TOPIC_CONTENT_GRAPH:\n"""\n${args.contentGraphContext}\n"""\n` : ""}
 ${args.structuredSourceMap ? `STRUCTURED SOURCE MAP:\n"""\n${args.structuredSourceMap}\n"""\n` : ""}
 ${args.sequencingContext || ""}
 
@@ -4489,10 +4660,12 @@ Rules:
 - Do not include weak or forced analogies.
 - Keep every key point atomic and self-contained.
 - Use concise, accurate wording.
+- Treat the topic content graph as the canonical handoff structure from extraction into lesson generation.
+- Preserve source-grounded numbers, examples, formulas, table findings, figure captions, and terminology from the topic content graph.
 - Big idea must explain the topic purpose simply.
 - Key points must be 5 to 8 items.
 - Subtopics must form a logical teaching order.
-- Prefer the structured source map over inferring missing structure from loose prose.
+- Prefer the topic content graph over the structured source map, and prefer the structured source map over inferring missing structure from loose prose.
 - Worked examples must include a question, reasoning steps, and an answer.
 - Summary must be concise and should wrap up the lesson instead of repeating all key points.
 - Quick check must include at least one recall question and one understanding question.
@@ -4530,6 +4703,7 @@ const normalizeStructuredLessonMap = (rawMap: any, args: {
     description?: string;
     keyPoints: string[];
     topicContext: string;
+    contentGraph?: TopicContentGraph | null;
 }): StructuredLessonMap => {
     const fallback = buildStructuredLessonFallbackMap(args);
     const keyPoints = dedupeLessonStringList(
@@ -4687,6 +4861,7 @@ const buildTopicLessonFallback = (args: {
     description?: string;
     keyPoints: string[];
     topicContext: string;
+    contentGraph?: TopicContentGraph | null;
 }) => {
     const fallbackMap = buildStructuredLessonFallbackMap(args);
     return buildLessonMarkdownFromStructuredMap(fallbackMap);
@@ -4698,6 +4873,7 @@ const ensureTopicLessonContent = async (args: {
     keyPoints: string[];
     topicContext: string;
     structuredLessonMap?: any;
+    contentGraph?: TopicContentGraph | null;
 }) => {
     const normalizedMap = normalizeStructuredLessonMap(args.structuredLessonMap, args);
     const rendered = buildLessonMarkdownFromStructuredMap(normalizedMap);
@@ -5806,6 +5982,32 @@ const generateTopicContentForIndex = async (args: {
             .slice(0, TOPIC_CONTEXT_LIMIT)
             .trim();
     })();
+    const alignedSourcePassages: TopicContentGraphSourcePassage[] = (() => {
+        if (!args.evidenceIndex || sourcePassageIdList.length === 0) return [];
+        const passageById = new Map(
+            (args.evidenceIndex.passages || []).map((passage) => [String(passage.passageId), passage])
+        );
+        return sourcePassageIdList
+            .map((passageId) => {
+                const passage = passageById.get(passageId);
+                if (!passage) return null;
+                return {
+                    passageId,
+                    page: Math.max(0, Math.floor(Number(passage.page || 0))),
+                    sectionHint: normalizeStructuredTopicString(passage.sectionHint, 180) || undefined,
+                    text: normalizeStructuredTopicString(passage.text, 520),
+                };
+            })
+            .filter((entry): entry is TopicContentGraphSourcePassage => Boolean(entry?.passageId && entry.text));
+    })();
+    const topicContentGraph = buildTopicContentGraph({
+        title: safeTopicTitle,
+        description: topicData.description,
+        keyPoints,
+        topicData,
+        sourcePassages: alignedSourcePassages,
+    });
+    const topicContentGraphContext = buildTopicContentGraphContext(topicContentGraph);
     const chunkBoundContext = buildTopicContextFromChunkIds(extractedText, topicData.sourceChunkIds);
     const fallbackContext = buildTopicContextFromSource(extractedText, {
         title: safeTopicTitle,
@@ -5813,6 +6015,7 @@ const generateTopicContentForIndex = async (args: {
         keyPoints,
     });
     const topicContext = [
+        topicContentGraphContext,
         evidenceContext,
         structuredSourceMap,
         chunkBoundContext,
@@ -5853,6 +6056,7 @@ ${index === totalTopics - 1 ? "This is the final topic — summarize and connect
                     description: topicData.description,
                     keyPoints,
                     topicContext,
+                    contentGraphContext: topicContentGraphContext,
                     structuredSourceMap,
                     sequencingContext,
                     educationDirective: `${tone.style}\nTarget lesson length after rendering: ${TOPIC_DETAIL_WORD_TARGET} words.`,
@@ -5875,6 +6079,7 @@ ${index === totalTopics - 1 ? "This is the final topic — summarize and connect
         keyPoints,
         topicContext,
         structuredLessonMap,
+        contentGraph: topicContentGraph,
     });
     const topicId = await ctx.runMutation(api.topics.createTopic, {
         courseId,
@@ -5892,6 +6097,7 @@ ${index === totalTopics - 1 ? "This is the final topic — summarize and connect
         structuredLearningObjectives: topicData.learningObjectives,
         structuredSourcePages: topicData.sourcePages,
         structuredSourceBlockIds: topicData.sourceBlockIds,
+        contentGraph: topicContentGraph,
         groundingVersion: GROUNDED_GENERATION_VERSION,
         illustrationUrl: resolveTopicPlaceholderIllustrationUrl(),
         orderIndex: index,
