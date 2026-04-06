@@ -4426,6 +4426,45 @@ type StructuredLessonMap = {
 
 const LESSON_KEY_IDEA_MIN = 5;
 const LESSON_KEY_IDEA_MAX = 8;
+const LESSON_WEAK_TRAILING_TOKENS = new Set([
+    "and", "or", "of", "to", "in", "on", "for", "with", "including", "plus", "less", "only",
+    "than", "from", "other", "foreign", "reductions", "recognized", "compared", "is", "are",
+    "was", "were", "be", "been", "being",
+]);
+
+const trimTrailingWeakLessonWords = (value: string) => {
+    const words = String(value || "").trim().split(/\s+/).filter(Boolean);
+    while (words.length > 0) {
+        const last = words[words.length - 1].toLowerCase().replace(/[^a-z]+/g, "");
+        if (!last || !LESSON_WEAK_TRAILING_TOKENS.has(last)) break;
+        words.pop();
+    }
+    return words.join(" ").trim();
+};
+
+const compactLessonSentence = (value: string, maxWords: number) => {
+    const normalized = String(value || "").trim();
+    if (!normalized) return "";
+
+    const candidates = [
+        normalized.split(/\s+\(/)[0],
+        normalized.split(/;\s+/)[0],
+        normalized.split(/:\s+/)[0],
+        normalized.split(/,\s+/).slice(0, 2).join(", "),
+    ].map((candidate) => trimTrailingWeakLessonWords(candidate));
+
+    for (const candidate of candidates) {
+        if (!candidate) continue;
+        const words = candidate.split(/\s+/).filter(Boolean);
+        if (words.length >= 4 && words.length <= maxWords) {
+            return candidate.replace(/\s*[;:,-]\s*$/g, "").trim();
+        }
+    }
+
+    const words = normalized.split(/\s+/).filter(Boolean);
+    const sliced = trimTrailingWeakLessonWords(words.slice(0, Math.max(6, maxWords)).join(" "));
+    return sliced.replace(/\s*[;:,-]\s*$/g, "").trim();
+};
 
 const normalizeLessonSentence = (value: any, maxWords = 26) => {
     const normalized = normalizeOutlineString(value)
@@ -4434,8 +4473,10 @@ const normalizeLessonSentence = (value: any, maxWords = 26) => {
         .trim();
     if (!normalized) return "";
     const words = normalized.split(/\s+/).filter(Boolean);
-    const limited = words.slice(0, Math.max(6, maxWords)).join(" ");
-    return limited.replace(/\s*[;:,-]\s*$/g, "").trim();
+    if (words.length <= Math.max(6, maxWords)) {
+        return normalized.replace(/\s*[;:,-]\s*$/g, "").trim();
+    }
+    return compactLessonSentence(normalized, maxWords);
 };
 
 const splitLessonSentences = (value: string, maxItems = 14) =>
@@ -4497,10 +4538,11 @@ const compactGroundedLessonFact = (value: any, maxWords = 26) => {
     return normalizeLessonSentence(firstSentence, maxWords);
 };
 
-const endsWithWeakTrailingToken = (value: string) =>
-    /\b(and|or|of|to|in|on|for|with|including|plus|less|only|than|from)$/i.test(
-        normalizeLessonSentence(value, 30)
-    );
+const endsWithWeakTrailingToken = (value: string) => {
+    const normalized = normalizeLessonSentence(value, 30);
+    const last = normalized.split(/\s+/).filter(Boolean).at(-1)?.toLowerCase().replace(/[^a-z]+/g, "") || "";
+    return Boolean(last && LESSON_WEAK_TRAILING_TOKENS.has(last));
+};
 
 const hasUnbalancedParentheses = (value: string) =>
     (String(value || "").match(/\(/g) || []).length !== (String(value || "").match(/\)/g) || []).length;

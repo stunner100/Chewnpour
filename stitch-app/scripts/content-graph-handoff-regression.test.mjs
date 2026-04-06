@@ -35,6 +35,13 @@ assert.ok(
 );
 
 assert.ok(
+  aiSource.includes("const compactLessonSentence =")
+    && aiSource.includes("trimTrailingWeakLessonWords")
+    && aiSource.includes("LESSON_WEAK_TRAILING_TOKENS"),
+  "Expected lesson normalization to compact long source-backed statements instead of blindly truncating them."
+);
+
+assert.ok(
   schemaSource.includes("sourcePassages: v.array(v.object({")
     && topicsSource.includes("sourcePassages: v.array(v.object({")
     && topicsSource.includes("contentGraph: args.contentGraph"),
