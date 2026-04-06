@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Link, useLocation, useNavigate, useParams } from 'react-router-dom';
+import { Link, useNavigate, useParams } from 'react-router-dom';
 import { useQuery, useMutation, useAction } from 'convex/react';
 import { api } from '../../convex/_generated/api';
 import { useAuth } from '../contexts/AuthContext';
@@ -480,19 +480,11 @@ const isUserCorrectableEssaySubmitError = (message) => {
     );
 };
 
-const resolvePreferredExamFormat = (value) => {
-    const normalized = String(value || '').trim().toLowerCase();
-    if (normalized === 'essay') return 'essay';
-    if (normalized === 'mcq') return 'mcq';
-    return '';
-};
-
 // ── Component ──
 
 const ExamMode = () => {
     const { topicId: topicIdParam } = useParams();
     const routeTopicId = typeof topicIdParam === 'string' ? topicIdParam.trim() : '';
-    const location = useLocation();
     const navigate = useNavigate();
     const { user } = useAuth();
     const [currentQuestion, setCurrentQuestion] = useState(0);
@@ -577,8 +569,8 @@ const ExamMode = () => {
     const handleSubmitRef = useRef(() => { });
     const submittingRef = useRef(false);
     const resolvedPreparationRef = useRef(null);
-    const preferredFormatConsumedRef = useRef(false);
     const [preparationElapsedMs, setPreparationElapsedMs] = useState(0);
+    const currentPathname = typeof window !== 'undefined' ? window.location.pathname : '';
     const objectiveLaunchCard = useMemo(
         () => getExamFormatCardContent({ examFormat: 'mcq', launchState: launchState?.mcq }),
         [launchState?.mcq],
@@ -637,7 +629,6 @@ const ExamMode = () => {
         setGradingEssay(false);
         setSubmitError('');
         resolvedPreparationRef.current = null;
-        preferredFormatConsumedRef.current = false;
     }, [
         routeTopicId,
     ]);
@@ -656,23 +647,11 @@ const ExamMode = () => {
                 routeTopicId,
                 rawTopicId,
                 hasMismatchedCachedTopic,
-                pathname: location.pathname,
+                pathname: currentPathname,
                 referrer: typeof document !== 'undefined' ? document.referrer || '' : '',
             },
         });
-    }, [hasMismatchedCachedTopic, isMissingRouteTopic, location.pathname, rawTopicId, routeTopicId]);
-
-    const preferredFormatFromState = resolvePreferredExamFormat(location?.state?.preferredFormat);
-
-    useEffect(() => {
-        if (preferredFormatConsumedRef.current || examFormat || !preferredFormatFromState) {
-            return;
-        }
-        preferredFormatConsumedRef.current = true;
-        setStartExamError('');
-        setPreparationId(null);
-        setExamFormat(preferredFormatFromState);
-    }, [examFormat, preferredFormatFromState]);
+    }, [currentPathname, hasMismatchedCachedTopic, isMissingRouteTopic, rawTopicId, routeTopicId]);
 
     const withTimeout = useCallback((promise, timeoutMs, timeoutMessage) => {
         let timeoutHandle;

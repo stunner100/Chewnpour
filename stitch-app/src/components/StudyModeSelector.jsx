@@ -31,7 +31,7 @@ const MODES = [
     },
 ];
 
-const StudyModeSelector = ({ topicTitle, onSelect, onSkip }) => {
+const StudyModeSelector = ({ topicTitle, onSelect, onSkip, onStartExam }) => {
     return (
         <div className="min-h-[60vh] flex items-center justify-center px-4 py-12">
             <div className="w-full max-w-lg">
@@ -75,6 +75,31 @@ const StudyModeSelector = ({ topicTitle, onSelect, onSkip }) => {
                         Skip — view full lesson
                     </button>
                 </div>
+
+                {typeof onStartExam === 'function' && (
+                    <div className="mt-4 rounded-2xl border border-border-light dark:border-border-dark bg-surface-soft-light/80 dark:bg-surface-soft-dark/60 p-4">
+                        <div className="flex items-start gap-3">
+                            <div className="w-10 h-10 rounded-xl bg-primary/10 text-primary flex items-center justify-center shrink-0">
+                                <span className="material-symbols-outlined text-[20px]">quiz</span>
+                            </div>
+                            <div className="min-w-0 flex-1">
+                                <p className="text-body-sm font-semibold text-text-main-light dark:text-text-main-dark">
+                                    Want to test yourself now?
+                                </p>
+                                <p className="text-caption text-text-sub-light dark:text-text-sub-dark mt-1">
+                                    You can jump straight into exam mode without choosing a reading view first.
+                                </p>
+                                <button
+                                    onClick={onStartExam}
+                                    className="btn-primary mt-3 w-full sm:w-auto px-4 py-2 text-body-sm gap-2"
+                                >
+                                    <span className="material-symbols-outlined text-[18px]">quiz</span>
+                                    Start Exam
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                )}
             </div>
         </div>
     );

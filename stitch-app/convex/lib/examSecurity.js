@@ -6,7 +6,15 @@ import {
     QUESTION_TYPE_MULTIPLE_CHOICE,
     QUESTION_TYPE_TRUE_FALSE,
 } from "./objectiveExam.js";
-import { normalizeQualityTier, QUALITY_TIER_PREMIUM } from "./premiumQuality.js";
+import {
+    normalizeQualityTier,
+    QUALITY_TIER_UNAVAILABLE,
+} from "./premiumQuality.js";
+
+const OBJECTIVE_MIN_USABLE_RIGOR_SCORE = 0.55;
+const OBJECTIVE_MIN_USABLE_QUALITY_SCORE = 0.65;
+const OBJECTIVE_MIN_USABLE_CLARITY_SCORE = 0.65;
+const OBJECTIVE_MIN_USABLE_DISTRACTOR_SCORE = 0.6;
 
 export const resolveAuthUserId = (identity) => {
     if (!identity || typeof identity !== "object") return "";
@@ -258,17 +266,27 @@ const hasSevereQualityFlag = (question) =>
 
 const hasMinimumObjectiveQuality = (question) => {
     const rigorScore = Number(question?.rigorScore);
-    if (Number.isFinite(rigorScore) && rigorScore < 0.62) {
+    if (Number.isFinite(rigorScore) && rigorScore < OBJECTIVE_MIN_USABLE_RIGOR_SCORE) {
         return false;
     }
 
     const qualityScore = Number(question?.qualityScore);
-    if (Number.isFinite(qualityScore) && qualityScore < 0.72) {
+    if (Number.isFinite(qualityScore) && qualityScore < OBJECTIVE_MIN_USABLE_QUALITY_SCORE) {
+        return false;
+    }
+
+    const clarityScore = Number(question?.clarityScore);
+    if (Number.isFinite(clarityScore) && clarityScore < OBJECTIVE_MIN_USABLE_CLARITY_SCORE) {
+        return false;
+    }
+
+    const distractorScore = Number(question?.distractorScore);
+    if (Number.isFinite(distractorScore) && distractorScore < OBJECTIVE_MIN_USABLE_DISTRACTOR_SCORE) {
         return false;
     }
 
     const qualityTier = normalizeQualityTier(question?.qualityTier);
-    if (question?.qualityTier !== undefined && qualityTier !== QUALITY_TIER_PREMIUM) {
+    if (question?.qualityTier !== undefined && qualityTier === QUALITY_TIER_UNAVAILABLE) {
         return false;
     }
 

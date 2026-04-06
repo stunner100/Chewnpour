@@ -801,6 +801,7 @@ const TopicDetail = () => {
                             try { sessionStorage.setItem(`studyMode:${routeTopicId}`, 'full'); } catch {}
                             setStudyMode('full');
                         }}
+                        onStartExam={handleStartExam}
                     />
                 </div>
             </div>
