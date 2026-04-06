@@ -250,12 +250,12 @@ const ESSAY_QUESTION_TARGET_MAX_COUNT = 15;
 const ESSAY_QUESTION_TARGET_WORD_DIVISOR = 220;
 const ESSAY_QUESTION_MIN_GENERATION_COUNT = 1;
 const ESSAY_QUESTION_MAX_GENERATION_COUNT = 15;
-const ESSAY_QUESTION_PARALLEL_REQUESTS = 2;
-const ESSAY_QUESTION_MIN_BATCH_SIZE = 4;
-const ESSAY_QUESTION_REQUEST_TIMEOUT_MS = 18_000;
+const ESSAY_QUESTION_PARALLEL_REQUESTS = 1;
+const ESSAY_QUESTION_MIN_BATCH_SIZE = 1;
+const ESSAY_QUESTION_REQUEST_TIMEOUT_MS = 24_000;
 const ESSAY_QUESTION_REPAIR_TIMEOUT_MS = 3_000;
-const ESSAY_QUESTION_TIME_BUDGET_MS = 60_000;
-const ESSAY_QUESTION_MAX_BATCH_ATTEMPTS = 2;
+const ESSAY_QUESTION_TIME_BUDGET_MS = 90_000;
+const ESSAY_QUESTION_MAX_BATCH_ATTEMPTS = 3;
 const PREMIUM_REVIEW_MAX_REVISIONS = 3;
 const PREMIUM_REVIEW_MIN_IMPROVEMENT = 0.04;
 const OBJECTIVE_MIN_USABLE_RIGOR_SCORE = 0.55;
@@ -8370,6 +8370,7 @@ const generateEssayQuestionCandidatesBatch = async (args: {
     });
     let questionsData: any = { questions: [] };
     const maxAttempts = Math.max(1, Math.round(Number(args.maxAttempts || 1)));
+    let lastError: unknown = null;
     for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
         const remainingMs = Number.isFinite(Number(args.deadlineMs))
             ? Number(args.deadlineMs) - Date.now()
@@ -8383,28 +8384,38 @@ const generateEssayQuestionCandidatesBatch = async (args: {
             ? configuredTimeoutMs
             : Math.min(configuredTimeoutMs, Math.max(1000, remainingMs - 200));
 
-        const response = await callInception([
-            {
-                role: "system",
-                content: "You are an expert educator creating essay/theory questions. Always respond with valid JSON only.",
-            },
-            { role: "user", content: prompt },
-        ], DEFAULT_MODEL, {
-            maxTokens: 2200,
-            responseFormat: "json_object",
-            timeoutMs,
-        });
+        try {
+            const response = await callInception([
+                {
+                    role: "system",
+                    content: "You are an expert educator creating essay/theory questions. Always respond with valid JSON only.",
+                },
+                { role: "user", content: prompt },
+            ], DEFAULT_MODEL, {
+                maxTokens: 2200,
+                responseFormat: "json_object",
+                timeoutMs,
+            });
 
-        questionsData = await parseEssayQuestionsWithRepair(response, {
-            deadlineMs: args.deadlineMs,
-            repairTimeoutMs: args.repairTimeoutMs,
-        });
-        if (Array.isArray(questionsData?.questions) && questionsData.questions.length > 0) {
-            break;
+            questionsData = await parseEssayQuestionsWithRepair(response, {
+                deadlineMs: args.deadlineMs,
+                repairTimeoutMs: args.repairTimeoutMs,
+            });
+            if (Array.isArray(questionsData?.questions) && questionsData.questions.length > 0) {
+                break;
+            }
+        } catch (error) {
+            lastError = error;
+            if (attempt === maxAttempts - 1) {
+                throw error;
+            }
         }
     }
 
     const rawQuestions = Array.isArray(questionsData?.questions) ? questionsData.questions : [];
+    if (rawQuestions.length === 0 && lastError && maxAttempts <= 1) {
+        throw lastError;
+    }
     return rawQuestions.map((candidate: any) =>
         normalizeGeneratedAssessmentCandidate({
             candidate,
@@ -8441,6 +8452,15 @@ const buildParallelBatchPlan = (args: {
     }
 
     return plan.length > 0 ? plan : [safeBatchSize];
+};
+
+const buildSequentialRecoveryBatchPlan = (remainingNeeded: number, maxBatchCount = 3) => {
+    const safeRemainingNeeded = Math.max(1, Math.round(Number(remainingNeeded || 1)));
+    const safeMaxBatchCount = Math.max(1, Math.round(Number(maxBatchCount || 1)));
+    return Array.from(
+        { length: Math.min(safeRemainingNeeded, safeMaxBatchCount) },
+        () => 1,
+    );
 };
 
 const generateQuestionCandidatesBatch = async (args: {
@@ -10964,29 +10984,41 @@ const generateEssayQuestionsForTopicCore = async (
         });
     }
 
-    if (candidates.length === 0 && Date.now() < deadlineMs - 1200) {
-        try {
-            const fallbackCandidates = await generateEssayQuestionGapBatch({
-                requestedCount: remainingNeeded,
-                topicTitle: effectiveTopic.title,
-                topicDescription: effectiveTopic.description,
-                evidence: groundedPack.evidence,
-                assessmentBlueprint: assessmentBlueprint as AssessmentBlueprint,
-                structuredTopicContext: groundedPack.structuredTopicContext,
-                coveragePolicy,
-                deadlineMs,
-                requestTimeoutMs: ESSAY_QUESTION_REQUEST_TIMEOUT_MS,
-                repairTimeoutMs: ESSAY_QUESTION_REPAIR_TIMEOUT_MS,
-                maxAttempts: 1,
-            });
-            candidates.push(...fallbackCandidates);
-        } catch (fallbackError) {
-            console.warn("[EssayQuestionBank] fallback_batch_request_failed", {
-                topicId,
-                topicTitle: topicWithQuestions.title,
-                requestedCount: remainingNeeded,
-                message: fallbackError instanceof Error ? fallbackError.message : String(fallbackError),
-            });
+    if (candidates.length < remainingNeeded && Date.now() < deadlineMs - 1200) {
+        const recoveryPlan = buildSequentialRecoveryBatchPlan(
+            Math.max(1, remainingNeeded - candidates.length),
+            3,
+        );
+        for (const [recoveryIndex, recoveryRequestedCount] of recoveryPlan.entries()) {
+            if (Date.now() >= deadlineMs - 1200) {
+                break;
+            }
+            try {
+                const fallbackCandidates = await generateEssayQuestionGapBatch({
+                    requestedCount: recoveryRequestedCount,
+                    topicTitle: effectiveTopic.title,
+                    topicDescription: effectiveTopic.description,
+                    evidence: groundedPack.evidence,
+                    assessmentBlueprint: assessmentBlueprint as AssessmentBlueprint,
+                    structuredTopicContext: groundedPack.structuredTopicContext,
+                    coveragePolicy,
+                    deadlineMs,
+                    requestTimeoutMs: ESSAY_QUESTION_REQUEST_TIMEOUT_MS,
+                    repairTimeoutMs: ESSAY_QUESTION_REPAIR_TIMEOUT_MS,
+                    maxAttempts: 1,
+                });
+                if (Array.isArray(fallbackCandidates) && fallbackCandidates.length > 0) {
+                    candidates.push(...fallbackCandidates);
+                }
+            } catch (fallbackError) {
+                console.warn("[EssayQuestionBank] fallback_batch_request_failed", {
+                    topicId,
+                    topicTitle: topicWithQuestions.title,
+                    recoveryIndex,
+                    requestedCount: recoveryRequestedCount,
+                    message: fallbackError instanceof Error ? fallbackError.message : String(fallbackError),
+                });
+            }
         }
     }
     let added = 0;

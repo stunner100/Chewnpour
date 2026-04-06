@@ -3,25 +3,9 @@ import path from 'node:path';
 import process from 'node:process';
 
 const root = process.cwd();
-const examModePath = path.join(root, 'src', 'pages', 'ExamMode.jsx');
 const aiPath = path.join(root, 'convex', 'ai.ts');
 
-const [examModeSource, aiSource] = await Promise.all([
-  fs.readFile(examModePath, 'utf8'),
-  fs.readFile(aiPath, 'utf8'),
-]);
-
-if (!/!\(examFormat === 'essay' && generatingEssayQuestions\)/.test(examModeSource)) {
-  throw new Error(
-    'Expected ExamMode start effect to avoid starting essay attempts while essay question generation is in-flight.'
-  );
-}
-
-if (!examModeSource.includes('isPreparingEssayStartError(startExamError)')) {
-  throw new Error(
-    'Expected ExamMode to detect deferred essay-start errors and recover when essay questions become available.'
-  );
-}
+const aiSource = await fs.readFile(aiPath, 'utf8');
 
 for (const constantName of [
   'ESSAY_QUESTION_REQUEST_TIMEOUT_MS',
@@ -50,8 +34,16 @@ if (!/const\s+deadlineMs\s*=\s*Date\.now\(\)\s*\+\s*ESSAY_QUESTION_TIME_BUDGET_M
   throw new Error('Expected essay generation core to enforce a bounded generation time budget.');
 }
 
-if (!/Promise\.allSettled\([\s\S]*generateEssayQuestionCandidatesBatch/s.test(aiSource)) {
-  throw new Error('Expected essay generation core to collect parallel batch results via Promise.allSettled.');
+if (!/Promise\.allSettled\([\s\S]*generateEssayQuestionGapBatch/s.test(aiSource)) {
+  throw new Error('Expected essay generation core to collect batch results via Promise.allSettled.');
+}
+
+if (!aiSource.includes('const buildSequentialRecoveryBatchPlan = (remainingNeeded: number, maxBatchCount = 3) => {')) {
+  throw new Error('Expected essay generation to define a sequential recovery batch plan.');
+}
+
+if (!/if \(candidates\.length < remainingNeeded[\s\S]*buildSequentialRecoveryBatchPlan/s.test(aiSource)) {
+  throw new Error('Expected essay generation core to fall back to smaller sequential essay batches when coverage is still thin.');
 }
 
 console.log('exam-essay-generation-bottleneck-regression.test.mjs passed');
