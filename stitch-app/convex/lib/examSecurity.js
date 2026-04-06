@@ -225,7 +225,6 @@ const hasUsableFillBlankQuestion = (question) => {
 };
 
 const SEVERE_QUESTION_QUALITY_FLAGS = new Set([
-    "low_rigor",
     "malformed_text",
     "outcome_alignment_mismatch",
     "unsupported_math_encoding",

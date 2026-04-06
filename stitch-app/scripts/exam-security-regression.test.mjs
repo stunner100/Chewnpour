@@ -139,6 +139,7 @@ const tests = [
                 rigorScore: 0.59,
                 clarityScore: 0.72,
                 distractorScore: 0.64,
+                qualityFlags: ["low_rigor"],
                 options: [
                     { label: "A", text: "International filing fees under the PCT" },
                     { label: "B", text: "Interest income from cash deposits" },
