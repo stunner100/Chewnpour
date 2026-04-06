@@ -2587,6 +2587,154 @@ const buildTopicContentGraphQueryFragments = (graph: TopicContentGraph | null | 
     ], 20, 180);
 };
 
+const TOPIC_PASSAGE_STOPWORDS = new Set([
+    "about", "after", "also", "among", "because", "before", "being", "between", "both",
+    "compared", "during", "each", "from", "into", "only", "other", "over", "same",
+    "than", "that", "their", "there", "these", "they", "this", "those", "through",
+    "under", "using", "which", "while", "with", "within", "would", "your",
+]);
+
+const tokenizeTopicSignal = (value: string, maxTokens = 80) => {
+    const normalized = normalizeStructuredTopicString(value, 600)
+        .toLowerCase()
+        .replace(/[^a-z0-9\s]/g, " ");
+    if (!normalized) return [];
+    return Array.from(new Set(
+        normalized
+            .split(/\s+/)
+            .map((token) => token.trim())
+            .filter((token) =>
+                token.length >= 3
+                && !TOPIC_PASSAGE_STOPWORDS.has(token)
+                && !/^\d+$/.test(token)
+            )
+    )).slice(0, maxTokens);
+};
+
+const buildTopicPassageSignals = (args: {
+    title: string;
+    description?: string;
+    keyPoints: string[];
+    topicData: PreparedTopic;
+}) => {
+    const rawSignals = [
+        args.title,
+        args.description || "",
+        ...(args.keyPoints || []),
+        ...(args.topicData.subtopics || []),
+        ...(args.topicData.learningObjectives || []),
+        ...(args.topicData.examples || []),
+        ...(args.topicData.formulas || []),
+        ...(args.topicData.likelyConfusions || []),
+        ...(args.topicData.definitions || []).flatMap((entry) => [entry.term, entry.meaning]),
+    ];
+    return Array.from(new Set(rawSignals.flatMap((value) => tokenizeTopicSignal(String(value || ""))))).slice(0, 64);
+};
+
+const scorePassageForTopic = (args: {
+    title: string;
+    description?: string;
+    signals: string[];
+    passage: { text?: string; sectionHint?: string };
+}) => {
+    const passageText = [
+        normalizeStructuredTopicString(args.passage.sectionHint, 220),
+        normalizeStructuredTopicString(args.passage.text, 900),
+    ]
+        .filter(Boolean)
+        .join(" ")
+        .toLowerCase();
+    if (!passageText) return 0;
+
+    const passageTokens = new Set(tokenizeTopicSignal(passageText, 120));
+    let score = 0;
+    for (const signal of args.signals) {
+        if (passageTokens.has(signal)) score += 1;
+    }
+
+    const normalizedTitle = normalizeStructuredTopicString(args.title, 160).toLowerCase();
+    if (normalizedTitle && passageText.includes(normalizedTitle)) {
+        score += 4;
+    }
+
+    const normalizedDescription = normalizeStructuredTopicString(args.description, 220).toLowerCase();
+    if (normalizedDescription) {
+        const phrase = normalizedDescription.split(/[.;:]/)[0]?.trim() || "";
+        if (phrase && phrase.length >= 18 && passageText.includes(phrase.slice(0, 80))) {
+            score += 2;
+        }
+    }
+
+    return score;
+};
+
+const scorePassageForTitle = (
+    title: string,
+    passage: { text?: string; sectionHint?: string }
+) => scorePassageForTopic({
+    title,
+    description: "",
+    signals: tokenizeTopicSignal(title, 16),
+    passage,
+});
+
+const selectRelevantTopicPassages = <T extends {
+    passageId?: string;
+    text?: string;
+    sectionHint?: string;
+}>(args: {
+    title: string;
+    description?: string;
+    keyPoints: string[];
+    topicData: PreparedTopic;
+    passages: T[];
+    otherTopicTitles?: string[];
+    max?: number;
+}) => {
+    const signals = buildTopicPassageSignals(args);
+    const competingTitles = dedupeLessonStringList(
+        (args.otherTopicTitles || []).filter((title) =>
+            normalizeStructuredTopicString(title, 160).toLowerCase()
+            !== normalizeStructuredTopicString(args.title, 160).toLowerCase()
+        ),
+        24,
+        2
+    );
+    const scored = (Array.isArray(args.passages) ? args.passages : [])
+        .map((passage, index) => ({
+            index,
+            passage,
+            score: scorePassageForTopic({
+                title: args.title,
+                description: args.description,
+                signals,
+                passage,
+            }),
+            titleScore: scorePassageForTitle(args.title, passage),
+            competingTitleScore: competingTitles.reduce((max, title) => Math.max(max, scorePassageForTitle(title, passage)), 0),
+        }));
+
+    const strongMatches = scored.filter((entry) =>
+        entry.score >= 2
+        && (
+            entry.competingTitleScore === 0
+            || entry.titleScore >= entry.competingTitleScore
+            || entry.score >= Math.max(4, entry.competingTitleScore + 2)
+        )
+    );
+    const pool = strongMatches.length > 0 ? strongMatches : scored.filter((entry) => entry.score > 0);
+    const selected = (pool.length > 0 ? pool : scored)
+        .sort((left, right) => {
+            if (right.score !== left.score) return right.score - left.score;
+            if (right.titleScore !== left.titleScore) return right.titleScore - left.titleScore;
+            return left.index - right.index;
+        })
+        .slice(0, Math.max(1, Math.min(12, Math.floor(Number(args.max || 8)))))
+        .map((entry) => entry.passage);
+
+    return selected;
+};
+
 const buildTopicContentGraph = (args: {
     title: string;
     description?: string;
@@ -4518,12 +4666,20 @@ const buildStructuredLessonFallbackMap = (args: {
     contentGraph?: TopicContentGraph | null;
 }): StructuredLessonMap => {
     const contentGraph = normalizeTopicContentGraph(args.contentGraph);
-    const contextSentences = splitLessonSentences(args.topicContext, 16);
+    const contextSentences = hasTopicContentGraph(contentGraph)
+        ? []
+        : splitLessonSentences(args.topicContext, 16)
+            .filter((sentence) =>
+                sentence
+                && !/[{}[\]]/.test(sentence)
+                && !/^\s*["']?[a-z_]+["']?\s*:/.test(sentence)
+                && !/^\s*\|/.test(sentence)
+            );
     const keyPoints = dedupeLessonStringList(
         [
             ...contentGraph.keyPoints,
-            ...contentGraph.learningObjectives,
             ...args.keyPoints,
+            ...contentGraph.learningObjectives,
             ...contextSentences,
         ],
         LESSON_KEY_IDEA_MAX,
@@ -4532,9 +4688,9 @@ const buildStructuredLessonFallbackMap = (args: {
     const subtopics = dedupeLessonStringList(
         [
             ...contentGraph.subtopics,
-            args.description || "",
-            ...keyPoints,
-            ...contextSentences.slice(0, 6),
+            ...contentGraph.definitions.map((entry) => entry.term),
+            ...(hasTopicContentGraph(contentGraph) ? [] : [args.description || "", ...contextSentences.slice(0, 4)]),
+            ...keyPoints.slice(0, 4),
         ],
         6,
         14
@@ -4547,13 +4703,13 @@ const buildStructuredLessonFallbackMap = (args: {
     const definitions = normalizeDefinitionEntries(contentGraph.definitions, fallbackTerms);
     const examples = normalizeWorkedExamples(
         contentGraph.examples.map((example) => ({
-            question: `Using the source material, what does this example show about ${args.title}?`,
+            question: `What does this source example show about ${args.title}?`,
             reasoning: [
                 `Identify the exact example described in the source: ${example}`,
                 "Connect that example to the main topic idea and the relevant key point.",
                 "State the conclusion in plain language without adding facts not present in the source.",
             ],
-            answer: example,
+            answer: `It shows this grounded example for ${args.title}: ${example}.`,
         })),
         `How do you solve a simple problem involving ${args.title}?`,
         [
@@ -4583,7 +4739,7 @@ const buildStructuredLessonFallbackMap = (args: {
         [
             args.description || "",
             contentGraph.description || "",
-            contentGraph.sourcePassages[0]?.text || "",
+            contentGraph.keyPoints[0] || "",
             contextSentences[0] || "",
             `${args.title} matters because it helps you explain the purpose, the key ideas, and how to apply them correctly.`,
         ],
@@ -5952,6 +6108,9 @@ const generateTopicContentForIndex = async (args: {
             : []
     );
     if (args.evidenceIndex) {
+        const passageById = new Map(
+            (args.evidenceIndex.passages || []).map((passage) => [String(passage.passageId), passage])
+        );
         const alignedRetrieval = await retrieveGroundedEvidence({
             index: args.evidenceIndex,
             query: [
@@ -5964,42 +6123,56 @@ const generateTopicContentForIndex = async (args: {
             limit: 12,
             preferFlags: ["table", "formula"],
         });
-        for (const evidence of alignedRetrieval.evidence) {
+        const relevantRetrievedPassages = selectRelevantTopicPassages({
+            title: safeTopicTitle,
+            description: topicData.description,
+            keyPoints,
+            topicData,
+            otherTopicTitles: allTopicTitles,
+            passages: alignedRetrieval.evidence
+                .map((evidence) => passageById.get(String(evidence?.passageId || "").trim()))
+                .filter(Boolean),
+            max: 8,
+        });
+        for (const evidence of relevantRetrievedPassages) {
             const passageId = String(evidence?.passageId || "").trim();
             if (passageId) sourcePassageIds.add(passageId);
         }
     }
-    const sourcePassageIdList = Array.from(sourcePassageIds);
-    const evidenceContext = (() => {
-        if (!args.evidenceIndex || sourcePassageIdList.length === 0) return "";
-        const passageById = new Map(
-            (args.evidenceIndex.passages || []).map((passage) => [String(passage.passageId), passage])
-        );
-        return sourcePassageIdList
-            .map((passageId) => String(passageById.get(passageId)?.text || "").trim())
-            .filter(Boolean)
-            .join("\n\n")
-            .slice(0, TOPIC_CONTEXT_LIMIT)
-            .trim();
-    })();
     const alignedSourcePassages: TopicContentGraphSourcePassage[] = (() => {
-        if (!args.evidenceIndex || sourcePassageIdList.length === 0) return [];
+        if (!args.evidenceIndex || sourcePassageIds.size === 0) return [];
         const passageById = new Map(
             (args.evidenceIndex.passages || []).map((passage) => [String(passage.passageId), passage])
         );
-        return sourcePassageIdList
+        const rawPassages = Array.from(sourcePassageIds)
             .map((passageId) => {
                 const passage = passageById.get(passageId);
                 if (!passage) return null;
                 return {
-                    passageId,
+                    passageId: String(passageId),
                     page: Math.max(0, Math.floor(Number(passage.page || 0))),
                     sectionHint: normalizeStructuredTopicString(passage.sectionHint, 180) || undefined,
                     text: normalizeStructuredTopicString(passage.text, 520),
                 };
             })
             .filter((entry): entry is TopicContentGraphSourcePassage => Boolean(entry?.passageId && entry.text));
+        return selectRelevantTopicPassages({
+            title: safeTopicTitle,
+            description: topicData.description,
+            keyPoints,
+            topicData,
+            otherTopicTitles: allTopicTitles,
+            passages: rawPassages,
+            max: 8,
+        });
     })();
+    const sourcePassageIdList = alignedSourcePassages.map((entry) => entry.passageId);
+    const evidenceContext = alignedSourcePassages
+        .map((entry) => entry.text.trim())
+        .filter(Boolean)
+        .join("\n\n")
+        .slice(0, TOPIC_CONTEXT_LIMIT)
+        .trim();
     const topicContentGraph = buildTopicContentGraph({
         title: safeTopicTitle,
         description: topicData.description,
@@ -6015,7 +6188,6 @@ const generateTopicContentForIndex = async (args: {
         keyPoints,
     });
     const topicContext = [
-        topicContentGraphContext,
         evidenceContext,
         structuredSourceMap,
         chunkBoundContext,

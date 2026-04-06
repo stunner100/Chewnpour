@@ -15,16 +15,21 @@ assert.ok(
   aiSource.includes("type TopicContentGraph = {")
     && aiSource.includes("sourcePassages: TopicContentGraphSourcePassage[]")
     && aiSource.includes("buildTopicContentGraph(")
-    && aiSource.includes("buildTopicContentGraphContext"),
+    && aiSource.includes("buildTopicContentGraphContext")
+    && aiSource.includes("selectRelevantTopicPassages")
+    && aiSource.includes("scorePassageForTitle"),
   "Expected AI pipeline to define and build a canonical topic content graph."
 );
 
 assert.ok(
-  aiSource.includes("contentGraph.sourcePassages[0]?.text")
+  !aiSource.includes("contentGraph.sourcePassages[0]?.text")
     && aiSource.includes("normalizeDefinitionEntries(contentGraph.definitions")
     && aiSource.includes("normalizeFormulaEntries(")
-    && aiSource.includes("contentGraph.formulas.map"),
-  "Expected lesson fallback generation to preserve source passages, definitions, and formulas from the content graph."
+    && aiSource.includes("contentGraph.formulas.map")
+    && aiSource.includes("const contextSentences = hasTopicContentGraph(contentGraph)")
+    && aiSource.includes("const sourcePassageIdList = alignedSourcePassages.map")
+    && aiSource.includes("otherTopicTitles: allTopicTitles"),
+  "Expected lesson fallback generation to avoid raw JSON/source echoing and to build from filtered content-graph fields."
 );
 
 assert.ok(
