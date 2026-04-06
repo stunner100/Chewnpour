@@ -17,16 +17,17 @@ assert.ok(
   aiSource.includes("loadStructuredExamTopicProfileForTopic")
     && aiSource.includes("buildStructuredExamTopicContext")
     && aiSource.includes("buildStructuredExamQueryFragments")
+    && aiSource.includes("buildTopicContentGraphContext")
     && aiSource.includes("structuredTopicContext: groundedPack.structuredTopicContext"),
-  "Expected exam generation to resolve and pass structured Datalab topic context through the grounded pipeline."
+  "Expected exam generation to resolve and pass the preserved topic content graph through the grounded pipeline."
 );
 
 assert.ok(
-  generationSource.includes("STRUCTURED_TOPIC_SCHEMA:")
-    && generationSource.includes("Use the structured topic schema as curriculum guidance")
-    && generationSource.includes("Use the structured topic schema to prefer the document's extracted learning objectives, definitions, formulas, examples, and confusions")
-    && generationSource.includes("Use the structured topic schema to prefer the document's extracted objectives, examples, formulas, and confusions when framing authentic tasks."),
-  "Expected assessment blueprint and question prompts to consume structured Datalab topic schema."
+  generationSource.includes("TOPIC_CONTENT_GRAPH:")
+    && generationSource.includes("Use the topic content graph as curriculum guidance")
+    && generationSource.includes("Use the topic content graph to prefer the document's extracted learning objectives, definitions, formulas, examples, source passages, and confusions")
+    && generationSource.includes("Use the topic content graph to prefer the document's extracted objectives, examples, formulas, source passages, and confusions when framing authentic tasks."),
+  "Expected assessment blueprint and question prompts to consume the preserved topic content graph."
 );
 
 for (const requiredField of [
@@ -38,6 +39,7 @@ for (const requiredField of [
   "structuredLearningObjectives: v.optional(v.array(v.string()))",
   "structuredSourcePages: v.optional(v.array(v.number()))",
   "structuredSourceBlockIds: v.optional(v.array(v.string()))",
+  "contentGraph: v.optional(v.object({",
 ]) {
   assert.ok(
     schemaSource.includes(requiredField) && topicsSource.includes(requiredField),
@@ -48,8 +50,9 @@ for (const requiredField of [
 assert.ok(
   aiSource.includes("structuredDefinitions: topicData.definitions")
     && aiSource.includes("structuredLearningObjectives: topicData.learningObjectives")
+    && aiSource.includes("contentGraph: topicContentGraph")
     && aiSource.includes("sourceUploadId: uploadId"),
-  "Expected newly created topics to persist structured Datalab fields for downstream exam generation."
+  "Expected newly created topics to persist the topic content graph and structured Datalab fields for downstream exam generation."
 );
 
 console.log("datalab-structured-exam-handoff-regression.test.mjs passed");

@@ -35,10 +35,12 @@ assert.ok(
 );
 
 assert.ok(
-  aiSource.includes("buildTopicStructuredSourceContext")
-    && aiSource.includes("STRUCTURED SOURCE MAP:")
-    && aiSource.includes("Prefer the structured source map over inferring missing structure from loose prose."),
-  "Expected lesson generation prompts to consume the structured Datalab topic map."
+  aiSource.includes("buildTopicContentGraph(")
+    && aiSource.includes("buildTopicContentGraphContext")
+    && aiSource.includes("TOPIC_CONTENT_GRAPH:")
+    && aiSource.includes("Treat the topic content graph as the canonical handoff structure from extraction into lesson generation.")
+    && aiSource.includes("contentGraph: topicContentGraph"),
+  "Expected lesson generation to preserve a canonical topic content graph and pass it into the lesson prompt."
 );
 
 console.log("datalab-structured-handoff-regression.test.mjs passed");
