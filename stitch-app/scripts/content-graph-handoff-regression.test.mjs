@@ -17,7 +17,9 @@ assert.ok(
     && aiSource.includes("buildTopicContentGraph(")
     && aiSource.includes("buildTopicContentGraphContext")
     && aiSource.includes("selectRelevantTopicPassages")
-    && aiSource.includes("scorePassageForTitle"),
+    && aiSource.includes("scorePassageForTitle")
+    && aiSource.includes("buildGroundedTopicDataFromAlignedSource")
+    && aiSource.includes("const anchorPage = anchorCandidatePool"),
   "Expected AI pipeline to define and build a canonical topic content graph."
 );
 
@@ -38,10 +40,15 @@ assert.ok(
   aiSource.includes("const compactLessonSentence =")
     && aiSource.includes("trimTrailingWeakLessonWords")
     && aiSource.includes("LESSON_WEAK_TRAILING_TOKENS")
+    && aiSource.includes("const compactClauseAwareSentence =")
+    && aiSource.includes("const buildNarrativeFinanceFactsFromGraph =")
+    && aiSource.includes("const isTabularMetricFragment =")
+    && aiSource.includes("const isSectionHeader = hint === \"sectionheader\"")
     && aiSource.includes("buildReadableTableFinanceFacts")
     && aiSource.includes("buildTableFinanceFactsFromGraph")
-    && aiSource.includes("const supplementalTablePassages = !hasTablePassage && sourcePages.size > 0"),
-  "Expected lesson normalization to compact long source-backed statements, turn table rows into readable finance facts, and backfill missing cited table passages."
+    && aiSource.includes("const supplementalTablePassages = !hasTablePassage && sourcePages.size > 0")
+    && aiSource.includes("const hasSuspiciousLessonEnding ="),
+  "Expected lesson normalization to compact long source-backed statements clause-by-clause, prefer narrative finance facts over raw table fragments, backfill missing cited table passages, and reject suspicious rendered lesson lines."
 );
 
 assert.ok(

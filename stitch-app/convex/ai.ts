@@ -2683,6 +2683,7 @@ const selectRelevantTopicPassages = <T extends {
     passageId?: string;
     text?: string;
     sectionHint?: string;
+    page?: number;
 }>(args: {
     title: string;
     description?: string;
@@ -2723,17 +2724,238 @@ const selectRelevantTopicPassages = <T extends {
             || entry.score >= Math.max(4, entry.competingTitleScore + 2)
         )
     );
-    const pool = strongMatches.length > 0 ? strongMatches : scored.filter((entry) => entry.score > 0);
-    const selected = (pool.length > 0 ? pool : scored)
+    const anchorCandidatePool = (strongMatches.length > 0 ? strongMatches : scored)
+        .filter((entry) => {
+            const hint = normalizeStructuredTopicString(entry.passage?.sectionHint, 80).toLowerCase();
+            return hint !== "table" && hint !== "figure";
+        });
+    const anchorPage = anchorCandidatePool
+        .sort((left, right) => {
+            if (right.titleScore !== left.titleScore) return right.titleScore - left.titleScore;
+            if (right.score !== left.score) return right.score - left.score;
+            return (Number(left.passage?.page ?? left.index) || 0) - (Number(right.passage?.page ?? right.index) || 0);
+        })[0]?.passage?.page;
+    const basePool = strongMatches.length > 0 ? strongMatches : scored.filter((entry) => entry.score > 0);
+    const pool = typeof anchorPage === "number"
+        ? basePool.filter((entry) => {
+            const page = Number(entry.passage?.page);
+            if (!Number.isFinite(page)) return true;
+            const distance = Math.abs(Math.floor(page) - Math.floor(anchorPage));
+            const hint = normalizeStructuredTopicString(entry.passage?.sectionHint, 80).toLowerCase();
+            const isTableLike = hint === "table" || hint === "figure";
+            const isSectionHeader = hint === "sectionheader";
+            const isAuxiliaryList = hint === "listgroup";
+            if (isSectionHeader && entry.titleScore < 1) {
+                return distance === 0 && entry.score >= 3;
+            }
+            if ((isTableLike || isAuxiliaryList) && distance > 1) {
+                return entry.score >= 6 && entry.titleScore >= Math.max(1, entry.competingTitleScore);
+            }
+            if (distance <= (isTableLike ? 1 : 2)) return true;
+            return entry.score >= (isTableLike ? 7 : 6) && entry.titleScore >= Math.max(1, entry.competingTitleScore);
+        })
+        : basePool;
+    const selected = (pool.length > 0 ? pool : basePool.length > 0 ? basePool : scored)
         .sort((left, right) => {
             if (right.score !== left.score) return right.score - left.score;
             if (right.titleScore !== left.titleScore) return right.titleScore - left.titleScore;
+            if (typeof anchorPage === "number") {
+                const leftDistance = Math.abs((Number(left.passage?.page) || 0) - anchorPage);
+                const rightDistance = Math.abs((Number(right.passage?.page) || 0) - anchorPage);
+                if (leftDistance !== rightDistance) return leftDistance - rightDistance;
+            }
             return left.index - right.index;
         })
         .slice(0, Math.max(1, Math.min(12, Math.floor(Number(args.max || 8)))))
         .map((entry) => entry.passage);
 
     return selected;
+};
+
+const scoreStructuredItemAgainstSourcePassages = (args: {
+    text: string;
+    title: string;
+    description?: string;
+    keyPoints: string[];
+    sourcePassages: TopicContentGraphSourcePassage[];
+}) => {
+    const normalizedItem = normalizeStructuredTopicString(args.text, 420).toLowerCase();
+    if (!normalizedItem) return 0;
+
+    const itemTokens = tokenizeTopicSignal(normalizedItem, 48);
+    if (itemTokens.length === 0) return 0;
+
+    const promptScore = scorePassageForTopic({
+        title: args.title,
+        description: args.description,
+        signals: tokenizeTopicSignal(
+            [args.title, args.description || "", ...(args.keyPoints || [])].join(" "),
+            48
+        ),
+        passage: { text: normalizedItem },
+    });
+
+    let bestSourceScore = 0;
+    for (const sourcePassage of args.sourcePassages || []) {
+        const passageText = [
+            normalizeStructuredTopicString(sourcePassage.sectionHint, 80),
+            normalizeStructuredTopicString(sourcePassage.text, 900),
+        ]
+            .filter(Boolean)
+            .join(" ")
+            .toLowerCase();
+        if (!passageText) continue;
+
+        const sourceTokens = new Set(tokenizeTopicSignal(passageText, 120));
+        let score = 0;
+        for (const token of itemTokens) {
+            if (sourceTokens.has(token)) score += 1;
+        }
+        if (normalizedItem.length >= 18 && passageText.includes(normalizedItem.slice(0, 80))) {
+            score += 4;
+        }
+        bestSourceScore = Math.max(bestSourceScore, score);
+    }
+
+    return promptScore + bestSourceScore;
+};
+
+const filterStructuredTopicStringsToAlignedSource = (args: {
+    values: string[];
+    title: string;
+    description?: string;
+    keyPoints: string[];
+    sourcePassages: TopicContentGraphSourcePassage[];
+    maxItems: number;
+    maxChars: number;
+}) => {
+    const normalizedValues = normalizeStructuredTopicStringList(args.values, args.values.length || args.maxItems, args.maxChars);
+    return normalizedValues
+        .map((value, index) => ({
+            value,
+            index,
+            score: scoreStructuredItemAgainstSourcePassages({
+                text: value,
+                title: args.title,
+                description: args.description,
+                keyPoints: args.keyPoints,
+                sourcePassages: args.sourcePassages,
+            }),
+        }))
+        .filter((entry) => entry.score >= 2)
+        .sort((left, right) => {
+            if (right.score !== left.score) return right.score - left.score;
+            return left.index - right.index;
+        })
+        .slice(0, Math.max(1, args.maxItems))
+        .map((entry) => entry.value);
+};
+
+const buildGroundedTopicDataFromAlignedSource = (args: {
+    title: string;
+    description?: string;
+    keyPoints: string[];
+    topicData: PreparedTopic;
+    sourcePassages: TopicContentGraphSourcePassage[];
+}) => {
+    const sourcePages = Array.from(new Set(
+        args.sourcePassages
+            .map((entry) => Number(entry.page))
+            .filter((page) => Number.isFinite(page) && page >= 0)
+            .map((page) => Math.floor(page))
+    )).sort((a, b) => a - b);
+    const sourceBlockIds = Array.from(new Set(
+        args.sourcePassages
+            .map((entry) => String(entry.passageId || "").trim())
+            .filter(Boolean)
+    ));
+    const groundedKeyPoints = filterStructuredTopicStringsToAlignedSource({
+        values: args.keyPoints,
+        title: args.title,
+        description: args.description,
+        keyPoints: args.keyPoints,
+        sourcePassages: args.sourcePassages,
+        maxItems: 8,
+        maxChars: 220,
+    });
+    const groundedSubtopics = filterStructuredTopicStringsToAlignedSource({
+        values: Array.isArray(args.topicData.subtopics) ? args.topicData.subtopics : [],
+        title: args.title,
+        description: args.description,
+        keyPoints: groundedKeyPoints.length > 0 ? groundedKeyPoints : args.keyPoints,
+        sourcePassages: args.sourcePassages,
+        maxItems: 6,
+        maxChars: 140,
+    });
+    const groundedExamples = filterStructuredTopicStringsToAlignedSource({
+        values: Array.isArray(args.topicData.examples) ? args.topicData.examples : [],
+        title: args.title,
+        description: args.description,
+        keyPoints: groundedKeyPoints.length > 0 ? groundedKeyPoints : args.keyPoints,
+        sourcePassages: args.sourcePassages,
+        maxItems: 6,
+        maxChars: 220,
+    });
+    const groundedFormulas = filterStructuredTopicStringsToAlignedSource({
+        values: Array.isArray(args.topicData.formulas) ? args.topicData.formulas : [],
+        title: args.title,
+        description: args.description,
+        keyPoints: groundedKeyPoints.length > 0 ? groundedKeyPoints : args.keyPoints,
+        sourcePassages: args.sourcePassages,
+        maxItems: 6,
+        maxChars: 180,
+    });
+    const groundedLikelyConfusions = filterStructuredTopicStringsToAlignedSource({
+        values: Array.isArray(args.topicData.likelyConfusions) ? args.topicData.likelyConfusions : [],
+        title: args.title,
+        description: args.description,
+        keyPoints: groundedKeyPoints.length > 0 ? groundedKeyPoints : args.keyPoints,
+        sourcePassages: args.sourcePassages,
+        maxItems: 6,
+        maxChars: 180,
+    });
+    const groundedLearningObjectives = filterStructuredTopicStringsToAlignedSource({
+        values: Array.isArray(args.topicData.learningObjectives) ? args.topicData.learningObjectives : [],
+        title: args.title,
+        description: args.description,
+        keyPoints: groundedKeyPoints.length > 0 ? groundedKeyPoints : args.keyPoints,
+        sourcePassages: args.sourcePassages,
+        maxItems: 6,
+        maxChars: 180,
+    });
+    const groundedDefinitions = normalizeStructuredDefinitionList(args.topicData.definitions)
+        .map((entry, index) => ({
+            entry,
+            index,
+            score: scoreStructuredItemAgainstSourcePassages({
+                text: `${entry.term}: ${entry.meaning}`,
+                title: args.title,
+                description: args.description,
+                keyPoints: groundedKeyPoints.length > 0 ? groundedKeyPoints : args.keyPoints,
+                sourcePassages: args.sourcePassages,
+            }),
+        }))
+        .filter((entry) => entry.score >= 2)
+        .sort((left, right) => {
+            if (right.score !== left.score) return right.score - left.score;
+            return left.index - right.index;
+        })
+        .slice(0, 8)
+        .map((entry) => entry.entry);
+
+    return {
+        ...args.topicData,
+        keyPoints: groundedKeyPoints.length > 0 ? groundedKeyPoints : args.keyPoints,
+        subtopics: groundedSubtopics,
+        definitions: groundedDefinitions,
+        examples: groundedExamples,
+        formulas: groundedFormulas,
+        likelyConfusions: groundedLikelyConfusions,
+        learningObjectives: groundedLearningObjectives,
+        sourcePages,
+        sourceBlockIds,
+        sourcePassageIds: sourceBlockIds,
+    };
 };
 
 const buildTopicContentGraph = (args: {
@@ -4442,9 +4664,43 @@ const trimTrailingWeakLessonWords = (value: string) => {
     return words.join(" ").trim();
 };
 
+const compactClauseAwareSentence = (value: string, maxWords: number) => {
+    const normalized = String(value || "").replace(/\s+/g, " ").trim();
+    if (!normalized) return "";
+
+    const clauses = normalized
+        .split(/,\s+/)
+        .map((clause) => trimTrailingWeakLessonWords(clause))
+        .filter(Boolean);
+    if (clauses.length <= 1) return "";
+
+    const selected: string[] = [];
+    let wordCount = 0;
+    for (const clause of clauses) {
+        const clauseWords = clause.split(/\s+/).filter(Boolean);
+        if (clauseWords.length === 0) continue;
+        if (selected.length > 0 && wordCount + clauseWords.length > maxWords) break;
+        if (selected.length === 0 && clauseWords.length > maxWords) {
+            return "";
+        }
+        selected.push(clause);
+        wordCount += clauseWords.length;
+    }
+
+    if (selected.length === 0) return "";
+    const joined = selected.join(", ").replace(/\s*[;:,-]\s*$/g, "").trim();
+    if (!joined) return "";
+    return /[.!?]$/.test(joined) ? joined : `${joined}.`;
+};
+
 const compactLessonSentence = (value: string, maxWords: number) => {
     const normalized = String(value || "").trim();
     if (!normalized) return "";
+
+    const clauseAware = compactClauseAwareSentence(normalized, maxWords);
+    if (clauseAware) {
+        return clauseAware;
+    }
 
     const candidates = [
         normalized.split(/\s+\(/)[0],
@@ -4535,7 +4791,29 @@ const compactGroundedLessonFact = (value: any, maxWords = 26) => {
         .trim();
     if (!cleaned) return "";
     const firstSentence = cleaned.split(/(?<=[.!?])\s+/)[0] || cleaned;
+    const clauseAware = compactClauseAwareSentence(firstSentence, maxWords);
+    if (clauseAware) {
+        return clauseAware;
+    }
     return normalizeLessonSentence(firstSentence, maxWords);
+};
+
+const hasNarrativeFinanceVerb = (value: string) =>
+    /\b(was|were|showed|shows|representing|represented|accounting for|accounted for|increased|decreased|compared to)\b/i
+        .test(String(value || ""));
+
+const isTabularMetricFragment = (value: string) => {
+    const normalized = normalizeStructuredTopicString(value, 420);
+    if (!normalized) return false;
+    const alphaOnly = normalized.replace(/[^A-Za-z]/g, "");
+    const uppercaseRatio = alphaOnly.length > 0
+        ? (alphaOnly.match(/[A-Z]/g) || []).length / alphaOnly.length
+        : 0;
+    if (uppercaseRatio > 0.75 && /\d/.test(normalized)) return true;
+    if (/\bthousand Swiss francs\b/i.test(normalized) && !hasNarrativeFinanceVerb(normalized)) return true;
+    if (/\b20\d{2}\b.*;\s*\b20\d{2}\b/.test(normalized)) return true;
+    if (/[|]/.test(normalized)) return true;
+    return false;
 };
 
 const buildReadableTableFinanceFacts = (value: string) => {
@@ -4574,6 +4852,23 @@ const buildReadableTableFinanceFacts = (value: string) => {
     return facts;
 };
 
+const buildNarrativeFinanceFactsFromGraph = (contentGraph: TopicContentGraph) => {
+    return dedupeLessonStringList(
+        contentGraph.sourcePassages
+            .filter((entry) => !/table|figure/i.test(String(entry.sectionHint || "")))
+            .flatMap((entry) => splitLessonSentences(entry.text, 4))
+            .map((sentence) => compactGroundedLessonFact(sentence, 28))
+            .filter((sentence) =>
+                sentence
+                && /\b(20\d{2}|19\d{2}|Swiss francs|per cent|percent)\b/i.test(sentence)
+                && hasNarrativeFinanceVerb(sentence)
+                && !isTabularMetricFragment(sentence)
+            ),
+        6,
+        24
+    );
+};
+
 const buildTableFinanceFactsFromGraph = (contentGraph: TopicContentGraph) => {
     const candidates = [
         ...contentGraph.examples,
@@ -4604,7 +4899,19 @@ const endsWithWeakTrailingToken = (value: string) => {
 const hasUnbalancedParentheses = (value: string) =>
     (String(value || "").match(/\(/g) || []).length !== (String(value || "").match(/\)/g) || []).length;
 
+const hasSuspiciousLessonEnding = (value: string, requireTerminalPunctuation = false) => {
+    const normalized = normalizeLessonSentence(value, 40);
+    if (!normalized) return true;
+    if (/\|/.test(normalized)) return true;
+    if (hasUnbalancedParentheses(normalized)) return true;
+    if (/[:"']\s*$/.test(normalized)) return true;
+    if (endsWithWeakTrailingToken(normalized)) return true;
+    if (requireTerminalPunctuation && normalized.length >= 40 && !/[.!?]$/.test(normalized)) return true;
+    return false;
+};
+
 const buildGroundedLessonFactCandidates = (contentGraph: TopicContentGraph, title: string) => {
+    const narrativeFacts = buildNarrativeFinanceFactsFromGraph(contentGraph);
     const tableFacts = buildTableFinanceFactsFromGraph(contentGraph);
     const sourceSentences = contentGraph.sourcePassages
         .filter((passage) => !/table/i.test(String(passage.sectionHint || "")))
@@ -4623,11 +4930,14 @@ const buildGroundedLessonFactCandidates = (contentGraph: TopicContentGraph, titl
     });
     return dedupeLessonStringList(
         [
-            ...contentGraph.keyPoints.map((point) => compactGroundedLessonFact(point, 24)),
+            ...narrativeFacts,
+            ...sourceSentences,
+            ...contentGraph.keyPoints
+                .map((point) => compactGroundedLessonFact(point, 24))
+                .filter((point) => point && !isTabularMetricFragment(point)),
             ...contentGraph.learningObjectives.map((objective) => compactGroundedLessonFact(objective, 24)),
             ...tableFacts,
             ...exampleFacts,
-            ...sourceSentences,
             ...subtopicFacts,
         ].filter((entry) => !isGenericLessonFiller(String(entry || ""))),
         12,
@@ -4639,8 +4949,10 @@ const buildGroundedWorkedExampleFallback = (args: {
     title: string;
     contentGraph: TopicContentGraph;
 }) => {
+    const narrativeFact = buildNarrativeFinanceFactsFromGraph(args.contentGraph)[0] || "";
     const tableFact = buildTableFinanceFactsFromGraph(args.contentGraph)[0] || "";
-    const exampleSource = tableFact
+    const exampleSource = narrativeFact
+        || tableFact
         || args.contentGraph.examples.find(Boolean)
         || args.contentGraph.sourcePassages.find((entry) => /[:|]/.test(entry.text))?.text
         || args.contentGraph.keyPoints.find(Boolean)
@@ -4649,6 +4961,9 @@ const buildGroundedWorkedExampleFallback = (args: {
     const [label, value] = normalizedSource.split(/\s*:\s*/, 2);
     const normalizedSentence = normalizedSource.replace(/[.]$/, "");
     const wereMatch = normalizedSentence.match(/^(.+?) were (.+?) in (\d{4}|the reported year)$/i);
+    const surplusMatch = normalizedSentence.match(/results for (\d{4}).*surplus for the year of (.+)$/i);
+    const revenueMatch = normalizedSentence.match(/total revenue of (.+?) in (\d{4})/i);
+    const expensesMatch = normalizedSentence.match(/total expenses of (.+?) in (\d{4})/i);
     const topicLabel = normalizeLessonSentence(
         wereMatch?.[1] || label || args.title,
         12
@@ -4658,7 +4973,13 @@ const buildGroundedWorkedExampleFallback = (args: {
         22
     );
     return {
-        question: wereMatch
+        question: surplusMatch
+            ? `According to the source, what surplus did the Organization report for ${surplusMatch[1]}?`
+            : revenueMatch
+                ? `According to the source, what total revenue was reported in ${revenueMatch[2]}?`
+            : expensesMatch
+                ? `According to the source, what total expenses were reported in ${expensesMatch[2]}?`
+            : wereMatch
             ? `According to the source, what were ${topicLabel} in ${wereMatch[3]}?`
             : answerValue
                 ? `According to the source, what is reported for ${topicLabel}?`
@@ -4669,11 +4990,29 @@ const buildGroundedWorkedExampleFallback = (args: {
             "Answer using the source wording or value as closely as possible.",
         ],
         answer: answerValue
-            ? wereMatch
+            ? surplusMatch
+                ? `The Organization reported a surplus of ${normalizeLessonSentence(surplusMatch[2], 16)} in ${surplusMatch[1]}.`
+            : revenueMatch
+                ? `Total revenue was ${normalizeLessonSentence(revenueMatch[1], 16)} in ${revenueMatch[2]}.`
+            : expensesMatch
+                ? `Total expenses were ${normalizeLessonSentence(expensesMatch[1], 16)} in ${expensesMatch[2]}.`
+            : wereMatch
                 ? `${topicLabel} were ${answerValue}.`
                 : `${topicLabel}: ${answerValue}.`
             : `The source shows this exact grounded point about ${args.title}: ${normalizedSource}.`,
     };
+};
+
+const buildLessonQuestionSubject = (fact: string, title: string) => {
+    const normalized = compactGroundedLessonFact(fact, 18).replace(/[.]$/, "");
+    if (!normalized) return title;
+    const surplusMatch = normalized.match(/results for (\d{4}).*surplus/i);
+    if (surplusMatch) return `the ${surplusMatch[1]} surplus`;
+    const revenueMatch = normalized.match(/total revenue/i);
+    if (revenueMatch) return "total revenue";
+    const expensesMatch = normalized.match(/total expenses/i);
+    if (expensesMatch) return "total expenses";
+    return normalizeLessonSentence(normalized, 8) || title;
 };
 
 const buildGroundedQuickCheckFallbacks = (args: {
@@ -4682,18 +5021,21 @@ const buildGroundedQuickCheckFallbacks = (args: {
     keyPoints: string[];
 }) => {
     const facts = buildGroundedLessonFactCandidates(args.contentGraph, args.title);
+    const narrativeFact = buildNarrativeFinanceFactsFromGraph(args.contentGraph)[0] || "";
     const tableFact = buildTableFinanceFactsFromGraph(args.contentGraph)[0] || "";
     const leadFact = facts[0] || args.keyPoints[0] || args.title;
     const supportFact = facts[1] || args.keyPoints[1] || leadFact;
-    const exampleFact = tableFact || args.contentGraph.examples[0] || facts[2] || supportFact;
+    const exampleFact = narrativeFact || tableFact || args.contentGraph.examples[0] || facts[2] || supportFact;
+    const leadSubject = buildLessonQuestionSubject(leadFact, args.title);
+    const supportSubject = buildLessonQuestionSubject(supportFact, args.title);
     return [
         {
-            question: `What does the source say about ${normalizeLessonSentence(leadFact, 10) || args.title}?`,
+            question: `What does the source say about ${leadSubject}?`,
             answer: normalizeLessonSentence(leadFact, 18) || `${args.title} is explained directly in the source.`,
             skillType: "recall",
         },
         {
-            question: `Why is ${normalizeLessonSentence(supportFact, 10) || args.title} important in ${args.title}?`,
+            question: `Why is ${supportSubject} important in ${args.title}?`,
             answer: normalizeLessonSentence(supportFact, 18) || `It helps explain how ${args.title} works in the source material.`,
             skillType: "understanding",
         },
@@ -4904,6 +5246,7 @@ const buildStructuredLessonFallbackMap = (args: {
 }): StructuredLessonMap => {
     const contentGraph = normalizeTopicContentGraph(args.contentGraph);
     const groundedFacts = buildGroundedLessonFactCandidates(contentGraph, args.title);
+    const narrativeFacts = buildNarrativeFinanceFactsFromGraph(contentGraph);
     const tableFacts = buildTableFinanceFactsFromGraph(contentGraph);
     const contextSentences = hasTopicContentGraph(contentGraph)
         ? []
@@ -4948,7 +5291,7 @@ const buildStructuredLessonFallbackMap = (args: {
         contentGraph,
     });
     const examples = normalizeWorkedExamples(
-        [...tableFacts, ...contentGraph.examples].map((example) => {
+        [...narrativeFacts, ...tableFacts, ...contentGraph.examples].map((example) => {
             const cleanedExample = compactGroundedLessonFact(example, 24) || normalizeLessonSentence(example, 24);
             return {
             question: workedExampleFallback.question,
@@ -4992,15 +5335,13 @@ const buildStructuredLessonFallbackMap = (args: {
         args.description || contentGraph.description || "",
         28
     );
-    const compactPrimaryKeyPoint = compactGroundedLessonFact(
-        contentGraph.keyPoints[0] || args.keyPoints[0] || "",
-        24
-    );
+    const compactPrimaryKeyPoint = narrativeFacts[0]
+        || compactGroundedLessonFact(contentGraph.keyPoints[0] || args.keyPoints[0] || "", 24);
     const bigIdea = dedupeLessonStringList(
         [
             compactDescription,
             compactPrimaryKeyPoint,
-            groundedFacts[0] || "",
+            narrativeFacts[1] || groundedFacts[0] || "",
             contextSentences[0] || "",
         ],
         2,
@@ -5008,9 +5349,9 @@ const buildStructuredLessonFallbackMap = (args: {
     );
     const summary = dedupeLessonStringList(
         [
-            compactPrimaryKeyPoint,
+            narrativeFacts[1] || compactPrimaryKeyPoint,
+            narrativeFacts[2] || groundedFacts[1] || groundedFacts[0] || "",
             compactGroundedLessonFact(contentGraph.learningObjectives[0] || "", 20),
-            groundedFacts[1] || groundedFacts[0] || "",
             contextSentences[1] || "",
         ],
         2,
@@ -5147,12 +5488,13 @@ const normalizeStructuredLessonMap = (rawMap: any, args: {
         Array.isArray(rawMap?.bigIdea) ? rawMap.bigIdea : fallback.bigIdea,
         2,
         22
-    );
+    ).filter((line) => !hasSuspiciousLessonEnding(line, true));
+    const sanitizedKeyPoints = keyPoints.filter((line) => !hasSuspiciousLessonEnding(line, false));
     const summary = dedupeLessonStringList(
         [rawMap?.summary, fallback.summary],
         2,
         18
-    ).join(" ");
+    ).filter((line) => !hasSuspiciousLessonEnding(line, true)).join(" ");
 
     return {
         title: normalizeLessonSentence(rawMap?.title || args.title, 10) || args.title,
@@ -5161,7 +5503,7 @@ const normalizeStructuredLessonMap = (rawMap: any, args: {
         definitions: definitions.length > 0 ? definitions : fallback.definitions,
         examples,
         formulas,
-        keyPoints: keyPoints.length >= LESSON_KEY_IDEA_MIN ? keyPoints : fallback.keyPoints,
+        keyPoints: sanitizedKeyPoints.length >= LESSON_KEY_IDEA_MIN ? sanitizedKeyPoints : fallback.keyPoints,
         likelyConfusions: likelyConfusions.length > 0 ? likelyConfusions : fallback.likelyConfusions,
         summary: summary || fallback.summary,
         quickCheck,
@@ -6373,7 +6715,6 @@ const generateTopicContentForIndex = async (args: {
     const keyPoints = Array.isArray(topicData.keyPoints)
         ? topicData.keyPoints
         : [];
-    const structuredSourceMap = buildTopicStructuredSourceContext(topicData);
     const sourcePassageIds = new Set<string>(
         Array.isArray(topicData.sourcePassageIds)
             ? topicData.sourcePassageIds.map((value) => String(value || "").trim()).filter(Boolean)
@@ -6476,6 +6817,13 @@ const generateTopicContentForIndex = async (args: {
             max: 8,
         });
     })();
+    const groundedTopicData = buildGroundedTopicDataFromAlignedSource({
+        title: safeTopicTitle,
+        description: topicData.description,
+        keyPoints,
+        topicData,
+        sourcePassages: alignedSourcePassages,
+    });
     const sourcePassageIdList = alignedSourcePassages.map((entry) => entry.passageId);
     const evidenceContext = alignedSourcePassages
         .map((entry) => entry.text.trim())
@@ -6485,23 +6833,24 @@ const generateTopicContentForIndex = async (args: {
         .trim();
     const topicContentGraph = buildTopicContentGraph({
         title: safeTopicTitle,
-        description: topicData.description,
-        keyPoints,
-        topicData,
+        description: groundedTopicData.description,
+        keyPoints: groundedTopicData.keyPoints,
+        topicData: groundedTopicData,
         sourcePassages: alignedSourcePassages,
     });
     const topicContentGraphContext = buildTopicContentGraphContext(topicContentGraph);
-    const chunkBoundContext = buildTopicContextFromChunkIds(extractedText, topicData.sourceChunkIds);
+    const groundedStructuredSourceMap = buildTopicStructuredSourceContext(groundedTopicData);
+    const chunkBoundContext = buildTopicContextFromChunkIds(extractedText, groundedTopicData.sourceChunkIds);
     const fallbackContext = buildTopicContextFromSource(extractedText, {
         title: safeTopicTitle,
-        description: topicData.description,
-        keyPoints,
+        description: groundedTopicData.description,
+        keyPoints: groundedTopicData.keyPoints,
     });
     const topicContext = [
         evidenceContext,
-        structuredSourceMap,
+        groundedStructuredSourceMap,
         chunkBoundContext,
-        topicData.sourceContext,
+        groundedTopicData.sourceContext,
         fallbackContext,
     ]
         .filter(Boolean)
@@ -6535,11 +6884,11 @@ ${index === totalTopics - 1 ? "This is the final topic — summarize and connect
                 role: "user",
                 content: buildStructuredLessonMapPrompt({
                     title: safeTopicTitle,
-                    description: topicData.description,
-                    keyPoints,
+                    description: groundedTopicData.description,
+                    keyPoints: groundedTopicData.keyPoints,
                     topicContext,
                     contentGraphContext: topicContentGraphContext,
-                    structuredSourceMap,
+                    structuredSourceMap: groundedStructuredSourceMap,
                     sequencingContext,
                     educationDirective: `${tone.style}\nTarget lesson length after rendering: ${TOPIC_DETAIL_WORD_TARGET} words.`,
                 }),
@@ -6557,8 +6906,8 @@ ${index === totalTopics - 1 ? "This is the final topic — summarize and connect
     }
     const content = await ensureTopicLessonContent({
         title: safeTopicTitle,
-        description: topicData.description,
-        keyPoints,
+        description: groundedTopicData.description,
+        keyPoints: groundedTopicData.keyPoints,
         topicContext,
         structuredLessonMap,
         contentGraph: topicContentGraph,
@@ -6567,18 +6916,18 @@ ${index === totalTopics - 1 ? "This is the final topic — summarize and connect
         courseId,
         sourceUploadId: uploadId,
         title: safeTopicTitle,
-        description: topicData.description,
+        description: groundedTopicData.description,
         content,
-        sourceChunkIds: topicData.sourceChunkIds,
+        sourceChunkIds: groundedTopicData.sourceChunkIds,
         sourcePassageIds: sourcePassageIdList,
-        structuredSubtopics: topicData.subtopics,
-        structuredDefinitions: topicData.definitions,
-        structuredExamples: topicData.examples,
-        structuredFormulas: topicData.formulas,
-        structuredLikelyConfusions: topicData.likelyConfusions,
-        structuredLearningObjectives: topicData.learningObjectives,
-        structuredSourcePages: topicData.sourcePages,
-        structuredSourceBlockIds: topicData.sourceBlockIds,
+        structuredSubtopics: groundedTopicData.subtopics,
+        structuredDefinitions: groundedTopicData.definitions,
+        structuredExamples: groundedTopicData.examples,
+        structuredFormulas: groundedTopicData.formulas,
+        structuredLikelyConfusions: groundedTopicData.likelyConfusions,
+        structuredLearningObjectives: groundedTopicData.learningObjectives,
+        structuredSourcePages: groundedTopicData.sourcePages,
+        structuredSourceBlockIds: groundedTopicData.sourceBlockIds,
         contentGraph: topicContentGraph,
         groundingVersion: GROUNDED_GENERATION_VERSION,
         illustrationUrl: resolveTopicPlaceholderIllustrationUrl(),
