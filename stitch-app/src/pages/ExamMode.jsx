@@ -301,6 +301,30 @@ const isInstantExamLaunchState = (launchState) => (
     )
 );
 
+const resolveRecommendedExamFormat = ({ topic, launchState }) => {
+    const objectiveState = launchState?.mcq || null;
+    const essayState = launchState?.essay || null;
+    const objectiveReady = isInstantExamLaunchState(objectiveState);
+    const essayReady = isInstantExamLaunchState(essayState);
+
+    if (objectiveReady && !essayReady) return 'mcq';
+    if (essayReady && !objectiveReady) return 'essay';
+
+    const objectivePreparing = objectiveState?.launchMode === 'continue_preparation';
+    const essayPreparing = essayState?.launchMode === 'continue_preparation';
+    if (objectivePreparing && !essayPreparing) return 'mcq';
+    if (essayPreparing && !objectivePreparing) return 'essay';
+
+    const usableMcqCount = Number(topic?.usableMcqCount || 0);
+    const usableEssayCount = Number(topic?.usableEssayCount || 0);
+    if (usableMcqCount > 0 && usableEssayCount <= 0) return 'mcq';
+    if (usableEssayCount > 0 && usableMcqCount <= 0) return 'essay';
+    if (usableMcqCount > 0) return 'mcq';
+    if (usableEssayCount > 0) return 'essay';
+
+    return 'mcq';
+};
+
 const getExamFormatCardContent = ({ examFormat, launchState }) => {
     const isEssay = examFormat === 'essay';
     const savedCountLabel = formatSavedExamCountLabel(launchState?.totalQuestions);
@@ -495,6 +519,7 @@ const ExamMode = () => {
     const [preparationId, setPreparationId] = useState(null);
     const [startingExamAttempt, setStartingExamAttempt] = useState(false);
     const [startExamError, setStartExamError] = useState('');
+    const [formatPickerOpen, setFormatPickerOpen] = useState(false);
 
     // Essay exam state
     const [examFormat, setExamFormat] = useState(null); // null = not chosen, 'mcq' | 'essay'
@@ -626,6 +651,7 @@ const ExamMode = () => {
         setStartingExamAttempt(false);
         setStartExamError('');
         setExamFormat(null);
+        setFormatPickerOpen(false);
         setGradingEssay(false);
         setSubmitError('');
         resolvedPreparationRef.current = null;
@@ -920,6 +946,35 @@ const ExamMode = () => {
 
         await beginExamAttempt();
     }, [beginExamAttempt, preparation?.canRetry, preparationId, retryPreparation]);
+
+    useEffect(() => {
+        if (
+            formatPickerOpen
+            || !topicId
+            || !topic
+            || examFormat
+            || examStarted
+            || startingExamAttempt
+            || hasAttemptQuestions
+            || preparationId
+            || startExamError
+        ) {
+            return;
+        }
+
+        setExamFormat(resolveRecommendedExamFormat({ topic, launchState }));
+    }, [
+        examFormat,
+        examStarted,
+        formatPickerOpen,
+        hasAttemptQuestions,
+        launchState,
+        preparationId,
+        startExamError,
+        startingExamAttempt,
+        topic,
+        topicId,
+    ]);
 
     useEffect(() => {
         const shouldMonitorStall =
@@ -1291,7 +1346,7 @@ const ExamMode = () => {
         );
     }
 
-    if ((!examFormat && !examStarted && !startingExamAttempt && !hasAttemptQuestions) || shouldHoldFormatPickerForInstantLaunch) {
+    if ((formatPickerOpen && !examStarted && !startingExamAttempt && !hasAttemptQuestions) || shouldHoldFormatPickerForInstantLaunch) {
         // MCQ config sub-screen
         if (examConfigStep) {
             const MCQ_OPTIONS = [
@@ -1323,6 +1378,7 @@ const ExamMode = () => {
                                             setStartExamError('');
                                             setPreparationId(null);
                                             setExamConfigStep(false);
+                                            setFormatPickerOpen(false);
                                             setExamFormat('mcq');
                                         }}
                                         className="w-full flex items-center gap-4 p-4 rounded-xl border border-border-light dark:border-border-dark hover:border-primary hover:bg-primary/5 transition-all text-left group"
@@ -1356,6 +1412,7 @@ const ExamMode = () => {
                             <button
                                 onClick={() => {
                                     setStartExamError('');
+                                    setFormatPickerOpen(false);
                                     setExamConfigStep(true);
                                 }}
                                 disabled={startingExamAttempt}
@@ -1382,6 +1439,7 @@ const ExamMode = () => {
                                 onClick={() => {
                                     setStartExamError('');
                                     setPreparationId(null);
+                                    setFormatPickerOpen(false);
                                     setExamFormat('essay');
                                 }}
                                 disabled={startingExamAttempt}
@@ -1526,6 +1584,7 @@ const ExamMode = () => {
                                                 setStartExamError('');
                                                 setPreparationId(null);
                                                 setExamFormat(null);
+                                                setFormatPickerOpen(true);
                                             }}
                                             className="btn-secondary px-4 py-3 flex items-center justify-center"
                                         >
