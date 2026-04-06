@@ -37,8 +37,11 @@ assert.ok(
 assert.ok(
   aiSource.includes("const compactLessonSentence =")
     && aiSource.includes("trimTrailingWeakLessonWords")
-    && aiSource.includes("LESSON_WEAK_TRAILING_TOKENS"),
-  "Expected lesson normalization to compact long source-backed statements instead of blindly truncating them."
+    && aiSource.includes("LESSON_WEAK_TRAILING_TOKENS")
+    && aiSource.includes("buildReadableTableFinanceFacts")
+    && aiSource.includes("buildTableFinanceFactsFromGraph")
+    && aiSource.includes("const supplementalTablePassages = !hasTablePassage && sourcePages.size > 0"),
+  "Expected lesson normalization to compact long source-backed statements, turn table rows into readable finance facts, and backfill missing cited table passages."
 );
 
 assert.ok(

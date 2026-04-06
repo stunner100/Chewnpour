@@ -4538,6 +4538,59 @@ const compactGroundedLessonFact = (value: any, maxWords = 26) => {
     return normalizeLessonSentence(firstSentence, maxWords);
 };
 
+const buildReadableTableFinanceFacts = (value: string) => {
+    const normalized = normalizeStructuredTopicString(value, 1600);
+    if (!normalized || !/\|/.test(normalized)) return [];
+
+    const unitMatch = normalized.match(/\((in [^)]+)\)/i);
+    const unit = normalizeLessonSentence(unitMatch?.[1] || "", 6);
+    const yearMatch = normalized.match(/\b(20\d{2}|19\d{2})\b/);
+    const year = yearMatch?.[1] || "the reported year";
+
+    const facts: string[] = [];
+    const seen = new Set<string>();
+    const rowRegex = /([A-Za-z][A-Za-z\s/()\-]{2,80}?)\s*\|\s*(-?\d+(?:\.\d+)?)/g;
+    for (const match of normalized.matchAll(rowRegex)) {
+        const rawLabel = normalizeLessonSentence(match[1], 8)
+            .replace(/^\d{4}\s*/g, "")
+            .replace(/\b(in millions of [^)]+)\b/i, "")
+            .trim();
+        const rawValue = String(match[2] || "").trim();
+        if (!rawLabel || !rawValue) continue;
+        if (/^(?:\d{4}|total|detail)$/i.test(rawLabel)) continue;
+        const fact = `${rawLabel} were ${rawValue}${unit ? ` ${unit}` : ""} in ${year}.`
+            .replace(/\s+/g, " ")
+            .trim();
+        const key = fact.toLowerCase();
+        if (seen.has(key)) continue;
+        seen.add(key);
+        facts.push(fact);
+        if (facts.length >= 4) break;
+    }
+    return facts;
+};
+
+const buildTableFinanceFactsFromGraph = (contentGraph: TopicContentGraph) => {
+    const candidates = [
+        ...contentGraph.examples,
+        ...contentGraph.sourcePassages
+            .filter((entry) => /table/i.test(String(entry.sectionHint || "")))
+            .map((entry) => entry.text),
+    ];
+    const facts: string[] = [];
+    const seen = new Set<string>();
+    for (const candidate of candidates) {
+        for (const fact of buildReadableTableFinanceFacts(candidate)) {
+            const key = fact.toLowerCase();
+            if (seen.has(key)) continue;
+            seen.add(key);
+            facts.push(fact);
+            if (facts.length >= 6) return facts;
+        }
+    }
+    return facts;
+};
+
 const endsWithWeakTrailingToken = (value: string) => {
     const normalized = normalizeLessonSentence(value, 30);
     const last = normalized.split(/\s+/).filter(Boolean).at(-1)?.toLowerCase().replace(/[^a-z]+/g, "") || "";
@@ -4548,6 +4601,7 @@ const hasUnbalancedParentheses = (value: string) =>
     (String(value || "").match(/\(/g) || []).length !== (String(value || "").match(/\)/g) || []).length;
 
 const buildGroundedLessonFactCandidates = (contentGraph: TopicContentGraph, title: string) => {
+    const tableFacts = buildTableFinanceFactsFromGraph(contentGraph);
     const sourceSentences = contentGraph.sourcePassages
         .filter((passage) => !/table/i.test(String(passage.sectionHint || "")))
         .flatMap((passage) =>
@@ -4567,6 +4621,7 @@ const buildGroundedLessonFactCandidates = (contentGraph: TopicContentGraph, titl
         [
             ...contentGraph.keyPoints.map((point) => compactGroundedLessonFact(point, 24)),
             ...contentGraph.learningObjectives.map((objective) => compactGroundedLessonFact(objective, 24)),
+            ...tableFacts,
             ...exampleFacts,
             ...sourceSentences,
             ...subtopicFacts,
@@ -4580,17 +4635,29 @@ const buildGroundedWorkedExampleFallback = (args: {
     title: string;
     contentGraph: TopicContentGraph;
 }) => {
-    const exampleSource = args.contentGraph.examples.find(Boolean)
+    const tableFact = buildTableFinanceFactsFromGraph(args.contentGraph)[0] || "";
+    const exampleSource = tableFact
+        || args.contentGraph.examples.find(Boolean)
         || args.contentGraph.sourcePassages.find((entry) => /[:|]/.test(entry.text))?.text
         || args.contentGraph.keyPoints.find(Boolean)
         || "";
     const normalizedSource = compactGroundedLessonFact(exampleSource, 24);
     const [label, value] = normalizedSource.split(/\s*:\s*/, 2);
-    const topicLabel = normalizeLessonSentence(label, 12) || args.title;
-    const answerValue = normalizeLessonSentence(value || normalizedSource, 22);
+    const normalizedSentence = normalizedSource.replace(/[.]$/, "");
+    const wereMatch = normalizedSentence.match(/^(.+?) were (.+?) in (\d{4}|the reported year)$/i);
+    const topicLabel = normalizeLessonSentence(
+        wereMatch?.[1] || label || args.title,
+        12
+    ) || args.title;
+    const answerValue = normalizeLessonSentence(
+        wereMatch ? `${wereMatch[2]} in ${wereMatch[3]}` : (value || normalizedSource),
+        22
+    );
     return {
-        question: answerValue
-            ? `According to the source, what is reported for ${topicLabel}?`
+        question: wereMatch
+            ? `According to the source, what were ${topicLabel} in ${wereMatch[3]}?`
+            : answerValue
+                ? `According to the source, what is reported for ${topicLabel}?`
             : `What does the source show about ${args.title}?`,
         reasoning: [
             `Find the exact source evidence tied to ${topicLabel}.`,
@@ -4598,7 +4665,9 @@ const buildGroundedWorkedExampleFallback = (args: {
             "Answer using the source wording or value as closely as possible.",
         ],
         answer: answerValue
-            ? `${topicLabel}: ${answerValue}.`
+            ? wereMatch
+                ? `${topicLabel} were ${answerValue}.`
+                : `${topicLabel}: ${answerValue}.`
             : `The source shows this exact grounded point about ${args.title}: ${normalizedSource}.`,
     };
 };
@@ -4609,9 +4678,10 @@ const buildGroundedQuickCheckFallbacks = (args: {
     keyPoints: string[];
 }) => {
     const facts = buildGroundedLessonFactCandidates(args.contentGraph, args.title);
+    const tableFact = buildTableFinanceFactsFromGraph(args.contentGraph)[0] || "";
     const leadFact = facts[0] || args.keyPoints[0] || args.title;
     const supportFact = facts[1] || args.keyPoints[1] || leadFact;
-    const exampleFact = args.contentGraph.examples[0] || facts[2] || supportFact;
+    const exampleFact = tableFact || args.contentGraph.examples[0] || facts[2] || supportFact;
     return [
         {
             question: `What does the source say about ${normalizeLessonSentence(leadFact, 10) || args.title}?`,
@@ -4830,6 +4900,7 @@ const buildStructuredLessonFallbackMap = (args: {
 }): StructuredLessonMap => {
     const contentGraph = normalizeTopicContentGraph(args.contentGraph);
     const groundedFacts = buildGroundedLessonFactCandidates(contentGraph, args.title);
+    const tableFacts = buildTableFinanceFactsFromGraph(contentGraph);
     const contextSentences = hasTopicContentGraph(contentGraph)
         ? []
         : splitLessonSentences(args.topicContext, 16)
@@ -4873,7 +4944,7 @@ const buildStructuredLessonFallbackMap = (args: {
         contentGraph,
     });
     const examples = normalizeWorkedExamples(
-        contentGraph.examples.map((example) => ({
+        [...tableFacts, ...contentGraph.examples].map((example) => ({
             question: workedExampleFallback.question,
             reasoning: [
                 `Identify the exact source example: ${example}`,
@@ -6350,13 +6421,51 @@ const generateTopicContentForIndex = async (args: {
                 };
             })
             .filter((entry): entry is TopicContentGraphSourcePassage => Boolean(entry?.passageId && entry.text));
+        const hasTablePassage = rawPassages.some((entry) => /table/i.test(String(entry.sectionHint || "")));
+        const sourcePages = new Set(
+            Array.isArray(topicData.sourcePages)
+                ? topicData.sourcePages.map((page) => Math.max(0, Math.floor(Number(page || 0))))
+                : []
+        );
+        const supplementalTablePassages = !hasTablePassage && sourcePages.size > 0
+            ? selectRelevantTopicPassages({
+                title: safeTopicTitle,
+                description: topicData.description,
+                keyPoints,
+                topicData,
+                otherTopicTitles: allTopicTitles,
+                passages: (args.evidenceIndex.passages || [])
+                    .filter((passage) =>
+                        sourcePages.has(Math.max(0, Math.floor(Number(passage?.page || 0))))
+                        && (
+                            /table/i.test(String(passage?.sectionHint || ""))
+                            || Array.isArray(passage?.flags) && passage.flags.includes("table")
+                        )
+                    )
+                    .map((passage) => ({
+                        passageId: String(passage?.passageId || "").trim(),
+                        page: Math.max(0, Math.floor(Number(passage?.page || 0))),
+                        sectionHint: normalizeStructuredTopicString(passage?.sectionHint, 180) || undefined,
+                        text: normalizeStructuredTopicString(passage?.text, 520),
+                    }))
+                    .filter((entry) => entry.passageId && entry.text),
+                max: 2,
+            })
+            : [];
+        const mergedPassages = [...rawPassages];
+        const seenPassageIds = new Set(rawPassages.map((entry) => entry.passageId));
+        for (const entry of supplementalTablePassages) {
+            if (seenPassageIds.has(entry.passageId)) continue;
+            seenPassageIds.add(entry.passageId);
+            mergedPassages.push(entry);
+        }
         return selectRelevantTopicPassages({
             title: safeTopicTitle,
             description: topicData.description,
             keyPoints,
             topicData,
             otherTopicTitles: allTopicTitles,
-            passages: rawPassages,
+            passages: mergedPassages,
             max: 8,
         });
     })();
