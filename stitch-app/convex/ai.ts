@@ -4543,7 +4543,11 @@ const buildReadableTableFinanceFacts = (value: string) => {
     if (!normalized || !/\|/.test(normalized)) return [];
 
     const unitMatch = normalized.match(/\((in [^)]+)\)/i);
-    const unit = normalizeLessonSentence(unitMatch?.[1] || "", 6);
+    const unit = normalizeLessonSentence(unitMatch?.[1] || "", 6)
+        .replace(/^in millions? of\s+/i, "million ")
+        .replace(/^in billions? of\s+/i, "billion ")
+        .replace(/^in\s+/i, "")
+        .trim();
     const yearMatch = normalized.match(/\b(20\d{2}|19\d{2})\b/);
     const year = yearMatch?.[1] || "the reported year";
 
@@ -4944,15 +4948,18 @@ const buildStructuredLessonFallbackMap = (args: {
         contentGraph,
     });
     const examples = normalizeWorkedExamples(
-        [...tableFacts, ...contentGraph.examples].map((example) => ({
+        [...tableFacts, ...contentGraph.examples].map((example) => {
+            const cleanedExample = compactGroundedLessonFact(example, 24) || normalizeLessonSentence(example, 24);
+            return {
             question: workedExampleFallback.question,
             reasoning: [
-                `Identify the exact source example: ${example}`,
+                `Identify the exact source example: ${cleanedExample}`,
                 "Connect it to the matching key point or subtopic.",
                 "Answer using the same fact or value shown in the source.",
             ],
-            answer: normalizeLessonSentence(example, 22) || workedExampleFallback.answer,
-        })),
+            answer: normalizeLessonSentence(cleanedExample, 22) || workedExampleFallback.answer,
+        };
+        }),
         workedExampleFallback.question,
         workedExampleFallback.reasoning
     );
