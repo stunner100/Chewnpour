@@ -34,6 +34,7 @@ import type * as lib_conceptExerciseGeneration from "../lib/conceptExerciseGener
 import type * as lib_conceptMastery from "../lib/conceptMastery.js";
 import type * as lib_conceptSessionSelection from "../lib/conceptSessionSelection.js";
 import type * as lib_datalabClient from "../lib/datalabClient.js";
+import type * as lib_datalabText from "../lib/datalabText.js";
 import type * as lib_doctraClient from "../lib/doctraClient.js";
 import type * as lib_documentExtractionPipeline from "../lib/documentExtractionPipeline.js";
 import type * as lib_examAttemptReuse from "../lib/examAttemptReuse.js";
@@ -108,6 +109,7 @@ declare const fullApi: ApiFromModules<{
   "lib/conceptMastery": typeof lib_conceptMastery;
   "lib/conceptSessionSelection": typeof lib_conceptSessionSelection;
   "lib/datalabClient": typeof lib_datalabClient;
+  "lib/datalabText": typeof lib_datalabText;
   "lib/doctraClient": typeof lib_doctraClient;
   "lib/documentExtractionPipeline": typeof lib_documentExtractionPipeline;
   "lib/examAttemptReuse": typeof lib_examAttemptReuse;

@@ -15,9 +15,17 @@ assert.ok(
   datalabClientSource.includes("DATALAB_STRUCTURED_COURSE_SCHEMA")
     && datalabClientSource.includes("extraction_schema_json")
     && datalabClientSource.includes("structuredCourseMap")
-    && datalabClientSource.includes('formData.set("page_schema"')
+    && datalabClientSource.includes('formData.set("output_format", "chunks")')
     && datalabClientSource.includes('formData.set("save_checkpoint", "true")'),
-  "Expected Datalab client to request checkpoint-backed structured extraction alongside markdown conversion."
+  "Expected Datalab client to convert with checkpointing and preserve chunk blocks for downstream grounding."
+);
+
+assert.ok(
+  datalabClientSource.includes("/api/v1/extract")
+    && datalabClientSource.includes('formData.set("checkpoint_id"')
+    && datalabClientSource.includes("collectCitationBlockIds")
+    && datalabClientSource.includes("normalizeStructuredCourseMap("),
+  "Expected Datalab client to run a second extraction step from checkpoint and preserve citation block IDs."
 );
 
 assert.ok(
@@ -30,8 +38,9 @@ assert.ok(
   aiSource.includes("loadStructuredCourseMapForUpload")
     && aiSource.includes("buildCourseOutlineFromStructuredMap")
     && aiSource.includes("structuredCourseMap")
-    && aiSource.includes("structuredSource: true"),
-  "Expected course generation to read and prefer the structured Datalab course map."
+    && aiSource.includes("structuredSource: true")
+    && aiSource.includes("sourcePassageIds: Array.isArray(topic?.sourceBlockIds)"),
+  "Expected course generation to read the structured Datalab course map and preserve cited block IDs as source passages."
 );
 
 assert.ok(

@@ -1,6 +1,7 @@
 "use node";
 
 import { Blob } from "node:buffer";
+import { cleanDataLabBlockText } from "./datalabText";
 
 export type DataLabMode = "fast" | "balanced" | "accurate";
 
@@ -53,14 +54,20 @@ export type DataLabExtractResponse = {
     metadata?: Record<string, unknown>;
 };
 
+type DataLabChunkBlock = {
+    id: string;
+    page: number;
+    blockType?: string;
+    sectionHint?: string;
+    text: string;
+};
+
 const DATALAB_API_KEY = String(process.env.DATALAB_API_KEY || "").trim();
 const DATALAB_API_BASE_URL = String(process.env.DATALAB_API_BASE_URL || "https://www.datalab.to")
     .trim()
     .replace(/\/+$/, "");
 const DATALAB_TIMEOUT_MS = Number(process.env.DATALAB_TIMEOUT_MS || 240000);
 const DATALAB_POLL_INTERVAL_MS = Number(process.env.DATALAB_POLL_INTERVAL_MS || 1500);
-
-const PAGINATED_MARKDOWN_PAGE_PATTERN = /^\{(\d+)\}-{20,}\s*$/gm;
 
 const DATALAB_STRUCTURED_COURSE_SCHEMA = {
     type: "object",
@@ -138,7 +145,7 @@ const DATALAB_STRUCTURED_COURSE_SCHEMA = {
 } as const;
 
 const sanitizeText = (value: string) =>
-    String(value || "")
+    cleanDataLabBlockText(String(value || ""))
         .replace(/\u0000/g, "")
         .replace(/\r\n/g, "\n")
         .replace(/[ \t]+\n/g, "\n")
@@ -244,6 +251,28 @@ const collectStructuredNumericValues = (value: any, keys: string[], collector: S
     }
 };
 
+const collectCitationBlockIds = (value: any, collector: Set<string>) => {
+    if (Array.isArray(value)) {
+        for (const entry of value) {
+            collectCitationBlockIds(entry, collector);
+        }
+        return;
+    }
+    if (!value || typeof value !== "object") return;
+
+    for (const [key, entry] of Object.entries(value)) {
+        const normalizedKey = String(key || "").toLowerCase();
+        if (normalizedKey === "citations" || normalizedKey.endsWith("_citations")) {
+            const entries = Array.isArray(entry) ? entry : [entry];
+            for (const item of entries) {
+                const normalized = sanitizeText(String(item || ""));
+                if (normalized) collector.add(normalized);
+            }
+        }
+        collectCitationBlockIds(entry, collector);
+    }
+};
+
 const parseStructuredExtractionPayload = (value: any) => {
     const raw = value?.extraction_schema_json;
     if (!raw) return null;
@@ -257,7 +286,11 @@ const parseStructuredExtractionPayload = (value: any) => {
     return typeof raw === "object" ? raw : null;
 };
 
-const normalizeStructuredTopic = (value: any, index: number): DataLabStructuredTopic | null => {
+const normalizeStructuredTopic = (
+    value: any,
+    index: number,
+    blockPageById?: Map<string, number>
+): DataLabStructuredTopic | null => {
     const topic = unwrapStructuredValue(value) || {};
     const title = normalizeStructuredString(topic?.title, 120) || `Topic ${index + 1}`;
     const description = normalizeStructuredString(topic?.description, 320);
@@ -271,11 +304,18 @@ const normalizeStructuredTopic = (value: any, index: number): DataLabStructuredT
     const sourceBlockIds = (() => {
         const ids = new Set<string>();
         collectStructuredFieldValues(topic, ["block_id", "block_ids", "blockid", "blockids"], ids);
+        collectCitationBlockIds(topic, ids);
         return Array.from(ids).slice(0, 24);
     })();
     const sourcePages = (() => {
         const pages = new Set<number>();
         collectStructuredNumericValues(topic, ["page", "pages", "page_number", "page_numbers"], pages);
+        for (const blockId of sourceBlockIds) {
+            const page = blockPageById?.get(blockId);
+            if (Number.isFinite(page) && page! >= 0) {
+                pages.add(Math.floor(page!));
+            }
+        }
         return Array.from(pages).sort((a, b) => a - b).slice(0, 24);
     })();
 
@@ -298,11 +338,14 @@ const normalizeStructuredTopic = (value: any, index: number): DataLabStructuredT
     };
 };
 
-const normalizeStructuredCourseMap = (value: any): DataLabStructuredCourseMap | null => {
+const normalizeStructuredCourseMap = (
+    value: any,
+    blockPageById?: Map<string, number>
+): DataLabStructuredCourseMap | null => {
     const parsed = unwrapStructuredValue(value) || {};
     const rawTopics = Array.isArray(parsed?.topics) ? parsed.topics : [];
     const topics = rawTopics
-        .map((entry, index) => normalizeStructuredTopic(entry, index))
+        .map((entry, index) => normalizeStructuredTopic(entry, index, blockPageById))
         .filter(Boolean) as DataLabStructuredTopic[];
 
     if (topics.length === 0) {
@@ -383,42 +426,89 @@ const resolveCheckUrl = (value: string) => {
     return `${DATALAB_API_BASE_URL}${raw.startsWith("/") ? raw : `/${raw}`}`;
 };
 
-const parsePaginatedMarkdown = (markdown: string): DataLabPage[] => {
-    const source = String(markdown || "");
-    const matches = Array.from(source.matchAll(PAGINATED_MARKDOWN_PAGE_PATTERN));
-    if (matches.length === 0) {
-        const cleaned = sanitizeText(source);
-        if (!cleaned) return [];
-        return [{
-            index: 0,
-            text: cleaned,
-            markdown: cleaned,
-            chars: cleaned.length,
-            tableCount: countMarkdownTables(cleaned),
-            formulaCount: countFormulaMarkers(cleaned),
-        }];
+const flattenChunkBlocks = (value: any): DataLabChunkBlock[] => {
+    const blocksRoot = Array.isArray(value?.blocks)
+        ? value.blocks
+        : Array.isArray(value)
+            ? value
+            : [];
+    const flattened: DataLabChunkBlock[] = [];
+    const seen = new Set<string>();
+
+    const visit = (entry: any) => {
+        if (!entry || typeof entry !== "object") return;
+        const unwrapped = unwrapStructuredValue(entry) || {};
+        const rawId = sanitizeText(String(unwrapped.id || unwrapped.block_id || unwrapped.blockId || ""));
+        const page = Number(
+            unwrapped.page
+            ?? unwrapped.page_idx
+            ?? unwrapped.page_index
+            ?? unwrapped.page_number
+            ?? 0
+        );
+        const text = sanitizeText(String(
+            unwrapped.text
+            || unwrapped.markdown
+            || unwrapped.html
+            || unwrapped.content
+            || ""
+        ));
+        const sectionHint = sanitizeText(String(
+            unwrapped.section_hint
+            || unwrapped.heading
+            || unwrapped.block_type
+            || ""
+        )).slice(0, 180);
+        const blockType = sanitizeText(String(unwrapped.block_type || unwrapped.type || "")).slice(0, 60);
+
+        if (rawId && text && Number.isFinite(page) && page >= 0 && !seen.has(rawId)) {
+            seen.add(rawId);
+            flattened.push({
+                id: rawId,
+                page: Math.max(0, Math.floor(page)),
+                blockType: blockType || undefined,
+                sectionHint: sectionHint || undefined,
+                text: text.slice(0, 2400),
+            });
+        }
+
+        const children = Array.isArray(unwrapped.children)
+            ? unwrapped.children
+            : Array.isArray(unwrapped.blocks)
+                ? unwrapped.blocks
+                : [];
+        for (const child of children) {
+            visit(child);
+        }
+    };
+
+    for (const block of blocksRoot) {
+        visit(block);
+    }
+    return flattened;
+};
+
+const buildPagesFromChunkBlocks = (blocks: DataLabChunkBlock[]): DataLabPage[] => {
+    const grouped = new Map<number, DataLabChunkBlock[]>();
+    for (const block of blocks) {
+        if (!grouped.has(block.page)) grouped.set(block.page, []);
+        grouped.get(block.page)!.push(block);
     }
 
-    const pages: DataLabPage[] = [];
-    for (let index = 0; index < matches.length; index += 1) {
-        const match = matches[index];
-        const pageIndex = Math.max(0, Number(match[1] || index));
-        const start = match.index! + match[0].length;
-        const end = index + 1 < matches.length ? matches[index + 1].index! : source.length;
-        const pageMarkdown = sanitizeText(source.slice(start, end));
-        if (!pageMarkdown) continue;
-
-        pages.push({
-            index: pageIndex,
-            text: pageMarkdown,
-            markdown: pageMarkdown,
-            chars: pageMarkdown.length,
-            tableCount: countMarkdownTables(pageMarkdown),
-            formulaCount: countFormulaMarkers(pageMarkdown),
-        });
-    }
-
-    return pages;
+    return Array.from(grouped.entries())
+        .sort((left, right) => left[0] - right[0])
+        .map(([pageIndex, pageBlocks]) => {
+            const pageMarkdown = sanitizeText(pageBlocks.map((block) => block.text).join("\n\n"));
+            return {
+                index: pageIndex,
+                text: pageMarkdown,
+                markdown: pageMarkdown,
+                chars: pageMarkdown.length,
+                tableCount: countMarkdownTables(pageMarkdown),
+                formulaCount: countFormulaMarkers(pageMarkdown),
+            };
+        })
+        .filter((page) => page.text);
 };
 
 export const isDataLabEnabled = () =>
@@ -434,11 +524,8 @@ const submitConvertRequest = async (args: {
 }) => {
     const formData = new FormData();
     formData.set("file", new Blob([args.fileBuffer], { type: args.contentType }), args.fileName);
-    formData.set("output_format", "markdown");
+    formData.set("output_format", "chunks");
     formData.set("mode", args.mode);
-    formData.set("paginate", "true");
-    formData.set("token_efficient_markdown", "true");
-    formData.set("page_schema", JSON.stringify(DATALAB_STRUCTURED_COURSE_SCHEMA));
     formData.set("save_checkpoint", "true");
     if (Number.isFinite(Number(args.maxPages)) && Number(args.maxPages) > 0) {
         formData.set("max_pages", String(Math.floor(Number(args.maxPages))));
@@ -470,9 +557,48 @@ const submitConvertRequest = async (args: {
     };
 };
 
-const pollConvertRequest = async (args: {
+const submitStructuredExtractRequest = async (args: {
+    checkpointId: string;
+    mode: DataLabMode;
+    maxPages?: number;
+    timeoutMs: number;
+}) => {
+    const formData = new FormData();
+    formData.set("checkpoint_id", args.checkpointId);
+    formData.set("page_schema", JSON.stringify(DATALAB_STRUCTURED_COURSE_SCHEMA));
+    formData.set("mode", args.mode);
+    if (Number.isFinite(Number(args.maxPages)) && Number(args.maxPages) > 0) {
+        formData.set("max_pages", String(Math.floor(Number(args.maxPages))));
+    }
+
+    const response = await withTimeout(
+        `${DATALAB_API_BASE_URL}/api/v1/extract`,
+        {
+            method: "POST",
+            headers: {
+                "X-API-Key": DATALAB_API_KEY,
+            },
+            body: formData,
+        },
+        args.timeoutMs
+    );
+
+    const payload = await toJson(response);
+    const requestId = String(payload?.request_id || "").trim();
+    const requestCheckUrl = resolveCheckUrl(String(payload?.request_check_url || ""));
+    if (!requestId) {
+        throw new Error("Datalab error: extract response missing request_id");
+    }
+    return {
+        requestId,
+        requestCheckUrl,
+    };
+};
+
+const pollRequest = async (args: {
     requestCheckUrl: string;
     timeoutMs: number;
+    purpose: string;
 }) => {
     const deadline = Date.now() + args.timeoutMs;
     const pollIntervalMs = Math.max(500, DATALAB_POLL_INTERVAL_MS);
@@ -495,12 +621,12 @@ const pollConvertRequest = async (args: {
             return payload;
         }
         if (status === "failed") {
-            throw new Error(`Datalab error: ${String(payload?.error || "conversion failed")}`);
+            throw new Error(`Datalab error: ${String(payload?.error || `${args.purpose} failed`)}`);
         }
         await sleep(pollIntervalMs);
     }
 
-    throw new Error("Datalab error: convert request timed out");
+    throw new Error(`Datalab error: ${args.purpose} request timed out`);
 };
 
 export const callDataLabExtract = async (args: {
@@ -525,20 +651,40 @@ export const callDataLabExtract = async (args: {
         maxPages: args.maxPages,
         timeoutMs,
     });
-    const payload = await pollConvertRequest({
+    const convertPayload = await pollRequest({
         requestCheckUrl: submitted.requestCheckUrl,
         timeoutMs,
+        purpose: "convert",
+    });
+    const checkpointId = sanitizeText(String(convertPayload?.checkpoint_id || submitted.checkpointId || ""));
+    if (!checkpointId) {
+        throw new Error("Datalab error: convert response missing checkpoint_id");
+    }
+    const extractSubmitted = await submitStructuredExtractRequest({
+        checkpointId,
+        mode,
+        maxPages: args.maxPages,
+        timeoutMs,
+    });
+    const extractPayload = await pollRequest({
+        requestCheckUrl: extractSubmitted.requestCheckUrl,
+        timeoutMs,
+        purpose: "extract",
     });
 
-    const markdown = sanitizeText(String(payload?.markdown || ""));
-    const pages = parsePaginatedMarkdown(markdown);
+    const blocks = flattenChunkBlocks(convertPayload?.chunks);
+    const blockPageById = new Map(blocks.map((block) => [block.id, block.page]));
+    const pages = buildPagesFromChunkBlocks(blocks);
+    const markdown = pages.map((page) => page.markdown).join("\n\n").trim();
     const text = sanitizeText(markdown);
-    const parseQualityScore = Math.max(0, Number(payload?.parse_quality_score || 0));
-    const checkpointId = sanitizeText(String(payload?.checkpoint_id || submitted.checkpointId || ""));
-    const structuredCourseMap = normalizeStructuredCourseMap(parseStructuredExtractionPayload(payload));
+    const parseQualityScore = Math.max(0, Number(convertPayload?.parse_quality_score || 0));
+    const structuredCourseMap = normalizeStructuredCourseMap(
+        parseStructuredExtractionPayload(extractPayload),
+        blockPageById
+    );
     const warnings: string[] = [];
     if (!text) {
-        warnings.push("empty_markdown_output");
+        warnings.push("empty_block_output");
     }
     if (parseQualityScore > 0 && parseQualityScore < 4) {
         warnings.push(`low_parse_quality_score:${parseQualityScore}`);
@@ -548,10 +694,11 @@ export const callDataLabExtract = async (args: {
     }
 
     const metadata = {
-        ...(typeof payload?.metadata === "object" && payload.metadata
-            ? payload.metadata as Record<string, unknown>
+        ...(typeof convertPayload?.metadata === "object" && convertPayload.metadata
+            ? convertPayload.metadata as Record<string, unknown>
             : {}),
         checkpointId: checkpointId || undefined,
+        datalabBlocks: blocks,
         structuredCourseMap: structuredCourseMap || undefined,
     };
 
@@ -562,7 +709,7 @@ export const callDataLabExtract = async (args: {
         checkpointId: checkpointId || undefined,
         text,
         markdown,
-        pageCount: Math.max(Number(payload?.page_count || 0), pages.length, text ? 1 : 0),
+        pageCount: Math.max(Number(convertPayload?.page_count || 0), pages.length, text ? 1 : 0),
         pages,
         parseQualityScore,
         structuredCourseMap,

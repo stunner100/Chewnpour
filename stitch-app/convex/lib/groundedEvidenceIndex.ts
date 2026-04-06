@@ -1,5 +1,7 @@
 "use node";
 
+import { cleanDataLabBlockText } from "./datalabText";
+
 export type EvidencePassage = {
     passageId: string;
     page: number;
@@ -24,8 +26,19 @@ type ExtractionArtifactPage = {
     text?: string;
 };
 
+type ExtractionArtifactBlock = {
+    id?: string;
+    page?: number;
+    blockType?: string;
+    sectionHint?: string;
+    text?: string;
+};
+
 type ExtractionArtifactLike = {
     pages?: ExtractionArtifactPage[];
+    metadata?: {
+        datalabBlocks?: ExtractionArtifactBlock[];
+    };
 };
 
 export const GROUNDED_EVIDENCE_INDEX_VERSION = "grounded-v2";
@@ -40,7 +53,7 @@ type SegmentationBlock = {
 };
 
 const sanitizeText = (value: string) =>
-    String(value || "")
+    cleanDataLabBlockText(String(value || ""))
         .replace(/\u0000/g, "")
         .replace(/\r\n/g, "\n")
         .replace(/[ \t]+\n/g, "\n")
@@ -401,6 +414,50 @@ export const buildGroundedEvidenceIndexFromArtifact = (args: {
     artifact: ExtractionArtifactLike;
     uploadId?: string;
 }): GroundedEvidenceIndex => {
+    const blockPassages = (() => {
+        const blocks = Array.isArray(args.artifact?.metadata?.datalabBlocks)
+            ? args.artifact.metadata.datalabBlocks
+            : [];
+        return blocks
+            .map((block) => {
+                const passageId = String(block?.id || "").trim();
+                const text = sanitizeText(String(block?.text || ""));
+                const page = Number(block?.page);
+                if (!passageId || !text || !Number.isFinite(page) || page < 0) {
+                    return null;
+                }
+                const sectionHint = sanitizeText(
+                    String(block?.sectionHint || block?.blockType || text.split("\n")[0] || "")
+                ).slice(0, 120);
+                const flags = buildFlags(text);
+                const structuralHint = String(block?.sectionHint || block?.blockType || "");
+                if (/table/i.test(structuralHint) && !flags.includes("table")) flags.push("table");
+                if (/formula|equation/i.test(structuralHint) && !flags.includes("formula")) flags.push("formula");
+                return {
+                    passageId,
+                    page: Math.max(0, Math.floor(page)),
+                    startChar: 0,
+                    endChar: text.length,
+                    sectionHint,
+                    text,
+                    flags,
+                } satisfies EvidencePassage;
+            })
+            .filter((passage): passage is EvidencePassage => Boolean(passage));
+    })();
+
+    if (blockPassages.length > 0) {
+        const pageCount = new Set(blockPassages.map((passage) => passage.page)).size;
+        return {
+            version: GROUNDED_EVIDENCE_INDEX_VERSION,
+            uploadId: args.uploadId,
+            createdAt: Date.now(),
+            passageCount: blockPassages.length,
+            pageCount,
+            passages: blockPassages,
+        };
+    }
+
     const pages = Array.isArray(args.artifact?.pages) ? args.artifact.pages : [];
 
     const passages = pages.flatMap((page, pageOffset) => {

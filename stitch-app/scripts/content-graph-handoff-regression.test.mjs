@@ -28,8 +28,10 @@ assert.ok(
     && aiSource.includes("contentGraph.formulas.map")
     && aiSource.includes("const contextSentences = hasTopicContentGraph(contentGraph)")
     && aiSource.includes("const sourcePassageIdList = alignedSourcePassages.map")
-    && aiSource.includes("otherTopicTitles: allTopicTitles"),
-  "Expected lesson fallback generation to avoid raw JSON/source echoing and to build from filtered content-graph fields."
+    && aiSource.includes("otherTopicTitles: allTopicTitles")
+    && aiSource.includes("buildGroundedLessonFactCandidates")
+    && aiSource.includes("Do not insert generic study advice or filler"),
+  "Expected lesson fallback generation to avoid raw JSON/source echoing and to build from filtered, grounded content-graph fields."
 );
 
 assert.ok(

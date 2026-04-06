@@ -8,6 +8,8 @@ const schemaPath = resolve(root, 'convex', 'schema.ts');
 const extractionPipelinePath = resolve(root, 'convex', 'lib', 'documentExtractionPipeline.ts');
 const extractionPath = resolve(root, 'convex', 'extraction.ts');
 const datalabClientPath = resolve(root, 'convex', 'lib', 'datalabClient.ts');
+const groundedEvidenceIndexPath = resolve(root, 'convex', 'lib', 'groundedEvidenceIndex.ts');
+const datalabTextPath = resolve(root, 'convex', 'lib', 'datalabText.ts');
 const doctraClientPath = resolve(root, 'convex', 'lib', 'doctraClient.ts');
 const llamaClientPath = resolve(root, 'convex', 'lib', 'llamaParseClient.ts');
 
@@ -16,6 +18,8 @@ const schemaSource = readFileSync(schemaPath, 'utf8');
 const pipelineSource = readFileSync(extractionPipelinePath, 'utf8');
 const extractionSource = readFileSync(extractionPath, 'utf8');
 const datalabClientSource = readFileSync(datalabClientPath, 'utf8');
+const groundedEvidenceIndexSource = readFileSync(groundedEvidenceIndexPath, 'utf8');
+const datalabTextSource = readFileSync(datalabTextPath, 'utf8');
 const doctraClientSource = readFileSync(doctraClientPath, 'utf8');
 const llamaClientSource = readFileSync(llamaClientPath, 'utf8');
 
@@ -99,12 +103,28 @@ assert.ok(
 assert.ok(
   datalabClientSource.includes('callDataLabExtract')
     && datalabClientSource.includes('/api/v1/marker')
+    && datalabClientSource.includes('/api/v1/extract')
     && datalabClientSource.includes('request_check_url')
-    && datalabClientSource.includes('parsePaginatedMarkdown')
-    && datalabClientSource.includes('page_schema')
+    && datalabClientSource.includes('flattenChunkBlocks')
+    && datalabClientSource.includes('buildPagesFromChunkBlocks')
+    && datalabClientSource.includes('checkpoint_id')
     && datalabClientSource.includes('save_checkpoint')
-    && datalabClientSource.includes('structuredCourseMap'),
-  'Expected Datalab requests to use the marker endpoint with checkpoint-backed structured extraction.'
+    && datalabClientSource.includes('structuredCourseMap')
+    && datalabClientSource.includes('collectCitationBlockIds')
+    && datalabClientSource.includes('cleanDataLabBlockText'),
+  'Expected Datalab requests to use checkpoint-backed convert plus extract with cited, cleaned chunk blocks.'
+);
+assert.ok(
+  groundedEvidenceIndexSource.includes('cleanDataLabBlockText')
+    && groundedEvidenceIndexSource.includes('block?.sectionHint || block?.blockType')
+    && groundedEvidenceIndexSource.includes("flags.push(\"table\")"),
+  'Expected grounded evidence indexing to preserve cleaned block text and structural hints from Datalab blocks.'
+);
+assert.ok(
+  datalabTextSource.includes('decodeHtmlEntities')
+    && datalabTextSource.includes('cleanDataLabBlockText')
+    && datalabTextSource.includes('replace(/<\\s*\\/t(?:d|h)\\s*>/gi, " | ")'),
+  'Expected Datalab text cleanup helper to normalize HTML/table-heavy block content into clean text.'
 );
 assert.ok(
   doctraClientSource.includes('callDoctraExtract')

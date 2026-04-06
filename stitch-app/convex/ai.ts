@@ -58,6 +58,7 @@ import type {
     DataLabStructuredDefinition,
     DataLabStructuredTopic,
 } from "./lib/datalabClient";
+import { cleanDataLabBlockText } from "./lib/datalabText";
 import { retrieveGroundedEvidence, type RetrievedEvidence } from "./lib/groundedRetrieval";
 import {
     buildGroundedAssessmentBlueprintPrompt,
@@ -2315,7 +2316,7 @@ const fetchJsonFromStorageId = async (ctx: any, storageId: any) => {
 };
 
 const normalizeStructuredTopicString = (value: any, maxChars = 220) =>
-    String(value || "")
+    cleanDataLabBlockText(String(value || ""))
         .replace(/\u0000/g, "")
         .replace(/\s+/g, " ")
         .trim()
@@ -4468,6 +4469,126 @@ const dedupeLessonStringList = (values: any[], maxItems = 8, maxWords = 24) => {
     return deduped;
 };
 
+const LESSON_GENERIC_FILLER_PATTERNS = [
+    /^start with the purpose/i,
+    /^use one clear definition/i,
+    /^follow the steps in the right order/i,
+    /^check examples to confirm/i,
+    /^review common confusions/i,
+    /^it helps you explain the topic purpose/i,
+    /^the correct answer comes from following the steps/i,
+];
+
+const isGenericLessonFiller = (value: string) => {
+    const normalized = normalizeLessonSentence(value, 28);
+    if (!normalized) return true;
+    return LESSON_GENERIC_FILLER_PATTERNS.some((pattern) => pattern.test(normalized));
+};
+
+const compactGroundedLessonFact = (value: any, maxWords = 26) => {
+    const cleaned = normalizeStructuredTopicString(value, 420)
+        .replace(/\([^)]*\)/g, "")
+        .replace(/\s+:\s*$/g, "")
+        .replace(/\s+([,.;:!?])/g, "$1")
+        .replace(/\s{2,}/g, " ")
+        .trim();
+    if (!cleaned) return "";
+    const firstSentence = cleaned.split(/(?<=[.!?])\s+/)[0] || cleaned;
+    return normalizeLessonSentence(firstSentence, maxWords);
+};
+
+const endsWithWeakTrailingToken = (value: string) =>
+    /\b(and|or|of|to|in|on|for|with|including|plus|less|only|than|from)$/i.test(
+        normalizeLessonSentence(value, 30)
+    );
+
+const hasUnbalancedParentheses = (value: string) =>
+    (String(value || "").match(/\(/g) || []).length !== (String(value || "").match(/\)/g) || []).length;
+
+const buildGroundedLessonFactCandidates = (contentGraph: TopicContentGraph, title: string) => {
+    const sourceSentences = contentGraph.sourcePassages
+        .filter((passage) => !/table/i.test(String(passage.sectionHint || "")))
+        .flatMap((passage) =>
+            splitLessonSentences(passage.text, 2).map((sentence) => compactGroundedLessonFact(sentence, 24))
+        );
+    const exampleFacts = contentGraph.examples.map((example) => {
+        const normalized = compactGroundedLessonFact(example, 20);
+        if (!normalized) return "";
+        return /[.!?]$/.test(normalized) ? normalized : `${normalized}.`;
+    });
+    const subtopicFacts = contentGraph.subtopics.map((subtopic) => {
+        const normalized = normalizeLessonSentence(subtopic, 10);
+        if (!normalized) return "";
+        return `${normalized} is a core part of ${title}.`;
+    });
+    return dedupeLessonStringList(
+        [
+            ...contentGraph.keyPoints.map((point) => compactGroundedLessonFact(point, 24)),
+            ...contentGraph.learningObjectives.map((objective) => compactGroundedLessonFact(objective, 24)),
+            ...exampleFacts,
+            ...sourceSentences,
+            ...subtopicFacts,
+        ].filter((entry) => !isGenericLessonFiller(String(entry || ""))),
+        12,
+        22
+    );
+};
+
+const buildGroundedWorkedExampleFallback = (args: {
+    title: string;
+    contentGraph: TopicContentGraph;
+}) => {
+    const exampleSource = args.contentGraph.examples.find(Boolean)
+        || args.contentGraph.sourcePassages.find((entry) => /[:|]/.test(entry.text))?.text
+        || args.contentGraph.keyPoints.find(Boolean)
+        || "";
+    const normalizedSource = compactGroundedLessonFact(exampleSource, 24);
+    const [label, value] = normalizedSource.split(/\s*:\s*/, 2);
+    const topicLabel = normalizeLessonSentence(label, 12) || args.title;
+    const answerValue = normalizeLessonSentence(value || normalizedSource, 22);
+    return {
+        question: answerValue
+            ? `According to the source, what is reported for ${topicLabel}?`
+            : `What does the source show about ${args.title}?`,
+        reasoning: [
+            `Find the exact source evidence tied to ${topicLabel}.`,
+            "Read the reported figure or statement without changing its meaning.",
+            "Answer using the source wording or value as closely as possible.",
+        ],
+        answer: answerValue
+            ? `${topicLabel}: ${answerValue}.`
+            : `The source shows this exact grounded point about ${args.title}: ${normalizedSource}.`,
+    };
+};
+
+const buildGroundedQuickCheckFallbacks = (args: {
+    title: string;
+    contentGraph: TopicContentGraph;
+    keyPoints: string[];
+}) => {
+    const facts = buildGroundedLessonFactCandidates(args.contentGraph, args.title);
+    const leadFact = facts[0] || args.keyPoints[0] || args.title;
+    const supportFact = facts[1] || args.keyPoints[1] || leadFact;
+    const exampleFact = args.contentGraph.examples[0] || facts[2] || supportFact;
+    return [
+        {
+            question: `What does the source say about ${normalizeLessonSentence(leadFact, 10) || args.title}?`,
+            answer: normalizeLessonSentence(leadFact, 18) || `${args.title} is explained directly in the source.`,
+            skillType: "recall",
+        },
+        {
+            question: `Why is ${normalizeLessonSentence(supportFact, 10) || args.title} important in ${args.title}?`,
+            answer: normalizeLessonSentence(supportFact, 18) || `It helps explain how ${args.title} works in the source material.`,
+            skillType: "understanding",
+        },
+        {
+            question: `Which exact source example could you cite for ${args.title}?`,
+            answer: normalizeLessonSentence(exampleFact, 18) || `Use the worked example and cited source evidence for ${args.title}.`,
+            skillType: "application",
+        },
+    ];
+};
+
 const normalizeDefinitionEntries = (rawDefinitions: any, fallbackTerms: string[]) => {
     const definitions = Array.isArray(rawDefinitions) ? rawDefinitions : [];
     const normalized: Array<{ term: string; meaning: string }> = [];
@@ -4666,6 +4787,7 @@ const buildStructuredLessonFallbackMap = (args: {
     contentGraph?: TopicContentGraph | null;
 }): StructuredLessonMap => {
     const contentGraph = normalizeTopicContentGraph(args.contentGraph);
+    const groundedFacts = buildGroundedLessonFactCandidates(contentGraph, args.title);
     const contextSentences = hasTopicContentGraph(contentGraph)
         ? []
         : splitLessonSentences(args.topicContext, 16)
@@ -4678,6 +4800,7 @@ const buildStructuredLessonFallbackMap = (args: {
     const keyPoints = dedupeLessonStringList(
         [
             ...contentGraph.keyPoints,
+            ...groundedFacts,
             ...args.keyPoints,
             ...contentGraph.learningObjectives,
             ...contextSentences,
@@ -4700,23 +4823,25 @@ const buildStructuredLessonFallbackMap = (args: {
         8,
         4
     );
-    const definitions = normalizeDefinitionEntries(contentGraph.definitions, fallbackTerms);
+    const definitions = contentGraph.definitions.length > 0
+        ? normalizeDefinitionEntries(contentGraph.definitions, [])
+        : [];
+    const workedExampleFallback = buildGroundedWorkedExampleFallback({
+        title: args.title,
+        contentGraph,
+    });
     const examples = normalizeWorkedExamples(
         contentGraph.examples.map((example) => ({
-            question: `What does this source example show about ${args.title}?`,
+            question: workedExampleFallback.question,
             reasoning: [
-                `Identify the exact example described in the source: ${example}`,
-                "Connect that example to the main topic idea and the relevant key point.",
-                "State the conclusion in plain language without adding facts not present in the source.",
+                `Identify the exact source example: ${example}`,
+                "Connect it to the matching key point or subtopic.",
+                "Answer using the same fact or value shown in the source.",
             ],
-            answer: `It shows this grounded example for ${args.title}: ${example}.`,
+            answer: normalizeLessonSentence(example, 22) || workedExampleFallback.answer,
         })),
-        `How do you solve a simple problem involving ${args.title}?`,
-        [
-            "Start by finding the main idea or definition that fits the problem.",
-            "Follow the steps in order and explain what each step changes.",
-            "Check the final answer against the topic rules and the example context.",
-        ]
+        workedExampleFallback.question,
+        workedExampleFallback.reasoning
     );
     const formulas = normalizeFormulaEntries(
         contentGraph.formulas.map((formula, index) => ({
@@ -4732,26 +4857,41 @@ const buildStructuredLessonFallbackMap = (args: {
                 || contentGraph.learningObjectives[0]
                 || `Return to the source evidence for ${args.title} and restate the idea precisely.`,
         })),
-        keyPoints
+        groundedFacts.length > 0 ? groundedFacts : keyPoints
     );
-    const quickCheck = normalizeQuickCheckEntries([], keyPoints, args.title);
+    const quickCheck = normalizeQuickCheckEntries(
+        buildGroundedQuickCheckFallbacks({
+            title: args.title,
+            contentGraph,
+            keyPoints,
+        }),
+        keyPoints,
+        args.title
+    );
+    const compactDescription = compactGroundedLessonFact(
+        args.description || contentGraph.description || "",
+        28
+    );
+    const compactPrimaryKeyPoint = compactGroundedLessonFact(
+        contentGraph.keyPoints[0] || args.keyPoints[0] || "",
+        24
+    );
     const bigIdea = dedupeLessonStringList(
         [
-            args.description || "",
-            contentGraph.description || "",
-            contentGraph.keyPoints[0] || "",
+            compactDescription,
+            compactPrimaryKeyPoint,
+            groundedFacts[0] || "",
             contextSentences[0] || "",
-            `${args.title} matters because it helps you explain the purpose, the key ideas, and how to apply them correctly.`,
         ],
         2,
         22
     );
     const summary = dedupeLessonStringList(
         [
-            contentGraph.keyPoints[0] || "",
-            contentGraph.learningObjectives[0] || "",
+            compactPrimaryKeyPoint,
+            compactGroundedLessonFact(contentGraph.learningObjectives[0] || "", 20),
+            groundedFacts[1] || groundedFacts[0] || "",
             contextSentences[1] || "",
-            `${args.title} becomes easier when you focus on the purpose, the key steps, and the worked example.`,
         ],
         2,
         18
@@ -4769,11 +4909,7 @@ const buildStructuredLessonFallbackMap = (args: {
             : dedupeLessonStringList(
                 [
                     ...keyPoints,
-                    "Start with the purpose of the topic before memorizing details.",
-                    "Use one clear definition for each important term.",
-                    "Follow the steps in the right order when solving a problem.",
-                    "Check examples to confirm that your understanding is correct.",
-                    "Review common confusions before moving to harder questions.",
+                    ...groundedFacts,
                 ],
                 LESSON_KEY_IDEA_MAX,
                 18
@@ -4814,6 +4950,7 @@ Rules:
 - Do not return markdown.
 - Avoid repeated ideas across fields.
 - Do not include weak or forced analogies.
+- Do not insert generic study advice or filler such as "start with the purpose", "follow the steps", or "check examples" unless the source explicitly says that.
 - Keep every key point atomic and self-contained.
 - Use concise, accurate wording.
 - Treat the topic content graph as the canonical handoff structure from extraction into lesson generation.
@@ -4977,6 +5114,15 @@ const evaluateStructuredLessonQuality = (content: string) => {
     }
     if (keyIdeaLines.some((line) => line.split(/\s+/).length > 28 || /;/.test(line))) {
         reasons.push("Key Ideas bullets must remain atomic and concise.");
+    }
+    if ([...bigIdeaParagraphs, ...keyIdeaLines, ...summaryLines].some((line) => /\|/.test(line))) {
+        reasons.push("Lesson sections must not leak raw table separators.");
+    }
+    if ([...bigIdeaParagraphs, ...keyIdeaLines, ...summaryLines].some((line) => endsWithWeakTrailingToken(line))) {
+        reasons.push("Lesson sections must not end with clipped trailing phrases.");
+    }
+    if ([...bigIdeaParagraphs, ...keyIdeaLines, ...stepLines, ...summaryLines, ...workedExampleLines].some((line) => hasUnbalancedParentheses(line))) {
+        reasons.push("Lesson sections must not contain clipped or unbalanced source fragments.");
     }
     if (stepLines.length < 3 || stepLines.some((line) => !/^\d+\.\s+/.test(line))) {
         reasons.push("Step-by-Step Breakdown must use numbered steps only.");
@@ -5351,6 +5497,12 @@ const buildCourseOutlineFromStructuredMap = (
                 title,
                 description,
                 keyPoints,
+                sourcePassageIds: Array.isArray(topic?.sourceBlockIds)
+                    ? topic.sourceBlockIds
+                        .map((value) => String(value || "").trim())
+                        .filter(Boolean)
+                        .slice(0, 24)
+                    : [],
                 subtopics: normalizeStructuredTopicStringList(topic?.subtopics, 10, 140),
                 definitions: normalizeStructuredDefinitionList(topic?.definitions),
                 examples: normalizeStructuredTopicStringList(topic?.examples, 8, 220),
@@ -6107,7 +6259,7 @@ const generateTopicContentForIndex = async (args: {
             ? topicData.sourcePassageIds.map((value) => String(value || "").trim()).filter(Boolean)
             : []
     );
-    if (args.evidenceIndex) {
+    if (args.evidenceIndex && sourcePassageIds.size === 0) {
         const passageById = new Map(
             (args.evidenceIndex.passages || []).map((passage) => [String(passage.passageId), passage])
         );
