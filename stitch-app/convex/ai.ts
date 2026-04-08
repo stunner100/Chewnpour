@@ -10760,6 +10760,185 @@ const countUsableUniqueMcqQuestions = (questions: any[]) => {
     return signatures.length;
 };
 
+const normalizeGapFillCount = (value: any, fallback = 0) => {
+    const numeric = Number(value);
+    if (!Number.isFinite(numeric)) {
+        return Math.max(0, Math.round(Number(fallback) || 0));
+    }
+    return Math.max(0, Math.round(numeric));
+};
+
+const buildAssessmentGapFillPlan = (
+    topicSnapshot: any,
+    options?: {
+        allowObjective?: boolean;
+        allowEssay?: boolean;
+        requestedEssayCount?: number;
+    },
+) => {
+    const allowObjective = options?.allowObjective !== false;
+    const allowEssay = options?.allowEssay !== false;
+    const improvementActions = Array.isArray(topicSnapshot?.improvementActions)
+        ? topicSnapshot.improvementActions
+            .map((entry: any) => String(entry || "").trim())
+            .filter(Boolean)
+        : [];
+    const usableObjectiveCount = normalizeGapFillCount(topicSnapshot?.usableObjectiveCount);
+    const usableEssayCount = normalizeGapFillCount(topicSnapshot?.usableEssayCount);
+    const usableQuestionCount = usableObjectiveCount + usableEssayCount;
+    const usableTrueFalseCount = normalizeGapFillCount(topicSnapshot?.usableTrueFalseCount);
+    const usableFillInCount = normalizeGapFillCount(topicSnapshot?.usableFillInCount);
+    const trueFalseTargetCount = normalizeGapFillCount(topicSnapshot?.trueFalseTargetCount);
+    const fillInTargetCount = normalizeGapFillCount(topicSnapshot?.fillInTargetCount);
+    const tier1Count = normalizeGapFillCount(topicSnapshot?.tier1Count);
+    const tier1Threshold = usableObjectiveCount < 3
+        ? Math.min(1, usableObjectiveCount)
+        : Math.ceil(usableObjectiveCount * 0.4);
+    const tier1Sufficient = usableObjectiveCount > 0 && tier1Count >= tier1Threshold;
+    const difficultyDistribution = topicSnapshot?.difficultyDistribution || {};
+    const hasDifficultySpread = usableQuestionCount < 3
+        ? usableQuestionCount > 0
+        : normalizeGapFillCount(difficultyDistribution?.easy) > 0
+            && normalizeGapFillCount(difficultyDistribution?.medium) > 0
+            && normalizeGapFillCount(difficultyDistribution?.hard) > 0;
+    const claimCoverage = Number(topicSnapshot?.claimCoverage || 0);
+    const hasClaimCoverageGap =
+        improvementActions.some((entry) => /sub-claims/i.test(entry))
+        || (Number.isFinite(claimCoverage) && claimCoverage > 0 && claimCoverage < 0.5);
+    const objectiveReasons: string[] = [];
+    const essayReasons: string[] = [];
+
+    if (topicSnapshot?.objectiveReady !== true) {
+        objectiveReasons.push("objective_target_gap");
+    }
+    if (trueFalseTargetCount > usableTrueFalseCount) {
+        objectiveReasons.push("true_false_gap");
+    }
+    if (fillInTargetCount > usableFillInCount) {
+        objectiveReasons.push("fill_blank_gap");
+    }
+    if (usableObjectiveCount > 0 && !tier1Sufficient) {
+        objectiveReasons.push("tier1_gap");
+    }
+    if (!hasDifficultySpread) {
+        objectiveReasons.push("difficulty_gap");
+    }
+    if (hasClaimCoverageGap) {
+        objectiveReasons.push("claim_coverage_gap");
+    }
+
+    if (topicSnapshot?.essayReady !== true) {
+        essayReasons.push("essay_target_gap");
+    }
+
+    const requestedEssayCount = Math.max(
+        ESSAY_QUESTION_MIN_GENERATION_COUNT,
+        Math.min(
+            ESSAY_QUESTION_MAX_GENERATION_COUNT,
+            normalizeGapFillCount(
+                options?.requestedEssayCount,
+                topicSnapshot?.essayTargetCount ?? ESSAY_QUESTION_TARGET_MIN_COUNT,
+            ) || ESSAY_QUESTION_TARGET_MIN_COUNT,
+        )
+    );
+
+    return {
+        canImprove: topicSnapshot?.canImprove === true,
+        scheduleObjective: allowObjective && topicSnapshot?.canImprove === true && objectiveReasons.length > 0,
+        scheduleEssay: allowEssay && topicSnapshot?.canImprove === true && essayReasons.length > 0,
+        objectiveReasons,
+        essayReasons,
+        requestedEssayCount,
+        improvementActions,
+    };
+};
+
+export const retryAssessmentGapFillInternal = internalAction({
+    args: {
+        topicId: v.id("topics"),
+        retryAttempt: v.optional(v.number()),
+        allowObjective: v.optional(v.boolean()),
+        allowEssay: v.optional(v.boolean()),
+        requestedEssayCount: v.optional(v.number()),
+        reason: v.optional(v.string()),
+    },
+    handler: async (ctx, args) => {
+        const topicSnapshot = await ctx.runQuery(internal.topics.getTopicWithQuestionsInternal, {
+            topicId: args.topicId,
+        });
+        if (!topicSnapshot) {
+            return {
+                success: false,
+                skipped: true,
+                reason: "topic_not_found",
+                topicId: args.topicId,
+            };
+        }
+
+        const retryAttempt = Math.max(0, Math.round(Number(args.retryAttempt || 0)));
+        const gapFillPlan = buildAssessmentGapFillPlan(topicSnapshot, {
+            allowObjective: args.allowObjective,
+            allowEssay: args.allowEssay,
+            requestedEssayCount: args.requestedEssayCount,
+        });
+
+        if (topicSnapshot?.examReady === true || !gapFillPlan.canImprove) {
+            return {
+                success: true,
+                skipped: true,
+                reason: "no_improvable_gaps",
+                topicId: args.topicId,
+                retryAttempt,
+                objectiveReasons: gapFillPlan.objectiveReasons,
+                essayReasons: gapFillPlan.essayReasons,
+            };
+        }
+
+        if (!gapFillPlan.scheduleObjective && !gapFillPlan.scheduleEssay) {
+            return {
+                success: true,
+                skipped: true,
+                reason: "no_targeted_gap_fill_needed",
+                topicId: args.topicId,
+                retryAttempt,
+                objectiveReasons: gapFillPlan.objectiveReasons,
+                essayReasons: gapFillPlan.essayReasons,
+                improvementActions: gapFillPlan.improvementActions,
+            };
+        }
+
+        if (gapFillPlan.scheduleObjective) {
+            await ctx.scheduler.runAfter(0, internal.ai.generateQuestionsForTopicInternal, {
+                topicId: args.topicId,
+                retryAttempt,
+            });
+        }
+        if (gapFillPlan.scheduleEssay) {
+            await ctx.scheduler.runAfter(0, internal.ai.generateEssayQuestionsForTopicInternal, {
+                topicId: args.topicId,
+                count: gapFillPlan.requestedEssayCount,
+                retryAttempt,
+            });
+        }
+
+        return {
+            success: true,
+            scheduled: true,
+            topicId: args.topicId,
+            retryAttempt,
+            allowObjective: args.allowObjective !== false,
+            allowEssay: args.allowEssay !== false,
+            requestedEssayCount: gapFillPlan.requestedEssayCount,
+            objectiveScheduled: gapFillPlan.scheduleObjective,
+            essayScheduled: gapFillPlan.scheduleEssay,
+            objectiveReasons: gapFillPlan.objectiveReasons,
+            essayReasons: gapFillPlan.essayReasons,
+            improvementActions: gapFillPlan.improvementActions,
+            triggerReason: String(args.reason || "").trim() || null,
+        };
+    },
+});
+
 const buildMcqGenerationAlreadyInProgressResult = async (
     ctx: any,
     topicId: any,
@@ -10890,19 +11069,45 @@ const runMcqGenerationWithLock = async (
                 )
             )
         );
+    const gapFillTopicSnapshot = !insufficientEvidence && retryAttempt < MCQ_QUESTION_BACKGROUND_MAX_RETRIES
+        ? await ctx.runQuery(internal.topics.getTopicWithQuestionsInternal, {
+            topicId,
+        })
+        : null;
+    const gapFillPlan = gapFillTopicSnapshot
+        ? buildAssessmentGapFillPlan(gapFillTopicSnapshot, {
+            allowObjective: true,
+            allowEssay: true,
+        })
+        : {
+            scheduleObjective: false,
+            scheduleEssay: false,
+            objectiveReasons: [],
+            essayReasons: [],
+            requestedEssayCount: ESSAY_QUESTION_TARGET_MIN_COUNT,
+        };
     const shouldRetry =
-        currentCount < desiredReadyCount
+        (gapFillPlan.scheduleObjective || gapFillPlan.scheduleEssay)
         && !insufficientEvidence
-        && (timedOut || madeProgress || thinFirstPassUnderfilled)
+        && (
+            currentCount < desiredReadyCount
+            || timedOut
+            || madeProgress
+            || thinFirstPassUnderfilled
+        )
         && retryAttempt < MCQ_QUESTION_BACKGROUND_MAX_RETRIES;
 
     if (shouldRetry) {
         void ctx.scheduler.runAfter(
             MCQ_QUESTION_BACKGROUND_RETRY_DELAY_MS,
-            internal.ai.generateQuestionsForTopicInternal,
+            internal.ai.retryAssessmentGapFillInternal,
             {
                 topicId,
                 retryAttempt: retryAttempt + 1,
+                allowObjective: true,
+                allowEssay: true,
+                requestedEssayCount: gapFillPlan.requestedEssayCount,
+                reason: "mcq_generation_retry",
             }
         ).then(() => {
             console.info("[QuestionBank] retry_scheduled", {
@@ -10910,6 +11115,8 @@ const runMcqGenerationWithLock = async (
                 currentCount,
                 desiredReadyCount,
                 thinFirstPassUnderfilled,
+                objectiveReasons: gapFillPlan.objectiveReasons,
+                essayReasons: gapFillPlan.essayReasons,
                 retryAttempt: retryAttempt + 1,
                 maxRetries: MCQ_QUESTION_BACKGROUND_MAX_RETRIES,
                 retryDelayMs: MCQ_QUESTION_BACKGROUND_RETRY_DELAY_MS,
@@ -10928,6 +11135,8 @@ const runMcqGenerationWithLock = async (
         retryAttempt,
         retryScheduled: shouldRetry,
         thinFirstPassUnderfilled,
+        retryObjectiveReasons: gapFillPlan.objectiveReasons,
+        retryEssayReasons: gapFillPlan.essayReasons,
     };
 };
 
@@ -11026,20 +11235,41 @@ const runEssayGenerationWithLock = async (
     const madeProgress = Number(result?.added || 0) > 0;
     const timedOut = result?.timedOut === true;
     const insufficientEvidence = result?.abstained === true || String(result?.reason || "") === "INSUFFICIENT_EVIDENCE";
+    const gapFillTopicSnapshot = !insufficientEvidence && retryAttempt < ESSAY_QUESTION_BACKGROUND_MAX_RETRIES
+        ? await ctx.runQuery(internal.topics.getTopicWithQuestionsInternal, {
+            topicId: args.topicId,
+        })
+        : null;
+    const gapFillPlan = gapFillTopicSnapshot
+        ? buildAssessmentGapFillPlan(gapFillTopicSnapshot, {
+            allowObjective: true,
+            allowEssay: true,
+            requestedEssayCount: requestedCount,
+        })
+        : {
+            scheduleObjective: false,
+            scheduleEssay: false,
+            objectiveReasons: [],
+            essayReasons: [],
+            requestedEssayCount,
+        };
     const shouldRetry =
-        currentCount < desiredReadyCount
+        (gapFillPlan.scheduleObjective || gapFillPlan.scheduleEssay)
         && !insufficientEvidence
-        && (timedOut || madeProgress)
+        && (currentCount < desiredReadyCount || timedOut || madeProgress)
         && retryAttempt < ESSAY_QUESTION_BACKGROUND_MAX_RETRIES;
 
     if (shouldRetry) {
         void ctx.scheduler.runAfter(
             ESSAY_QUESTION_BACKGROUND_RETRY_DELAY_MS,
-            internal.ai.generateEssayQuestionsForTopicInternal,
+            internal.ai.retryAssessmentGapFillInternal,
             {
                 topicId: args.topicId,
-                count: requestedCount,
                 retryAttempt: retryAttempt + 1,
+                allowObjective: true,
+                allowEssay: true,
+                requestedEssayCount: gapFillPlan.requestedEssayCount,
+                reason: "essay_generation_retry",
             }
         ).then(() => {
             console.info("[EssayQuestionBank] retry_scheduled", {
@@ -11047,6 +11277,8 @@ const runEssayGenerationWithLock = async (
                 requestedCount,
                 currentCount: Number(result?.count || 0),
                 desiredReadyCount,
+                objectiveReasons: gapFillPlan.objectiveReasons,
+                essayReasons: gapFillPlan.essayReasons,
                 retryAttempt: retryAttempt + 1,
                 maxRetries: ESSAY_QUESTION_BACKGROUND_MAX_RETRIES,
                 retryDelayMs: ESSAY_QUESTION_BACKGROUND_RETRY_DELAY_MS,
@@ -11065,6 +11297,8 @@ const runEssayGenerationWithLock = async (
         ...result,
         retryAttempt,
         retryScheduled: shouldRetry,
+        retryObjectiveReasons: gapFillPlan.objectiveReasons,
+        retryEssayReasons: gapFillPlan.essayReasons,
     };
 };
 
@@ -11271,12 +11505,12 @@ export const regenerateQuestionsForTopic = action({
             return result;
         }
 
-        await ctx.scheduler.runAfter(0, internal.ai.generateQuestionsForTopicInternal, {
+        await ctx.scheduler.runAfter(0, internal.ai.retryAssessmentGapFillInternal, {
             topicId,
-        });
-        await ctx.scheduler.runAfter(0, internal.ai.generateEssayQuestionsForTopicInternal, {
-            topicId,
-            count: TOPIC_EXAM_PREBUILD_ESSAY_COUNT,
+            allowObjective: true,
+            allowEssay: true,
+            requestedEssayCount: TOPIC_EXAM_PREBUILD_ESSAY_COUNT,
+            reason: "regenerate_assessment_bank",
         });
 
         return {
