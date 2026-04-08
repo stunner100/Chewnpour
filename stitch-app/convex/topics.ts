@@ -341,6 +341,28 @@ export const getRawQuestionsByTopicInternal = internalQuery({
     },
 });
 
+export const getSubClaimsByTopicInternal = internalQuery({
+    args: { topicId: v.id("topics") },
+    handler: async (ctx, args) => {
+        return await ctx.db
+            .query("topicSubClaims")
+            .withIndex("by_topicId", (q) => q.eq("topicId", args.topicId))
+            .order("asc")
+            .collect();
+    },
+});
+
+export const getDistractorsByTopicInternal = internalQuery({
+    args: { topicId: v.id("topics") },
+    handler: async (ctx, args) => {
+        return await ctx.db
+            .query("distractorBank")
+            .withIndex("by_topicId", (q) => q.eq("topicId", args.topicId))
+            .order("asc")
+            .collect();
+    },
+});
+
 // Create a new topic
 export const createTopic = mutation({
     args: {
@@ -415,9 +437,14 @@ export const createTopic = mutation({
             questionSetVersion,
             examReady: false,
             mcqTargetCount: EXAM_READY_MIN_MCQ_COUNT,
+            trueFalseTargetCount: 0,
+            fillInTargetCount: 0,
+            totalObjectiveTargetCount: EXAM_READY_MIN_MCQ_COUNT,
             essayTargetCount: EXAM_READY_MIN_ESSAY_COUNT,
             usableMcqCount: 0,
             usableEssayCount: 0,
+            readinessScore: 0,
+            claimCoverage: 0,
             examReadyUpdatedAt: questionSetVersion,
             orderIndex: args.orderIndex,
             isLocked: args.isLocked,
@@ -436,7 +463,15 @@ export const refreshTopicExamReadinessInternal = internalMutation({
     args: {
         topicId: v.id("topics"),
         mcqTargetCount: v.optional(v.number()),
+        trueFalseTargetCount: v.optional(v.number()),
+        fillInTargetCount: v.optional(v.number()),
+        totalObjectiveTargetCount: v.optional(v.number()),
         essayTargetCount: v.optional(v.number()),
+        readinessScore: v.optional(v.number()),
+        claimCoverage: v.optional(v.number()),
+        yieldConfidence: v.optional(v.string()),
+        yieldReasoning: v.optional(v.string()),
+        examIneligibleReason: v.optional(v.string()),
     },
     handler: async (ctx, args) => {
         const topic = await ctx.db.get(args.topicId);
@@ -446,6 +481,9 @@ export const refreshTopicExamReadinessInternal = internalMutation({
                 exists: false,
                 examReady: false,
                 mcqTargetCount: EXAM_READY_MIN_MCQ_COUNT,
+                trueFalseTargetCount: 0,
+                fillInTargetCount: 0,
+                totalObjectiveTargetCount: EXAM_READY_MIN_MCQ_COUNT,
                 essayTargetCount: EXAM_READY_MIN_ESSAY_COUNT,
                 usableMcqCount: 0,
                 usableEssayCount: 0,
@@ -464,9 +502,17 @@ export const refreshTopicExamReadinessInternal = internalMutation({
         await ctx.db.patch(args.topicId, {
             examReady: readiness.examReady,
             mcqTargetCount: readiness.mcqTargetCount,
+            trueFalseTargetCount: args.trueFalseTargetCount ?? topic.trueFalseTargetCount,
+            fillInTargetCount: args.fillInTargetCount ?? topic.fillInTargetCount,
+            totalObjectiveTargetCount: args.totalObjectiveTargetCount ?? topic.totalObjectiveTargetCount,
             essayTargetCount: readiness.essayTargetCount,
             usableMcqCount: readiness.usableMcqCount,
             usableEssayCount: readiness.usableEssayCount,
+            readinessScore: args.readinessScore ?? topic.readinessScore,
+            claimCoverage: args.claimCoverage ?? topic.claimCoverage,
+            yieldConfidence: args.yieldConfidence ?? topic.yieldConfidence,
+            yieldReasoning: args.yieldReasoning ?? topic.yieldReasoning,
+            examIneligibleReason: args.examIneligibleReason ?? topic.examIneligibleReason,
             examReadyUpdatedAt: Date.now(),
         });
 
@@ -474,7 +520,43 @@ export const refreshTopicExamReadinessInternal = internalMutation({
             topicId: args.topicId,
             exists: true,
             ...readiness,
+            trueFalseTargetCount: args.trueFalseTargetCount ?? topic.trueFalseTargetCount ?? 0,
+            fillInTargetCount: args.fillInTargetCount ?? topic.fillInTargetCount ?? 0,
+            totalObjectiveTargetCount: args.totalObjectiveTargetCount ?? topic.totalObjectiveTargetCount ?? readiness.mcqTargetCount,
         };
+    },
+});
+
+export const updateTopicAssessmentMetadataInternal = internalMutation({
+    args: {
+        topicId: v.id("topics"),
+        trueFalseTargetCount: v.optional(v.number()),
+        fillInTargetCount: v.optional(v.number()),
+        totalObjectiveTargetCount: v.optional(v.number()),
+        readinessScore: v.optional(v.number()),
+        claimCoverage: v.optional(v.number()),
+        yieldConfidence: v.optional(v.string()),
+        yieldReasoning: v.optional(v.string()),
+        examIneligibleReason: v.optional(v.string()),
+    },
+    handler: async (ctx, args) => {
+        const topic = await ctx.db.get(args.topicId);
+        if (!topic) {
+            throw new Error("Topic not found");
+        }
+
+        await ctx.db.patch(args.topicId, {
+            trueFalseTargetCount: args.trueFalseTargetCount ?? topic.trueFalseTargetCount,
+            fillInTargetCount: args.fillInTargetCount ?? topic.fillInTargetCount,
+            totalObjectiveTargetCount: args.totalObjectiveTargetCount ?? topic.totalObjectiveTargetCount,
+            readinessScore: args.readinessScore ?? topic.readinessScore,
+            claimCoverage: args.claimCoverage ?? topic.claimCoverage,
+            yieldConfidence: args.yieldConfidence ?? topic.yieldConfidence,
+            yieldReasoning: args.yieldReasoning ?? topic.yieldReasoning,
+            examIneligibleReason: args.examIneligibleReason ?? topic.examIneligibleReason,
+        });
+
+        return { topicId: args.topicId, updated: true };
     },
 });
 
@@ -500,6 +582,109 @@ export const saveAssessmentBlueprintInternal = internalMutation({
         return {
             topicId: args.topicId,
             version: String(args.assessmentBlueprint?.version || ASSESSMENT_BLUEPRINT_VERSION),
+        };
+    },
+});
+
+export const replaceSubClaimsForTopicInternal = internalMutation({
+    args: {
+        topicId: v.id("topics"),
+        uploadId: v.optional(v.id("uploads")),
+        claims: v.array(v.object({
+            claimText: v.string(),
+            sourcePassageIds: v.array(v.string()),
+            sourceQuotes: v.array(v.string()),
+            claimType: v.string(),
+            cognitiveOperations: v.array(v.string()),
+            bloomLevel: v.string(),
+            difficultyEstimate: v.string(),
+            questionYieldEstimate: v.number(),
+        })),
+    },
+    handler: async (ctx, args) => {
+        const existingClaims = await ctx.db
+            .query("topicSubClaims")
+            .withIndex("by_topicId", (q) => q.eq("topicId", args.topicId))
+            .collect();
+
+        for (const claim of existingClaims) {
+            const distractors = await ctx.db
+                .query("distractorBank")
+                .withIndex("by_subClaimId", (q) => q.eq("subClaimId", claim._id))
+                .collect();
+            for (const distractor of distractors) {
+                await ctx.db.delete(distractor._id);
+            }
+            await ctx.db.delete(claim._id);
+        }
+
+        const createdIds = [];
+        for (const claim of args.claims) {
+            const claimId = await ctx.db.insert("topicSubClaims", {
+                topicId: args.topicId,
+                uploadId: args.uploadId,
+                claimText: claim.claimText,
+                sourcePassageIds: claim.sourcePassageIds,
+                sourceQuotes: claim.sourceQuotes,
+                claimType: claim.claimType,
+                cognitiveOperations: claim.cognitiveOperations,
+                bloomLevel: claim.bloomLevel,
+                difficultyEstimate: claim.difficultyEstimate,
+                questionYieldEstimate: claim.questionYieldEstimate,
+                status: "active",
+                createdAt: Date.now(),
+            });
+            createdIds.push(claimId);
+        }
+
+        return {
+            topicId: args.topicId,
+            count: createdIds.length,
+        };
+    },
+});
+
+export const replaceDistractorsForTopicInternal = internalMutation({
+    args: {
+        topicId: v.id("topics"),
+        distractors: v.array(v.object({
+            subClaimId: v.id("topicSubClaims"),
+            distractorText: v.string(),
+            distractorType: v.string(),
+            sourceClaimText: v.string(),
+            whyPlausible: v.string(),
+            whyWrong: v.string(),
+            difficulty: v.string(),
+        })),
+    },
+    handler: async (ctx, args) => {
+        const existing = await ctx.db
+            .query("distractorBank")
+            .withIndex("by_topicId", (q) => q.eq("topicId", args.topicId))
+            .collect();
+
+        for (const distractor of existing) {
+            await ctx.db.delete(distractor._id);
+        }
+
+        for (const distractor of args.distractors) {
+            await ctx.db.insert("distractorBank", {
+                topicId: args.topicId,
+                subClaimId: distractor.subClaimId,
+                distractorText: distractor.distractorText,
+                distractorType: distractor.distractorType,
+                sourceClaimText: distractor.sourceClaimText,
+                whyPlausible: distractor.whyPlausible,
+                whyWrong: distractor.whyWrong,
+                difficulty: distractor.difficulty,
+                usedInQuestionIds: [],
+                status: "available",
+            });
+        }
+
+        return {
+            topicId: args.topicId,
+            count: args.distractors.length,
         };
     },
 });
@@ -641,6 +826,10 @@ export const createQuestionInternal = internalMutation({
         learningObjective: v.optional(v.string()),
         bloomLevel: v.optional(v.string()),
         outcomeKey: v.optional(v.string()),
+        tier: v.optional(v.number()),
+        subClaimId: v.optional(v.id("topicSubClaims")),
+        cognitiveOperation: v.optional(v.string()),
+        groundingEvidence: v.optional(v.string()),
         authenticContext: v.optional(v.string()),
         rubricPoints: v.optional(v.array(v.string())),
         generationRunId: v.optional(v.string()),
@@ -730,9 +919,13 @@ export const createQuestionInternal = internalMutation({
             generationVersion: args.generationVersion,
             generationRunId: args.generationRunId,
             questionSetVersion: Number(topic?.questionSetVersion || topic?.examReadyUpdatedAt || topic?._creationTime || 0) || undefined,
+            tier: args.tier,
+            subClaimId: args.subClaimId,
+            cognitiveOperation: args.cognitiveOperation,
             learningObjective: args.learningObjective,
             bloomLevel: args.bloomLevel,
             outcomeKey: args.outcomeKey,
+            groundingEvidence: args.groundingEvidence,
             authenticContext: args.authenticContext,
             templateParts: args.templateParts,
             tokens: args.tokens,
@@ -845,6 +1038,10 @@ export const batchCreateQuestionsInternal = internalMutation({
                 learningObjective: v.optional(v.string()),
                 bloomLevel: v.optional(v.string()),
                 outcomeKey: v.optional(v.string()),
+                tier: v.optional(v.number()),
+                subClaimId: v.optional(v.id("topicSubClaims")),
+                cognitiveOperation: v.optional(v.string()),
+                groundingEvidence: v.optional(v.string()),
                 authenticContext: v.optional(v.string()),
                 templateParts: v.optional(v.array(v.string())),
                 tokens: v.optional(v.array(v.string())),

@@ -274,6 +274,9 @@ export default defineSchema({
         examReady: v.optional(v.boolean()),
         objectiveTargetCount: v.optional(v.number()),
         mcqTargetCount: v.optional(v.number()),
+        trueFalseTargetCount: v.optional(v.number()),
+        fillInTargetCount: v.optional(v.number()),
+        totalObjectiveTargetCount: v.optional(v.number()),
         essayTargetCount: v.optional(v.number()),
         usableObjectiveCount: v.optional(v.number()),
         usableObjectiveBreakdown: v.optional(v.object({
@@ -283,6 +286,11 @@ export default defineSchema({
         })),
         usableMcqCount: v.optional(v.number()),
         usableEssayCount: v.optional(v.number()),
+        readinessScore: v.optional(v.number()),
+        claimCoverage: v.optional(v.number()),
+        yieldConfidence: v.optional(v.string()),
+        yieldReasoning: v.optional(v.string()),
+        examIneligibleReason: v.optional(v.string()),
         examReadyUpdatedAt: v.optional(v.number()),
         objectiveGenerationLockedUntil: v.optional(v.number()),
         mcqGenerationLockedUntil: v.optional(v.number()),
@@ -351,6 +359,39 @@ export default defineSchema({
         isLocked: v.boolean(),
     }).index("by_courseId", ["courseId"]),
 
+    topicSubClaims: defineTable({
+        topicId: v.id("topics"),
+        uploadId: v.optional(v.id("uploads")),
+        claimText: v.string(),
+        sourcePassageIds: v.array(v.string()),
+        sourceQuotes: v.array(v.string()),
+        claimType: v.string(),
+        cognitiveOperations: v.array(v.string()),
+        bloomLevel: v.string(),
+        difficultyEstimate: v.string(),
+        questionYieldEstimate: v.number(),
+        status: v.string(),
+        createdAt: v.number(),
+    })
+        .index("by_topicId", ["topicId"])
+        .index("by_topicId_status", ["topicId", "status"])
+        .index("by_uploadId", ["uploadId"]),
+
+    distractorBank: defineTable({
+        topicId: v.id("topics"),
+        subClaimId: v.id("topicSubClaims"),
+        distractorText: v.string(),
+        distractorType: v.string(),
+        sourceClaimText: v.string(),
+        whyPlausible: v.string(),
+        whyWrong: v.string(),
+        difficulty: v.string(),
+        usedInQuestionIds: v.array(v.id("questions")),
+        status: v.string(),
+    })
+        .index("by_topicId", ["topicId"])
+        .index("by_subClaimId", ["subClaimId"]),
+
     // Lessons within topics
     lessons: defineTable({
         topicId: v.id("topics"),
@@ -376,6 +417,9 @@ export default defineSchema({
         generationVersion: v.optional(v.string()),
         generationRunId: v.optional(v.string()),
         questionSetVersion: v.optional(v.number()),
+        tier: v.optional(v.number()),
+        subClaimId: v.optional(v.id("topicSubClaims")),
+        cognitiveOperation: v.optional(v.string()),
         learningObjective: v.optional(v.string()),
         bloomLevel: v.optional(v.string()),
         outcomeKey: v.optional(v.string()),
@@ -389,6 +433,7 @@ export default defineSchema({
         qualityTier: v.optional(v.string()),
         rigorScore: v.optional(v.number()),
         clarityScore: v.optional(v.number()),
+        groundingEvidence: v.optional(v.string()),
         diversityCluster: v.optional(v.string()),
         distractorScore: v.optional(v.number()),
         freshnessBucket: v.optional(v.string()),

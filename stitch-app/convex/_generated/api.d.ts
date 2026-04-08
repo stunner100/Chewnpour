@@ -59,6 +59,7 @@ import type * as lib_objectiveExam from "../lib/objectiveExam.js";
 import type * as lib_premiumQuality from "../lib/premiumQuality.js";
 import type * as lib_questionBankConfig from "../lib/questionBankConfig.js";
 import type * as lib_questionPromptSimilarity from "../lib/questionPromptSimilarity.js";
+import type * as lib_subClaimDecomposition from "../lib/subClaimDecomposition.js";
 import type * as lib_topicGenerationProgress from "../lib/topicGenerationProgress.js";
 import type * as lib_topicOutlinePipeline from "../lib/topicOutlinePipeline.js";
 import type * as lib_voiceStreamToken from "../lib/voiceStreamToken.js";
@@ -134,6 +135,7 @@ declare const fullApi: ApiFromModules<{
   "lib/premiumQuality": typeof lib_premiumQuality;
   "lib/questionBankConfig": typeof lib_questionBankConfig;
   "lib/questionPromptSimilarity": typeof lib_questionPromptSimilarity;
+  "lib/subClaimDecomposition": typeof lib_subClaimDecomposition;
   "lib/topicGenerationProgress": typeof lib_topicGenerationProgress;
   "lib/topicOutlinePipeline": typeof lib_topicOutlinePipeline;
   "lib/voiceStreamToken": typeof lib_voiceStreamToken;

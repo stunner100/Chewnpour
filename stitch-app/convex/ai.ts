@@ -98,6 +98,11 @@ import {
     topicUsesAssessmentBlueprint,
 } from "./lib/assessmentBlueprint.js";
 import {
+    buildSubClaimDecompositionPrompt,
+    normalizeSubClaimResponse,
+    SUB_CLAIM_DECOMPOSITION_SYSTEM_PROMPT,
+} from "./lib/subClaimDecomposition";
+import {
     resolveAssessmentGenerationPolicy,
     selectCoverageGapTargets,
 } from "./lib/assessmentPolicy.js";
@@ -2134,6 +2139,95 @@ const ensureAssessmentBlueprintForTopic = async (args: {
     });
 
     return blueprint;
+};
+
+const ensureTopicSubClaimsForExamGeneration = async (args: {
+    ctx: any;
+    topic: any;
+    evidence: RetrievedEvidence[];
+    deadlineMs?: number;
+    forceRegenerate?: boolean;
+}) => {
+    const topicId = args.topic?._id;
+    if (!topicId) {
+        throw new Error("Topic not found");
+    }
+
+    if (!args.forceRegenerate) {
+        const existingClaims = await args.ctx.runQuery(internal.topics.getSubClaimsByTopicInternal, {
+            topicId,
+        });
+        if (Array.isArray(existingClaims) && existingClaims.length > 0) {
+            return existingClaims;
+        }
+    }
+
+    if (!Array.isArray(args.evidence) || args.evidence.length === 0) {
+        await args.ctx.runMutation(internal.topics.updateTopicAssessmentMetadataInternal, {
+            topicId,
+            examIneligibleReason: "No grounded evidence passages available for sub-claim decomposition.",
+        });
+        return [];
+    }
+
+    const remainingMs = Number.isFinite(Number(args.deadlineMs))
+        ? Number(args.deadlineMs) - Date.now()
+        : null;
+    const configuredTimeoutMs = Math.max(1500, Math.round(DEFAULT_TIMEOUT_MS));
+    const timeoutMs = remainingMs === null
+        ? configuredTimeoutMs
+        : Math.min(configuredTimeoutMs, Math.max(1500, remainingMs - 200));
+
+    let normalizedClaims: ReturnType<typeof normalizeSubClaimResponse> = [];
+    try {
+        const response = await callInception([
+            {
+                role: "system",
+                content: SUB_CLAIM_DECOMPOSITION_SYSTEM_PROMPT,
+            },
+            {
+                role: "user",
+                content: buildSubClaimDecompositionPrompt({
+                    topicTitle: String(args.topic?.title || ""),
+                    topicDescription: String(args.topic?.description || ""),
+                    evidence: args.evidence,
+                }),
+            },
+        ], DEFAULT_MODEL, {
+            maxTokens: 3600,
+            responseFormat: "json_object",
+            timeoutMs,
+        });
+
+        normalizedClaims = normalizeSubClaimResponse(
+            parseJsonFromResponse(response, "sub_claim_decomposition"),
+            args.evidence,
+        );
+    } catch (error) {
+        console.warn("[SubClaimDecomposition] failed", {
+            topicId: String(topicId),
+            topicTitle: String(args.topic?.title || ""),
+            message: error instanceof Error ? error.message : String(error),
+        });
+        return [];
+    }
+
+    await args.ctx.runMutation(internal.topics.replaceSubClaimsForTopicInternal, {
+        topicId,
+        uploadId: args.topic?.sourceUploadId,
+        claims: normalizedClaims,
+    });
+    await args.ctx.runMutation(internal.topics.updateTopicAssessmentMetadataInternal, {
+        topicId,
+        claimCoverage: 0,
+        examIneligibleReason: normalizedClaims.length > 0
+            ? ""
+            : "No testable sub-claims could be extracted from the grounded evidence for this topic.",
+    });
+
+    return await args.ctx.runQuery(internal.topics.getSubClaimsByTopicInternal, {
+        topicId,
+    });
 };
 
 const ensureGroundedEvidenceForTopic = async (args: {
@@ -9274,6 +9368,12 @@ const generateQuestionBankForTopic = async (
         topic: topicWithQuestions,
         type: "mcq",
     });
+    await ensureTopicSubClaimsForExamGeneration({
+        ctx,
+        topic: topicWithQuestions,
+        evidence: groundedPack.evidence,
+        deadlineMs: Date.now() + profile.timeBudgetMs,
+    });
     let assessmentBlueprint = topicUsesAssessmentBlueprint(topicWithQuestions)
         ? normalizeAssessmentBlueprint(topicWithQuestions.assessmentBlueprint)
         : null;
@@ -11056,6 +11156,12 @@ const generateEssayQuestionsForTopicCore = async (
         ctx,
         topic: topicWithQuestions,
         type: "essay",
+    });
+    await ensureTopicSubClaimsForExamGeneration({
+        ctx,
+        topic: topicWithQuestions,
+        evidence: groundedPack.evidence,
+        deadlineMs: Date.now() + ESSAY_QUESTION_TIME_BUDGET_MS,
     });
     let assessmentBlueprint = topicUsesAssessmentBlueprint(topicWithQuestions)
         ? normalizeAssessmentBlueprint(topicWithQuestions.assessmentBlueprint)
