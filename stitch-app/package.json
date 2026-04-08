@@ -12,16 +12,22 @@
   "dependencies": {
     "@convex-dev/better-auth": "^0.10.10",
     "@posthog/react": "^1.7.1",
+    "@radix-ui/react-slot": "^1.2.4",
     "@sentry/react": "^10.38.0",
     "better-auth": "^1.4.9",
+    "class-variance-authority": "^0.7.1",
+    "clsx": "^2.1.1",
     "convex": "^1.31.6",
     "fflate": "^0.8.2",
+    "lucide-react": "^1.7.0",
+    "motion": "^12.38.0",
     "pdf-lib": "^1.17.1",
     "pdfjs-dist": "^5.4.530",
     "posthog-js": "^1.347.2",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
     "react-router-dom": "^7.13.0",
+    "tailwind-merge": "^3.5.0",
     "unpdf": "^1.4.0"
   },
   "devDependencies": {
