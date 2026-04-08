@@ -22,6 +22,10 @@ export type GroundedMultipleChoiceCandidate = {
     bloomLevel: string;
     outcomeKey: string;
     authenticContext?: string;
+    subClaimId?: string;
+    cognitiveOperation?: string;
+    tier?: number;
+    groundingEvidence?: string;
 };
 
 export type GroundedTrueFalseCandidate = {
@@ -35,6 +39,10 @@ export type GroundedTrueFalseCandidate = {
     learningObjective?: string;
     bloomLevel: string;
     outcomeKey: string;
+    subClaimId?: string;
+    cognitiveOperation?: string;
+    tier?: number;
+    groundingEvidence?: string;
 };
 
 export type GroundedFillBlankCandidate = {
@@ -51,6 +59,10 @@ export type GroundedFillBlankCandidate = {
     learningObjective?: string;
     bloomLevel: string;
     outcomeKey: string;
+    subClaimId?: string;
+    cognitiveOperation?: string;
+    tier?: number;
+    groundingEvidence?: string;
 };
 
 export type GroundedEssayCandidate = {
@@ -65,6 +77,7 @@ export type GroundedEssayCandidate = {
     bloomLevel: string;
     outcomeKey: string;
     authenticContext?: string;
+    groundingEvidence?: string;
 };
 
 export type AssessmentBlueprintOutcome = {
@@ -96,6 +109,7 @@ export type AssessmentBlueprint = {
             hard: number;
         };
         minDistinctOutcomeCount?: number;
+        items?: any[];
     };
     multipleChoicePlan: {
         allowedBloomLevels: string[];
@@ -126,11 +140,19 @@ export type AssessmentBlueprint = {
 };
 
 export type AssessmentCoverageTarget = {
+    planItemKey?: string;
     outcomeKey: string;
     bloomLevel: string;
     objective?: string;
     evidenceFocus?: string;
     requestedCount: number;
+    questionType?: string;
+    targetType?: string;
+    targetOp?: string;
+    targetTier?: number;
+    targetDifficulty?: string;
+    subClaimId?: string;
+    priority?: number;
 };
 
 export type GroundedConceptCandidate = {
@@ -170,7 +192,12 @@ const formatCoverageTargets = (coverageTargets: AssessmentCoverageTarget[] = [])
 
     return coverageTargets
         .map((target) => [
+            target.planItemKey ? `planItemKey=${target.planItemKey}` : "",
             `- outcomeKey=${target.outcomeKey}`,
+            target.targetType ? `targetType=${target.targetType}` : "",
+            target.subClaimId ? `subClaimId=${target.subClaimId}` : "",
+            target.targetOp ? `cognitiveOperation=${target.targetOp}` : "",
+            target.targetTier ? `tier=${target.targetTier}` : "",
             `bloomLevel=${target.bloomLevel}`,
             `requestedCount=${target.requestedCount}`,
             target.objective ? `objective="${target.objective}"` : "",
@@ -312,6 +339,7 @@ Rules:
 - bloomLevel must exactly match the selected outcome's bloomLevel.
 - bloomLevel must be one of: Apply, Analyze.
 - If coverage gaps are listed, satisfy those outcome priorities before generating extras.
+- If coverage gaps are listed, preserve the matching subClaimId, cognitiveOperation, and tier metadata in the output item.
 - Use the topic content graph to prefer the document's extracted learning objectives, definitions, formulas, examples, source passages, and confusions when framing stems and selecting outcomes.
 - Every question must include citations[] with 1-3 citation objects.
 - Every citation object must include: passageId, page, startChar, endChar, quote.
@@ -350,6 +378,10 @@ Return JSON only:
       "learningObjective": "...",
       "bloomLevel": "Apply|Analyze",
       "outcomeKey": "outcome-1",
+      "subClaimId": "claim-1",
+      "cognitiveOperation": "application",
+      "tier": 2,
+      "groundingEvidence": "Short explanation of the supporting claim or quote",
       "citations": [
         {"passageId":"p1-0","page":0,"startChar":0,"endChar":80,"quote":"..."}
       ]
@@ -400,6 +432,7 @@ Rules:
 - Use only outcome keys from assessmentBlueprint.multipleChoicePlan.targetOutcomeKeys.
 - bloomLevel must exactly match the selected outcome's bloomLevel.
 - Keep the revised item application-based or analytical. Do not fall back to direct recall.
+- Preserve or correct subClaimId, cognitiveOperation, and tier so they match the selected objective plan item.
 
 Return JSON only in one of these formats:
 {
@@ -422,6 +455,10 @@ or
   "learningObjective": "...",
   "bloomLevel": "Apply|Analyze",
   "outcomeKey": "outcome-1",
+  "subClaimId": "claim-1",
+  "cognitiveOperation": "application",
+  "tier": 2,
+  "groundingEvidence": "Short explanation of the supporting claim or quote",
   "citations": [
     {"passageId":"p1-0","page":0,"startChar":0,"endChar":80,"quote":"..."}
   ]
@@ -455,6 +492,7 @@ Rules:
 - bloomLevel must exactly match the selected outcome's bloomLevel.
 - bloomLevel must be one of: Apply.
 - If coverage gaps are listed, satisfy those outcome priorities before generating extras.
+- If coverage gaps are listed, preserve the matching subClaimId, cognitiveOperation, and tier metadata in the output item.
 - Use the topic content graph to prefer the document's extracted objectives, examples, formulas, source passages, and confusions when choosing claims to test.
 - Each question must be a single clear statement.
 - Use exactly 2 options: True and False.
@@ -484,6 +522,10 @@ Return JSON only:
       "learningObjective": "...",
       "bloomLevel": "Apply",
       "outcomeKey": "outcome-1",
+      "subClaimId": "claim-1",
+      "cognitiveOperation": "discrimination",
+      "tier": 1,
+      "groundingEvidence": "Short explanation of the supporting claim or quote",
       "citations": [
         {"passageId":"p1-0","page":0,"startChar":0,"endChar":80,"quote":"..."}
       ]
@@ -519,6 +561,7 @@ Rules:
 - bloomLevel must exactly match the selected outcome's bloomLevel.
 - bloomLevel must be one of: Apply.
 - If coverage gaps are listed, satisfy those outcome priorities before generating extras.
+- If coverage gaps are listed, preserve the matching subClaimId, cognitiveOperation, and tier metadata in the output item.
 - Use the topic content graph to prefer the document's extracted objectives, definitions, formulas, examples, and source passages when choosing what the blank should test.
 - Use exactly one blank only.
 - templateParts must contain exactly one "__" entry.
@@ -550,6 +593,10 @@ Return JSON only:
       "learningObjective": "...",
       "bloomLevel": "Apply",
       "outcomeKey": "outcome-1",
+      "subClaimId": "claim-1",
+      "cognitiveOperation": "recall",
+      "tier": 1,
+      "groundingEvidence": "Short explanation of the supporting claim or quote",
       "citations": [
         {"passageId":"p1-0","page":0,"startChar":0,"endChar":80,"quote":"..."}
       ]

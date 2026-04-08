@@ -95,6 +95,7 @@ import {
     normalizeAssessmentBlueprint,
     normalizeBloomLevel,
     normalizeOutcomeKey,
+    resolveObjectivePlanItemForQuestion,
     topicUsesAssessmentBlueprint,
 } from "./lib/assessmentBlueprint.js";
 import {
@@ -1384,6 +1385,10 @@ const coerceMcqCandidate = (candidate: any) => {
         bloomLevel: String(candidate?.bloomLevel || "").trim() || undefined,
         outcomeKey: String(candidate?.outcomeKey || "").trim() || undefined,
         authenticContext: authenticContext || undefined,
+        subClaimId: String(candidate?.subClaimId || "").trim() || undefined,
+        cognitiveOperation: normalizeGeneratedCognitiveOperation(candidate?.cognitiveOperation),
+        tier: normalizeGeneratedTier(candidate?.tier),
+        groundingEvidence: normalizeGeneratedAssessmentText(candidate?.groundingEvidence || "").text || undefined,
         citations,
         qualityFlags: normalizeQualityFlags(qualityFlags),
     };
@@ -1464,6 +1469,10 @@ const coerceTrueFalseCandidate = (candidate: any) => {
         learningObjective: learningObjective || undefined,
         bloomLevel: String(candidate?.bloomLevel || "").trim() || undefined,
         outcomeKey: String(candidate?.outcomeKey || "").trim() || undefined,
+        subClaimId: String(candidate?.subClaimId || "").trim() || undefined,
+        cognitiveOperation: normalizeGeneratedCognitiveOperation(candidate?.cognitiveOperation),
+        tier: normalizeGeneratedTier(candidate?.tier),
+        groundingEvidence: normalizeGeneratedAssessmentText(candidate?.groundingEvidence || "").text || undefined,
         citations,
         qualityFlags: normalizeQualityFlags(qualityFlags),
     };
@@ -1533,6 +1542,10 @@ const coerceFillBlankCandidate = (candidate: any) => {
         learningObjective: learningObjective || undefined,
         bloomLevel: String(candidate?.bloomLevel || "").trim() || undefined,
         outcomeKey: String(candidate?.outcomeKey || "").trim() || undefined,
+        subClaimId: String(candidate?.subClaimId || "").trim() || undefined,
+        cognitiveOperation: normalizeGeneratedCognitiveOperation(candidate?.cognitiveOperation),
+        tier: normalizeGeneratedTier(candidate?.tier),
+        groundingEvidence: normalizeGeneratedAssessmentText(candidate?.groundingEvidence || "").text || undefined,
         citations,
         qualityFlags: normalizeQualityFlags(qualityFlags),
     };
@@ -1985,13 +1998,57 @@ const findAssessmentOutcome = (blueprint: AssessmentBlueprint | null | undefined
         : undefined;
 };
 
+const normalizeGeneratedTier = (value: any) => {
+    const numeric = Math.round(Number(value));
+    return numeric >= 1 && numeric <= 3 ? numeric : undefined;
+};
+
+const normalizeGeneratedCognitiveOperation = (value: any) => {
+    const normalized = String(value || "").trim().toLowerCase();
+    return normalized || undefined;
+};
+
+const buildGroundingEvidenceSummary = (args: {
+    candidate: any;
+    citations?: any[];
+    outcome?: any;
+}) => {
+    const explicit = normalizeGeneratedAssessmentText(args.candidate?.groundingEvidence || "").text;
+    if (explicit) return explicit;
+
+    const citationQuote = (Array.isArray(args.citations) ? args.citations : [])
+        .map((citation: any) => String(citation?.quote || "").trim())
+        .filter(Boolean)
+        .slice(0, 2)
+        .join(" | ");
+    if (citationQuote) {
+        return citationQuote.slice(0, 400);
+    }
+
+    return String(args.outcome?.evidenceFocus || "").trim() || undefined;
+};
+
 const normalizeGeneratedAssessmentCandidate = (args: {
     candidate: any;
     blueprint: AssessmentBlueprint;
     questionType: "mcq" | "true_false" | "fill_blank" | "essay";
+    coverageTargets?: AssessmentCoverageTarget[];
 }) => {
     const outcomeKey = normalizeOutcomeKey(args.candidate?.outcomeKey);
     const outcome = findAssessmentOutcome(args.blueprint, outcomeKey);
+    const normalizedQuestionType = normalizeQuestionType(
+        args.questionType === "mcq" ? QUESTION_TYPE_MULTIPLE_CHOICE : args.questionType
+    );
+    const objectivePlanItem = normalizedQuestionType === QUESTION_TYPE_MULTIPLE_CHOICE
+        || normalizedQuestionType === QUESTION_TYPE_TRUE_FALSE
+        || normalizedQuestionType === QUESTION_TYPE_FILL_BLANK
+        ? resolveObjectivePlanItemForQuestion({
+            blueprint: args.blueprint,
+            questionType: normalizedQuestionType,
+            question: args.candidate,
+            coverageTargets: args.coverageTargets,
+        })
+        : null;
     const bloomLevel = normalizeBloomLevel(args.candidate?.bloomLevel || outcome?.bloomLevel || "");
     const learningObjective = String(
         args.candidate?.learningObjective || outcome?.objective || ""
@@ -2020,6 +2077,16 @@ const normalizeGeneratedAssessmentCandidate = (args: {
         distractorScore: Number.isFinite(Number(args.candidate?.distractorScore))
             ? Number(args.candidate?.distractorScore)
             : undefined,
+        subClaimId: String(args.candidate?.subClaimId || objectivePlanItem?.subClaimId || "").trim() || undefined,
+        cognitiveOperation: normalizeGeneratedCognitiveOperation(
+            args.candidate?.cognitiveOperation || objectivePlanItem?.targetOp
+        ),
+        tier: normalizeGeneratedTier(args.candidate?.tier ?? objectivePlanItem?.targetTier),
+        groundingEvidence: buildGroundingEvidenceSummary({
+            candidate: args.candidate,
+            citations: args.candidate?.citations,
+            outcome,
+        }),
     };
 };
 
@@ -2271,11 +2338,19 @@ const buildGapCoverageTargets = (args: {
         coverage: args.coveragePolicy,
         requestedCount: args.requestedCount,
     }).map((target) => ({
+        planItemKey: target.planItemKey,
         outcomeKey: target.outcomeKey,
         bloomLevel: target.bloomLevel,
         objective: target.objective,
         evidenceFocus: target.evidenceFocus,
         requestedCount: target.requestedCount,
+        questionType: target.questionType,
+        targetType: target.targetType,
+        targetOp: target.targetOp,
+        targetTier: target.targetTier,
+        targetDifficulty: target.targetDifficulty,
+        subClaimId: target.subClaimId,
+        priority: target.priority,
     }));
 
 const buildObjectiveSubtypeMixPolicy = (args: {
@@ -2496,8 +2571,10 @@ const buildQuestionTypeCoverageTargets = (args: {
 
     const filteredGapSlots = (Array.isArray(args.coveragePolicy?.gapSlots) ? args.coveragePolicy.gapSlots : [])
         .filter((slot) => {
+            const slotQuestionType = normalizeQuestionType(slot?.targetType || slot?.questionType);
             const outcomeKey = normalizeOutcomeKey(slot?.outcomeKey);
             const bloomLevel = normalizeBloomLevel(slot?.bloomLevel || "");
+            if (slotQuestionType && slotQuestionType !== normalizeQuestionType(args.questionType)) return false;
             if (!outcomeKey || !bloomLevel) return false;
             if (allowedOutcomeKeys.size > 0 && !allowedOutcomeKeys.has(outcomeKey)) return false;
             if (allowedBloomLevels.size > 0 && !allowedBloomLevels.has(bloomLevel)) return false;
@@ -8743,6 +8820,7 @@ const generateQuestionCandidatesBatch = async (args: {
             candidate,
             blueprint: args.assessmentBlueprint,
             questionType: "mcq",
+            coverageTargets: args.coverageTargets,
         })
     );
 };
@@ -8811,6 +8889,7 @@ const generateTrueFalseQuestionCandidatesBatch = async (args: {
             candidate,
             blueprint: args.assessmentBlueprint,
             questionType: "true_false",
+            coverageTargets: args.coverageTargets,
         })
     );
 };
@@ -8879,6 +8958,7 @@ const generateFillBlankQuestionCandidatesBatch = async (args: {
             candidate,
             blueprint: args.assessmentBlueprint,
             questionType: "fill_blank",
+            coverageTargets: args.coverageTargets,
         })
     );
 };
@@ -8897,8 +8977,10 @@ const generateMcqQuestionGapBatch = async (args: {
     maxAttempts?: number;
     existingQuestionSample?: string;
 }) => {
-    const coverageTargets = buildGapCoverageTargets({
+    const coverageTargets = buildQuestionTypeCoverageTargets({
+        questionType: QUESTION_TYPE_MULTIPLE_CHOICE,
         coveragePolicy: args.coveragePolicy,
+        assessmentBlueprint: args.assessmentBlueprint,
         requestedCount: args.requestedCount,
     });
     return await generateQuestionCandidatesBatch({
@@ -9881,6 +9963,11 @@ const generateQuestionBankForTopic = async (
             assessmentBlueprint,
             String(questionRecord?.outcomeKey || ""),
         );
+        const resolvedObjectivePlanItem = resolveObjectivePlanItemForQuestion({
+            blueprint: assessmentBlueprint,
+            questionType: normalizedQuestionType,
+            question: questionRecord,
+        });
         const sourcePassageIds = Array.from(
             new Set(
                 citations
@@ -9906,6 +9993,16 @@ const generateQuestionBankForTopic = async (
             ).trim() || undefined,
             bloomLevel: String(questionRecord?.bloomLevel || resolvedOutcome?.bloomLevel || "").trim() || undefined,
             outcomeKey: String(questionRecord?.outcomeKey || resolvedOutcome?.key || "").trim() || undefined,
+            tier: normalizeGeneratedTier(questionRecord?.tier ?? resolvedObjectivePlanItem?.targetTier),
+            subClaimId: String(questionRecord?.subClaimId || resolvedObjectivePlanItem?.subClaimId || "").trim() || undefined,
+            cognitiveOperation: normalizeGeneratedCognitiveOperation(
+                questionRecord?.cognitiveOperation || resolvedObjectivePlanItem?.targetOp
+            ),
+            groundingEvidence: buildGroundingEvidenceSummary({
+                candidate: questionRecord,
+                citations,
+                outcome: resolvedOutcome,
+            }),
             authenticContext: String(questionRecord?.authenticContext || "").trim() || undefined,
             qualityScore: Number(questionRecord?.rankingScore || questionRecord?.qualityScore || questionRecord?.groundingScore || 0),
             qualityTier: String(questionRecord?.qualityTier || QUALITY_TIER_LIMITED).trim() || QUALITY_TIER_LIMITED,
@@ -9960,6 +10057,16 @@ const generateQuestionBankForTopic = async (
             fillBlankMode: String(questionRecord?.fillBlankMode || "").trim() || undefined,
             bloomLevel: String(questionRecord?.bloomLevel || resolvedOutcome?.bloomLevel || "").trim() || undefined,
             outcomeKey: String(questionRecord?.outcomeKey || resolvedOutcome?.key || "").trim() || undefined,
+            tier: normalizeGeneratedTier(questionRecord?.tier ?? resolvedObjectivePlanItem?.targetTier),
+            subClaimId: String(questionRecord?.subClaimId || resolvedObjectivePlanItem?.subClaimId || "").trim() || undefined,
+            cognitiveOperation: normalizeGeneratedCognitiveOperation(
+                questionRecord?.cognitiveOperation || resolvedObjectivePlanItem?.targetOp
+            ),
+            groundingEvidence: buildGroundingEvidenceSummary({
+                candidate: questionRecord,
+                citations,
+                outcome: resolvedOutcome,
+            }),
             qualityTier: String(questionRecord?.qualityTier || QUALITY_TIER_LIMITED).trim() || QUALITY_TIER_LIMITED,
             qualityScore: Number(questionRecord?.rankingScore || questionRecord?.qualityScore || questionRecord?.groundingScore || 0),
             rigorScore: Number(questionRecord?.rigorScore || 0),

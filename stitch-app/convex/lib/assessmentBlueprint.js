@@ -343,6 +343,122 @@ const normalizeTargetMix = (value, fallback = OBJECTIVE_TARGET_MIX) => {
     };
 };
 
+const normalizeObjectivePlanTier = (value) => {
+    const numeric = Math.round(Number(value));
+    return numeric >= 1 && numeric <= 3 ? numeric : undefined;
+};
+
+const normalizeObjectivePlanOperation = (value) => {
+    const normalized = normalizeText(value).toLowerCase();
+    return normalized || undefined;
+};
+
+const normalizeObjectivePlanItem = (item, outcomeByKey, index) => {
+    if (!item || typeof item !== "object") return null;
+    const outcomeKey = normalizeOutcomeKey(item.outcomeKey);
+    const outcome = outcomeByKey.get(outcomeKey);
+    if (!outcome) return null;
+
+    const targetType = normalizeQuestionType(item.targetType || item.questionType);
+    if (![QUESTION_TYPE_MULTIPLE_CHOICE, QUESTION_TYPE_TRUE_FALSE, QUESTION_TYPE_FILL_BLANK].includes(targetType)) {
+        return null;
+    }
+
+    return {
+        outcomeKey,
+        subClaimId: normalizeText(item.subClaimId || outcome.subClaimId || "") || undefined,
+        claimText: normalizeText(item.claimText || outcome.objective) || outcome.objective,
+        targetOp: normalizeObjectivePlanOperation(item.targetOp),
+        targetType,
+        targetDifficulty: normalizeDifficultyBand(item.targetDifficulty || outcome.difficultyBand),
+        targetTier: normalizeObjectivePlanTier(item.targetTier) || 1,
+        priority: Math.max(0, Math.round(Number(item.priority ?? index))),
+        status: normalizeText(item.status || "planned").toLowerCase() || "planned",
+    };
+};
+
+export const resolveObjectivePlanItemKey = (item) => {
+    if (!item || typeof item !== "object") return "";
+    const questionType = normalizeQuestionType(item.targetType || item.questionType);
+    const outcomeKey = normalizeOutcomeKey(item.outcomeKey);
+    const subClaimId = normalizeText(item.subClaimId);
+    const targetOp = normalizeObjectivePlanOperation(item.targetOp);
+    const targetTier = normalizeObjectivePlanTier(item.targetTier) || 0;
+    const priority = Math.max(0, Math.round(Number(item.priority || 0)));
+    if (!questionType || !outcomeKey) return "";
+    return [
+        questionType,
+        outcomeKey,
+        subClaimId || "no-claim",
+        targetOp || "no-op",
+        String(targetTier),
+        String(priority),
+    ].join("::");
+};
+
+export const resolveObjectivePlanItemsForQuestionType = (blueprint, questionType) => {
+    const resolvedType = normalizeQuestionType(questionType);
+    return (Array.isArray(blueprint?.objectivePlan?.items) ? blueprint.objectivePlan.items : [])
+        .filter((item) => normalizeQuestionType(item?.targetType || item?.questionType) === resolvedType)
+        .sort((left, right) => Number(left?.priority || 0) - Number(right?.priority || 0));
+};
+
+export const resolveObjectivePlanItemForQuestion = ({
+    blueprint,
+    questionType,
+    question,
+    coverageTargets = [],
+}) => {
+    const resolvedType = normalizeQuestionType(questionType || question?.questionType);
+    const planItems = resolveObjectivePlanItemsForQuestionType(blueprint, resolvedType);
+    if (planItems.length === 0) {
+        return null;
+    }
+
+    const outcomeKey = normalizeOutcomeKey(question?.outcomeKey);
+    const subClaimId = normalizeText(question?.subClaimId);
+    const cognitiveOperation = normalizeObjectivePlanOperation(question?.cognitiveOperation);
+    const tier = normalizeObjectivePlanTier(question?.tier);
+    const bloomLevel = normalizeBloomLevel(question?.bloomLevel);
+
+    const matchesQuestion = (item) => {
+        if (outcomeKey && item.outcomeKey !== outcomeKey) return false;
+        if (subClaimId && normalizeText(item.subClaimId) !== subClaimId) return false;
+        if (cognitiveOperation && normalizeObjectivePlanOperation(item.targetOp) !== cognitiveOperation) return false;
+        if (tier && normalizeObjectivePlanTier(item.targetTier) !== tier) return false;
+        if (bloomLevel) {
+            const outcome = Array.isArray(blueprint?.outcomes)
+                ? blueprint.outcomes.find((candidate) => candidate?.key === item.outcomeKey)
+                : null;
+            if (outcome?.bloomLevel && outcome.bloomLevel !== bloomLevel) return false;
+        }
+        return true;
+    };
+
+    const exactMatch = planItems.find(matchesQuestion);
+    if (exactMatch) {
+        return exactMatch;
+    }
+
+    const coverageMatch = (Array.isArray(coverageTargets) ? coverageTargets : []).find((target) => {
+        if (normalizeQuestionType(target?.targetType || target?.questionType) !== resolvedType) return false;
+        if (outcomeKey && normalizeOutcomeKey(target?.outcomeKey) !== outcomeKey) return false;
+        if (subClaimId && normalizeText(target?.subClaimId) !== subClaimId) return false;
+        if (cognitiveOperation && normalizeObjectivePlanOperation(target?.targetOp) !== cognitiveOperation) return false;
+        if (tier && normalizeObjectivePlanTier(target?.targetTier) !== tier) return false;
+        return true;
+    });
+    if (coverageMatch?.planItemKey) {
+        return planItems.find((item) => resolveObjectivePlanItemKey(item) === coverageMatch.planItemKey) || null;
+    }
+
+    if (outcomeKey) {
+        return planItems.find((item) => item.outcomeKey === outcomeKey) || null;
+    }
+
+    return planItems[0] || null;
+};
+
 const normalizePlanKeys = ({
     rawKeys,
     outcomeByKey,
@@ -496,6 +612,10 @@ export const normalizeAssessmentBlueprint = (raw) => {
     const objectiveTargetBloomLevels = uniqueStringArray(
         objectiveOutcomeKeys.map((key) => outcomeByKey.get(key)?.bloomLevel)
     ).filter(Boolean);
+    const normalizedObjectivePlanItems = (Array.isArray(raw.objectivePlan?.items) ? raw.objectivePlan.items : [])
+        .map((item, index) => normalizeObjectivePlanItem(item, outcomeByKey, index))
+        .filter(Boolean)
+        .sort((left, right) => Number(left.priority || 0) - Number(right.priority || 0));
 
     return {
         version: ASSESSMENT_BLUEPRINT_VERSION,
@@ -544,7 +664,7 @@ export const normalizeAssessmentBlueprint = (raw) => {
                     Math.round(Number(raw.objectivePlan?.minDistinctOutcomeCount || 3))
                 )
             ),
-            items: Array.isArray(raw.objectivePlan?.items) ? raw.objectivePlan.items : [],
+            items: normalizedObjectivePlanItems,
         },
         multipleChoicePlan,
         trueFalsePlan,
@@ -874,6 +994,37 @@ export const getAssessmentQuestionMetadataIssues = ({
                 : [];
             if (tokens.length < 2) {
                 issues.push("token_bank fill_blank missing tokens");
+            }
+        }
+    }
+
+    if (resolvedType !== QUESTION_TYPE_ESSAY && Array.isArray(blueprint?.objectivePlan?.items) && blueprint.objectivePlan.items.length > 0) {
+        const matchedPlanItem = resolveObjectivePlanItemForQuestion({
+            blueprint,
+            questionType: resolvedType,
+            question,
+        });
+        if (!matchedPlanItem) {
+            issues.push("missing objective plan metadata");
+        } else {
+            const normalizedSubClaimId = normalizeText(question?.subClaimId);
+            const normalizedOperation = normalizeObjectivePlanOperation(question?.cognitiveOperation);
+            const normalizedTier = normalizeObjectivePlanTier(question?.tier);
+
+            if (!normalizedSubClaimId) {
+                issues.push("missing subClaimId");
+            } else if (normalizeText(matchedPlanItem.subClaimId) && normalizeText(matchedPlanItem.subClaimId) !== normalizedSubClaimId) {
+                issues.push("subClaimId does not match objective plan");
+            }
+            if (!normalizedOperation) {
+                issues.push("missing cognitiveOperation");
+            } else if (normalizeObjectivePlanOperation(matchedPlanItem.targetOp) && normalizeObjectivePlanOperation(matchedPlanItem.targetOp) !== normalizedOperation) {
+                issues.push("cognitiveOperation does not match objective plan");
+            }
+            if (!normalizedTier) {
+                issues.push("missing tier");
+            } else if (normalizeObjectivePlanTier(matchedPlanItem.targetTier) && normalizeObjectivePlanTier(matchedPlanItem.targetTier) !== normalizedTier) {
+                issues.push("tier does not match objective plan");
             }
         }
     }
