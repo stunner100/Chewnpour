@@ -8,8 +8,11 @@ const aiSource = await fs.readFile(aiPath, "utf8");
 
 for (const expectedSnippet of [
   "const buildObjectiveSubtypeGenerationDeficits = (args:",
+  "const buildDeterministicTrueFalseFallbackCandidate = (args:",
   "preferCountFillOverSubtypeMix",
   "questionType: QUESTION_TYPE_MULTIPLE_CHOICE",
+  "\"deterministic_true_false_fallback\"",
+  "[QuestionBank] deterministic_true_false_fallback_saved",
   "(coveragePolicy.needsGeneration || getUniqueQuestionCount() < targetCount)",
   "if (initialCount >= targetCount && coveragePolicy.ready) {",
 ]) {

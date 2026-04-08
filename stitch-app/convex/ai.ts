@@ -2290,6 +2290,95 @@ const buildObjectiveSubtypeGenerationDeficits = (args: {
         : args.objectiveSubtypeMixPolicy.deficits;
 };
 
+const splitEvidenceStatements = (text: string) => {
+    return String(text || "")
+        .replace(/\s+/g, " ")
+        .split(/(?<=[.!?])\s+/)
+        .map((statement) => statement.trim())
+        .filter((statement) => statement.length >= 32);
+};
+
+const buildDeterministicTrueFalseFallbackCandidate = (args: {
+    evidence: RetrievedEvidence[];
+    assessmentBlueprint: AssessmentBlueprint | null | undefined;
+    existingQuestions: any[];
+}) => {
+    const plan = getAssessmentPlanForQuestionType(args.assessmentBlueprint, QUESTION_TYPE_TRUE_FALSE);
+    const preferredOutcomeKeys = new Set(
+        (Array.isArray(plan?.targetOutcomeKeys) ? plan.targetOutcomeKeys : [])
+            .map((value) => normalizeOutcomeKey(value))
+            .filter(Boolean)
+    );
+    const outcomes = Array.isArray(args.assessmentBlueprint?.outcomes)
+        ? args.assessmentBlueprint.outcomes
+        : [];
+    const usedQuestionKeys = new Set(
+        (Array.isArray(args.existingQuestions) ? args.existingQuestions : [])
+            .map((question: any) => normalizeQuestionKey(question?.questionText || ""))
+            .filter(Boolean)
+    );
+
+    for (const passage of Array.isArray(args.evidence) ? args.evidence : []) {
+        const rawText = String(passage?.text || "").trim();
+        if (!rawText) continue;
+
+        const statements = splitEvidenceStatements(rawText);
+        for (const statement of statements) {
+            const normalizedStatementKey = normalizeQuestionKey(statement);
+            if (!normalizedStatementKey || usedQuestionKeys.has(normalizedStatementKey)) {
+                continue;
+            }
+
+            const normalizedStatement = statement.toLowerCase();
+            const matchingOutcome =
+                outcomes.find((outcome: any) => {
+                    const outcomeKey = normalizeOutcomeKey(outcome?.key);
+                    if (preferredOutcomeKeys.size > 0 && outcomeKey && !preferredOutcomeKeys.has(outcomeKey)) {
+                        return false;
+                    }
+                    const evidenceFocus = String(outcome?.evidenceFocus || "").toLowerCase();
+                    return evidenceFocus && (
+                        normalizedStatement.includes(evidenceFocus)
+                        || evidenceFocus.includes(normalizedStatement)
+                    );
+                })
+                || outcomes.find((outcome: any) => {
+                    const outcomeKey = normalizeOutcomeKey(outcome?.key);
+                    return preferredOutcomeKeys.size === 0 || (outcomeKey && preferredOutcomeKeys.has(outcomeKey));
+                })
+                || outcomes[0]
+                || null;
+
+            const startChar = Math.max(0, rawText.indexOf(statement));
+            const endChar = startChar + statement.length;
+            return {
+                questionText: statement,
+                questionType: QUESTION_TYPE_TRUE_FALSE,
+                options: [
+                    { label: "A", text: "True", isCorrect: true },
+                    { label: "B", text: "False", isCorrect: false },
+                ],
+                correctAnswer: "A",
+                explanation: `The source explicitly states: ${statement}`,
+                difficulty: normalizeDifficultyLabel(matchingOutcome?.difficultyBand || "easy"),
+                learningObjective: String(matchingOutcome?.objective || "").trim() || undefined,
+                bloomLevel: String(matchingOutcome?.bloomLevel || "").trim() || undefined,
+                outcomeKey: String(matchingOutcome?.key || "").trim() || undefined,
+                citations: [{
+                    passageId: String(passage?.passageId || "").trim(),
+                    page: Number(passage?.page || 0),
+                    startChar,
+                    endChar,
+                    quote: statement,
+                }].filter((citation) => citation.passageId),
+                qualityFlags: ["deterministic_true_false_fallback"],
+            };
+        }
+    }
+
+    return null;
+};
+
 const buildQuestionTypeCoverageTargets = (args: {
     questionType: string;
     coveragePolicy: ReturnType<typeof resolveAssessmentGenerationPolicy>;
@@ -9980,6 +10069,67 @@ const generateQuestionBankForTopic = async (
             countBreakdown.repairAttempts += acceptanceMetrics.repairAttempts;
             countBreakdown.repairSuccesses += acceptanceMetrics.repairSuccesses;
             groundingRejects += acceptance.rejected.length;
+        }
+        if (roundAdded === 0 && getUniqueQuestionCount() < targetCount) {
+            const deterministicTrueFalseFallback = buildDeterministicTrueFalseFallbackCandidate({
+                evidence: groundedPack.evidence,
+                assessmentBlueprint: assessmentBlueprint as AssessmentBlueprint,
+                existingQuestions: coverageQuestions,
+            });
+            if (deterministicTrueFalseFallback) {
+                const acceptanceMetrics = createGroundedAcceptanceMetrics();
+                const acceptanceStartedAt = Date.now();
+                const { acceptance, persistedCount } = await acceptAndPersistQuestionCandidates({
+                    type: "true_false",
+                    requestedCount: 1,
+                    evidenceIndex,
+                    assessmentBlueprint,
+                    topicTitle: effectiveTopic.title,
+                    topicDescription: effectiveTopic.description,
+                    structuredTopicContext: groundedPack.structuredTopicContext,
+                    evidence: groundedPack.evidence,
+                    deadlineMs,
+                    forceLimited: groundedPack.usedIndexFallback === true,
+                    candidates: [deterministicTrueFalseFallback],
+                    maxRepairCandidates: 0,
+                    maxLlmVerifications: 1,
+                    llmVerify: async (candidate) =>
+                        verifyGroundedCandidateWithLlm({
+                            type: "true_false",
+                            candidate,
+                            evidenceSnippet,
+                            timeoutMs: runMode === "interactive" ? 5000 : 7000,
+                        }),
+                    metrics: acceptanceMetrics,
+                    persistCandidate: async (question) => {
+                        const saved = await persistObjectiveCandidate(question, QUESTION_TYPE_TRUE_FALSE);
+                        if (saved) {
+                            roundAdded += 1;
+                        }
+                        return saved;
+                    },
+                });
+                timingBreakdown.acceptanceMs += normalizeTimingMs(Date.now() - acceptanceStartedAt);
+                timingBreakdown.deterministicMs += normalizeTimingMs(acceptanceMetrics.deterministicMs);
+                timingBreakdown.llmVerificationMs += normalizeTimingMs(acceptanceMetrics.llmVerificationMs);
+                timingBreakdown.repairMs += normalizeTimingMs(acceptanceMetrics.repairMs);
+                countBreakdown.acceptedCandidateCount += acceptance.accepted.length;
+                countBreakdown.rejectedCandidateCount += acceptance.rejected.length;
+                countBreakdown.deterministicChecks += acceptanceMetrics.deterministicChecks;
+                countBreakdown.llmVerificationCount += acceptanceMetrics.llmVerifications;
+                countBreakdown.llmVerificationErrorCount += acceptanceMetrics.llmVerificationErrors;
+                countBreakdown.llmRejectedCount += acceptanceMetrics.llmRejected;
+                groundingRejects += acceptance.rejected.length;
+                if (persistedCount > 0) {
+                    console.info("[QuestionBank] deterministic_true_false_fallback_saved", {
+                        topicId,
+                        topicTitle: topicWithQuestions.title,
+                        round,
+                        totalCount: getUniqueQuestionCount(),
+                        targetCount,
+                    });
+                }
+            }
         }
         coveragePolicy = computeQuestionCoverageGaps({
             assessmentBlueprint,
