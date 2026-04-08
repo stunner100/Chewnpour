@@ -10069,6 +10069,9 @@ const generateQuestionBankForTopic = async (
             Math.max(targetResolution.evidenceRichnessCap, targetResolution.evidenceCapEstimatedCapacity),
         ),
         minimumRetainedTarget: OBJECTIVE_PARTIAL_SUCCESS_TARGET_FLOOR,
+        preserveThinFirstPassTarget: profile.preserveThinFirstPassTarget,
+        thinFirstPassMaxRatio: profile.thinFirstPassMaxRatio,
+        thinFirstPassMaxCount: profile.thinFirstPassMaxCount,
     });
     if (persistedTargetCount !== targetCount) {
         console.info("[QuestionBank] target_rebased", {
@@ -10236,6 +10239,7 @@ const generateQuestionBankForTopic = async (
     return {
         success: true,
         alreadyGenerated: added === 0,
+        initialCount,
         count: getUniqueQuestionCount(),
         added,
         targetCount: persistedTargetCount,
@@ -10414,13 +10418,28 @@ const runMcqGenerationWithLock = async (
         )
     );
     const currentCount = Number(result?.count || 0);
+    const initialCount = Math.max(0, Math.round(Number(result?.initialCount || 0)));
     const madeProgress = Number(result?.added || 0) > 0;
     const timedOut = result?.timedOut === true;
     const insufficientEvidence = result?.abstained === true || String(result?.reason || "") === "INSUFFICIENT_EVIDENCE";
+    const thinFirstPassUnderfilled =
+        options.profile?.preserveThinFirstPassTarget === true
+        && initialCount <= 0
+        && currentCount < desiredReadyCount
+        && currentCount <= Math.max(
+            1,
+            Math.min(
+                Number(options.profile?.thinFirstPassMaxCount || 6),
+                Math.ceil(
+                    desiredReadyCount
+                    * Math.max(0, Math.min(1, Number(options.profile?.thinFirstPassMaxRatio || 0.6)))
+                )
+            )
+        );
     const shouldRetry =
         currentCount < desiredReadyCount
         && !insufficientEvidence
-        && (timedOut || madeProgress)
+        && (timedOut || madeProgress || thinFirstPassUnderfilled)
         && retryAttempt < MCQ_QUESTION_BACKGROUND_MAX_RETRIES;
 
     if (shouldRetry) {
@@ -10436,6 +10455,7 @@ const runMcqGenerationWithLock = async (
                 topicId,
                 currentCount,
                 desiredReadyCount,
+                thinFirstPassUnderfilled,
                 retryAttempt: retryAttempt + 1,
                 maxRetries: MCQ_QUESTION_BACKGROUND_MAX_RETRIES,
                 retryDelayMs: MCQ_QUESTION_BACKGROUND_RETRY_DELAY_MS,
@@ -10453,6 +10473,7 @@ const runMcqGenerationWithLock = async (
         ...result,
         retryAttempt,
         retryScheduled: shouldRetry,
+        thinFirstPassUnderfilled,
     };
 };
 
