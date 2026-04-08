@@ -353,6 +353,52 @@ const normalizeObjectivePlanOperation = (value) => {
     return normalized || undefined;
 };
 
+const normalizePlanItemStatus = (value) => {
+    const normalized = normalizeText(value).toLowerCase();
+    if ([
+        "planned",
+        "generated",
+        "passed",
+        "failed",
+        "skipped",
+        "terminal",
+    ].includes(normalized)) {
+        return normalized;
+    }
+    return "planned";
+};
+
+const normalizeRetryStrategy = (value) => normalizeText(value).toLowerCase() || undefined;
+
+const normalizeFailureHistory = (values) =>
+    (Array.isArray(values) ? values : [])
+        .map((entry, index) => {
+            if (!entry || typeof entry !== "object") return null;
+            return {
+                attemptNumber: Math.max(1, Math.round(Number(entry.attemptNumber || index + 1))),
+                attemptAt: Math.max(0, Math.round(Number(entry.attemptAt || 0))),
+                failReason: normalizeText(entry.failReason).toLowerCase() || "low_quality",
+                failDetails: normalizeText(entry.failDetails || entry.details || ""),
+                groundingScore: Number.isFinite(Number(entry.groundingScore))
+                    ? Number(entry.groundingScore)
+                    : undefined,
+                llmVerificationScore: Number.isFinite(Number(entry.llmVerificationScore))
+                    ? Number(entry.llmVerificationScore)
+                    : undefined,
+                strategy: normalizeRetryStrategy(entry.strategy) || "initial",
+                candidateSnapshot: entry.candidateSnapshot && typeof entry.candidateSnapshot === "object"
+                    ? {
+                        stem: normalizeText(entry.candidateSnapshot.stem || entry.candidateSnapshot.questionText || ""),
+                        options: Array.isArray(entry.candidateSnapshot.options)
+                            ? entry.candidateSnapshot.options.map((option) => normalizeText(option)).filter(Boolean)
+                            : undefined,
+                        correctAnswer: normalizeText(entry.candidateSnapshot.correctAnswer || ""),
+                    }
+                    : undefined,
+            };
+        })
+        .filter(Boolean);
+
 const normalizeObjectivePlanItem = (item, outcomeByKey, index) => {
     if (!item || typeof item !== "object") return null;
     const outcomeKey = normalizeOutcomeKey(item.outcomeKey);
@@ -373,7 +419,17 @@ const normalizeObjectivePlanItem = (item, outcomeByKey, index) => {
         targetDifficulty: normalizeDifficultyBand(item.targetDifficulty || outcome.difficultyBand),
         targetTier: normalizeObjectivePlanTier(item.targetTier) || 1,
         priority: Math.max(0, Math.round(Number(item.priority ?? index))),
-        status: normalizeText(item.status || "planned").toLowerCase() || "planned",
+        status: normalizePlanItemStatus(item.status),
+        attemptCount: Math.max(0, Math.round(Number(item.attemptCount || 0))),
+        lastAttemptAt: Number.isFinite(Number(item.lastAttemptAt))
+            ? Math.max(0, Math.round(Number(item.lastAttemptAt)))
+            : undefined,
+        failReason: normalizeText(item.failReason).toLowerCase() || undefined,
+        failHistory: normalizeFailureHistory(item.failHistory),
+        retryStrategy: normalizeRetryStrategy(item.retryStrategy),
+        terminalReason: normalizeText(item.terminalReason || "") || undefined,
+        feedbackInjection: normalizeText(item.feedbackInjection || "") || undefined,
+        compositeClaimIds: uniqueStringArray(item.compositeClaimIds),
     };
 };
 
@@ -392,8 +448,17 @@ const normalizeEssayPlanItem = (item, outcomeByKey, index) => {
         targetBloomLevel: normalizeBloomLevel(item.targetBloomLevel || item.bloomLevel || "Analyze") || "Analyze",
         targetDifficulty: normalizeDifficultyBand(item.targetDifficulty || item.difficulty),
         promptSeed: normalizeText(item.promptSeed || item.prompt || ""),
-        status: normalizeText(item.status || "planned").toLowerCase() || "planned",
+        status: normalizePlanItemStatus(item.status),
         priority: Math.max(0, Math.round(Number(item.priority ?? index))),
+        attemptCount: Math.max(0, Math.round(Number(item.attemptCount || 0))),
+        lastAttemptAt: Number.isFinite(Number(item.lastAttemptAt))
+            ? Math.max(0, Math.round(Number(item.lastAttemptAt)))
+            : undefined,
+        failReason: normalizeText(item.failReason).toLowerCase() || undefined,
+        failHistory: normalizeFailureHistory(item.failHistory),
+        retryStrategy: normalizeRetryStrategy(item.retryStrategy),
+        terminalReason: normalizeText(item.terminalReason || "") || undefined,
+        feedbackInjection: normalizeText(item.feedbackInjection || "") || undefined,
     };
 };
 
@@ -852,6 +917,8 @@ const buildObjectivePlanItems = (outcomes, claimsByOutcomeKey) => {
                 targetTier: 1,
                 priority: priority++,
                 status: "planned",
+                attemptCount: 0,
+                failHistory: [],
             });
         }
         if (operations.includes("recall")) {
@@ -865,6 +932,8 @@ const buildObjectivePlanItems = (outcomes, claimsByOutcomeKey) => {
                 targetTier: 1,
                 priority: priority++,
                 status: "planned",
+                attemptCount: 0,
+                failHistory: [],
             });
         }
         if (operations.includes("discrimination")) {
@@ -878,6 +947,8 @@ const buildObjectivePlanItems = (outcomes, claimsByOutcomeKey) => {
                 targetTier: 1,
                 priority: priority++,
                 status: "planned",
+                attemptCount: 0,
+                failHistory: [],
             });
         }
         if (operations.includes("application")) {
@@ -891,6 +962,8 @@ const buildObjectivePlanItems = (outcomes, claimsByOutcomeKey) => {
                 targetTier: 2,
                 priority: priority++,
                 status: "planned",
+                attemptCount: 0,
+                failHistory: [],
             });
         }
         if (operations.includes("comparison") || operations.includes("inference")) {
@@ -904,6 +977,8 @@ const buildObjectivePlanItems = (outcomes, claimsByOutcomeKey) => {
                 targetTier: operations.includes("comparison") ? 2 : 3,
                 priority: priority++,
                 status: "planned",
+                attemptCount: 0,
+                failHistory: [],
             });
         }
     }
@@ -930,6 +1005,8 @@ const buildEssayPlanItems = (outcomes, claimsByOutcomeKey) => {
             targetDifficulty: slice.some((outcome) => outcome.difficultyBand === "hard") ? "hard" : "medium",
             promptSeed: `Synthesize ${slice.map((outcome) => outcome.objective).join("; ")}`,
             status: "planned",
+            attemptCount: 0,
+            failHistory: [],
         });
     }
     return items;

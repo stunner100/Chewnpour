@@ -98,6 +98,7 @@ import {
     resolveEssayPlanItemForQuestion,
     resolveEssayPlanItemKey,
     resolveObjectivePlanItemForQuestion,
+    resolveObjectivePlanItemKey,
     topicUsesAssessmentBlueprint,
 } from "./lib/assessmentBlueprint.js";
 import {
@@ -2113,6 +2114,325 @@ const normalizeGeneratedAssessmentCandidate = (args: {
     };
 };
 
+const MAX_PLAN_ITEM_ATTEMPTS = 3;
+const MAX_GAP_FILL_ROUNDS = 2;
+
+const getPlanFailureHistory = (planItem: any) =>
+    Array.isArray(planItem?.failHistory) ? planItem.failHistory : [];
+
+const classifyPlanItemFailReason = (reasons: any[] = [], questionType?: string) => {
+    const normalizedReasons = (Array.isArray(reasons) ? reasons : [])
+        .map((reason) => String(reason || "").trim().toLowerCase())
+        .filter(Boolean);
+    if (normalizedReasons.length === 0) return "low_quality";
+    if (normalizedReasons.some((reason) => reason.includes("citation passage not found"))) return "ungrounded_quote";
+    if (normalizedReasons.some((reason) => reason.includes("citation quote mismatch"))) return "ungrounded_quote";
+    if (normalizedReasons.some((reason) => reason.includes("missing citations"))) return "ungrounded_quote";
+    if (normalizedReasons.some((reason) => reason.includes("no valid citation spans"))) return "ungrounded_quote";
+    if (normalizedReasons.some((reason) => reason.includes("near-duplicate"))) return "duplicate";
+    if (normalizedReasons.some((reason) => reason.includes("llm verifier flagged unsupported"))) return "llm_unsupported";
+    if (normalizedReasons.some((reason) => reason.includes("below threshold"))) return "low_quality";
+    if (normalizedReasons.some((reason) => reason.includes("unsupported by cited evidence"))) return "llm_unsupported";
+    if (normalizedReasons.some((reason) => reason.includes("invalid multiple_choice structure"))) return "insufficient_options";
+    if (normalizedReasons.some((reason) => reason.includes("invalid objective structure"))) return "insufficient_options";
+    if (normalizedReasons.some((reason) => reason.includes("invalid true_false structure"))) return "ambiguous_answer";
+    if (normalizedReasons.some((reason) => reason.includes("invalid fill_blank structure"))) return "insufficient_context";
+    if (normalizedReasons.some((reason) => reason.includes("invalid essay structure"))) return "too_narrow";
+    if (normalizedReasons.some((reason) => reason.includes("missing subclaimid"))) return "missing_claim";
+    if (normalizedReasons.some((reason) => reason.includes("missing essayplanitemkey"))) return "insufficient_claims";
+    if (normalizedReasons.some((reason) => reason.includes("missing sourcesubclaimids"))) return "insufficient_claims";
+    if (normalizedReasons.some((reason) => reason.includes("weak_distractors"))) return "distractor_shortage";
+    if (normalizedReasons.some((reason) => reason.includes("low_rigor"))) return "low_quality";
+    if (normalizedReasons.some((reason) => reason.includes("low_clarity"))) return "ambiguous_answer";
+    if (normalizedReasons.some((reason) => reason.includes("malformed_text"))) return "parse_error";
+    if (questionType === "essay" && normalizedReasons.some((reason) => reason.includes("duplicate"))) return "duplicate_prompt";
+    return "low_quality";
+};
+
+const buildCandidateSnapshot = (candidate: any) => ({
+    stem: String(candidate?.questionText || candidate?.stem || "").trim(),
+    options: Array.isArray(candidate?.options)
+        ? candidate.options.map((option: any) =>
+            typeof option === "string"
+                ? option
+                : String(option?.text || option?.label || "").trim()
+        ).filter(Boolean)
+        : undefined,
+    correctAnswer: String(candidate?.correctAnswer || "").trim(),
+});
+
+const recordObjectivePlanItemFailure = (planItem: any, failure: {
+    failReason: string;
+    failDetails: string;
+    strategy?: string;
+    groundingScore?: number;
+    llmVerificationScore?: number;
+    candidateSnapshot?: { stem: string; options?: string[]; correctAnswer: string };
+}) => {
+    if (!planItem || typeof planItem !== "object") return;
+    const attemptCount = Math.max(0, Math.round(Number(planItem.attemptCount || 0))) + 1;
+    const attemptAt = Date.now();
+    const history = getPlanFailureHistory(planItem).slice();
+    history.push({
+        attemptNumber: attemptCount,
+        attemptAt,
+        failReason: String(failure.failReason || "low_quality").trim().toLowerCase() || "low_quality",
+        failDetails: String(failure.failDetails || "").trim(),
+        groundingScore: Number.isFinite(Number(failure.groundingScore)) ? Number(failure.groundingScore) : undefined,
+        llmVerificationScore: Number.isFinite(Number(failure.llmVerificationScore)) ? Number(failure.llmVerificationScore) : undefined,
+        strategy: String(failure.strategy || planItem.retryStrategy || "initial").trim().toLowerCase() || "initial",
+        candidateSnapshot: failure.candidateSnapshot,
+    });
+    planItem.attemptCount = attemptCount;
+    planItem.lastAttemptAt = attemptAt;
+    planItem.failReason = history[history.length - 1]?.failReason;
+    planItem.failHistory = history;
+    planItem.status = "failed";
+};
+
+const recordEssayPlanItemFailure = (planItem: any, failure: {
+    failReason: string;
+    failDetails: string;
+    strategy?: string;
+}) => {
+    if (!planItem || typeof planItem !== "object") return;
+    const attemptCount = Math.max(0, Math.round(Number(planItem.attemptCount || 0))) + 1;
+    const attemptAt = Date.now();
+    const history = getPlanFailureHistory(planItem).slice();
+    history.push({
+        attemptNumber: attemptCount,
+        attemptAt,
+        failReason: String(failure.failReason || "too_narrow").trim().toLowerCase() || "too_narrow",
+        failDetails: String(failure.failDetails || "").trim(),
+        strategy: String(failure.strategy || planItem.retryStrategy || "initial").trim().toLowerCase() || "initial",
+    });
+    planItem.attemptCount = attemptCount;
+    planItem.lastAttemptAt = attemptAt;
+    planItem.failReason = history[history.length - 1]?.failReason;
+    planItem.failHistory = history;
+    planItem.status = "failed";
+};
+
+const markObjectivePlanItemPassed = (planItem: any, generatedQuestionId?: string) => {
+    if (!planItem || typeof planItem !== "object") return;
+    planItem.status = "passed";
+    planItem.generatedQuestionId = generatedQuestionId || planItem.generatedQuestionId;
+    planItem.attemptCount = Math.max(0, Math.round(Number(planItem.attemptCount || 0))) + 1;
+    planItem.lastAttemptAt = Date.now();
+    planItem.failReason = undefined;
+    planItem.retryStrategy = undefined;
+    planItem.feedbackInjection = undefined;
+};
+
+const markEssayPlanItemPassed = (planItem: any) => {
+    if (!planItem || typeof planItem !== "object") return;
+    planItem.status = "passed";
+    planItem.attemptCount = Math.max(0, Math.round(Number(planItem.attemptCount || 0))) + 1;
+    planItem.lastAttemptAt = Date.now();
+    planItem.failReason = undefined;
+    planItem.retryStrategy = undefined;
+    planItem.feedbackInjection = undefined;
+};
+
+const findRelatedSubClaimIds = (subClaimId: string, subClaims: any[]) => {
+    const sourceClaim = (Array.isArray(subClaims) ? subClaims : []).find((item) => String(item?._id || "") === String(subClaimId || ""));
+    if (!sourceClaim) return [];
+    const sourcePassageIds = Array.isArray(sourceClaim.sourcePassageIds) ? sourceClaim.sourcePassageIds.map((value: any) => String(value || "").trim()).filter(Boolean) : [];
+    if (sourcePassageIds.length === 0) return [];
+    return (Array.isArray(subClaims) ? subClaims : [])
+        .filter((item) =>
+            String(item?._id || "") !== String(subClaimId || "")
+            && String(item?.status || "active").trim().toLowerCase() === "active"
+            && Array.isArray(item?.sourcePassageIds)
+            && item.sourcePassageIds.some((passageId: any) => sourcePassageIds.includes(String(passageId || "").trim()))
+        )
+        .slice(0, 2)
+        .map((item) => String(item?._id || "").trim())
+        .filter(Boolean);
+};
+
+const routeObjectiveRetryStrategy = (planItem: any, subClaims: any[]): any => {
+    const attemptCount = Math.max(0, Math.round(Number(planItem?.attemptCount || 0)));
+    const failReason = String(planItem?.failReason || "").trim().toLowerCase();
+    if (attemptCount >= MAX_PLAN_ITEM_ATTEMPTS) {
+        return { terminal: true, terminalReason: `exhausted after ${attemptCount} attempts (${failReason || "unknown"})` };
+    }
+    if (!failReason) {
+        return { strategy: "initial", modifications: {} };
+    }
+    if (["parse_error", "no_output"].includes(failReason)) {
+        const relatedIds = findRelatedSubClaimIds(String(planItem?.subClaimId || ""), subClaims);
+        if (attemptCount >= 2 && relatedIds.length > 0) {
+            return {
+                strategy: "claim_group_composite",
+                modifications: {
+                    targetTier: Math.max(2, Number(planItem?.targetTier || 1)),
+                    compositeClaimIds: relatedIds,
+                    promptSeed: `Combine the primary claim with related claims to build a grounded multi-fact item.`,
+                },
+            };
+        }
+        return {
+            strategy: "reprompt_with_feedback",
+            modifications: {
+                feedbackInjection: `Previous attempt failed with ${failReason}. Use a different framing and stay tightly grounded in the cited evidence.`,
+            },
+        };
+    }
+    if (["distractor_shortage", "insufficient_options"].includes(failReason)) {
+        if (normalizeQuestionType(planItem?.targetType) === QUESTION_TYPE_MULTIPLE_CHOICE) {
+            return {
+                strategy: "same_claim_different_type",
+                modifications: {
+                    targetType: String(planItem?.targetOp || "") === "recall" ? QUESTION_TYPE_FILL_BLANK : QUESTION_TYPE_TRUE_FALSE,
+                    targetTier: 1,
+                },
+            };
+        }
+    }
+    if (["ungrounded_quote", "llm_unsupported", "low_quality", "ambiguous_answer", "off_topic"].includes(failReason)) {
+        if (Number(planItem?.targetTier || 1) > 1) {
+            return {
+                strategy: "same_claim_lower_tier",
+                modifications: {
+                    targetTier: Math.max(1, Number(planItem?.targetTier || 1) - 1),
+                    feedbackInjection: `Previous attempt failed for ${failReason}. Keep the answer directly supported by the claim evidence.`,
+                },
+            };
+        }
+        return {
+            strategy: "reprompt_with_feedback",
+            modifications: {
+                feedbackInjection: `Previous attempt failed for ${failReason}. Do not repeat that error and stay anchored to claim "${String(planItem?.claimText || "").trim()}".`,
+            },
+        };
+    }
+    if (failReason === "duplicate") {
+        return {
+            strategy: "same_claim_different_op",
+            modifications: {
+                targetOp: String(planItem?.targetOp || "") === "recognition" ? "application" : "recognition",
+                feedbackInjection: "Generate a materially different item for this claim.",
+            },
+        };
+    }
+    if (failReason === "trivial") {
+        return {
+            strategy: "same_claim_different_op",
+            modifications: {
+                targetOp: "discrimination",
+                targetType: QUESTION_TYPE_TRUE_FALSE,
+                targetTier: 1,
+            },
+        };
+    }
+    if (failReason === "missing_claim") {
+        return { terminal: true, terminalReason: "missing claim reference" };
+    }
+    return {
+        strategy: "reprompt_with_feedback",
+        modifications: {
+            feedbackInjection: `Previous attempt failed for ${failReason}. Try a different but still grounded formulation.`,
+        },
+    };
+};
+
+const routeEssayRetryStrategy = (planItem: any, subClaims: any[]): any => {
+    const attemptCount = Math.max(0, Math.round(Number(planItem?.attemptCount || 0)));
+    const failReason = String(planItem?.failReason || "").trim().toLowerCase();
+    if (attemptCount >= MAX_PLAN_ITEM_ATTEMPTS) {
+        return { terminal: true, terminalReason: `exhausted after ${attemptCount} attempts (${failReason || "unknown"})` };
+    }
+    if (["insufficient_claims", "too_narrow"].includes(failReason)) {
+        const existingIds = new Set(Array.isArray(planItem?.sourceSubClaimIds) ? planItem.sourceSubClaimIds.map((value: any) => String(value || "").trim()) : []);
+        const additionalClaims = (Array.isArray(subClaims) ? subClaims : [])
+            .filter((claim) =>
+                String(claim?.status || "active").trim().toLowerCase() === "active"
+                && !existingIds.has(String(claim?._id || "").trim())
+                && Array.isArray(claim?.cognitiveOperations)
+                && claim.cognitiveOperations.some((op: any) => ["evaluation", "synthesis", "inference"].includes(String(op || "").trim().toLowerCase()))
+            )
+            .slice(0, 2)
+            .map((claim) => String(claim?._id || "").trim())
+            .filter(Boolean);
+        return additionalClaims.length > 0
+            ? {
+                strategy: "expand_claim_set",
+                modifications: {
+                    sourceSubClaimIds: [
+                        ...(Array.isArray(planItem?.sourceSubClaimIds) ? planItem.sourceSubClaimIds : []),
+                        ...additionalClaims,
+                    ],
+                    feedbackInjection: "Previous essay prompt was too narrow. Use the expanded claim set to force synthesis.",
+                },
+            }
+            : { terminal: true, terminalReason: "no additional essay-capable claims available" };
+    }
+    return {
+        strategy: "reprompt_with_feedback",
+        modifications: {
+            feedbackInjection: `Previous essay attempt failed for ${failReason || "quality"}. Tighten the prompt and keep the rubric clearly grounded.`,
+        },
+    };
+};
+
+const buildAssessmentDiagnosticReport = (topicId: any, topicTitle: string, blueprint: any, roundNumber: number) => {
+    const objectiveItems = Array.isArray(blueprint?.objectivePlan?.items) ? blueprint.objectivePlan.items : [];
+    const essayItems = Array.isArray(blueprint?.essayPlan?.items) ? blueprint.essayPlan.items : [];
+    const allItems = [...objectiveItems, ...essayItems];
+    const failReasonCounts: Record<string, number> = {};
+    const strategyStats = new Map<string, { attempted: number; recovered: number }>();
+    for (const item of allItems) {
+        const failReason = String(item?.failReason || "").trim().toLowerCase();
+        if (failReason) {
+            failReasonCounts[failReason] = Number(failReasonCounts[failReason] || 0) + 1;
+        }
+        for (const historyItem of getPlanFailureHistory(item)) {
+            const strategy = String(historyItem?.strategy || "initial").trim().toLowerCase() || "initial";
+            const existing = strategyStats.get(strategy) || { attempted: 0, recovered: 0 };
+            existing.attempted += 1;
+            strategyStats.set(strategy, existing);
+        }
+        if (String(item?.status || "").trim().toLowerCase() === "passed") {
+            const strategy = String(item?.retryStrategy || "initial").trim().toLowerCase() || "initial";
+            const existing = strategyStats.get(strategy) || { attempted: 0, recovered: 0 };
+            existing.recovered += 1;
+            strategyStats.set(strategy, existing);
+        }
+    }
+    return {
+        topicId,
+        topicTitle,
+        timestamp: Date.now(),
+        roundNumber,
+        totalPlanItems: allItems.length,
+        passed: allItems.filter((item) => String(item?.status || "") === "passed").length,
+        failed: allItems.filter((item) => String(item?.status || "") === "failed").length,
+        terminal: allItems.filter((item) => String(item?.status || "") === "terminal").length,
+        remaining: allItems.filter((item) => String(item?.status || "") === "planned").length,
+        failReasonCounts,
+        strategyResults: Array.from(strategyStats.entries()).map(([strategy, data]) => ({
+            strategy,
+            attempted: data.attempted,
+            recovered: data.recovered,
+            successRate: data.attempted > 0 ? data.recovered / data.attempted : 0,
+        })),
+        terminalItems: allItems
+            .filter((item) => String(item?.status || "") === "terminal")
+            .map((item) => ({
+                claimText: String(item?.claimText || item?.promptSeed || "essay").trim(),
+                attemptCount: Math.max(0, Math.round(Number(item?.attemptCount || 0))),
+                failHistory: getPlanFailureHistory(item).map((historyItem: any) =>
+                    `${String(historyItem?.failReason || "").trim()}: ${String(historyItem?.failDetails || "").trim()}`
+                ),
+                terminalReason: String(item?.terminalReason || "").trim() || "unknown",
+            })),
+        recommendations: Object.entries(failReasonCounts).length === 0
+            ? []
+            : [`Top failure reason: ${Object.entries(failReasonCounts).sort((left, right) => right[1] - left[1])[0][0]}`],
+    };
+};
+
 const meetsObjectiveQuestionQualityGate = (question: any) => {
     const quality = evaluateQuestionQuality(question);
     const rigorScore = Number(quality?.qualitySignals?.rigorScore || 0);
@@ -2377,6 +2697,8 @@ const buildGapCoverageTargets = (args: {
         sourceSubClaimIds: target.sourceSubClaimIds,
         sourceOutcomeKeys: target.sourceOutcomeKeys,
         promptSeed: target.promptSeed,
+        retryStrategy: target.retryStrategy,
+        feedbackInjection: target.feedbackInjection,
     }));
 
 const buildObjectiveSubtypeMixPolicy = (args: {
@@ -9010,7 +9332,7 @@ const generateMcqQuestionGapBatch = async (args: {
         assessmentBlueprint: args.assessmentBlueprint,
         requestedCount: args.requestedCount,
     });
-    return await generateQuestionCandidatesBatch({
+    const candidates = await generateQuestionCandidatesBatch({
         requestedCount: args.requestedCount,
         topicTitle: args.topicTitle,
         topicDescription: args.topicDescription,
@@ -9024,6 +9346,7 @@ const generateMcqQuestionGapBatch = async (args: {
         maxAttempts: args.maxAttempts,
         existingQuestionSample: args.existingQuestionSample,
     });
+    return { coverageTargets, candidates };
 };
 
 const generateTrueFalseQuestionGapBatch = async (args: {
@@ -9045,7 +9368,7 @@ const generateTrueFalseQuestionGapBatch = async (args: {
         assessmentBlueprint: args.assessmentBlueprint,
         requestedCount: args.requestedCount,
     });
-    return await generateTrueFalseQuestionCandidatesBatch({
+    const candidates = await generateTrueFalseQuestionCandidatesBatch({
         requestedCount: args.requestedCount,
         topicTitle: args.topicTitle,
         topicDescription: args.topicDescription,
@@ -9058,6 +9381,7 @@ const generateTrueFalseQuestionGapBatch = async (args: {
         repairTimeoutMs: args.repairTimeoutMs,
         maxAttempts: args.maxAttempts,
     });
+    return { coverageTargets, candidates };
 };
 
 const generateFillBlankQuestionGapBatch = async (args: {
@@ -9079,7 +9403,7 @@ const generateFillBlankQuestionGapBatch = async (args: {
         assessmentBlueprint: args.assessmentBlueprint,
         requestedCount: args.requestedCount,
     });
-    return await generateFillBlankQuestionCandidatesBatch({
+    const candidates = await generateFillBlankQuestionCandidatesBatch({
         requestedCount: args.requestedCount,
         topicTitle: args.topicTitle,
         topicDescription: args.topicDescription,
@@ -9092,6 +9416,7 @@ const generateFillBlankQuestionGapBatch = async (args: {
         repairTimeoutMs: args.repairTimeoutMs,
         maxAttempts: args.maxAttempts,
     });
+    return { coverageTargets, candidates };
 };
 
 const generateEssayQuestionGapBatch = async (args: {
@@ -9114,7 +9439,7 @@ const generateEssayQuestionGapBatch = async (args: {
             coveragePolicy: args.coveragePolicy,
             requestedCount: args.requestedCount,
         });
-    return await generateEssayQuestionCandidatesBatch({
+    const candidates = await generateEssayQuestionCandidatesBatch({
         requestedCount: args.requestedCount,
         topicTitle: args.topicTitle,
         topicDescription: args.topicDescription,
@@ -9127,6 +9452,7 @@ const generateEssayQuestionGapBatch = async (args: {
         repairTimeoutMs: args.repairTimeoutMs,
         maxAttempts: args.maxAttempts,
     });
+    return { coverageTargets, candidates };
 };
 
 const buildPremiumQuestionRevisionPrompt = (args: {
@@ -9527,6 +9853,39 @@ const generateQuestionBankForTopic = async (
             essayTargetCount: Number(assessmentBlueprint?.yieldEstimate?.essayTarget || topicWithQuestions?.essayTargetCount || 0) || topicWithQuestions?.essayTargetCount,
         }
         : topicWithQuestions;
+    const essayPlanItemByKey = new Map(
+        (Array.isArray(assessmentBlueprint?.essayPlan?.items) ? assessmentBlueprint.essayPlan.items : [])
+            .map((item: any) => [resolveEssayPlanItemKey(item), item])
+            .filter(([key]) => Boolean(key))
+    );
+    const resolveEssayPlanItemFromCandidate = (candidate: any, coverageTargets: AssessmentCoverageTarget[] = []) => {
+        const resolved = assessmentBlueprint
+            ? resolveEssayPlanItemForQuestion({
+                blueprint: assessmentBlueprint,
+                question: candidate,
+                coverageTargets,
+            })
+            : null;
+        const key = resolveEssayPlanItemKey(resolved);
+        return key ? essayPlanItemByKey.get(key) || resolved : resolved;
+    };
+    const objectivePlanItemByKey = new Map(
+        (Array.isArray(assessmentBlueprint?.objectivePlan?.items) ? assessmentBlueprint.objectivePlan.items : [])
+            .map((item: any) => [resolveObjectivePlanItemKey(item), item])
+            .filter(([key]) => Boolean(key))
+    );
+    const resolveObjectivePlanItemFromCandidate = (candidate: any, questionType: string, coverageTargets: AssessmentCoverageTarget[] = []) => {
+        const resolved = assessmentBlueprint
+            ? resolveObjectivePlanItemForQuestion({
+                blueprint: assessmentBlueprint,
+                questionType,
+                question: candidate,
+                coverageTargets,
+            })
+            : null;
+        const key = resolveObjectivePlanItemKey(resolved);
+        return key ? objectivePlanItemByKey.get(key) || resolved : resolved;
+    };
     const topicContent = String(topicWithQuestions.content || "");
     const rawExistingQuestions = filterQuestionsForActiveAssessment({
         topic: effectiveTopic,
@@ -9797,7 +10156,17 @@ const generateQuestionBankForTopic = async (
         const normalizedQuestionType = normalizeQuestionType(
             question?.questionType || requestedQuestionType
         );
+        let resolvedObjectivePlanItem = resolveObjectivePlanItemFromCandidate(
+            question,
+            normalizedQuestionType,
+        );
         if (!question?.questionText || typeof question.questionText !== "string") {
+            recordObjectivePlanItemFailure(resolvedObjectivePlanItem, {
+                failReason: "no_output",
+                failDetails: "Candidate question text was empty during persistence.",
+                strategy: resolvedObjectivePlanItem?.retryStrategy || "initial",
+                candidateSnapshot: buildCandidateSnapshot(question),
+            });
             return false;
         }
 
@@ -9855,6 +10224,12 @@ const generateQuestionBankForTopic = async (
             }
 
             if (!hasUsableQuestionOptions(options)) {
+                recordObjectivePlanItemFailure(resolvedObjectivePlanItem, {
+                    failReason: "insufficient_options",
+                    failDetails: "Multiple-choice candidate could not be repaired into four usable options.",
+                    strategy: resolvedObjectivePlanItem?.retryStrategy || "initial",
+                    candidateSnapshot: buildCandidateSnapshot(questionRecord),
+                });
                 return false;
             }
 
@@ -9868,6 +10243,12 @@ const generateQuestionBankForTopic = async (
         } else if (normalizedQuestionType === QUESTION_TYPE_TRUE_FALSE) {
             const normalizedCandidate = coerceTrueFalseCandidate(questionRecord);
             if (!normalizedCandidate) {
+                recordObjectivePlanItemFailure(resolvedObjectivePlanItem, {
+                    failReason: "ambiguous_answer",
+                    failDetails: "True/false candidate could not be normalized into a valid statement.",
+                    strategy: resolvedObjectivePlanItem?.retryStrategy || "initial",
+                    candidateSnapshot: buildCandidateSnapshot(questionRecord),
+                });
                 return false;
             }
             questionRecord = {
@@ -9887,11 +10268,23 @@ const generateQuestionBankForTopic = async (
                 correctAnswer,
             };
             if (!isUsableExamQuestion(questionRecord)) {
+                recordObjectivePlanItemFailure(resolvedObjectivePlanItem, {
+                    failReason: "low_quality",
+                    failDetails: "True/false candidate failed basic usability checks.",
+                    strategy: resolvedObjectivePlanItem?.retryStrategy || "initial",
+                    candidateSnapshot: buildCandidateSnapshot(questionRecord),
+                });
                 return false;
             }
         } else if (normalizedQuestionType === QUESTION_TYPE_FILL_BLANK) {
             const normalizedCandidate = coerceFillBlankCandidate(questionRecord);
             if (!normalizedCandidate) {
+                recordObjectivePlanItemFailure(resolvedObjectivePlanItem, {
+                    failReason: "insufficient_context",
+                    failDetails: "Fill-in-the-blank candidate could not be normalized into a usable blank.",
+                    strategy: resolvedObjectivePlanItem?.retryStrategy || "initial",
+                    candidateSnapshot: buildCandidateSnapshot(questionRecord),
+                });
                 return false;
             }
             questionRecord = {
@@ -9907,11 +10300,21 @@ const generateQuestionBankForTopic = async (
                 ? String(questionRecord.acceptedAnswers[0] || questionRecord.correctAnswer || "").trim()
                 : String(questionRecord.correctAnswer || "").trim();
             if (!correctAnswer || !isUsableExamQuestion(questionRecord)) {
+                recordObjectivePlanItemFailure(resolvedObjectivePlanItem, {
+                    failReason: "insufficient_context",
+                    failDetails: "Fill-in-the-blank candidate had no usable accepted answer or failed usability checks.",
+                    strategy: resolvedObjectivePlanItem?.retryStrategy || "initial",
+                    candidateSnapshot: buildCandidateSnapshot(questionRecord),
+                });
                 return false;
             }
         } else {
             return false;
         }
+        resolvedObjectivePlanItem = resolveObjectivePlanItemFromCandidate(
+            questionRecord,
+            normalizedQuestionType,
+        );
 
         const finalGroundingStartedAt = Date.now();
         const finalGrounding = runDeterministicGroundingCheck({
@@ -9924,6 +10327,13 @@ const generateQuestionBankForTopic = async (
         countBreakdown.deterministicChecks += 1;
         if (!finalGrounding.deterministicPass) {
             groundingRejects += 1;
+            recordObjectivePlanItemFailure(resolvedObjectivePlanItem, {
+                failReason: classifyPlanItemFailReason(finalGrounding.reasons, normalizedQuestionType),
+                failDetails: finalGrounding.reasons.join("; "),
+                strategy: resolvedObjectivePlanItem?.retryStrategy || "initial",
+                groundingScore: finalGrounding.deterministicScore,
+                candidateSnapshot: buildCandidateSnapshot(questionRecord),
+            });
             return false;
         }
 
@@ -9942,6 +10352,12 @@ const generateQuestionBankForTopic = async (
             && Array.isArray(questionRecord?.qualityFlags)
             && questionRecord.qualityFlags.includes("deterministic_true_false_fallback");
         if (!objectiveQualityGate.passes && !isDeterministicTrueFalseFallback) {
+            recordObjectivePlanItemFailure(resolvedObjectivePlanItem, {
+                failReason: classifyPlanItemFailReason([objectiveQualityGate.reason], normalizedQuestionType),
+                failDetails: `Objective quality gate rejected candidate: ${String(objectiveQualityGate.reason || "unknown")}`,
+                strategy: resolvedObjectivePlanItem?.retryStrategy || "initial",
+                candidateSnapshot: buildCandidateSnapshot(questionRecord),
+            });
             return false;
         }
         questionRecord = {
@@ -9972,11 +10388,23 @@ const generateQuestionBankForTopic = async (
         const signature = buildQuestionPromptSignature(finalQuestionText);
         const normalizedKey = String(signature?.normalized || "");
         if (!normalizedKey || existingQuestionKeys.has(normalizedKey)) {
+            recordObjectivePlanItemFailure(resolvedObjectivePlanItem, {
+                failReason: "duplicate",
+                failDetails: "Candidate prompt duplicated an existing saved question key.",
+                strategy: resolvedObjectivePlanItem?.retryStrategy || "initial",
+                candidateSnapshot: buildCandidateSnapshot(questionRecord),
+            });
             return false;
         }
         const fingerprint = String(signature?.fingerprint || "");
         if (fingerprint && existingQuestionFingerprints.has(fingerprint)) {
             nearDuplicateSkips += 1;
+            recordObjectivePlanItemFailure(resolvedObjectivePlanItem, {
+                failReason: "duplicate",
+                failDetails: "Candidate prompt fingerprint matched an existing saved question.",
+                strategy: resolvedObjectivePlanItem?.retryStrategy || "initial",
+                candidateSnapshot: buildCandidateSnapshot(questionRecord),
+            });
             return false;
         }
         if (
@@ -9985,6 +10413,12 @@ const generateQuestionBankForTopic = async (
             )
         ) {
             nearDuplicateSkips += 1;
+            recordObjectivePlanItemFailure(resolvedObjectivePlanItem, {
+                failReason: "duplicate",
+                failDetails: "Candidate prompt was near-duplicate with an existing question.",
+                strategy: resolvedObjectivePlanItem?.retryStrategy || "initial",
+                candidateSnapshot: buildCandidateSnapshot(questionRecord),
+            });
             return false;
         }
 
@@ -9993,11 +10427,10 @@ const generateQuestionBankForTopic = async (
             assessmentBlueprint,
             String(questionRecord?.outcomeKey || ""),
         );
-        const resolvedObjectivePlanItem = resolveObjectivePlanItemForQuestion({
-            blueprint: assessmentBlueprint,
-            questionType: normalizedQuestionType,
-            question: questionRecord,
-        });
+        resolvedObjectivePlanItem = resolveObjectivePlanItemFromCandidate(
+            questionRecord,
+            normalizedQuestionType,
+        );
         const sourcePassageIds = Array.from(
             new Set(
                 citations
@@ -10069,6 +10502,12 @@ const generateQuestionBankForTopic = async (
         timingBreakdown.saveMs += normalizeTimingMs(Date.now() - saveStartedAt);
 
         if (!questionId) {
+            recordObjectivePlanItemFailure(resolvedObjectivePlanItem, {
+                failReason: "low_quality",
+                failDetails: "Question persistence returned no id.",
+                strategy: resolvedObjectivePlanItem?.retryStrategy || "initial",
+                candidateSnapshot: buildCandidateSnapshot(questionRecord),
+            });
             return false;
         }
 
@@ -10106,6 +10545,7 @@ const generateQuestionBankForTopic = async (
                 ? undefined
                 : Number(questionRecord?.distractorScore || 0),
         });
+        markObjectivePlanItemPassed(resolvedObjectivePlanItem, String(questionId));
         added += 1;
         countBreakdown.savedQuestionCount += 1;
         return true;
@@ -10212,30 +10652,51 @@ const generateQuestionBankForTopic = async (
                             ...sharedArgs,
                             existingQuestionSample: existingQuestionSample || undefined,
                         });
-                return request.then((candidates) => ({
+                return request.then((result) => ({
                     questionType,
                     requestedCount,
-                    candidates,
+                    coverageTargets: Array.isArray(result?.coverageTargets) ? result.coverageTargets : [],
+                    candidates: Array.isArray(result?.candidates) ? result.candidates : [],
                 }));
             })
         );
         timingBreakdown.batchGenerationMs += normalizeTimingMs(Date.now() - batchGenerationStartedAt);
         countBreakdown.batchRequests += batchPlan.length;
-        const groupedCandidates = new Map<string, { requestedCount: number; candidates: any[] }>();
+        const groupedCandidates = new Map<string, { requestedCount: number; candidates: any[]; coverageTargets: AssessmentCoverageTarget[] }>();
         for (const [batchIndex, result] of batchSettled.entries()) {
             if (result.status === "fulfilled") {
                 const questionType = normalizeQuestionType(result.value.questionType);
                 const existingGroup = groupedCandidates.get(questionType) || {
                     requestedCount: 0,
                     candidates: [],
+                    coverageTargets: [],
                 };
                 existingGroup.requestedCount += Number(result.value.requestedCount || 0);
                 existingGroup.candidates.push(
                     ...(Array.isArray(result.value.candidates) ? result.value.candidates : [])
                 );
+                existingGroup.coverageTargets.push(
+                    ...(Array.isArray(result.value.coverageTargets) ? result.value.coverageTargets : [])
+                );
                 groupedCandidates.set(questionType, existingGroup);
             } else {
                 const batchRequest = batchPlan[batchIndex] || {};
+                const failedCoverageTargets = buildQuestionTypeCoverageTargets({
+                    questionType: String(batchRequest.questionType || QUESTION_TYPE_MULTIPLE_CHOICE),
+                    coveragePolicy,
+                    assessmentBlueprint: assessmentBlueprint as AssessmentBlueprint,
+                    requestedCount: Number(batchRequest.requestedCount || 0),
+                });
+                for (const coverageTarget of failedCoverageTargets) {
+                    const failedPlanItem = coverageTarget?.planItemKey
+                        ? objectivePlanItemByKey.get(String(coverageTarget.planItemKey || ""))
+                        : null;
+                    recordObjectivePlanItemFailure(failedPlanItem, {
+                        failReason: "parse_error",
+                        failDetails: result.reason instanceof Error ? result.reason.message : String(result.reason),
+                        strategy: String(coverageTarget?.retryStrategy || failedPlanItem?.retryStrategy || "initial"),
+                    });
+                }
                 console.warn("[QuestionBank] batch_request_failed", {
                     topicId,
                     topicTitle: topicWithQuestions.title,
@@ -10273,7 +10734,35 @@ const generateQuestionBankForTopic = async (
         let roundAdded = 0;
         for (const [questionType, group] of groupedCandidates.entries()) {
             if (!Array.isArray(group.candidates) || group.candidates.length === 0) {
+                for (const coverageTarget of Array.isArray(group.coverageTargets) ? group.coverageTargets : []) {
+                    const failedPlanItem = coverageTarget?.planItemKey
+                        ? objectivePlanItemByKey.get(String(coverageTarget.planItemKey || ""))
+                        : null;
+                    recordObjectivePlanItemFailure(failedPlanItem, {
+                        failReason: "no_output",
+                        failDetails: "No candidates were generated for the requested coverage target.",
+                        strategy: String(coverageTarget?.retryStrategy || failedPlanItem?.retryStrategy || "initial"),
+                    });
+                }
                 continue;
+            }
+            const matchedPlanKeys = new Set(
+                group.candidates
+                    .map((candidate: any) => {
+                        const matchedPlanItem = resolveObjectivePlanItemFromCandidate(candidate, questionType, group.coverageTargets);
+                        return resolveObjectivePlanItemKey(matchedPlanItem);
+                    })
+                    .filter(Boolean)
+            );
+            for (const coverageTarget of Array.isArray(group.coverageTargets) ? group.coverageTargets : []) {
+                const planItemKey = String(coverageTarget?.planItemKey || "").trim();
+                if (!planItemKey || matchedPlanKeys.has(planItemKey)) continue;
+                const failedPlanItem = objectivePlanItemByKey.get(planItemKey);
+                recordObjectivePlanItemFailure(failedPlanItem, {
+                    failReason: "no_output",
+                    failDetails: "LLM returned candidates, but none matched this targeted plan item.",
+                    strategy: String(coverageTarget?.retryStrategy || failedPlanItem?.retryStrategy || "initial"),
+                });
             }
             const acceptanceMetrics = createGroundedAcceptanceMetrics();
             const acceptanceStartedAt = Date.now();
@@ -10331,6 +10820,21 @@ const generateQuestionBankForTopic = async (
                     return saved;
                 },
             });
+            for (const rejectedCandidate of acceptance.rejected) {
+                const failedPlanItem = resolveObjectivePlanItemFromCandidate(
+                    rejectedCandidate?.candidate,
+                    questionType,
+                    group.coverageTargets,
+                );
+                recordObjectivePlanItemFailure(failedPlanItem, {
+                    failReason: classifyPlanItemFailReason(rejectedCandidate?.reasons, questionType),
+                    failDetails: Array.isArray(rejectedCandidate?.reasons)
+                        ? rejectedCandidate.reasons.join("; ")
+                        : "Rejected during grounded acceptance.",
+                    strategy: failedPlanItem?.retryStrategy || "initial",
+                    candidateSnapshot: buildCandidateSnapshot(rejectedCandidate?.candidate),
+                });
+            }
             timingBreakdown.acceptanceMs += normalizeTimingMs(Date.now() - acceptanceStartedAt);
             timingBreakdown.deterministicMs += normalizeTimingMs(acceptanceMetrics.deterministicMs);
             timingBreakdown.llmVerificationMs += normalizeTimingMs(acceptanceMetrics.llmVerificationMs);
@@ -10395,6 +10899,20 @@ const generateQuestionBankForTopic = async (
                 countBreakdown.llmVerificationErrorCount += acceptanceMetrics.llmVerificationErrors;
                 countBreakdown.llmRejectedCount += acceptanceMetrics.llmRejected;
                 groundingRejects += acceptance.rejected.length;
+                for (const rejectedCandidate of acceptance.rejected) {
+                    const failedPlanItem = resolveObjectivePlanItemFromCandidate(
+                        rejectedCandidate?.candidate,
+                        QUESTION_TYPE_TRUE_FALSE,
+                    );
+                    recordObjectivePlanItemFailure(failedPlanItem, {
+                        failReason: classifyPlanItemFailReason(rejectedCandidate?.reasons, QUESTION_TYPE_TRUE_FALSE),
+                        failDetails: Array.isArray(rejectedCandidate?.reasons)
+                            ? rejectedCandidate.reasons.join("; ")
+                            : "Deterministic true/false fallback was rejected.",
+                        strategy: failedPlanItem?.retryStrategy || "initial",
+                        candidateSnapshot: buildCandidateSnapshot(rejectedCandidate?.candidate),
+                    });
+                }
                 if (persistedCount > 0) {
                     console.info("[QuestionBank] deterministic_true_false_fallback_saved", {
                         topicId,
@@ -10655,6 +11173,12 @@ const generateQuestionBankForTopic = async (
         });
     }
 
+    if (assessmentBlueprint) {
+        await ctx.runMutation(internal.topics.updateAssessmentBlueprintProgressInternal, {
+            topicId,
+            assessmentBlueprint,
+        });
+    }
     const refreshReadinessStartedAt = Date.now();
     await ctx.runMutation(internal.topics.refreshTopicExamReadinessInternal, {
         topicId,
@@ -10876,11 +11400,28 @@ export const retryAssessmentGapFillInternal = internalAction({
         }
 
         const retryAttempt = Math.max(0, Math.round(Number(args.retryAttempt || 0)));
+        if (retryAttempt >= MAX_GAP_FILL_ROUNDS) {
+            return {
+                success: true,
+                skipped: true,
+                reason: "max_gap_fill_rounds_reached",
+                topicId: args.topicId,
+                retryAttempt,
+            };
+        }
         const gapFillPlan = buildAssessmentGapFillPlan(topicSnapshot, {
             allowObjective: args.allowObjective,
             allowEssay: args.allowEssay,
             requestedEssayCount: args.requestedEssayCount,
         });
+        const assessmentBlueprint = topicUsesAssessmentBlueprint(topicSnapshot)
+            ? normalizeAssessmentBlueprint(topicSnapshot.assessmentBlueprint)
+            : null;
+        const subClaims = assessmentBlueprint
+            ? await ctx.runQuery(internal.topics.getSubClaimsByTopicInternal, {
+                topicId: args.topicId,
+            })
+            : [];
 
         if (topicSnapshot?.examReady === true || !gapFillPlan.canImprove) {
             return {
@@ -10894,26 +11435,125 @@ export const retryAssessmentGapFillInternal = internalAction({
             };
         }
 
-        if (!gapFillPlan.scheduleObjective && !gapFillPlan.scheduleEssay) {
+        let retriableObjectiveCount = 0;
+        let retriableEssayCount = 0;
+        let terminalObjectiveCount = 0;
+        let terminalEssayCount = 0;
+        let diagnosticReport = null;
+
+        if (assessmentBlueprint) {
+            const objectiveItems = Array.isArray(assessmentBlueprint?.objectivePlan?.items)
+                ? assessmentBlueprint.objectivePlan.items
+                : [];
+            const essayItems = Array.isArray(assessmentBlueprint?.essayPlan?.items)
+                ? assessmentBlueprint.essayPlan.items
+                : [];
+
+            for (const item of objectiveItems) {
+                const status = String(item?.status || "planned").trim().toLowerCase();
+                if (status !== "failed") continue;
+                const decision = routeObjectiveRetryStrategy(item, subClaims);
+                if (decision?.terminal) {
+                    item.status = "terminal";
+                    item.terminalReason = decision.terminalReason;
+                    terminalObjectiveCount += 1;
+                    continue;
+                }
+                item.retryStrategy = decision?.strategy || "initial";
+                item.status = "planned";
+                if (decision?.modifications?.targetType) {
+                    item.targetType = decision.modifications.targetType;
+                }
+                if (decision?.modifications?.targetOp) {
+                    item.targetOp = decision.modifications.targetOp;
+                }
+                if (decision?.modifications?.targetTier) {
+                    item.targetTier = decision.modifications.targetTier;
+                }
+                if (decision?.modifications?.feedbackInjection) {
+                    item.feedbackInjection = decision.modifications.feedbackInjection;
+                }
+                if (decision?.modifications?.compositeClaimIds) {
+                    item.compositeClaimIds = decision.modifications.compositeClaimIds;
+                }
+                if (decision?.modifications?.promptSeed) {
+                    item.promptSeed = decision.modifications.promptSeed;
+                }
+            }
+
+            for (const item of essayItems) {
+                const status = String(item?.status || "planned").trim().toLowerCase();
+                if (status !== "failed") continue;
+                const decision = routeEssayRetryStrategy(item, subClaims);
+                if (decision?.terminal) {
+                    item.status = "terminal";
+                    item.terminalReason = decision.terminalReason;
+                    terminalEssayCount += 1;
+                    continue;
+                }
+                item.retryStrategy = decision?.strategy || "initial";
+                item.status = "planned";
+                if (decision?.modifications?.sourceSubClaimIds) {
+                    item.sourceSubClaimIds = decision.modifications.sourceSubClaimIds;
+                }
+                if (decision?.modifications?.feedbackInjection) {
+                    item.feedbackInjection = decision.modifications.feedbackInjection;
+                }
+            }
+
+            retriableObjectiveCount = objectiveItems.filter((item) => String(item?.status || "").trim().toLowerCase() === "planned").length;
+            retriableEssayCount = essayItems.filter((item) => String(item?.status || "").trim().toLowerCase() === "planned").length;
+            terminalObjectiveCount += objectiveItems.filter((item) => String(item?.status || "").trim().toLowerCase() === "terminal").length;
+            terminalEssayCount += essayItems.filter((item) => String(item?.status || "").trim().toLowerCase() === "terminal").length;
+            diagnosticReport = buildAssessmentDiagnosticReport(
+                args.topicId,
+                String(topicSnapshot?.title || "").trim(),
+                assessmentBlueprint,
+                retryAttempt,
+            );
+            await ctx.runMutation(internal.topics.updateAssessmentBlueprintProgressInternal, {
+                topicId: args.topicId,
+                assessmentBlueprint,
+                diagnosticReport,
+            });
+        }
+
+        const scheduleObjective = args.allowObjective !== false && (
+            assessmentBlueprint
+                ? retriableObjectiveCount > 0 && gapFillPlan.scheduleObjective
+                : gapFillPlan.scheduleObjective
+        );
+        const scheduleEssay = args.allowEssay !== false && (
+            assessmentBlueprint
+                ? retriableEssayCount > 0 && gapFillPlan.scheduleEssay
+                : gapFillPlan.scheduleEssay
+        );
+
+        if (!scheduleObjective && !scheduleEssay) {
             return {
                 success: true,
                 skipped: true,
-                reason: "no_targeted_gap_fill_needed",
+                reason: assessmentBlueprint ? "all_failed_items_terminal" : "no_targeted_gap_fill_needed",
                 topicId: args.topicId,
                 retryAttempt,
                 objectiveReasons: gapFillPlan.objectiveReasons,
                 essayReasons: gapFillPlan.essayReasons,
                 improvementActions: gapFillPlan.improvementActions,
+                retriableObjectiveCount,
+                retriableEssayCount,
+                terminalObjectiveCount,
+                terminalEssayCount,
+                diagnosticReport,
             };
         }
 
-        if (gapFillPlan.scheduleObjective) {
+        if (scheduleObjective) {
             await ctx.scheduler.runAfter(0, internal.ai.generateQuestionsForTopicInternal, {
                 topicId: args.topicId,
                 retryAttempt,
             });
         }
-        if (gapFillPlan.scheduleEssay) {
+        if (scheduleEssay) {
             await ctx.scheduler.runAfter(0, internal.ai.generateEssayQuestionsForTopicInternal, {
                 topicId: args.topicId,
                 count: gapFillPlan.requestedEssayCount,
@@ -10929,11 +11569,16 @@ export const retryAssessmentGapFillInternal = internalAction({
             allowObjective: args.allowObjective !== false,
             allowEssay: args.allowEssay !== false,
             requestedEssayCount: gapFillPlan.requestedEssayCount,
-            objectiveScheduled: gapFillPlan.scheduleObjective,
-            essayScheduled: gapFillPlan.scheduleEssay,
+            objectiveScheduled: scheduleObjective,
+            essayScheduled: scheduleEssay,
             objectiveReasons: gapFillPlan.objectiveReasons,
             essayReasons: gapFillPlan.essayReasons,
             improvementActions: gapFillPlan.improvementActions,
+            retriableObjectiveCount,
+            retriableEssayCount,
+            terminalObjectiveCount,
+            terminalEssayCount,
+            diagnosticReport,
             triggerReason: String(args.reason || "").trim() || null,
         };
     },
@@ -11705,10 +12350,27 @@ const generateEssayQuestionsForTopicCore = async (
         )
     );
     const candidates: any[] = [];
+    const generatedEssayCoverageTargets: AssessmentCoverageTarget[] = [];
     for (const [batchIndex, settled] of batchSettled.entries()) {
         if (settled.status === "fulfilled") {
-            candidates.push(...settled.value);
+            candidates.push(...(Array.isArray(settled.value?.candidates) ? settled.value.candidates : []));
+            generatedEssayCoverageTargets.push(...(Array.isArray(settled.value?.coverageTargets) ? settled.value.coverageTargets : []));
             continue;
+        }
+
+        const failedCoverageTargets = buildGapCoverageTargets({
+            coveragePolicy,
+            requestedCount: Number(batchPlan[batchIndex] || 0),
+        });
+        for (const coverageTarget of failedCoverageTargets) {
+            const failedPlanItem = coverageTarget?.planItemKey
+                ? essayPlanItemByKey.get(String(coverageTarget.planItemKey || ""))
+                : null;
+            recordEssayPlanItemFailure(failedPlanItem, {
+                failReason: "parse_error",
+                failDetails: settled.reason instanceof Error ? settled.reason.message : String(settled.reason),
+                strategy: String(coverageTarget?.retryStrategy || failedPlanItem?.retryStrategy || "initial"),
+            });
         }
 
         console.warn("[EssayQuestionBank] batch_request_failed", {
@@ -11744,8 +12406,9 @@ const generateEssayQuestionsForTopicCore = async (
                     repairTimeoutMs: ESSAY_QUESTION_REPAIR_TIMEOUT_MS,
                     maxAttempts: 1,
                 });
-                if (Array.isArray(fallbackCandidates) && fallbackCandidates.length > 0) {
-                    candidates.push(...fallbackCandidates);
+                if (Array.isArray(fallbackCandidates?.candidates) && fallbackCandidates.candidates.length > 0) {
+                    candidates.push(...fallbackCandidates.candidates);
+                    generatedEssayCoverageTargets.push(...(Array.isArray(fallbackCandidates?.coverageTargets) ? fallbackCandidates.coverageTargets : []));
                 }
             } catch (fallbackError) {
                 console.warn("[EssayQuestionBank] fallback_batch_request_failed", {
@@ -11787,37 +12450,64 @@ const generateEssayQuestionsForTopicCore = async (
                 candidate: question,
                 blueprint: assessmentBlueprint as AssessmentBlueprint,
                 questionType: "essay",
-                coverageTargets: essayCoverageTargets,
+                coverageTargets: generatedEssayCoverageTargets.length > 0 ? generatedEssayCoverageTargets : essayCoverageTargets,
             });
+            const resolvedEssayPlanItem = resolveEssayPlanItemFromCandidate(
+                groundedQuestion,
+                generatedEssayCoverageTargets.length > 0 ? generatedEssayCoverageTargets : essayCoverageTargets,
+            );
             const normalizedQuestionText = String(groundedQuestion?.questionText || "").trim();
             const normalizedCorrectAnswer = String(groundedQuestion?.correctAnswer || "").trim();
             const normalizedExplanation = String(groundedQuestion?.explanation || "").trim();
-            if (normalizedQuestionText.length < 12 || normalizedCorrectAnswer.length < 6) return false;
+            if (normalizedQuestionText.length < 12 || normalizedCorrectAnswer.length < 6) {
+                recordEssayPlanItemFailure(resolvedEssayPlanItem, {
+                    failReason: "too_narrow",
+                    failDetails: "Essay candidate was too short to be usable.",
+                    strategy: resolvedEssayPlanItem?.retryStrategy || "initial",
+                });
+                return false;
+            }
             const key = normalizeQuestionKey(normalizedQuestionText);
-            if (!key || existingKeys.has(key)) return false;
+            if (!key || existingKeys.has(key)) {
+                recordEssayPlanItemFailure(resolvedEssayPlanItem, {
+                    failReason: "duplicate_prompt",
+                    failDetails: "Essay prompt duplicated an existing usable essay.",
+                    strategy: resolvedEssayPlanItem?.retryStrategy || "initial",
+                });
+                return false;
+            }
             const draftQuestion = {
                 questionText: normalizedQuestionText,
                 questionType: "essay",
                 correctAnswer: normalizedCorrectAnswer,
                 options: undefined,
             };
-            if (!isUsableExamQuestion(draftQuestion, { allowEssay: true })) return false;
+            if (!isUsableExamQuestion(draftQuestion, { allowEssay: true })) {
+                recordEssayPlanItemFailure(resolvedEssayPlanItem, {
+                    failReason: "too_narrow",
+                    failDetails: "Essay candidate failed basic essay usability checks.",
+                    strategy: resolvedEssayPlanItem?.retryStrategy || "initial",
+                });
+                return false;
+            }
             const finalGrounding = runDeterministicGroundingCheck({
                 type: "essay",
                 candidate: groundedQuestion,
                 evidenceIndex,
                 assessmentBlueprint,
             });
-            if (!finalGrounding.deterministicPass) return false;
+            if (!finalGrounding.deterministicPass) {
+                recordEssayPlanItemFailure(resolvedEssayPlanItem, {
+                    failReason: classifyPlanItemFailReason(finalGrounding.reasons, "essay"),
+                    failDetails: finalGrounding.reasons.join("; "),
+                    strategy: resolvedEssayPlanItem?.retryStrategy || "initial",
+                });
+                return false;
+            }
             const resolvedOutcome = findAssessmentOutcome(
                 assessmentBlueprint,
                 String(groundedQuestion?.outcomeKey || "")
             );
-            const resolvedEssayPlanItem = resolveEssayPlanItemForQuestion({
-                blueprint: assessmentBlueprint,
-                question: groundedQuestion,
-                coverageTargets: essayCoverageTargets,
-            });
             const sourcePassageIds = Array.from(
                 new Set(
                     finalGrounding.validCitations
@@ -11828,6 +12518,14 @@ const generateEssayQuestionsForTopicCore = async (
             const rubricPoints = Array.isArray(groundedQuestion?.rubricPoints)
                 ? groundedQuestion.rubricPoints.map((item: any) => String(item || "").trim()).filter(Boolean).slice(0, 8)
                 : [];
+            if (rubricPoints.length < 3) {
+                recordEssayPlanItemFailure(resolvedEssayPlanItem, {
+                    failReason: "weak_rubric",
+                    failDetails: "Essay rubric had fewer than 3 usable rubric points.",
+                    strategy: resolvedEssayPlanItem?.retryStrategy || "initial",
+                });
+                return false;
+            }
 
             const questionId = await ctx.runMutation(internal.topics.createQuestionInternal, {
                 topicId,
@@ -11873,7 +12571,14 @@ const generateEssayQuestionsForTopicCore = async (
                 qualityFlags: normalizeQualityFlags(groundedQuestion?.qualityFlags),
             });
 
-            if (!questionId) return false;
+            if (!questionId) {
+                recordEssayPlanItemFailure(resolvedEssayPlanItem, {
+                    failReason: "weak_rubric",
+                    failDetails: "Essay persistence returned no id.",
+                    strategy: resolvedEssayPlanItem?.retryStrategy || "initial",
+                });
+                return false;
+            }
 
             existingKeys.add(key);
             coverageQuestions.push({
@@ -11901,10 +12606,42 @@ const generateEssayQuestionsForTopicCore = async (
                 clarityScore: Number(groundedQuestion?.clarityScore || 0),
                 diversityCluster: String(groundedQuestion?.diversityCluster || "").trim() || undefined,
             });
+            markEssayPlanItemPassed(resolvedEssayPlanItem);
             added += 1;
             return true;
         },
     });
+    for (const coverageTarget of generatedEssayCoverageTargets.length > 0 ? generatedEssayCoverageTargets : essayCoverageTargets) {
+        const planItemKey = String(coverageTarget?.planItemKey || "").trim();
+        if (!planItemKey) continue;
+        const matched = candidates.some((candidate) => {
+            const planItem = resolveEssayPlanItemFromCandidate(
+                candidate,
+                generatedEssayCoverageTargets.length > 0 ? generatedEssayCoverageTargets : essayCoverageTargets,
+            );
+            return resolveEssayPlanItemKey(planItem) === planItemKey;
+        });
+        if (!matched) {
+            recordEssayPlanItemFailure(essayPlanItemByKey.get(planItemKey), {
+                failReason: "no_output",
+                failDetails: "No essay candidate was generated for the targeted essay plan item.",
+                strategy: String(coverageTarget?.retryStrategy || "initial"),
+            });
+        }
+    }
+    for (const rejectedCandidate of persistedEssayResult.acceptance.rejected) {
+        const failedPlanItem = resolveEssayPlanItemFromCandidate(
+            rejectedCandidate?.candidate,
+            generatedEssayCoverageTargets.length > 0 ? generatedEssayCoverageTargets : essayCoverageTargets,
+        );
+        recordEssayPlanItemFailure(failedPlanItem, {
+            failReason: classifyPlanItemFailReason(rejectedCandidate?.reasons, "essay"),
+            failDetails: Array.isArray(rejectedCandidate?.reasons)
+                ? rejectedCandidate.reasons.join("; ")
+                : "Essay candidate rejected during grounded acceptance.",
+            strategy: failedPlanItem?.retryStrategy || "initial",
+        });
+    }
     coveragePolicy = computeQuestionCoverageGaps({
         assessmentBlueprint,
         examFormat: "essay",
@@ -11947,6 +12684,12 @@ const generateEssayQuestionsForTopicCore = async (
         minTarget: ESSAY_QUESTION_TARGET_MIN_COUNT,
     });
 
+    if (assessmentBlueprint) {
+        await ctx.runMutation(internal.topics.updateAssessmentBlueprintProgressInternal, {
+            topicId,
+            assessmentBlueprint,
+        });
+    }
     await ctx.runMutation(internal.topics.refreshTopicExamReadinessInternal, {
         topicId,
         essayTargetCount: persistedEssayTargetCount,

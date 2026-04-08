@@ -805,6 +805,30 @@ export const saveAssessmentBlueprintInternal = internalMutation({
     },
 });
 
+export const updateAssessmentBlueprintProgressInternal = internalMutation({
+    args: {
+        topicId: v.id("topics"),
+        assessmentBlueprint: v.any(),
+        diagnosticReport: v.optional(v.any()),
+    },
+    handler: async (ctx, args) => {
+        const topic = await ctx.db.get(args.topicId);
+        if (!topic) {
+            throw new Error("Topic not found");
+        }
+
+        await ctx.db.patch(args.topicId, {
+            assessmentBlueprint: args.assessmentBlueprint,
+            diagnosticReport: args.diagnosticReport ?? topic.diagnosticReport,
+        });
+
+        return {
+            topicId: args.topicId,
+            version: String(args.assessmentBlueprint?.version || ASSESSMENT_BLUEPRINT_VERSION),
+        };
+    },
+});
+
 export const replaceSubClaimsForTopicInternal = internalMutation({
     args: {
         topicId: v.id("topics"),
