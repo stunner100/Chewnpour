@@ -2120,11 +2120,36 @@ const MAX_GAP_FILL_ROUNDS = 2;
 const getPlanFailureHistory = (planItem: any) =>
     Array.isArray(planItem?.failHistory) ? planItem.failHistory : [];
 
+const isProviderThrottleMessage = (value: any) => {
+    const normalized = String(value || "").trim().toLowerCase();
+    if (!normalized) return false;
+    if (normalized.includes("too_many_requests")) return true;
+    if (normalized.includes("rate limit")) return true;
+    if (normalized.includes("rate-limit")) return true;
+    if (normalized.includes("provider throttled")) return true;
+    return normalized.includes("429")
+        && (
+            normalized.includes("openai api error")
+            || normalized.includes("bedrock api error")
+            || normalized.includes("inception api error")
+            || normalized.includes("too many requests")
+        );
+};
+
+const classifyPlanExecutionFailure = (reason: any, questionType?: string) => {
+    const message = reason instanceof Error ? reason.message : String(reason || "");
+    if (isProviderThrottleMessage(message)) {
+        return "provider_throttled";
+    }
+    return classifyPlanItemFailReason([message], questionType);
+};
+
 const classifyPlanItemFailReason = (reasons: any[] = [], questionType?: string) => {
     const normalizedReasons = (Array.isArray(reasons) ? reasons : [])
         .map((reason) => String(reason || "").trim().toLowerCase())
         .filter(Boolean);
     if (normalizedReasons.length === 0) return "low_quality";
+    if (normalizedReasons.some((reason) => isProviderThrottleMessage(reason))) return "provider_throttled";
     if (normalizedReasons.some((reason) => reason.includes("citation passage not found"))) return "ungrounded_quote";
     if (normalizedReasons.some((reason) => reason.includes("citation quote mismatch"))) return "ungrounded_quote";
     if (normalizedReasons.some((reason) => reason.includes("missing citations"))) return "ungrounded_quote";
@@ -2279,6 +2304,12 @@ const routeObjectiveRetryStrategy = (planItem: any, subClaims: any[]): any => {
             },
         };
     }
+    if (failReason === "provider_throttled") {
+        return {
+            terminal: true,
+            terminalReason: `provider throttled generation for this plan item after ${attemptCount} attempts`,
+        };
+    }
     if (["distractor_shortage", "insufficient_options"].includes(failReason)) {
         if (normalizeQuestionType(planItem?.targetType) === QUESTION_TYPE_MULTIPLE_CHOICE) {
             return {
@@ -2342,6 +2373,9 @@ const routeEssayRetryStrategy = (planItem: any, subClaims: any[]): any => {
     const failReason = String(planItem?.failReason || "").trim().toLowerCase();
     if (attemptCount >= MAX_PLAN_ITEM_ATTEMPTS) {
         return { terminal: true, terminalReason: `exhausted after ${attemptCount} attempts (${failReason || "unknown"})` };
+    }
+    if (failReason === "provider_throttled") {
+        return { terminal: true, terminalReason: `provider throttled essay generation after ${attemptCount} attempts` };
     }
     if (["insufficient_claims", "too_narrow"].includes(failReason)) {
         const existingIds = new Set(Array.isArray(planItem?.sourceSubClaimIds) ? planItem.sourceSubClaimIds.map((value: any) => String(value || "").trim()) : []);
@@ -2429,7 +2463,15 @@ const buildAssessmentDiagnosticReport = (topicId: any, topicTitle: string, bluep
             })),
         recommendations: Object.entries(failReasonCounts).length === 0
             ? []
-            : [`Top failure reason: ${Object.entries(failReasonCounts).sort((left, right) => right[1] - left[1])[0][0]}`],
+            : (() => {
+                const topFailureReason = Object.entries(failReasonCounts).sort((left, right) => right[1] - left[1])[0][0];
+                if (topFailureReason === "provider_throttled") {
+                    return [
+                        "Provider throttling is blocking generation. Defer retries or switch provider capacity before re-running this topic.",
+                    ];
+                }
+                return [`Top failure reason: ${topFailureReason}`];
+            })(),
     };
 };
 
@@ -10663,6 +10705,7 @@ const generateQuestionBankForTopic = async (
         timingBreakdown.batchGenerationMs += normalizeTimingMs(Date.now() - batchGenerationStartedAt);
         countBreakdown.batchRequests += batchPlan.length;
         const groupedCandidates = new Map<string, { requestedCount: number; candidates: any[]; coverageTargets: AssessmentCoverageTarget[] }>();
+        let providerThrottleDetectedInRound = false;
         for (const [batchIndex, result] of batchSettled.entries()) {
             if (result.status === "fulfilled") {
                 const questionType = normalizeQuestionType(result.value.questionType);
@@ -10691,8 +10734,15 @@ const generateQuestionBankForTopic = async (
                     const failedPlanItem = coverageTarget?.planItemKey
                         ? objectivePlanItemByKey.get(String(coverageTarget.planItemKey || ""))
                         : null;
+                    const failReason = classifyPlanExecutionFailure(
+                        result.reason,
+                        String(batchRequest.questionType || QUESTION_TYPE_MULTIPLE_CHOICE),
+                    );
+                    if (failReason === "provider_throttled") {
+                        providerThrottleDetectedInRound = true;
+                    }
                     recordObjectivePlanItemFailure(failedPlanItem, {
-                        failReason: "parse_error",
+                        failReason,
                         failDetails: result.reason instanceof Error ? result.reason.message : String(result.reason),
                         strategy: String(coverageTarget?.retryStrategy || failedPlanItem?.retryStrategy || "initial"),
                     });
@@ -10849,7 +10899,7 @@ const generateQuestionBankForTopic = async (
             countBreakdown.repairSuccesses += acceptanceMetrics.repairSuccesses;
             groundingRejects += acceptance.rejected.length;
         }
-        if (roundAdded === 0 && getUniqueQuestionCount() < targetCount) {
+        if (!providerThrottleDetectedInRound && roundAdded === 0 && getUniqueQuestionCount() < targetCount) {
             const deterministicTrueFalseFallback = buildDeterministicTrueFalseFallbackCandidate({
                 evidence: groundedPack.evidence,
                 assessmentBlueprint: assessmentBlueprint as AssessmentBlueprint,
@@ -10995,6 +11045,16 @@ const generateQuestionBankForTopic = async (
             nearDuplicateSkips,
             groundingRejects,
         });
+        if (providerThrottleDetectedInRound) {
+            console.warn("[QuestionBank] provider_throttled_round_abort", {
+                topicId,
+                topicTitle: topicWithQuestions.title,
+                round,
+                totalCount: getUniqueQuestionCount(),
+                targetCount,
+            });
+            break;
+        }
     }
 
     const incomplete = getUniqueQuestionCount() < targetCount;
@@ -12351,6 +12411,7 @@ const generateEssayQuestionsForTopicCore = async (
     );
     const candidates: any[] = [];
     const generatedEssayCoverageTargets: AssessmentCoverageTarget[] = [];
+    let providerThrottleDetected = false;
     for (const [batchIndex, settled] of batchSettled.entries()) {
         if (settled.status === "fulfilled") {
             candidates.push(...(Array.isArray(settled.value?.candidates) ? settled.value.candidates : []));
@@ -12366,8 +12427,12 @@ const generateEssayQuestionsForTopicCore = async (
             const failedPlanItem = coverageTarget?.planItemKey
                 ? essayPlanItemByKey.get(String(coverageTarget.planItemKey || ""))
                 : null;
+            const failReason = classifyPlanExecutionFailure(settled.reason, "essay");
+            if (failReason === "provider_throttled") {
+                providerThrottleDetected = true;
+            }
             recordEssayPlanItemFailure(failedPlanItem, {
-                failReason: "parse_error",
+                failReason,
                 failDetails: settled.reason instanceof Error ? settled.reason.message : String(settled.reason),
                 strategy: String(coverageTarget?.retryStrategy || failedPlanItem?.retryStrategy || "initial"),
             });
@@ -12382,7 +12447,7 @@ const generateEssayQuestionsForTopicCore = async (
         });
     }
 
-    if (candidates.length < remainingNeeded && Date.now() < deadlineMs - 1200) {
+    if (!providerThrottleDetected && candidates.length < remainingNeeded && Date.now() < deadlineMs - 1200) {
         const recoveryPlan = buildSequentialRecoveryBatchPlan(
             Math.max(1, remainingNeeded - candidates.length),
             3,
@@ -12411,6 +12476,15 @@ const generateEssayQuestionsForTopicCore = async (
                     generatedEssayCoverageTargets.push(...(Array.isArray(fallbackCandidates?.coverageTargets) ? fallbackCandidates.coverageTargets : []));
                 }
             } catch (fallbackError) {
+                if (classifyPlanExecutionFailure(fallbackError, "essay") === "provider_throttled") {
+                    console.warn("[EssayQuestionBank] provider_throttled_recovery_abort", {
+                        topicId,
+                        topicTitle: topicWithQuestions.title,
+                        recoveryIndex,
+                        requestedCount: recoveryRequestedCount,
+                    });
+                    break;
+                }
                 console.warn("[EssayQuestionBank] fallback_batch_request_failed", {
                     topicId,
                     topicTitle: topicWithQuestions.title,
