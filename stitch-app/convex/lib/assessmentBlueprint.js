@@ -377,6 +377,26 @@ const normalizeObjectivePlanItem = (item, outcomeByKey, index) => {
     };
 };
 
+const normalizeEssayPlanItem = (item, outcomeByKey, index) => {
+    if (!item || typeof item !== "object") return null;
+    const sourceOutcomeKeys = uniqueStringArray(item.sourceOutcomeKeys).map((value) => normalizeOutcomeKey(value));
+    const resolvedOutcomeKeys = sourceOutcomeKeys.filter((key) => outcomeByKey.has(key));
+    const sourceSubClaimIds = uniqueStringArray(item.sourceSubClaimIds);
+    if (resolvedOutcomeKeys.length === 0 && sourceSubClaimIds.length === 0) {
+        return null;
+    }
+
+    return {
+        sourceOutcomeKeys: resolvedOutcomeKeys,
+        sourceSubClaimIds,
+        targetBloomLevel: normalizeBloomLevel(item.targetBloomLevel || item.bloomLevel || "Analyze") || "Analyze",
+        targetDifficulty: normalizeDifficultyBand(item.targetDifficulty || item.difficulty),
+        promptSeed: normalizeText(item.promptSeed || item.prompt || ""),
+        status: normalizeText(item.status || "planned").toLowerCase() || "planned",
+        priority: Math.max(0, Math.round(Number(item.priority ?? index))),
+    };
+};
+
 export const resolveObjectivePlanItemKey = (item) => {
     if (!item || typeof item !== "object") return "";
     const questionType = normalizeQuestionType(item.targetType || item.questionType);
@@ -401,6 +421,76 @@ export const resolveObjectivePlanItemsForQuestionType = (blueprint, questionType
     return (Array.isArray(blueprint?.objectivePlan?.items) ? blueprint.objectivePlan.items : [])
         .filter((item) => normalizeQuestionType(item?.targetType || item?.questionType) === resolvedType)
         .sort((left, right) => Number(left?.priority || 0) - Number(right?.priority || 0));
+};
+
+export const resolveEssayPlanItemKey = (item) => {
+    if (!item || typeof item !== "object") return "";
+    const sourceSubClaimIds = uniqueStringArray(item.sourceSubClaimIds);
+    const sourceOutcomeKeys = uniqueStringArray(item.sourceOutcomeKeys).map((value) => normalizeOutcomeKey(value)).filter(Boolean);
+    const targetBloomLevel = normalizeBloomLevel(item.targetBloomLevel || item.bloomLevel || "Analyze") || "Analyze";
+    const targetDifficulty = normalizeDifficultyBand(item.targetDifficulty || item.difficulty);
+    const priority = Math.max(0, Math.round(Number(item.priority || 0)));
+    const sourceKey = sourceSubClaimIds.length > 0 ? sourceSubClaimIds.join(",") : sourceOutcomeKeys.join(",");
+    if (!sourceKey) return "";
+    return [
+        "essay",
+        sourceKey,
+        targetBloomLevel,
+        targetDifficulty,
+        String(priority),
+    ].join("::");
+};
+
+export const resolveEssayPlanItems = (blueprint) =>
+    (Array.isArray(blueprint?.essayPlan?.items) ? blueprint.essayPlan.items : [])
+        .slice()
+        .sort((left, right) => Number(left?.priority || 0) - Number(right?.priority || 0));
+
+export const resolveEssayPlanItemForQuestion = ({
+    blueprint,
+    question,
+    coverageTargets = [],
+}) => {
+    const essayPlanItems = resolveEssayPlanItems(blueprint);
+    if (essayPlanItems.length === 0) {
+        return null;
+    }
+
+    const essayPlanItemKey = normalizeText(question?.essayPlanItemKey);
+    if (essayPlanItemKey) {
+        const explicit = essayPlanItems.find((item) => resolveEssayPlanItemKey(item) === essayPlanItemKey);
+        if (explicit) return explicit;
+    }
+
+    const sourceSubClaimIds = uniqueStringArray(question?.sourceSubClaimIds);
+    const outcomeKey = normalizeOutcomeKey(question?.outcomeKey);
+    const bloomLevel = normalizeBloomLevel(question?.bloomLevel);
+
+    const matchesQuestion = (item) => {
+        const itemSourceSubClaimIds = uniqueStringArray(item?.sourceSubClaimIds);
+        if (sourceSubClaimIds.length > 0) {
+            return sourceSubClaimIds.every((id) => itemSourceSubClaimIds.includes(id));
+        }
+        if (outcomeKey) {
+            const itemOutcomeKeys = uniqueStringArray(item?.sourceOutcomeKeys).map((value) => normalizeOutcomeKey(value));
+            if (!itemOutcomeKeys.includes(outcomeKey)) return false;
+        }
+        if (bloomLevel && normalizeBloomLevel(item?.targetBloomLevel) !== bloomLevel) return false;
+        return true;
+    };
+
+    const exactMatch = essayPlanItems.find(matchesQuestion);
+    if (exactMatch) return exactMatch;
+
+    const coverageMatch = (Array.isArray(coverageTargets) ? coverageTargets : []).find((target) => {
+        const targetKey = normalizeText(target?.planItemKey);
+        return targetKey && essayPlanItems.some((item) => resolveEssayPlanItemKey(item) === targetKey);
+    });
+    if (coverageMatch?.planItemKey) {
+        return essayPlanItems.find((item) => resolveEssayPlanItemKey(item) === coverageMatch.planItemKey) || null;
+    }
+
+    return essayPlanItems[0] || null;
 };
 
 export const resolveObjectivePlanItemForQuestion = ({
@@ -616,6 +706,10 @@ export const normalizeAssessmentBlueprint = (raw) => {
         .map((item, index) => normalizeObjectivePlanItem(item, outcomeByKey, index))
         .filter(Boolean)
         .sort((left, right) => Number(left.priority || 0) - Number(right.priority || 0));
+    const normalizedEssayPlanItems = (Array.isArray(rawEssayPlan?.items) ? rawEssayPlan.items : [])
+        .map((item, index) => normalizeEssayPlanItem(item, outcomeByKey, index))
+        .filter(Boolean)
+        .sort((left, right) => Number(left.priority || 0) - Number(right.priority || 0));
 
     return {
         version: ASSESSMENT_BLUEPRINT_VERSION,
@@ -682,7 +776,7 @@ export const normalizeAssessmentBlueprint = (raw) => {
                 1,
                 Math.round(Number(rawEssayPlan.minDistinctScenarioFrameCount || 2))
             ),
-            items: Array.isArray(rawEssayPlan?.items) ? rawEssayPlan.items : [],
+            items: normalizedEssayPlanItems,
         },
     };
 };
@@ -1025,6 +1119,37 @@ export const getAssessmentQuestionMetadataIssues = ({
                 issues.push("missing tier");
             } else if (normalizeObjectivePlanTier(matchedPlanItem.targetTier) && normalizeObjectivePlanTier(matchedPlanItem.targetTier) !== normalizedTier) {
                 issues.push("tier does not match objective plan");
+            }
+        }
+    }
+    if (resolvedType === QUESTION_TYPE_ESSAY && Array.isArray(blueprint?.essayPlan?.items) && blueprint.essayPlan.items.length > 0) {
+        const matchedEssayPlanItem = resolveEssayPlanItemForQuestion({
+            blueprint,
+            question,
+        });
+        const sourceSubClaimIds = uniqueStringArray(question?.sourceSubClaimIds);
+        if (!matchedEssayPlanItem) {
+            issues.push("missing essay plan metadata");
+        } else {
+            const essayPlanItemKey = normalizeText(question?.essayPlanItemKey);
+            if (!essayPlanItemKey) {
+                issues.push("missing essayPlanItemKey");
+            } else if (resolveEssayPlanItemKey(matchedEssayPlanItem) !== essayPlanItemKey) {
+                issues.push("essayPlanItemKey does not match essay plan");
+            }
+            if (sourceSubClaimIds.length === 0) {
+                issues.push("missing sourceSubClaimIds");
+            } else {
+                const expectedSourceSubClaimIds = uniqueStringArray(matchedEssayPlanItem.sourceSubClaimIds);
+                if (
+                    expectedSourceSubClaimIds.length > 0
+                    && (
+                        sourceSubClaimIds.length !== expectedSourceSubClaimIds.length
+                        || !sourceSubClaimIds.every((id) => expectedSourceSubClaimIds.includes(id))
+                    )
+                ) {
+                    issues.push("sourceSubClaimIds do not match essay plan");
+                }
             }
         }
     }

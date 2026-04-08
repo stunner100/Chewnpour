@@ -78,6 +78,8 @@ export type GroundedEssayCandidate = {
     outcomeKey: string;
     authenticContext?: string;
     groundingEvidence?: string;
+    sourceSubClaimIds?: string[];
+    essayPlanItemKey?: string;
 };
 
 export type AssessmentBlueprintOutcome = {
@@ -153,6 +155,9 @@ export type AssessmentCoverageTarget = {
     targetDifficulty?: string;
     subClaimId?: string;
     priority?: number;
+    sourceSubClaimIds?: string[];
+    sourceOutcomeKeys?: string[];
+    promptSeed?: string;
 };
 
 export type GroundedConceptCandidate = {
@@ -202,6 +207,10 @@ const formatCoverageTargets = (coverageTargets: AssessmentCoverageTarget[] = [])
             `requestedCount=${target.requestedCount}`,
             target.objective ? `objective="${target.objective}"` : "",
             target.evidenceFocus ? `evidenceFocus="${target.evidenceFocus}"` : "",
+            Array.isArray(target.sourceSubClaimIds) && target.sourceSubClaimIds.length > 0
+                ? `sourceSubClaimIds=${target.sourceSubClaimIds.join(",")}`
+                : "",
+            target.promptSeed ? `promptSeed="${target.promptSeed}"` : "",
         ].filter(Boolean).join("; "))
         .join("\n");
 };
@@ -631,6 +640,7 @@ Rules:
 - bloomLevel must exactly match the selected outcome's bloomLevel.
 - bloomLevel must be one of: Analyze, Evaluate, Create.
 - If coverage gaps are listed, satisfy those outcome priorities before generating extras.
+- If coverage gaps are listed, use the matching promptSeed and sourceSubClaimIds as the core of the essay task.
 - Use the topic content graph to prefer the document's extracted objectives, examples, formulas, source passages, and confusions when framing authentic tasks.
 - Across the batch, diversify outcomes and scenario frames before repeating the same one.
 - At least one prompt should require analysis/explanation and one should require evaluation/justification when the evidence supports both.
@@ -654,7 +664,10 @@ Return JSON only:
       "learningObjective": "...",
       "bloomLevel": "Analyze|Evaluate|Create",
       "outcomeKey": "outcome-1",
+      "sourceSubClaimIds": ["claim-1", "claim-2"],
+      "essayPlanItemKey": "essay::claim-1::claim-2",
       "authenticContext": "...",
+      "groundingEvidence": "Short explanation of the supporting claims or quotes",
       "rubricPoints": ["...","..."],
       "citations": [
         {"passageId":"p1-0","page":0,"startChar":0,"endChar":80,"quote":"..."}

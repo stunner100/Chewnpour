@@ -95,6 +95,8 @@ import {
     normalizeAssessmentBlueprint,
     normalizeBloomLevel,
     normalizeOutcomeKey,
+    resolveEssayPlanItemForQuestion,
+    resolveEssayPlanItemKey,
     resolveObjectivePlanItemForQuestion,
     topicUsesAssessmentBlueprint,
 } from "./lib/assessmentBlueprint.js";
@@ -1589,6 +1591,11 @@ const coerceEssayCandidate = (candidate: any) => {
         bloomLevel: String(candidate?.bloomLevel || "").trim() || undefined,
         outcomeKey: String(candidate?.outcomeKey || "").trim() || undefined,
         authenticContext: authenticContext || undefined,
+        sourceSubClaimIds: Array.isArray(candidate?.sourceSubClaimIds)
+            ? candidate.sourceSubClaimIds.map((item: any) => String(item || "").trim()).filter(Boolean)
+            : undefined,
+        essayPlanItemKey: String(candidate?.essayPlanItemKey || "").trim() || undefined,
+        groundingEvidence: normalizeGeneratedAssessmentText(candidate?.groundingEvidence || "").text || undefined,
         rubricPoints,
         citations,
         qualityFlags: normalizeQualityFlags(qualityFlags),
@@ -2049,6 +2056,13 @@ const normalizeGeneratedAssessmentCandidate = (args: {
             coverageTargets: args.coverageTargets,
         })
         : null;
+    const essayPlanItem = normalizedQuestionType === "essay"
+        ? resolveEssayPlanItemForQuestion({
+            blueprint: args.blueprint,
+            question: args.candidate,
+            coverageTargets: args.coverageTargets,
+        })
+        : null;
     const bloomLevel = normalizeBloomLevel(args.candidate?.bloomLevel || outcome?.bloomLevel || "");
     const learningObjective = String(
         args.candidate?.learningObjective || outcome?.objective || ""
@@ -2087,6 +2101,15 @@ const normalizeGeneratedAssessmentCandidate = (args: {
             citations: args.candidate?.citations,
             outcome,
         }),
+        sourceSubClaimIds: Array.isArray(args.candidate?.sourceSubClaimIds)
+            ? args.candidate.sourceSubClaimIds.map((item: any) => String(item || "").trim()).filter(Boolean)
+            : Array.isArray(essayPlanItem?.sourceSubClaimIds)
+                ? essayPlanItem.sourceSubClaimIds.map((item: any) => String(item || "").trim()).filter(Boolean)
+                : undefined,
+        essayPlanItemKey: String(
+            args.candidate?.essayPlanItemKey
+            || (essayPlanItem ? resolveEssayPlanItemKey(essayPlanItem) : "")
+        ).trim() || undefined,
     };
 };
 
@@ -2351,6 +2374,9 @@ const buildGapCoverageTargets = (args: {
         targetDifficulty: target.targetDifficulty,
         subClaimId: target.subClaimId,
         priority: target.priority,
+        sourceSubClaimIds: target.sourceSubClaimIds,
+        sourceOutcomeKeys: target.sourceOutcomeKeys,
+        promptSeed: target.promptSeed,
     }));
 
 const buildObjectiveSubtypeMixPolicy = (args: {
@@ -2575,7 +2601,7 @@ const buildQuestionTypeCoverageTargets = (args: {
             const outcomeKey = normalizeOutcomeKey(slot?.outcomeKey);
             const bloomLevel = normalizeBloomLevel(slot?.bloomLevel || "");
             if (slotQuestionType && slotQuestionType !== normalizeQuestionType(args.questionType)) return false;
-            if (!outcomeKey || !bloomLevel) return false;
+            if (!bloomLevel) return false;
             if (allowedOutcomeKeys.size > 0 && !allowedOutcomeKeys.has(outcomeKey)) return false;
             if (allowedBloomLevels.size > 0 && !allowedBloomLevels.has(bloomLevel)) return false;
             return true;
@@ -8712,6 +8738,7 @@ const generateEssayQuestionCandidatesBatch = async (args: {
             candidate,
             blueprint: args.assessmentBlueprint,
             questionType: "essay",
+            coverageTargets: args.coverageTargets,
         })
     );
 };
@@ -9075,15 +9102,18 @@ const generateEssayQuestionGapBatch = async (args: {
     assessmentBlueprint: AssessmentBlueprint;
     structuredTopicContext?: string;
     coveragePolicy: any;
+    coverageTargets?: AssessmentCoverageTarget[];
     deadlineMs?: number;
     requestTimeoutMs?: number;
     repairTimeoutMs?: number;
     maxAttempts?: number;
 }) => {
-    const coverageTargets = buildGapCoverageTargets({
-        coveragePolicy: args.coveragePolicy,
-        requestedCount: args.requestedCount,
-    });
+    const coverageTargets = Array.isArray(args.coverageTargets) && args.coverageTargets.length > 0
+        ? args.coverageTargets
+        : buildGapCoverageTargets({
+            coveragePolicy: args.coveragePolicy,
+            requestedCount: args.requestedCount,
+        });
     return await generateEssayQuestionCandidatesBatch({
         requestedCount: args.requestedCount,
         topicTitle: args.topicTitle,
@@ -11413,6 +11443,10 @@ const generateEssayQuestionsForTopicCore = async (
     const generationStartedAt = Date.now();
     const deadlineMs = Date.now() + ESSAY_QUESTION_TIME_BUDGET_MS;
     const remainingNeeded = Math.max(1, Number(coveragePolicy.totalGapCount || 0));
+    const essayCoverageTargets = buildGapCoverageTargets({
+        coveragePolicy,
+        requestedCount: remainingNeeded,
+    });
     const batchPlan = buildParallelBatchPlan({
         batchSize: Math.max(1, remainingNeeded),
         minBatchSize: ESSAY_QUESTION_MIN_BATCH_SIZE,
@@ -11428,6 +11462,7 @@ const generateEssayQuestionsForTopicCore = async (
                 assessmentBlueprint: assessmentBlueprint as AssessmentBlueprint,
                 structuredTopicContext: groundedPack.structuredTopicContext,
                 coveragePolicy,
+                coverageTargets: essayCoverageTargets,
                 deadlineMs,
                 requestTimeoutMs: ESSAY_QUESTION_REQUEST_TIMEOUT_MS,
                 repairTimeoutMs: ESSAY_QUESTION_REPAIR_TIMEOUT_MS,
@@ -11469,6 +11504,7 @@ const generateEssayQuestionsForTopicCore = async (
                     assessmentBlueprint: assessmentBlueprint as AssessmentBlueprint,
                     structuredTopicContext: groundedPack.structuredTopicContext,
                     coveragePolicy,
+                    coverageTargets: essayCoverageTargets,
                     deadlineMs,
                     requestTimeoutMs: ESSAY_QUESTION_REQUEST_TIMEOUT_MS,
                     repairTimeoutMs: ESSAY_QUESTION_REPAIR_TIMEOUT_MS,
@@ -11517,6 +11553,7 @@ const generateEssayQuestionsForTopicCore = async (
                 candidate: question,
                 blueprint: assessmentBlueprint as AssessmentBlueprint,
                 questionType: "essay",
+                coverageTargets: essayCoverageTargets,
             });
             const normalizedQuestionText = String(groundedQuestion?.questionText || "").trim();
             const normalizedCorrectAnswer = String(groundedQuestion?.correctAnswer || "").trim();
@@ -11542,6 +11579,11 @@ const generateEssayQuestionsForTopicCore = async (
                 assessmentBlueprint,
                 String(groundedQuestion?.outcomeKey || "")
             );
+            const resolvedEssayPlanItem = resolveEssayPlanItemForQuestion({
+                blueprint: assessmentBlueprint,
+                question: groundedQuestion,
+                coverageTargets: essayCoverageTargets,
+            });
             const sourcePassageIds = Array.from(
                 new Set(
                     finalGrounding.validCitations
@@ -11572,6 +11614,20 @@ const generateEssayQuestionsForTopicCore = async (
                 ).trim() || undefined,
                 bloomLevel: String(groundedQuestion?.bloomLevel || resolvedOutcome?.bloomLevel || "").trim() || undefined,
                 outcomeKey: String(groundedQuestion?.outcomeKey || resolvedOutcome?.key || "").trim() || undefined,
+                sourceSubClaimIds: Array.isArray(resolvedEssayPlanItem?.sourceSubClaimIds)
+                    ? resolvedEssayPlanItem.sourceSubClaimIds
+                    : Array.isArray(groundedQuestion?.sourceSubClaimIds)
+                        ? groundedQuestion.sourceSubClaimIds
+                        : undefined,
+                essayPlanItemKey: String(
+                    groundedQuestion?.essayPlanItemKey
+                    || (resolvedEssayPlanItem ? resolveEssayPlanItemKey(resolvedEssayPlanItem) : "")
+                ).trim() || undefined,
+                groundingEvidence: buildGroundingEvidenceSummary({
+                    candidate: groundedQuestion,
+                    citations: finalGrounding.validCitations,
+                    outcome: resolvedOutcome,
+                }),
                 authenticContext: String(groundedQuestion?.authenticContext || "").trim() || undefined,
                 rubricPoints: rubricPoints.length > 0 ? rubricPoints : undefined,
                 qualityScore: Number(groundedQuestion?.rankingScore || groundedQuestion?.qualityScore || groundedQuestion?.groundingScore || 0),
@@ -11591,6 +11647,20 @@ const generateEssayQuestionsForTopicCore = async (
                 questionText: normalizedQuestionText,
                 bloomLevel: String(groundedQuestion?.bloomLevel || resolvedOutcome?.bloomLevel || "").trim() || undefined,
                 outcomeKey: String(groundedQuestion?.outcomeKey || resolvedOutcome?.key || "").trim() || undefined,
+                sourceSubClaimIds: Array.isArray(resolvedEssayPlanItem?.sourceSubClaimIds)
+                    ? resolvedEssayPlanItem.sourceSubClaimIds
+                    : Array.isArray(groundedQuestion?.sourceSubClaimIds)
+                        ? groundedQuestion.sourceSubClaimIds
+                        : undefined,
+                essayPlanItemKey: String(
+                    groundedQuestion?.essayPlanItemKey
+                    || (resolvedEssayPlanItem ? resolveEssayPlanItemKey(resolvedEssayPlanItem) : "")
+                ).trim() || undefined,
+                groundingEvidence: buildGroundingEvidenceSummary({
+                    candidate: groundedQuestion,
+                    citations: finalGrounding.validCitations,
+                    outcome: resolvedOutcome,
+                }),
                 qualityTier: String(groundedQuestion?.qualityTier || QUALITY_TIER_LIMITED).trim() || QUALITY_TIER_LIMITED,
                 qualityScore: Number(groundedQuestion?.rankingScore || groundedQuestion?.qualityScore || groundedQuestion?.groundingScore || 0),
                 rigorScore: Number(groundedQuestion?.rigorScore || 0),

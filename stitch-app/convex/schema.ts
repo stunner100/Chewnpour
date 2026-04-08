@@ -361,6 +361,8 @@ export default defineSchema({
         tier: v.optional(v.number()),
         subClaimId: v.optional(v.id("topicSubClaims")),
         cognitiveOperation: v.optional(v.string()),
+        sourceSubClaimIds: v.optional(v.array(v.id("topicSubClaims"))),
+        essayPlanItemKey: v.optional(v.string()),
         learningObjective: v.optional(v.string()),
         bloomLevel: v.optional(v.string()),
         outcomeKey: v.optional(v.string()),
