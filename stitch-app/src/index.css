@@ -2,6 +2,27 @@
 @tailwind components;
 @tailwind utilities;
 
+/* ── shadcn-compatible CSS variables (used by hero section components) ── */
+:root {
+    --background: 248 249 250;       /* #f8f9fa */
+    --foreground: 32 33 36;          /* #202124 */
+    --muted-foreground: 95 99 104;   /* #5f6368 */
+    --accent-foreground: 32 33 36;
+    --border: 218 220 224;           /* #dadce0 */
+    --input: 218 220 224;
+    --ring: 26 115 232;              /* #1a73e8 */
+}
+
+.dark {
+    --background: 14 17 23;          /* #0e1117 */
+    --foreground: 230 237 243;       /* #e6edf3 */
+    --muted-foreground: 139 148 158; /* #8b949e */
+    --accent-foreground: 230 237 243;
+    --border: 48 54 61;              /* #30363d */
+    --input: 48 54 61;
+    --ring: 26 115 232;
+}
+
 @layer base {
     html {
         scroll-behavior: smooth;
