@@ -2262,6 +2262,34 @@ const buildObjectiveSubtypeBatchRequests = (args: {
         .map(({ questionType, requestedCount }) => ({ questionType, requestedCount }));
 };
 
+const buildObjectiveSubtypeGenerationDeficits = (args: {
+    objectiveSubtypeMixPolicy: ReturnType<typeof buildObjectiveSubtypeMixPolicy>;
+    currentCount: number;
+    targetCount: number;
+    preferCountFillOverSubtypeMix?: boolean;
+}) => {
+    const remainingCount = Math.max(0, Math.round(Number(args.targetCount || 0)) - Math.round(Number(args.currentCount || 0)));
+    if (remainingCount <= 0) {
+        return [];
+    }
+
+    if (args.preferCountFillOverSubtypeMix) {
+        return [{
+            questionType: QUESTION_TYPE_MULTIPLE_CHOICE,
+            requestedCount: remainingCount,
+        }];
+    }
+
+    return args.objectiveSubtypeMixPolicy.ready
+        ? [QUESTION_TYPE_MULTIPLE_CHOICE, QUESTION_TYPE_TRUE_FALSE, QUESTION_TYPE_FILL_BLANK]
+            .map((questionType) => ({
+                questionType,
+                requestedCount: Number(args.objectiveSubtypeMixPolicy.targetBreakdown?.[questionType] || 0),
+            }))
+            .filter((entry) => entry.requestedCount > 0)
+        : args.objectiveSubtypeMixPolicy.deficits;
+};
+
 const buildQuestionTypeCoverageTargets = (args: {
     questionType: string;
     coveragePolicy: ReturnType<typeof resolveAssessmentGenerationPolicy>;
@@ -9225,7 +9253,7 @@ const generateQuestionBankForTopic = async (
         questions: coverageQuestions,
         targetCount: quickTargetCount,
     });
-    if (initialCount >= quickTargetCount && coveragePolicy.ready && objectiveSubtypeMixPolicy.ready) {
+    if (initialCount >= quickTargetCount && coveragePolicy.ready) {
         await ctx.runMutation(internal.topics.refreshTopicExamReadinessInternal, {
             topicId,
             mcqTargetCount: quickTargetCount,
@@ -9372,7 +9400,7 @@ const generateQuestionBankForTopic = async (
         };
     };
 
-    if (initialCount >= targetCount && coveragePolicy.ready && objectiveSubtypeMixPolicy.ready) {
+    if (initialCount >= targetCount && coveragePolicy.ready) {
         const diagnostics = buildTimingDiagnostics("already_generated");
         const qualitySummary = summarizeQuestionSetQuality(existingQuestions);
         console.info("[QuestionBank] timing_breakdown", {
@@ -9759,7 +9787,7 @@ const generateQuestionBankForTopic = async (
     }
 
     while (
-        (coveragePolicy.needsGeneration || !objectiveSubtypeMixPolicy.ready)
+        (coveragePolicy.needsGeneration || getUniqueQuestionCount() < targetCount)
         && noProgressRounds < profile.noProgressLimit
         && round < maxRounds
         && Date.now() < deadlineMs
@@ -9775,14 +9803,15 @@ const generateQuestionBankForTopic = async (
             remaining,
             clampNumber(remaining, profile.minBatchSize, profile.batchSize)
         );
-        const subtypeGenerationDeficits = objectiveSubtypeMixPolicy.ready
-            ? [QUESTION_TYPE_MULTIPLE_CHOICE, QUESTION_TYPE_TRUE_FALSE, QUESTION_TYPE_FILL_BLANK]
-                .map((questionType) => ({
-                    questionType,
-                    requestedCount: Number(objectiveSubtypeMixPolicy.targetBreakdown?.[questionType] || 0),
-                }))
-                .filter((entry) => entry.requestedCount > 0)
-            : objectiveSubtypeMixPolicy.deficits;
+        const preferCountFillOverSubtypeMix =
+            noProgressRounds > 0
+            && getUniqueQuestionCount() < targetCount;
+        const subtypeGenerationDeficits = buildObjectiveSubtypeGenerationDeficits({
+            objectiveSubtypeMixPolicy,
+            currentCount: getUniqueQuestionCount(),
+            targetCount,
+            preferCountFillOverSubtypeMix,
+        });
         const batchPlan = buildObjectiveSubtypeBatchRequests({
             deficits: subtypeGenerationDeficits,
             batchSize,
