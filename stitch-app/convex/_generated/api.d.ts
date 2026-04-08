@@ -64,6 +64,7 @@ import type * as lib_topicGenerationProgress from "../lib/topicGenerationProgres
 import type * as lib_topicOutlinePipeline from "../lib/topicOutlinePipeline.js";
 import type * as lib_voiceStreamToken from "../lib/voiceStreamToken.js";
 import type * as lib_voyageEmbeddings from "../lib/voyageEmbeddings.js";
+import type * as lib_yieldEstimation from "../lib/yieldEstimation.js";
 import type * as llmUsage from "../llmUsage.js";
 import type * as productResearch from "../productResearch.js";
 import type * as productResearchEmails from "../productResearchEmails.js";
@@ -140,6 +141,7 @@ declare const fullApi: ApiFromModules<{
   "lib/topicOutlinePipeline": typeof lib_topicOutlinePipeline;
   "lib/voiceStreamToken": typeof lib_voiceStreamToken;
   "lib/voyageEmbeddings": typeof lib_voyageEmbeddings;
+  "lib/yieldEstimation": typeof lib_yieldEstimation;
   llmUsage: typeof llmUsage;
   productResearch: typeof productResearch;
   productResearchEmails: typeof productResearchEmails;

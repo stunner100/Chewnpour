@@ -61,7 +61,6 @@ import type {
 import { cleanDataLabBlockText } from "./lib/datalabText";
 import { retrieveGroundedEvidence, type RetrievedEvidence } from "./lib/groundedRetrieval";
 import {
-    buildGroundedAssessmentBlueprintPrompt,
     type AssessmentBlueprint,
     type AssessmentCoverageTarget,
     buildGroundedConceptBatchPrompt,
@@ -89,6 +88,7 @@ import {
 } from "./lib/llmProviderFallback";
 import {
     ASSESSMENT_BLUEPRINT_VERSION,
+    buildClaimDrivenAssessmentBlueprint,
     filterQuestionsForActiveAssessment,
     getAssessmentPlanForQuestionType,
     getAssessmentQuestionMetadataIssues,
@@ -102,6 +102,7 @@ import {
     normalizeSubClaimResponse,
     SUB_CLAIM_DECOMPOSITION_SYSTEM_PROMPT,
 } from "./lib/subClaimDecomposition";
+import { computeDynamicYieldTargets } from "./lib/yieldEstimation.js";
 import {
     resolveAssessmentGenerationPolicy,
     selectCoverageGapTargets,
@@ -2092,37 +2093,26 @@ const ensureAssessmentBlueprintForTopic = async (args: {
         }
     }
 
-    const remainingMs = Number.isFinite(Number(args.deadlineMs))
-        ? Number(args.deadlineMs) - Date.now()
-        : null;
-    const configuredTimeoutMs = Math.max(1500, Math.round(DEFAULT_TIMEOUT_MS));
-    const timeoutMs = remainingMs === null
-        ? configuredTimeoutMs
-        : Math.min(configuredTimeoutMs, Math.max(1500, remainingMs - 200));
-
-    const response = await callInception([
-        {
-            role: "system",
-            content: "You are an assessment-design specialist. Return valid JSON only.",
-        },
-        {
-            role: "user",
-            content: buildGroundedAssessmentBlueprintPrompt({
-                topicTitle: String(args.topic?.title || ""),
-                topicDescription: String(args.topic?.description || ""),
-                evidence: args.evidence,
-                structuredTopicContext: args.structuredTopicContext,
-            }),
-        },
-    ], DEFAULT_MODEL, {
-        maxTokens: 2200,
-        responseFormat: "json_object",
-        timeoutMs,
+    const subClaims = await args.ctx.runQuery(internal.topics.getSubClaimsByTopicInternal, {
+        topicId,
     });
-
-    const blueprint = await parseAssessmentBlueprintWithRepair(response, {
-        deadlineMs: args.deadlineMs,
-        repairTimeoutMs: args.repairTimeoutMs,
+    if (!Array.isArray(subClaims) || subClaims.length === 0) {
+        throw new Error("No sub-claims available for assessment blueprint generation.");
+    }
+    const distractors = await args.ctx.runQuery(internal.topics.getDistractorsByTopicInternal, {
+        topicId,
+    });
+    const yieldEstimate = computeDynamicYieldTargets(subClaims, distractors, {
+        minObjectiveTarget: 4,
+        maxObjectiveTarget: 18,
+        minEssayTarget: 1,
+        maxEssayTarget: 4,
+        expectedPassRate: 0.65,
+    });
+    const blueprint = buildClaimDrivenAssessmentBlueprint({
+        subClaims,
+        yieldEstimate,
+        distractorCount: Array.isArray(distractors) ? distractors.length : 0,
     });
     if (!blueprint) {
         throw new Error("Failed to generate a valid assessment blueprint.");
@@ -2132,10 +2122,23 @@ const ensureAssessmentBlueprintForTopic = async (args: {
         topicId,
         assessmentBlueprint: blueprint,
     });
+    await args.ctx.runMutation(internal.topics.updateTopicAssessmentMetadataInternal, {
+        topicId,
+        objectiveTargetCount: yieldEstimate.totalObjectiveTarget,
+        trueFalseTargetCount: yieldEstimate.trueFalseTarget,
+        fillInTargetCount: yieldEstimate.fillInTarget,
+        totalObjectiveTargetCount: yieldEstimate.totalObjectiveTarget,
+        yieldConfidence: yieldEstimate.confidence,
+        yieldReasoning: yieldEstimate.reasoning,
+        examIneligibleReason: "",
+    });
     await args.ctx.runMutation(internal.topics.refreshTopicExamReadinessInternal, {
         topicId,
-        mcqTargetCount: args.topic?.mcqTargetCount,
-        essayTargetCount: args.topic?.essayTargetCount,
+        mcqTargetCount: yieldEstimate.totalObjectiveTarget,
+        trueFalseTargetCount: yieldEstimate.trueFalseTarget,
+        fillInTargetCount: yieldEstimate.fillInTarget,
+        totalObjectiveTargetCount: yieldEstimate.totalObjectiveTarget,
+        essayTargetCount: yieldEstimate.essayTarget,
     });
 
     return blueprint;
@@ -9368,12 +9371,28 @@ const generateQuestionBankForTopic = async (
         topic: topicWithQuestions,
         type: "mcq",
     });
-    await ensureTopicSubClaimsForExamGeneration({
+    const subClaims = await ensureTopicSubClaimsForExamGeneration({
         ctx,
         topic: topicWithQuestions,
         evidence: groundedPack.evidence,
         deadlineMs: Date.now() + profile.timeBudgetMs,
     });
+    if (!Array.isArray(subClaims) || subClaims.length === 0) {
+        return {
+            success: true,
+            alreadyGenerated: false,
+            count: 0,
+            added: 0,
+            targetCount: Math.max(1, Math.round(Number(topicWithQuestions?.mcqTargetCount || 1))),
+            requestedTargetCount: Math.max(1, Math.round(Number(topicWithQuestions?.mcqTargetCount || 1))),
+            abstained: true,
+            reason: "NO_TESTABLE_CLAIMS",
+            diagnostics: {
+                outcome: "no_testable_claims",
+                runMode,
+            },
+        };
+    }
     let assessmentBlueprint = topicUsesAssessmentBlueprint(topicWithQuestions)
         ? normalizeAssessmentBlueprint(topicWithQuestions.assessmentBlueprint)
         : null;
@@ -9391,6 +9410,9 @@ const generateQuestionBankForTopic = async (
         ? {
             ...topicWithQuestions,
             assessmentBlueprint,
+            mcqTargetCount: Number(assessmentBlueprint?.yieldEstimate?.totalObjectiveTarget || topicWithQuestions?.mcqTargetCount || 0) || topicWithQuestions?.mcqTargetCount,
+            objectiveTargetCount: Number(assessmentBlueprint?.yieldEstimate?.totalObjectiveTarget || topicWithQuestions?.objectiveTargetCount || 0) || topicWithQuestions?.objectiveTargetCount,
+            essayTargetCount: Number(assessmentBlueprint?.yieldEstimate?.essayTarget || topicWithQuestions?.essayTargetCount || 0) || topicWithQuestions?.essayTargetCount,
         }
         : topicWithQuestions;
     const topicContent = String(topicWithQuestions.content || "");
@@ -11157,12 +11179,25 @@ const generateEssayQuestionsForTopicCore = async (
         topic: topicWithQuestions,
         type: "essay",
     });
-    await ensureTopicSubClaimsForExamGeneration({
+    const subClaims = await ensureTopicSubClaimsForExamGeneration({
         ctx,
         topic: topicWithQuestions,
         evidence: groundedPack.evidence,
         deadlineMs: Date.now() + ESSAY_QUESTION_TIME_BUDGET_MS,
     });
+    if (!Array.isArray(subClaims) || subClaims.length === 0) {
+        return {
+            success: true,
+            count: 0,
+            added: 0,
+            abstained: true,
+            reason: "NO_TESTABLE_CLAIMS",
+            targetCount: Math.max(1, Math.round(Number(topicWithQuestions?.essayTargetCount || 1))),
+            requestedTargetCount: Math.max(1, Math.round(Number(topicWithQuestions?.essayTargetCount || 1))),
+            existingEssayCount: 0,
+            existingUsableEssayCount: 0,
+        };
+    }
     let assessmentBlueprint = topicUsesAssessmentBlueprint(topicWithQuestions)
         ? normalizeAssessmentBlueprint(topicWithQuestions.assessmentBlueprint)
         : null;
@@ -11180,6 +11215,9 @@ const generateEssayQuestionsForTopicCore = async (
         ? {
             ...topicWithQuestions,
             assessmentBlueprint,
+            mcqTargetCount: Number(assessmentBlueprint?.yieldEstimate?.totalObjectiveTarget || topicWithQuestions?.mcqTargetCount || 0) || topicWithQuestions?.mcqTargetCount,
+            objectiveTargetCount: Number(assessmentBlueprint?.yieldEstimate?.totalObjectiveTarget || topicWithQuestions?.objectiveTargetCount || 0) || topicWithQuestions?.objectiveTargetCount,
+            essayTargetCount: Number(assessmentBlueprint?.yieldEstimate?.essayTarget || topicWithQuestions?.essayTargetCount || 0) || topicWithQuestions?.essayTargetCount,
         }
         : topicWithQuestions;
     const activeTopicQuestions = filterQuestionsForActiveAssessment({

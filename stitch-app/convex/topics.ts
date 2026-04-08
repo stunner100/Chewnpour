@@ -530,6 +530,7 @@ export const refreshTopicExamReadinessInternal = internalMutation({
 export const updateTopicAssessmentMetadataInternal = internalMutation({
     args: {
         topicId: v.id("topics"),
+        objectiveTargetCount: v.optional(v.number()),
         trueFalseTargetCount: v.optional(v.number()),
         fillInTargetCount: v.optional(v.number()),
         totalObjectiveTargetCount: v.optional(v.number()),
@@ -546,6 +547,7 @@ export const updateTopicAssessmentMetadataInternal = internalMutation({
         }
 
         await ctx.db.patch(args.topicId, {
+            objectiveTargetCount: args.objectiveTargetCount ?? topic.objectiveTargetCount,
             trueFalseTargetCount: args.trueFalseTargetCount ?? topic.trueFalseTargetCount,
             fillInTargetCount: args.fillInTargetCount ?? topic.fillInTargetCount,
             totalObjectiveTargetCount: args.totalObjectiveTargetCount ?? topic.totalObjectiveTargetCount,
