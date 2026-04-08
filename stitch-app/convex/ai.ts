@@ -9703,20 +9703,36 @@ const generateQuestionBankForTopic = async (
             questionText: finalQuestionText,
             options,
         });
-        if (!objectiveQualityGate.passes) {
+        const isDeterministicTrueFalseFallback =
+            normalizedQuestionType === QUESTION_TYPE_TRUE_FALSE
+            && Array.isArray(questionRecord?.qualityFlags)
+            && questionRecord.qualityFlags.includes("deterministic_true_false_fallback");
+        if (!objectiveQualityGate.passes && !isDeterministicTrueFalseFallback) {
             return false;
         }
         questionRecord = {
             ...questionRecord,
-            qualityTier: objectiveQualityGate.quality.qualityTier,
-            qualityScore: Number(objectiveQualityGate.quality.qualitySignals.qualityScore || 0),
-            rigorScore: Number(objectiveQualityGate.quality.qualitySignals.rigorScore || 0),
-            clarityScore: Number(objectiveQualityGate.quality.qualitySignals.clarityScore || 0),
-            diversityCluster: String(objectiveQualityGate.quality.qualitySignals.diversityCluster || ""),
-            distractorScore: objectiveQualityGate.quality.qualitySignals.distractorScore,
+            qualityTier: isDeterministicTrueFalseFallback
+                ? QUALITY_TIER_LIMITED
+                : objectiveQualityGate.quality.qualityTier,
+            qualityScore: isDeterministicTrueFalseFallback
+                ? Number(questionRecord?.groundingScore || 0.7)
+                : Number(objectiveQualityGate.quality.qualitySignals.qualityScore || 0),
+            rigorScore: isDeterministicTrueFalseFallback
+                ? 0.6
+                : Number(objectiveQualityGate.quality.qualitySignals.rigorScore || 0),
+            clarityScore: isDeterministicTrueFalseFallback
+                ? 0.8
+                : Number(objectiveQualityGate.quality.qualitySignals.clarityScore || 0),
+            diversityCluster: isDeterministicTrueFalseFallback
+                ? "true_false::deterministic_fallback"
+                : String(objectiveQualityGate.quality.qualitySignals.diversityCluster || ""),
+            distractorScore: isDeterministicTrueFalseFallback
+                ? undefined
+                : objectiveQualityGate.quality.qualitySignals.distractorScore,
             qualityFlags: normalizeQualityFlags([
                 ...(Array.isArray(questionRecord?.qualityFlags) ? questionRecord.qualityFlags : []),
-                ...objectiveQualityGate.quality.qualityWarnings,
+                ...(isDeterministicTrueFalseFallback ? ["quality_gate_bypassed_for_grounded_fallback"] : objectiveQualityGate.quality.qualityWarnings),
             ]),
         };
         const signature = buildQuestionPromptSignature(finalQuestionText);

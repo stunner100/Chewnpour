@@ -13,6 +13,8 @@ for (const expectedSnippet of [
   "questionType: QUESTION_TYPE_MULTIPLE_CHOICE",
   "\"deterministic_true_false_fallback\"",
   "[QuestionBank] deterministic_true_false_fallback_saved",
+  "quality_gate_bypassed_for_grounded_fallback",
+  "const isDeterministicTrueFalseFallback =",
   "(coveragePolicy.needsGeneration || getUniqueQuestionCount() < targetCount)",
   "if (initialCount >= targetCount && coveragePolicy.ready) {",
 ]) {
