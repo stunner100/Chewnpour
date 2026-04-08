@@ -306,6 +306,7 @@ export default defineSchema({
         yieldConfidence: v.optional(v.string()),
         yieldReasoning: v.optional(v.string()),
         examIneligibleReason: v.optional(v.string()),
+        diagnosticReport: v.optional(v.any()),
         examReadyUpdatedAt: v.optional(v.number()),
         objectiveGenerationLockedUntil: v.optional(v.number()),
         mcqGenerationLockedUntil: v.optional(v.number()),

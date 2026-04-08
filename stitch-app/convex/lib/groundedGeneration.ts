@@ -158,6 +158,8 @@ export type AssessmentCoverageTarget = {
     sourceSubClaimIds?: string[];
     sourceOutcomeKeys?: string[];
     promptSeed?: string;
+    retryStrategy?: string;
+    feedbackInjection?: string;
 };
 
 export type GroundedConceptCandidate = {
@@ -211,6 +213,8 @@ const formatCoverageTargets = (coverageTargets: AssessmentCoverageTarget[] = [])
                 ? `sourceSubClaimIds=${target.sourceSubClaimIds.join(",")}`
                 : "",
             target.promptSeed ? `promptSeed="${target.promptSeed}"` : "",
+            target.retryStrategy ? `retryStrategy=${target.retryStrategy}` : "",
+            target.feedbackInjection ? `feedback="${target.feedbackInjection}"` : "",
         ].filter(Boolean).join("; "))
         .join("\n");
 };
@@ -349,6 +353,8 @@ Rules:
 - bloomLevel must be one of: Apply, Analyze.
 - If coverage gaps are listed, satisfy those outcome priorities before generating extras.
 - If coverage gaps are listed, preserve the matching subClaimId, cognitiveOperation, and tier metadata in the output item.
+- If a coverage gap includes retryStrategy or feedbackInjection, treat that as corrective guidance from a failed prior attempt and avoid repeating the same mistake.
+- If a coverage gap includes multiple sourceSubClaimIds, you may generate a composite question that depends on more than one claim as long as the answer remains grounded.
 - Use the topic content graph to prefer the document's extracted learning objectives, definitions, formulas, examples, source passages, and confusions when framing stems and selecting outcomes.
 - Every question must include citations[] with 1-3 citation objects.
 - Every citation object must include: passageId, page, startChar, endChar, quote.
@@ -502,6 +508,8 @@ Rules:
 - bloomLevel must be one of: Apply.
 - If coverage gaps are listed, satisfy those outcome priorities before generating extras.
 - If coverage gaps are listed, preserve the matching subClaimId, cognitiveOperation, and tier metadata in the output item.
+- If a coverage gap includes retryStrategy or feedbackInjection, treat that as corrective guidance from a failed prior attempt and avoid repeating the same mistake.
+- If a coverage gap includes multiple sourceSubClaimIds, you may generate a composite true/false statement that depends on more than one claim if the statement remains unambiguous.
 - Use the topic content graph to prefer the document's extracted objectives, examples, formulas, source passages, and confusions when choosing claims to test.
 - Each question must be a single clear statement.
 - Use exactly 2 options: True and False.
@@ -571,6 +579,8 @@ Rules:
 - bloomLevel must be one of: Apply.
 - If coverage gaps are listed, satisfy those outcome priorities before generating extras.
 - If coverage gaps are listed, preserve the matching subClaimId, cognitiveOperation, and tier metadata in the output item.
+- If a coverage gap includes retryStrategy or feedbackInjection, treat that as corrective guidance from a failed prior attempt and avoid repeating the same mistake.
+- If a coverage gap includes multiple sourceSubClaimIds, you may generate a composite fill-in item that depends on more than one claim if there is still exactly one defensible answer.
 - Use the topic content graph to prefer the document's extracted objectives, definitions, formulas, examples, and source passages when choosing what the blank should test.
 - Use exactly one blank only.
 - templateParts must contain exactly one "__" entry.
@@ -641,6 +651,7 @@ Rules:
 - bloomLevel must be one of: Analyze, Evaluate, Create.
 - If coverage gaps are listed, satisfy those outcome priorities before generating extras.
 - If coverage gaps are listed, use the matching promptSeed and sourceSubClaimIds as the core of the essay task.
+- If a coverage gap includes retryStrategy or feedbackInjection, treat that as corrective guidance from a failed prior attempt and address it directly.
 - Use the topic content graph to prefer the document's extracted objectives, examples, formulas, source passages, and confusions when framing authentic tasks.
 - Across the batch, diversify outcomes and scenario frames before repeating the same one.
 - At least one prompt should require analysis/explanation and one should require evaluation/justification when the evidence supports both.

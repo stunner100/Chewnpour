@@ -37,6 +37,7 @@ const buildCoverageTargets = ({ blueprint, examFormat, targetCount }) => {
                 .filter(Boolean)
         );
         const orderedPlanItems = blueprint.essayPlan.items
+            .filter((item) => String(item?.status || "planned").trim().toLowerCase() !== "terminal")
             .slice()
             .sort((left, right) => Number(left?.priority || 0) - Number(right?.priority || 0));
         const safeTargetCount = toPositiveInteger(targetCount, orderedPlanItems.length);
@@ -70,6 +71,8 @@ const buildCoverageTargets = ({ blueprint, examFormat, targetCount }) => {
                     sourceSubClaimIds: Array.isArray(item?.sourceSubClaimIds) ? item.sourceSubClaimIds : [],
                     sourceOutcomeKeys: Array.isArray(item?.sourceOutcomeKeys) ? item.sourceOutcomeKeys : [],
                     promptSeed: String(item?.promptSeed || "").trim() || undefined,
+                    retryStrategy: String(item?.retryStrategy || "").trim().toLowerCase() || undefined,
+                    feedbackInjection: String(item?.feedbackInjection || "").trim() || undefined,
                     priority: Number(item?.priority || 0),
                 };
             })
@@ -92,8 +95,11 @@ const buildCoverageTargets = ({ blueprint, examFormat, targetCount }) => {
         );
         const orderedPlanItems = blueprint.objectivePlan.items
             .filter((item) =>
+                String(item?.status || "planned").trim().toLowerCase() !== "terminal"
+                && (
                 [ "multiple_choice", "true_false", "fill_blank" ].includes(
                     normalizeQuestionType(item?.targetType || item?.questionType)
+                )
                 )
             )
             .sort((left, right) => Number(left?.priority || 0) - Number(right?.priority || 0));
@@ -127,6 +133,12 @@ const buildCoverageTargets = ({ blueprint, examFormat, targetCount }) => {
                     targetTier: Number(item?.targetTier || 0) || undefined,
                     targetDifficulty: String(item?.targetDifficulty || "").trim().toLowerCase() || undefined,
                     subClaimId: String(item?.subClaimId || "").trim() || undefined,
+                    sourceSubClaimIds: Array.isArray(item?.compositeClaimIds)
+                        ? [String(item?.subClaimId || "").trim(), ...item.compositeClaimIds.map((value) => String(value || "").trim())].filter(Boolean)
+                        : undefined,
+                    promptSeed: String(item?.promptSeed || "").trim() || undefined,
+                    retryStrategy: String(item?.retryStrategy || "").trim().toLowerCase() || undefined,
+                    feedbackInjection: String(item?.feedbackInjection || "").trim() || undefined,
                     priority: Number(item?.priority || 0),
                 };
             })
