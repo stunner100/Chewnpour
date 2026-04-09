@@ -44,6 +44,7 @@ import type * as lib_groundedVerifier from "../lib/groundedVerifier.js";
 import type * as lib_illustrationUrl from "../lib/illustrationUrl.js";
 import type * as lib_llamaParseClient from "../lib/llamaParseClient.js";
 import type * as lib_llmProviderFallback from "../lib/llmProviderFallback.js";
+import type * as lib_markitdownClient from "../lib/markitdownClient.js";
 import type * as lib_mcqUniqueness from "../lib/mcqUniqueness.js";
 import type * as lib_nativeExtractors from "../lib/nativeExtractors.js";
 import type * as lib_objectiveExam from "../lib/objectiveExam.js";
@@ -109,6 +110,7 @@ declare const fullApi: ApiFromModules<{
   "lib/illustrationUrl": typeof lib_illustrationUrl;
   "lib/llamaParseClient": typeof lib_llamaParseClient;
   "lib/llmProviderFallback": typeof lib_llmProviderFallback;
+  "lib/markitdownClient": typeof lib_markitdownClient;
   "lib/mcqUniqueness": typeof lib_mcqUniqueness;
   "lib/nativeExtractors": typeof lib_nativeExtractors;
   "lib/objectiveExam": typeof lib_objectiveExam;

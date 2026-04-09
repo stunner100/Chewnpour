@@ -90,6 +90,17 @@ const stripRecoveredSections = (content: string) =>
         .replace(/\n{0,2}##\s+Recovered Content \(Improved Extraction\)[\s\S]*$/i, "")
         .trim();
 
+const getPrimaryExtractionBackend = (fileType?: string): ExtractionBackendId => {
+    const normalized = String(fileType || "").toLowerCase();
+    if (normalized === "pptx" || normalized === "docx") {
+        return "markitdown";
+    }
+    return "datalab";
+};
+
+const didUseFallbackBackend = (fileType?: string, backend?: ExtractionBackendId | null) =>
+    Boolean(backend && backend !== getPrimaryExtractionBackend(fileType));
+
 const createArtifactStorageRecord = async (ctx: any, artifact: unknown): Promise<Id<"_storage">> => {
     const blob = new Blob([JSON.stringify(artifact)], { type: "application/json" });
     return await ctx.storage.store(blob);
@@ -360,7 +371,7 @@ export const runForegroundExtraction = internalAction({
                 coverage: result.coverage,
                 backend: result.backend,
                 parser: result.parser,
-                fallbackUsed: result.backend !== "datalab",
+                fallbackUsed: didUseFallbackBackend(upload.fileType, result.backend),
                 artifactStorageId,
                 warnings: result.warnings,
             });
@@ -412,7 +423,7 @@ export const runForegroundExtraction = internalAction({
                 coverage: Number(result?.coverage || 0),
                 backend: result?.backend,
                 parser: result?.parser,
-                fallbackUsed: Boolean(result?.backend && result.backend !== "datalab"),
+                fallbackUsed: didUseFallbackBackend(upload.fileType, result?.backend),
                 artifactStorageId,
                 warnings: result?.warnings || [],
             });
@@ -432,7 +443,7 @@ export const benchmarkUploadExtraction = internalAction({
     args: {
         uploadId: v.id("uploads"),
         mode: v.optional(v.union(v.literal("foreground"), v.literal("background"))),
-        backend: v.optional(v.union(v.literal("datalab"), v.literal("azure"), v.literal("llamaparse"))),
+        backend: v.optional(v.union(v.literal("markitdown"), v.literal("datalab"), v.literal("azure"), v.literal("llamaparse"))),
         parser: v.optional(v.string()),
     },
     handler: async (ctx, args) => {
@@ -572,7 +583,7 @@ export const runBackgroundReprocess = internalAction({
     args: {
         uploadId: v.id("uploads"),
         courseId: v.id("courses"),
-        backend: v.optional(v.union(v.literal("datalab"), v.literal("azure"), v.literal("llamaparse"))),
+        backend: v.optional(v.union(v.literal("markitdown"), v.literal("datalab"), v.literal("azure"), v.literal("llamaparse"))),
         parser: v.optional(v.string()),
     },
     handler: async (ctx, args) => {
@@ -621,7 +632,7 @@ export const runBackgroundReprocess = internalAction({
                 coverage: result.coverage,
                 backend: result.backend,
                 parser: result.parser,
-                fallbackUsed: result.backend !== "datalab",
+                fallbackUsed: didUseFallbackBackend(upload.fileType, result.backend),
                 artifactStorageId,
                 warnings: result.warnings,
             });
@@ -679,7 +690,7 @@ export const runBackgroundReprocess = internalAction({
                 coverage: Number(result?.coverage || 0),
                 backend: result?.backend,
                 parser: result?.parser,
-                fallbackUsed: Boolean(result?.backend && result.backend !== "datalab"),
+                fallbackUsed: didUseFallbackBackend(upload.fileType, result?.backend),
                 artifactStorageId,
                 warnings: result?.warnings || [],
             });

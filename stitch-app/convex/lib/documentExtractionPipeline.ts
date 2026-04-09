@@ -18,9 +18,14 @@ import {
     isLlamaParseEnabled,
     type LlamaParseExtractResponse,
 } from "./llamaParseClient";
+import {
+    callMarkItDownExtract,
+    type MarkItDownExtractResponse,
+} from "./markitdownClient";
 
-export type ExtractionBackendId = "datalab" | "azure" | "llamaparse";
+export type ExtractionBackendId = "markitdown" | "datalab" | "azure" | "llamaparse";
 export type ExtractionParserId =
+    | "markitdown_markdown"
     | "datalab"
     | "azure_layout_read"
     | "llamaparse";
@@ -48,7 +53,7 @@ export type ExtractionPassTrace = {
 type ExtractionPage = {
     index: number;
     text: string;
-    source: "native" | "azure_layout" | "azure_read" | "datalab" | "llamaparse" | "none";
+    source: "native" | "azure_layout" | "azure_read" | "datalab" | "llamaparse" | "markitdown" | "none";
     chars: number;
     words: number;
     lexicalRatio: number;
@@ -60,7 +65,7 @@ type ExtractionPage = {
 type CandidatePage = {
     index: number;
     text: string;
-    source: "native" | "azure_layout" | "azure_read" | "datalab" | "llamaparse";
+    source: "native" | "azure_layout" | "azure_read" | "datalab" | "llamaparse" | "markitdown";
     tableCount: number;
     formulaCount: number;
 };
@@ -250,7 +255,7 @@ const parsePdfPagesFromNative = (value: string): CandidatePage[] => {
 
 const splitTextIntoSyntheticPages = (
     value: string,
-    source: "native" | "azure_layout" | "azure_read" | "datalab" | "llamaparse",
+    source: "native" | "azure_layout" | "azure_read" | "datalab" | "llamaparse" | "markitdown",
     targetCharsPerPage = 2600
 ): CandidatePage[] => {
     const text = sanitizeText(value);
@@ -321,6 +326,64 @@ const splitTextIntoSyntheticPages = (
 
 const parseDocxPagesFromNative = (value: string): CandidatePage[] =>
     splitTextIntoSyntheticPages(value, "native");
+
+const countMarkdownTables = (value: string) =>
+    (String(value || "").match(/^\|.+\|$/gm) || []).length;
+
+const countMarkdownFormulas = (value: string) =>
+    (String(value || "").match(/\$[^$\n]+\$/g) || []).length;
+
+const parseMarkItDownPages = (value: string): CandidatePage[] => {
+    const text = sanitizeText(value);
+    if (!text) return [];
+
+    const hardPages = text
+        .split(/\f+/g)
+        .map((entry) => sanitizeText(entry))
+        .filter(Boolean);
+    if (hardPages.length > 1) {
+        return hardPages.map((pageText, index) => ({
+            index,
+            text: pageText,
+            source: "markitdown",
+            tableCount: countMarkdownTables(pageText),
+            formulaCount: countMarkdownFormulas(pageText),
+        }));
+    }
+
+    const lines = text.split("\n");
+    const sections: string[] = [];
+    let current: string[] = [];
+
+    for (const line of lines) {
+        if (/^#{1,6}\s+\S/.test(line) && current.length > 0) {
+            sections.push(sanitizeText(current.join("\n")));
+            current = [line];
+            continue;
+        }
+        current.push(line);
+    }
+    if (current.length > 0) {
+        sections.push(sanitizeText(current.join("\n")));
+    }
+
+    const normalizedSections = sections.filter(Boolean);
+    if (normalizedSections.length <= 1) {
+        return splitTextIntoSyntheticPages(text, "markitdown", 2200).map((page) => ({
+            ...page,
+            tableCount: countMarkdownTables(page.text),
+            formulaCount: countMarkdownFormulas(page.text),
+        }));
+    }
+
+    return normalizedSections.map((sectionText, index) => ({
+        index,
+        text: sectionText,
+        source: "markitdown",
+        tableCount: countMarkdownTables(sectionText),
+        formulaCount: countMarkdownFormulas(sectionText),
+    }));
+};
 
 const runNativePass = async (fileType: string, fileBuffer: ArrayBuffer): Promise<PassResult> => {
     if (fileType === "pdf") {
@@ -1303,6 +1366,19 @@ const toLlamaParsePassResult = (payload: LlamaParseExtractResponse): PassResult 
     };
 };
 
+const toMarkItDownPassResult = (payload: MarkItDownExtractResponse): PassResult => {
+    const text = sanitizeText(String(payload.text || payload.markdown || ""));
+    const pages = parseMarkItDownPages(text);
+
+    return {
+        text,
+        pages,
+        pageCount: Math.max(pages.length, text ? 1 : 0),
+        tableCount: pages.reduce((sum, page) => sum + Number(page.tableCount || 0), 0),
+        formulaCount: pages.reduce((sum, page) => sum + Number(page.formulaCount || 0), 0),
+    };
+};
+
 const runPassWithTrace = async (
     pass: string,
     run: () => Promise<PassResult>
@@ -1483,6 +1559,56 @@ export const runDataLabExtractionCandidate = async (
     };
 };
 
+export const runMarkItDownExtractionCandidate = async (
+    args: RunDocumentExtractionArgs
+): Promise<DocumentExtractionResult> => {
+    const startedAt = Date.now();
+    const normalizedFileType = String(args.fileType || "").toLowerCase();
+    const payload = await callMarkItDownExtract({
+        fileName: args.fileName,
+        fileBuffer: cloneArrayBuffer(args.fileBuffer),
+        timeoutMs: args.maxDurationMs,
+    });
+    const latencyMs = Date.now() - startedAt;
+    const markItDownPass = toMarkItDownPassResult(payload);
+
+    const result = buildDocumentExtractionResult({
+        backend: "markitdown",
+        parser: "markitdown_markdown",
+        fileType: normalizedFileType,
+        nativePass: emptyPassResult(),
+        layoutPass: emptyPassResult(),
+        readPass: markItDownPass,
+        providerTrace: [{
+            pass: "markitdown_markdown",
+            status: "ok",
+            latencyMs,
+            chars: markItDownPass.text.length,
+            pageCount: markItDownPass.pageCount,
+        }],
+        fallbackRecommendation: null,
+    });
+
+    const warnings = Array.from(new Set([...(payload.warnings || []), ...result.warnings]));
+    const fallbackRecommendation = !result.strictPass && isDataLabEnabled()
+        ? {
+            backend: "datalab" as const,
+            parser: "datalab" as const,
+            reason: "markitdown_quality_gap",
+        }
+        : null;
+
+    return {
+        ...result,
+        warnings,
+        fallbackRecommendation,
+        artifact: {
+            ...result.artifact,
+            warnings,
+        },
+    };
+};
+
 export const runLlamaParseExtractionCandidate = async (
     args: RunDocumentExtractionArgs
 ): Promise<DocumentExtractionResult> => {
@@ -1523,6 +1649,9 @@ export const runLlamaParseExtractionCandidate = async (
 export const runDocumentExtractionPipeline = async (
     args: RunDocumentExtractionArgs
 ): Promise<DocumentExtractionResult> => {
+    if (args.backend === "markitdown") {
+        return await runMarkItDownExtractionCandidate(args);
+    }
     if (args.backend === "datalab") {
         return await runDataLabExtractionCandidate(args);
     }
@@ -1532,5 +1661,20 @@ export const runDocumentExtractionPipeline = async (
     if (args.backend === "azure") {
         return await runAzureExtractionCandidate(args);
     }
+
+    const normalizedFileType = String(args.fileType || "").toLowerCase();
+    if (normalizedFileType === "pptx" || normalizedFileType === "docx") {
+        try {
+            return await runMarkItDownExtractionCandidate(args);
+        } catch (error) {
+            console.warn("[Extraction] markitdown_primary_failed", {
+                uploadId: args.uploadId,
+                fileType: normalizedFileType,
+                fileName: args.fileName,
+                message: error instanceof Error ? error.message : String(error),
+            });
+        }
+    }
+
     return await runDataLabExtractionCandidate(args);
 };

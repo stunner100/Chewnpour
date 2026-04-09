@@ -30,9 +30,10 @@ assert.ok(
   'Expected Azure fallback policy to keep Datalab for scanned/table-heavy cases and prefer LlamaParse only for weaker non-specialized Azure quality issues.'
 );
 assert.ok(
-  extractionSource.includes('fallbackUsed: result.backend !== "datalab"')
-    && extractionSource.includes('fallbackUsed: Boolean(result?.backend && result.backend !== "datalab")'),
-  'Expected extraction persistence to flag any non-Datalab backend run, including LlamaParse, as a fallback execution.'
+  extractionSource.includes('const didUseFallbackBackend')
+    && extractionSource.includes('fallbackUsed: didUseFallbackBackend(upload.fileType, result.backend)')
+    && extractionSource.includes('fallbackUsed: didUseFallbackBackend(upload.fileType, result?.backend)'),
+  'Expected extraction persistence to resolve fallback usage against the per-file primary backend, including MarkItDown for office documents.'
 );
 
 console.log('llamaparse-fallback-routing-regression tests passed');
