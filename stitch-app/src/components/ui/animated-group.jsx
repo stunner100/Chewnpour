@@ -1,5 +1,5 @@
 import React from 'react';
-import { motion } from 'motion/react';
+import { motion as Motion } from 'motion/react';
 import { cn } from '../../lib/utils';
 
 const defaultContainerVariants = {
@@ -118,18 +118,18 @@ function AnimatedGroup({ children, className, variants, preset }) {
     const itemVariants = variants?.item || selectedVariants.item;
 
     return (
-        <motion.div
+        <Motion.div
             initial="hidden"
             animate="visible"
             variants={containerVariants}
             className={cn(className)}
         >
             {React.Children.map(children, (child, index) => (
-                <motion.div key={index} variants={itemVariants}>
+                <Motion.div key={index} variants={itemVariants}>
                     {child}
-                </motion.div>
+                </Motion.div>
             ))}
-        </motion.div>
+        </Motion.div>
     );
 }
 

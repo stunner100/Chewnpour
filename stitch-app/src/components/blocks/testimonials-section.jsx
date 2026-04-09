@@ -4,7 +4,7 @@ const testimonials = [
   {
     author: "Prince A.",
     role: "Engineering Student",
-    image: "/community/A.jpg",
+    image: "/chewnpour/img1.jpg",
     content: (
         <>
             The biggest benefit for me in using ChewnPour is the <strong>Proactive AI</strong>. Staying on top of heavy engineering course loads is challenging, and so far, <strong>ChewnPour is the only AI-based tool that truly feels like a personal study assistant</strong>. Many AI tools can summarize notes, but it's still manual to ask for quizzes and track performance over time.<br/><br/>
@@ -16,7 +16,7 @@ const testimonials = [
   {
     author: "Aisha M.",
     role: "Medical Student",
-    image: "/community/B.jpg",
+    image: "/chewnpour/img2.jpg",
     content: (
         <>
             <strong>I LOVE IT.</strong> It's just insane how efficient it is. The premium tier is just amazingly awesome. It:<br/><br/>
@@ -33,7 +33,7 @@ const testimonials = [
   {
     author: "Emma Mensah",
     role: "Business Administration",
-    image: "/community/C.jpg",
+    image: "/chewnpour/img3.jpg",
     content: (
         <>
             I used to bounce between Notion, Google Docs, and Anki. <strong>But now it is ChewnPour.</strong><br/><br/>
@@ -45,7 +45,7 @@ const testimonials = [
   {
     author: "Grace O.",
     role: "Pre-med Student",
-    image: "/community/D.jpg",
+    image: "/chewnpour/img4.jpg",
     content: (
         <>
             The AI Humanizer tool is a game changer for assignments. <strong>It keeps my writing sounding authentic</strong> while fixing structure. And having an AI tutor answer my 2AM questions before an exam is literally priceless!
@@ -55,7 +55,7 @@ const testimonials = [
   {
     author: "David K.",
     role: "Law Student",
-    image: "/community/E.jpg",
+    image: "/chewnpour/img1.jpg",
     content: (
         <>
             Reading hundreds of case briefs gets exhausting. <strong>ChewnPour condenses cases into instantly digestible summaries.</strong> It's exactly the kind of tool every rigorous student needs to survive.

@@ -25,10 +25,10 @@ const transitionVariants = {
     },
 };
 
-export function HeroSection() {
+export function HeroSection({ onCtaClick = () => {} }) {
     return (
         <>
-            <HeroHeader />
+            <HeroHeader onCtaClick={onCtaClick} />
             <main className="overflow-hidden">
                 <section>
                     <div className="relative pt-20 lg:pt-28">
@@ -61,7 +61,11 @@ export function HeroSection() {
                                                 size="lg"
                                                 className="group relative h-14 rounded-xl px-8 text-base font-semibold bg-primary hover:bg-primary/95 text-white shadow-[0_0_40px_-10px_rgba(26,115,232,0.4)] transition-all duration-300 hover:scale-[1.02] active:scale-[0.98]"
                                             >
-                                                <Link to="/signup" className="flex items-center gap-2.5">
+                                                <Link
+                                                    to="/signup"
+                                                    className="flex items-center gap-2.5"
+                                                    onClick={() => onCtaClick('hero_upload_pdf')}
+                                                >
                                                     <FileText className="size-5 transition-transform group-hover:-translate-y-0.5" />
                                                     <span className="text-nowrap">Upload PDF</span>
                                                 </Link>
@@ -73,7 +77,11 @@ export function HeroSection() {
                                             variant="outline"
                                             className="group h-14 rounded-xl px-8 text-base font-semibold border-2 bg-background/50 backdrop-blur-sm transition-all duration-300 hover:scale-[1.02] active:scale-[0.98] hover:border-primary/40 hover:bg-muted/50"
                                         >
-                                            <Link to="/login" className="flex items-center gap-2.5">
+                                            <Link
+                                                to="/login"
+                                                className="flex items-center gap-2.5"
+                                                onClick={() => onCtaClick('hero_upload_assignment')}
+                                            >
                                                 <UploadCloud className="size-5 text-primary transition-transform group-hover:-translate-y-0.5" />
                                                 <span className="text-nowrap">Upload Assignment</span>
                                             </Link>
@@ -141,6 +149,7 @@ export function HeroSection() {
                             <Link
                                 to="/signup"
                                 className="block text-sm duration-150 hover:opacity-75"
+                                onClick={() => onCtaClick('hero_join_students')}
                             >
                                 <span>Join thousands of students</span>
                                 <ChevronRight className="ml-1 inline-block size-3" />
@@ -175,7 +184,7 @@ const menuItems = [
     { name: 'Pricing', href: '#pricing' },
 ];
 
-export function HeroHeader() {
+export function HeroHeader({ onCtaClick = () => {} }) {
     const [menuState, setMenuState] = React.useState(false);
 
     return (
@@ -220,12 +229,14 @@ export function HeroHeader() {
                             <Link
                                 to="/login"
                                 className="text-sm font-medium text-white/60 hover:text-white transition-colors duration-150"
+                                onClick={() => onCtaClick('header_sign_in')}
                             >
                                 Sign in
                             </Link>
                             <Link
                                 to="/signup"
                                 className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-primary hover:bg-primary/90 text-white text-sm font-semibold transition-colors duration-150"
+                                onClick={() => onCtaClick('header_get_started')}
                             >
                                 Get started free
                             </Link>
@@ -235,6 +246,7 @@ export function HeroHeader() {
                         <button
                             onClick={() => setMenuState(!menuState)}
                             aria-label={menuState ? 'Close Menu' : 'Open Menu'}
+                            aria-expanded={menuState}
                             className="lg:hidden p-2 text-white/70 hover:text-white transition-colors"
                         >
                             <Menu className="group-data-[state=active]:hidden size-5" />
@@ -258,8 +270,26 @@ export function HeroHeader() {
                             ))}
                         </ul>
                         <div className="flex flex-col gap-2">
-                            <Link to="/login" className="block px-3 py-2 text-sm font-medium text-white/60 hover:text-white">Sign in</Link>
-                            <Link to="/signup" className="block px-4 py-2.5 rounded-lg bg-primary hover:bg-primary/90 text-white text-sm font-semibold text-center">Get started free</Link>
+                            <Link
+                                to="/login"
+                                className="block px-3 py-2 text-sm font-medium text-white/60 hover:text-white"
+                                onClick={() => {
+                                    setMenuState(false);
+                                    onCtaClick('mobile_sign_in');
+                                }}
+                            >
+                                Sign in
+                            </Link>
+                            <Link
+                                to="/signup"
+                                className="block px-4 py-2.5 rounded-lg bg-primary hover:bg-primary/90 text-white text-sm font-semibold text-center"
+                                onClick={() => {
+                                    setMenuState(false);
+                                    onCtaClick('mobile_get_started');
+                                }}
+                            >
+                                Get started free
+                            </Link>
                         </div>
                     </div>
                 </div>
@@ -267,4 +297,3 @@ export function HeroHeader() {
         </header>
     );
 }
-
