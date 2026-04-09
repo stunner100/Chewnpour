@@ -16,6 +16,16 @@ import { normalizeQuestionType, QUESTION_TYPE_MULTIPLE_CHOICE } from "./lib/obje
 import { resolveIllustrationUrl } from "./lib/illustrationUrl";
 import { areMcqQuestionsNearDuplicate, buildMcqUniquenessSignature } from "./lib/mcqUniqueness";
 import { areQuestionPromptsNearDuplicate, buildQuestionPromptSignature } from "./lib/questionPromptSimilarity";
+import {
+    ASSESSMENT_CLASSIFICATION_DOCUMENT,
+    ASSESSMENT_CLASSIFICATION_STRONG,
+    ASSESSMENT_ROUTE_DOCUMENT_FINAL_EXAM,
+    ASSESSMENT_ROUTE_TOPIC_QUIZ,
+    TOPIC_KIND_DOCUMENT_FINAL_EXAM,
+    TOPIC_KIND_LESSON,
+    buildDocumentFinalExamTopic,
+    isDocumentFinalExamTopic,
+} from "./lib/assessmentRouting.js";
 
 const DEFAULT_TOPIC_ILLUSTRATION_URL =
     String(process.env.TOPIC_PLACEHOLDER_ILLUSTRATION_URL || "/topic-placeholder.svg").trim()
@@ -206,9 +216,10 @@ export const getTopicsByCourse = query({
             .withIndex("by_courseId", (q) => q.eq("courseId", args.courseId))
             .order("asc")
             .collect();
+        const lessonTopics = topics.filter((topic) => !isDocumentFinalExamTopic(topic));
 
         const topicsWithIllustrations = await Promise.all(
-            topics.map(async (topic) => {
+            lessonTopics.map(async (topic) => {
                 let freshIllustrationUrl: string | undefined =
                     topic.illustrationUrl || resolveDefaultTopicIllustrationUrl();
 
@@ -290,6 +301,65 @@ export const getTopicWithQuestionsInternal = internalQuery({
     },
 });
 
+export const getTopicInternal = internalQuery({
+    args: { topicId: v.id("topics") },
+    handler: async (ctx, args) => {
+        return await ctx.db.get(args.topicId);
+    },
+});
+
+export const getLessonTopicsByCourseAndUploadInternal = internalQuery({
+    args: {
+        courseId: v.id("courses"),
+        sourceUploadId: v.id("uploads"),
+    },
+    handler: async (ctx, args) => {
+        const topics = await ctx.db
+            .query("topics")
+            .withIndex("by_courseId", (q) => q.eq("courseId", args.courseId))
+            .collect();
+        return topics
+            .filter((topic) =>
+                !isDocumentFinalExamTopic(topic)
+                && topic.sourceUploadId === args.sourceUploadId
+            )
+            .sort((a, b) => Number(a.orderIndex || 0) - Number(b.orderIndex || 0));
+    },
+});
+
+export const getFinalAssessmentTopicByCourseAndUpload = query({
+    args: {
+        courseId: v.id("courses"),
+        sourceUploadId: v.id("uploads"),
+    },
+    handler: async (ctx, args) => {
+        const identity = await ctx.auth.getUserIdentity();
+        const authUserId = resolveAuthUserId(identity);
+        if (!authUserId) return null;
+
+        const course = await ctx.db.get(args.courseId);
+        if (!course) return null;
+
+        try {
+            assertAuthorizedUser({
+                authUserId,
+                resourceOwnerUserId: course.userId,
+            });
+        } catch {
+            return null;
+        }
+
+        const topics = await ctx.db
+            .query("topics")
+            .withIndex("by_courseId_topicKind", (q) =>
+                q.eq("courseId", args.courseId).eq("topicKind", TOPIC_KIND_DOCUMENT_FINAL_EXAM)
+            )
+            .collect();
+
+        return topics.find((topic) => topic.sourceUploadId === args.sourceUploadId) || null;
+    },
+});
+
 // Get topic owner user id (for server-side authorization checks)
 export const getTopicOwnerUserIdInternal = internalQuery({
     args: { topicId: v.id("topics") },
@@ -361,6 +431,7 @@ export const createTopic = mutation({
         const topicId = await ctx.db.insert("topics", {
             courseId: args.courseId,
             sourceUploadId: args.sourceUploadId,
+            topicKind: TOPIC_KIND_LESSON,
             title: args.title,
             description: args.description,
             content: args.content,
@@ -369,6 +440,15 @@ export const createTopic = mutation({
             groundingVersion: args.groundingVersion,
             illustrationStorageId: args.illustrationStorageId,
             illustrationUrl: args.illustrationUrl || resolveDefaultTopicIllustrationUrl(),
+            assessmentClassification: ASSESSMENT_CLASSIFICATION_STRONG,
+            assessmentRoute: ASSESSMENT_ROUTE_TOPIC_QUIZ,
+            assessmentRouteReason: "This topic is being prepared for a standalone quiz.",
+            assessmentReadinessScore: 100,
+            evidenceVolumeScore: 30,
+            evidenceDiversityScore: 20,
+            distinctivenessScore: 15,
+            questionVarietyScore: 20,
+            redundancyRiskScore: 0,
             examReady: false,
             mcqTargetCount: EXAM_READY_MIN_MCQ_COUNT,
             essayTargetCount: EXAM_READY_MIN_ESSAY_COUNT,
@@ -385,6 +465,107 @@ export const createTopic = mutation({
         }).catch(() => undefined);
 
         return topicId;
+    },
+});
+
+export const updateTopicAssessmentRoutingInternal = internalMutation({
+    args: {
+        topicId: v.id("topics"),
+        topicKind: v.optional(v.string()),
+        assessmentClassification: v.string(),
+        assessmentRoute: v.string(),
+        assessmentRouteReason: v.string(),
+        assessmentReadinessScore: v.number(),
+        evidenceVolumeScore: v.number(),
+        evidenceDiversityScore: v.number(),
+        distinctivenessScore: v.number(),
+        questionVarietyScore: v.number(),
+        redundancyRiskScore: v.number(),
+    },
+    handler: async (ctx, args) => {
+        const topic = await ctx.db.get(args.topicId);
+        if (!topic) return null;
+
+        await ctx.db.patch(args.topicId, {
+            topicKind: args.topicKind || topic.topicKind || TOPIC_KIND_LESSON,
+            assessmentClassification: args.assessmentClassification,
+            assessmentRoute: args.assessmentRoute,
+            assessmentRouteReason: args.assessmentRouteReason,
+            assessmentReadinessScore: args.assessmentReadinessScore,
+            evidenceVolumeScore: args.evidenceVolumeScore,
+            evidenceDiversityScore: args.evidenceDiversityScore,
+            distinctivenessScore: args.distinctivenessScore,
+            questionVarietyScore: args.questionVarietyScore,
+            redundancyRiskScore: args.redundancyRiskScore,
+        });
+
+        return { topicId: args.topicId };
+    },
+});
+
+export const upsertDocumentFinalExamTopicInternal = internalMutation({
+    args: {
+        courseId: v.id("courses"),
+        sourceUploadId: v.id("uploads"),
+        courseTitle: v.optional(v.string()),
+        lessonTopics: v.array(v.object({
+            _id: v.id("topics"),
+            title: v.string(),
+            description: v.optional(v.string()),
+            sourcePassageIds: v.optional(v.array(v.string())),
+            orderIndex: v.number(),
+        })),
+    },
+    handler: async (ctx, args) => {
+        const derived = buildDocumentFinalExamTopic({
+            courseTitle: args.courseTitle,
+            lessonTopics: args.lessonTopics,
+        });
+
+        const existingTopics = await ctx.db
+            .query("topics")
+            .withIndex("by_courseId_topicKind", (q) =>
+                q.eq("courseId", args.courseId).eq("topicKind", TOPIC_KIND_DOCUMENT_FINAL_EXAM)
+            )
+            .collect();
+        const existing = existingTopics.find((topic) => topic.sourceUploadId === args.sourceUploadId) || null;
+
+        const patch = {
+            sourceUploadId: args.sourceUploadId,
+            topicKind: TOPIC_KIND_DOCUMENT_FINAL_EXAM,
+            title: derived.title,
+            description: derived.description,
+            content: derived.content,
+            sourcePassageIds: derived.sourcePassageIds,
+            assessmentClassification: ASSESSMENT_CLASSIFICATION_DOCUMENT,
+            assessmentRoute: ASSESSMENT_ROUTE_DOCUMENT_FINAL_EXAM,
+            assessmentRouteReason: derived.assessmentRouteReason,
+            assessmentReadinessScore: derived.assessmentReadinessScore,
+            evidenceVolumeScore: derived.evidenceVolumeScore,
+            evidenceDiversityScore: derived.evidenceDiversityScore,
+            distinctivenessScore: derived.distinctivenessScore,
+            questionVarietyScore: derived.questionVarietyScore,
+            redundancyRiskScore: derived.redundancyRiskScore,
+            examReady: false,
+            mcqTargetCount: EXAM_READY_MIN_MCQ_COUNT,
+            essayTargetCount: EXAM_READY_MIN_ESSAY_COUNT,
+            usableMcqCount: 0,
+            usableEssayCount: 0,
+            examReadyUpdatedAt: Date.now(),
+            isLocked: false,
+        };
+
+        if (existing?._id) {
+            await ctx.db.patch(existing._id, patch);
+            return existing._id;
+        }
+
+        return await ctx.db.insert("topics", {
+            courseId: args.courseId,
+            orderIndex: 1000000 + args.lessonTopics.length,
+            illustrationUrl: resolveDefaultTopicIllustrationUrl(),
+            ...patch,
+        });
     },
 });
 

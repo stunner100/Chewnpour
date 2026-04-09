@@ -229,6 +229,7 @@ export default defineSchema({
     topics: defineTable({
         courseId: v.id("courses"),
         sourceUploadId: v.optional(v.id("uploads")), // which upload generated this topic
+        topicKind: v.optional(v.string()),
         title: v.string(),
         description: v.optional(v.string()),
         content: v.optional(v.string()), // AI-generated summary content
@@ -237,6 +238,15 @@ export default defineSchema({
         groundingVersion: v.optional(v.string()),
         illustrationStorageId: v.optional(v.id("_storage")),
         illustrationUrl: v.optional(v.string()),
+        assessmentClassification: v.optional(v.string()),
+        assessmentRoute: v.optional(v.string()),
+        assessmentRouteReason: v.optional(v.string()),
+        assessmentReadinessScore: v.optional(v.number()),
+        evidenceVolumeScore: v.optional(v.number()),
+        evidenceDiversityScore: v.optional(v.number()),
+        distinctivenessScore: v.optional(v.number()),
+        questionVarietyScore: v.optional(v.number()),
+        redundancyRiskScore: v.optional(v.number()),
         examReady: v.optional(v.boolean()),
         mcqTargetCount: v.optional(v.number()),
         essayTargetCount: v.optional(v.number()),
@@ -252,7 +262,8 @@ export default defineSchema({
         assessmentBlueprint: v.optional(v.any()),
         orderIndex: v.number(),
         isLocked: v.boolean(),
-    }).index("by_courseId", ["courseId"]),
+    }).index("by_courseId", ["courseId"])
+      .index("by_courseId_topicKind", ["courseId", "topicKind"]),
 
     // Lessons within topics
     lessons: defineTable({

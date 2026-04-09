@@ -79,6 +79,10 @@ import {
     topicUsesAssessmentBlueprint,
 } from "./lib/assessmentBlueprint.js";
 import { createVoiceStreamToken } from "./lib/voiceStreamToken";
+import {
+    allowsStandaloneTopicExam,
+    computeTopicAssessmentRouting,
+} from "./lib/assessmentRouting.js";
 
 // Text generation routes by feature and uses OpenAI -> Bedrock -> Inception fallback for generation.
 const OPENAI_BASE_URL = (() => {
@@ -1526,6 +1530,9 @@ const loadGroundedEvidenceIndexForUpload = async (ctx: any, uploadId: any): Prom
 };
 
 const resolveUploadForTopic = async (ctx: any, topic: any) => {
+    if (topic?.sourceUploadId) {
+        return await ctx.runQuery(api.uploads.getUpload, { uploadId: topic.sourceUploadId });
+    }
     const courseId = topic?.courseId;
     if (!courseId) return null;
     const coursePayload = await ctx.runQuery(api.courses.getCourseWithTopics, { courseId });
@@ -3706,6 +3713,80 @@ const countGeneratedTopicsForCourse = async (ctx: any, courseId: any, totalTopic
     return uniqueOrderIndexes.size;
 };
 
+const syncAssessmentRoutingForUpload = async (ctx: any, args: {
+    courseId: Id<"courses">;
+    uploadId: Id<"uploads">;
+}) => {
+    const coursePayload = await ctx.runQuery(api.courses.getCourseWithTopics, {
+        courseId: args.courseId,
+    });
+    const lessonTopics = Array.isArray(coursePayload?.topics)
+        ? coursePayload.topics
+            .filter((topic: any) => topic?.sourceUploadId === args.uploadId)
+            .sort((a: any, b: any) => Number(a?.orderIndex || 0) - Number(b?.orderIndex || 0))
+        : [];
+
+    if (lessonTopics.length === 0) {
+        return {
+            lessonTopicCount: 0,
+            finalAssessmentTopicId: null,
+        };
+    }
+
+    for (let index = 0; index < lessonTopics.length; index += 1) {
+        const topic = lessonTopics[index];
+        const neighboringTopics = lessonTopics.filter((_: any, topicIndex: number) => topicIndex !== index);
+        const routing = computeTopicAssessmentRouting({
+            topic,
+            neighboringTopics,
+        });
+
+        await ctx.runMutation(internal.topics.updateTopicAssessmentRoutingInternal, {
+            topicId: topic._id,
+            ...routing,
+        });
+    }
+
+    const finalAssessmentTopicId = await ctx.runMutation(internal.topics.upsertDocumentFinalExamTopicInternal, {
+        courseId: args.courseId,
+        sourceUploadId: args.uploadId,
+        courseTitle: coursePayload?.title,
+        lessonTopics: lessonTopics.map((topic: any) => ({
+            _id: topic._id,
+            title: topic.title,
+            description: topic.description,
+            sourcePassageIds: topic.sourcePassageIds,
+            orderIndex: topic.orderIndex,
+        })),
+    });
+
+    return {
+        lessonTopicCount: lessonTopics.length,
+        finalAssessmentTopicId,
+    };
+};
+
+const buildAssessmentRoutedToFinalExamResult = async (
+    ctx: any,
+    topicId: Id<"topics">,
+    format: "mcq" | "essay",
+) => {
+    const topic = await ctx.runQuery(internal.topics.getTopicInternal, { topicId });
+    return {
+        success: true,
+        skipped: true,
+        reason: "ASSESSMENT_ROUTED_TO_FINAL_EXAM",
+        assessmentRoute: String(topic?.assessmentRoute || ""),
+        count: format === "essay"
+            ? Number(topic?.usableEssayCount || 0)
+            : Number(topic?.usableMcqCount || 0),
+        added: 0,
+        targetCount: format === "essay"
+            ? Number(topic?.essayTargetCount || 0)
+            : Number(topic?.mcqTargetCount || 0),
+    };
+};
+
 const buildToneDirective = (educationLevel: string) => {
     switch (educationLevel) {
         case "high_school":
@@ -3910,6 +3991,7 @@ Respond in this exact JSON format only:
     });
     const topicId = await ctx.runMutation(api.topics.createTopic, {
         courseId,
+        sourceUploadId: uploadId,
         title: safeTopicTitle,
         description: topicData.description,
         content,
@@ -3919,6 +4001,11 @@ Respond in this exact JSON format only:
         illustrationUrl: resolveTopicPlaceholderIllustrationUrl(),
         orderIndex: index,
         isLocked: index !== 0,
+    });
+
+    await syncAssessmentRoutingForUpload(ctx, {
+        courseId,
+        uploadId,
     });
 
     if (TOPIC_ILLUSTRATION_GENERATION_ENABLED) {
@@ -4221,6 +4308,11 @@ export const generateRemainingTopicsInBackground = internalAction({
 
                 // Question bank pre-build removed — exams are now generated on-demand
                 // when the user clicks "Start Exam".
+
+                await syncAssessmentRoutingForUpload(ctx, {
+                    courseId,
+                    uploadId,
+                });
 
                 const finalGeneratedCount = normalizeGeneratedTopicCount({
                     generatedTopicCount,
@@ -6496,6 +6588,11 @@ const runMcqGenerationWithLock = async (
         scheduleRetries?: boolean;
     },
 ) => {
+    const topic = await ctx.runQuery(internal.topics.getTopicInternal, { topicId });
+    if (topic && !allowsStandaloneTopicExam(topic)) {
+        return await buildAssessmentRoutedToFinalExamResult(ctx, topicId, "mcq");
+    }
+
     const lockStartedAt = Date.now();
     const lock: any = await acquireMcqGenerationLock(ctx, topicId);
     const lockProbeMs = normalizeTimingMs(Date.now() - lockStartedAt);
@@ -6638,6 +6735,11 @@ const runEssayGenerationWithLock = async (
         runMode?: "interactive" | "background";
     },
 ) => {
+    const topic = await ctx.runQuery(internal.topics.getTopicInternal, { topicId: args.topicId });
+    if (topic && !allowsStandaloneTopicExam(topic)) {
+        return await buildAssessmentRoutedToFinalExamResult(ctx, args.topicId, "essay");
+    }
+
     const requestedCount = Math.max(
         ESSAY_QUESTION_MIN_GENERATION_COUNT,
         Math.min(ESSAY_QUESTION_MAX_GENERATION_COUNT, Number(args.count || 5))

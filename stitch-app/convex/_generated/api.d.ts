@@ -28,6 +28,7 @@ import type * as feedback from "../feedback.js";
 import type * as grounded from "../grounded.js";
 import type * as http from "../http.js";
 import type * as lib_assessmentBlueprint from "../lib/assessmentBlueprint.js";
+import type * as lib_assessmentRouting from "../lib/assessmentRouting.js";
 import type * as lib_conceptExerciseGeneration from "../lib/conceptExerciseGeneration.js";
 import type * as lib_datalabClient from "../lib/datalabClient.js";
 import type * as lib_documentExtractionPipeline from "../lib/documentExtractionPipeline.js";
@@ -92,6 +93,7 @@ declare const fullApi: ApiFromModules<{
   grounded: typeof grounded;
   http: typeof http;
   "lib/assessmentBlueprint": typeof lib_assessmentBlueprint;
+  "lib/assessmentRouting": typeof lib_assessmentRouting;
   "lib/conceptExerciseGeneration": typeof lib_conceptExerciseGeneration;
   "lib/datalabClient": typeof lib_datalabClient;
   "lib/documentExtractionPipeline": typeof lib_documentExtractionPipeline;

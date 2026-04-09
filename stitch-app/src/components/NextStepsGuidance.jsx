@@ -6,23 +6,26 @@ import { Link } from 'react-router-dom';
  *
  * Props:
  *  - topicId: string
+ *  - examTopicId: string|null
  *  - topicTitle: string
  *  - percentage: number|null        (exam score %, null if no exam taken)
  *  - completedAt: number|null       (timestamp if lesson marked complete)
  *  - bestScore: number|null         (best exam score from progress)
  *  - hasWordBank: boolean
  *  - onOpenChat: () => void         (open tutor panel)
+ *  - examLabel: string
+ *  - examDescription: string
  *  - variant: 'lesson' | 'exam'     (controls heading)
  */
 const NextStepsGuidance = ({
     topicId,
-    topicTitle,
+    examTopicId = topicId,
     percentage,
-    completedAt,
     bestScore,
     hasWordBank,
     onOpenChat,
-    variant = 'lesson',
+    examLabel = 'Start the exam',
+    examDescription = 'Test your understanding with practice questions.',
 }) => {
     const score = percentage ?? bestScore;
     const hasExamScore = score != null;
@@ -55,7 +58,7 @@ const NextStepsGuidance = ({
             icon: 'quiz',
             label: 'Retry the exam',
             description: 'Take the exam again once you feel ready.',
-            to: topicId ? `/dashboard/exam/${topicId}` : null,
+            to: examTopicId ? `/dashboard/exam/${examTopicId}` : null,
             reloadDocument: true,
             priority: 'medium',
         });
@@ -73,7 +76,7 @@ const NextStepsGuidance = ({
             icon: 'quiz',
             label: 'Retry the exam',
             description: 'Push for a higher score.',
-            to: topicId ? `/dashboard/exam/${topicId}` : null,
+            to: examTopicId ? `/dashboard/exam/${examTopicId}` : null,
             reloadDocument: true,
             priority: 'medium',
         });
@@ -117,9 +120,9 @@ const NextStepsGuidance = ({
         actions.push({
             key: 'exam',
             icon: 'quiz',
-            label: 'Start the exam',
-            description: 'Test your understanding with practice questions.',
-            to: topicId ? `/dashboard/exam/${topicId}` : null,
+            label: examLabel,
+            description: examDescription,
+            to: examTopicId ? `/dashboard/exam/${examTopicId}` : null,
             reloadDocument: true,
             priority: 'high',
         });
@@ -156,7 +159,7 @@ const NextStepsGuidance = ({
                 </h3>
             </div>
             <div className="space-y-2">
-                {actions.map((action, i) => {
+                {actions.map((action) => {
                     const inner = (
                         <>
                             <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${

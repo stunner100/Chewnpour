@@ -1,6 +1,7 @@
 import { v } from "convex/values";
 import { internalMutation, mutation, query } from "./_generated/server";
 import { internal } from "./_generated/api";
+import { isDocumentFinalExamTopic } from "./lib/assessmentRouting.js";
 
 // Get all courses for a user
 export const getUserCourses = query({
@@ -35,9 +36,10 @@ export const getUserCourses = query({
                     .query("topics")
                     .withIndex("by_courseId", (q) => q.eq("courseId", course._id))
                     .collect();
+                const lessonTopics = topics.filter((topic) => !isDocumentFinalExamTopic(topic));
 
-                const totalTopics = topics.length;
-                const completedTopics = topics.filter((topic) => attemptedTopicIds.has(topic._id)).length;
+                const totalTopics = lessonTopics.length;
+                const completedTopics = lessonTopics.filter((topic) => attemptedTopicIds.has(topic._id)).length;
                 const progress = totalTopics > 0 ? Math.round((completedTopics / totalTopics) * 100) : 0;
 
                 return {
@@ -64,10 +66,15 @@ export const getCourseWithTopics = query({
             .withIndex("by_courseId", (q) => q.eq("courseId", args.courseId))
             .order("asc")
             .collect();
+        const lessonTopics = topics.filter((topic) => !isDocumentFinalExamTopic(topic));
+        const finalAssessmentTopics = topics
+            .filter((topic) => isDocumentFinalExamTopic(topic))
+            .sort((a, b) => Number(a.orderIndex || 0) - Number(b.orderIndex || 0));
 
         return {
             ...course,
-            topics,
+            topics: lessonTopics,
+            finalAssessmentTopics,
         };
     },
 });

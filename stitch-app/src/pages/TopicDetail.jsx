@@ -51,6 +51,13 @@ const isReExplainQuotaExceededError = (error) => {
     return message.includes('REEXPLAIN_QUOTA_EXCEEDED');
 };
 
+const SECTION_SETS = {
+    quick_revision: ['big idea', 'key ideas', 'key ideas in simple words', 'key ideas in plain english', 'simple introduction', 'quick check', 'summary'],
+    exam_prep: ['key ideas', 'key ideas in simple words', 'key ideas in plain english', 'common mistakes', 'common mistakes and misconceptions', 'worked example', 'worked examples', 'mini worked example', 'quick check', 'summary'],
+    practice_only: ['quick check', 'self-check', 'self-check prompts'],
+    full: null,
+};
+
 const TopicDetail = () => {
     const { topicId: topicIdParam } = useParams();
     const routeTopicId = typeof topicIdParam === 'string' ? topicIdParam.trim() : '';
@@ -109,6 +116,10 @@ const TopicDetail = () => {
         isMissingRouteTopic,
     } = useRouteResolvedTopic(routeTopicId, topicQueryResult);
     const courseId = topic?.courseId;
+    const finalAssessmentTopic = useQuery(
+        api.topics.getFinalAssessmentTopicByCourseAndUpload,
+        courseId && topic?.sourceUploadId ? { courseId, sourceUploadId: topic.sourceUploadId } : 'skip'
+    );
     const voiceModeEnabled = Boolean(profile?.voiceModeEnabled);
     const voiceQuota = useQuery(
         api.subscriptions.getVoiceGenerationQuotaStatus,
@@ -584,7 +595,7 @@ const TopicDetail = () => {
             // Word Bank: collect term/definition from bullets
             if ((currentSection.includes('word bank') || currentSection.includes('glossary') || currentSection.includes('quick glossary'))
                 && block.type === 'bullet') {
-                const termMatch = block.text.match(/^(.+?)\s+[—–\-]\s+(.+)$/);
+                const termMatch = block.text.match(/^(.+?)\s+[—–-]\s+(.+)$/);
                 if (termMatch) {
                     wordBankTerms.push({
                         term: termMatch[1].replace(/\*\*/g, '').trim(),
@@ -623,13 +634,6 @@ const TopicDetail = () => {
     }, [normalizedContent]);
 
     // Section filtering by study mode
-    const SECTION_SETS = {
-        quick_revision: ['big idea', 'key ideas', 'key ideas in simple words', 'key ideas in plain english', 'simple introduction', 'quick check', 'summary'],
-        exam_prep: ['key ideas', 'key ideas in simple words', 'key ideas in plain english', 'common mistakes', 'common mistakes and misconceptions', 'worked example', 'worked examples', 'mini worked example', 'quick check', 'summary'],
-        practice_only: ['quick check', 'self-check', 'self-check prompts'],
-        full: null,
-    };
-
     const filteredBlocks = useMemo(() => {
         if (!studyMode || studyMode === 'full' || !SECTION_SETS[studyMode]) return parsed.blocks;
         const allowed = SECTION_SETS[studyMode];
@@ -644,7 +648,23 @@ const TopicDetail = () => {
         });
     }, [parsed.blocks, studyMode]);
 
-    const examRoute = topicId ? `/dashboard/exam/${topicId}` : '/dashboard';
+    const assessmentRoute = topic?.assessmentRoute || 'topic_quiz';
+    const isTopicQuizRoute = assessmentRoute === 'topic_quiz' || topic?.topicKind === 'document_final_exam';
+    const examTopicId = isTopicQuizRoute
+        ? topicId
+        : (finalAssessmentTopic?._id || null);
+    const examRoute = examTopicId ? `/dashboard/exam/${examTopicId}` : '/dashboard';
+    const topicAssessmentBadge = isTopicQuizRoute ? 'Quiz Ready' : 'Covered in Final Exam';
+    const examActionLabel = isTopicQuizRoute
+        ? (topicProgress?.bestScore != null ? 'Retry Exam' : 'Start Topic Quiz')
+        : (examTopicId ? 'Take Final Exam' : 'Final Exam Preparing');
+    const practiceHeading = isTopicQuizRoute ? 'Ready to practice?' : 'Ready for revision?';
+    const practiceDescription = isTopicQuizRoute
+        ? 'Test your understanding with questions from this lesson.'
+        : 'This topic is assessed in the final exam for better question quality.';
+    const postLessonPrompt = isTopicQuizRoute
+        ? 'Ready to test your knowledge?'
+        : 'This topic will be assessed in the final exam.';
 
     const handleReExplain = useCallback(async () => {
         if (!topicId) return;
@@ -724,11 +744,11 @@ const TopicDetail = () => {
                     <StudyModeSelector
                         topicTitle={topic?.title}
                         onSelect={(mode) => {
-                            try { sessionStorage.setItem(`studyMode:${routeTopicId}`, mode); } catch {}
+                            try { sessionStorage.setItem(`studyMode:${routeTopicId}`, mode); } catch (error) { void error; }
                             setStudyMode(mode);
                         }}
                         onSkip={() => {
-                            try { sessionStorage.setItem(`studyMode:${routeTopicId}`, 'full'); } catch {}
+                            try { sessionStorage.setItem(`studyMode:${routeTopicId}`, 'full'); } catch (error) { void error; }
                             setStudyMode('full');
                         }}
                     />
@@ -811,10 +831,10 @@ const TopicDetail = () => {
                                 <span className="material-symbols-outlined text-[14px]">schedule</span>
                                 {parsed.readingMinutes} min read
                             </span>
-                            {topic?.examReady && (
+                            {topicAssessmentBadge && (
                                 <span className="badge badge-success gap-1">
                                     <span className="material-symbols-outlined text-[11px]" style={{ fontVariationSettings: "'FILL' 1" }}>verified</span>
-                                    Exam ready
+                                    {topicAssessmentBadge}
                                 </span>
                             )}
                             {topicProgress?.completedAt && (
@@ -939,14 +959,14 @@ const TopicDetail = () => {
                                                 <span className="material-symbols-outlined text-accent-emerald text-[20px]" style={{ fontVariationSettings: "'FILL' 1" }}>check_circle</span>
                                             </div>
                                             <h3 className="text-body-lg font-semibold text-text-main-light dark:text-text-main-dark mb-1">Lesson complete</h3>
-                                            <p className="text-body-sm text-text-sub-light dark:text-text-sub-dark mb-5">Ready to test your knowledge?</p>
+                                            <p className="text-body-sm text-text-sub-light dark:text-text-sub-dark mb-5">{postLessonPrompt}</p>
                                         </>
                                     )}
                                 </>
                             ) : (
                                 <>
-                                    <h3 className="text-body-lg font-semibold text-text-main-light dark:text-text-main-dark mb-1">Ready to practice?</h3>
-                                    <p className="text-body-sm text-text-sub-light dark:text-text-sub-dark mb-5">Test your understanding with questions from this lesson.</p>
+                                    <h3 className="text-body-lg font-semibold text-text-main-light dark:text-text-main-dark mb-1">{practiceHeading}</h3>
+                                    <p className="text-body-sm text-text-sub-light dark:text-text-sub-dark mb-5">{practiceDescription}</p>
                                 </>
                             )}
 
@@ -969,14 +989,25 @@ const TopicDetail = () => {
                                     <span className="material-symbols-outlined text-[18px] text-accent-emerald">school</span>
                                     Study Concepts
                                 </Link>
-                                <Link
-                                    to={examRoute}
-                                    reloadDocument
-                                    className="btn-primary px-5 py-2.5 text-body-sm gap-2"
-                                >
-                                    <span className="material-symbols-outlined text-[18px]">quiz</span>
-                                    {topicProgress?.bestScore != null ? 'Retry Exam' : 'Start Exam'}
-                                </Link>
+                                {examTopicId ? (
+                                    <Link
+                                        to={examRoute}
+                                        reloadDocument
+                                        className="btn-primary px-5 py-2.5 text-body-sm gap-2"
+                                    >
+                                        <span className="material-symbols-outlined text-[18px]">quiz</span>
+                                        {examActionLabel}
+                                    </Link>
+                                ) : (
+                                    <button
+                                        type="button"
+                                        disabled
+                                        className="btn-primary px-5 py-2.5 text-body-sm gap-2 opacity-60 cursor-not-allowed"
+                                    >
+                                        <span className="material-symbols-outlined text-[18px]">hourglass_top</span>
+                                        {examActionLabel}
+                                    </button>
+                                )}
                                 <button
                                     onClick={openChat}
                                     className="btn-ghost px-5 py-2.5 text-body-sm gap-2"
@@ -990,12 +1021,17 @@ const TopicDetail = () => {
                             <div className="mt-6 pt-6 border-t border-border-light dark:border-border-dark text-left">
                                 <NextStepsGuidance
                                     topicId={topicId}
+                                    examTopicId={examTopicId}
                                     topicTitle={resolvedTopicTitle}
                                     percentage={null}
                                     completedAt={topicProgress?.completedAt}
                                     bestScore={topicProgress?.bestScore}
                                     hasWordBank={parsed.wordBankTerms?.length > 0}
                                     onOpenChat={openChat}
+                                    examLabel={isTopicQuizRoute ? 'Start the topic quiz' : 'Take the final exam'}
+                                    examDescription={isTopicQuizRoute
+                                        ? 'Test your understanding with practice questions.'
+                                        : 'This topic is assessed as part of the final exam.'}
                                     variant="lesson"
                                 />
                             </div>

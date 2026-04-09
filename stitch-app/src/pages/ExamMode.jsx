@@ -457,6 +457,12 @@ const ExamMode = () => {
         isLoadingRouteTopic,
         isMissingRouteTopic,
     } = useRouteResolvedTopic(routeTopicId, topicQueryResult);
+    const routedFinalAssessmentTopic = useQuery(
+        api.topics.getFinalAssessmentTopicByCourseAndUpload,
+        topic?.courseId && topic?.sourceUploadId
+            ? { courseId: topic.courseId, sourceUploadId: topic.sourceUploadId }
+            : 'skip'
+    );
     const preparation = useQuery(
         api.examPreparations.getExamPreparation,
         preparationId ? { preparationId } : 'skip'
@@ -553,6 +559,19 @@ const ExamMode = () => {
             },
         });
     }, [hasMismatchedCachedTopic, isMissingRouteTopic, location.pathname, rawTopicId, routeTopicId]);
+
+    const shouldRedirectToFinalExam = (
+        topic?.topicKind !== 'document_final_exam'
+        && topic?.assessmentRoute
+        && topic.assessmentRoute !== 'topic_quiz'
+    );
+
+    useEffect(() => {
+        if (!shouldRedirectToFinalExam) return;
+        if (!routedFinalAssessmentTopic?._id) return;
+        if (routedFinalAssessmentTopic._id === topicId) return;
+        navigate(`/dashboard/exam/${routedFinalAssessmentTopic._id}`, { replace: true });
+    }, [navigate, routedFinalAssessmentTopic?._id, shouldRedirectToFinalExam, topicId]);
 
     const withTimeout = useCallback((promise, timeoutMs, timeoutMessage) => {
         let timeoutHandle;
@@ -1102,6 +1121,45 @@ const ExamMode = () => {
                     <button type="button" onClick={reloadDashboard} className="btn-primary text-body-sm px-5 py-2.5 inline-flex items-center gap-2">
                         Reload Dashboard
                     </button>
+                </div>
+            </div>
+        );
+    }
+
+    if (shouldRedirectToFinalExam && routedFinalAssessmentTopic === undefined) {
+        return (
+            <div className="bg-background-light dark:bg-background-dark min-h-screen flex items-center justify-center">
+                <div className="text-center">
+                    <div className="animate-spin rounded-full h-10 w-10 border-2 border-border-light dark:border-border-dark border-t-primary mx-auto mb-4"></div>
+                    <p className="text-body-sm text-text-sub-light dark:text-text-sub-dark">Preparing your final exam...</p>
+                </div>
+            </div>
+        );
+    }
+
+    if (shouldRedirectToFinalExam && routedFinalAssessmentTopic?._id && routedFinalAssessmentTopic._id !== topicId) {
+        return (
+            <div className="bg-background-light dark:bg-background-dark min-h-screen flex items-center justify-center">
+                <div className="text-center">
+                    <div className="animate-spin rounded-full h-10 w-10 border-2 border-border-light dark:border-border-dark border-t-primary mx-auto mb-4"></div>
+                    <p className="text-body-sm text-text-sub-light dark:text-text-sub-dark">Redirecting to your final exam...</p>
+                </div>
+            </div>
+        );
+    }
+
+    if (shouldRedirectToFinalExam && !routedFinalAssessmentTopic?._id) {
+        return (
+            <div className="bg-background-light dark:bg-background-dark min-h-screen flex items-center justify-center">
+                <div className="text-center max-w-md px-6">
+                    <div className="w-14 h-14 rounded-2xl bg-surface-light dark:bg-surface-dark border border-border-light dark:border-border-dark flex items-center justify-center mx-auto mb-4">
+                        <span className="material-symbols-outlined text-2xl text-text-faint-light dark:text-text-faint-dark">hourglass_top</span>
+                    </div>
+                    <h2 className="text-body-lg font-semibold text-text-main-light dark:text-text-main-dark mb-2">This topic is covered in the final exam</h2>
+                    <p className="text-body-sm text-text-sub-light dark:text-text-sub-dark mb-6">The final exam is still being prepared. Return to the course and try again in a moment.</p>
+                    <Link to={`/dashboard/topic/${topicId}`} className="btn-primary text-body-sm px-5 py-2.5 inline-flex items-center gap-2">
+                        Back to Topic
+                    </Link>
                 </div>
             </div>
         );
