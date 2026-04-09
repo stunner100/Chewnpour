@@ -32,6 +32,9 @@ const ProtectedRoute = ({ children }) => {
         return (
             <LoadingTimeoutGuard key={location.pathname}>
                 {(loadingTimedOut) => {
+                    if (loadingTimedOut && user) {
+                        return children;
+                    }
                     if (loadingTimedOut && isOnboardingRoute && !user) {
                         return <Navigate to="/login" state={{ from: location }} replace />;
                     }

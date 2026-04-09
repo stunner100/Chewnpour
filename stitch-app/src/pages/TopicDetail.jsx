@@ -15,7 +15,6 @@ import HighlightExplainPopover from '../components/HighlightExplainPopover';
 import LessonContentRenderer from '../components/LessonContentRenderer';
 import InteractiveQuickCheck from '../components/InteractiveQuickCheck';
 import InteractiveWordBank from '../components/InteractiveWordBank';
-import StudyModeSelector from '../components/StudyModeSelector';
 import SourcePanel from '../components/SourcePanel';
 import NextStepsGuidance from '../components/NextStepsGuidance';
 import { useTextSelection } from '../hooks/useTextSelection';
@@ -81,10 +80,7 @@ const TopicDetail = () => {
     const [notesAppendText, setNotesAppendText] = useState('');
     const [chatOpen, setChatOpen] = useState(false);
     const [sourceOpen, setSourceOpen] = useState(false);
-    const [studyMode, setStudyMode] = useState(() => {
-        if (!routeTopicId) return null;
-        try { return sessionStorage.getItem(`studyMode:${routeTopicId}`); } catch { return null; }
-    });
+    const [studyMode, setStudyMode] = useState('full');
 
     const [chatInitialPrompt, setChatInitialPrompt] = useState('');
     const openNotes = useCallback(() => { setChatOpen(false); setNotesOpen(true); }, []);
@@ -212,6 +208,19 @@ const TopicDetail = () => {
             console.warn('Failed to cache topic content', error);
         }
     }, [contentCacheKey, topic?.content]);
+
+    useEffect(() => {
+        if (!routeTopicId) {
+            setStudyMode('full');
+            return;
+        }
+        try {
+            const storedMode = sessionStorage.getItem(`studyMode:${routeTopicId}`);
+            setStudyMode(storedMode || 'full');
+        } catch {
+            setStudyMode('full');
+        }
+    }, [routeTopicId]);
 
 
     // Track topic study progress on mount
@@ -720,38 +729,6 @@ const TopicDetail = () => {
                     <h2 className="text-body-lg font-semibold text-text-main-light dark:text-text-main-dark mb-2">This topic link is stale</h2>
                     <p className="text-body-sm text-text-sub-light dark:text-text-sub-dark mb-6">Reload the dashboard, reopen the course, and start from the topic card again.</p>
                     <button type="button" onClick={reloadDashboard} className="btn-primary px-5 py-2.5 text-body-sm">Reload Dashboard</button>
-                </div>
-            </div>
-        );
-    }
-
-    // Study mode selector (shown before the lesson when no mode is picked)
-    if (normalizedContent && !studyMode) {
-        return (
-            <div className="bg-background-light dark:bg-background-dark font-body antialiased text-text-main-light dark:text-text-main-dark min-h-screen flex flex-col">
-                <header className="fixed top-0 inset-x-0 z-40 flex items-center justify-between px-4 h-14 bg-background-light/80 dark:bg-background-dark/80 backdrop-blur-xl border-b border-border-light dark:border-border-dark">
-                    <div className="flex items-center gap-2 min-w-0">
-                        <Link
-                            to={courseId ? `/dashboard/course/${courseId}` : '/dashboard'}
-                            aria-label="Go back"
-                            className="btn-icon w-8 h-8 shrink-0"
-                        >
-                            <span className="material-symbols-outlined text-[18px]">arrow_back</span>
-                        </Link>
-                    </div>
-                </header>
-                <div className="pt-14">
-                    <StudyModeSelector
-                        topicTitle={topic?.title}
-                        onSelect={(mode) => {
-                            try { sessionStorage.setItem(`studyMode:${routeTopicId}`, mode); } catch (error) { void error; }
-                            setStudyMode(mode);
-                        }}
-                        onSkip={() => {
-                            try { sessionStorage.setItem(`studyMode:${routeTopicId}`, 'full'); } catch (error) { void error; }
-                            setStudyMode('full');
-                        }}
-                    />
                 </div>
             </div>
         );
