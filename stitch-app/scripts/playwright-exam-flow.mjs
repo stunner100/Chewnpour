@@ -26,6 +26,7 @@ const deviceProfile = process.env.DEVICE_PROFILE || '';
 const networkProfile = (process.env.NETWORK_PROFILE || '').toLowerCase();
 const transientOfflineBlipMs = Math.max(0, Number(process.env.TRANSIENT_OFFLINE_BLIP_MS || 0));
 const transientOfflineBlipDelayMs = Math.max(0, Number(process.env.TRANSIENT_OFFLINE_BLIP_DELAY_MS || 0));
+const topicExamCtaPattern = /take final exam|start final exam|take.*quiz|start topic quiz|start exam|retry exam/i;
 
 const startedAt = Date.now();
 const runEntropy = `${process.pid}-${Math.random().toString(36).slice(2, 8)}`;
@@ -449,12 +450,14 @@ try {
     const topicUrl = absolutizeUrl(topicWaitResult.topicHref);
     await page.goto(topicUrl, { waitUntil: 'domcontentloaded', timeout: 120000 });
   }
-  await page.getByRole('button', { name: /take.*quiz|start exam/i }).first().waitFor({ timeout: 120000 });
+  const topicExamCta = page.locator('a, button').filter({ hasText: topicExamCtaPattern }).first();
+  await topicExamCta.waitFor({ timeout: 120000 });
   await screenshot('09-topic-detail');
-  recordStep('open-topic', 'passed', { url: page.url() });
+  const topicExamCtaText = ((await topicExamCta.textContent().catch(() => '')) || '').replace(/\s+/g, ' ').trim();
+  recordStep('open-topic', 'passed', { url: page.url(), topicExamCtaText });
 
   recordStep('start-exam', 'started');
-  await page.getByRole('button', { name: /take.*quiz|start exam/i }).first().click({ timeout: 45000 });
+  await topicExamCta.click({ timeout: 45000 });
   await waitForPath(page, /\/dashboard\/exam\//, 120000);
   await screenshot('10-exam-opened');
 
