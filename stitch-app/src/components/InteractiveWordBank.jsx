@@ -1,6 +1,6 @@
-import React, { useState, useCallback, useMemo } from 'react';
+import React, { useState, useCallback } from 'react';
 
-const InteractiveWordBank = ({ terms, topicId, starredTerms, onTermsStarred }) => {
+const InteractiveWordBank = ({ terms, starredTerms, onTermsStarred }) => {
     const [starred, setStarred] = useState(() => new Set(starredTerms || []));
     const [quizMode, setQuizMode] = useState(false);
     const [quizIndex, setQuizIndex] = useState(0);

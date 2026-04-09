@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 
 const SourcePanel = ({ open, onClose, passages }) => {
     const [isClosing, setIsClosing] = useState(false);
@@ -11,11 +11,7 @@ const SourcePanel = ({ open, onClose, passages }) => {
         }, 200);
     };
 
-    useEffect(() => {
-        if (!open) setIsClosing(false);
-    }, [open]);
-
-    if (!open) return null;
+    if (!open && !isClosing) return null;
 
     return (
         <>

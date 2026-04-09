@@ -16,13 +16,10 @@ import { Link } from 'react-router-dom';
  */
 const NextStepsGuidance = ({
     topicId,
-    topicTitle,
     percentage,
-    completedAt,
     bestScore,
     hasWordBank,
     onOpenChat,
-    variant = 'lesson',
 }) => {
     const score = percentage ?? bestScore;
     const hasExamScore = score != null;
@@ -156,7 +153,7 @@ const NextStepsGuidance = ({
                 </h3>
             </div>
             <div className="space-y-2">
-                {actions.map((action, i) => {
+                {actions.map((action) => {
                     const inner = (
                         <>
                             <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${
