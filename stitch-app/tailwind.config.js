@@ -11,6 +11,26 @@ export default {
     theme: {
         extend: {
             colors: {
+                /* shadcn-style CSS variable colors for hero components */
+                background: 'rgb(var(--background) / <alpha-value>)',
+                foreground: 'rgb(var(--foreground) / <alpha-value>)',
+                muted: {
+                    DEFAULT: 'rgb(var(--border) / <alpha-value>)',
+                    foreground: 'rgb(var(--muted-foreground) / <alpha-value>)',
+                },
+                accent: {
+                    DEFAULT: 'rgb(var(--border) / <alpha-value>)',
+                    foreground: 'rgb(var(--accent-foreground) / <alpha-value>)',
+                    teal: '#1de9b6',
+                    emerald: '#00c853',
+                    amber: '#ffab00',
+                    coral: '#ff6d00',
+                    purple: '#7c4dff',
+                    pink: '#f50057',
+                },
+                border: 'rgb(var(--border) / <alpha-value>)',
+                input: 'rgb(var(--input) / <alpha-value>)',
+                ring: 'rgb(var(--ring) / <alpha-value>)',
                 primary: {
                     DEFAULT: "#1a73e8",
                     hover: "#1557b0",
@@ -33,18 +53,9 @@ export default {
                     light: "#f29900",
                     dark: "#c25e00",
                 },
-                accent: {
-                    teal: "#1de9b6",
-                    emerald: "#00c853",
-                    amber: "#ffab00",
-                    coral: "#ff6d00",
-                    purple: "#7c4dff",
-                    pink: "#f50057",
-                },
-                background: {
-                    light: "#f8f9fa",
-                    dark: "#0e1117",
-                },
+                /* Legacy named variants — keep for existing pages */
+                "background-light": "#f8f9fa",
+                "background-dark": "#0e1117",
                 surface: {
                     light: "#ffffff",
                     dark: "#161b22",
@@ -52,12 +63,11 @@ export default {
                     hover: "#f1f3f4",
                     "hover-dark": "#21262d",
                 },
-                border: {
-                    light: "#dadce0",
-                    dark: "#30363d",
-                    subtle: "#e8eaed",
-                    "subtle-dark": "#21262d",
-                },
+                /* Legacy named variants — keep for existing pages */
+                "border-light": "#dadce0",
+                "border-dark": "#30363d",
+                "border-subtle": "#e8eaed",
+                "border-subtle-dark": "#21262d",
                 text: {
                     main: {
                         light: "#202124",
@@ -131,8 +141,13 @@ export default {
                 "shimmer": "shimmer 2s linear infinite",
                 "pulse-gentle": "pulseGentle 2.5s ease-in-out infinite",
                 "spin-slow": "spin 3s linear infinite",
+                "marquee": "marquee 30s linear infinite",
             },
             keyframes: {
+                marquee: {
+                    "0%": { transform: "translateX(0)" },
+                    "100%": { transform: "translateX(-50%)" },
+                },
                 fadeIn: {
                     "0%": { opacity: "0" },
                     "100%": { opacity: "1" },

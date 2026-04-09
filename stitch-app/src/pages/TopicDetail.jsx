@@ -53,6 +53,22 @@ const isReExplainQuotaExceededError = (error) => {
     return message.includes('REEXPLAIN_QUOTA_EXCEEDED');
 };
 
+const SECTION_SETS = {
+    quick_revision: ['big idea', 'key ideas', 'key ideas in simple words', 'key ideas in plain english', 'simple introduction', 'quick check', 'summary'],
+    exam_prep: ['key ideas', 'key ideas in simple words', 'key ideas in plain english', 'common mistakes', 'common mistakes and misconceptions', 'worked example', 'worked examples', 'mini worked example', 'quick check', 'summary'],
+    practice_only: ['quick check', 'self-check', 'self-check prompts'],
+    full: null,
+};
+
+const persistStudyModeSelection = (topicId, mode) => {
+    if (!topicId) return;
+    try {
+        sessionStorage.setItem(`studyMode:${topicId}`, mode);
+    } catch {
+        // Ignore storage failures and continue with in-memory mode selection.
+    }
+};
+
 const TopicDetail = () => {
     const { topicId: topicIdParam } = useParams();
     const routeTopicId = typeof topicIdParam === 'string' ? topicIdParam.trim() : '';
@@ -636,7 +652,7 @@ const TopicDetail = () => {
             // Word Bank: collect term/definition from bullets
             if ((currentSection.includes('word bank') || currentSection.includes('glossary') || currentSection.includes('quick glossary'))
                 && block.type === 'bullet') {
-                const termMatch = block.text.match(/^(.+?)\s+[—–\-]\s+(.+)$/);
+                const termMatch = block.text.match(/^(.+?)\s+[—–-]\s+(.+)$/);
                 if (termMatch) {
                     wordBankTerms.push({
                         term: termMatch[1].replace(/\*\*/g, '').trim(),
@@ -692,14 +708,6 @@ const TopicDetail = () => {
         }
     };
 
-    // Section filtering by study mode
-    const SECTION_SETS = {
-        quick_revision: ['big idea', 'key ideas', 'key ideas in simple words', 'key ideas in plain english', 'simple introduction', 'quick check', 'summary'],
-        exam_prep: ['key ideas', 'key ideas in simple words', 'key ideas in plain english', 'common mistakes', 'common mistakes and misconceptions', 'worked example', 'worked examples', 'mini worked example', 'quick check', 'summary'],
-        practice_only: ['quick check', 'self-check', 'self-check prompts'],
-        full: null,
-    };
-
     const filteredBlocks = useMemo(() => {
         if (!studyMode || studyMode === 'full' || !SECTION_SETS[studyMode]) return parsed.blocks;
         const allowed = SECTION_SETS[studyMode];
@@ -713,8 +721,6 @@ const TopicDetail = () => {
             return include;
         });
     }, [parsed.blocks, studyMode]);
-
-    const examRoute = topicId ? `/dashboard/exam/${topicId}` : '/dashboard';
 
     const handleReExplain = useCallback(async () => {
         if (!topicId) return;
@@ -791,16 +797,16 @@ const TopicDetail = () => {
                     </div>
                 </header>
                 <div className="pt-14">
-                    <StudyModeSelector
-                        topicTitle={topic?.title}
-                        onSelect={(mode) => {
-                            try { sessionStorage.setItem(`studyMode:${routeTopicId}`, mode); } catch {}
-                            setStudyMode(mode);
-                        }}
-                        onSkip={() => {
-                            try { sessionStorage.setItem(`studyMode:${routeTopicId}`, 'full'); } catch {}
-                            setStudyMode('full');
-                        }}
+                        <StudyModeSelector
+                            topicTitle={topic?.title}
+                            onSelect={(mode) => {
+                                persistStudyModeSelection(routeTopicId, mode);
+                                setStudyMode(mode);
+                            }}
+                            onSkip={() => {
+                                persistStudyModeSelection(routeTopicId, 'full');
+                                setStudyMode('full');
+                            }}
                         onStartExam={handleStartExam}
                     />
                 </div>

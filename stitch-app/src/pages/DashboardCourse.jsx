@@ -199,9 +199,6 @@ const SourcesPanel = ({ courseId, userId }) => {
 
 const EMPTY_LIST = [];
 
-const difficultyBadgeClass = (label) =>
-    ({ Easy: 'badge-success', Medium: 'badge-warning', Hard: 'badge-danger' }[label] ?? 'badge');
-
 const estimateReadingMinutes = (content) => {
     if (!content) return null;
     const words = content.split(/\s+/).length;

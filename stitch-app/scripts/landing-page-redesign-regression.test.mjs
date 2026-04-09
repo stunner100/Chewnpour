@@ -1,16 +1,16 @@
-/**
- * Regression test: Landing page redesign
- *
- * Verifies the landing page redesign maintains all required functionality
- * while implementing the new warm, light-mode design.
- */
-
-import { readFileSync } from 'fs';
+import { existsSync, readFileSync } from 'fs';
 import { resolve, dirname } from 'path';
 import { fileURLToPath } from 'url';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
-const source = readFileSync(resolve(__dirname, '../src/pages/LandingPage.jsx'), 'utf-8');
+const projectRoot = resolve(__dirname, '..');
+
+const landingPage = readFileSync(resolve(projectRoot, 'src/pages/LandingPage.jsx'), 'utf-8');
+const heroSection = readFileSync(resolve(projectRoot, 'src/components/blocks/hero-section.jsx'), 'utf-8');
+const communitySection = readFileSync(resolve(projectRoot, 'src/components/blocks/community-section.jsx'), 'utf-8');
+const testimonialsSection = readFileSync(resolve(projectRoot, 'src/components/blocks/testimonials-section.jsx'), 'utf-8');
+const pricingSection = readFileSync(resolve(projectRoot, 'src/components/blocks/pricing-section.jsx'), 'utf-8');
+const footer = readFileSync(resolve(projectRoot, 'src/components/blocks/footer.jsx'), 'utf-8');
 
 let passed = 0;
 let failed = 0;
@@ -27,87 +27,47 @@ const assert = (condition, label) => {
 
 console.log('--- Landing page redesign regression ---\n');
 
-// Core functionality preserved
-assert(source.includes('useAuth'), 'Uses useAuth hook');
-assert(source.includes("navigate('/dashboard'"), 'Redirects logged-in users to dashboard');
-assert(source.includes('captureLandingEvent'), 'PostHog event tracking preserved');
-assert(source.includes('capturePostHogEvent'), 'PostHog import present');
-assert(source.includes("landing_cta_clicked"), 'CTA click events tracked');
+assert(landingPage.includes('useAuth'), 'Uses useAuth hook');
+assert(landingPage.includes("navigate('/dashboard'"), 'Redirects logged-in users to dashboard');
+assert(landingPage.includes('useQuery(api.subscriptions.getPublicTopUpPricing'), 'Reads live public pricing');
+assert(landingPage.includes('capturePostHogEvent'), 'Imports PostHog helper');
+assert(landingPage.includes("landing_cta_clicked"), 'Tracks CTA analytics event');
+assert(landingPage.includes('<HeroSection onCtaClick={captureLandingEvent}'), 'Hero section receives CTA tracking');
+assert(landingPage.includes('<CommunitySection onCtaClick={captureLandingEvent}'), 'Community section receives CTA tracking');
+assert(landingPage.includes('<Footer onCtaClick={captureLandingEvent}'), 'Footer receives CTA tracking');
 
-// Routing preserved
-assert(source.includes('to="/login"'), 'Login route present');
-assert(source.includes('to="/signup"'), 'Signup route present');
+assert(heroSection.includes('to="/login"'), 'Hero keeps login route');
+assert(heroSection.includes('to="/signup"'), 'Hero keeps signup route');
+assert(heroSection.includes('onCtaClick'), 'Hero emits CTA tracking callbacks');
+assert(heroSection.includes('aria-label'), 'Mobile menu keeps aria-label');
+assert(heroSection.includes('aria-expanded'), 'Mobile menu keeps aria-expanded');
+assert(heroSection.includes('Upload your PDF'), 'Hero value prop stays concrete');
 
-// Header functionality
-assert(source.includes('setScrolled'), 'Scroll state tracking');
-assert(source.includes('mobileMenuOpen'), 'Mobile menu state');
-assert(source.includes('aria-label'), 'Accessibility: aria-labels on mobile menu');
-assert(source.includes('aria-expanded'), 'Accessibility: aria-expanded on menu button');
+assert(pricingSection.includes('formatPlanPrice'), 'Pricing uses localized formatter');
+assert(pricingSection.includes('starterPlan.amountMajor'), 'Starter pricing is dynamic');
+assert(pricingSection.includes('maxPlan.amountMajor'), 'Max pricing is dynamic');
+assert(pricingSection.includes('semesterPlan.amountMajor'), 'Semester pricing is dynamic');
+assert(pricingSection.includes('FIRST PURCHASE'), 'Starter badge is present');
+assert(pricingSection.includes('POPULAR'), 'Popular badge is present');
 
-// Light mode design
-assert(source.includes('bg-neutral-50'), 'Light background applied');
-assert(!source.includes("bg-[#0a0a0b]"), 'Old dark background removed');
-assert(source.includes('dark:bg-neutral-950'), 'Dark mode support preserved');
+assert(!communitySection.includes('/community/'), 'Community section does not reference missing /community assets');
+assert(!testimonialsSection.includes('/community/'), 'Testimonials do not reference missing /community assets');
 
-// Typography
-assert(source.includes('font-display'), 'Uses Plus Jakarta Sans font-display class');
-assert(source.includes('font-extrabold'), 'Bold typography hierarchy');
+assert(existsSync(resolve(projectRoot, 'public/chewnpourlogo.png')), 'Brand logo asset exists');
+assert(existsSync(resolve(projectRoot, 'public/screenshots/app-dashboard.png')), 'Dashboard screenshot asset exists');
+assert(existsSync(resolve(projectRoot, 'public/screenshots/app-assignment.png')), 'Assignment screenshot asset exists');
+assert(existsSync(resolve(projectRoot, 'public/screenshots/app-community.png')), 'Community screenshot asset exists');
+assert(existsSync(resolve(projectRoot, 'public/chewnpour/img1.jpg')), 'Community asset img1 exists');
+assert(existsSync(resolve(projectRoot, 'public/chewnpour/img2.jpg')), 'Community asset img2 exists');
+assert(existsSync(resolve(projectRoot, 'public/chewnpour/img3.jpg')), 'Community asset img3 exists');
+assert(existsSync(resolve(projectRoot, 'public/chewnpour/img4.jpg')), 'Community asset img4 exists');
 
-// Hero copy is concrete, not vague
-assert(source.includes('Upload your PDF'), 'Concrete value prop in hero');
-assert(!source.includes('Next-Gen Learning Assistant'), 'Removed generic AI tagline');
-assert(!source.includes('Master any subject'), 'Removed vague headline');
-
-// Fake testimonials removed
-assert(!source.includes('Alex Rivera'), 'Fake testimonial removed: Alex Rivera');
-assert(!source.includes('Sarah Chen'), 'Fake testimonial removed: Sarah Chen');
-assert(!source.includes('Jordan Smith'), 'Fake testimonial removed: Jordan Smith');
-
-// Stats replace testimonials
-assert(source.includes('Documents processed'), 'Stats: documents processed');
-assert(source.includes('Lessons generated'), 'Stats: lessons generated');
-assert(source.includes('Quiz questions created'), 'Stats: quiz questions created');
-
-// Product mockup tells a story
-assert(source.includes('Upload'), 'Mockup step 1: Upload');
-assert(source.includes('Learn'), 'Mockup step 2: Learn');
-assert(source.includes('Ask'), 'Mockup step 3: Ask');
-
-// Features reduced and focused
-assert(source.includes('Instant Lessons'), 'Feature: Instant Lessons');
-assert(source.includes('Smart Quizzes'), 'Feature: Smart Quizzes');
-assert(source.includes('AI Tutor'), 'Feature: AI Tutor');
-
-// Pricing preserved
-assert(source.includes('getPublicTopUpPricing'), 'Public pricing query wired');
-assert(source.includes('formatPlanPrice'), 'Localized currency formatter wired');
-assert(source.includes('1 document upload'), 'Free tier upload limit copy');
-assert(source.includes('starterPlan.amountMajor'), 'Starter top-up pricing is dynamic');
-assert(source.includes('maxPlan.amountMajor'), 'Max top-up pricing is dynamic');
-assert(source.includes('Popular'), 'Popular badge on paid plan');
-
-// Contact info in footer
-assert(source.includes('t.me'), 'Telegram link preserved');
-assert(source.includes('info@chewnpour.com'), 'Email contact preserved');
-
-// Sections reduced (no separate CTA, demo, testimonials, contact sections)
-assert(!source.includes('id="demo"'), 'Removed separate demo section');
-assert(!source.includes('id="testimonials"'), 'Removed testimonials section');
-assert(!source.includes('id="contact"'), 'Removed separate contact section');
-assert(!source.includes('Ready to ace your exams'), 'Removed redundant CTA section');
-
-// Design system integration
-assert(source.includes('shadow-card'), 'Uses design system shadow-card');
-assert(source.includes('shadow-button'), 'Uses design system shadow-button');
-assert(source.includes('bg-primary'), 'Uses design system primary color');
-
-// No gradient blob backgrounds
-assert(!source.includes('blur-[120px]'), 'Removed heavy blur blobs');
-assert(!source.includes('blur-[150px]'), 'Removed heavy blur blobs');
-assert(source.includes('bg-mesh-light'), 'Uses subtle mesh background');
-
-// Animations
-assert(source.includes('animate-fade-in-up'), 'Entrance animations present');
+assert(footer.includes('mailto:info@chewnpour.com'), 'Footer keeps email contact');
+assert(footer.includes('https://t.me/+jIHi6XFYdl9kNDA0'), 'Footer keeps Telegram link');
+assert(!footer.includes('href="#"'), 'Footer has no placeholder links');
+assert(!footer.includes('/#integration'), 'Footer removed dead integration link');
+assert(!footer.includes('/#faqs'), 'Footer removed dead FAQ link');
+assert(!footer.includes('/#blog'), 'Footer removed dead blog link');
 
 console.log(`\n--- Results: ${passed} passed, ${failed} failed ---`);
 process.exit(failed > 0 ? 1 : 0);

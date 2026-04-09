@@ -232,12 +232,20 @@ const SEVERE_QUESTION_QUALITY_FLAGS = new Set([
 ]);
 
 const MALFORMED_FRACTION_PLACEHOLDER_PATTERN = /(?:^|[\s(=+\-*/])(?:bc|bd|be)(?=$|[\s).,;:=+\-*/])/i;
-const CONTROL_CHAR_PATTERN = /[\u0000-\u0008\u000b\u000c\u000e-\u001f]/;
+const hasControlCharacter = (value) => {
+    for (let index = 0; index < value.length; index += 1) {
+        const code = value.charCodeAt(index);
+        if ((code >= 0x00 && code <= 0x08) || code === 0x0b || code === 0x0c || (code >= 0x0e && code <= 0x1f)) {
+            return true;
+        }
+    }
+    return false;
+};
 
 const containsMalformedQuestionText = (value) => {
     const normalized = String(value || "");
     if (!normalized.trim()) return false;
-    if (CONTROL_CHAR_PATTERN.test(normalized)) return true;
+    if (hasControlCharacter(normalized)) return true;
     if (MALFORMED_FRACTION_PLACEHOLDER_PATTERN.test(normalized)) return true;
     return false;
 };
