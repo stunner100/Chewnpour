@@ -42,7 +42,7 @@ export function HeroSection() {
                                                 transition: {
                                                     staggerChildren: 0.05,
                                                     delayChildren: 0.75,
-                                                },
+                                                }
                                             },
                                         },
                                         ...transitionVariants,
