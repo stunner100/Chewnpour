@@ -7331,6 +7331,96 @@ const getCourseTopicsSorted = async (ctx: any, courseId: any) => {
         : [];
 };
 
+const ROUTING_SYNC_ERROR_PREFIX = "[routing_sync]";
+const ROUTING_SYNC_RETRY_DELAYS_MS = [0, 15_000, 60_000];
+
+const getErrorMessage = (error: unknown) =>
+    error instanceof Error ? error.message : String(error);
+
+const buildRoutingSyncErrorMessage = (error: unknown) =>
+    `${ROUTING_SYNC_ERROR_PREFIX} ${getErrorMessage(error)}`.slice(0, 600);
+
+const scheduleRoutingSyncRetry = async (ctx: any, args: {
+    courseId: Id<"courses">;
+    uploadId: Id<"uploads">;
+    attemptNumber?: number;
+}) => {
+    const attemptNumber = Math.max(1, Number(args.attemptNumber || 1));
+    const delayMs = ROUTING_SYNC_RETRY_DELAYS_MS[Math.min(attemptNumber - 1, ROUTING_SYNC_RETRY_DELAYS_MS.length - 1)];
+    await ctx.scheduler.runAfter(delayMs, internal.ai.retryAssessmentRoutingForUpload, {
+        courseId: args.courseId,
+        uploadId: args.uploadId,
+        attemptNumber,
+    });
+};
+
+const reconcileUploadStatusAfterRoutingSync = async (ctx: any, args: {
+    courseId: Id<"courses">;
+    uploadId: Id<"uploads">;
+}) => {
+    const upload = await ctx.runQuery(api.uploads.getUpload, { uploadId: args.uploadId });
+    if (!upload) return null;
+
+    const coursePayload = await ctx.runQuery(api.courses.getCourseWithTopics, { courseId: args.courseId });
+    const lessonTopics = Array.isArray(coursePayload?.topics)
+        ? coursePayload.topics.filter((topic: any) => topic?.sourceUploadId === args.uploadId)
+        : [];
+
+    const generatedTopicCount = lessonTopics.length;
+    if (generatedTopicCount <= 0) {
+        await ctx.runMutation(api.uploads.updateUploadStatus, {
+            uploadId: args.uploadId,
+            errorMessage: "",
+        });
+        return { generatedTopicCount: 0, plannedTopicCount: Number(upload.plannedTopicCount || 0) };
+    }
+
+    const plannedTopicCount = Math.max(
+        Number(upload.plannedTopicCount || 0),
+        generatedTopicCount,
+    );
+
+    const normalizedGeneratedCount = normalizeGeneratedTopicCount({
+        generatedTopicCount,
+        totalTopics: Math.max(plannedTopicCount, 1),
+    });
+
+    const uploadPatch = normalizedGeneratedCount >= plannedTopicCount
+        ? {
+            status: "ready",
+            processingStep: "ready",
+            processingProgress: 100,
+        }
+        : normalizedGeneratedCount === 1
+            ? {
+                status: "processing",
+                processingStep: "first_topic_ready",
+                processingProgress: 60,
+            }
+            : {
+                status: "processing",
+                processingStep: "generating_remaining_topics",
+                processingProgress: calculateRemainingTopicProgress({
+                    generatedTopicCount: normalizedGeneratedCount,
+                    totalTopics: Math.max(plannedTopicCount, 1),
+                }),
+            };
+
+    await ctx.runMutation(api.uploads.updateUploadStatus, {
+        uploadId: args.uploadId,
+        ...uploadPatch,
+        plannedTopicCount,
+        generatedTopicCount: normalizedGeneratedCount,
+        plannedTopicTitles: Array.isArray(upload.plannedTopicTitles) ? upload.plannedTopicTitles : undefined,
+        errorMessage: "",
+    });
+
+    return {
+        generatedTopicCount: normalizedGeneratedCount,
+        plannedTopicCount,
+    };
+};
+
 const countGeneratedTopicsForCourse = async (ctx: any, courseId: any, totalTopics: number) => {
     const topics = await getCourseTopicsSorted(ctx, courseId);
     const uniqueOrderIndexes = new Set(
@@ -7625,6 +7715,30 @@ ${index === totalTopics - 1 ? "This is the final topic — summarize and connect
         isLocked: index !== 0,
     });
 
+    try {
+        await syncAssessmentRoutingForUpload(ctx, {
+            courseId,
+            uploadId,
+        });
+    } catch (error) {
+        const errorMessage = buildRoutingSyncErrorMessage(error);
+        console.error("[CourseGeneration] assessment_routing_sync_failed_nonfatal", {
+            courseId,
+            uploadId,
+            topicIndex: index,
+            topicId,
+            message: getErrorMessage(error),
+        });
+        await ctx.runMutation(api.uploads.updateUploadStatus, {
+            uploadId,
+            errorMessage,
+        });
+        await scheduleRoutingSyncRetry(ctx, {
+            courseId,
+            uploadId,
+            attemptNumber: 1,
+        });
+    }
     if (TOPIC_ILLUSTRATION_GENERATION_ENABLED) {
         await ctx.scheduler.runAfter(0, internal.ai.generateTopicIllustration, {
             topicId,
@@ -7839,10 +7953,12 @@ export const generateCourseFromText = action({
                 };
             } catch (error) {
                 console.error("AI processing failed:", error);
+                const errorMessage = getErrorMessage(error);
 
                 await ctx.runMutation(api.uploads.updateUploadStatus, {
                     uploadId,
                     status: "error",
+                    errorMessage,
                 });
 
                 throw error;
@@ -7931,6 +8047,36 @@ export const generateRemainingTopicsInBackground = internalAction({
                 // Question bank pre-build removed — exams are now generated on-demand
                 // when the user clicks "Start Exam".
 
+                let routingSyncErrorMessage = "";
+                try {
+                    await syncAssessmentRoutingForUpload(ctx, {
+                        courseId,
+                        uploadId,
+                    });
+                } catch (error) {
+                    routingSyncErrorMessage = buildRoutingSyncErrorMessage(error);
+                    console.error("[CourseGeneration] assessment_routing_sync_failed_nonfatal", {
+                        courseId,
+                        uploadId,
+                        phase: "background_generation_finalize",
+                        message: getErrorMessage(error),
+                    });
+                    await ctx.runMutation(api.uploads.updateUploadStatus, {
+                        uploadId,
+                        status: "processing",
+                        processingStep: "generating_question_bank",
+                        processingProgress: 90,
+                        plannedTopicCount: totalTopics,
+                        generatedTopicCount,
+                        plannedTopicTitles,
+                        errorMessage: routingSyncErrorMessage,
+                    });
+                    await scheduleRoutingSyncRetry(ctx, {
+                        courseId,
+                        uploadId,
+                        attemptNumber: 1,
+                    });
+                }
                 const finalGeneratedCount = normalizeGeneratedTopicCount({
                     generatedTopicCount,
                     totalTopics,
@@ -7944,6 +8090,7 @@ export const generateRemainingTopicsInBackground = internalAction({
                     plannedTopicCount: totalTopics,
                     generatedTopicCount: finalGeneratedCount,
                     plannedTopicTitles,
+                    errorMessage: routingSyncErrorMessage,
                 });
 
                 return {
@@ -7958,6 +8105,7 @@ export const generateRemainingTopicsInBackground = internalAction({
                     uploadId,
                     message: error instanceof Error ? error.message : String(error),
                 });
+                const errorMessage = getErrorMessage(error);
                 const generatedTopicCount = await safeGeneratedCount();
                 const statusStep = generatedTopicCount >= totalTopics
                     ? "generating_question_bank"
@@ -7974,11 +8122,78 @@ export const generateRemainingTopicsInBackground = internalAction({
                     plannedTopicCount: totalTopics,
                     generatedTopicCount,
                     plannedTopicTitles,
+                    errorMessage,
                 });
 
                 throw error;
             }
         });
+    },
+});
+
+export const retryAssessmentRoutingForUpload = internalAction({
+    args: {
+        courseId: v.id("courses"),
+        uploadId: v.id("uploads"),
+        attemptNumber: v.optional(v.number()),
+    },
+    handler: async (ctx, args) => {
+        const attemptNumber = Math.max(1, Number(args.attemptNumber || 1));
+
+        try {
+            const syncResult = await syncAssessmentRoutingForUpload(ctx, {
+                courseId: args.courseId,
+                uploadId: args.uploadId,
+            });
+
+            const reconciliation = await reconcileUploadStatusAfterRoutingSync(ctx, {
+                courseId: args.courseId,
+                uploadId: args.uploadId,
+            });
+
+            console.info("[CourseGeneration] assessment_routing_sync_recovered", {
+                courseId: args.courseId,
+                uploadId: args.uploadId,
+                attemptNumber,
+                lessonTopicCount: Number(syncResult?.lessonTopicCount || 0),
+                finalAssessmentTopicId: syncResult?.finalAssessmentTopicId || null,
+                generatedTopicCount: Number(reconciliation?.generatedTopicCount || 0),
+            });
+
+            return {
+                success: true,
+                attemptNumber,
+                lessonTopicCount: Number(syncResult?.lessonTopicCount || 0),
+                finalAssessmentTopicId: syncResult?.finalAssessmentTopicId || null,
+            };
+        } catch (error) {
+            const errorMessage = buildRoutingSyncErrorMessage(error);
+            console.error("[CourseGeneration] assessment_routing_sync_retry_failed", {
+                courseId: args.courseId,
+                uploadId: args.uploadId,
+                attemptNumber,
+                message: getErrorMessage(error),
+            });
+
+            await ctx.runMutation(api.uploads.updateUploadStatus, {
+                uploadId: args.uploadId,
+                errorMessage,
+            });
+
+            if (attemptNumber < ROUTING_SYNC_RETRY_DELAYS_MS.length) {
+                await scheduleRoutingSyncRetry(ctx, {
+                    courseId: args.courseId,
+                    uploadId: args.uploadId,
+                    attemptNumber: attemptNumber + 1,
+                });
+            }
+
+            return {
+                success: false,
+                attemptNumber,
+                message: getErrorMessage(error),
+            };
+        }
     },
 });
 
@@ -8066,11 +8281,13 @@ export const processUploadedFile = action({
             return result;
         } catch (error) {
             console.error("File processing failed:", error);
+            const errorMessage = getErrorMessage(error);
 
             await ctx.runMutation(api.uploads.updateUploadStatus, {
                 uploadId,
                 status: "error",
                 extractionStatus: "failed",
+                errorMessage,
             });
 
             throw error;
@@ -8239,8 +8456,11 @@ export const addSourceToCourse = action({
                 return { success: true, courseId, topicCount: generatedCount };
             } catch (error) {
                 console.error("[AddSourceToCourse] failed:", error);
+                const errorMessage = getErrorMessage(error);
                 await ctx.runMutation(api.uploads.updateUploadStatus, {
-                    uploadId, status: "error",
+                    uploadId,
+                    status: "error",
+                    errorMessage,
                 });
                 await ctx.runMutation(internal.courses.updateCourseUploadStatus, {
                     courseId, uploadId, status: "error",
