@@ -1,4 +1,6 @@
 import React, { memo } from 'react';
+import InteractiveQuickCheck from './InteractiveQuickCheck';
+import InteractiveWordBank from './InteractiveWordBank';
 
 const HEADER_SIZES = {
     1: "text-3xl md:text-4xl font-extrabold text-neutral-900 dark:text-white mt-10 md:mt-12 mb-5 md:mb-6 tracking-tight flex items-center gap-3",
@@ -84,6 +86,11 @@ const LessonContentRenderer = memo(function LessonContentRenderer({
     cleanInline,
     onViewSource,
     onAskTutor,
+    quickCheckPairs,
+    wordBankTerms,
+    topicId,
+    starredTerms,
+    onTermsStarred,
 }) {
     const bold = (text) => parseInlineFormatting(text, cleanInline);
 
@@ -191,6 +198,28 @@ const LessonContentRenderer = memo(function LessonContentRenderer({
                             </div>
                             <span className="text-[15px] md:text-base leading-7 text-neutral-700 dark:text-neutral-300">{bold(block.text)}</span>
                         </div>
+                    );
+                }
+
+                if (block.type === 'quickcheck_widget') {
+                    return (
+                        <InteractiveQuickCheck
+                            key={block.key}
+                            pairs={quickCheckPairs}
+                            topicId={topicId}
+                        />
+                    );
+                }
+
+                if (block.type === 'wordbank_widget') {
+                    return (
+                        <InteractiveWordBank
+                            key={block.key}
+                            terms={wordBankTerms}
+                            topicId={topicId}
+                            starredTerms={starredTerms}
+                            onTermsStarred={onTermsStarred}
+                        />
                     );
                 }
 
