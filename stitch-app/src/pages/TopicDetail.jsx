@@ -15,6 +15,7 @@ import HighlightExplainPopover from '../components/HighlightExplainPopover';
 import LessonContentRenderer from '../components/LessonContentRenderer';
 import InteractiveQuickCheck from '../components/InteractiveQuickCheck';
 import InteractiveWordBank from '../components/InteractiveWordBank';
+import StudyModeSelector from '../components/StudyModeSelector';
 import SourcePanel from '../components/SourcePanel';
 import NextStepsGuidance from '../components/NextStepsGuidance';
 import GuidedStudyPath from '../components/GuidedStudyPath';
@@ -81,7 +82,7 @@ const TopicDetail = () => {
     const [notesAppendText, setNotesAppendText] = useState('');
     const [chatOpen, setChatOpen] = useState(false);
     const [sourceOpen, setSourceOpen] = useState(false);
-    const [studyMode, setStudyMode] = useState('full');
+    const [studyMode, setStudyMode] = useState(null);
 
     const [chatInitialPrompt, setChatInitialPrompt] = useState('');
     const openNotes = useCallback(() => { setChatOpen(false); setNotesOpen(true); }, []);
@@ -211,16 +212,7 @@ const TopicDetail = () => {
     }, [contentCacheKey, topic?.content]);
 
     useEffect(() => {
-        if (!routeTopicId) {
-            setStudyMode('full');
-            return;
-        }
-        try {
-            const storedMode = sessionStorage.getItem(`studyMode:${routeTopicId}`);
-            setStudyMode(storedMode || 'full');
-        } catch {
-            setStudyMode('full');
-        }
+        setStudyMode(null);
     }, [routeTopicId]);
 
 
@@ -700,6 +692,16 @@ const TopicDetail = () => {
         }
     }, [topicId, reExplainStyle, reExplainTopic]);
 
+    const handleStudyModeSelect = useCallback((mode) => {
+        setStudyMode(mode || 'full');
+        if (mainRef.current) mainRef.current.scrollTop = 0;
+        window.scrollTo(0, 0);
+    }, []);
+
+    const handleStudyModeSkip = useCallback(() => {
+        handleStudyModeSelect('full');
+    }, [handleStudyModeSelect]);
+
     if (!routeTopicId) {
         return (
             <div className="min-h-screen flex items-center justify-center bg-background-light dark:bg-background-dark">
@@ -731,6 +733,35 @@ const TopicDetail = () => {
                     <p className="text-body-sm text-text-sub-light dark:text-text-sub-dark mb-6">Reload the dashboard, reopen the course, and start from the topic card again.</p>
                     <button type="button" onClick={reloadDashboard} className="btn-primary px-5 py-2.5 text-body-sm">Reload Dashboard</button>
                 </div>
+            </div>
+        );
+    }
+
+    if (studyMode === null) {
+        return (
+            <div className="bg-background-light dark:bg-background-dark font-body antialiased text-text-main-light dark:text-text-main-dark min-h-screen flex flex-col overflow-x-hidden">
+                <header className="fixed top-0 inset-x-0 z-40 flex items-center justify-between px-4 h-14 bg-background-light/80 dark:bg-background-dark/80 backdrop-blur-xl border-b border-border-light dark:border-border-dark">
+                    <div className="flex items-center gap-2 min-w-0">
+                        <Link
+                            to={courseId ? `/dashboard/course/${courseId}` : '/dashboard'}
+                            aria-label="Go back"
+                            className="btn-icon w-8 h-8 shrink-0"
+                        >
+                            <span className="material-symbols-outlined text-[18px]">arrow_back</span>
+                        </Link>
+                        <span className="text-body-sm font-medium text-text-sub-light dark:text-text-sub-dark truncate max-w-[200px] sm:max-w-sm">
+                            {headerTopicTitle}
+                        </span>
+                    </div>
+                </header>
+
+                <main className="flex-1 pt-14">
+                    <StudyModeSelector
+                        topicTitle={headerTopicTitle}
+                        onSelect={handleStudyModeSelect}
+                        onSkip={handleStudyModeSkip}
+                    />
+                </main>
             </div>
         );
     }
