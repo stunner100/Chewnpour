@@ -2,6 +2,7 @@ import { v } from "convex/values";
 import { internalMutation, mutation, query } from "./_generated/server";
 import { internal } from "./_generated/api";
 import { isDocumentFinalExamTopic } from "./lib/assessmentRouting.js";
+import { resolveCourseSourceStatus } from "./lib/uploadDisplayStatus.js";
 
 // Get all courses for a user
 export const getUserCourses = query({
@@ -132,7 +133,12 @@ export const getCourseSources = query({
                         fileName: upload.fileName,
                         fileType: upload.fileType,
                         fileSize: upload.fileSize,
-                        status: link.status,
+                        status: resolveCourseSourceStatus({
+                            linkStatus: link.status,
+                            uploadStatus: upload.status,
+                            processingStep: upload.processingStep,
+                            processingProgress: upload.processingProgress,
+                        }),
                         topicCount: link.topicCount,
                         addedAt: link.addedAt,
                     };
@@ -151,7 +157,11 @@ export const getCourseSources = query({
                     fileName: upload.fileName,
                     fileType: upload.fileType,
                     fileSize: upload.fileSize,
-                    status: upload.status === "ready" ? "ready" : upload.status === "error" ? "error" : "processing",
+                    status: resolveCourseSourceStatus({
+                        uploadStatus: upload.status,
+                        processingStep: upload.processingStep,
+                        processingProgress: upload.processingProgress,
+                    }),
                     topicCount: null,
                     addedAt: course._creationTime,
                 }];
