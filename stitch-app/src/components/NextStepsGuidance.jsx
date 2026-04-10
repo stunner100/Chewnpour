@@ -1,6 +1,9 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 
+const buildObjectiveExamRoute = (examTopicId) =>
+    examTopicId ? `/dashboard/exam/${examTopicId}?autostart=mcq` : null;
+
 /**
  * Ranked "What should I do next?" guidance shown after lessons or exams.
  *
@@ -58,7 +61,7 @@ const NextStepsGuidance = ({
             icon: 'quiz',
             label: 'Retry the exam',
             description: 'Take the exam again once you feel ready.',
-            to: examTopicId ? `/dashboard/exam/${examTopicId}` : null,
+            to: buildObjectiveExamRoute(examTopicId),
             reloadDocument: true,
             priority: 'medium',
         });
@@ -76,7 +79,7 @@ const NextStepsGuidance = ({
             icon: 'quiz',
             label: 'Retry the exam',
             description: 'Push for a higher score.',
-            to: examTopicId ? `/dashboard/exam/${examTopicId}` : null,
+            to: buildObjectiveExamRoute(examTopicId),
             reloadDocument: true,
             priority: 'medium',
         });
@@ -122,7 +125,7 @@ const NextStepsGuidance = ({
             icon: 'quiz',
             label: examLabel,
             description: examDescription,
-            to: examTopicId ? `/dashboard/exam/${examTopicId}` : null,
+            to: buildObjectiveExamRoute(examTopicId),
             reloadDocument: true,
             priority: 'high',
         });

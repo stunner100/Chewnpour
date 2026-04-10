@@ -14,6 +14,9 @@ const FILE_TYPE_ICONS = {
     docx: 'description',
 };
 
+const buildObjectiveExamRoute = (topicId) =>
+    topicId ? `/dashboard/exam/${topicId}?autostart=mcq` : '/dashboard';
+
 function formatFileSize(bytes) {
     if (!bytes) return '';
     if (bytes < 1024) return `${bytes} B`;
@@ -481,7 +484,7 @@ const DashboardCourse = () => {
                                         {topic.description || 'This exam combines the most important concepts across the document.'}
                                     </p>
                                     <Link
-                                        to={`/dashboard/exam/${topic._id}`}
+                                        to={buildObjectiveExamRoute(topic._id)}
                                         reloadDocument
                                         className="btn-primary w-full py-2 text-body-sm justify-center gap-1.5"
                                     >

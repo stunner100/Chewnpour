@@ -19,8 +19,12 @@ for (const forbiddenPattern of [
   }
 }
 
-if (!source.includes('const examRoute = topicId ? `/dashboard/exam/${topicId}` : \'/dashboard\';')) {
-  throw new Error('Expected TopicDetail Start Exam CTA to compute a direct exam route.');
+if (!source.includes('const buildObjectiveExamRoute = (examTopicId) =>')) {
+  throw new Error('Expected TopicDetail to centralize the default autostart exam route.');
+}
+
+if (!source.includes("autostart=mcq")) {
+  throw new Error('Expected TopicDetail Start Exam CTA to deep-link into objective mode.');
 }
 
 if (!source.includes('reloadDocument')) {

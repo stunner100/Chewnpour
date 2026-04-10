@@ -57,6 +57,9 @@ const SECTION_SETS = {
     full: null,
 };
 
+const buildObjectiveExamRoute = (examTopicId) =>
+    examTopicId ? `/dashboard/exam/${examTopicId}?autostart=mcq` : '/dashboard';
+
 const TopicDetail = () => {
     const { topicId: topicIdParam } = useParams();
     const routeTopicId = typeof topicIdParam === 'string' ? topicIdParam.trim() : '';
@@ -709,7 +712,7 @@ const TopicDetail = () => {
     const examTopicId = isTopicQuizRoute
         ? topicId
         : (finalAssessmentTopic?._id || null);
-    const examRoute = examTopicId ? `/dashboard/exam/${examTopicId}` : '/dashboard';
+    const examRoute = buildObjectiveExamRoute(examTopicId);
     const topicAssessmentBadge = isTopicQuizRoute ? 'Quiz Ready' : 'Covered in Final Exam';
     const examActionLabel = isTopicQuizRoute
         ? (topicProgress?.bestScore != null ? 'Retry Exam' : 'Start Topic Quiz')
