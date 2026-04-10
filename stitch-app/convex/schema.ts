@@ -55,6 +55,7 @@ export default defineSchema({
         plannedTopicCount: v.optional(v.number()),
         generatedTopicCount: v.optional(v.number()),
         plannedTopicTitles: v.optional(v.array(v.string())),
+        errorMessage: v.optional(v.string()),
         extractionWarnings: v.optional(v.array(v.string())),
         extractionStatus: v.optional(v.string()), // 'pending' | 'running' | 'provisional' | 'complete' | 'failed'
         extractionQualityScore: v.optional(v.number()), // 0-1

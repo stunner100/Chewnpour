@@ -112,6 +112,7 @@ export const createUpload = mutation({
             fileType: args.fileType,
             fileSize: args.fileSize,
             status: "processing",
+            errorMessage: "",
             storageId: args.storageId,
             extractionStatus: "pending",
             extractionQualityScore: 0,
@@ -214,12 +215,13 @@ export const getUpload = query({
 export const updateUploadStatus = mutation({
     args: {
         uploadId: v.id("uploads"),
-        status: v.string(),
+        status: v.optional(v.string()),
         processingStep: v.optional(v.string()),
         processingProgress: v.optional(v.number()),
         plannedTopicCount: v.optional(v.number()),
         generatedTopicCount: v.optional(v.number()),
         plannedTopicTitles: v.optional(v.array(v.string())),
+        errorMessage: v.optional(v.string()),
         extractionWarnings: v.optional(v.array(v.string())),
         extractionStatus: v.optional(v.string()),
         extractionQualityScore: v.optional(v.number()),
@@ -240,12 +242,13 @@ export const updateUploadStatus = mutation({
     },
     handler: async (ctx, args) => {
         const updateData: {
-            status: string;
+            status?: string;
             processingStep?: string;
             processingProgress?: number;
             plannedTopicCount?: number;
             generatedTopicCount?: number;
             plannedTopicTitles?: string[];
+            errorMessage?: string;
             extractionWarnings?: string[];
             extractionStatus?: string;
             extractionQualityScore?: number;
@@ -263,9 +266,11 @@ export const updateUploadStatus = mutation({
             embeddingsStatus?: string;
             embeddingsVersion?: string;
             embeddedPassageCount?: number;
-        } = {
-            status: args.status,
-        };
+        } = {};
+
+        if (args.status !== undefined) {
+            updateData.status = args.status;
+        }
 
         if (args.processingStep !== undefined) {
             updateData.processingStep = args.processingStep;
@@ -281,6 +286,9 @@ export const updateUploadStatus = mutation({
         }
         if (args.plannedTopicTitles !== undefined) {
             updateData.plannedTopicTitles = args.plannedTopicTitles;
+        }
+        if (args.errorMessage !== undefined) {
+            updateData.errorMessage = args.errorMessage;
         }
         if (args.extractionWarnings !== undefined) {
             updateData.extractionWarnings = args.extractionWarnings;
