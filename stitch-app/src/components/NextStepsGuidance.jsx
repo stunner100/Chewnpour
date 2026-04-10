@@ -3,6 +3,8 @@ import { Link } from 'react-router-dom';
 
 const buildObjectiveExamRoute = (examTopicId) =>
     examTopicId ? `/dashboard/exam/${examTopicId}?autostart=mcq` : null;
+const buildEssayExamRoute = (examTopicId) =>
+    examTopicId ? `/dashboard/exam/${examTopicId}?autostart=essay` : null;
 
 /**
  * Ranked "What should I do next?" guidance shown after lessons or exams.
@@ -35,6 +37,8 @@ const NextStepsGuidance = ({
     const isWeak = hasExamScore && score < 60;
     const isMid = hasExamScore && score >= 60 && score < 80;
     const isStrong = hasExamScore && score >= 80;
+    const objectiveExamRoute = buildObjectiveExamRoute(examTopicId);
+    const essayExamRoute = buildEssayExamRoute(examTopicId);
 
     // Build ranked actions based on performance
     const actions = [];
@@ -57,11 +61,20 @@ const NextStepsGuidance = ({
             priority: 'high',
         });
         actions.push({
-            key: 'retry',
+            key: 'retry-objective',
             icon: 'quiz',
-            label: 'Retry the exam',
-            description: 'Take the exam again once you feel ready.',
-            to: buildObjectiveExamRoute(examTopicId),
+            label: 'Retry objective quiz',
+            description: 'Retake the MCQ version once you feel ready.',
+            to: objectiveExamRoute,
+            reloadDocument: true,
+            priority: 'medium',
+        });
+        actions.push({
+            key: 'try-essay',
+            icon: 'edit_note',
+            label: 'Try the essay',
+            description: 'Switch formats and answer the written version for this topic.',
+            to: essayExamRoute,
             reloadDocument: true,
             priority: 'medium',
         });
@@ -75,11 +88,20 @@ const NextStepsGuidance = ({
             priority: 'high',
         });
         actions.push({
-            key: 'retry',
+            key: 'retry-objective',
             icon: 'quiz',
-            label: 'Retry the exam',
-            description: 'Push for a higher score.',
-            to: buildObjectiveExamRoute(examTopicId),
+            label: 'Retry objective quiz',
+            description: 'Push for a higher score on the MCQ version.',
+            to: objectiveExamRoute,
+            reloadDocument: true,
+            priority: 'medium',
+        });
+        actions.push({
+            key: 'try-essay',
+            icon: 'edit_note',
+            label: 'Try the essay',
+            description: 'Check the same topic with a written-response format.',
+            to: essayExamRoute,
             reloadDocument: true,
             priority: 'medium',
         });
@@ -111,6 +133,15 @@ const NextStepsGuidance = ({
             });
         }
         actions.push({
+            key: 'essay',
+            icon: 'edit_note',
+            label: 'Try the essay',
+            description: 'Challenge yourself with the written format for the same topic.',
+            to: essayExamRoute,
+            reloadDocument: true,
+            priority: 'low',
+        });
+        actions.push({
             key: 'tutor',
             icon: 'smart_toy',
             label: 'Ask the tutor',
@@ -121,19 +152,28 @@ const NextStepsGuidance = ({
     } else {
         // No exam score yet
         actions.push({
-            key: 'exam',
+            key: 'objective',
             icon: 'quiz',
             label: examLabel,
             description: examDescription,
-            to: buildObjectiveExamRoute(examTopicId),
+            to: objectiveExamRoute,
             reloadDocument: true,
             priority: 'high',
         });
         actions.push({
+            key: 'essay',
+            icon: 'edit_note',
+            label: 'Start the essay',
+            description: 'Answer a written-response version for the same topic.',
+            to: essayExamRoute,
+            reloadDocument: true,
+            priority: 'medium',
+        });
+        actions.push({
             key: 'concepts',
             icon: 'school',
-            label: 'Study concepts',
-            description: 'Review key ideas before testing yourself.',
+            label: 'Practice concepts',
+            description: 'Take the concept practice session for this topic.',
             to: topicId ? `/dashboard/concept-intro/${topicId}` : null,
             priority: 'medium',
         });
@@ -152,6 +192,7 @@ const NextStepsGuidance = ({
         medium: 'bg-surface-hover-light dark:bg-surface-hover-dark border-border-light dark:border-border-dark hover:border-primary/30',
         low: 'bg-transparent border-border-light dark:border-border-dark hover:border-primary/30',
     };
+    const visibleActions = actions.filter((action) => action.to || action.onClick);
 
     return (
         <div className="w-full">
@@ -162,7 +203,7 @@ const NextStepsGuidance = ({
                 </h3>
             </div>
             <div className="space-y-2">
-                {actions.map((action) => {
+                {visibleActions.map((action) => {
                     const inner = (
                         <>
                             <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${

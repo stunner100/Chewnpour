@@ -37,6 +37,14 @@ if (!nextStepsSource.includes('autostart=mcq')) {
   throw new Error('NextStepsGuidance must deep-link exam CTAs into objective mode.');
 }
 
+if (!nextStepsSource.includes('const buildEssayExamRoute = (examTopicId) =>')) {
+  throw new Error('NextStepsGuidance must build a separate essay exam route.');
+}
+
+if (!nextStepsSource.includes('autostart=essay')) {
+  throw new Error('NextStepsGuidance must deep-link essay CTAs into essay mode.');
+}
+
 if (!dashboardCourseSource.includes('const buildObjectiveExamRoute = (topicId) =>')) {
   throw new Error('DashboardCourse must build a shared autostart exam route.');
 }
