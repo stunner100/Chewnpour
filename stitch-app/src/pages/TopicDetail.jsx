@@ -59,6 +59,8 @@ const SECTION_SETS = {
 
 const buildObjectiveExamRoute = (examTopicId) =>
     examTopicId ? `/dashboard/exam/${examTopicId}?autostart=mcq` : '/dashboard';
+const buildEssayExamRoute = (examTopicId) =>
+    examTopicId ? `/dashboard/exam/${examTopicId}?autostart=essay` : '/dashboard';
 
 const TopicDetail = () => {
     const { topicId: topicIdParam } = useParams();
@@ -712,17 +714,21 @@ const TopicDetail = () => {
     const examTopicId = isTopicQuizRoute
         ? topicId
         : (finalAssessmentTopic?._id || null);
-    const examRoute = buildObjectiveExamRoute(examTopicId);
+    const objectiveExamRoute = buildObjectiveExamRoute(examTopicId);
+    const essayExamRoute = buildEssayExamRoute(examTopicId);
     const topicAssessmentBadge = isTopicQuizRoute ? 'Quiz Ready' : 'Covered in Final Exam';
-    const examActionLabel = isTopicQuizRoute
-        ? (topicProgress?.bestScore != null ? 'Retry Exam' : 'Start Topic Quiz')
-        : (examTopicId ? 'Take Final Exam' : 'Final Exam Preparing');
+    const objectiveExamActionLabel = isTopicQuizRoute
+        ? (topicProgress?.bestScore != null ? 'Retry Objective Quiz' : 'Start Objective Quiz')
+        : (examTopicId ? 'Take Final Objective Quiz' : 'Final Objective Quiz Preparing');
+    const essayExamActionLabel = isTopicQuizRoute
+        ? 'Start Essay'
+        : (examTopicId ? 'Take Final Essay' : 'Final Essay Preparing');
     const practiceHeading = isTopicQuizRoute ? 'Ready to practice?' : 'Ready for revision?';
     const practiceDescription = isTopicQuizRoute
-        ? 'Test your understanding with questions from this lesson.'
+        ? 'Choose the format that fits how you want to test this lesson.'
         : 'This topic is assessed in the final exam for better question quality.';
     const postLessonPrompt = isTopicQuizRoute
-        ? 'Ready to test your knowledge?'
+        ? 'Pick the next practice format for this topic.'
         : 'This topic will be assessed in the final exam.';
 
     const handleReExplain = useCallback(async () => {
@@ -1044,26 +1050,46 @@ const TopicDetail = () => {
                                     className="btn-secondary px-5 py-2.5 text-body-sm gap-2"
                                 >
                                     <span className="material-symbols-outlined text-[18px] text-accent-emerald">school</span>
-                                    Study Concepts
+                                    Practice Concepts
                                 </Link>
                                 {examTopicId ? (
-                                    <Link
-                                        to={examRoute}
-                                        reloadDocument
-                                        className="btn-primary px-5 py-2.5 text-body-sm gap-2"
-                                    >
-                                        <span className="material-symbols-outlined text-[18px]">quiz</span>
-                                        {examActionLabel}
-                                    </Link>
+                                    <>
+                                        <Link
+                                            to={objectiveExamRoute}
+                                            reloadDocument
+                                            className="btn-primary px-5 py-2.5 text-body-sm gap-2"
+                                        >
+                                            <span className="material-symbols-outlined text-[18px]">quiz</span>
+                                            {objectiveExamActionLabel}
+                                        </Link>
+                                        <Link
+                                            to={essayExamRoute}
+                                            reloadDocument
+                                            className="btn-secondary px-5 py-2.5 text-body-sm gap-2"
+                                        >
+                                            <span className="material-symbols-outlined text-[18px]">edit_note</span>
+                                            {essayExamActionLabel}
+                                        </Link>
+                                    </>
                                 ) : (
-                                    <button
-                                        type="button"
-                                        disabled
-                                        className="btn-primary px-5 py-2.5 text-body-sm gap-2 opacity-60 cursor-not-allowed"
-                                    >
-                                        <span className="material-symbols-outlined text-[18px]">hourglass_top</span>
-                                        {examActionLabel}
-                                    </button>
+                                    <>
+                                        <button
+                                            type="button"
+                                            disabled
+                                            className="btn-primary px-5 py-2.5 text-body-sm gap-2 opacity-60 cursor-not-allowed"
+                                        >
+                                            <span className="material-symbols-outlined text-[18px]">hourglass_top</span>
+                                            {objectiveExamActionLabel}
+                                        </button>
+                                        <button
+                                            type="button"
+                                            disabled
+                                            className="btn-secondary px-5 py-2.5 text-body-sm gap-2 opacity-60 cursor-not-allowed"
+                                        >
+                                            <span className="material-symbols-outlined text-[18px]">hourglass_top</span>
+                                            {essayExamActionLabel}
+                                        </button>
+                                    </>
                                 )}
                                 <button
                                     onClick={openChat}
@@ -1093,9 +1119,9 @@ const TopicDetail = () => {
                                     bestScore={topicProgress?.bestScore}
                                     hasWordBank={parsed.wordBankTerms?.length > 0}
                                     onOpenChat={openChat}
-                                    examLabel={isTopicQuizRoute ? 'Start the topic quiz' : 'Take the final exam'}
+                                    examLabel={isTopicQuizRoute ? 'Start the objective quiz' : 'Take the final objective quiz'}
                                     examDescription={isTopicQuizRoute
-                                        ? 'Test your understanding with practice questions.'
+                                        ? 'Choose objective, essay, or concept practice for this topic.'
                                         : 'This topic is assessed as part of the final exam.'}
                                     variant="lesson"
                                 />

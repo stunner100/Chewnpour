@@ -27,6 +27,25 @@ if (!source.includes("autostart=mcq")) {
   throw new Error('Expected TopicDetail Start Exam CTA to deep-link into objective mode.');
 }
 
+if (!source.includes('const buildEssayExamRoute = (examTopicId) =>')) {
+  throw new Error('Expected TopicDetail to centralize the essay autostart exam route.');
+}
+
+if (!source.includes("autostart=essay")) {
+  throw new Error('Expected TopicDetail essay CTA to deep-link into essay mode.');
+}
+
+for (const expectedLabel of [
+  'Practice Concepts',
+  'Start Essay',
+  'Retry Objective Quiz',
+  'Start Objective Quiz',
+]) {
+  if (!source.includes(expectedLabel)) {
+    throw new Error(`Expected TopicDetail CTA set to include ${expectedLabel}.`);
+  }
+}
+
 if (!source.includes('reloadDocument')) {
   throw new Error('Expected TopicDetail Start Exam CTA to use hard document navigation.');
 }
