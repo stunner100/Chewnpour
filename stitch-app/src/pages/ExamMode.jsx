@@ -457,9 +457,10 @@ const ExamMode = () => {
         isLoadingRouteTopic,
         isMissingRouteTopic,
     } = useRouteResolvedTopic(routeTopicId, topicQueryResult);
+    const hasFinalAssessmentRoutingContext = Boolean(topic?.courseId && topic?.sourceUploadId);
     const routedFinalAssessmentTopic = useQuery(
         api.topics.getFinalAssessmentTopicByCourseAndUpload,
-        topic?.courseId && topic?.sourceUploadId
+        hasFinalAssessmentRoutingContext
             ? { courseId: topic.courseId, sourceUploadId: topic.sourceUploadId }
             : 'skip'
     );
@@ -579,6 +580,7 @@ const ExamMode = () => {
                 setRoutingBootstrapPending(false);
             });
     }, [
+        hasFinalAssessmentRoutingContext,
         ensureAssessmentRoutingForTopic,
         routedFinalAssessmentTopic,
         topic?.assessmentClassification,
