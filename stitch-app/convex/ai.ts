@@ -8251,6 +8251,60 @@ export const addSourceToCourse = action({
     },
 });
 
+export const ensureAssessmentRoutingForTopic = action({
+    args: {
+        topicId: v.id("topics"),
+    },
+    handler: async (ctx, args) => {
+        const identity = await ctx.auth.getUserIdentity();
+        const authUserId = resolveAuthUserId(identity);
+        assertAuthorizedUser({ authUserId });
+
+        const topic = await ctx.runQuery(internal.topics.getTopicInternal, {
+            topicId: args.topicId,
+        });
+        if (!topic) {
+            throw new Error("Topic not found.");
+        }
+
+        const course = topic.courseId
+            ? await ctx.runQuery(api.courses.getCourseWithTopics, { courseId: topic.courseId })
+            : null;
+        if (!course) {
+            throw new Error("Course not found.");
+        }
+        assertAuthorizedUser({
+            authUserId,
+            resourceOwnerUserId: course.userId,
+        });
+
+        if (!topic.sourceUploadId) {
+            return {
+                success: false,
+                reason: "TOPIC_HAS_NO_SOURCE_UPLOAD",
+                assessmentRoute: String(topic.assessmentRoute || ""),
+                finalAssessmentTopicId: null,
+            };
+        }
+
+        const syncResult = await syncAssessmentRoutingForUpload(ctx, {
+            courseId: topic.courseId,
+            uploadId: topic.sourceUploadId,
+        });
+        const refreshedTopic = await ctx.runQuery(internal.topics.getTopicInternal, {
+            topicId: args.topicId,
+        });
+
+        return {
+            success: true,
+            lessonTopicCount: Number(syncResult?.lessonTopicCount || 0),
+            assessmentRoute: String(refreshedTopic?.assessmentRoute || ""),
+            assessmentClassification: String(refreshedTopic?.assessmentClassification || ""),
+            finalAssessmentTopicId: syncResult?.finalAssessmentTopicId || null,
+        };
+    },
+});
+
 export const processAssignmentThread = action({
     args: {
         threadId: v.id("assignmentThreads"),

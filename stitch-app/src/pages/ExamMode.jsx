@@ -562,6 +562,7 @@ const ExamMode = () => {
         topicId ? { topicId } : 'skip'
     );
     const startExamPreparation = useAction(api.examPreparations.startExamPreparation);
+    const ensureAssessmentRoutingForTopic = useAction(api.ai.ensureAssessmentRoutingForTopic);
     const retryPreparation = useMutation(api.examPreparations.retryExamPreparation);
     const submitExam = useMutation(api.exams.submitExamAttempt);
     const submitEssayExam = useAction(api.exams.submitEssayExam);
@@ -616,7 +617,8 @@ const ExamMode = () => {
         && !startExamError
         && isInstantExamLaunchState(selectedLaunchState)
     );
-
+    const routingBootstrapKeyRef = useRef('');
+    const [routingBootstrapPending, setRoutingBootstrapPending] = useState(false);
     // Optimized timer: only re-renders when the displayed second changes
     const {
         timeRemaining,
@@ -655,8 +657,54 @@ const ExamMode = () => {
         setGradingEssay(false);
         setSubmitError('');
         resolvedPreparationRef.current = null;
+        routingBootstrapKeyRef.current = '';
+        setRoutingBootstrapPending(false);
     }, [
         routeTopicId,
+    ]);
+
+    useEffect(() => {
+        if (!topicId || !topic?.courseId || !topic?.sourceUploadId) {
+            return;
+        }
+
+        const needsRoutingBootstrap = (
+            !topic?.assessmentRoute
+            || !topic?.assessmentClassification
+            || (
+                topic?.topicKind !== 'document_final_exam'
+                && routedFinalAssessmentTopic === null
+            )
+        );
+
+        if (!needsRoutingBootstrap) {
+            return;
+        }
+
+        const bootstrapKey = `${topicId}:${topic.sourceUploadId}`;
+        if (routingBootstrapKeyRef.current === bootstrapKey) {
+            return;
+        }
+
+        routingBootstrapKeyRef.current = bootstrapKey;
+        setRoutingBootstrapPending(true);
+
+        ensureAssessmentRoutingForTopic({ topicId })
+            .catch((error) => {
+                console.warn('Failed to bootstrap assessment routing for exam topic', error);
+            })
+            .finally(() => {
+                setRoutingBootstrapPending(false);
+            });
+    }, [
+        ensureAssessmentRoutingForTopic,
+        routedFinalAssessmentTopic,
+        topic?.assessmentClassification,
+        topic?.assessmentRoute,
+        topic?.courseId,
+        topic?.sourceUploadId,
+        topic?.topicKind,
+        topicId,
     ]);
 
     useEffect(() => {
@@ -1341,6 +1389,56 @@ const ExamMode = () => {
                     <button type="button" onClick={reloadDashboard} className="btn-primary text-body-sm px-5 py-2.5 inline-flex items-center gap-2">
                         Reload Dashboard
                     </button>
+                </div>
+            </div>
+        );
+    }
+
+    if (shouldRedirectToFinalExam && routedFinalAssessmentTopic === undefined) {
+        return (
+            <div className="bg-background-light dark:bg-background-dark min-h-screen flex items-center justify-center">
+                <div className="text-center">
+                    <div className="animate-spin rounded-full h-10 w-10 border-2 border-border-light dark:border-border-dark border-t-primary mx-auto mb-4"></div>
+                    <p className="text-body-sm text-text-sub-light dark:text-text-sub-dark">Preparing your final exam...</p>
+                </div>
+            </div>
+        );
+    }
+
+    if (routingBootstrapPending) {
+        return (
+            <div className="bg-background-light dark:bg-background-dark min-h-screen flex items-center justify-center">
+                <div className="text-center">
+                    <div className="animate-spin rounded-full h-10 w-10 border-2 border-border-light dark:border-border-dark border-t-primary mx-auto mb-4"></div>
+                    <p className="text-body-sm text-text-sub-light dark:text-text-sub-dark">Preparing the best assessment route for this topic...</p>
+                </div>
+            </div>
+        );
+    }
+
+    if (shouldRedirectToFinalExam && routedFinalAssessmentTopic?._id && routedFinalAssessmentTopic._id !== topicId) {
+        return (
+            <div className="bg-background-light dark:bg-background-dark min-h-screen flex items-center justify-center">
+                <div className="text-center">
+                    <div className="animate-spin rounded-full h-10 w-10 border-2 border-border-light dark:border-border-dark border-t-primary mx-auto mb-4"></div>
+                    <p className="text-body-sm text-text-sub-light dark:text-text-sub-dark">Redirecting to your final exam...</p>
+                </div>
+            </div>
+        );
+    }
+
+    if (shouldRedirectToFinalExam && !routedFinalAssessmentTopic?._id) {
+        return (
+            <div className="bg-background-light dark:bg-background-dark min-h-screen flex items-center justify-center">
+                <div className="text-center max-w-md px-6">
+                    <div className="w-14 h-14 rounded-2xl bg-surface-light dark:bg-surface-dark border border-border-light dark:border-border-dark flex items-center justify-center mx-auto mb-4">
+                        <span className="material-symbols-outlined text-2xl text-text-faint-light dark:text-text-faint-dark">hourglass_top</span>
+                    </div>
+                    <h2 className="text-body-lg font-semibold text-text-main-light dark:text-text-main-dark mb-2">This topic is covered in the final exam</h2>
+                    <p className="text-body-sm text-text-sub-light dark:text-text-sub-dark mb-6">The final exam is still being prepared. Return to the course and try again in a moment.</p>
+                    <Link to={`/dashboard/topic/${topicId}`} className="btn-primary text-body-sm px-5 py-2.5 inline-flex items-center gap-2">
+                        Back to Topic
+                    </Link>
                 </div>
             </div>
         );
