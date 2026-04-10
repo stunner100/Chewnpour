@@ -17,6 +17,7 @@ import InteractiveQuickCheck from '../components/InteractiveQuickCheck';
 import InteractiveWordBank from '../components/InteractiveWordBank';
 import SourcePanel from '../components/SourcePanel';
 import NextStepsGuidance from '../components/NextStepsGuidance';
+import GuidedStudyPath from '../components/GuidedStudyPath';
 import { useTextSelection } from '../hooks/useTextSelection';
 import {
     SECTION_TITLE_PATTERN,
@@ -992,6 +993,14 @@ const TopicDetail = () => {
                                     <span className="material-symbols-outlined text-[18px]">smart_toy</span>
                                     Ask Tutor
                                 </button>
+                            </div>
+
+                            <div className="mt-6">
+                                <GuidedStudyPath
+                                    topicTitle={resolvedTopicTitle}
+                                    blocks={filteredBlocks}
+                                    onAskTutor={handleAskTutor}
+                                />
                             </div>
 
                             {/* Next Steps Guidance */}

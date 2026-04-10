@@ -416,6 +416,29 @@ export default defineSchema({
     .index("by_userId_courseId", ["userId", "courseId"])
     .index("by_userId_lastStudied", ["userId", "lastStudiedAt"]),
 
+    userTutorProfiles: defineTable({
+        userId: v.string(),
+        preferredPersona: v.string(),
+        updatedAt: v.number(),
+    }).index("by_userId", ["userId"]),
+
+    userTutorMemory: defineTable({
+        userId: v.string(),
+        topicId: v.id("topics"),
+        courseId: v.id("courses"),
+        memorySummary: v.string(),
+        strengths: v.optional(v.array(v.string())),
+        weakAreas: v.optional(v.array(v.string())),
+        lastQuestion: v.optional(v.string()),
+        lastAnswer: v.optional(v.string()),
+        lastScore: v.optional(v.number()),
+        completedAt: v.optional(v.number()),
+        lastStudiedAt: v.optional(v.number()),
+        updatedAt: v.number(),
+    })
+        .index("by_userId_topicId", ["userId", "topicId"])
+        .index("by_userId_updatedAt", ["userId", "updatedAt"]),
+
     // Subscription info
     subscriptions: defineTable({
         userId: v.string(),
