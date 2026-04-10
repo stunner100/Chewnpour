@@ -229,9 +229,19 @@ export default defineSchema({
     topics: defineTable({
         courseId: v.id("courses"),
         sourceUploadId: v.optional(v.id("uploads")), // which upload generated this topic
+        topicKind: v.optional(v.string()),
         title: v.string(),
         description: v.optional(v.string()),
         content: v.optional(v.string()), // AI-generated summary content
+        assessmentClassification: v.optional(v.string()),
+        assessmentRoute: v.optional(v.string()),
+        assessmentRouteReason: v.optional(v.string()),
+        assessmentReadinessScore: v.optional(v.number()),
+        evidenceVolumeScore: v.optional(v.number()),
+        evidenceDiversityScore: v.optional(v.number()),
+        distinctivenessScore: v.optional(v.number()),
+        questionVarietyScore: v.optional(v.number()),
+        redundancyRiskScore: v.optional(v.number()),
         sourceChunkIds: v.optional(v.array(v.number())),
         sourcePassageIds: v.optional(v.array(v.string())),
         structuredSubtopics: v.optional(v.array(v.string())),
