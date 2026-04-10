@@ -7,6 +7,8 @@ const source = await fs.readFile(path.join(root, 'convex/concepts.ts'), 'utf8');
 const requiredSnippets = [
   'export const getConceptMasteryForTopic = query({',
   'export const getConceptReviewQueue = query({',
+  'export const getConceptSessionForTopic = action({',
+  'export const createConceptSessionAttempt = mutation({',
   'source: attempts.length > 0 ? "attempt_fallback" : "empty"',
   'reviewConceptKeys: []',
   'dueTopicCount: 0',
