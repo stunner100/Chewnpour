@@ -1,25 +1,34 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 
+const buildObjectiveExamRoute = (examTopicId) =>
+    examTopicId ? `/dashboard/exam/${examTopicId}?autostart=mcq` : null;
+
 /**
  * Ranked "What should I do next?" guidance shown after lessons or exams.
  *
  * Props:
  *  - topicId: string
+ *  - examTopicId: string|null
  *  - topicTitle: string
  *  - percentage: number|null        (exam score %, null if no exam taken)
  *  - completedAt: number|null       (timestamp if lesson marked complete)
  *  - bestScore: number|null         (best exam score from progress)
  *  - hasWordBank: boolean
  *  - onOpenChat: () => void         (open tutor panel)
+ *  - examLabel: string
+ *  - examDescription: string
  *  - variant: 'lesson' | 'exam'     (controls heading)
  */
 const NextStepsGuidance = ({
     topicId,
+    examTopicId = topicId,
     percentage,
     bestScore,
     hasWordBank,
     onOpenChat,
+    examLabel = 'Start the exam',
+    examDescription = 'Test your understanding with practice questions.',
 }) => {
     const score = percentage ?? bestScore;
     const hasExamScore = score != null;
@@ -52,7 +61,7 @@ const NextStepsGuidance = ({
             icon: 'quiz',
             label: 'Retry the exam',
             description: 'Take the exam again once you feel ready.',
-            to: topicId ? `/dashboard/exam/${topicId}` : null,
+            to: buildObjectiveExamRoute(examTopicId),
             reloadDocument: true,
             priority: 'medium',
         });
@@ -70,7 +79,7 @@ const NextStepsGuidance = ({
             icon: 'quiz',
             label: 'Retry the exam',
             description: 'Push for a higher score.',
-            to: topicId ? `/dashboard/exam/${topicId}` : null,
+            to: buildObjectiveExamRoute(examTopicId),
             reloadDocument: true,
             priority: 'medium',
         });
@@ -114,9 +123,9 @@ const NextStepsGuidance = ({
         actions.push({
             key: 'exam',
             icon: 'quiz',
-            label: 'Start the exam',
-            description: 'Test your understanding with practice questions.',
-            to: topicId ? `/dashboard/exam/${topicId}` : null,
+            label: examLabel,
+            description: examDescription,
+            to: buildObjectiveExamRoute(examTopicId),
             reloadDocument: true,
             priority: 'high',
         });

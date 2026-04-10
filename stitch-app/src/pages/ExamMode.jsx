@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Link, useNavigate, useParams } from 'react-router-dom';
+import { Link, useLocation, useNavigate, useParams } from 'react-router-dom';
 import { useQuery, useMutation, useAction } from 'convex/react';
 import { api } from '../../convex/_generated/api';
 import { useAuth } from '../contexts/AuthContext';
@@ -8,7 +8,6 @@ import { useStudyTimer } from '../hooks/useStudyTimer';
 import { useExamTimer } from '../hooks/useExamTimer';
 import { useRouteResolvedTopic } from '../hooks/useRouteResolvedTopic';
 import { addSentryBreadcrumb, captureSentryException, captureSentryMessage } from '../lib/sentry';
-import { getExamPreparationLoadingState } from '../lib/examPreparationEta';
 import ExamQuestionCard from '../components/ExamQuestionCard';
 
 // ── Pure option-parsing helpers (hoisted out of the component) ──
@@ -288,99 +287,12 @@ const buildPreparationChecklist = (stage) => {
     ];
 };
 
-const formatSavedExamCountLabel = (totalQuestions) => {
-    const safeCount = Number(totalQuestions || 0);
-    return safeCount > 0 ? `${safeCount}-question ` : '';
-};
-
-const isInstantExamLaunchState = (launchState) => (
-    launchState?.status === 'ready'
-    && (
-        launchState?.launchMode === 'resume_saved_attempt'
-        || launchState?.launchMode === 'open_saved_exam_set'
-    )
-);
-
-const resolveRecommendedExamFormat = ({ topic, launchState }) => {
-    const objectiveState = launchState?.mcq || null;
-    const essayState = launchState?.essay || null;
-    const objectiveReady = isInstantExamLaunchState(objectiveState);
-    const essayReady = isInstantExamLaunchState(essayState);
-
-    if (objectiveReady && !essayReady) return 'mcq';
-    if (essayReady && !objectiveReady) return 'essay';
-
-    const objectivePreparing = objectiveState?.launchMode === 'continue_preparation';
-    const essayPreparing = essayState?.launchMode === 'continue_preparation';
-    if (objectivePreparing && !essayPreparing) return 'mcq';
-    if (essayPreparing && !objectivePreparing) return 'essay';
-
-    const usableMcqCount = Number(topic?.usableMcqCount || 0);
-    const usableEssayCount = Number(topic?.usableEssayCount || 0);
-    if (usableMcqCount > 0 && usableEssayCount <= 0) return 'mcq';
-    if (usableEssayCount > 0 && usableMcqCount <= 0) return 'essay';
-    if (usableMcqCount > 0) return 'mcq';
-    if (usableEssayCount > 0) return 'essay';
-
-    return 'mcq';
-};
-
-const getExamFormatCardContent = ({ examFormat, launchState }) => {
-    const isEssay = examFormat === 'essay';
-    const savedCountLabel = formatSavedExamCountLabel(launchState?.totalQuestions);
-
-    const defaultContent = isEssay
-        ? {
-            badge: '',
-            title: 'Essay / Theory',
-            description: 'Write your answers in your own words',
-        }
-        : {
-            badge: '',
-            title: 'Objective Quiz',
-            description: 'Multiple choice, true/false, and fill in the blank',
-        };
-
-    switch (launchState?.launchMode) {
-        case 'resume_saved_attempt':
-            return isEssay
-                ? {
-                    badge: 'Saved exam',
-                    title: 'Resume Essay / Theory',
-                    description: `Continue your saved ${savedCountLabel}essay exam instantly.`,
-                }
-                : {
-                    badge: 'Saved exam',
-                    title: 'Resume Objective Quiz',
-                    description: `Continue your saved ${savedCountLabel}objective quiz instantly.`,
-                };
-        case 'open_saved_exam_set':
-            return isEssay
-                ? {
-                    badge: 'Saved set',
-                    title: 'Open Saved Essay / Theory',
-                    description: `Reuse your saved ${savedCountLabel}essay exam set instantly.`,
-                }
-                : {
-                    badge: 'Saved set',
-                    title: 'Open Saved Objective Quiz',
-                    description: `Reuse your saved ${savedCountLabel}objective question set instantly.`,
-                };
-        case 'continue_preparation':
-            return isEssay
-                ? {
-                    badge: 'Preparing',
-                    title: 'Continue Essay / Theory',
-                    description: 'We already have an essay exam preparing for this topic.',
-                }
-                : {
-                    badge: 'Preparing',
-                    title: 'Continue Objective Quiz',
-                    description: 'We already have an objective quiz preparing for this topic.',
-                };
-        default:
-            return defaultContent;
-    }
+const resolveAutostartExamFormat = (search) => {
+    const params = new URLSearchParams(String(search || ''));
+    const raw = String(params.get('autostart') || '').trim().toLowerCase();
+    if (raw === 'essay') return 'essay';
+    if (raw === 'mcq' || raw === 'objective' || raw === 'quiz') return 'mcq';
+    return null;
 };
 
 const resolveConvexActionError = (error, fallbackMessage) => {
@@ -509,6 +421,7 @@ const isUserCorrectableEssaySubmitError = (message) => {
 const ExamMode = () => {
     const { topicId: topicIdParam } = useParams();
     const routeTopicId = typeof topicIdParam === 'string' ? topicIdParam.trim() : '';
+    const location = useLocation();
     const navigate = useNavigate();
     const { user } = useAuth();
     const [currentQuestion, setCurrentQuestion] = useState(0);
@@ -516,13 +429,11 @@ const ExamMode = () => {
     const [examStarted, setExamStarted] = useState(false);
     const [attemptId, setAttemptId] = useState(null);
     const [attemptQuestions, setAttemptQuestions] = useState(null);
-    const [preparationId, setPreparationId] = useState(null);
     const [startingExamAttempt, setStartingExamAttempt] = useState(false);
     const [startExamError, setStartExamError] = useState('');
-    const [formatPickerOpen, setFormatPickerOpen] = useState(false);
 
     // Essay exam state
-    const [examFormat, setExamFormat] = useState(null); // null = not chosen, 'mcq' | 'essay'
+    const [examFormat, setExamFormat] = useState(() => resolveAutostartExamFormat(location.search)); // null = not chosen, 'mcq' | 'essay'
     const [examConfigStep, setExamConfigStep] = useState(false); // true = showing MCQ config options
     const [gradingEssay, setGradingEssay] = useState(false);
     const [submitError, setSubmitError] = useState('');
@@ -560,17 +471,8 @@ const ExamMode = () => {
             ? { courseId: topic.courseId, sourceUploadId: topic.sourceUploadId }
             : 'skip'
     );
-    const preparation = useQuery(
-        api.examPreparations.getExamPreparation,
-        preparationId ? { preparationId } : 'skip'
-    );
-    const launchState = useQuery(
-        api.examPreparations.getExamLaunchState,
-        topicId ? { topicId } : 'skip'
-    );
-    const startExamPreparation = useAction(api.examPreparations.startExamPreparation);
+    const startExamAttempt = useAction(api.exams.startExamAttempt);
     const ensureAssessmentRoutingForTopic = useAction(api.ai.ensureAssessmentRoutingForTopic);
-    const retryPreparation = useMutation(api.examPreparations.retryExamPreparation);
     const submitExam = useMutation(api.exams.submitExamAttempt);
     const submitEssayExam = useAction(api.exams.submitEssayExam);
 
@@ -578,52 +480,20 @@ const ExamMode = () => {
     const EXAM_LOADING_STALL_TIMEOUT_MS = 150_000;
 
     const loadingExamTypeLabel = examFormat === 'essay' ? 'essay' : 'objective';
-    const preparationStatus = typeof preparation?.status === 'string' ? preparation.status : '';
-    const preparationStage = typeof preparation?.stage === 'string' ? preparation.stage : 'queued';
-    const isPreparationRunning =
-        Boolean(preparationId)
-        && (
-            preparation === undefined
-            || preparationStatus === 'queued'
-            || preparationStatus === 'preparing'
-        );
-    const activePreparationMessage = typeof preparation?.message === 'string' && preparation.message.trim()
-        ? preparation.message.trim()
-        : `We're preparing your ${loadingExamTypeLabel} exam.`;
+    const preparationStatus = startExamError ? 'failed' : startingExamAttempt ? 'preparing' : '';
+    const preparationStage = startingExamAttempt ? 'generating_candidates' : 'queued';
+    const isPreparationRunning = startingExamAttempt;
+    const activePreparationMessage = `We're preparing your ${loadingExamTypeLabel} exam.`;
     const questions = useMemo(
         () => (Array.isArray(attemptQuestions) ? attemptQuestions : []),
         [attemptQuestions],
     );
     const hasAttemptQuestions = questions.length > 0;
-    const hasReadyAttemptState = Boolean(examStarted && attemptId && hasAttemptQuestions);
     const examFlowStartTimeRef = useRef(Date.now());
     const attemptStartTimeRef = useRef(null);
     const loadingStallReportedRef = useRef(false);
     const handleSubmitRef = useRef(() => { });
     const submittingRef = useRef(false);
-    const resolvedPreparationRef = useRef(null);
-    const [preparationElapsedMs, setPreparationElapsedMs] = useState(0);
-    const currentPathname = typeof window !== 'undefined' ? window.location.pathname : '';
-    const objectiveLaunchCard = useMemo(
-        () => getExamFormatCardContent({ examFormat: 'mcq', launchState: launchState?.mcq }),
-        [launchState?.mcq],
-    );
-    const essayLaunchCard = useMemo(
-        () => getExamFormatCardContent({ examFormat: 'essay', launchState: launchState?.essay }),
-        [launchState?.essay],
-    );
-    const selectedLaunchState = useMemo(() => {
-        if (examFormat === 'essay') return launchState?.essay || null;
-        if (examFormat === 'mcq') return launchState?.mcq || null;
-        return null;
-    }, [examFormat, launchState?.essay, launchState?.mcq]);
-    const shouldHoldFormatPickerForInstantLaunch = Boolean(
-        examFormat
-        && !examStarted
-        && !hasAttemptQuestions
-        && !startExamError
-        && isInstantExamLaunchState(selectedLaunchState)
-    );
     const routingBootstrapKeyRef = useRef('');
     const [routingBootstrapPending, setRoutingBootstrapPending] = useState(false);
     // Optimized timer: only re-renders when the displayed second changes
@@ -656,18 +526,17 @@ const ExamMode = () => {
         setExamStarted(false);
         setAttemptId(null);
         setAttemptQuestions(null);
-        setPreparationId(null);
         setStartingExamAttempt(false);
         setStartExamError('');
-        setExamFormat(null);
-        setFormatPickerOpen(false);
+        setExamFormat(resolveAutostartExamFormat(location.search));
+        setExamConfigStep(false);
         setGradingEssay(false);
         setSubmitError('');
-        resolvedPreparationRef.current = null;
         routingBootstrapKeyRef.current = '';
         setRoutingBootstrapPending(false);
     }, [
         routeTopicId,
+        location.search,
     ]);
 
     useEffect(() => {
@@ -729,11 +598,24 @@ const ExamMode = () => {
                 routeTopicId,
                 rawTopicId,
                 hasMismatchedCachedTopic,
-                pathname: currentPathname,
+                pathname: location.pathname,
                 referrer: typeof document !== 'undefined' ? document.referrer || '' : '',
             },
         });
-    }, [currentPathname, hasMismatchedCachedTopic, isMissingRouteTopic, rawTopicId, routeTopicId]);
+    }, [hasMismatchedCachedTopic, isMissingRouteTopic, location.pathname, rawTopicId, routeTopicId]);
+
+    const shouldRedirectToFinalExam = (
+        topic?.topicKind !== 'document_final_exam'
+        && topic?.assessmentRoute
+        && topic.assessmentRoute !== 'topic_quiz'
+    );
+
+    useEffect(() => {
+        if (!shouldRedirectToFinalExam) return;
+        if (!routedFinalAssessmentTopic?._id) return;
+        if (routedFinalAssessmentTopic._id === topicId) return;
+        navigate(`/dashboard/exam/${routedFinalAssessmentTopic._id}${location.search || ''}`, { replace: true });
+    }, [location.search, navigate, routedFinalAssessmentTopic?._id, shouldRedirectToFinalExam, topicId]);
 
     const withTimeout = useCallback((promise, timeoutMs, timeoutMessage) => {
         let timeoutHandle;
@@ -750,67 +632,18 @@ const ExamMode = () => {
         });
     }, []);
 
-    const applyReadyPreparationState = useCallback(({
-        preparationId: nextPreparationId,
-        attemptId: nextAttemptId,
-        questions: nextQuestions,
-        attemptStartedAt,
-        stage,
-        launchMode,
-        source,
-    }) => {
-        const selectedQuestions = Array.isArray(nextQuestions) ? nextQuestions : [];
-        if (!nextPreparationId || !nextAttemptId || selectedQuestions.length === 0) {
-            return false;
-        }
-
-        resolvedPreparationRef.current = nextPreparationId;
-        setPreparationId(nextPreparationId);
-        setStartExamError('');
-        setAttemptId(nextAttemptId);
-        setAttemptQuestions(selectedQuestions);
-        setCurrentQuestion(0);
-        setSelectedAnswers({});
-
-        const startedAt = Number(attemptStartedAt || 0);
-        const elapsedSec = startedAt > 0
-            ? Math.floor((Date.now() - startedAt) / 1000)
-            : 0;
-        const remaining = Math.max(60, EXAM_DURATION_SECONDS - elapsedSec);
-        setTimeRemaining(remaining);
-        setExamStarted(true);
-
-        addSentryBreadcrumb({
-            category: 'exam',
-            message: 'Exam attempt hydrated from saved preparation',
-            data: {
-                topicId,
-                preparationId: nextPreparationId,
-                attemptId: nextAttemptId,
-                selectedQuestionCount: selectedQuestions.length,
-                source: source || 'unknown',
-                launchMode: launchMode || 'unknown',
-                stage: stage || 'completed',
-            },
-        });
-
-        return true;
-    }, [setTimeRemaining, topicId]);
-
     const beginExamAttempt = useCallback(async () => {
         if (!topicId || !examFormat || attemptStartTimeRef.current) return;
 
         setStartExamError('');
         setSubmitError('');
         setStartingExamAttempt(true);
-        setPreparationId(null);
         setAttemptId(null);
         setAttemptQuestions(null);
         setExamStarted(false);
         attemptStartTimeRef.current = Date.now();
         examFlowStartTimeRef.current = Date.now();
         loadingStallReportedRef.current = false;
-        resolvedPreparationRef.current = null;
         addSentryBreadcrumb({
             category: 'exam',
             message: 'Starting exam preparation',
@@ -822,40 +655,38 @@ const ExamMode = () => {
         });
         try {
             const result = await withTimeout(
-                startExamPreparation({ topicId, examFormat }),
+                startExamAttempt({ topicId, examFormat }),
                 START_EXAM_ATTEMPT_TIMEOUT_MS,
                 'Exam preparation initialization timed out.'
             );
-            if (!result?.preparationId) {
-                throw new Error('Exam preparation could not be started.');
+            const selectedQuestions = Array.isArray(result?.questions) ? result.questions : [];
+            if (result?.attemptId && selectedQuestions.length > 0) {
+                setStartExamError('');
+                setAttemptId(result.attemptId);
+                setAttemptQuestions(selectedQuestions);
+                setCurrentQuestion(0);
+                setSelectedAnswers({});
+                setTimeRemaining(EXAM_DURATION_SECONDS);
+                setExamStarted(true);
+                const elapsedMs = Date.now() - attemptStartTimeRef.current;
+                addSentryBreadcrumb({
+                    category: 'exam',
+                    message: 'Exam attempt started successfully',
+                    data: {
+                        topicId,
+                        attemptId: result?.attemptId,
+                        selectedQuestionCount: selectedQuestions.length,
+                        elapsedMs,
+                    },
+                });
+                return;
             }
 
-            setPreparationId(result.preparationId);
-            const elapsedMs = Date.now() - attemptStartTimeRef.current;
-            addSentryBreadcrumb({
-                category: 'exam',
-                message: 'Exam preparation started successfully',
-                data: {
-                    topicId,
-                    preparationId: result?.preparationId,
-                    status: result?.status,
-                    launchMode: result?.launchMode,
-                    elapsedMs,
-                },
-            });
-            const readyQuestions = Array.isArray(result?.questions) ? result.questions : [];
-            const hydratedImmediately = result?.status === 'ready' && applyReadyPreparationState({
-                preparationId: result?.preparationId,
-                attemptId: result?.attemptId,
-                questions: readyQuestions,
-                attemptStartedAt: result?.attemptStartedAt,
-                stage: result?.stage,
-                launchMode: result?.launchMode,
-                source: 'start_action',
-            });
-            if (!hydratedImmediately) {
-                setPreparationId(result.preparationId);
-            }
+            setStartExamError(
+                typeof result?.message === 'string' && result.message.trim()
+                    ? result.message.trim()
+                    : 'We could not finish preparing your exam. Please try again.'
+            );
         } catch (error) {
             const errorCode = getConvexErrorCode(error);
             const message = resolveConvexActionError(error, 'Unable to start the exam. Please try again.');
@@ -930,7 +761,6 @@ const ExamMode = () => {
                     },
                 });
             }
-            setPreparationId(null);
             setAttemptId(null);
             setAttemptQuestions(null);
             setExamStarted(false);
@@ -938,105 +768,18 @@ const ExamMode = () => {
             attemptStartTimeRef.current = null;
             setStartingExamAttempt(false);
         }
-    }, [START_EXAM_ATTEMPT_TIMEOUT_MS, applyReadyPreparationState, examFormat, startExamPreparation, topicId, userId, withTimeout]);
-
-    useEffect(() => {
-        if (!preparationId || !preparation) {
-            return;
-        }
-
-        if (preparation.status === 'ready') {
-            const selectedQuestions = Array.isArray(preparation.questions) ? preparation.questions : [];
-            if (!preparation.attemptId || selectedQuestions.length === 0) {
-                setStartExamError('Your exam is marked ready, but the question set could not be loaded. Please retry.');
-                setAttemptId(null);
-                setAttemptQuestions(null);
-                setExamStarted(false);
-                return;
-            }
-
-            if (resolvedPreparationRef.current === preparation.preparationId) {
-                return;
-            }
-
-            applyReadyPreparationState({
-                preparationId: preparation.preparationId,
-                attemptId: preparation.attemptId,
-                questions: selectedQuestions,
-                attemptStartedAt: preparation.attemptStartedAt,
-                stage: preparation.stage,
-                launchMode: preparation.launchMode || 'preparation_subscription',
-                source: 'preparation_subscription',
-            });
-            return;
-        }
-
-        if (preparation.status === 'failed' || preparation.status === 'unavailable') {
-            setAttemptId(null);
-            setAttemptQuestions(null);
-            setExamStarted(false);
-            setStartExamError(
-                typeof preparation.message === 'string' && preparation.message.trim()
-                    ? preparation.message.trim()
-                    : 'We could not finish preparing your exam. Please try again.'
-            );
-        }
-    }, [applyReadyPreparationState, preparation, preparationId]);
+    }, [examFormat, startExamAttempt, topicId, userId, withTimeout, START_EXAM_ATTEMPT_TIMEOUT_MS, setTimeRemaining]);
 
     const handleRetryStart = useCallback(async () => {
-        if (preparationId && preparation?.canRetry) {
-            setStartExamError('');
-            setStartingExamAttempt(true);
-            loadingStallReportedRef.current = false;
-            examFlowStartTimeRef.current = Date.now();
-            try {
-                await retryPreparation({ preparationId });
-            } catch (error) {
-                const message = resolveConvexActionError(error, 'Unable to retry exam preparation. Please try again.');
-                setStartExamError(message);
-            } finally {
-                setStartingExamAttempt(false);
-            }
-            return;
-        }
-
         await beginExamAttempt();
-    }, [beginExamAttempt, preparation?.canRetry, preparationId, retryPreparation]);
-
-    useEffect(() => {
-        if (
-            formatPickerOpen
-            || !topicId
-            || !topic
-            || examFormat
-            || examStarted
-            || startingExamAttempt
-            || hasAttemptQuestions
-            || preparationId
-            || startExamError
-        ) {
-            return;
-        }
-
-        setExamFormat(resolveRecommendedExamFormat({ topic, launchState }));
-    }, [
-        examFormat,
-        examStarted,
-        formatPickerOpen,
-        hasAttemptQuestions,
-        launchState,
-        preparationId,
-        startExamError,
-        startingExamAttempt,
-        topic,
-        topicId,
-    ]);
+    }, [beginExamAttempt]);
 
     useEffect(() => {
         const shouldMonitorStall =
             Boolean(examFormat)
-            && !hasReadyAttemptState
+            && !examStarted
             && !startExamError
+            && !hasAttemptQuestions
             && (startingExamAttempt || isPreparationRunning);
 
         if (!shouldMonitorStall || loadingStallReportedRef.current) {
@@ -1044,7 +787,7 @@ const ExamMode = () => {
         }
 
         const timer = setTimeout(() => {
-            if (loadingStallReportedRef.current || hasReadyAttemptState) {
+            if (loadingStallReportedRef.current || examStarted) {
                 return;
             }
             loadingStallReportedRef.current = true;
@@ -1061,10 +804,8 @@ const ExamMode = () => {
                     elapsedMs,
                     topicDataState: isLoadingRouteTopic ? 'loading' : isMissingRouteTopic ? 'missing' : 'ready',
                     hasAttemptQuestions,
-                    hasReadyAttemptState,
                     attemptId,
                     startingExamAttempt,
-                    preparationId,
                     preparationStatus,
                     preparationStage,
                     startExamError,
@@ -1077,12 +818,10 @@ const ExamMode = () => {
         attemptId,
         examFormat,
         examStarted,
-        hasReadyAttemptState,
         hasAttemptQuestions,
         isPreparationRunning,
         startExamError,
         startingExamAttempt,
-        preparationId,
         preparationStage,
         preparationStatus,
         isLoadingRouteTopic,
@@ -1099,7 +838,6 @@ const ExamMode = () => {
             !examStarted &&
             !startingExamAttempt &&
             !hasAttemptQuestions &&
-            !preparationId &&
             !startExamError
         ) {
             beginExamAttempt();
@@ -1110,50 +848,9 @@ const ExamMode = () => {
         examStarted,
         startingExamAttempt,
         hasAttemptQuestions,
-        preparationId,
         startExamError,
         beginExamAttempt,
     ]);
-
-    const shouldShowPreparationLoadingState =
-        !startExamError
-        && !hasReadyAttemptState
-        && (startingExamAttempt || isPreparationRunning);
-    const preparationStartedAt = useMemo(() => {
-        const backendStartedAt = Number(preparation?.startedAt || 0);
-        if (backendStartedAt > 0) {
-            return backendStartedAt;
-        }
-        const localStartedAt = Number(examFlowStartTimeRef.current || 0);
-        if (localStartedAt > 0) {
-            return localStartedAt;
-        }
-        return Date.now();
-    }, [preparation?.startedAt]);
-    const effectivePreparationStage = isPreparationRunning ? preparationStage : 'queued';
-    const preparationLoadingState = useMemo(
-        () => getExamPreparationLoadingState({
-            examFormat: examFormat || 'mcq',
-            stage: effectivePreparationStage,
-            elapsedMs: preparationElapsedMs,
-        }),
-        [effectivePreparationStage, examFormat, preparationElapsedMs],
-    );
-
-    useEffect(() => {
-        if (!shouldShowPreparationLoadingState) {
-            setPreparationElapsedMs(0);
-            return undefined;
-        }
-
-        const updateElapsed = () => {
-            setPreparationElapsedMs(Math.max(0, Date.now() - preparationStartedAt));
-        };
-
-        updateElapsed();
-        const intervalId = window.setInterval(updateElapsed, 1000);
-        return () => window.clearInterval(intervalId);
-    }, [preparationStartedAt, shouldShowPreparationLoadingState]);
 
     // Timer managed by useExamTimer hook above
 
@@ -1329,15 +1026,15 @@ const ExamMode = () => {
         }).length
         : questions.filter((question) => Boolean(selectedAnswers[question._id])).length;
     const isEssaySubmitBlocked = examFormat === 'essay' && answeredQuestionCount < questions.length;
-    const isPreparationTerminal = preparationStatus === 'failed' || preparationStatus === 'unavailable';
+    const isPreparationTerminal = preparationStatus === 'failed';
     const preparationChecklist = useMemo(
         () => buildPreparationChecklist(preparationStage),
         [preparationStage],
     );
     const preparationPanelTitle = isPreparationTerminal
-        ? (preparationStatus === 'unavailable' ? 'Exam Not Available' : 'Exam Preparation Failed')
+        ? 'Exam Preparation Failed'
         : 'Preparing Your Exam';
-    const examQualityTier = typeof preparation?.qualityTier === 'string' ? preparation.qualityTier : '';
+    const examQualityTier = '';
 
     // Keep hook order stable across loading/error/exam states.
     // For fill_blank questions, build options from the tokens word bank.
@@ -1452,7 +1149,7 @@ const ExamMode = () => {
         );
     }
 
-    if ((formatPickerOpen && !examStarted && !startingExamAttempt && !hasAttemptQuestions) || shouldHoldFormatPickerForInstantLaunch) {
+    if (!examFormat && !examStarted && !startingExamAttempt && !hasAttemptQuestions) {
         // MCQ config sub-screen
         if (examConfigStep) {
             const MCQ_OPTIONS = [
@@ -1482,9 +1179,7 @@ const ExamMode = () => {
                                         key={opt.label}
                                         onClick={() => {
                                             setStartExamError('');
-                                            setPreparationId(null);
                                             setExamConfigStep(false);
-                                            setFormatPickerOpen(false);
                                             setExamFormat('mcq');
                                         }}
                                         className="w-full flex items-center gap-4 p-4 rounded-xl border border-border-light dark:border-border-dark hover:border-primary hover:bg-primary/5 transition-all text-left group"
@@ -1504,6 +1199,7 @@ const ExamMode = () => {
                 </div>
             );
         }
+
         return (
             <div className="min-h-screen bg-background-light dark:bg-background-dark flex items-center justify-center p-4">
                 <div className="w-full max-w-md">
@@ -1518,53 +1214,32 @@ const ExamMode = () => {
                             <button
                                 onClick={() => {
                                     setStartExamError('');
-                                    setFormatPickerOpen(false);
                                     setExamConfigStep(true);
                                 }}
-                                disabled={startingExamAttempt}
                                 className="w-full flex items-center gap-4 p-4 rounded-xl border border-border-light dark:border-border-dark hover:border-primary hover:bg-primary/5 transition-all text-left group"
                             >
                                 <div className="w-11 h-11 rounded-xl bg-primary/10 flex items-center justify-center group-hover:bg-primary/15 transition-colors">
                                     <span className="material-symbols-outlined text-primary">radio_button_checked</span>
                                 </div>
                                 <div>
-                                    {objectiveLaunchCard.badge ? (
-                                        <p className="text-[11px] uppercase tracking-[0.18em] text-primary mb-1">
-                                            {objectiveLaunchCard.badge}
-                                        </p>
-                                    ) : null}
-                                    <p className="text-body-sm font-semibold text-text-main-light dark:text-text-main-dark">{objectiveLaunchCard.title}</p>
-                                    <p className="text-caption text-text-sub-light dark:text-text-sub-dark">{objectiveLaunchCard.description}</p>
-                                    {shouldHoldFormatPickerForInstantLaunch && examFormat === 'mcq' ? (
-                                        <p className="text-caption text-primary mt-2">Opening your saved objective quiz...</p>
-                                    ) : null}
+                                    <p className="text-body-sm font-semibold text-text-main-light dark:text-text-main-dark">Objective Quiz</p>
+                                    <p className="text-caption text-text-sub-light dark:text-text-sub-dark">Multiple choice, true/false, and fill in the blank</p>
                                 </div>
                             </button>
 
                             <button
                                 onClick={() => {
                                     setStartExamError('');
-                                    setPreparationId(null);
-                                    setFormatPickerOpen(false);
                                     setExamFormat('essay');
                                 }}
-                                disabled={startingExamAttempt}
                                 className="w-full flex items-center gap-4 p-4 rounded-xl border border-border-light dark:border-border-dark hover:border-accent-emerald hover:bg-accent-emerald/5 transition-all text-left group"
                             >
                                 <div className="w-11 h-11 rounded-xl bg-accent-emerald/10 flex items-center justify-center group-hover:bg-accent-emerald/15 transition-colors">
                                     <span className="material-symbols-outlined text-accent-emerald">edit_note</span>
                                 </div>
                                 <div>
-                                    {essayLaunchCard.badge ? (
-                                        <p className="text-[11px] uppercase tracking-[0.18em] text-accent-emerald mb-1">
-                                            {essayLaunchCard.badge}
-                                        </p>
-                                    ) : null}
-                                    <p className="text-body-sm font-semibold text-text-main-light dark:text-text-main-dark">{essayLaunchCard.title}</p>
-                                    <p className="text-caption text-text-sub-light dark:text-text-sub-dark">{essayLaunchCard.description}</p>
-                                    {shouldHoldFormatPickerForInstantLaunch && examFormat === 'essay' ? (
-                                        <p className="text-caption text-accent-emerald mt-2">Opening your saved essay exam...</p>
-                                    ) : null}
+                                    <p className="text-body-sm font-semibold text-text-main-light dark:text-text-main-dark">Essay / Theory</p>
+                                    <p className="text-caption text-text-sub-light dark:text-text-sub-dark">Write your answers in your own words</p>
                                 </div>
                             </button>
                         </div>
@@ -1574,7 +1249,7 @@ const ExamMode = () => {
         );
     }
 
-    if (!hasReadyAttemptState && (startingExamAttempt || !examStarted || !attemptId || questions.length === 0)) {
+    if (startingExamAttempt || !examStarted || !attemptId || questions.length === 0) {
         return (
             <div className="min-h-screen bg-background-light dark:bg-background-dark flex items-center justify-center p-4">
                 <div className="w-full max-w-md">
@@ -1594,36 +1269,6 @@ const ExamMode = () => {
                             <p className="text-body-sm text-text-sub-light dark:text-text-sub-dark mb-6">
                                 {activePreparationMessage}
                             </p>
-
-                            <div className="flex items-start justify-between gap-4 mb-4 text-left">
-                                <div className="min-w-0">
-                                    <p className="text-caption uppercase tracking-[0.18em] text-text-faint-light dark:text-text-faint-dark mb-1">
-                                        ETA
-                                    </p>
-                                    <p className="text-body-base font-semibold text-text-main-light dark:text-text-main-dark">
-                                        {preparationLoadingState.etaLabel}
-                                    </p>
-                                </div>
-                                <div className="min-w-0 flex-1 text-right">
-                                    <p className="text-caption uppercase tracking-[0.18em] text-text-faint-light dark:text-text-faint-dark mb-1">
-                                        Progress
-                                    </p>
-                                    <p className="text-body-sm text-text-sub-light dark:text-text-sub-dark">
-                                        {preparationLoadingState.detailLabel}
-                                    </p>
-                                </div>
-                            </div>
-
-                            <div className="w-full h-2 bg-border-light dark:bg-border-dark rounded-full overflow-hidden mb-2">
-                                <div
-                                    className="h-full bg-primary transition-all duration-500"
-                                    style={{ width: `${preparationLoadingState.progressPercent}%` }}
-                                ></div>
-                            </div>
-                            <div className="flex items-center justify-between text-caption text-text-faint-light dark:text-text-faint-dark mb-6">
-                                <span>{preparationLoadingState.progressPercent}% complete</span>
-                                <span>{preparationLoadingState.helperLabel}</span>
-                            </div>
 
                             <p className="text-caption uppercase tracking-[0.18em] text-text-faint-light dark:text-text-faint-dark mb-4">
                                 {PREPARATION_STAGE_LABELS[preparationStage] || 'Preparing exam'}
@@ -1675,22 +1320,19 @@ const ExamMode = () => {
                                     </Link>
                                 ) : (
                                     <>
-                                        {preparation?.canRetry || !preparationId ? (
-                                            <button
-                                                onClick={handleRetryStart}
-                                                disabled={startingExamAttempt}
-                                                className="flex-1 btn-primary py-3 disabled:opacity-60 flex items-center justify-center gap-2"
-                                            >
-                                                <span className="material-symbols-outlined text-[18px]">refresh</span>
-                                                <span>Retry</span>
-                                            </button>
-                                        ) : null}
+                                        <button
+                                            onClick={handleRetryStart}
+                                            disabled={startingExamAttempt}
+                                            className="flex-1 btn-primary py-3 disabled:opacity-60 flex items-center justify-center gap-2"
+                                        >
+                                            <span className="material-symbols-outlined text-[18px]">refresh</span>
+                                            <span>Retry</span>
+                                        </button>
                                         <button
                                             onClick={() => {
                                                 setStartExamError('');
-                                                setPreparationId(null);
                                                 setExamFormat(null);
-                                                setFormatPickerOpen(true);
+                                                setExamConfigStep(false);
                                             }}
                                             className="btn-secondary px-4 py-3 flex items-center justify-center"
                                         >
@@ -1699,7 +1341,7 @@ const ExamMode = () => {
                                     </>
                                 )}
                                 <Link
-                                    to={`/dashboard/topic/${topicId}`}
+                                    to={topicId ? `/dashboard/topic/${topicId}` : '/dashboard'}
                                     className="btn-secondary px-4 py-3 flex items-center justify-center"
                                 >
                                     <span className="material-symbols-outlined text-[18px]">arrow_back</span>
@@ -1735,7 +1377,7 @@ const ExamMode = () => {
                 <header className="sticky top-0 z-40 bg-surface-light/90 dark:bg-surface-dark/90 backdrop-blur-md border-b border-border-light dark:border-border-dark">
                     <div className="max-w-4xl mx-auto px-4 py-3 flex items-center justify-between">
                         <div className="flex items-center gap-3">
-                            <Link to={`/dashboard/topic/${topicId}`} className="btn-icon w-9 h-9">
+                            <Link to={topicId ? `/dashboard/topic/${topicId}` : '/dashboard'} className="btn-icon w-9 h-9">
                                 <span className="material-symbols-outlined text-lg">close</span>
                             </Link>
                             <div>

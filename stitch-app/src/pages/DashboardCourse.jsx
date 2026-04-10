@@ -14,6 +14,9 @@ const FILE_TYPE_ICONS = {
     docx: 'description',
 };
 
+const buildObjectiveExamRoute = (topicId) =>
+    topicId ? `/dashboard/exam/${topicId}?autostart=mcq` : '/dashboard';
+
 function formatFileSize(bytes) {
     if (!bytes) return '';
     if (bytes < 1024) return `${bytes} B`;
@@ -211,32 +214,11 @@ const DashboardCourse = () => {
     const userId = user?.id;
     const { isAuthenticated: isConvexAuthenticated } = useConvexAuth();
 
-    const resetCourseScrollPosition = React.useCallback(() => {
-        if (typeof document !== 'undefined') {
-            const main = document.getElementById('dashboard-main');
-            if (main && typeof main.scrollTo === 'function') {
-                main.scrollTo({ top: 0, left: 0, behavior: 'auto' });
-            } else if (main) {
-                main.scrollTop = 0;
-            }
-        }
-        if (typeof window !== 'undefined') {
-            window.scrollTo({ top: 0, left: 0, behavior: 'auto' });
-        }
-    }, []);
-
-    React.useLayoutEffect(() => {
-        resetCourseScrollPosition();
-        if (typeof window === 'undefined') return undefined;
-
-        const frame = window.requestAnimationFrame(() => {
-            resetCourseScrollPosition();
-        });
-
-        return () => {
-            window.cancelAnimationFrame(frame);
-        };
-    }, [courseId, resetCourseScrollPosition]);
+    React.useEffect(() => {
+        const main = document.getElementById('dashboard-main');
+        if (main) main.scrollTop = 0;
+        window.scrollTo({ top: 0, left: 0, behavior: 'auto' });
+    }, [courseId]);
 
     const courseData = useQuery(
         api.courses.getCourseWithTopics,
@@ -256,6 +238,9 @@ const DashboardCourse = () => {
 
     const displayCourse = courseData || latestCourseTopics || course;
     const topics = Array.isArray(displayCourse?.topics) ? displayCourse.topics : EMPTY_LIST;
+    const finalAssessmentTopics = Array.isArray(displayCourse?.finalAssessmentTopics)
+        ? displayCourse.finalAssessmentTopics
+        : EMPTY_LIST;
     const resolvedCourseId = displayCourse?._id;
     const courseProgress = useQuery(
         api.topics.getUserCourseProgress,
@@ -286,6 +271,9 @@ const DashboardCourse = () => {
     );
     const backgroundGenerationMessage = (() => {
         if (!backgroundGenerationActive) return '';
+        if (upload?.processingStep === 'generating_question_bank') {
+            return 'Generating question banks in the background. You can keep studying while this completes.';
+        }
         if (
             upload?.processingStep === 'generating_first_topic' ||
             upload?.processingStep === 'first_topic_ready' ||
@@ -465,6 +453,51 @@ const DashboardCourse = () => {
                 />
             )}
 
+            {!isProcessing && finalAssessmentTopics.length > 0 && (
+                <div className="mb-6">
+                    <div className="flex items-center gap-2 mb-3">
+                        <span className="material-symbols-outlined text-primary text-[18px]">workspace_premium</span>
+                        <h2 className="text-body-base font-semibold text-text-main-light dark:text-text-main-dark">
+                            Final Exam
+                        </h2>
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                        {finalAssessmentTopics.map((topic) => {
+                            const progress = courseProgress?.[topic._id];
+                            return (
+                                <div key={topic._id} className="card-base p-5 border-primary/20 bg-primary/5 dark:bg-primary/10">
+                                    <div className="flex items-center justify-between gap-3 mb-2">
+                                        <span className="badge badge-primary gap-1">
+                                            <span className="material-symbols-outlined text-[11px]">quiz</span>
+                                            Comprehensive
+                                        </span>
+                                        {progress?.bestScore != null && (
+                                            <span className={`badge gap-1 ${progress.bestScore >= 80 ? 'badge-success' : progress.bestScore >= 60 ? 'badge-warning' : 'badge-danger'}`}>
+                                                {progress.bestScore}%
+                                            </span>
+                                        )}
+                                    </div>
+                                    <h3 className="text-body-lg font-semibold text-text-main-light dark:text-text-main-dark mb-1">
+                                        {topic.title}
+                                    </h3>
+                                    <p className="text-body-sm text-text-sub-light dark:text-text-sub-dark mb-4">
+                                        {topic.description || 'This exam combines the most important concepts across the document.'}
+                                    </p>
+                                    <Link
+                                        to={buildObjectiveExamRoute(topic._id)}
+                                        reloadDocument
+                                        className="btn-primary w-full py-2 text-body-sm justify-center gap-1.5"
+                                    >
+                                        <span className="material-symbols-outlined text-[16px]">play_arrow</span>
+                                        {progress?.bestScore != null ? 'Retake Final Exam' : 'Start Final Exam'}
+                                    </Link>
+                                </div>
+                            );
+                        })}
+                    </div>
+                </div>
+            )}
+
             {/* Topics Grid */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
                 {syllabusItems.length > 0 ? (
@@ -501,6 +534,10 @@ const DashboardCourse = () => {
                         const isStarted = Boolean(progress) && !isCompleted;
                         const readMins = estimateReadingMinutes(topic.content);
                         const mcqCount = typeof topic.usableMcqCount === 'number' ? topic.usableMcqCount : 0;
+                        const assessmentRoute = topic.assessmentRoute || 'topic_quiz';
+                        const routeBadge = assessmentRoute === 'topic_quiz'
+                            ? { label: 'Quiz Ready', className: 'badge-success' }
+                            : { label: 'Final Exam', className: 'badge-primary' };
 
                         // Smart badges
                         const isExamHeavy = mcqCount >= 15;
@@ -580,6 +617,10 @@ const DashboardCourse = () => {
                                     </p>
                                     {/* Metadata row */}
                                     <div className="flex items-center gap-1.5 flex-wrap mb-3">
+                                        <span className={`badge gap-1 ${routeBadge.className}`}>
+                                            <span className="material-symbols-outlined text-[11px]">task_alt</span>
+                                            {routeBadge.label}
+                                        </span>
                                         {readMins && (
                                             <span className="badge gap-1">
                                                 <span className="material-symbols-outlined text-[11px]">schedule</span>

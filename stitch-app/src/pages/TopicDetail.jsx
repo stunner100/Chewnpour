@@ -28,8 +28,6 @@ import {
     slugifyText,
 } from '../lib/topicContentFormatting';
 import { resolveTopicIllustrationUrl } from '../lib/topicIllustration';
-import { buildConceptPracticePath } from '../lib/conceptReviewLinks';
-import { captureSentryMessage } from '../lib/sentry';
 
 // ── Pure rendering helpers (hoisted out of the component to avoid re-creation) ──
 
@@ -59,6 +57,9 @@ const SECTION_SETS = {
     full: null,
 };
 
+const buildObjectiveExamRoute = (examTopicId) =>
+    examTopicId ? `/dashboard/exam/${examTopicId}?autostart=mcq` : '/dashboard';
+
 const TopicDetail = () => {
     const { topicId: topicIdParam } = useParams();
     const routeTopicId = typeof topicIdParam === 'string' ? topicIdParam.trim() : '';
@@ -66,8 +67,6 @@ const TopicDetail = () => {
     useStudyTimer(user?.id);
     const synthesizeTopicVoice = useAction(api.ai.synthesizeTopicVoice);
     const reExplainTopic = useAction(api.ai.reExplainTopic);
-    const [startingExam, setStartingExam] = useState(false);
-    const [startExamError, setStartExamError] = useState('');
     const [reExplainOpen, setReExplainOpen] = useState(false);
     const [reExplainStyle, setReExplainStyle] = useState("Teach me like I'm 12");
     const [reExplainLoading, setReExplainLoading] = useState(false);
@@ -83,7 +82,6 @@ const TopicDetail = () => {
     const [notesOpen, setNotesOpen] = useState(false);
     const [notesAppendText, setNotesAppendText] = useState('');
     const [chatOpen, setChatOpen] = useState(false);
-    const conceptFallbackReportedRef = useRef('');
     const [sourceOpen, setSourceOpen] = useState(false);
     const [studyMode, setStudyMode] = useState(null);
 
@@ -117,53 +115,10 @@ const TopicDetail = () => {
         isMissingRouteTopic,
     } = useRouteResolvedTopic(routeTopicId, topicQueryResult);
     const courseId = topic?.courseId;
-    const conceptMastery = useQuery(
-        api.concepts.getConceptMasteryForTopic,
-        topicId ? { topicId } : 'skip'
+    const finalAssessmentTopic = useQuery(
+        api.topics.getFinalAssessmentTopicByCourseAndUpload,
+        courseId && topic?.sourceUploadId ? { courseId, sourceUploadId: topic.sourceUploadId } : 'skip'
     );
-    const topicConceptPracticePath = useMemo(
-        () => buildConceptPracticePath(topicId, []),
-        [topicId]
-    );
-    const topicConceptReviewPath = useMemo(
-        () => buildConceptPracticePath(topicId, conceptMastery?.reviewConceptKeys || []),
-        [conceptMastery?.reviewConceptKeys, topicId]
-    );
-
-    useEffect(() => {
-        if (!topicId || conceptMastery?.source !== 'attempt_fallback') {
-            return;
-        }
-
-        const reportKey = `${topicId}:${conceptMastery.reviewConceptKeys?.join(',') || ''}`;
-        if (conceptFallbackReportedRef.current === reportKey) {
-            return;
-        }
-        conceptFallbackReportedRef.current = reportKey;
-
-        captureSentryMessage('Topic review CTA using concept-attempt fallback', {
-            level: 'warning',
-            tags: {
-                area: 'concept_practice',
-                page: 'topic_detail',
-                fallbackSource: 'attempt_fallback',
-            },
-            extras: {
-                topicId,
-                topicTitle: topic?.title || '',
-                totalConcepts: conceptMastery?.totalConcepts || 0,
-                dueCount: conceptMastery?.dueCount || 0,
-                reviewConceptKeys: conceptMastery?.reviewConceptKeys || [],
-            },
-        });
-    }, [
-        conceptMastery?.dueCount,
-        conceptMastery?.reviewConceptKeys,
-        conceptMastery?.source,
-        conceptMastery?.totalConcepts,
-        topic?.title,
-        topicId,
-    ]);
     const voiceModeEnabled = Boolean(profile?.voiceModeEnabled);
     const voiceQuota = useQuery(
         api.subscriptions.getVoiceGenerationQuotaStatus,
@@ -260,6 +215,7 @@ const TopicDetail = () => {
     useEffect(() => {
         setStudyMode(null);
     }, [routeTopicId]);
+
 
     // Track topic study progress on mount
     useEffect(() => {
@@ -680,24 +636,7 @@ const TopicDetail = () => {
         return { blocks, toc, readingMinutes, quickCheckPairs, wordBankTerms };
     }, [normalizedContent]);
 
-    const handleStartExam = async () => {
-        if (!topicId) {
-            setStartExamError('Topic not found. Please return to the dashboard and try again.');
-            return;
-        }
-
-        setStartExamError('');
-        setStartingExam(true);
-
-        try {
-            navigate(`/dashboard/exam/${topicId}`);
-        } catch {
-            setStartExamError('Failed to start the exam. Please try again.');
-        } finally {
-            setStartingExam(false);
-        }
-    };
-
+    // Section filtering by study mode
     const filteredBlocks = useMemo(() => {
         if (!studyMode || studyMode === 'full' || !SECTION_SETS[studyMode]) return parsed.blocks;
         const allowed = SECTION_SETS[studyMode];
@@ -773,7 +712,7 @@ const TopicDetail = () => {
     const examTopicId = isTopicQuizRoute
         ? topicId
         : (finalAssessmentTopic?._id || null);
-    const examRoute = examTopicId ? `/dashboard/exam/${examTopicId}` : '/dashboard';
+    const examRoute = buildObjectiveExamRoute(examTopicId);
     const topicAssessmentBadge = isTopicQuizRoute ? 'Quiz Ready' : 'Covered in Final Exam';
     const examActionLabel = isTopicQuizRoute
         ? (topicProgress?.bestScore != null ? 'Retry Exam' : 'Start Topic Quiz')
@@ -785,6 +724,7 @@ const TopicDetail = () => {
     const postLessonPrompt = isTopicQuizRoute
         ? 'Ready to test your knowledge?'
         : 'This topic will be assessed in the final exam.';
+
     const handleReExplain = useCallback(async () => {
         if (!topicId) return;
         setReExplainError('');
@@ -877,7 +817,6 @@ const TopicDetail = () => {
                         topicTitle={headerTopicTitle}
                         onSelect={handleStudyModeSelect}
                         onSkip={handleStudyModeSkip}
-                        onStartExam={handleStartExam}
                     />
                 </main>
             </div>
@@ -958,10 +897,10 @@ const TopicDetail = () => {
                                 <span className="material-symbols-outlined text-[14px]">schedule</span>
                                 {parsed.readingMinutes} min read
                             </span>
-                            {topic?.examReady && (
+                            {topicAssessmentBadge && (
                                 <span className="badge badge-success gap-1">
                                     <span className="material-symbols-outlined text-[11px]" style={{ fontVariationSettings: "'FILL' 1" }}>verified</span>
-                                    Exam ready
+                                    {topicAssessmentBadge}
                                 </span>
                             )}
                             {topicProgress?.completedAt && (
@@ -1077,14 +1016,14 @@ const TopicDetail = () => {
                                                 <span className="material-symbols-outlined text-accent-emerald text-[20px]" style={{ fontVariationSettings: "'FILL' 1" }}>check_circle</span>
                                             </div>
                                             <h3 className="text-body-lg font-semibold text-text-main-light dark:text-text-main-dark mb-1">Lesson complete</h3>
-                                            <p className="text-body-sm text-text-sub-light dark:text-text-sub-dark mb-5">Ready to test your knowledge?</p>
+                                            <p className="text-body-sm text-text-sub-light dark:text-text-sub-dark mb-5">{postLessonPrompt}</p>
                                         </>
                                     )}
                                 </>
                             ) : (
                                 <>
-                                    <h3 className="text-body-lg font-semibold text-text-main-light dark:text-text-main-dark mb-1">Ready to practice?</h3>
-                                    <p className="text-body-sm text-text-sub-light dark:text-text-sub-dark mb-5">Test your understanding with questions from this lesson.</p>
+                                    <h3 className="text-body-lg font-semibold text-text-main-light dark:text-text-main-dark mb-1">{practiceHeading}</h3>
+                                    <p className="text-body-sm text-text-sub-light dark:text-text-sub-dark mb-5">{practiceDescription}</p>
                                 </>
                             )}
 
@@ -1101,20 +1040,31 @@ const TopicDetail = () => {
                                     </button>
                                 )}
                                 <Link
-                                    to={topicConceptPracticePath}
+                                    to={topicId ? `/dashboard/concept-intro/${topicId}` : '/dashboard/concept-intro'}
                                     className="btn-secondary px-5 py-2.5 text-body-sm gap-2"
                                 >
                                     <span className="material-symbols-outlined text-[18px] text-accent-emerald">school</span>
-                                    Concept Practice
+                                    Study Concepts
                                 </Link>
-                                <button
-                                    onClick={handleStartExam}
-                                    disabled={startingExam}
-                                    className="btn-primary px-5 py-2.5 text-body-sm gap-2 disabled:opacity-50"
-                                >
-                                    <span className="material-symbols-outlined text-[18px]">quiz</span>
-                                    {startingExam ? 'Preparing...' : topicProgress?.bestScore != null ? 'Retry Exam' : 'Start Exam'}
-                                </button>
+                                {examTopicId ? (
+                                    <Link
+                                        to={examRoute}
+                                        reloadDocument
+                                        className="btn-primary px-5 py-2.5 text-body-sm gap-2"
+                                    >
+                                        <span className="material-symbols-outlined text-[18px]">quiz</span>
+                                        {examActionLabel}
+                                    </Link>
+                                ) : (
+                                    <button
+                                        type="button"
+                                        disabled
+                                        className="btn-primary px-5 py-2.5 text-body-sm gap-2 opacity-60 cursor-not-allowed"
+                                    >
+                                        <span className="material-symbols-outlined text-[18px]">hourglass_top</span>
+                                        {examActionLabel}
+                                    </button>
+                                )}
                                 <button
                                     onClick={openChat}
                                     className="btn-ghost px-5 py-2.5 text-body-sm gap-2"
@@ -1123,40 +1073,6 @@ const TopicDetail = () => {
                                     Ask Tutor
                                 </button>
                             </div>
-
-                            {conceptMastery?.totalConcepts > 0 && (
-                                <div className="mt-4 flex flex-col items-center gap-3">
-                                    <div className="flex flex-wrap items-center justify-center gap-2 text-caption text-text-faint-light dark:text-text-faint-dark">
-                                        <span className="rounded-full bg-accent-emerald/10 px-2.5 py-1 text-accent-emerald">
-                                            {conceptMastery.strongCount} strong
-                                        </span>
-                                        <span className="rounded-full bg-accent-amber/10 px-2.5 py-1 text-accent-amber">
-                                            {conceptMastery.shakyCount} shaky
-                                        </span>
-                                        <span className="rounded-full bg-red-500/10 px-2.5 py-1 text-red-500">
-                                            {conceptMastery.weakCount} weak
-                                        </span>
-                                        <span>
-                                            {conceptMastery.dueCount > 0
-                                                ? `${conceptMastery.dueCount} concepts due for review`
-                                                : 'No concept review due yet'}
-                                        </span>
-                                    </div>
-                                    {conceptMastery.reviewConceptKeys?.length > 0 && (
-                                        <Link
-                                            to={topicConceptReviewPath}
-                                            className="btn-ghost px-4 py-2 text-body-sm gap-2"
-                                        >
-                                            <span className="material-symbols-outlined text-[18px]">cycle</span>
-                                            {conceptMastery.dueCount > 0 ? 'Review Weak Concepts' : 'Open Focused Review'}
-                                        </Link>
-                                    )}
-                                </div>
-                            )}
-
-                            {startExamError && (
-                                <p className="mt-4 text-caption text-red-500">{startExamError}</p>
-                            )}
 
                             <div className="mt-6">
                                 <GuidedStudyPath
@@ -1170,12 +1086,17 @@ const TopicDetail = () => {
                             <div className="mt-6 pt-6 border-t border-border-light dark:border-border-dark text-left">
                                 <NextStepsGuidance
                                     topicId={topicId}
+                                    examTopicId={examTopicId}
                                     topicTitle={resolvedTopicTitle}
                                     percentage={null}
                                     completedAt={topicProgress?.completedAt}
                                     bestScore={topicProgress?.bestScore}
                                     hasWordBank={parsed.wordBankTerms?.length > 0}
                                     onOpenChat={openChat}
+                                    examLabel={isTopicQuizRoute ? 'Start the topic quiz' : 'Take the final exam'}
+                                    examDescription={isTopicQuizRoute
+                                        ? 'Test your understanding with practice questions.'
+                                        : 'This topic is assessed as part of the final exam.'}
                                     variant="lesson"
                                 />
                             </div>

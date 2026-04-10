@@ -6,12 +6,6 @@ const root = process.cwd();
 const topicDetailPath = path.join(root, 'src', 'pages', 'TopicDetail.jsx');
 const source = await fs.readFile(topicDetailPath, 'utf8');
 
-const match = source.match(/const handleStartExam = async \(\) => \{[\s\S]*?\n    \};/);
-if (!match) {
-  throw new Error('Expected TopicDetail to define handleStartExam.');
-}
-const handleStartExamSource = match[0];
-
 for (const forbiddenPattern of [
   /await\s+generateQuestions\(\{\s*topicId\s*\}\)/,
   /generateQuestions\(\{\s*topicId\s*\}\)/,
@@ -20,13 +14,21 @@ for (const forbiddenPattern of [
   /topicQuizStartReady/,
   /topicEssayStartReady/,
 ]) {
-  if (forbiddenPattern.test(handleStartExamSource)) {
+  if (forbiddenPattern.test(source)) {
     throw new Error('Regression detected: TopicDetail Start Exam should not do format-specific generation or readiness checks.');
   }
 }
 
-if (!/navigate\(`\/dashboard\/exam\/\$\{topicId\}`\);/.test(handleStartExamSource)) {
-  throw new Error('Expected handleStartExam to navigate directly to ExamMode.');
+if (!source.includes('const buildObjectiveExamRoute = (examTopicId) =>')) {
+  throw new Error('Expected TopicDetail to centralize the default autostart exam route.');
+}
+
+if (!source.includes("autostart=mcq")) {
+  throw new Error('Expected TopicDetail Start Exam CTA to deep-link into objective mode.');
+}
+
+if (!source.includes('reloadDocument')) {
+  throw new Error('Expected TopicDetail Start Exam CTA to use hard document navigation.');
 }
 
 console.log('topic-detail-exam-start-nonblocking-regression.test.mjs passed');
