@@ -53,6 +53,7 @@ import type * as lib_questionPromptSimilarity from "../lib/questionPromptSimilar
 import type * as lib_topicGenerationProgress from "../lib/topicGenerationProgress.js";
 import type * as lib_topicOutlinePipeline from "../lib/topicOutlinePipeline.js";
 import type * as lib_tutorSupport from "../lib/tutorSupport.js";
+import type * as lib_uploadDisplayStatus from "../lib/uploadDisplayStatus.js";
 import type * as lib_voiceStreamToken from "../lib/voiceStreamToken.js";
 import type * as lib_voyageEmbeddings from "../lib/voyageEmbeddings.js";
 import type * as llmUsage from "../llmUsage.js";
@@ -121,6 +122,7 @@ declare const fullApi: ApiFromModules<{
   "lib/topicGenerationProgress": typeof lib_topicGenerationProgress;
   "lib/topicOutlinePipeline": typeof lib_topicOutlinePipeline;
   "lib/tutorSupport": typeof lib_tutorSupport;
+  "lib/uploadDisplayStatus": typeof lib_uploadDisplayStatus;
   "lib/voiceStreamToken": typeof lib_voiceStreamToken;
   "lib/voyageEmbeddings": typeof lib_voyageEmbeddings;
   llmUsage: typeof llmUsage;
