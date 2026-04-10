@@ -468,6 +468,7 @@ const ExamMode = () => {
         preparationId ? { preparationId } : 'skip'
     );
     const startExamPreparation = useAction(api.examPreparations.startExamPreparation);
+    const ensureAssessmentRoutingForTopic = useAction(api.ai.ensureAssessmentRoutingForTopic);
     const retryPreparation = useMutation(api.examPreparations.retryExamPreparation);
     const submitExam = useMutation(api.exams.submitExamAttempt);
     const submitEssayExam = useAction(api.exams.submitEssayExam);
@@ -499,6 +500,8 @@ const ExamMode = () => {
     const handleSubmitRef = useRef(() => { });
     const submittingRef = useRef(false);
     const resolvedPreparationRef = useRef(null);
+    const routingBootstrapKeyRef = useRef('');
+    const [routingBootstrapPending, setRoutingBootstrapPending] = useState(false);
     // Optimized timer: only re-renders when the displayed second changes
     const {
         timeRemaining,
@@ -536,8 +539,54 @@ const ExamMode = () => {
         setGradingEssay(false);
         setSubmitError('');
         resolvedPreparationRef.current = null;
+        routingBootstrapKeyRef.current = '';
+        setRoutingBootstrapPending(false);
     }, [
         routeTopicId,
+    ]);
+
+    useEffect(() => {
+        if (!topicId || !topic?.courseId || !topic?.sourceUploadId) {
+            return;
+        }
+
+        const needsRoutingBootstrap = (
+            !topic?.assessmentRoute
+            || !topic?.assessmentClassification
+            || (
+                topic?.topicKind !== 'document_final_exam'
+                && routedFinalAssessmentTopic === null
+            )
+        );
+
+        if (!needsRoutingBootstrap) {
+            return;
+        }
+
+        const bootstrapKey = `${topicId}:${topic.sourceUploadId}`;
+        if (routingBootstrapKeyRef.current === bootstrapKey) {
+            return;
+        }
+
+        routingBootstrapKeyRef.current = bootstrapKey;
+        setRoutingBootstrapPending(true);
+
+        ensureAssessmentRoutingForTopic({ topicId })
+            .catch((error) => {
+                console.warn('Failed to bootstrap assessment routing for exam topic', error);
+            })
+            .finally(() => {
+                setRoutingBootstrapPending(false);
+            });
+    }, [
+        ensureAssessmentRoutingForTopic,
+        routedFinalAssessmentTopic,
+        topic?.assessmentClassification,
+        topic?.assessmentRoute,
+        topic?.courseId,
+        topic?.sourceUploadId,
+        topic?.topicKind,
+        topicId,
     ]);
 
     useEffect(() => {
@@ -1132,6 +1181,17 @@ const ExamMode = () => {
                 <div className="text-center">
                     <div className="animate-spin rounded-full h-10 w-10 border-2 border-border-light dark:border-border-dark border-t-primary mx-auto mb-4"></div>
                     <p className="text-body-sm text-text-sub-light dark:text-text-sub-dark">Preparing your final exam...</p>
+                </div>
+            </div>
+        );
+    }
+
+    if (routingBootstrapPending) {
+        return (
+            <div className="bg-background-light dark:bg-background-dark min-h-screen flex items-center justify-center">
+                <div className="text-center">
+                    <div className="animate-spin rounded-full h-10 w-10 border-2 border-border-light dark:border-border-dark border-t-primary mx-auto mb-4"></div>
+                    <p className="text-body-sm text-text-sub-light dark:text-text-sub-dark">Preparing the best assessment route for this topic...</p>
                 </div>
             </div>
         );
