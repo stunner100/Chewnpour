@@ -13,8 +13,6 @@ import TopicNotesPanel from '../components/TopicNotesPanel';
 import TopicChatPanel from '../components/TopicChatPanel';
 import HighlightExplainPopover from '../components/HighlightExplainPopover';
 import LessonContentRenderer from '../components/LessonContentRenderer';
-import InteractiveQuickCheck from '../components/InteractiveQuickCheck';
-import InteractiveWordBank from '../components/InteractiveWordBank';
 import StudyModeSelector from '../components/StudyModeSelector';
 import SourcePanel from '../components/SourcePanel';
 import NextStepsGuidance from '../components/NextStepsGuidance';
@@ -650,6 +648,62 @@ const TopicDetail = () => {
         });
     }, [parsed.blocks, studyMode]);
 
+    const displayBlocks = useMemo(() => {
+        const blocksWithWidgets = [];
+        let insertedQuickCheck = false;
+        let insertedWordBank = false;
+
+        for (const block of filteredBlocks) {
+            blocksWithWidgets.push(block);
+
+            if (block.type !== 'header') {
+                continue;
+            }
+
+            const normalized = block.text.toLowerCase().replace(/[^a-z\s]/g, '').trim();
+
+            if (
+                !insertedQuickCheck &&
+                parsed.quickCheckPairs?.length > 0 &&
+                normalized.includes('quick check')
+            ) {
+                blocksWithWidgets.push({
+                    type: 'quickcheck_widget',
+                    key: `${block.key}-quickcheck-widget`,
+                });
+                insertedQuickCheck = true;
+            }
+
+            if (
+                !insertedWordBank &&
+                parsed.wordBankTerms?.length > 0 &&
+                (normalized.includes('word bank') || normalized.includes('glossary'))
+            ) {
+                blocksWithWidgets.push({
+                    type: 'wordbank_widget',
+                    key: `${block.key}-wordbank-widget`,
+                });
+                insertedWordBank = true;
+            }
+        }
+
+        if (!insertedQuickCheck && parsed.quickCheckPairs?.length > 0) {
+            blocksWithWidgets.push({
+                type: 'quickcheck_widget',
+                key: 'quickcheck-widget-fallback',
+            });
+        }
+
+        if (!insertedWordBank && parsed.wordBankTerms?.length > 0) {
+            blocksWithWidgets.push({
+                type: 'wordbank_widget',
+                key: 'wordbank-widget-fallback',
+            });
+        }
+
+        return blocksWithWidgets;
+    }, [filteredBlocks, parsed.quickCheckPairs, parsed.wordBankTerms]);
+
     const assessmentRoute = topic?.assessmentRoute || 'topic_quiz';
     const isTopicQuizRoute = assessmentRoute === 'topic_quiz' || topic?.topicKind === 'document_final_exam';
     const examTopicId = isTopicQuizRoute
@@ -906,32 +960,23 @@ const TopicDetail = () => {
                             {normalizedContent ? (
                                 <>
                                 <LessonContentRenderer
-                                    blocks={filteredBlocks}
+                                    blocks={displayBlocks}
                                     shouldAnimateBlocks={shouldAnimateBlocks}
                                     cleanInline={cleanInline}
                                     onViewSource={() => setSourceOpen(true)}
                                     onAskTutor={handleAskTutor}
+                                    quickCheckPairs={parsed.quickCheckPairs}
+                                    wordBankTerms={parsed.wordBankTerms}
+                                    topicId={topicId}
+                                    starredTerms={topicProgress?.termsStarred}
+                                    onTermsStarred={(starred) => {
+                                        upsertProgress({
+                                            topicId,
+                                            termsStarred: starred,
+                                            lastStudiedAt: Date.now(),
+                                        }).catch(() => {});
+                                    }}
                                 />
-                                {parsed.quickCheckPairs?.length > 0 && (
-                                    <InteractiveQuickCheck
-                                        pairs={parsed.quickCheckPairs}
-                                        topicId={topicId}
-                                    />
-                                )}
-                                {parsed.wordBankTerms?.length > 0 && (
-                                    <InteractiveWordBank
-                                        terms={parsed.wordBankTerms}
-                                        topicId={topicId}
-                                        starredTerms={topicProgress?.termsStarred}
-                                        onTermsStarred={(starred) => {
-                                            upsertProgress({
-                                                topicId,
-                                                termsStarred: starred,
-                                                lastStudiedAt: Date.now(),
-                                            }).catch(() => {});
-                                        }}
-                                    />
-                                )}
                                 </>
                             ) : (
                                 <div className="flex flex-col items-center justify-center py-16 text-center">
