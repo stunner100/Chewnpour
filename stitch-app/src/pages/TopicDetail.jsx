@@ -61,15 +61,6 @@ const SECTION_SETS = {
     full: null,
 };
 
-const persistStudyModeSelection = (topicId, mode) => {
-    if (!topicId) return;
-    try {
-        sessionStorage.setItem(`studyMode:${topicId}`, mode);
-    } catch {
-        // Ignore storage failures and continue with in-memory mode selection.
-    }
-};
-
 const TopicDetail = () => {
     const { topicId: topicIdParam } = useParams();
     const routeTopicId = typeof topicIdParam === 'string' ? topicIdParam.trim() : '';
@@ -96,10 +87,7 @@ const TopicDetail = () => {
     const [chatOpen, setChatOpen] = useState(false);
     const conceptFallbackReportedRef = useRef('');
     const [sourceOpen, setSourceOpen] = useState(false);
-    const [studyMode, setStudyMode] = useState(() => {
-        if (!routeTopicId) return null;
-        try { return sessionStorage.getItem(`studyMode:${routeTopicId}`); } catch { return null; }
-    });
+    const [studyMode, setStudyMode] = useState(null);
 
     const [chatInitialPrompt, setChatInitialPrompt] = useState('');
     const openNotes = useCallback(() => { setChatOpen(false); setNotesOpen(true); }, []);
@@ -271,6 +259,9 @@ const TopicDetail = () => {
         }
     }, [contentCacheKey, topic?.content]);
 
+    useEffect(() => {
+        setStudyMode(null);
+    }, [routeTopicId]);
 
     // Track topic study progress on mount
     useEffect(() => {
@@ -747,6 +738,16 @@ const TopicDetail = () => {
         }
     }, [topicId, reExplainStyle, reExplainTopic]);
 
+    const handleStudyModeSelect = useCallback((mode) => {
+        setStudyMode(mode || 'full');
+        if (mainRef.current) mainRef.current.scrollTop = 0;
+        window.scrollTo(0, 0);
+    }, []);
+
+    const handleStudyModeSkip = useCallback(() => {
+        handleStudyModeSelect('full');
+    }, [handleStudyModeSelect]);
+
     if (!routeTopicId) {
         return (
             <div className="min-h-screen flex items-center justify-center bg-background-light dark:bg-background-dark">
@@ -782,10 +783,9 @@ const TopicDetail = () => {
         );
     }
 
-    // Study mode selector (shown before the lesson when no mode is picked)
-    if (normalizedContent && !studyMode) {
+    if (studyMode === null) {
         return (
-            <div className="bg-background-light dark:bg-background-dark font-body antialiased text-text-main-light dark:text-text-main-dark min-h-screen flex flex-col">
+            <div className="bg-background-light dark:bg-background-dark font-body antialiased text-text-main-light dark:text-text-main-dark min-h-screen flex flex-col overflow-x-hidden">
                 <header className="fixed top-0 inset-x-0 z-40 flex items-center justify-between px-4 h-14 bg-background-light/80 dark:bg-background-dark/80 backdrop-blur-xl border-b border-border-light dark:border-border-dark">
                     <div className="flex items-center gap-2 min-w-0">
                         <Link
@@ -795,22 +795,20 @@ const TopicDetail = () => {
                         >
                             <span className="material-symbols-outlined text-[18px]">arrow_back</span>
                         </Link>
+                        <span className="text-body-sm font-medium text-text-sub-light dark:text-text-sub-dark truncate max-w-[200px] sm:max-w-sm">
+                            {headerTopicTitle}
+                        </span>
                     </div>
                 </header>
-                <div className="pt-14">
-                        <StudyModeSelector
-                            topicTitle={topic?.title}
-                            onSelect={(mode) => {
-                                persistStudyModeSelection(routeTopicId, mode);
-                                setStudyMode(mode);
-                            }}
-                            onSkip={() => {
-                                persistStudyModeSelection(routeTopicId, 'full');
-                                setStudyMode('full');
-                            }}
+
+                <main className="flex-1 pt-14">
+                    <StudyModeSelector
+                        topicTitle={headerTopicTitle}
+                        onSelect={handleStudyModeSelect}
+                        onSkip={handleStudyModeSkip}
                         onStartExam={handleStartExam}
                     />
-                </div>
+                </main>
             </div>
         );
     }
