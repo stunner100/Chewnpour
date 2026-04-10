@@ -51,6 +51,73 @@ const appendNote = (message) => {
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
+const waitForUploadInput = async () => {
+  await page.waitForFunction(
+    () => {
+      const hasFileInput = Boolean(document.querySelector('input[type="file"]'));
+      const hasUploadTrigger = Array.from(document.querySelectorAll('button, [role="button"], label')).some((node) =>
+        /upload materials|add course/i.test((node.textContent || '').replace(/\s+/g, ' ').trim())
+      );
+      return hasFileInput || hasUploadTrigger;
+    },
+    undefined,
+    { timeout: 120000 }
+  );
+
+  let fileInput = page.locator('input[type="file"]').first();
+  const uploadTrigger = page.getByRole('button', { name: /upload materials|add course/i }).first();
+
+  if ((await fileInput.count()) === 0) {
+    const uploadTriggerVisible = await uploadTrigger.isVisible().catch(() => false);
+    if (uploadTriggerVisible) {
+      await uploadTrigger.click({ timeout: 10000 }).catch((error) => {
+        const message = error instanceof Error ? error.message : String(error);
+        appendNote(`Upload trigger click skipped: ${message}`);
+      });
+      fileInput = page.locator('input[type="file"]').first();
+      await fileInput.waitFor({ state: 'attached', timeout: 30000 });
+    }
+  }
+
+  return fileInput;
+};
+
+const prepareTopicForExamStart = async () => {
+  if (/\/dashboard\/exam\//.test(page.url())) {
+    return { selectedStudyMode: null, autoNavigatedToExam: true };
+  }
+
+  await page
+    .waitForFunction(
+      () => {
+        const bodyText = (document.body?.innerText || '').replace(/\s+/g, ' ').trim();
+        return (
+          /\/dashboard\/exam\//.test(window.location.pathname) ||
+          /practice only|quick revision|full lesson|exam prep|start exam|take final exam|retry exam/i.test(bodyText)
+        );
+      },
+      undefined,
+      { timeout: 30000 }
+    )
+    .catch(() => {});
+
+  const practiceOnlyButton = page.getByRole('button', { name: /practice only/i }).first();
+  const practiceOnlyVisible = await practiceOnlyButton.isVisible().catch(() => false);
+  if (!practiceOnlyVisible) {
+    return { selectedStudyMode: null, autoNavigatedToExam: false };
+  }
+
+  await screenshot('09-topic-study-mode');
+  await practiceOnlyButton.click({ timeout: 30000 });
+  appendNote('Selected Practice Only on study-mode chooser.');
+  await sleep(2000);
+
+  return {
+    selectedStudyMode: 'practice-only',
+    autoNavigatedToExam: /\/dashboard\/exam\//.test(page.url()),
+  };
+};
+
 const waitForPath = async (page, pattern, timeout = 120000) => {
   const source = pattern.source;
   const flags = pattern.flags;
@@ -330,7 +397,7 @@ const loginWithReadyAccount = async () => {
   await page.goto(`${baseUrl}/login`, { waitUntil: 'domcontentloaded', timeout: 120000 });
   await page.getByPlaceholder('student@university.edu').fill(readyEmail);
   await page.getByPlaceholder('Enter your password').fill(readyPassword);
-  await page.getByRole('button', { name: /log in/i }).click();
+  await page.getByRole('button', { name: /log in|sign in/i }).click();
   await page.waitForURL(/\/dashboard/, { timeout: 90000 });
   await screenshot('01-dashboard-after-login');
   recordStep('login-existing-account', 'passed', { url: page.url() });
@@ -399,7 +466,7 @@ try {
 
   if (flowMode !== 'ready') {
     recordStep('upload-material', 'started');
-    const fileInput = page.locator('input[type="file"][accept=".pdf,.pptx,.docx"]');
+    const fileInput = await waitForUploadInput();
     await fileInput.setInputFiles(uploadFilePath);
     await waitForPath(page, /\/dashboard\/(?:processing|course|topic)\//, 120000);
     await screenshot('06-processing-started');
@@ -450,15 +517,32 @@ try {
     const topicUrl = absolutizeUrl(topicWaitResult.topicHref);
     await page.goto(topicUrl, { waitUntil: 'domcontentloaded', timeout: 120000 });
   }
+  const topicExamPrep = await prepareTopicForExamStart();
+  if (topicExamPrep.autoNavigatedToExam) {
+    await screenshot('09-topic-detail');
+    recordStep('open-topic', 'passed', {
+      url: page.url(),
+      topicExamCtaText: 'auto-navigated-to-exam',
+      selectedStudyMode: topicExamPrep.selectedStudyMode,
+    });
+  }
   const topicExamCta = page.locator('a, button').filter({ hasText: topicExamCtaPattern }).first();
-  await topicExamCta.waitFor({ timeout: 120000 });
-  await screenshot('09-topic-detail');
-  const topicExamCtaText = ((await topicExamCta.textContent().catch(() => '')) || '').replace(/\s+/g, ' ').trim();
-  recordStep('open-topic', 'passed', { url: page.url(), topicExamCtaText });
+  if (!topicExamPrep.autoNavigatedToExam) {
+    await topicExamCta.waitFor({ timeout: 120000 });
+    await screenshot('09-topic-detail');
+    const topicExamCtaText = ((await topicExamCta.textContent().catch(() => '')) || '').replace(/\s+/g, ' ').trim();
+    recordStep('open-topic', 'passed', {
+      url: page.url(),
+      topicExamCtaText,
+      selectedStudyMode: topicExamPrep.selectedStudyMode,
+    });
+  }
 
   recordStep('start-exam', 'started');
-  await topicExamCta.click({ timeout: 45000 });
-  await waitForPath(page, /\/dashboard\/exam\//, 120000);
+  if (!/\/dashboard\/exam\//.test(page.url())) {
+    await topicExamCta.click({ timeout: 45000 });
+    await waitForPath(page, /\/dashboard\/exam\//, 120000);
+  }
   await screenshot('10-exam-opened');
 
   const examReadyStart = Date.now();
