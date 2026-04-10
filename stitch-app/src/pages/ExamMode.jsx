@@ -434,7 +434,6 @@ const ExamMode = () => {
 
     // Essay exam state
     const [examFormat, setExamFormat] = useState(() => resolveAutostartExamFormat(location.search)); // null = not chosen, 'mcq' | 'essay'
-    const [examConfigStep, setExamConfigStep] = useState(false); // true = showing MCQ config options
     const [gradingEssay, setGradingEssay] = useState(false);
     const [submitError, setSubmitError] = useState('');
     const invalidRouteReportedRef = useRef('');
@@ -529,7 +528,6 @@ const ExamMode = () => {
         setStartingExamAttempt(false);
         setStartExamError('');
         setExamFormat(resolveAutostartExamFormat(location.search));
-        setExamConfigStep(false);
         setGradingEssay(false);
         setSubmitError('');
         routingBootstrapKeyRef.current = '';
@@ -1150,56 +1148,6 @@ const ExamMode = () => {
     }
 
     if (!examFormat && !examStarted && !startingExamAttempt && !hasAttemptQuestions) {
-        // MCQ config sub-screen
-        if (examConfigStep) {
-            const MCQ_OPTIONS = [
-                { label: 'Quick Test', desc: '5 questions', icon: 'flash_on', count: 5 },
-                { label: 'Standard', desc: '15 questions', icon: 'assignment', count: 15 },
-                { label: 'Full Exam', desc: 'All questions', icon: 'fact_check', count: null },
-                { label: 'Hard Only', desc: 'Difficult questions', icon: 'local_fire_department', filter: 'difficult_only' },
-            ];
-            return (
-                <div className="min-h-screen bg-background-light dark:bg-background-dark flex items-center justify-center p-4">
-                    <div className="w-full max-w-md">
-                        <div className="card-base p-8">
-                            <button
-                                onClick={() => setExamConfigStep(false)}
-                                className="btn-ghost text-caption px-2 py-1 gap-1 mb-4"
-                            >
-                                <span className="material-symbols-outlined text-[16px]">arrow_back</span>
-                                Back
-                            </button>
-                            <div className="text-center mb-6">
-                                <h2 className="text-display-sm text-text-main-light dark:text-text-main-dark mb-1">Objective Quiz</h2>
-                                <p className="text-body-sm text-text-sub-light dark:text-text-sub-dark">Choose your quiz length</p>
-                            </div>
-                            <div className="space-y-2.5">
-                                {MCQ_OPTIONS.map((opt) => (
-                                    <button
-                                        key={opt.label}
-                                        onClick={() => {
-                                            setStartExamError('');
-                                            setExamConfigStep(false);
-                                            setExamFormat('mcq');
-                                        }}
-                                        className="w-full flex items-center gap-4 p-4 rounded-xl border border-border-light dark:border-border-dark hover:border-primary hover:bg-primary/5 transition-all text-left group"
-                                    >
-                                        <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center group-hover:bg-primary/15 transition-colors shrink-0">
-                                            <span className="material-symbols-outlined text-primary text-[20px]">{opt.icon}</span>
-                                        </div>
-                                        <div>
-                                            <p className="text-body-sm font-semibold text-text-main-light dark:text-text-main-dark">{opt.label}</p>
-                                            <p className="text-caption text-text-sub-light dark:text-text-sub-dark">{opt.desc}</p>
-                                        </div>
-                                    </button>
-                                ))}
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            );
-        }
-
         return (
             <div className="min-h-screen bg-background-light dark:bg-background-dark flex items-center justify-center p-4">
                 <div className="w-full max-w-md">
@@ -1214,7 +1162,7 @@ const ExamMode = () => {
                             <button
                                 onClick={() => {
                                     setStartExamError('');
-                                    setExamConfigStep(true);
+                                    setExamFormat('mcq');
                                 }}
                                 className="w-full flex items-center gap-4 p-4 rounded-xl border border-border-light dark:border-border-dark hover:border-primary hover:bg-primary/5 transition-all text-left group"
                             >
@@ -1332,7 +1280,6 @@ const ExamMode = () => {
                                             onClick={() => {
                                                 setStartExamError('');
                                                 setExamFormat(null);
-                                                setExamConfigStep(false);
                                             }}
                                             className="btn-secondary px-4 py-3 flex items-center justify-center"
                                         >
