@@ -14,6 +14,9 @@ const STALE_TOPIC_ROUTE_VALIDATION_PATTERN =
     /ArgumentValidationError|validator\s+`?v\.id\("topics"\)`?|does not match the table name in validator/i;
 const STALE_TOPIC_ROUTE_PATH_PATTERN =
     /^\/dashboard\/(?:exam|topic|concept-intro|concept)(?:\/|$)/i;
+const STALE_EXAM_ROUTE_REFERENCE_PATTERNS = [
+    /referenceerror:\s*routedfinalassessmenttopic\s+is\s+not\s+defined/i,
+];
 
 const getErrorMessage = (errorLike) => {
     if (!errorLike) return '';
@@ -57,6 +60,12 @@ export const isStaleTopicRouteLookupError = (errorLike) => {
 
 export const isStaleTopicRoutePathname = (pathname) =>
     STALE_TOPIC_ROUTE_PATH_PATTERN.test(String(pathname || ''));
+
+export const isStaleExamRouteReferenceError = (errorLike) => {
+    const message = normalizeMessage(errorLike);
+    if (!message) return false;
+    return STALE_EXAM_ROUTE_REFERENCE_PATTERNS.some((pattern) => pattern.test(message));
+};
 
 const toScopeKey = (scope) => {
     const normalizedScope = String(scope || 'global').trim().toLowerCase();
