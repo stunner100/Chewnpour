@@ -10,9 +10,9 @@ const requiredSnippets = [
   'export const getConceptSessionForTopic = action({',
   'export const createConceptSessionAttempt = mutation({',
   'source: attempts.length > 0 ? "attempt_fallback" : "empty"',
-  'reviewConceptKeys: []',
-  'dueTopicCount: 0',
-  'dueConceptCount: 0',
+  'reviewConceptKeys:',
+  'dueTopicCount:',
+  'dueConceptCount:',
 ];
 
 for (const snippet of requiredSnippets) {
