@@ -62,6 +62,7 @@ import type * as lib_questionPromptSimilarity from "../lib/questionPromptSimilar
 import type * as lib_subClaimDecomposition from "../lib/subClaimDecomposition.js";
 import type * as lib_topicGenerationProgress from "../lib/topicGenerationProgress.js";
 import type * as lib_topicOutlinePipeline from "../lib/topicOutlinePipeline.js";
+import type * as lib_tutorSupport from "../lib/tutorSupport.js";
 import type * as lib_voiceStreamToken from "../lib/voiceStreamToken.js";
 import type * as lib_voyageEmbeddings from "../lib/voyageEmbeddings.js";
 import type * as lib_yieldEstimation from "../lib/yieldEstimation.js";
@@ -74,6 +75,7 @@ import type * as subscriptions from "../subscriptions.js";
 import type * as topicChat from "../topicChat.js";
 import type * as topicNotes from "../topicNotes.js";
 import type * as topics from "../topics.js";
+import type * as tutor from "../tutor.js";
 import type * as uploads from "../uploads.js";
 import type * as voiceHttp from "../voiceHttp.js";
 import type * as winbackCampaigns from "../winbackCampaigns.js";
@@ -139,6 +141,7 @@ declare const fullApi: ApiFromModules<{
   "lib/subClaimDecomposition": typeof lib_subClaimDecomposition;
   "lib/topicGenerationProgress": typeof lib_topicGenerationProgress;
   "lib/topicOutlinePipeline": typeof lib_topicOutlinePipeline;
+  "lib/tutorSupport": typeof lib_tutorSupport;
   "lib/voiceStreamToken": typeof lib_voiceStreamToken;
   "lib/voyageEmbeddings": typeof lib_voyageEmbeddings;
   "lib/yieldEstimation": typeof lib_yieldEstimation;
@@ -151,6 +154,7 @@ declare const fullApi: ApiFromModules<{
   topicChat: typeof topicChat;
   topicNotes: typeof topicNotes;
   topics: typeof topics;
+  tutor: typeof tutor;
   uploads: typeof uploads;
   voiceHttp: typeof voiceHttp;
   winbackCampaigns: typeof winbackCampaigns;

@@ -2,6 +2,7 @@ import React, { memo, useState, useEffect, useRef, useCallback, useMemo } from '
 import { Link } from 'react-router-dom';
 import { useQuery, useAction, useMutation, useConvexAuth } from 'convex/react';
 import { api } from '../../convex/_generated/api';
+import { DEFAULT_TUTOR_PERSONA, TUTOR_PERSONAS } from '../lib/tutorPersonas';
 
 const resolveConvexErrorMessage = (error, fallbackMessage) => {
     const dataMessage = typeof error?.data === 'string'
@@ -31,13 +32,19 @@ const TopicChatPanel = memo(function TopicChatPanel({ topicId, topicTitle, open,
         api.subscriptions.getAiMessageQuotaStatus,
         isConvexAuthenticated ? {} : 'skip'
     );
+    const tutorSupport = useQuery(
+        api.tutor.getTopicTutorSupport,
+        topicId ? { topicId } : 'skip'
+    );
     const askTutor = useAction(api.ai.askTopicTutor);
     const clearChat = useMutation(api.topicChat.clearChat);
+    const setTutorPersona = useMutation(api.tutor.setTutorPersona);
 
     const [input, setInput] = useState('');
     const [sending, setSending] = useState(false);
     const [error, setError] = useState('');
     const [isClosing, setIsClosing] = useState(false);
+    const [selectedPersona, setSelectedPersona] = useState(DEFAULT_TUTOR_PERSONA);
     const closingTimerRef = useRef(null);
 
     const aiMessageLimit = Number(aiMessageQuota?.limit);
@@ -62,6 +69,11 @@ const TopicChatPanel = memo(function TopicChatPanel({ topicId, topicTitle, open,
     const textareaRef = useRef(null);
     const endRef = useRef(null);
     const messagesContainerRef = useRef(null);
+
+    useEffect(() => {
+        if (!tutorSupport?.persona) return;
+        setSelectedPersona(String(tutorSupport.persona || DEFAULT_TUTOR_PERSONA));
+    }, [tutorSupport?.persona]);
 
     // Auto-scroll to bottom when messages change or sending state changes
     useEffect(() => {
@@ -133,7 +145,7 @@ const TopicChatPanel = memo(function TopicChatPanel({ topicId, topicTitle, open,
         setInput('');
         if (textareaRef.current) textareaRef.current.style.height = 'auto';
         try {
-            await askTutor({ topicId, question });
+            await askTutor({ topicId, question, persona: selectedPersona });
         } catch (err) {
             if (isAiMessageQuotaExceededError(err)) {
                 setError(resolveConvexErrorMessage(err, aiMessageLimitMessage));
@@ -143,7 +155,17 @@ const TopicChatPanel = memo(function TopicChatPanel({ topicId, topicTitle, open,
         } finally {
             setSending(false);
         }
-    }, [input, sending, askTutor, topicId, isFreeQuotaExhausted, aiMessageLimitMessage]);
+    }, [input, sending, askTutor, topicId, isFreeQuotaExhausted, aiMessageLimitMessage, selectedPersona]);
+
+    const handlePersonaChange = useCallback(async (personaKey) => {
+        const normalized = String(personaKey || DEFAULT_TUTOR_PERSONA);
+        setSelectedPersona(normalized);
+        try {
+            await setTutorPersona({ persona: normalized });
+        } catch (err) {
+            setError(resolveConvexErrorMessage(err, 'Could not save tutor style. Please try again.'));
+        }
+    }, [setTutorPersona]);
 
     const handleKeyDown = useCallback((e) => {
         if (e.key === 'Enter' && !e.shiftKey) {
@@ -230,6 +252,51 @@ const TopicChatPanel = memo(function TopicChatPanel({ topicId, topicTitle, open,
                         </p>
                     </div>
                 )}
+
+                <div className="px-4 py-3 border-b border-border-light dark:border-border-dark bg-surface-light dark:bg-surface-dark">
+                    <div className="flex items-center justify-between gap-3 mb-2">
+                        <p className="text-caption font-semibold text-text-main-light dark:text-text-main-dark">
+                            Tutor style
+                        </p>
+                        <span className="text-caption text-text-faint-light dark:text-text-faint-dark">
+                            Memory-aware
+                        </span>
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                        {TUTOR_PERSONAS.map((persona) => {
+                            const isActive = selectedPersona === persona.key;
+                            return (
+                                <button
+                                    key={persona.key}
+                                    type="button"
+                                    onClick={() => handlePersonaChange(persona.key)}
+                                    className={`px-2.5 py-1.5 rounded-lg border text-caption transition-colors ${
+                                        isActive
+                                            ? 'bg-primary/10 border-primary/30 text-primary'
+                                            : 'bg-background-light dark:bg-background-dark border-border-light dark:border-border-dark text-text-sub-light dark:text-text-sub-dark hover:border-primary/20'
+                                    }`}
+                                    title={persona.description}
+                                >
+                                    {persona.label}
+                                </button>
+                            );
+                        })}
+                    </div>
+                    {(tutorSupport?.memory?.memorySummary || tutorSupport?.latestAttempt?.percentage != null) && (
+                        <div className="mt-3 rounded-xl border border-border-light dark:border-border-dark bg-background-light dark:bg-background-dark p-3">
+                            {tutorSupport?.latestAttempt?.percentage != null && (
+                                <p className="text-caption text-text-sub-light dark:text-text-sub-dark">
+                                    Latest exam score: <span className="font-semibold text-text-main-light dark:text-text-main-dark">{Math.round(tutorSupport.latestAttempt.percentage)}%</span>
+                                </p>
+                            )}
+                            {tutorSupport?.memory?.memorySummary && (
+                                <p className="mt-1 text-caption leading-relaxed text-text-faint-light dark:text-text-faint-dark">
+                                    {tutorSupport.memory.memorySummary}
+                                </p>
+                            )}
+                        </div>
+                    )}
+                </div>
 
                 {/* Messages */}
                 <div

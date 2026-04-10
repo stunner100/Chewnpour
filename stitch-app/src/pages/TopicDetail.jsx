@@ -18,6 +18,7 @@ import InteractiveWordBank from '../components/InteractiveWordBank';
 import StudyModeSelector from '../components/StudyModeSelector';
 import SourcePanel from '../components/SourcePanel';
 import NextStepsGuidance from '../components/NextStepsGuidance';
+import GuidedStudyPath from '../components/GuidedStudyPath';
 import { useTextSelection } from '../hooks/useTextSelection';
 import {
     SECTION_TITLE_PATTERN,
@@ -1097,6 +1098,15 @@ const TopicDetail = () => {
                                 <p className="mt-4 text-caption text-red-500">{startExamError}</p>
                             )}
 
+                            <div className="mt-6">
+                                <GuidedStudyPath
+                                    topicTitle={resolvedTopicTitle}
+                                    blocks={filteredBlocks}
+                                    onAskTutor={handleAskTutor}
+                                />
+                            </div>
+
+                            {/* Next Steps Guidance */}
                             <div className="mt-6 pt-6 border-t border-border-light dark:border-border-dark text-left">
                                 <NextStepsGuidance
                                     topicId={topicId}
