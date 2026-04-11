@@ -55,7 +55,7 @@ export function PricingSection({
             badge: null,
             price: formatPlanPrice(0, starterPlan.currency),
             period: '/forever',
-            subtext: 'Get started with no risk',
+            subtext: 'No credit card required',
             features: [
                 '3 document uploads',
                 'AI-powered lessons',
@@ -91,7 +91,7 @@ export function PricingSection({
         },
         {
             name: 'Max',
-            badge: 'POPULAR',
+            badge: null,
             price: formatPlanPrice(maxPlan.amountMajor, maxPlan.currency),
             period: '/top-up',
             subtext: buildTierSubtext(maxPlan, getSavingsPercent(starterPlan, maxPlan)),
@@ -106,8 +106,8 @@ export function PricingSection({
             ctaText: 'Choose Max',
             ctaLink: '/signup',
             ctaName: 'pricing_max',
-            highlight: true,
-            theme: 'primary',
+            highlight: false,
+            theme: 'zinc',
         },
         {
             name: 'Semester Pass',
@@ -127,13 +127,13 @@ export function PricingSection({
             ctaText: 'Get Semester Pass',
             ctaLink: '/signup',
             ctaName: 'pricing_semester',
-            highlight: false,
-            theme: 'emerald',
+            highlight: true,
+            theme: 'primary',
         },
     ];
 
     return (
-        <section id="pricing" className="bg-background py-24 sm:py-32 relative overflow-hidden border-t border-border/40">
+        <section id="pricing" className="relative overflow-hidden border-t border-border/40 bg-background py-20 md:py-28">
             <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[400px] bg-primary/5 blur-[120px] rounded-full pointer-events-none" />
 
             <div className="mx-auto max-w-7xl px-6 lg:px-8 relative z-10">
