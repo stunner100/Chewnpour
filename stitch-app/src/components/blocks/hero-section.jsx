@@ -106,26 +106,6 @@ export function HeroSection({ onCtaClick = () => {} }) {
                                     className="bg-gradient-to-b to-background absolute inset-0 z-10 from-transparent from-35%"
                                 />
                                 <div className="inset-shadow-2xs ring-background dark:inset-shadow-white/20 bg-background relative mx-auto max-w-6xl rounded-2xl border p-4 shadow-lg shadow-zinc-950/15 ring-1">
-
-                                    {/* Arrow 1: Pointing at Upload Materials center from inside top-right */}
-                                    <div className="absolute top-[8%] left-[45%] sm:left-[50%] z-30 hidden md:flex flex-col items-start rotate-[2deg] text-primary drop-shadow-md">
-                                        <span className="font-['Caveat','Comic_Sans_MS',cursive] font-bold text-2xl md:text-3xl whitespace-nowrap ml-4">1. Drop your PDF here</span>
-                                        <svg className="w-20 h-16 ml-2 mt-1 opacity-80" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
-                                            <path d="M 80,10 Q 50,40 10,80" stroke="currentColor" strokeWidth="4" strokeLinecap="round" fill="none" />
-                                            <path d="M 25,60 L 10,80 L 35,85" stroke="currentColor" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round" fill="none" />
-                                        </svg>
-                                    </div>
-
-                                    {/* Arrow 2: Pointing at Cards/Assignments from the right edge */}
-                                    <div className="absolute top-[45%] sm:top-[50%] -right-12 sm:-right-24 z-30 hidden md:flex flex-row items-center rotate-[6deg] text-primary drop-shadow-md">
-                                        <svg className="w-20 h-16 mr-2 opacity-80" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
-                                            <path d="M 90,30 Q 50,60 10,50" stroke="currentColor" strokeWidth="4" strokeLinecap="round" fill="none" />
-                                            <path d="M 25,35 L 10,50 L 30,62" stroke="currentColor" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round" fill="none" />
-                                        </svg>
-                                        <span className="font-['Caveat','Comic_Sans_MS',cursive] font-bold text-2xl md:text-3xl whitespace-nowrap -mt-4">2. AI generates quizzes</span>
-                                    </div>
-
-
                                     <img
                                         className="z-2 bg-background border-border/25 aspect-15/8 relative rounded-2xl border"
                                         src="/screenshots/app-dashboard.png"
@@ -133,6 +113,26 @@ export function HeroSection({ onCtaClick = () => {} }) {
                                         width="2880"
                                         height="1800"
                                     />
+                                </div>
+
+                                <div id="how-it-works" className="relative z-20 mx-auto mt-10 flex max-w-3xl flex-col items-center gap-3 sm:flex-row sm:justify-center sm:gap-4">
+                                    {[
+                                        { step: 1, label: 'Upload your PDF' },
+                                        { step: 2, label: 'Get lessons & quizzes' },
+                                        { step: 3, label: 'Ask the AI tutor' },
+                                    ].map(({ step, label }) => (
+                                        <div
+                                            key={step}
+                                            className="flex items-center gap-3 rounded-full border border-border/60 bg-background/80 px-4 py-2 backdrop-blur-sm"
+                                        >
+                                            <span className="flex size-6 items-center justify-center rounded-full bg-primary text-xs font-bold text-white">
+                                                {step}
+                                            </span>
+                                            <span className="text-sm font-medium text-foreground">
+                                                {label}
+                                            </span>
+                                        </div>
+                                    ))}
                                 </div>
                             </div>
                         </AnimatedGroup>
