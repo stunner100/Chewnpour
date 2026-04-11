@@ -1,6 +1,6 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { Menu, X, FileText, UploadCloud } from 'lucide-react';
+import { Menu, X, ArrowRight } from 'lucide-react';
 import { Button } from '../ui/button';
 import { AnimatedGroup } from '../ui/animated-group';
 import { cn } from '../../lib/utils';
@@ -34,7 +34,7 @@ export function HeroSection({ onCtaClick = () => {} }) {
                     <div className="relative pt-20 lg:pt-28">
                         <div className="absolute inset-0 -z-10 size-full [background:radial-gradient(125%_125%_at_50%_100%,transparent_0%,var(--background)_75%)]"></div>
                         <div className="mx-auto max-w-7xl px-6 lg:px-8">
-                            <div className="sm:mx-auto lg:mr-auto">
+                            <div className="mx-auto max-w-3xl text-center">
                                 <AnimatedGroup
                                     variants={{
                                         container: {
@@ -48,43 +48,39 @@ export function HeroSection({ onCtaClick = () => {} }) {
                                         ...transitionVariants,
                                     }}
                                 >
-                                    <h1 className="mt-8 max-w-4xl text-balance text-5xl font-medium md:text-7xl lg:mt-16">
-                                        Study smarter with AI that knows your course
+                                    <h1 className="mt-8 text-balance text-5xl font-semibold tracking-tight md:text-6xl lg:mt-16 lg:text-7xl">
+                                        Turn any PDF into lessons, quizzes, and an AI tutor in 30 seconds.
                                     </h1>
-                                    <p className="mt-8 max-w-3xl text-pretty text-lg md:text-xl text-muted-foreground/90">
-                                        Upload your PDF. Get lessons, quizzes, and an AI tutor in 30 seconds.
+                                    <p className="mx-auto mt-6 max-w-2xl text-pretty text-base md:text-lg text-muted-foreground">
+                                        Built for university students. Loved by 10,000+ learners across Ghana.
                                     </p>
-                                    <div className="mt-10 flex flex-col sm:flex-row items-center gap-4">
-                                        <div className="bg-foreground/5 dark:bg-foreground/10 rounded-[18px] border border-border/50 p-1 shadow-sm">
-                                            <Button
-                                                asChild
-                                                size="lg"
-                                                className="group relative h-14 rounded-xl px-8 text-base font-semibold bg-primary hover:bg-primary/95 text-white shadow-[0_0_40px_-10px_rgba(26,115,232,0.4)] transition-all duration-300 hover:scale-[1.02] active:scale-[0.98]"
-                                            >
-                                                <Link
-                                                    to="/signup"
-                                                    className="flex items-center gap-2.5"
-                                                    onClick={() => onCtaClick('hero_upload_pdf')}
-                                                >
-                                                    <FileText className="size-5 transition-transform group-hover:-translate-y-0.5" />
-                                                    <span className="text-nowrap">Upload PDF</span>
-                                                </Link>
-                                            </Button>
-                                        </div>
+                                    <div className="mt-10 flex flex-col sm:flex-row items-center justify-center gap-4">
                                         <Button
                                             asChild
                                             size="lg"
-                                            variant="outline"
-                                            className="group h-14 rounded-xl px-8 text-base font-semibold border-2 bg-background/50 backdrop-blur-sm transition-all duration-300 hover:scale-[1.02] active:scale-[0.98] hover:border-primary/40 hover:bg-muted/50"
+                                            className="group h-14 rounded-xl px-8 text-base font-semibold bg-primary hover:bg-primary/95 text-white shadow-[0_0_40px_-10px_rgba(26,115,232,0.4)] transition-all duration-300 hover:scale-[1.02] active:scale-[0.98]"
                                         >
                                             <Link
-                                                to="/login"
+                                                to="/signup"
                                                 className="flex items-center gap-2.5"
-                                                onClick={() => onCtaClick('hero_upload_assignment')}
+                                                onClick={() => onCtaClick('hero_get_started')}
                                             >
-                                                <UploadCloud className="size-5 text-primary transition-transform group-hover:-translate-y-0.5" />
-                                                <span className="text-nowrap">Upload Assignment</span>
+                                                <span className="text-nowrap">Get started free</span>
+                                                <ArrowRight className="size-5 transition-transform group-hover:translate-x-0.5" />
                                             </Link>
+                                        </Button>
+                                        <Button
+                                            asChild
+                                            size="lg"
+                                            variant="ghost"
+                                            className="h-14 rounded-xl px-8 text-base font-semibold text-muted-foreground hover:text-foreground hover:bg-foreground/5 transition-colors duration-200"
+                                        >
+                                            <a
+                                                href="#how-it-works"
+                                                onClick={() => onCtaClick('hero_see_how')}
+                                            >
+                                                <span className="text-nowrap">See how it works</span>
+                                            </a>
                                         </Button>
                                     </div>
                                 </AnimatedGroup>
@@ -104,7 +100,7 @@ export function HeroSection({ onCtaClick = () => {} }) {
                                 ...transitionVariants,
                             }}
                         >
-                            <div className="relative -mr-56 mt-8 px-2 sm:mr-0 sm:mt-12 md:mt-20">
+                            <div className="relative mx-auto mt-8 px-2 sm:mt-12 md:mt-20">
                                 <div
                                     aria-hidden
                                     className="bg-gradient-to-b to-background absolute inset-0 z-10 from-transparent from-35%"
@@ -206,7 +202,7 @@ export function HeroHeader({ onCtaClick = () => {} }) {
                             </Link>
                             <Link
                                 to="/signup"
-                                className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-primary hover:bg-primary/90 text-white text-sm font-semibold transition-colors duration-150"
+                                className="inline-flex items-center gap-1.5 px-5 py-2.5 rounded-lg bg-primary hover:bg-primary/90 text-white text-sm font-semibold transition-colors duration-150"
                                 onClick={() => onCtaClick('header_get_started')}
                             >
                                 Get started free
@@ -253,7 +249,7 @@ export function HeroHeader({ onCtaClick = () => {} }) {
                             </Link>
                             <Link
                                 to="/signup"
-                                className="block px-4 py-2.5 rounded-lg bg-primary hover:bg-primary/90 text-white text-sm font-semibold text-center"
+                                className="block px-5 py-3 rounded-lg bg-primary hover:bg-primary/90 text-white text-sm font-semibold text-center"
                                 onClick={() => {
                                     setMenuState(false);
                                     onCtaClick('mobile_get_started');
