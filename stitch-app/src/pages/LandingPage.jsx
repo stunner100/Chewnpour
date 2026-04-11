@@ -7,6 +7,7 @@ import { capturePostHogEvent } from '../lib/posthog';
 import { normalizeTopUpOptions } from '../lib/pricingCurrency';
 import { HeroSection } from '../components/blocks/hero-section';
 import { SchoolsMarquee } from '../components/blocks/schools-marquee';
+import { StatsBar } from '../components/blocks/stats-bar';
 import { Features } from '../components/blocks/features-6';
 import { CommunitySection } from '../components/blocks/community-section';
 import { TestimonialsSection } from '../components/blocks/testimonials-section';
@@ -59,6 +60,7 @@ const LandingPage = () => {
         <div className="min-h-screen bg-background text-foreground">
             <HeroSection onCtaClick={captureLandingEvent} />
             <SchoolsMarquee />
+            <StatsBar />
             <Features />
             <CommunitySection onCtaClick={captureLandingEvent} />
             <TestimonialsSection />
