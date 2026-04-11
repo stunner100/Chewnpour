@@ -137,12 +137,12 @@ export function PricingSection({
             <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[400px] bg-primary/5 blur-[120px] rounded-full pointer-events-none" />
 
             <div className="mx-auto max-w-7xl px-6 lg:px-8 relative z-10">
-                <div className="mx-auto max-w-2xl sm:text-center mb-16">
-                    <h2 className="text-base font-semibold leading-7 text-primary mb-2">Flexible Pricing</h2>
-                    <h3 className="text-4xl font-bold tracking-tight text-foreground sm:text-5xl mb-6 font-['Outfit',sans-serif]">
+                <div className="mx-auto mb-16 max-w-3xl text-center">
+                    <p className="mb-3 text-sm font-semibold uppercase tracking-widest text-primary">Flexible pricing</p>
+                    <h2 className="text-4xl font-semibold tracking-tight text-foreground md:text-5xl">
                         Choose the right plan for you
-                    </h3>
-                    <p className="text-lg leading-8 text-muted-foreground">
+                    </h2>
+                    <p className="mt-4 text-base md:text-lg text-muted-foreground">
                         Affordable study tools designed to fit any student&apos;s budget. Upgrade anytime.
                     </p>
                 </div>
