@@ -33,9 +33,9 @@ const ConceptIntro = () => {
                     <div className="w-14 h-14 rounded-2xl bg-primary/8 flex items-center justify-center mx-auto mb-4">
                         <span className="material-symbols-outlined text-primary text-[24px]">school</span>
                     </div>
-                    <h1 className="text-body-lg font-semibold text-text-main-light dark:text-text-main-dark mb-2">Select a topic to practice concepts</h1>
+                    <h1 className="text-body-lg font-semibold text-text-main-light dark:text-text-main-dark mb-2">Select a topic for fill-in practice</h1>
                     <p className="text-body-sm text-text-sub-light dark:text-text-sub-dark mb-6">
-                        Go back to your topic and start concept practice from there.
+                        Go back to your topic and start fill-in practice from there.
                     </p>
                     <Link to="/dashboard" className="btn-primary inline-flex items-center gap-2 px-6 py-2.5 text-body-sm">
                         Back to Dashboard
@@ -63,9 +63,9 @@ const ConceptIntro = () => {
                     <div className="w-14 h-14 rounded-2xl bg-red-500/10 flex items-center justify-center mx-auto mb-4">
                         <span className="material-symbols-outlined text-red-500 text-[24px]">error</span>
                     </div>
-                    <h1 className="text-body-lg font-semibold text-text-main-light dark:text-text-main-dark mb-2">This concept link is stale</h1>
+                    <h1 className="text-body-lg font-semibold text-text-main-light dark:text-text-main-dark mb-2">This fill-in link is stale</h1>
                     <p className="text-body-sm text-text-sub-light dark:text-text-sub-dark mb-6">
-                        Reload the dashboard, reopen the topic, and start concept practice from there.
+                        Reload the dashboard, reopen the topic, and start fill-in practice from there.
                     </p>
                     <button type="button" onClick={reloadDashboard} className="btn-secondary inline-flex items-center gap-2 px-6 py-2.5 text-body-sm">
                         Reload Dashboard
@@ -105,19 +105,19 @@ const ConceptIntro = () => {
                 </div>
                 <div className="flex flex-col items-center max-w-3xl text-center">
                     <h1 className="text-display-sm md:text-display-lg text-text-main-light dark:text-text-main-dark mb-5">
-                        Ready to test <br className="hidden md:block" />your knowledge?
+                        Ready to fill in <br className="hidden md:block" />the blanks?
                     </h1>
                     <div className="flex flex-wrap items-center justify-center gap-3 mb-6">
                         <span className="inline-flex items-center px-3.5 py-2 rounded-lg bg-surface-hover-light dark:bg-surface-hover-dark text-body-sm font-semibold text-text-sub-light dark:text-text-sub-dark border border-border-light dark:border-border-dark">
-                            1 Concept Build
+                            6 Questions
                         </span>
                         <span className="hidden md:block w-1 h-1 rounded-full bg-border-light dark:bg-border-dark"></span>
                         <span className="inline-flex items-center px-3.5 py-2 rounded-lg bg-surface-hover-light dark:bg-surface-hover-dark text-body-sm font-semibold text-text-sub-light dark:text-text-sub-dark border border-border-light dark:border-border-dark">
-                            ~2 minutes
+                            ~3 minutes
                         </span>
                         <span className="hidden md:block w-1 h-1 rounded-full bg-border-light dark:bg-border-dark"></span>
                         <span className="inline-flex items-center px-3.5 py-2 rounded-lg bg-surface-hover-light dark:bg-surface-hover-dark text-body-sm font-semibold text-text-sub-light dark:text-text-sub-dark border border-border-light dark:border-border-dark">
-                            Drag-and-drop
+                            Type your answers
                         </span>
                     </div>
                     <p className="text-body-sm text-text-sub-light dark:text-text-sub-dark mb-8 max-w-xl">

@@ -331,3 +331,50 @@ Return JSON only:
     {"passageId":"p1-0","page":0,"startChar":0,"endChar":80,"quote":"..."}
   ]
 }`;
+
+export type FillInQuestion = {
+    sentence: string;
+    blanks: Array<{ position: number; answer: string }>;
+    citations: GroundedCitation[];
+};
+
+export const buildFillInBatchPrompt = (args: {
+    topicTitle: string;
+    evidence: RetrievedEvidence[];
+    requestedCount: number;
+    duplicateGuardSection?: string;
+    retryGuidance?: string;
+    seed: string;
+}) => `Generate ${args.requestedCount} fill-in-the-blank questions grounded in evidence.
+
+TOPIC: ${args.topicTitle}
+${formatEvidence(args.evidence, 12000)}
+
+${args.duplicateGuardSection || ""}
+${args.retryGuidance || ""}
+SEED: ${args.seed}
+
+Rules:
+- Each question is a sentence with one or more blanks marked as "___".
+- "blanks" array must list each blank's position (0-indexed word position of "___" in the sentence) and the correct answer.
+- Answers are short: 1-3 words that the student types.
+- Questions must test different concepts from the topic — no two questions should test the same fact.
+- Every answer must be directly supported by the evidence passages.
+- Include citations with exact evidence quote spans that support each answer.
+- Vary difficulty: mix recall (definitions) with understanding (relationships, causes).
+
+Return JSON only:
+{
+  "questions": [
+    {
+      "sentence": "The process of ___ converts glucose into ___.",
+      "blanks": [
+        {"position": 3, "answer": "glycolysis"},
+        {"position": 6, "answer": "pyruvate"}
+      ],
+      "citations": [
+        {"passageId":"p1-0","page":0,"startChar":0,"endChar":80,"quote":"..."}
+      ]
+    }
+  ]
+}`;

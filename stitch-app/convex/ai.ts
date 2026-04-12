@@ -50,6 +50,8 @@ import {
     buildGroundedAssessmentBlueprintPrompt,
     type AssessmentBlueprint,
     buildGroundedConceptPrompt,
+    buildFillInBatchPrompt,
+    type FillInQuestion,
     buildGroundedEssayPrompt,
     buildGroundedMcqPrompt,
     buildGroundedMcqRepairPrompt,
@@ -2368,6 +2370,139 @@ export const generateConceptExerciseForTopicInternal = internalAction({
     handler: async (ctx, args) => {
         return await runWithLlmUsageContext(ctx, args.userId, "concept_generation", async () =>
             await generateConceptExerciseForTopicCore(ctx, args)
+        );
+    },
+});
+
+/* ── Fill-in batch generation ──────────────────────────────────── */
+
+const FILL_IN_BATCH_DEFAULT_COUNT = 6;
+const FILL_IN_BATCH_MIN_COUNT = 3;
+const FILL_IN_BATCH_MAX_ATTEMPTS = 2;
+
+const normalizeFillInQuestion = (raw: any, index: number): FillInQuestion | null => {
+    const sentence = String(raw?.sentence || "").trim();
+    if (!sentence || !sentence.includes("___")) return null;
+
+    const rawBlanks = Array.isArray(raw?.blanks) ? raw.blanks : [];
+    const blanks = rawBlanks
+        .map((b: any) => ({
+            position: Number(b?.position ?? 0),
+            answer: String(b?.answer || "").trim(),
+        }))
+        .filter((b: { position: number; answer: string }) => b.answer.length > 0);
+
+    const blankCountInSentence = (sentence.match(/___/g) || []).length;
+    if (blanks.length === 0 || blanks.length !== blankCountInSentence) return null;
+
+    const citations = Array.isArray(raw?.citations) ? raw.citations : [];
+
+    return { sentence, blanks, citations };
+};
+
+const generateFillInBatchCore = async (ctx: any, args: { topicId: any; userId: string }) => {
+    const { topicId, userId } = args;
+    const topic = await ctx.runQuery(internal.topics.getTopicWithQuestionsInternal, { topicId });
+    if (!topic) {
+        throw new Error("Topic not found");
+    }
+    const topicKeywords = extractTopicKeywords(topic.title);
+
+    const topicAttempts = await ctx.runQuery(internal.concepts.getUserConceptAttemptsForTopicInternal, {
+        userId,
+        topicId,
+        limit: 10,
+    });
+
+    const previousSentences = topicAttempts
+        .map((a: any) => String(a?.questionText || "").trim().slice(0, 120))
+        .filter(Boolean)
+        .slice(0, 8);
+
+    const duplicateGuardSection = previousSentences.length > 0
+        ? `Avoid repeating previous exercises. Do NOT reuse these sentences:\n${previousSentences.map((s: string) => `- ${s}`).join("\n")}`
+        : "";
+
+    const groundedPack = await getGroundedEvidencePackForTopic({
+        ctx,
+        topic,
+        type: "concept",
+        keyPoints: topicKeywords,
+    });
+    if (!groundedPack.index || groundedPack.evidence.length === 0) {
+        throw new Error("INSUFFICIENT_EVIDENCE");
+    }
+
+    const requestedCount = FILL_IN_BATCH_DEFAULT_COUNT;
+    const seed = randomBytes(4).toString("hex");
+    let validQuestions: FillInQuestion[] = [];
+    let lastError: Error | null = null;
+
+    for (let attempt = 0; attempt < FILL_IN_BATCH_MAX_ATTEMPTS; attempt += 1) {
+        const retryGuidance = attempt === 0
+            ? ""
+            : `Retry: previous output had only ${validQuestions.length} valid questions out of ${requestedCount}. Ensure all blanks use "___" and blanks array matches.`;
+        const prompt = buildFillInBatchPrompt({
+            topicTitle: topic.title,
+            evidence: groundedPack.evidence,
+            requestedCount,
+            duplicateGuardSection,
+            retryGuidance,
+            seed: `${seed}-${attempt}`,
+        });
+
+        try {
+            const response = await callInception([
+                {
+                    role: "system",
+                    content: "You are an expert educator creating fill-in-the-blank exercises. Respond with valid JSON only.",
+                },
+                { role: "user", content: prompt },
+            ], DEFAULT_MODEL, {
+                maxTokens: 3200,
+                responseFormat: "json_object",
+                temperature: 0.3,
+                timeoutMs: DEFAULT_TIMEOUT_MS,
+            });
+
+            const parsed = parseJsonFromResponse(response, "fill-in batch");
+            const rawQuestions = Array.isArray(parsed?.questions) ? parsed.questions : [];
+            const normalized = rawQuestions
+                .map((q: any, i: number) => normalizeFillInQuestion(q, i))
+                .filter((q: FillInQuestion | null): q is FillInQuestion => q !== null);
+
+            if (normalized.length >= FILL_IN_BATCH_MIN_COUNT) {
+                validQuestions = normalized;
+                break;
+            }
+            validQuestions = normalized;
+            lastError = new Error(`Only ${normalized.length} valid questions generated`);
+        } catch (error) {
+            lastError = error instanceof Error ? error : new Error(String(error));
+        }
+    }
+
+    if (validQuestions.length < FILL_IN_BATCH_MIN_COUNT) {
+        throw lastError || new Error("Failed to generate fill-in questions for this topic.");
+    }
+
+    return {
+        topicId,
+        topicTitle: topic.title,
+        questions: validQuestions,
+    };
+};
+
+export const generateFillInBatch = action({
+    args: {
+        topicId: v.id("topics"),
+    },
+    handler: async (ctx, args) => {
+        const identity = await ctx.auth.getUserIdentity();
+        const authUserId = resolveAuthUserId(identity);
+        const userId = assertAuthorizedUser({ authUserId });
+        return await runWithLlmUsageContext(ctx, userId, "fill_in_generation", async () =>
+            await generateFillInBatchCore(ctx, { topicId: args.topicId, userId })
         );
     },
 });

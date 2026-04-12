@@ -1049,8 +1049,8 @@ const TopicDetail = () => {
                                     to={topicId ? `/dashboard/concept-intro/${topicId}` : '/dashboard/concept-intro'}
                                     className="btn-secondary px-5 py-2.5 text-body-sm gap-2"
                                 >
-                                    <span className="material-symbols-outlined text-[18px] text-accent-emerald">school</span>
-                                    Practice Concepts
+                                    <span className="material-symbols-outlined text-[18px] text-accent-emerald">edit_note</span>
+                                    Fill-ins
                                 </Link>
                                 {examTopicId ? (
                                     <>
