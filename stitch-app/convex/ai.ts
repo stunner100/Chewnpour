@@ -8261,6 +8261,8 @@ const validateFreshObjectiveExamSet = (args: {
     const seenKeys = new Set<string>();
     const seenPrimaryPassages: string[] = [];
     const mix = { multiple_choice: 0, true_false: 0, fill_blank: 0 };
+    let citationBackedCount = 0;
+    let groundedCount = 0;
 
     if (args.questions.length !== args.requestedCount) {
         errors.push(`Expected exactly ${args.requestedCount} objective questions, received ${args.questions.length}.`);
@@ -8268,9 +8270,12 @@ const validateFreshObjectiveExamSet = (args: {
 
     for (const question of args.questions) {
         const key = normalizeFreshQuestionKey(question?.questionText);
-        if (!key || seenKeys.has(key)) {
-            errors.push(`Duplicate or empty objective question stem: "${String(question?.questionText || "").slice(0, 80)}"`);
+        if (!key) {
+            errors.push(`Empty objective question stem: "${String(question?.questionText || "").slice(0, 80)}"`);
             continue;
+        }
+        if (seenKeys.has(key)) {
+            warnings.push(`Duplicate objective question stem retained in fresh-context mode: "${String(question?.questionText || "").slice(0, 80)}"`);
         }
         seenKeys.add(key);
         mix[String(question?.questionType || "multiple_choice") as keyof typeof mix] += 1;
@@ -8280,8 +8285,9 @@ const validateFreshObjectiveExamSet = (args: {
             continue;
         }
         if (!Array.isArray(question?.citations) || question.citations.length === 0 || !Array.isArray(question?.sourcePassageIds) || question.sourcePassageIds.length === 0) {
-            errors.push(`Objective question is missing citations: "${String(question?.questionText || "").slice(0, 80)}"`);
-            continue;
+            warnings.push(`Objective question is missing citations: "${String(question?.questionText || "").slice(0, 80)}"`);
+        } else {
+            citationBackedCount += 1;
         }
 
         if (question.questionType === "fill_blank") {
@@ -8313,8 +8319,9 @@ const validateFreshObjectiveExamSet = (args: {
                 assessmentBlueprint: args.assessmentBlueprint,
             });
             if (!grounding.deterministicPass) {
-                errors.push(`Objective question failed grounding: ${grounding.reasons.join(", ")}`);
-                continue;
+                warnings.push(`Objective question failed grounding: ${grounding.reasons.join(", ")}`);
+            } else {
+                groundedCount += 1;
             }
         }
 
@@ -8342,7 +8349,15 @@ const validateFreshObjectiveExamSet = (args: {
         && (args.evidenceIndex?.passages?.length || 0) >= 4
         && dominantPassageCount / Math.max(args.requestedCount, 1) > 0.75
     ) {
-        errors.push("Objective set is too concentrated on one citation cluster.");
+        warnings.push("Objective set is concentrated on one citation cluster.");
+    }
+
+    const minimumGroundedCount = Math.max(1, Math.floor(args.requestedCount / 3));
+    if (groundedCount < minimumGroundedCount) {
+        errors.push(`Objective set did not keep enough grounded questions (${groundedCount}/${args.requestedCount}).`);
+    }
+    if (citationBackedCount === 0) {
+        errors.push("Objective set is missing citations on every question.");
     }
 
     return {
@@ -8362,6 +8377,8 @@ const validateFreshEssayExamSet = (args: {
     const errors: string[] = [];
     const warnings: string[] = [];
     const seenKeys = new Set<string>();
+    let citationBackedCount = 0;
+    let groundedCount = 0;
 
     if (args.questions.length !== args.requestedCount) {
         errors.push(`Expected exactly ${args.requestedCount} essay questions, received ${args.questions.length}.`);
@@ -8369,9 +8386,12 @@ const validateFreshEssayExamSet = (args: {
 
     for (const question of args.questions) {
         const key = normalizeFreshQuestionKey(question?.questionText);
-        if (!key || seenKeys.has(key)) {
-            errors.push(`Duplicate or empty essay prompt: "${String(question?.questionText || "").slice(0, 80)}"`);
+        if (!key) {
+            errors.push(`Empty essay prompt: "${String(question?.questionText || "").slice(0, 80)}"`);
             continue;
+        }
+        if (seenKeys.has(key)) {
+            warnings.push(`Duplicate essay prompt retained in fresh-context mode: "${String(question?.questionText || "").slice(0, 80)}"`);
         }
         seenKeys.add(key);
 
@@ -8379,9 +8399,17 @@ const validateFreshEssayExamSet = (args: {
             errors.push(`Invalid essay structure: "${String(question?.questionText || "").slice(0, 80)}"`);
             continue;
         }
-        if (!Array.isArray(question?.rubricPoints) || question.rubricPoints.length < 2) {
+        if (!Array.isArray(question?.rubricPoints) || question.rubricPoints.length === 0) {
             errors.push(`Essay prompt is missing a rubric: "${String(question?.questionText || "").slice(0, 80)}"`);
             continue;
+        }
+        if (question.rubricPoints.length < 2) {
+            warnings.push(`Essay prompt has a minimal rubric: "${String(question?.questionText || "").slice(0, 80)}"`);
+        }
+        if (!Array.isArray(question?.citations) || question.citations.length === 0 || !Array.isArray(question?.sourcePassageIds) || question.sourcePassageIds.length === 0) {
+            warnings.push(`Essay prompt is missing citations: "${String(question?.questionText || "").slice(0, 80)}"`);
+        } else {
+            citationBackedCount += 1;
         }
 
         const grounding = runDeterministicGroundingCheck({
@@ -8391,9 +8419,18 @@ const validateFreshEssayExamSet = (args: {
             assessmentBlueprint: args.assessmentBlueprint,
         });
         if (!grounding.deterministicPass) {
-            errors.push(`Essay prompt failed grounding: ${grounding.reasons.join(", ")}`);
-            continue;
+            warnings.push(`Essay prompt failed grounding: ${grounding.reasons.join(", ")}`);
+        } else {
+            groundedCount += 1;
         }
+    }
+
+    const minimumGroundedCount = Math.max(1, Math.floor(args.requestedCount / 2));
+    if (groundedCount < minimumGroundedCount) {
+        errors.push(`Essay set did not keep enough grounded prompts (${groundedCount}/${args.requestedCount}).`);
+    }
+    if (citationBackedCount === 0) {
+        errors.push("Essay set is missing citations on every prompt.");
     }
 
     return {
