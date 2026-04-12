@@ -796,7 +796,8 @@ SEED: ${args.seed}
 
 Rules:
 - Each question is a sentence with one or more blanks marked as "___".
-- "blanks" array must list each blank's position (0-indexed word position of "___" in the sentence) and the correct answer.
+- "blanks" array must list the correct answers in the same order the blanks appear in the sentence.
+- You may include "position", but it is optional.
 - Answers are short: 1-3 words that the student types.
 - Questions must test different concepts from the topic — no two questions should test the same fact.
 - Every answer must be directly supported by the evidence passages.

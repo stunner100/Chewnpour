@@ -4944,19 +4944,35 @@ export const generateConceptExerciseBatchForTopicInternal = internalAction({
 /* ── Fill-in batch generation ──────────────────────────────────── */
 
 const FILL_IN_BATCH_DEFAULT_COUNT = 6;
-const FILL_IN_BATCH_MIN_COUNT = 3;
 const FILL_IN_BATCH_MAX_ATTEMPTS = 2;
+const FILL_IN_BATCH_FALLBACK_MIN_COUNT = 1;
 
 const normalizeFillInQuestion = (raw: any, index: number): FillInQuestion | null => {
-    const sentence = String(raw?.sentence || "").trim();
+    const sentence = String(raw?.sentence || "")
+        .replace(/_{2,}/g, "___")
+        .trim();
     if (!sentence || !sentence.includes("___")) return null;
 
-    const rawBlanks = Array.isArray(raw?.blanks) ? raw.blanks : [];
+    const rawBlanks = Array.isArray(raw?.blanks)
+        ? raw.blanks
+        : Array.isArray(raw?.answers)
+            ? raw.answers
+            : [];
     const blanks = rawBlanks
-        .map((b: any) => ({
-            position: Number(b?.position ?? 0),
-            answer: String(b?.answer || "").trim(),
-        }))
+        .map((b: any, blankIndex: number) => {
+            if (typeof b === "string") {
+                return {
+                    position: blankIndex,
+                    answer: String(b).trim(),
+                };
+            }
+            return {
+                position: Number.isFinite(Number(b?.position))
+                    ? Number(b.position)
+                    : blankIndex,
+                answer: String(b?.answer ?? b?.value ?? b?.text ?? "").trim(),
+            };
+        })
         .filter((b: { position: number; answer: string }) => b.answer.length > 0);
 
     const blankCountInSentence = (sentence.match(/___/g) || []).length;
@@ -4965,6 +4981,55 @@ const normalizeFillInQuestion = (raw: any, index: number): FillInQuestion | null
     const citations = Array.isArray(raw?.citations) ? raw.citations : [];
 
     return { sentence, blanks, citations };
+};
+
+const buildFillInRequestedCountCandidates = (topic: any, evidenceCount: number) => {
+    const configuredTarget = Number(topic?.mcqTargetCount || 0);
+    const evidenceCap = Math.max(1, Math.min(FILL_IN_BATCH_DEFAULT_COUNT, evidenceCount || 0));
+    const preferredTarget = Math.max(
+        1,
+        Math.min(
+            FILL_IN_BATCH_DEFAULT_COUNT,
+            configuredTarget > 0 ? configuredTarget : FILL_IN_BATCH_DEFAULT_COUNT,
+            evidenceCap > 0 ? evidenceCap : FILL_IN_BATCH_DEFAULT_COUNT,
+        ),
+    );
+    return Array.from(
+        new Set(
+            [
+                preferredTarget,
+                Math.min(4, preferredTarget),
+                Math.min(3, preferredTarget),
+                Math.min(2, preferredTarget),
+                1,
+            ].filter((count) => Number.isFinite(count) && count > 0)
+        )
+    ).sort((a, b) => b - a);
+};
+
+const convertConceptExerciseToFillInQuestion = (exercise: {
+    template?: string[];
+    answers?: string[];
+    citations?: any[];
+}): FillInQuestion | null => {
+    const template = Array.isArray(exercise?.template) ? exercise.template : [];
+    const answers = Array.isArray(exercise?.answers) ? exercise.answers : [];
+    if (template.length === 0 || answers.length === 0) return null;
+
+    const sentence = template
+        .map((part) => (part === "__" ? "___" : String(part || "")))
+        .join("")
+        .trim();
+    if (!sentence.includes("___")) return null;
+
+    return {
+        sentence,
+        blanks: answers.map((answer, index) => ({
+            position: index,
+            answer: String(answer || "").trim(),
+        })).filter((blank) => blank.answer.length > 0),
+        citations: Array.isArray(exercise?.citations) ? exercise.citations : [],
+    };
 };
 
 const generateFillInBatchCore = async (ctx: any, args: { topicId: any; userId: string }) => {
@@ -5000,56 +5065,74 @@ const generateFillInBatchCore = async (ctx: any, args: { topicId: any; userId: s
         throw new Error("INSUFFICIENT_EVIDENCE");
     }
 
-    const requestedCount = FILL_IN_BATCH_DEFAULT_COUNT;
+    const requestedCountCandidates = buildFillInRequestedCountCandidates(topic, groundedPack.evidence.length);
     const seed = randomBytes(4).toString("hex");
     let validQuestions: FillInQuestion[] = [];
     let lastError: Error | null = null;
 
-    for (let attempt = 0; attempt < FILL_IN_BATCH_MAX_ATTEMPTS; attempt += 1) {
-        const retryGuidance = attempt === 0
-            ? ""
-            : `Retry: previous output had only ${validQuestions.length} valid questions out of ${requestedCount}. Ensure all blanks use "___" and blanks array matches.`;
-        const prompt = buildFillInBatchPrompt({
-            topicTitle: topic.title,
-            evidence: groundedPack.evidence,
-            requestedCount,
-            duplicateGuardSection,
-            retryGuidance,
-            seed: `${seed}-${attempt}`,
-        });
-
-        try {
-            const response = await callInception([
-                {
-                    role: "system",
-                    content: "You are an expert educator creating fill-in-the-blank exercises. Respond with valid JSON only.",
-                },
-                { role: "user", content: prompt },
-            ], DEFAULT_MODEL, {
-                maxTokens: 3200,
-                responseFormat: "json_object",
-                temperature: 0.3,
-                timeoutMs: DEFAULT_TIMEOUT_MS,
+    for (const requestedCount of requestedCountCandidates) {
+        for (let attempt = 0; attempt < FILL_IN_BATCH_MAX_ATTEMPTS; attempt += 1) {
+            const retryGuidance = attempt === 0
+                ? ""
+                : `Retry: previous output had only ${validQuestions.length} valid questions out of ${requestedCount}. Ensure all blanks use "___" and blanks array matches the blank order in the sentence.`;
+            const prompt = buildFillInBatchPrompt({
+                topicTitle: topic.title,
+                evidence: groundedPack.evidence,
+                requestedCount,
+                duplicateGuardSection,
+                retryGuidance,
+                seed: `${seed}-${requestedCount}-${attempt}`,
             });
 
-            const parsed = parseJsonFromResponse(response, "fill-in batch");
-            const rawQuestions = Array.isArray(parsed?.questions) ? parsed.questions : [];
-            const normalized = rawQuestions
-                .map((q: any, i: number) => normalizeFillInQuestion(q, i))
-                .filter((q: FillInQuestion | null): q is FillInQuestion => q !== null);
+            try {
+                const response = await callInception([
+                    {
+                        role: "system",
+                        content: "You are an expert educator creating fill-in-the-blank exercises. Respond with valid JSON only.",
+                    },
+                    { role: "user", content: prompt },
+                ], DEFAULT_MODEL, {
+                    maxTokens: 3200,
+                    responseFormat: "json_object",
+                    temperature: 0.3,
+                    timeoutMs: DEFAULT_TIMEOUT_MS,
+                });
 
-            if (normalized.length >= FILL_IN_BATCH_MIN_COUNT) {
+                const parsed = parseJsonFromResponse(response, "fill-in batch");
+                const rawQuestions = Array.isArray(parsed?.questions) ? parsed.questions : [];
+                const normalized = rawQuestions
+                    .map((q: any, i: number) => normalizeFillInQuestion(q, i))
+                    .filter((q: FillInQuestion | null): q is FillInQuestion => q !== null);
+
+                if (normalized.length >= Math.min(requestedCount, FILL_IN_BATCH_FALLBACK_MIN_COUNT)) {
+                    validQuestions = normalized;
+                    break;
+                }
                 validQuestions = normalized;
-                break;
+                lastError = new Error(`Only ${normalized.length} valid questions generated`);
+            } catch (error) {
+                lastError = error instanceof Error ? error : new Error(String(error));
             }
-            validQuestions = normalized;
-            lastError = new Error(`Only ${normalized.length} valid questions generated`);
+        }
+
+        if (validQuestions.length >= Math.min(requestedCount, FILL_IN_BATCH_FALLBACK_MIN_COUNT)) {
+            break;
+        }
+    }
+
+    if (validQuestions.length < FILL_IN_BATCH_FALLBACK_MIN_COUNT) {
+        try {
+            const fallbackExercise = await generateConceptExerciseForTopicCore(ctx, { topicId, userId });
+            const fallbackQuestion = convertConceptExerciseToFillInQuestion(fallbackExercise);
+            if (fallbackQuestion) {
+                validQuestions = [fallbackQuestion];
+            }
         } catch (error) {
             lastError = error instanceof Error ? error : new Error(String(error));
         }
     }
 
-    if (validQuestions.length < FILL_IN_BATCH_MIN_COUNT) {
+    if (validQuestions.length < FILL_IN_BATCH_FALLBACK_MIN_COUNT) {
         throw lastError || new Error("Failed to generate fill-in questions for this topic.");
     }
 
