@@ -13280,6 +13280,24 @@ const resolveFreshObjectiveTargetFloor = (topic: any) => {
     return 5;
 };
 
+const buildFreshObjectiveCountCandidates = (
+    topic: any,
+    evidence: RetrievedEvidence[],
+    configuredTarget: number,
+) => {
+    const capacityCap = resolveFreshObjectiveCapacityCap(topic, evidence);
+    const recommendedFloor = Math.min(capacityCap, resolveFreshObjectiveTargetFloor(topic));
+    const initialTarget = Math.max(
+        recommendedFloor,
+        Math.min(capacityCap, Math.max(configuredTarget, recommendedFloor)),
+    );
+    const candidates: number[] = [];
+    for (let count = initialTarget; count >= recommendedFloor; count -= 1) {
+        candidates.push(count);
+    }
+    return Array.from(new Set(candidates)).filter((count) => count >= 1);
+};
+
 const resolveFreshObjectiveCapacityCap = (topic: any, evidence: RetrievedEvidence[]) => {
     const evidenceCount = Math.max(1, Array.isArray(evidence) ? evidence.length : 0);
     const learningObjectiveCount = Array.isArray(topic?.structuredLearningObjectives)
@@ -13313,9 +13331,7 @@ const resolveFreshExamTargetCount = (
     if (examFormat === "essay") {
         return configuredTarget;
     }
-    const capacityCap = resolveFreshObjectiveCapacityCap(topic, evidence);
-    const recommendedFloor = Math.min(capacityCap, resolveFreshObjectiveTargetFloor(topic));
-    return Math.max(recommendedFloor, Math.min(capacityCap, Math.max(configuredTarget, recommendedFloor)));
+    return buildFreshObjectiveCountCandidates(topic, evidence, configuredTarget)[0] || 1;
 };
 
 const formatRetrievedEvidenceForPrompt = (evidence: RetrievedEvidence[], maxChars = 14000) =>
@@ -13991,7 +14007,16 @@ export const generateFreshExamSnapshotInternal = internalAction({
                         message: "We couldn't find enough grounded evidence for this topic exam.",
                     });
                 }
-                const requestedCount = resolveFreshExamTargetCount(topic, examFormat, groundedPack.evidence);
+                const configuredTarget = resolveFreshConfiguredTargetCount(
+                    examFormat === "essay" ? topic?.essayTargetCount : topic?.mcqTargetCount,
+                    examFormat === "essay" ? FRESH_CONTEXT_ESSAY_DEFAULT_COUNT : FRESH_CONTEXT_OBJECTIVE_DEFAULT_COUNT,
+                );
+                const requestedCount = examFormat === "essay"
+                    ? configuredTarget
+                    : resolveFreshExamTargetCount(topic, examFormat, groundedPack.evidence);
+                const objectiveCountCandidates = examFormat === "essay"
+                    ? []
+                    : buildFreshObjectiveCountCandidates(topic, groundedPack.evidence, configuredTarget);
 
                 const assessmentBlueprint = await ensureAssessmentBlueprintForTopic({
                     ctx,
@@ -14075,63 +14100,74 @@ export const generateFreshExamSnapshotInternal = internalAction({
                 }
 
                 if (examFormat === "mcq") {
-                    const fallbackPrompt = buildFreshObjectiveExamPrompt({
-                        topic,
-                        requestedCount,
-                        evidence: groundedPack.evidence,
-                        assessmentBlueprint,
-                        validationFeedback: [
-                            ...validationFeedback,
-                            "Fallback mode: generate only multiple_choice questions while keeping exact count and citations.",
-                        ],
-                        forceQuestionType: "multiple_choice",
-                    });
+                    const fallbackCounts = objectiveCountCandidates.length > 0
+                        ? objectiveCountCandidates
+                        : [requestedCount];
 
-                    const fallbackResponse = await callInception([
-                        {
-                            role: "system",
-                            content: "You are an expert exam author. Return valid JSON only.",
-                        },
-                        { role: "user", content: fallbackPrompt },
-                    ], DEFAULT_MODEL, {
-                        maxTokens: 5200,
-                        responseFormat: "json_object",
-                        timeoutMs: DEFAULT_TIMEOUT_MS,
-                        temperature: 0.2,
-                    });
-
-                    const fallbackParsed = await parseFreshExamQuestionsWithRepair(
-                        fallbackResponse,
-                        "objective",
-                        { repairTimeoutMs: DEFAULT_TIMEOUT_MS }
-                    );
-                    const fallbackRawQuestions = Array.isArray(fallbackParsed?.questions) ? fallbackParsed.questions : [];
-                    const fallbackQuestions = fallbackRawQuestions.map((question, index) =>
-                        normalizeFreshObjectiveQuestion(question, index, assessmentBlueprint)
-                    );
-                    const fallbackValidation = validateFreshObjectiveExamSet({
-                        questions: fallbackQuestions,
-                        requestedCount,
-                        evidenceIndex: groundedPack.index,
-                        assessmentBlueprint,
-                        enforceMix: false,
-                    });
-
-                    if (fallbackValidation.valid) {
-                        const snapshot = buildFreshExamSnapshot({
+                    for (const fallbackCount of fallbackCounts) {
+                        const fallbackPrompt = buildFreshObjectiveExamPrompt({
                             topic,
-                            examFormat,
-                            questions: fallbackQuestions,
+                            requestedCount: fallbackCount,
                             evidence: groundedPack.evidence,
-                            questionMix: fallbackValidation.questionMix,
-                        });
-                        return {
-                            ...snapshot,
-                            qualityWarnings: [
-                                ...(Array.isArray(fallbackValidation.warnings) ? fallbackValidation.warnings : []),
-                                "objective-fallback-mcq-only",
+                            assessmentBlueprint,
+                            validationFeedback: [
+                                ...validationFeedback,
+                                fallbackCount === requestedCount
+                                    ? "Fallback mode: generate only multiple_choice questions while keeping exact count and citations."
+                                    : `Fallback mode: generate only multiple_choice questions. Reduce the count to ${fallbackCount} so the set stays valid and well grounded.`,
                             ],
-                        };
+                            forceQuestionType: "multiple_choice",
+                        });
+
+                        const fallbackResponse = await callInception([
+                            {
+                                role: "system",
+                                content: "You are an expert exam author. Return valid JSON only.",
+                            },
+                            { role: "user", content: fallbackPrompt },
+                        ], DEFAULT_MODEL, {
+                            maxTokens: 5200,
+                            responseFormat: "json_object",
+                            timeoutMs: DEFAULT_TIMEOUT_MS,
+                            temperature: 0.2,
+                        });
+
+                        const fallbackParsed = await parseFreshExamQuestionsWithRepair(
+                            fallbackResponse,
+                            "objective",
+                            { repairTimeoutMs: DEFAULT_TIMEOUT_MS }
+                        );
+                        const fallbackRawQuestions = Array.isArray(fallbackParsed?.questions) ? fallbackParsed.questions : [];
+                        const fallbackQuestions = fallbackRawQuestions.map((question, index) =>
+                            normalizeFreshObjectiveQuestion(question, index, assessmentBlueprint)
+                        );
+                        const fallbackValidation = validateFreshObjectiveExamSet({
+                            questions: fallbackQuestions,
+                            requestedCount: fallbackCount,
+                            evidenceIndex: groundedPack.index,
+                            assessmentBlueprint,
+                            enforceMix: false,
+                        });
+
+                        if (fallbackValidation.valid) {
+                            const snapshot = buildFreshExamSnapshot({
+                                topic,
+                                examFormat,
+                                questions: fallbackQuestions,
+                                evidence: groundedPack.evidence,
+                                questionMix: fallbackValidation.questionMix,
+                            });
+                            return {
+                                ...snapshot,
+                                qualityWarnings: [
+                                    ...(Array.isArray(fallbackValidation.warnings) ? fallbackValidation.warnings : []),
+                                    "objective-fallback-mcq-only",
+                                    ...(fallbackCount < requestedCount ? [`objective-fallback-reduced-count:${fallbackCount}`] : []),
+                                ],
+                            };
+                        }
+
+                        validationFeedback = fallbackValidation.errors.slice(0, 8);
                     }
                 }
 

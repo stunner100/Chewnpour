@@ -14,12 +14,16 @@ if (!/const resolveFreshObjectiveTargetFloor = \(topic: any\) => \{/.test(aiSour
   throw new Error('Expected ai.ts to derive a minimum fresh objective target from topic strength.');
 }
 
+if (!/const buildFreshObjectiveCountCandidates = \(\s*topic: any,\s*evidence: RetrievedEvidence\[\],\s*configuredTarget: number,\s*\) => \{/.test(aiSource)) {
+  throw new Error('Expected ai.ts to build descending fallback target counts for fresh objective exams.');
+}
+
 if (!/classification === "strong"[\s\S]*return 8;/.test(aiSource) || !/topicKind === "document_final_exam"[\s\S]*return 10;/.test(aiSource)) {
   throw new Error('Expected fresh objective target floors to increase for strong topics and document final exams.');
 }
 
-if (!/const requestedCount = resolveFreshExamTargetCount\(topic, examFormat, groundedPack\.evidence\);/.test(aiSource)) {
-  throw new Error('Expected fresh exam target count to be computed after grounded evidence is loaded.');
+if (!/const objectiveCountCandidates = examFormat === "essay"\s*\?\s*\[\]\s*:\s*buildFreshObjectiveCountCandidates\(topic, groundedPack\.evidence, configuredTarget\);/.test(aiSource)) {
+  throw new Error('Expected fresh objective count candidates to be computed after grounded evidence is loaded.');
 }
 
 if (!/const recommendedFloor = Math\.min\(capacityCap, resolveFreshObjectiveTargetFloor\(topic\)\);/.test(aiSource)) {
@@ -32,6 +36,10 @@ if (!/const hardCap = topicKind === "document_final_exam"[\s\S]*classification =
 
 if (!/forceQuestionType:\s*"multiple_choice"/.test(aiSource)) {
   throw new Error('Expected fresh objective generation to retry with an MCQ-only fallback.');
+}
+
+if (!/for \(const fallbackCount of fallbackCounts\)/.test(aiSource) || !/objective-fallback-reduced-count:\$\{fallbackCount\}/.test(aiSource)) {
+  throw new Error('Expected MCQ-only fallback to step down to smaller exact counts when the initial target is too brittle.');
 }
 
 if (!/Fallback mode: generate only multiple_choice questions while keeping exact count and citations\./.test(aiSource)) {
