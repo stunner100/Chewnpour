@@ -9,6 +9,7 @@ import { useExamTimer } from '../hooks/useExamTimer';
 import { useRouteResolvedTopic } from '../hooks/useRouteResolvedTopic';
 import { addSentryBreadcrumb, captureSentryException, captureSentryMessage } from '../lib/sentry';
 import ExamQuestionCard from '../components/ExamQuestionCard';
+import ExamPreparationLoader from '../components/ExamPreparationLoader';
 
 // ── Pure option-parsing helpers (hoisted out of the component) ──
 
@@ -1199,105 +1200,14 @@ const ExamMode = () => {
 
     if (startingExamAttempt || !examStarted || !attemptId || questions.length === 0) {
         return (
-            <div className="min-h-screen bg-background-light dark:bg-background-dark flex items-center justify-center p-4">
-                <div className="w-full max-w-md">
-                    {!startExamError ? (
-                        <div className="card-base p-8 text-center">
-                            <div className="relative w-20 h-20 mx-auto mb-6">
-                                <div className="absolute inset-0 rounded-full border-2 border-border-light dark:border-border-dark"></div>
-                                <div className="absolute inset-0 rounded-full border-2 border-primary border-t-transparent animate-spin"></div>
-                                <div className="absolute inset-2 rounded-full bg-primary/10 flex items-center justify-center">
-                                    <span className="material-symbols-outlined text-2xl text-primary">quiz</span>
-                                </div>
-                            </div>
-
-                            <h2 className="text-display-sm text-text-main-light dark:text-text-main-dark mb-2">
-                                {preparationPanelTitle}
-                            </h2>
-                            <p className="text-body-sm text-text-sub-light dark:text-text-sub-dark mb-6">
-                                {activePreparationMessage}
-                            </p>
-
-                            <p className="text-caption uppercase tracking-[0.18em] text-text-faint-light dark:text-text-faint-dark mb-4">
-                                {PREPARATION_STAGE_LABELS[preparationStage] || 'Preparing exam'}
-                            </p>
-                            <div className="space-y-3 text-left">
-                                {preparationChecklist.map((item) => (
-                                    <div
-                                        key={item.label}
-                                        className="flex items-center gap-3 text-body-sm text-text-sub-light dark:text-text-sub-dark"
-                                    >
-                                        <span
-                                            className={`material-symbols-outlined text-[18px] ${
-                                                item.state === 'done'
-                                                    ? 'text-accent-emerald'
-                                                    : item.state === 'active'
-                                                        ? 'text-primary animate-pulse'
-                                                        : 'text-text-faint-light dark:text-text-faint-dark'
-                                            }`}
-                                        >
-                                            {item.state === 'done' ? 'check_circle' : item.state === 'active' ? 'hourglass_empty' : 'radio_button_unchecked'}
-                                        </span>
-                                        <span>{item.label}</span>
-                                    </div>
-                                ))}
-                            </div>
-
-                        </div>
-                    ) : (
-                        <div className="card-base p-8 text-center">
-                            <div className="w-16 h-16 rounded-2xl bg-accent-amber/10 flex items-center justify-center mx-auto mb-4">
-                                <span className="material-symbols-outlined text-2xl text-accent-amber">warning</span>
-                            </div>
-
-                            <h2 className="text-body-lg font-semibold text-text-main-light dark:text-text-main-dark mb-2">
-                                {preparationPanelTitle}
-                            </h2>
-                            <p className="text-body-sm text-text-sub-light dark:text-text-sub-dark mb-6">
-                                {startExamError}
-                            </p>
-
-                            <div className="flex gap-3">
-                                {startExamError === getExamSessionExpiredMessage() ? (
-                                    <Link
-                                        to="/login"
-                                        className="flex-1 btn-primary py-3 flex items-center justify-center gap-2"
-                                    >
-                                        <span className="material-symbols-outlined text-[18px]">login</span>
-                                        <span>Sign In</span>
-                                    </Link>
-                                ) : (
-                                    <>
-                                        <button
-                                            onClick={handleRetryStart}
-                                            disabled={startingExamAttempt}
-                                            className="flex-1 btn-primary py-3 disabled:opacity-60 flex items-center justify-center gap-2"
-                                        >
-                                            <span className="material-symbols-outlined text-[18px]">refresh</span>
-                                            <span>Retry</span>
-                                        </button>
-                                        <button
-                                            onClick={() => {
-                                                setStartExamError('');
-                                                setExamFormat(null);
-                                            }}
-                                            className="btn-secondary px-4 py-3 flex items-center justify-center"
-                                        >
-                                            <span className="material-symbols-outlined text-[18px]">swap_horiz</span>
-                                        </button>
-                                    </>
-                                )}
-                                <Link
-                                    to={topicId ? `/dashboard/topic/${topicId}` : '/dashboard'}
-                                    className="btn-secondary px-4 py-3 flex items-center justify-center"
-                                >
-                                    <span className="material-symbols-outlined text-[18px]">arrow_back</span>
-                                </Link>
-                            </div>
-                        </div>
-                    )}
-                </div>
-            </div>
+            <ExamPreparationLoader
+                examFormat={examFormat}
+                failed={Boolean(startExamError)}
+                errorMsg={startExamError}
+                onRetry={handleRetryStart}
+                onBack={() => { setStartExamError(''); setExamFormat(null); }}
+                isSessionExpired={startExamError === getExamSessionExpiredMessage()}
+            />
         );
     }
 
