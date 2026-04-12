@@ -2,7 +2,7 @@
 
 import { AsyncLocalStorage } from "node:async_hooks";
 import { Buffer } from "node:buffer";
-import { randomBytes } from "node:crypto";
+import { createHash, randomBytes } from "node:crypto";
 import { action, internalAction } from "./_generated/server";
 import type { Id } from "./_generated/dataModel";
 import { ConvexError, v } from "convex/values";
@@ -21,7 +21,7 @@ import {
     extractStructuredSections,
     groupChunksIntoTopicBuckets,
 } from "./lib/topicOutlinePipeline";
-import { assertAuthorizedUser, isUsableExamQuestion, resolveAuthUserId } from "./lib/examSecurity";
+import { assertAuthorizedUser, isUsableExamQuestion, resolveAuthUserId, sanitizeExamQuestionForClient } from "./lib/examSecurity";
 import {
     OBJECTIVE_PARTIAL_SUCCESS_TARGET_FLOOR,
     QUESTION_BANK_BACKGROUND_PROFILE,
@@ -13154,6 +13154,756 @@ export const generateEssayQuestionsForTopic = action({
                 scheduleRetries: false,
                 runMode: "interactive",
             })
+        );
+    },
+});
+
+const FRESH_CONTEXT_EXAM_PROMPT_VERSION = "fresh_context_v1";
+const FRESH_CONTEXT_OBJECTIVE_DEFAULT_COUNT = 10;
+const FRESH_CONTEXT_ESSAY_DEFAULT_COUNT = 1;
+
+const resolveFreshRequestedExamFormat = (value: unknown) =>
+    String(value || "").trim().toLowerCase() === "essay" ? "essay" : "mcq";
+
+const resolveFreshConfiguredTargetCount = (value: unknown, fallback: number) => {
+    const numeric = Number(value);
+    if (!Number.isFinite(numeric)) {
+        return Math.max(1, Math.round(Number(fallback || 1)));
+    }
+    return Math.max(1, Math.round(numeric));
+};
+
+const hashFreshExamValue = (value: unknown) =>
+    createHash("sha1")
+        .update(typeof value === "string" ? value : JSON.stringify(value ?? null))
+        .digest("hex")
+        .slice(0, 16);
+
+const resolveFreshExamTargetCount = (topic: any, examFormat: "mcq" | "essay") =>
+    resolveFreshConfiguredTargetCount(
+        examFormat === "essay" ? topic?.essayTargetCount : topic?.mcqTargetCount,
+        examFormat === "essay" ? FRESH_CONTEXT_ESSAY_DEFAULT_COUNT : FRESH_CONTEXT_OBJECTIVE_DEFAULT_COUNT,
+    );
+
+const formatRetrievedEvidenceForPrompt = (evidence: RetrievedEvidence[], maxChars = 14000) =>
+    evidence
+        .map((entry, index) => {
+            const trimmed = String(entry.text || "").slice(0, 900).trim();
+            return [
+                `EVIDENCE_${index + 1}:`,
+                `passageId=${entry.passageId}; page=${entry.page}; start=${entry.startChar}; end=${entry.endChar}`,
+                `"""${trimmed}"""`,
+            ].join("\n");
+        })
+        .join("\n\n")
+        .slice(0, maxChars);
+
+const buildFreshLessonContext = (topic: any) => {
+    const structuredObjectives = Array.isArray(topic?.structuredLearningObjectives)
+        ? topic.structuredLearningObjectives
+            .map((item: any) => {
+                if (typeof item === "string") return item.trim();
+                return String(item?.text || item?.title || item?.objective || "").trim();
+            })
+            .filter(Boolean)
+            .slice(0, 8)
+        : [];
+    const structuredSubtopics = Array.isArray(topic?.structuredSubtopics)
+        ? topic.structuredSubtopics
+            .map((item: any) => {
+                if (typeof item === "string") return item.trim();
+                return String(item?.title || item?.text || item?.name || "").trim();
+            })
+            .filter(Boolean)
+            .slice(0, 8)
+        : [];
+
+    return [
+        `TOPIC: ${String(topic?.title || "").trim()}`,
+        `DESCRIPTION: ${String(topic?.description || "").trim() || "General concepts"}`,
+        structuredObjectives.length > 0
+            ? `LEARNING OBJECTIVES:\n${structuredObjectives.map((item: string) => `- ${item}`).join("\n")}`
+            : "",
+        structuredSubtopics.length > 0
+            ? `SUBTOPICS:\n${structuredSubtopics.map((item: string) => `- ${item}`).join("\n")}`
+            : "",
+        `LESSON CONTENT:\n"""\n${String(topic?.content || "").slice(0, 12000)}\n"""`,
+    ].filter(Boolean).join("\n\n");
+};
+
+const buildFreshObjectiveTypeMix = (requestedCount: number) => {
+    const safeCount = Math.max(1, Math.round(Number(requestedCount || 1)));
+    if (safeCount === 1) {
+        return { multiple_choice: 1, true_false: 0, fill_blank: 0 };
+    }
+    if (safeCount === 2) {
+        return { multiple_choice: 1, true_false: 1, fill_blank: 0 };
+    }
+    return {
+        multiple_choice: Math.max(1, safeCount - 2),
+        true_false: 1,
+        fill_blank: 1,
+    };
+};
+
+const buildFreshObjectiveExamPrompt = (args: {
+    topic: any;
+    requestedCount: number;
+    evidence: RetrievedEvidence[];
+    assessmentBlueprint: AssessmentBlueprint;
+    validationFeedback?: string[];
+}) => {
+    const mix = buildFreshObjectiveTypeMix(args.requestedCount);
+    const feedbackBlock = Array.isArray(args.validationFeedback) && args.validationFeedback.length > 0
+        ? `\nRETRY FEEDBACK:\n${args.validationFeedback.map((item) => `- ${item}`).join("\n")}\n`
+        : "";
+
+    return `Generate exactly ${args.requestedCount} objective exam questions from the topic lesson and grounded evidence.
+
+${buildFreshLessonContext(args.topic)}
+
+GROUNDED EVIDENCE:
+${formatRetrievedEvidenceForPrompt(args.evidence)}
+
+ASSESSMENT BLUEPRINT:
+${JSON.stringify(args.assessmentBlueprint, null, 2)}
+${feedbackBlock}
+Rules:
+- Generate exactly ${mix.multiple_choice} "multiple_choice" questions, ${mix.true_false} "true_false" questions, and ${mix.fill_blank} "fill_blank" questions.
+- Use only the lesson context and grounded evidence above.
+- Use only outcome keys from assessmentBlueprint.mcqPlan.targetOutcomeKeys.
+- bloomLevel must exactly match the selected outcome's bloomLevel.
+- Every question must include citations with exact evidence quotes and passage metadata.
+- Every question must include explanation, difficulty, learningObjective, bloomLevel, and outcomeKey.
+- For multiple_choice:
+  - include exactly 4 options
+  - set correctAnswer to the correct option label only
+- For true_false:
+  - include exactly 2 options labeled A and B, with texts "True" and "False"
+  - set correctAnswer to the correct option label only
+- For fill_blank:
+  - do not include options
+  - set correctAnswer to the canonical answer text
+  - include acceptedAnswers with 1-4 acceptable answer strings
+- Avoid duplicates and avoid repeatedly testing the same fact.
+- Return JSON only.
+
+Return JSON only:
+{
+  "questions": [
+    {
+      "questionType": "multiple_choice|true_false|fill_blank",
+      "questionText": "...",
+      "options": [
+        {"label":"A","text":"...","isCorrect":false}
+      ],
+      "correctAnswer": "A",
+      "acceptedAnswers": ["..."],
+      "explanation": "...",
+      "difficulty": "easy|medium|hard",
+      "learningObjective": "...",
+      "bloomLevel": "Remember|Understand|Apply|Analyze",
+      "outcomeKey": "outcome-1",
+      "citations": [
+        {"passageId":"p1-0","page":0,"startChar":0,"endChar":80,"quote":"..."}
+      ]
+    }
+  ]
+}`;
+};
+
+const buildFreshEssayExamPrompt = (args: {
+    topic: any;
+    requestedCount: number;
+    evidence: RetrievedEvidence[];
+    assessmentBlueprint: AssessmentBlueprint;
+    validationFeedback?: string[];
+}) => {
+    const feedbackBlock = Array.isArray(args.validationFeedback) && args.validationFeedback.length > 0
+        ? `\nRETRY FEEDBACK:\n${args.validationFeedback.map((item) => `- ${item}`).join("\n")}\n`
+        : "";
+
+    return `Generate exactly ${args.requestedCount} essay exam questions from the topic lesson and grounded evidence.
+
+${buildFreshLessonContext(args.topic)}
+
+GROUNDED EVIDENCE:
+${formatRetrievedEvidenceForPrompt(args.evidence)}
+
+ASSESSMENT BLUEPRINT:
+${JSON.stringify(args.assessmentBlueprint, null, 2)}
+${feedbackBlock}
+Rules:
+- Generate exactly ${args.requestedCount} essay questions.
+- Use only outcome keys from assessmentBlueprint.essayPlan.targetOutcomeKeys.
+- bloomLevel must exactly match the selected outcome's bloomLevel.
+- Every essay question must include:
+  - questionText
+  - correctAnswer
+  - explanation
+  - rubricPoints with 2-4 items
+  - citations with exact evidence quotes and passage metadata
+  - learningObjective, bloomLevel, outcomeKey
+- If the blueprint supports authentic scenario framing, include authenticContext.
+- Avoid duplicate prompts and avoid prompts that can be answered in one short sentence.
+- Return JSON only.
+
+Return JSON only:
+{
+  "questions": [
+    {
+      "questionType": "essay",
+      "questionText": "...",
+      "correctAnswer": "...",
+      "explanation": "...",
+      "difficulty": "easy|medium|hard",
+      "learningObjective": "...",
+      "bloomLevel": "Analyze|Evaluate|Create",
+      "outcomeKey": "outcome-1",
+      "authenticContext": "...",
+      "rubricPoints": ["..."],
+      "citations": [
+        {"passageId":"p1-0","page":0,"startChar":0,"endChar":80,"quote":"..."}
+      ]
+    }
+  ]
+}`;
+};
+
+const parseFreshExamQuestionsWithRepair = async (
+    raw: string,
+    schemaLabel: "objective" | "essay",
+    options?: { deadlineMs?: number; repairTimeoutMs?: number }
+) => {
+    try {
+        return parseJsonFromResponse(raw, `${schemaLabel}_fresh_exam`);
+    } catch {
+        const remainingMs = Number.isFinite(Number(options?.deadlineMs))
+            ? Number(options?.deadlineMs) - Date.now()
+            : null;
+        if (remainingMs !== null && remainingMs <= 1200) {
+            return { questions: [] };
+        }
+
+        const repairPrompt = `Fix the malformed JSON-like content below and return strict JSON only.
+
+Required schema:
+{
+  "questions": [
+    {
+      "questionType": "${schemaLabel === "essay" ? "essay" : "multiple_choice|true_false|fill_blank"}",
+      "questionText": "string",
+      "options": [{"label":"A","text":"string","isCorrect":false}],
+      "correctAnswer": "string",
+      "acceptedAnswers": ["string"],
+      "explanation": "string",
+      "difficulty": "easy|medium|hard",
+      "learningObjective": "string",
+      "bloomLevel": "string",
+      "outcomeKey": "string",
+      "authenticContext": "string",
+      "rubricPoints": ["string"],
+      "citations": [
+        {"passageId":"string","page":0,"startChar":0,"endChar":20,"quote":"string"}
+      ]
+    }
+  ]
+}
+
+Malformed content:
+"""
+${String(raw || "").slice(0, 24000)}
+"""`;
+
+        try {
+            const repaired = await callInception([
+                { role: "system", content: "You are a strict JSON repair assistant. Return valid JSON only." },
+                { role: "user", content: repairPrompt },
+            ], DEFAULT_MODEL, {
+                maxTokens: schemaLabel === "essay" ? 2200 : 3200,
+                responseFormat: "json_object",
+                timeoutMs: Math.max(1500, Number(options?.repairTimeoutMs || DEFAULT_TIMEOUT_MS)),
+            });
+            return parseJsonFromResponse(repaired, `${schemaLabel}_fresh_exam_repaired`);
+        } catch {
+            return { questions: [] };
+        }
+    }
+};
+
+const normalizeFreshDifficulty = (value: unknown) => {
+    const normalized = String(value || "").trim().toLowerCase();
+    if (normalized === "easy" || normalized === "hard") return normalized;
+    return "medium";
+};
+
+const normalizeFreshObjectiveQuestionType = (value: unknown) => {
+    const normalized = String(value || "").trim().toLowerCase();
+    if (normalized === "true_false" || normalized === "true-false" || normalized === "boolean") {
+        return "true_false";
+    }
+    if (normalized === "fill_blank" || normalized === "fill-in" || normalized === "fill_in_blank") {
+        return "fill_blank";
+    }
+    return "multiple_choice";
+};
+
+const normalizeFreshAcceptedAnswers = (value: any, fallback: string) => {
+    const items = Array.isArray(value) ? value : [];
+    const normalized = items
+        .map((item) => String(item || "").trim())
+        .filter(Boolean);
+    if (normalized.length > 0) return Array.from(new Set(normalized)).slice(0, 4);
+    return fallback ? [fallback] : [];
+};
+
+const normalizeFreshQuestionKey = (value: unknown) =>
+    String(value || "")
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, " ")
+        .trim();
+
+const validateFreshFillBlankSupport = (candidate: any, evidenceIndex: GroundedEvidenceIndex) => {
+    const conceptCandidate = {
+        questionText: String(candidate?.questionText || "").trim(),
+        template: [String(candidate?.questionText || "").trim(), "__"],
+        answers: [String(candidate?.correctAnswer || "").trim()],
+        tokens: Array.isArray(candidate?.acceptedAnswers) ? candidate.acceptedAnswers : [],
+        citations: Array.isArray(candidate?.citations) ? candidate.citations : [],
+    };
+    return runDeterministicGroundingCheck({
+        type: "concept",
+        candidate: conceptCandidate as any,
+        evidenceIndex,
+    });
+};
+
+const normalizeFreshObjectiveQuestion = (candidate: any, index: number, blueprint: AssessmentBlueprint) => {
+    const questionType = normalizeFreshObjectiveQuestionType(candidate?.questionType);
+    const normalizedBase = normalizeGeneratedAssessmentCandidate({
+        candidate,
+        blueprint,
+        questionType: "mcq",
+    });
+    const questionId = `fresh-objective-${index + 1}`;
+    const questionText = String(normalizedBase?.questionText || "").trim();
+    const difficulty = normalizeFreshDifficulty(normalizedBase?.difficulty);
+    const explanation = String(normalizedBase?.explanation || "").trim();
+    const citations = Array.isArray(normalizedBase?.citations) ? normalizedBase.citations : [];
+    const sourcePassageIds = Array.from(
+        new Set(citations.map((citation: any) => String(citation?.passageId || "").trim()).filter(Boolean))
+    );
+
+    if (questionType === "fill_blank") {
+        const correctAnswer = String(candidate?.correctAnswer || "").trim();
+        const acceptedAnswers = normalizeFreshAcceptedAnswers(candidate?.acceptedAnswers, correctAnswer);
+        return {
+            _id: questionId,
+            questionType,
+            questionText,
+            correctAnswer,
+            acceptedAnswers,
+            options: undefined,
+            explanation,
+            difficulty,
+            citations,
+            sourcePassageIds,
+            learningObjective: String(normalizedBase?.learningObjective || "").trim() || undefined,
+            bloomLevel: String(normalizedBase?.bloomLevel || "").trim() || undefined,
+            outcomeKey: String(normalizedBase?.outcomeKey || "").trim() || undefined,
+            authenticContext: String(normalizedBase?.authenticContext || "").trim() || undefined,
+        };
+    }
+
+    const normalizedOptions = fillOptionLabels(ensureSingleCorrect(sanitizeQuestionOptions(normalizeOptions(candidate?.options))));
+    const validOptions = questionType === "true_false"
+        ? normalizedOptions
+            .map((option, optionIndex) => ({
+                ...option,
+                label: optionIndex === 0 ? "A" : "B",
+                text: optionIndex === 0 ? "True" : "False",
+                isCorrect: Boolean(option.isCorrect),
+            }))
+            .slice(0, 2)
+        : normalizedOptions.slice(0, 4);
+    const correctOption = validOptions.find((option) => option.isCorrect);
+
+    return {
+        _id: questionId,
+        questionType,
+        questionText,
+        options: validOptions,
+        correctAnswer: String(correctOption?.label || ""),
+        explanation,
+        difficulty,
+        citations,
+        sourcePassageIds,
+        learningObjective: String(normalizedBase?.learningObjective || "").trim() || undefined,
+        bloomLevel: String(normalizedBase?.bloomLevel || "").trim() || undefined,
+        outcomeKey: String(normalizedBase?.outcomeKey || "").trim() || undefined,
+        authenticContext: String(normalizedBase?.authenticContext || "").trim() || undefined,
+    };
+};
+
+const normalizeFreshEssayQuestion = (candidate: any, index: number, blueprint: AssessmentBlueprint) => {
+    const normalizedBase = normalizeGeneratedAssessmentCandidate({
+        candidate,
+        blueprint,
+        questionType: "essay",
+    });
+    const citations = Array.isArray(normalizedBase?.citations) ? normalizedBase.citations : [];
+    return {
+        _id: `fresh-essay-${index + 1}`,
+        questionType: "essay",
+        questionText: String(normalizedBase?.questionText || "").trim(),
+        correctAnswer: String(normalizedBase?.correctAnswer || "").trim(),
+        explanation: String(normalizedBase?.explanation || "").trim(),
+        difficulty: normalizeFreshDifficulty(normalizedBase?.difficulty),
+        citations,
+        sourcePassageIds: Array.from(
+            new Set(citations.map((citation: any) => String(citation?.passageId || "").trim()).filter(Boolean))
+        ),
+        learningObjective: String(normalizedBase?.learningObjective || "").trim() || undefined,
+        bloomLevel: String(normalizedBase?.bloomLevel || "").trim() || undefined,
+        outcomeKey: String(normalizedBase?.outcomeKey || "").trim() || undefined,
+        authenticContext: String(normalizedBase?.authenticContext || "").trim() || undefined,
+        rubricPoints: Array.isArray(normalizedBase?.rubricPoints)
+            ? normalizedBase.rubricPoints.map((item: any) => String(item || "").trim()).filter(Boolean).slice(0, 4)
+            : [],
+    };
+};
+
+const validateFreshObjectiveExamSet = (args: {
+    questions: any[];
+    requestedCount: number;
+    evidenceIndex: GroundedEvidenceIndex;
+    assessmentBlueprint: AssessmentBlueprint;
+}) => {
+    const errors: string[] = [];
+    const warnings: string[] = [];
+    const seenKeys = new Set<string>();
+    const seenPrimaryPassages: string[] = [];
+    const mix = { multiple_choice: 0, true_false: 0, fill_blank: 0 };
+
+    if (args.questions.length !== args.requestedCount) {
+        errors.push(`Expected exactly ${args.requestedCount} objective questions, received ${args.questions.length}.`);
+    }
+
+    for (const question of args.questions) {
+        const key = normalizeFreshQuestionKey(question?.questionText);
+        if (!key || seenKeys.has(key)) {
+            errors.push(`Duplicate or empty objective question stem: "${String(question?.questionText || "").slice(0, 80)}"`);
+            continue;
+        }
+        seenKeys.add(key);
+        mix[String(question?.questionType || "multiple_choice") as keyof typeof mix] += 1;
+
+        if (!isUsableExamQuestion(question, { allowEssay: false })) {
+            errors.push(`Invalid objective question structure: "${String(question?.questionText || "").slice(0, 80)}"`);
+            continue;
+        }
+        if (!Array.isArray(question?.citations) || question.citations.length === 0 || !Array.isArray(question?.sourcePassageIds) || question.sourcePassageIds.length === 0) {
+            errors.push(`Objective question is missing citations: "${String(question?.questionText || "").slice(0, 80)}"`);
+            continue;
+        }
+
+        if (question.questionType === "fill_blank") {
+            if (!Array.isArray(question.acceptedAnswers) || question.acceptedAnswers.length === 0) {
+                errors.push(`Fill-in question is missing accepted answers: "${String(question?.questionText || "").slice(0, 80)}"`);
+                continue;
+            }
+            const grounding = validateFreshFillBlankSupport(question, args.evidenceIndex);
+            if (!grounding.deterministicPass) {
+                errors.push(`Fill-in question failed grounding: ${grounding.reasons.join(", ")}`);
+                continue;
+            }
+        } else {
+            const grounding = runDeterministicGroundingCheck({
+                type: "mcq",
+                candidate: {
+                    questionText: question.questionText,
+                    options: question.options.map((option: any) => ({
+                        label: option.label,
+                        text: option.text,
+                        isCorrect: String(option.label || "") === String(question.correctAnswer || ""),
+                    })),
+                    citations: question.citations,
+                    learningObjective: question.learningObjective,
+                    bloomLevel: question.bloomLevel,
+                    outcomeKey: question.outcomeKey,
+                } as any,
+                evidenceIndex: args.evidenceIndex,
+                assessmentBlueprint: args.assessmentBlueprint,
+            });
+            if (!grounding.deterministicPass) {
+                errors.push(`Objective question failed grounding: ${grounding.reasons.join(", ")}`);
+                continue;
+            }
+        }
+
+        seenPrimaryPassages.push(String(question.sourcePassageIds?.[0] || ""));
+    }
+
+    const requestedMix = buildFreshObjectiveTypeMix(args.requestedCount);
+    for (const [type, count] of Object.entries(requestedMix)) {
+        if ((mix as any)[type] !== count) {
+            errors.push(`Objective mix mismatch for ${type}: expected ${count}, received ${(mix as any)[type]}.`);
+        }
+    }
+
+    const dominantPassageCount = Object.values(
+        seenPrimaryPassages.reduce((acc: Record<string, number>, passageId) => {
+            if (!passageId) return acc;
+            acc[passageId] = (acc[passageId] || 0) + 1;
+            return acc;
+        }, {})
+    ).sort((left, right) => right - left)[0] || 0;
+    if (
+        args.requestedCount >= 4
+        && (args.evidenceIndex?.passages?.length || 0) >= 4
+        && dominantPassageCount / Math.max(args.requestedCount, 1) > 0.75
+    ) {
+        errors.push("Objective set is too concentrated on one citation cluster.");
+    }
+
+    return {
+        valid: errors.length === 0,
+        errors,
+        warnings,
+        questionMix: mix,
+    };
+};
+
+const validateFreshEssayExamSet = (args: {
+    questions: any[];
+    requestedCount: number;
+    evidenceIndex: GroundedEvidenceIndex;
+    assessmentBlueprint: AssessmentBlueprint;
+}) => {
+    const errors: string[] = [];
+    const warnings: string[] = [];
+    const seenKeys = new Set<string>();
+
+    if (args.questions.length !== args.requestedCount) {
+        errors.push(`Expected exactly ${args.requestedCount} essay questions, received ${args.questions.length}.`);
+    }
+
+    for (const question of args.questions) {
+        const key = normalizeFreshQuestionKey(question?.questionText);
+        if (!key || seenKeys.has(key)) {
+            errors.push(`Duplicate or empty essay prompt: "${String(question?.questionText || "").slice(0, 80)}"`);
+            continue;
+        }
+        seenKeys.add(key);
+
+        if (!isUsableExamQuestion(question, { allowEssay: true })) {
+            errors.push(`Invalid essay structure: "${String(question?.questionText || "").slice(0, 80)}"`);
+            continue;
+        }
+        if (!Array.isArray(question?.rubricPoints) || question.rubricPoints.length < 2) {
+            errors.push(`Essay prompt is missing a rubric: "${String(question?.questionText || "").slice(0, 80)}"`);
+            continue;
+        }
+
+        const grounding = runDeterministicGroundingCheck({
+            type: "essay",
+            candidate: question as any,
+            evidenceIndex: args.evidenceIndex,
+            assessmentBlueprint: args.assessmentBlueprint,
+        });
+        if (!grounding.deterministicPass) {
+            errors.push(`Essay prompt failed grounding: ${grounding.reasons.join(", ")}`);
+            continue;
+        }
+    }
+
+    return {
+        valid: errors.length === 0,
+        errors,
+        warnings,
+        questionMix: { essay: args.questions.length },
+    };
+};
+
+const buildFreshExamSnapshot = (args: {
+    topic: any;
+    examFormat: "mcq" | "essay";
+    questions: any[];
+    evidence: RetrievedEvidence[];
+    questionMix: Record<string, number>;
+}) => {
+    const sanitizedQuestions = args.questions.map((question) => sanitizeExamQuestionForClient(question));
+    const gradingEntries = Object.fromEntries(
+        args.questions.map((question) => [
+            String(question._id),
+            {
+                questionType: question.questionType,
+                correctAnswer: question.correctAnswer,
+                acceptedAnswers: question.acceptedAnswers || [],
+                explanation: question.explanation,
+                rubricPoints: question.rubricPoints || [],
+                citations: question.citations || [],
+                sourcePassageIds: question.sourcePassageIds || [],
+            },
+        ])
+    );
+
+    return {
+        questions: sanitizedQuestions,
+        gradingContext: {
+            byQuestionId: gradingEntries,
+        },
+        generationContext: {
+            topicTitle: String(args.topic?.title || "").trim(),
+            topicDescription: String(args.topic?.description || "").trim(),
+            topicVersion: String(args.topic?.groundingVersion || args.topic?._creationTime || ""),
+            topicKind: String(args.topic?.topicKind || ""),
+            assessmentRoute: String(args.topic?.assessmentRoute || ""),
+            assessmentClassification: String(args.topic?.assessmentClassification || ""),
+            lessonHash: hashFreshExamValue(String(args.topic?.content || "")),
+            contentGraphHash: hashFreshExamValue(args.topic?.contentGraph || {}),
+            promptVersion: FRESH_CONTEXT_EXAM_PROMPT_VERSION,
+            evidence: args.evidence.map((entry) => ({
+                passageId: entry.passageId,
+                page: entry.page,
+                startChar: entry.startChar,
+                endChar: entry.endChar,
+                text: String(entry.text || "").slice(0, 300),
+            })),
+            generatedAt: Date.now(),
+            examFormat: args.examFormat,
+        },
+        questionMix: args.questionMix,
+    };
+};
+
+export const generateFreshExamSnapshotInternal = internalAction({
+    args: {
+        topicId: v.id("topics"),
+        examFormat: v.optional(v.string()),
+    },
+    handler: async (ctx, args) => {
+        const examFormat = resolveFreshRequestedExamFormat(args.examFormat) as "mcq" | "essay";
+        const trackingUserId = await getTopicOwnerUserIdForTracking(ctx, args.topicId);
+
+        return await runWithLlmUsageContext(
+            ctx,
+            trackingUserId,
+            examFormat === "essay" ? "essay_generation" : "mcq_generation",
+            async () => {
+                const topic = await ctx.runQuery(internal.topics.getTopicWithQuestionsInternal, {
+                    topicId: args.topicId,
+                });
+                if (!topic) {
+                    throw new ConvexError({
+                        code: "TOPIC_NOT_FOUND",
+                        message: "Topic not found.",
+                    });
+                }
+
+                const requestedCount = resolveFreshExamTargetCount(topic, examFormat);
+                const groundedPack = await getGroundedEvidencePackForTopic({
+                    ctx,
+                    topic,
+                    type: examFormat === "essay" ? "essay" : "mcq",
+                    limitOverride: examFormat === "essay" ? 20 : 18,
+                    preferFlagsOverride: examFormat === "essay" ? ["table", "formula"] : ["table"],
+                });
+                if (!groundedPack.index || groundedPack.evidence.length === 0) {
+                    throw new ConvexError({
+                        code: "EXAM_GENERATION_FAILED",
+                        message: "We couldn't find enough grounded evidence for this topic exam.",
+                    });
+                }
+
+                const assessmentBlueprint = await ensureAssessmentBlueprintForTopic({
+                    ctx,
+                    topic,
+                    evidence: groundedPack.evidence,
+                    deadlineMs: Date.now() + DEFAULT_TIMEOUT_MS,
+                    repairTimeoutMs: DEFAULT_TIMEOUT_MS,
+                });
+
+                let validationFeedback: string[] = [];
+                for (let attempt = 0; attempt < 2; attempt += 1) {
+                    const prompt = examFormat === "essay"
+                        ? buildFreshEssayExamPrompt({
+                            topic,
+                            requestedCount,
+                            evidence: groundedPack.evidence,
+                            assessmentBlueprint,
+                            validationFeedback,
+                        })
+                        : buildFreshObjectiveExamPrompt({
+                            topic,
+                            requestedCount,
+                            evidence: groundedPack.evidence,
+                            assessmentBlueprint,
+                            validationFeedback,
+                        });
+
+                    const response = await callInception([
+                        {
+                            role: "system",
+                            content: examFormat === "essay"
+                                ? "You are an expert exam author. Return valid JSON only."
+                                : "You are an expert exam author. Return valid JSON only.",
+                        },
+                        { role: "user", content: prompt },
+                    ], DEFAULT_MODEL, {
+                        maxTokens: examFormat === "essay" ? 3200 : 5200,
+                        responseFormat: "json_object",
+                        timeoutMs: DEFAULT_TIMEOUT_MS,
+                        temperature: 0.2,
+                    });
+
+                    const parsed = await parseFreshExamQuestionsWithRepair(
+                        response,
+                        examFormat === "essay" ? "essay" : "objective",
+                        { repairTimeoutMs: DEFAULT_TIMEOUT_MS }
+                    );
+                    const rawQuestions = Array.isArray(parsed?.questions) ? parsed.questions : [];
+                    const normalizedQuestions = examFormat === "essay"
+                        ? rawQuestions.map((question, index) => normalizeFreshEssayQuestion(question, index, assessmentBlueprint))
+                        : rawQuestions.map((question, index) => normalizeFreshObjectiveQuestion(question, index, assessmentBlueprint));
+                    const validation = examFormat === "essay"
+                        ? validateFreshEssayExamSet({
+                            questions: normalizedQuestions,
+                            requestedCount,
+                            evidenceIndex: groundedPack.index,
+                            assessmentBlueprint,
+                        })
+                        : validateFreshObjectiveExamSet({
+                            questions: normalizedQuestions,
+                            requestedCount,
+                            evidenceIndex: groundedPack.index,
+                            assessmentBlueprint,
+                        });
+
+                    if (validation.valid) {
+                        const snapshot = buildFreshExamSnapshot({
+                            topic,
+                            examFormat,
+                            questions: normalizedQuestions,
+                            evidence: groundedPack.evidence,
+                            questionMix: validation.questionMix,
+                        });
+                        return {
+                            ...snapshot,
+                            qualityWarnings: validation.warnings,
+                        };
+                    }
+
+                    validationFeedback = validation.errors.slice(0, 8);
+                }
+
+                throw new ConvexError({
+                    code: "EXAM_GENERATION_FAILED",
+                    message: examFormat === "essay"
+                        ? "We couldn't generate a valid essay exam from this topic right now. Please try again."
+                        : "We couldn't generate a valid objective exam from this topic right now. Please try again.",
+                });
+            }
         );
     },
 });

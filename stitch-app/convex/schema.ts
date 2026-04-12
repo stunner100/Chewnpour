@@ -443,6 +443,11 @@ export default defineSchema({
         totalQuestions: v.number(),
         timeTakenSeconds: v.number(),
         questionIds: v.optional(v.array(v.id("questions"))),
+        generatedQuestions: v.optional(v.array(v.any())),
+        generationContext: v.optional(v.any()),
+        gradingContext: v.optional(v.any()),
+        questionMix: v.optional(v.any()),
+        generationMode: v.optional(v.string()),
         answers: v.optional(v.any()), // user's answers (JSON)
         tutorFeedback: v.optional(v.string()), // AI-generated personal tutor analysis
         essayWeightedPercentage: v.optional(v.number()), // weighted essay quality % (0-100)
