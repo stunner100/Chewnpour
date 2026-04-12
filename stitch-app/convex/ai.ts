@@ -7803,18 +7803,41 @@ const hashFreshExamValue = (value: unknown) =>
         .digest("hex")
         .slice(0, 16);
 
+const resolveFreshObjectiveTargetFloor = (topic: any) => {
+    const topicKind = String(topic?.topicKind || "").trim();
+    const classification = String(topic?.assessmentClassification || "").trim().toLowerCase();
+
+    if (topicKind === "document_final_exam") {
+        return 10;
+    }
+    if (classification === "strong") {
+        return 8;
+    }
+    if (classification === "medium") {
+        return 6;
+    }
+    return 5;
+};
+
 const resolveFreshObjectiveCapacityCap = (topic: any, evidence: RetrievedEvidence[]) => {
     const evidenceCount = Math.max(1, Array.isArray(evidence) ? evidence.length : 0);
     const learningObjectiveCount = Array.isArray(topic?.structuredLearningObjectives)
         ? topic.structuredLearningObjectives.length
         : 0;
-    const contentWordCap = Math.max(4, Math.floor(countWords(topic?.content || topic?.description || "") / 90));
-    const evidenceCap = Math.max(4, evidenceCount * 2);
+    const contentWordCap = Math.max(5, Math.floor(countWords(topic?.content || topic?.description || "") / 70));
+    const evidenceCap = Math.max(5, evidenceCount * 3);
     const objectiveCap = learningObjectiveCount > 0
-        ? Math.max(4, learningObjectiveCount * 2)
+        ? Math.max(5, learningObjectiveCount * 3)
         : evidenceCap;
+    const topicKind = String(topic?.topicKind || "").trim();
+    const classification = String(topic?.assessmentClassification || "").trim().toLowerCase();
+    const hardCap = topicKind === "document_final_exam"
+        ? 12
+        : classification === "strong"
+            ? 10
+            : 8;
 
-    return Math.max(4, Math.min(8, evidenceCap, contentWordCap, objectiveCap));
+    return Math.max(5, Math.min(hardCap, evidenceCap, contentWordCap, objectiveCap));
 };
 
 const resolveFreshExamTargetCount = (
@@ -7829,7 +7852,9 @@ const resolveFreshExamTargetCount = (
     if (examFormat === "essay") {
         return configuredTarget;
     }
-    return Math.max(4, Math.min(configuredTarget, resolveFreshObjectiveCapacityCap(topic, evidence)));
+    const capacityCap = resolveFreshObjectiveCapacityCap(topic, evidence);
+    const recommendedFloor = Math.min(capacityCap, resolveFreshObjectiveTargetFloor(topic));
+    return Math.max(recommendedFloor, Math.min(capacityCap, Math.max(configuredTarget, recommendedFloor)));
 };
 
 const formatRetrievedEvidenceForPrompt = (evidence: RetrievedEvidence[], maxChars = 14000) =>
