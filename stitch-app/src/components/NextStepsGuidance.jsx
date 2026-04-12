@@ -54,9 +54,9 @@ const NextStepsGuidance = ({
         });
         actions.push({
             key: 'weak',
-            icon: 'school',
-            label: 'Practice weak concepts',
-            description: 'Focus on the areas you missed.',
+            icon: 'edit_note',
+            label: 'Practice fill-ins',
+            description: 'Fill in the blanks to reinforce the areas you missed.',
             to: topicId ? `/dashboard/concept-intro/${topicId}` : null,
             priority: 'high',
         });
@@ -81,9 +81,9 @@ const NextStepsGuidance = ({
     } else if (isMid) {
         actions.push({
             key: 'weak',
-            icon: 'school',
-            label: 'Practice weak concepts',
-            description: 'Focus on the concepts you found tricky.',
+            icon: 'edit_note',
+            label: 'Practice fill-ins',
+            description: 'Fill in the blanks for the concepts you found tricky.',
             to: topicId ? `/dashboard/concept-intro/${topicId}` : null,
             priority: 'high',
         });
@@ -171,9 +171,9 @@ const NextStepsGuidance = ({
         });
         actions.push({
             key: 'concepts',
-            icon: 'school',
-            label: 'Practice concepts',
-            description: 'Take the concept practice session for this topic.',
+            icon: 'edit_note',
+            label: 'Practice fill-ins',
+            description: 'Test yourself by filling in the blanks for this topic.',
             to: topicId ? `/dashboard/concept-intro/${topicId}` : null,
             priority: 'medium',
         });

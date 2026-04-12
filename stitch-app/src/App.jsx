@@ -144,7 +144,7 @@ const Profile = lazyRoute(() => import('./pages/Profile'), { componentName: 'Pro
 const EditProfile = lazyRoute(() => import('./pages/EditProfile'), { componentName: 'EditProfile' });
 const PastQuestionsComingSoon = lazyRoute(() => import('./pages/PastQuestionsComingSoon'), { componentName: 'PastQuestionsComingSoon' });
 const ConceptIntro = lazyRoute(() => import('./pages/ConceptIntro'), { componentName: 'ConceptIntro' });
-const ConceptBuilder = lazyRoute(() => import('./pages/ConceptBuilder'), { componentName: 'ConceptBuilder' });
+const FillInExercise = lazyRoute(() => import('./pages/FillInExercise'), { componentName: 'FillInExercise' });
 const AssignmentHelper = lazyRoute(() => import('./pages/AssignmentHelper'), { componentName: 'AssignmentHelper' });
 const AIHumanizer = lazyRoute(() => import('./pages/AIHumanizer'), {
   componentName: 'AIHumanizer',
@@ -321,8 +321,8 @@ function App() {
         {/* Concept Flow */}
         <Route path="/dashboard/concept-intro" element={withSuspense(<ProtectedRoute><DashboardLayout><ConceptIntro /></DashboardLayout></ProtectedRoute>)} />
         <Route path="/dashboard/concept-intro/:topicId" element={withSuspense(<ProtectedRoute><DashboardLayout><ConceptIntro /></DashboardLayout></ProtectedRoute>)} />
-        <Route path="/dashboard/concept" element={withSuspense(<ProtectedRoute><DashboardLayout><ConceptBuilder /></DashboardLayout></ProtectedRoute>)} />
-        <Route path="/dashboard/concept/:topicId" element={withSuspense(<ProtectedRoute><DashboardLayout><ConceptBuilder /></DashboardLayout></ProtectedRoute>)} />
+        <Route path="/dashboard/concept" element={withSuspense(<ProtectedRoute><DashboardLayout><FillInExercise /></DashboardLayout></ProtectedRoute>)} />
+        <Route path="/dashboard/concept/:topicId" element={withSuspense(<ProtectedRoute><DashboardLayout><FillInExercise /></DashboardLayout></ProtectedRoute>)} />
 
         {/* Subscription Route */}
         <Route path="/subscription" element={withSuspense(<ProtectedRoute><DashboardLayout><Subscription /></DashboardLayout></ProtectedRoute>)} />
