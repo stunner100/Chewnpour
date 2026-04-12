@@ -10,8 +10,24 @@ if (!/const resolveFreshObjectiveCapacityCap = \(topic: any, evidence: Retrieved
   throw new Error('Expected ai.ts to cap fresh objective counts by grounded evidence capacity.');
 }
 
+if (!/const resolveFreshObjectiveTargetFloor = \(topic: any\) => \{/.test(aiSource)) {
+  throw new Error('Expected ai.ts to derive a minimum fresh objective target from topic strength.');
+}
+
+if (!/classification === "strong"[\s\S]*return 8;/.test(aiSource) || !/topicKind === "document_final_exam"[\s\S]*return 10;/.test(aiSource)) {
+  throw new Error('Expected fresh objective target floors to increase for strong topics and document final exams.');
+}
+
 if (!/const requestedCount = resolveFreshExamTargetCount\(topic, examFormat, groundedPack\.evidence\);/.test(aiSource)) {
   throw new Error('Expected fresh exam target count to be computed after grounded evidence is loaded.');
+}
+
+if (!/const recommendedFloor = Math\.min\(capacityCap, resolveFreshObjectiveTargetFloor\(topic\)\);/.test(aiSource)) {
+  throw new Error('Expected fresh objective target count to use the stronger of the configured target and the recommended floor.');
+}
+
+if (!/const hardCap = topicKind === "document_final_exam"[\s\S]*classification === "strong"[\s\S]*\?\s*10[\s\S]*:\s*8;/.test(aiSource)) {
+  throw new Error('Expected fresh objective capacity to expand for stronger topics.');
 }
 
 if (!/forceQuestionType:\s*"multiple_choice"/.test(aiSource)) {
