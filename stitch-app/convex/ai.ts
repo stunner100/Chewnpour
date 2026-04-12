@@ -2542,6 +2542,57 @@ const ensureAssessmentBlueprintForTopic = async (args: {
     repairTimeoutMs?: number;
     forceRegenerate?: boolean;
 }): Promise<AssessmentBlueprint> => {
+    const buildFallbackAssessmentBlueprint = () => {
+        const topicTitle = String(args.topic?.title || "this topic").trim() || "this topic";
+        const topicDescription = String(args.topic?.description || "").replace(/\s+/g, " ").trim();
+        const evidenceFocusSnippets = args.evidence
+            .slice(0, 3)
+            .map((entry) => String(entry?.text || "").replace(/\s+/g, " ").trim())
+            .filter(Boolean)
+            .map((text) => text.slice(0, 180))
+            .filter(Boolean);
+        const defaultEvidenceFocus = topicDescription || `Key evidence from ${topicTitle}`;
+        const evidenceFocusAt = (index: number) =>
+            evidenceFocusSnippets[index] || evidenceFocusSnippets[0] || defaultEvidenceFocus;
+
+        const fallbackBlueprint = normalizeAssessmentBlueprint({
+            version: ASSESSMENT_BLUEPRINT_VERSION,
+            outcomes: [
+                {
+                    key: "core-understanding",
+                    objective: `Explain the core idea of ${topicTitle}.`,
+                    bloomLevel: "Understand",
+                    evidenceFocus: evidenceFocusAt(0),
+                },
+                {
+                    key: "applied-reading",
+                    objective: `Apply the evidence from ${topicTitle} to answer grounded questions accurately.`,
+                    bloomLevel: "Apply",
+                    evidenceFocus: evidenceFocusAt(1),
+                },
+                {
+                    key: "evidence-analysis",
+                    objective: `Analyze how the evidence in ${topicTitle} supports the main lesson ideas.`,
+                    bloomLevel: "Analyze",
+                    evidenceFocus: evidenceFocusAt(2),
+                },
+            ],
+            mcqPlan: {
+                targetOutcomeKeys: ["core-understanding", "applied-reading", "evidence-analysis"],
+            },
+            essayPlan: {
+                targetOutcomeKeys: ["evidence-analysis"],
+                authenticScenarioRequired: false,
+            },
+        });
+
+        if (!fallbackBlueprint) {
+            throw new Error("Failed to build fallback assessment blueprint.");
+        }
+
+        return fallbackBlueprint;
+    };
+
     const topicId = args.topic?._id;
     if (!topicId) {
         throw new Error("Topic not found");
@@ -2554,29 +2605,63 @@ const ensureAssessmentBlueprintForTopic = async (args: {
         }
     }
 
-    const subClaims = await args.ctx.runQuery(internal.topics.getSubClaimsByTopicInternal, {
-        topicId,
+    const subClaims = await ensureTopicSubClaimsForExamGeneration({
+        ctx: args.ctx,
+        topic: args.topic,
+        evidence: args.evidence,
+        deadlineMs: args.deadlineMs,
+        forceRegenerate: args.forceRegenerate,
     });
-    if (!Array.isArray(subClaims) || subClaims.length === 0) {
-        throw new Error("No sub-claims available for assessment blueprint generation.");
+    const distractors = Array.isArray(subClaims) && subClaims.length > 0
+        ? await args.ctx.runQuery(internal.topics.getDistractorsByTopicInternal, { topicId })
+        : [];
+
+    let yieldEstimate = null;
+    let blueprint = null;
+
+    if (Array.isArray(subClaims) && subClaims.length > 0) {
+        yieldEstimate = computeDynamicYieldTargets(subClaims, distractors, {
+            minObjectiveTarget: 4,
+            maxObjectiveTarget: 18,
+            minEssayTarget: 1,
+            maxEssayTarget: 4,
+            expectedPassRate: 0.65,
+        });
+        blueprint = buildClaimDrivenAssessmentBlueprint({
+            subClaims,
+            yieldEstimate,
+            distractorCount: Array.isArray(distractors) ? distractors.length : 0,
+        });
+    } else {
+        console.warn("[fresh-exam] assessment blueprint generation failed; using fallback blueprint", {
+            topicId,
+            reason: "no_sub_claims_available",
+        });
+        const fallbackObjectiveTarget = Math.max(
+            4,
+            Math.round(
+                Number(
+                    args.topic?.totalObjectiveTargetCount
+                    || args.topic?.mcqTargetCount
+                    || 6
+                )
+            )
+        );
+        const fallbackEssayTarget = Math.max(1, Math.round(Number(args.topic?.essayTargetCount || 1)));
+        const fallbackTrueFalseTarget = Math.max(1, Math.min(2, Math.floor(fallbackObjectiveTarget * 0.25)));
+        const fallbackFillInTarget = Math.max(1, Math.min(2, Math.floor(fallbackObjectiveTarget * 0.2)));
+        yieldEstimate = {
+            mcqTarget: Math.max(1, fallbackObjectiveTarget - fallbackTrueFalseTarget - fallbackFillInTarget),
+            trueFalseTarget: fallbackTrueFalseTarget,
+            fillInTarget: fallbackFillInTarget,
+            essayTarget: fallbackEssayTarget,
+            totalObjectiveTarget: fallbackObjectiveTarget,
+            confidence: "low",
+            reasoning: "Derived from grounded evidence because no sub-claims were available.",
+        };
     }
-    const distractors = await args.ctx.runQuery(internal.topics.getDistractorsByTopicInternal, {
-        topicId,
-    });
-    const yieldEstimate = computeDynamicYieldTargets(subClaims, distractors, {
-        minObjectiveTarget: 4,
-        maxObjectiveTarget: 18,
-        minEssayTarget: 1,
-        maxEssayTarget: 4,
-        expectedPassRate: 0.65,
-    });
-    const blueprint = buildClaimDrivenAssessmentBlueprint({
-        subClaims,
-        yieldEstimate,
-        distractorCount: Array.isArray(distractors) ? distractors.length : 0,
-    });
     if (!blueprint) {
-        throw new Error("Failed to generate a valid assessment blueprint.");
+        blueprint = buildFallbackAssessmentBlueprint();
     }
 
     await args.ctx.runMutation(internal.topics.saveAssessmentBlueprintInternal, {
