@@ -482,7 +482,7 @@ const ExamMode = () => {
     const preparationStatus = startExamError ? 'failed' : startingExamAttempt ? 'preparing' : '';
     const preparationStage = startingExamAttempt ? 'generating_candidates' : 'queued';
     const isPreparationRunning = startingExamAttempt;
-    const activePreparationMessage = `We're preparing your ${loadingExamTypeLabel} exam.`;
+    const activePreparationMessage = `Generating your ${loadingExamTypeLabel} exam from this topic.`;
     const questions = useMemo(
         () => (Array.isArray(attemptQuestions) ? attemptQuestions : []),
         [attemptQuestions],

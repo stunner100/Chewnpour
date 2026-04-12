@@ -13,12 +13,12 @@ const [examsSource, examModeSource, aiSource] = await Promise.all([
   fs.readFile(aiPath, "utf8"),
 ]);
 
-if (!/const EXAM_QUESTION_SUBSET_SIZE = 35;/.test(examsSource)) {
-  throw new Error("Expected convex/exams.ts to set MCQ exam cap to 35.");
+if (!/const EXAM_OBJECTIVE_DEFAULT_COUNT = 10;/.test(examsSource)) {
+  throw new Error("Expected convex/exams.ts to default fresh objective exams to 10 questions.");
 }
 
-if (!/const EXAM_ESSAY_QUESTION_SUBSET_SIZE = 15;/.test(examsSource)) {
-  throw new Error("Expected convex/exams.ts to set essay exam cap to 15.");
+if (!/const EXAM_ESSAY_DEFAULT_COUNT = 1;/.test(examsSource)) {
+  throw new Error("Expected convex/exams.ts to default fresh essay exams to 1 question.");
 }
 
 if (!/const EXAM_DURATION_SECONDS = 45 \* 60;/.test(examModeSource)) {
@@ -29,16 +29,16 @@ if (/25-question test/i.test(examModeSource)) {
   throw new Error("Expected src/pages/ExamMode.jsx to remove hardcoded 25-question loading copy.");
 }
 
-if (!/const ESSAY_EXAM_QUESTION_CAP = 15;/.test(examModeSource)) {
-  throw new Error("Expected ExamMode to define ESSAY_EXAM_QUESTION_CAP as 15.");
+if (/ESSAY_EXAM_QUESTION_CAP/.test(examModeSource) || /Preparing a full essay exam/i.test(examModeSource)) {
+  throw new Error("Regression detected: ExamMode should no longer expose prebuilt-bank essay cap/deferred copy.");
 }
 
-if (/ESSAY_EXAM_INTERACTIVE_START_COUNT/.test(examModeSource) || /generateEssayQuestions\(\{/.test(examModeSource)) {
-  throw new Error("Regression detected: ExamMode should not pre-generate essay questions from the format picker.");
+if (!/const FRESH_CONTEXT_OBJECTIVE_DEFAULT_COUNT = 10;/.test(aiSource)) {
+  throw new Error("Expected convex/ai.ts to define the fresh objective default count.");
 }
 
-if (!/const ESSAY_QUESTION_TARGET_MAX_COUNT = 15;/.test(aiSource)) {
-  throw new Error("Expected convex/ai.ts to allow the essay generator to satisfy the full 15-question exam cap.");
+if (!/const FRESH_CONTEXT_ESSAY_DEFAULT_COUNT = 1;/.test(aiSource)) {
+  throw new Error("Expected convex/ai.ts to define the fresh essay default count.");
 }
 
 console.log("exam-count-and-timer-regression.test.mjs passed");
