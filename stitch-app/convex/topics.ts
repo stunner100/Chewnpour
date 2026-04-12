@@ -470,6 +470,42 @@ export const getTopicWithQuestionsInternal = internalQuery({
     },
 });
 
+export const getFinalAssessmentTopicByCourseAndUpload = query({
+    args: {
+        courseId: v.id("courses"),
+        sourceUploadId: v.id("uploads"),
+    },
+    handler: async (ctx, args) => {
+        const identity = await ctx.auth.getUserIdentity();
+        const authUserId = resolveAuthUserId(identity);
+        if (!authUserId) return null;
+
+        const course = await ctx.db.get(args.courseId);
+        if (!course) return null;
+
+        try {
+            assertAuthorizedUser({
+                authUserId,
+                resourceOwnerUserId: course.userId,
+            });
+        } catch {
+            return null;
+        }
+
+        const topics = await ctx.db
+            .query("topics")
+            .withIndex("by_courseId", (q) => q.eq("courseId", args.courseId))
+            .collect();
+
+        return (
+            topics.find((topic) =>
+                topic.sourceUploadId === args.sourceUploadId
+                && String(topic.topicKind || "").trim() === "document_final_exam"
+            ) || null
+        );
+    },
+});
+
 // Get topic owner user id (for server-side authorization checks)
 export const getTopicOwnerUserIdInternal = internalQuery({
     args: { topicId: v.id("topics") },
