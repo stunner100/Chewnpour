@@ -4992,6 +4992,15 @@ const FILL_IN_BATCH_DEFAULT_COUNT = 6;
 const FILL_IN_BATCH_MAX_ATTEMPTS = 2;
 const FILL_IN_BATCH_FALLBACK_MIN_COUNT = 1;
 
+const normalizeFillInDuplicateKey = (value: unknown) =>
+    String(value || "")
+        .toLowerCase()
+        .replace(/[\u2018\u2019]/g, "'")
+        .replace(/[\u201c\u201d]/g, '"')
+        .replace(/[^a-z0-9]+/g, " ")
+        .replace(/\s+/g, " ")
+        .trim();
+
 const normalizeFillInQuestion = (raw: any, index: number): FillInQuestion | null => {
     const sentence = String(raw?.sentence || "")
         .replace(/_{2,}/g, "___")
@@ -5077,7 +5086,34 @@ const convertConceptExerciseToFillInQuestion = (exercise: {
     };
 };
 
-const generateFillInBatchCore = async (ctx: any, args: { topicId: any; userId: string }) => {
+const collectRecentFillInSentences = (attempts: any[]) => {
+    const sentences: string[] = [];
+
+    for (const attempt of Array.isArray(attempts) ? attempts : []) {
+        const details = Array.isArray(attempt?.answers?.details) ? attempt.answers.details : [];
+        for (const detail of details) {
+            const sentence = String(detail?.sentence || "").trim();
+            if (sentence) {
+                sentences.push(sentence.slice(0, 240));
+            }
+        }
+
+        const questionText = String(attempt?.questionText || "").trim();
+        if (questionText && !questionText.toLowerCase().startsWith("fill-ins:")) {
+            sentences.push(questionText.slice(0, 240));
+        }
+    }
+
+    return Array.from(
+        new Map(
+            sentences
+                .map((sentence) => [normalizeFillInDuplicateKey(sentence), sentence] as const)
+                .filter(([key]) => key.length > 0)
+        ).values()
+    );
+};
+
+const generateFillInBatchCore = async (ctx: any, args: { topicId: any; userId: string; excludeSentences?: string[] }) => {
     const { topicId, userId } = args;
     const topic = await ctx.runQuery(internal.topics.getTopicWithQuestionsInternal, { topicId });
     if (!topic) {
@@ -5091,10 +5127,16 @@ const generateFillInBatchCore = async (ctx: any, args: { topicId: any; userId: s
         limit: 10,
     });
 
-    const previousSentences = topicAttempts
-        .map((a: any) => String(a?.questionText || "").trim().slice(0, 120))
-        .filter(Boolean)
-        .slice(0, 8);
+    const previousSentences = Array.from(
+        new Map(
+            [
+                ...collectRecentFillInSentences(topicAttempts),
+                ...(Array.isArray(args.excludeSentences) ? args.excludeSentences : []),
+            ]
+                .map((sentence) => [normalizeFillInDuplicateKey(sentence), String(sentence || "").trim().slice(0, 240)] as const)
+                .filter(([key, sentence]) => key.length > 0 && sentence.length > 0)
+        ).values()
+    ).slice(0, 12);
 
     const duplicateGuardSection = previousSentences.length > 0
         ? `Avoid repeating previous exercises. Do NOT reuse these sentences:\n${previousSentences.map((s: string) => `- ${s}`).join("\n")}`
@@ -5191,13 +5233,18 @@ const generateFillInBatchCore = async (ctx: any, args: { topicId: any; userId: s
 export const generateFillInBatch = action({
     args: {
         topicId: v.id("topics"),
+        excludeSentences: v.optional(v.array(v.string())),
     },
     handler: async (ctx, args) => {
         const identity = await ctx.auth.getUserIdentity();
         const authUserId = resolveAuthUserId(identity);
         const userId = assertAuthorizedUser({ authUserId });
         return await runWithLlmUsageContext(ctx, userId, "fill_in_generation", async () =>
-            await generateFillInBatchCore(ctx, { topicId: args.topicId, userId })
+            await generateFillInBatchCore(ctx, {
+                topicId: args.topicId,
+                userId,
+                excludeSentences: args.excludeSentences,
+            })
         );
     },
 });

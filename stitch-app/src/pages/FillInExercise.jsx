@@ -15,6 +15,15 @@ const normalize = (text) =>
         .replace(/\s+/g, ' ')
         .trim();
 
+const shuffleQuestions = (questions) => {
+    const next = Array.isArray(questions) ? [...questions] : [];
+    for (let index = next.length - 1; index > 0; index -= 1) {
+        const swapIndex = Math.floor(Math.random() * (index + 1));
+        [next[index], next[swapIndex]] = [next[swapIndex], next[index]];
+    }
+    return next;
+};
+
 const FillInExercise = () => {
     const { topicId: topicIdParam } = useParams();
     const routeTopicId = typeof topicIdParam === 'string' ? topicIdParam.trim() : '';
@@ -60,7 +69,7 @@ const FillInExercise = () => {
 
     const previousQuestionsRef = useRef(null);
 
-    const loadExercise = useCallback(async () => {
+    const loadExercise = useCallback(async (options = {}) => {
         if (!topicId || !userId) return;
         const fallbackQuestions = previousQuestionsRef.current;
         setLoading(true);
@@ -71,9 +80,25 @@ const FillInExercise = () => {
         setAnswers({});
         setCurrentIdx(0);
         try {
-            const response = await generateFillInBatch({ topicId });
-            const qs = Array.isArray(response?.questions) ? response.questions : [];
+            const excludeSentences = Array.isArray(options?.excludeSentences)
+                ? options.excludeSentences.filter(Boolean)
+                : [];
+            const response = await generateFillInBatch({ topicId, excludeSentences });
+            let qs = Array.isArray(response?.questions) ? response.questions : [];
             if (qs.length === 0) throw new Error('No questions generated.');
+            const previousSetKey = excludeSentences
+                .map((sentence) => normalize(sentence))
+                .filter(Boolean)
+                .sort()
+                .join('|');
+            const nextSetKey = qs
+                .map((question) => normalize(question?.sentence))
+                .filter(Boolean)
+                .sort()
+                .join('|');
+            if (previousSetKey && previousSetKey === nextSetKey && qs.length > 1) {
+                qs = shuffleQuestions(qs);
+            }
             previousQuestionsRef.current = qs;
             setQuestions(qs);
             setStartedAt(Date.now());
@@ -81,7 +106,7 @@ const FillInExercise = () => {
             console.error('Fill-in generation failed:', error);
             // If we have previous questions, recycle them in shuffled order
             if (fallbackQuestions && fallbackQuestions.length > 0) {
-                const shuffled = [...fallbackQuestions].sort(() => Math.random() - 0.5);
+                const shuffled = shuffleQuestions(fallbackQuestions);
                 setQuestions(shuffled);
                 setStartedAt(Date.now());
             } else {
@@ -435,7 +460,11 @@ const FillInExercise = () => {
                                     setSubmitted(false);
                                     setResults(null);
                                     setLoadError('');
-                                    loadExercise();
+                                    loadExercise({
+                                        excludeSentences: Array.isArray(questions)
+                                            ? questions.map((question) => question?.sentence).filter(Boolean)
+                                            : [],
+                                    });
                                 }}
                                 className="btn-primary flex-1 py-3 text-body-sm flex items-center justify-center gap-2"
                             >
