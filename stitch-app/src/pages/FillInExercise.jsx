@@ -58,8 +58,11 @@ const FillInExercise = () => {
 
     const topicTitle = topic?.title || 'Fill-ins';
 
+    const previousQuestionsRef = useRef(null);
+
     const loadExercise = useCallback(async () => {
         if (!topicId || !userId) return;
+        const fallbackQuestions = previousQuestionsRef.current;
         setLoading(true);
         setLoadError('');
         setSaveError('');
@@ -71,16 +74,24 @@ const FillInExercise = () => {
             const response = await generateFillInBatch({ topicId });
             const qs = Array.isArray(response?.questions) ? response.questions : [];
             if (qs.length === 0) throw new Error('No questions generated.');
+            previousQuestionsRef.current = qs;
             setQuestions(qs);
             setStartedAt(Date.now());
         } catch (error) {
             console.error('Fill-in generation failed:', error);
-            setLoadError(
-                String(error?.message || '').includes('INSUFFICIENT_EVIDENCE')
-                    ? 'Not enough content to generate fill-ins. Try a topic with more material.'
-                    : 'Failed to generate fill-in exercises. Please try again.'
-            );
-            setQuestions(null);
+            // If we have previous questions, recycle them in shuffled order
+            if (fallbackQuestions && fallbackQuestions.length > 0) {
+                const shuffled = [...fallbackQuestions].sort(() => Math.random() - 0.5);
+                setQuestions(shuffled);
+                setStartedAt(Date.now());
+            } else {
+                setLoadError(
+                    String(error?.message || '').includes('INSUFFICIENT_EVIDENCE')
+                        ? 'Not enough content to generate fill-ins. Try a topic with more material.'
+                        : 'Failed to generate fill-in exercises. Please try again.'
+                );
+                setQuestions(null);
+            }
         } finally {
             setLoading(false);
         }
@@ -405,6 +416,20 @@ const FillInExercise = () => {
                         <>
                             <button
                                 onClick={() => {
+                                    setAnswers({});
+                                    setSubmitted(false);
+                                    setResults(null);
+                                    setSaveError('');
+                                    setCurrentIdx(0);
+                                    setStartedAt(Date.now());
+                                }}
+                                className="btn-secondary flex-1 py-3 text-body-sm flex items-center justify-center gap-2"
+                            >
+                                <span className="material-symbols-outlined text-[18px]">replay</span>
+                                <span>Retake</span>
+                            </button>
+                            <button
+                                onClick={() => {
                                     setQuestions(null);
                                     setAnswers({});
                                     setSubmitted(false);
@@ -414,8 +439,8 @@ const FillInExercise = () => {
                                 }}
                                 className="btn-primary flex-1 py-3 text-body-sm flex items-center justify-center gap-2"
                             >
-                                <span className="material-symbols-outlined text-[18px]">refresh</span>
-                                <span>New Exercise</span>
+                                <span className="material-symbols-outlined text-[18px]">auto_awesome</span>
+                                <span>New Set</span>
                             </button>
                             <Link
                                 to={topicId ? `/dashboard/topic/${topicId}` : '/dashboard'}
