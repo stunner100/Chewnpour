@@ -178,9 +178,9 @@ export function PricingSection({
                                 `}>
                                     {tier.name}
                                 </h4>
-                                <div className="flex items-baseline gap-x-1">
+                                <div className="flex flex-wrap items-baseline gap-x-1">
                                     <span className="text-4xl font-bold tracking-tight text-foreground">{tier.price}</span>
-                                    <span className="text-sm font-semibold leading-6 text-muted-foreground">{tier.period}</span>
+                                    <span className="text-sm font-semibold leading-6 text-muted-foreground break-words">{tier.period}</span>
                                 </div>
                                 <div className="mt-2 text-sm leading-6 text-muted-foreground min-h-6 flex items-center">{tier.subtext}</div>
                             </div>
