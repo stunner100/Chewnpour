@@ -1429,6 +1429,57 @@ const ensureAssessmentBlueprintForTopic = async (args: {
     repairTimeoutMs?: number;
     forceRegenerate?: boolean;
 }): Promise<AssessmentBlueprint> => {
+    const buildFallbackAssessmentBlueprint = () => {
+        const topicTitle = String(args.topic?.title || "this topic").trim() || "this topic";
+        const topicDescription = String(args.topic?.description || "").replace(/\s+/g, " ").trim();
+        const evidenceFocusSnippets = args.evidence
+            .slice(0, 3)
+            .map((entry) => String(entry?.text || "").replace(/\s+/g, " ").trim())
+            .filter(Boolean)
+            .map((text) => text.slice(0, 180))
+            .filter(Boolean);
+        const defaultEvidenceFocus = topicDescription || `Key evidence from ${topicTitle}`;
+        const evidenceFocusAt = (index: number) =>
+            evidenceFocusSnippets[index] || evidenceFocusSnippets[0] || defaultEvidenceFocus;
+
+        const fallbackBlueprint = normalizeAssessmentBlueprint({
+            version: ASSESSMENT_BLUEPRINT_VERSION,
+            outcomes: [
+                {
+                    key: "core-understanding",
+                    objective: `Explain the core idea of ${topicTitle}.`,
+                    bloomLevel: "Understand",
+                    evidenceFocus: evidenceFocusAt(0),
+                },
+                {
+                    key: "applied-reading",
+                    objective: `Apply the evidence from ${topicTitle} to answer grounded questions accurately.`,
+                    bloomLevel: "Apply",
+                    evidenceFocus: evidenceFocusAt(1),
+                },
+                {
+                    key: "evidence-analysis",
+                    objective: `Analyze how the evidence in ${topicTitle} supports the main lesson ideas.`,
+                    bloomLevel: "Analyze",
+                    evidenceFocus: evidenceFocusAt(2),
+                },
+            ],
+            mcqPlan: {
+                targetOutcomeKeys: ["core-understanding", "applied-reading", "evidence-analysis"],
+            },
+            essayPlan: {
+                targetOutcomeKeys: ["evidence-analysis"],
+                authenticScenarioRequired: false,
+            },
+        });
+
+        if (!fallbackBlueprint) {
+            throw new Error("Failed to build fallback assessment blueprint.");
+        }
+
+        return fallbackBlueprint;
+    };
+
     const topicId = args.topic?._id;
     if (!topicId) {
         throw new Error("Topic not found");
@@ -1449,31 +1500,40 @@ const ensureAssessmentBlueprintForTopic = async (args: {
         ? configuredTimeoutMs
         : Math.min(configuredTimeoutMs, Math.max(1500, remainingMs - 200));
 
-    const response = await callInception([
-        {
-            role: "system",
-            content: "You are an assessment-design specialist. Return valid JSON only.",
-        },
-        {
-            role: "user",
-            content: buildGroundedAssessmentBlueprintPrompt({
-                topicTitle: String(args.topic?.title || ""),
-                topicDescription: String(args.topic?.description || ""),
-                evidence: args.evidence,
-            }),
-        },
-    ], DEFAULT_MODEL, {
-        maxTokens: 2200,
-        responseFormat: "json_object",
-        timeoutMs,
-    });
+    let blueprint: AssessmentBlueprint | null = null;
+    try {
+        const response = await callInception([
+            {
+                role: "system",
+                content: "You are an assessment-design specialist. Return valid JSON only.",
+            },
+            {
+                role: "user",
+                content: buildGroundedAssessmentBlueprintPrompt({
+                    topicTitle: String(args.topic?.title || ""),
+                    topicDescription: String(args.topic?.description || ""),
+                    evidence: args.evidence,
+                }),
+            },
+        ], DEFAULT_MODEL, {
+            maxTokens: 2200,
+            responseFormat: "json_object",
+            timeoutMs,
+        });
 
-    const blueprint = await parseAssessmentBlueprintWithRepair(response, {
-        deadlineMs: args.deadlineMs,
-        repairTimeoutMs: args.repairTimeoutMs,
-    });
+        blueprint = await parseAssessmentBlueprintWithRepair(response, {
+            deadlineMs: args.deadlineMs,
+            repairTimeoutMs: args.repairTimeoutMs,
+        });
+    } catch (error) {
+        console.warn("[fresh-exam] assessment blueprint generation failed; using fallback blueprint", {
+            topicId,
+            error: error instanceof Error ? error.message : String(error),
+        });
+    }
+
     if (!blueprint) {
-        throw new Error("Failed to generate a valid assessment blueprint.");
+        blueprint = buildFallbackAssessmentBlueprint();
     }
 
     await args.ctx.runMutation(internal.topics.saveAssessmentBlueprintInternal, {
