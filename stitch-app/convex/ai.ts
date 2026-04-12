@@ -1617,6 +1617,24 @@ const loadGroundedEvidenceIndexForTopic = async (ctx: any, topic: any): Promise<
     return await loadGroundedEvidenceIndexForUpload(ctx, upload._id);
 };
 
+const buildGroundedEvidenceIndexFromTopicContent = (topic: any): GroundedEvidenceIndex | null => {
+    const title = String(topic?.title || "").trim();
+    const description = String(topic?.description || "").trim();
+    const content = String(topic?.content || "").trim();
+    const pageText = [title ? `# ${title}` : "", description, content].filter(Boolean).join("\n\n").trim();
+
+    if (!pageText) {
+        return null;
+    }
+
+    return buildGroundedEvidenceIndexFromArtifact({
+        artifact: {
+            pages: [{ index: 0, text: pageText }],
+        },
+        uploadId: String(topic?._id || ""),
+    });
+};
+
 const getGroundedEvidencePackForTopic = async (args: {
     ctx: any;
     topic: any;
@@ -1626,7 +1644,11 @@ const getGroundedEvidencePackForTopic = async (args: {
     limitOverride?: number;
     preferFlagsOverride?: string[];
 }) => {
-    const { index, upload } = await loadGroundedEvidenceIndexForTopic(args.ctx, args.topic);
+    const { index: persistedIndex, upload } = await loadGroundedEvidenceIndexForTopic(args.ctx, args.topic);
+    const topicContentIndex = args.type === "concept"
+        ? buildGroundedEvidenceIndexFromTopicContent(args.topic)
+        : null;
+    const index = persistedIndex || topicContentIndex;
     if (!index) {
         return {
             upload,
@@ -1669,25 +1691,48 @@ const getGroundedEvidencePackForTopic = async (args: {
             Number(upload?.evidencePassageCount || 0) - Number(upload?.embeddedPassageCount || 0)
         ),
     });
+    const topicContentFallbackNeeded =
+        args.type === "concept"
+        && retrieval.evidence.length === 0
+        && topicContentIndex
+        && topicContentIndex !== index;
+    const fallbackRetrieval = topicContentFallbackNeeded
+        ? await retrieveGroundedEvidence({
+            ctx: args.ctx,
+            index: topicContentIndex,
+            query,
+            limit,
+            preferFlags,
+            uploadId: upload?._id,
+            embeddingBacklogCount: 0,
+        })
+        : null;
+    const effectiveRetrieval = fallbackRetrieval && fallbackRetrieval.evidence.length > 0
+        ? fallbackRetrieval
+        : retrieval;
+    const effectiveIndex = fallbackRetrieval && fallbackRetrieval.evidence.length > 0
+        ? topicContentIndex
+        : index;
     console.info("[GroundedRetrieval] topic_retrieval_completed", {
         topicId: String(args.topic?._id || ""),
         type: args.type,
-        retrievalMode: retrieval.retrievalMode,
-        lexicalHitCount: retrieval.lexicalHitCount,
-        vectorHitCount: retrieval.vectorHitCount,
-        embeddingBacklogCount: retrieval.embeddingBacklogCount,
-        retrievalLatencyMs: retrieval.latencyMs,
+        retrievalMode: effectiveRetrieval.retrievalMode,
+        lexicalHitCount: effectiveRetrieval.lexicalHitCount,
+        vectorHitCount: effectiveRetrieval.vectorHitCount,
+        embeddingBacklogCount: effectiveRetrieval.embeddingBacklogCount,
+        retrievalLatencyMs: effectiveRetrieval.latencyMs,
+        topicContentFallbackUsed: Boolean(fallbackRetrieval && fallbackRetrieval.evidence.length > 0),
     });
     return {
         upload,
-        index,
-        evidence: retrieval.evidence,
-        evidenceSnippet: buildEvidenceSnippet(retrieval.evidence),
-        retrievalMode: retrieval.retrievalMode,
-        lexicalHitCount: retrieval.lexicalHitCount,
-        vectorHitCount: retrieval.vectorHitCount,
-        embeddingBacklogCount: retrieval.embeddingBacklogCount,
-        retrievalLatencyMs: retrieval.latencyMs,
+        index: effectiveIndex,
+        evidence: effectiveRetrieval.evidence,
+        evidenceSnippet: buildEvidenceSnippet(effectiveRetrieval.evidence),
+        retrievalMode: effectiveRetrieval.retrievalMode,
+        lexicalHitCount: effectiveRetrieval.lexicalHitCount,
+        vectorHitCount: effectiveRetrieval.vectorHitCount,
+        embeddingBacklogCount: effectiveRetrieval.embeddingBacklogCount,
+        retrievalLatencyMs: effectiveRetrieval.latencyMs,
     };
 };
 
