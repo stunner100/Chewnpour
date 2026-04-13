@@ -10,16 +10,16 @@ if (!/const buildGroundedEvidenceIndexFromTopicContent = \(topic: any\): Grounde
   throw new Error('Expected a topic-content evidence fallback builder for concept generation.');
 }
 
-if (!/const topicContentIndex = args\.type === "concept"\s*\?\s*buildGroundedEvidenceIndexFromTopicContent\(args\.topic\)\s*:\s*null;/.test(aiSource)) {
-  throw new Error('Expected concept retrieval to build a topic-content fallback evidence index.');
+if (!/const topicContentIndex = buildGroundedEvidenceIndexFromTopicContent\(args\.topic\);/.test(aiSource)) {
+  throw new Error('Expected grounded retrieval to build a topic-content fallback evidence index.');
 }
 
 if (!/const index = persistedIndex \|\| topicContentIndex;/.test(aiSource)) {
-  throw new Error('Expected concept retrieval to fall back to topic content when persisted upload evidence is missing.');
+  throw new Error('Expected grounded retrieval to fall back to topic content when persisted upload evidence is missing.');
 }
 
-if (!/const topicContentFallbackNeeded =\s*args\.type === "concept"[\s\S]*retrieval\.evidence\.length === 0[\s\S]*topicContentIndex[\s\S]*topicContentIndex !== index;/.test(aiSource)) {
-  throw new Error('Expected concept retrieval to retry against topic content when upload-backed retrieval returns no evidence.');
+if (!/const topicContentFallbackNeeded =\s*retrieval\.evidence\.length === 0[\s\S]*topicContentIndex[\s\S]*topicContentIndex !== index;/.test(aiSource)) {
+  throw new Error('Expected grounded retrieval to retry against topic content when upload-backed retrieval returns no evidence.');
 }
 
 if (!/topicContentFallbackUsed: Boolean\(fallbackRetrieval && fallbackRetrieval\.evidence\.length > 0\)/.test(aiSource)) {
