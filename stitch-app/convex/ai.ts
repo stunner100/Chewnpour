@@ -8133,12 +8133,19 @@ const buildFreshObjectiveCountCandidates = (
 ) => {
     const capacityCap = resolveFreshObjectiveCapacityCap(topic, evidence);
     const recommendedFloor = Math.min(capacityCap, resolveFreshObjectiveTargetFloor(topic));
+    const absoluteFloor = Math.max(
+        4,
+        Math.min(
+            capacityCap,
+            String(topic?.topicKind || "").trim() === "document_final_exam" ? 6 : 4,
+        ),
+    );
     const initialTarget = Math.max(
         recommendedFloor,
         Math.min(capacityCap, Math.max(configuredTarget, recommendedFloor)),
     );
     const candidates: number[] = [];
-    for (let count = initialTarget; count >= recommendedFloor; count -= 1) {
+    for (let count = initialTarget; count >= absoluteFloor; count -= 1) {
         candidates.push(count);
     }
     return Array.from(new Set(candidates)).filter((count) => count >= 1);
