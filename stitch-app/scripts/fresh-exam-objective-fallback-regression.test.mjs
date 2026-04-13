@@ -30,6 +30,10 @@ if (!/const recommendedFloor = Math\.min\(capacityCap, resolveFreshObjectiveTarg
   throw new Error('Expected fresh objective target count to use the stronger of the configured target and the recommended floor.');
 }
 
+if (!/const absoluteFloor = Math\.max\(\s*4,\s*Math\.min\(\s*capacityCap,\s*String\(topic\?\.topicKind \|\| ""\)\.trim\(\) === "document_final_exam" \? 6 : 4,\s*\),\s*\);/.test(aiSource)) {
+  throw new Error('Expected fresh objective fallback counts to step down below the recommended floor when a smaller exact set is the only valid option.');
+}
+
 if (!/const hardCap = topicKind === "document_final_exam"[\s\S]*classification === "strong"[\s\S]*\?\s*10[\s\S]*:\s*8;/.test(aiSource)) {
   throw new Error('Expected fresh objective capacity to expand for stronger topics.');
 }
