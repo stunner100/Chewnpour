@@ -1645,9 +1645,7 @@ const getGroundedEvidencePackForTopic = async (args: {
     preferFlagsOverride?: string[];
 }) => {
     const { index: persistedIndex, upload } = await loadGroundedEvidenceIndexForTopic(args.ctx, args.topic);
-    const topicContentIndex = args.type === "concept"
-        ? buildGroundedEvidenceIndexFromTopicContent(args.topic)
-        : null;
+    const topicContentIndex = buildGroundedEvidenceIndexFromTopicContent(args.topic);
     const index = persistedIndex || topicContentIndex;
     if (!index) {
         return {
@@ -1692,8 +1690,7 @@ const getGroundedEvidencePackForTopic = async (args: {
         ),
     });
     const topicContentFallbackNeeded =
-        args.type === "concept"
-        && retrieval.evidence.length === 0
+        retrieval.evidence.length === 0
         && topicContentIndex
         && topicContentIndex !== index;
     const fallbackRetrieval = topicContentFallbackNeeded
