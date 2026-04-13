@@ -412,6 +412,48 @@ const FillInExercise = () => {
                             </div>
                         </div>
 
+                        {/* Try other assessments */}
+                        {topicId && (
+                            <div className="card-base p-5 mb-6">
+                                <div className="flex items-center gap-2 mb-3">
+                                    <span className="material-symbols-outlined text-primary text-[18px]">signpost</span>
+                                    <h3 className="text-body-sm font-semibold text-text-main-light dark:text-text-main-dark">
+                                        Try other assessments
+                                    </h3>
+                                </div>
+                                <div className="space-y-2">
+                                    <Link
+                                        to={`/dashboard/exam/${topicId}?autostart=mcq`}
+                                        reloadDocument
+                                        className="flex items-center gap-3 p-3 rounded-xl border transition-colors cursor-pointer bg-surface-hover-light dark:bg-surface-hover-dark border-border-light dark:border-border-dark hover:border-primary/30"
+                                    >
+                                        <div className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0 bg-surface-hover-light dark:bg-surface-hover-dark">
+                                            <span className="material-symbols-outlined text-[18px] text-text-sub-light dark:text-text-sub-dark">quiz</span>
+                                        </div>
+                                        <div className="flex-1 min-w-0">
+                                            <p className="text-body-sm font-medium text-text-sub-light dark:text-text-sub-dark leading-tight">Objective quiz</p>
+                                            <p className="text-caption text-text-faint-light dark:text-text-faint-dark leading-snug mt-0.5">Multiple-choice questions on the same topic.</p>
+                                        </div>
+                                        <span className="material-symbols-outlined text-[16px] text-text-faint-light dark:text-text-faint-dark shrink-0">chevron_right</span>
+                                    </Link>
+                                    <Link
+                                        to={`/dashboard/exam/${topicId}?autostart=essay`}
+                                        reloadDocument
+                                        className="flex items-center gap-3 p-3 rounded-xl border transition-colors cursor-pointer bg-surface-hover-light dark:bg-surface-hover-dark border-border-light dark:border-border-dark hover:border-primary/30"
+                                    >
+                                        <div className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0 bg-surface-hover-light dark:bg-surface-hover-dark">
+                                            <span className="material-symbols-outlined text-[18px] text-text-sub-light dark:text-text-sub-dark">edit_note</span>
+                                        </div>
+                                        <div className="flex-1 min-w-0">
+                                            <p className="text-body-sm font-medium text-text-sub-light dark:text-text-sub-dark leading-tight">Essay</p>
+                                            <p className="text-caption text-text-faint-light dark:text-text-faint-dark leading-snug mt-0.5">Written-response questions to test deeper understanding.</p>
+                                        </div>
+                                        <span className="material-symbols-outlined text-[16px] text-text-faint-light dark:text-text-faint-dark shrink-0">chevron_right</span>
+                                    </Link>
+                                </div>
+                            </div>
+                        )}
+
                         <div className="space-y-4">
                             {questions.map((q, qIdx) => (
                                 <div key={qIdx} className="card-base p-5">
