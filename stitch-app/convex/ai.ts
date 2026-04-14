@@ -4988,6 +4988,38 @@ export const generateConceptExerciseBatchForTopicInternal = internalAction({
 const FILL_IN_BATCH_DEFAULT_COUNT = 6;
 const FILL_IN_BATCH_MAX_ATTEMPTS = 2;
 const FILL_IN_BATCH_FALLBACK_MIN_COUNT = 1;
+const FILL_IN_DETERMINISTIC_STOP_WORDS = new Set([
+    "about",
+    "after",
+    "again",
+    "against",
+    "because",
+    "between",
+    "cause",
+    "effect",
+    "their",
+    "there",
+    "these",
+    "those",
+    "through",
+    "under",
+    "which",
+    "while",
+    "where",
+    "when",
+    "with",
+    "from",
+    "into",
+    "that",
+    "this",
+    "have",
+    "been",
+    "being",
+    "were",
+    "your",
+    "topic",
+    "general",
+]);
 
 const normalizeFillInDuplicateKey = (value: unknown) =>
     String(value || "")
@@ -5081,6 +5113,165 @@ const convertConceptExerciseToFillInQuestion = (exercise: {
         })).filter((blank) => blank.answer.length > 0),
         citations: Array.isArray(exercise?.citations) ? exercise.citations : [],
     };
+};
+
+const escapeFillInRegex = (value: string) =>
+    String(value || "").replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
+const normalizeDeterministicFillInAnswer = (value: unknown) =>
+    String(value || "")
+        .replace(/[\u2018\u2019]/g, "'")
+        .replace(/[\u201c\u201d]/g, '"')
+        .replace(/^[^a-z0-9]+|[^a-z0-9]+$/gi, "")
+        .replace(/\s+/g, " ")
+        .trim();
+
+const isUsableDeterministicFillInAnswer = (value: string) => {
+    const normalized = normalizeDeterministicFillInAnswer(value);
+    if (!normalized) return false;
+    const words = normalized.split(/\s+/).filter(Boolean);
+    if (words.length === 0 || words.length > 3) return false;
+    if (normalized.length < 4 || normalized.length > 40) return false;
+    if (/^\d+(?:\.\d+)?%?$/.test(normalized)) return false;
+    if (words.every((word) => FILL_IN_DETERMINISTIC_STOP_WORDS.has(word.toLowerCase()))) return false;
+    return true;
+};
+
+const collectDeterministicFillInAnswerCandidates = (args: {
+    sentence: string;
+    sectionHint?: string;
+    topicKeywords?: string[];
+}) => {
+    const sentence = String(args.sentence || "").replace(/\s+/g, " ").trim();
+    const sentenceLower = sentence.toLowerCase();
+    const sectionHint = String(args.sectionHint || "").replace(/\s+/g, " ").trim();
+    const scoredCandidates = new Map<string, number>();
+
+    const pushCandidate = (rawValue: unknown, score: number) => {
+        const candidate = normalizeDeterministicFillInAnswer(rawValue);
+        if (!isUsableDeterministicFillInAnswer(candidate)) return;
+        const matcher = new RegExp(`\\b${escapeFillInRegex(candidate)}\\b`, "i");
+        if (!matcher.test(sentence)) return;
+        scoredCandidates.set(candidate, Math.max(score, scoredCandidates.get(candidate) || 0));
+    };
+
+    if (sectionHint) {
+        pushCandidate(sectionHint, 10);
+        const sectionHintWords = sectionHint.split(/\s+/).filter(Boolean);
+        if (sectionHintWords.length > 3) {
+            pushCandidate(sectionHintWords.slice(0, 3).join(" "), 9);
+        }
+    }
+
+    const phraseMatches = sentence.match(/\b(?:[A-Z][a-z0-9]+(?:\s+[A-Z][a-z0-9]+){0,2}|[A-Z]{2,}(?:\s+[A-Z]{2,}){0,2})\b/g) || [];
+    for (const phrase of phraseMatches) {
+        pushCandidate(phrase, 8);
+    }
+
+    for (const keyword of Array.isArray(args.topicKeywords) ? args.topicKeywords : []) {
+        if (sentenceLower.includes(String(keyword || "").toLowerCase())) {
+            pushCandidate(keyword, 7);
+        }
+    }
+
+    const wordMatches = sentence.match(/\b[a-zA-Z][a-zA-Z0-9'-]{3,}\b/g) || [];
+    for (const word of wordMatches) {
+        const normalizedWord = normalizeDeterministicFillInAnswer(word).toLowerCase();
+        if (FILL_IN_DETERMINISTIC_STOP_WORDS.has(normalizedWord)) continue;
+        pushCandidate(word, Math.min(6, normalizedWord.length));
+    }
+
+    return Array.from(scoredCandidates.entries())
+        .sort((left, right) => right[1] - left[1] || right[0].length - left[0].length)
+        .map(([candidate]) => candidate);
+};
+
+const buildDeterministicFillInQuestionFromEvidence = (args: {
+    evidence: RetrievedEvidence;
+    sentence: string;
+    topicKeywords?: string[];
+}): FillInQuestion | null => {
+    const sentence = String(args.sentence || "").replace(/\s+/g, " ").trim();
+    if (sentence.length < 45 || sentence.length > 220 || sentence.includes("___")) {
+        return null;
+    }
+
+    const candidates = collectDeterministicFillInAnswerCandidates({
+        sentence,
+        sectionHint: args.evidence?.sectionHint,
+        topicKeywords: args.topicKeywords,
+    });
+
+    for (const candidate of candidates) {
+        const matcher = new RegExp(`\\b${escapeFillInRegex(candidate)}\\b`, "i");
+        if (!matcher.test(sentence)) continue;
+        const promptSentence = sentence.replace(matcher, "___");
+        if (promptSentence === sentence || !promptSentence.includes("___")) continue;
+
+        return {
+            sentence: promptSentence,
+            blanks: [{ position: 0, answer: candidate }],
+            citations: [
+                {
+                    passageId: String(args.evidence?.passageId || ""),
+                    page: Number.isFinite(Number(args.evidence?.page)) ? Number(args.evidence.page) : 0,
+                    startChar: Number.isFinite(Number(args.evidence?.startChar)) ? Number(args.evidence.startChar) : 0,
+                    endChar: Number.isFinite(Number(args.evidence?.endChar)) ? Number(args.evidence.endChar) : sentence.length,
+                    quote: String(args.evidence?.text || sentence).slice(0, 280),
+                },
+            ],
+        };
+    }
+
+    return null;
+};
+
+const buildDeterministicFillInQuestionsFromEvidence = (args: {
+    evidence: RetrievedEvidence[];
+    topicKeywords?: string[];
+    previousSentences?: string[];
+    limit?: number;
+}) => {
+    const limit = Math.max(1, Math.min(FILL_IN_BATCH_DEFAULT_COUNT, Number(args.limit) || 1));
+    const seenSentenceKeys = new Set(
+        (Array.isArray(args.previousSentences) ? args.previousSentences : [])
+            .map((sentence) => normalizeFillInDuplicateKey(sentence))
+            .filter(Boolean)
+    );
+    const seenAnswerKeys = new Set<string>();
+    const questions: FillInQuestion[] = [];
+
+    for (const evidence of Array.isArray(args.evidence) ? args.evidence : []) {
+        const sentences = String(evidence?.text || "")
+            .split(/(?<=[.!?])\s+/)
+            .map((sentence) => sentence.replace(/\s+/g, " ").trim())
+            .filter(Boolean);
+
+        for (const sentence of sentences) {
+            const fallbackQuestion = buildDeterministicFillInQuestionFromEvidence({
+                evidence,
+                sentence,
+                topicKeywords: args.topicKeywords,
+            });
+            if (!fallbackQuestion) continue;
+
+            const sentenceKey = normalizeFillInDuplicateKey(fallbackQuestion.sentence);
+            const answerKey = normalizeFillInDuplicateKey(fallbackQuestion.blanks[0]?.answer);
+            if (!sentenceKey || seenSentenceKeys.has(sentenceKey) || seenAnswerKeys.has(answerKey)) {
+                continue;
+            }
+
+            questions.push(fallbackQuestion);
+            seenSentenceKeys.add(sentenceKey);
+            seenAnswerKeys.add(answerKey);
+
+            if (questions.length >= limit) {
+                return questions;
+            }
+        }
+    }
+
+    return questions;
 };
 
 const collectRecentFillInSentences = (attempts: any[]) => {
@@ -5213,6 +5404,18 @@ const generateFillInBatchCore = async (ctx: any, args: { topicId: any; userId: s
             }
         } catch (error) {
             lastError = error instanceof Error ? error : new Error(String(error));
+        }
+    }
+
+    if (validQuestions.length < FILL_IN_BATCH_FALLBACK_MIN_COUNT) {
+        const deterministicFallbackQuestions = buildDeterministicFillInQuestionsFromEvidence({
+            evidence: groundedPack.evidence,
+            topicKeywords,
+            previousSentences,
+            limit: requestedCountCandidates[requestedCountCandidates.length - 1] || 1,
+        });
+        if (deterministicFallbackQuestions.length >= FILL_IN_BATCH_FALLBACK_MIN_COUNT) {
+            validQuestions = deterministicFallbackQuestions;
         }
     }
 

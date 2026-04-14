@@ -39,6 +39,14 @@ if (!/const convertConceptExerciseToFillInQuestion = \(exercise: \{/.test(aiSour
   throw new Error('Expected fill-in generation to adapt grounded concept exercises into fill-in questions.');
 }
 
+if (!/const buildDeterministicFillInQuestionsFromEvidence = \(args: \{/.test(aiSource)) {
+  throw new Error('Expected fill-in generation to expose a deterministic evidence fallback.');
+}
+
+if (!/const deterministicFallbackQuestions = buildDeterministicFillInQuestionsFromEvidence\(\{[\s\S]*evidence: groundedPack\.evidence,[\s\S]*topicKeywords,[\s\S]*previousSentences,/.test(aiSource)) {
+  throw new Error('Expected fill-in generation to fall back to deterministic grounded evidence questions when model generation fails.');
+}
+
 if (!/"blanks" array must list the correct answers in the same order the blanks appear in the sentence\./.test(groundedGenerationSource)) {
   throw new Error('Expected fill-in prompt instructions to stop requiring fragile blank-position metadata.');
 }
