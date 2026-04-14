@@ -375,6 +375,9 @@ export const rebaseQuestionBankTargetAfterRun = ({
     minTarget = 1,
     supportTargetCount = 0,
     minimumRetainedTarget = minTarget,
+    preserveThinFirstPassTarget = false,
+    thinFirstPassMaxRatio = 0.6,
+    thinFirstPassMaxCount = 6,
 }) => {
     const requestedTargetCount = Math.max(
         minTarget,
@@ -384,6 +387,16 @@ export const rebaseQuestionBankTargetAfterRun = ({
     const safeFinalCount = Math.max(0, Math.round(toSafeNumber(finalCount, 0)));
     const safeAddedCount = Math.max(0, Math.round(toSafeNumber(addedCount, 0)));
     const normalizedOutcome = String(outcome || "").trim().toLowerCase();
+    const resolvedThinFirstPassMaxCount = clampNumber(
+        Math.round(
+            toSafeNumber(
+                thinFirstPassMaxCount,
+                Math.ceil(requestedTargetCount * clampNumber(toSafeNumber(thinFirstPassMaxRatio, 0.6), 0, 1))
+            )
+        ),
+        minTarget,
+        requestedTargetCount,
+    );
     const retainedTargetCount = resolveRecoveredQuestionBankTarget({
         storedTargetCount: safeFinalCount,
         requestedTargetCount,
@@ -393,6 +406,16 @@ export const rebaseQuestionBankTargetAfterRun = ({
     });
 
     if (!normalizedOutcome || normalizedOutcome === "completed" || normalizedOutcome === "already_generated") {
+        return requestedTargetCount;
+    }
+
+    if (
+        preserveThinFirstPassTarget
+        && safeInitialCount <= 0
+        && safeFinalCount < requestedTargetCount
+        && safeFinalCount <= resolvedThinFirstPassMaxCount
+        && normalizedOutcome !== "insufficient_evidence"
+    ) {
         return requestedTargetCount;
     }
 
@@ -474,6 +497,9 @@ export const resolveQuestionBankProfile = (profile = {}) => {
         bufferRounds: Math.max(0, Math.round(toSafeNumber(profile.bufferRounds, 2))),
         noProgressLimit: Math.max(1, Math.round(toSafeNumber(profile.noProgressLimit, 3))),
         timeBudgetMs: Math.max(1000, Math.round(toSafeNumber(profile.timeBudgetMs, 90_000))),
+        preserveThinFirstPassTarget: profile.preserveThinFirstPassTarget === true,
+        thinFirstPassMaxRatio: clampNumber(toSafeNumber(profile.thinFirstPassMaxRatio, 0.6), 0, 1),
+        thinFirstPassMaxCount: Math.max(1, Math.round(toSafeNumber(profile.thinFirstPassMaxCount, 6))),
     };
 };
 
@@ -492,18 +518,21 @@ export const QUESTION_BANK_BACKGROUND_PROFILE = resolveQuestionBankProfile({
     bufferRounds: 3,
     noProgressLimit: 4,
     timeBudgetMs: 180_000,
+    preserveThinFirstPassTarget: true,
+    thinFirstPassMaxRatio: 0.6,
+    thinFirstPassMaxCount: 6,
 });
 
 export const QUESTION_BANK_INTERACTIVE_PROFILE = resolveQuestionBankProfile({
     minTarget: 1,
     maxTarget: 35,
     wordDivisor: 120,
-    batchSize: 12,
-    minBatchSize: 6,
+    batchSize: 6,
+    minBatchSize: 3,
     maxBatchAttempts: 1,
-    requestTimeoutMs: 15_000,
+    requestTimeoutMs: 20_000,
     repairTimeoutMs: 3_000,
-    parallelRequests: 2,
+    parallelRequests: 1,
     minRounds: 3,
     maxRounds: 8,
     bufferRounds: 1,

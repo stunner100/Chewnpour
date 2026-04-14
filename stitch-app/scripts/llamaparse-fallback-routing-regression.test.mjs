@@ -30,9 +30,9 @@ assert.ok(
   'Expected Azure fallback policy to keep Doctra for scanned/table-heavy cases and prefer LlamaParse only for weaker non-specialized Azure quality issues.'
 );
 assert.ok(
-  extractionSource.includes('fallbackUsed: result.backend !== "azure"')
-    && extractionSource.includes('fallbackUsed: Boolean(result?.backend && result.backend !== "azure")'),
-  'Expected extraction persistence to flag any non-Azure backend run, including LlamaParse, as a fallback execution.'
+  extractionSource.includes('fallbackUsed: result.backend !== "datalab"')
+    && extractionSource.includes('fallbackUsed: Boolean(result?.backend && result.backend !== "datalab")'),
+  'Expected extraction persistence to flag any non-Datalab backend run, including LlamaParse, as a fallback execution.'
 );
 
 console.log('llamaparse-fallback-routing-regression tests passed');

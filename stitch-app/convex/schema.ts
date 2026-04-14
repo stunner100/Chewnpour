@@ -55,6 +55,7 @@ export default defineSchema({
         plannedTopicCount: v.optional(v.number()),
         generatedTopicCount: v.optional(v.number()),
         plannedTopicTitles: v.optional(v.array(v.string())),
+        errorMessage: v.optional(v.string()),
         extractionWarnings: v.optional(v.array(v.string())),
         extractionStatus: v.optional(v.string()), // 'pending' | 'running' | 'provisional' | 'complete' | 'failed'
         extractionQualityScore: v.optional(v.number()), // 0-1
@@ -229,11 +230,54 @@ export default defineSchema({
     topics: defineTable({
         courseId: v.id("courses"),
         sourceUploadId: v.optional(v.id("uploads")), // which upload generated this topic
+        topicKind: v.optional(v.string()),
         title: v.string(),
         description: v.optional(v.string()),
         content: v.optional(v.string()), // AI-generated summary content
+        assessmentClassification: v.optional(v.string()),
+        assessmentRoute: v.optional(v.string()),
+        assessmentRouteReason: v.optional(v.string()),
+        assessmentReadinessScore: v.optional(v.number()),
+        evidenceVolumeScore: v.optional(v.number()),
+        evidenceDiversityScore: v.optional(v.number()),
+        distinctivenessScore: v.optional(v.number()),
+        questionVarietyScore: v.optional(v.number()),
+        redundancyRiskScore: v.optional(v.number()),
         sourceChunkIds: v.optional(v.array(v.number())),
         sourcePassageIds: v.optional(v.array(v.string())),
+        structuredSubtopics: v.optional(v.array(v.string())),
+        structuredDefinitions: v.optional(v.array(v.object({
+            term: v.string(),
+            meaning: v.string(),
+        }))),
+        structuredExamples: v.optional(v.array(v.string())),
+        structuredFormulas: v.optional(v.array(v.string())),
+        structuredLikelyConfusions: v.optional(v.array(v.string())),
+        structuredLearningObjectives: v.optional(v.array(v.string())),
+        structuredSourcePages: v.optional(v.array(v.number())),
+        structuredSourceBlockIds: v.optional(v.array(v.string())),
+        contentGraph: v.optional(v.object({
+            title: v.string(),
+            description: v.optional(v.string()),
+            keyPoints: v.array(v.string()),
+            subtopics: v.array(v.string()),
+            definitions: v.array(v.object({
+                term: v.string(),
+                meaning: v.string(),
+            })),
+            examples: v.array(v.string()),
+            formulas: v.array(v.string()),
+            likelyConfusions: v.array(v.string()),
+            learningObjectives: v.array(v.string()),
+            sourcePages: v.array(v.number()),
+            sourceBlockIds: v.array(v.string()),
+            sourcePassages: v.array(v.object({
+                passageId: v.string(),
+                page: v.number(),
+                sectionHint: v.optional(v.string()),
+                text: v.string(),
+            })),
+        })),
         groundingVersion: v.optional(v.string()),
         illustrationStorageId: v.optional(v.id("_storage")),
         illustrationUrl: v.optional(v.string()),
@@ -241,7 +285,12 @@ export default defineSchema({
         examReady: v.optional(v.boolean()),
         objectiveTargetCount: v.optional(v.number()),
         mcqTargetCount: v.optional(v.number()),
+        trueFalseTargetCount: v.optional(v.number()),
+        fillInTargetCount: v.optional(v.number()),
+        totalObjectiveTargetCount: v.optional(v.number()),
         essayTargetCount: v.optional(v.number()),
+        objectiveReady: v.optional(v.boolean()),
+        essayReady: v.optional(v.boolean()),
         usableObjectiveCount: v.optional(v.number()),
         usableObjectiveBreakdown: v.optional(v.object({
             multiple_choice: v.number(),
@@ -249,74 +298,67 @@ export default defineSchema({
             fill_blank: v.number(),
         })),
         usableMcqCount: v.optional(v.number()),
+        usableTrueFalseCount: v.optional(v.number()),
+        usableFillInCount: v.optional(v.number()),
         usableEssayCount: v.optional(v.number()),
+        tier1Count: v.optional(v.number()),
+        tier2Count: v.optional(v.number()),
+        tier3Count: v.optional(v.number()),
+        difficultyDistribution: v.optional(v.object({
+            easy: v.number(),
+            medium: v.number(),
+            hard: v.number(),
+        })),
+        bloomCoverage: v.optional(v.array(v.string())),
+        readinessScore: v.optional(v.number()),
+        claimCoverage: v.optional(v.number()),
+        canImprove: v.optional(v.boolean()),
+        improvementActions: v.optional(v.array(v.string())),
+        yieldConfidence: v.optional(v.string()),
+        yieldReasoning: v.optional(v.string()),
+        examIneligibleReason: v.optional(v.string()),
+        diagnosticReport: v.optional(v.any()),
         examReadyUpdatedAt: v.optional(v.number()),
         objectiveGenerationLockedUntil: v.optional(v.number()),
         mcqGenerationLockedUntil: v.optional(v.number()),
         essayGenerationLockedUntil: v.optional(v.number()),
-        assessmentBlueprint: v.optional(v.object({
-            version: v.string(),
-            outcomes: v.array(v.object({
-                key: v.string(),
-                objective: v.string(),
-                bloomLevel: v.string(),
-                evidenceFocus: v.string(),
-                cognitiveTask: v.optional(v.string()),
-                difficultyBand: v.optional(v.string()),
-                scenarioFrame: v.optional(v.string()),
-            })),
-            objectivePlan: v.optional(v.object({
-                allowedQuestionTypes: v.array(v.string()),
-                targetQuestionTypes: v.array(v.string()),
-                targetMix: v.object({
-                    multiple_choice: v.number(),
-                    true_false: v.number(),
-                    fill_blank: v.number(),
-                }),
-                targetOutcomeKeys: v.array(v.string()),
-                targetBloomLevels: v.array(v.string()),
-                targetDifficultyDistribution: v.optional(v.object({
-                    easy: v.number(),
-                    medium: v.number(),
-                    hard: v.number(),
-                })),
-                minDistinctOutcomeCount: v.optional(v.number()),
-            })),
-            multipleChoicePlan: v.optional(v.object({
-                allowedBloomLevels: v.array(v.string()),
-                targetBloomLevels: v.array(v.string()),
-                targetOutcomeKeys: v.array(v.string()),
-            })),
-            trueFalsePlan: v.optional(v.object({
-                allowedBloomLevels: v.array(v.string()),
-                targetBloomLevels: v.array(v.string()),
-                targetOutcomeKeys: v.array(v.string()),
-            })),
-            fillBlankPlan: v.optional(v.object({
-                allowedBloomLevels: v.array(v.string()),
-                targetBloomLevels: v.array(v.string()),
-                targetOutcomeKeys: v.array(v.string()),
-                tokenBankRequired: v.optional(v.boolean()),
-                exactAnswerOnly: v.optional(v.boolean()),
-            })),
-            mcqPlan: v.optional(v.object({
-                allowedBloomLevels: v.array(v.string()),
-                targetBloomLevels: v.array(v.string()),
-                targetOutcomeKeys: v.array(v.string()),
-            })),
-            essayPlan: v.object({
-                allowedBloomLevels: v.array(v.string()),
-                targetBloomLevels: v.array(v.string()),
-                targetOutcomeKeys: v.array(v.string()),
-                authenticScenarioRequired: v.boolean(),
-                authenticContextHint: v.optional(v.string()),
-                minDistinctOutcomeCount: v.optional(v.number()),
-                minDistinctScenarioFrameCount: v.optional(v.number()),
-            }),
-        })),
+        assessmentBlueprint: v.optional(v.any()),
         orderIndex: v.number(),
         isLocked: v.boolean(),
     }).index("by_courseId", ["courseId"]),
+
+    topicSubClaims: defineTable({
+        topicId: v.id("topics"),
+        uploadId: v.optional(v.id("uploads")),
+        claimText: v.string(),
+        sourcePassageIds: v.array(v.string()),
+        sourceQuotes: v.array(v.string()),
+        claimType: v.string(),
+        cognitiveOperations: v.array(v.string()),
+        bloomLevel: v.string(),
+        difficultyEstimate: v.string(),
+        questionYieldEstimate: v.number(),
+        status: v.string(),
+        createdAt: v.number(),
+    })
+        .index("by_topicId", ["topicId"])
+        .index("by_topicId_status", ["topicId", "status"])
+        .index("by_uploadId", ["uploadId"]),
+
+    distractorBank: defineTable({
+        topicId: v.id("topics"),
+        subClaimId: v.id("topicSubClaims"),
+        distractorText: v.string(),
+        distractorType: v.string(),
+        sourceClaimText: v.string(),
+        whyPlausible: v.string(),
+        whyWrong: v.string(),
+        difficulty: v.string(),
+        usedInQuestionIds: v.array(v.id("questions")),
+        status: v.string(),
+    })
+        .index("by_topicId", ["topicId"])
+        .index("by_subClaimId", ["subClaimId"]),
 
     // Lessons within topics
     lessons: defineTable({
@@ -343,6 +385,11 @@ export default defineSchema({
         generationVersion: v.optional(v.string()),
         generationRunId: v.optional(v.string()),
         questionSetVersion: v.optional(v.number()),
+        tier: v.optional(v.number()),
+        subClaimId: v.optional(v.id("topicSubClaims")),
+        cognitiveOperation: v.optional(v.string()),
+        sourceSubClaimIds: v.optional(v.array(v.id("topicSubClaims"))),
+        essayPlanItemKey: v.optional(v.string()),
         learningObjective: v.optional(v.string()),
         bloomLevel: v.optional(v.string()),
         outcomeKey: v.optional(v.string()),
@@ -356,6 +403,7 @@ export default defineSchema({
         qualityTier: v.optional(v.string()),
         rigorScore: v.optional(v.number()),
         clarityScore: v.optional(v.number()),
+        groundingEvidence: v.optional(v.string()),
         diversityCluster: v.optional(v.string()),
         distractorScore: v.optional(v.number()),
         freshnessBucket: v.optional(v.string()),
@@ -395,6 +443,11 @@ export default defineSchema({
         totalQuestions: v.number(),
         timeTakenSeconds: v.number(),
         questionIds: v.optional(v.array(v.id("questions"))),
+        generatedQuestions: v.optional(v.array(v.any())),
+        generationContext: v.optional(v.any()),
+        gradingContext: v.optional(v.any()),
+        questionMix: v.optional(v.any()),
+        generationMode: v.optional(v.string()),
         answers: v.optional(v.any()), // user's answers (JSON)
         tutorFeedback: v.optional(v.string()), // AI-generated personal tutor analysis
         essayWeightedPercentage: v.optional(v.number()), // weighted essay quality % (0-100)
@@ -468,6 +521,45 @@ export default defineSchema({
         .index("by_userId_topicId", ["userId", "topicId"])
         .index("by_userId_nextReviewAt", ["userId", "nextReviewAt"])
         .index("by_userId_topicId_conceptKey", ["userId", "topicId", "conceptKey"]),
+
+     // Per-user topic progress tracking
+     userTopicProgress: defineTable({
+         userId: v.string(),
+         topicId: v.id("topics"),
+         courseId: v.id("courses"),
+        completedAt: v.optional(v.number()),
+        lastStudiedAt: v.number(),
+        bestScore: v.optional(v.number()),       // 0–100
+        attemptCount: v.optional(v.number()),
+        termsStarred: v.optional(v.array(v.string())),
+        studyMode: v.optional(v.string()),
+     })
+     .index("by_userId_topicId", ["userId", "topicId"])
+     .index("by_userId_courseId", ["userId", "courseId"])
+     .index("by_userId_lastStudied", ["userId", "lastStudiedAt"]),
+
+    userTutorProfiles: defineTable({
+        userId: v.string(),
+        preferredPersona: v.string(),
+        updatedAt: v.number(),
+    }).index("by_userId", ["userId"]),
+
+    userTutorMemory: defineTable({
+        userId: v.string(),
+        topicId: v.id("topics"),
+        courseId: v.id("courses"),
+        memorySummary: v.string(),
+        strengths: v.optional(v.array(v.string())),
+        weakAreas: v.optional(v.array(v.string())),
+        lastQuestion: v.optional(v.string()),
+        lastAnswer: v.optional(v.string()),
+        lastScore: v.optional(v.number()),
+        completedAt: v.optional(v.number()),
+        lastStudiedAt: v.optional(v.number()),
+        updatedAt: v.number(),
+    })
+        .index("by_userId_topicId", ["userId", "topicId"])
+        .index("by_userId_updatedAt", ["userId", "updatedAt"]),
 
     // Subscription info
     subscriptions: defineTable({

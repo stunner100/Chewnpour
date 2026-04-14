@@ -6,8 +6,10 @@ const TopicSidebar = memo(function TopicSidebar({
     toc,
     cleanLine,
     topic,
+    mobileOnly,
 }) {
     const [activeSection, setActiveSection] = useState('');
+    const [mobileOpen, setMobileOpen] = useState(false);
 
     useEffect(() => {
         if (!toc || toc.length === 0) return;
@@ -47,6 +49,54 @@ const TopicSidebar = memo(function TopicSidebar({
 
     const readingMinutes = normalizedContent ? Math.ceil(normalizedContent.split(/\s+/).length / 200) : 1;
     const wordCount = normalizedContent ? normalizedContent.split(/\s+/).length : 0;
+
+    // Mobile-only: render just the sticky dropdown
+    const mobileToc = toc?.length > 0 && (
+        <div className="lg:hidden sticky top-14 z-30 bg-surface-light/95 dark:bg-surface-dark/95 backdrop-blur-sm border-b border-border-light dark:border-border-dark px-4 py-2.5">
+            <button
+                onClick={() => setMobileOpen(v => !v)}
+                className="flex items-center gap-2 w-full text-body-sm text-text-sub-light dark:text-text-sub-dark"
+            >
+                <span className="material-symbols-outlined text-[16px]">menu_book</span>
+                <span className="flex-1 text-left truncate font-medium text-text-main-light dark:text-text-main-dark">
+                    {toc.find(i => i.id === activeSection)?.text ?? 'Contents'}
+                </span>
+                <span className="material-symbols-outlined text-[16px]">
+                    {mobileOpen ? 'expand_less' : 'expand_more'}
+                </span>
+            </button>
+            {mobileOpen && (
+                <nav className="mt-2 space-y-0.5 pb-1 max-h-64 overflow-y-auto">
+                    {toc.map((item) => {
+                        const isActive = activeSection === item.id;
+                        return (
+                            <a
+                                key={item.id}
+                                href={`#${item.id}`}
+                                onClick={(e) => {
+                                    e.preventDefault();
+                                    setMobileOpen(false);
+                                    const el = document.getElementById(item.id);
+                                    if (!el) return;
+                                    const top = el.getBoundingClientRect().top + window.scrollY - 96;
+                                    window.scrollTo({ top, behavior: 'smooth' });
+                                }}
+                                className={`block py-1.5 text-body-sm transition-colors ${getIndent(item.level)} ${
+                                    isActive
+                                        ? 'text-primary font-semibold'
+                                        : 'text-text-sub-light dark:text-text-sub-dark hover:text-text-main-light dark:hover:text-text-main-dark'
+                                }`}
+                            >
+                                {item.text}
+                            </a>
+                        );
+                    })}
+                </nav>
+            )}
+        </div>
+    );
+
+    if (mobileOnly) return mobileToc;
 
     return (
         <div className="lg:col-span-3 space-y-4">

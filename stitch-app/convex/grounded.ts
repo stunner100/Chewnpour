@@ -976,8 +976,11 @@ export const scheduleGroundedMcqForTopic = internalAction({
         topicId: v.id("topics"),
     },
     handler: async (ctx, args) => {
-        await ctx.scheduler.runAfter(0, (internal as any).ai.generateQuestionsForTopicInternal, {
+        await ctx.scheduler.runAfter(0, (internal as any).ai.retryAssessmentGapFillInternal, {
             topicId: args.topicId,
+            allowObjective: true,
+            allowEssay: false,
+            reason: "schedule_grounded_mcq",
         });
         return {
             scheduled: true,
@@ -1005,9 +1008,12 @@ export const scheduleGroundedEssayForTopic = internalAction({
         count: v.optional(v.number()),
     },
     handler: async (ctx, args) => {
-        await ctx.scheduler.runAfter(0, (internal as any).ai.generateEssayQuestionsForTopicInternal, {
+        await ctx.scheduler.runAfter(0, (internal as any).ai.retryAssessmentGapFillInternal, {
             topicId: args.topicId,
-            count: args.count,
+            allowObjective: false,
+            allowEssay: true,
+            requestedEssayCount: args.count,
+            reason: "schedule_grounded_essay",
         });
         return {
             scheduled: true,
@@ -1889,8 +1895,11 @@ export const rebaseStaleOversizedMcqTargets = internalAction({
                 totalTargetReduction += Math.max(0, topic.currentTarget - topic.recalculatedTarget);
 
                 if (topic.usableMcqCount < topic.recalculatedTarget) {
-                    await ctx.scheduler.runAfter(0, internal.ai.generateQuestionsForTopicInternal, {
+                    await ctx.scheduler.runAfter(0, internal.ai.retryAssessmentGapFillInternal, {
                         topicId: topic.topicId,
+                        allowObjective: true,
+                        allowEssay: false,
+                        reason: "rebase_stale_oversized_mcq_targets",
                     });
                     scheduledTopicCount += 1;
                 }
@@ -2056,9 +2065,12 @@ export const rebaseStaleOversizedEssayTargets = internalAction({
                 totalTargetReduction += Math.max(0, topic.currentTarget - topic.recalculatedTarget);
 
                 if (topic.usableEssayCount < topic.recalculatedTarget) {
-                    await ctx.scheduler.runAfter(0, internal.ai.generateEssayQuestionsForTopicInternal, {
+                    await ctx.scheduler.runAfter(0, internal.ai.retryAssessmentGapFillInternal, {
                         topicId: topic.topicId,
-                        count: topic.recalculatedTarget,
+                        allowObjective: false,
+                        allowEssay: true,
+                        requestedEssayCount: topic.recalculatedTarget,
+                        reason: "rebase_stale_oversized_essay_targets",
                     });
                     scheduledTopicCount += 1;
                 }

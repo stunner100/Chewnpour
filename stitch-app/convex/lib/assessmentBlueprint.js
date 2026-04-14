@@ -7,7 +7,7 @@ import {
     normalizeQuestionType,
 } from "./objectiveExam.js";
 
-export const ASSESSMENT_BLUEPRINT_VERSION = "assessment-blueprint-v3";
+export const ASSESSMENT_BLUEPRINT_VERSION = "assessment-blueprint-v4";
 
 export const BLOOM_LEVELS = [
     "Remember",
@@ -101,6 +101,157 @@ const normalizeText = (value) =>
         .replace(/\s+/g, " ")
         .trim();
 
+const ALIGNMENT_STOPWORDS = new Set([
+    "a",
+    "an",
+    "and",
+    "are",
+    "as",
+    "at",
+    "be",
+    "by",
+    "can",
+    "does",
+    "for",
+    "from",
+    "how",
+    "if",
+    "in",
+    "into",
+    "is",
+    "it",
+    "its",
+    "of",
+    "on",
+    "or",
+    "same",
+    "show",
+    "student",
+    "students",
+    "that",
+    "the",
+    "their",
+    "them",
+    "they",
+    "this",
+    "to",
+    "using",
+    "what",
+    "when",
+    "which",
+    "with",
+]);
+
+const tokenizeAlignmentText = (value) =>
+    Array.from(
+        new Set(
+            normalizeText(value)
+                .toLowerCase()
+                .replace(/[^a-z0-9/.\s-]+/g, " ")
+                .split(/\s+/)
+                .map((token) => token.trim())
+                .filter((token) => token.length >= 3 && !ALIGNMENT_STOPWORDS.has(token))
+        )
+    );
+
+const measureTokenOverlap = (haystackTokens, needleTokens) => {
+    if (!needleTokens.length) return 0;
+    const haystack = new Set(haystackTokens);
+    let overlapCount = 0;
+    for (const token of needleTokens) {
+        if (haystack.has(token)) overlapCount += 1;
+    }
+    return overlapCount / needleTokens.length;
+};
+
+const extractAlignmentPhrases = (value) =>
+    normalizeText(value)
+        .split(/[.;:]/)
+        .map((phrase) => normalizeText(phrase).toLowerCase())
+        .filter((phrase) => phrase.length >= 8);
+
+const countPhraseHits = (questionText, phrases) => {
+    const haystack = normalizeText(questionText).toLowerCase();
+    if (!haystack || phrases.length === 0) return 0;
+    let hits = 0;
+    for (const phrase of phrases) {
+        if (haystack.includes(phrase)) hits += 1;
+    }
+    return hits;
+};
+
+const buildQuestionAlignmentText = (question) => {
+    const options = Array.isArray(question?.options)
+        ? question.options.map((option) => option?.text || option).join(" ")
+        : "";
+    const templateParts = Array.isArray(question?.templateParts)
+        ? question.templateParts.filter((part) => part !== "__").join(" ")
+        : "";
+    const acceptedAnswers = Array.isArray(question?.acceptedAnswers)
+        ? question.acceptedAnswers.join(" ")
+        : "";
+
+    return [
+        question?.questionText,
+        question?.explanation,
+        question?.learningObjective,
+        question?.authenticContext,
+        options,
+        templateParts,
+        acceptedAnswers,
+    ].filter(Boolean).join(" ");
+};
+
+const scoreOutcomeAlignment = (question, outcome) => {
+    const questionText = buildQuestionAlignmentText(question);
+    const questionTokens = tokenizeAlignmentText(buildQuestionAlignmentText(question));
+    const evidenceFocusTokens = tokenizeAlignmentText(outcome?.evidenceFocus);
+    const objectiveTokens = tokenizeAlignmentText(outcome?.objective);
+    const scenarioTokens = tokenizeAlignmentText(outcome?.scenarioFrame);
+    const evidenceFocusOverlap = measureTokenOverlap(questionTokens, evidenceFocusTokens);
+    const objectiveOverlap = measureTokenOverlap(questionTokens, objectiveTokens);
+    const scenarioOverlap = measureTokenOverlap(questionTokens, scenarioTokens);
+    const phraseHits = countPhraseHits(questionText, [
+        ...extractAlignmentPhrases(outcome?.evidenceFocus),
+        ...extractAlignmentPhrases(outcome?.scenarioFrame),
+    ]);
+    const arithmeticContextBonus = /[0-9]\s*\/\s*[0-9]|[=+\-*/]/.test(questionText)
+        && /denominator|numerator|fraction addition|adding fractions|same denominator|add denominators directly|1\/4 \+ 2\/4/i.test(
+            `${outcome?.evidenceFocus || ""} ${outcome?.objective || ""} ${outcome?.scenarioFrame || ""}`
+        )
+        ? 0.12
+        : 0;
+
+    return (
+        evidenceFocusOverlap * 0.5
+        + objectiveOverlap * 0.35
+        + scenarioOverlap * 0.15
+        + Math.min(0.2, phraseHits * 0.1)
+        + arithmeticContextBonus
+    );
+};
+
+const resolveBestAlignedOutcome = ({ question, blueprint }) => {
+    const candidates = Array.isArray(blueprint?.outcomes)
+        ? blueprint.outcomes
+        : [];
+
+    let bestOutcome = null;
+    let bestScore = 0;
+    for (const outcome of candidates) {
+        const score = scoreOutcomeAlignment(question, outcome);
+        if (score > bestScore) {
+            bestScore = score;
+            bestOutcome = outcome;
+        }
+    }
+
+    return {
+        outcome: bestOutcome,
+        score: bestScore,
+    };
+};
+
 export const normalizeBloomLevel = (value) => {
     const normalized = normalizeText(value).toLowerCase();
     return BLOOM_LEVEL_INDEX.get(normalized) || "";
@@ -161,7 +312,306 @@ const normalizeOutcomeRecord = (outcome, index) => {
         cognitiveTask: normalizeCognitiveTask(outcome.cognitiveTask, bloomLevel),
         difficultyBand: normalizeDifficultyBand(outcome.difficultyBand),
         scenarioFrame: normalizeText(outcome.scenarioFrame || outcome.authenticContextHint) || undefined,
+        subClaimId: normalizeText(outcome.subClaimId) || undefined,
+        claimType: normalizeText(outcome.claimType) || undefined,
+        questionYieldEstimate: Math.max(1, Math.round(Number(outcome.questionYieldEstimate || 1))),
     };
+};
+
+const normalizeDifficultyDistribution = (value) => {
+    const safeValue = value && typeof value === "object" ? value : {};
+    const easy = Math.max(0, Number(safeValue.easy || DEFAULT_OBJECTIVE_DIFFICULTY_DISTRIBUTION.easy));
+    const medium = Math.max(0, Number(safeValue.medium || DEFAULT_OBJECTIVE_DIFFICULTY_DISTRIBUTION.medium));
+    const hard = Math.max(0, Number(safeValue.hard || DEFAULT_OBJECTIVE_DIFFICULTY_DISTRIBUTION.hard));
+    const total = easy + medium + hard;
+    if (total <= 0) {
+        return { ...DEFAULT_OBJECTIVE_DIFFICULTY_DISTRIBUTION };
+    }
+    return {
+        easy: easy / total,
+        medium: medium / total,
+        hard: hard / total,
+    };
+};
+
+const normalizeTargetMix = (value, fallback = OBJECTIVE_TARGET_MIX) => {
+    const safeValue = value && typeof value === "object" ? value : {};
+    return {
+        multiple_choice: Math.max(1, Math.round(Number(safeValue.multiple_choice ?? fallback.multiple_choice ?? OBJECTIVE_TARGET_MIX.multiple_choice))),
+        true_false: Math.max(0, Math.round(Number(safeValue.true_false ?? fallback.true_false ?? OBJECTIVE_TARGET_MIX.true_false))),
+        fill_blank: Math.max(0, Math.round(Number(safeValue.fill_blank ?? fallback.fill_blank ?? OBJECTIVE_TARGET_MIX.fill_blank))),
+    };
+};
+
+const normalizeObjectivePlanTier = (value) => {
+    const numeric = Math.round(Number(value));
+    return numeric >= 1 && numeric <= 3 ? numeric : undefined;
+};
+
+const normalizeObjectivePlanOperation = (value) => {
+    const normalized = normalizeText(value).toLowerCase();
+    return normalized || undefined;
+};
+
+const normalizePlanItemStatus = (value) => {
+    const normalized = normalizeText(value).toLowerCase();
+    if ([
+        "planned",
+        "generated",
+        "passed",
+        "failed",
+        "skipped",
+        "terminal",
+    ].includes(normalized)) {
+        return normalized;
+    }
+    return "planned";
+};
+
+const normalizeRetryStrategy = (value) => normalizeText(value).toLowerCase() || undefined;
+
+const normalizeFailureHistory = (values) =>
+    (Array.isArray(values) ? values : [])
+        .map((entry, index) => {
+            if (!entry || typeof entry !== "object") return null;
+            return {
+                attemptNumber: Math.max(1, Math.round(Number(entry.attemptNumber || index + 1))),
+                attemptAt: Math.max(0, Math.round(Number(entry.attemptAt || 0))),
+                failReason: normalizeText(entry.failReason).toLowerCase() || "low_quality",
+                failDetails: normalizeText(entry.failDetails || entry.details || ""),
+                groundingScore: Number.isFinite(Number(entry.groundingScore))
+                    ? Number(entry.groundingScore)
+                    : undefined,
+                llmVerificationScore: Number.isFinite(Number(entry.llmVerificationScore))
+                    ? Number(entry.llmVerificationScore)
+                    : undefined,
+                strategy: normalizeRetryStrategy(entry.strategy) || "initial",
+                candidateSnapshot: entry.candidateSnapshot && typeof entry.candidateSnapshot === "object"
+                    ? {
+                        stem: normalizeText(entry.candidateSnapshot.stem || entry.candidateSnapshot.questionText || ""),
+                        options: Array.isArray(entry.candidateSnapshot.options)
+                            ? entry.candidateSnapshot.options.map((option) => normalizeText(option)).filter(Boolean)
+                            : undefined,
+                        correctAnswer: normalizeText(entry.candidateSnapshot.correctAnswer || ""),
+                    }
+                    : undefined,
+            };
+        })
+        .filter(Boolean);
+
+const normalizeObjectivePlanItem = (item, outcomeByKey, index) => {
+    if (!item || typeof item !== "object") return null;
+    const outcomeKey = normalizeOutcomeKey(item.outcomeKey);
+    const outcome = outcomeByKey.get(outcomeKey);
+    if (!outcome) return null;
+
+    const targetType = normalizeQuestionType(item.targetType || item.questionType);
+    if (![QUESTION_TYPE_MULTIPLE_CHOICE, QUESTION_TYPE_TRUE_FALSE, QUESTION_TYPE_FILL_BLANK].includes(targetType)) {
+        return null;
+    }
+
+    return {
+        outcomeKey,
+        subClaimId: normalizeText(item.subClaimId || outcome.subClaimId || "") || undefined,
+        claimText: normalizeText(item.claimText || outcome.objective) || outcome.objective,
+        targetOp: normalizeObjectivePlanOperation(item.targetOp),
+        targetType,
+        targetDifficulty: normalizeDifficultyBand(item.targetDifficulty || outcome.difficultyBand),
+        targetTier: normalizeObjectivePlanTier(item.targetTier) || 1,
+        priority: Math.max(0, Math.round(Number(item.priority ?? index))),
+        status: normalizePlanItemStatus(item.status),
+        attemptCount: Math.max(0, Math.round(Number(item.attemptCount || 0))),
+        lastAttemptAt: Number.isFinite(Number(item.lastAttemptAt))
+            ? Math.max(0, Math.round(Number(item.lastAttemptAt)))
+            : undefined,
+        failReason: normalizeText(item.failReason).toLowerCase() || undefined,
+        failHistory: normalizeFailureHistory(item.failHistory),
+        retryStrategy: normalizeRetryStrategy(item.retryStrategy),
+        terminalReason: normalizeText(item.terminalReason || "") || undefined,
+        feedbackInjection: normalizeText(item.feedbackInjection || "") || undefined,
+        compositeClaimIds: uniqueStringArray(item.compositeClaimIds),
+    };
+};
+
+const normalizeEssayPlanItem = (item, outcomeByKey, index) => {
+    if (!item || typeof item !== "object") return null;
+    const sourceOutcomeKeys = uniqueStringArray(item.sourceOutcomeKeys).map((value) => normalizeOutcomeKey(value));
+    const resolvedOutcomeKeys = sourceOutcomeKeys.filter((key) => outcomeByKey.has(key));
+    const sourceSubClaimIds = uniqueStringArray(item.sourceSubClaimIds);
+    if (resolvedOutcomeKeys.length === 0 && sourceSubClaimIds.length === 0) {
+        return null;
+    }
+
+    return {
+        sourceOutcomeKeys: resolvedOutcomeKeys,
+        sourceSubClaimIds,
+        targetBloomLevel: normalizeBloomLevel(item.targetBloomLevel || item.bloomLevel || "Analyze") || "Analyze",
+        targetDifficulty: normalizeDifficultyBand(item.targetDifficulty || item.difficulty),
+        promptSeed: normalizeText(item.promptSeed || item.prompt || ""),
+        status: normalizePlanItemStatus(item.status),
+        priority: Math.max(0, Math.round(Number(item.priority ?? index))),
+        attemptCount: Math.max(0, Math.round(Number(item.attemptCount || 0))),
+        lastAttemptAt: Number.isFinite(Number(item.lastAttemptAt))
+            ? Math.max(0, Math.round(Number(item.lastAttemptAt)))
+            : undefined,
+        failReason: normalizeText(item.failReason).toLowerCase() || undefined,
+        failHistory: normalizeFailureHistory(item.failHistory),
+        retryStrategy: normalizeRetryStrategy(item.retryStrategy),
+        terminalReason: normalizeText(item.terminalReason || "") || undefined,
+        feedbackInjection: normalizeText(item.feedbackInjection || "") || undefined,
+    };
+};
+
+export const resolveObjectivePlanItemKey = (item) => {
+    if (!item || typeof item !== "object") return "";
+    const questionType = normalizeQuestionType(item.targetType || item.questionType);
+    const outcomeKey = normalizeOutcomeKey(item.outcomeKey);
+    const subClaimId = normalizeText(item.subClaimId);
+    const targetOp = normalizeObjectivePlanOperation(item.targetOp);
+    const targetTier = normalizeObjectivePlanTier(item.targetTier) || 0;
+    const priority = Math.max(0, Math.round(Number(item.priority || 0)));
+    if (!questionType || !outcomeKey) return "";
+    return [
+        questionType,
+        outcomeKey,
+        subClaimId || "no-claim",
+        targetOp || "no-op",
+        String(targetTier),
+        String(priority),
+    ].join("::");
+};
+
+export const resolveObjectivePlanItemsForQuestionType = (blueprint, questionType) => {
+    const resolvedType = normalizeQuestionType(questionType);
+    return (Array.isArray(blueprint?.objectivePlan?.items) ? blueprint.objectivePlan.items : [])
+        .filter((item) => normalizeQuestionType(item?.targetType || item?.questionType) === resolvedType)
+        .sort((left, right) => Number(left?.priority || 0) - Number(right?.priority || 0));
+};
+
+export const resolveEssayPlanItemKey = (item) => {
+    if (!item || typeof item !== "object") return "";
+    const sourceSubClaimIds = uniqueStringArray(item.sourceSubClaimIds);
+    const sourceOutcomeKeys = uniqueStringArray(item.sourceOutcomeKeys).map((value) => normalizeOutcomeKey(value)).filter(Boolean);
+    const targetBloomLevel = normalizeBloomLevel(item.targetBloomLevel || item.bloomLevel || "Analyze") || "Analyze";
+    const targetDifficulty = normalizeDifficultyBand(item.targetDifficulty || item.difficulty);
+    const priority = Math.max(0, Math.round(Number(item.priority || 0)));
+    const sourceKey = sourceSubClaimIds.length > 0 ? sourceSubClaimIds.join(",") : sourceOutcomeKeys.join(",");
+    if (!sourceKey) return "";
+    return [
+        "essay",
+        sourceKey,
+        targetBloomLevel,
+        targetDifficulty,
+        String(priority),
+    ].join("::");
+};
+
+export const resolveEssayPlanItems = (blueprint) =>
+    (Array.isArray(blueprint?.essayPlan?.items) ? blueprint.essayPlan.items : [])
+        .slice()
+        .sort((left, right) => Number(left?.priority || 0) - Number(right?.priority || 0));
+
+export const resolveEssayPlanItemForQuestion = ({
+    blueprint,
+    question,
+    coverageTargets = [],
+}) => {
+    const essayPlanItems = resolveEssayPlanItems(blueprint);
+    if (essayPlanItems.length === 0) {
+        return null;
+    }
+
+    const essayPlanItemKey = normalizeText(question?.essayPlanItemKey);
+    if (essayPlanItemKey) {
+        const explicit = essayPlanItems.find((item) => resolveEssayPlanItemKey(item) === essayPlanItemKey);
+        if (explicit) return explicit;
+    }
+
+    const sourceSubClaimIds = uniqueStringArray(question?.sourceSubClaimIds);
+    const outcomeKey = normalizeOutcomeKey(question?.outcomeKey);
+    const bloomLevel = normalizeBloomLevel(question?.bloomLevel);
+
+    const matchesQuestion = (item) => {
+        const itemSourceSubClaimIds = uniqueStringArray(item?.sourceSubClaimIds);
+        if (sourceSubClaimIds.length > 0) {
+            return sourceSubClaimIds.every((id) => itemSourceSubClaimIds.includes(id));
+        }
+        if (outcomeKey) {
+            const itemOutcomeKeys = uniqueStringArray(item?.sourceOutcomeKeys).map((value) => normalizeOutcomeKey(value));
+            if (!itemOutcomeKeys.includes(outcomeKey)) return false;
+        }
+        if (bloomLevel && normalizeBloomLevel(item?.targetBloomLevel) !== bloomLevel) return false;
+        return true;
+    };
+
+    const exactMatch = essayPlanItems.find(matchesQuestion);
+    if (exactMatch) return exactMatch;
+
+    const coverageMatch = (Array.isArray(coverageTargets) ? coverageTargets : []).find((target) => {
+        const targetKey = normalizeText(target?.planItemKey);
+        return targetKey && essayPlanItems.some((item) => resolveEssayPlanItemKey(item) === targetKey);
+    });
+    if (coverageMatch?.planItemKey) {
+        return essayPlanItems.find((item) => resolveEssayPlanItemKey(item) === coverageMatch.planItemKey) || null;
+    }
+
+    return essayPlanItems[0] || null;
+};
+
+export const resolveObjectivePlanItemForQuestion = ({
+    blueprint,
+    questionType,
+    question,
+    coverageTargets = [],
+}) => {
+    const resolvedType = normalizeQuestionType(questionType || question?.questionType);
+    const planItems = resolveObjectivePlanItemsForQuestionType(blueprint, resolvedType);
+    if (planItems.length === 0) {
+        return null;
+    }
+
+    const outcomeKey = normalizeOutcomeKey(question?.outcomeKey);
+    const subClaimId = normalizeText(question?.subClaimId);
+    const cognitiveOperation = normalizeObjectivePlanOperation(question?.cognitiveOperation);
+    const tier = normalizeObjectivePlanTier(question?.tier);
+    const bloomLevel = normalizeBloomLevel(question?.bloomLevel);
+
+    const matchesQuestion = (item) => {
+        if (outcomeKey && item.outcomeKey !== outcomeKey) return false;
+        if (subClaimId && normalizeText(item.subClaimId) !== subClaimId) return false;
+        if (cognitiveOperation && normalizeObjectivePlanOperation(item.targetOp) !== cognitiveOperation) return false;
+        if (tier && normalizeObjectivePlanTier(item.targetTier) !== tier) return false;
+        if (bloomLevel) {
+            const outcome = Array.isArray(blueprint?.outcomes)
+                ? blueprint.outcomes.find((candidate) => candidate?.key === item.outcomeKey)
+                : null;
+            if (outcome?.bloomLevel && outcome.bloomLevel !== bloomLevel) return false;
+        }
+        return true;
+    };
+
+    const exactMatch = planItems.find(matchesQuestion);
+    if (exactMatch) {
+        return exactMatch;
+    }
+
+    const coverageMatch = (Array.isArray(coverageTargets) ? coverageTargets : []).find((target) => {
+        if (normalizeQuestionType(target?.targetType || target?.questionType) !== resolvedType) return false;
+        if (outcomeKey && normalizeOutcomeKey(target?.outcomeKey) !== outcomeKey) return false;
+        if (subClaimId && normalizeText(target?.subClaimId) !== subClaimId) return false;
+        if (cognitiveOperation && normalizeObjectivePlanOperation(target?.targetOp) !== cognitiveOperation) return false;
+        if (tier && normalizeObjectivePlanTier(target?.targetTier) !== tier) return false;
+        return true;
+    });
+    if (coverageMatch?.planItemKey) {
+        return planItems.find((item) => resolveObjectivePlanItemKey(item) === coverageMatch.planItemKey) || null;
+    }
+
+    if (outcomeKey) {
+        return planItems.find((item) => item.outcomeKey === outcomeKey) || null;
+    }
+
+    return planItems[0] || null;
 };
 
 const normalizePlanKeys = ({
@@ -317,10 +767,31 @@ export const normalizeAssessmentBlueprint = (raw) => {
     const objectiveTargetBloomLevels = uniqueStringArray(
         objectiveOutcomeKeys.map((key) => outcomeByKey.get(key)?.bloomLevel)
     ).filter(Boolean);
+    const normalizedObjectivePlanItems = (Array.isArray(raw.objectivePlan?.items) ? raw.objectivePlan.items : [])
+        .map((item, index) => normalizeObjectivePlanItem(item, outcomeByKey, index))
+        .filter(Boolean)
+        .sort((left, right) => Number(left.priority || 0) - Number(right.priority || 0));
+    const normalizedEssayPlanItems = (Array.isArray(rawEssayPlan?.items) ? rawEssayPlan.items : [])
+        .map((item, index) => normalizeEssayPlanItem(item, outcomeByKey, index))
+        .filter(Boolean)
+        .sort((left, right) => Number(left.priority || 0) - Number(right.priority || 0));
 
     return {
         version: ASSESSMENT_BLUEPRINT_VERSION,
         outcomes: normalizedOutcomes,
+        subClaimCount: Math.max(0, Math.round(Number(raw.subClaimCount || normalizedOutcomes.length))),
+        distractorCount: Math.max(0, Math.round(Number(raw.distractorCount || 0))),
+        yieldEstimate: raw.yieldEstimate && typeof raw.yieldEstimate === "object"
+            ? {
+                mcqTarget: Math.max(1, Math.round(Number(raw.yieldEstimate.mcqTarget || OBJECTIVE_TARGET_MIX[QUESTION_TYPE_MULTIPLE_CHOICE]))),
+                trueFalseTarget: Math.max(0, Math.round(Number(raw.yieldEstimate.trueFalseTarget || OBJECTIVE_TARGET_MIX[QUESTION_TYPE_TRUE_FALSE]))),
+                fillInTarget: Math.max(0, Math.round(Number(raw.yieldEstimate.fillInTarget || OBJECTIVE_TARGET_MIX[QUESTION_TYPE_FILL_BLANK]))),
+                essayTarget: Math.max(0, Math.round(Number(raw.yieldEstimate.essayTarget || 1))),
+                totalObjectiveTarget: Math.max(1, Math.round(Number(raw.yieldEstimate.totalObjectiveTarget || objectiveOutcomeKeys.length || 1))),
+                confidence: normalizeText(raw.yieldEstimate.confidence || "low").toLowerCase() || "low",
+                reasoning: normalizeText(raw.yieldEstimate.reasoning || ""),
+            }
+            : undefined,
         objectivePlan: {
             allowedQuestionTypes: [
                 QUESTION_TYPE_MULTIPLE_CHOICE,
@@ -332,10 +803,19 @@ export const normalizeAssessmentBlueprint = (raw) => {
                 QUESTION_TYPE_TRUE_FALSE,
                 QUESTION_TYPE_FILL_BLANK,
             ],
-            targetMix: { ...OBJECTIVE_TARGET_MIX },
+            targetMix: normalizeTargetMix(
+                raw.objectivePlan?.targetMix,
+                raw.yieldEstimate
+                    ? {
+                        multiple_choice: raw.yieldEstimate.mcqTarget,
+                        true_false: raw.yieldEstimate.trueFalseTarget,
+                        fill_blank: raw.yieldEstimate.fillInTarget,
+                    }
+                    : OBJECTIVE_TARGET_MIX
+            ),
             targetOutcomeKeys: objectiveOutcomeKeys,
             targetBloomLevels: objectiveTargetBloomLevels,
-            targetDifficultyDistribution: { ...DEFAULT_OBJECTIVE_DIFFICULTY_DISTRIBUTION },
+            targetDifficultyDistribution: normalizeDifficultyDistribution(raw.objectivePlan?.targetDifficultyDistribution),
             minDistinctOutcomeCount: Math.max(
                 1,
                 Math.min(
@@ -343,6 +823,7 @@ export const normalizeAssessmentBlueprint = (raw) => {
                     Math.round(Number(raw.objectivePlan?.minDistinctOutcomeCount || 3))
                 )
             ),
+            items: normalizedObjectivePlanItems,
         },
         multipleChoicePlan,
         trueFalsePlan,
@@ -360,8 +841,266 @@ export const normalizeAssessmentBlueprint = (raw) => {
                 1,
                 Math.round(Number(rawEssayPlan.minDistinctScenarioFrameCount || 2))
             ),
+            items: normalizedEssayPlanItems,
         },
     };
+};
+
+const toTitleBloomLevel = (value) => {
+    const normalized = normalizeText(value).toLowerCase();
+    const title =
+        normalized === "remember" ? "Remember"
+            : normalized === "understand" ? "Understand"
+                : normalized === "apply" ? "Apply"
+                    : normalized === "analyze" ? "Analyze"
+                        : normalized === "evaluate" ? "Evaluate"
+                            : normalized === "create" ? "Create"
+                                : "";
+    return title || "Understand";
+};
+
+const mapClaimToCognitiveTask = (claim) => {
+    const operations = Array.isArray(claim?.cognitiveOperations) ? claim.cognitiveOperations.map((value) => normalizeText(value).toLowerCase()) : [];
+    if (operations.includes("evaluation")) return "evaluate";
+    if (operations.includes("comparison")) return "compare";
+    if (operations.includes("inference")) return "interpret";
+    if (operations.includes("application")) return "apply";
+    if (operations.includes("recall")) return "identify";
+    return "explain";
+};
+
+const buildOutcomeFromClaim = (claim, index) => {
+    const objective = normalizeText(claim?.claimText);
+    const key = normalizeOutcomeKey(claim?.key || `claim-${index + 1}`);
+    if (!objective || !key) return null;
+    const quotes = Array.isArray(claim?.sourceQuotes) ? claim.sourceQuotes.map((value) => normalizeText(value)).filter(Boolean) : [];
+    return {
+        key,
+        objective,
+        bloomLevel: toTitleBloomLevel(claim?.bloomLevel),
+        evidenceFocus: quotes[0] || objective,
+        cognitiveTask: mapClaimToCognitiveTask(claim),
+        difficultyBand: normalizeDifficultyBand(claim?.difficultyEstimate),
+        scenarioFrame: normalizeText(claim?.scenarioFrame) || undefined,
+        subClaimId: normalizeText(claim?._id || claim?.subClaimId || "") || undefined,
+        claimType: normalizeText(claim?.claimType) || undefined,
+        questionYieldEstimate: Math.max(1, Math.round(Number(claim?.questionYieldEstimate || 1))),
+    };
+};
+
+const filterOutcomeKeysByOperations = (outcomes, claimsByOutcomeKey, allowedOperations, allowedBloomLevels) =>
+    outcomes
+        .filter((outcome) => {
+            const claim = claimsByOutcomeKey.get(outcome.key);
+            const operations = Array.isArray(claim?.cognitiveOperations) ? claim.cognitiveOperations.map((value) => normalizeText(value).toLowerCase()) : [];
+            const matchesOperation = operations.some((operation) => allowedOperations.includes(operation));
+            return matchesOperation && allowedBloomLevels.includes(outcome.bloomLevel);
+        })
+        .map((outcome) => outcome.key);
+
+const buildObjectivePlanItems = (outcomes, claimsByOutcomeKey) => {
+    const items = [];
+    let priority = 0;
+    for (const outcome of outcomes) {
+        const claim = claimsByOutcomeKey.get(outcome.key);
+        const operations = Array.isArray(claim?.cognitiveOperations) ? claim.cognitiveOperations.map((value) => normalizeText(value).toLowerCase()) : [];
+        const claimDifficulty = normalizeDifficultyBand(claim?.difficultyEstimate);
+
+        if (operations.includes("recognition")) {
+            items.push({
+                outcomeKey: outcome.key,
+                subClaimId: outcome.subClaimId,
+                claimText: outcome.objective,
+                targetOp: "recognition",
+                targetType: QUESTION_TYPE_MULTIPLE_CHOICE,
+                targetDifficulty: claimDifficulty,
+                targetTier: 1,
+                priority: priority++,
+                status: "planned",
+                attemptCount: 0,
+                failHistory: [],
+            });
+        }
+        if (operations.includes("recall")) {
+            items.push({
+                outcomeKey: outcome.key,
+                subClaimId: outcome.subClaimId,
+                claimText: outcome.objective,
+                targetOp: "recall",
+                targetType: QUESTION_TYPE_FILL_BLANK,
+                targetDifficulty: claimDifficulty,
+                targetTier: 1,
+                priority: priority++,
+                status: "planned",
+                attemptCount: 0,
+                failHistory: [],
+            });
+        }
+        if (operations.includes("discrimination")) {
+            items.push({
+                outcomeKey: outcome.key,
+                subClaimId: outcome.subClaimId,
+                claimText: outcome.objective,
+                targetOp: "discrimination",
+                targetType: QUESTION_TYPE_TRUE_FALSE,
+                targetDifficulty: claimDifficulty,
+                targetTier: 1,
+                priority: priority++,
+                status: "planned",
+                attemptCount: 0,
+                failHistory: [],
+            });
+        }
+        if (operations.includes("application")) {
+            items.push({
+                outcomeKey: outcome.key,
+                subClaimId: outcome.subClaimId,
+                claimText: outcome.objective,
+                targetOp: "application",
+                targetType: QUESTION_TYPE_MULTIPLE_CHOICE,
+                targetDifficulty: claimDifficulty === "easy" ? "medium" : claimDifficulty,
+                targetTier: 2,
+                priority: priority++,
+                status: "planned",
+                attemptCount: 0,
+                failHistory: [],
+            });
+        }
+        if (operations.includes("comparison") || operations.includes("inference")) {
+            items.push({
+                outcomeKey: outcome.key,
+                subClaimId: outcome.subClaimId,
+                claimText: outcome.objective,
+                targetOp: operations.includes("comparison") ? "comparison" : "inference",
+                targetType: QUESTION_TYPE_MULTIPLE_CHOICE,
+                targetDifficulty: claimDifficulty === "easy" ? "medium" : "hard",
+                targetTier: operations.includes("comparison") ? 2 : 3,
+                priority: priority++,
+                status: "planned",
+                attemptCount: 0,
+                failHistory: [],
+            });
+        }
+    }
+    return items;
+};
+
+const buildEssayPlanItems = (outcomes, claimsByOutcomeKey) => {
+    const essayEligible = outcomes.filter((outcome) => {
+        const claim = claimsByOutcomeKey.get(outcome.key);
+        const operations = Array.isArray(claim?.cognitiveOperations) ? claim.cognitiveOperations.map((value) => normalizeText(value).toLowerCase()) : [];
+        return operations.includes("evaluation") || operations.includes("synthesis") || operations.includes("inference");
+    });
+
+    const items = [];
+    for (let index = 0; index < essayEligible.length; index += 3) {
+        const slice = essayEligible.slice(index, index + 3);
+        if (slice.length === 0) continue;
+        items.push({
+            sourceSubClaimIds: slice.map((outcome) => outcome.subClaimId).filter(Boolean),
+            sourceOutcomeKeys: slice.map((outcome) => outcome.key),
+            targetBloomLevel: slice.some((outcome) => outcome.bloomLevel === "Evaluate" || outcome.bloomLevel === "Create")
+                ? "Evaluate"
+                : "Analyze",
+            targetDifficulty: slice.some((outcome) => outcome.difficultyBand === "hard") ? "hard" : "medium",
+            promptSeed: `Synthesize ${slice.map((outcome) => outcome.objective).join("; ")}`,
+            status: "planned",
+            attemptCount: 0,
+            failHistory: [],
+        });
+    }
+    return items;
+};
+
+export const buildClaimDrivenAssessmentBlueprint = ({
+    subClaims,
+    yieldEstimate,
+    distractorCount = 0,
+}) => {
+    const outcomes = (Array.isArray(subClaims) ? subClaims : [])
+        .map((claim, index) => buildOutcomeFromClaim(claim, index))
+        .filter(Boolean);
+    if (outcomes.length === 0) {
+        return null;
+    }
+
+    const claimsByOutcomeKey = new Map(
+        outcomes.map((outcome, index) => [outcome.key, subClaims[index]])
+    );
+
+    const multipleChoiceKeys = filterOutcomeKeysByOperations(
+        outcomes,
+        claimsByOutcomeKey,
+        ["recognition", "application", "comparison", "inference"],
+        MULTIPLE_CHOICE_ALLOWED_BLOOM_LEVELS,
+    );
+    const trueFalseKeys = filterOutcomeKeysByOperations(
+        outcomes,
+        claimsByOutcomeKey,
+        ["discrimination", "recognition"],
+        TRUE_FALSE_ALLOWED_BLOOM_LEVELS,
+    );
+    const fillBlankKeys = filterOutcomeKeysByOperations(
+        outcomes,
+        claimsByOutcomeKey,
+        ["recall"],
+        FILL_BLANK_ALLOWED_BLOOM_LEVELS,
+    );
+    const essayKeys = filterOutcomeKeysByOperations(
+        outcomes,
+        claimsByOutcomeKey,
+        ["evaluation", "synthesis", "inference"],
+        ESSAY_ALLOWED_BLOOM_LEVELS,
+    );
+
+    const objectiveOutcomeKeys = uniqueStringArray([
+        ...multipleChoiceKeys,
+        ...trueFalseKeys,
+        ...fillBlankKeys,
+    ]);
+    const objectivePlanItems = buildObjectivePlanItems(outcomes, claimsByOutcomeKey);
+    const essayPlanItems = buildEssayPlanItems(outcomes, claimsByOutcomeKey);
+
+    return normalizeAssessmentBlueprint({
+        version: ASSESSMENT_BLUEPRINT_VERSION,
+        outcomes,
+        subClaimCount: outcomes.length,
+        distractorCount,
+        yieldEstimate,
+        objectivePlan: {
+            targetMix: {
+                multiple_choice: yieldEstimate?.mcqTarget ?? OBJECTIVE_TARGET_MIX[QUESTION_TYPE_MULTIPLE_CHOICE],
+                true_false: yieldEstimate?.trueFalseTarget ?? OBJECTIVE_TARGET_MIX[QUESTION_TYPE_TRUE_FALSE],
+                fill_blank: yieldEstimate?.fillInTarget ?? OBJECTIVE_TARGET_MIX[QUESTION_TYPE_FILL_BLANK],
+            },
+            targetDifficultyDistribution: {
+                easy: 0.25,
+                medium: 0.5,
+                hard: 0.25,
+            },
+            minDistinctOutcomeCount: Math.min(Math.max(1, outcomes.length), Math.max(2, Math.ceil(objectiveOutcomeKeys.length * 0.6))),
+            items: objectivePlanItems,
+        },
+        multipleChoicePlan: {
+            targetOutcomeKeys: multipleChoiceKeys,
+        },
+        trueFalsePlan: {
+            targetOutcomeKeys: trueFalseKeys,
+        },
+        fillBlankPlan: {
+            targetOutcomeKeys: fillBlankKeys,
+            tokenBankRequired: true,
+            exactAnswerOnly: true,
+        },
+        essayPlan: {
+            targetOutcomeKeys: essayKeys,
+            authenticScenarioRequired: essayKeys.length > 0,
+            authenticContextHint: essayKeys.length > 0 ? "Use the provided topic evidence as the source of support." : undefined,
+            minDistinctOutcomeCount: Math.min(Math.max(1, essayKeys.length), 2),
+            minDistinctScenarioFrameCount: essayKeys.length > 1 ? 2 : 1,
+            items: essayPlanItems,
+        },
+    });
 };
 
 export const resolveAssessmentQuestionType = ({ questionType, question }) => {
@@ -398,6 +1137,7 @@ export const getAssessmentQuestionMetadataIssues = ({
     const plan = getAssessmentPlanForQuestionType(blueprint, resolvedType);
     const outcomeKey = normalizeOutcomeKey(question?.outcomeKey);
     const bloomLevel = normalizeBloomLevel(question?.bloomLevel);
+    const normalizedQuestionText = normalizeText(buildQuestionAlignmentText(question)).toLowerCase();
     const issues = [];
 
     if (!outcomeKey) {
@@ -429,6 +1169,68 @@ export const getAssessmentQuestionMetadataIssues = ({
         }
     }
 
+    if (resolvedType !== QUESTION_TYPE_ESSAY && Array.isArray(blueprint?.objectivePlan?.items) && blueprint.objectivePlan.items.length > 0) {
+        const matchedPlanItem = resolveObjectivePlanItemForQuestion({
+            blueprint,
+            questionType: resolvedType,
+            question,
+        });
+        if (!matchedPlanItem) {
+            issues.push("missing objective plan metadata");
+        } else {
+            const normalizedSubClaimId = normalizeText(question?.subClaimId);
+            const normalizedOperation = normalizeObjectivePlanOperation(question?.cognitiveOperation);
+            const normalizedTier = normalizeObjectivePlanTier(question?.tier);
+
+            if (!normalizedSubClaimId) {
+                issues.push("missing subClaimId");
+            } else if (normalizeText(matchedPlanItem.subClaimId) && normalizeText(matchedPlanItem.subClaimId) !== normalizedSubClaimId) {
+                issues.push("subClaimId does not match objective plan");
+            }
+            if (!normalizedOperation) {
+                issues.push("missing cognitiveOperation");
+            } else if (normalizeObjectivePlanOperation(matchedPlanItem.targetOp) && normalizeObjectivePlanOperation(matchedPlanItem.targetOp) !== normalizedOperation) {
+                issues.push("cognitiveOperation does not match objective plan");
+            }
+            if (!normalizedTier) {
+                issues.push("missing tier");
+            } else if (normalizeObjectivePlanTier(matchedPlanItem.targetTier) && normalizeObjectivePlanTier(matchedPlanItem.targetTier) !== normalizedTier) {
+                issues.push("tier does not match objective plan");
+            }
+        }
+    }
+    if (resolvedType === QUESTION_TYPE_ESSAY && Array.isArray(blueprint?.essayPlan?.items) && blueprint.essayPlan.items.length > 0) {
+        const matchedEssayPlanItem = resolveEssayPlanItemForQuestion({
+            blueprint,
+            question,
+        });
+        const sourceSubClaimIds = uniqueStringArray(question?.sourceSubClaimIds);
+        if (!matchedEssayPlanItem) {
+            issues.push("missing essay plan metadata");
+        } else {
+            const essayPlanItemKey = normalizeText(question?.essayPlanItemKey);
+            if (!essayPlanItemKey) {
+                issues.push("missing essayPlanItemKey");
+            } else if (resolveEssayPlanItemKey(matchedEssayPlanItem) !== essayPlanItemKey) {
+                issues.push("essayPlanItemKey does not match essay plan");
+            }
+            if (sourceSubClaimIds.length === 0) {
+                issues.push("missing sourceSubClaimIds");
+            } else {
+                const expectedSourceSubClaimIds = uniqueStringArray(matchedEssayPlanItem.sourceSubClaimIds);
+                if (
+                    expectedSourceSubClaimIds.length > 0
+                    && (
+                        sourceSubClaimIds.length !== expectedSourceSubClaimIds.length
+                        || !sourceSubClaimIds.every((id) => expectedSourceSubClaimIds.includes(id))
+                    )
+                ) {
+                    issues.push("sourceSubClaimIds do not match essay plan");
+                }
+            }
+        }
+    }
+
     if (!plan || !Array.isArray(blueprint?.outcomes)) {
         if (resolvedType === QUESTION_TYPE_ESSAY && plan?.authenticScenarioRequired && !normalizeText(question?.authenticContext)) {
             issues.push("missing authenticContext");
@@ -453,6 +1255,38 @@ export const getAssessmentQuestionMetadataIssues = ({
     }
     if (resolvedType === QUESTION_TYPE_ESSAY && plan?.authenticScenarioRequired && !normalizeText(question?.authenticContext)) {
         issues.push("missing authenticContext");
+    }
+
+    const questionSignalsFractionAddition =
+        /same denominator|add denominators|adding fractions|fraction addition|denominator stays the same/.test(normalizedQuestionText)
+        || /[0-9]\s*\/\s*[0-9]\s*[+=-]\s*[0-9]\s*\/\s*[0-9]/.test(normalizedQuestionText);
+    if (questionSignalsFractionAddition) {
+        const outcomeText = normalizeText(
+            `${outcome?.evidenceFocus || ""} ${outcome?.objective || ""} ${outcome?.scenarioFrame || ""}`
+        ).toLowerCase();
+        const outcomeSupportsFractionAddition =
+            /same denominator|add denominators|adding fractions|fraction addition|denominator rule/.test(outcomeText)
+            || /[0-9]\s*\/\s*[0-9]\s*[+=-]\s*[0-9]\s*\/\s*[0-9]/.test(outcomeText);
+        if (!outcomeSupportsFractionAddition) {
+            issues.push("outcomeKey weakly aligned to question");
+        }
+    }
+
+    const assignedAlignmentScore = scoreOutcomeAlignment(question, outcome);
+    const bestAligned = resolveBestAlignedOutcome({
+        question,
+        blueprint,
+        questionType: resolvedType,
+    });
+    if (assignedAlignmentScore < 0.2) {
+        issues.push("outcomeKey weakly aligned to question");
+    }
+    if (
+        bestAligned?.outcome?.key
+        && bestAligned.outcome.key !== outcomeKey
+        && bestAligned.score >= assignedAlignmentScore + 0.18
+    ) {
+        issues.push(`question aligns better to ${bestAligned.outcome.key}`);
     }
 
     return issues;

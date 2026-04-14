@@ -129,6 +129,49 @@ const tests = [
             "Expected generic MCQ records to be excluded from exam usage"
         );
     },
+    () => {
+        assert.equal(
+            isUsableExamQuestion({
+                questionText: "Which revenue stream contributed the most to WIPO's 2020 income?",
+                questionType: "multiple_choice",
+                qualityTier: "limited",
+                qualityScore: 0.68,
+                rigorScore: 0.59,
+                clarityScore: 0.72,
+                distractorScore: 0.64,
+                qualityFlags: ["low_rigor"],
+                options: [
+                    { label: "A", text: "International filing fees under the PCT" },
+                    { label: "B", text: "Interest income from cash deposits" },
+                    { label: "C", text: "Voluntary donor contributions" },
+                    { label: "D", text: "Gains on property disposals" },
+                ],
+            }),
+            true,
+            "Expected solid limited-tier MCQs to remain usable for exam inventory"
+        );
+    },
+    () => {
+        assert.equal(
+            isUsableExamQuestion({
+                questionText: "Which revenue stream contributed the most to WIPO's 2020 income?",
+                questionType: "multiple_choice",
+                qualityTier: "unavailable",
+                qualityScore: 0.9,
+                rigorScore: 0.7,
+                clarityScore: 0.8,
+                distractorScore: 0.7,
+                options: [
+                    { label: "A", text: "International filing fees under the PCT" },
+                    { label: "B", text: "Interest income from cash deposits" },
+                    { label: "C", text: "Voluntary donor contributions" },
+                    { label: "D", text: "Gains on property disposals" },
+                ],
+            }),
+            false,
+            "Expected unavailable-tier MCQs to stay excluded"
+        );
+    },
 ];
 
 for (const run of tests) {

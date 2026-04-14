@@ -349,6 +349,42 @@ const discoverDashboardCourseUrls = async () => {
   return normalized;
 };
 
+const waitForTopicExamEntry = async (timeoutMs = 120000) => {
+  const startedAtMs = Date.now();
+  while (Date.now() - startedAtMs < timeoutMs) {
+    const startExamVisible = await page
+      .getByRole('button', { name: /take.*quiz|start exam/i })
+      .first()
+      .isVisible()
+      .catch(() => false);
+    if (startExamVisible) {
+      return { entryType: 'start-exam-button' };
+    }
+
+    const examPrepVisible = await page
+      .getByRole('button', { name: /^exam prep$/i })
+      .isVisible()
+      .catch(() => false);
+    if (examPrepVisible) {
+      return { entryType: 'study-mode-exam-prep' };
+    }
+
+    await sleep(1000);
+  }
+
+  throw new Error('Timed out waiting for an exam entry point on the topic page.');
+};
+
+const launchExamFromTopic = async () => {
+  const entry = await waitForTopicExamEntry();
+  if (entry.entryType === 'study-mode-exam-prep') {
+    await page.getByRole('button', { name: /^exam prep$/i }).click({ timeout: 45000 });
+  } else {
+    await page.getByRole('button', { name: /take.*quiz|start exam/i }).first().click({ timeout: 45000 });
+  }
+  return entry;
+};
+
 let summary = {
   runId,
   status: 'failed',
@@ -449,14 +485,15 @@ try {
     const topicUrl = absolutizeUrl(topicWaitResult.topicHref);
     await page.goto(topicUrl, { waitUntil: 'domcontentloaded', timeout: 120000 });
   }
-  await page.getByRole('button', { name: /take.*quiz|start exam/i }).first().waitFor({ timeout: 120000 });
+  const topicExamEntry = await waitForTopicExamEntry();
   await screenshot('09-topic-detail');
-  recordStep('open-topic', 'passed', { url: page.url() });
+  recordStep('open-topic', 'passed', { url: page.url(), entryType: topicExamEntry.entryType });
 
   recordStep('start-exam', 'started');
-  await page.getByRole('button', { name: /take.*quiz|start exam/i }).first().click({ timeout: 45000 });
+  const launchedFrom = await launchExamFromTopic();
   await waitForPath(page, /\/dashboard\/exam\//, 120000);
   await screenshot('10-exam-opened');
+  recordStep('start-exam-entry', 'passed', { entryType: launchedFrom.entryType, url: page.url() });
 
   const examReadyStart = Date.now();
   let examReady = false;

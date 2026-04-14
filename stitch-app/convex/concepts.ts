@@ -1,30 +1,115 @@
 import { v } from "convex/values";
 import { action, internalMutation, internalQuery, mutation, query } from "./_generated/server";
+import { internal } from "./_generated/api";
 import { assertAuthorizedUser, resolveAuthUserId } from "./lib/examSecurity";
-import { buildConceptSessionItems, summarizeConceptExerciseBank } from "./lib/conceptSessionSelection.js";
-import {
-    buildConceptMasterySummary,
-    buildConceptMasterySummaryFromAttempts,
-    buildConceptMasteryUpdates,
-} from "./lib/conceptMastery.js";
-import { normalizeConceptTextKey } from "./lib/conceptExerciseGeneration.js";
 
-const CONCEPT_SESSION_SIZE = 5;
-const CONCEPT_BANK_TARGET_SIZE = 9;
-const CONCEPT_BANK_BATCH_SIZE = 6;
-const CONCEPT_MIN_EXERCISE_TYPES = 3;
-const CONCEPT_MIN_CONCEPT_KEYS = 4;
-const MAX_CONCEPT_SESSION_GENERATION_ATTEMPTS = 3;
 const DEFAULT_REVIEW_QUEUE_LIMIT = 6;
+const DEFAULT_CONCEPT_SESSION_SIZE = 1;
+const CONCEPT_STATUS_STRONG = "strong";
+const CONCEPT_STATUS_SHAKY = "shaky";
+const CONCEPT_STATUS_WEAK = "weak";
 
-const normalizeFocusConceptKeys = (values: unknown) => {
-    return Array.from(
-        new Set(
-            (Array.isArray(values) ? values : [])
-                .map((value) => normalizeConceptTextKey(value).replace(/\s+/g, "_"))
-                .filter(Boolean)
-        )
-    );
+const normalizeConceptTextKey = (text: unknown) =>
+    String(text || "")
+        .toLowerCase()
+        .replace(/[\u2018\u2019]/g, "'")
+        .replace(/[\u201c\u201d]/g, '"')
+        .replace(/[^a-z0-9]+/g, " ")
+        .replace(/\s+/g, " ")
+        .trim();
+
+const deriveConceptStatus = (correct: number, total: number) => {
+    const accuracy = total > 0 ? correct / total : 0;
+    if (total >= 2 && accuracy >= 0.8) return CONCEPT_STATUS_STRONG;
+    if (accuracy >= 0.5 || correct >= 1) return CONCEPT_STATUS_SHAKY;
+    return CONCEPT_STATUS_WEAK;
+};
+
+const summarizeConceptAttempts = (attempts: any[]) => {
+    const conceptMap = new Map<string, {
+        conceptKey: string;
+        displayText: string;
+        correct: number;
+        total: number;
+        lastSeenAt: number;
+    }>();
+
+    for (const attempt of Array.isArray(attempts) ? attempts : []) {
+        const createdAt = Math.max(0, Number(attempt?._creationTime) || 0);
+        const correctAnswers = Array.isArray(attempt?.answers?.correctAnswers)
+            ? attempt.answers.correctAnswers
+            : [];
+        const userAnswers = Array.isArray(attempt?.answers?.userAnswers)
+            ? attempt.answers.userAnswers
+            : [];
+
+        for (let index = 0; index < correctAnswers.length; index += 1) {
+            const correctAnswer = String(correctAnswers[index] || "").trim();
+            const conceptKey = normalizeConceptTextKey(correctAnswer);
+            if (!conceptKey) continue;
+
+            const userAnswer = normalizeConceptTextKey(userAnswers[index]);
+            const existing = conceptMap.get(conceptKey) || {
+                conceptKey,
+                displayText: correctAnswer,
+                correct: 0,
+                total: 0,
+                lastSeenAt: 0,
+            };
+
+            existing.total += 1;
+            if (userAnswer === conceptKey) {
+                existing.correct += 1;
+            }
+            existing.lastSeenAt = Math.max(existing.lastSeenAt, createdAt);
+            if (!existing.displayText && correctAnswer) {
+                existing.displayText = correctAnswer;
+            }
+            conceptMap.set(conceptKey, existing);
+        }
+    }
+
+    const items = Array.from(conceptMap.values())
+        .map((entry) => {
+            const status = deriveConceptStatus(entry.correct, entry.total);
+            const accuracy = entry.total > 0 ? entry.correct / entry.total : 0;
+            return {
+                conceptKey: entry.conceptKey,
+                label: entry.displayText || entry.conceptKey,
+                correctCount: entry.correct,
+                attemptCount: entry.total,
+                accuracy: Math.round(accuracy * 100),
+                status,
+                due: status !== CONCEPT_STATUS_STRONG,
+                lastSeenAt: entry.lastSeenAt || null,
+            };
+        })
+        .sort((left, right) => {
+            if (left.due !== right.due) return left.due ? -1 : 1;
+            if (left.accuracy !== right.accuracy) return left.accuracy - right.accuracy;
+            return (right.lastSeenAt || 0) - (left.lastSeenAt || 0);
+        });
+
+    const strongCount = items.filter((item) => item.status === CONCEPT_STATUS_STRONG).length;
+    const shakyCount = items.filter((item) => item.status === CONCEPT_STATUS_SHAKY).length;
+    const weakCount = items.filter((item) => item.status === CONCEPT_STATUS_WEAK).length;
+    const dueItems = items.filter((item) => item.due);
+    const totalCorrect = items.reduce((sum, item) => sum + item.correctCount, 0);
+    const totalAttempts = items.reduce((sum, item) => sum + item.attemptCount, 0);
+
+    return {
+        totalConcepts: items.length,
+        strongCount,
+        shakyCount,
+        weakCount,
+        dueCount: dueItems.length,
+        averageStrength: totalAttempts > 0
+            ? Math.round((totalCorrect / Math.max(1, totalAttempts)) * 100)
+            : null,
+        nextReviewAt: dueItems.length > 0 ? Date.now() : null,
+        reviewConceptKeys: dueItems.map((item) => item.conceptKey),
+        items,
+    };
 };
 
 const getTopicAndCourseForAuthorizedUser = async (
@@ -45,19 +130,6 @@ const getTopicAndCourseForAuthorizedUser = async (
         resourceOwnerUserId: course.userId,
     });
     return { topic, course };
-};
-
-const getConceptMasteryRecordsForTopic = async (
-    ctx: any,
-    userId: string,
-    topicId: any,
-) => {
-    return await ctx.db
-        .query("conceptMastery")
-        .withIndex("by_userId_topicId", (q: any) =>
-            q.eq("userId", userId).eq("topicId", topicId)
-        )
-        .collect();
 };
 
 export const createConceptAttempt = mutation({
@@ -139,66 +211,6 @@ export const getUserConceptAttemptsForTopicInternal = internalQuery({
     },
 });
 
-export const getConceptExercisesForTopicInternal = internalQuery({
-    args: {
-        topicId: v.id("topics"),
-    },
-    handler: async (ctx, args) => {
-        return await ctx.db
-            .query("conceptExercises")
-            .withIndex("by_topicId", (q) => q.eq("topicId", args.topicId))
-            .order("desc")
-            .collect();
-    },
-});
-
-export const createConceptExerciseInternal = internalMutation({
-    args: {
-        topicId: v.id("topics"),
-        exerciseType: v.optional(v.string()),
-        conceptKey: v.optional(v.string()),
-        difficulty: v.optional(v.string()),
-        questionText: v.string(),
-        explanation: v.optional(v.string()),
-        template: v.optional(v.array(v.string())),
-        answers: v.optional(v.array(v.string())),
-        tokens: v.optional(v.array(v.string())),
-        options: v.optional(v.array(v.object({
-            id: v.string(),
-            text: v.string(),
-        }))),
-        correctOptionId: v.optional(v.string()),
-        citations: v.optional(v.array(v.any())),
-        sourcePassageIds: v.optional(v.array(v.string())),
-        groundingScore: v.optional(v.number()),
-        qualityScore: v.optional(v.number()),
-        active: v.optional(v.boolean()),
-        version: v.optional(v.string()),
-    },
-    handler: async (ctx, args) => {
-        return await ctx.db.insert("conceptExercises", {
-            topicId: args.topicId,
-            exerciseType: args.exerciseType,
-            conceptKey: args.conceptKey,
-            difficulty: args.difficulty,
-            questionText: args.questionText,
-            explanation: args.explanation,
-            template: args.template,
-            answers: args.answers,
-            tokens: args.tokens,
-            options: args.options,
-            correctOptionId: args.correctOptionId,
-            citations: args.citations,
-            sourcePassageIds: args.sourcePassageIds,
-            groundingScore: args.groundingScore,
-            qualityScore: args.qualityScore,
-            active: args.active !== false,
-            version: args.version,
-            createdAt: Date.now(),
-        });
-    },
-});
-
 export const getConceptMasteryForTopic = query({
     args: {
         topicId: v.id("topics"),
@@ -210,37 +222,29 @@ export const getConceptMasteryForTopic = query({
 
         const userId = assertAuthorizedUser({ authUserId });
         const { topic } = await getTopicAndCourseForAuthorizedUser(ctx, args.topicId, authUserId);
-        const records = await getConceptMasteryRecordsForTopic(ctx, userId, args.topicId);
-        const now = Date.now();
-        const summary = buildConceptMasterySummary({ records, now });
-        if (summary.totalConcepts > 0) {
-            return {
-                topicId: String(topic._id),
-                topicTitle: topic.title,
-                source: "mastery_records",
-                ...summary,
-            };
-        }
-
-        const recentAttempts = await ctx.db
+        const attempts = await ctx.db
             .query("conceptAttempts")
             .withIndex("by_userId_topicId", (q) =>
                 q.eq("userId", userId).eq("topicId", args.topicId)
             )
             .order("desc")
             .take(10);
-        const fallbackSummary = buildConceptMasterySummaryFromAttempts({
-            attempts: recentAttempts,
-            topicId: args.topicId,
-            userId,
-            now,
-        });
+
+        const summary = summarizeConceptAttempts(attempts);
 
         return {
             topicId: String(topic._id),
             topicTitle: topic.title,
-            source: fallbackSummary.totalConcepts > 0 ? "attempt_fallback" : "empty",
-            ...fallbackSummary,
+            source: attempts.length > 0 ? "attempt_fallback" : "empty",
+            totalConcepts: summary.totalConcepts,
+            strongCount: summary.strongCount,
+            shakyCount: summary.shakyCount,
+            weakCount: summary.weakCount,
+            dueCount: summary.dueCount,
+            averageStrength: summary.averageStrength,
+            nextReviewAt: summary.nextReviewAt,
+            reviewConceptKeys: summary.reviewConceptKeys,
+            items: summary.items,
         };
     },
 });
@@ -262,33 +266,35 @@ export const getConceptReviewQueue = query({
 
         const userId = assertAuthorizedUser({ authUserId });
         const limit = Math.max(1, Math.min(12, Math.floor(Number(args.limit) || DEFAULT_REVIEW_QUEUE_LIMIT)));
-        const now = Date.now();
-        const records = await ctx.db
-            .query("conceptMastery")
-            .withIndex("by_userId_nextReviewAt", (q: any) => q.eq("userId", userId))
-            .take(80);
+        const attempts = await ctx.db
+            .query("conceptAttempts")
+            .withIndex("by_userId", (q) => q.eq("userId", userId))
+            .order("desc")
+            .take(Math.max(limit * 20, 60));
 
-        const byTopicId = new Map<string, any[]>();
-        for (const record of records) {
-            const key = String(record.topicId);
-            const current = byTopicId.get(key) || [];
-            current.push(record);
-            byTopicId.set(key, current);
+        const seenTopicIds = new Set<string>();
+        const groupedAttempts = new Map<string, any[]>();
+        for (const attempt of attempts) {
+            const topicId = String(attempt?.topicId || "").trim();
+            if (!topicId) continue;
+            const bucket = groupedAttempts.get(topicId) || [];
+            bucket.push(attempt);
+            groupedAttempts.set(topicId, bucket);
         }
 
         const items = [];
-        for (const [topicKey, topicRecords] of byTopicId.entries()) {
-            const topic = await ctx.db.get(topicRecords[0].topicId);
+        for (const [topicId, topicAttempts] of groupedAttempts.entries()) {
+            if (seenTopicIds.has(topicId)) continue;
+            const canonicalAttempt = topicAttempts[0];
+            const topic = await ctx.db.get(canonicalAttempt.topicId);
             if (!topic) continue;
             const course = await ctx.db.get(topic.courseId);
             if (!course || course.userId !== userId) continue;
-            const summary = buildConceptMasterySummary({
-                records: topicRecords,
-                now,
-                maxConcepts: 4,
-            });
+            const summary = summarizeConceptAttempts(topicAttempts);
+            if (summary.totalConcepts === 0) continue;
+            seenTopicIds.add(topicId);
             items.push({
-                topicId: topicKey,
+                topicId,
                 courseId: String(topic.courseId),
                 topicTitle: topic.title,
                 dueCount: summary.dueCount,
@@ -298,27 +304,60 @@ export const getConceptReviewQueue = query({
                 averageStrength: summary.averageStrength,
                 nextReviewAt: summary.nextReviewAt,
                 reviewConceptKeys: summary.reviewConceptKeys,
-                concepts: summary.items.slice(0, 4),
+                concepts: summary.items,
             });
+            if (items.length >= limit) break;
         }
 
         items.sort((left, right) => {
-            const leftDue = left.dueCount > 0 ? 1 : 0;
-            const rightDue = right.dueCount > 0 ? 1 : 0;
-            if (leftDue !== rightDue) return rightDue - leftDue;
-            if ((left.nextReviewAt || 0) !== (right.nextReviewAt || 0)) {
-                return (left.nextReviewAt || 0) - (right.nextReviewAt || 0);
-            }
-            return (left.averageStrength || 0) - (right.averageStrength || 0);
+            if (left.dueCount !== right.dueCount) return right.dueCount - left.dueCount;
+            return (left.averageStrength ?? 0) - (right.averageStrength ?? 0);
         });
 
-        const limitedItems = items.slice(0, limit);
-
         return {
-            items: limitedItems,
-            dueTopicCount: limitedItems.filter((item) => item.dueCount > 0).length,
-            dueConceptCount: limitedItems.reduce((sum, item) => sum + item.dueCount, 0),
+            items,
+            dueTopicCount: items.filter((item) => item.dueCount > 0).length,
+            dueConceptCount: items.reduce((sum, item) => sum + Math.max(0, Number(item.dueCount) || 0), 0),
         };
+    },
+});
+
+export const createConceptExerciseInternal = internalMutation({
+    args: {
+        topicId: v.id("topics"),
+        questionText: v.string(),
+        template: v.array(v.string()),
+        answers: v.array(v.string()),
+        tokens: v.array(v.string()),
+        citations: v.optional(v.array(v.any())),
+        groundingScore: v.optional(v.number()),
+        version: v.optional(v.string()),
+    },
+    handler: async (ctx, args) => {
+        return await ctx.db.insert("conceptExercises", {
+            topicId: args.topicId,
+            questionText: args.questionText,
+            template: args.template,
+            answers: args.answers,
+            tokens: args.tokens,
+            citations: args.citations,
+            groundingScore: args.groundingScore,
+            version: args.version,
+            createdAt: Date.now(),
+        });
+    },
+});
+
+export const getConceptExercisesForTopicInternal = internalQuery({
+    args: {
+        topicId: v.id("topics"),
+    },
+    handler: async (ctx, args) => {
+        return await ctx.db
+            .query("conceptExercises")
+            .withIndex("by_topicId", (q) => q.eq("topicId", args.topicId))
+            .order("desc")
+            .collect();
     },
 });
 
@@ -332,7 +371,14 @@ export const getConceptSessionForTopic = action({
         const authUserId = resolveAuthUserId(identity);
         const userId = assertAuthorizedUser({ authUserId });
 
-        const owner = await ctx.runQuery("topics:getTopicOwnerUserIdInternal", {
+        const topic = await ctx.runQuery(internal.topics.getTopicWithQuestionsInternal, {
+            topicId: args.topicId,
+        });
+        if (!topic) {
+            throw new Error("Topic not found");
+        }
+
+        const owner = await ctx.runQuery(internal.topics.getTopicOwnerUserIdInternal, {
             topicId: args.topicId,
         });
         if (!owner) {
@@ -343,87 +389,44 @@ export const getConceptSessionForTopic = action({
             resourceOwnerUserId: owner.userId,
         });
 
-        const topic = await ctx.runQuery("topics:getTopicWithQuestionsInternal", {
-            topicId: args.topicId,
-        });
-        if (!topic) {
-            throw new Error("Topic not found");
-        }
-
-        const attempts = await ctx.runQuery("concepts:getUserConceptAttemptsForTopicInternal", {
-            userId,
-            topicId: args.topicId,
-            limit: 50,
-        });
-        const focusConceptKeys = normalizeFocusConceptKeys(args.focusConceptKeys);
-
-        let bankExercises = await ctx.runQuery("concepts:getConceptExercisesForTopicInternal", {
+        let exercises = await ctx.runQuery(internal.concepts.getConceptExercisesForTopicInternal, {
             topicId: args.topicId,
         });
 
-        let generationCount = 0;
-        let generationAttempts = 0;
-        let bankSummary = summarizeConceptExerciseBank(bankExercises);
+        const activeExercises = Array.isArray(exercises)
+            ? exercises.filter((item: any) => item?.active !== false)
+            : [];
 
-        while (
-            generationAttempts < MAX_CONCEPT_SESSION_GENERATION_ATTEMPTS
-            && (
-                bankSummary.activeCount < CONCEPT_BANK_TARGET_SIZE
-                || bankSummary.exerciseTypeCount < CONCEPT_MIN_EXERCISE_TYPES
-                || bankSummary.conceptKeyCount < CONCEPT_MIN_CONCEPT_KEYS
-            )
-        ) {
-            const generatedExercises = await ctx.runAction(
-                "ai:generateConceptExerciseBatchForTopicInternal",
-                {
-                    topicId: args.topicId,
-                    userId,
-                    requestedCount: CONCEPT_BANK_BATCH_SIZE,
-                }
-            );
-            const insertedExercises = Array.isArray(generatedExercises) ? generatedExercises.filter(Boolean) : [];
-            if (insertedExercises.length === 0) {
-                break;
-            }
-            generationAttempts += 1;
-            generationCount += insertedExercises.length;
-            bankExercises = [...insertedExercises, ...bankExercises];
-            bankSummary = summarizeConceptExerciseBank(bankExercises);
-        }
-
-        let sessionItems = buildConceptSessionItems({
-            bankExercises,
-            attempts,
-            sessionSize: CONCEPT_SESSION_SIZE,
-            focusConceptKeys,
-        });
-
-        while (
-            sessionItems.length < CONCEPT_SESSION_SIZE
-            && generationAttempts < MAX_CONCEPT_SESSION_GENERATION_ATTEMPTS
-        ) {
-            const generatedExercises = await ctx.runAction(
-                "ai:generateConceptExerciseBatchForTopicInternal",
-                {
-                    topicId: args.topicId,
-                    userId,
-                    requestedCount: CONCEPT_BANK_BATCH_SIZE,
-                }
-            );
-            const insertedExercises = Array.isArray(generatedExercises) ? generatedExercises.filter(Boolean) : [];
-            if (insertedExercises.length === 0) {
-                break;
-            }
-            generationAttempts += 1;
-            generationCount += insertedExercises.length;
-            bankExercises = [...insertedExercises, ...bankExercises];
-            sessionItems = buildConceptSessionItems({
-                bankExercises,
-                attempts,
-                sessionSize: CONCEPT_SESSION_SIZE,
-                focusConceptKeys,
+        if (activeExercises.length === 0) {
+            await ctx.runAction((internal as any).ai.generateConceptExerciseForTopicInternal, {
+                topicId: args.topicId,
+                userId,
+            });
+            exercises = await ctx.runQuery(internal.concepts.getConceptExercisesForTopicInternal, {
+                topicId: args.topicId,
             });
         }
+
+        const sessionItems = (Array.isArray(exercises) ? exercises : [])
+            .filter((item: any) => item?.active !== false)
+            .slice(0, DEFAULT_CONCEPT_SESSION_SIZE)
+            .map((exercise: any) => ({
+                exerciseKey: String(exercise?.conceptKey || exercise?._id || ""),
+                exerciseType: String(exercise?.exerciseType || "cloze"),
+                conceptKey: String(exercise?.conceptKey || topic.title || ""),
+                difficulty: String(exercise?.difficulty || "medium"),
+                questionText: String(exercise?.questionText || topic.title || "Concept practice"),
+                explanation: typeof exercise?.explanation === "string" ? exercise.explanation : "",
+                template: Array.isArray(exercise?.template) ? exercise.template : [],
+                answers: Array.isArray(exercise?.answers) ? exercise.answers : [],
+                tokens: Array.isArray(exercise?.tokens) ? exercise.tokens : [],
+                options: Array.isArray(exercise?.options) ? exercise.options : [],
+                correctOptionId: typeof exercise?.correctOptionId === "string" ? exercise.correctOptionId : "",
+                citations: Array.isArray(exercise?.citations) ? exercise.citations : [],
+                sourcePassageIds: Array.isArray(exercise?.sourcePassageIds) ? exercise.sourcePassageIds : [],
+                groundingScore: Number(exercise?.groundingScore || 0),
+            }))
+            .filter((item: any) => item.answers.length > 0 || item.options.length > 0);
 
         if (sessionItems.length === 0) {
             throw new Error("Couldn't prepare concept practice for this topic yet.");
@@ -433,25 +436,10 @@ export const getConceptSessionForTopic = action({
             topicId: args.topicId,
             topicTitle: topic.title,
             sessionSize: sessionItems.length,
-            targetSize: CONCEPT_SESSION_SIZE,
-            generationCount,
-            focusConceptKeys,
-            items: sessionItems.map((exercise: any) => ({
-                exerciseKey: exercise.exerciseKey,
-                exerciseType: exercise.exerciseType,
-                conceptKey: exercise.conceptKey,
-                difficulty: exercise.difficulty,
-                questionText: exercise.questionText,
-                explanation: exercise.explanation,
-                template: exercise.template,
-                answers: exercise.answers,
-                tokens: exercise.tokens,
-                options: exercise.options,
-                correctOptionId: exercise.correctOptionId,
-                citations: exercise.citations,
-                sourcePassageIds: exercise.sourcePassageIds,
-                groundingScore: exercise.groundingScore,
-            })),
+            targetSize: DEFAULT_CONCEPT_SESSION_SIZE,
+            generationCount: sessionItems.length,
+            focusConceptKeys: Array.isArray(args.focusConceptKeys) ? args.focusConceptKeys.filter(Boolean) : [],
+            items: sessionItems,
         };
     },
 });
@@ -481,26 +469,6 @@ export const createConceptSessionAttempt = mutation({
             answers: args.answers,
             questionText: args.questionText,
         });
-
-        const masteryUpdates = buildConceptMasteryUpdates({
-            existingRecords: await getConceptMasteryRecordsForTopic(ctx, userId, args.topicId),
-            sessionItems: Array.isArray(args.answers?.items) ? args.answers.items : [],
-            topicId: args.topicId,
-            userId,
-            now: Date.now(),
-        });
-
-        for (const update of masteryUpdates) {
-            const {
-                existingId,
-                ...record
-            } = update;
-            if (existingId) {
-                await ctx.db.patch(existingId, record);
-                continue;
-            }
-            await ctx.db.insert("conceptMastery", record);
-        }
 
         return { attemptId };
     },

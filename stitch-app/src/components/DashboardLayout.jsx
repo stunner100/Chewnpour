@@ -1,7 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import MobileBottomNav from './MobileBottomNav';
-import BrandLogo from './BrandLogo';
 import { useAuth } from '../contexts/AuthContext';
 
 const navItems = [
@@ -23,7 +22,18 @@ const DashboardLayout = ({ children }) => {
     const hideMobileBottomNav = location.pathname.startsWith('/dashboard/exam');
     const isTopicPage = location.pathname.startsWith('/dashboard/topic/');
     const [sidebarCollapsed, setSidebarCollapsed] = useState(isTopicPage);
-    const isSidebarCollapsed = isTopicPage || sidebarCollapsed;
+
+    useEffect(() => {
+        if (!isTopicPage) return undefined;
+
+        const frameId = window.requestAnimationFrame(() => {
+            setSidebarCollapsed(true);
+        });
+
+        return () => {
+            window.cancelAnimationFrame(frameId);
+        };
+    }, [isTopicPage]);
 
     const isActive = (item) => {
         if (item.exact) return location.pathname === item.path;
@@ -38,28 +48,28 @@ const DashboardLayout = ({ children }) => {
             {/* Desktop Sidebar */}
             <aside
                 className={`hidden md:flex flex-col flex-shrink-0 border-r border-border-subtle dark:border-border-subtle-dark bg-surface-light dark:bg-surface-dark transition-all duration-200 ease-spring ${
-                    isSidebarCollapsed ? 'w-sidebar-collapsed' : 'w-sidebar'
+                    sidebarCollapsed ? 'w-sidebar-collapsed' : 'w-sidebar'
                 }`}
             >
                 {/* Logo & Collapse */}
                 <div className="flex items-center justify-between h-15 px-4 border-b border-border-subtle dark:border-border-subtle-dark">
-                    {!isSidebarCollapsed && (
+                    {!sidebarCollapsed && (
                         <Link to="/dashboard" className="flex items-center gap-2.5">
-                            <BrandLogo className="h-10 w-auto" />
+                            <img src="/chewnpourlogo.png" alt="ChewnPour" className="h-16 w-auto" />
                         </Link>
                     )}
-                    {isSidebarCollapsed && (
+                    {sidebarCollapsed && (
                         <Link to="/dashboard" className="mx-auto">
-                            <BrandLogo kind="mark" className="h-9 w-9" />
+                            <img src="/chewnpourlogo.png" alt="ChewnPour" className="h-16 w-auto" />
                         </Link>
                     )}
                     <button
-                        onClick={() => setSidebarCollapsed((current) => !current)}
+                        onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
                         className="btn-icon"
-                        title={isSidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+                        title={sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
                     >
                         <span className="material-symbols-outlined text-[20px]">
-                            {isSidebarCollapsed ? 'menu' : 'menu_open'}
+                            {sidebarCollapsed ? 'menu' : 'menu_open'}
                         </span>
                     </button>
                 </div>
@@ -73,7 +83,7 @@ const DashboardLayout = ({ children }) => {
                                 key={item.path}
                                 to={item.path}
                                 className={active ? 'sidebar-link-active' : 'sidebar-link'}
-                                title={isSidebarCollapsed ? item.label : undefined}
+                                title={sidebarCollapsed ? item.label : undefined}
                             >
                                 <span
                                     className={`material-symbols-outlined text-[20px] ${active ? 'filled' : ''}`}
@@ -81,7 +91,7 @@ const DashboardLayout = ({ children }) => {
                                 >
                                     {item.icon}
                                 </span>
-                                {!isSidebarCollapsed && <span>{item.label}</span>}
+                                {!sidebarCollapsed && <span>{item.label}</span>}
                             </Link>
                         );
                     })}
@@ -96,7 +106,7 @@ const DashboardLayout = ({ children }) => {
                                 key={item.path}
                                 to={item.path}
                                 className={active ? 'sidebar-link-active' : 'sidebar-link'}
-                                title={isSidebarCollapsed ? item.label : undefined}
+                                title={sidebarCollapsed ? item.label : undefined}
                             >
                                 <span
                                     className={`material-symbols-outlined text-[20px] ${active ? 'filled' : ''}`}
@@ -104,13 +114,13 @@ const DashboardLayout = ({ children }) => {
                                 >
                                     {item.icon}
                                 </span>
-                                {!isSidebarCollapsed && <span>{item.label}</span>}
+                                {!sidebarCollapsed && <span>{item.label}</span>}
                             </Link>
                         );
                     })}
 
                     {/* User Avatar */}
-                    {!isSidebarCollapsed && (
+                    {!sidebarCollapsed && (
                         <div className="flex items-center gap-3 px-3 py-2.5 mt-1">
                             <div className="w-8 h-8 rounded-full bg-primary-100 dark:bg-primary-900/30 flex items-center justify-center text-xs font-bold text-primary-700 dark:text-primary-300">
                                 {initials}

@@ -1,30 +1,22 @@
+import assert from "node:assert/strict";
 import fs from "node:fs/promises";
 import path from "node:path";
-import process from "node:process";
+import { fileURLToPath } from "node:url";
 
-const root = process.cwd();
-const topicsSource = await fs.readFile(path.join(root, "convex", "topics.ts"), "utf8");
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+const source = await fs.readFile(path.join(__dirname, "../convex/topics.ts"), "utf8");
 
-const createQuestionMatch = topicsSource.match(
-    /export const createQuestionInternal = internalMutation\(\{[\s\S]*?handler: async \(ctx, args\) => \{([\s\S]*?)\n\s*\},\n\}\);/
+assert.match(
+  source,
+  /handler:\s*async\s*\(ctx,\s*args\)\s*=>\s*\{\s*const\s+topic\s*=\s*await\s+ctx\.db\.get\(args\.topicId\);\s*if\s*\(!topic\)\s*\{\s*throw\s+new\s+Error\("Topic not found"\);/s,
+  "Expected createQuestionInternal to load topic context before reading questionSetVersion."
 );
 
-if (!createQuestionMatch) {
-    throw new Error("Expected convex/topics.ts to define createQuestionInternal.");
-}
-
-const createQuestionBody = createQuestionMatch[1];
-
-if (!/const topic = await ctx\.db\.get\(args\.topicId\);/.test(createQuestionBody)) {
-    throw new Error("Expected createQuestionInternal to load the topic before persisting generated questions.");
-}
-
-if (!/if \(!topic\) \{\s*throw new Error\("Topic not found"\);\s*\}/s.test(createQuestionBody)) {
-    throw new Error("Expected createQuestionInternal to reject missing topics before question insertion.");
-}
-
-if (!/questionSetVersion:\s*Number\(topic\?\.questionSetVersion \|\| topic\?\.examReadyUpdatedAt \|\| topic\?\._creationTime \|\| 0\) \|\| undefined/.test(createQuestionBody)) {
-    throw new Error("Expected createQuestionInternal to derive questionSetVersion from the loaded topic.");
-}
+assert.match(
+  source,
+  /questionSetVersion:\s*Number\(topic\?\.questionSetVersion\s*\|\|\s*topic\?\.examReadyUpdatedAt\s*\|\|\s*topic\?\._creationTime\s*\|\|\s*0\)\s*\|\|\s*undefined/s,
+  "Expected question persistence to derive questionSetVersion from the loaded topic context."
+);
 
 console.log("topic-question-context-regression.test.mjs passed");

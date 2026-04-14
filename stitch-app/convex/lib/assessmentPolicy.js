@@ -1,4 +1,12 @@
-import { normalizeBloomLevel, normalizeOutcomeKey } from "./assessmentBlueprint.js";
+import {
+    normalizeBloomLevel,
+    normalizeOutcomeKey,
+    resolveEssayPlanItemForQuestion,
+    resolveEssayPlanItemKey,
+    resolveObjectivePlanItemForQuestion,
+    resolveObjectivePlanItemKey,
+} from "./assessmentBlueprint.js";
+import { normalizeQuestionType } from "./objectiveExam.js";
 
 const resolveRequestedExamFormat = (value) =>
     String(value || "").trim().toLowerCase() === "essay" ? "essay" : "mcq";
@@ -13,6 +21,130 @@ const toPositiveInteger = (value, fallback = 0) => {
 
 const buildCoverageTargets = ({ blueprint, examFormat, targetCount }) => {
     const normalizedFormat = resolveRequestedExamFormat(examFormat);
+    if (
+        normalizedFormat === "essay"
+        && Array.isArray(blueprint?.essayPlan?.items)
+        && blueprint.essayPlan.items.length > 0
+    ) {
+        const outcomes = Array.isArray(blueprint?.outcomes) ? blueprint.outcomes : [];
+        const outcomeByKey = new Map(
+            outcomes
+                .map((outcome) => {
+                    const key = normalizeOutcomeKey(outcome?.key);
+                    if (!key) return null;
+                    return [key, outcome];
+                })
+                .filter(Boolean)
+        );
+        const orderedPlanItems = blueprint.essayPlan.items
+            .filter((item) => String(item?.status || "planned").trim().toLowerCase() !== "terminal")
+            .slice()
+            .sort((left, right) => Number(left?.priority || 0) - Number(right?.priority || 0));
+        const safeTargetCount = toPositiveInteger(targetCount, orderedPlanItems.length);
+        if (orderedPlanItems.length === 0 || safeTargetCount === 0) {
+            return [];
+        }
+
+        const desiredCountByPlanItem = new Map();
+        for (let slotIndex = 0; slotIndex < safeTargetCount; slotIndex += 1) {
+            const item = orderedPlanItems[slotIndex % orderedPlanItems.length];
+            const key = resolveEssayPlanItemKey(item);
+            if (!key) continue;
+            desiredCountByPlanItem.set(key, Number(desiredCountByPlanItem.get(key) || 0) + 1);
+        }
+
+        return orderedPlanItems
+            .map((item) => {
+                const planItemKey = resolveEssayPlanItemKey(item);
+                const firstOutcomeKey = normalizeOutcomeKey(item?.sourceOutcomeKeys?.[0]);
+                const firstOutcome = outcomeByKey.get(firstOutcomeKey);
+                return {
+                    planItemKey,
+                    outcomeKey: firstOutcomeKey,
+                    bloomLevel: normalizeBloomLevel(item?.targetBloomLevel || firstOutcome?.bloomLevel || ""),
+                    objective: String(firstOutcome?.objective || "").trim(),
+                    evidenceFocus: String(firstOutcome?.evidenceFocus || "").trim(),
+                    desiredCount: Number(desiredCountByPlanItem.get(planItemKey) || 0),
+                    questionType: "essay",
+                    targetType: "essay",
+                    targetDifficulty: String(item?.targetDifficulty || "").trim().toLowerCase() || undefined,
+                    sourceSubClaimIds: Array.isArray(item?.sourceSubClaimIds) ? item.sourceSubClaimIds : [],
+                    sourceOutcomeKeys: Array.isArray(item?.sourceOutcomeKeys) ? item.sourceOutcomeKeys : [],
+                    promptSeed: String(item?.promptSeed || "").trim() || undefined,
+                    retryStrategy: String(item?.retryStrategy || "").trim().toLowerCase() || undefined,
+                    feedbackInjection: String(item?.feedbackInjection || "").trim() || undefined,
+                    priority: Number(item?.priority || 0),
+                };
+            })
+            .filter((target) => target.planItemKey && target.desiredCount > 0);
+    }
+    if (
+        normalizedFormat !== "essay"
+        && Array.isArray(blueprint?.objectivePlan?.items)
+        && blueprint.objectivePlan.items.length > 0
+    ) {
+        const outcomes = Array.isArray(blueprint?.outcomes) ? blueprint.outcomes : [];
+        const outcomeByKey = new Map(
+            outcomes
+                .map((outcome) => {
+                    const key = normalizeOutcomeKey(outcome?.key);
+                    if (!key) return null;
+                    return [key, outcome];
+                })
+                .filter(Boolean)
+        );
+        const orderedPlanItems = blueprint.objectivePlan.items
+            .filter((item) =>
+                String(item?.status || "planned").trim().toLowerCase() !== "terminal"
+                && (
+                [ "multiple_choice", "true_false", "fill_blank" ].includes(
+                    normalizeQuestionType(item?.targetType || item?.questionType)
+                )
+                )
+            )
+            .sort((left, right) => Number(left?.priority || 0) - Number(right?.priority || 0));
+        const safeTargetCount = toPositiveInteger(targetCount, orderedPlanItems.length);
+        if (orderedPlanItems.length === 0 || safeTargetCount === 0) {
+            return [];
+        }
+
+        const desiredCountByPlanItem = new Map();
+        for (let slotIndex = 0; slotIndex < safeTargetCount; slotIndex += 1) {
+            const item = orderedPlanItems[slotIndex % orderedPlanItems.length];
+            const key = resolveObjectivePlanItemKey(item);
+            if (!key) continue;
+            desiredCountByPlanItem.set(key, Number(desiredCountByPlanItem.get(key) || 0) + 1);
+        }
+
+        return orderedPlanItems
+            .map((item) => {
+                const planItemKey = resolveObjectivePlanItemKey(item);
+                const outcome = outcomeByKey.get(normalizeOutcomeKey(item?.outcomeKey));
+                return {
+                    planItemKey,
+                    outcomeKey: normalizeOutcomeKey(item?.outcomeKey),
+                    bloomLevel: normalizeBloomLevel(outcome?.bloomLevel || ""),
+                    objective: String(outcome?.objective || "").trim(),
+                    evidenceFocus: String(outcome?.evidenceFocus || "").trim(),
+                    desiredCount: Number(desiredCountByPlanItem.get(planItemKey) || 0),
+                    questionType: normalizeQuestionType(item?.targetType || item?.questionType),
+                    targetType: normalizeQuestionType(item?.targetType || item?.questionType),
+                    targetOp: String(item?.targetOp || "").trim().toLowerCase() || undefined,
+                    targetTier: Number(item?.targetTier || 0) || undefined,
+                    targetDifficulty: String(item?.targetDifficulty || "").trim().toLowerCase() || undefined,
+                    subClaimId: String(item?.subClaimId || "").trim() || undefined,
+                    sourceSubClaimIds: Array.isArray(item?.compositeClaimIds)
+                        ? [String(item?.subClaimId || "").trim(), ...item.compositeClaimIds.map((value) => String(value || "").trim())].filter(Boolean)
+                        : undefined,
+                    promptSeed: String(item?.promptSeed || "").trim() || undefined,
+                    retryStrategy: String(item?.retryStrategy || "").trim().toLowerCase() || undefined,
+                    feedbackInjection: String(item?.feedbackInjection || "").trim() || undefined,
+                    priority: Number(item?.priority || 0),
+                };
+            })
+            .filter((target) => target.planItemKey && target.desiredCount > 0);
+    }
+
     const activePlan = normalizedFormat === "essay"
         ? blueprint?.essayPlan
         : (
@@ -64,7 +196,7 @@ const buildCoverageTargets = ({ blueprint, examFormat, targetCount }) => {
     }).filter((target) => target.desiredCount > 0);
 };
 
-const buildCurrentCoverageCounts = ({ questions, examFormat }) => {
+const buildCurrentCoverageCounts = ({ blueprint, questions, examFormat }) => {
     const normalizedFormat = resolveRequestedExamFormat(examFormat);
     const items = Array.isArray(questions) ? questions : [];
     const countByOutcome = new Map();
@@ -75,6 +207,45 @@ const buildCurrentCoverageCounts = ({ questions, examFormat }) => {
             ? questionType === "essay"
             : questionType !== "essay";
         if (!matchesFormat) continue;
+
+        if (normalizedFormat === "essay" && questionType === "essay") {
+            const matchedEssayPlanItem = resolveEssayPlanItemForQuestion({
+                blueprint,
+                question,
+            });
+            const essayPlanItemKey = resolveEssayPlanItemKey(matchedEssayPlanItem);
+            if (essayPlanItemKey) {
+                const existing = countByOutcome.get(essayPlanItemKey) || {
+                    count: 0,
+                    bloomLevel: normalizeBloomLevel(question?.bloomLevel || ""),
+                };
+                countByOutcome.set(essayPlanItemKey, {
+                    count: Number(existing.count || 0) + 1,
+                    bloomLevel: existing.bloomLevel || normalizeBloomLevel(question?.bloomLevel || ""),
+                });
+                continue;
+            }
+        }
+
+        if (normalizedFormat !== "essay" && questionType !== "essay") {
+            const matchedPlanItem = resolveObjectivePlanItemForQuestion({
+                blueprint,
+                questionType,
+                question,
+            });
+            const planItemKey = resolveObjectivePlanItemKey(matchedPlanItem);
+            if (planItemKey) {
+                const existing = countByOutcome.get(planItemKey) || {
+                    count: 0,
+                    bloomLevel: normalizeBloomLevel(question?.bloomLevel || ""),
+                };
+                countByOutcome.set(planItemKey, {
+                    count: Number(existing.count || 0) + 1,
+                    bloomLevel: existing.bloomLevel || normalizeBloomLevel(question?.bloomLevel || ""),
+                });
+                continue;
+            }
+        }
 
         const outcomeKey = normalizeOutcomeKey(question?.outcomeKey);
         const bloomLevel = normalizeBloomLevel(question?.bloomLevel || "");
@@ -120,12 +291,14 @@ export const computeQuestionCoverageGaps = ({
     }
 
     const currentCoverage = buildCurrentCoverageCounts({
+        blueprint,
         questions,
         examFormat: normalizedFormat,
     });
 
     const gaps = coverageTargets.map((target) => {
-        const currentCount = Number(currentCoverage.get(target.outcomeKey)?.count || 0);
+        const coverageKey = target.planItemKey || target.outcomeKey;
+        const currentCount = Number(currentCoverage.get(coverageKey)?.count || 0);
         const gapCount = Math.max(0, target.desiredCount - currentCount);
         return {
             ...target,
@@ -145,15 +318,24 @@ export const computeQuestionCoverageGaps = ({
     while (gapSlots.length < totalGapCount) {
         let progressed = false;
         for (const gap of gaps) {
+            const coverageKey = gap.planItemKey || gap.outcomeKey;
             const currentGapCountForOutcome = gapSlots.filter(
-                (slot) => slot.outcomeKey === gap.outcomeKey
+                (slot) => (slot.planItemKey || slot.outcomeKey) === coverageKey
             ).length;
             if (currentGapCountForOutcome < gap.gapCount) {
                 gapSlots.push({
+                    planItemKey: gap.planItemKey,
                     outcomeKey: gap.outcomeKey,
                     bloomLevel: gap.bloomLevel,
                     objective: gap.objective,
                     evidenceFocus: gap.evidenceFocus,
+                    questionType: gap.questionType,
+                    targetType: gap.targetType,
+                    targetOp: gap.targetOp,
+                    targetTier: gap.targetTier,
+                    targetDifficulty: gap.targetDifficulty,
+                    subClaimId: gap.subClaimId,
+                    priority: gap.priority,
                 });
                 progressed = true;
             }
@@ -192,11 +374,12 @@ export const selectCoverageGapTargets = ({
 
     const countsByOutcome = new Map();
     for (const slot of gapSlots.slice(0, safeRequestedCount)) {
-        const prior = countsByOutcome.get(slot.outcomeKey) || {
+        const coverageKey = slot.planItemKey || slot.outcomeKey;
+        const prior = countsByOutcome.get(coverageKey) || {
             ...slot,
             requestedCount: 0,
         };
-        countsByOutcome.set(slot.outcomeKey, {
+        countsByOutcome.set(coverageKey, {
             ...prior,
             requestedCount: Number(prior.requestedCount || 0) + 1,
         });

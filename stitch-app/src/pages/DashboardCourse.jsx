@@ -1,6 +1,6 @@
 import React, { useRef, useState, useCallback } from 'react';
 import { Link, useParams } from 'react-router-dom';
-import { useQuery, useMutation, useAction } from 'convex/react';
+import { useQuery, useMutation, useAction, useConvexAuth } from 'convex/react';
 import { api } from '../../convex/_generated/api';
 import { useAuth } from '../contexts/AuthContext';
 import { resolveTopicIllustrationUrl } from '../lib/topicIllustration';
@@ -13,6 +13,9 @@ const FILE_TYPE_ICONS = {
     pptx: 'slideshow',
     docx: 'description',
 };
+
+const buildObjectiveExamRoute = (topicId) =>
+    topicId ? `/dashboard/exam/${topicId}?autostart=mcq` : '/dashboard';
 
 function formatFileSize(bytes) {
     if (!bytes) return '';
@@ -199,37 +202,23 @@ const SourcesPanel = ({ courseId, userId }) => {
 
 const EMPTY_LIST = [];
 
+const estimateReadingMinutes = (content) => {
+    if (!content) return null;
+    const words = content.split(/\s+/).length;
+    return Math.max(1, Math.ceil(words / 200));
+};
+
 const DashboardCourse = () => {
     const { courseId } = useParams();
     const { user } = useAuth();
     const userId = user?.id;
+    const { isAuthenticated: isConvexAuthenticated } = useConvexAuth();
 
-    const resetCourseScrollPosition = React.useCallback(() => {
-        if (typeof document !== 'undefined') {
-            const main = document.getElementById('dashboard-main');
-            if (main && typeof main.scrollTo === 'function') {
-                main.scrollTo({ top: 0, left: 0, behavior: 'auto' });
-            } else if (main) {
-                main.scrollTop = 0;
-            }
-        }
-        if (typeof window !== 'undefined') {
-            window.scrollTo({ top: 0, left: 0, behavior: 'auto' });
-        }
-    }, []);
-
-    React.useLayoutEffect(() => {
-        resetCourseScrollPosition();
-        if (typeof window === 'undefined') return undefined;
-
-        const frame = window.requestAnimationFrame(() => {
-            resetCourseScrollPosition();
-        });
-
-        return () => {
-            window.cancelAnimationFrame(frame);
-        };
-    }, [courseId, resetCourseScrollPosition]);
+    React.useEffect(() => {
+        const main = document.getElementById('dashboard-main');
+        if (main) main.scrollTop = 0;
+        window.scrollTo({ top: 0, left: 0, behavior: 'auto' });
+    }, [courseId]);
 
     const courseData = useQuery(
         api.courses.getCourseWithTopics,
@@ -249,6 +238,14 @@ const DashboardCourse = () => {
 
     const displayCourse = courseData || latestCourseTopics || course;
     const topics = Array.isArray(displayCourse?.topics) ? displayCourse.topics : EMPTY_LIST;
+    const finalAssessmentTopics = Array.isArray(displayCourse?.finalAssessmentTopics)
+        ? displayCourse.finalAssessmentTopics
+        : EMPTY_LIST;
+    const resolvedCourseId = displayCourse?._id;
+    const courseProgress = useQuery(
+        api.topics.getUserCourseProgress,
+        resolvedCourseId && isConvexAuthenticated ? { courseId: resolvedCourseId } : 'skip'
+    );
     const upload = useQuery(
         api.uploads.getUpload,
         displayCourse?.uploadId ? { uploadId: displayCourse.uploadId } : 'skip'
@@ -274,6 +271,9 @@ const DashboardCourse = () => {
     );
     const backgroundGenerationMessage = (() => {
         if (!backgroundGenerationActive) return '';
+        if (upload?.processingStep === 'generating_question_bank') {
+            return 'Generating question banks in the background. You can keep studying while this completes.';
+        }
         if (
             upload?.processingStep === 'generating_first_topic' ||
             upload?.processingStep === 'first_topic_ready' ||
@@ -350,9 +350,52 @@ const DashboardCourse = () => {
                         <h1 className="text-display-sm text-text-main-light dark:text-text-main-dark mb-2">
                             Creating your course
                         </h1>
-                        <p className="text-body-sm text-text-sub-light dark:text-text-sub-dark max-w-md mx-auto">
+                        <p className="text-body-sm text-text-sub-light dark:text-text-sub-dark max-w-md mx-auto mb-6">
                             Analyzing your materials and building personalized lessons. This may take a few minutes.
                         </p>
+
+                        {/* Progressive generation steps */}
+                        {(() => {
+                            const steps = [
+                                { key: 'extracting', label: 'Extracting content', icon: 'upload_file' },
+                                { key: 'analyzing', label: 'Analyzing materials', icon: 'analytics' },
+                                { key: 'generating_topics', label: 'Outlining topics', icon: 'list_alt' },
+                                { key: 'generating_first_topic', label: 'Building first lesson', icon: 'auto_stories' },
+                                { key: 'first_topic_ready', label: 'First topic ready', icon: 'check_circle' },
+                                { key: 'generating_remaining_topics', label: 'Generating remaining topics', icon: 'pending' },
+                                { key: 'generating_question_bank', label: 'Creating practice questions', icon: 'quiz' },
+                                { key: 'ready', label: 'All done', icon: 'task_alt' },
+                            ];
+                            const currentStep = upload?.processingStep || 'extracting';
+                            const currentIdx = steps.findIndex(s => s.key === currentStep);
+                            return (
+                                <div className="max-w-xs mx-auto space-y-2">
+                                    {steps.slice(0, Math.max(currentIdx + 2, 4)).map((step, i) => {
+                                        const isDone = i < currentIdx;
+                                        const isActive = i === currentIdx;
+                                        return (
+                                            <div key={step.key} className={`flex items-center gap-3 px-3 py-2 rounded-lg transition-all ${
+                                                isActive ? 'bg-primary/10 border border-primary/20' : isDone ? 'opacity-60' : 'opacity-30'
+                                            }`}>
+                                                <span className={`material-symbols-outlined text-[18px] ${
+                                                    isDone ? 'text-accent-emerald' : isActive ? 'text-primary' : 'text-text-faint-light dark:text-text-faint-dark'
+                                                }`} style={isDone ? { fontVariationSettings: "'FILL' 1" } : undefined}>
+                                                    {isDone ? 'check_circle' : step.icon}
+                                                </span>
+                                                <span className={`text-body-sm ${
+                                                    isActive ? 'font-semibold text-text-main-light dark:text-text-main-dark' : 'text-text-sub-light dark:text-text-sub-dark'
+                                                }`}>
+                                                    {step.label}
+                                                </span>
+                                                {isActive && (
+                                                    <span className="material-symbols-outlined text-[14px] text-primary animate-spin ml-auto">sync</span>
+                                                )}
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            );
+                        })()}
                     </div>
                 ) : (
                     <>
@@ -410,6 +453,51 @@ const DashboardCourse = () => {
                 />
             )}
 
+            {!isProcessing && finalAssessmentTopics.length > 0 && (
+                <div className="mb-6">
+                    <div className="flex items-center gap-2 mb-3">
+                        <span className="material-symbols-outlined text-primary text-[18px]">workspace_premium</span>
+                        <h2 className="text-body-base font-semibold text-text-main-light dark:text-text-main-dark">
+                            Final Exam
+                        </h2>
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                        {finalAssessmentTopics.map((topic) => {
+                            const progress = courseProgress?.[topic._id];
+                            return (
+                                <div key={topic._id} className="card-base p-5 border-primary/20 bg-primary/5 dark:bg-primary/10">
+                                    <div className="flex items-center justify-between gap-3 mb-2">
+                                        <span className="badge badge-primary gap-1">
+                                            <span className="material-symbols-outlined text-[11px]">quiz</span>
+                                            Comprehensive
+                                        </span>
+                                        {progress?.bestScore != null && (
+                                            <span className={`badge gap-1 ${progress.bestScore >= 80 ? 'badge-success' : progress.bestScore >= 60 ? 'badge-warning' : 'badge-danger'}`}>
+                                                {progress.bestScore}%
+                                            </span>
+                                        )}
+                                    </div>
+                                    <h3 className="text-body-lg font-semibold text-text-main-light dark:text-text-main-dark mb-1">
+                                        {topic.title}
+                                    </h3>
+                                    <p className="text-body-sm text-text-sub-light dark:text-text-sub-dark mb-4">
+                                        {topic.description || 'This exam combines the most important concepts across the document.'}
+                                    </p>
+                                    <Link
+                                        to={buildObjectiveExamRoute(topic._id)}
+                                        reloadDocument
+                                        className="btn-primary w-full py-2 text-body-sm justify-center gap-1.5"
+                                    >
+                                        <span className="material-symbols-outlined text-[16px]">play_arrow</span>
+                                        {progress?.bestScore != null ? 'Retake Final Exam' : 'Start Final Exam'}
+                                    </Link>
+                                </div>
+                            );
+                        })}
+                    </div>
+                </div>
+            )}
+
             {/* Topics Grid */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
                 {syllabusItems.length > 0 ? (
@@ -441,35 +529,141 @@ const DashboardCourse = () => {
 
                         const topic = item.topic;
                         const topicIllustrationUrl = resolveTopicIllustrationUrl(topic.illustrationUrl);
+                        const progress = courseProgress?.[topic._id];
+                        const isCompleted = Boolean(progress?.completedAt);
+                        const isStarted = Boolean(progress) && !isCompleted;
+                        const readMins = estimateReadingMinutes(topic.content);
+                        const mcqCount = typeof topic.usableMcqCount === 'number' ? topic.usableMcqCount : 0;
+                        const assessmentRoute = topic.assessmentRoute || 'topic_quiz';
+                        const routeBadge = assessmentRoute === 'topic_quiz'
+                            ? { label: 'Quiz Ready', className: 'badge-success' }
+                            : { label: 'Final Exam', className: 'badge-primary' };
+
+                        // Smart badges
+                        const isExamHeavy = mcqCount >= 15;
+                        const isFoundational = item.index === 0;
+                        const isEasyWin = readMins && readMins <= 5 && !isCompleted;
+
+                        // Status + CTA
+                        const statusConfig = isCompleted
+                            ? { icon: 'check_circle', fill: true, color: 'text-accent-emerald', label: 'Completed', cta: 'Review', ctaClass: 'btn-secondary' }
+                            : isStarted
+                                ? { icon: 'pending', fill: false, color: 'text-primary', label: 'In progress', cta: 'Continue', ctaClass: 'btn-primary' }
+                                : { icon: 'radio_button_unchecked', fill: false, color: 'text-text-faint-light dark:text-text-faint-dark', label: 'Ready', cta: 'Start', ctaClass: 'btn-primary' };
+
                         return (
-                            <Link
+                            <div
                                 key={topic._id}
-                                to={`/dashboard/topic/${topic._id}`}
-                                className="card-interactive p-0 overflow-hidden"
+                                className="card-base p-0 overflow-hidden flex flex-col"
                             >
-                                <div className="h-32 overflow-hidden">
-                                    <img
-                                        src={topicIllustrationUrl}
-                                        alt={`${topic.title} illustration`}
-                                        loading="lazy"
-                                        className="h-full w-full object-cover group-hover:scale-105 transition-transform duration-300"
-                                    />
-                                </div>
-                                <div className="p-4">
-                                    <div className="flex items-center justify-between mb-2">
+                                <Link to={`/dashboard/topic/${topic._id}`} className="block group">
+                                    <div className="h-32 overflow-hidden relative">
+                                        <img
+                                            src={topicIllustrationUrl}
+                                            alt={`${topic.title} illustration`}
+                                            loading="lazy"
+                                            className="h-full w-full object-cover group-hover:scale-105 transition-transform duration-300"
+                                        />
+                                        {/* Status pill overlay */}
+                                        <div className="absolute top-2.5 right-2.5">
+                                            <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold backdrop-blur-sm ${
+                                                isCompleted
+                                                    ? 'bg-accent-emerald/90 text-white'
+                                                    : isStarted
+                                                        ? 'bg-primary/90 text-white'
+                                                        : 'bg-black/50 text-white/90'
+                                            }`}>
+                                                <span className="material-symbols-outlined text-[12px]" style={statusConfig.fill ? { fontVariationSettings: "'FILL' 1" } : undefined}>
+                                                    {statusConfig.icon}
+                                                </span>
+                                                {statusConfig.label}
+                                            </span>
+                                        </div>
+                                    </div>
+                                </Link>
+                                <div className="p-4 flex flex-col flex-1">
+                                    <div className="flex items-center justify-between mb-1.5">
                                         <span className="text-overline text-text-faint-light dark:text-text-faint-dark">
                                             Topic {item.index + 1}
                                         </span>
-                                        <span className="material-symbols-outlined text-accent-emerald text-[14px]">check_circle</span>
+                                        <div className="flex items-center gap-1">
+                                            {isFoundational && (
+                                                <span className="badge badge-primary gap-0.5 text-[9px]">
+                                                    <span className="material-symbols-outlined text-[10px]">foundation</span>
+                                                    Foundational
+                                                </span>
+                                            )}
+                                            {isExamHeavy && (
+                                                <span className="badge badge-warning gap-0.5 text-[9px]">
+                                                    <span className="material-symbols-outlined text-[10px]">quiz</span>
+                                                    Exam-heavy
+                                                </span>
+                                            )}
+                                            {isEasyWin && (
+                                                <span className="badge badge-success gap-0.5 text-[9px]">
+                                                    <span className="material-symbols-outlined text-[10px]">bolt</span>
+                                                    Easy win
+                                                </span>
+                                            )}
+                                        </div>
                                     </div>
-                                    <h3 className="text-body-base font-semibold text-text-main-light dark:text-text-main-dark mb-1 group-hover:text-primary transition-colors line-clamp-2">
-                                        {topic.title}
-                                    </h3>
-                                    <p className="text-caption text-text-sub-light dark:text-text-sub-dark line-clamp-2">
+                                    <Link to={`/dashboard/topic/${topic._id}`} className="group">
+                                        <h3 className="text-body-base font-semibold text-text-main-light dark:text-text-main-dark mb-1 group-hover:text-primary transition-colors line-clamp-2">
+                                            {topic.title}
+                                        </h3>
+                                    </Link>
+                                    <p className="text-caption text-text-sub-light dark:text-text-sub-dark line-clamp-2 mb-3">
                                         {topic.description || `Master the key concepts of ${topic.title}.`}
                                     </p>
+                                    {/* Metadata row */}
+                                    <div className="flex items-center gap-1.5 flex-wrap mb-3">
+                                        <span className={`badge gap-1 ${routeBadge.className}`}>
+                                            <span className="material-symbols-outlined text-[11px]">task_alt</span>
+                                            {routeBadge.label}
+                                        </span>
+                                        {readMins && (
+                                            <span className="badge gap-1">
+                                                <span className="material-symbols-outlined text-[11px]">schedule</span>
+                                                {readMins}m
+                                            </span>
+                                        )}
+                                        {mcqCount > 0 && (
+                                            <span className="badge gap-1">
+                                                <span className="material-symbols-outlined text-[11px]">quiz</span>
+                                                {mcqCount}q
+                                            </span>
+                                        )}
+                                        {progress?.bestScore != null && (
+                                            <span className={`badge gap-1 ${progress.bestScore >= 80 ? 'badge-success' : progress.bestScore >= 60 ? 'badge-warning' : 'badge-danger'}`}>
+                                                {progress.bestScore}%
+                                            </span>
+                                        )}
+                                    </div>
+                                    {/* Progress bar */}
+                                    {progress?.bestScore != null && (
+                                        <div className="h-1 bg-border-light dark:bg-border-dark rounded-full overflow-hidden mb-3">
+                                            <div
+                                                className={`h-full rounded-full transition-all duration-500 ${
+                                                    progress.bestScore >= 80 ? 'bg-accent-emerald' : progress.bestScore >= 60 ? 'bg-accent-amber' : 'bg-red-500'
+                                                }`}
+                                                style={{ width: `${progress.bestScore}%` }}
+                                            />
+                                        </div>
+                                    )}
+                                    {/* Primary CTA */}
+                                    <div className="mt-auto pt-1">
+                                        <Link
+                                            to={`/dashboard/topic/${topic._id}`}
+                                            className={`${statusConfig.ctaClass} w-full py-2 text-body-sm justify-center gap-1.5`}
+                                        >
+                                            <span className="material-symbols-outlined text-[16px]">
+                                                {isCompleted ? 'replay' : isStarted ? 'play_arrow' : 'arrow_forward'}
+                                            </span>
+                                            {statusConfig.cta}
+                                        </Link>
+                                    </div>
                                 </div>
-                            </Link>
+                            </div>
                         );
                     })
                 ) : (

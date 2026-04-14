@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
-import { useQuery, useAction } from 'convex/react';
+import { useQuery, useAction, useMutation } from 'convex/react';
 import { api } from '../../convex/_generated/api';
 import { useAuth } from '../contexts/AuthContext';
 import { useStudyTimer } from '../hooks/useStudyTimer';
@@ -13,6 +13,10 @@ import TopicNotesPanel from '../components/TopicNotesPanel';
 import TopicChatPanel from '../components/TopicChatPanel';
 import HighlightExplainPopover from '../components/HighlightExplainPopover';
 import LessonContentRenderer from '../components/LessonContentRenderer';
+import StudyModeSelector from '../components/StudyModeSelector';
+import SourcePanel from '../components/SourcePanel';
+import NextStepsGuidance from '../components/NextStepsGuidance';
+import GuidedStudyPath from '../components/GuidedStudyPath';
 import { useTextSelection } from '../hooks/useTextSelection';
 import {
     SECTION_TITLE_PATTERN,
@@ -24,8 +28,6 @@ import {
     slugifyText,
 } from '../lib/topicContentFormatting';
 import { resolveTopicIllustrationUrl } from '../lib/topicIllustration';
-import { buildConceptPracticePath } from '../lib/conceptReviewLinks';
-import { captureSentryMessage } from '../lib/sentry';
 
 // ── Pure rendering helpers (hoisted out of the component to avoid re-creation) ──
 
@@ -48,6 +50,18 @@ const isReExplainQuotaExceededError = (error) => {
     return message.includes('REEXPLAIN_QUOTA_EXCEEDED');
 };
 
+const SECTION_SETS = {
+    quick_revision: ['big idea', 'key ideas', 'key ideas in simple words', 'key ideas in plain english', 'simple introduction', 'quick check', 'summary'],
+    exam_prep: ['key ideas', 'key ideas in simple words', 'key ideas in plain english', 'common mistakes', 'common mistakes and misconceptions', 'worked example', 'worked examples', 'mini worked example', 'quick check', 'summary'],
+    practice_only: ['quick check', 'self-check', 'self-check prompts'],
+    full: null,
+};
+
+const buildObjectiveExamRoute = (examTopicId) =>
+    examTopicId ? `/dashboard/exam/${examTopicId}?autostart=mcq` : '/dashboard';
+const buildEssayExamRoute = (examTopicId) =>
+    examTopicId ? `/dashboard/exam/${examTopicId}?autostart=essay` : '/dashboard';
+
 const TopicDetail = () => {
     const { topicId: topicIdParam } = useParams();
     const routeTopicId = typeof topicIdParam === 'string' ? topicIdParam.trim() : '';
@@ -55,8 +69,6 @@ const TopicDetail = () => {
     useStudyTimer(user?.id);
     const synthesizeTopicVoice = useAction(api.ai.synthesizeTopicVoice);
     const reExplainTopic = useAction(api.ai.reExplainTopic);
-    const [startingExam, setStartingExam] = useState(false);
-    const [startExamError, setStartExamError] = useState('');
     const [reExplainOpen, setReExplainOpen] = useState(false);
     const [reExplainStyle, setReExplainStyle] = useState("Teach me like I'm 12");
     const [reExplainLoading, setReExplainLoading] = useState(false);
@@ -72,10 +84,17 @@ const TopicDetail = () => {
     const [notesOpen, setNotesOpen] = useState(false);
     const [notesAppendText, setNotesAppendText] = useState('');
     const [chatOpen, setChatOpen] = useState(false);
-    const conceptFallbackReportedRef = useRef('');
+    const [sourceOpen, setSourceOpen] = useState(false);
+    const [studyMode, setStudyMode] = useState(null);
 
+    const [chatInitialPrompt, setChatInitialPrompt] = useState('');
     const openNotes = useCallback(() => { setChatOpen(false); setNotesOpen(true); }, []);
-    const openChat = useCallback(() => { setNotesOpen(false); setChatOpen(true); }, []);
+    const openChat = useCallback(() => { setChatInitialPrompt(''); setNotesOpen(false); setChatOpen(true); }, []);
+    const handleAskTutor = useCallback((prompt) => {
+        setChatInitialPrompt(prompt);
+        setNotesOpen(false);
+        setChatOpen(true);
+    }, []);
     const contentRef = useRef(null);
     const mainRef = useRef(null);
     const { selection, clearSelection } = useTextSelection(contentRef);
@@ -98,57 +117,23 @@ const TopicDetail = () => {
         isMissingRouteTopic,
     } = useRouteResolvedTopic(routeTopicId, topicQueryResult);
     const courseId = topic?.courseId;
-    const conceptMastery = useQuery(
-        api.concepts.getConceptMasteryForTopic,
-        topicId ? { topicId } : 'skip'
+    const finalAssessmentTopic = useQuery(
+        api.topics.getFinalAssessmentTopicByCourseAndUpload,
+        courseId && topic?.sourceUploadId ? { courseId, sourceUploadId: topic.sourceUploadId } : 'skip'
     );
-    const topicConceptPracticePath = useMemo(
-        () => buildConceptPracticePath(topicId, []),
-        [topicId]
-    );
-    const topicConceptReviewPath = useMemo(
-        () => buildConceptPracticePath(topicId, conceptMastery?.reviewConceptKeys || []),
-        [conceptMastery?.reviewConceptKeys, topicId]
-    );
-
-    useEffect(() => {
-        if (!topicId || conceptMastery?.source !== 'attempt_fallback') {
-            return;
-        }
-
-        const reportKey = `${topicId}:${conceptMastery.reviewConceptKeys?.join(',') || ''}`;
-        if (conceptFallbackReportedRef.current === reportKey) {
-            return;
-        }
-        conceptFallbackReportedRef.current = reportKey;
-
-        captureSentryMessage('Topic review CTA using concept-attempt fallback', {
-            level: 'warning',
-            tags: {
-                area: 'concept_practice',
-                page: 'topic_detail',
-                fallbackSource: 'attempt_fallback',
-            },
-            extras: {
-                topicId,
-                topicTitle: topic?.title || '',
-                totalConcepts: conceptMastery?.totalConcepts || 0,
-                dueCount: conceptMastery?.dueCount || 0,
-                reviewConceptKeys: conceptMastery?.reviewConceptKeys || [],
-            },
-        });
-    }, [
-        conceptMastery?.dueCount,
-        conceptMastery?.reviewConceptKeys,
-        conceptMastery?.source,
-        conceptMastery?.totalConcepts,
-        topic?.title,
-        topicId,
-    ]);
     const voiceModeEnabled = Boolean(profile?.voiceModeEnabled);
     const voiceQuota = useQuery(
         api.subscriptions.getVoiceGenerationQuotaStatus,
         user?.id ? {} : 'skip'
+    );
+    const topicProgress = useQuery(
+        api.topics.getUserTopicProgress,
+        topicId ? { topicId } : 'skip'
+    );
+    const upsertProgress = useMutation(api.topics.upsertTopicProgress);
+    const sourcePassages = useQuery(
+        api.topics.getTopicSourcePassages,
+        sourceOpen && topicId ? { topicId } : 'skip'
     );
     const isVoicePremium = Boolean(voiceQuota?.isPremium);
     const storageKey = topicId ? `topicOverride:${topicId}` : null;
@@ -229,6 +214,16 @@ const TopicDetail = () => {
         }
     }, [contentCacheKey, topic?.content]);
 
+    useEffect(() => {
+        setStudyMode(null);
+    }, [routeTopicId]);
+
+
+    // Track topic study progress on mount
+    useEffect(() => {
+        if (!topicId || !user?.id) return;
+        upsertProgress({ topicId, lastStudiedAt: Date.now() }).catch(() => {});
+    }, [topicId, user?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
     const content = overrideContent || topic?.content || cachedContent;
     const normalizedContent = useMemo(() => {
@@ -563,26 +558,178 @@ const TopicDetail = () => {
             blocks.push({ type: 'paragraph', text: raw, key: `p-${i}` });
         }
 
-        return { blocks, toc };
+        // ── Second pass: section-aware block enrichment ──
+        const quickCheckPairs = [];
+        const wordBankTerms = [];
+        let currentSection = '';
+
+        const detectMistakeLabel = (text) => {
+            if (/(exam|test|paper)/i.test(text)) return 'Exam Trap';
+            if (/(confuse|similar|mix|same as)/i.test(text)) return 'Do Not Mix Up';
+            if (/(common|often|many|students)/i.test(text)) return 'Common Confusion';
+            return null;
+        };
+
+        for (let b = 0; b < blocks.length; b++) {
+            const block = blocks[b];
+            if (block.type === 'header') {
+                currentSection = block.text.toLowerCase().replace(/[^a-z\s]/g, '').trim();
+                continue;
+            }
+
+            // Quick Check: collect Q/A pairs from numbered blocks
+            if (currentSection.includes('quick check') && block.type === 'numbered') {
+                const qMatch = block.text.match(/^\*\*Q:\*\*\s*(.+)/);
+                if (qMatch) {
+                    const next = blocks[b + 1];
+                    const aMatch = next?.text?.match(/^\*\*A:\*\*\s*(.+)/);
+                    if (aMatch) {
+                        const pair = {
+                            questionText: qMatch[1].trim(),
+                            answerText: aMatch[1].trim(),
+                            key: `qc-${b}`,
+                        };
+                        quickCheckPairs.push(pair);
+                        block.type = 'quickcheck_hidden';
+                        next.type = 'quickcheck_hidden';
+                        b += 1; // skip answer line
+                    }
+                }
+            }
+
+            // Word Bank: collect term/definition from bullets
+            if ((currentSection.includes('word bank') || currentSection.includes('glossary') || currentSection.includes('quick glossary'))
+                && block.type === 'bullet') {
+                const termMatch = block.text.match(/^(.+?)\s+[—–-]\s+(.+)$/);
+                if (termMatch) {
+                    wordBankTerms.push({
+                        term: termMatch[1].replace(/\*\*/g, '').trim(),
+                        definition: termMatch[2].trim(),
+                        key: `wb-${b}`,
+                    });
+                    block.type = 'wordbank_hidden';
+                }
+            }
+
+            // Analogies: convert numbered items to analogy cards
+            if ((currentSection.includes('analog') || currentSection.includes('everyday analog'))
+                && block.type === 'numbered') {
+                const analogyMatch = block.text.match(/^\*\*(.+?):\*\*\s*(.+)/);
+                if (analogyMatch) {
+                    block.type = 'analogycard';
+                    block.label = analogyMatch[1].trim();
+                    block.text = analogyMatch[2].trim();
+                }
+            }
+
+            // Common Mistakes: add labels to bullets
+            if ((currentSection.includes('common mistake') || currentSection.includes('misconception'))
+                && block.type === 'bullet') {
+                block.type = 'mistake';
+                block.label = detectMistakeLabel(block.text);
+            }
+        }
+
+        const wordCount = normalizedContent
+            ? normalizedContent.replace(/[#>*_`~-]/g, ' ').split(/\s+/).filter(Boolean).length
+            : 0;
+        const readingMinutes = Math.max(1, Math.ceil(wordCount / 200));
+
+        return { blocks, toc, readingMinutes, quickCheckPairs, wordBankTerms };
     }, [normalizedContent]);
 
-    const handleStartExam = async () => {
-        if (!topicId) {
-            setStartExamError('Topic not found. Please return to the dashboard and try again.');
-            return;
+    // Section filtering by study mode
+    const filteredBlocks = useMemo(() => {
+        if (!studyMode || studyMode === 'full' || !SECTION_SETS[studyMode]) return parsed.blocks;
+        const allowed = SECTION_SETS[studyMode];
+        let include = false;
+        return parsed.blocks.filter((block) => {
+            if (block.type === 'header') {
+                const normalized = block.text.toLowerCase().replace(/[^a-z\s]/g, '').trim();
+                include = allowed.some(s => normalized.includes(s));
+                return include; // always show allowed section headers
+            }
+            return include;
+        });
+    }, [parsed.blocks, studyMode]);
+
+    const displayBlocks = useMemo(() => {
+        const blocksWithWidgets = [];
+        let insertedQuickCheck = false;
+        let insertedWordBank = false;
+
+        for (const block of filteredBlocks) {
+            blocksWithWidgets.push(block);
+
+            if (block.type !== 'header') {
+                continue;
+            }
+
+            const normalized = block.text.toLowerCase().replace(/[^a-z\s]/g, '').trim();
+
+            if (
+                !insertedQuickCheck &&
+                parsed.quickCheckPairs?.length > 0 &&
+                normalized.includes('quick check')
+            ) {
+                blocksWithWidgets.push({
+                    type: 'quickcheck_widget',
+                    key: `${block.key}-quickcheck-widget`,
+                });
+                insertedQuickCheck = true;
+            }
+
+            if (
+                !insertedWordBank &&
+                parsed.wordBankTerms?.length > 0 &&
+                (normalized.includes('word bank') || normalized.includes('glossary'))
+            ) {
+                blocksWithWidgets.push({
+                    type: 'wordbank_widget',
+                    key: `${block.key}-wordbank-widget`,
+                });
+                insertedWordBank = true;
+            }
         }
 
-        setStartExamError('');
-        setStartingExam(true);
-
-        try {
-            navigate(`/dashboard/exam/${topicId}`);
-        } catch {
-            setStartExamError('Failed to start the exam. Please try again.');
-        } finally {
-            setStartingExam(false);
+        if (!insertedQuickCheck && parsed.quickCheckPairs?.length > 0) {
+            blocksWithWidgets.push({
+                type: 'quickcheck_widget',
+                key: 'quickcheck-widget-fallback',
+            });
         }
-    };
+
+        if (!insertedWordBank && parsed.wordBankTerms?.length > 0) {
+            blocksWithWidgets.push({
+                type: 'wordbank_widget',
+                key: 'wordbank-widget-fallback',
+            });
+        }
+
+        return blocksWithWidgets;
+    }, [filteredBlocks, parsed.quickCheckPairs, parsed.wordBankTerms]);
+
+    const assessmentRoute = topic?.assessmentRoute || 'topic_quiz';
+    const isTopicQuizRoute = assessmentRoute === 'topic_quiz' || topic?.topicKind === 'document_final_exam';
+    const examTopicId = isTopicQuizRoute
+        ? topicId
+        : (finalAssessmentTopic?._id || null);
+    const objectiveExamRoute = buildObjectiveExamRoute(examTopicId);
+    const essayExamRoute = buildEssayExamRoute(examTopicId);
+    const topicAssessmentBadge = isTopicQuizRoute ? 'Quiz Ready' : 'Covered in Final Exam';
+    const objectiveExamActionLabel = isTopicQuizRoute
+        ? (topicProgress?.bestScore != null ? 'Retry Objective Quiz' : 'Start Objective Quiz')
+        : (examTopicId ? 'Take Final Objective Quiz' : 'Final Objective Quiz Preparing');
+    const essayExamActionLabel = isTopicQuizRoute
+        ? 'Start Essay'
+        : (examTopicId ? 'Take Final Essay' : 'Final Essay Preparing');
+    const practiceHeading = isTopicQuizRoute ? 'Ready to practice?' : 'Ready for revision?';
+    const practiceDescription = isTopicQuizRoute
+        ? 'Choose the format that fits how you want to test this lesson.'
+        : 'This topic is assessed in the final exam for better question quality.';
+    const postLessonPrompt = isTopicQuizRoute
+        ? 'Pick the next practice format for this topic.'
+        : 'This topic will be assessed in the final exam.';
 
     const handleReExplain = useCallback(async () => {
         if (!topicId) return;
@@ -607,6 +754,16 @@ const TopicDetail = () => {
             setReExplainLoading(false);
         }
     }, [topicId, reExplainStyle, reExplainTopic]);
+
+    const handleStudyModeSelect = useCallback((mode) => {
+        setStudyMode(mode || 'full');
+        if (mainRef.current) mainRef.current.scrollTop = 0;
+        window.scrollTo(0, 0);
+    }, []);
+
+    const handleStudyModeSkip = useCallback(() => {
+        handleStudyModeSelect('full');
+    }, [handleStudyModeSelect]);
 
     if (!routeTopicId) {
         return (
@@ -639,6 +796,35 @@ const TopicDetail = () => {
                     <p className="text-body-sm text-text-sub-light dark:text-text-sub-dark mb-6">Reload the dashboard, reopen the course, and start from the topic card again.</p>
                     <button type="button" onClick={reloadDashboard} className="btn-primary px-5 py-2.5 text-body-sm">Reload Dashboard</button>
                 </div>
+            </div>
+        );
+    }
+
+    if (studyMode === null) {
+        return (
+            <div className="bg-background-light dark:bg-background-dark font-body antialiased text-text-main-light dark:text-text-main-dark min-h-screen flex flex-col overflow-x-hidden">
+                <header className="fixed top-0 inset-x-0 z-40 flex items-center justify-between px-4 h-14 bg-background-light/80 dark:bg-background-dark/80 backdrop-blur-xl border-b border-border-light dark:border-border-dark">
+                    <div className="flex items-center gap-2 min-w-0">
+                        <Link
+                            to={courseId ? `/dashboard/course/${courseId}` : '/dashboard'}
+                            aria-label="Go back"
+                            className="btn-icon w-8 h-8 shrink-0"
+                        >
+                            <span className="material-symbols-outlined text-[18px]">arrow_back</span>
+                        </Link>
+                        <span className="text-body-sm font-medium text-text-sub-light dark:text-text-sub-dark truncate max-w-[200px] sm:max-w-sm">
+                            {headerTopicTitle}
+                        </span>
+                    </div>
+                </header>
+
+                <main className="flex-1 pt-14">
+                    <StudyModeSelector
+                        topicTitle={headerTopicTitle}
+                        onSelect={handleStudyModeSelect}
+                        onSkip={handleStudyModeSkip}
+                    />
+                </main>
             </div>
         );
     }
@@ -680,6 +866,15 @@ const TopicDetail = () => {
             {/* Main content + side panels */}
             <div className="flex-1 flex flex-row pt-14 lg:min-h-0">
             <main ref={mainRef} className={`flex-1 min-w-0 w-full px-4 md:px-8 pt-6 pb-24 md:pb-12 transition-all duration-200 lg:overflow-y-auto`}>
+            {/* Mobile section navigator */}
+            <TopicSidebar
+                normalizedContent={normalizedContent}
+                contentLines={contentLines}
+                toc={parsed.toc}
+                cleanLine={cleanLine}
+                topic={topic}
+                mobileOnly
+            />
             <div className={`mx-auto ${readingMode ? 'max-w-3xl' : 'max-w-6xl'} transition-all duration-200`}>
                 <div className={`grid grid-cols-1 ${readingMode ? '' : 'lg:grid-cols-12'} gap-8`}>
                     {/* Lesson content */}
@@ -700,6 +895,32 @@ const TopicDetail = () => {
                                     className="h-40 w-full object-cover md:h-56"
                                 />
                             </div>
+                        </div>
+
+                        {/* Lesson meta bar */}
+                        <div className="flex items-center gap-3 flex-wrap text-caption text-text-sub-light dark:text-text-sub-dark border-b border-border-light dark:border-border-dark pb-4">
+                            <span className="flex items-center gap-1">
+                                <span className="material-symbols-outlined text-[14px]">schedule</span>
+                                {parsed.readingMinutes} min read
+                            </span>
+                            {topicAssessmentBadge && (
+                                <span className="badge badge-success gap-1">
+                                    <span className="material-symbols-outlined text-[11px]" style={{ fontVariationSettings: "'FILL' 1" }}>verified</span>
+                                    {topicAssessmentBadge}
+                                </span>
+                            )}
+                            {topicProgress?.completedAt && (
+                                <span className="badge badge-success gap-1">
+                                    <span className="material-symbols-outlined text-[11px]" style={{ fontVariationSettings: "'FILL' 1" }}>check_circle</span>
+                                    Completed
+                                </span>
+                            )}
+                            {topicProgress?.bestScore != null && (
+                                <span className="badge gap-1">
+                                    <span className="material-symbols-outlined text-[11px]">emoji_events</span>
+                                    Best: {topicProgress.bestScore}%
+                                </span>
+                            )}
                         </div>
 
                         {/* Toolbar row */}
@@ -746,11 +967,26 @@ const TopicDetail = () => {
                         {/* Lesson body */}
                         <div className="card-base p-6 md:p-8">
                             {normalizedContent ? (
+                                <>
                                 <LessonContentRenderer
-                                    blocks={parsed.blocks}
+                                    blocks={displayBlocks}
                                     shouldAnimateBlocks={shouldAnimateBlocks}
                                     cleanInline={cleanInline}
+                                    onViewSource={() => setSourceOpen(true)}
+                                    onAskTutor={handleAskTutor}
+                                    quickCheckPairs={parsed.quickCheckPairs}
+                                    wordBankTerms={parsed.wordBankTerms}
+                                    topicId={topicId}
+                                    starredTerms={topicProgress?.termsStarred}
+                                    onTermsStarred={(starred) => {
+                                        upsertProgress({
+                                            topicId,
+                                            termsStarred: starred,
+                                            lastStudiedAt: Date.now(),
+                                        }).catch(() => {});
+                                    }}
                                 />
+                                </>
                             ) : (
                                 <div className="flex flex-col items-center justify-center py-16 text-center">
                                     <div className="w-12 h-12 rounded-xl bg-surface-hover-light dark:bg-surface-hover-dark flex items-center justify-center mb-4 animate-pulse">
@@ -761,62 +997,135 @@ const TopicDetail = () => {
                             )}
                         </div>
 
-                        {/* Practice section */}
+                        {/* End-of-lesson CTA */}
                         <div className="card-base p-6 md:p-8 text-center">
-                            <h3 className="text-body-lg font-semibold text-text-main-light dark:text-text-main-dark mb-1">Ready to practice?</h3>
-                            <p className="text-body-sm text-text-sub-light dark:text-text-sub-dark mb-5">Test your understanding with questions from this lesson.</p>
+                            {topicProgress?.completedAt ? (
+                                <>
+                                    {topicProgress.bestScore != null && topicProgress.bestScore >= 80 ? (
+                                        <>
+                                            <div className="flex items-center justify-center gap-2 mb-2">
+                                                <span className="material-symbols-outlined text-accent-emerald text-[24px]" style={{ fontVariationSettings: "'FILL' 1" }}>emoji_events</span>
+                                                <span className="badge badge-success">Mastered</span>
+                                            </div>
+                                            <p className="text-body-sm text-text-sub-light dark:text-text-sub-dark mb-5">Best score: {topicProgress.bestScore}%</p>
+                                        </>
+                                    ) : topicProgress.bestScore != null && topicProgress.bestScore < 60 ? (
+                                        <>
+                                            <h3 className="text-body-lg font-semibold text-text-main-light dark:text-text-main-dark mb-1">Keep going!</h3>
+                                            <p className="text-body-sm text-text-sub-light dark:text-text-sub-dark mb-5">
+                                                <span className="badge badge-warning">{topicProgress.bestScore}%</span> — try the exam again to improve your score.
+                                            </p>
+                                        </>
+                                    ) : (
+                                        <>
+                                            <div className="flex items-center justify-center gap-2 mb-2">
+                                                <span className="material-symbols-outlined text-accent-emerald text-[20px]" style={{ fontVariationSettings: "'FILL' 1" }}>check_circle</span>
+                                            </div>
+                                            <h3 className="text-body-lg font-semibold text-text-main-light dark:text-text-main-dark mb-1">Lesson complete</h3>
+                                            <p className="text-body-sm text-text-sub-light dark:text-text-sub-dark mb-5">{postLessonPrompt}</p>
+                                        </>
+                                    )}
+                                </>
+                            ) : (
+                                <>
+                                    <h3 className="text-body-lg font-semibold text-text-main-light dark:text-text-main-dark mb-1">{practiceHeading}</h3>
+                                    <p className="text-body-sm text-text-sub-light dark:text-text-sub-dark mb-5">{practiceDescription}</p>
+                                </>
+                            )}
 
-                            <div className="flex flex-col sm:flex-row gap-2.5 justify-center">
+                            <div className="flex flex-col sm:flex-row gap-2.5 justify-center flex-wrap">
+                                {!topicProgress?.completedAt && (
+                                    <button
+                                        onClick={() => {
+                                            upsertProgress({ topicId, completedAt: Date.now(), lastStudiedAt: Date.now() }).catch(() => {});
+                                        }}
+                                        className="btn-secondary px-5 py-2.5 text-body-sm gap-2"
+                                    >
+                                        <span className="material-symbols-outlined text-[18px] text-accent-emerald" style={{ fontVariationSettings: "'FILL' 1" }}>check_circle</span>
+                                        Mark Complete
+                                    </button>
+                                )}
                                 <Link
-                                    to={topicConceptPracticePath}
+                                    to={topicId ? `/dashboard/concept-intro/${topicId}` : '/dashboard/concept-intro'}
                                     className="btn-secondary px-5 py-2.5 text-body-sm gap-2"
                                 >
-                                    <span className="material-symbols-outlined text-[18px] text-accent-emerald">school</span>
-                                    Concept Practice
+                                    <span className="material-symbols-outlined text-[18px] text-accent-emerald">edit_note</span>
+                                    Fill-ins
                                 </Link>
+                                {examTopicId ? (
+                                    <>
+                                        <Link
+                                            to={objectiveExamRoute}
+                                            reloadDocument
+                                            className="btn-primary px-5 py-2.5 text-body-sm gap-2"
+                                        >
+                                            <span className="material-symbols-outlined text-[18px]">quiz</span>
+                                            {objectiveExamActionLabel}
+                                        </Link>
+                                        <Link
+                                            to={essayExamRoute}
+                                            reloadDocument
+                                            className="btn-secondary px-5 py-2.5 text-body-sm gap-2"
+                                        >
+                                            <span className="material-symbols-outlined text-[18px]">edit_note</span>
+                                            {essayExamActionLabel}
+                                        </Link>
+                                    </>
+                                ) : (
+                                    <>
+                                        <button
+                                            type="button"
+                                            disabled
+                                            className="btn-primary px-5 py-2.5 text-body-sm gap-2 opacity-60 cursor-not-allowed"
+                                        >
+                                            <span className="material-symbols-outlined text-[18px]">hourglass_top</span>
+                                            {objectiveExamActionLabel}
+                                        </button>
+                                        <button
+                                            type="button"
+                                            disabled
+                                            className="btn-secondary px-5 py-2.5 text-body-sm gap-2 opacity-60 cursor-not-allowed"
+                                        >
+                                            <span className="material-symbols-outlined text-[18px]">hourglass_top</span>
+                                            {essayExamActionLabel}
+                                        </button>
+                                    </>
+                                )}
                                 <button
-                                    onClick={handleStartExam}
-                                    disabled={startingExam}
-                                    className="btn-primary px-5 py-2.5 text-body-sm gap-2 disabled:opacity-50"
+                                    onClick={openChat}
+                                    className="btn-ghost px-5 py-2.5 text-body-sm gap-2"
                                 >
-                                    <span className="material-symbols-outlined text-[18px]">quiz</span>
-                                    {startingExam ? 'Preparing...' : 'Start Exam'}
+                                    <span className="material-symbols-outlined text-[18px]">smart_toy</span>
+                                    Ask Tutor
                                 </button>
                             </div>
 
-                            {conceptMastery?.totalConcepts > 0 && (
-                                <div className="mt-4 flex flex-col items-center gap-3">
-                                    <div className="flex flex-wrap items-center justify-center gap-2 text-caption text-text-faint-light dark:text-text-faint-dark">
-                                        <span className="rounded-full bg-accent-emerald/10 px-2.5 py-1 text-accent-emerald">
-                                            {conceptMastery.strongCount} strong
-                                        </span>
-                                        <span className="rounded-full bg-accent-amber/10 px-2.5 py-1 text-accent-amber">
-                                            {conceptMastery.shakyCount} shaky
-                                        </span>
-                                        <span className="rounded-full bg-red-500/10 px-2.5 py-1 text-red-500">
-                                            {conceptMastery.weakCount} weak
-                                        </span>
-                                        <span>
-                                            {conceptMastery.dueCount > 0
-                                                ? `${conceptMastery.dueCount} concepts due for review`
-                                                : 'No concept review due yet'}
-                                        </span>
-                                    </div>
-                                    {conceptMastery.reviewConceptKeys?.length > 0 && (
-                                        <Link
-                                            to={topicConceptReviewPath}
-                                            className="btn-ghost px-4 py-2 text-body-sm gap-2"
-                                        >
-                                            <span className="material-symbols-outlined text-[18px]">cycle</span>
-                                            {conceptMastery.dueCount > 0 ? 'Review Weak Concepts' : 'Open Focused Review'}
-                                        </Link>
-                                    )}
-                                </div>
-                            )}
+                            <div className="mt-6">
+                                <GuidedStudyPath
+                                    topicTitle={resolvedTopicTitle}
+                                    blocks={filteredBlocks}
+                                    onAskTutor={handleAskTutor}
+                                />
+                            </div>
 
-                            {startExamError && (
-                                <p className="mt-4 text-caption text-red-500">{startExamError}</p>
-                            )}
+                            {/* Next Steps Guidance */}
+                            <div className="mt-6 pt-6 border-t border-border-light dark:border-border-dark text-left">
+                                <NextStepsGuidance
+                                    topicId={topicId}
+                                    examTopicId={examTopicId}
+                                    topicTitle={resolvedTopicTitle}
+                                    percentage={null}
+                                    completedAt={topicProgress?.completedAt}
+                                    bestScore={topicProgress?.bestScore}
+                                    hasWordBank={parsed.wordBankTerms?.length > 0}
+                                    onOpenChat={openChat}
+                                    examLabel={isTopicQuizRoute ? 'Start the objective quiz' : 'Take the final objective quiz'}
+                                    examDescription={isTopicQuizRoute
+                                        ? 'Choose objective, essay, or concept practice for this topic.'
+                                        : 'This topic is assessed as part of the final exam.'}
+                                    variant="lesson"
+                                />
+                            </div>
                         </div>
                     </div>
 
@@ -847,6 +1156,13 @@ const TopicDetail = () => {
                 topicTitle={topic?.title || ''}
                 open={chatOpen}
                 onClose={() => setChatOpen(false)}
+                initialPrompt={chatInitialPrompt}
+            />
+
+            <SourcePanel
+                open={sourceOpen}
+                onClose={() => setSourceOpen(false)}
+                passages={sourcePassages}
             />
             </div>
 

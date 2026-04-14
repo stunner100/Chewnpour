@@ -7,6 +7,9 @@ const aiPath = resolve(root, 'convex', 'ai.ts');
 const schemaPath = resolve(root, 'convex', 'schema.ts');
 const extractionPipelinePath = resolve(root, 'convex', 'lib', 'documentExtractionPipeline.ts');
 const extractionPath = resolve(root, 'convex', 'extraction.ts');
+const datalabClientPath = resolve(root, 'convex', 'lib', 'datalabClient.ts');
+const groundedEvidenceIndexPath = resolve(root, 'convex', 'lib', 'groundedEvidenceIndex.ts');
+const datalabTextPath = resolve(root, 'convex', 'lib', 'datalabText.ts');
 const doctraClientPath = resolve(root, 'convex', 'lib', 'doctraClient.ts');
 const llamaClientPath = resolve(root, 'convex', 'lib', 'llamaParseClient.ts');
 
@@ -14,15 +17,24 @@ const aiSource = readFileSync(aiPath, 'utf8');
 const schemaSource = readFileSync(schemaPath, 'utf8');
 const pipelineSource = readFileSync(extractionPipelinePath, 'utf8');
 const extractionSource = readFileSync(extractionPath, 'utf8');
+const datalabClientSource = readFileSync(datalabClientPath, 'utf8');
+const groundedEvidenceIndexSource = readFileSync(groundedEvidenceIndexPath, 'utf8');
+const datalabTextSource = readFileSync(datalabTextPath, 'utf8');
 const doctraClientSource = readFileSync(doctraClientPath, 'utf8');
 const llamaClientSource = readFileSync(llamaClientPath, 'utf8');
 
 assert.ok(
-  pipelineSource.includes('runAzureExtractionCandidate')
+  pipelineSource.includes('runDataLabExtractionCandidate')
+    && pipelineSource.includes('runAzureExtractionCandidate')
     && pipelineSource.includes('runDoctraExtractionCandidate')
     && pipelineSource.includes('runLlamaParseExtractionCandidate')
     && pipelineSource.includes('runDocumentExtractionPipeline'),
-  'Expected documentExtractionPipeline to export candidate runners plus the unified orchestrator.'
+  'Expected documentExtractionPipeline to export Datalab, Azure, Doctra, and LlamaParse candidate runners plus the unified orchestrator.'
+);
+assert.ok(
+  pipelineSource.includes('runAzureExtractionCandidate')
+    && pipelineSource.includes('return await runDataLabExtractionCandidate(args);'),
+  'Expected the extraction pipeline to hard-cut the default upload route over to Datalab.'
 );
 assert.ok(
   pipelineSource.includes('STRICT_QUALITY_THRESHOLD = 0.93'),
@@ -54,7 +66,7 @@ assert.ok(
 );
 assert.ok(
   aiSource.includes('runBackgroundReprocess')
-    && aiSource.includes('fallbackRecommendation?.backend || "azure"'),
+    && aiSource.includes('fallbackRecommendation?.backend || "datalab"'),
   'Expected provisional uploads to schedule background reprocessing through the extraction orchestrator.'
 );
 
@@ -87,6 +99,32 @@ assert.ok(
     && extractionSource.includes('backend: result.backend')
     && extractionSource.includes('parser: result.parser'),
   'Expected extraction persistence to record backend and parser metadata.'
+);
+assert.ok(
+  datalabClientSource.includes('callDataLabExtract')
+    && datalabClientSource.includes('/api/v1/marker')
+    && datalabClientSource.includes('/api/v1/extract')
+    && datalabClientSource.includes('request_check_url')
+    && datalabClientSource.includes('flattenChunkBlocks')
+    && datalabClientSource.includes('buildPagesFromChunkBlocks')
+    && datalabClientSource.includes('checkpoint_id')
+    && datalabClientSource.includes('save_checkpoint')
+    && datalabClientSource.includes('structuredCourseMap')
+    && datalabClientSource.includes('collectCitationBlockIds')
+    && datalabClientSource.includes('cleanDataLabBlockText'),
+  'Expected Datalab requests to use checkpoint-backed convert plus extract with cited, cleaned chunk blocks.'
+);
+assert.ok(
+  groundedEvidenceIndexSource.includes('cleanDataLabBlockText')
+    && groundedEvidenceIndexSource.includes('block?.sectionHint || block?.blockType')
+    && groundedEvidenceIndexSource.includes("flags.push(\"table\")"),
+  'Expected grounded evidence indexing to preserve cleaned block text and structural hints from Datalab blocks.'
+);
+assert.ok(
+  datalabTextSource.includes('decodeHtmlEntities')
+    && datalabTextSource.includes('cleanDataLabBlockText')
+    && datalabTextSource.includes('replace(/<\\s*\\/t(?:d|h)\\s*>/gi, " | ")'),
+  'Expected Datalab text cleanup helper to normalize HTML/table-heavy block content into clean text.'
 );
 assert.ok(
   doctraClientSource.includes('callDoctraExtract')

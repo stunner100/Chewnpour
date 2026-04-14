@@ -1,6 +1,6 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { ChevronRight, Menu, X, FileText, UploadCloud } from 'lucide-react';
+import { Menu, X, ArrowRight } from 'lucide-react';
 import { Button } from '../ui/button';
 import { AnimatedGroup } from '../ui/animated-group';
 import { cn } from '../../lib/utils';
@@ -25,16 +25,16 @@ const transitionVariants = {
     },
 };
 
-export function HeroSection() {
+export function HeroSection({ onCtaClick = () => {} }) {
     return (
         <>
-            <HeroHeader />
+            <HeroHeader onCtaClick={onCtaClick} />
             <main className="overflow-hidden">
                 <section>
                     <div className="relative pt-20 lg:pt-28">
                         <div className="absolute inset-0 -z-10 size-full [background:radial-gradient(125%_125%_at_50%_100%,transparent_0%,var(--background)_75%)]"></div>
                         <div className="mx-auto max-w-7xl px-6 lg:px-8">
-                            <div className="sm:mx-auto lg:mr-auto">
+                            <div className="mx-auto max-w-3xl text-center">
                                 <AnimatedGroup
                                     variants={{
                                         container: {
@@ -48,35 +48,39 @@ export function HeroSection() {
                                         ...transitionVariants,
                                     }}
                                 >
-                                    <h1 className="mt-8 max-w-4xl text-balance text-5xl font-medium md:text-7xl lg:mt-16">
-                                        Study smarter with AI that knows your course
+                                    <h1 className="mt-8 text-balance text-5xl font-semibold tracking-tight md:text-6xl lg:mt-16 lg:text-7xl">
+                                        Turn any PDF into lessons, quizzes, and an AI tutor in 30 seconds.
                                     </h1>
-                                    <p className="mt-8 max-w-3xl text-pretty text-lg md:text-xl text-muted-foreground/90">
-                                        Upload your PDF. Get lessons, quizzes, and an AI tutor in 30 seconds.
+                                    <p className="mx-auto mt-6 max-w-2xl text-pretty text-base md:text-lg text-muted-foreground">
+                                        Built for university students. Loved by 10,000+ learners across Ghana.
                                     </p>
-                                    <div className="mt-10 flex flex-col sm:flex-row items-center gap-4">
-                                        <div className="bg-foreground/5 dark:bg-foreground/10 rounded-[18px] border border-border/50 p-1 shadow-sm">
-                                            <Button
-                                                asChild
-                                                size="lg"
-                                                className="group relative h-14 rounded-xl px-8 text-base font-semibold bg-primary hover:bg-primary/95 text-white shadow-[0_0_40px_-10px_rgba(26,115,232,0.4)] transition-all duration-300 hover:scale-[1.02] active:scale-[0.98]"
-                                            >
-                                                <Link to="/signup" className="flex items-center gap-2.5">
-                                                    <FileText className="size-5 transition-transform group-hover:-translate-y-0.5" />
-                                                    <span className="text-nowrap">Upload PDF</span>
-                                                </Link>
-                                            </Button>
-                                        </div>
+                                    <div className="mt-10 flex flex-col sm:flex-row items-center justify-center gap-4">
                                         <Button
                                             asChild
                                             size="lg"
-                                            variant="outline"
-                                            className="group h-14 rounded-xl px-8 text-base font-semibold border-2 bg-background/50 backdrop-blur-sm transition-all duration-300 hover:scale-[1.02] active:scale-[0.98] hover:border-primary/40 hover:bg-muted/50"
+                                            className="group h-14 rounded-xl px-8 text-base font-semibold bg-primary hover:bg-primary/95 text-white shadow-[0_0_40px_-10px_rgba(26,115,232,0.4)] transition-all duration-300 hover:scale-[1.02] active:scale-[0.98]"
                                         >
-                                            <Link to="/login" className="flex items-center gap-2.5">
-                                                <UploadCloud className="size-5 text-primary transition-transform group-hover:-translate-y-0.5" />
-                                                <span className="text-nowrap">Upload Assignment</span>
+                                            <Link
+                                                to="/signup"
+                                                className="flex items-center gap-2.5"
+                                                onClick={() => onCtaClick('hero_get_started')}
+                                            >
+                                                <span className="text-nowrap">Get started free</span>
+                                                <ArrowRight className="size-5 transition-transform group-hover:translate-x-0.5" />
                                             </Link>
+                                        </Button>
+                                        <Button
+                                            asChild
+                                            size="lg"
+                                            variant="ghost"
+                                            className="h-14 rounded-xl px-8 text-base font-semibold text-muted-foreground hover:text-foreground hover:bg-foreground/5 transition-colors duration-200"
+                                        >
+                                            <a
+                                                href="#how-it-works"
+                                                onClick={() => onCtaClick('hero_see_how')}
+                                            >
+                                                <span className="text-nowrap">See how it works</span>
+                                            </a>
                                         </Button>
                                     </div>
                                 </AnimatedGroup>
@@ -96,32 +100,12 @@ export function HeroSection() {
                                 ...transitionVariants,
                             }}
                         >
-                            <div className="relative -mr-56 mt-8 px-2 sm:mr-0 sm:mt-12 md:mt-20">
+                            <div className="relative mx-auto mt-8 px-2 sm:mt-12 md:mt-20">
                                 <div
                                     aria-hidden
                                     className="bg-gradient-to-b to-background absolute inset-0 z-10 from-transparent from-35%"
                                 />
                                 <div className="inset-shadow-2xs ring-background dark:inset-shadow-white/20 bg-background relative mx-auto max-w-6xl rounded-2xl border p-4 shadow-lg shadow-zinc-950/15 ring-1">
-
-                                    {/* Arrow 1: Pointing at Upload Materials center from inside top-right */}
-                                    <div className="absolute top-[8%] left-[45%] sm:left-[50%] z-30 hidden md:flex flex-col items-start rotate-[2deg] text-primary drop-shadow-md">
-                                        <span className="font-['Caveat','Comic_Sans_MS',cursive] font-bold text-2xl md:text-3xl whitespace-nowrap ml-4">1. Drop your PDF here</span>
-                                        <svg className="w-20 h-16 ml-2 mt-1 opacity-80" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
-                                            <path d="M 80,10 Q 50,40 10,80" stroke="currentColor" strokeWidth="4" strokeLinecap="round" fill="none" />
-                                            <path d="M 25,60 L 10,80 L 35,85" stroke="currentColor" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round" fill="none" />
-                                        </svg>
-                                    </div>
-
-                                    {/* Arrow 2: Pointing at Cards/Assignments from the right edge */}
-                                    <div className="absolute top-[45%] sm:top-[50%] -right-12 sm:-right-24 z-30 hidden md:flex flex-row items-center rotate-[6deg] text-primary drop-shadow-md">
-                                        <svg className="w-20 h-16 mr-2 opacity-80" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
-                                            <path d="M 90,30 Q 50,60 10,50" stroke="currentColor" strokeWidth="4" strokeLinecap="round" fill="none" />
-                                            <path d="M 25,35 L 10,50 L 30,62" stroke="currentColor" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round" fill="none" />
-                                        </svg>
-                                        <span className="font-['Caveat','Comic_Sans_MS',cursive] font-bold text-2xl md:text-3xl whitespace-nowrap -mt-4">2. AI generates quizzes</span>
-                                    </div>
-
-
                                     <img
                                         className="z-2 bg-background border-border/25 aspect-15/8 relative rounded-2xl border"
                                         src="/screenshots/app-dashboard.png"
@@ -130,36 +114,28 @@ export function HeroSection() {
                                         height="1800"
                                     />
                                 </div>
+
+                                <div id="how-it-works" className="relative z-20 mx-auto mt-10 flex max-w-3xl flex-col items-center gap-3 sm:flex-row sm:justify-center sm:gap-4">
+                                    {[
+                                        { step: 1, label: 'Upload your PDF' },
+                                        { step: 2, label: 'Get lessons & quizzes' },
+                                        { step: 3, label: 'Ask the AI tutor' },
+                                    ].map(({ step, label }) => (
+                                        <div
+                                            key={step}
+                                            className="flex items-center gap-3 rounded-full border border-border/60 bg-background/80 px-4 py-2 backdrop-blur-sm"
+                                        >
+                                            <span className="flex size-6 items-center justify-center rounded-full bg-primary text-xs font-bold text-white">
+                                                {step}
+                                            </span>
+                                            <span className="text-sm font-medium text-foreground">
+                                                {label}
+                                            </span>
+                                        </div>
+                                    ))}
+                                </div>
                             </div>
                         </AnimatedGroup>
-                    </div>
-                </section>
-
-                <section className="bg-background pb-16 pt-16 md:pb-32">
-                    <div className="group relative m-auto max-w-7xl px-6 lg:px-8">
-                        <div className="absolute inset-0 z-10 flex scale-95 items-center justify-center opacity-0 duration-500 group-hover:scale-100 group-hover:opacity-100">
-                            <Link
-                                to="/signup"
-                                className="block text-sm duration-150 hover:opacity-75"
-                            >
-                                <span>Join thousands of students</span>
-                                <ChevronRight className="ml-1 inline-block size-3" />
-                            </Link>
-                        </div>
-                        <div className="group-hover:blur-xs mx-auto mt-12 grid max-w-2xl grid-cols-4 gap-x-12 gap-y-8 transition-all duration-500 group-hover:opacity-50 sm:gap-x-16 sm:gap-y-14">
-                            <div className="flex col-span-2 sm:col-span-1 items-center justify-center">
-                                <span className="text-xs font-semibold tracking-widest uppercase text-muted-foreground dark:invert-0 opacity-60">University of Ghana</span>
-                            </div>
-                            <div className="flex col-span-2 sm:col-span-1 items-center justify-center">
-                                <span className="text-xs font-semibold tracking-widest uppercase text-muted-foreground opacity-60">KNUST</span>
-                            </div>
-                            <div className="flex col-span-2 sm:col-span-1 items-center justify-center">
-                                <span className="text-xs font-semibold tracking-widest uppercase text-muted-foreground opacity-60">University of Cape Coast</span>
-                            </div>
-                            <div className="flex col-span-2 sm:col-span-1 items-center justify-center">
-                                <span className="text-xs font-semibold tracking-widest uppercase text-muted-foreground opacity-60">Ashesi University</span>
-                            </div>
-                        </div>
                     </div>
                 </section>
             </main>
@@ -175,7 +151,7 @@ const menuItems = [
     { name: 'Pricing', href: '#pricing' },
 ];
 
-export function HeroHeader() {
+export function HeroHeader({ onCtaClick = () => {} }) {
     const [menuState, setMenuState] = React.useState(false);
 
     return (
@@ -190,7 +166,7 @@ export function HeroHeader() {
                         {/* Logo — left */}
                         <Link to="/" aria-label="home" className="flex items-center gap-2.5 shrink-0">
                             <img
-                                src="/brand/logo-dark.png"
+                                src="/chewnpourlogo.png"
                                 alt="ChewnPour"
                                 className="h-8 md:h-10 w-auto object-contain"
                             />
@@ -220,12 +196,14 @@ export function HeroHeader() {
                             <Link
                                 to="/login"
                                 className="text-sm font-medium text-white/60 hover:text-white transition-colors duration-150"
+                                onClick={() => onCtaClick('header_sign_in')}
                             >
                                 Sign in
                             </Link>
                             <Link
                                 to="/signup"
-                                className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-primary hover:bg-primary/90 text-white text-sm font-semibold transition-colors duration-150"
+                                className="inline-flex items-center gap-1.5 px-5 py-2.5 rounded-lg bg-primary hover:bg-primary/90 text-white text-sm font-semibold transition-colors duration-150"
+                                onClick={() => onCtaClick('header_get_started')}
                             >
                                 Get started free
                             </Link>
@@ -235,6 +213,7 @@ export function HeroHeader() {
                         <button
                             onClick={() => setMenuState(!menuState)}
                             aria-label={menuState ? 'Close Menu' : 'Open Menu'}
+                            aria-expanded={menuState}
                             className="lg:hidden p-2 text-white/70 hover:text-white transition-colors"
                         >
                             <Menu className="group-data-[state=active]:hidden size-5" />
@@ -258,8 +237,26 @@ export function HeroHeader() {
                             ))}
                         </ul>
                         <div className="flex flex-col gap-2">
-                            <Link to="/login" className="block px-3 py-2 text-sm font-medium text-white/60 hover:text-white">Sign in</Link>
-                            <Link to="/signup" className="block px-4 py-2.5 rounded-lg bg-primary hover:bg-primary/90 text-white text-sm font-semibold text-center">Get started free</Link>
+                            <Link
+                                to="/login"
+                                className="block px-3 py-2 text-sm font-medium text-white/60 hover:text-white"
+                                onClick={() => {
+                                    setMenuState(false);
+                                    onCtaClick('mobile_sign_in');
+                                }}
+                            >
+                                Sign in
+                            </Link>
+                            <Link
+                                to="/signup"
+                                className="block px-5 py-3 rounded-lg bg-primary hover:bg-primary/90 text-white text-sm font-semibold text-center"
+                                onClick={() => {
+                                    setMenuState(false);
+                                    onCtaClick('mobile_get_started');
+                                }}
+                            >
+                                Get started free
+                            </Link>
                         </div>
                     </div>
                 </div>
@@ -267,4 +264,3 @@ export function HeroHeader() {
         </header>
     );
 }
-

@@ -5,44 +5,39 @@ import process from 'node:process';
 const root = process.cwd();
 
 const examsSource = await fs.readFile(path.join(root, 'convex', 'exams.ts'), 'utf8');
-if (!/isUsableExamQuestion/.test(examsSource)) {
-  throw new Error('Expected exams.ts to import/use isUsableExamQuestion.');
-}
-if (!/const\s+usableQuestions\s*=\s*filteredQuestions\.filter\(\(question\)\s*=>\s*[\s\S]*isUsableExamQuestion\(question,\s*\{\s*allowEssay:\s*isEssay\s*\}\)\s*[\s\S]*\);/.test(examsSource)) {
-  throw new Error('Expected exams.ts to filter topic questions by quality before selecting exam questions.');
-}
-if (!/status:\s*"needs_generation"/.test(examsSource)) {
-  throw new Error('Expected exams.ts to return a structured needs_generation status when a prepared exam is not ready yet.');
-}
-
-const preparationsSource = await fs.readFile(path.join(root, 'convex', 'examPreparations.ts'), 'utf8');
-if (!/generateQuestionsForTopicOnDemandInternal/.test(preparationsSource) || !/generateEssayQuestionsForTopicOnDemandInternal/.test(preparationsSource)) {
-  throw new Error('Expected examPreparations.ts to trigger on-demand regeneration when a full usable exam set is not available.');
-}
-
 const topicsSource = await fs.readFile(path.join(root, 'convex', 'topics.ts'), 'utf8');
-if (!/const computeTopicExamReadinessFromQuestions = \(/.test(topicsSource)) {
-  throw new Error('Expected topics.ts to centralize exam readiness computation.');
-}
-if (!/isUsableExamQuestion\(question\)/.test(topicsSource) || !/isUsableExamQuestion\(question,\s*\{\s*allowEssay:\s*true\s*\}\)/.test(topicsSource)) {
-  throw new Error('Expected topics.ts readiness computation to distinguish usable MCQ and essay questions.');
+const aiSource = await fs.readFile(path.join(root, 'convex', 'ai.ts'), 'utf8');
+
+if (/generateQuestionsForTopicOnDemandInternal/.test(examsSource) || /generateEssayQuestionsForTopicOnDemandInternal/.test(examsSource)) {
+  throw new Error('Expected exams.ts to stop depending on on-demand question-bank generation.');
 }
 
-const aiSource = await fs.readFile(path.join(root, 'convex', 'ai.ts'), 'utf8');
-if (!/filterQuestionsForActiveAssessment\(/.test(aiSource)) {
-  throw new Error('Expected ai.ts question-bank generation to inspect active assessment questions.');
+if (!/generateFreshExamSnapshotInternal/.test(examsSource)) {
+  throw new Error('Expected exams.ts to use the fresh-context generation action.');
 }
-if (!/if \(!hasUsableQuestionOptions\(options\)\)/.test(aiSource) || !/if \(hasUsableQuestionOptions\(generatedOptions\)\)/.test(aiSource)) {
-  throw new Error('Expected ai.ts to gate persisted objective questions on usable option sets.');
+
+if (!/const validateFreshObjectiveExamSet = \(args: \{/.test(aiSource)) {
+  throw new Error('Expected ai.ts to validate fresh objective exam sets synchronously.');
 }
-if (!/const coerceGeneratedQuestionSet = \(/.test(aiSource) || !/const normalizeCitationCandidates =/.test(aiSource)) {
-  throw new Error('Expected ai.ts to enforce a strict parse-and-coerce layer before acceptance.');
+
+if (!/const validateFreshEssayExamSet = \(args: \{/.test(aiSource)) {
+  throw new Error('Expected ai.ts to validate fresh essay exam sets synchronously.');
 }
-if (!/applyGroundedAcceptance\(\{[\s\S]*type:\s*"mcq"/.test(aiSource)) {
-  throw new Error('Expected ai.ts MCQ generation to apply grounded acceptance checks.');
+
+if (!/const buildFreshExamSnapshot = \(args: \{/.test(aiSource)) {
+  throw new Error('Expected ai.ts to persist snapshot-ready exam payloads.');
 }
-if (!/const questionPayload: Record<string, any> = \{[\s\S]*citations,[\s\S]*groundingScore:[\s\S]*factualityStatus:[\s\S]*generationRunId[\s\S]*qualityScore[\s\S]*qualityTier[\s\S]*freshnessBucket/.test(aiSource)) {
-  throw new Error('Expected ai.ts objective persistence to include grounding and premium quality metadata.');
+
+if (!/runDeterministicGroundingCheck\(\{\s*type:\s*"mcq"/.test(aiSource)) {
+  throw new Error('Expected fresh objective validation to keep deterministic grounding checks.');
+}
+
+if (!/runDeterministicGroundingCheck\(\{\s*type:\s*"essay"/.test(aiSource)) {
+  throw new Error('Expected fresh essay validation to keep deterministic grounding checks.');
+}
+
+if (!/const computeTopicExamReadinessFromQuestions = \(/.test(topicsSource)) {
+  throw new Error('Expected topics.ts to keep centralized exam readiness computation for non-exam surfaces.');
 }
 
 console.log('exam-question-quality-gate-regression.test.mjs passed');

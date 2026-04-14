@@ -1,4 +1,6 @@
 import React, { memo } from 'react';
+import InteractiveQuickCheck from './InteractiveQuickCheck';
+import InteractiveWordBank from './InteractiveWordBank';
 
 const HEADER_SIZES = {
     1: "text-3xl md:text-4xl font-extrabold text-neutral-900 dark:text-white mt-10 md:mt-12 mb-5 md:mb-6 tracking-tight flex items-center gap-3",
@@ -71,10 +73,24 @@ const parseInlineFormatting = (text, cleanInline) => {
  * Receives only the parsed blocks, animation flag, and cleanInline function.
  * Isolated from parent state changes (sidebar, notes, chat, voice, scroll).
  */
+const TUTOR_PROMPTS = [
+    { icon: 'lightbulb', label: 'Explain simply', prompt: 'Explain this section in simpler terms:' },
+    { icon: 'add_circle', label: 'Give an example', prompt: 'Give me another example for this section:' },
+    { icon: 'quiz', label: 'Test me', prompt: 'Ask me a quick question about this section:' },
+    { icon: 'compare_arrows', label: 'Compare', prompt: 'Compare this concept with a related one from this section:' },
+];
+
 const LessonContentRenderer = memo(function LessonContentRenderer({
     blocks,
     shouldAnimateBlocks,
     cleanInline,
+    onViewSource,
+    onAskTutor,
+    quickCheckPairs,
+    wordBankTerms,
+    topicId,
+    starredTerms,
+    onTermsStarred,
 }) {
     const bold = (text) => parseInlineFormatting(text, cleanInline);
 
@@ -90,16 +106,42 @@ const LessonContentRenderer = memo(function LessonContentRenderer({
 
                 if (block.type === 'header') {
                     const icon = getHeaderIcon(block.text);
+                    const showTutorPrompts = onAskTutor && block.level === 2;
                     return (
-                        <div
-                            key={block.key}
-                            id={block.id}
-                            className={`${HEADER_SIZES[block.level] || HEADER_SIZES[3]} scroll-mt-20 md:scroll-mt-32 ${animationClass}`}
-                            style={animationStyle}
-                        >
-                            {icon && <span className="material-symbols-outlined text-primary/70">{icon}</span>}
-                            {block.text}
-                        </div>
+                        <React.Fragment key={block.key}>
+                            <div
+                                id={block.id}
+                                className={`${HEADER_SIZES[block.level] || HEADER_SIZES[3]} scroll-mt-20 md:scroll-mt-32 ${animationClass}`}
+                                style={animationStyle}
+                            >
+                                {icon && <span className="material-symbols-outlined text-primary/70">{icon}</span>}
+                                <span className="flex-1">{block.text}</span>
+                                {onViewSource && (
+                                    <button
+                                        onClick={() => onViewSource(block.id)}
+                                        className="ml-auto text-caption text-text-faint-light dark:text-text-faint-dark hover:text-primary flex items-center gap-1 opacity-0 group-hover:opacity-100 hover:opacity-100 focus:opacity-100 transition-opacity shrink-0"
+                                        style={{ opacity: undefined }}
+                                        title="View source"
+                                    >
+                                        <span className="material-symbols-outlined text-[14px]">link</span>
+                                    </button>
+                                )}
+                            </div>
+                            {showTutorPrompts && (
+                                <div className={`flex items-center gap-1.5 flex-wrap mb-3 -mt-1 ${animationClass}`} style={animationStyle}>
+                                    {TUTOR_PROMPTS.map((tp) => (
+                                        <button
+                                            key={tp.label}
+                                            onClick={() => onAskTutor(`${tp.prompt} "${block.text}"`)}
+                                            className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-caption text-text-faint-light dark:text-text-faint-dark hover:text-primary hover:bg-primary/5 border border-transparent hover:border-primary/20 transition-all"
+                                        >
+                                            <span className="material-symbols-outlined text-[14px]">{tp.icon}</span>
+                                            {tp.label}
+                                        </button>
+                                    ))}
+                                </div>
+                            )}
+                        </React.Fragment>
                     );
                 }
 
@@ -159,6 +201,28 @@ const LessonContentRenderer = memo(function LessonContentRenderer({
                     );
                 }
 
+                if (block.type === 'quickcheck_widget') {
+                    return (
+                        <InteractiveQuickCheck
+                            key={block.key}
+                            pairs={quickCheckPairs}
+                            topicId={topicId}
+                        />
+                    );
+                }
+
+                if (block.type === 'wordbank_widget') {
+                    return (
+                        <InteractiveWordBank
+                            key={block.key}
+                            terms={wordBankTerms}
+                            topicId={topicId}
+                            starredTerms={starredTerms}
+                            onTermsStarred={onTermsStarred}
+                        />
+                    );
+                }
+
                 if (block.type === 'numbered') {
                     return (
                         <div key={block.key} className={`flex items-start gap-4 ml-1 mb-3 md:mb-4 group ${animationClass}`} style={animationStyle}>
@@ -166,6 +230,42 @@ const LessonContentRenderer = memo(function LessonContentRenderer({
                                 {block.num}
                             </span>
                             <span className="text-[15px] md:text-base leading-7 text-neutral-700 dark:text-neutral-300">{bold(block.text)}</span>
+                        </div>
+                    );
+                }
+
+                // Hidden blocks (replaced by dedicated interactive components)
+                if (block.type === 'quickcheck_hidden' || block.type === 'wordbank_hidden') {
+                    return null;
+                }
+
+                // Analogy cards (compact, labeled)
+                if (block.type === 'analogycard') {
+                    return (
+                        <div key={block.key} className={`my-3 p-4 rounded-2xl bg-amber-50/60 dark:bg-amber-900/10 border border-amber-200/60 dark:border-amber-700/30 flex gap-3 ${animationClass}`} style={animationStyle}>
+                            <span className="material-symbols-outlined text-amber-500 dark:text-amber-400 text-[20px] shrink-0 mt-0.5">lightbulb</span>
+                            <div>
+                                <span className="text-[10px] font-bold text-amber-700 dark:text-amber-300 uppercase tracking-wider">{block.label}</span>
+                                <p className="text-[15px] md:text-base text-neutral-700 dark:text-neutral-300 mt-1 leading-relaxed">{bold(block.text)}</p>
+                            </div>
+                        </div>
+                    );
+                }
+
+                // Common Mistakes with labels
+                if (block.type === 'mistake') {
+                    const MISTAKE_BADGE = { 'Exam Trap': 'badge-danger', 'Common Confusion': 'badge-warning', 'Do Not Mix Up': 'badge-primary' };
+                    return (
+                        <div key={block.key} className={`flex items-start gap-3 ml-1 mb-4 group ${animationClass}`} style={animationStyle}>
+                            <div className="mt-1.5 h-5 w-5 rounded-full bg-red-100 dark:bg-red-900/20 flex items-center justify-center shrink-0">
+                                <span className="material-symbols-outlined text-[14px] text-red-500">close</span>
+                            </div>
+                            <div className="flex-1">
+                                {block.label && (
+                                    <span className={`inline-block badge ${MISTAKE_BADGE[block.label] || 'badge'} mb-1.5 mr-2`}>{block.label}</span>
+                                )}
+                                <span className="text-[15px] md:text-base leading-7 text-neutral-700 dark:text-neutral-300">{bold(block.text)}</span>
+                            </div>
                         </div>
                     );
                 }

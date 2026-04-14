@@ -6,6 +6,15 @@ import {
     QUESTION_TYPE_MULTIPLE_CHOICE,
     QUESTION_TYPE_TRUE_FALSE,
 } from "./objectiveExam.js";
+import {
+    normalizeQualityTier,
+    QUALITY_TIER_UNAVAILABLE,
+} from "./premiumQuality.js";
+
+const OBJECTIVE_MIN_USABLE_RIGOR_SCORE = 0.55;
+const OBJECTIVE_MIN_USABLE_QUALITY_SCORE = 0.65;
+const OBJECTIVE_MIN_USABLE_CLARITY_SCORE = 0.65;
+const OBJECTIVE_MIN_USABLE_DISTRACTOR_SCORE = 0.6;
 
 export const resolveAuthUserId = (identity) => {
     if (!identity || typeof identity !== "object") return "";
@@ -215,13 +224,94 @@ const hasUsableFillBlankQuestion = (question) => {
     return String(question?.questionText || "").replace(/\s+/g, " ").trim().length >= 12;
 };
 
+const SEVERE_QUESTION_QUALITY_FLAGS = new Set([
+    "malformed_text",
+    "outcome_alignment_mismatch",
+    "unsupported_math_encoding",
+    "corrupted_text",
+]);
+
+const MALFORMED_FRACTION_PLACEHOLDER_PATTERN = /(?:^|[\s(=+\-*/])(?:bc|bd|be)(?=$|[\s).,;:=+\-*/])/i;
+const hasControlCharacter = (value) => {
+    for (let index = 0; index < value.length; index += 1) {
+        const code = value.charCodeAt(index);
+        if ((code >= 0x00 && code <= 0x08) || code === 0x0b || code === 0x0c || (code >= 0x0e && code <= 0x1f)) {
+            return true;
+        }
+    }
+    return false;
+};
+
+const containsMalformedQuestionText = (value) => {
+    const normalized = String(value || "");
+    if (!normalized.trim()) return false;
+    if (hasControlCharacter(normalized)) return true;
+    if (MALFORMED_FRACTION_PLACEHOLDER_PATTERN.test(normalized)) return true;
+    return false;
+};
+
+const hasSevereQuestionContentIssue = (question) => {
+    const textFields = [
+        question?.questionText,
+        question?.correctAnswer,
+        question?.explanation,
+        question?.learningObjective,
+        question?.authenticContext,
+        ...(Array.isArray(question?.options) ? question.options.map((option) => option?.text || option) : []),
+        ...(Array.isArray(question?.templateParts) ? question.templateParts : []),
+        ...(Array.isArray(question?.acceptedAnswers) ? question.acceptedAnswers : []),
+        ...(Array.isArray(question?.tokens) ? question.tokens : []),
+    ];
+
+    return textFields.some((field) => containsMalformedQuestionText(field));
+};
+
+const hasSevereQualityFlag = (question) =>
+    (Array.isArray(question?.qualityFlags) ? question.qualityFlags : [])
+        .map((flag) => normalizeTextAnswer(flag))
+        .some((flag) => SEVERE_QUESTION_QUALITY_FLAGS.has(flag));
+
+const hasMinimumObjectiveQuality = (question) => {
+    const rigorScore = Number(question?.rigorScore);
+    if (Number.isFinite(rigorScore) && rigorScore < OBJECTIVE_MIN_USABLE_RIGOR_SCORE) {
+        return false;
+    }
+
+    const qualityScore = Number(question?.qualityScore);
+    if (Number.isFinite(qualityScore) && qualityScore < OBJECTIVE_MIN_USABLE_QUALITY_SCORE) {
+        return false;
+    }
+
+    const clarityScore = Number(question?.clarityScore);
+    if (Number.isFinite(clarityScore) && clarityScore < OBJECTIVE_MIN_USABLE_CLARITY_SCORE) {
+        return false;
+    }
+
+    const distractorScore = Number(question?.distractorScore);
+    if (Number.isFinite(distractorScore) && distractorScore < OBJECTIVE_MIN_USABLE_DISTRACTOR_SCORE) {
+        return false;
+    }
+
+    const qualityTier = normalizeQualityTier(question?.qualityTier);
+    if (question?.qualityTier !== undefined && qualityTier === QUALITY_TIER_UNAVAILABLE) {
+        return false;
+    }
+
+    return true;
+};
+
 export const isUsableExamQuestion = (question, { allowEssay = false } = {}) => {
     if (!question || typeof question !== "object") return false;
     const normalizedQuestionText = String(question.questionText || "").replace(/\s+/g, " ").trim();
     if (normalizedQuestionText.length < 12) return false;
+    if (hasSevereQuestionContentIssue(question)) return false;
+    if (hasSevereQualityFlag(question)) return false;
     const questionType = normalizeQuestionType(question.questionType);
     if (allowEssay && isEssayQuestionType(questionType)) {
         return String(question.correctAnswer || "").trim().length > 0;
+    }
+    if (!hasMinimumObjectiveQuality(question)) {
+        return false;
     }
     if (questionType === QUESTION_TYPE_TRUE_FALSE) {
         return hasUsableTrueFalseOptions(question.options);

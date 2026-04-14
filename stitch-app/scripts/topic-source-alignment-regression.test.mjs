@@ -15,8 +15,10 @@ if (!/sourcePassageIds:\s*sourcePassageIdList/.test(aiSource)) {
 if (!aiSource.includes("retrieveGroundedEvidence({")) {
     throw new Error("Expected topic generation to align source passages via grounded retrieval.");
 }
-if (!aiSource.includes("query: `${safeTopicTitle}")) {
-    throw new Error("Expected topic generation to align source passages via grounded retrieval.");
+if (!aiSource.includes("safeTopicTitle,")
+    || !aiSource.includes("(topicData.subtopics || []).join(\" \")")
+    || !aiSource.includes("(topicData.learningObjectives || []).join(\" \")")) {
+    throw new Error("Expected topic generation retrieval queries to include structured topic hints.");
 }
 if (!/sourcePassageIds:\s*v\.optional\(v\.array\(v\.string\(\)\)\)/.test(topicsSource)) {
     throw new Error("Expected topics mutation args to include sourcePassageIds.");

@@ -14,8 +14,9 @@ const clientSource = readFileSync(clientPath, 'utf8');
 const envSource = readFileSync(envPath, 'utf8');
 
 assert.ok(
-  extractionSource.includes('v.literal("llamaparse")'),
-  'Expected extraction actions to expose llamaparse as a selectable backend.'
+  extractionSource.includes('v.literal("datalab")')
+    && extractionSource.includes('v.literal("llamaparse")'),
+  'Expected extraction actions to expose Datalab and LlamaParse as selectable backends.'
 );
 assert.ok(
   pipelineSource.includes('if (args.backend === "llamaparse")')
@@ -29,6 +30,15 @@ assert.ok(
     && clientSource.includes('LLAMAPARSE_TIER')
     && clientSource.includes('LLAMAPARSE_VERSION'),
   'Expected the LlamaParse client to be env-gated and tier-aware.'
+);
+assert.ok(
+  envSource.includes('DATALAB_API_KEY=')
+    && envSource.includes('DATALAB_API_BASE_URL=')
+    && envSource.includes('DATALAB_TIMEOUT_MS=')
+    && envSource.includes('LLAMA_CLOUD_API_KEY=')
+    && envSource.includes('LLAMA_CLOUD_API_BASE_URL=')
+    && envSource.includes('LLAMAPARSE_TIMEOUT_MS='),
+  'Expected .env.example to document the Datalab-first extraction settings alongside LlamaParse.'
 );
 assert.ok(
   envSource.includes('LLAMA_CLOUD_API_KEY=')

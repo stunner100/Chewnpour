@@ -1,29 +1,44 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 
-const FacebookIcon = ({ className }) => (
-  <svg className={className} fill="currentColor" viewBox="0 0 24 24"><path d="M12 2.04c-5.5 0-10 4.48-10 10.02 0 5 3.65 9.12 8.44 9.9v-7H7.9v-2.9h2.54V9.85c0-2.51 1.49-3.89 3.77-3.89 1.1 0 2.23.2 2.23.2v2.47h-1.25c-1.24 0-1.63.77-1.63 1.56v1.88h2.78l-.44 2.9h-2.34v7a10 10 0 0 0 8.44-9.9c0-5.54-4.5-10.02-10-10.02z" /></svg>
-);
-const InstagramIcon = ({ className }) => (
-  <svg className={className} fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="2" width="20" height="20" rx="5" ry="5"></rect><path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"></path><line x1="17.5" y1="6.5" x2="17.51" y2="6.5"></line></svg>
-);
-const YoutubeIcon = ({ className }) => (
-  <svg className={className} fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24" strokeLinecap="round" strokeLinejoin="round"><path d="M22.54 6.42a2.78 2.78 0 0 0-1.94-2C18.88 4 12 4 12 4s-6.88 0-8.6.46a2.78 2.78 0 0 0-1.94 2A29 29 0 0 0 1 11.75a29 29 0 0 0 .46 5.33A2.78 2.78 0 0 0 3.4 19c1.72.46 8.6.46 8.6.46s6.88 0 8.6-.46a2.78 2.78 0 0 0 1.94-2 29 29 0 0 0 .46-5.25 29 29 0 0 0-.46-5.33z"></path><polygon points="9.75 15.02 15.5 11.75 9.75 8.48 9.75 15.02"></polygon></svg>
-);
-const LinkedinIcon = ({ className }) => (
-  <svg className={className} fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24" strokeLinecap="round" strokeLinejoin="round"><path d="M16 8a6 6 0 0 1 6 6v7h-4v-7a2 2 0 0 0-2-2 2 2 0 0 0-2 2v7h-4v-7a6 6 0 0 1 6-6z"></path><rect x="2" y="9" width="4" height="12"></rect><circle cx="4" cy="4" r="2"></circle></svg>
+const MailIcon = ({ className }) => (
+    <svg className={className} fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M4 4h16v16H4z" />
+        <path d="m4 7 8 6 8-6" />
+    </svg>
 );
 
-export function Footer() {
+const TelegramIcon = ({ className }) => (
+    <svg className={className} fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24" strokeLinecap="round" strokeLinejoin="round">
+        <path d="m22 2-7 20-4-9-9-4Z" />
+        <path d="m22 2-11 11" />
+    </svg>
+);
+
+const ShieldIcon = ({ className }) => (
+    <svg className={className} fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10Z" />
+    </svg>
+);
+
+const FileIcon = ({ className }) => (
+    <svg className={className} fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+        <path d="M14 2v6h6" />
+        <path d="M16 13H8" />
+        <path d="M16 17H8" />
+        <path d="M10 9H8" />
+    </svg>
+);
+
+export function Footer({ onCtaClick = () => {} }) {
     return (
         <footer className="bg-background py-16 sm:py-24 border-t border-border/40 relative overflow-hidden">
             <div className="mx-auto max-w-7xl px-6 lg:px-8 relative z-10">
-                
-                {/* Top section: Logo and Copyright */}
                 <div className="mb-16 sm:mb-24 flex flex-col items-start gap-4">
                     <Link to="/" className="shrink-0">
                         <img
-                            src="/brand/logo-dark.png"
+                            src="/chewnpourlogo.png"
                             alt="ChewnPour Logo"
                             className="h-10 w-auto object-contain"
                         />
@@ -33,72 +48,64 @@ export function Footer() {
                     </p>
                 </div>
 
-                {/* Bottom section: Links grid */}
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-8 gap-y-12 w-full">
-                    
-                    {/* Product */}
+                <div className="grid grid-cols-1 gap-8 gap-y-12 md:grid-cols-3 w-full">
                     <div className="flex flex-col gap-6">
                         <h3 className="text-sm font-semibold text-foreground tracking-wide">Product</h3>
                         <ul className="space-y-4">
-                            <li><Link to="/#features" className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">Features</Link></li>
-                            <li><Link to="/#pricing" className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">Pricing</Link></li>
-                            <li><Link to="/#testimonials" className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">Testimonials</Link></li>
-                            <li><Link to="/#integration" className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">Integration</Link></li>
+                            <li><a href="#features" className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">Features</a></li>
+                            <li><a href="#community" className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">Community</a></li>
+                            <li><a href="#testimonials" className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">Testimonials</a></li>
+                            <li><a href="#pricing" className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">Pricing</a></li>
                         </ul>
                     </div>
 
-                    {/* Company */}
                     <div className="flex flex-col gap-6">
-                        <h3 className="text-sm font-semibold text-foreground tracking-wide">Company</h3>
+                        <h3 className="text-sm font-semibold text-foreground tracking-wide">Account</h3>
                         <ul className="space-y-4">
-                            <li><Link to="/#faqs" className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">FAQs</Link></li>
-                            <li><Link to="/#about" className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">About Us</Link></li>
+                            <li><Link to="/login" onClick={() => onCtaClick('footer_sign_in')} className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">Log In</Link></li>
+                            <li><Link to="/signup" onClick={() => onCtaClick('footer_get_started')} className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">Get Started</Link></li>
                             <li><Link to="/privacy" className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">Privacy Policy</Link></li>
-                            <li><Link to="/terms" className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">Terms of Services</Link></li>
+                            <li><Link to="/terms" className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">Terms of Service</Link></li>
                         </ul>
                     </div>
 
-                    {/* Resources */}
                     <div className="flex flex-col gap-6">
-                        <h3 className="text-sm font-semibold text-foreground tracking-wide">Resources</h3>
-                        <ul className="space-y-4">
-                            <li><Link to="/#blog" className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">Blog</Link></li>
-                            <li><Link to="/#changelog" className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">Changelog</Link></li>
-                            <li><Link to="/#brand" className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">Brand</Link></li>
-                            <li><Link to="/#help" className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">Help</Link></li>
-                        </ul>
-                    </div>
-
-                    {/* Social Links */}
-                    <div className="flex flex-col gap-6">
-                        <h3 className="text-sm font-semibold text-foreground tracking-wide">Social Links</h3>
+                        <h3 className="text-sm font-semibold text-foreground tracking-wide">Contact</h3>
                         <ul className="space-y-4">
                             <li>
-                                <a href="#" className="flex items-center gap-3 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">
-                                    <FacebookIcon className="h-4 w-4" /> Facebook
+                                <a
+                                    href="mailto:info@chewnpour.com"
+                                    onClick={() => onCtaClick('footer_email')}
+                                    className="flex items-center gap-3 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
+                                >
+                                    <MailIcon className="h-4 w-4" /> info@chewnpour.com
                                 </a>
                             </li>
                             <li>
-                                <a href="#" className="flex items-center gap-3 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">
-                                    <InstagramIcon className="h-4 w-4" /> Instagram
+                                <a
+                                    href="https://t.me/+jIHi6XFYdl9kNDA0"
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    onClick={() => onCtaClick('footer_telegram')}
+                                    className="flex items-center gap-3 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
+                                >
+                                    <TelegramIcon className="h-4 w-4" /> Telegram Community
                                 </a>
                             </li>
                             <li>
-                                <a href="#" className="flex items-center gap-3 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">
-                                    <YoutubeIcon className="h-4 w-4" /> Youtube
-                                </a>
+                                <Link to="/privacy" className="flex items-center gap-3 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">
+                                    <ShieldIcon className="h-4 w-4" /> Privacy Policy
+                                </Link>
                             </li>
                             <li>
-                                <a href="#" className="flex items-center gap-3 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">
-                                    <LinkedinIcon className="h-4 w-4" /> LinkedIn
-                                </a>
+                                <Link to="/terms" className="flex items-center gap-3 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">
+                                    <FileIcon className="h-4 w-4" /> Terms of Service
+                                </Link>
                             </li>
                         </ul>
                     </div>
                 </div>
-
             </div>
-            {/* Very faint background glow to match the seamless premium feel of the landing page */}
             <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full h-full bg-primary/5 blur-[120px] rounded-full pointer-events-none z-0" />
         </footer>
     );

@@ -1,0 +1,55 @@
+import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
+
+const root = resolve(import.meta.dirname, "..");
+const datalabClientPath = resolve(root, "convex", "lib", "datalabClient.ts");
+const extractionPipelinePath = resolve(root, "convex", "lib", "documentExtractionPipeline.ts");
+const aiPath = resolve(root, "convex", "ai.ts");
+
+const datalabClientSource = readFileSync(datalabClientPath, "utf8");
+const extractionPipelineSource = readFileSync(extractionPipelinePath, "utf8");
+const aiSource = readFileSync(aiPath, "utf8");
+
+assert.ok(
+  datalabClientSource.includes("DATALAB_STRUCTURED_COURSE_SCHEMA")
+    && datalabClientSource.includes("extraction_schema_json")
+    && datalabClientSource.includes("structuredCourseMap")
+    && datalabClientSource.includes('formData.set("output_format", "chunks")')
+    && datalabClientSource.includes('formData.set("save_checkpoint", "true")'),
+  "Expected Datalab client to convert with checkpointing and preserve chunk blocks for downstream grounding."
+);
+
+assert.ok(
+  datalabClientSource.includes("/api/v1/extract")
+    && datalabClientSource.includes('formData.set("checkpoint_id"')
+    && datalabClientSource.includes("collectCitationBlockIds")
+    && datalabClientSource.includes("normalizeStructuredCourseMap("),
+  "Expected Datalab client to run a second extraction step from checkpoint and preserve citation block IDs."
+);
+
+assert.ok(
+  extractionPipelineSource.includes("artifactMetadata: payload.metadata")
+    && extractionPipelineSource.includes("metadata?: Record<string, unknown>"),
+  "Expected extraction artifacts to preserve Datalab structured metadata for downstream generation."
+);
+
+assert.ok(
+  aiSource.includes("loadStructuredCourseMapForUpload")
+    && aiSource.includes("buildCourseOutlineFromStructuredMap")
+    && aiSource.includes("structuredCourseMap")
+    && aiSource.includes("structuredSource: true")
+    && aiSource.includes("sourcePassageIds: Array.isArray(topic?.sourceBlockIds)"),
+  "Expected course generation to read the structured Datalab course map and preserve cited block IDs as source passages."
+);
+
+assert.ok(
+  aiSource.includes("buildTopicContentGraph(")
+    && aiSource.includes("buildTopicContentGraphContext")
+    && aiSource.includes("TOPIC_CONTENT_GRAPH:")
+    && aiSource.includes("Treat the topic content graph as the canonical handoff structure from extraction into lesson generation.")
+    && aiSource.includes("contentGraph: topicContentGraph"),
+  "Expected lesson generation to preserve a canonical topic content graph and pass it into the lesson prompt."
+);
+
+console.log("datalab-structured-handoff-regression.test.mjs passed");

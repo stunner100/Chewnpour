@@ -1,3 +1,4 @@
+import process from 'node:process';
 import { chromium } from 'playwright';
 import path from 'path';
 import { fileURLToPath } from 'url';

@@ -22,6 +22,10 @@ export type GroundedMultipleChoiceCandidate = {
     bloomLevel: string;
     outcomeKey: string;
     authenticContext?: string;
+    subClaimId?: string;
+    cognitiveOperation?: string;
+    tier?: number;
+    groundingEvidence?: string;
 };
 
 export type GroundedTrueFalseCandidate = {
@@ -35,6 +39,10 @@ export type GroundedTrueFalseCandidate = {
     learningObjective?: string;
     bloomLevel: string;
     outcomeKey: string;
+    subClaimId?: string;
+    cognitiveOperation?: string;
+    tier?: number;
+    groundingEvidence?: string;
 };
 
 export type GroundedFillBlankCandidate = {
@@ -51,6 +59,10 @@ export type GroundedFillBlankCandidate = {
     learningObjective?: string;
     bloomLevel: string;
     outcomeKey: string;
+    subClaimId?: string;
+    cognitiveOperation?: string;
+    tier?: number;
+    groundingEvidence?: string;
 };
 
 export type GroundedEssayCandidate = {
@@ -65,6 +77,9 @@ export type GroundedEssayCandidate = {
     bloomLevel: string;
     outcomeKey: string;
     authenticContext?: string;
+    groundingEvidence?: string;
+    sourceSubClaimIds?: string[];
+    essayPlanItemKey?: string;
 };
 
 export type AssessmentBlueprintOutcome = {
@@ -96,6 +111,7 @@ export type AssessmentBlueprint = {
             hard: number;
         };
         minDistinctOutcomeCount?: number;
+        items?: any[];
     };
     multipleChoicePlan: {
         allowedBloomLevels: string[];
@@ -126,11 +142,24 @@ export type AssessmentBlueprint = {
 };
 
 export type AssessmentCoverageTarget = {
+    planItemKey?: string;
     outcomeKey: string;
     bloomLevel: string;
     objective?: string;
     evidenceFocus?: string;
     requestedCount: number;
+    questionType?: string;
+    targetType?: string;
+    targetOp?: string;
+    targetTier?: number;
+    targetDifficulty?: string;
+    subClaimId?: string;
+    priority?: number;
+    sourceSubClaimIds?: string[];
+    sourceOutcomeKeys?: string[];
+    promptSeed?: string;
+    retryStrategy?: string;
+    feedbackInjection?: string;
 };
 
 export type GroundedConceptCandidate = {
@@ -170,11 +199,22 @@ const formatCoverageTargets = (coverageTargets: AssessmentCoverageTarget[] = [])
 
     return coverageTargets
         .map((target) => [
+            target.planItemKey ? `planItemKey=${target.planItemKey}` : "",
             `- outcomeKey=${target.outcomeKey}`,
+            target.targetType ? `targetType=${target.targetType}` : "",
+            target.subClaimId ? `subClaimId=${target.subClaimId}` : "",
+            target.targetOp ? `cognitiveOperation=${target.targetOp}` : "",
+            target.targetTier ? `tier=${target.targetTier}` : "",
             `bloomLevel=${target.bloomLevel}`,
             `requestedCount=${target.requestedCount}`,
             target.objective ? `objective="${target.objective}"` : "",
             target.evidenceFocus ? `evidenceFocus="${target.evidenceFocus}"` : "",
+            Array.isArray(target.sourceSubClaimIds) && target.sourceSubClaimIds.length > 0
+                ? `sourceSubClaimIds=${target.sourceSubClaimIds.join(",")}`
+                : "",
+            target.promptSeed ? `promptSeed="${target.promptSeed}"` : "",
+            target.retryStrategy ? `retryStrategy=${target.retryStrategy}` : "",
+            target.feedbackInjection ? `feedback="${target.feedbackInjection}"` : "",
         ].filter(Boolean).join("; "))
         .join("\n");
 };
@@ -183,15 +223,18 @@ export const buildGroundedAssessmentBlueprintPrompt = (args: {
     topicTitle: string;
     topicDescription?: string;
     evidence: RetrievedEvidence[];
+    structuredTopicContext?: string;
 }) => `Create an assessment blueprint for objective and essay generation using Bloom's taxonomy, constructive alignment, and authentic assessment.
 
 TOPIC: ${args.topicTitle}
 DESCRIPTION: ${args.topicDescription || "General concepts"}
+${args.structuredTopicContext ? `TOPIC_CONTENT_GRAPH:\n"""\n${args.structuredTopicContext}\n"""\n` : ""}
 
 ${formatEvidence(args.evidence, 14000)}
 
 Rules:
 - Use only the evidence above.
+- Use the topic content graph as curriculum guidance when selecting outcomes, objectives, formulas, confusions, and scenario frames, but do not invent facts beyond the evidence.
 - Return 3-6 outcomes.
 - Each outcome must include: key, objective, bloomLevel, evidenceFocus, cognitiveTask, difficultyBand.
 - bloomLevel must be one of: Remember, Understand, Apply, Analyze, Evaluate, Create.
@@ -207,10 +250,7 @@ Rules:
   - true_false: 3
   - fill_blank: 2
 - objectivePlan.targetQuestionTypes must include exactly: multiple_choice, true_false, fill_blank.
-- objectivePlan.targetDifficultyDistribution must equal exactly:
-  - easy: 0.1
-  - medium: 0.3
-  - hard: 0.6
+- objectivePlan.targetDifficultyDistribution must sum to 1 across easy, medium, hard.
 - objectivePlan.minDistinctOutcomeCount should be at least 3 when the evidence supports it.
 - multipleChoicePlan.targetOutcomeKeys must reference outcomes appropriate for multiple-choice only.
 - trueFalsePlan.targetOutcomeKeys must reference outcomes appropriate for true/false only.
@@ -282,6 +322,7 @@ export const buildGroundedMcqPrompt = (args: {
     requestedCount: number;
     evidence: RetrievedEvidence[];
     assessmentBlueprint: AssessmentBlueprint;
+    structuredTopicContext?: string;
     existingQuestionSample?: string;
     coverageTargets?: AssessmentCoverageTarget[];
 }) => {
@@ -296,6 +337,7 @@ export const buildGroundedMcqPrompt = (args: {
 
 TOPIC: ${args.topicTitle}
 DESCRIPTION: ${args.topicDescription || "General concepts"}
+${args.structuredTopicContext ? `TOPIC_CONTENT_GRAPH:\n"""\n${args.structuredTopicContext}\n"""\n` : ""}
 
 ${formatEvidence(args.evidence)}
 ASSESSMENT_BLUEPRINT:
@@ -310,6 +352,10 @@ Rules:
 - bloomLevel must exactly match the selected outcome's bloomLevel.
 - bloomLevel must be one of: Apply, Analyze.
 - If coverage gaps are listed, satisfy those outcome priorities before generating extras.
+- If coverage gaps are listed, preserve the matching subClaimId, cognitiveOperation, and tier metadata in the output item.
+- If a coverage gap includes retryStrategy or feedbackInjection, treat that as corrective guidance from a failed prior attempt and avoid repeating the same mistake.
+- If a coverage gap includes multiple sourceSubClaimIds, you may generate a composite question that depends on more than one claim as long as the answer remains grounded.
+- Use the topic content graph to prefer the document's extracted learning objectives, definitions, formulas, examples, source passages, and confusions when framing stems and selecting outcomes.
 - Every question must include citations[] with 1-3 citation objects.
 - Every citation object must include: passageId, page, startChar, endChar, quote.
 - quote must be an exact short excerpt from the cited passage.
@@ -317,9 +363,12 @@ Rules:
 - The marked correct option must be directly supported by the cited evidence.
 - Every question must be framed as application, interpretation, diagnosis, comparison, or scenario evaluation, not direct recall or definition lookup.
 - The stem should sound like a university assessment item, not a flashcard.
+- Do not ask "according to the passage" or write a stem that simply asks for a quoted definition.
+- Do not reuse the cited sentence almost verbatim as the stem or as the correct option unless no other grounded wording is possible.
 - All distractors must be plausible, evidence-adjacent, and free of giveaway wording.
 - Avoid obviously longer/shorter correct options and avoid trivial eliminations.
 - When evidence permits, test reasoning about relationships, mechanisms, implications, or scenario-based decisions.
+- Use plain ASCII math like 1/4, 2/4, 3/4. Never emit unicode vulgar fractions, byte-fragment placeholders, or control characters.
 - If the correct option includes a number, percentage, threshold, rate, count, or limit, copy that value exactly from evidence.
 - Do not invent targets, definitions, or thresholds that are not explicitly stated in the evidence.
 - Keep the correct option wording very close to the evidence. Do not add extra explanation inside the option text.
@@ -344,6 +393,10 @@ Return JSON only:
       "learningObjective": "...",
       "bloomLevel": "Apply|Analyze",
       "outcomeKey": "outcome-1",
+      "subClaimId": "claim-1",
+      "cognitiveOperation": "application",
+      "tier": 2,
+      "groundingEvidence": "Short explanation of the supporting claim or quote",
       "citations": [
         {"passageId":"p1-0","page":0,"startChar":0,"endChar":80,"quote":"..."}
       ]
@@ -357,12 +410,14 @@ export const buildGroundedMcqRepairPrompt = (args: {
     topicDescription?: string;
     evidence: RetrievedEvidence[];
     assessmentBlueprint: AssessmentBlueprint;
+    structuredTopicContext?: string;
     candidate: any;
     repairReasons?: string[];
 }) => `Repair the objective multiple-choice question below so it is strictly grounded in the evidence passages.
 
 TOPIC: ${args.topicTitle}
 DESCRIPTION: ${args.topicDescription || "General concepts"}
+${args.structuredTopicContext ? `TOPIC_CONTENT_GRAPH:\n"""\n${args.structuredTopicContext}\n"""\n` : ""}
 
 ${formatEvidence(args.evidence, 10000)}
 ASSESSMENT_BLUEPRINT:
@@ -379,6 +434,7 @@ ${JSON.stringify(args.candidate, null, 2)}
 Rules:
 - Keep the same question intent only if it is fully supported by the evidence.
 - If the current question intent is not supported, rewrite the question so it matches the evidence exactly.
+- Use the topic content graph to preserve the document's extracted objectives, definitions, formulas, examples, source passages, and confusions when they are evidence-supported.
 - questionType must be "multiple_choice".
 - Use exactly 4 options with one correct answer.
 - The marked correct option must be directly supported by the cited evidence.
@@ -391,6 +447,7 @@ Rules:
 - Use only outcome keys from assessmentBlueprint.multipleChoicePlan.targetOutcomeKeys.
 - bloomLevel must exactly match the selected outcome's bloomLevel.
 - Keep the revised item application-based or analytical. Do not fall back to direct recall.
+- Preserve or correct subClaimId, cognitiveOperation, and tier so they match the selected objective plan item.
 
 Return JSON only in one of these formats:
 {
@@ -413,6 +470,10 @@ or
   "learningObjective": "...",
   "bloomLevel": "Apply|Analyze",
   "outcomeKey": "outcome-1",
+  "subClaimId": "claim-1",
+  "cognitiveOperation": "application",
+  "tier": 2,
+  "groundingEvidence": "Short explanation of the supporting claim or quote",
   "citations": [
     {"passageId":"p1-0","page":0,"startChar":0,"endChar":80,"quote":"..."}
   ]
@@ -424,11 +485,13 @@ export const buildGroundedTrueFalsePrompt = (args: {
     requestedCount: number;
     evidence: RetrievedEvidence[];
     assessmentBlueprint: AssessmentBlueprint;
+    structuredTopicContext?: string;
     coverageTargets?: AssessmentCoverageTarget[];
 }) => `Create ${args.requestedCount} true/false questions strictly grounded in the evidence passages.
 
 TOPIC: ${args.topicTitle}
 DESCRIPTION: ${args.topicDescription || "General concepts"}
+${args.structuredTopicContext ? `TOPIC_CONTENT_GRAPH:\n"""\n${args.structuredTopicContext}\n"""\n` : ""}
 
 ${formatEvidence(args.evidence, 12000)}
 ASSESSMENT_BLUEPRINT:
@@ -444,13 +507,19 @@ Rules:
 - bloomLevel must exactly match the selected outcome's bloomLevel.
 - bloomLevel must be one of: Apply.
 - If coverage gaps are listed, satisfy those outcome priorities before generating extras.
+- If coverage gaps are listed, preserve the matching subClaimId, cognitiveOperation, and tier metadata in the output item.
+- If a coverage gap includes retryStrategy or feedbackInjection, treat that as corrective guidance from a failed prior attempt and avoid repeating the same mistake.
+- If a coverage gap includes multiple sourceSubClaimIds, you may generate a composite true/false statement that depends on more than one claim if the statement remains unambiguous.
+- Use the topic content graph to prefer the document's extracted objectives, examples, formulas, source passages, and confusions when choosing claims to test.
 - Each question must be a single clear statement.
 - Use exactly 2 options: True and False.
 - Exactly one option must be correct.
 - If False is correct, the statement must be directly contradicted by the evidence, not vaguely unsupported.
 - Prefer claim-evaluation statements that require applying the evidence to a case, workflow, implication, or decision, not textbook one-liners.
+- Prefer checking a student's worked method, conclusion, or error diagnosis over repeating a fact sentence from the notes.
 - Do not write tricky, opinion-based, or ambiguous statements.
 - False statements must be meaningfully wrong, not just a single swapped word.
+- Use plain ASCII math like 1/4, 2/4, 3/4. Never emit unicode vulgar fractions, byte-fragment placeholders, or control characters.
 - Every question must include citations[] with 1-3 citation objects.
 - Every citation object must include: passageId, page, startChar, endChar, quote.
 - quote must be an exact short excerpt from the cited passage.
@@ -470,6 +539,10 @@ Return JSON only:
       "learningObjective": "...",
       "bloomLevel": "Apply",
       "outcomeKey": "outcome-1",
+      "subClaimId": "claim-1",
+      "cognitiveOperation": "discrimination",
+      "tier": 1,
+      "groundingEvidence": "Short explanation of the supporting claim or quote",
       "citations": [
         {"passageId":"p1-0","page":0,"startChar":0,"endChar":80,"quote":"..."}
       ]
@@ -483,11 +556,13 @@ export const buildGroundedFillBlankPrompt = (args: {
     requestedCount: number;
     evidence: RetrievedEvidence[];
     assessmentBlueprint: AssessmentBlueprint;
+    structuredTopicContext?: string;
     coverageTargets?: AssessmentCoverageTarget[];
 }) => `Create ${args.requestedCount} fill-in-the-blank questions strictly grounded in the evidence passages.
 
 TOPIC: ${args.topicTitle}
 DESCRIPTION: ${args.topicDescription || "General concepts"}
+${args.structuredTopicContext ? `TOPIC_CONTENT_GRAPH:\n"""\n${args.structuredTopicContext}\n"""\n` : ""}
 
 ${formatEvidence(args.evidence, 12000)}
 ASSESSMENT_BLUEPRINT:
@@ -503,6 +578,10 @@ Rules:
 - bloomLevel must exactly match the selected outcome's bloomLevel.
 - bloomLevel must be one of: Apply.
 - If coverage gaps are listed, satisfy those outcome priorities before generating extras.
+- If coverage gaps are listed, preserve the matching subClaimId, cognitiveOperation, and tier metadata in the output item.
+- If a coverage gap includes retryStrategy or feedbackInjection, treat that as corrective guidance from a failed prior attempt and avoid repeating the same mistake.
+- If a coverage gap includes multiple sourceSubClaimIds, you may generate a composite fill-in item that depends on more than one claim if there is still exactly one defensible answer.
+- Use the topic content graph to prefer the document's extracted objectives, definitions, formulas, examples, and source passages when choosing what the blank should test.
 - Use exactly one blank only.
 - templateParts must contain exactly one "__" entry.
 - acceptedAnswers must contain the canonical correct answer first, then any exact aliases supported by the evidence.
@@ -512,6 +591,7 @@ Rules:
 - The blank must carry the concept-bearing part of the sentence.
 - For token_bank items, include tokens with 4-6 entries including the correct answer.
 - For free_text items, omit tokens.
+- Use plain ASCII math like 1/4, 2/4, 3/4. Never emit unicode vulgar fractions, byte-fragment placeholders, or control characters.
 - Do not invent unsupported aliases.
 - Every question must include citations[] with 1-3 citation objects.
 - Every citation object must include: passageId, page, startChar, endChar, quote.
@@ -532,6 +612,10 @@ Return JSON only:
       "learningObjective": "...",
       "bloomLevel": "Apply",
       "outcomeKey": "outcome-1",
+      "subClaimId": "claim-1",
+      "cognitiveOperation": "recall",
+      "tier": 1,
+      "groundingEvidence": "Short explanation of the supporting claim or quote",
       "citations": [
         {"passageId":"p1-0","page":0,"startChar":0,"endChar":80,"quote":"..."}
       ]
@@ -545,11 +629,13 @@ export const buildGroundedEssayPrompt = (args: {
     requestedCount: number;
     evidence: RetrievedEvidence[];
     assessmentBlueprint: AssessmentBlueprint;
+    structuredTopicContext?: string;
     coverageTargets?: AssessmentCoverageTarget[];
 }) => `Create ${args.requestedCount} essay questions strictly grounded in the evidence passages.
 
 TOPIC: ${args.topicTitle}
 DESCRIPTION: ${args.topicDescription || "General concepts"}
+${args.structuredTopicContext ? `TOPIC_CONTENT_GRAPH:\n"""\n${args.structuredTopicContext}\n"""\n` : ""}
 
 ${formatEvidence(args.evidence, 14000)}
 ASSESSMENT_BLUEPRINT:
@@ -564,6 +650,9 @@ Rules:
 - bloomLevel must exactly match the selected outcome's bloomLevel.
 - bloomLevel must be one of: Analyze, Evaluate, Create.
 - If coverage gaps are listed, satisfy those outcome priorities before generating extras.
+- If coverage gaps are listed, use the matching promptSeed and sourceSubClaimIds as the core of the essay task.
+- If a coverage gap includes retryStrategy or feedbackInjection, treat that as corrective guidance from a failed prior attempt and address it directly.
+- Use the topic content graph to prefer the document's extracted objectives, examples, formulas, source passages, and confusions when framing authentic tasks.
 - Across the batch, diversify outcomes and scenario frames before repeating the same one.
 - At least one prompt should require analysis/explanation and one should require evaluation/justification when the evidence supports both.
 - Use sharper university-style task verbs and explicit response scope.
@@ -586,7 +675,10 @@ Return JSON only:
       "learningObjective": "...",
       "bloomLevel": "Analyze|Evaluate|Create",
       "outcomeKey": "outcome-1",
+      "sourceSubClaimIds": ["claim-1", "claim-2"],
+      "essayPlanItemKey": "essay::claim-1::claim-2",
       "authenticContext": "...",
+      "groundingEvidence": "Short explanation of the supporting claims or quotes",
       "rubricPoints": ["...","..."],
       "citations": [
         {"passageId":"p1-0","page":0,"startChar":0,"endChar":80,"quote":"..."}
@@ -673,6 +765,54 @@ Return JSON only:
       "tokens": ["..."],
       "options": [{"text":"..."},{"text":"..."}],
       "correctOptionText": "...",
+      "citations": [
+        {"passageId":"p1-0","page":0,"startChar":0,"endChar":80,"quote":"..."}
+      ]
+    }
+  ]
+}`;
+
+export type FillInQuestion = {
+    sentence: string;
+    blanks: Array<{ position: number; answer: string }>;
+    citations: GroundedCitation[];
+};
+
+export const buildFillInBatchPrompt = (args: {
+    topicTitle: string;
+    evidence: RetrievedEvidence[];
+    requestedCount: number;
+    duplicateGuardSection?: string;
+    retryGuidance?: string;
+    seed: string;
+}) => `Generate ${args.requestedCount} fill-in-the-blank questions grounded in evidence.
+
+TOPIC: ${args.topicTitle}
+${formatEvidence(args.evidence, 12000)}
+
+${args.duplicateGuardSection || ""}
+${args.retryGuidance || ""}
+SEED: ${args.seed}
+
+Rules:
+- Each question is a sentence with one or more blanks marked as "___".
+- "blanks" array must list the correct answers in the same order the blanks appear in the sentence.
+- You may include "position", but it is optional.
+- Answers are short: 1-3 words that the student types.
+- Questions must test different concepts from the topic — no two questions should test the same fact.
+- Every answer must be directly supported by the evidence passages.
+- Include citations with exact evidence quote spans that support each answer.
+- Vary difficulty: mix recall (definitions) with understanding (relationships, causes).
+
+Return JSON only:
+{
+  "questions": [
+    {
+      "sentence": "The process of ___ converts glucose into ___.",
+      "blanks": [
+        {"position": 3, "answer": "glycolysis"},
+        {"position": 6, "answer": "pyruvate"}
+      ],
       "citations": [
         {"passageId":"p1-0","page":0,"startChar":0,"endChar":80,"quote":"..."}
       ]

@@ -6,6 +6,7 @@ import AppProviders from './bootstrap/AppProviders.jsx';
 import {
   attemptChunkRecoveryReload,
   isChunkLoadError,
+  isStaleExamRouteReferenceError,
   isStaleTopicRouteLookupError,
   redirectForStaleTopicRoute,
 } from './lib/chunkLoadRecovery.js';
@@ -189,6 +190,13 @@ const installChunkLoadRecovery = () => {
   });
 
   window.addEventListener('error', (event) => {
+    if (isStaleExamRouteReferenceError(event?.error || event?.message)) {
+      event?.preventDefault?.();
+      if (attemptChunkRecoveryReload('stale-exam-route-reference')) {
+        return;
+      }
+    }
+
     if (isStaleTopicRouteLookupError(event?.error || event?.message)) {
       event?.preventDefault?.();
       if (redirectForStaleTopicRoute()) {
@@ -202,6 +210,13 @@ const installChunkLoadRecovery = () => {
   });
 
   window.addEventListener('unhandledrejection', (event) => {
+    if (isStaleExamRouteReferenceError(event?.reason)) {
+      event?.preventDefault?.();
+      if (attemptChunkRecoveryReload('stale-exam-route-reference')) {
+        return;
+      }
+    }
+
     if (isStaleTopicRouteLookupError(event?.reason)) {
       event?.preventDefault?.();
       if (redirectForStaleTopicRoute()) {

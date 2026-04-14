@@ -88,7 +88,7 @@ if (!blueprint) {
 }
 
 if (blueprint.version !== ASSESSMENT_BLUEPRINT_VERSION) {
-    throw new Error("Expected normalized blueprint to stamp the assessment-blueprint-v3 version.");
+    throw new Error("Expected normalized blueprint to stamp the assessment-blueprint-v4 version.");
 }
 
 if (blueprint.objectivePlan.targetMix.multiple_choice !== 5 || blueprint.objectivePlan.targetMix.true_false !== 3 || blueprint.objectivePlan.targetMix.fill_blank !== 2) {
@@ -130,15 +130,15 @@ if (!blueprint.essayPlan.targetBloomLevels.every((level) => ESSAY_ALLOWED_BLOOM_
 const validMultipleChoiceQuestion = {
     questionType: "multiple_choice",
     generationVersion: ASSESSMENT_BLUEPRINT_VERSION,
-    questionText: "Which fact is stated in the evidence?",
-    outcomeKey: blueprint.multipleChoicePlan.targetOutcomeKeys[0],
-    bloomLevel: "Remember",
+    questionText: "In a realistic institutional scenario, which action best applies the procedural or contextual application points from the evidence?",
+    outcomeKey: blueprint.multipleChoicePlan.targetOutcomeKeys[1],
+    bloomLevel: "Apply",
 };
 
 const validTrueFalseQuestion = {
     questionType: "true_false",
     generationVersion: ASSESSMENT_BLUEPRINT_VERSION,
-    questionText: "The evidence states that the process has two stages.",
+    questionText: "The foundational factual statements in the evidence support the claim that the process has two stages.",
     outcomeKey: blueprint.trueFalsePlan.targetOutcomeKeys[0],
     bloomLevel: "Remember",
 };
@@ -146,11 +146,11 @@ const validTrueFalseQuestion = {
 const validFillBlankQuestion = {
     questionType: "fill_blank",
     generationVersion: ASSESSMENT_BLUEPRINT_VERSION,
-    questionText: "The capital of Ghana is __.",
-    templateParts: ["The capital of Ghana is ", "__", "."],
-    acceptedAnswers: ["Accra"],
+    questionText: "The evidence review memo should begin with the phrase __.",
+    templateParts: ["The evidence review memo should begin with the phrase ", "__", "."],
+    acceptedAnswers: ["foundational factual statements"],
     fillBlankMode: "token_bank",
-    tokens: ["Accra", "Kumasi", "Tamale", "Cape Coast"],
+    tokens: ["foundational factual statements", "procedural application points", "evidence review memo", "realistic institutional scenario"],
     outcomeKey: blueprint.fillBlankPlan.targetOutcomeKeys[0],
     bloomLevel: "Remember",
 };
@@ -175,12 +175,12 @@ for (const validQuestion of [
     validFillBlankQuestion,
 ]) {
     if (!isAssessmentV2Question(validQuestion, { blueprint })) {
-        throw new Error(`Expected valid assessment-v3 question to pass active-assessment filter: ${validQuestion.questionType}`);
+        throw new Error(`Expected valid assessment-v4 question to pass active-assessment filter: ${validQuestion.questionType}`);
     }
 }
 
 if (isAssessmentV2Question(legacyQuestion, { blueprint })) {
-    throw new Error("Expected legacy question versions to be excluded from assessment-v3.");
+    throw new Error("Expected legacy question versions to be excluded from assessment-v4.");
 }
 
 const essayIssues = getAssessmentQuestionMetadataIssues({
@@ -228,7 +228,7 @@ if (!/assessmentBlueprint: normalizedAssessmentBlueprint,/.test(topicsSource)) {
     throw new Error("Expected topic blueprint persistence to save the normalized blueprint.");
 }
 if (activeAfterCutover.length !== 3) {
-    throw new Error("Expected migrated topics to keep only valid assessment-v3 objective questions active.");
+    throw new Error("Expected migrated topics to keep only valid assessment-v4 objective questions active.");
 }
 
 const examsSource = await read("convex/exams.ts");
