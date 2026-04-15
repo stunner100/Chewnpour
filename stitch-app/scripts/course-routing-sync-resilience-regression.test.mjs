@@ -41,6 +41,30 @@ for (const snippet of routingExpectations) {
   }
 }
 
+const routingSchemaExpectations = [
+  "supportedQuestionTypes: v.optional(v.array(v.string()))",
+  "strongestNeighborOverlap: v.optional(v.number())",
+];
+
+for (const snippet of routingSchemaExpectations) {
+  if (!schemaSource.includes(snippet)) {
+    throw new Error(`schema.ts is missing routing assessment field support: ${snippet}`);
+  }
+}
+
+const routingMutationExpectations = [
+  "supportedQuestionTypes: args.supportedQuestionTypes",
+  "strongestNeighborOverlap: args.strongestNeighborOverlap",
+];
+
+const topicsSource = await fs.readFile(path.join(root, "convex", "topics.ts"), "utf8");
+
+for (const snippet of routingMutationExpectations) {
+  if (!topicsSource.includes(snippet)) {
+    throw new Error(`topics.ts is missing routing assessment patch support: ${snippet}`);
+  }
+}
+
 if (!aiSource.includes("processingStep: \"first_topic_ready\"")) {
   throw new Error("Course generation must still advance uploads to first_topic_ready after the first topic.");
 }

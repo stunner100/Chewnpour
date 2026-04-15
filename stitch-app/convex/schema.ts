@@ -265,6 +265,8 @@ export default defineSchema({
         distinctivenessScore: v.optional(v.number()),
         questionVarietyScore: v.optional(v.number()),
         redundancyRiskScore: v.optional(v.number()),
+        supportedQuestionTypes: v.optional(v.array(v.string())),
+        strongestNeighborOverlap: v.optional(v.number()),
         yieldConfidence: v.optional(v.string()),
         yieldReasoning: v.optional(v.string()),
         examIneligibleReason: v.optional(v.string()),

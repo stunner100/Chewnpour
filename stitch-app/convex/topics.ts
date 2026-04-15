@@ -481,6 +481,8 @@ export const updateTopicAssessmentRoutingInternal = internalMutation({
         distinctivenessScore: v.number(),
         questionVarietyScore: v.number(),
         redundancyRiskScore: v.number(),
+        supportedQuestionTypes: v.optional(v.array(v.string())),
+        strongestNeighborOverlap: v.optional(v.number()),
     },
     handler: async (ctx, args) => {
         const topic = await ctx.db.get(args.topicId);
@@ -497,6 +499,8 @@ export const updateTopicAssessmentRoutingInternal = internalMutation({
             distinctivenessScore: args.distinctivenessScore,
             questionVarietyScore: args.questionVarietyScore,
             redundancyRiskScore: args.redundancyRiskScore,
+            supportedQuestionTypes: args.supportedQuestionTypes,
+            strongestNeighborOverlap: args.strongestNeighborOverlap,
         });
 
         return { topicId: args.topicId };
