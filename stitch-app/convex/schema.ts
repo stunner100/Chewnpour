@@ -223,8 +223,17 @@ export default defineSchema({
         coverColor: v.optional(v.string()), // gradient colors
         progress: v.optional(v.number()),
         status: v.string(), // 'in_progress', 'completed'
+        folderId: v.optional(v.id("courseFolders")),
     }).index("by_userId", ["userId"])
-      .index("by_uploadId", ["uploadId"]),
+      .index("by_uploadId", ["uploadId"])
+      .index("by_userId_folderId", ["userId", "folderId"]),
+
+    // User-created folders for grouping courses on the dashboard
+    courseFolders: defineTable({
+        userId: v.string(),
+        name: v.string(),
+        color: v.optional(v.string()),
+    }).index("by_userId", ["userId"]),
 
     // Topics within courses
     topics: defineTable({
