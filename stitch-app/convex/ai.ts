@@ -4205,7 +4205,16 @@ const syncAssessmentRoutingForUpload = async (ctx: any, args: {
 
         await ctx.runMutation(internal.topics.updateTopicAssessmentRoutingInternal, {
             topicId: topic._id,
-            ...routing,
+            topicKind: routing.topicKind,
+            assessmentClassification: routing.assessmentClassification,
+            assessmentRoute: routing.assessmentRoute,
+            assessmentRouteReason: routing.assessmentRouteReason,
+            assessmentReadinessScore: routing.assessmentReadinessScore,
+            evidenceVolumeScore: routing.evidenceVolumeScore,
+            evidenceDiversityScore: routing.evidenceDiversityScore,
+            distinctivenessScore: routing.distinctivenessScore,
+            questionVarietyScore: routing.questionVarietyScore,
+            redundancyRiskScore: routing.redundancyRiskScore,
         });
     }
 

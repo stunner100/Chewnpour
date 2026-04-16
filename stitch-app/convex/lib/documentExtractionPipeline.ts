@@ -1559,6 +1559,48 @@ export const runDataLabExtractionCandidate = async (
     };
 };
 
+const runDataLabUnavailableFallback = async (
+    args: RunDocumentExtractionArgs,
+    reason: string
+): Promise<DocumentExtractionResult> => {
+    const normalizedFileType = String(args.fileType || "").toLowerCase();
+    console.warn("[Extraction] datalab_unconfigured_fallback_azure", {
+        uploadId: args.uploadId,
+        fileType: normalizedFileType,
+        mode: args.mode,
+        reason,
+    });
+
+    const azureResult = await runAzureExtractionCandidate(args);
+    const azureHasUsefulText = String(azureResult.text || "").trim().length > 0;
+    const canTryLlamaParse = (normalizedFileType === "pdf" || normalizedFileType === "pptx")
+        && isLlamaParseEnabled();
+
+    if (azureHasUsefulText || !canTryLlamaParse) {
+        return azureResult;
+    }
+
+    console.warn("[Extraction] datalab_unconfigured_fallback_llamaparse", {
+        uploadId: args.uploadId,
+        fileType: normalizedFileType,
+        mode: args.mode,
+        reason,
+    });
+
+    try {
+        return await runLlamaParseExtractionCandidate(args);
+    } catch (error) {
+        console.warn("[Extraction] datalab_unconfigured_llamaparse_failed", {
+            uploadId: args.uploadId,
+            fileType: normalizedFileType,
+            mode: args.mode,
+            reason,
+            message: error instanceof Error ? error.message : String(error),
+        });
+        return azureResult;
+    }
+};
+
 export const runMarkItDownExtractionCandidate = async (
     args: RunDocumentExtractionArgs
 ): Promise<DocumentExtractionResult> => {
@@ -1653,6 +1695,12 @@ export const runDocumentExtractionPipeline = async (
         return await runMarkItDownExtractionCandidate(args);
     }
     if (args.backend === "datalab") {
+        if (!isDataLabEnabled()) {
+            return await runDataLabUnavailableFallback(
+                args,
+                "explicit_datalab_backend_without_configuration"
+            );
+        }
         return await runDataLabExtractionCandidate(args);
     }
     if (args.backend === "llamaparse") {
@@ -1674,6 +1722,10 @@ export const runDocumentExtractionPipeline = async (
                 message: error instanceof Error ? error.message : String(error),
             });
         }
+    }
+
+    if (!isDataLabEnabled()) {
+        return await runDataLabUnavailableFallback(args, "default_backend_without_datalab");
     }
 
     return await runDataLabExtractionCandidate(args);
