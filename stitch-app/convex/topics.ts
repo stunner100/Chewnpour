@@ -906,6 +906,98 @@ export const deleteQuestionsByTopicInternal = internalMutation({
     },
 });
 
+export const deleteTopicCascadeInternal = internalMutation({
+    args: { topicId: v.id("topics") },
+    handler: async (ctx, args) => {
+        const topic = await ctx.db.get(args.topicId);
+        if (!topic) {
+            return {
+                deleted: false,
+                topicId: args.topicId,
+                title: null,
+                courseId: null,
+                illustrationStorageDeleted: false,
+                lessonsDeleted: 0,
+                questionsDeleted: 0,
+                examAttemptsDeleted: 0,
+                conceptAttemptsDeleted: 0,
+                notesDeleted: 0,
+            };
+        }
+
+        const course = await ctx.db.get(topic.courseId);
+        const lessons = await ctx.db
+            .query("lessons")
+            .withIndex("by_topicId", (q) => q.eq("topicId", args.topicId))
+            .collect();
+        const questions = await ctx.db
+            .query("questions")
+            .withIndex("by_topicId", (q) => q.eq("topicId", args.topicId))
+            .collect();
+        const examAttempts = await ctx.db
+            .query("examAttempts")
+            .withIndex("by_topicId", (q) => q.eq("topicId", args.topicId))
+            .collect();
+        const conceptAttempts = await ctx.db
+            .query("conceptAttempts")
+            .withIndex("by_topicId", (q) => q.eq("topicId", args.topicId))
+            .collect();
+        const notes = await ctx.db
+            .query("topicNotes")
+            .withIndex("by_topicId", (q) => q.eq("topicId", args.topicId))
+            .collect();
+
+        for (const lesson of lessons) {
+            await ctx.db.delete(lesson._id);
+        }
+        for (const question of questions) {
+            await ctx.db.delete(question._id);
+        }
+        for (const attempt of examAttempts) {
+            await ctx.db.delete(attempt._id);
+        }
+        for (const attempt of conceptAttempts) {
+            await ctx.db.delete(attempt._id);
+        }
+        for (const note of notes) {
+            await ctx.db.delete(note._id);
+            void ctx.scheduler.runAfter(0, (internal as any).search.deleteSearchDocumentsForEntity, {
+                kind: "note",
+                entityId: note._id,
+                userId: note.userId,
+            }).catch(() => undefined);
+        }
+
+        let illustrationStorageDeleted = false;
+        if (topic.illustrationStorageId) {
+            await ctx.storage.delete(topic.illustrationStorageId);
+            illustrationStorageDeleted = true;
+        }
+
+        await ctx.db.delete(topic._id);
+        if (course?.userId) {
+            void ctx.scheduler.runAfter(0, (internal as any).search.deleteSearchDocumentsForEntity, {
+                kind: "topic",
+                entityId: topic._id,
+                userId: course.userId,
+            }).catch(() => undefined);
+        }
+
+        return {
+            deleted: true,
+            topicId: topic._id,
+            title: String(topic.title || "").trim() || null,
+            courseId: topic.courseId,
+            illustrationStorageDeleted,
+            lessonsDeleted: lessons.length,
+            questionsDeleted: questions.length,
+            examAttemptsDeleted: examAttempts.length,
+            conceptAttemptsDeleted: conceptAttempts.length,
+            notesDeleted: notes.length,
+        };
+    },
+});
+
 export const deleteMcqQuestionsByTopicInternal = internalMutation({
     args: { topicId: v.id("topics") },
     handler: async (ctx, args) => {
