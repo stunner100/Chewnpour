@@ -127,6 +127,11 @@ const INCEPTION_RETRY_MAX_DELAY_MS = (() => {
     if (!Number.isFinite(parsed)) return 4000;
     return Math.max(500, Math.min(20000, Math.floor(parsed)));
 })();
+const FRESH_EXAM_INTERACTIVE_BUDGET_MS = (() => {
+    const parsed = Number(process.env.FRESH_EXAM_INTERACTIVE_BUDGET_MS || 90_000);
+    if (!Number.isFinite(parsed)) return 90_000;
+    return Math.max(20_000, Math.min(180_000, Math.round(parsed)));
+})();
 const DEFAULT_PROCESSING_TIMEOUT_MS = Number(process.env.PROCESSING_TIMEOUT_MS || 35 * 60 * 1000);
 const AZURE_DOCINTEL_ENDPOINT = process.env.AZURE_DOCINTEL_ENDPOINT || "";
 const AZURE_DOCINTEL_KEY = process.env.AZURE_DOCINTEL_KEY || "";
@@ -8437,6 +8442,40 @@ ${String(raw || "").slice(0, 24000)}
     }
 };
 
+const buildFreshExamTimedOutError = () => new ConvexError({
+    code: "EXAM_GENERATION_TIMEOUT",
+    message: "Fresh exam generation timed out before a valid exam could be finalized. Please retry.",
+});
+
+const resolveRemainingDeadlineMs = (deadlineMs?: number | null) => {
+    if (!Number.isFinite(Number(deadlineMs))) return null;
+    return Number(deadlineMs) - Date.now();
+};
+
+const ensureFreshExamDeadlineRemaining = (deadlineMs?: number | null, reserveMs = 1200) => {
+    const remainingMs = resolveRemainingDeadlineMs(deadlineMs);
+    if (remainingMs !== null && remainingMs <= reserveMs) {
+        throw buildFreshExamTimedOutError();
+    }
+};
+
+const resolveFreshExamStepTimeoutMs = (args: {
+    deadlineMs?: number | null;
+    fallbackMs?: number;
+    minMs?: number;
+    reserveMs?: number;
+}) => {
+    const fallbackMs = Math.max(1500, Math.round(Number(args.fallbackMs || DEFAULT_TIMEOUT_MS)));
+    const minMs = Math.max(1000, Math.round(Number(args.minMs || 1500)));
+    const reserveMs = Math.max(200, Math.round(Number(args.reserveMs || 800)));
+    const remainingMs = resolveRemainingDeadlineMs(args.deadlineMs);
+    if (remainingMs === null) return Math.max(minMs, fallbackMs);
+    return Math.min(
+        fallbackMs,
+        Math.max(minMs, remainingMs - reserveMs),
+    );
+};
+
 const normalizeFreshDifficulty = (value: unknown) => {
     const normalized = String(value || "").trim().toLowerCase();
     if (normalized === "easy" || normalized === "hard") return normalized;
@@ -8831,12 +8870,14 @@ export const generateFreshExamSnapshotInternal = internalAction({
     handler: async (ctx, args) => {
         const examFormat = resolveFreshRequestedExamFormat(args.examFormat) as "mcq" | "essay";
         const trackingUserId = await getTopicOwnerUserIdForTracking(ctx, args.topicId);
+        const deadlineMs = Date.now() + FRESH_EXAM_INTERACTIVE_BUDGET_MS;
 
         return await runWithLlmUsageContext(
             ctx,
             trackingUserId,
             examFormat === "essay" ? "essay_generation" : "mcq_generation",
             async () => {
+                ensureFreshExamDeadlineRemaining(deadlineMs);
                 const topic = await ctx.runQuery(internal.topics.getTopicWithQuestionsInternal, {
                     topicId: args.topicId,
                 });
@@ -8875,12 +8916,24 @@ export const generateFreshExamSnapshotInternal = internalAction({
                     ctx,
                     topic,
                     evidence: groundedPack.evidence,
-                    deadlineMs: Date.now() + DEFAULT_TIMEOUT_MS,
-                    repairTimeoutMs: DEFAULT_TIMEOUT_MS,
+                    deadlineMs,
+                    repairTimeoutMs: resolveFreshExamStepTimeoutMs({
+                        deadlineMs,
+                        fallbackMs: DEFAULT_TIMEOUT_MS,
+                        minMs: 2500,
+                        reserveMs: 1200,
+                    }),
                 });
 
                 let validationFeedback: string[] = [];
                 for (let attempt = 0; attempt < 2; attempt += 1) {
+                    ensureFreshExamDeadlineRemaining(deadlineMs);
+                    const requestTimeoutMs = resolveFreshExamStepTimeoutMs({
+                        deadlineMs,
+                        fallbackMs: DEFAULT_TIMEOUT_MS,
+                        minMs: 3500,
+                        reserveMs: 1500,
+                    });
                     const prompt = examFormat === "essay"
                         ? buildFreshEssayExamPrompt({
                             topic,
@@ -8908,14 +8961,22 @@ export const generateFreshExamSnapshotInternal = internalAction({
                     ], DEFAULT_MODEL, {
                         maxTokens: examFormat === "essay" ? 3200 : 5200,
                         responseFormat: "json_object",
-                        timeoutMs: DEFAULT_TIMEOUT_MS,
+                        timeoutMs: requestTimeoutMs,
                         temperature: 0.2,
                     });
 
                     const parsed = await parseFreshExamQuestionsWithRepair(
                         response,
                         examFormat === "essay" ? "essay" : "objective",
-                        { repairTimeoutMs: DEFAULT_TIMEOUT_MS }
+                        {
+                            deadlineMs,
+                            repairTimeoutMs: resolveFreshExamStepTimeoutMs({
+                                deadlineMs,
+                                fallbackMs: DEFAULT_TIMEOUT_MS,
+                                minMs: 2500,
+                                reserveMs: 1200,
+                            }),
+                        }
                     );
                     const rawQuestions = Array.isArray(parsed?.questions) ? parsed.questions : [];
                     const normalizedQuestions = examFormat === "essay"
@@ -8958,6 +9019,13 @@ export const generateFreshExamSnapshotInternal = internalAction({
                         : [requestedCount];
 
                     for (const fallbackCount of fallbackCounts) {
+                        ensureFreshExamDeadlineRemaining(deadlineMs);
+                        const fallbackTimeoutMs = resolveFreshExamStepTimeoutMs({
+                            deadlineMs,
+                            fallbackMs: DEFAULT_TIMEOUT_MS,
+                            minMs: 3500,
+                            reserveMs: 1500,
+                        });
                         const fallbackPrompt = buildFreshObjectiveExamPrompt({
                             topic,
                             requestedCount: fallbackCount,
@@ -8981,14 +9049,22 @@ export const generateFreshExamSnapshotInternal = internalAction({
                         ], DEFAULT_MODEL, {
                             maxTokens: 5200,
                             responseFormat: "json_object",
-                            timeoutMs: DEFAULT_TIMEOUT_MS,
+                            timeoutMs: fallbackTimeoutMs,
                             temperature: 0.2,
                         });
 
                         const fallbackParsed = await parseFreshExamQuestionsWithRepair(
                             fallbackResponse,
                             "objective",
-                            { repairTimeoutMs: DEFAULT_TIMEOUT_MS }
+                            {
+                                deadlineMs,
+                                repairTimeoutMs: resolveFreshExamStepTimeoutMs({
+                                    deadlineMs,
+                                    fallbackMs: DEFAULT_TIMEOUT_MS,
+                                    minMs: 2500,
+                                    reserveMs: 1200,
+                                }),
+                            }
                         );
                         const fallbackRawQuestions = Array.isArray(fallbackParsed?.questions) ? fallbackParsed.questions : [];
                         const fallbackQuestions = fallbackRawQuestions.map((question, index) =>
