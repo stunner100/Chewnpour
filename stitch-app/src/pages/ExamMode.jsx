@@ -397,6 +397,11 @@ const getExamTransientStartRetryMessage = () =>
 const getExamTransientSubmitRetryMessage = () =>
     'Connection dropped while submitting your exam. Please retry once your connection is stable.';
 
+const waitFor = (durationMs) =>
+    new Promise((resolve) => {
+        setTimeout(resolve, durationMs);
+    });
+
 const isRecoverableExamSubmitError = ({ error, message }) => {
     if (isUserCorrectableEssaySubmitError(message)) return true;
     if (isConvexAuthenticationError(error)) return true;
@@ -477,6 +482,8 @@ const ExamMode = () => {
     const submitEssayExam = useAction(api.exams.submitEssayExam);
 
     const START_EXAM_ATTEMPT_TIMEOUT_MS = 120_000;
+    const START_EXAM_ATTEMPT_TRANSIENT_RETRY_MAX = 1;
+    const START_EXAM_ATTEMPT_TRANSIENT_RETRY_BASE_DELAY_MS = 900;
     const EXAM_LOADING_STALL_TIMEOUT_MS = 150_000;
 
     const loadingExamTypeLabel = examFormat === 'essay' ? 'essay' : 'objective';
@@ -653,121 +660,180 @@ const ExamMode = () => {
             },
         });
         try {
-            const result = await withTimeout(
-                startExamAttempt({ topicId, examFormat }),
-                START_EXAM_ATTEMPT_TIMEOUT_MS,
-                'Exam preparation initialization timed out.'
-            );
-            const selectedQuestions = Array.isArray(result?.questions) ? result.questions : [];
-            if (result?.attemptId && selectedQuestions.length > 0) {
-                setStartExamError('');
-                setAttemptId(result.attemptId);
-                setAttemptQuestions(selectedQuestions);
-                setCurrentQuestion(0);
-                setSelectedAnswers({});
-                setTimeRemaining(EXAM_DURATION_SECONDS);
-                setExamStarted(true);
-                const elapsedMs = Date.now() - attemptStartTimeRef.current;
-                addSentryBreadcrumb({
-                    category: 'exam',
-                    message: 'Exam attempt started successfully',
-                    data: {
-                        topicId,
-                        attemptId: result?.attemptId,
-                        selectedQuestionCount: selectedQuestions.length,
-                        elapsedMs,
-                    },
-                });
-                return;
-            }
+            const maxStartAttempts = START_EXAM_ATTEMPT_TRANSIENT_RETRY_MAX + 1;
+            for (let startAttempt = 1; startAttempt <= maxStartAttempts; startAttempt += 1) {
+                try {
+                    const result = await withTimeout(
+                        startExamAttempt({ topicId, examFormat }),
+                        START_EXAM_ATTEMPT_TIMEOUT_MS,
+                        'Exam preparation initialization timed out.'
+                    );
+                    const selectedQuestions = Array.isArray(result?.questions) ? result.questions : [];
+                    if (result?.attemptId && selectedQuestions.length > 0) {
+                        setStartExamError('');
+                        setAttemptId(result.attemptId);
+                        setAttemptQuestions(selectedQuestions);
+                        setCurrentQuestion(0);
+                        setSelectedAnswers({});
+                        setTimeRemaining(EXAM_DURATION_SECONDS);
+                        setExamStarted(true);
+                        const elapsedMs = Date.now() - attemptStartTimeRef.current;
+                        addSentryBreadcrumb({
+                            category: 'exam',
+                            message: 'Exam attempt started successfully',
+                            data: {
+                                topicId,
+                                attemptId: result?.attemptId,
+                                selectedQuestionCount: selectedQuestions.length,
+                                elapsedMs,
+                                startAttempt,
+                            },
+                        });
+                        return;
+                    }
 
-            setStartExamError(
-                typeof result?.message === 'string' && result.message.trim()
-                    ? result.message.trim()
-                    : 'We could not finish preparing your exam. Please try again.'
-            );
-        } catch (error) {
-            const errorCode = getConvexErrorCode(error);
-            const message = resolveConvexActionError(error, 'Unable to start the exam. Please try again.');
-            const authError = isConvexAuthenticationError(error);
-            const transientTransportError = isTransientExamTransportError(error, message);
-            const timedOut = /timed out/i.test(message);
-            const elapsedMs = attemptStartTimeRef.current
-                ? Date.now() - attemptStartTimeRef.current
-                : null;
-            if (authError) {
-                const { refreshed, expired } = await refreshAuthSessionQuietly();
-                if (expired) {
-                    setStartExamError(getExamSessionExpiredMessage());
-                } else {
-                    setStartExamError(getExamAuthNotReadyMessage(refreshed));
+                    setStartExamError(
+                        typeof result?.message === 'string' && result.message.trim()
+                            ? result.message.trim()
+                            : 'We could not finish preparing your exam. Please try again.'
+                    );
+                    return;
+                } catch (error) {
+                    const errorCode = getConvexErrorCode(error);
+                    const message = resolveConvexActionError(error, 'Unable to start the exam. Please try again.');
+                    const authError = isConvexAuthenticationError(error);
+                    const transientTransportError = isTransientExamTransportError(error, message);
+                    const timedOut = /timed out/i.test(message);
+                    const likelyPostDisconnect = isLikelyPostDisconnectAuthError(error);
+                    const elapsedMs = attemptStartTimeRef.current
+                        ? Date.now() - attemptStartTimeRef.current
+                        : null;
+                    const isLikelyOffline =
+                        typeof navigator !== 'undefined'
+                        && typeof navigator.onLine === 'boolean'
+                        && navigator.onLine === false;
+                    const canAutoRetryTransientStart =
+                        transientTransportError
+                        && !timedOut
+                        && !isLikelyOffline
+                        && startAttempt < maxStartAttempts;
+
+                    if (canAutoRetryTransientStart) {
+                        captureSentryMessage('Exam preparation transient start failure; auto retrying', {
+                            level: 'warning',
+                            tags: {
+                                area: 'exam',
+                                operation: 'start_exam_preparation',
+                                recoverable: 'yes',
+                                transientTransportError: 'yes',
+                                errorCode: errorCode || 'unknown',
+                            },
+                            extras: {
+                                topicId,
+                                userId,
+                                elapsedMs,
+                                startAttempt,
+                                maxStartAttempts,
+                                message,
+                            },
+                        });
+                        await waitFor(START_EXAM_ATTEMPT_TRANSIENT_RETRY_BASE_DELAY_MS * startAttempt);
+                        continue;
+                    }
+
+                    if (authError) {
+                        const { refreshed, expired } = await refreshAuthSessionQuietly();
+                        if (expired) {
+                            setStartExamError(getExamSessionExpiredMessage());
+                        } else {
+                            setStartExamError(getExamAuthNotReadyMessage(refreshed));
+                        }
+                    } else if (timedOut) {
+                        setStartExamError('Exam setup is taking longer than expected. Tap Retry.');
+                    } else if (transientTransportError) {
+                        setStartExamError(
+                            isLikelyOffline
+                                ? 'You are offline. Reconnect to the internet and tap Retry.'
+                                : getExamTransientStartRetryMessage()
+                        );
+                    } else if (likelyPostDisconnect) {
+                        const { refreshed, expired } = await refreshAuthSessionQuietly();
+                        if (expired) {
+                            setStartExamError(getExamSessionExpiredMessage());
+                        } else if (refreshed) {
+                            setStartExamError(getExamAuthNotReadyMessage(true));
+                        } else {
+                            setStartExamError('Something went wrong. Please wait a moment and tap Retry.');
+                        }
+                    } else {
+                        setStartExamError('Unable to start the exam. Please try again.');
+                    }
+                    const recoverableError = timedOut || authError || transientTransportError || likelyPostDisconnect;
+                    if (recoverableError) {
+                        captureSentryMessage('Exam preparation start requires retry', {
+                            level: 'warning',
+                            tags: {
+                                area: 'exam',
+                                operation: 'start_exam_preparation',
+                                recoverable: 'yes',
+                                timedOut,
+                                authError: authError ? 'yes' : 'no',
+                                transientTransportError: transientTransportError ? 'yes' : 'no',
+                                likelyPostDisconnect: likelyPostDisconnect ? 'yes' : 'no',
+                                errorCode: errorCode || 'unknown',
+                            },
+                            extras: {
+                                topicId,
+                                userId,
+                                elapsedMs,
+                                timeoutMs: START_EXAM_ATTEMPT_TIMEOUT_MS,
+                                message,
+                                startAttempt,
+                                maxStartAttempts,
+                            },
+                        });
+                    } else {
+                        console.error('Failed to start exam preparation:', error);
+                        captureSentryException(error, {
+                            level: 'error',
+                            tags: {
+                                area: 'exam',
+                                operation: 'start_exam_preparation',
+                                timedOut,
+                                errorCode: errorCode || 'unknown',
+                            },
+                            extras: {
+                                topicId,
+                                userId,
+                                elapsedMs,
+                                timeoutMs: START_EXAM_ATTEMPT_TIMEOUT_MS,
+                                message,
+                                startAttempt,
+                                maxStartAttempts,
+                            },
+                        });
+                    }
+                    setAttemptId(null);
+                    setAttemptQuestions(null);
+                    setExamStarted(false);
+                    return;
                 }
-            } else if (transientTransportError) {
-                setStartExamError(getExamTransientStartRetryMessage());
-            } else if (timedOut) {
-                setStartExamError('Exam setup is taking longer than expected. Tap Retry.');
-            } else if (isLikelyPostDisconnectAuthError(error)) {
-                const { refreshed, expired } = await refreshAuthSessionQuietly();
-                if (expired) {
-                    setStartExamError(getExamSessionExpiredMessage());
-                } else if (refreshed) {
-                    setStartExamError(getExamAuthNotReadyMessage(true));
-                } else {
-                    setStartExamError('Something went wrong. Please wait a moment and tap Retry.');
-                }
-            } else {
-                setStartExamError('Unable to start the exam. Please try again.');
             }
-            const likelyPostDisconnect = isLikelyPostDisconnectAuthError(error);
-            const recoverableError = timedOut || authError || transientTransportError || likelyPostDisconnect;
-            if (recoverableError) {
-                captureSentryMessage('Exam preparation start requires retry', {
-                    level: 'warning',
-                    tags: {
-                        area: 'exam',
-                        operation: 'start_exam_preparation',
-                        recoverable: 'yes',
-                        timedOut,
-                        authError: authError ? 'yes' : 'no',
-                        transientTransportError: transientTransportError ? 'yes' : 'no',
-                        likelyPostDisconnect: likelyPostDisconnect ? 'yes' : 'no',
-                        errorCode: errorCode || 'unknown',
-                    },
-                    extras: {
-                        topicId,
-                        userId,
-                        elapsedMs,
-                        timeoutMs: START_EXAM_ATTEMPT_TIMEOUT_MS,
-                        message,
-                    },
-                });
-            } else {
-                console.error('Failed to start exam preparation:', error);
-                captureSentryException(error, {
-                    level: 'error',
-                    tags: {
-                        area: 'exam',
-                        operation: 'start_exam_preparation',
-                        timedOut,
-                        errorCode: errorCode || 'unknown',
-                    },
-                    extras: {
-                        topicId,
-                        userId,
-                        elapsedMs,
-                        timeoutMs: START_EXAM_ATTEMPT_TIMEOUT_MS,
-                        message,
-                    },
-                });
-            }
-            setAttemptId(null);
-            setAttemptQuestions(null);
-            setExamStarted(false);
         } finally {
             attemptStartTimeRef.current = null;
             setStartingExamAttempt(false);
         }
-    }, [examFormat, startExamAttempt, topicId, userId, withTimeout, START_EXAM_ATTEMPT_TIMEOUT_MS, setTimeRemaining]);
+    }, [
+        examFormat,
+        startExamAttempt,
+        topicId,
+        userId,
+        withTimeout,
+        START_EXAM_ATTEMPT_TIMEOUT_MS,
+        START_EXAM_ATTEMPT_TRANSIENT_RETRY_MAX,
+        START_EXAM_ATTEMPT_TRANSIENT_RETRY_BASE_DELAY_MS,
+        setTimeRemaining,
+    ]);
 
     const handleRetryStart = useCallback(async () => {
         await beginExamAttempt();
@@ -1202,11 +1268,14 @@ const ExamMode = () => {
         return (
             <ExamPreparationLoader
                 examFormat={examFormat}
+                title={preparationPanelTitle}
+                subtitle={activePreparationMessage}
                 failed={Boolean(startExamError)}
                 errorMsg={startExamError}
                 onRetry={handleRetryStart}
                 onBack={() => { setStartExamError(''); setExamFormat(null); }}
                 isSessionExpired={startExamError === getExamSessionExpiredMessage()}
+                checklist={preparationChecklist}
             />
         );
     }
