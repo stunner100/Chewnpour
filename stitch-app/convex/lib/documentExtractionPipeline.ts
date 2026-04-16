@@ -170,6 +170,20 @@ const toSafePositiveInt = (value: number, fallback: number) => {
     return Math.max(1, Math.floor(value));
 };
 
+export const isAzureDocIntelEnabled = () =>
+    Boolean(AZURE_DOCINTEL_ENDPOINT && AZURE_DOCINTEL_KEY);
+
+export const getDefaultExtractionBackend = (fileType?: string): ExtractionBackendId => {
+    const normalizedFileType = String(fileType || "").toLowerCase();
+    if (normalizedFileType === "pptx" || normalizedFileType === "docx") {
+        return "markitdown";
+    }
+    if (isDataLabEnabled()) return "datalab";
+    if (isAzureDocIntelEnabled()) return "azure";
+    if (isLlamaParseEnabled()) return "llamaparse";
+    return "datalab";
+};
+
 const isInvalidContentLengthError = (value: string) =>
     /InvalidContentLength/i.test(String(value || ""));
 
@@ -1663,7 +1677,8 @@ export const runDocumentExtractionPipeline = async (
     }
 
     const normalizedFileType = String(args.fileType || "").toLowerCase();
-    if (normalizedFileType === "pptx" || normalizedFileType === "docx") {
+    const defaultBackend = getDefaultExtractionBackend(normalizedFileType);
+    if (defaultBackend === "markitdown") {
         try {
             return await runMarkItDownExtractionCandidate(args);
         } catch (error) {
@@ -1674,7 +1689,19 @@ export const runDocumentExtractionPipeline = async (
                 message: error instanceof Error ? error.message : String(error),
             });
         }
+        if (isDataLabEnabled()) {
+            return await runDataLabExtractionCandidate(args);
+        }
+        if (isAzureDocIntelEnabled()) {
+            return await runAzureExtractionCandidate(args);
+        }
+        return await runLlamaParseExtractionCandidate(args);
     }
-
-    return await runDataLabExtractionCandidate(args);
+    if (defaultBackend === "datalab") {
+        return await runDataLabExtractionCandidate(args);
+    }
+    if (defaultBackend === "azure") {
+        return await runAzureExtractionCandidate(args);
+    }
+    return await runLlamaParseExtractionCandidate(args);
 };

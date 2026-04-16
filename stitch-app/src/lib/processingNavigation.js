@@ -16,7 +16,7 @@ export const shouldAutoNavigateFromProcessing = ({
 }) => {
     if (!resolvedCourseId || autoNavigated || !upload) return false;
     const firstTopicReady = isFirstTopicReady({ upload, hasTopics });
-    if (upload.status === 'ready') return true;
+    if (upload.status === 'ready') return firstTopicReady;
     if (upload.status === 'processing' && firstTopicReady) return true;
     if (upload.status === 'error' && firstTopicReady) return true;
     return false;
@@ -27,7 +27,7 @@ export const shouldShowProcessingConfirmation = ({
     hasTopics,
 }) => {
     if (!upload) return false;
-    if (upload.status === 'error') return true;
+    if (upload.status === 'error') return false;
     if (upload.status !== 'ready') return false;
     return isFirstTopicReady({ upload, hasTopics });
 };

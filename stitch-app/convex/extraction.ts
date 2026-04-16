@@ -7,6 +7,7 @@ import { internalAction } from "./_generated/server";
 import type { Id } from "./_generated/dataModel";
 import {
     type ExtractionBackendId,
+    getDefaultExtractionBackend,
     runDocumentExtractionPipeline,
     type DocumentExtractionResult,
     type ExtractionParserId,
@@ -90,13 +91,7 @@ const stripRecoveredSections = (content: string) =>
         .replace(/\n{0,2}##\s+Recovered Content \(Improved Extraction\)[\s\S]*$/i, "")
         .trim();
 
-const getPrimaryExtractionBackend = (fileType?: string): ExtractionBackendId => {
-    const normalized = String(fileType || "").toLowerCase();
-    if (normalized === "pptx" || normalized === "docx") {
-        return "markitdown";
-    }
-    return "datalab";
-};
+const getPrimaryExtractionBackend = (fileType?: string): ExtractionBackendId => getDefaultExtractionBackend(fileType);
 
 const didUseFallbackBackend = (fileType?: string, backend?: ExtractionBackendId | null) =>
     Boolean(backend && backend !== getPrimaryExtractionBackend(fileType));

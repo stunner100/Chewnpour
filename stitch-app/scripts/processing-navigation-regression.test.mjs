@@ -37,6 +37,16 @@ assert.equal(
         autoNavigated: false,
         resolvedCourseId: 'course_1',
     }),
+    false
+);
+
+assert.equal(
+    shouldAutoNavigateFromProcessing({
+        upload: { ...baseUpload, status: 'ready', generatedTopicCount: 1, processingStep: 'ready' },
+        hasTopics: false,
+        autoNavigated: false,
+        resolvedCourseId: 'course_1',
+    }),
     true
 );
 
@@ -71,7 +81,7 @@ assert.equal(
         upload: { ...baseUpload, status: 'error' },
         hasTopics: false,
     }),
-    true
+    false
 );
 
 console.log('processing-navigation-regression tests passed');

@@ -1,8 +1,22 @@
 import assert from 'node:assert/strict';
 import {
     calculateRemainingTopicProgress,
+    clampGeneratedTopicCount,
     normalizeGeneratedTopicCount,
 } from '../convex/lib/topicGenerationProgress.js';
+
+assert.equal(
+    clampGeneratedTopicCount({ generatedTopicCount: 0, totalTopics: 5 }),
+    0
+);
+assert.equal(
+    clampGeneratedTopicCount({ generatedTopicCount: 7, totalTopics: 5 }),
+    5
+);
+assert.equal(
+    clampGeneratedTopicCount({ generatedTopicCount: 2, totalTopics: 0 }),
+    0
+);
 
 assert.equal(
     normalizeGeneratedTopicCount({ generatedTopicCount: 0, totalTopics: 5 }),

@@ -410,7 +410,9 @@ const DashboardProcessing = () => {
                                                 Processing encountered an issue
                                             </p>
                                             <p className="text-caption text-amber-700 dark:text-amber-400 mt-1">
-                                                Redirecting to available content...
+                                                {hasTopics
+                                                    ? 'Opening the content that finished processing...'
+                                                    : 'We could not finish processing this upload. Try uploading again after the extraction service is configured.'}
                                             </p>
                                         </div>
                                     </div>

@@ -9,7 +9,7 @@ import { ConvexError, v } from "convex/values";
 import { api, internal } from "./_generated/api";
 import {
     calculateRemainingTopicProgress,
-    normalizeGeneratedTopicCount,
+    clampGeneratedTopicCount,
 } from "./lib/topicGenerationProgress";
 import {
     aggregateChunksByMajorKey,
@@ -4586,18 +4586,18 @@ const reconcileUploadStatusAfterRoutingSync = async (ctx: any, args: {
         generatedTopicCount,
     );
 
-    const normalizedGeneratedCount = normalizeGeneratedTopicCount({
+    const clampedGeneratedCount = clampGeneratedTopicCount({
         generatedTopicCount,
         totalTopics: Math.max(plannedTopicCount, 1),
     });
 
-    const uploadPatch = normalizedGeneratedCount >= plannedTopicCount
+    const uploadPatch = clampedGeneratedCount >= plannedTopicCount
         ? {
             status: "ready",
             processingStep: "ready",
             processingProgress: 100,
         }
-        : normalizedGeneratedCount === 1
+        : clampedGeneratedCount === 1
             ? {
                 status: "processing",
                 processingStep: "first_topic_ready",
@@ -4607,7 +4607,7 @@ const reconcileUploadStatusAfterRoutingSync = async (ctx: any, args: {
                 status: "processing",
                 processingStep: "generating_remaining_topics",
                 processingProgress: calculateRemainingTopicProgress({
-                    generatedTopicCount: normalizedGeneratedCount,
+                    generatedTopicCount: clampedGeneratedCount,
                     totalTopics: Math.max(plannedTopicCount, 1),
                 }),
             };
@@ -4616,13 +4616,13 @@ const reconcileUploadStatusAfterRoutingSync = async (ctx: any, args: {
         uploadId: args.uploadId,
         ...uploadPatch,
         plannedTopicCount,
-        generatedTopicCount: normalizedGeneratedCount,
+        generatedTopicCount: clampedGeneratedCount,
         plannedTopicTitles: Array.isArray(upload.plannedTopicTitles) ? upload.plannedTopicTitles : undefined,
         errorMessage: "",
     });
 
     return {
-        generatedTopicCount: normalizedGeneratedCount,
+        generatedTopicCount: clampedGeneratedCount,
         plannedTopicCount,
     };
 };
@@ -5122,10 +5122,13 @@ export const generateCourseFromText = action({
                     totalTopics,
                     allTopicTitles: plannedTopicTitles,
                 });
-                const generatedTopicCount = normalizeGeneratedTopicCount({
+                const generatedTopicCount = clampGeneratedTopicCount({
                     generatedTopicCount: await countGeneratedTopicsForCourse(ctx, courseId, totalTopics),
                     totalTopics,
                 });
+                if (generatedTopicCount <= 0) {
+                    throw new Error("First topic generation completed without persisting any topics.");
+                }
 
                 await ctx.runMutation(api.uploads.updateUploadStatus, {
                     uploadId,
@@ -5188,7 +5191,7 @@ export const generateRemainingTopicsInBackground = internalAction({
             const { index: uploadEvidenceIndex } = await loadGroundedEvidenceIndexForUpload(ctx, uploadId);
             const totalTopics = Math.max(1, preparedTopics.length);
             const safeGeneratedCount = async () =>
-                normalizeGeneratedTopicCount({
+                clampGeneratedTopicCount({
                     generatedTopicCount: await countGeneratedTopicsForCourse(ctx, courseId, totalTopics),
                     totalTopics,
                 });
@@ -5284,10 +5287,13 @@ export const generateRemainingTopicsInBackground = internalAction({
                     });
                 }
 
-                const finalGeneratedCount = normalizeGeneratedTopicCount({
+                const finalGeneratedCount = clampGeneratedTopicCount({
                     generatedTopicCount,
                     totalTopics,
                 });
+                if (finalGeneratedCount <= 0) {
+                    throw new Error("No topics were generated for this upload.");
+                }
 
                 await ctx.runMutation(api.uploads.updateUploadStatus, {
                     uploadId,
