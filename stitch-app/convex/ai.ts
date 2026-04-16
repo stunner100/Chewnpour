@@ -335,8 +335,6 @@ const OPENAI_PRIMARY_FEATURES = new Set([
 ]);
 const HARD_CUTOVER_OPENAI_FEATURES = new Set([
     "course_generation",
-    "mcq_generation",
-    "essay_generation",
 ]);
 
 const parseBackendSentryEnvelopeConfig = (dsn: string): BackendSentryEnvelopeConfig | null => {
