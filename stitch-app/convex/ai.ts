@@ -326,21 +326,22 @@ type LlmUsageContext = {
     userId: string;
     feature: string;
 };
-type TextProvider = "openai" | "inception";
+type TextProvider = "openai" | "bedrock" | "inception";
 
 const llmUsageContextStorage = new AsyncLocalStorage<LlmUsageContext>();
 const INCEPTION_PRIMARY_FEATURES = new Set([
     "assignment_follow_up",
     "topic_tutor",
 ]);
+const BEDROCK_PRIMARY_FEATURES = new Set([
+    "mcq_generation",
+]);
 const OPENAI_PRIMARY_FEATURES = new Set([
     "course_generation",
-    "mcq_generation",
     "essay_generation",
 ]);
 const HARD_CUTOVER_OPENAI_FEATURES = new Set([
     "course_generation",
-    "mcq_generation",
     "essay_generation",
 ]);
 
@@ -547,6 +548,9 @@ const resolvePreferredTextProvider = (): TextProvider => {
     const feature = String(llmUsageContextStorage.getStore()?.feature || "").trim();
     if (INCEPTION_PRIMARY_FEATURES.has(feature)) {
         return "inception";
+    }
+    if (BEDROCK_PRIMARY_FEATURES.has(feature)) {
+        return "bedrock";
     }
     if (OPENAI_PRIMARY_FEATURES.has(feature)) {
         return "openai";
@@ -1005,6 +1009,61 @@ async function callInception(
         }
     };
 
+    const callBedrockWithFallbackText = async (args: { allowInceptionFallback: boolean }) => {
+        if (!bedrockApiKey) {
+            if (openAiAvailable) {
+                console.warn("[LLM] primary_provider_unavailable_using_fallback", {
+                    feature: llmFeature,
+                    primaryProvider: "bedrock",
+                    fallbackProvider: "openai",
+                    reason: "missing_bedrock_api_key",
+                    fallbackModel: openAiModel,
+                });
+                return callOpenAiWithFallbackText({ allowInceptionFallback: args.allowInceptionFallback });
+            }
+            if (args.allowInceptionFallback && inceptionApiKey) {
+                console.warn("[LLM] primary_provider_unavailable_using_fallback", {
+                    feature: llmFeature,
+                    primaryProvider: "bedrock",
+                    fallbackProvider: "inception",
+                    reason: "missing_bedrock_api_key",
+                    fallbackModel: INCEPTION_MODEL,
+                });
+                return callInceptionText();
+            }
+            throw new Error("BEDROCK_API_KEY environment variable not set.");
+        }
+
+        try {
+            return await callBedrockText();
+        } catch (error) {
+            const errorMessage = error instanceof Error ? error.message : String(error);
+            if (shouldFallbackToOpenAiText({ errorMessage, openAiAvailable })) {
+                console.warn("[LLM] primary_provider_failed_using_fallback", {
+                    feature: llmFeature,
+                    primaryProvider: "bedrock",
+                    fallbackProvider: "openai",
+                    primaryModel: BEDROCK_MODEL,
+                    fallbackModel: openAiModel,
+                    message: errorMessage,
+                });
+                return callOpenAiWithFallbackText({ allowInceptionFallback: args.allowInceptionFallback });
+            }
+            if (args.allowInceptionFallback && shouldFallbackToInceptionText({ errorMessage, inceptionApiKey })) {
+                console.warn("[LLM] primary_provider_failed_using_fallback", {
+                    feature: llmFeature,
+                    primaryProvider: "bedrock",
+                    fallbackProvider: "inception",
+                    primaryModel: BEDROCK_MODEL,
+                    fallbackModel: INCEPTION_MODEL,
+                    message: errorMessage,
+                });
+                return callInceptionText();
+            }
+            throw error;
+        }
+    };
+
     if (preferredProvider === "inception") {
         if (!inceptionApiKey) {
             if (openAiOrBedrockAvailable) {
@@ -1037,6 +1096,10 @@ async function callInception(
             }
             throw error;
         }
+    }
+
+    if (preferredProvider === "bedrock") {
+        return callBedrockWithFallbackText({ allowInceptionFallback: true });
     }
 
     return callOpenAiWithFallbackText({ allowInceptionFallback: true });
