@@ -656,14 +656,11 @@ async function callInception(
         let timeoutId: ReturnType<typeof setTimeout> | null = null;
 
         try {
-            const timeoutPromise = new Promise<never>((_, reject) => {
-                timeoutId = setTimeout(() => {
-                    controller.abort();
-                    reject(new Error(`openai request timed out after ${timeoutMs}ms`));
-                }, timeoutMs);
-            });
+            timeoutId = setTimeout(() => {
+                controller.abort();
+            }, timeoutMs);
 
-            const requestPromise = fetch(new URL("chat/completions", OPENAI_BASE_URL).toString(), {
+            const response = await fetch(new URL("chat/completions", OPENAI_BASE_URL).toString(), {
                 method: "POST",
                 headers: {
                     "Content-Type": "application/json",
@@ -679,19 +676,17 @@ async function callInception(
                 }),
                 signal: controller.signal,
             });
-
-            const response: Response = await Promise.race([requestPromise, timeoutPromise]);
+            const responseBody = await response.text();
             if (timeoutId) {
                 clearTimeout(timeoutId);
                 timeoutId = null;
             }
 
             if (!response.ok) {
-                const errorText = await response.text().catch(() => "");
-                throw new Error(formatOpenAiApiError(response.status, errorText));
+                throw new Error(formatOpenAiApiError(response.status, responseBody));
             }
 
-            const data: ChatCompletionResponse = await response.json();
+            const data: ChatCompletionResponse = JSON.parse(responseBody || "{}");
             const responseText = String(data?.choices?.[0]?.message?.content || "").trim();
             if (!responseText) {
                 throw new Error("openai API error: empty response.");
@@ -733,14 +728,11 @@ async function callInception(
         let timeoutId: ReturnType<typeof setTimeout> | null = null;
 
         try {
-            const timeoutPromise = new Promise<never>((_, reject) => {
-                timeoutId = setTimeout(() => {
-                    controller.abort();
-                    reject(new Error(`bedrock request timed out after ${bedrockTimeoutMs}ms`));
-                }, bedrockTimeoutMs);
-            });
+            timeoutId = setTimeout(() => {
+                controller.abort();
+            }, bedrockTimeoutMs);
 
-            const requestPromise = fetch(new URL("chat/completions", BEDROCK_BASE_URL).toString(), {
+            const response = await fetch(new URL("chat/completions", BEDROCK_BASE_URL).toString(), {
                 method: "POST",
                 headers: {
                     "Content-Type": "application/json",
@@ -755,19 +747,17 @@ async function callInception(
                 }),
                 signal: controller.signal,
             });
-
-            const response: Response = await Promise.race([requestPromise, timeoutPromise]);
+            const responseBody = await response.text();
             if (timeoutId) {
                 clearTimeout(timeoutId);
                 timeoutId = null;
             }
 
             if (!response.ok) {
-                const errorText = await response.text().catch(() => "");
-                throw new Error(formatBedrockApiError(response.status, errorText));
+                throw new Error(formatBedrockApiError(response.status, responseBody));
             }
 
-            const data: ChatCompletionResponse = await response.json();
+            const data: ChatCompletionResponse = JSON.parse(responseBody || "{}");
             const responseText = String(data?.choices?.[0]?.message?.content || "").trim();
             if (!responseText) {
                 throw new Error("bedrock API error: empty response.");
@@ -812,14 +802,11 @@ async function callInception(
             let timeoutId: ReturnType<typeof setTimeout> | null = null;
 
             try {
-                const timeoutPromise = new Promise<never>((_, reject) => {
-                    timeoutId = setTimeout(() => {
-                        controller.abort();
-                        reject(new Error(`inception request timed out after ${inceptionTimeoutMs}ms`));
-                    }, inceptionTimeoutMs);
-                });
+                timeoutId = setTimeout(() => {
+                    controller.abort();
+                }, inceptionTimeoutMs);
 
-                const requestPromise = fetch(`${INCEPTION_BASE_URL}/chat/completions`, {
+                const response = await fetch(`${INCEPTION_BASE_URL}/chat/completions`, {
                     method: "POST",
                     headers: {
                         "Content-Type": "application/json",
@@ -834,18 +821,16 @@ async function callInception(
                     }),
                     signal: controller.signal,
                 });
-
-                const response: Response = await Promise.race([requestPromise, timeoutPromise]);
+                const responseBody = await response.text();
                 if (timeoutId) {
                     clearTimeout(timeoutId);
                     timeoutId = null;
                 }
 
                 if (!response.ok) {
-                    const errorText = await response.text();
                     const isRetryableStatus = retryableStatuses.has(response.status);
                     const isLastAttempt = attempt >= maxAttempts - 1;
-                    const formattedError = formatInceptionApiError(response.status, errorText);
+                    const formattedError = formatInceptionApiError(response.status, responseBody);
                     if (isRetryableStatus && !isLastAttempt) {
                         await sleep(retryDelayForAttempt(attempt));
                         continue;
@@ -853,7 +838,7 @@ async function callInception(
                     throw new Error(formattedError);
                 }
 
-                const data: ChatCompletionResponse = await response.json();
+                const data: ChatCompletionResponse = JSON.parse(responseBody || "{}");
                 await recordLlmUsage({
                     provider: "inception",
                     model: inceptionModel,
