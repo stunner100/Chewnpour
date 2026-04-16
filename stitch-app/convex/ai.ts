@@ -246,9 +246,16 @@ const ESSAY_QUESTION_BACKGROUND_MAX_RETRIES = 4;
 const TOPIC_EXAM_PREBUILD_ESSAY_COUNT = 15;
 const CONCEPT_EXERCISE_HISTORY_LIMIT = 8;
 const CONCEPT_EXERCISE_MAX_ATTEMPTS = 3;
-const GEMINI_BASE_URL = process.env.GEMINI_BASE_URL || "https://generativelanguage.googleapis.com/v1beta";
-const GEMINI_IMAGE_MODEL = process.env.GEMINI_IMAGE_MODEL || "gemini-2.0-flash-exp-image-generation";
-const GEMINI_TIMEOUT_MS = Number(process.env.GEMINI_TIMEOUT_MS || 45000);
+const TOPIC_ILLUSTRATION_OPENROUTER_BASE_URL = (() => {
+    const raw = String(process.env.TOPIC_ILLUSTRATION_OPENROUTER_BASE_URL || "https://openrouter.ai/api/v1/").trim();
+    if (!raw) return "https://openrouter.ai/api/v1/";
+    return raw.endsWith("/") ? raw : `${raw}/`;
+})();
+const TOPIC_ILLUSTRATION_OPENROUTER_MODEL =
+    String(process.env.TOPIC_ILLUSTRATION_OPENROUTER_MODEL || "bytedance-seed/seedream-4.5").trim()
+    || "bytedance-seed/seedream-4.5";
+const TOPIC_ILLUSTRATION_OPENROUTER_TIMEOUT_MS =
+    Number(process.env.TOPIC_ILLUSTRATION_OPENROUTER_TIMEOUT_MS || 60000);
 const TOPIC_PLACEHOLDER_ILLUSTRATION_URL =
     String(process.env.TOPIC_PLACEHOLDER_ILLUSTRATION_URL || "/topic-placeholder.svg").trim()
     || "/topic-placeholder.svg";
@@ -295,7 +302,15 @@ interface ChatCompletionResponse {
     choices: Array<{
         message: {
             role: string;
-            content: string;
+            content?: string | null;
+            images?: Array<{
+                image_url?: {
+                    url?: string;
+                };
+                imageUrl?: {
+                    url?: string;
+                };
+            }>;
         };
         finish_reason: string;
     }>;
@@ -1529,79 +1544,78 @@ const resolveTopicPlaceholderIllustrationUrl = () => {
         : `/${TOPIC_PLACEHOLDER_ILLUSTRATION_URL}`;
 };
 
-const extractInlineImageFromGemini = (payload: GeminiGenerateContentResponse) => {
-    const parts = (payload?.candidates || []).flatMap((candidate) => candidate?.content?.parts || []);
-    const imagePart = parts.find((part) => part?.inlineData?.data);
-    const mimeType = imagePart?.inlineData?.mimeType || "image/png";
-    const base64Data = imagePart?.inlineData?.data || "";
-    if (!base64Data) return null;
-    return { mimeType, base64Data };
+const extractGeneratedImageFromOpenRouter = (payload: ChatCompletionResponse) => {
+    const dataUrl = (payload?.choices || [])
+        .flatMap((choice) => choice?.message?.images || [])
+        .map((image) => image?.image_url?.url || image?.imageUrl?.url || "")
+        .find(Boolean);
+
+    if (!dataUrl) return null;
+
+    const match = String(dataUrl).match(/^data:([^;]+);base64,(.+)$/);
+    if (!match) return null;
+
+    return {
+        mimeType: match[1] || "image/png",
+        base64Data: match[2] || "",
+    };
 };
 
-const generateTopicIllustrationWithGemini = async (prompt: string) => {
-    const apiKey = process.env.GEMINI_API_KEY;
+const generateTopicIllustrationWithOpenRouter = async (prompt: string) => {
+    const apiKey = String(process.env.OPENROUTER_API_KEY || "").trim();
     if (!apiKey) {
         return null;
     }
 
-    const modelCandidates = [GEMINI_IMAGE_MODEL, "gemini-2.5-flash-image"]
-        .map((value) => String(value || "").trim())
-        .filter(Boolean)
-        .filter((value, index, arr) => arr.indexOf(value) === index);
-
-    for (const model of modelCandidates) {
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), GEMINI_TIMEOUT_MS);
-        try {
-            const response = await fetch(
-                `${GEMINI_BASE_URL}/models/${model}:generateContent?key=${apiKey}`,
-                {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    signal: controller.signal,
-                    body: JSON.stringify({
-                        contents: [
-                            {
-                                role: "user",
-                                parts: [{ text: prompt }],
-                            },
-                        ],
-                        generationConfig: {
-                            responseModalities: ["TEXT", "IMAGE"],
-                            temperature: 0.4,
-                        },
-                    }),
-                }
-            );
-
-            if (!response.ok) {
-                const errorText = await response.text();
-                console.warn("[GeminiImage] generateContent_failed", {
-                    model,
-                    status: response.status,
-                    error: errorText.slice(0, 300),
-                });
-                continue;
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), TOPIC_ILLUSTRATION_OPENROUTER_TIMEOUT_MS);
+    try {
+        const response = await fetch(
+            `${TOPIC_ILLUSTRATION_OPENROUTER_BASE_URL}chat/completions`,
+            {
+                method: "POST",
+                headers: {
+                    "Authorization": `Bearer ${apiKey}`,
+                    "Content-Type": "application/json",
+                },
+                signal: controller.signal,
+                body: JSON.stringify({
+                    model: TOPIC_ILLUSTRATION_OPENROUTER_MODEL,
+                    messages: [{ role: "user", content: prompt }],
+                    modalities: ["image"],
+                }),
             }
+        );
 
-            const payload: GeminiGenerateContentResponse = await response.json();
-            const imageData = extractInlineImageFromGemini(payload);
-            if (imageData) {
-                return imageData;
-            }
-
-            console.warn("[GeminiImage] no_inline_image_data", { model });
-        } catch (error) {
-            console.warn("[GeminiImage] generation_error", {
-                model,
-                message: error instanceof Error ? error.message : String(error),
+        if (!response.ok) {
+            const errorText = await response.text();
+            console.warn("[TopicIllustration] openrouter_generation_failed", {
+                model: TOPIC_ILLUSTRATION_OPENROUTER_MODEL,
+                status: response.status,
+                error: errorText.slice(0, 300),
             });
-        } finally {
-            clearTimeout(timeoutId);
+            return null;
         }
-    }
 
-    return null;
+        const payload: ChatCompletionResponse = await response.json();
+        const imageData = extractGeneratedImageFromOpenRouter(payload);
+        if (imageData) {
+            return imageData;
+        }
+
+        console.warn("[TopicIllustration] openrouter_no_image_data", {
+            model: TOPIC_ILLUSTRATION_OPENROUTER_MODEL,
+        });
+        return null;
+    } catch (error) {
+        console.warn("[TopicIllustration] openrouter_generation_error", {
+            model: TOPIC_ILLUSTRATION_OPENROUTER_MODEL,
+            message: error instanceof Error ? error.message : String(error),
+        });
+        return null;
+    } finally {
+        clearTimeout(timeoutId);
+    }
 };
 
 const sanitizeJson = (raw: string) =>
@@ -4989,9 +5003,9 @@ export const generateTopicIllustration = internalAction({
                 content: args.content,
             });
 
-            const illustration = await generateTopicIllustrationWithGemini(prompt);
+            const illustration = await generateTopicIllustrationWithOpenRouter(prompt);
             if (!illustration) {
-                return { success: false, skipped: true, reason: "gemini_no_image" };
+                return { success: false, skipped: true, reason: "topic_illustration_no_image" };
             }
 
             const imageBytes = Buffer.from(illustration.base64Data, "base64");
