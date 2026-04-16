@@ -31,6 +31,37 @@ export const shouldFallbackToInceptionText = ({ errorMessage, inceptionApiKey })
         && (isOpenAiProviderFailure(errorMessage) || isBedrockProviderFailure(errorMessage));
 };
 
+export const isMiniMaxProviderFailure = (message) => {
+    const normalized = String(message || "").toLowerCase();
+    if (!normalized) return false;
+    return [
+        "minimax api error",
+        "minimax request timed out",
+        "authorized_error",
+        "rate_limit",
+        "rate limit",
+        "incorrect api key",
+        "invalid api key",
+        "unauthorized",
+        "invalid authentication",
+        "failed to fetch",
+        "network",
+        "aborted",
+        "server_error",
+        "internal server error",
+        "fetch failed",
+    ].some((token) => normalized.includes(token));
+};
+
+export const shouldFallbackToMiniMaxText = ({ errorMessage, minimaxApiKey }) => {
+    return Boolean(String(minimaxApiKey || "").trim())
+        && (
+            isOpenAiProviderFailure(errorMessage)
+            || isBedrockProviderFailure(errorMessage)
+            || isInceptionProviderFailure(errorMessage)
+        );
+};
+
 export const isBedrockProviderFailure = (message) => {
     const normalized = String(message || "").toLowerCase();
     if (!normalized) return false;
@@ -77,5 +108,6 @@ export const isInceptionProviderFailure = (message) => {
 };
 
 export const shouldFallbackToOpenAiText = ({ errorMessage, openAiAvailable }) => {
-    return Boolean(openAiAvailable) && isInceptionProviderFailure(errorMessage);
+    return Boolean(openAiAvailable)
+        && (isInceptionProviderFailure(errorMessage) || isMiniMaxProviderFailure(errorMessage));
 };

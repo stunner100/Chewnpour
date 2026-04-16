@@ -18,6 +18,7 @@ assert.match(aiSource, /recordProviderAttemptInternal/, 'AI pipeline should writ
 assert.match(aiSource, /timeoutCount: args.timeout \? 1 : 0/, 'Provider attempt telemetry should separate timeout failures');
 assert.match(aiSource, /provider: "openai"/, 'OpenAI attempts should be instrumented');
 assert.match(aiSource, /provider: "bedrock"/, 'Bedrock attempts should be instrumented');
+assert.match(aiSource, /provider: "minimax"/, 'MiniMax attempts should be instrumented');
 assert.match(aiSource, /provider: "inception"/, 'Inception attempts should be instrumented');
 
 console.log('llm-provider-telemetry-regression.test.mjs passed');

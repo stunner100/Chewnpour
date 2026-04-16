@@ -69,6 +69,7 @@ import {
 import {
     shouldFallbackToBedrockText,
     shouldFallbackToInceptionText,
+    shouldFallbackToMiniMaxText,
     shouldFallbackToOpenAiText,
 } from "./lib/llmProviderFallback";
 import {
@@ -106,11 +107,18 @@ const BEDROCK_BASE_URL = (() => {
     return raw.endsWith("/") ? raw : `${raw}/`;
 })();
 const BEDROCK_MODEL = String(process.env.BEDROCK_MODEL || "moonshotai.kimi-k2.5").trim() || "moonshotai.kimi-k2.5";
+const MINIMAX_BASE_URL = (() => {
+    const raw = String(process.env.MINIMAX_BASE_URL || "https://api.minimax.io/v1/").trim();
+    if (!raw) return "https://api.minimax.io/v1/";
+    return raw.endsWith("/") ? raw : `${raw}/`;
+})();
+const MINIMAX_MODEL = String(process.env.MINIMAX_MODEL || "MiniMax-M2.7").trim() || "MiniMax-M2.7";
 const INCEPTION_BASE_URL = process.env.INCEPTION_BASE_URL || "https://api.inceptionlabs.ai/v1";
 const INCEPTION_MODEL = process.env.INCEPTION_MODEL || "mercury-2";
 const DEFAULT_MODEL = OPENAI_MODEL;
 const DEFAULT_TIMEOUT_MS = Number(process.env.OPENAI_TIMEOUT_MS || 60000);
 const BEDROCK_TIMEOUT_MS = Number(process.env.BEDROCK_TIMEOUT_MS || DEFAULT_TIMEOUT_MS);
+const MINIMAX_TIMEOUT_MS = Number(process.env.MINIMAX_TIMEOUT_MS || DEFAULT_TIMEOUT_MS);
 const INCEPTION_TIMEOUT_MS = Number(process.env.INCEPTION_TIMEOUT_MS || DEFAULT_TIMEOUT_MS);
 const INCEPTION_MAX_RETRIES = (() => {
     const parsed = Number(process.env.INCEPTION_MAX_RETRIES || 2);
@@ -344,6 +352,12 @@ const HARD_CUTOVER_OPENAI_FEATURES = new Set([
     "course_generation",
     "essay_generation",
 ]);
+const MINIMAX_EXPERIMENTAL_FALLBACK_FEATURES = new Set(
+    String(process.env.MINIMAX_EXPERIMENTAL_FALLBACK_FEATURES || "")
+        .split(",")
+        .map((value) => value.trim())
+        .filter(Boolean)
+);
 
 const parseBackendSentryEnvelopeConfig = (dsn: string): BackendSentryEnvelopeConfig | null => {
     const trimmed = String(dsn || "").trim();
@@ -590,6 +604,9 @@ const classifyLlmAttemptFailure = (error: unknown) => {
     };
 };
 
+const featureAllowsMiniMaxExperimentalFallback = (feature: string) =>
+    MINIMAX_EXPERIMENTAL_FALLBACK_FEATURES.has(String(feature || "").trim());
+
 const getTopicOwnerUserIdForTracking = async (ctx: any, topicId: any) => {
     const owner = await ctx.runQuery(internal.topics.getTopicOwnerUserIdInternal, { topicId });
     return String(owner?.userId || "").trim();
@@ -619,14 +636,17 @@ async function callInception(
 ): Promise<string> {
     const openAiApiKey = String(process.env.OPENAI_API_KEY || "").trim();
     const bedrockApiKey = String(process.env.BEDROCK_API_KEY || "").trim();
+    const minimaxApiKey = String(process.env.MINIMAX_API_KEY || "").trim();
     const inceptionApiKey = String(process.env.INCEPTION_API_KEY || "").trim();
     const timeoutMs = options?.timeoutMs ?? DEFAULT_TIMEOUT_MS;
     const llmFeature = String(llmUsageContextStorage.getStore()?.feature || "unknown").trim() || "unknown";
     const preferredProvider = resolvePreferredTextProvider();
     const pipelineOpenAiRequired = featureRequiresOpenAiHardCutover(llmFeature);
+    const minimaxExperimentalFallbackEnabled = featureAllowsMiniMaxExperimentalFallback(llmFeature);
     const openAiModel = pipelineOpenAiRequired ? OPENAI_PIPELINE_MODEL : model;
     const openAiAvailable = Boolean(openAiApiKey) && !OPENAI_BASE_URL_IS_PLACEHOLDER;
     const bedrockAvailable = Boolean(bedrockApiKey);
+    const minimaxAvailable = Boolean(minimaxApiKey) && minimaxExperimentalFallbackEnabled;
     const openAiOrBedrockAvailable = openAiAvailable || bedrockAvailable;
 
     const parseOpenAiError = (raw: string) => {
@@ -666,6 +686,15 @@ async function callInception(
         return labels
             ? `bedrock API error: ${status} (${labels}) - ${detail}`
             : `bedrock API error: ${status} - ${detail}`;
+    };
+
+    const formatMiniMaxApiError = (status: number, raw: string) => {
+        const parsed = parseOpenAiError(raw);
+        const labels = Array.from(new Set([parsed.code, parsed.type, parsed.param].filter(Boolean))).join(", ");
+        const detail = parsed.message || String(raw || "").trim() || "Unknown provider error.";
+        return labels
+            ? `minimax API error: ${status} (${labels}) - ${detail}`
+            : `minimax API error: ${status} - ${detail}`;
     };
 
     const parseInceptionError = (raw: string) => {
@@ -888,6 +917,100 @@ async function callInception(
         }
     };
 
+    const callMiniMaxText = async () => {
+        if (!minimaxApiKey) {
+            throw new Error("MINIMAX_API_KEY environment variable not set.");
+        }
+
+        const minimaxTimeoutMs = options?.timeoutMs ?? MINIMAX_TIMEOUT_MS;
+        const controller = new AbortController();
+        let timeoutId: ReturnType<typeof setTimeout> | null = null;
+        const startedAt = Date.now();
+        let telemetryRecorded = false;
+
+        try {
+            timeoutId = setTimeout(() => {
+                controller.abort();
+            }, minimaxTimeoutMs);
+
+            const response = await fetch(new URL("chat/completions", MINIMAX_BASE_URL).toString(), {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    Authorization: `Bearer ${minimaxApiKey}`,
+                    "api-key": minimaxApiKey,
+                },
+                body: JSON.stringify({
+                    model: MINIMAX_MODEL,
+                    messages,
+                    temperature: Math.max(0.1, Math.min(1, Number(options?.temperature ?? 0.2))),
+                    max_completion_tokens: options?.maxTokens ?? 2048,
+                    response_format: options?.responseFormat ? { type: options.responseFormat } : undefined,
+                }),
+                signal: controller.signal,
+            });
+            const responseBody = await response.text();
+            if (timeoutId) {
+                clearTimeout(timeoutId);
+                timeoutId = null;
+            }
+
+            if (!response.ok) {
+                throw new Error(formatMiniMaxApiError(response.status, responseBody));
+            }
+
+            const data: ChatCompletionResponse = JSON.parse(responseBody || "{}");
+            const responseText = String(data?.choices?.[0]?.message?.content || "").trim();
+            if (!responseText) {
+                throw new Error("minimax API error: empty response.");
+            }
+
+            await recordLlmUsage({
+                provider: "minimax",
+                model: MINIMAX_MODEL,
+                promptTokens: data?.usage?.prompt_tokens,
+                completionTokens: data?.usage?.completion_tokens,
+                totalTokens: data?.usage?.total_tokens,
+            });
+            await recordLlmProviderAttempt({
+                provider: "minimax",
+                model: MINIMAX_MODEL,
+                durationMs: Date.now() - startedAt,
+                success: true,
+                timeout: false,
+                promptTokens: data?.usage?.prompt_tokens,
+                completionTokens: data?.usage?.completion_tokens,
+                totalTokens: data?.usage?.total_tokens,
+            });
+            telemetryRecorded = true;
+
+            return responseText;
+        } catch (error) {
+            if (timeoutId) {
+                clearTimeout(timeoutId);
+            }
+
+            const failure = classifyLlmAttemptFailure(error);
+            if (!telemetryRecorded) {
+                await recordLlmProviderAttempt({
+                    provider: "minimax",
+                    model: MINIMAX_MODEL,
+                    durationMs: Date.now() - startedAt,
+                    success: false,
+                    timeout: failure.isTimeout,
+                });
+                telemetryRecorded = true;
+            }
+            if (failure.isTimeout) {
+                throw new Error(`minimax request timed out after ${minimaxTimeoutMs}ms`);
+            }
+            if (failure.isNetwork || failure.message.toLowerCase().includes("fetch failed")) {
+                throw new Error(`minimax API error: network - ${failure.message}`);
+            }
+            throw error;
+        }
+    };
+
     const callInceptionText = async () => {
         if (!inceptionApiKey) {
             throw new Error("INCEPTION_API_KEY environment variable not set.");
@@ -1033,6 +1156,34 @@ async function callInception(
         }
     };
 
+    const callMiniMaxWithOptionalInceptionFallback = async (args: {
+        sourceProvider: "openai" | "bedrock" | "inception";
+        sourceModel: string;
+        sourceMessage: string;
+        allowInceptionFallback: boolean;
+    }) => {
+        try {
+            return await callMiniMaxText();
+        } catch (error) {
+            const errorMessage = error instanceof Error ? error.message : String(error);
+            if (args.allowInceptionFallback && shouldFallbackToInceptionText({ errorMessage, inceptionApiKey })) {
+                console.warn("[LLM] fallback_provider_failed_using_fallback", {
+                    feature: llmFeature,
+                    primaryProvider: args.sourceProvider,
+                    failedFallbackProvider: "minimax",
+                    fallbackProvider: "inception",
+                    primaryModel: args.sourceModel,
+                    failedFallbackModel: MINIMAX_MODEL,
+                    fallbackModel: INCEPTION_MODEL,
+                    sourceMessage: args.sourceMessage,
+                    message: errorMessage,
+                });
+                return callInceptionText();
+            }
+            throw error;
+        }
+    };
+
     const callOpenAiWithFallbackText = async (args: { allowInceptionFallback: boolean }) => {
         if (!openAiApiKey) {
             if (pipelineOpenAiRequired) {
@@ -1047,6 +1198,21 @@ async function callInception(
                     fallbackModel: BEDROCK_MODEL,
                 });
                 return callBedrockWithOptionalInceptionFallback({
+                    sourceProvider: "openai",
+                    sourceModel: openAiModel,
+                    sourceMessage: "OPENAI_API_KEY environment variable not set.",
+                    allowInceptionFallback: args.allowInceptionFallback,
+                });
+            }
+            if (minimaxAvailable) {
+                console.warn("[LLM] primary_provider_unavailable_using_fallback", {
+                    feature: llmFeature,
+                    primaryProvider: "openai",
+                    fallbackProvider: "minimax",
+                    reason: "missing_openai_api_key",
+                    fallbackModel: MINIMAX_MODEL,
+                });
+                return callMiniMaxWithOptionalInceptionFallback({
                     sourceProvider: "openai",
                     sourceModel: openAiModel,
                     sourceMessage: "OPENAI_API_KEY environment variable not set.",
@@ -1078,6 +1244,21 @@ async function callInception(
                     fallbackModel: BEDROCK_MODEL,
                 });
                 return callBedrockWithOptionalInceptionFallback({
+                    sourceProvider: "openai",
+                    sourceModel: openAiModel,
+                    sourceMessage: "OPENAI_BASE_URL environment variable not configured.",
+                    allowInceptionFallback: args.allowInceptionFallback,
+                });
+            }
+            if (minimaxAvailable) {
+                console.warn("[LLM] primary_provider_unavailable_using_fallback", {
+                    feature: llmFeature,
+                    primaryProvider: "openai",
+                    fallbackProvider: "minimax",
+                    reason: "invalid_openai_base_url",
+                    fallbackModel: MINIMAX_MODEL,
+                });
+                return callMiniMaxWithOptionalInceptionFallback({
                     sourceProvider: "openai",
                     sourceModel: openAiModel,
                     sourceMessage: "OPENAI_BASE_URL environment variable not configured.",
@@ -1120,6 +1301,22 @@ async function callInception(
                     allowInceptionFallback: args.allowInceptionFallback,
                 });
             }
+            if (minimaxAvailable && shouldFallbackToMiniMaxText({ errorMessage, minimaxApiKey })) {
+                console.warn("[LLM] primary_provider_failed_using_fallback", {
+                    feature: llmFeature,
+                    primaryProvider: "openai",
+                    fallbackProvider: "minimax",
+                    primaryModel: openAiModel,
+                    fallbackModel: MINIMAX_MODEL,
+                    message: errorMessage,
+                });
+                return callMiniMaxWithOptionalInceptionFallback({
+                    sourceProvider: "openai",
+                    sourceModel: openAiModel,
+                    sourceMessage: errorMessage,
+                    allowInceptionFallback: args.allowInceptionFallback,
+                });
+            }
             if (args.allowInceptionFallback && shouldFallbackToInceptionText({ errorMessage, inceptionApiKey })) {
                 console.warn("[LLM] primary_provider_failed_using_fallback", {
                     feature: llmFeature,
@@ -1146,6 +1343,21 @@ async function callInception(
                     fallbackModel: openAiModel,
                 });
                 return callOpenAiWithFallbackText({ allowInceptionFallback: args.allowInceptionFallback });
+            }
+            if (minimaxAvailable) {
+                console.warn("[LLM] primary_provider_unavailable_using_fallback", {
+                    feature: llmFeature,
+                    primaryProvider: "bedrock",
+                    fallbackProvider: "minimax",
+                    reason: "missing_bedrock_api_key",
+                    fallbackModel: MINIMAX_MODEL,
+                });
+                return callMiniMaxWithOptionalInceptionFallback({
+                    sourceProvider: "bedrock",
+                    sourceModel: BEDROCK_MODEL,
+                    sourceMessage: "BEDROCK_API_KEY environment variable not set.",
+                    allowInceptionFallback: args.allowInceptionFallback,
+                });
             }
             if (args.allowInceptionFallback && inceptionApiKey) {
                 console.warn("[LLM] primary_provider_unavailable_using_fallback", {
@@ -1175,6 +1387,22 @@ async function callInception(
                 });
                 return callOpenAiWithFallbackText({ allowInceptionFallback: args.allowInceptionFallback });
             }
+            if (minimaxAvailable && shouldFallbackToMiniMaxText({ errorMessage, minimaxApiKey })) {
+                console.warn("[LLM] primary_provider_failed_using_fallback", {
+                    feature: llmFeature,
+                    primaryProvider: "bedrock",
+                    fallbackProvider: "minimax",
+                    primaryModel: BEDROCK_MODEL,
+                    fallbackModel: MINIMAX_MODEL,
+                    message: errorMessage,
+                });
+                return callMiniMaxWithOptionalInceptionFallback({
+                    sourceProvider: "bedrock",
+                    sourceModel: BEDROCK_MODEL,
+                    sourceMessage: errorMessage,
+                    allowInceptionFallback: args.allowInceptionFallback,
+                });
+            }
             if (args.allowInceptionFallback && shouldFallbackToInceptionText({ errorMessage, inceptionApiKey })) {
                 console.warn("[LLM] primary_provider_failed_using_fallback", {
                     feature: llmFeature,
@@ -1202,6 +1430,21 @@ async function callInception(
                 });
                 return callOpenAiWithFallbackText({ allowInceptionFallback: false });
             }
+            if (minimaxAvailable) {
+                console.warn("[LLM] primary_provider_unavailable_using_fallback", {
+                    feature: llmFeature,
+                    primaryProvider: "inception",
+                    fallbackProvider: "minimax",
+                    reason: "missing_inception_api_key",
+                    fallbackModel: MINIMAX_MODEL,
+                });
+                return callMiniMaxWithOptionalInceptionFallback({
+                    sourceProvider: "inception",
+                    sourceModel: INCEPTION_MODEL,
+                    sourceMessage: "INCEPTION_API_KEY environment variable not set.",
+                    allowInceptionFallback: false,
+                });
+            }
             throw new Error("INCEPTION_API_KEY environment variable not set.");
         }
 
@@ -1219,6 +1462,22 @@ async function callInception(
                     message: errorMessage,
                 });
                 return callOpenAiWithFallbackText({ allowInceptionFallback: false });
+            }
+            if (minimaxAvailable && shouldFallbackToMiniMaxText({ errorMessage, minimaxApiKey })) {
+                console.warn("[LLM] primary_provider_failed_using_fallback", {
+                    feature: llmFeature,
+                    primaryProvider: "inception",
+                    fallbackProvider: "minimax",
+                    primaryModel: INCEPTION_MODEL,
+                    fallbackModel: MINIMAX_MODEL,
+                    message: errorMessage,
+                });
+                return callMiniMaxWithOptionalInceptionFallback({
+                    sourceProvider: "inception",
+                    sourceModel: INCEPTION_MODEL,
+                    sourceMessage: errorMessage,
+                    allowInceptionFallback: false,
+                });
             }
             throw error;
         }
