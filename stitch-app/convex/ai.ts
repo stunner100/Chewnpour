@@ -1544,6 +1544,16 @@ const resolveTopicPlaceholderIllustrationUrl = () => {
         : `/${TOPIC_PLACEHOLDER_ILLUSTRATION_URL}`;
 };
 
+const hasUsableGeneratedTopicIllustration = (topic: { illustrationStorageId?: string | null; illustrationUrl?: string | null }) => {
+    if (topic?.illustrationStorageId) {
+        return true;
+    }
+
+    const normalizedIllustrationUrl = String(topic?.illustrationUrl || "").trim();
+    return Boolean(normalizedIllustrationUrl)
+        && normalizedIllustrationUrl !== resolveTopicPlaceholderIllustrationUrl();
+};
+
 const extractGeneratedImageFromOpenRouter = (payload: ChatCompletionResponse) => {
     const dataUrl = (payload?.choices || [])
         .flatMap((choice) => choice?.message?.images || [])
@@ -4989,9 +4999,7 @@ export const generateTopicIllustration = internalAction({
                 return { success: false, skipped: true, reason: "topic_not_found" };
             }
 
-            const hasUsableStoredIllustration =
-                (Boolean(topic.illustrationStorageId) && Boolean(topic.illustrationUrl)) ||
-                (!topic.illustrationStorageId && Boolean(topic.illustrationUrl));
+            const hasUsableStoredIllustration = hasUsableGeneratedTopicIllustration(topic);
             if (hasUsableStoredIllustration) {
                 return { success: true, skipped: true, reason: "already_exists" };
             }
