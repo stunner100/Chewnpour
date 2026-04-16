@@ -5063,6 +5063,126 @@ export const generateTopicIllustration = internalAction({
 });
 
 // Generate course structure from extracted text
+const generateCourseFromTextCore = async (ctx: any, args: {
+    courseId: Id<"courses">;
+    uploadId: Id<"uploads">;
+    extractedText: string;
+    fileName: string;
+    userId: string;
+}) => {
+    const { courseId, uploadId, extractedText, fileName, userId } = args;
+
+    try {
+        const startTime = Date.now();
+        const checkTimeout = () => {
+            if (Date.now() - startTime > DEFAULT_PROCESSING_TIMEOUT_MS) {
+                throw new Error("Processing timed out");
+            }
+        };
+
+        await ctx.runMutation(api.uploads.updateUploadStatus, {
+            uploadId,
+            status: "processing",
+            processingStep: "generating_topics",
+            processingProgress: 40,
+        });
+
+        checkTimeout();
+        const outlineStart = Date.now();
+        const courseOutline = await generateCourseOutlineWithPipeline(extractedText, fileName);
+        console.info("[CourseGeneration] outline_pipeline_ready", {
+            courseId,
+            uploadId,
+            durationMs: Date.now() - outlineStart,
+            topicCount: Array.isArray(courseOutline?.topics) ? courseOutline.topics.length : 0,
+        });
+
+        await ctx.runMutation(api.courses.updateCourse, {
+            courseId,
+            title: courseOutline.courseTitle || fileName.replace(/\.(pdf|pptx|docx)$/i, ""),
+            description: courseOutline.courseDescription || "AI-generated course from your study materials",
+        });
+
+        const preparedTopics = buildPreparedTopics(courseOutline, extractedText, fileName, courseOutline.sourceSnippets);
+        const { index: uploadEvidenceIndex } = await loadGroundedEvidenceIndexForUpload(ctx, uploadId);
+        const totalTopics = preparedTopics.length;
+        const plannedTopicTitles = preparedTopics.map((topic) => topic.title);
+
+        await ctx.runMutation(api.uploads.updateUploadStatus, {
+            uploadId,
+            status: "processing",
+            processingStep: "generating_first_topic",
+            processingProgress: 55,
+            plannedTopicCount: totalTopics,
+            generatedTopicCount: 0,
+            plannedTopicTitles,
+        });
+
+        checkTimeout();
+        await generateTopicContentForIndex({
+            ctx,
+            courseId,
+            uploadId,
+            extractedText,
+            evidenceIndex: uploadEvidenceIndex,
+            topicData: preparedTopics[0],
+            index: 0,
+            userId,
+            totalTopics,
+            allTopicTitles: plannedTopicTitles,
+        });
+        const generatedTopicCount = clampGeneratedTopicCount({
+            generatedTopicCount: await countGeneratedTopicsForCourse(ctx, courseId, totalTopics),
+            totalTopics,
+        });
+        if (generatedTopicCount <= 0) {
+            throw new Error("First topic generation completed without persisting any topics.");
+        }
+
+        await ctx.runMutation(api.uploads.updateUploadStatus, {
+            uploadId,
+            status: "processing",
+            processingStep: "first_topic_ready",
+            processingProgress: 60,
+            plannedTopicCount: totalTopics,
+            generatedTopicCount,
+            plannedTopicTitles,
+        });
+
+        console.info("[CourseGeneration] first_topic_ready", {
+            courseId,
+            uploadId,
+            elapsedMs: Date.now() - startTime,
+        });
+
+        await ctx.scheduler.runAfter(0, internal.ai.generateRemainingTopicsInBackground, {
+            courseId,
+            uploadId,
+            extractedText: extractedText.slice(0, BACKGROUND_SOURCE_TEXT_LIMIT),
+            preparedTopics,
+            plannedTopicTitles,
+            userId,
+        });
+
+        return {
+            success: true,
+            courseId,
+            topicCount: generatedTopicCount,
+        };
+    } catch (error) {
+        console.error("AI processing failed:", error);
+        const errorMessage = getErrorMessage(error);
+
+        await ctx.runMutation(api.uploads.updateUploadStatus, {
+            uploadId,
+            status: "error",
+            errorMessage,
+        });
+
+        throw error;
+    }
+};
+
 export const generateCourseFromText = action({
     args: {
         courseId: v.id("courses"),
@@ -5072,119 +5192,24 @@ export const generateCourseFromText = action({
         userId: v.string(),
     },
     handler: async (ctx, args) => {
-        const { courseId, uploadId, extractedText, fileName, userId } = args;
+        return await runWithLlmUsageContext(ctx, args.userId, "course_generation", async () =>
+            generateCourseFromTextCore(ctx, args)
+        );
+    },
+});
 
-        return await runWithLlmUsageContext(ctx, userId, "course_generation", async () => {
-            try {
-                const startTime = Date.now();
-                const checkTimeout = () => {
-                    if (Date.now() - startTime > DEFAULT_PROCESSING_TIMEOUT_MS) {
-                        throw new Error("Processing timed out");
-                    }
-                };
-
-                await ctx.runMutation(api.uploads.updateUploadStatus, {
-                    uploadId,
-                    status: "processing",
-                    processingStep: "generating_topics",
-                    processingProgress: 40,
-                });
-
-                checkTimeout();
-                const outlineStart = Date.now();
-                const courseOutline = await generateCourseOutlineWithPipeline(extractedText, fileName);
-                console.info("[CourseGeneration] outline_pipeline_ready", {
-                    courseId,
-                    uploadId,
-                    durationMs: Date.now() - outlineStart,
-                    topicCount: Array.isArray(courseOutline?.topics) ? courseOutline.topics.length : 0,
-                });
-
-                await ctx.runMutation(api.courses.updateCourse, {
-                    courseId,
-                    title: courseOutline.courseTitle || fileName.replace(/\.(pdf|pptx|docx)$/i, ""),
-                    description: courseOutline.courseDescription || "AI-generated course from your study materials",
-                });
-
-                const preparedTopics = buildPreparedTopics(courseOutline, extractedText, fileName, courseOutline.sourceSnippets);
-                const { index: uploadEvidenceIndex } = await loadGroundedEvidenceIndexForUpload(ctx, uploadId);
-                const totalTopics = preparedTopics.length;
-                const plannedTopicTitles = preparedTopics.map((topic) => topic.title);
-
-                await ctx.runMutation(api.uploads.updateUploadStatus, {
-                    uploadId,
-                    status: "processing",
-                    processingStep: "generating_first_topic",
-                    processingProgress: 55,
-                    plannedTopicCount: totalTopics,
-                    generatedTopicCount: 0,
-                    plannedTopicTitles,
-                });
-
-                checkTimeout();
-                await generateTopicContentForIndex({
-                    ctx,
-                    courseId,
-                    uploadId,
-                    extractedText,
-                    evidenceIndex: uploadEvidenceIndex,
-                    topicData: preparedTopics[0],
-                    index: 0,
-                    userId,
-                    totalTopics,
-                    allTopicTitles: plannedTopicTitles,
-                });
-                const generatedTopicCount = clampGeneratedTopicCount({
-                    generatedTopicCount: await countGeneratedTopicsForCourse(ctx, courseId, totalTopics),
-                    totalTopics,
-                });
-                if (generatedTopicCount <= 0) {
-                    throw new Error("First topic generation completed without persisting any topics.");
-                }
-
-                await ctx.runMutation(api.uploads.updateUploadStatus, {
-                    uploadId,
-                    status: "processing",
-                    processingStep: "first_topic_ready",
-                    processingProgress: 60,
-                    plannedTopicCount: totalTopics,
-                    generatedTopicCount,
-                    plannedTopicTitles,
-                });
-
-                console.info("[CourseGeneration] first_topic_ready", {
-                    courseId,
-                    uploadId,
-                    elapsedMs: Date.now() - startTime,
-                });
-
-                await ctx.scheduler.runAfter(0, internal.ai.generateRemainingTopicsInBackground, {
-                    courseId,
-                    uploadId,
-                    extractedText: extractedText.slice(0, BACKGROUND_SOURCE_TEXT_LIMIT),
-                    preparedTopics,
-                    plannedTopicTitles,
-                    userId,
-                });
-
-                return {
-                    success: true,
-                    courseId,
-                    topicCount: generatedTopicCount,
-                };
-            } catch (error) {
-                console.error("AI processing failed:", error);
-                const errorMessage = getErrorMessage(error);
-
-                await ctx.runMutation(api.uploads.updateUploadStatus, {
-                    uploadId,
-                    status: "error",
-                    errorMessage,
-                });
-
-                throw error;
-            }
-        });
+export const generateCourseFromTextInBackground = internalAction({
+    args: {
+        courseId: v.id("courses"),
+        uploadId: v.id("uploads"),
+        extractedText: v.string(),
+        fileName: v.string(),
+        userId: v.string(),
+    },
+    handler: async (ctx, args) => {
+        return await runWithLlmUsageContext(ctx, args.userId, "course_generation", async () =>
+            generateCourseFromTextCore(ctx, args)
+        );
     },
 });
 
@@ -5422,6 +5447,33 @@ export const retryAssessmentRoutingForUpload = internalAction({
     },
 });
 
+const resolveUploadProcessingKickoffState = (upload: any) => {
+    const status = String(upload?.status || "").trim();
+    const processingStep = String(upload?.processingStep || "").trim();
+
+    if (status === "ready") {
+        return {
+            shouldSkip: true,
+            reason: "already_ready",
+            processingStep: processingStep || "ready",
+        };
+    }
+
+    if (status === "processing" && processingStep && processingStep !== "uploading") {
+        return {
+            shouldSkip: true,
+            reason: "already_processing",
+            processingStep,
+        };
+    }
+
+    return {
+        shouldSkip: false,
+        reason: "",
+        processingStep,
+    };
+};
+
 // Process an uploaded file - orchestrates the full pipeline
 export const processUploadedFile = action({
     args: {
@@ -5432,6 +5484,7 @@ export const processUploadedFile = action({
     },
     handler: async (ctx, args) => {
         const { uploadId, courseId, userId } = args;
+        let extractionCompleted = false;
 
         try {
             const startTime = Date.now();
@@ -5444,6 +5497,23 @@ export const processUploadedFile = action({
             const upload = await ctx.runQuery(api.uploads.getUpload, { uploadId });
             if (!upload) {
                 throw new Error("Upload not found");
+            }
+            const kickoffState = resolveUploadProcessingKickoffState(upload);
+            if (kickoffState.shouldSkip) {
+                console.info("[UploadProcessing] kickoff_skip", {
+                    uploadId,
+                    courseId,
+                    status: upload.status,
+                    processingStep: kickoffState.processingStep,
+                    reason: kickoffState.reason,
+                });
+                return {
+                    success: true,
+                    queued: false,
+                    skipped: true,
+                    reason: kickoffState.reason,
+                    processingStep: kickoffState.processingStep,
+                };
             }
 
             // Update status to extracting with 5% progress
@@ -5471,6 +5541,7 @@ export const processUploadedFile = action({
             if (!extractedText) {
                 throw new Error("Strict extraction pipeline returned no content.");
             }
+            extractionCompleted = true;
 
             console.info("[Extraction] v2_completed", {
                 uploadId,
@@ -5486,7 +5557,7 @@ export const processUploadedFile = action({
 
             // Now generate the course from the extracted text
             checkTimeout();
-            const result = await ctx.runAction(api.ai.generateCourseFromText, {
+            await ctx.scheduler.runAfter(0, internal.ai.generateCourseFromTextInBackground, {
                 courseId,
                 uploadId,
                 extractedText,
@@ -5503,7 +5574,12 @@ export const processUploadedFile = action({
                 });
             }
 
-            return result;
+            return {
+                success: true,
+                queued: true,
+                uploadId,
+                courseId,
+            };
         } catch (error) {
             console.error("File processing failed:", error);
             const errorMessage = getErrorMessage(error);
@@ -5511,8 +5587,8 @@ export const processUploadedFile = action({
             await ctx.runMutation(api.uploads.updateUploadStatus, {
                 uploadId,
                 status: "error",
-                extractionStatus: "failed",
                 errorMessage,
+                ...(extractionCompleted ? {} : { extractionStatus: "failed" }),
             });
 
             throw error;

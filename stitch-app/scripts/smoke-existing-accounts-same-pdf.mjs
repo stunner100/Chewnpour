@@ -30,6 +30,41 @@ await fs.mkdir(artifactsDir, { recursive: true });
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
+const waitForUploadInput = async (page, timeout = 30000) => {
+  const started = Date.now();
+  while (Date.now() - started < timeout) {
+    let handle;
+    try {
+      handle = await page.evaluateHandle(() => {
+        const candidates = Array.from(document.querySelectorAll('input[type="file"]'));
+        const preferred = candidates.find((input) => {
+          const accept = String(input.getAttribute('accept') || '').toLowerCase();
+          return accept.includes('.pdf') || accept.includes('.pptx') || accept.includes('.docx');
+        });
+        return preferred || candidates[0] || null;
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      if (/Execution context was destroyed/i.test(message)) {
+        await sleep(500);
+        continue;
+      }
+      throw error;
+    }
+    const element = handle.asElement();
+    if (element) {
+      return element;
+    }
+
+    const uploadTriggerVisible = await page.getByRole('button', { name: /upload materials|add course/i }).first().isVisible().catch(() => false);
+    if (uploadTriggerVisible) {
+      await page.getByRole('button', { name: /upload materials|add course/i }).first().click({ timeout: 10000 }).catch(() => undefined);
+    }
+    await sleep(1000);
+  }
+  throw new Error('Timed out waiting for upload file input');
+};
+
 const parseTopicSummary = (text) => {
   const normalized = String(text || '').replace(/\s+/g, ' ').trim();
   const ofMatch = normalized.match(/(\d+)\s+of\s+(\d+)\s+topics?\s+ready/i);
@@ -116,10 +151,10 @@ const loginAndUpload = async (context, email) => {
   await page.goto(`${baseUrl}/login`, { waitUntil: 'domcontentloaded', timeout: 120000 });
   await page.getByPlaceholder('student@university.edu').fill(email);
   await page.getByPlaceholder('Enter your password').fill(password);
-  await page.getByRole('button', { name: /log in/i }).click({ timeout: 15000 });
+  await page.getByRole('button', { name: /log in|sign in/i }).click({ timeout: 15000 });
   await page.waitForURL(/\/dashboard/, { timeout: 90000 });
 
-  const fileInput = page.locator('input[type="file"][accept=".pdf,.pptx,.docx"]').first();
+  const fileInput = await waitForUploadInput(page);
   await fileInput.setInputFiles(uploadFilePath, { timeout: 30000 });
 
   const outcome = await waitForUploadOutcome(page);
