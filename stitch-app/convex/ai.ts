@@ -539,6 +539,57 @@ const recordLlmUsage = async (args: {
     });
 };
 
+const recordLlmProviderAttempt = async (args: {
+    provider: string;
+    model: string;
+    durationMs: number;
+    success: boolean;
+    timeout: boolean;
+    promptTokens?: number;
+    completionTokens?: number;
+    totalTokens?: number;
+}) => {
+    const usageContext = llmUsageContextStorage.getStore();
+    if (!usageContext?.ctx) {
+        return;
+    }
+
+    const durationMs = Math.max(0, Math.round(Number(args.durationMs || 0)));
+    await usageContext.ctx.runMutation((internal as any).llmUsage.recordProviderAttemptInternal, {
+        feature: usageContext.feature,
+        provider: String(args.provider || "").trim() || "unknown",
+        model: String(args.model || "").trim() || "unknown",
+        requestCount: 1,
+        successCount: args.success ? 1 : 0,
+        failureCount: args.success ? 0 : 1,
+        timeoutCount: args.timeout ? 1 : 0,
+        promptTokens: toNonNegativeUsageNumber(args.promptTokens),
+        completionTokens: toNonNegativeUsageNumber(args.completionTokens),
+        totalTokens: toNonNegativeUsageNumber(args.totalTokens),
+        totalLatencyMs: durationMs,
+        maxLatencyMs: durationMs,
+        timestampMs: Date.now(),
+    }).catch((error: unknown) => {
+        console.warn("[LLMUsage] provider_attempt_record_failed", {
+            provider: args.provider,
+            model: args.model,
+            feature: usageContext.feature,
+            message: error instanceof Error ? error.message : String(error),
+        });
+    });
+};
+
+const classifyLlmAttemptFailure = (error: unknown) => {
+    const message = error instanceof Error ? error.message : String(error);
+    const normalizedMessage = String(message || "").trim();
+    const lowerError = normalizedMessage.toLowerCase();
+    return {
+        message: normalizedMessage,
+        isTimeout: lowerError.includes("timed out") || lowerError.includes("aborted"),
+        isNetwork: lowerError.includes("network") || lowerError.includes("failed to fetch"),
+    };
+};
+
 const getTopicOwnerUserIdForTracking = async (ctx: any, topicId: any) => {
     const owner = await ctx.runQuery(internal.topics.getTopicOwnerUserIdInternal, { topicId });
     return String(owner?.userId || "").trim();
@@ -658,6 +709,8 @@ async function callInception(
 
         const controller = new AbortController();
         let timeoutId: ReturnType<typeof setTimeout> | null = null;
+        const startedAt = Date.now();
+        let telemetryRecorded = false;
 
         try {
             timeoutId = setTimeout(() => {
@@ -703,6 +756,17 @@ async function callInception(
                 completionTokens: data?.usage?.completion_tokens,
                 totalTokens: data?.usage?.total_tokens,
             });
+            await recordLlmProviderAttempt({
+                provider: "openai",
+                model: openAiModel,
+                durationMs: Date.now() - startedAt,
+                success: true,
+                timeout: false,
+                promptTokens: data?.usage?.prompt_tokens,
+                completionTokens: data?.usage?.completion_tokens,
+                totalTokens: data?.usage?.total_tokens,
+            });
+            telemetryRecorded = true;
 
             return responseText;
         } catch (error) {
@@ -710,13 +774,22 @@ async function callInception(
                 clearTimeout(timeoutId);
             }
 
-            const errorMessage = error instanceof Error ? error.message : String(error);
-            const lowerError = errorMessage.toLowerCase();
-            if (lowerError.includes("timed out") || lowerError.includes("aborted")) {
+            const failure = classifyLlmAttemptFailure(error);
+            if (!telemetryRecorded) {
+                await recordLlmProviderAttempt({
+                    provider: "openai",
+                    model: openAiModel,
+                    durationMs: Date.now() - startedAt,
+                    success: false,
+                    timeout: failure.isTimeout,
+                });
+                telemetryRecorded = true;
+            }
+            if (failure.isTimeout) {
                 throw new Error(`openai request timed out after ${timeoutMs}ms`);
             }
-            if (lowerError.includes("network") || lowerError.includes("failed to fetch")) {
-                throw new Error(`openai API error: network - ${errorMessage}`);
+            if (failure.isNetwork) {
+                throw new Error(`openai API error: network - ${failure.message}`);
             }
             throw error;
         }
@@ -730,6 +803,8 @@ async function callInception(
         const bedrockTimeoutMs = options?.timeoutMs ?? BEDROCK_TIMEOUT_MS;
         const controller = new AbortController();
         let timeoutId: ReturnType<typeof setTimeout> | null = null;
+        const startedAt = Date.now();
+        let telemetryRecorded = false;
 
         try {
             timeoutId = setTimeout(() => {
@@ -774,6 +849,17 @@ async function callInception(
                 completionTokens: data?.usage?.completion_tokens,
                 totalTokens: data?.usage?.total_tokens,
             });
+            await recordLlmProviderAttempt({
+                provider: "bedrock",
+                model: BEDROCK_MODEL,
+                durationMs: Date.now() - startedAt,
+                success: true,
+                timeout: false,
+                promptTokens: data?.usage?.prompt_tokens,
+                completionTokens: data?.usage?.completion_tokens,
+                totalTokens: data?.usage?.total_tokens,
+            });
+            telemetryRecorded = true;
 
             return responseText;
         } catch (error) {
@@ -781,13 +867,22 @@ async function callInception(
                 clearTimeout(timeoutId);
             }
 
-            const errorMessage = error instanceof Error ? error.message : String(error);
-            const lowerError = errorMessage.toLowerCase();
-            if (lowerError.includes("timed out") || lowerError.includes("aborted")) {
+            const failure = classifyLlmAttemptFailure(error);
+            if (!telemetryRecorded) {
+                await recordLlmProviderAttempt({
+                    provider: "bedrock",
+                    model: BEDROCK_MODEL,
+                    durationMs: Date.now() - startedAt,
+                    success: false,
+                    timeout: failure.isTimeout,
+                });
+                telemetryRecorded = true;
+            }
+            if (failure.isTimeout) {
                 throw new Error(`bedrock request timed out after ${bedrockTimeoutMs}ms`);
             }
-            if (lowerError.includes("network") || lowerError.includes("failed to fetch")) {
-                throw new Error(`bedrock API error: network - ${errorMessage}`);
+            if (failure.isNetwork) {
+                throw new Error(`bedrock API error: network - ${failure.message}`);
             }
             throw error;
         }
@@ -804,6 +899,8 @@ async function callInception(
         for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
             const controller = new AbortController();
             let timeoutId: ReturnType<typeof setTimeout> | null = null;
+            const startedAt = Date.now();
+            let telemetryRecorded = false;
 
             try {
                 timeoutId = setTimeout(() => {
@@ -835,6 +932,16 @@ async function callInception(
                     const isRetryableStatus = retryableStatuses.has(response.status);
                     const isLastAttempt = attempt >= maxAttempts - 1;
                     const formattedError = formatInceptionApiError(response.status, responseBody);
+                    if (!telemetryRecorded) {
+                        await recordLlmProviderAttempt({
+                            provider: "inception",
+                            model: inceptionModel,
+                            durationMs: Date.now() - startedAt,
+                            success: false,
+                            timeout: false,
+                        });
+                        telemetryRecorded = true;
+                    }
                     if (isRetryableStatus && !isLastAttempt) {
                         await sleep(retryDelayForAttempt(attempt));
                         continue;
@@ -850,26 +957,45 @@ async function callInception(
                     completionTokens: data?.usage?.completion_tokens,
                     totalTokens: data?.usage?.total_tokens,
                 });
+                await recordLlmProviderAttempt({
+                    provider: "inception",
+                    model: inceptionModel,
+                    durationMs: Date.now() - startedAt,
+                    success: true,
+                    timeout: false,
+                    promptTokens: data?.usage?.prompt_tokens,
+                    completionTokens: data?.usage?.completion_tokens,
+                    totalTokens: data?.usage?.total_tokens,
+                });
+                telemetryRecorded = true;
                 return data.choices[0]?.message?.content || "";
             } catch (error) {
                 if (timeoutId) {
                     clearTimeout(timeoutId);
                 }
 
-                const errorMessage = error instanceof Error ? error.message : String(error);
-                const lowerError = errorMessage.toLowerCase();
+                const failure = classifyLlmAttemptFailure(error);
+                if (!telemetryRecorded) {
+                    await recordLlmProviderAttempt({
+                        provider: "inception",
+                        model: inceptionModel,
+                        durationMs: Date.now() - startedAt,
+                        success: false,
+                        timeout: failure.isTimeout,
+                    });
+                    telemetryRecorded = true;
+                }
+                const lowerError = failure.message.toLowerCase();
                 const isRetryableNetworkError =
-                    lowerError.includes("timed out")
-                    || lowerError.includes("aborted")
-                    || lowerError.includes("network")
-                    || lowerError.includes("failed to fetch");
+                    failure.isTimeout
+                    || failure.isNetwork;
                 const isLastAttempt = attempt >= maxAttempts - 1;
                 if (isRetryableNetworkError && !isLastAttempt) {
                     await sleep(retryDelayForAttempt(attempt));
                     continue;
                 }
 
-                if (lowerError.includes("timed out") || lowerError.includes("aborted")) {
+                if (failure.isTimeout) {
                     throw new Error(`inception request timed out after ${inceptionTimeoutMs}ms`);
                 }
                 throw error;

@@ -487,6 +487,27 @@ export default defineSchema({
         .index("by_userId_date", ["userId", "date"])
         .index("by_date", ["date"]),
 
+    llmProviderPerformanceDaily: defineTable({
+        date: v.string(),
+        feature: v.string(),
+        provider: v.string(),
+        model: v.string(),
+        requestCount: v.number(),
+        successCount: v.number(),
+        failureCount: v.number(),
+        timeoutCount: v.number(),
+        promptTokens: v.number(),
+        completionTokens: v.number(),
+        totalTokens: v.number(),
+        totalLatencyMs: v.number(),
+        maxLatencyMs: v.number(),
+        updatedAt: v.number(),
+    })
+        .index("by_date_feature_provider_model", ["date", "feature", "provider", "model"])
+        .index("by_date", ["date"])
+        .index("by_feature_date", ["feature", "date"])
+        .index("by_provider_date", ["provider", "date"]),
+
     userPresence: defineTable({
         userId: v.string(),
         lastSeenAt: v.number(),
