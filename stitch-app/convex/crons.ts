@@ -37,4 +37,11 @@ crons.interval(
     internal.subscriptions.reconcileStalePaystackPaymentsInternal,
 );
 
+// Fail any Seedance video job stuck in "running" beyond the internal timeout.
+crons.interval(
+    "topic video stuck-job sweep",
+    { minutes: 5 },
+    internal.videos.sweepStuckJobsInternal,
+);
+
 export default crons;
