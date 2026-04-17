@@ -20,7 +20,10 @@ if (!generationSource.includes("Create an assessment blueprint for objective and
 
 for (const requiredPrompt of [
     "Each outcome must include: key, objective, bloomLevel, evidenceFocus, cognitiveTask, difficultyBand.",
-    "objectivePlan.targetDifficultyDistribution must sum to 1 across easy, medium, hard.",
+    "objectivePlan.targetDifficultyDistribution must equal exactly:",
+    "- easy: 0.1",
+    "- medium: 0.3",
+    "- hard: 0.6",
     "objectivePlan.minDistinctOutcomeCount should be at least 3 when the evidence supports it.",
     "essayPlan.minDistinctOutcomeCount should be at least 2 when the evidence supports it.",
     "essayPlan.minDistinctScenarioFrameCount should be at least 2 when the evidence supports it.",

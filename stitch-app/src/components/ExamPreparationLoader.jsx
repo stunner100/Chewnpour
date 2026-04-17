@@ -80,7 +80,7 @@ const ExamPreparationLoader = memo(function ExamPreparationLoader({
     const [stageProgress, setStageProgress] = useState(0);
     const [elapsedMs, setElapsedMs] = useState(0);
     const [funFactIdx, setFunFactIdx] = useState(() => Math.floor(Math.random() * funFacts.length));
-    const startTime = useRef(Date.now());
+    const startTime = useRef(0);
     const rafRef = useRef(null);
 
     const resolvedTitle = title || (mode === 'fill_in' ? 'Preparing Fill-ins' : 'Preparing Your Exam');
@@ -92,6 +92,7 @@ const ExamPreparationLoader = memo(function ExamPreparationLoader({
     // Main animation loop
     useEffect(() => {
         if (failed) return;
+        startTime.current = Date.now();
         const tick = () => {
             const elapsed = Date.now() - startTime.current;
             setElapsedMs(elapsed);

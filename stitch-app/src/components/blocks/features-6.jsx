@@ -40,27 +40,30 @@ export function Features() {
                 </div>
 
                 <div className="mt-16 grid grid-cols-1 gap-8 md:grid-cols-3">
-                    {features.map(({ icon: Icon, title, description, screenshot, screenshotAlt }) => (
-                        <div key={title} className="flex flex-col">
+                    {features.map((feature) => {
+                        const IconComponent = feature.icon;
+                        return (
+                            <div key={feature.title} className="flex flex-col">
                             <div className="relative overflow-hidden rounded-2xl border border-border shadow-lg">
                                 <div className="bg-gradient-to-t from-background/30 absolute inset-0 z-10 to-transparent" />
                                 <img
-                                    src={screenshot}
-                                    alt={screenshotAlt}
+                                    src={feature.screenshot}
+                                    alt={feature.screenshotAlt}
                                     className="w-full object-cover object-top"
                                     width={2880}
                                     height={1800}
                                 />
                             </div>
                             <div className="mt-5 flex items-center gap-2">
-                                <Icon className="size-5 text-primary" />
-                                <h3 className="text-lg font-semibold text-foreground">{title}</h3>
+                                <IconComponent className="size-5 text-primary" />
+                                <h3 className="text-lg font-semibold text-foreground">{feature.title}</h3>
                             </div>
                             <p className="mt-2 text-sm text-foreground/70">
-                                {description}
+                                {feature.description}
                             </p>
-                        </div>
-                    ))}
+                            </div>
+                        );
+                    })}
                 </div>
             </div>
         </section>

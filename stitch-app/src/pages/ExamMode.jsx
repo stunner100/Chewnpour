@@ -238,56 +238,6 @@ const TRANSIENT_TRANSPORT_ERROR_PATTERNS = [
 ];
 const EXAM_DURATION_SECONDS = 45 * 60;
 const MIN_ESSAY_SUBMIT_CHAR_COUNT = 20;
-const PREPARATION_STAGE_LABELS = {
-    queued: 'Queueing exam preparation',
-    checking_previous_attempt: 'Checking previous attempt',
-    building_assessment_plan: 'Building assessment plan',
-    generating_candidates: 'Generating candidates',
-    reviewing_quality: 'Reviewing rigor and quality',
-    finalizing_attempt: 'Finalizing exam set',
-    completed: 'Exam ready',
-    unavailable: 'Exam not available',
-    failed: 'Exam preparation failed',
-};
-const PREPARATION_STAGE_ORDER = [
-    'checking_previous_attempt',
-    'building_assessment_plan',
-    'generating_candidates',
-    'reviewing_quality',
-    'finalizing_attempt',
-];
-
-const buildPreparationChecklist = (stage) => {
-    const normalizedStage = typeof stage === 'string' ? stage : 'queued';
-    const activeIndex = Math.max(
-        0,
-        PREPARATION_STAGE_ORDER.findIndex((item) => item === normalizedStage)
-    );
-
-    return [
-        {
-            label: 'Checking previous attempt',
-            state: activeIndex > 0 ? 'done' : normalizedStage === 'checking_previous_attempt' || normalizedStage === 'queued' ? 'active' : 'pending',
-        },
-        {
-            label: 'Building assessment plan',
-            state: activeIndex > 1 ? 'done' : normalizedStage === 'building_assessment_plan' ? 'active' : 'pending',
-        },
-        {
-            label: 'Generating candidates',
-            state: activeIndex > 2 ? 'done' : normalizedStage === 'generating_candidates' ? 'active' : 'pending',
-        },
-        {
-            label: 'Reviewing rigor and quality',
-            state: activeIndex > 3 ? 'done' : normalizedStage === 'reviewing_quality' ? 'active' : 'pending',
-        },
-        {
-            label: 'Finalizing exam set',
-            state: normalizedStage === 'completed' ? 'done' : normalizedStage === 'finalizing_attempt' ? 'active' : 'pending',
-        },
-    ];
-};
-
 const resolveAutostartExamFormat = (search) => {
     const params = new URLSearchParams(String(search || ''));
     const raw = String(params.get('autostart') || '').trim().toLowerCase();
@@ -480,10 +430,10 @@ const ExamMode = () => {
     const EXAM_LOADING_STALL_TIMEOUT_MS = 150_000;
 
     const loadingExamTypeLabel = examFormat === 'essay' ? 'essay' : 'objective';
+    const activePreparationMessage = `Generating your ${loadingExamTypeLabel} exam from this topic.`;
     const preparationStatus = startExamError ? 'failed' : startingExamAttempt ? 'preparing' : '';
     const preparationStage = startingExamAttempt ? 'generating_candidates' : 'queued';
     const isPreparationRunning = startingExamAttempt;
-    const activePreparationMessage = `Generating your ${loadingExamTypeLabel} exam from this topic.`;
     const questions = useMemo(
         () => (Array.isArray(attemptQuestions) ? attemptQuestions : []),
         [attemptQuestions],
@@ -1025,14 +975,6 @@ const ExamMode = () => {
         }).length
         : questions.filter((question) => Boolean(selectedAnswers[question._id])).length;
     const isEssaySubmitBlocked = examFormat === 'essay' && answeredQuestionCount < questions.length;
-    const isPreparationTerminal = preparationStatus === 'failed';
-    const preparationChecklist = useMemo(
-        () => buildPreparationChecklist(preparationStage),
-        [preparationStage],
-    );
-    const preparationPanelTitle = isPreparationTerminal
-        ? 'Exam Preparation Failed'
-        : 'Preparing Your Exam';
     const examQualityTier = '';
 
     // Keep hook order stable across loading/error/exam states.
@@ -1202,6 +1144,7 @@ const ExamMode = () => {
         return (
             <ExamPreparationLoader
                 examFormat={examFormat}
+                subtitle={activePreparationMessage}
                 failed={Boolean(startExamError)}
                 errorMsg={startExamError}
                 onRetry={handleRetryStart}

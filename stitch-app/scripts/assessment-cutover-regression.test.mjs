@@ -4,6 +4,7 @@ import process from "node:process";
 
 import {
     ASSESSMENT_BLUEPRINT_VERSION,
+    DEFAULT_OBJECTIVE_DIFFICULTY_DISTRIBUTION,
     ESSAY_ALLOWED_BLOOM_LEVELS,
     FILL_BLANK_ALLOWED_BLOOM_LEVELS,
     MULTIPLE_CHOICE_ALLOWED_BLOOM_LEVELS,
@@ -92,6 +93,10 @@ if (blueprint.version !== ASSESSMENT_BLUEPRINT_VERSION) {
 
 if (blueprint.objectivePlan.targetMix.multiple_choice !== 5 || blueprint.objectivePlan.targetMix.true_false !== 3 || blueprint.objectivePlan.targetMix.fill_blank !== 2) {
     throw new Error("Expected blueprint objective mix to remain 5/3/2.");
+}
+
+if (JSON.stringify(blueprint.objectivePlan.targetDifficultyDistribution) !== JSON.stringify(DEFAULT_OBJECTIVE_DIFFICULTY_DISTRIBUTION)) {
+    throw new Error("Expected objective difficulty distribution to cut over to the tougher default.");
 }
 
 if (!blueprint.outcomes.every((outcome) => outcome.cognitiveTask && outcome.difficultyBand)) {
@@ -213,11 +218,19 @@ const activeAfterCutover = filterQuestionsForActiveAssessment({
         invalidEssayQuestion,
     ],
 });
+
+const topicsSource = await read("convex/topics.ts");
+if (!/const normalizedAssessmentBlueprint = normalizeAssessmentBlueprint\(args\.assessmentBlueprint\);/.test(topicsSource)) {
+    throw new Error("Expected assessment blueprint saves to normalize the incoming blueprint before persisting.");
+}
+
+if (!/assessmentBlueprint: normalizedAssessmentBlueprint,/.test(topicsSource)) {
+    throw new Error("Expected topic blueprint persistence to save the normalized blueprint.");
+}
 if (activeAfterCutover.length !== 3) {
     throw new Error("Expected migrated topics to keep only valid assessment-v4 objective questions active.");
 }
 
-const topicsSource = await read("convex/topics.ts");
 const examsSource = await read("convex/exams.ts");
 const aiSource = await read("convex/ai.ts");
 
@@ -246,6 +259,26 @@ if (!aiSource.includes("export const regenerateAssessmentQuestionBankInternal = 
 
 if (!aiSource.includes("const generateQuestionBankForTopic = async")) {
     throw new Error("Expected assessment regeneration to route objective generation through the shared question bank orchestrator.");
+}
+
+if (!aiSource.includes("const normalizedBlueprint = normalizeAssessmentBlueprint(blueprint);")) {
+    throw new Error("Expected fresh assessment generation to normalize the in-memory blueprint before use.");
+}
+
+if (!aiSource.includes("const refreshedTopic = await args.ctx.runQuery(internal.topics.getTopicWithQuestionsInternal, {")) {
+    throw new Error("Expected fresh assessment generation to reload the stored topic blueprint after persistence.");
+}
+
+if (!aiSource.includes("return storedBlueprint || normalizedBlueprint;")) {
+    throw new Error("Expected fresh assessment generation to use the persisted normalized blueprint in the active run.");
+}
+
+if (!aiSource.includes("const sourceUploadId = topic?.sourceUploadId;")) {
+    throw new Error("Expected grounded upload resolution to prefer topic.sourceUploadId when available.");
+}
+
+if (!aiSource.includes("const sources = await ctx.runQuery(api.courses.getCourseSources, { courseId });")) {
+    throw new Error("Expected grounded upload resolution to fall back to course source links when course.uploadId is absent.");
 }
 
 console.log("assessment-cutover-regression.test.mjs passed");

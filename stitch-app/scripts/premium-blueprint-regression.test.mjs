@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 
 import {
   ASSESSMENT_BLUEPRINT_VERSION,
+  DEFAULT_OBJECTIVE_DIFFICULTY_DISTRIBUTION,
   normalizeAssessmentBlueprint,
 } from "../convex/lib/assessmentBlueprint.js";
 
@@ -67,12 +68,10 @@ const blueprint = normalizeAssessmentBlueprint({
 
 assert.ok(blueprint, "Expected premium blueprint to normalize.");
 assert.equal(blueprint.version, ASSESSMENT_BLUEPRINT_VERSION, "Expected assessment blueprint v3.");
-assert.equal(
-  blueprint.objectivePlan.targetDifficultyDistribution.easy
-  + blueprint.objectivePlan.targetDifficultyDistribution.medium
-  + blueprint.objectivePlan.targetDifficultyDistribution.hard,
-  1,
-  "Expected target difficulty distribution to normalize to 1."
+assert.deepEqual(
+  blueprint.objectivePlan.targetDifficultyDistribution,
+  DEFAULT_OBJECTIVE_DIFFICULTY_DISTRIBUTION,
+  "Expected target difficulty distribution to hard-cut to the tougher default."
 );
 assert.equal(blueprint.objectivePlan.minDistinctOutcomeCount, 2, "Expected objective distinct outcome floor to clamp to available outcomes.");
 assert.equal(blueprint.essayPlan.minDistinctOutcomeCount, 2, "Expected essay distinct outcome floor to persist.");

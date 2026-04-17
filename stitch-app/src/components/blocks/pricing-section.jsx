@@ -111,7 +111,7 @@ export function PricingSection({
         },
         {
             name: 'Semester Pass',
-            badge: 'BEST VALUE',
+            badge: 'POPULAR',
             price: formatPlanPrice(semesterPlan.amountMajor, semesterPlan.currency),
             period: '/semester',
             subtext: buildTierSubtext(semesterPlan, getSavingsPercent(starterPlan, semesterPlan)),

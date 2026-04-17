@@ -338,21 +338,48 @@ const loadGroundedEvidenceIndexForTopicSweep = async (ctx: any, topic: any) => {
         return { index: null, upload: null };
     }
 
+    const sourceUploadId = topic?.sourceUploadId;
+    if (sourceUploadId) {
+        const sourceUpload = await ctx.runQuery((internal as any).grounded.getUploadForGrounded, {
+            uploadId: sourceUploadId,
+        }) as UploadDoc | null;
+        if (sourceUpload) {
+            return await loadGroundedEvidenceIndexFromUpload(ctx, sourceUpload);
+        }
+    }
+
     const course = await ctx.runQuery(api.courses.getCourseWithTopics, {
         courseId: topic.courseId,
     });
-    const uploadId = course?.uploadId;
-    if (!uploadId) {
-        return { index: null, upload: null };
+    if (course?.uploadId) {
+        const primaryUpload = await ctx.runQuery((internal as any).grounded.getUploadForGrounded, {
+            uploadId: course.uploadId,
+        }) as UploadDoc | null;
+        if (primaryUpload) {
+            return await loadGroundedEvidenceIndexFromUpload(ctx, primaryUpload);
+        }
     }
 
-    const upload = await ctx.runQuery((internal as any).grounded.getUploadForGrounded, {
-        uploadId,
+    const sources = await ctx.runQuery(api.courses.getCourseSources, {
+        courseId: topic.courseId,
+    });
+    const fallbackUploadId = Array.isArray(sources)
+        ? sources.find((source: any) => source?.uploadId)?.uploadId
+        : null;
+    if (!fallbackUploadId) {
+        return { index: null, upload: null };
+    }
+    const fallbackUpload = await ctx.runQuery((internal as any).grounded.getUploadForGrounded, {
+        uploadId: fallbackUploadId,
     }) as UploadDoc | null;
-    if (!upload) {
+    if (!fallbackUpload) {
         return { index: null, upload: null };
     }
 
+    return await loadGroundedEvidenceIndexFromUpload(ctx, fallbackUpload);
+};
+
+const loadGroundedEvidenceIndexFromUpload = async (ctx: any, upload: UploadDoc) => {
     if (upload.evidenceIndexStorageId) {
         try {
             const stored = await readJsonFromStorage(ctx, upload.evidenceIndexStorageId);
