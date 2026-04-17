@@ -403,13 +403,59 @@ const loginWithReadyAccount = async () => {
   recordStep('login-existing-account', 'passed', { url: page.url() });
 };
 
-const discoverDashboardCourseUrls = async () => {
-  await page.waitForTimeout(4000);
-  const hrefs = await page.locator('a[href*="/dashboard/course/"]').evaluateAll((links) =>
-    links
+const collectDashboardCourseDiscoveryState = async () => {
+  return await page.evaluate(() => {
+    const bodyText = (document.body?.innerText || '').replace(/\s+/g, ' ').trim();
+    const courseLinks = Array.from(document.querySelectorAll('a[href*="/dashboard/course/"]'))
       .map((link) => link.getAttribute('href'))
-      .filter((href) => typeof href === 'string' && href.includes('/dashboard/course/'))
-  );
+      .filter((href) => typeof href === 'string' && href.includes('/dashboard/course/'));
+
+    return {
+      bodyText,
+      courseLinks,
+    };
+  });
+};
+
+const waitForDashboardCourseDiscovery = async () => {
+  const started = Date.now();
+  let lastBodyText = '';
+
+  while (Date.now() - started < 30000) {
+    try {
+      const snapshot = await collectDashboardCourseDiscoveryState();
+      lastBodyText = snapshot.bodyText;
+
+      const stillLoading = /Loading(?: your account)?(?:\.\.\.)?/i.test(snapshot.bodyText);
+      const hasSettledDashboardSignals = /Your courses|No courses yet|Add Course|Upload Materials/i.test(snapshot.bodyText);
+
+      if (snapshot.courseLinks.length > 0) {
+        return snapshot;
+      }
+
+      if (!stillLoading && hasSettledDashboardSignals) {
+        return snapshot;
+      }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      if (!/Execution context was destroyed/i.test(message)) {
+        appendNote(`Dashboard course discovery probe failed: ${message}`);
+      }
+    }
+
+    await sleep(2000);
+  }
+
+  appendNote(`Dashboard course discovery timed out. Last body snapshot: ${(lastBodyText || '').slice(0, 200)}`);
+  return {
+    bodyText: lastBodyText,
+    courseLinks: [],
+  };
+};
+
+const discoverDashboardCourseUrls = async () => {
+  const snapshot = await waitForDashboardCourseDiscovery();
+  const hrefs = Array.isArray(snapshot?.courseLinks) ? snapshot.courseLinks : [];
 
   const normalized = [...new Set(hrefs.map((href) => href.trim()).filter(Boolean))]
     .map((href) => absolutizeUrl(href))
