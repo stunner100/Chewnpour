@@ -363,9 +363,12 @@ const OPENAI_PRIMARY_FEATURES = new Set([
     "course_generation",
     "essay_generation",
 ]);
-const HARD_CUTOVER_OPENAI_FEATURES = new Set([
+const OPENAI_PIPELINE_MODEL_FEATURES = new Set([
     "course_generation",
     "essay_generation",
+]);
+const HARD_CUTOVER_OPENAI_FEATURES = new Set([
+    "course_generation",
 ]);
 const MINIMAX_EXPERIMENTAL_FALLBACK_FEATURES = new Set(
     String(process.env.MINIMAX_EXPERIMENTAL_FALLBACK_FEATURES || "")
@@ -643,6 +646,10 @@ const resolvePreferredTextProvider = (): TextProvider => {
 
 const featureRequiresOpenAiHardCutover = (feature: string) =>
     HARD_CUTOVER_OPENAI_FEATURES.has(String(feature || "").trim());
+const featureUsesOpenAiPipelineModel = (feature: string) =>
+    OPENAI_PIPELINE_MODEL_FEATURES.has(String(feature || "").trim());
+const featurePrefersInceptionTextFallback = (feature: string) =>
+    String(feature || "").trim() === "essay_generation";
 
 async function callInception(
     messages: Message[],
@@ -657,8 +664,10 @@ async function callInception(
     const llmFeature = String(llmUsageContextStorage.getStore()?.feature || "unknown").trim() || "unknown";
     const preferredProvider = resolvePreferredTextProvider();
     const pipelineOpenAiRequired = featureRequiresOpenAiHardCutover(llmFeature);
+    const pipelineOpenAiPreferred = featureUsesOpenAiPipelineModel(llmFeature);
+    const openAiFallbackPrefersInception = featurePrefersInceptionTextFallback(llmFeature);
     const minimaxExperimentalFallbackEnabled = featureAllowsMiniMaxExperimentalFallback(llmFeature);
-    const openAiModel = pipelineOpenAiRequired ? OPENAI_PIPELINE_MODEL : model;
+    const openAiModel = pipelineOpenAiPreferred ? OPENAI_PIPELINE_MODEL : model;
     const openAiAvailable = Boolean(openAiApiKey) && !OPENAI_BASE_URL_IS_PLACEHOLDER;
     const bedrockAvailable = Boolean(bedrockApiKey);
     const minimaxAvailable = Boolean(minimaxApiKey) && minimaxExperimentalFallbackEnabled;
@@ -1204,6 +1213,16 @@ async function callInception(
             if (pipelineOpenAiRequired) {
                 throw new Error("OPENAI_API_KEY environment variable not set for the GPT-5.4 mini pipeline.");
             }
+            if (openAiFallbackPrefersInception && args.allowInceptionFallback && inceptionApiKey) {
+                console.warn("[LLM] primary_provider_unavailable_using_fallback", {
+                    feature: llmFeature,
+                    primaryProvider: "openai",
+                    fallbackProvider: "inception",
+                    reason: "missing_openai_api_key",
+                    fallbackModel: INCEPTION_MODEL,
+                });
+                return callInceptionText();
+            }
             if (bedrockAvailable) {
                 console.warn("[LLM] primary_provider_unavailable_using_fallback", {
                     feature: llmFeature,
@@ -1249,6 +1268,16 @@ async function callInception(
         if (OPENAI_BASE_URL_IS_PLACEHOLDER) {
             if (pipelineOpenAiRequired) {
                 throw new Error("OPENAI_BASE_URL environment variable not configured for the GPT-5.4 mini pipeline.");
+            }
+            if (openAiFallbackPrefersInception && args.allowInceptionFallback && inceptionApiKey) {
+                console.warn("[LLM] primary_provider_unavailable_using_fallback", {
+                    feature: llmFeature,
+                    primaryProvider: "openai",
+                    fallbackProvider: "inception",
+                    reason: "invalid_openai_base_url",
+                    fallbackModel: INCEPTION_MODEL,
+                });
+                return callInceptionText();
             }
             if (bedrockAvailable) {
                 console.warn("[LLM] primary_provider_unavailable_using_fallback", {
@@ -1299,6 +1328,17 @@ async function callInception(
             const errorMessage = error instanceof Error ? error.message : String(error);
             if (pipelineOpenAiRequired) {
                 throw error;
+            }
+            if (openAiFallbackPrefersInception && args.allowInceptionFallback && shouldFallbackToInceptionText({ errorMessage, inceptionApiKey })) {
+                console.warn("[LLM] primary_provider_failed_using_fallback", {
+                    feature: llmFeature,
+                    primaryProvider: "openai",
+                    fallbackProvider: "inception",
+                    primaryModel: openAiModel,
+                    fallbackModel: INCEPTION_MODEL,
+                    message: errorMessage,
+                });
+                return callInceptionText();
             }
             if (shouldFallbackToBedrockText({ errorMessage, bedrockAvailable })) {
                 console.warn("[LLM] primary_provider_failed_using_fallback", {
