@@ -96,6 +96,37 @@ const stats = [
     { value: '200,000+', label: 'Quiz questions created' },
 ];
 
+// ChewnPour logo — compact hex-framed "CP" monogram sized to fit the reference's logo slot.
+const HexLogo = ({ size = 56, className = '' }) => (
+    <span
+        className={`inline-flex items-center justify-center relative ${className}`}
+        style={{ width: size, height: size }}
+        aria-label="ChewnPour"
+    >
+        <svg
+            viewBox="0 0 100 100"
+            className="absolute inset-0 w-full h-full"
+            fill="none"
+            aria-hidden="true"
+        >
+            <polygon
+                points="50,6 90,28 90,72 50,94 10,72 10,28"
+                stroke="currentColor"
+                strokeWidth="3"
+                strokeLinejoin="round"
+                fill="none"
+            />
+            <circle cx="70" cy="34" r="4" fill="#E8651B" />
+        </svg>
+        <span
+            className="relative font-mono font-bold tracking-tight leading-none select-none"
+            style={{ fontSize: Math.round(size * 0.38) }}
+        >
+            CP
+        </span>
+    </span>
+);
+
 // Decorative arrow badge used across the page — mimics the orange circle w/ diagonal arrow in the reference
 const ArrowBadge = ({ size = 44, className = '' }) => (
     <span
@@ -181,13 +212,8 @@ const LandingPage = () => {
                     </button>
 
                     {/* Logo (right, in hex frame like the reference) */}
-                    <Link to="/" className="flex items-center gap-2.5">
-                        <div className="relative flex items-center justify-center w-14 h-14">
-                            <svg viewBox="0 0 24 24" className="absolute inset-0 w-full h-full text-white/80" fill="none" stroke="currentColor" strokeWidth="1.25">
-                                <polygon points="12,2 22,7 22,17 12,22 2,17 2,7" />
-                            </svg>
-                            <img src="/chewnpourlogo.png" alt="ChewnPour" className="relative h-8 w-auto" />
-                        </div>
+                    <Link to="/" className="flex items-center gap-2.5 text-white/90 hover:text-white transition-colors">
+                        <HexLogo size={56} />
                     </Link>
                 </div>
 
