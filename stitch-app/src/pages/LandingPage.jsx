@@ -142,18 +142,18 @@ const HexLogo = ({ size = 56, withWordmark = true, className = '' }) => (
                     strokeWidth="4.5"
                     strokeLinecap="round"
                     strokeLinejoin="round"
+                    fill="none"
                 >
-                    {/* Left panel: vertical outer edge + angled peak top + bottom */}
-                    <path d="M22 72 L22 28 L40 16 L40 72 Z" />
-                    {/* Right panel: mirror */}
-                    <path d="M60 72 L60 16 L78 28 L78 72 Z" />
-                    {/* X crossover in the middle (spine/fox muzzle) */}
-                    <path d="M40 28 L60 56" />
-                    <path d="M60 28 L40 56" />
-                    {/* Fanning open-book base */}
-                    <path d="M18 76 L50 84 L82 76" />
-                    <path d="M30 78 L50 84" />
-                    <path d="M70 78 L50 84" />
+                    {/* Left page cover: rises from base up to a fox-ear peak, down to V-spine at center */}
+                    <path d="M16 74 L16 36 L30 20 L34 32 L50 50 L50 74 Z" />
+                    {/* Right page cover: mirror */}
+                    <path d="M84 74 L84 36 L70 20 L66 32 L50 50 L50 74 Z" />
+                    {/* Inner page lines — suggest open pages fanning outward */}
+                    <path d="M24 44 L44 54" />
+                    <path d="M76 44 L56 54" />
+                    {/* Fanning page edges at the base */}
+                    <path d="M12 78 L50 86 L88 78" />
+                    <path d="M50 74 L50 86" />
                 </g>
             </svg>
         </span>
