@@ -315,8 +315,48 @@ const LandingPage = () => {
                     </div>
                 </section>
 
+                {/* ─── Schools Marquee ─── */}
+                <section className="border-y border-white/10 bg-[#0A0A0A] py-12 md:py-16 overflow-hidden">
+                    <div className="mx-auto max-w-6xl px-6 lg:px-8">
+                        <p className="text-center text-[11px] font-bold uppercase tracking-[0.2em] text-white/60">
+                            Trusted by students at Ghana's top universities
+                        </p>
+                    </div>
+                    <div className="relative mt-8 overflow-hidden">
+                        <div className="pointer-events-none absolute left-0 top-0 h-full w-24 z-10 bg-gradient-to-r from-[#0A0A0A] to-transparent" />
+                        <div className="pointer-events-none absolute right-0 top-0 h-full w-24 z-10 bg-gradient-to-l from-[#0A0A0A] to-transparent" />
+                        <div className="flex animate-marquee gap-16 whitespace-nowrap w-max">
+                            {[
+                                'University of Ghana',
+                                'KNUST',
+                                'University of Cape Coast',
+                                'Ashesi University',
+                                'University of Professional Studies',
+                                'Valley View University',
+                                'Methodist University',
+                                'Central University',
+                                'University of Ghana',
+                                'KNUST',
+                                'University of Cape Coast',
+                                'Ashesi University',
+                                'University of Professional Studies',
+                                'Valley View University',
+                                'Methodist University',
+                                'Central University',
+                            ].map((school, i) => (
+                                <span
+                                    key={i}
+                                    className="font-mono text-base font-semibold text-white/70 hover:text-white transition-colors cursor-default"
+                                >
+                                    {school}
+                                </span>
+                            ))}
+                        </div>
+                    </div>
+                </section>
+
                 {/* ─── Stats Bar ─── */}
-                <section className="border-y border-white/10 bg-white/[0.02]">
+                <section className="border-b border-white/10 bg-white/[0.02]">
                     <div className="mx-auto max-w-6xl px-6 lg:px-8 py-10 md:py-12">
                         <div className="grid grid-cols-3 gap-6 md:gap-12 text-center">
                             {stats.map((stat) => (
@@ -418,6 +458,63 @@ const LandingPage = () => {
                                                 {t.course} &middot; {t.university}
                                             </p>
                                         </div>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                </section>
+
+                {/* ─── Community ─── */}
+                <section id="community" className="mx-auto max-w-6xl px-6 lg:px-8 py-20 md:py-28">
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 lg:gap-16 items-center">
+                        {/* Left: copy */}
+                        <div>
+                            <h2 className="font-mono text-4xl md:text-5xl lg:text-[56px] leading-[1.05] tracking-tight text-white">
+                                Join a community of <span className="text-[#B39DFF]">curious</span> students
+                            </h2>
+                            <p className="mt-6 text-sm text-white/70 leading-relaxed max-w-md">
+                                Connect with peers across Ghana, share past questions, and work through
+                                tough concepts together. The ChewnPour community is where learners help
+                                each other cross the finish line.
+                            </p>
+                            <div className="mt-8 flex flex-col items-start gap-3">
+                                <Link
+                                    to="/signup"
+                                    onClick={() => captureLandingEvent('landing_cta_clicked', { cta_name: 'community_join' })}
+                                    className="group inline-flex items-center gap-2 h-12 px-8 rounded-full bg-[#E8651B] text-white font-bold text-sm hover:bg-[#d4581a] transition-colors"
+                                >
+                                    Join the Community
+                                    <span className="material-symbols-outlined text-[18px] transition-transform group-hover:translate-x-0.5">
+                                        north_east
+                                    </span>
+                                </Link>
+                                <p className="text-xs text-white/60">
+                                    2,000+ students in our Telegram already.
+                                </p>
+                            </div>
+                        </div>
+
+                        {/* Right: 2x2 photo grid with folder treatment */}
+                        <div className="grid grid-cols-2 gap-4">
+                            {[
+                                { src: '/chewnpour/img1.jpg', alt: 'ChewnPour student studying with peers', tint: 'bg-[#E8651B]' },
+                                { src: '/chewnpour/img2.jpg', alt: 'ChewnPour student sharing notes', tint: 'bg-[#B39DFF]' },
+                                { src: '/chewnpour/img3.jpg', alt: 'ChewnPour student smiling at camera', tint: 'bg-[#F3C64A]' },
+                                { src: '/chewnpour/img4.jpg', alt: 'ChewnPour student reviewing materials', tint: 'bg-[#E5E5E5]' },
+                            ].map(({ src, alt, tint }, i) => (
+                                <div
+                                    key={src}
+                                    className={`relative aspect-square ${i % 2 === 0 ? '-rotate-1' : 'rotate-1'} hover:rotate-0 transition-transform duration-300`}
+                                >
+                                    <div className={`absolute inset-0 translate-x-1.5 translate-y-1.5 rounded-2xl ${tint}`} />
+                                    <div className="relative w-full h-full overflow-hidden rounded-2xl border border-white/10 bg-white/5">
+                                        <img
+                                            src={src}
+                                            alt={alt}
+                                            className="w-full h-full object-cover transition-transform duration-500 hover:scale-[1.03]"
+                                            loading="lazy"
+                                        />
                                     </div>
                                 </div>
                             ))}
