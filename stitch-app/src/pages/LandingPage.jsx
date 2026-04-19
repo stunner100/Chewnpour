@@ -96,34 +96,72 @@ const stats = [
     { value: '200,000+', label: 'Quiz questions created' },
 ];
 
-// ChewnPour logo — compact hex-framed "CP" monogram sized to fit the reference's logo slot.
-const HexLogo = ({ size = 56, className = '' }) => (
-    <span
-        className={`inline-flex items-center justify-center relative ${className}`}
-        style={{ width: size, height: size }}
-        aria-label="ChewnPour"
-    >
-        <svg
-            viewBox="0 0 100 100"
-            className="absolute inset-0 w-full h-full"
-            fill="none"
-            aria-hidden="true"
-        >
-            <polygon
-                points="50,6 90,28 90,72 50,94 10,72 10,28"
-                stroke="currentColor"
-                strokeWidth="3"
-                strokeLinejoin="round"
-                fill="none"
-            />
-            <circle cx="70" cy="34" r="4" fill="#E8651B" />
-        </svg>
+// ChewnPour logo lockup: hex frame with the ChewnPour brand mark inside, wordmark beneath.
+// Mark is recreated as inline SVG (open book with two triangular fox-ear peaks) using the
+// teal → cyan → violet gradient from the source PNG. Crisp at any size, no raster blur.
+const HexLogo = ({ size = 56, withWordmark = true, className = '' }) => (
+    <span className={`inline-flex flex-col items-center gap-1.5 ${className}`} aria-label="ChewnPour">
         <span
-            className="relative font-mono font-bold tracking-tight leading-none select-none"
-            style={{ fontSize: Math.round(size * 0.38) }}
+            className="relative inline-flex items-center justify-center"
+            style={{ width: size, height: size }}
         >
-            CP
+            {/* Hex frame */}
+            <svg
+                viewBox="0 0 100 100"
+                className="absolute inset-0 w-full h-full text-white/85"
+                fill="none"
+                aria-hidden="true"
+            >
+                <polygon
+                    points="50,6 90,28 90,72 50,94 10,72 10,28"
+                    stroke="currentColor"
+                    strokeWidth="2.5"
+                    strokeLinejoin="round"
+                    fill="none"
+                />
+            </svg>
+            {/* ChewnPour mark — redrawn to match chewnpour.png:
+                two upright panels with inward-angled peaks (fox ears), an X crossover in
+                the middle, and a fanning open-book base. Horizontal gradient violet → cyan. */}
+            <svg
+                viewBox="0 0 100 100"
+                className="relative"
+                style={{ width: size * 0.6, height: size * 0.6 }}
+                fill="none"
+                aria-hidden="true"
+            >
+                <defs>
+                    <linearGradient id="cp-mark-gradient" x1="0%" y1="0%" x2="100%" y2="0%">
+                        <stop offset="0%" stopColor="#8B5CF6" />
+                        <stop offset="45%" stopColor="#2DD4BF" />
+                        <stop offset="100%" stopColor="#22D3EE" />
+                    </linearGradient>
+                </defs>
+                <g
+                    stroke="url(#cp-mark-gradient)"
+                    strokeWidth="4.5"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                >
+                    {/* Left panel: vertical outer edge + angled peak top + bottom */}
+                    <path d="M22 72 L22 28 L40 16 L40 72 Z" />
+                    {/* Right panel: mirror */}
+                    <path d="M60 72 L60 16 L78 28 L78 72 Z" />
+                    {/* X crossover in the middle (spine/fox muzzle) */}
+                    <path d="M40 28 L60 56" />
+                    <path d="M60 28 L40 56" />
+                    {/* Fanning open-book base */}
+                    <path d="M18 76 L50 84 L82 76" />
+                    <path d="M30 78 L50 84" />
+                    <path d="M70 78 L50 84" />
+                </g>
+            </svg>
         </span>
+        {withWordmark && (
+            <span className="font-mono font-bold tracking-tight text-white text-sm leading-none select-none">
+                ChewnPour
+            </span>
+        )}
     </span>
 );
 
