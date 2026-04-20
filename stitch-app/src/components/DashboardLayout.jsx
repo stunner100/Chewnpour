@@ -54,12 +54,34 @@ const DashboardLayout = ({ children }) => {
                 {/* Logo & Collapse */}
                 <div className={`flex items-center h-15 border-b border-border-subtle dark:border-border-subtle-dark ${sidebarCollapsed ? 'justify-center px-2' : 'justify-between px-4 gap-2'}`}>
                     {!sidebarCollapsed && (
-                        <Link to="/dashboard" className="flex items-center min-w-0 overflow-hidden">
-                            <img
-                                src="/logonew.jpeg"
-                                alt="ChewnPour"
-                                className="h-10 w-auto max-w-full object-contain dark:mix-blend-lighten"
-                            />
+                        <Link to="/dashboard" className="flex items-center gap-2 min-w-0 overflow-hidden" aria-label="ChewnPour home">
+                            <span className="relative inline-flex items-center justify-center shrink-0" style={{ width: 40, height: 40 }}>
+                                <svg
+                                    viewBox="0 0 100 100"
+                                    className="absolute inset-0 w-full h-full text-text-main-light/85 dark:text-white/85"
+                                    fill="none"
+                                    aria-hidden="true"
+                                >
+                                    <polygon
+                                        points="50,6 90,28 90,72 50,94 10,72 10,28"
+                                        stroke="currentColor"
+                                        strokeWidth="2.5"
+                                        strokeLinejoin="round"
+                                        fill="none"
+                                    />
+                                </svg>
+                                <img
+                                    src="/logonew.jpeg"
+                                    alt=""
+                                    aria-hidden="true"
+                                    className="relative block object-contain rounded-full"
+                                    style={{ width: 28, height: 28 }}
+                                    decoding="async"
+                                />
+                            </span>
+                            <span className="font-mono font-bold tracking-tight text-text-main-light dark:text-white text-sm leading-none select-none truncate">
+                                ChewnPour
+                            </span>
                         </Link>
                     )}
                     <button
