@@ -1,0 +1,13 @@
+{
+	email {$ACME_EMAIL}
+}
+
+{$CONVEX_API_HOSTNAME} {
+	encode zstd gzip
+	reverse_proxy backend:3210
+}
+
+{$CONVEX_SITE_HOSTNAME} {
+	encode zstd gzip
+	reverse_proxy backend:3211
+}

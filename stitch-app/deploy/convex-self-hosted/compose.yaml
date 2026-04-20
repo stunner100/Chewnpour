@@ -1,0 +1,45 @@
+services:
+  backend:
+    image: ghcr.io/get-convex/convex-backend:${CONVEX_IMAGE_TAG:-latest}
+    restart: unless-stopped
+    stop_grace_period: 10s
+    stop_signal: SIGINT
+    expose:
+      - "3210"
+      - "3211"
+    volumes:
+      - convex_data:/convex/data
+    env_file:
+      - .env
+    environment:
+      PORT: 3210
+      SITE_PROXY_PORT: 3211
+      CONVEX_CLOUD_ORIGIN: ${CONVEX_CLOUD_ORIGIN}
+      CONVEX_SITE_ORIGIN: ${CONVEX_SITE_ORIGIN}
+      INSTANCE_NAME: ${INSTANCE_NAME:-convex-self-hosted}
+      RUST_LOG: ${RUST_LOG:-info}
+      DISABLE_BEACON: ${DISABLE_BEACON:-true}
+      DISABLE_METRICS_ENDPOINT: ${DISABLE_METRICS_ENDPOINT:-true}
+      POSTGRES_URL: ${POSTGRES_URL:-}
+      MYSQL_URL: ${MYSQL_URL:-}
+      DO_NOT_REQUIRE_SSL: ${DO_NOT_REQUIRE_SSL:-}
+
+  caddy:
+    image: caddy:2.9-alpine
+    restart: unless-stopped
+    depends_on:
+      - backend
+    ports:
+      - "80:80"
+      - "443:443"
+    env_file:
+      - .env
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+
+volumes:
+  convex_data:
+  caddy_data:
+  caddy_config:

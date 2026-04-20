@@ -67,3 +67,5 @@ unset in production unless you intentionally cut production over as well.
 See [docs/staging.md](/Users/patrickannor/Desktop/chewnpour/stitch-app/docs/staging.md).
 For a DigitalOcean deployment bundle, see
 [docs/docling-digitalocean.md](/Users/patrickannor/Desktop/chewnpour/stitch-app/docs/docling-digitalocean.md).
+For the low-traffic Convex self-hosted migration path, see
+[docs/convex-self-hosted-migration.md](/Users/patrickannor/Desktop/chewnpour/stitch-app/docs/convex-self-hosted-migration.md).
