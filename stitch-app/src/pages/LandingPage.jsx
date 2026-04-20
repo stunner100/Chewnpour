@@ -120,9 +120,9 @@ const HexLogo = ({ size = 56, withWordmark = true, className = '' }) => (
                     fill="none"
                 />
             </svg>
-            {/* Brand mark from public/chewnpourlogo.png */}
+            {/* Brand mark from public/logonew.jpeg */}
             <img
-                src="/chewnpourlogo.png"
+                src="/logonew.jpeg"
                 alt="ChewnPour"
                 className="relative block object-contain rounded-full"
                 style={{ width: size * 0.72, height: size * 0.72 }}
