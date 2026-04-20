@@ -60,6 +60,7 @@ const PublicShell = ({ children, showAuthNav = true, className = '' }) => (
             <div className="mx-auto flex max-w-6xl items-center justify-between px-6 lg:px-8 py-5">
                 <nav className="hidden md:flex items-center gap-8 text-sm font-semibold text-white/80">
                     <Link to="/" className="hover:text-white transition-colors">Home</Link>
+                    <Link to="/#pricing" className="hover:text-white transition-colors">Pricing</Link>
                     {showAuthNav && (
                         <>
                             <Link to="/login" className="hover:text-white transition-colors">Sign In</Link>
@@ -88,6 +89,7 @@ const PublicShell = ({ children, showAuthNav = true, className = '' }) => (
                 </div>
                 <div className="flex flex-wrap items-center gap-x-6 gap-y-2 text-sm font-semibold">
                     <Link to="/" className="hover:underline">Home</Link>
+                    <Link to="/#pricing" className="hover:underline">Pricing</Link>
                     <Link to="/login" className="hover:underline">Sign In</Link>
                     <Link to="/signup" className="hover:underline">Sign Up</Link>
                     <Link to="/privacy" className="hover:underline">Privacy</Link>
