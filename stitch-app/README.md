@@ -60,4 +60,8 @@ Do not let Preview builds fall back to the checked-in Convex URL. The build is
 now guarded so Preview and Production must supply `VITE_CONVEX_URL` or
 `CONVEX_URL` explicitly.
 
+If staging should exercise Docling extraction, set `EXTRACTION_DEFAULT_BACKEND=docling`
+and point `DOCLING_API_BASE_URL` at the staging Docling service. Leave those
+unset in production unless you intentionally cut production over as well.
+
 See [docs/staging.md](/Users/patrickannor/Desktop/stitch_onboarding_name/stitch-app/docs/staging.md).

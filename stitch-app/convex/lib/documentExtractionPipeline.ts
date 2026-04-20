@@ -22,9 +22,15 @@ import {
     callMarkItDownExtract,
     type MarkItDownExtractResponse,
 } from "./markitdownClient";
+import {
+    callDoclingExtract,
+    isDoclingEnabled,
+    type DoclingExtractResponse,
+} from "./doclingClient";
 
-export type ExtractionBackendId = "markitdown" | "datalab" | "azure" | "llamaparse";
+export type ExtractionBackendId = "docling" | "markitdown" | "datalab" | "azure" | "llamaparse";
 export type ExtractionParserId =
+    | "docling_markdown"
     | "markitdown_markdown"
     | "datalab"
     | "azure_layout_read"
@@ -53,7 +59,7 @@ export type ExtractionPassTrace = {
 type ExtractionPage = {
     index: number;
     text: string;
-    source: "native" | "azure_layout" | "azure_read" | "datalab" | "llamaparse" | "markitdown" | "none";
+    source: "native" | "azure_layout" | "azure_read" | "datalab" | "llamaparse" | "markitdown" | "docling" | "none";
     chars: number;
     words: number;
     lexicalRatio: number;
@@ -65,7 +71,7 @@ type ExtractionPage = {
 type CandidatePage = {
     index: number;
     text: string;
-    source: "native" | "azure_layout" | "azure_read" | "datalab" | "llamaparse" | "markitdown";
+    source: "native" | "azure_layout" | "azure_read" | "datalab" | "llamaparse" | "markitdown" | "docling";
     tableCount: number;
     formulaCount: number;
 };
@@ -154,6 +160,9 @@ const PPTX_MAX_LOW_TEXT_SLIDES_FOREGROUND = Number(process.env.EXTRACTION_PPTX_M
 const PPTX_MAX_LOW_TEXT_SLIDES_BACKGROUND = Number(process.env.EXTRACTION_PPTX_MAX_LOW_TEXT_SLIDES_BACKGROUND || 120);
 const AZURE_429_MAX_RETRIES = Number(process.env.AZURE_DOCINTEL_429_MAX_RETRIES || 8);
 const FOREGROUND_AZURE_PASS_TIMEOUT_MS = Number(process.env.EXTRACTION_FOREGROUND_AZURE_PASS_TIMEOUT_MS || 90000);
+const EXTRACTION_DEFAULT_BACKEND = String(process.env.EXTRACTION_DEFAULT_BACKEND || "")
+    .trim()
+    .toLowerCase();
 
 let azureAnalyzeQueue = Promise.resolve();
 
@@ -173,7 +182,20 @@ const toSafePositiveInt = (value: number, fallback: number) => {
 export const isAzureDocIntelEnabled = () =>
     Boolean(AZURE_DOCINTEL_ENDPOINT && AZURE_DOCINTEL_KEY);
 
+const getConfiguredExtractionBackend = (): ExtractionBackendId | null => {
+    if (EXTRACTION_DEFAULT_BACKEND === "docling" && isDoclingEnabled()) return "docling";
+    if (EXTRACTION_DEFAULT_BACKEND === "markitdown") return "markitdown";
+    if (EXTRACTION_DEFAULT_BACKEND === "datalab" && isDataLabEnabled()) return "datalab";
+    if (EXTRACTION_DEFAULT_BACKEND === "azure" && isAzureDocIntelEnabled()) return "azure";
+    if (EXTRACTION_DEFAULT_BACKEND === "llamaparse" && isLlamaParseEnabled()) return "llamaparse";
+    return null;
+};
+
 export const getDefaultExtractionBackend = (fileType?: string): ExtractionBackendId => {
+    const configuredBackend = getConfiguredExtractionBackend();
+    if (configuredBackend) {
+        return configuredBackend;
+    }
     const normalizedFileType = String(fileType || "").toLowerCase();
     if (normalizedFileType === "pptx" || normalizedFileType === "docx") {
         return "markitdown";
@@ -269,7 +291,7 @@ const parsePdfPagesFromNative = (value: string): CandidatePage[] => {
 
 const splitTextIntoSyntheticPages = (
     value: string,
-    source: "native" | "azure_layout" | "azure_read" | "datalab" | "llamaparse" | "markitdown",
+    source: "native" | "azure_layout" | "azure_read" | "datalab" | "llamaparse" | "markitdown" | "docling",
     targetCharsPerPage = 2600
 ): CandidatePage[] => {
     const text = sanitizeText(value);
@@ -347,7 +369,7 @@ const countMarkdownTables = (value: string) =>
 const countMarkdownFormulas = (value: string) =>
     (String(value || "").match(/\$[^$\n]+\$/g) || []).length;
 
-const parseMarkItDownPages = (value: string): CandidatePage[] => {
+const parseMarkdownPages = (value: string, source: "markitdown" | "docling"): CandidatePage[] => {
     const text = sanitizeText(value);
     if (!text) return [];
 
@@ -359,7 +381,7 @@ const parseMarkItDownPages = (value: string): CandidatePage[] => {
         return hardPages.map((pageText, index) => ({
             index,
             text: pageText,
-            source: "markitdown",
+            source,
             tableCount: countMarkdownTables(pageText),
             formulaCount: countMarkdownFormulas(pageText),
         }));
@@ -383,7 +405,7 @@ const parseMarkItDownPages = (value: string): CandidatePage[] => {
 
     const normalizedSections = sections.filter(Boolean);
     if (normalizedSections.length <= 1) {
-        return splitTextIntoSyntheticPages(text, "markitdown", 2200).map((page) => ({
+        return splitTextIntoSyntheticPages(text, source, 2200).map((page) => ({
             ...page,
             tableCount: countMarkdownTables(page.text),
             formulaCount: countMarkdownFormulas(page.text),
@@ -393,11 +415,17 @@ const parseMarkItDownPages = (value: string): CandidatePage[] => {
     return normalizedSections.map((sectionText, index) => ({
         index,
         text: sectionText,
-        source: "markitdown",
+        source,
         tableCount: countMarkdownTables(sectionText),
         formulaCount: countMarkdownFormulas(sectionText),
     }));
 };
+
+const parseMarkItDownPages = (value: string): CandidatePage[] =>
+    parseMarkdownPages(value, "markitdown");
+
+const parseDoclingPages = (value: string): CandidatePage[] =>
+    parseMarkdownPages(value, "docling");
 
 const runNativePass = async (fileType: string, fileBuffer: ArrayBuffer): Promise<PassResult> => {
     if (fileType === "pdf") {
@@ -1393,6 +1421,19 @@ const toMarkItDownPassResult = (payload: MarkItDownExtractResponse): PassResult 
     };
 };
 
+const toDoclingPassResult = (payload: DoclingExtractResponse): PassResult => {
+    const text = sanitizeText(String(payload.text || payload.markdown || ""));
+    const pages = parseDoclingPages(text);
+
+    return {
+        text,
+        pages,
+        pageCount: Math.max(pages.length, text ? 1 : 0),
+        tableCount: pages.reduce((sum, page) => sum + Number(page.tableCount || 0), 0),
+        formulaCount: pages.reduce((sum, page) => sum + Number(page.formulaCount || 0), 0),
+    };
+};
+
 const runPassWithTrace = async (
     pass: string,
     run: () => Promise<PassResult>
@@ -1623,6 +1664,60 @@ export const runMarkItDownExtractionCandidate = async (
     };
 };
 
+export const runDoclingExtractionCandidate = async (
+    args: RunDocumentExtractionArgs
+): Promise<DocumentExtractionResult> => {
+    if (!isDoclingEnabled()) {
+        throw new Error("Docling extraction is not configured.");
+    }
+
+    const startedAt = Date.now();
+    const normalizedFileType = String(args.fileType || "").toLowerCase();
+    const payload = await callDoclingExtract({
+        fileName: args.fileName,
+        fileBuffer: cloneArrayBuffer(args.fileBuffer),
+        timeoutMs: args.maxDurationMs,
+    });
+    const latencyMs = Date.now() - startedAt;
+    const doclingPass = toDoclingPassResult(payload);
+
+    const result = buildDocumentExtractionResult({
+        backend: "docling",
+        parser: "docling_markdown",
+        fileType: normalizedFileType,
+        nativePass: emptyPassResult(),
+        layoutPass: emptyPassResult(),
+        readPass: doclingPass,
+        providerTrace: [{
+            pass: "docling_markdown",
+            status: "ok",
+            latencyMs,
+            chars: doclingPass.text.length,
+            pageCount: doclingPass.pageCount,
+        }],
+        fallbackRecommendation: null,
+    });
+
+    const warnings = Array.from(new Set([...(payload.warnings || []), ...result.warnings]));
+    const fallbackRecommendation = !result.strictPass && isDataLabEnabled()
+        ? {
+            backend: "datalab" as const,
+            parser: "datalab" as const,
+            reason: "docling_quality_gap",
+        }
+        : null;
+
+    return {
+        ...result,
+        warnings,
+        fallbackRecommendation,
+        artifact: {
+            ...result.artifact,
+            warnings,
+        },
+    };
+};
+
 export const runLlamaParseExtractionCandidate = async (
     args: RunDocumentExtractionArgs
 ): Promise<DocumentExtractionResult> => {
@@ -1663,6 +1758,9 @@ export const runLlamaParseExtractionCandidate = async (
 export const runDocumentExtractionPipeline = async (
     args: RunDocumentExtractionArgs
 ): Promise<DocumentExtractionResult> => {
+    if (args.backend === "docling") {
+        return await runDoclingExtractionCandidate(args);
+    }
     if (args.backend === "markitdown") {
         return await runMarkItDownExtractionCandidate(args);
     }
@@ -1678,6 +1776,9 @@ export const runDocumentExtractionPipeline = async (
 
     const normalizedFileType = String(args.fileType || "").toLowerCase();
     const defaultBackend = getDefaultExtractionBackend(normalizedFileType);
+    if (defaultBackend === "docling") {
+        return await runDoclingExtractionCandidate(args);
+    }
     if (defaultBackend === "markitdown") {
         try {
             return await runMarkItDownExtractionCandidate(args);

@@ -39,6 +39,9 @@ Configure Vercel environments like this:
   - `VITE_CONVEX_URL` = staging Convex deployment URL
   - `CONVEX_URL` = staging Convex deployment URL for serverless functions
   - `VITE_SENTRY_ENVIRONMENT=staging`
+  - `EXTRACTION_DEFAULT_BACKEND=docling` when you want staging uploads to route through Docling
+  - `DOCLING_API_BASE_URL` = staging Docling service base URL
+  - `DOCLING_API_KEY` = optional bearer token for the staging Docling service
 
 ## Convex Mapping
 
@@ -74,6 +77,14 @@ Set the `staging` branch Preview deployment to a staging Convex deployment:
 npx vercel env add VITE_CONVEX_URL preview staging --force --value "https://<staging-deployment>.convex.cloud" --yes
 npx vercel env add CONVEX_URL preview staging --force --value "https://<staging-deployment>.convex.cloud" --yes
 npx vercel env add VITE_SENTRY_ENVIRONMENT preview staging --force --value "staging" --yes
+npx vercel env add EXTRACTION_DEFAULT_BACKEND preview staging --force --value "docling" --yes
+npx vercel env add DOCLING_API_BASE_URL preview staging --force --value "https://<docling-staging-host>" --yes
+```
+
+If the Docling service is protected, also set:
+
+```bash
+npx vercel env add DOCLING_API_KEY preview staging --force --value "<staging-docling-token>" --yes
 ```
 
 Set Production to the live Convex deployment:
@@ -81,6 +92,9 @@ Set Production to the live Convex deployment:
 ```bash
 npx vercel env add VITE_CONVEX_URL production --force --value "https://<prod-deployment>.convex.cloud" --yes
 ```
+
+Leave `EXTRACTION_DEFAULT_BACKEND` unset in production unless you intentionally
+want the production extraction path to cut over to Docling as well.
 
 ## Stable Staging URL
 
