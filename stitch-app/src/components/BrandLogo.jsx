@@ -1,47 +1,18 @@
 import React from 'react';
 
-const WORDMARK_SRC = {
-    light: '/brand/logo-light.png',
-    dark: '/brand/logo-dark.png',
-};
-
+// Single-source brand mark: logonew.jpeg, rendered with a rounded crop so it
+// sits cleanly on both light and dark backgrounds at any size. The `theme`
+// and `kind` props are kept for API compatibility with existing call sites.
 const BrandLogo = ({
     alt = 'ChewnPour',
     className = 'h-12 w-auto',
-    kind = 'wordmark',
-    theme = 'adaptive',
-}) => {
-    if (kind === 'mark') {
-        return <img src="/brand/mark.png" alt={alt} className={className} decoding="async" />;
-    }
-
-    if (theme === 'light' || theme === 'dark') {
-        return (
-            <img
-                src={WORDMARK_SRC[theme]}
-                alt={alt}
-                className={className}
-                decoding="async"
-            />
-        );
-    }
-
-    return (
-        <>
-            <img
-                src={WORDMARK_SRC.light}
-                alt={alt}
-                className={`${className} dark:hidden`}
-                decoding="async"
-            />
-            <img
-                src={WORDMARK_SRC.dark}
-                alt={alt}
-                className={`${className} hidden dark:block`}
-                decoding="async"
-            />
-        </>
-    );
-};
+}) => (
+    <img
+        src="/logonew.jpeg"
+        alt={alt}
+        className={`${className} object-contain rounded-full`}
+        decoding="async"
+    />
+);
 
 export default BrandLogo;

@@ -108,8 +108,20 @@ const Login = () => {
                     </p>
                     <div className="mt-12 flex items-center gap-4">
                         <div className="flex -space-x-2">
-                            {['#4d9ef6', '#1de9b6', '#ffab00', '#7c4dff'].map((c, i) => (
-                                <div key={i} className="w-8 h-8 rounded-full border-2 border-primary-700" style={{ backgroundColor: c }} />
+                            {['/chewnpour/img1.jpg', '/chewnpour/img2.jpg', '/chewnpour/img3.jpg', '/chewnpour/img4.jpg'].map((src, i) => (
+                                <img
+                                    key={src}
+                                    src={src}
+                                    alt=""
+                                    aria-hidden="true"
+                                    className="w-9 h-9 rounded-full border-2 border-primary-700 object-cover shadow-md login-avatar-bob"
+                                    style={{
+                                        animationDelay: `${i * 0.35}s`,
+                                        zIndex: 10 - i,
+                                    }}
+                                    decoding="async"
+                                    loading="lazy"
+                                />
                             ))}
                         </div>
                         <p className="text-sm text-white/60">Join thousands of students already studying smarter</p>
