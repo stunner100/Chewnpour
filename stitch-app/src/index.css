@@ -336,3 +336,104 @@ html.is-safari .safari-backdrop {
 @media (prefers-reduced-motion: reduce) {
     .login-avatar-bob { animation: none; }
 }
+
+/* ────────────────────────────────────────────────────────────────
+   Landing-themed public surfaces (login, signup, reset, privacy,
+   terms, unsubscribe, 404). Black bg, mono type, folder accents.
+   ──────────────────────────────────────────────────────────────── */
+.cp-input {
+    width: 100%;
+    height: 3rem;
+    padding: 0 1rem;
+    border-radius: 0.75rem;
+    background: #1a1a1a;
+    border: 1px solid #2a2a2a;
+    color: #fff;
+    font-family: inherit;
+    font-size: 0.9rem;
+    transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+.cp-input::placeholder { color: rgba(255,255,255,0.35); }
+.cp-input:focus {
+    outline: none;
+    border-color: #E8651B;
+    box-shadow: 0 0 0 3px rgba(232,101,27,0.18);
+}
+.cp-input:disabled { opacity: 0.55; cursor: not-allowed; }
+
+.cp-label {
+    display: block;
+    font-size: 0.75rem;
+    font-weight: 600;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    color: rgba(255,255,255,0.7);
+    margin-bottom: 0.4rem;
+}
+
+.cp-btn-primary {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    width: 100%;
+    height: 3rem;
+    border-radius: 9999px;
+    background: #E8651B;
+    color: #fff;
+    font-family: inherit;
+    font-weight: 700;
+    font-size: 0.9rem;
+    transition: background 0.15s ease, transform 0.1s ease;
+}
+.cp-btn-primary:hover:not(:disabled) { background: #d15712; }
+.cp-btn-primary:active:not(:disabled) { transform: scale(0.98); }
+.cp-btn-primary:disabled { opacity: 0.55; cursor: not-allowed; }
+
+.cp-btn-secondary {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    width: 100%;
+    height: 3rem;
+    border-radius: 9999px;
+    background: #1a1a1a;
+    border: 1px solid #2a2a2a;
+    color: #fff;
+    font-family: inherit;
+    font-weight: 600;
+    font-size: 0.9rem;
+    transition: background 0.15s ease, border-color 0.15s ease;
+}
+.cp-btn-secondary:hover:not(:disabled) { background: #222; border-color: #3a3a3a; }
+.cp-btn-secondary:disabled { opacity: 0.55; cursor: not-allowed; }
+
+.cp-card {
+    background: #111;
+    border: 1px solid #1f1f1f;
+    border-radius: 1.25rem;
+    padding: 2rem;
+}
+
+.cp-prose {
+    color: rgba(255,255,255,0.82);
+    font-family: inherit;
+    line-height: 1.65;
+}
+.cp-prose h1, .cp-prose h2, .cp-prose h3 {
+    color: #fff;
+    font-weight: 700;
+    letter-spacing: -0.01em;
+    margin-top: 2.25rem;
+    margin-bottom: 0.75rem;
+}
+.cp-prose h1 { font-size: 2rem; line-height: 1.15; margin-top: 0; }
+.cp-prose h2 { font-size: 1.35rem; }
+.cp-prose h3 { font-size: 1.1rem; }
+.cp-prose p { margin-bottom: 1rem; }
+.cp-prose a { color: #F3C64A; text-decoration: underline; text-underline-offset: 3px; }
+.cp-prose a:hover { color: #ffd766; }
+.cp-prose ul, .cp-prose ol { margin: 0.75rem 0 1rem 1.25rem; }
+.cp-prose li { margin-bottom: 0.35rem; }
+.cp-prose strong { color: #fff; }
