@@ -172,11 +172,28 @@ html.is-safari .safari-backdrop {
                text-text-sub-light dark:text-text-sub-dark
                hover:bg-surface-hover dark:hover:bg-surface-hover-dark
                transition-all duration-150;
+        font-family: "JetBrains Mono", "Fira Code", ui-monospace, SFMono-Regular, Menlo, monospace;
+        letter-spacing: -0.01em;
     }
 
     .sidebar-link-active {
         @apply sidebar-link bg-primary-50 dark:bg-primary-900/20
                text-primary dark:text-primary-200 font-semibold;
+    }
+
+    /* ── Brand display type ──
+       Tie the dashboard to the landing aesthetic: every display heading
+       (Tailwind .text-display-*) renders in JetBrains Mono so titles echo
+       the landing wordmark while body copy stays sans-serif for density. */
+    .text-display-xl,
+    .text-display-lg,
+    .text-display-md,
+    .text-display-sm {
+        font-family: "JetBrains Mono", "Fira Code", ui-monospace, SFMono-Regular, Menlo, monospace;
+        letter-spacing: -0.02em;
+    }
+    .font-brand {
+        font-family: "JetBrains Mono", "Fira Code", ui-monospace, SFMono-Regular, Menlo, monospace;
     }
 }
 
