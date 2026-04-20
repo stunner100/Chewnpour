@@ -56,7 +56,7 @@ const DashboardLayout = ({ children }) => {
                     {!sidebarCollapsed && (
                         <Link to="/dashboard" className="flex items-center min-w-0 overflow-hidden">
                             <img
-                                src="/chewnpourlogo.png"
+                                src="/logonew.jpeg"
                                 alt="ChewnPour"
                                 className="h-10 w-auto max-w-full object-contain dark:mix-blend-lighten"
                             />
