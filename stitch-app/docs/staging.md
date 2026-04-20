@@ -96,6 +96,9 @@ npx vercel env add VITE_CONVEX_URL production --force --value "https://<prod-dep
 Leave `EXTRACTION_DEFAULT_BACKEND` unset in production unless you intentionally
 want the production extraction path to cut over to Docling as well.
 
+For a DigitalOcean-hosted Docling service, use
+[docs/docling-digitalocean.md](/Users/patrickannor/Desktop/chewnpour/stitch-app/docs/docling-digitalocean.md).
+
 ## Stable Staging URL
 
 If you want auth, callbacks, and QA links to be fully predictable, add a fixed

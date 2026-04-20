@@ -1,0 +1,16 @@
+{
+	email {$ACME_EMAIL}
+}
+
+{$DOCLING_HOSTNAME} {
+	encode zstd gzip
+
+	header {
+		Strict-Transport-Security "max-age=31536000; includeSubDomains; preload"
+		X-Content-Type-Options "nosniff"
+		X-Frame-Options "DENY"
+		Referrer-Policy "no-referrer"
+	}
+
+	reverse_proxy docling:5001
+}

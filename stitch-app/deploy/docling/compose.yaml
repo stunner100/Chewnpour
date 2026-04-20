@@ -1,0 +1,27 @@
+services:
+  docling:
+    image: quay.io/docling-project/docling-serve-cpu:v1.16.1
+    restart: unless-stopped
+    expose:
+      - "5001"
+    environment:
+      DOCLING_SERVE_ENABLE_UI: "${DOCLING_SERVE_ENABLE_UI:-0}"
+
+  caddy:
+    image: caddy:2.9-alpine
+    restart: unless-stopped
+    depends_on:
+      - docling
+    ports:
+      - "80:80"
+      - "443:443"
+    env_file:
+      - .env
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+
+volumes:
+  caddy_data:
+  caddy_config:
