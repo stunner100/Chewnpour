@@ -207,7 +207,8 @@ const LandingPage = () => {
                     <nav className="hidden md:flex items-center gap-8 text-sm font-semibold text-white/80">
                         <Link to="/login" className="hover:text-white transition-colors">Sign In</Link>
                         <a href="#features" className="hover:text-white transition-colors">Solutions</a>
-                        <a href="#pricing" className="hover:text-white transition-colors">Contact</a>
+                        <a href="#pricing" className="hover:text-white transition-colors">Pricing</a>
+                        <a href="#contact" className="hover:text-white transition-colors">Contact</a>
                     </nav>
 
                     {/* Mobile menu button */}
@@ -237,7 +238,8 @@ const LandingPage = () => {
                             {[
                                 { label: 'Sign In', to: '/login', type: 'link' },
                                 { label: 'Solutions', href: '#features', type: 'anchor' },
-                                { label: 'Contact', href: '#pricing', type: 'anchor' },
+                                { label: 'Pricing', href: '#pricing', type: 'anchor' },
+                                { label: 'Contact', href: '#contact', type: 'anchor' },
                             ].map((item) => item.type === 'link' ? (
                                 <Link
                                     key={item.label}
@@ -793,7 +795,7 @@ const LandingPage = () => {
             </main>
 
             {/* ─── Footer ─── */}
-            <footer className="bg-[#E8651B] text-white">
+            <footer id="contact" className="bg-[#E8651B] text-white">
                 <div className="mx-auto max-w-6xl px-6 lg:px-8 py-6">
                     <div className="flex flex-col md:flex-row items-center justify-between gap-4">
                         <div className="flex items-center gap-5 text-xs font-semibold">
