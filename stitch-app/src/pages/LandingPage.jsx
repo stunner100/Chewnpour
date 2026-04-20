@@ -96,9 +96,9 @@ const stats = [
     { value: '200,000+', label: 'Quiz questions created' },
 ];
 
-// ChewnPour logo lockup: hex frame with the ChewnPour brand mark inside, wordmark beneath.
-// Mark is recreated as inline SVG (open book with two triangular fox-ear peaks) using the
-// teal → cyan → violet gradient from the source PNG. Crisp at any size, no raster blur.
+// ChewnPour logo lockup: circular logo from /chewnpourlogo.png inside a hex frame,
+// wordmark beneath. The PNG is already circular with its own dark backdrop, so we just
+// mask it into the hex outline and let it sit against the page background.
 const HexLogo = ({ size = 56, withWordmark = true, className = '' }) => (
     <span className={`inline-flex flex-col items-center gap-1.5 ${className}`} aria-label="ChewnPour">
         <span
@@ -120,42 +120,15 @@ const HexLogo = ({ size = 56, withWordmark = true, className = '' }) => (
                     fill="none"
                 />
             </svg>
-            {/* ChewnPour mark — redrawn to match chewnpour.png:
-                two upright panels with inward-angled peaks (fox ears), an X crossover in
-                the middle, and a fanning open-book base. Horizontal gradient violet → cyan. */}
-            <svg
-                viewBox="0 0 100 100"
-                className="relative"
-                style={{ width: size * 0.6, height: size * 0.6 }}
-                fill="none"
-                aria-hidden="true"
-            >
-                <defs>
-                    <linearGradient id="cp-mark-gradient" x1="0%" y1="0%" x2="100%" y2="0%">
-                        <stop offset="0%" stopColor="#8B5CF6" />
-                        <stop offset="45%" stopColor="#2DD4BF" />
-                        <stop offset="100%" stopColor="#22D3EE" />
-                    </linearGradient>
-                </defs>
-                <g
-                    stroke="url(#cp-mark-gradient)"
-                    strokeWidth="4.5"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    fill="none"
-                >
-                    {/* Left page cover: rises from base up to a fox-ear peak, down to V-spine at center */}
-                    <path d="M16 74 L16 36 L30 20 L34 32 L50 50 L50 74 Z" />
-                    {/* Right page cover: mirror */}
-                    <path d="M84 74 L84 36 L70 20 L66 32 L50 50 L50 74 Z" />
-                    {/* Inner page lines — suggest open pages fanning outward */}
-                    <path d="M24 44 L44 54" />
-                    <path d="M76 44 L56 54" />
-                    {/* Fanning page edges at the base */}
-                    <path d="M12 78 L50 86 L88 78" />
-                    <path d="M50 74 L50 86" />
-                </g>
-            </svg>
+            {/* Brand mark from public/chewnpourlogo.png */}
+            <img
+                src="/chewnpourlogo.png"
+                alt="ChewnPour"
+                className="relative block object-contain rounded-full"
+                style={{ width: size * 0.72, height: size * 0.72 }}
+                loading="eager"
+                decoding="async"
+            />
         </span>
         {withWordmark && (
             <span className="font-mono font-bold tracking-tight text-white text-sm leading-none select-none">
