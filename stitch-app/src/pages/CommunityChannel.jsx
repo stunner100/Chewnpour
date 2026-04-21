@@ -69,6 +69,16 @@ const TAG_CONFIG = {
 
 const TAG_OPTIONS = ['question', 'resource', 'discussion'];
 
+const CONVEX_ID_PATTERN = /^[a-z0-9]{32}$/;
+
+const slugifyChannelKey = (value) =>
+    String(value || '')
+        .toLowerCase()
+        .replace(/[^a-z0-9\s-]/g, '')
+        .trim()
+        .replace(/\s+/g, '-')
+        .replace(/-+/g, '-');
+
 // ── User avatar component ────────────────────────────────────────────────────
 
 const UserAvatar = ({ profile, size = 36 }) => {
@@ -471,7 +481,7 @@ const FilterTabBar = ({ activeFilter, onChange }) => (
 // ── Main channel detail page ─────────────────────────────────────────────────
 
 const CommunityChannel = () => {
-    const { channelId } = useParams();
+    const { channelId: routeChannelId } = useParams();
     const navigate = useNavigate();
     const { user } = useAuth();
     const userId = user?.id;
@@ -479,16 +489,34 @@ const CommunityChannel = () => {
     const [activeFilter, setActiveFilter] = useState('all');
     const [showCompose, setShowCompose] = useState(false);
 
+    const allChannels = useQuery(api.community.listChannels, {});
+    const isDirectChannelId = CONVEX_ID_PATTERN.test(routeChannelId || '');
+    const resolvedChannelId = useMemo(() => {
+        if (!routeChannelId) return null;
+        if (isDirectChannelId) return routeChannelId;
+        if (allChannels === undefined) return undefined;
+        const matchedChannel = allChannels.find(
+            (candidate) => slugifyChannelKey(candidate.title) === slugifyChannelKey(routeChannelId)
+        );
+        return matchedChannel?._id ?? null;
+    }, [allChannels, isDirectChannelId, routeChannelId]);
+
     // Queries
-    const channel = useQuery(api.community.getChannel, channelId ? { channelId } : 'skip');
+    const channel = useQuery(
+        api.community.getChannel,
+        resolvedChannelId ? { channelId: resolvedChannelId } : 'skip'
+    );
     const userChannels = useQuery(api.community.getUserChannels, userId ? { userId } : 'skip');
-    const posts = useQuery(api.community.listPosts, channelId ? { channelId } : 'skip');
+    const posts = useQuery(
+        api.community.listPosts,
+        resolvedChannelId ? { channelId: resolvedChannelId } : 'skip'
+    );
     const joinChannel = useMutation(api.community.joinChannel);
 
     const isMember = useMemo(() => {
-        if (!userChannels || !channelId) return false;
-        return userChannels.some((c) => c._id === channelId);
-    }, [userChannels, channelId]);
+        if (!userChannels || !resolvedChannelId) return false;
+        return userChannels.some((c) => c._id === resolvedChannelId);
+    }, [userChannels, resolvedChannelId]);
 
     const filteredPosts = useMemo(() => {
         if (!posts) return [];
@@ -496,22 +524,23 @@ const CommunityChannel = () => {
         return posts.filter((p) => p.tag === activeFilter);
     }, [posts, activeFilter]);
 
-    const isLoading = channel === undefined || posts === undefined;
+    const isLoading = resolvedChannelId === undefined || channel === undefined || posts === undefined;
+    const isMissingChannel = resolvedChannelId === null || channel === null;
 
     const handleJoin = useCallback(async () => {
-        if (!channelId || !userId) return;
+        if (!resolvedChannelId || !userId) return;
         try {
-            await joinChannel({ channelId, userId });
+            await joinChannel({ channelId: resolvedChannelId, userId });
         } catch {
             // Silently handle - the UI will update reactively
         }
-    }, [channelId, userId, joinChannel]);
+    }, [resolvedChannelId, userId, joinChannel]);
 
     const handleCloseCompose = useCallback(() => {
         setShowCompose(false);
     }, []);
 
-    if (channel === null) {
+    if (isMissingChannel) {
         return (
             <div className="w-full max-w-5xl mx-auto px-4 md:px-8 py-8 text-center">
                 <div className="py-16">
@@ -579,7 +608,7 @@ const CommunityChannel = () => {
                     {!isLoading && filteredPosts.length > 0 && (
                         <div className="space-y-3">
                             {filteredPosts.map((post) => (
-                                <PostCard key={post._id} post={post} channelId={channelId} userId={userId} />
+                                <PostCard key={post._id} post={post} channelId={resolvedChannelId} userId={userId} />
                             ))}
                         </div>
                     )}
@@ -623,7 +652,7 @@ const CommunityChannel = () => {
                             </div>
                         </div>
                     )}
-                    {channelId && <WeeklyLeaderboard channelId={channelId} />}
+                    {resolvedChannelId && <WeeklyLeaderboard channelId={resolvedChannelId} />}
                 </div>
             </div>
 
@@ -638,8 +667,8 @@ const CommunityChannel = () => {
                 </button>
             )}
 
-            {showCompose && channelId && (
-                <ComposeModal channelId={channelId} userId={userId} onClose={handleCloseCompose} />
+            {showCompose && resolvedChannelId && (
+                <ComposeModal channelId={resolvedChannelId} userId={userId} onClose={handleCloseCompose} />
             )}
         </div>
     );
