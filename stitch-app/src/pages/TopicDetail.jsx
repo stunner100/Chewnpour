@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
-import { useQuery, useAction, useMutation } from 'convex/react';
+import { useConvexAuth, useQuery, useAction, useMutation } from 'convex/react';
 import { api } from '../../convex/_generated/api';
 import { useAuth } from '../contexts/AuthContext';
 import { useStudyTimer } from '../hooks/useStudyTimer';
@@ -66,6 +66,7 @@ const TopicDetail = () => {
     const { topicId: topicIdParam } = useParams();
     const routeTopicId = typeof topicIdParam === 'string' ? topicIdParam.trim() : '';
     const { user, profile, updateProfile } = useAuth();
+    const { isAuthenticated: isConvexAuthenticated } = useConvexAuth();
     useStudyTimer(user?.id);
     const synthesizeTopicVoice = useAction(api.ai.synthesizeTopicVoice);
     const reExplainTopic = useAction(api.ai.reExplainTopic);
@@ -124,7 +125,7 @@ const TopicDetail = () => {
     const voiceModeEnabled = Boolean(profile?.voiceModeEnabled);
     const voiceQuota = useQuery(
         api.subscriptions.getVoiceGenerationQuotaStatus,
-        user?.id ? {} : 'skip'
+        user?.id && isConvexAuthenticated ? {} : 'skip'
     );
     const topicProgress = useQuery(
         api.topics.getUserTopicProgress,
