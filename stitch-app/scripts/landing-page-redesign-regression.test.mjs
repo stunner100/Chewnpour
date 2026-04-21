@@ -53,7 +53,7 @@ assert(pricingSection.includes('POPULAR'), 'Popular badge is present');
 assert(!communitySection.includes('/community/'), 'Community section does not reference missing /community assets');
 assert(!testimonialsSection.includes('/community/'), 'Testimonials do not reference missing /community assets');
 
-assert(existsSync(resolve(projectRoot, 'public/chewnpourlogo.png')), 'Brand logo asset exists');
+assert(existsSync(resolve(projectRoot, 'public/logonew.jpeg')), 'Brand logo asset exists');
 assert(existsSync(resolve(projectRoot, 'public/screenshots/app-dashboard.png')), 'Dashboard screenshot asset exists');
 assert(existsSync(resolve(projectRoot, 'public/screenshots/app-assignment.png')), 'Assignment screenshot asset exists');
 assert(existsSync(resolve(projectRoot, 'public/screenshots/app-community.png')), 'Community screenshot asset exists');

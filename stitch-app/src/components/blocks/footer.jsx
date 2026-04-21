@@ -38,7 +38,7 @@ export function Footer({ onCtaClick = () => {} }) {
                 <div className="mb-16 sm:mb-24 flex flex-col items-start gap-4">
                     <Link to="/" className="shrink-0">
                         <img
-                            src="/chewnpourlogo.png"
+                            src="/logonew.jpeg"
                             alt="ChewnPour Logo"
                             className="h-10 w-auto object-contain"
                         />

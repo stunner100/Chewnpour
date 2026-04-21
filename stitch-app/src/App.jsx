@@ -16,6 +16,7 @@ import {
 import { capturePostHogEvent, capturePostHogPageView } from './lib/posthog';
 import ProtectedRoute from './components/ProtectedRoute';
 import DashboardLayout from './components/DashboardLayout';
+import PublicShell, { ArrowBadge } from './components/PublicShell';
 import { addSentryBreadcrumb } from './lib/sentry';
 import { attemptChunkRecoveryReload, isChunkLoadError } from './lib/chunkLoadRecovery';
 
@@ -243,24 +244,27 @@ function CampaignAttributionTracker() {
 }
 
 const NotFound = () => (
-  <div className="bg-background-light dark:bg-background-dark min-h-screen flex items-center justify-center px-6">
-    <div className="text-center max-w-md">
-      <div className="w-20 h-20 bg-surface-hover-light dark:bg-surface-hover-dark rounded-full flex items-center justify-center mx-auto mb-6">
-        <span className="material-symbols-outlined text-4xl text-text-faint-light dark:text-text-faint-dark">explore_off</span>
+  <PublicShell>
+    <div className="max-w-xl mx-auto text-center py-10">
+      <div className="inline-flex items-center gap-3 text-xs font-bold uppercase tracking-[0.2em] text-[#E8651B] justify-center mb-6">
+        <span className="inline-block w-8 h-[2px] bg-[#E8651B]" /> 404
       </div>
-      <h1 className="text-display-sm text-text-main-light dark:text-text-main-dark mb-2">Page not found</h1>
-      <p className="text-text-faint-light dark:text-text-faint-dark text-body-sm mb-8">
-        The page you're looking for doesn't exist or has been moved.
+      <h1 className="text-5xl sm:text-6xl font-bold leading-[1.05] tracking-tight mb-6">
+        Page <span className="text-[#F3C64A]">not</span>
+        <br />
+        <span className="inline-flex items-center gap-3">
+          <ArrowBadge size={44} /> found
+        </span>
+      </h1>
+      <p className="text-white/70 text-base leading-relaxed max-w-md mx-auto mb-8">
+        The page you're looking for doesn't exist or has been moved. Let's get you back on track.
       </p>
-      <a
-        href="/dashboard"
-        className="inline-flex items-center justify-center gap-2 px-6 py-3 rounded-2xl bg-primary text-white font-bold shadow-lg shadow-primary/20 hover:bg-primary-hover transition-colors"
-      >
+      <a href="/dashboard" className="cp-btn-primary inline-flex w-auto px-6">
         <span className="material-symbols-outlined text-[20px]">home</span>
         Back to Dashboard
       </a>
     </div>
-  </div>
+  </PublicShell>
 );
 
 const RouteLoader = () => (

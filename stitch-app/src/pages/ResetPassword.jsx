@@ -1,6 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { requestPasswordReset, resetPassword } from '../lib/auth-client';
+import PublicShell, { ArrowBadge } from '../components/PublicShell';
 
 const ResetPassword = () => {
     const [searchParams] = useSearchParams();
@@ -22,10 +23,7 @@ const ResetPassword = () => {
 
         try {
             const redirectTo = `${window.location.origin}/reset-password`;
-            const { error } = await requestPasswordReset({
-                email,
-                redirectTo,
-            });
+            const { error } = await requestPasswordReset({ email, redirectTo });
             if (error) {
                 setError(error.message || 'Failed to send reset email.');
             } else {
@@ -56,10 +54,7 @@ const ResetPassword = () => {
 
         setLoading(true);
         try {
-            const { error } = await resetPassword({
-                newPassword,
-                token,
-            });
+            const { error } = await resetPassword({ newPassword, token });
             if (error) {
                 setError(error.message || 'Failed to reset password.');
             } else {
@@ -74,94 +69,140 @@ const ResetPassword = () => {
     };
 
     return (
-        <div className="min-h-screen bg-background-light dark:bg-background-dark flex flex-col">
-            <div className="flex items-center p-4 pb-2 sticky top-0 z-10 bg-background-light dark:bg-background-dark">
-                <Link to="/login" className="btn-icon w-10 h-10">
-                    <span className="material-symbols-outlined text-[20px]">arrow_back</span>
-                </Link>
-            </div>
-            <main className="flex-1 flex flex-col px-4 max-w-md mx-auto w-full pb-8">
-                <div className="pt-4 pb-6">
-                    <h1 className="text-display-sm text-text-main-light dark:text-text-main-dark mb-2">
-                        {token ? 'Set a new password' : 'Reset your password'}
+        <PublicShell>
+            <div className="grid lg:grid-cols-2 gap-12 lg:gap-20 items-center">
+                {/* Left — pitch */}
+                <div className="hidden lg:flex flex-col gap-8">
+                    <div className="inline-flex items-center gap-3 text-xs font-bold uppercase tracking-[0.2em] text-[#E8651B]">
+                        <span className="inline-block w-8 h-[2px] bg-[#E8651B]" /> Account recovery
+                    </div>
+                    <h1 className="text-5xl xl:text-6xl font-bold leading-[1.05] tracking-tight">
+                        {token ? (
+                            <>
+                                Set a<br />
+                                <span className="text-[#E8651B]">new</span>
+                                <br />
+                                <span className="inline-flex items-center gap-3">
+                                    <ArrowBadge size={44} /> password
+                                </span>
+                            </>
+                        ) : (
+                            <>
+                                Forgot<br />
+                                <span className="text-[#F3C64A]">your</span>
+                                <br />
+                                <span className="inline-flex items-center gap-3">
+                                    <ArrowBadge size={44} /> password?
+                                </span>
+                            </>
+                        )}
                     </h1>
-                    <p className="text-body-sm text-text-sub-light dark:text-text-sub-dark">
+                    <p className="text-white/70 text-base leading-relaxed max-w-md">
                         {token
-                            ? 'Choose a strong password you haven\u2019t used before.'
-                            : 'Enter your email and we\u2019ll send a reset link.'}
+                            ? 'Choose a strong password you haven\u2019t used before. Eight characters minimum — no previously leaked passwords please.'
+                            : 'Enter the email tied to your account and we\u2019ll send a reset link. No spam, ever.'}
                     </p>
                 </div>
 
-                {error && (
-                    <div className="mb-4 p-3 rounded-xl bg-red-50 dark:bg-red-900/10 border border-red-200 dark:border-red-900/30 text-body-sm text-red-700 dark:text-red-300">
-                        {error}
+                {/* Right — form card */}
+                <div className="cp-card">
+                    <div className="mb-6">
+                        <h2 className="text-2xl font-bold mb-1">
+                            {token ? 'Set a new password' : 'Reset your password'}
+                        </h2>
+                        <p className="text-sm text-white/60">
+                            {token
+                                ? 'Choose a strong password you haven\u2019t used before.'
+                                : 'Enter your email and we\u2019ll send a reset link.'}
+                        </p>
                     </div>
-                )}
-                {success && (
-                    <div className="mb-4 p-3 rounded-xl bg-accent-emerald/10 border border-accent-emerald/20 text-body-sm text-accent-emerald">
-                        {success}
-                    </div>
-                )}
 
-                {!token ? (
-                    <form className="flex flex-col gap-5" onSubmit={handleRequest}>
-                        <div className="flex flex-col gap-1.5">
-                            <label className="text-caption font-semibold text-text-main-light dark:text-text-main-dark ml-1" htmlFor="email">Email Address</label>
-                            <input
-                                className="input-field"
-                                id="email"
-                                placeholder="student@university.edu"
-                                type="email"
-                                value={email}
-                                onChange={(e) => setEmail(e.target.value)}
-                                required
-                            />
+                    {error && (
+                        <div className="mb-5 rounded-xl border border-[#E8651B]/40 bg-[#E8651B]/10 px-4 py-3 text-sm text-[#F3C64A] flex items-center gap-2">
+                            <span className="material-symbols-outlined text-[18px]">error</span>
+                            {error}
                         </div>
-                        <button
-                            className="btn-primary w-full py-3 text-body-sm"
-                            type="submit"
-                            disabled={loading}
-                        >
-                            {loading ? 'Sending...' : 'Send reset link'}
-                        </button>
-                    </form>
-                ) : (
-                    <form className="flex flex-col gap-5" onSubmit={handleReset}>
-                        <div className="flex flex-col gap-1.5">
-                            <label className="text-caption font-semibold text-text-main-light dark:text-text-main-dark ml-1" htmlFor="newPassword">New password</label>
-                            <input
-                                className="input-field"
-                                id="newPassword"
-                                placeholder="At least 8 characters"
-                                type="password"
-                                value={newPassword}
-                                onChange={(e) => setNewPassword(e.target.value)}
-                                required
-                            />
+                    )}
+                    {success && (
+                        <div className="mb-5 rounded-xl border border-[#B39DFF]/40 bg-[#B39DFF]/10 px-4 py-3 text-sm text-[#B39DFF] flex items-center gap-2">
+                            <span className="material-symbols-outlined text-[18px]">check_circle</span>
+                            {success}
                         </div>
-                        <div className="flex flex-col gap-1.5">
-                            <label className="text-caption font-semibold text-text-main-light dark:text-text-main-dark ml-1" htmlFor="confirmPassword">Confirm password</label>
-                            <input
-                                className="input-field"
-                                id="confirmPassword"
-                                placeholder="Repeat new password"
-                                type="password"
-                                value={confirmPassword}
-                                onChange={(e) => setConfirmPassword(e.target.value)}
-                                required
-                            />
-                        </div>
-                        <button
-                            className="btn-primary w-full py-3 text-body-sm"
-                            type="submit"
-                            disabled={loading}
-                        >
-                            {loading ? 'Updating...' : 'Update password'}
-                        </button>
-                    </form>
-                )}
-            </main>
-        </div>
+                    )}
+
+                    {!token ? (
+                        <form className="space-y-4" onSubmit={handleRequest}>
+                            <div>
+                                <label className="cp-label" htmlFor="email">Email</label>
+                                <input
+                                    className="cp-input"
+                                    id="email"
+                                    placeholder="student@university.edu"
+                                    type="email"
+                                    value={email}
+                                    onChange={(e) => setEmail(e.target.value)}
+                                    required
+                                />
+                            </div>
+                            <button type="submit" disabled={loading} className="cp-btn-primary mt-2">
+                                {loading ? (
+                                    <>
+                                        <div className="animate-spin rounded-full h-4 w-4 border-2 border-white/30 border-t-white" />
+                                        <span>Sending…</span>
+                                    </>
+                                ) : (
+                                    <span>Send reset link</span>
+                                )}
+                            </button>
+                        </form>
+                    ) : (
+                        <form className="space-y-4" onSubmit={handleReset}>
+                            <div>
+                                <label className="cp-label" htmlFor="newPassword">New password</label>
+                                <input
+                                    className="cp-input"
+                                    id="newPassword"
+                                    placeholder="At least 8 characters"
+                                    type="password"
+                                    value={newPassword}
+                                    onChange={(e) => setNewPassword(e.target.value)}
+                                    required
+                                />
+                            </div>
+                            <div>
+                                <label className="cp-label" htmlFor="confirmPassword">Confirm password</label>
+                                <input
+                                    className="cp-input"
+                                    id="confirmPassword"
+                                    placeholder="Repeat new password"
+                                    type="password"
+                                    value={confirmPassword}
+                                    onChange={(e) => setConfirmPassword(e.target.value)}
+                                    required
+                                />
+                            </div>
+                            <button type="submit" disabled={loading} className="cp-btn-primary mt-2">
+                                {loading ? (
+                                    <>
+                                        <div className="animate-spin rounded-full h-4 w-4 border-2 border-white/30 border-t-white" />
+                                        <span>Updating…</span>
+                                    </>
+                                ) : (
+                                    <span>Update password</span>
+                                )}
+                            </button>
+                        </form>
+                    )}
+
+                    <p className="mt-6 text-center text-sm text-white/60">
+                        Remembered it?{' '}
+                        <Link to="/login" className="font-semibold text-[#F3C64A] hover:underline">
+                            Back to sign in
+                        </Link>
+                    </p>
+                </div>
+            </div>
+        </PublicShell>
     );
 };
 
