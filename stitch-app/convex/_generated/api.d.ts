@@ -9,6 +9,7 @@
  */
 
 import type * as admin from "../admin.js";
+import type * as adminTopics from "../adminTopics.js";
 import type * as ai from "../ai.js";
 import type * as assignments from "../assignments.js";
 import type * as auth from "../auth.js";
@@ -31,6 +32,7 @@ import type * as lib_assessmentBlueprint from "../lib/assessmentBlueprint.js";
 import type * as lib_assessmentRouting from "../lib/assessmentRouting.js";
 import type * as lib_conceptExerciseGeneration from "../lib/conceptExerciseGeneration.js";
 import type * as lib_datalabClient from "../lib/datalabClient.js";
+import type * as lib_doclingClient from "../lib/doclingClient.js";
 import type * as lib_documentExtractionPipeline from "../lib/documentExtractionPipeline.js";
 import type * as lib_examAttemptReuse from "../lib/examAttemptReuse.js";
 import type * as lib_examQuestionSelection from "../lib/examQuestionSelection.js";
@@ -78,6 +80,7 @@ import type {
 
 declare const fullApi: ApiFromModules<{
   admin: typeof admin;
+  adminTopics: typeof adminTopics;
   ai: typeof ai;
   assignments: typeof assignments;
   auth: typeof auth;
@@ -100,6 +103,7 @@ declare const fullApi: ApiFromModules<{
   "lib/assessmentRouting": typeof lib_assessmentRouting;
   "lib/conceptExerciseGeneration": typeof lib_conceptExerciseGeneration;
   "lib/datalabClient": typeof lib_datalabClient;
+  "lib/doclingClient": typeof lib_doclingClient;
   "lib/documentExtractionPipeline": typeof lib_documentExtractionPipeline;
   "lib/examAttemptReuse": typeof lib_examAttemptReuse;
   "lib/examQuestionSelection": typeof lib_examQuestionSelection;

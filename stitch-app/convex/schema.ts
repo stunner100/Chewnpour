@@ -214,10 +214,16 @@ export default defineSchema({
         .index("by_uploadId", ["uploadId"])
         .index("by_courseId_uploadId", ["courseId", "uploadId"]),
 
+    courseFolders: defineTable({
+        userId: v.string(),
+        name: v.string(),
+    }).index("by_userId", ["userId"]),
+
     // AI-generated courses from uploads
     courses: defineTable({
         uploadId: v.optional(v.id("uploads")),
         userId: v.string(),
+        folderId: v.optional(v.id("courseFolders")),
         title: v.string(),
         description: v.optional(v.string()),
         coverColor: v.optional(v.string()), // gradient colors
@@ -265,8 +271,10 @@ export default defineSchema({
         distinctivenessScore: v.optional(v.number()),
         questionVarietyScore: v.optional(v.number()),
         redundancyRiskScore: v.optional(v.number()),
+        strongestNeighborOverlap: v.optional(v.number()),
         yieldConfidence: v.optional(v.string()),
         yieldReasoning: v.optional(v.string()),
+        supportedQuestionTypes: v.optional(v.array(v.string())),
         examIneligibleReason: v.optional(v.string()),
         examReady: v.optional(v.boolean()),
         mcqTargetCount: v.optional(v.number()),
@@ -368,6 +376,54 @@ export default defineSchema({
         createdAt: v.number(),
     }).index("by_topicId", ["topicId"]),
 
+    conceptMastery: defineTable({
+        userId: v.string(),
+        topicId: v.id("topics"),
+        conceptKey: v.string(),
+        conceptLabel: v.string(),
+        attemptsCount: v.number(),
+        questionCount: v.number(),
+        correctCount: v.number(),
+        correctStreak: v.number(),
+        strength: v.number(),
+        status: v.string(),
+        lastAccuracy: v.optional(v.number()),
+        lastExerciseType: v.optional(v.string()),
+        lastPracticedAt: v.optional(v.number()),
+        lastQuestionText: v.optional(v.string()),
+        nextReviewAt: v.optional(v.number()),
+        updatedAt: v.number(),
+    })
+        .index("by_userId", ["userId"])
+        .index("by_topicId", ["topicId"])
+        .index("by_userId_topicId", ["userId", "topicId"]),
+
+    topicSubClaims: defineTable({
+        topicId: v.id("topics"),
+        uploadId: v.optional(v.id("uploads")),
+        bloomLevel: v.string(),
+        claimText: v.string(),
+        claimType: v.string(),
+        cognitiveOperations: v.array(v.string()),
+        createdAt: v.number(),
+        difficultyEstimate: v.string(),
+        questionYieldEstimate: v.number(),
+        sourcePassageIds: v.array(v.string()),
+        sourceQuotes: v.array(v.string()),
+        status: v.string(),
+    }).index("by_topicId", ["topicId"]),
+
+    distractorBank: defineTable({
+        topicId: v.optional(v.id("topics")),
+        questionId: v.optional(v.id("questions")),
+        distractors: v.optional(v.array(v.any())),
+        metadata: v.optional(v.any()),
+        createdAt: v.optional(v.number()),
+        updatedAt: v.optional(v.number()),
+    })
+        .index("by_topicId", ["topicId"])
+        .index("by_questionId", ["questionId"]),
+
     // User exam attempts
     examAttempts: defineTable({
         userId: v.string(),
@@ -394,6 +450,33 @@ export default defineSchema({
         startedAt: v.optional(v.number()), // timestamp when attempt was created
         claimedAt: v.optional(v.number()), // timestamp when reused attempt was claimed by a session
     }).index("by_userId", ["userId"]).index("by_topicId", ["topicId"]).index("by_userId_topicId", ["userId", "topicId"]),
+
+    examPreparations: defineTable({
+        userId: v.string(),
+        topicId: v.id("topics"),
+        examFormat: v.string(),
+        assessmentVersion: v.string(),
+        attemptId: v.optional(v.id("examAttempts")),
+        attemptTargetCount: v.number(),
+        bankTargetCount: v.number(),
+        generatedCount: v.number(),
+        usableCount: v.number(),
+        premiumTargetMet: v.optional(v.boolean()),
+        qualitySignals: v.optional(v.any()),
+        qualityTier: v.optional(v.string()),
+        qualityWarnings: v.optional(v.array(v.string())),
+        questionSetVersion: v.optional(v.number()),
+        reasonCode: v.optional(v.string()),
+        message: v.optional(v.string()),
+        stage: v.string(),
+        status: v.string(),
+        startedAt: v.number(),
+        finishedAt: v.optional(v.number()),
+        errorSummary: v.optional(v.string()),
+    })
+        .index("by_userId", ["userId"])
+        .index("by_topicId", ["topicId"])
+        .index("by_userId_topicId", ["userId", "topicId"]),
 
     // Concept practice attempts
     conceptAttempts: defineTable({
@@ -547,6 +630,17 @@ export default defineSchema({
         content: v.string(),
         createdAt: v.number(),
     }).index("by_userId_topicId", ["userId", "topicId"]),
+
+    topicVideos: defineTable({
+        topicId: v.id("topics"),
+        userId: v.optional(v.string()),
+        title: v.optional(v.string()),
+        url: v.optional(v.string()),
+        provider: v.optional(v.string()),
+        storageId: v.optional(v.id("_storage")),
+        createdAt: v.optional(v.number()),
+        updatedAt: v.optional(v.number()),
+    }).index("by_topicId", ["topicId"]),
 
     // User feedback submissions
     feedback: defineTable({

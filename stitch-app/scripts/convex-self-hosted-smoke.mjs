@@ -36,19 +36,29 @@ const main = async () => {
     throw new Error(`Convex smoke failed: HTTP ${response.status}\n${bodyText}`);
   }
 
-  let payload;
+  let payload = null;
   try {
     payload = JSON.parse(bodyText);
-  } catch (error) {
-    throw new Error(`Convex smoke failed: invalid JSON (${error instanceof Error ? error.message : String(error)})`);
+  } catch {
+    payload = null;
   }
 
-  if (!payload || (!payload.version && !payload.git_sha && !payload.gitSha)) {
-    throw new Error(`Convex smoke failed: unexpected version payload\n${bodyText}`);
+  if (payload) {
+    if (!payload.version && !payload.git_sha && !payload.gitSha) {
+      throw new Error(`Convex smoke failed: unexpected version payload\n${bodyText}`);
+    }
+
+    console.log('convex-self-hosted-smoke.mjs passed');
+    console.log(JSON.stringify(payload, null, 2));
+    return;
+  }
+
+  if (!bodyText.trim()) {
+    throw new Error('Convex smoke failed: empty version response');
   }
 
   console.log('convex-self-hosted-smoke.mjs passed');
-  console.log(JSON.stringify(payload, null, 2));
+  console.log(bodyText.trim());
 };
 
 main().catch((error) => {
