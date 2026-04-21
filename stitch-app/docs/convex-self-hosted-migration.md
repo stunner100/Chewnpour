@@ -201,10 +201,13 @@ Relevant files:
 Once the self-hosted backend is running and imported:
 
 - set `VITE_CONVEX_URL=https://api.chewnpour.com`
+- set `VITE_CONVEX_SITE_URL=https://site.chewnpour.com`
 - set `CONVEX_URL=https://api.chewnpour.com`
 
-The frontend already supports arbitrary Convex deployment URLs through
-`VITE_CONVEX_URL` and `CONVEX_URL`.
+The frontend supports arbitrary Convex deployment URLs through
+`VITE_CONVEX_URL` and `CONVEX_URL`. For self-hosted Convex, set
+`VITE_CONVEX_SITE_URL` as well so Better Auth targets the self-hosted site
+origin instead of the `.convex.cloud -> .convex.site` cloud hostname rewrite.
 
 Relevant files:
 

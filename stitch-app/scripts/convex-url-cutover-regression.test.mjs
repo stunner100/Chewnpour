@@ -24,11 +24,19 @@ if (!convexConfigSource.includes('export const hasConvexUrl = convexUrl.length >
   throw new Error('Expected convex-config to gate Convex client setup on explicit URL presence.');
 }
 
+if (!/envConvexSiteUrl \|\| convexUrl\.replace\("\.convex\.cloud", "\.convex\.site"\)/.test(convexConfigSource)) {
+  throw new Error('Expected convex-config to allow an explicit VITE_CONVEX_SITE_URL override before falling back to cloud hostname derivation.');
+}
+
 const envExamplePath = path.join(root, '.env.example');
 const envExampleSource = await fs.readFile(envExamplePath, 'utf8');
 
 if (!/^VITE_CONVEX_URL=/m.test(envExampleSource)) {
   throw new Error('Expected .env.example to include VITE_CONVEX_URL for frontend Convex wiring.');
+}
+
+if (!/^VITE_CONVEX_SITE_URL=/m.test(envExampleSource)) {
+  throw new Error('Expected .env.example to include VITE_CONVEX_SITE_URL for self-hosted Convex auth wiring.');
 }
 
 const convexPublicConfigSource = await fs.readFile(convexPublicConfigPath, 'utf8');
@@ -78,6 +86,10 @@ if (!/command === 'serve'[\s\S]*: env\.VITE_CONVEX_URL \|\| env\.CONVEX_URL \|\|
 
 if (!/import\.meta\.env\.VITE_CONVEX_URL/.test(viteConfigSource)) {
   throw new Error('Expected vite config to define import.meta.env.VITE_CONVEX_URL at build time.');
+}
+
+if (!/import\.meta\.env\.VITE_CONVEX_SITE_URL/.test(viteConfigSource)) {
+  throw new Error('Expected vite config to define import.meta.env.VITE_CONVEX_SITE_URL at build time.');
 }
 
 if (!/command\s*===\s*['"]build['"]\s*&&\s*!resolvedConvexUrl/.test(viteConfigSource)) {

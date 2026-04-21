@@ -58,7 +58,8 @@ deployment.
 
 Do not let Preview builds fall back to the checked-in Convex URL. The build is
 now guarded so Preview and Production must supply `VITE_CONVEX_URL` or
-`CONVEX_URL` explicitly.
+`CONVEX_URL` explicitly. Self-hosted Convex frontends should also set
+`VITE_CONVEX_SITE_URL` when auth/HTTP actions are served from a separate host.
 
 If staging should exercise Docling extraction, set `EXTRACTION_DEFAULT_BACKEND=docling`
 and point `DOCLING_API_BASE_URL` at the staging Docling service. Leave those
