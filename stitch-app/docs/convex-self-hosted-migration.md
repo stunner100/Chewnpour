@@ -214,6 +214,25 @@ Relevant files:
 - [vite.config.js](/Users/patrickannor/Desktop/chewnpour/stitch-app/vite.config.js)
 - [convex-config.js](/Users/patrickannor/Desktop/chewnpour/stitch-app/src/lib/convex-config.js)
 
+## Google OAuth Redirect URI
+
+When Better Auth runs on the self-hosted site origin, Google OAuth callbacks also
+move to that origin. After cutover, update the Google OAuth client referenced by
+`GOOGLE_CLIENT_ID` so its authorized redirect URIs include:
+
+- `https://site.chewnpour.com/api/auth/callback/google`
+
+If production still uses a different Convex site origin, keep that older redirect
+URI alongside the new one until production is cut over too.
+
+You can validate the redirect after updating Google with:
+
+```bash
+node scripts/google-oauth-redirect-smoke.test.mjs \
+  --site-url https://site.chewnpour.com \
+  --callback-url https://staging.chewnpour.com/dashboard
+```
+
 ## Dashboard
 
 Do not keep the dashboard running on the Droplet by default. Run it locally
