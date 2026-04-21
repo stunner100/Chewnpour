@@ -34,6 +34,7 @@ export default defineConfig(({ mode, command }) => {
       ? env.VITE_CONVEX_URL || env.CONVEX_URL || projectConvexUrl || ''
       : env.VITE_CONVEX_URL || env.CONVEX_URL || ''
   ).trim()
+  const resolvedConvexSiteUrl = String(env.VITE_CONVEX_SITE_URL || '').trim()
   if (command === 'build' && !resolvedConvexUrl) {
     throw new Error(
       'Missing Convex URL for build. Set VITE_CONVEX_URL/CONVEX_URL in the target environment. Preview and production builds must not fall back to config/convex.public.json.'
@@ -43,6 +44,7 @@ export default defineConfig(({ mode, command }) => {
   return {
     define: {
       'import.meta.env.VITE_CONVEX_URL': JSON.stringify(resolvedConvexUrl),
+      'import.meta.env.VITE_CONVEX_SITE_URL': JSON.stringify(resolvedConvexSiteUrl),
     },
     worker: {
       format: 'es',
