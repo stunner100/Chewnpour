@@ -217,6 +217,7 @@ export default defineSchema({
     courseFolders: defineTable({
         userId: v.string(),
         name: v.string(),
+        color: v.optional(v.string()),
     }).index("by_userId", ["userId"]),
 
     // AI-generated courses from uploads
@@ -230,7 +231,8 @@ export default defineSchema({
         progress: v.optional(v.number()),
         status: v.string(), // 'in_progress', 'completed'
     }).index("by_userId", ["userId"])
-      .index("by_uploadId", ["uploadId"]),
+      .index("by_uploadId", ["uploadId"])
+      .index("by_userId_folderId", ["userId", "folderId"]),
 
     // Topics within courses
     topics: defineTable({

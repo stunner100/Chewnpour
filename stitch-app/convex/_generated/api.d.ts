@@ -17,6 +17,7 @@ import type * as authConfig from "../authConfig.js";
 import type * as campaignAttribution from "../campaignAttribution.js";
 import type * as community from "../community.js";
 import type * as concepts from "../concepts.js";
+import type * as courseFolders from "../courseFolders.js";
 import type * as courses from "../courses.js";
 import type * as crons from "../crons.js";
 import type * as devAuth from "../devAuth.js";
@@ -88,6 +89,7 @@ declare const fullApi: ApiFromModules<{
   campaignAttribution: typeof campaignAttribution;
   community: typeof community;
   concepts: typeof concepts;
+  courseFolders: typeof courseFolders;
   courses: typeof courses;
   crons: typeof crons;
   devAuth: typeof devAuth;
