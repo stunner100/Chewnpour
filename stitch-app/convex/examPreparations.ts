@@ -108,6 +108,27 @@ const buildPreparationMessage = ({
         );
 };
 
+const resolvePreparationErrorDetails = (error: any, fallbackMessage: string) => {
+    const code = typeof error?.data?.code === "string"
+        ? error.data.code.trim().toUpperCase()
+        : "";
+    const message = typeof error?.data?.message === "string" && error.data.message.trim()
+        ? error.data.message.trim()
+        : error instanceof Error && typeof error.message === "string" && error.message.trim()
+            ? error.message.trim()
+            : fallbackMessage;
+    return { code, message };
+};
+
+const getStoredGeneratedQuestions = (attempt: any) => {
+    if (!Array.isArray(attempt?.generatedQuestions)) {
+        return [];
+    }
+    return attempt.generatedQuestions
+        .filter((question: any) => question && typeof question === "object")
+        .map((question: any) => sanitizeExamQuestionForClient(question));
+};
+
 const loadPreparationWithAttemptSnapshot = async (ctx: any, preparationId: any) => {
     const preparation = await ctx.db.get(preparationId);
     if (!preparation) {
@@ -118,11 +139,16 @@ const loadPreparationWithAttemptSnapshot = async (ctx: any, preparationId: any) 
     let questions: any[] = [];
     if (preparation.attemptId) {
         attempt = await ctx.db.get(preparation.attemptId);
-        const questionIds = Array.isArray(attempt?.questionIds) ? attempt.questionIds : [];
-        const loadedQuestions = await Promise.all(questionIds.map((questionId: any) => ctx.db.get(questionId)));
-        questions = loadedQuestions
-            .filter(Boolean)
-            .map((question) => sanitizeExamQuestionForClient(question));
+        const generatedQuestions = getStoredGeneratedQuestions(attempt);
+        if (generatedQuestions.length > 0) {
+            questions = generatedQuestions;
+        } else {
+            const questionIds = Array.isArray(attempt?.questionIds) ? attempt.questionIds : [];
+            const loadedQuestions = await Promise.all(questionIds.map((questionId: any) => ctx.db.get(questionId)));
+            questions = loadedQuestions
+                .filter(Boolean)
+                .map((question) => sanitizeExamQuestionForClient(question));
+        }
     }
 
     return {
@@ -157,6 +183,11 @@ const loadAttemptQuestionsForReuse = async ({
     topic: any;
     examFormat: string;
 }) => {
+    const generatedQuestions = getStoredGeneratedQuestions(attempt);
+    if (generatedQuestions.length > 0) {
+        return generatedQuestions;
+    }
+
     const questionIds = Array.isArray(attempt?.questionIds) ? attempt.questionIds : [];
     if (questionIds.length === 0) {
         return [];
@@ -570,328 +601,332 @@ export const markPreparationStageInternal = internalMutation({
     },
 });
 
-const classifyPreparationOutcome = ({
-    examFormat,
-    generationResult,
-    finalAttempt,
-}: {
-    examFormat: string;
-    generationResult: any;
-    finalAttempt: any;
-}) => {
-    const normalizedReason = String(generationResult?.reason || finalAttempt?.reasonCode || "").trim().toUpperCase();
-    if (normalizedReason === "INSUFFICIENT_EVIDENCE" || generationResult?.abstained === true) {
-        return {
-            status: "unavailable",
-            reasonCode: "INSUFFICIENT_EVIDENCE",
-            message: buildPreparationMessage({
-                examFormat,
-                status: "unavailable",
-                reasonCode: "INSUFFICIENT_EVIDENCE",
-            }),
-        };
-    }
-
-    if (generationResult?.timedOut === true) {
-        return {
-            status: "failed",
-            reasonCode: "TIME_BUDGET_REACHED",
-            message: buildPreparationMessage({
-                examFormat,
-                status: "failed",
-            }),
-        };
-    }
-
-    return {
-        status: "unavailable",
-        reasonCode: normalizedReason || "INSUFFICIENT_READY_QUESTIONS",
-        message: buildPreparationMessage({
-            examFormat,
-            status: "unavailable",
-            reasonCode: normalizedReason || "INSUFFICIENT_READY_QUESTIONS",
-        }),
-    };
-};
-
 export const runExamPreparationInternal = internalAction({
     args: {
         preparationId: v.id("examPreparations"),
     },
     handler: async (ctx, args) => {
-        const preparationSnapshot = await ctx.runQuery(internal.examPreparations.getPreparationInternal, {
-            preparationId: args.preparationId,
-        });
-        const preparation = preparationSnapshot?.preparation;
-        if (!preparation) {
-            return null;
-        }
-        if (preparation.status !== "queued" && preparation.status !== "preparing") {
-            return preparation;
-        }
-
-        const examFormat = resolveRequestedExamFormat(preparation.examFormat);
-        const topicSnapshot = await ctx.runQuery(internal.topics.getTopicWithQuestionsInternal, {
-            topicId: preparation.topicId,
-        });
-        if (!topicSnapshot) {
-            await ctx.runMutation(internal.examPreparations.markPreparationStageInternal, {
+        let examFormat = "mcq";
+        try {
+            const preparationSnapshot = await ctx.runQuery(internal.examPreparations.getPreparationInternal, {
                 preparationId: args.preparationId,
-                status: "failed",
-                stage: "failed",
-                reasonCode: "TOPIC_NOT_FOUND",
-                errorSummary: "Topic not found while preparing exam.",
-                message: buildPreparationMessage({
-                    examFormat,
-                    status: "failed",
-                }),
-                finishedAt: Date.now(),
             });
-            return null;
-        }
+            const preparation = preparationSnapshot?.preparation;
+            if (!preparation) {
+                return null;
+            }
+            if (preparation.status !== "queued" && preparation.status !== "preparing") {
+                return preparation;
+            }
 
-        const latestQuestionSetVersion = resolveTopicQuestionSetVersion(topicSnapshot);
-        const latestAssessmentVersion = resolveExamAssessmentVersion(
-            topicSnapshot?.assessmentBlueprint?.version || preparation.assessmentVersion || ASSESSMENT_BLUEPRINT_VERSION
-        );
-
-        if (!isExamSnapshotCompatible({
-            snapshotQuestionSetVersion: preparation.questionSetVersion,
-            snapshotAssessmentVersion: preparation.assessmentVersion,
-            topic: topicSnapshot,
-            requestedAssessmentVersion: preparation.assessmentVersion,
-            snapshotAt: resolveExamSnapshotTimestamp(preparation),
-        })) {
-            if (!preparation.attemptId && (preparation.status === "queued" || preparation.status === "preparing")) {
-                await ctx.runMutation(internal.examPreparations.markPreparationStageInternal, {
-                    preparationId: args.preparationId,
-                    status: "queued",
-                    stage: "queued",
-                    reasonCode: undefined,
-                    errorSummary: undefined,
-                    message: buildPreparationMessage({
-                        examFormat,
-                        status: "queued",
-                    }),
-                    finishedAt: undefined,
-                    questionSetVersion: latestQuestionSetVersion,
-                    assessmentVersion: latestAssessmentVersion,
-                });
-            } else {
+            examFormat = resolveRequestedExamFormat(preparation.examFormat);
+            const topicSnapshot = await ctx.runQuery(internal.topics.getTopicWithQuestionsInternal, {
+                topicId: preparation.topicId,
+            });
+            if (!topicSnapshot) {
                 await ctx.runMutation(internal.examPreparations.markPreparationStageInternal, {
                     preparationId: args.preparationId,
                     status: "failed",
                     stage: "failed",
-                    reasonCode: "STALE_PREPARATION",
-                    errorSummary: "Exam preparation became stale after the topic changed.",
-                    message: "This exam set is outdated because the topic changed. Start the exam again.",
+                    reasonCode: "TOPIC_NOT_FOUND",
+                    errorSummary: "Topic not found while preparing exam.",
+                    message: buildPreparationMessage({
+                        examFormat,
+                        status: "failed",
+                    }),
+                    finishedAt: Date.now(),
+                });
+                return null;
+            }
+
+            const latestQuestionSetVersion = resolveTopicQuestionSetVersion(topicSnapshot);
+            const latestAssessmentVersion = resolveExamAssessmentVersion(
+                topicSnapshot?.assessmentBlueprint?.version || preparation.assessmentVersion || ASSESSMENT_BLUEPRINT_VERSION
+            );
+
+            if (!isExamSnapshotCompatible({
+                snapshotQuestionSetVersion: preparation.questionSetVersion,
+                snapshotAssessmentVersion: preparation.assessmentVersion,
+                topic: topicSnapshot,
+                requestedAssessmentVersion: preparation.assessmentVersion,
+                snapshotAt: resolveExamSnapshotTimestamp(preparation),
+            })) {
+                if (!preparation.attemptId && (preparation.status === "queued" || preparation.status === "preparing")) {
+                    await ctx.runMutation(internal.examPreparations.markPreparationStageInternal, {
+                        preparationId: args.preparationId,
+                        status: "queued",
+                        stage: "queued",
+                        reasonCode: undefined,
+                        errorSummary: undefined,
+                        message: buildPreparationMessage({
+                            examFormat,
+                            status: "queued",
+                        }),
+                        finishedAt: undefined,
+                        questionSetVersion: latestQuestionSetVersion,
+                        assessmentVersion: latestAssessmentVersion,
+                    });
+                } else {
+                    await ctx.runMutation(internal.examPreparations.markPreparationStageInternal, {
+                        preparationId: args.preparationId,
+                        status: "failed",
+                        stage: "failed",
+                        reasonCode: "STALE_PREPARATION",
+                        errorSummary: "Exam preparation became stale after the topic changed.",
+                        message: "This exam set is outdated because the topic changed. Start the exam again.",
+                        finishedAt: Date.now(),
+                        questionSetVersion: latestQuestionSetVersion,
+                        assessmentVersion: latestAssessmentVersion,
+                    });
+                    return null;
+                }
+            }
+
+            await ctx.runMutation(internal.examPreparations.markPreparationStageInternal, {
+                preparationId: args.preparationId,
+                status: "preparing",
+                stage: "checking_previous_attempt",
+            });
+
+            const initialAttempt = await ctx.runMutation(internal.exams.ensurePreparedExamAttemptInternal, {
+                userId: preparation.userId,
+                topicId: preparation.topicId,
+                examFormat,
+            });
+
+            if (initialAttempt?.status === "ready") {
+                await ctx.runMutation(internal.examPreparations.markPreparationStageInternal, {
+                    preparationId: args.preparationId,
+                    status: "ready",
+                    stage: "completed",
+                    usableCount: Number(initialAttempt.totalQuestions || 0),
+                    generatedCount: Number(initialAttempt.totalQuestions || 0),
+                    attemptTargetCount: Number(initialAttempt.attemptTargetCount || initialAttempt.totalQuestions || preparation.attemptTargetCount || 0),
+                    bankTargetCount: Number(initialAttempt.bankTargetCount || preparation.bankTargetCount || 0),
+                    attemptId: initialAttempt.attemptId,
+                    finishedAt: Date.now(),
+                    message: buildPreparationMessage({
+                        examFormat,
+                        status: "ready",
+                        qualityTier: initialAttempt.qualityTier,
+                    }),
+                    qualityTier: initialAttempt.qualityTier,
+                    premiumTargetMet: initialAttempt.premiumTargetMet,
+                    qualityWarnings: initialAttempt.qualityWarnings,
+                    qualitySignals: initialAttempt.qualitySignals,
+                    questionSetVersion: latestQuestionSetVersion,
+                    assessmentVersion: latestAssessmentVersion,
+                });
+                return initialAttempt;
+            }
+
+            const requiresFreshStart =
+                initialAttempt?.status === "unavailable"
+                && String(initialAttempt?.reasonCode || "").trim().toUpperCase() === "FRESH_CONTEXT_START_REQUIRED";
+
+            if (initialAttempt?.status === "unavailable" && !requiresFreshStart) {
+                await ctx.runMutation(internal.examPreparations.markPreparationStageInternal, {
+                    preparationId: args.preparationId,
+                    status: "unavailable",
+                    stage: "unavailable",
+                    usableCount: Number(initialAttempt?.usableQuestionCount || 0),
+                    generatedCount: 0,
+                    attemptTargetCount: Number(initialAttempt?.attemptTargetCount || preparation.attemptTargetCount || 0),
+                    bankTargetCount: Number(initialAttempt?.bankTargetCount || preparation.bankTargetCount || 0),
+                    reasonCode: String(initialAttempt?.reasonCode || "").trim() || "INSUFFICIENT_READY_QUESTIONS",
+                    message: buildPreparationMessage({
+                        examFormat,
+                        status: "unavailable",
+                        reasonCode: initialAttempt?.reasonCode,
+                        qualityTier: initialAttempt?.qualityTier,
+                    }),
+                    qualityTier: initialAttempt?.qualityTier,
+                    premiumTargetMet: initialAttempt?.premiumTargetMet,
+                    qualityWarnings: initialAttempt?.qualityWarnings,
+                    qualitySignals: initialAttempt?.qualitySignals,
+                    finishedAt: Date.now(),
+                    questionSetVersion: latestQuestionSetVersion,
+                    assessmentVersion: latestAssessmentVersion,
+                });
+                return initialAttempt;
+            }
+
+            const attemptTargetCount = Number(initialAttempt?.attemptTargetCount || preparation.attemptTargetCount || 0);
+            const bankTargetCount = Number(initialAttempt?.bankTargetCount || preparation.bankTargetCount || 0);
+            const usableQuestionCount = Number(initialAttempt?.usableQuestionCount || 0);
+
+            await ctx.runMutation(internal.examPreparations.markPreparationStageInternal, {
+                preparationId: args.preparationId,
+                status: "preparing",
+                stage: "building_assessment_plan",
+                usableCount: usableQuestionCount,
+                attemptTargetCount,
+                bankTargetCount,
+            });
+
+            await ctx.runMutation(internal.examPreparations.markPreparationStageInternal, {
+                preparationId: args.preparationId,
+                status: "preparing",
+                stage: "generating_candidates",
+                usableCount: usableQuestionCount,
+                attemptTargetCount,
+                bankTargetCount,
+            });
+
+            let snapshot: any;
+            try {
+                snapshot = await ctx.runAction(internal.ai.generateFreshExamSnapshotInternal, {
+                    topicId: preparation.topicId,
+                    examFormat,
+                });
+            } catch (error) {
+                const { code, message } = resolvePreparationErrorDetails(
+                    error,
+                    "We couldn't prepare a usable exam for this topic right now."
+                );
+                const terminalStatus = code === "EXAM_GENERATION_FAILED" ? "unavailable" : "failed";
+                await ctx.runMutation(internal.examPreparations.markPreparationStageInternal, {
+                    preparationId: args.preparationId,
+                    status: terminalStatus,
+                    stage: terminalStatus === "failed" ? "failed" : "unavailable",
+                    usableCount: usableQuestionCount,
+                    generatedCount: 0,
+                    attemptTargetCount,
+                    bankTargetCount,
+                    reasonCode: code || "GENERATION_FAILED",
+                    errorSummary: message,
+                    message,
                     finishedAt: Date.now(),
                     questionSetVersion: latestQuestionSetVersion,
                     assessmentVersion: latestAssessmentVersion,
                 });
                 return null;
             }
-        }
 
-        await ctx.runMutation(internal.examPreparations.markPreparationStageInternal, {
-            preparationId: args.preparationId,
-            status: "preparing",
-            stage: "checking_previous_attempt",
-        });
+            const generatedQuestions = Array.isArray(snapshot?.questions) ? snapshot.questions : [];
+            if (generatedQuestions.length === 0) {
+                await ctx.runMutation(internal.examPreparations.markPreparationStageInternal, {
+                    preparationId: args.preparationId,
+                    status: "unavailable",
+                    stage: "unavailable",
+                    usableCount: 0,
+                    generatedCount: 0,
+                    attemptTargetCount,
+                    bankTargetCount,
+                    reasonCode: "EXAM_GENERATION_FAILED",
+                    errorSummary: "Fresh exam generation returned no usable questions.",
+                    message: buildPreparationMessage({
+                        examFormat,
+                        status: "unavailable",
+                        reasonCode: "EXAM_GENERATION_FAILED",
+                    }),
+                    finishedAt: Date.now(),
+                    questionSetVersion: latestQuestionSetVersion,
+                    assessmentVersion: latestAssessmentVersion,
+                });
+                return null;
+            }
 
-        const initialAttempt = await ctx.runMutation(internal.exams.ensurePreparedExamAttemptInternal, {
-            userId: preparation.userId,
-            topicId: preparation.topicId,
-            examFormat,
-        });
+            const totalQuestions = generatedQuestions.length;
 
-        if (initialAttempt?.status === "ready") {
+            await ctx.runMutation(internal.examPreparations.markPreparationStageInternal, {
+                preparationId: args.preparationId,
+                status: "preparing",
+                stage: "reviewing_quality",
+                usableCount: totalQuestions,
+                generatedCount: totalQuestions,
+                attemptTargetCount: totalQuestions,
+                bankTargetCount: totalQuestions,
+                qualityTier: snapshot?.qualityTier,
+                premiumTargetMet: snapshot?.premiumTargetMet,
+                qualityWarnings: snapshot?.qualityWarnings,
+                qualitySignals: snapshot?.qualitySignals,
+            });
+
+            await ctx.runMutation(internal.examPreparations.markPreparationStageInternal, {
+                preparationId: args.preparationId,
+                status: "preparing",
+                stage: "finalizing_attempt",
+                usableCount: totalQuestions,
+                generatedCount: totalQuestions,
+                attemptTargetCount: totalQuestions,
+                bankTargetCount: totalQuestions,
+                qualityTier: snapshot?.qualityTier,
+                premiumTargetMet: snapshot?.premiumTargetMet,
+                qualityWarnings: snapshot?.qualityWarnings,
+                qualitySignals: snapshot?.qualitySignals,
+            });
+
+            const attemptId = await ctx.runMutation(internal.exams.createFreshExamAttemptInternal, {
+                userId: preparation.userId,
+                topicId: preparation.topicId,
+                examFormat,
+                totalQuestions,
+                generatedQuestions,
+                generationContext: snapshot?.generationContext || {},
+                gradingContext: snapshot?.gradingContext || {},
+                questionMix: snapshot?.questionMix || {},
+                qualityWarnings: Array.isArray(snapshot?.qualityWarnings) ? snapshot.qualityWarnings : [],
+            });
+
             await ctx.runMutation(internal.examPreparations.markPreparationStageInternal, {
                 preparationId: args.preparationId,
                 status: "ready",
                 stage: "completed",
-                usableCount: Number(initialAttempt.totalQuestions || 0),
-                generatedCount: Number(initialAttempt.totalQuestions || 0),
-                attemptTargetCount: Number(initialAttempt.attemptTargetCount || initialAttempt.totalQuestions || preparation.attemptTargetCount || 0),
-                bankTargetCount: Number(initialAttempt.bankTargetCount || preparation.bankTargetCount || 0),
-                attemptId: initialAttempt.attemptId,
+                usableCount: totalQuestions,
+                generatedCount: totalQuestions,
+                attemptTargetCount: totalQuestions,
+                bankTargetCount: totalQuestions,
+                attemptId,
                 finishedAt: Date.now(),
                 message: buildPreparationMessage({
                     examFormat,
                     status: "ready",
-                    qualityTier: initialAttempt.qualityTier,
+                    qualityTier: snapshot?.qualityTier,
                 }),
-                qualityTier: initialAttempt.qualityTier,
-                premiumTargetMet: initialAttempt.premiumTargetMet,
-                qualityWarnings: initialAttempt.qualityWarnings,
-                qualitySignals: initialAttempt.qualitySignals,
+                qualityTier: snapshot?.qualityTier,
+                premiumTargetMet: snapshot?.premiumTargetMet,
+                qualityWarnings: snapshot?.qualityWarnings,
+                qualitySignals: snapshot?.qualitySignals,
+                questionSetVersion: latestQuestionSetVersion,
+                assessmentVersion: latestAssessmentVersion,
             });
-            return initialAttempt;
-        }
 
-        if (initialAttempt?.status === "unavailable") {
-            await ctx.runMutation(internal.examPreparations.markPreparationStageInternal, {
-                preparationId: args.preparationId,
-                status: "unavailable",
-                stage: "unavailable",
-                usableCount: Number(initialAttempt?.usableQuestionCount || 0),
-                generatedCount: 0,
-                attemptTargetCount: Number(initialAttempt?.attemptTargetCount || preparation.attemptTargetCount || 0),
-                bankTargetCount: Number(initialAttempt?.bankTargetCount || preparation.bankTargetCount || 0),
-                reasonCode: String(initialAttempt?.reasonCode || "").trim() || "INSUFFICIENT_READY_QUESTIONS",
-                message: buildPreparationMessage({
-                    examFormat,
-                    status: "unavailable",
-                    reasonCode: initialAttempt?.reasonCode,
-                    qualityTier: initialAttempt?.qualityTier,
-                }),
-                qualityTier: initialAttempt?.qualityTier,
-                premiumTargetMet: initialAttempt?.premiumTargetMet,
-                qualityWarnings: initialAttempt?.qualityWarnings,
-                qualitySignals: initialAttempt?.qualitySignals,
-                finishedAt: Date.now(),
-            });
-            return initialAttempt;
-        }
-
-        await ctx.runMutation(internal.examPreparations.markPreparationStageInternal, {
-            preparationId: args.preparationId,
-            status: "preparing",
-            stage: "building_assessment_plan",
-            usableCount: Number(initialAttempt?.usableQuestionCount || 0),
-            attemptTargetCount: Number(initialAttempt?.attemptTargetCount || preparation.attemptTargetCount || 0),
-            bankTargetCount: Number(initialAttempt?.bankTargetCount || preparation.bankTargetCount || 0),
-        });
-
-        await ctx.runMutation(internal.examPreparations.markPreparationStageInternal, {
-            preparationId: args.preparationId,
-            status: "preparing",
-            stage: "generating_candidates",
-            usableCount: Number(initialAttempt?.usableQuestionCount || 0),
-            attemptTargetCount: Number(initialAttempt?.attemptTargetCount || preparation.attemptTargetCount || 0),
-            bankTargetCount: Number(initialAttempt?.bankTargetCount || preparation.bankTargetCount || 0),
-        });
-
-        let generationResult: any;
-        try {
-            generationResult = examFormat === "essay"
-                ? await ctx.runAction(internal.ai.generateEssayQuestionsForTopicOnDemandInternal, {
-                    topicId: preparation.topicId,
-                    count: Number(initialAttempt?.attemptTargetCount || preparation.attemptTargetCount || 0) || undefined,
-                })
-                : await ctx.runAction(internal.ai.generateQuestionsForTopicOnDemandInternal, {
-                    topicId: preparation.topicId,
-                });
+            return {
+                status: "ready",
+                attemptId,
+                totalQuestions,
+                questions: generatedQuestions,
+                reusedAttempt: false,
+                attemptTargetCount: totalQuestions,
+                bankTargetCount: totalQuestions,
+                usableQuestionCount: totalQuestions,
+                startedAt: Date.now(),
+                qualityTier: snapshot?.qualityTier || "fresh",
+                premiumTargetMet: snapshot?.premiumTargetMet ?? false,
+                qualityWarnings: Array.isArray(snapshot?.qualityWarnings) ? snapshot.qualityWarnings : [],
+                qualitySignals: snapshot?.qualitySignals || null,
+            };
         } catch (error) {
+            const { code, message } = resolvePreparationErrorDetails(
+                error,
+                "We hit a temporary issue while preparing the exam."
+            );
             await ctx.runMutation(internal.examPreparations.markPreparationStageInternal, {
                 preparationId: args.preparationId,
                 status: "failed",
                 stage: "failed",
-                reasonCode: "GENERATION_FAILED",
-                errorSummary: error instanceof Error ? error.message : String(error),
+                reasonCode: code || "PREPARATION_WORKER_FAILED",
+                errorSummary: message,
                 message: buildPreparationMessage({
                     examFormat,
                     status: "failed",
+                    fallback: message,
                 }),
                 finishedAt: Date.now(),
             });
             return null;
         }
-
-        const generationCapacity = resolvePreparationCapacity({
-            examFormat,
-            topicTargetCount: generationResult?.targetCount,
-            usableQuestionCount: generationResult?.count,
-        });
-
-        await ctx.runMutation(internal.examPreparations.markPreparationStageInternal, {
-            preparationId: args.preparationId,
-            status: "preparing",
-            stage: "reviewing_quality",
-            usableCount: Number(generationResult?.count || initialAttempt?.usableQuestionCount || 0),
-            generatedCount: Number(generationResult?.count || 0),
-            attemptTargetCount: Number(generationCapacity.attemptTargetCount || initialAttempt?.attemptTargetCount || preparation.attemptTargetCount || 0),
-            bankTargetCount: Number(generationCapacity.bankTargetCount || initialAttempt?.bankTargetCount || preparation.bankTargetCount || 0),
-            qualityTier: generationResult?.qualityTier,
-            premiumTargetMet: generationResult?.premiumTargetMet,
-            qualityWarnings: generationResult?.qualityWarnings,
-            qualitySignals: generationResult?.qualitySignals,
-        });
-
-        await ctx.runMutation(internal.examPreparations.markPreparationStageInternal, {
-            preparationId: args.preparationId,
-            status: "preparing",
-            stage: "finalizing_attempt",
-            usableCount: Number(generationResult?.count || initialAttempt?.usableQuestionCount || 0),
-            generatedCount: Number(generationResult?.count || 0),
-            attemptTargetCount: Number(generationCapacity.attemptTargetCount || initialAttempt?.attemptTargetCount || preparation.attemptTargetCount || 0),
-            bankTargetCount: Number(generationCapacity.bankTargetCount || initialAttempt?.bankTargetCount || preparation.bankTargetCount || 0),
-            qualityTier: generationResult?.qualityTier,
-            premiumTargetMet: generationResult?.premiumTargetMet,
-            qualityWarnings: generationResult?.qualityWarnings,
-            qualitySignals: generationResult?.qualitySignals,
-        });
-
-        const finalAttempt = await ctx.runMutation(internal.exams.ensurePreparedExamAttemptInternal, {
-            userId: preparation.userId,
-            topicId: preparation.topicId,
-            examFormat,
-            allowPartialReady: true,
-        });
-
-        if (finalAttempt?.status === "ready") {
-            await ctx.runMutation(internal.examPreparations.markPreparationStageInternal, {
-                preparationId: args.preparationId,
-                status: "ready",
-                stage: "completed",
-                usableCount: Number(finalAttempt.totalQuestions || generationResult?.count || 0),
-                generatedCount: Number(generationResult?.count || finalAttempt.totalQuestions || 0),
-                attemptTargetCount: Number(finalAttempt.attemptTargetCount || generationCapacity.attemptTargetCount || preparation.attemptTargetCount || 0),
-                bankTargetCount: Number(finalAttempt.bankTargetCount || generationCapacity.bankTargetCount || preparation.bankTargetCount || 0),
-                attemptId: finalAttempt.attemptId,
-                finishedAt: Date.now(),
-                message: buildPreparationMessage({
-                    examFormat,
-                    status: "ready",
-                    qualityTier: finalAttempt.qualityTier,
-                }),
-                qualityTier: finalAttempt.qualityTier,
-                premiumTargetMet: finalAttempt.premiumTargetMet,
-                qualityWarnings: finalAttempt.qualityWarnings,
-                qualitySignals: finalAttempt.qualitySignals,
-                questionSetVersion: Number(finalAttempt.questionSetVersion || latestQuestionSetVersion || 0) || latestQuestionSetVersion,
-                assessmentVersion: resolveExamAssessmentVersion(finalAttempt.assessmentVersion || latestAssessmentVersion),
-            });
-            return finalAttempt;
-        }
-
-        const terminalOutcome = classifyPreparationOutcome({
-            examFormat,
-            generationResult,
-            finalAttempt,
-        });
-
-        await ctx.runMutation(internal.examPreparations.markPreparationStageInternal, {
-            preparationId: args.preparationId,
-            status: terminalOutcome.status,
-            stage: terminalOutcome.status,
-            usableCount: Number(finalAttempt?.usableQuestionCount || generationResult?.count || 0),
-            generatedCount: Number(generationResult?.count || 0),
-            attemptTargetCount: Number(finalAttempt?.attemptTargetCount || generationCapacity.attemptTargetCount || preparation.attemptTargetCount || 0),
-            bankTargetCount: Number(finalAttempt?.bankTargetCount || generationCapacity.bankTargetCount || preparation.bankTargetCount || 0),
-            reasonCode: terminalOutcome.reasonCode,
-            errorSummary: generationResult?.timedOut === true ? "Question generation timed out before the exam was ready." : undefined,
-            message: terminalOutcome.message,
-            qualityTier: finalAttempt?.qualityTier || generationResult?.qualityTier,
-            premiumTargetMet: finalAttempt?.premiumTargetMet ?? generationResult?.premiumTargetMet,
-            qualityWarnings: finalAttempt?.qualityWarnings || generationResult?.qualityWarnings,
-            qualitySignals: finalAttempt?.qualitySignals || generationResult?.qualitySignals,
-            finishedAt: Date.now(),
-            questionSetVersion: Number(finalAttempt?.questionSetVersion || latestQuestionSetVersion || 0) || latestQuestionSetVersion,
-            assessmentVersion: resolveExamAssessmentVersion(finalAttempt?.assessmentVersion || latestAssessmentVersion),
-        });
-
-        return terminalOutcome;
     },
 });
 

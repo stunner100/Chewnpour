@@ -68,8 +68,11 @@ if (!/buildGeneratedQuestionMap\(attempt\)/.test(examsSource) || !/getAttemptGra
   throw new Error('Expected exam grading to read from generated question snapshots and grading context.');
 }
 
-if (!/const activePreparationMessage = `Generating your \$\{loadingExamTypeLabel\} exam from this topic\.`;/.test(examModeSource)) {
-  throw new Error('Expected ExamMode to describe fresh generation from the topic context.');
+if (
+  !/const activePreparationMessage = typeof preparation\?\.message === 'string' && preparation\.message\.trim\(\)/.test(examModeSource)
+  || !/:\s*`Generating your \$\{loadingExamTypeLabel\} exam from this topic\.`;/.test(examModeSource)
+) {
+  throw new Error('Expected ExamMode to prefer live preparation messaging with a fresh-generation fallback.');
 }
 
 if (!/export const generateFreshExamSnapshotInternal = internalAction/.test(aiSource)) {

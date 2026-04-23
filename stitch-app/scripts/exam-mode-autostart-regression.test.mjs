@@ -15,7 +15,10 @@ const examModeExpectations = [
   'const resolveAutostartExamFormat = (search) =>',
   "const [examFormat, setExamFormat] = useState(() => resolveAutostartExamFormat(location.search));",
   "setExamFormat(resolveAutostartExamFormat(location.search));",
-  'const startExamAttempt = useAction(api.exams.startExamAttempt);',
+  "const preparation = useQuery(",
+  'api.examPreparations.getExamPreparation',
+  'const startExamPreparation = useAction(api.examPreparations.startExamPreparation);',
+  'const retryPreparation = useMutation(api.examPreparations.retryExamPreparation);',
   "navigate(`/dashboard/exam/${routedFinalAssessmentTopic._id}${location.search || ''}`, { replace: true });",
 ];
 
@@ -25,8 +28,18 @@ for (const snippet of examModeExpectations) {
   }
 }
 
-if (examModeSource.includes('api.examPreparations.')) {
-  throw new Error('ExamMode should not depend on the removed examPreparations API.');
+if (examModeSource.includes('api.exams.startExamAttempt')) {
+  throw new Error('ExamMode should not bypass the preparation state machine for autostart routes.');
+}
+
+for (const snippet of [
+  'setPreparationId(result.preparationId);',
+  'await retryPreparation({ preparationId });',
+  "!preparationId",
+]) {
+  if (!examModeSource.includes(snippet)) {
+    throw new Error(`ExamMode is missing preparation lifecycle autostart snippet: ${snippet}`);
+  }
 }
 
 if (!nextStepsSource.includes('const buildObjectiveExamRoute = (examTopicId) =>')) {
