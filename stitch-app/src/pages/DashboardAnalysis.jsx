@@ -21,6 +21,8 @@ import {
     buildUploadLimitMessageFromOptions,
 } from '../lib/pricingCurrency';
 import { buildConceptPracticePath } from '../lib/conceptReviewLinks';
+import CourseCard from '../components/CourseCard';
+import CourseFoldersSection from '../components/CourseFoldersSection';
 
 // ─── Referral CTA shown when credits are low ────────────────────────────────
 
@@ -151,6 +153,8 @@ const DashboardAnalysis = () => {
     const [confirmDeleteId, setConfirmDeleteId] = useState(null);
     const [searchQuery, setSearchQuery] = useState('');
     const [showAllCourses, setShowAllCourses] = useState(false);
+    const [movingCourseId, setMovingCourseId] = useState('');
+    const [folderActionError, setFolderActionError] = useState('');
     const [streakToastMessage, setStreakToastMessage] = useState('');
     const [feedbackText, setFeedbackText] = useState('');
     const [feedbackRating, setFeedbackRating] = useState(0);
@@ -195,6 +199,8 @@ const DashboardAnalysis = () => {
     const createUpload = useMutation(api.uploads.createUpload);
     const createCourse = useMutation(api.courses.createCourse);
     const deleteCourse = useMutation(api.courses.deleteCourse);
+    const folders = useQuery(api.courseFolders.listFolders, userId ? { userId } : 'skip');
+    const moveCourseToFolderMutation = useMutation(api.courseFolders.moveCourseToFolder);
     const processUploadedFile = useAction(api.ai.processUploadedFile);
     const submitFeedbackMutation = useMutation(api.feedback.submitFeedback);
     const autoJoinCommunity = useMutation(api.community.autoJoinOnUpload);
@@ -580,20 +586,52 @@ const DashboardAnalysis = () => {
         }
     };
 
-    const gradients = [
-        '#7c3aed', // primary (violet)
-        '#f43f5e', // secondary (rose)
-        '#06b6d4', // accent-cyan
-        '#10b981', // accent-emerald
-    ];
+    // Partition courses into unfiled (loose on dashboard) vs grouped by folder.
+    const { unfiledCourses, coursesByFolder } = React.useMemo(() => {
+        const unfiled = [];
+        const byFolder = new Map();
+        if (courses) {
+            for (const course of courses) {
+                if (course.folderId) {
+                    if (!byFolder.has(course.folderId)) byFolder.set(course.folderId, []);
+                    byFolder.get(course.folderId).push(course);
+                } else {
+                    unfiled.push(course);
+                }
+            }
+        }
+        return { unfiledCourses: unfiled, coursesByFolder: byFolder };
+    }, [courses]);
 
-    // Sort courses by creation date descending
     const displayCourses = React.useMemo(() => {
-        if (!courses) return [];
-        return showAllCourses ? courses : courses.slice(0, 3);
-    }, [courses, showAllCourses]);
+        return showAllCourses ? unfiledCourses : unfiledCourses.slice(0, 3);
+    }, [unfiledCourses, showAllCourses]);
 
-    const canToggleAllCourses = courses && courses.length > 3;
+    const canToggleAllCourses = unfiledCourses.length > 3;
+
+    const handleMoveCourseToFolder = async (course, folderId) => {
+        if (!userId) return;
+        setMovingCourseId(String(course._id));
+        setFolderActionError('');
+        try {
+            await moveCourseToFolderMutation({
+                courseId: course._id,
+                userId,
+                folderId: folderId ?? null,
+            });
+        } catch (err) {
+            setFolderActionError(err?.message || 'Could not move course.');
+        } finally {
+            setMovingCourseId('');
+        }
+    };
+
+    const handleRequestDelete = (course) => setConfirmDeleteId(course._id);
+    const handleCancelDelete = () => setConfirmDeleteId(null);
+    const handleConfirmDelete = (course) => {
+        handleDeleteCourse(course);
+        setConfirmDeleteId(null);
+    };
 
     const handleSearchKeyDown = (e) => {
         if (e.key === 'Enter' && searchQuery.trim()) {
@@ -840,77 +878,27 @@ const DashboardAnalysis = () => {
                             </button>
                         )}
                     </div>
+                    {folderActionError && (
+                        <div className="mb-3 text-caption text-red-600 dark:text-red-400">{folderActionError}</div>
+                    )}
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
                         {displayCourses.length > 0 ? (
-                            displayCourses.map((course, index) => {
-                                const isCompleted = course.status === 'completed';
-                                const progress = course.progress || 0;
-                                const isExcellent = progress >= 80;
-                                const isGood = progress >= 50;
-                                return (
-                                    <Link
-                                        key={course._id}
-                                        to={`/dashboard/course/${course._id}`}
-                                        className="group card-interactive flex flex-col overflow-hidden"
-                                    >
-                                        <div className="relative w-full aspect-[16/9] overflow-hidden">
-                                            {confirmDeleteId === course._id ? (
-                                                <div
-                                                    onClick={(event) => { event.preventDefault(); event.stopPropagation(); }}
-                                                    className="absolute top-2 right-2 z-20 flex items-center gap-1.5 bg-surface-light dark:bg-surface-dark border border-border-light dark:border-border-dark rounded-lg px-2.5 py-1.5 shadow-card"
-                                                >
-                                                    <span className="text-caption text-red-600 dark:text-red-400">Delete?</span>
-                                                    <button
-                                                        onClick={() => { handleDeleteCourse(course); setConfirmDeleteId(null); }}
-                                                        disabled={deletingCourseId === String(course._id)}
-                                                        className="text-caption font-semibold text-red-600 hover:text-red-700 px-1.5 py-0.5 rounded hover:bg-red-50 dark:hover:bg-red-900/30 transition-colors disabled:opacity-60"
-                                                    >Yes</button>
-                                                    <button
-                                                        onClick={() => setConfirmDeleteId(null)}
-                                                        className="text-caption text-text-sub-light px-1.5 py-0.5 rounded hover:bg-surface-hover transition-colors"
-                                                    >No</button>
-                                                </div>
-                                            ) : (
-                                                <button
-                                                    onClick={(event) => { event.preventDefault(); event.stopPropagation(); setConfirmDeleteId(course._id); }}
-                                                    disabled={deletingCourseId === String(course._id)}
-                                                    className="absolute top-2 right-2 z-20 btn-icon w-7 h-7 bg-surface-light/90 dark:bg-surface-dark/90 border border-border-subtle dark:border-border-subtle-dark opacity-0 group-hover:opacity-100 hover:text-red-500 transition-all"
-                                                    title="Delete course"
-                                                    aria-label={`Delete ${course.title}`}
-                                                >
-                                                    <span className="material-symbols-outlined text-[16px]">
-                                                        {deletingCourseId === String(course._id) ? 'hourglass_empty' : 'delete'}
-                                                    </span>
-                                                </button>
-                                            )}
-                                            <div
-                                                className="w-full h-full flex items-center justify-center transition-transform duration-300 group-hover:scale-[1.03]"
-                                                style={{ background: course.coverColor || gradients[index % gradients.length] }}
-                                            >
-                                                <span className="material-symbols-outlined text-white/90 text-3xl" style={{ fontVariationSettings: "'FILL' 1" }}>menu_book</span>
-                                            </div>
-                                        </div>
-                                        <div className="flex flex-col p-3.5 gap-2.5 flex-1">
-                                            <div className="flex items-center justify-between">
-                                                <span className={`text-overline ${isCompleted ? 'text-accent-emerald' : 'text-primary'}`}>
-                                                    {isCompleted ? 'Completed' : 'In Progress'}
-                                                </span>
-                                                <span className={`text-caption font-semibold ${isExcellent ? 'text-accent-emerald' : isGood ? 'text-primary' : 'text-text-faint-light dark:text-text-faint-dark'}`}>
-                                                    {progress}%
-                                                </span>
-                                            </div>
-                                            <h3 className="text-body-sm font-semibold text-text-main-light dark:text-text-main-dark leading-snug line-clamp-1 group-hover:text-primary transition-colors">{course.title}</h3>
-                                            <p className="text-caption text-text-faint-light dark:text-text-faint-dark line-clamp-2">{course.description}</p>
-                                            <div className="w-full h-1 bg-border-subtle dark:bg-border-subtle-dark rounded-full overflow-hidden mt-auto">
-                                                <div
-                                                    className={`h-full rounded-full transition-[width] duration-500 ${isExcellent ? 'bg-accent-emerald' : isGood ? 'bg-primary' : 'bg-primary-300'}`}
-                                                    style={{ width: `${progress}%` }}
-                                                />
-                                            </div>
-                                        </div>
-                                    </Link>
-                                );
-                            })
+                            displayCourses.map((course, index) => (
+                                <CourseCard
+                                    key={course._id}
+                                    course={course}
+                                    index={index}
+                                    folders={folders || []}
+                                    currentFolderId={course.folderId || null}
+                                    deletingCourseId={deletingCourseId}
+                                    confirmDeleteId={confirmDeleteId}
+                                    movingCourseId={movingCourseId}
+                                    onRequestDelete={handleRequestDelete}
+                                    onCancelDelete={handleCancelDelete}
+                                    onConfirmDelete={handleConfirmDelete}
+                                    onMoveToFolder={handleMoveCourseToFolder}
+                                />
+                            ))
                         ) : (
                             <div className="col-span-full py-12 text-center card-flat">
                                 <div className="w-14 h-14 rounded-2xl bg-surface-hover dark:bg-surface-hover-dark flex items-center justify-center mx-auto mb-3">
@@ -950,6 +938,23 @@ const DashboardAnalysis = () => {
                         </div>
                     )}
                 </section>
+
+                {/* Folders */}
+                {userId && (
+                    <CourseFoldersSection
+                        userId={userId}
+                        folders={folders || []}
+                        allFolders={folders || []}
+                        coursesByFolder={coursesByFolder}
+                        deletingCourseId={deletingCourseId}
+                        confirmDeleteId={confirmDeleteId}
+                        movingCourseId={movingCourseId}
+                        onRequestDelete={handleRequestDelete}
+                        onCancelDelete={handleCancelDelete}
+                        onConfirmDelete={handleConfirmDelete}
+                        onMoveToFolder={handleMoveCourseToFolder}
+                    />
+                )}
 
                 {/* Performance Insights */}
                 {performanceInsights && (

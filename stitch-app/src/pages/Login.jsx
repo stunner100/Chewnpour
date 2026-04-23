@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
-import BrandLogo from '../components/BrandLogo';
+import PublicShell, { ArrowBadge } from '../components/PublicShell';
 import {
     readCampaignAttributionFromSearch,
     stashPendingCampaignAttribution,
@@ -42,15 +42,12 @@ const Login = () => {
     const resolveGoogleErrorMessage = (authError) => {
         const fallbackMessage = 'Failed to sign in with Google';
         if (!authError) return fallbackMessage;
-
         const rawMessage = String(authError.message || '').trim();
         if (!rawMessage) return fallbackMessage;
-
         const normalized = rawMessage.toLowerCase();
         if (normalized === 'load failed' || normalized === 'failed to fetch') {
             return 'Unable to reach authentication right now. Please try again.';
         }
-
         return rawMessage;
     };
 
@@ -59,9 +56,7 @@ const Login = () => {
         setLoading(true);
         try {
             const { error: signInError } = await signInWithGoogle(redirectTarget);
-            if (signInError) {
-                setError(resolveGoogleErrorMessage(signInError));
-            }
+            if (signInError) setError(resolveGoogleErrorMessage(signInError));
         } catch {
             setError('Unable to reach authentication right now. Please try again.');
         } finally {
@@ -73,14 +68,10 @@ const Login = () => {
         e.preventDefault();
         setError('');
         setLoading(true);
-
         try {
             const { error } = await signIn(email, password);
-            if (error) {
-                setError(error.message);
-            } else {
-                navigate(redirectTarget, { replace: true });
-            }
+            if (error) setError(error.message);
+            else navigate(redirectTarget, { replace: true });
         } catch {
             setError('An unexpected error occurred');
         } finally {
@@ -89,169 +80,145 @@ const Login = () => {
     };
 
     return (
-        <div className="min-h-screen flex font-body antialiased bg-background-light dark:bg-background-dark">
-            {/* Left decorative panel — hidden on mobile */}
-            <div className="hidden lg:flex lg:w-[45%] xl:w-[50%] relative overflow-hidden bg-gradient-to-br from-primary-700 via-primary to-primary-400">
-                <div className="absolute inset-0 opacity-10">
-                    <div className="absolute top-[20%] left-[10%] w-72 h-72 rounded-full bg-white/20 blur-3xl" />
-                    <div className="absolute bottom-[10%] right-[15%] w-96 h-96 rounded-full bg-white/10 blur-3xl" />
-                </div>
-                <div className="relative z-10 flex flex-col justify-center px-16 xl:px-20 text-white">
-                    <div className="mb-8">
-                        <BrandLogo theme="dark" className="h-12 w-auto" />
+        <PublicShell>
+            <div className="grid lg:grid-cols-2 gap-12 lg:gap-20 items-center">
+                {/* Left — brand pitch (landing style) */}
+                <div className="hidden lg:flex flex-col gap-8">
+                    <div className="inline-flex items-center gap-3 text-xs font-bold uppercase tracking-[0.2em] text-[#B39DFF]">
+                        <span className="inline-block w-8 h-[2px] bg-[#B39DFF]" /> Welcome back
                     </div>
-                    <h2 className="text-display-xl text-white mb-4 max-w-lg">
-                        Your AI study companion
-                    </h2>
-                    <p className="text-lg text-white/70 max-w-md leading-relaxed">
+                    <h1 className="text-5xl xl:text-6xl font-bold leading-[1.05] tracking-tight">
+                        Your AI
+                        <br />
+                        <span className="text-[#B39DFF]">study</span>
+                        <br />
+                        <span className="inline-flex items-center gap-3">
+                            <ArrowBadge size={44} /> companion
+                        </span>
+                    </h1>
+                    <p className="text-white/70 text-base leading-relaxed max-w-md">
                         Upload your course materials and get instant lessons, smart quizzes, and an AI tutor that understands your content.
                     </p>
-                    <div className="mt-12 flex items-center gap-4">
+                    <div className="flex items-center gap-4 pt-4 border-t border-white/10">
                         <div className="flex -space-x-2">
-                            {['#4d9ef6', '#1de9b6', '#ffab00', '#7c4dff'].map((c, i) => (
-                                <div key={i} className="w-8 h-8 rounded-full border-2 border-primary-700" style={{ backgroundColor: c }} />
+                            {['/chewnpour/img1.jpg', '/chewnpour/img2.jpg', '/chewnpour/img3.jpg', '/chewnpour/img4.jpg'].map((src, i) => (
+                                <img
+                                    key={src}
+                                    src={src}
+                                    alt=""
+                                    aria-hidden="true"
+                                    className="w-9 h-9 rounded-full border-2 border-[#0A0A0A] object-cover shadow-md login-avatar-bob"
+                                    style={{ animationDelay: `${i * 0.35}s`, zIndex: 10 - i }}
+                                    decoding="async"
+                                    loading="lazy"
+                                />
                             ))}
                         </div>
-                        <p className="text-sm text-white/60">Join thousands of students already studying smarter</p>
-                    </div>
-                </div>
-            </div>
-
-            {/* Right content */}
-            <div className="flex-1 flex flex-col">
-                {/* Mobile header */}
-                <div className="flex items-center justify-between p-4 lg:p-6">
-                    <Link
-                        to="/"
-                        className="btn-icon w-10 h-10"
-                    >
-                        <span className="material-symbols-outlined text-[20px]">arrow_back</span>
-                    </Link>
-                    <Link to="/signup" className="text-sm font-semibold text-primary hover:text-primary-hover transition-colors">
-                        Create account
-                    </Link>
-                </div>
-
-                <main className="flex-1 flex flex-col justify-center px-6 sm:px-12 lg:px-16 xl:px-20 max-w-lg mx-auto w-full">
-                    {/* Logo — mobile only */}
-                    <div className="lg:hidden mb-8">
-                        <BrandLogo className="h-12 w-auto" />
-                    </div>
-
-                    <div className="mb-8 animate-fade-in">
-                        <h1 className="text-display-lg text-text-main-light dark:text-text-main-dark mb-2">
-                            Welcome back
-                        </h1>
-                        <p className="text-body-lg text-text-sub-light dark:text-text-sub-dark">
-                            Sign in to continue studying
+                        <p className="text-sm text-white/60">
+                            Join thousands of students already studying smarter
                         </p>
+                    </div>
+                </div>
+
+                {/* Right — form card */}
+                <div className="cp-card">
+                    <div className="mb-6">
+                        <h2 className="text-2xl font-bold mb-1">Welcome back</h2>
+                        <p className="text-sm text-white/60">Sign in to continue studying.</p>
                     </div>
 
                     {error && (
-                        <div className="mb-6 p-3.5 rounded-xl bg-red-50 dark:bg-red-900/15 border border-red-200 dark:border-red-800/40 text-sm font-medium text-red-700 dark:text-red-400 flex items-center gap-2.5 animate-scale-in">
+                        <div className="mb-5 rounded-xl border border-[#E8651B]/40 bg-[#E8651B]/10 px-4 py-3 text-sm text-[#F3C64A] flex items-center gap-2">
                             <span className="material-symbols-outlined text-[18px]">error</span>
                             {error}
                         </div>
                     )}
 
-                    <div className="space-y-4 animate-fade-in-up">
-                        <button
-                            onClick={handleGoogleSignIn}
-                            disabled={loading}
-                            className="btn-secondary w-full h-12 gap-3 text-sm disabled:opacity-50 disabled:cursor-not-allowed"
-                        >
-                            <svg className="w-[18px] h-[18px]" viewBox="0 0 24 24">
-                                <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4" />
-                                <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853" />
-                                <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05" />
-                                <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335" />
-                            </svg>
-                            <span>{loading && !email ? 'Connecting...' : 'Continue with Google'}</span>
-                        </button>
+                    <button
+                        onClick={handleGoogleSignIn}
+                        disabled={loading}
+                        className="cp-btn-secondary mb-4"
+                    >
+                        <svg className="w-[18px] h-[18px]" viewBox="0 0 24 24">
+                            <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4" />
+                            <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853" />
+                            <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05" />
+                            <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335" />
+                        </svg>
+                        <span>{loading && !email ? 'Connecting…' : 'Continue with Google'}</span>
+                    </button>
 
-                        <div className="relative flex items-center py-2">
-                            <div className="flex-1 border-t border-border-light dark:border-border-dark" />
-                            <span className="px-4 text-overline text-text-faint-light dark:text-text-faint-dark uppercase">
-                                or
-                            </span>
-                            <div className="flex-1 border-t border-border-light dark:border-border-dark" />
+                    <div className="flex items-center gap-3 my-5">
+                        <div className="flex-1 border-t border-white/10" />
+                        <span className="text-[11px] font-semibold tracking-[0.15em] uppercase text-white/40">or</span>
+                        <div className="flex-1 border-t border-white/10" />
+                    </div>
+
+                    <form className="space-y-4" onSubmit={handleSubmit}>
+                        <div>
+                            <label className="cp-label" htmlFor="email">Email</label>
+                            <input
+                                className="cp-input"
+                                id="email"
+                                placeholder="student@university.edu"
+                                type="email"
+                                value={email}
+                                onChange={(e) => setEmail(e.target.value)}
+                                required
+                            />
                         </div>
 
-                        <form className="space-y-4" onSubmit={handleSubmit}>
-                            <div className="space-y-1.5">
-                                <label className="text-body-sm font-medium text-text-main-light dark:text-text-main-dark" htmlFor="email">
-                                    Email
-                                </label>
+                        <div>
+                            <div className="flex items-center justify-between">
+                                <label className="cp-label" htmlFor="password">Password</label>
+                                <Link to="/reset-password" className="text-xs font-semibold text-[#F3C64A] hover:underline">
+                                    Forgot password?
+                                </Link>
+                            </div>
+                            <div className="relative">
                                 <input
-                                    className="input-field"
-                                    id="email"
-                                    placeholder="student@university.edu"
-                                    type="email"
-                                    value={email}
-                                    onChange={(e) => setEmail(e.target.value)}
+                                    className="cp-input pr-11"
+                                    id="password"
+                                    placeholder="Enter your password"
+                                    type={showPassword ? 'text' : 'password'}
+                                    value={password}
+                                    onChange={(e) => setPassword(e.target.value)}
                                     required
                                 />
+                                <button
+                                    className="absolute right-3 top-1/2 -translate-y-1/2 text-white/40 hover:text-white/80 transition-colors"
+                                    type="button"
+                                    onClick={() => setShowPassword((s) => !s)}
+                                    aria-label={showPassword ? 'Hide password' : 'Show password'}
+                                >
+                                    <span className="material-symbols-outlined text-[18px]">
+                                        {showPassword ? 'visibility' : 'visibility_off'}
+                                    </span>
+                                </button>
                             </div>
+                        </div>
 
-                            <div className="space-y-1.5">
-                                <div className="flex items-center justify-between">
-                                    <label className="text-body-sm font-medium text-text-main-light dark:text-text-main-dark" htmlFor="password">
-                                        Password
-                                    </label>
-                                    <Link to="/reset-password" className="text-body-sm font-medium text-primary hover:text-primary-hover transition-colors">
-                                        Forgot password?
-                                    </Link>
-                                </div>
-                                <div className="relative">
-                                    <input
-                                        className="input-field pr-11"
-                                        id="password"
-                                        placeholder="Enter your password"
-                                        type={showPassword ? 'text' : 'password'}
-                                        value={password}
-                                        onChange={(e) => setPassword(e.target.value)}
-                                        required
-                                    />
-                                    <button
-                                        className="absolute right-3 top-1/2 -translate-y-1/2 text-text-faint-light hover:text-text-sub-light dark:text-text-faint-dark dark:hover:text-text-sub-dark transition-colors"
-                                        type="button"
-                                        onClick={() => setShowPassword(!showPassword)}
-                                    >
-                                        <span className="material-symbols-outlined text-[18px]">
-                                            {showPassword ? 'visibility' : 'visibility_off'}
-                                        </span>
-                                    </button>
-                                </div>
-                            </div>
+                        <button type="submit" disabled={loading} className="cp-btn-primary mt-2">
+                            {loading ? (
+                                <>
+                                    <div className="animate-spin rounded-full h-4 w-4 border-2 border-white/30 border-t-white" />
+                                    <span>Signing in…</span>
+                                </>
+                            ) : (
+                                <span>Sign in</span>
+                            )}
+                        </button>
+                    </form>
 
-                            <button
-                                className="btn-primary w-full h-12 text-sm mt-2 disabled:opacity-50 disabled:cursor-not-allowed"
-                                type="submit"
-                                disabled={loading}
-                            >
-                                {loading ? (
-                                    <>
-                                        <div className="animate-spin rounded-full h-4 w-4 border-2 border-white/30 border-t-white" />
-                                        <span>Signing in...</span>
-                                    </>
-                                ) : (
-                                    <span>Sign in</span>
-                                )}
-                            </button>
-                        </form>
-                    </div>
-                </main>
-
-                <footer className="p-6 text-center">
-                    <p className="text-body-sm text-text-sub-light dark:text-text-sub-dark">
+                    <p className="mt-6 text-center text-sm text-white/60">
                         New here?{' '}
-                        <Link to="/signup" className="font-semibold text-primary hover:text-primary-hover transition-colors">
+                        <Link to="/signup" className="font-semibold text-[#F3C64A] hover:underline">
                             Create an account
                         </Link>
                     </p>
-                </footer>
+                </div>
             </div>
-        </div>
+        </PublicShell>
     );
 };
 

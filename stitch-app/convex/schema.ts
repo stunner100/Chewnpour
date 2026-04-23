@@ -223,8 +223,17 @@ export default defineSchema({
         coverColor: v.optional(v.string()), // gradient colors
         progress: v.optional(v.number()),
         status: v.string(), // 'in_progress', 'completed'
+        folderId: v.optional(v.id("courseFolders")),
     }).index("by_userId", ["userId"])
-      .index("by_uploadId", ["uploadId"]),
+      .index("by_uploadId", ["uploadId"])
+      .index("by_userId_folderId", ["userId", "folderId"]),
+
+    // User-created folders for grouping courses on the dashboard
+    courseFolders: defineTable({
+        userId: v.string(),
+        name: v.string(),
+        color: v.optional(v.string()),
+    }).index("by_userId", ["userId"]),
 
     // Topics within courses
     topics: defineTable({
@@ -788,4 +797,33 @@ export default defineSchema({
         createdAt: v.number(),
     }).index("by_postId", ["postId"])
       .index("by_userId_postId", ["userId", "postId"]),
+
+    // Seedance-generated explainer videos for a topic (staging feature).
+    topicVideos: defineTable({
+        userId: v.string(),
+        topicId: v.id("topics"),
+        status: v.string(), // 'pending' | 'running' | 'ready' | 'failed'
+        providerJobId: v.optional(v.string()),
+        pollingUrl: v.optional(v.string()),
+        providerStatus: v.optional(v.string()), // raw last-seen OpenRouter status
+        promptText: v.string(),
+        sourceSnippet: v.string(),
+        durationSeconds: v.number(),
+        width: v.number(),
+        height: v.number(),
+        aspectRatio: v.optional(v.string()),
+        videoStorageId: v.optional(v.id("_storage")),
+        providerUrl: v.optional(v.string()),
+        tokenCount: v.optional(v.number()),
+        costUsd: v.optional(v.number()),
+        errorMessage: v.optional(v.string()),
+        pollAttempts: v.optional(v.number()),
+        startedAt: v.number(),
+        createdAt: v.number(),
+        updatedAt: v.number(),
+    })
+        .index("by_userId", ["userId"])
+        .index("by_topicId", ["topicId"])
+        .index("by_userId_topicId", ["userId", "topicId"])
+        .index("by_status_startedAt", ["status", "startedAt"]),
 });

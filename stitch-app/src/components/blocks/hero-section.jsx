@@ -166,7 +166,7 @@ export function HeroHeader({ onCtaClick = () => {} }) {
                         {/* Logo — left */}
                         <Link to="/" aria-label="home" className="flex items-center gap-2.5 shrink-0">
                             <img
-                                src="/chewnpourlogo.png"
+                                src="/logonew.jpeg"
                                 alt="ChewnPour"
                                 className="h-8 md:h-10 w-auto object-contain"
                             />
