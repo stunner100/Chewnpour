@@ -23,8 +23,12 @@ if (!/allowPartialReady:\s*v\.optional\(v\.boolean\(\)\)/.test(examsSource)) {
   throw new Error('Expected exams.ts to support a partial-ready override after on-demand generation.');
 }
 
-if (!/allowPartialReady:\s*true/.test(preparationsSource)) {
-  throw new Error('Expected examPreparations.ts to retry prepared attempt creation with allowPartialReady after generation.');
+if (!/FRESH_CONTEXT_START_REQUIRED/.test(preparationsSource)) {
+  throw new Error('Expected examPreparations.ts to explicitly handle fresh-context starts.');
+}
+
+if (!/generateFreshExamSnapshotInternal/.test(preparationsSource) || !/createFreshExamAttemptInternal/.test(preparationsSource)) {
+  throw new Error('Expected examPreparations.ts to generate and persist a fresh snapshot when no prepared attempt exists.');
 }
 
 if (/Full Exam Not Available/.test(examModeSource)) {
@@ -35,8 +39,8 @@ if (/full multiple-choice exam|full essay exam/i.test(preparationsSource)) {
   throw new Error('Expected unavailable preparation messages to stop requiring a full exam when partial grounded questions are allowed.');
 }
 
-if (!/Exam Not Available/.test(examModeSource)) {
-  throw new Error('Expected ExamMode.jsx to render the renamed terminal unavailable state.');
+if (!/ExamPreparationLoader/.test(examModeSource)) {
+  throw new Error('Expected ExamMode.jsx to route unavailable preparation states through the shared preparation loader.');
 }
 
 console.log('exam-full-set-unavailable-regression.test.mjs passed');

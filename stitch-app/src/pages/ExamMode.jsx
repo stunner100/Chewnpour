@@ -246,6 +246,13 @@ const resolveAutostartExamFormat = (search) => {
     return null;
 };
 
+const resolvePreferredExamFormat = (value) => {
+    const normalized = String(value || '').trim().toLowerCase();
+    if (normalized === 'essay') return 'essay';
+    if (normalized === 'mcq') return 'mcq';
+    return '';
+};
+
 const resolveConvexActionError = (error, fallbackMessage) => {
     const dataMessage = typeof error?.data === 'string'
         ? error.data
@@ -380,6 +387,7 @@ const ExamMode = () => {
     const [examStarted, setExamStarted] = useState(false);
     const [attemptId, setAttemptId] = useState(null);
     const [attemptQuestions, setAttemptQuestions] = useState(null);
+    const [preparationId, setPreparationId] = useState(null);
     const [startingExamAttempt, setStartingExamAttempt] = useState(false);
     const [startExamError, setStartExamError] = useState('');
 
@@ -421,7 +429,12 @@ const ExamMode = () => {
             ? { courseId: topic.courseId, sourceUploadId: topic.sourceUploadId }
             : 'skip'
     );
-    const startExamAttempt = useAction(api.exams.startExamAttempt);
+    const preparation = useQuery(
+        api.examPreparations.getExamPreparation,
+        preparationId ? { preparationId } : 'skip'
+    );
+    const startExamPreparation = useAction(api.examPreparations.startExamPreparation);
+    const retryPreparation = useMutation(api.examPreparations.retryExamPreparation);
     const ensureAssessmentRoutingForTopic = useAction(api.ai.ensureAssessmentRoutingForTopic);
     const submitExam = useMutation(api.exams.submitExamAttempt);
     const submitEssayExam = useAction(api.exams.submitEssayExam);
@@ -430,20 +443,34 @@ const ExamMode = () => {
     const EXAM_LOADING_STALL_TIMEOUT_MS = 150_000;
 
     const loadingExamTypeLabel = examFormat === 'essay' ? 'essay' : 'objective';
-    const activePreparationMessage = `Generating your ${loadingExamTypeLabel} exam from this topic.`;
-    const preparationStatus = startExamError ? 'failed' : startingExamAttempt ? 'preparing' : '';
-    const preparationStage = startingExamAttempt ? 'generating_candidates' : 'queued';
-    const isPreparationRunning = startingExamAttempt;
+    const activePreparationMessage = typeof preparation?.message === 'string' && preparation.message.trim()
+        ? preparation.message.trim()
+        : `Generating your ${loadingExamTypeLabel} exam from this topic.`;
+    const preparationStatus = typeof preparation?.status === 'string'
+        ? preparation.status
+        : (startExamError ? 'failed' : startingExamAttempt ? 'preparing' : '');
+    const preparationStage = typeof preparation?.stage === 'string'
+        ? preparation.stage
+        : (startingExamAttempt ? 'checking_previous_attempt' : 'queued');
+    const isPreparationRunning =
+        Boolean(preparationId)
+        && (
+            preparation === undefined
+            || preparationStatus === 'queued'
+            || preparationStatus === 'preparing'
+        );
     const questions = useMemo(
         () => (Array.isArray(attemptQuestions) ? attemptQuestions : []),
         [attemptQuestions],
     );
     const hasAttemptQuestions = questions.length > 0;
+    const hasReadyAttemptState = Boolean(examStarted && attemptId && hasAttemptQuestions);
     const examFlowStartTimeRef = useRef(Date.now());
     const attemptStartTimeRef = useRef(null);
     const loadingStallReportedRef = useRef(false);
     const handleSubmitRef = useRef(() => { });
     const submittingRef = useRef(false);
+    const resolvedPreparationRef = useRef(null);
     const routingBootstrapKeyRef = useRef('');
     const [routingBootstrapPending, setRoutingBootstrapPending] = useState(false);
     // Optimized timer: only re-renders when the displayed second changes
@@ -476,11 +503,13 @@ const ExamMode = () => {
         setExamStarted(false);
         setAttemptId(null);
         setAttemptQuestions(null);
+        setPreparationId(null);
         setStartingExamAttempt(false);
         setStartExamError('');
         setExamFormat(resolveAutostartExamFormat(location.search));
         setGradingEssay(false);
         setSubmitError('');
+        resolvedPreparationRef.current = null;
         routingBootstrapKeyRef.current = '';
         setRoutingBootstrapPending(false);
     }, [
@@ -553,6 +582,17 @@ const ExamMode = () => {
         });
     }, [hasMismatchedCachedTopic, isMissingRouteTopic, location.pathname, rawTopicId, routeTopicId]);
 
+    const preferredFormatFromState = resolvePreferredExamFormat(location?.state?.preferredFormat);
+
+    useEffect(() => {
+        if (examFormat || !preferredFormatFromState) {
+            return;
+        }
+        setStartExamError('');
+        setPreparationId(null);
+        setExamFormat(preferredFormatFromState);
+    }, [examFormat, preferredFormatFromState]);
+
     const shouldRedirectToFinalExam = (
         topic?.topicKind !== 'document_final_exam'
         && topic?.assessmentRoute
@@ -581,18 +621,67 @@ const ExamMode = () => {
         });
     }, []);
 
+    const applyReadyPreparationState = useCallback(({
+        preparationId: nextPreparationId,
+        attemptId: nextAttemptId,
+        questions: nextQuestions,
+        attemptStartedAt,
+        stage,
+        launchMode,
+        source,
+    }) => {
+        const selectedQuestions = Array.isArray(nextQuestions) ? nextQuestions : [];
+        if (!nextPreparationId || !nextAttemptId || selectedQuestions.length === 0) {
+            return false;
+        }
+
+        resolvedPreparationRef.current = nextPreparationId;
+        setPreparationId(nextPreparationId);
+        setStartExamError('');
+        setAttemptId(nextAttemptId);
+        setAttemptQuestions(selectedQuestions);
+        setCurrentQuestion(0);
+        setSelectedAnswers({});
+
+        const startedAt = Number(attemptStartedAt || 0);
+        const elapsedSec = startedAt > 0
+            ? Math.floor((Date.now() - startedAt) / 1000)
+            : 0;
+        const remaining = Math.max(60, EXAM_DURATION_SECONDS - elapsedSec);
+        setTimeRemaining(remaining);
+        setExamStarted(true);
+
+        addSentryBreadcrumb({
+            category: 'exam',
+            message: 'Exam attempt hydrated from preparation',
+            data: {
+                topicId,
+                preparationId: nextPreparationId,
+                attemptId: nextAttemptId,
+                selectedQuestionCount: selectedQuestions.length,
+                source: source || 'unknown',
+                launchMode: launchMode || 'unknown',
+                stage: stage || 'completed',
+            },
+        });
+
+        return true;
+    }, [setTimeRemaining, topicId]);
+
     const beginExamAttempt = useCallback(async () => {
         if (!topicId || !examFormat || attemptStartTimeRef.current) return;
 
         setStartExamError('');
         setSubmitError('');
         setStartingExamAttempt(true);
+        setPreparationId(null);
         setAttemptId(null);
         setAttemptQuestions(null);
         setExamStarted(false);
         attemptStartTimeRef.current = Date.now();
         examFlowStartTimeRef.current = Date.now();
         loadingStallReportedRef.current = false;
+        resolvedPreparationRef.current = null;
         addSentryBreadcrumb({
             category: 'exam',
             message: 'Starting exam preparation',
@@ -604,44 +693,47 @@ const ExamMode = () => {
         });
         try {
             const result = await withTimeout(
-                startExamAttempt({ topicId, examFormat }),
+                startExamPreparation({ topicId, examFormat }),
                 START_EXAM_ATTEMPT_TIMEOUT_MS,
                 'Exam preparation initialization timed out.'
             );
-            const selectedQuestions = Array.isArray(result?.questions) ? result.questions : [];
-            if (result?.attemptId && selectedQuestions.length > 0) {
-                setStartExamError('');
-                setAttemptId(result.attemptId);
-                setAttemptQuestions(selectedQuestions);
-                setCurrentQuestion(0);
-                setSelectedAnswers({});
-                setTimeRemaining(EXAM_DURATION_SECONDS);
-                setExamStarted(true);
-                const elapsedMs = Date.now() - attemptStartTimeRef.current;
-                addSentryBreadcrumb({
-                    category: 'exam',
-                    message: 'Exam attempt started successfully',
-                    data: {
-                        topicId,
-                        attemptId: result?.attemptId,
-                        selectedQuestionCount: selectedQuestions.length,
-                        elapsedMs,
-                    },
-                });
-                return;
+            if (!result?.preparationId) {
+                throw new Error('Exam preparation could not be started.');
             }
 
-            setStartExamError(
-                typeof result?.message === 'string' && result.message.trim()
-                    ? result.message.trim()
-                    : 'We could not finish preparing your exam. Please try again.'
-            );
+            const elapsedMs = Date.now() - attemptStartTimeRef.current;
+            addSentryBreadcrumb({
+                category: 'exam',
+                message: 'Exam preparation started successfully',
+                data: {
+                    topicId,
+                    preparationId: result?.preparationId,
+                    status: result?.status,
+                    launchMode: result?.launchMode,
+                    elapsedMs,
+                },
+            });
+
+            const readyQuestions = Array.isArray(result?.questions) ? result.questions : [];
+            const hydratedImmediately = result?.status === 'ready' && applyReadyPreparationState({
+                preparationId: result?.preparationId,
+                attemptId: result?.attemptId,
+                questions: readyQuestions,
+                attemptStartedAt: result?.attemptStartedAt,
+                stage: result?.stage,
+                launchMode: result?.launchMode,
+                source: 'start_action',
+            });
+
+            if (!hydratedImmediately) {
+                setPreparationId(result.preparationId);
+            }
         } catch (error) {
             const errorCode = getConvexErrorCode(error);
             const message = resolveConvexActionError(error, 'Unable to start the exam. Please try again.');
             const authError = isConvexAuthenticationError(error);
-            const transientTransportError = isTransientExamTransportError(error, message);
             const timedOut = /timed out/i.test(message);
+            const transientTransportError = !timedOut && isTransientExamTransportError(error, message);
             const elapsedMs = attemptStartTimeRef.current
                 ? Date.now() - attemptStartTimeRef.current
                 : null;
@@ -652,10 +744,10 @@ const ExamMode = () => {
                 } else {
                     setStartExamError(getExamAuthNotReadyMessage(refreshed));
                 }
-            } else if (transientTransportError) {
-                setStartExamError(getExamTransientStartRetryMessage());
             } else if (timedOut) {
                 setStartExamError('Exam setup is taking longer than expected. Tap Retry.');
+            } else if (transientTransportError) {
+                setStartExamError(getExamTransientStartRetryMessage());
             } else if (isLikelyPostDisconnectAuthError(error)) {
                 const { refreshed, expired } = await refreshAuthSessionQuietly();
                 if (expired) {
@@ -710,6 +802,7 @@ const ExamMode = () => {
                     },
                 });
             }
+            setPreparationId(null);
             setAttemptId(null);
             setAttemptQuestions(null);
             setExamStarted(false);
@@ -717,18 +810,76 @@ const ExamMode = () => {
             attemptStartTimeRef.current = null;
             setStartingExamAttempt(false);
         }
-    }, [examFormat, startExamAttempt, topicId, userId, withTimeout, START_EXAM_ATTEMPT_TIMEOUT_MS, setTimeRemaining]);
+    }, [START_EXAM_ATTEMPT_TIMEOUT_MS, applyReadyPreparationState, examFormat, startExamPreparation, topicId, userId, withTimeout]);
+
+    useEffect(() => {
+        if (!preparationId || !preparation) {
+            return;
+        }
+
+        if (preparation.status === 'ready') {
+            const selectedQuestions = Array.isArray(preparation.questions) ? preparation.questions : [];
+            if (!preparation.attemptId || selectedQuestions.length === 0) {
+                setStartExamError('Your exam is marked ready, but the question set could not be loaded. Please retry.');
+                setAttemptId(null);
+                setAttemptQuestions(null);
+                setExamStarted(false);
+                return;
+            }
+
+            if (resolvedPreparationRef.current === preparation.preparationId) {
+                return;
+            }
+
+            applyReadyPreparationState({
+                preparationId: preparation.preparationId,
+                attemptId: preparation.attemptId,
+                questions: selectedQuestions,
+                attemptStartedAt: preparation.attemptStartedAt,
+                stage: preparation.stage,
+                launchMode: preparation.launchMode || 'preparation_subscription',
+                source: 'preparation_subscription',
+            });
+            return;
+        }
+
+        if (preparation.status === 'failed' || preparation.status === 'unavailable') {
+            setAttemptId(null);
+            setAttemptQuestions(null);
+            setExamStarted(false);
+            setStartExamError(
+                typeof preparation.message === 'string' && preparation.message.trim()
+                    ? preparation.message.trim()
+                    : 'We could not finish preparing your exam. Please try again.'
+            );
+        }
+    }, [applyReadyPreparationState, preparation, preparationId]);
 
     const handleRetryStart = useCallback(async () => {
+        if (preparationId && preparation?.canRetry) {
+            setStartExamError('');
+            setStartingExamAttempt(true);
+            loadingStallReportedRef.current = false;
+            examFlowStartTimeRef.current = Date.now();
+            try {
+                await retryPreparation({ preparationId });
+            } catch (error) {
+                const message = resolveConvexActionError(error, 'Unable to retry exam preparation. Please try again.');
+                setStartExamError(message);
+            } finally {
+                setStartingExamAttempt(false);
+            }
+            return;
+        }
+
         await beginExamAttempt();
-    }, [beginExamAttempt]);
+    }, [beginExamAttempt, preparation?.canRetry, preparationId, retryPreparation]);
 
     useEffect(() => {
         const shouldMonitorStall =
             Boolean(examFormat)
-            && !examStarted
+            && !hasReadyAttemptState
             && !startExamError
-            && !hasAttemptQuestions
             && (startingExamAttempt || isPreparationRunning);
 
         if (!shouldMonitorStall || loadingStallReportedRef.current) {
@@ -736,7 +887,7 @@ const ExamMode = () => {
         }
 
         const timer = setTimeout(() => {
-            if (loadingStallReportedRef.current || examStarted) {
+            if (loadingStallReportedRef.current || hasReadyAttemptState) {
                 return;
             }
             loadingStallReportedRef.current = true;
@@ -753,8 +904,10 @@ const ExamMode = () => {
                     elapsedMs,
                     topicDataState: isLoadingRouteTopic ? 'loading' : isMissingRouteTopic ? 'missing' : 'ready',
                     hasAttemptQuestions,
+                    hasReadyAttemptState,
                     attemptId,
                     startingExamAttempt,
+                    preparationId,
                     preparationStatus,
                     preparationStage,
                     startExamError,
@@ -767,10 +920,12 @@ const ExamMode = () => {
         attemptId,
         examFormat,
         examStarted,
+        hasReadyAttemptState,
         hasAttemptQuestions,
         isPreparationRunning,
         startExamError,
         startingExamAttempt,
+        preparationId,
         preparationStage,
         preparationStatus,
         isLoadingRouteTopic,
@@ -787,6 +942,7 @@ const ExamMode = () => {
             !examStarted &&
             !startingExamAttempt &&
             !hasAttemptQuestions &&
+            !preparationId &&
             !startExamError
         ) {
             beginExamAttempt();
@@ -797,6 +953,7 @@ const ExamMode = () => {
         examStarted,
         startingExamAttempt,
         hasAttemptQuestions,
+        preparationId,
         startExamError,
         beginExamAttempt,
     ]);
@@ -975,7 +1132,7 @@ const ExamMode = () => {
         }).length
         : questions.filter((question) => Boolean(selectedAnswers[question._id])).length;
     const isEssaySubmitBlocked = examFormat === 'essay' && answeredQuestionCount < questions.length;
-    const examQualityTier = '';
+    const examQualityTier = typeof preparation?.qualityTier === 'string' ? preparation.qualityTier : '';
 
     // Keep hook order stable across loading/error/exam states.
     // For fill_blank questions, build options from the tokens word bank.
@@ -1148,7 +1305,7 @@ const ExamMode = () => {
                 failed={Boolean(startExamError)}
                 errorMsg={startExamError}
                 onRetry={handleRetryStart}
-                onBack={() => { setStartExamError(''); setExamFormat(null); }}
+                onBack={() => { setStartExamError(''); setPreparationId(null); setExamFormat(null); }}
                 isSessionExpired={startExamError === getExamSessionExpiredMessage()}
             />
         );
