@@ -35,6 +35,26 @@ if (!/const buildFreshEssayCountCandidates = \(/.test(aiSource)) {
   throw new Error('Expected ai.ts to define buildFreshEssayCountCandidates for the essay step-down ladder.');
 }
 
+if (!/const FRESH_CONTEXT_BLUEPRINT_TIMEOUT_MS = Math\.max\([\s\S]*30000/.test(aiSource)) {
+  throw new Error('Expected fresh exam blueprint generation to use a bounded timeout so startup stays within the browser request window.');
+}
+
+if (!/const FRESH_CONTEXT_AUTHORING_TIMEOUT_MS = Math\.max\([\s\S]*45000/.test(aiSource)) {
+  throw new Error('Expected fresh exam authoring to use a bounded timeout before falling back.');
+}
+
+if (!/const buildDeterministicFreshExamFallbackSnapshot = \(/.test(aiSource)) {
+  throw new Error('Expected ai.ts to define a deterministic fresh exam fallback snapshot for authoring failures.');
+}
+
+if (!/deterministic-fresh-exam-fallback/.test(aiSource)) {
+  throw new Error('Expected deterministic fresh exam fallback snapshots to include an explicit quality warning.');
+}
+
+if (!/isFreshExamAuthoringFallbackEligibleError\(error\)[\s\S]*buildDeterministicFreshExamFallbackSnapshot\(\{/.test(aiSource)) {
+  throw new Error('Expected fresh exam authoring timeouts/network failures to return a deterministic fallback snapshot.');
+}
+
 if (!/const recommendedFloor = topicKind === "document_final_exam" \? 3 : 1;/.test(aiSource)) {
   throw new Error('Expected normal essay exams to preserve the configured/default target instead of forcing a three-question floor.');
 }
