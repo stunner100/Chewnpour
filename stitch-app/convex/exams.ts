@@ -149,6 +149,7 @@ export const createFreshExamAttemptInternal = internalMutation({
         gradingContext: v.any(),
         questionMix: v.any(),
         qualityWarnings: v.optional(v.array(v.string())),
+        qualityTier: v.optional(v.string()),
     },
     handler: async (ctx, args) => {
         return await ctx.db.insert("examAttempts", {
@@ -167,6 +168,9 @@ export const createFreshExamAttemptInternal = internalMutation({
             questionMix: args.questionMix,
             generationMode: FRESH_EXAM_GENERATION_MODE,
             qualityWarnings: Array.isArray(args.qualityWarnings) ? args.qualityWarnings : [],
+            qualityTier: typeof args.qualityTier === "string" && args.qualityTier.trim()
+                ? args.qualityTier.trim()
+                : undefined,
         });
     },
 });
@@ -289,6 +293,7 @@ export const startExamAttempt = action({
             gradingContext: snapshot?.gradingContext || {},
             questionMix: snapshot?.questionMix || {},
             qualityWarnings: Array.isArray(snapshot?.qualityWarnings) ? snapshot.qualityWarnings : [],
+            qualityTier: typeof snapshot?.qualityTier === "string" ? snapshot.qualityTier : undefined,
         });
 
         return {
@@ -296,6 +301,7 @@ export const startExamAttempt = action({
             totalQuestions: generatedQuestions.length,
             questions: generatedQuestions,
             reusedAttempt: false,
+            qualityTier: typeof snapshot?.qualityTier === "string" ? snapshot.qualityTier : undefined,
         };
     },
 });
