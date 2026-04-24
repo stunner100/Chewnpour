@@ -42,11 +42,26 @@ if (!/code: "PODCAST_CAPACITY_EXCEEDED"/.test(podcastsSource)) {
 if (!/api\.subscriptions\.consumeVoiceGenerationCreditOrThrow/.test(podcastsSource)) {
     throw new Error('Expected requestTopicPodcast to consume the shared voice-generation credit.');
 }
+if (!/const assertPodcastCapacityAvailable = async/.test(podcastsSource)) {
+    throw new Error('Expected podcasts.ts to share capacity checks between request and retry.');
+}
+if (!/const consumePodcastGenerationCredit = async/.test(podcastsSource)) {
+    throw new Error('Expected podcasts.ts to share voice quota checks between request and retry.');
+}
 if (!/export const sweepStuckPodcastsInternal = internalMutation/.test(podcastsSource)) {
     throw new Error('Expected podcasts.ts to expose sweepStuckPodcastsInternal for the cron sweeper.');
 }
 if (!/export const retryTopicPodcast = mutation/.test(podcastsSource)) {
     throw new Error('Expected podcasts.ts to expose retryTopicPodcast for failed jobs.');
+}
+if (!/retryTopicPodcast[\s\S]*await assertPodcastCapacityAvailable\(ctx\);[\s\S]*await consumePodcastGenerationCredit\(ctx, userId\);/.test(podcastsSource)) {
+    throw new Error('Expected retryTopicPodcast to enforce capacity and voice quota before requeueing.');
+}
+if (!/expectedStartedAt:\s*v\.number\(\)/.test(podcastsSource)) {
+    throw new Error('Expected podcast state transitions to guard on the active attempt timestamp.');
+}
+if (!/row\.status !== "running" \|\| row\.startedAt !== args\.expectedStartedAt/.test(podcastsSource)) {
+    throw new Error('Expected markReadyInternal to reject stale podcast attempts.');
 }
 
 if (!/'use node'|"use node"/.test(podcastsActionsSource)) {
@@ -69,6 +84,12 @@ if (!/internal\.podcasts\.markReadyInternal/.test(podcastsActionsSource)) {
 }
 if (!/internal\.podcasts\.markFailedInternal/.test(podcastsActionsSource)) {
     throw new Error('Expected podcastsActions.ts to record failures via markFailedInternal.');
+}
+if (!/const attemptStartedAt = row\.startedAt/.test(podcastsActionsSource)) {
+    throw new Error('Expected podcastsActions.kickoff to capture the active attempt timestamp.');
+}
+if (!/expectedStartedAt: attemptStartedAt/.test(podcastsActionsSource)) {
+    throw new Error('Expected podcastsActions.kickoff to guard state transitions by attempt timestamp.');
 }
 
 if (!/export const generatePodcastScriptInternal = internalAction/.test(aiSource)) {

@@ -151,9 +151,12 @@ export const kickoff = internalAction({
         });
         if (!row || row.status !== "pending") return;
 
-        await ctx.runMutation(internal.podcasts.markRunningInternal, {
+        const attemptStartedAt = row.startedAt;
+        const runningResult = await ctx.runMutation(internal.podcasts.markRunningInternal, {
             podcastId: args.podcastId,
+            expectedStartedAt: attemptStartedAt,
         });
+        if (!runningResult?.updated) return;
 
         try {
             const script = await ctx.runAction(internal.ai.generatePodcastScriptInternal, {
@@ -208,11 +211,13 @@ export const kickoff = internalAction({
                 qualityWarnings: Array.isArray(script?.qualityWarnings)
                     ? script.qualityWarnings
                     : [],
+                expectedStartedAt: attemptStartedAt,
             });
         } catch (error) {
             await ctx.runMutation(internal.podcasts.markFailedInternal, {
                 podcastId: args.podcastId,
                 errorMessage: resolveErrorMessage(error, "Podcast generation failed"),
+                expectedStartedAt: attemptStartedAt,
             });
         }
     },

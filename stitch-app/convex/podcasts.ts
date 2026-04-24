@@ -1,5 +1,6 @@
 import { ConvexError, v } from "convex/values";
 import { internalMutation, internalQuery, mutation, query } from "./_generated/server";
+import type { MutationCtx } from "./_generated/server";
 import { api, internal } from "./_generated/api";
 import { resolveAuthUserId } from "./lib/examSecurity";
 
@@ -19,6 +20,34 @@ const resolveVoiceModel = () => {
     return configured || DEFAULT_VOICE_MODEL;
 };
 
+const isPodcastInFlight = (row: { status?: string }) =>
+    row.status === "pending" || row.status === "running";
+
+const assertPodcastCapacityAvailable = async (ctx: MutationCtx) => {
+    const [pendingRows, runningRows] = await Promise.all([
+        ctx.db
+            .query("topicPodcasts")
+            .withIndex("by_status_startedAt", (q) => q.eq("status", "pending"))
+            .collect(),
+        ctx.db
+            .query("topicPodcasts")
+            .withIndex("by_status_startedAt", (q) => q.eq("status", "running"))
+            .collect(),
+    ]);
+    if (pendingRows.length + runningRows.length >= MAX_CONCURRENT_PODCAST_JOBS) {
+        throw new ConvexError({
+            code: "PODCAST_CAPACITY_EXCEEDED",
+            message: "Too many podcasts are generating right now. Try again shortly.",
+        });
+    }
+};
+
+const consumePodcastGenerationCredit = async (ctx: MutationCtx, userId: string) => {
+    await ctx.runMutation(api.subscriptions.consumeVoiceGenerationCreditOrThrow, {
+        userId,
+    });
+};
+
 // ── Internal helpers (used by the Node-runtime action in podcastsActions.ts) ──
 
 export const getPodcastInternal = internalQuery({
@@ -29,12 +58,20 @@ export const getPodcastInternal = internalQuery({
 });
 
 export const markRunningInternal = internalMutation({
-    args: { podcastId: v.id("topicPodcasts") },
+    args: {
+        podcastId: v.id("topicPodcasts"),
+        expectedStartedAt: v.number(),
+    },
     handler: async (ctx, args) => {
+        const row = await ctx.db.get(args.podcastId);
+        if (!row || row.status !== "pending" || row.startedAt !== args.expectedStartedAt) {
+            return { updated: false };
+        }
         await ctx.db.patch(args.podcastId, {
             status: "running",
             updatedAt: Date.now(),
         });
+        return { updated: true };
     },
 });
 
@@ -42,13 +79,21 @@ export const markFailedInternal = internalMutation({
     args: {
         podcastId: v.id("topicPodcasts"),
         errorMessage: v.string(),
+        expectedStartedAt: v.optional(v.number()),
     },
     handler: async (ctx, args) => {
+        if (typeof args.expectedStartedAt === "number") {
+            const row = await ctx.db.get(args.podcastId);
+            if (!row || row.startedAt !== args.expectedStartedAt || row.status !== "running") {
+                return { updated: false };
+            }
+        }
         await ctx.db.patch(args.podcastId, {
             status: "failed",
             errorMessage: args.errorMessage,
             updatedAt: Date.now(),
         });
+        return { updated: true };
     },
 });
 
@@ -61,8 +106,13 @@ export const markReadyInternal = internalMutation({
         durationSeconds: v.number(),
         voiceModel: v.string(),
         qualityWarnings: v.optional(v.array(v.string())),
+        expectedStartedAt: v.number(),
     },
     handler: async (ctx, args) => {
+        const row = await ctx.db.get(args.podcastId);
+        if (!row || row.status !== "running" || row.startedAt !== args.expectedStartedAt) {
+            return { updated: false };
+        }
         await ctx.db.patch(args.podcastId, {
             status: "ready",
             audioStorageId: args.audioStorageId,
@@ -73,6 +123,7 @@ export const markReadyInternal = internalMutation({
             qualityWarnings: Array.isArray(args.qualityWarnings) ? args.qualityWarnings : [],
             updatedAt: Date.now(),
         });
+        return { updated: true };
     },
 });
 
@@ -137,9 +188,7 @@ export const requestTopicPodcast = mutation({
                 q.eq("userId", userId).eq("topicId", args.topicId),
             )
             .collect();
-        const active = userTopicRows.find(
-            (row) => row.status === "pending" || row.status === "running",
-        );
+        const active = userTopicRows.find(isPodcastInFlight);
         if (active) {
             throw new ConvexError({
                 code: "PODCAST_IN_FLIGHT",
@@ -148,27 +197,10 @@ export const requestTopicPodcast = mutation({
         }
 
         // Global concurrency safety.
-        const [pendingRows, runningRows] = await Promise.all([
-            ctx.db
-                .query("topicPodcasts")
-                .withIndex("by_status_startedAt", (q) => q.eq("status", "pending"))
-                .collect(),
-            ctx.db
-                .query("topicPodcasts")
-                .withIndex("by_status_startedAt", (q) => q.eq("status", "running"))
-                .collect(),
-        ]);
-        if (pendingRows.length + runningRows.length >= MAX_CONCURRENT_PODCAST_JOBS) {
-            throw new ConvexError({
-                code: "PODCAST_CAPACITY_EXCEEDED",
-                message: "Too many podcasts are generating right now. Try again shortly.",
-            });
-        }
+        await assertPodcastCapacityAvailable(ctx);
 
         // Gate against the shared voice-generation quota. Throws on exceeded.
-        await ctx.runMutation(api.subscriptions.consumeVoiceGenerationCreditOrThrow, {
-            userId,
-        });
+        await consumePodcastGenerationCredit(ctx, userId);
 
         const targetWordCount = Math.max(
             400,
@@ -263,6 +295,23 @@ export const retryTopicPodcast = mutation({
         if (row.status !== "failed") {
             return { success: false, status: row.status };
         }
+
+        const userTopicRows = await ctx.db
+            .query("topicPodcasts")
+            .withIndex("by_userId_topicId", (q) =>
+                q.eq("userId", userId).eq("topicId", row.topicId),
+            )
+            .collect();
+        const active = userTopicRows.find(isPodcastInFlight);
+        if (active) {
+            throw new ConvexError({
+                code: "PODCAST_IN_FLIGHT",
+                message: "A podcast is already being generated for this topic.",
+            });
+        }
+
+        await assertPodcastCapacityAvailable(ctx);
+        await consumePodcastGenerationCredit(ctx, userId);
 
         const now = Date.now();
         await ctx.db.patch(args.podcastId, {
