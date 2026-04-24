@@ -22,8 +22,8 @@ if (!/classification === "strong"[\s\S]*return 8;/.test(aiSource) || !/topicKind
   throw new Error('Expected fresh objective target floors to increase for strong topics and document final exams.');
 }
 
-if (!/const objectiveCountCandidates = examFormat === "essay"\s*\?\s*\[\]\s*:\s*buildFreshObjectiveCountCandidates\(topic, groundedPack\.evidence, configuredTarget\);/.test(aiSource)) {
-  throw new Error('Expected fresh objective count candidates to be computed after grounded evidence is loaded.');
+if (!/const objectiveCountCandidates = examFormat === "essay"\s*\?\s*\[\]\s*:\s*buildFreshObjectiveCountCandidates\(topic, (?:groundedPack\.evidence|effectiveEvidence), configuredTarget\);/.test(aiSource)) {
+  throw new Error('Expected fresh objective count candidates to be computed from the effective (grounded or synthetic) evidence set.');
 }
 
 if (!/const recommendedFloor = Math\.min\(capacityCap, resolveFreshObjectiveTargetFloor\(topic\)\);/.test(aiSource)) {

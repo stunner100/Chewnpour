@@ -380,6 +380,7 @@ const ExamMode = () => {
     const [examStarted, setExamStarted] = useState(false);
     const [attemptId, setAttemptId] = useState(null);
     const [attemptQuestions, setAttemptQuestions] = useState(null);
+    const [attemptQualityTier, setAttemptQualityTier] = useState('');
     const [startingExamAttempt, setStartingExamAttempt] = useState(false);
     const [startExamError, setStartExamError] = useState('');
 
@@ -476,6 +477,7 @@ const ExamMode = () => {
         setExamStarted(false);
         setAttemptId(null);
         setAttemptQuestions(null);
+        setAttemptQualityTier('');
         setStartingExamAttempt(false);
         setStartExamError('');
         setExamFormat(resolveAutostartExamFormat(location.search));
@@ -589,6 +591,7 @@ const ExamMode = () => {
         setStartingExamAttempt(true);
         setAttemptId(null);
         setAttemptQuestions(null);
+        setAttemptQualityTier('');
         setExamStarted(false);
         attemptStartTimeRef.current = Date.now();
         examFlowStartTimeRef.current = Date.now();
@@ -613,6 +616,7 @@ const ExamMode = () => {
                 setStartExamError('');
                 setAttemptId(result.attemptId);
                 setAttemptQuestions(selectedQuestions);
+                setAttemptQualityTier(typeof result?.qualityTier === 'string' ? result.qualityTier : '');
                 setCurrentQuestion(0);
                 setSelectedAnswers({});
                 setTimeRemaining(EXAM_DURATION_SECONDS);
@@ -975,7 +979,7 @@ const ExamMode = () => {
         }).length
         : questions.filter((question) => Boolean(selectedAnswers[question._id])).length;
     const isEssaySubmitBlocked = examFormat === 'essay' && answeredQuestionCount < questions.length;
-    const examQualityTier = '';
+    const examQualityTier = attemptQualityTier;
 
     // Keep hook order stable across loading/error/exam states.
     // For fill_blank questions, build options from the tokens word bank.
@@ -1221,6 +1225,13 @@ const ExamMode = () => {
                     {examQualityTier === 'premium' && (
                         <div className="mb-4 p-3 rounded-xl bg-emerald-50 dark:bg-emerald-900/10 border border-emerald-200 dark:border-emerald-900/30">
                             <p className="text-body-sm text-emerald-800 dark:text-emerald-300">Premium exam ready. This set met the higher university-level quality targets.</p>
+                        </div>
+                    )}
+                    {examQualityTier === 'unverified' && (
+                        <div className="mb-4 p-3 rounded-xl bg-amber-50 dark:bg-amber-900/10 border border-amber-200 dark:border-amber-900/30">
+                            <p className="text-body-sm text-amber-800 dark:text-amber-300">
+                                <span className="font-semibold">Unverified.</span> These questions were generated without a grounded evidence index — they may be less precise than a full exam.
+                            </p>
                         </div>
                     )}
                     <ExamQuestionCard
