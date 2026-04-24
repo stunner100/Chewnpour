@@ -19,12 +19,28 @@ if (!/snapshotQualityTier = "unverified";/.test(aiSource)) {
   throw new Error('Expected generateFreshExamSnapshotInternal to mark the snapshot as unverified when grounded evidence is missing.');
 }
 
+if (!/const usesOnlyIndexFallback =\s*groundedPack\?\.usedIndexFallback === true[\s\S]*&& !hasGroundedRetrievalHits[\s\S]*&& effectiveEvidence\.length > 0;/.test(aiSource)) {
+  throw new Error('Expected index-fallback-only evidence to be treated as unverified when retrieval has no grounded hits.');
+}
+
+if (!/if \(!effectiveIndex \|\| effectiveEvidence\.length === 0 \|\| usesOnlyIndexFallback\)/.test(aiSource)) {
+  throw new Error('Expected the unverified fallback branch to run for empty evidence or index-fallback-only evidence.');
+}
+
 if (/if \(!groundedPack\.index \|\| groundedPack\.evidence\.length === 0\) \{\s*throw new ConvexError\(\{\s*code: "EXAM_GENERATION_FAILED",\s*message: "We couldn't find enough grounded evidence/.test(aiSource)) {
   throw new Error('Expected the early EXAM_GENERATION_FAILED throw on missing grounded evidence to be replaced by the synthetic-evidence fallback.');
 }
 
 if (!/const buildFreshEssayCountCandidates = \(/.test(aiSource)) {
   throw new Error('Expected ai.ts to define buildFreshEssayCountCandidates for the essay step-down ladder.');
+}
+
+if (!/const recommendedFloor = topicKind === "document_final_exam" \? 3 : 1;/.test(aiSource)) {
+  throw new Error('Expected normal essay exams to preserve the configured/default target instead of forcing a three-question floor.');
+}
+
+if (/const recommendedFloor = topicKind === "document_final_exam" \? 3 : 3;/.test(aiSource)) {
+  throw new Error('Expected the essay count ladder not to force ordinary topic essays to at least three questions.');
 }
 
 if (!/for \(const fallbackCount of essayFallbackCounts\)/.test(aiSource)) {

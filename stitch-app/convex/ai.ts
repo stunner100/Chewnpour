@@ -14441,15 +14441,15 @@ const buildFreshEssayCountCandidates = (
     configuredTarget: number,
 ) => {
     const topicKind = String(topic?.topicKind || "").trim();
-    const evidenceCap = Math.max(2, Array.isArray(evidence) ? Math.min(evidence.length, 8) : 2);
+    const safeConfiguredTarget = Math.max(1, Math.round(Number(configuredTarget || 1)));
+    const evidenceCap = Math.max(1, Array.isArray(evidence) ? Math.min(evidence.length, 8) : 1);
     const hardCap = topicKind === "document_final_exam" ? 6 : 5;
     const cap = Math.min(hardCap, evidenceCap);
-    const recommendedFloor = topicKind === "document_final_exam" ? 3 : 3;
-    const absoluteFloor = Math.max(2, Math.min(cap, topicKind === "document_final_exam" ? 3 : 2));
-    const initialTarget = Math.max(
-        recommendedFloor,
-        Math.min(cap, Math.max(configuredTarget, recommendedFloor)),
-    );
+    const recommendedFloor = topicKind === "document_final_exam" ? 3 : 1;
+    const absoluteFloor = topicKind === "document_final_exam"
+        ? Math.max(1, Math.min(cap, 3))
+        : 1;
+    const initialTarget = Math.min(cap, Math.max(safeConfiguredTarget, recommendedFloor));
     const candidates: number[] = [];
     for (let count = initialTarget; count >= absoluteFloor; count -= 1) {
         candidates.push(count);
@@ -14562,20 +14562,31 @@ export const generateFreshExamSnapshotInternal = internalAction({
                 let effectiveEvidence: RetrievedEvidence[] = groundedPack.evidence;
                 let effectiveIndex: GroundedEvidenceIndex | null = groundedPack.index;
                 let snapshotQualityTier: string | undefined;
-                if (!effectiveIndex || effectiveEvidence.length === 0) {
+                const hasGroundedRetrievalHits =
+                    Number(groundedPack?.lexicalHitCount || 0) > 0
+                    || Number(groundedPack?.vectorHitCount || 0) > 0;
+                const usesOnlyIndexFallback =
+                    groundedPack?.usedIndexFallback === true
+                    && !hasGroundedRetrievalHits
+                    && effectiveEvidence.length > 0;
+                if (!effectiveIndex || effectiveEvidence.length === 0 || usesOnlyIndexFallback) {
                     const synthetic = buildSyntheticEvidenceFromTopic(topic);
-                    if (!synthetic.index || synthetic.evidence.length === 0) {
+                    if (synthetic.index && synthetic.evidence.length > 0) {
+                        effectiveEvidence = synthetic.evidence;
+                        effectiveIndex = synthetic.index;
+                    } else if (!effectiveIndex || effectiveEvidence.length === 0) {
                         throw new ConvexError({
                             code: "EXAM_GENERATION_FAILED",
                             message: "This topic has no usable content to generate an exam from.",
                         });
                     }
-                    effectiveEvidence = synthetic.evidence;
-                    effectiveIndex = synthetic.index;
                     snapshotQualityTier = "unverified";
                     console.info("[FreshExam] unverified_fallback_engaged", {
                         topicId: String(topic?._id || ""),
                         examFormat,
+                        fallbackSource: synthetic.index && synthetic.evidence.length > 0
+                            ? "topic_content"
+                            : "index_fallback",
                         syntheticPassageCount: synthetic.evidence.length,
                     });
                 }
