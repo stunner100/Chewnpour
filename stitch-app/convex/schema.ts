@@ -826,4 +826,26 @@ export default defineSchema({
         .index("by_topicId", ["topicId"])
         .index("by_userId_topicId", ["userId", "topicId"])
         .index("by_status_startedAt", ["status", "startedAt"]),
+
+    // Deepgram-generated single-narrator explainer podcasts for a topic (staging feature).
+    topicPodcasts: defineTable({
+        userId: v.string(),
+        topicId: v.id("topics"),
+        status: v.string(), // 'pending' | 'running' | 'ready' | 'failed'
+        script: v.optional(v.string()),
+        scriptWordCount: v.optional(v.number()),
+        audioStorageId: v.optional(v.id("_storage")),
+        voiceModel: v.optional(v.string()),
+        durationSeconds: v.optional(v.number()),
+        targetWordCount: v.optional(v.number()),
+        qualityWarnings: v.optional(v.array(v.string())),
+        errorMessage: v.optional(v.string()),
+        startedAt: v.number(),
+        createdAt: v.number(),
+        updatedAt: v.number(),
+    })
+        .index("by_userId", ["userId"])
+        .index("by_topicId", ["topicId"])
+        .index("by_userId_topicId", ["userId", "topicId"])
+        .index("by_status_startedAt", ["status", "startedAt"]),
 });

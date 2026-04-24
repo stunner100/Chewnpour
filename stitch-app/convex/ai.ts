@@ -14726,6 +14726,138 @@ const isFreshExamAuthoringFallbackEligibleError = (error: any) => {
     );
 };
 
+// ── Topic podcast script generation ────────────────────────────────────────
+// Generates a single-narrator explainer podcast script grounded in the topic
+// content. Returns plain text suitable for direct synthesis with a TTS provider.
+
+const PODCAST_DEFAULT_TARGET_WORDS = 1200;
+const PODCAST_MIN_WORDS = 400;
+const PODCAST_MAX_WORDS = 2000;
+
+const stripPodcastFormatting = (raw: string): string => {
+    if (!raw) return "";
+    return String(raw)
+        .replace(/```[\s\S]*?```/g, " ")
+        .replace(/^\s*#+\s*/gm, "")
+        .replace(/^\s*[-*]+\s*/gm, "")
+        .replace(/[*_~`]/g, "")
+        .replace(/\[(?:[^\]]+)\]\(([^)]+)\)/g, "$1")
+        .replace(/\s+\n/g, "\n")
+        .replace(/\n{3,}/g, "\n\n")
+        .trim();
+};
+
+const countPodcastWords = (text: string): number =>
+    String(text || "")
+        .split(/\s+/)
+        .filter((token) => token.trim().length > 0)
+        .length;
+
+export const generatePodcastScriptInternal = internalAction({
+    args: {
+        topicId: v.id("topics"),
+        targetWordCount: v.optional(v.number()),
+    },
+    handler: async (ctx, args): Promise<{
+        script: string;
+        wordCount: number;
+        qualityWarnings: string[];
+    }> => {
+        const trackingUserId = await getTopicOwnerUserIdForTracking(ctx, args.topicId);
+        return await runWithLlmUsageContext(ctx, trackingUserId, "podcast_script", async () => {
+            const topic = await ctx.runQuery(internal.topics.getTopicWithQuestionsInternal, {
+                topicId: args.topicId,
+            });
+            if (!topic) {
+                throw new ConvexError({
+                    code: "TOPIC_NOT_FOUND",
+                    message: "Topic not found.",
+                });
+            }
+
+            const targetWords = Math.max(
+                PODCAST_MIN_WORDS,
+                Math.min(
+                    PODCAST_MAX_WORDS,
+                    Math.round(Number(args.targetWordCount ?? PODCAST_DEFAULT_TARGET_WORDS)),
+                ),
+            );
+
+            const groundedPack = await getGroundedEvidencePackForTopic({
+                ctx,
+                topic,
+                type: "essay",
+                limitOverride: 14,
+                preferFlagsOverride: ["table", "formula"],
+            });
+
+            const evidenceBlock = groundedPack.evidenceSnippet
+                ? `\nSOURCE EVIDENCE (use these facts; do not invent new ones):\n${groundedPack.evidenceSnippet}`
+                : "";
+            const lessonBlock =
+                `LESSON TITLE: ${String(topic.title || "").trim()}\n` +
+                `LESSON DESCRIPTION: ${String(topic.description || "").trim()}\n` +
+                `LESSON CONTENT:\n"""\n${String(topic.content || "").slice(0, 14000)}\n"""`;
+
+            const qualityWarnings: string[] = [];
+            if (!groundedPack.evidenceSnippet) {
+                qualityWarnings.push("podcast-script-no-grounded-evidence");
+            }
+            if (!String(topic.content || "").trim() && !groundedPack.evidenceSnippet) {
+                qualityWarnings.push("podcast-script-empty-source");
+            }
+
+            const systemPrompt =
+                "You are a friendly, clear-spoken explainer podcast host. "
+                + "You are recording a single-narrator audio episode for a learner studying the lesson below. "
+                + "Rules: "
+                + "1) Output plain spoken prose only — no markdown, no headings, no bullet points, no stage directions, no speaker tags. "
+                + "2) Speak as one consistent narrator throughout. "
+                + "3) Open with a one-sentence hook, then explain the concept clearly with concrete examples drawn from the lesson, then end with a brief summary. "
+                + "4) Use natural sentence-level flow that sounds good when read aloud. Short sentences. Vary rhythm. "
+                + "5) Stay grounded in the LESSON CONTENT and SOURCE EVIDENCE. Do not invent facts. "
+                + "6) Do not use placeholders like [pause] or [music]. Do not say 'In this podcast' or 'Welcome back'. "
+                + "7) Aim for approximately " + targetWords + " words. Stop when you've covered the material clearly.";
+
+            const userPrompt =
+                `${lessonBlock}${evidenceBlock}\n\n`
+                + `Write the spoken podcast script now. Approximately ${targetWords} words. Plain prose only.`;
+
+            const rawScript = await callInception(
+                [
+                    { role: "system", content: systemPrompt },
+                    { role: "user", content: userPrompt },
+                ],
+                DEFAULT_MODEL,
+                {
+                    maxTokens: Math.min(4000, Math.round(targetWords * 2.2)),
+                    temperature: 0.55,
+                },
+            );
+
+            const cleaned = stripPodcastFormatting(String(rawScript || ""));
+            const wordCount = countPodcastWords(cleaned);
+
+            if (wordCount < Math.max(120, Math.floor(targetWords * 0.25))) {
+                throw new ConvexError({
+                    code: "PODCAST_SCRIPT_TOO_SHORT",
+                    message: "The generated podcast script was too short to use.",
+                });
+            }
+
+            if (wordCount > Math.floor(targetWords * 1.6)) {
+                qualityWarnings.push(`podcast-script-overshot:${wordCount}`);
+            }
+
+            return {
+                script: cleaned,
+                wordCount,
+                qualityWarnings,
+            };
+        });
+    },
+});
+
 export const generateFreshExamSnapshotInternal = internalAction({
     args: {
         topicId: v.id("topics"),
