@@ -83,8 +83,8 @@ if (!/setAttemptQualityTier\(typeof result\?\.qualityTier === 'string' \? result
   throw new Error('Expected ExamMode to store the snapshot qualityTier into component state on successful start.');
 }
 
-if (!/examQualityTier === 'unverified'/.test(examModeSource)) {
-  throw new Error('Expected ExamMode to render an Unverified banner when the attempt qualityTier is "unverified".');
+if (/These questions were generated without a grounded evidence index/.test(examModeSource)) {
+  throw new Error('Expected ExamMode not to render the old unverified exam disclaimer.');
 }
 
 console.log('exam-unverified-fallback-regression.test.mjs passed');

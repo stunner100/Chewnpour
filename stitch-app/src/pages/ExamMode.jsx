@@ -1227,13 +1227,6 @@ const ExamMode = () => {
                             <p className="text-body-sm text-emerald-800 dark:text-emerald-300">Premium exam ready. This set met the higher university-level quality targets.</p>
                         </div>
                     )}
-                    {examQualityTier === 'unverified' && (
-                        <div className="mb-4 p-3 rounded-xl bg-amber-50 dark:bg-amber-900/10 border border-amber-200 dark:border-amber-900/30">
-                            <p className="text-body-sm text-amber-800 dark:text-amber-300">
-                                <span className="font-semibold">Unverified.</span> These questions were generated without a grounded evidence index — they may be less precise than a full exam.
-                            </p>
-                        </div>
-                    )}
                     <ExamQuestionCard
                         question={currentQ}
                         questionIndex={currentQuestion}
