@@ -16,6 +16,7 @@ import type * as authConfig from "../authConfig.js";
 import type * as campaignAttribution from "../campaignAttribution.js";
 import type * as community from "../community.js";
 import type * as concepts from "../concepts.js";
+import type * as courseFolders from "../courseFolders.js";
 import type * as courses from "../courses.js";
 import type * as crons from "../crons.js";
 import type * as devAuth from "../devAuth.js";
@@ -78,6 +79,8 @@ import type * as topicNotes from "../topicNotes.js";
 import type * as topics from "../topics.js";
 import type * as tutor from "../tutor.js";
 import type * as uploads from "../uploads.js";
+import type * as videos from "../videos.js";
+import type * as videosActions from "../videosActions.js";
 import type * as voiceHttp from "../voiceHttp.js";
 import type * as winbackCampaigns from "../winbackCampaigns.js";
 
@@ -96,6 +99,7 @@ declare const fullApi: ApiFromModules<{
   campaignAttribution: typeof campaignAttribution;
   community: typeof community;
   concepts: typeof concepts;
+  courseFolders: typeof courseFolders;
   courses: typeof courses;
   crons: typeof crons;
   devAuth: typeof devAuth;
@@ -158,6 +162,8 @@ declare const fullApi: ApiFromModules<{
   topics: typeof topics;
   tutor: typeof tutor;
   uploads: typeof uploads;
+  videos: typeof videos;
+  videosActions: typeof videosActions;
   voiceHttp: typeof voiceHttp;
   winbackCampaigns: typeof winbackCampaigns;
 }>;
