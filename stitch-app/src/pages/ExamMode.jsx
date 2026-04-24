@@ -380,6 +380,7 @@ const ExamMode = () => {
     const [examStarted, setExamStarted] = useState(false);
     const [attemptId, setAttemptId] = useState(null);
     const [attemptQuestions, setAttemptQuestions] = useState(null);
+    const [attemptQualityTier, setAttemptQualityTier] = useState('');
     const [startingExamAttempt, setStartingExamAttempt] = useState(false);
     const [startExamError, setStartExamError] = useState('');
 
@@ -476,6 +477,7 @@ const ExamMode = () => {
         setExamStarted(false);
         setAttemptId(null);
         setAttemptQuestions(null);
+        setAttemptQualityTier('');
         setStartingExamAttempt(false);
         setStartExamError('');
         setExamFormat(resolveAutostartExamFormat(location.search));
@@ -589,6 +591,7 @@ const ExamMode = () => {
         setStartingExamAttempt(true);
         setAttemptId(null);
         setAttemptQuestions(null);
+        setAttemptQualityTier('');
         setExamStarted(false);
         attemptStartTimeRef.current = Date.now();
         examFlowStartTimeRef.current = Date.now();
@@ -613,6 +616,7 @@ const ExamMode = () => {
                 setStartExamError('');
                 setAttemptId(result.attemptId);
                 setAttemptQuestions(selectedQuestions);
+                setAttemptQualityTier(typeof result?.qualityTier === 'string' ? result.qualityTier : '');
                 setCurrentQuestion(0);
                 setSelectedAnswers({});
                 setTimeRemaining(EXAM_DURATION_SECONDS);
@@ -975,7 +979,7 @@ const ExamMode = () => {
         }).length
         : questions.filter((question) => Boolean(selectedAnswers[question._id])).length;
     const isEssaySubmitBlocked = examFormat === 'essay' && answeredQuestionCount < questions.length;
-    const examQualityTier = '';
+    const examQualityTier = attemptQualityTier;
 
     // Keep hook order stable across loading/error/exam states.
     // For fill_blank questions, build options from the tokens word bank.

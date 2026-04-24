@@ -44,4 +44,11 @@ crons.interval(
     internal.videos.sweepStuckJobsInternal,
 );
 
+// Fail any podcast job stuck in "running" beyond the internal timeout.
+crons.interval(
+    "topic podcast stuck-job sweep",
+    { minutes: 5 },
+    internal.podcasts.sweepStuckPodcastsInternal,
+);
+
 export default crons;
