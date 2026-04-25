@@ -4,9 +4,12 @@ import path from 'node:path';
 const root = process.cwd();
 const read = (relativePath) => fs.readFile(path.join(root, relativePath), 'utf8');
 
-const [topicDetailSource, authContextSource] = await Promise.all([
+const [topicDetailSource, authContextSource, topicsSource, profilesSource, examSecuritySource] = await Promise.all([
   read('src/pages/TopicDetail.jsx'),
   read('src/contexts/AuthContext.jsx'),
+  read('convex/topics.ts'),
+  read('convex/profiles.ts'),
+  read('convex/lib/examSecurity.js'),
 ]);
 
 for (const snippet of [
@@ -32,6 +35,36 @@ for (const snippet of [
 ]) {
   if (!authContextSource.includes(snippet)) {
     throw new Error(`Regression detected: AuthContext auth gating missing snippet: ${snippet}`);
+  }
+}
+
+for (const snippet of [
+  "export const collectAuthUserIdCandidates = (identity) => {",
+  "authUserIds,",
+  "!normalizedAuthUserIds.includes(normalizedResourceOwnerUserId)",
+]) {
+  if (!examSecuritySource.includes(snippet)) {
+    throw new Error(`Regression detected: examSecurity auth candidate handling missing snippet: ${snippet}`);
+  }
+}
+
+for (const snippet of [
+  "collectAuthUserIdCandidates,",
+  "const authUserIds = collectAuthUserIdCandidates(identity);",
+  "authUserIds,",
+]) {
+  if (!topicsSource.includes(snippet)) {
+    throw new Error(`Regression detected: topics auth candidate handling missing snippet: ${snippet}`);
+  }
+}
+
+for (const snippet of [
+  "import { collectAuthUserIdCandidates } from \"./lib/examSecurity\";",
+  "const authenticatedUserIds = collectAuthUserIdCandidates(identity);",
+  "!authenticatedUserIds.includes(requestedUserId)",
+]) {
+  if (!profilesSource.includes(snippet)) {
+    throw new Error(`Regression detected: profiles auth candidate handling missing snippet: ${snippet}`);
   }
 }
 
