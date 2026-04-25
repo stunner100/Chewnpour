@@ -5,8 +5,8 @@ import { api, internal } from "./_generated/api";
 import { resolveAuthUserId } from "./lib/examSecurity";
 
 const DEFAULT_TARGET_WORD_COUNT = 1200;
-const DEFAULT_HOST_VOICE_MODEL = "aura-asteria-en";
-const DEFAULT_GUEST_VOICE_MODEL = "aura-luna-en";
+const DEFAULT_HOST_VOICE_MODEL = "aura-2-apollo-en";
+const DEFAULT_GUEST_VOICE_MODEL = "aura-2-luna-en";
 
 const MAX_CONCURRENT_PODCAST_JOBS = Number(process.env.MAX_CONCURRENT_PODCAST_JOBS ?? 5);
 const STUCK_JOB_MS = 15 * 60 * 1000;

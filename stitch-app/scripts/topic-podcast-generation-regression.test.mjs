@@ -73,6 +73,12 @@ if (!/internal\.ai\.generatePodcastScriptInternal/.test(podcastsActionsSource)) 
 if (!/const resolveVoiceModels = \(\)/.test(podcastsActionsSource)) {
     throw new Error('Expected podcastsActions.ts to resolve separate host and guest voice models.');
 }
+if (!/DEFAULT_HOST_VOICE_MODEL = "aura-2-apollo-en"/.test(podcastsActionsSource)) {
+    throw new Error('Expected podcastsActions.ts to default the host to a masculine Deepgram voice.');
+}
+if (!/DEFAULT_GUEST_VOICE_MODEL = "aura-2-luna-en"/.test(podcastsActionsSource)) {
+    throw new Error('Expected podcastsActions.ts to default the guest to a feminine Deepgram voice.');
+}
 if (!/const parseDialogueTurns = \(script: string\): DialogueTurn\[] =>/.test(podcastsActionsSource)) {
     throw new Error('Expected podcastsActions.ts to parse HOST and GUEST dialogue turns.');
 }
