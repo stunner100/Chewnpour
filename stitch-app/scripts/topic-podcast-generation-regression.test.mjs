@@ -112,6 +112,9 @@ if (!/<audio\b/.test(panelSource)) {
 if (!/api\.podcasts\.retryTopicPodcast/.test(panelSource)) {
     throw new Error('Expected TopicPodcastPanel to expose a retry path for failed podcasts.');
 }
+if (!/class TopicPodcastPanelBoundary extends Component/.test(panelSource)) {
+    throw new Error('Expected TopicPodcastPanel to isolate podcast query failures from the topic page.');
+}
 
 if (!/import TopicPodcastPanel from '\.\.\/components\/TopicPodcastPanel'/.test(topicDetailSource)) {
     throw new Error('Expected TopicDetail.jsx to import TopicPodcastPanel.');

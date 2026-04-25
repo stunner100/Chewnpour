@@ -1,4 +1,4 @@
-import React, { memo, useMemo, useState } from 'react';
+import React, { Component, memo, useMemo, useState } from 'react';
 import { useQuery, useMutation } from 'convex/react';
 import { api } from '../../convex/_generated/api';
 
@@ -38,7 +38,33 @@ const formatDuration = (durationSeconds) => {
     return `${minutes}m ${String(seconds).padStart(2, '0')}s`;
 };
 
-const TopicPodcastPanel = memo(function TopicPodcastPanel({ topicId }) {
+class TopicPodcastPanelBoundary extends Component {
+    constructor(props) {
+        super(props);
+        this.state = { hasError: false };
+    }
+
+    static getDerivedStateFromError() {
+        return { hasError: true };
+    }
+
+    componentDidUpdate(prevProps) {
+        if (prevProps.topicId !== this.props.topicId && this.state.hasError) {
+            this.setState({ hasError: false });
+        }
+    }
+
+    componentDidCatch(error) {
+        console.warn('Topic podcast panel failed to render', error);
+    }
+
+    render() {
+        if (this.state.hasError) return null;
+        return this.props.children;
+    }
+}
+
+const TopicPodcastPanelInner = memo(function TopicPodcastPanelInner({ topicId }) {
     const podcasts = useQuery(api.podcasts.listTopicPodcasts, topicId ? { topicId } : 'skip');
     const requestPodcast = useMutation(api.podcasts.requestTopicPodcast);
     const retryPodcast = useMutation(api.podcasts.retryTopicPodcast);
@@ -166,6 +192,14 @@ const TopicPodcastPanel = memo(function TopicPodcastPanel({ topicId }) {
                 </div>
             )}
         </div>
+    );
+});
+
+const TopicPodcastPanel = memo(function TopicPodcastPanel({ topicId }) {
+    return (
+        <TopicPodcastPanelBoundary topicId={topicId}>
+            <TopicPodcastPanelInner topicId={topicId} />
+        </TopicPodcastPanelBoundary>
     );
 });
 
