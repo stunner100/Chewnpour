@@ -4,8 +4,8 @@ import { v } from "convex/values";
 import { internalAction } from "./_generated/server";
 import { internal } from "./_generated/api";
 
-const DEFAULT_HOST_VOICE_MODEL = "aura-asteria-en";
-const DEFAULT_GUEST_VOICE_MODEL = "aura-luna-en";
+const DEFAULT_HOST_VOICE_MODEL = "aura-2-apollo-en";
+const DEFAULT_GUEST_VOICE_MODEL = "aura-2-luna-en";
 const NARRATION_WORDS_PER_MINUTE = 150;
 const MAX_TTS_CHARS = 1900; // Deepgram /v1/speak character limit per request.
 
