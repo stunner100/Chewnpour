@@ -3,6 +3,7 @@ import { internalMutation, internalQuery, mutation, query } from "./_generated/s
 import { internal } from "./_generated/api";
 import {
     assertAuthorizedUser,
+    collectAuthUserIdCandidates,
     isUsableExamQuestion,
     resolveAuthUserId,
     sanitizeExamQuestionForClient,
@@ -416,6 +417,7 @@ export const getTopicWithQuestions = query({
     handler: async (ctx, args) => {
         const identity = await ctx.auth.getUserIdentity();
         const authUserId = resolveAuthUserId(identity);
+        const authUserIds = collectAuthUserIdCandidates(identity);
         if (!authUserId) return null;
 
         const topicId = resolveTopicIdFromRoute(ctx, args.topicId);
@@ -427,6 +429,7 @@ export const getTopicWithQuestions = query({
         try {
             assertAuthorizedUser({
                 authUserId,
+                authUserIds,
                 resourceOwnerUserId: payload.ownerUserId,
             });
         } catch {
@@ -478,6 +481,7 @@ export const getFinalAssessmentTopicByCourseAndUpload = query({
     handler: async (ctx, args) => {
         const identity = await ctx.auth.getUserIdentity();
         const authUserId = resolveAuthUserId(identity);
+        const authUserIds = collectAuthUserIdCandidates(identity);
         if (!authUserId) return null;
 
         const course = await ctx.db.get(args.courseId);
@@ -486,6 +490,7 @@ export const getFinalAssessmentTopicByCourseAndUpload = query({
         try {
             assertAuthorizedUser({
                 authUserId,
+                authUserIds,
                 resourceOwnerUserId: course.userId,
             });
         } catch {

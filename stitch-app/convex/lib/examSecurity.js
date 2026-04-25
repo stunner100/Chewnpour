@@ -16,28 +16,43 @@ const OBJECTIVE_MIN_USABLE_QUALITY_SCORE = 0.65;
 const OBJECTIVE_MIN_USABLE_CLARITY_SCORE = 0.65;
 const OBJECTIVE_MIN_USABLE_DISTRACTOR_SCORE = 0.6;
 
-export const resolveAuthUserId = (identity) => {
-    if (!identity || typeof identity !== "object") return "";
+export const collectAuthUserIdCandidates = (identity) => {
+    if (!identity || typeof identity !== "object") return [];
     const candidates = [
         identity.subject,
         identity.userId,
         identity.id,
         identity.tokenIdentifier,
     ];
+    const deduped = [];
     for (const candidate of candidates) {
-        if (typeof candidate === "string" && candidate.trim()) {
-            return candidate.trim();
-        }
+        if (typeof candidate !== "string") continue;
+        const normalizedCandidate = candidate.trim();
+        if (!normalizedCandidate || deduped.includes(normalizedCandidate)) continue;
+        deduped.push(normalizedCandidate);
     }
-    return "";
+    return deduped;
+};
+
+export const resolveAuthUserId = (identity) => {
+    const candidates = collectAuthUserIdCandidates(identity);
+    return candidates[0] || "";
 };
 
 export const assertAuthorizedUser = ({
     authUserId,
+    authUserIds,
     requestedUserId,
     resourceOwnerUserId,
 }) => {
-    const normalizedAuthUserId = typeof authUserId === "string" ? authUserId.trim() : "";
+    const normalizedAuthUserIds = Array.from(
+        new Set(
+            (Array.isArray(authUserIds) ? authUserIds : [authUserId])
+                .map((candidate) => (typeof candidate === "string" ? candidate.trim() : ""))
+                .filter(Boolean)
+        )
+    );
+    const normalizedAuthUserId = normalizedAuthUserIds[0] || "";
     const normalizedRequestedUserId =
         typeof requestedUserId === "string"
             ? requestedUserId.trim()
@@ -57,13 +72,19 @@ export const assertAuthorizedUser = ({
             message: "Not authenticated. Please sign in and try again.",
         });
     }
-    if (normalizedRequestedUserId && normalizedRequestedUserId !== normalizedAuthUserId) {
+    if (
+        normalizedRequestedUserId
+        && !normalizedAuthUserIds.includes(normalizedRequestedUserId)
+    ) {
         throw new ConvexError({
             code: "UNAUTHORIZED",
             message: "You do not have permission to access this exam data.",
         });
     }
-    if (normalizedResourceOwnerUserId && normalizedResourceOwnerUserId !== normalizedAuthUserId) {
+    if (
+        normalizedResourceOwnerUserId
+        && !normalizedAuthUserIds.includes(normalizedResourceOwnerUserId)
+    ) {
         throw new ConvexError({
             code: "UNAUTHORIZED",
             message: "You do not have permission to access this exam attempt.",

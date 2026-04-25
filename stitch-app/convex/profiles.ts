@@ -1,5 +1,6 @@
 import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
+import { collectAuthUserIdCandidates } from "./lib/examSecurity";
 
 const normalizeUserId = (value: unknown): string | null => {
     if (typeof value !== "string") return null;
@@ -15,13 +16,17 @@ export const getProfile = query({
     handler: async (ctx, args) => {
         const explicitUserId = normalizeUserId(args.userId);
         const identity = await ctx.auth.getUserIdentity().catch(() => null);
-        const authenticatedUserId = normalizeUserId(identity?.subject);
-        const effectiveUserId = authenticatedUserId ?? explicitUserId;
+        const authenticatedUserIds = collectAuthUserIdCandidates(identity);
+        const authenticatedUserId = authenticatedUserIds[0] ?? null;
+        const effectiveUserId =
+            (explicitUserId && authenticatedUserIds.includes(explicitUserId))
+            ? explicitUserId
+            : (authenticatedUserId ?? explicitUserId);
 
         if (!effectiveUserId) return null;
 
         // Never allow explicit cross-user lookups from authenticated requests.
-        if (explicitUserId && authenticatedUserId && explicitUserId !== authenticatedUserId) {
+        if (explicitUserId && authenticatedUserIds.length > 0 && !authenticatedUserIds.includes(explicitUserId)) {
             return null;
         }
 
@@ -215,10 +220,15 @@ export const touchPresence = mutation({
     args: { userId: v.string() },
     handler: async (ctx, args) => {
         const identity = await ctx.auth.getUserIdentity().catch(() => null);
-        const authenticatedUserId = normalizeUserId(identity?.subject);
         const requestedUserId = normalizeUserId(args.userId);
+        const authenticatedUserIds = collectAuthUserIdCandidates(identity);
+        const authenticatedUserId = authenticatedUserIds[0] ?? null;
 
-        if (!authenticatedUserId || !requestedUserId || authenticatedUserId !== requestedUserId) {
+        if (
+            !authenticatedUserId
+            || !requestedUserId
+            || !authenticatedUserIds.includes(requestedUserId)
+        ) {
             throw new Error("Unauthorized presence heartbeat.");
         }
 
@@ -257,10 +267,15 @@ export const updateEmailPreferences = mutation({
     },
     handler: async (ctx, args) => {
         const identity = await ctx.auth.getUserIdentity().catch(() => null);
-        const authenticatedUserId = normalizeUserId(identity?.subject);
         const requestedUserId = normalizeUserId(args.userId);
+        const authenticatedUserIds = collectAuthUserIdCandidates(identity);
+        const authenticatedUserId = authenticatedUserIds[0] ?? null;
 
-        if (!authenticatedUserId || !requestedUserId || authenticatedUserId !== requestedUserId) {
+        if (
+            !authenticatedUserId
+            || !requestedUserId
+            || !authenticatedUserIds.includes(requestedUserId)
+        ) {
             throw new Error("Unauthorized.");
         }
 
