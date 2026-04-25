@@ -4,7 +4,8 @@ import { isStaleTopicRouteLookupError } from '../lib/chunkLoadRecovery.js';
 const STALE_ROUTE_CACHE_TIMEOUT_MS = 300;
 const ROUTE_TOPIC_RESOLUTION_TIMEOUT_MS = 3000;
 
-export const useRouteResolvedTopic = (routeTopicId, topicQueryResult) => {
+export const useRouteResolvedTopic = (routeTopicId, topicQueryResult, options = {}) => {
+    const suspendMissingDetection = options?.suspendMissingDetection === true;
     const [timedOutRouteKey, setTimedOutRouteKey] = useState('');
     const [failedRouteKey, setFailedRouteKey] = useState('');
 
@@ -23,7 +24,7 @@ export const useRouteResolvedTopic = (routeTopicId, topicQueryResult) => {
     }, [rawTopicId, routeTopicId, topicQueryResult]);
 
     useEffect(() => {
-        if (!routeTopicId || topicQueryResult === null || routeTopic) {
+        if (suspendMissingDetection || !routeTopicId || topicQueryResult === null || routeTopic) {
             return undefined;
         }
 
@@ -39,10 +40,10 @@ export const useRouteResolvedTopic = (routeTopicId, topicQueryResult) => {
         }, timeoutMs);
 
         return () => window.clearTimeout(timeoutId);
-    }, [hasMismatchedCachedTopic, routeResolutionKey, routeTopic, routeTopicId, topicQueryResult]);
+    }, [hasMismatchedCachedTopic, routeResolutionKey, routeTopic, routeTopicId, suspendMissingDetection, topicQueryResult]);
 
     useEffect(() => {
-        if (typeof window === 'undefined' || !routeTopicId) {
+        if (typeof window === 'undefined' || suspendMissingDetection || !routeTopicId) {
             return undefined;
         }
 
@@ -65,15 +66,18 @@ export const useRouteResolvedTopic = (routeTopicId, topicQueryResult) => {
             window.removeEventListener('error', handleError);
             window.removeEventListener('unhandledrejection', handleUnhandledRejection);
         };
-    }, [routeResolutionKey, routeTopicId]);
+    }, [routeResolutionKey, routeTopicId, suspendMissingDetection]);
 
     const routeLookupTimedOut = timedOutRouteKey === routeResolutionKey;
     const routeLookupFailed = failedRouteKey === routeResolutionKey;
     const isMissingRouteTopic =
-        Boolean(routeTopicId)
+        !suspendMissingDetection
+        && Boolean(routeTopicId)
         && (topicQueryResult === null || routeLookupTimedOut || routeLookupFailed)
         && !routeTopic;
-    const isLoadingRouteTopic = Boolean(routeTopicId) && !routeTopic && !isMissingRouteTopic;
+    const isLoadingRouteTopic =
+        Boolean(routeTopicId)
+        && (suspendMissingDetection || (!routeTopic && !isMissingRouteTopic));
 
     return {
         topic: routeTopic,

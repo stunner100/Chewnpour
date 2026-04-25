@@ -11,7 +11,10 @@ const [topicDetailSource, authContextSource] = await Promise.all([
 
 for (const snippet of [
   "import { useQuery, useAction, useMutation, useConvexAuth } from 'convex/react';",
+  "const { user, profile, updateProfile, loading: authLoading } = useAuth();",
   "const { isAuthenticated: isConvexAuthenticated } = useConvexAuth();",
+  "routeTopicId && !authLoading && isConvexAuthenticated",
+  "suspendMissingDetection: authLoading || !isConvexAuthenticated",
   "user?.id && isConvexAuthenticated ? {} : 'skip'",
 ]) {
   if (!topicDetailSource.includes(snippet)) {
