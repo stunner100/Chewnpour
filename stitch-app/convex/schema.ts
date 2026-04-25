@@ -252,6 +252,8 @@ export default defineSchema({
         distinctivenessScore: v.optional(v.number()),
         questionVarietyScore: v.optional(v.number()),
         redundancyRiskScore: v.optional(v.number()),
+        strongestNeighborOverlap: v.optional(v.number()),
+        supportedQuestionTypes: v.optional(v.array(v.string())),
         sourceChunkIds: v.optional(v.array(v.number())),
         sourcePassageIds: v.optional(v.array(v.string())),
         structuredSubtopics: v.optional(v.array(v.string())),
