@@ -67,7 +67,7 @@ const buildEssayExamRoute = (examTopicId) =>
 const TopicDetail = () => {
     const { topicId: topicIdParam } = useParams();
     const routeTopicId = typeof topicIdParam === 'string' ? topicIdParam.trim() : '';
-    const { user, profile, updateProfile } = useAuth();
+    const { user, profile, updateProfile, loading: authLoading } = useAuth();
     const { isAuthenticated: isConvexAuthenticated } = useConvexAuth();
     useStudyTimer(user?.id);
     const synthesizeTopicVoice = useAction(api.ai.synthesizeTopicVoice);
@@ -111,14 +111,18 @@ const TopicDetail = () => {
     }, [navigate]);
     const topicQueryResult = useQuery(
         api.topics.getTopicWithQuestions,
-        routeTopicId ? { topicId: routeTopicId } : 'skip'
+        routeTopicId && !authLoading && isConvexAuthenticated
+            ? { topicId: routeTopicId }
+            : 'skip'
     );
     const {
         topic,
         topicId,
         isLoadingRouteTopic,
         isMissingRouteTopic,
-    } = useRouteResolvedTopic(routeTopicId, topicQueryResult);
+    } = useRouteResolvedTopic(routeTopicId, topicQueryResult, {
+        suspendMissingDetection: authLoading || !isConvexAuthenticated,
+    });
     const courseId = topic?.courseId;
     const finalAssessmentTopic = useQuery(
         api.topics.getFinalAssessmentTopicByCourseAndUpload,
