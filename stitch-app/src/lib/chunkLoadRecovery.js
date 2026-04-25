@@ -9,9 +9,21 @@ const STALE_CONVEX_CALL_SIGNATURES = [
     /subscriptions:getVoiceGenerationQuotaStatus/i,
     /topics:getTopicWithQuestions/i,
 ];
-const STALE_TOPIC_ROUTE_LOOKUP_PATTERN = /topics:getTopicWithQuestions/i;
+const STALE_TOPIC_ROUTE_CALL_SIGNATURES = [
+    /topics:getTopicWithQuestions/i,
+    /topics:getUserTopicProgress/i,
+    /topics:getTopicSourcePassages/i,
+    /topicNotes:getNote/i,
+    /topicChat:getMessages/i,
+    /tutor:getTopicTutorSupport/i,
+    /videos:listTopicVideos/i,
+    /podcasts:listTopicPodcasts/i,
+    /concepts:getConceptMasteryForTopic/i,
+];
 const STALE_TOPIC_ROUTE_VALIDATION_PATTERN =
     /ArgumentValidationError|validator\s+`?v\.id\("topics"\)`?|does not match the table name in validator/i;
+const STALE_TOPIC_ROUTE_FOUND_ID_PATTERN =
+    /Found ID\s+"?[a-z0-9]{32}"?\s+from table\s+`[^`]+`/i;
 const STALE_TOPIC_ROUTE_PATH_PATTERN =
     /^\/dashboard\/(?:exam|topic|concept-intro|concept)(?:\/|$)/i;
 const STALE_EXAM_ROUTE_REFERENCE_PATTERNS = [
@@ -54,8 +66,11 @@ export const isStaleConvexClientError = (errorLike) => {
 export const isStaleTopicRouteLookupError = (errorLike) => {
     const message = normalizeMessage(errorLike);
     if (!message) return false;
-    if (!STALE_TOPIC_ROUTE_LOOKUP_PATTERN.test(message)) return false;
-    return STALE_TOPIC_ROUTE_VALIDATION_PATTERN.test(message);
+    if (!STALE_TOPIC_ROUTE_VALIDATION_PATTERN.test(message)) return false;
+    if (STALE_TOPIC_ROUTE_CALL_SIGNATURES.some((pattern) => pattern.test(message))) {
+        return true;
+    }
+    return STALE_TOPIC_ROUTE_FOUND_ID_PATTERN.test(message);
 };
 
 export const isStaleTopicRoutePathname = (pathname) =>
