@@ -21,6 +21,14 @@ const requiredStaleSignatures = [
   'subscriptions:getPublicTopUpPricing',
   'subscriptions:getVoiceGenerationQuotaStatus',
   'topics:getTopicWithQuestions',
+  'topics:getUserTopicProgress',
+  'topics:getTopicSourcePassages',
+  'topicNotes:getNote',
+  'topicChat:getMessages',
+  'tutor:getTopicTutorSupport',
+  'videos:listTopicVideos',
+  'podcasts:listTopicPodcasts',
+  'concepts:getConceptMasteryForTopic',
 ];
 
 for (const signature of requiredStaleSignatures) {
@@ -67,6 +75,10 @@ for (const snippet of routeGuardSnippets) {
 
 if (!chunkRecoverySource.includes('export const isStaleTopicRouteLookupError = (errorLike) => {')) {
   throw new Error('Regression detected: chunk recovery no longer identifies stale topic route lookup errors.');
+}
+
+if (!chunkRecoverySource.includes('const STALE_TOPIC_ROUTE_FOUND_ID_PATTERN =')) {
+  throw new Error('Regression detected: stale topic route recovery no longer falls back to table-mismatch ID errors.');
 }
 
 if (!chunkRecoverySource.includes('window.location.replace(\'/dashboard\');')) {
