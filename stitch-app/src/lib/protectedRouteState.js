@@ -11,7 +11,7 @@ export const resolveProtectedRouteState = ({
 }) => {
     const isOnboardingRoute = ONBOARDING_PATHS.some((routePath) => pathname.startsWith(routePath));
 
-    if (loading && !user) {
+    if (loading) {
         return {
             type: 'loading',
             isOnboardingRoute,

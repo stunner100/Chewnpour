@@ -18,18 +18,34 @@ const OBJECTIVE_MIN_USABLE_DISTRACTOR_SCORE = 0.6;
 
 export const collectAuthUserIdCandidates = (identity) => {
     if (!identity || typeof identity !== "object") return [];
-    const candidates = [
-        identity.subject,
-        identity.userId,
-        identity.id,
-        identity.tokenIdentifier,
-    ];
     const deduped = [];
-    for (const candidate of candidates) {
-        if (typeof candidate !== "string") continue;
+    const pushCandidate = (candidate) => {
+        if (typeof candidate !== "string") return;
         const normalizedCandidate = candidate.trim();
-        if (!normalizedCandidate || deduped.includes(normalizedCandidate)) continue;
+        if (!normalizedCandidate || deduped.includes(normalizedCandidate)) return;
         deduped.push(normalizedCandidate);
+    };
+
+    pushCandidate(identity.subject);
+    pushCandidate(identity.userId);
+    pushCandidate(identity.id);
+
+    const tokenIdentifier =
+        typeof identity.tokenIdentifier === "string"
+            ? identity.tokenIdentifier.trim()
+            : "";
+    if (tokenIdentifier) {
+        pushCandidate(tokenIdentifier);
+
+        for (const separator of ["|", ":"]) {
+            const segments = tokenIdentifier
+                .split(separator)
+                .map((segment) => segment.trim())
+                .filter(Boolean);
+            if (segments.length > 1) {
+                pushCandidate(segments[segments.length - 1]);
+            }
+        }
     }
     return deduped;
 };

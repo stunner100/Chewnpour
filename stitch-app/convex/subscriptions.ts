@@ -8,6 +8,7 @@ import {
     query,
 } from "./_generated/server";
 import { internal } from "./_generated/api";
+import { collectAuthUserIdCandidates } from "./lib/examSecurity";
 
 export const FREE_UPLOAD_LIMIT = 3;
 export const TOPUP_CURRENCY = "GHS";
@@ -255,21 +256,7 @@ const resolveTopUpPlanByPayment = (amountMinor: number, currency: string) => {
 };
 
 const resolveAuthUserId = (identity: any) => {
-    if (!identity || typeof identity !== "object") return "";
-    const candidates = [
-        identity.subject,
-        identity.userId,
-        identity.id,
-        identity.tokenIdentifier,
-    ];
-
-    for (const candidate of candidates) {
-        if (typeof candidate === "string" && candidate.trim()) {
-            return candidate.trim();
-        }
-    }
-
-    return "";
+    return collectAuthUserIdCandidates(identity)[0] || "";
 };
 
 const assertAuthenticatedUserId = (identity: any) => {

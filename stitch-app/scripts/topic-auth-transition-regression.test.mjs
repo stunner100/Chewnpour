@@ -4,12 +4,14 @@ import path from 'node:path';
 const root = process.cwd();
 const read = (relativePath) => fs.readFile(path.join(root, relativePath), 'utf8');
 
-const [topicDetailSource, authContextSource, topicsSource, profilesSource, examSecuritySource] = await Promise.all([
+const [topicDetailSource, authContextSource, topicsSource, profilesSource, examSecuritySource, subscriptionsSource, protectedRouteStateSource] = await Promise.all([
   read('src/pages/TopicDetail.jsx'),
   read('src/contexts/AuthContext.jsx'),
   read('convex/topics.ts'),
   read('convex/profiles.ts'),
   read('convex/lib/examSecurity.js'),
+  read('convex/subscriptions.ts'),
+  read('src/lib/protectedRouteState.js'),
 ]);
 
 for (const snippet of [
@@ -42,6 +44,7 @@ for (const snippet of [
   "export const collectAuthUserIdCandidates = (identity) => {",
   "authUserIds,",
   "!normalizedAuthUserIds.includes(normalizedResourceOwnerUserId)",
+  "for (const separator of [\"|\", \":\"])",
 ]) {
   if (!examSecuritySource.includes(snippet)) {
     throw new Error(`Regression detected: examSecurity auth candidate handling missing snippet: ${snippet}`);
@@ -65,6 +68,26 @@ for (const snippet of [
 ]) {
   if (!profilesSource.includes(snippet)) {
     throw new Error(`Regression detected: profiles auth candidate handling missing snippet: ${snippet}`);
+  }
+}
+
+for (const snippet of [
+  "import { collectAuthUserIdCandidates } from \"./lib/examSecurity\";",
+  "return collectAuthUserIdCandidates(identity)[0] || \"\";",
+]) {
+  if (!subscriptionsSource.includes(snippet)) {
+    throw new Error(`Regression detected: subscriptions auth candidate handling missing snippet: ${snippet}`);
+  }
+}
+
+for (const snippet of [
+  'if (loading) {',
+  "type: 'loading',",
+  'if (!user) {',
+  'if (profileReady) {',
+]) {
+  if (!protectedRouteStateSource.includes(snippet)) {
+    throw new Error(`Regression detected: protected route loading guard missing snippet: ${snippet}`);
   }
 }
 
