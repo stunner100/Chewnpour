@@ -1,4 +1,4 @@
-import React, { memo, useMemo, useState } from 'react';
+import React, { Component, memo, useMemo, useState } from 'react';
 import { useQuery, useMutation } from 'convex/react';
 import { api } from '../../convex/_generated/api';
 
@@ -30,7 +30,33 @@ const formatDuration = (startedAt) => {
     return `${minutes}m ${rem}s elapsed`;
 };
 
-const TopicVideoPanel = memo(function TopicVideoPanel({ topicId }) {
+class TopicVideoPanelBoundary extends Component {
+    constructor(props) {
+        super(props);
+        this.state = { hasError: false };
+    }
+
+    static getDerivedStateFromError() {
+        return { hasError: true };
+    }
+
+    componentDidUpdate(prevProps) {
+        if (prevProps.topicId !== this.props.topicId && this.state.hasError) {
+            this.setState({ hasError: false });
+        }
+    }
+
+    componentDidCatch(error) {
+        console.warn('Topic video panel failed to render', error);
+    }
+
+    render() {
+        if (this.state.hasError) return null;
+        return this.props.children;
+    }
+}
+
+const TopicVideoPanelInner = memo(function TopicVideoPanelInner({ topicId }) {
     const videos = useQuery(api.videos.listTopicVideos, topicId ? { topicId } : 'skip');
     const requestVideo = useMutation(api.videos.requestTopicVideo);
     const [submitting, setSubmitting] = useState(false);
@@ -125,6 +151,14 @@ const TopicVideoPanel = memo(function TopicVideoPanel({ topicId }) {
                 </div>
             )}
         </div>
+    );
+});
+
+const TopicVideoPanel = memo(function TopicVideoPanel({ topicId }) {
+    return (
+        <TopicVideoPanelBoundary topicId={topicId}>
+            <TopicVideoPanelInner topicId={topicId} />
+        </TopicVideoPanelBoundary>
     );
 });
 
