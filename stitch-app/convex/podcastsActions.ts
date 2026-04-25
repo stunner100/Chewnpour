@@ -4,7 +4,8 @@ import { v } from "convex/values";
 import { internalAction } from "./_generated/server";
 import { internal } from "./_generated/api";
 
-const DEFAULT_VOICE_MODEL = "aura-asteria-en";
+const DEFAULT_HOST_VOICE_MODEL = "aura-asteria-en";
+const DEFAULT_GUEST_VOICE_MODEL = "aura-luna-en";
 const NARRATION_WORDS_PER_MINUTE = 150;
 const MAX_TTS_CHARS = 1900; // Deepgram /v1/speak character limit per request.
 
@@ -21,9 +22,12 @@ const resolveDeepgramBaseUrl = () =>
         .trim()
         .replace(/\/+$/, "");
 
-const resolveVoiceModel = () => {
-    const configured = String(process.env.PODCAST_VOICE_MODEL || "").trim();
-    return configured || DEFAULT_VOICE_MODEL;
+const resolveVoiceModels = () => {
+    const hostVoiceModel = String(process.env.PODCAST_HOST_VOICE_MODEL || "").trim()
+        || DEFAULT_HOST_VOICE_MODEL;
+    const guestVoiceModel = String(process.env.PODCAST_GUEST_VOICE_MODEL || "").trim()
+        || DEFAULT_GUEST_VOICE_MODEL;
+    return { hostVoiceModel, guestVoiceModel };
 };
 
 const resolveTtsTimeoutMs = () => {
@@ -38,9 +42,16 @@ const resolveErrorMessage = (error: unknown, fallback: string): string => {
     return message ? `${fallback}: ${message}` : fallback;
 };
 
-// Split a podcast script into chunks small enough for the TTS provider while
-// preferring sentence boundaries so each chunk reads cleanly on its own.
-const splitScriptForTts = (script: string, maxChars: number): string[] => {
+type SpeakerName = "HOST" | "GUEST";
+
+type DialogueTurn = {
+    speaker: SpeakerName;
+    text: string;
+};
+
+// Split text into chunks small enough for the TTS provider while preferring
+// sentence boundaries so each chunk reads cleanly on its own.
+const splitTextForTts = (script: string, maxChars: number): string[] => {
     const trimmed = String(script || "").trim();
     if (!trimmed) return [];
     if (trimmed.length <= maxChars) return [trimmed];
@@ -82,6 +93,47 @@ const splitScriptForTts = (script: string, maxChars: number): string[] => {
     if (current) chunks.push(current);
     return chunks;
 };
+
+const parseDialogueTurns = (script: string): DialogueTurn[] => {
+    const turns: DialogueTurn[] = [];
+    const speakerPattern = /^(HOST|GUEST)\s*:\s*(.+)$/i;
+    let current: DialogueTurn | null = null;
+
+    for (const rawLine of String(script || "").split(/\r?\n/)) {
+        const line = rawLine.trim();
+        if (!line) continue;
+
+        const speakerMatch = line.match(speakerPattern);
+        if (speakerMatch) {
+            if (current?.text) {
+                turns.push(current);
+            }
+            current = {
+                speaker: speakerMatch[1].toUpperCase() as SpeakerName,
+                text: speakerMatch[2].trim(),
+            };
+            continue;
+        }
+
+        if (current) {
+            current.text = `${current.text} ${line}`.trim();
+        }
+    }
+
+    if (current?.text) {
+        turns.push(current);
+    }
+
+    return turns.filter((turn) => turn.text.length > 0);
+};
+
+const expandTurnsForTts = (turns: DialogueTurn[], maxChars: number) =>
+    turns.flatMap((turn) =>
+        splitTextForTts(turn.text, maxChars).map((text) => ({
+            speaker: turn.speaker,
+            text,
+        })),
+    );
 
 const fetchWithTimeout = async (url: string, init: RequestInit, timeoutMs: number) => {
     const controller = new AbortController();
@@ -171,19 +223,24 @@ export const kickoff = internalAction({
 
             const apiKey = resolveDeepgramApiKey();
             const baseUrl = resolveDeepgramBaseUrl();
-            const voiceModel = resolveVoiceModel();
+            const { hostVoiceModel, guestVoiceModel } = resolveVoiceModels();
             const timeoutMs = resolveTtsTimeoutMs();
 
-            const chunks = splitScriptForTts(text, MAX_TTS_CHARS);
+            const turns = parseDialogueTurns(text);
+            if (turns.length === 0) {
+                throw new Error("Generated podcast script did not contain valid dialogue turns.");
+            }
+
+            const chunks = expandTurnsForTts(turns, MAX_TTS_CHARS);
             if (chunks.length === 0) {
-                throw new Error("Failed to chunk podcast script for TTS.");
+                throw new Error("Failed to chunk podcast dialogue for TTS.");
             }
 
             const audioChunks: Uint8Array[] = [];
             for (const chunk of chunks) {
                 const audio = await synthesizeChunk({
-                    text: chunk,
-                    voiceModel,
+                    text: chunk.text,
+                    voiceModel: chunk.speaker === "HOST" ? hostVoiceModel : guestVoiceModel,
                     apiKey,
                     baseUrl,
                     timeoutMs,
@@ -207,7 +264,7 @@ export const kickoff = internalAction({
                 script: text,
                 scriptWordCount: wordCount,
                 durationSeconds,
-                voiceModel,
+                voiceModel: `${hostVoiceModel}|${guestVoiceModel}`,
                 qualityWarnings: Array.isArray(script?.qualityWarnings)
                     ? script.qualityWarnings
                     : [],

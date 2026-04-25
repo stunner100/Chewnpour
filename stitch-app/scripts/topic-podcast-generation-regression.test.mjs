@@ -70,6 +70,15 @@ if (!/'use node'|"use node"/.test(podcastsActionsSource)) {
 if (!/internal\.ai\.generatePodcastScriptInternal/.test(podcastsActionsSource)) {
     throw new Error('Expected podcastsActions.kickoff to delegate script generation to ai.generatePodcastScriptInternal.');
 }
+if (!/const resolveVoiceModels = \(\)/.test(podcastsActionsSource)) {
+    throw new Error('Expected podcastsActions.ts to resolve separate host and guest voice models.');
+}
+if (!/const parseDialogueTurns = \(script: string\): DialogueTurn\[] =>/.test(podcastsActionsSource)) {
+    throw new Error('Expected podcastsActions.ts to parse HOST and GUEST dialogue turns.');
+}
+if (!/chunk\.speaker === "HOST" \? hostVoiceModel : guestVoiceModel/.test(podcastsActionsSource)) {
+    throw new Error('Expected podcastsActions.ts to synthesize host and guest turns with different voice models.');
+}
 if (!/\/v1\/speak\?model=/.test(podcastsActionsSource)) {
     throw new Error('Expected podcastsActions.ts to call the Deepgram /v1/speak endpoint.');
 }
@@ -95,6 +104,9 @@ if (!/expectedStartedAt: attemptStartedAt/.test(podcastsActionsSource)) {
 if (!/export const generatePodcastScriptInternal = internalAction/.test(aiSource)) {
     throw new Error('Expected ai.ts to expose generatePodcastScriptInternal.');
 }
+if (!/Every spoken turn must begin with either 'HOST:' or 'GUEST:'/i.test(aiSource)) {
+    throw new Error('Expected the script generator to require HOST and GUEST dialogue turns.');
+}
 if (!/PODCAST_SCRIPT_TOO_SHORT/.test(aiSource)) {
     throw new Error('Expected the script generator to reject scripts that are too short to use.');
 }
@@ -105,6 +117,9 @@ if (!/internal\.podcasts\.sweepStuckPodcastsInternal/.test(cronsSource)) {
 
 if (!/api\.podcasts\.requestTopicPodcast/.test(panelSource)) {
     throw new Error('Expected TopicPodcastPanel to call api.podcasts.requestTopicPodcast.');
+}
+if (!/two-speaker audio explainer/.test(panelSource)) {
+    throw new Error('Expected TopicPodcastPanel copy to describe the two-speaker format.');
 }
 if (!/<audio\b/.test(panelSource)) {
     throw new Error('Expected TopicPodcastPanel to render an <audio> element when ready.');

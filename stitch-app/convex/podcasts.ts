@@ -5,7 +5,8 @@ import { api, internal } from "./_generated/api";
 import { resolveAuthUserId } from "./lib/examSecurity";
 
 const DEFAULT_TARGET_WORD_COUNT = 1200;
-const DEFAULT_VOICE_MODEL = "aura-asteria-en";
+const DEFAULT_HOST_VOICE_MODEL = "aura-asteria-en";
+const DEFAULT_GUEST_VOICE_MODEL = "aura-luna-en";
 
 const MAX_CONCURRENT_PODCAST_JOBS = Number(process.env.MAX_CONCURRENT_PODCAST_JOBS ?? 5);
 const STUCK_JOB_MS = 15 * 60 * 1000;
@@ -15,9 +16,12 @@ type PodcastStatus = "pending" | "running" | "ready" | "failed";
 const isFeatureEnabled = () =>
     String(process.env.PODCAST_GEN_ENABLED ?? "").toLowerCase() === "true";
 
-const resolveVoiceModel = () => {
-    const configured = String(process.env.PODCAST_VOICE_MODEL ?? "").trim();
-    return configured || DEFAULT_VOICE_MODEL;
+const resolveVoiceModelDescriptor = () => {
+    const hostVoiceModel = String(process.env.PODCAST_HOST_VOICE_MODEL ?? "").trim()
+        || DEFAULT_HOST_VOICE_MODEL;
+    const guestVoiceModel = String(process.env.PODCAST_GUEST_VOICE_MODEL ?? "").trim()
+        || DEFAULT_GUEST_VOICE_MODEL;
+    return `${hostVoiceModel}|${guestVoiceModel}`;
 };
 
 const isPodcastInFlight = (row: { status?: string }) =>
@@ -212,7 +216,7 @@ export const requestTopicPodcast = mutation({
             userId,
             topicId: args.topicId,
             status: "pending",
-            voiceModel: resolveVoiceModel(),
+            voiceModel: resolveVoiceModelDescriptor(),
             targetWordCount,
             startedAt: now,
             createdAt: now,
