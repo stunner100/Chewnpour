@@ -3,10 +3,10 @@ import { useQuery, useMutation } from 'convex/react';
 import { api } from '../../convex/_generated/api';
 
 const STATUS_COPY = {
-    pending: 'Queued — starting generation…',
-    running: 'Generating your explainer video…',
-    ready: 'Your explainer video is ready.',
-    failed: 'Video generation failed.',
+    pending: 'Queued — writing your script…',
+    running: 'Synthesizing audio…',
+    ready: 'Your podcast is ready.',
+    failed: 'Podcast generation failed.',
 };
 
 const resolveErrorMessage = (error, fallback) => {
@@ -21,7 +21,7 @@ const resolveErrorMessage = (error, fallback) => {
     return resolved || fallback;
 };
 
-const formatDuration = (startedAt) => {
+const formatElapsed = (startedAt) => {
     if (!startedAt) return '';
     const seconds = Math.max(0, Math.round((Date.now() - startedAt) / 1000));
     if (seconds < 60) return `${seconds}s elapsed`;
@@ -30,7 +30,15 @@ const formatDuration = (startedAt) => {
     return `${minutes}m ${rem}s elapsed`;
 };
 
-class TopicVideoPanelBoundary extends Component {
+const formatDuration = (durationSeconds) => {
+    if (!durationSeconds || durationSeconds <= 0) return '';
+    const total = Math.round(durationSeconds);
+    const minutes = Math.floor(total / 60);
+    const seconds = total % 60;
+    return `${minutes}m ${String(seconds).padStart(2, '0')}s`;
+};
+
+class TopicPodcastPanelBoundary extends Component {
     constructor(props) {
         super(props);
         this.state = { hasError: false };
@@ -47,7 +55,7 @@ class TopicVideoPanelBoundary extends Component {
     }
 
     componentDidCatch(error) {
-        console.warn('Topic video panel failed to render', error);
+        console.warn('Topic podcast panel failed to render', error);
     }
 
     render() {
@@ -56,14 +64,18 @@ class TopicVideoPanelBoundary extends Component {
     }
 }
 
-const TopicVideoPanelInner = memo(function TopicVideoPanelInner({ topicId }) {
-    const videos = useQuery(api.videos.listTopicVideos, topicId ? { topicId } : 'skip');
-    const requestVideo = useMutation(api.videos.requestTopicVideo);
+const TopicPodcastPanelInner = memo(function TopicPodcastPanelInner({ topicId }) {
+    const podcasts = useQuery(api.podcasts.listTopicPodcasts, topicId ? { topicId } : 'skip');
+    const requestPodcast = useMutation(api.podcasts.requestTopicPodcast);
+    const retryPodcast = useMutation(api.podcasts.retryTopicPodcast);
     const [submitting, setSubmitting] = useState(false);
     const [submitError, setSubmitError] = useState('');
 
-    const latest = useMemo(() => (Array.isArray(videos) && videos.length > 0 ? videos[0] : null), [videos]);
-    const loading = videos === undefined;
+    const latest = useMemo(
+        () => (Array.isArray(podcasts) && podcasts.length > 0 ? podcasts[0] : null),
+        [podcasts],
+    );
+    const loading = podcasts === undefined;
     const inFlight = latest?.status === 'pending' || latest?.status === 'running';
 
     const handleGenerate = async () => {
@@ -71,9 +83,22 @@ const TopicVideoPanelInner = memo(function TopicVideoPanelInner({ topicId }) {
         setSubmitError('');
         setSubmitting(true);
         try {
-            await requestVideo({ topicId });
+            await requestPodcast({ topicId });
         } catch (error) {
-            setSubmitError(resolveErrorMessage(error, 'Could not start video generation.'));
+            setSubmitError(resolveErrorMessage(error, 'Could not start podcast generation.'));
+        } finally {
+            setSubmitting(false);
+        }
+    };
+
+    const handleRetry = async () => {
+        if (!latest?._id || submitting) return;
+        setSubmitError('');
+        setSubmitting(true);
+        try {
+            await retryPodcast({ podcastId: latest._id });
+        } catch (error) {
+            setSubmitError(resolveErrorMessage(error, 'Could not retry podcast generation.'));
         } finally {
             setSubmitting(false);
         }
@@ -84,17 +109,17 @@ const TopicVideoPanelInner = memo(function TopicVideoPanelInner({ topicId }) {
             <div className="flex items-start justify-between gap-4">
                 <div>
                     <div className="flex items-center gap-2 text-body-sm text-text-sub-light dark:text-text-sub-dark">
-                        <span className="material-symbols-outlined text-[18px]">movie</span>
-                        <span>Explainer video</span>
+                        <span className="material-symbols-outlined text-[18px]">mic</span>
+                        <span>Explainer podcast</span>
                         <span className="inline-flex items-center rounded-full bg-amber-100 dark:bg-amber-500/20 text-amber-700 dark:text-amber-300 text-caption px-2 py-0.5">
                             Staging preview
                         </span>
                     </div>
                     <h3 className="mt-1 text-body font-semibold text-text-light dark:text-text-dark">
-                        Turn this concept into a short video
+                        Listen to this topic as a podcast
                     </h3>
                     <p className="mt-1 text-body-sm text-text-sub-light dark:text-text-sub-dark">
-                        Generates a ~5-second classroom-style clip from this topic's content.
+                        Generates an ~8-minute single-narrator audio explainer from this topic's content.
                     </p>
                 </div>
                 <button
@@ -104,9 +129,9 @@ const TopicVideoPanelInner = memo(function TopicVideoPanelInner({ topicId }) {
                     className="btn-primary px-4 py-2 text-body-sm gap-2 shrink-0 disabled:opacity-60 disabled:cursor-not-allowed"
                 >
                     <span className="material-symbols-outlined text-[18px]">
-                        {inFlight ? 'hourglass_top' : 'play_arrow'}
+                        {inFlight ? 'hourglass_top' : 'graphic_eq'}
                     </span>
-                    {inFlight ? 'Generating…' : 'Generate video'}
+                    {inFlight ? 'Generating…' : 'Generate podcast'}
                 </button>
             </div>
 
@@ -121,30 +146,46 @@ const TopicVideoPanelInner = memo(function TopicVideoPanelInner({ topicId }) {
                     <div className="text-caption text-text-sub-light dark:text-text-sub-dark mb-2">
                         {STATUS_COPY[latest.status] ?? latest.status}
                         {inFlight && (
-                            <span className="ml-2 opacity-70">{formatDuration(latest.createdAt)}</span>
+                            <span className="ml-2 opacity-70">{formatElapsed(latest.createdAt)}</span>
                         )}
+                        {latest.status === 'ready' && latest.durationSeconds ? (
+                            <span className="ml-2 opacity-70">{formatDuration(latest.durationSeconds)}</span>
+                        ) : null}
                     </div>
 
-                    {latest.status === 'ready' && latest.videoUrl && (
-                        <video
+                    {latest.status === 'ready' && latest.audioUrl && (
+                        <audio
                             key={latest._id}
-                            src={latest.videoUrl}
+                            src={latest.audioUrl}
                             controls
-                            playsInline
+                            preload="none"
                             className="w-full rounded-xl border border-border-light dark:border-border-dark"
-                        />
+                        >
+                            <track kind="captions" />
+                        </audio>
                     )}
 
                     {latest.status === 'failed' && (
-                        <div className="rounded-lg border border-red-200 dark:border-red-500/30 bg-red-50 dark:bg-red-500/10 text-red-700 dark:text-red-300 text-body-sm px-3 py-2">
-                            {latest.errorMessage || 'Unknown error. Try again.'}
+                        <div className="space-y-2">
+                            <div className="rounded-lg border border-red-200 dark:border-red-500/30 bg-red-50 dark:bg-red-500/10 text-red-700 dark:text-red-300 text-body-sm px-3 py-2">
+                                {latest.errorMessage || 'Unknown error. Try again.'}
+                            </div>
+                            <button
+                                type="button"
+                                onClick={handleRetry}
+                                disabled={submitting}
+                                className="btn-secondary px-3 py-1.5 text-body-sm gap-2 disabled:opacity-60"
+                            >
+                                <span className="material-symbols-outlined text-[16px]">refresh</span>
+                                Retry
+                            </button>
                         </div>
                     )}
 
                     {inFlight && (
-                        <div className="aspect-[9/16] sm:aspect-video max-h-64 w-full rounded-xl border border-dashed border-border-light dark:border-border-dark flex items-center justify-center">
-                            <span className="material-symbols-outlined text-[28px] text-text-sub-light dark:text-text-sub-dark animate-pulse">
-                                movie
+                        <div className="h-16 w-full rounded-xl border border-dashed border-border-light dark:border-border-dark flex items-center justify-center">
+                            <span className="material-symbols-outlined text-[24px] text-text-sub-light dark:text-text-sub-dark animate-pulse">
+                                graphic_eq
                             </span>
                         </div>
                     )}
@@ -154,12 +195,12 @@ const TopicVideoPanelInner = memo(function TopicVideoPanelInner({ topicId }) {
     );
 });
 
-const TopicVideoPanel = memo(function TopicVideoPanel({ topicId }) {
+const TopicPodcastPanel = memo(function TopicPodcastPanel({ topicId }) {
     return (
-        <TopicVideoPanelBoundary topicId={topicId}>
-            <TopicVideoPanelInner topicId={topicId} />
-        </TopicVideoPanelBoundary>
+        <TopicPodcastPanelBoundary topicId={topicId}>
+            <TopicPodcastPanelInner topicId={topicId} />
+        </TopicPodcastPanelBoundary>
     );
 });
 
-export default TopicVideoPanel;
+export default TopicPodcastPanel;

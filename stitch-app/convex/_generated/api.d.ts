@@ -69,6 +69,8 @@ import type * as lib_voiceStreamToken from "../lib/voiceStreamToken.js";
 import type * as lib_voyageEmbeddings from "../lib/voyageEmbeddings.js";
 import type * as lib_yieldEstimation from "../lib/yieldEstimation.js";
 import type * as llmUsage from "../llmUsage.js";
+import type * as podcasts from "../podcasts.js";
+import type * as podcastsActions from "../podcastsActions.js";
 import type * as productResearch from "../productResearch.js";
 import type * as productResearchEmails from "../productResearchEmails.js";
 import type * as profiles from "../profiles.js";
@@ -152,6 +154,8 @@ declare const fullApi: ApiFromModules<{
   "lib/voyageEmbeddings": typeof lib_voyageEmbeddings;
   "lib/yieldEstimation": typeof lib_yieldEstimation;
   llmUsage: typeof llmUsage;
+  podcasts: typeof podcasts;
+  podcastsActions: typeof podcastsActions;
   productResearch: typeof productResearch;
   productResearchEmails: typeof productResearchEmails;
   profiles: typeof profiles;

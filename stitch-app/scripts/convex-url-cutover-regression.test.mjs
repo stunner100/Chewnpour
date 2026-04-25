@@ -24,6 +24,10 @@ if (!convexConfigSource.includes('export const hasConvexUrl = convexUrl.length >
   throw new Error('Expected convex-config to gate Convex client setup on explicit URL presence.');
 }
 
+if (!/VITE_CONVEX_SITE_URL/.test(convexConfigSource) || !/envConvexSiteUrl \|\| convexUrl\.replace/.test(convexConfigSource)) {
+  throw new Error('Expected convex-config to honor VITE_CONVEX_SITE_URL for custom Convex site domains.');
+}
+
 const envExamplePath = path.join(root, '.env.example');
 const envExampleSource = await fs.readFile(envExamplePath, 'utf8');
 

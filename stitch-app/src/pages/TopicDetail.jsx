@@ -12,6 +12,7 @@ import TopicSidebar from '../components/TopicSidebar';
 import TopicNotesPanel from '../components/TopicNotesPanel';
 import TopicChatPanel from '../components/TopicChatPanel';
 import TopicVideoPanel from '../components/TopicVideoPanel';
+import TopicPodcastPanel from '../components/TopicPodcastPanel';
 import HighlightExplainPopover from '../components/HighlightExplainPopover';
 import LessonContentRenderer from '../components/LessonContentRenderer';
 import StudyModeSelector from '../components/StudyModeSelector';
@@ -1132,6 +1133,13 @@ const TopicDetail = () => {
                             {import.meta.env.VITE_VIDEO_GEN_ENABLED === 'true' && topicId && (
                                 <div className="mt-6 text-left">
                                     <TopicVideoPanel topicId={topicId} />
+                                </div>
+                            )}
+
+                            {/* Deepgram explainer podcast (staging only) */}
+                            {import.meta.env.VITE_PODCAST_GEN_ENABLED === 'true' && topicId && (
+                                <div className="mt-6 text-left">
+                                    <TopicPodcastPanel topicId={topicId} />
                                 </div>
                             )}
                         </div>
