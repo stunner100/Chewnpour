@@ -119,7 +119,7 @@ const TopicPodcastPanelInner = memo(function TopicPodcastPanelInner({ topicId })
                         Listen to this topic as a podcast
                     </h3>
                     <p className="mt-1 text-body-sm text-text-sub-light dark:text-text-sub-dark">
-                        Generates an ~8-minute single-narrator audio explainer from this topic's content.
+                        Generates an ~8-minute two-speaker audio explainer from this topic's content.
                     </p>
                 </div>
                 <button

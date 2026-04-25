@@ -14727,8 +14727,8 @@ const isFreshExamAuthoringFallbackEligibleError = (error: any) => {
 };
 
 // ── Topic podcast script generation ────────────────────────────────────────
-// Generates a single-narrator explainer podcast script grounded in the topic
-// content. Returns plain text suitable for direct synthesis with a TTS provider.
+// Generates a grounded two-speaker explainer podcast transcript suitable for
+// direct synthesis with a TTS provider.
 
 const PODCAST_DEFAULT_TARGET_WORDS = 1200;
 const PODCAST_MIN_WORDS = 400;
@@ -14808,20 +14808,20 @@ export const generatePodcastScriptInternal = internalAction({
             }
 
             const systemPrompt =
-                "You are a friendly, clear-spoken explainer podcast host. "
-                + "You are recording a single-narrator audio episode for a learner studying the lesson below. "
+                "You are writing a friendly, clear-spoken explainer podcast transcript for two speakers helping a learner study the lesson below. "
                 + "Rules: "
-                + "1) Output plain spoken prose only — no markdown, no headings, no bullet points, no stage directions, no speaker tags. "
-                + "2) Speak as one consistent narrator throughout. "
-                + "3) Open with a one-sentence hook, then explain the concept clearly with concrete examples drawn from the lesson, then end with a brief summary. "
-                + "4) Use natural sentence-level flow that sounds good when read aloud. Short sentences. Vary rhythm. "
+                + "1) Output transcript lines only. Every spoken turn must begin with either 'HOST:' or 'GUEST:'. "
+                + "2) Alternate naturally between HOST and GUEST. Do not let either speaker disappear for long stretches. "
+                + "3) The HOST should guide the lesson, ask sharp setup questions, and summarize transitions. The GUEST should explain, clarify, and work through examples. "
+                + "4) Use natural spoken language that sounds good when read aloud. Short sentences. Vary rhythm. "
                 + "5) Stay grounded in the LESSON CONTENT and SOURCE EVIDENCE. Do not invent facts. "
-                + "6) Do not use placeholders like [pause] or [music]. Do not say 'In this podcast' or 'Welcome back'. "
-                + "7) Aim for approximately " + targetWords + " words. Stop when you've covered the material clearly.";
+                + "6) No markdown, no headings, no bullet points, no stage directions, no sound cues, and no narration outside speaker lines. "
+                + "7) Open quickly with a hook and move straight into the concept. End with a concise recap. "
+                + "8) Aim for approximately " + targetWords + " words across both speakers. Stop when the material is clearly covered.";
 
             const userPrompt =
                 `${lessonBlock}${evidenceBlock}\n\n`
-                + `Write the spoken podcast script now. Approximately ${targetWords} words. Plain prose only.`;
+                + `Write the two-speaker podcast transcript now. Approximately ${targetWords} words total.`;
 
             const rawScript = await callInception(
                 [

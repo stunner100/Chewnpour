@@ -829,7 +829,7 @@ export default defineSchema({
         .index("by_userId_topicId", ["userId", "topicId"])
         .index("by_status_startedAt", ["status", "startedAt"]),
 
-    // Deepgram-generated single-narrator explainer podcasts for a topic (staging feature).
+    // Deepgram-generated two-speaker explainer podcasts for a topic (staging feature).
     topicPodcasts: defineTable({
         userId: v.string(),
         topicId: v.id("topics"),
