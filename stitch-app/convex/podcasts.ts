@@ -7,6 +7,8 @@ import { resolveAuthUserId } from "./lib/examSecurity";
 const DEFAULT_TARGET_WORD_COUNT = 1200;
 const DEFAULT_HOST_VOICE_MODEL = "aura-2-apollo-en";
 const DEFAULT_GUEST_VOICE_MODEL = "aura-2-luna-en";
+const DEFAULT_MIMO_HOST_VOICE = "Milo";
+const DEFAULT_MIMO_GUEST_VOICE = "Chloe";
 
 const MAX_CONCURRENT_PODCAST_JOBS = Number(process.env.MAX_CONCURRENT_PODCAST_JOBS ?? 5);
 const STUCK_JOB_MS = 15 * 60 * 1000;
@@ -16,12 +18,22 @@ type PodcastStatus = "pending" | "running" | "ready" | "failed";
 const isFeatureEnabled = () =>
     String(process.env.PODCAST_GEN_ENABLED ?? "").toLowerCase() === "true";
 
+const resolveTtsProvider = () =>
+    String(process.env.PODCAST_TTS_PROVIDER ?? "deepgram").trim().toLowerCase() === "mimo"
+        ? "mimo"
+        : "deepgram";
+
 const resolveVoiceModelDescriptor = () => {
+    const provider = resolveTtsProvider();
+    const defaultHostVoiceModel =
+        provider === "mimo" ? DEFAULT_MIMO_HOST_VOICE : DEFAULT_HOST_VOICE_MODEL;
+    const defaultGuestVoiceModel =
+        provider === "mimo" ? DEFAULT_MIMO_GUEST_VOICE : DEFAULT_GUEST_VOICE_MODEL;
     const hostVoiceModel = String(process.env.PODCAST_HOST_VOICE_MODEL ?? "").trim()
-        || DEFAULT_HOST_VOICE_MODEL;
+        || defaultHostVoiceModel;
     const guestVoiceModel = String(process.env.PODCAST_GUEST_VOICE_MODEL ?? "").trim()
-        || DEFAULT_GUEST_VOICE_MODEL;
-    return `${hostVoiceModel}|${guestVoiceModel}`;
+        || defaultGuestVoiceModel;
+    return `${provider}:${hostVoiceModel}|${guestVoiceModel}`;
 };
 
 const isPodcastInFlight = (row: { status?: string }) =>
