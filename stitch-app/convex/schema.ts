@@ -800,35 +800,6 @@ export default defineSchema({
     }).index("by_postId", ["postId"])
       .index("by_userId_postId", ["userId", "postId"]),
 
-    // Seedance-generated explainer videos for a topic (staging feature).
-    topicVideos: defineTable({
-        userId: v.string(),
-        topicId: v.id("topics"),
-        status: v.string(), // 'pending' | 'running' | 'ready' | 'failed'
-        providerJobId: v.optional(v.string()),
-        pollingUrl: v.optional(v.string()),
-        providerStatus: v.optional(v.string()), // raw last-seen OpenRouter status
-        promptText: v.string(),
-        sourceSnippet: v.string(),
-        durationSeconds: v.number(),
-        width: v.number(),
-        height: v.number(),
-        aspectRatio: v.optional(v.string()),
-        videoStorageId: v.optional(v.id("_storage")),
-        providerUrl: v.optional(v.string()),
-        tokenCount: v.optional(v.number()),
-        costUsd: v.optional(v.number()),
-        errorMessage: v.optional(v.string()),
-        pollAttempts: v.optional(v.number()),
-        startedAt: v.number(),
-        createdAt: v.number(),
-        updatedAt: v.number(),
-    })
-        .index("by_userId", ["userId"])
-        .index("by_topicId", ["topicId"])
-        .index("by_userId_topicId", ["userId", "topicId"])
-        .index("by_status_startedAt", ["status", "startedAt"]),
-
     // Deepgram-generated two-speaker explainer podcasts for a topic (staging feature).
     topicPodcasts: defineTable({
         userId: v.string(),
