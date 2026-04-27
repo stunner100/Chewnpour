@@ -10,7 +10,7 @@ const extractionPath = resolve(root, 'convex', 'extraction.ts');
 const datalabClientPath = resolve(root, 'convex', 'lib', 'datalabClient.ts');
 const groundedEvidenceIndexPath = resolve(root, 'convex', 'lib', 'groundedEvidenceIndex.ts');
 const datalabTextPath = resolve(root, 'convex', 'lib', 'datalabText.ts');
-const doctraClientPath = resolve(root, 'convex', 'lib', 'doctraClient.ts');
+const doclingClientPath = resolve(root, 'convex', 'lib', 'doclingClient.ts');
 const llamaClientPath = resolve(root, 'convex', 'lib', 'llamaParseClient.ts');
 
 const aiSource = readFileSync(aiPath, 'utf8');
@@ -20,16 +20,16 @@ const extractionSource = readFileSync(extractionPath, 'utf8');
 const datalabClientSource = readFileSync(datalabClientPath, 'utf8');
 const groundedEvidenceIndexSource = readFileSync(groundedEvidenceIndexPath, 'utf8');
 const datalabTextSource = readFileSync(datalabTextPath, 'utf8');
-const doctraClientSource = readFileSync(doctraClientPath, 'utf8');
+const doclingClientSource = readFileSync(doclingClientPath, 'utf8');
 const llamaClientSource = readFileSync(llamaClientPath, 'utf8');
 
 assert.ok(
   pipelineSource.includes('runDataLabExtractionCandidate')
     && pipelineSource.includes('runAzureExtractionCandidate')
-    && pipelineSource.includes('runDoctraExtractionCandidate')
+    && pipelineSource.includes('runDoclingExtractionCandidate')
     && pipelineSource.includes('runLlamaParseExtractionCandidate')
     && pipelineSource.includes('runDocumentExtractionPipeline'),
-  'Expected documentExtractionPipeline to export Datalab, Azure, Doctra, and LlamaParse candidate runners plus the unified orchestrator.'
+  'Expected documentExtractionPipeline to export Datalab, Azure, Docling, and LlamaParse candidate runners plus the unified orchestrator.'
 );
 assert.ok(
   pipelineSource.includes('runAzureExtractionCandidate')
@@ -50,9 +50,9 @@ assert.ok(
   'Expected extraction pipeline to route Azure passes through resilience layer with buffer cloning.'
 );
 assert.ok(
-  pipelineSource.includes('shouldRunDoctraFallback')
-    && pipelineSource.includes('selectDoctraParser'),
-  'Expected extraction pipeline to include explicit Doctra fallback routing helpers.'
+  pipelineSource.includes('shouldRunDoclingFallback')
+    && pipelineSource.includes('selectDoclingParser'),
+  'Expected extraction pipeline to include explicit Docling fallback routing helpers.'
 );
 assert.ok(
   pipelineSource.includes('if (fileType === "docx")')
@@ -127,10 +127,10 @@ assert.ok(
   'Expected Datalab text cleanup helper to normalize HTML/table-heavy block content into clean text.'
 );
 assert.ok(
-  doctraClientSource.includes('callDoctraExtract')
-    && doctraClientSource.includes('DOCTRA_EXTRACT_URL')
-    && doctraClientSource.includes('FormData'),
-  'Expected Doctra requests to be isolated in the dedicated client helper.'
+  doclingClientSource.includes('callDoclingExtract')
+    && doclingClientSource.includes('DOCLING_EXTRACT_URL')
+    && doclingClientSource.includes('FormData'),
+  'Expected Docling requests to be isolated in the dedicated client helper.'
 );
 assert.ok(
   llamaClientSource.includes('callLlamaParseExtract')

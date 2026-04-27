@@ -52,6 +52,17 @@ Recommended:
 
 At minimum, staging must not use the production Convex deployment.
 
+## Extraction Service
+
+The staging Convex deployment also needs the Docling extraction adapter envs.
+
+- `DOCLING_ENABLED=true`
+- `DOCLING_EXTRACT_URL=https://<your-docling-service>/extract`
+- `DOCLING_TIMEOUT_MS=120000`
+- `DOCLING_SHARED_SECRET=<shared-secret>`
+
+Keep these on the staging Convex deployment only until the service is validated.
+
 ## Current Workflow
 
 1. Push to the `staging` branch.

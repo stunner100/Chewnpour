@@ -25,9 +25,9 @@ assert.ok(
   'Expected Azure extraction candidate to resolve fallback recommendations through the shared Azure fallback policy.'
 );
 assert.ok(
-  pipelineSource.includes('if (doctraFallback && doctraFallback.reason !== "weak_page_ratio_candidate")')
+  pipelineSource.includes('if (doclingFallback && doclingFallback.reason !== "weak_page_ratio_candidate")')
     && pipelineSource.includes('const llamaParseFallback = getLlamaParseFallbackRecommendation(args);'),
-  'Expected Azure fallback policy to keep Doctra for scanned/table-heavy cases and prefer LlamaParse only for weaker non-specialized Azure quality issues.'
+  'Expected Azure fallback policy to keep Docling for scanned/table-heavy cases and prefer LlamaParse only for weaker non-specialized Azure quality issues.'
 );
 assert.ok(
   extractionSource.includes('fallbackUsed: result.backend !== "datalab"')

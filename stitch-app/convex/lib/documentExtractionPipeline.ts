@@ -14,18 +14,18 @@ import {
     type DataLabExtractResponse,
 } from "./datalabClient";
 import {
-    callDoctraExtract,
-    type DoctraExtractResponse,
-    type DoctraParserId as DoctraClientParserId,
-    isDoctraEnabled,
-} from "./doctraClient";
+    callDoclingExtract,
+    type DoclingExtractResponse,
+    type DoclingParserId as DoclingClientParserId,
+    isDoclingEnabled,
+} from "./doclingClient";
 import {
     callLlamaParseExtract,
     isLlamaParseEnabled,
     type LlamaParseExtractResponse,
 } from "./llamaParseClient";
 
-export type ExtractionBackendId = "datalab" | "azure" | "doctra" | "llamaparse";
+export type ExtractionBackendId = "datalab" | "azure" | "docling" | "llamaparse";
 export type ExtractionParserId =
     | "datalab"
     | "azure_layout_read"
@@ -34,7 +34,7 @@ export type ExtractionParserId =
     | "docx_structured"
     | "image_ocr"
     | "llamaparse";
-export type DoctraParserId = Exclude<ExtractionParserId, "datalab" | "azure_layout_read" | "llamaparse">;
+export type DoclingParserId = Exclude<ExtractionParserId, "datalab" | "azure_layout_read" | "llamaparse">;
 export type ExtractionFallbackRecommendation =
     | {
         backend: "datalab";
@@ -42,8 +42,8 @@ export type ExtractionFallbackRecommendation =
         reason: string;
     }
     | {
-        backend: "doctra";
-        parser: DoctraParserId;
+        backend: "docling";
+        parser: DoclingParserId;
         reason: string;
     }
     | {
@@ -64,7 +64,7 @@ export type ExtractionPassTrace = {
 type ExtractionPage = {
     index: number;
     text: string;
-    source: "native" | "azure_layout" | "azure_read" | "datalab" | "doctra" | "llamaparse" | "none";
+    source: "native" | "azure_layout" | "azure_read" | "datalab" | "docling" | "llamaparse" | "none";
     chars: number;
     words: number;
     lexicalRatio: number;
@@ -76,7 +76,7 @@ type ExtractionPage = {
 type CandidatePage = {
     index: number;
     text: string;
-    source: "native" | "azure_layout" | "azure_read" | "datalab" | "doctra" | "llamaparse";
+    source: "native" | "azure_layout" | "azure_read" | "datalab" | "docling" | "llamaparse";
     tableCount: number;
     formulaCount: number;
 };
@@ -1070,7 +1070,7 @@ const buildWarnings = (metrics: PipelineMetrics) => {
     return warnings;
 };
 
-export const shouldRunDoctraFallback = (args: {
+export const shouldRunDoclingFallback = (args: {
     fileType: string;
     metrics: PipelineMetrics;
     nativePass: PassResult;
@@ -1110,12 +1110,12 @@ export const shouldRunDoctraFallback = (args: {
     return false;
 };
 
-export const selectDoctraParser = (args: {
+export const selectDoclingParser = (args: {
     fileType: string;
     metrics: PipelineMetrics;
     layoutPass: PassResult;
     readPass: PassResult;
-}): DoctraParserId | null => {
+}): DoclingParserId | null => {
     const fileType = String(args.fileType || "").toLowerCase();
     if (fileType === "pdf" && args.metrics.scannedLikely) {
         return "enhanced_pdf";
@@ -1138,21 +1138,21 @@ export const selectDoctraParser = (args: {
     return null;
 };
 
-const getDoctraFallbackRecommendation = (args: {
+const getDoclingFallbackRecommendation = (args: {
     fileType: string;
     metrics: PipelineMetrics;
     nativePass: PassResult;
     layoutPass: PassResult;
     readPass: PassResult;
 }): ExtractionFallbackRecommendation | null => {
-    if (!isDoctraEnabled()) {
+    if (!isDoclingEnabled()) {
         return null;
     }
-    if (!shouldRunDoctraFallback(args)) {
+    if (!shouldRunDoclingFallback(args)) {
         return null;
     }
 
-    const parser = selectDoctraParser(args);
+    const parser = selectDoclingParser(args);
     if (!parser) {
         return null;
     }
@@ -1169,7 +1169,7 @@ const getDoctraFallbackRecommendation = (args: {
     }
 
     return {
-        backend: "doctra",
+        backend: "docling",
         parser,
         reason,
     };
@@ -1193,7 +1193,7 @@ export const shouldRunLlamaParseFallback = (args: {
     }
 
     // Keep scanned, table-heavy, and formula-loss-heavy documents on the
-    // Doctra path. LlamaParse is only a fallback for weaker Azure quality on
+    // Docling path. LlamaParse is only a fallback for weaker Azure quality on
     // otherwise normal PDF/PPTX layouts.
     if (args.metrics.scannedLikely) {
         return false;
@@ -1237,9 +1237,9 @@ const getAzureFallbackRecommendation = (args: {
     layoutPass: PassResult;
     readPass: PassResult;
 }): ExtractionFallbackRecommendation | null => {
-    const doctraFallback = getDoctraFallbackRecommendation(args);
-    if (doctraFallback && doctraFallback.reason !== "weak_page_ratio_candidate") {
-        return doctraFallback;
+    const doclingFallback = getDoclingFallbackRecommendation(args);
+    if (doclingFallback && doclingFallback.reason !== "weak_page_ratio_candidate") {
+        return doclingFallback;
     }
 
     const llamaParseFallback = getLlamaParseFallbackRecommendation(args);
@@ -1247,7 +1247,7 @@ const getAzureFallbackRecommendation = (args: {
         return llamaParseFallback;
     }
 
-    return doctraFallback;
+    return doclingFallback;
 };
 
 const buildDocumentExtractionResult = (args: {
@@ -1310,13 +1310,13 @@ const buildDocumentExtractionResult = (args: {
     };
 };
 
-const toDoctraPassResult = (payload: DoctraExtractResponse): PassResult => {
+const toDoclingPassResult = (payload: DoclingExtractResponse): PassResult => {
     const rawPages = Array.isArray(payload.pages) ? payload.pages : [];
     const pages: CandidatePage[] = rawPages
         .map((page) => ({
             index: Math.max(0, Number(page.index || 0)),
             text: sanitizeText(String(page.text || "")),
-            source: "doctra" as const,
+            source: "docling" as const,
             tableCount: Math.max(0, Number(page.tableCount || 0)),
             formulaCount: Math.max(0, Number(page.formulaCount || 0)),
         }))
@@ -1566,7 +1566,7 @@ export const runDataLabExtractionCandidate = async (
     };
 };
 
-export const runDoctraExtractionCandidate = async (
+export const runDoclingExtractionCandidate = async (
     args: RunDocumentExtractionArgs
 ): Promise<DocumentExtractionResult> => {
     const startedAt = Date.now();
@@ -1575,7 +1575,7 @@ export const runDoctraExtractionCandidate = async (
     const parser = (
         args.parser && args.parser !== "azure_layout_read"
             ? args.parser
-            : selectDoctraParser({
+            : selectDoclingParser({
                 fileType: normalizedFileType,
                 metrics: {
                     fileType: normalizedFileType,
@@ -1595,13 +1595,13 @@ export const runDoctraExtractionCandidate = async (
                 layoutPass: emptyPassResult(),
                 readPass: emptyPassResult(),
             })
-    ) as DoctraClientParserId | null;
+    ) as DoclingClientParserId | null;
 
     if (!parser) {
-        throw new Error(`No Doctra parser available for file type: ${normalizedFileType}`);
+        throw new Error(`No Docling parser available for file type: ${normalizedFileType}`);
     }
 
-    const payload = await callDoctraExtract({
+    const payload = await callDoclingExtract({
         fileName: args.fileName,
         contentType,
         fileBuffer: cloneArrayBuffer(args.fileBuffer),
@@ -1613,20 +1613,20 @@ export const runDoctraExtractionCandidate = async (
             : undefined,
     });
     const latencyMs = Date.now() - startedAt;
-    const doctraPass = toDoctraPassResult(payload);
+    const doclingPass = toDoclingPassResult(payload);
     const result = buildDocumentExtractionResult({
-        backend: "doctra",
+        backend: "docling",
         parser,
         fileType: normalizedFileType,
         nativePass: emptyPassResult(),
         layoutPass: emptyPassResult(),
-        readPass: doctraPass,
+        readPass: doclingPass,
         providerTrace: [{
-            pass: "doctra",
+            pass: "docling",
             status: "ok",
             latencyMs,
-            chars: doctraPass.text.length,
-            pageCount: doctraPass.pageCount,
+            chars: doclingPass.text.length,
+            pageCount: doclingPass.pageCount,
         }],
         fallbackRecommendation: null,
     });
@@ -1684,8 +1684,8 @@ export const runDocumentExtractionPipeline = async (
     if (args.backend === "datalab") {
         return await runDataLabExtractionCandidate(args);
     }
-    if (args.backend === "doctra") {
-        return await runDoctraExtractionCandidate(args);
+    if (args.backend === "docling") {
+        return await runDoclingExtractionCandidate(args);
     }
     if (args.backend === "llamaparse") {
         return await runLlamaParseExtractionCandidate(args);
