@@ -1,5 +1,5 @@
 import React, { useRef, useState, useCallback } from 'react';
-import { Link, useParams } from 'react-router-dom';
+import { Link, useParams, useSearchParams } from 'react-router-dom';
 import { useQuery, useMutation, useAction, useConvexAuth } from 'convex/react';
 import { api } from '../../convex/_generated/api';
 import { useAuth } from '../contexts/AuthContext';
@@ -208,17 +208,53 @@ const estimateReadingMinutes = (content) => {
     return Math.max(1, Math.ceil(words / 200));
 };
 
+const ACTION_PROMPTS = {
+    quiz: {
+        icon: 'quiz',
+        title: 'Pick a topic to generate a quiz',
+        description: 'Quizzes are tailored to each topic. Open any topic below to start its quiz.',
+    },
+    flashcards: {
+        icon: 'style',
+        title: 'Pick a topic to study flashcards',
+        description: 'Flashcards live inside each topic. Open one to review key terms with active recall.',
+    },
+    podcast: {
+        icon: 'podcasts',
+        title: 'Pick a topic to generate a podcast',
+        description: 'Each topic can be turned into an audio lesson. Open one to create or play its podcast.',
+    },
+};
+
 const DashboardCourse = () => {
     const { courseId } = useParams();
     const { user } = useAuth();
     const userId = user?.id;
     const { isAuthenticated: isConvexAuthenticated } = useConvexAuth();
+    const [searchParams, setSearchParams] = useSearchParams();
+    const requestedAction = searchParams.get('action');
+    const actionPrompt = requestedAction ? ACTION_PROMPTS[requestedAction] : null;
+
+    const dismissActionBanner = useCallback(() => {
+        const next = new URLSearchParams(searchParams);
+        next.delete('action');
+        setSearchParams(next, { replace: true });
+    }, [searchParams, setSearchParams]);
 
     React.useEffect(() => {
         const main = document.getElementById('dashboard-main');
         if (main) main.scrollTop = 0;
         window.scrollTo({ top: 0, left: 0, behavior: 'auto' });
     }, [courseId]);
+
+    React.useEffect(() => {
+        if (!actionPrompt) return;
+        const timer = window.setTimeout(() => {
+            const node = document.getElementById('course-topics');
+            if (node) node.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }, 250);
+        return () => window.clearTimeout(timer);
+    }, [actionPrompt]);
 
     const courseData = useQuery(
         api.courses.getCourseWithTopics,
@@ -445,6 +481,33 @@ const DashboardCourse = () => {
                 )}
             </div>
 
+            {/* Action prompt (deep-linked from dashboard quick actions) */}
+            {!isProcessing && actionPrompt && (
+                <div className="mb-6 p-4 rounded-2xl border border-primary/20 bg-primary/5 dark:bg-primary/10 flex items-start gap-3">
+                    <div className="w-10 h-10 rounded-xl bg-primary/15 text-primary flex items-center justify-center shrink-0">
+                        <span className="material-symbols-outlined text-[20px]" style={{ fontVariationSettings: "'FILL' 1" }}>
+                            {actionPrompt.icon}
+                        </span>
+                    </div>
+                    <div className="flex-1 min-w-0">
+                        <p className="text-body-sm font-semibold text-text-main-light dark:text-text-main-dark">
+                            {actionPrompt.title}
+                        </p>
+                        <p className="text-caption text-text-sub-light dark:text-text-sub-dark mt-0.5">
+                            {actionPrompt.description}
+                        </p>
+                    </div>
+                    <button
+                        type="button"
+                        onClick={dismissActionBanner}
+                        className="btn-icon !p-1 shrink-0"
+                        aria-label="Dismiss"
+                    >
+                        <span className="material-symbols-outlined text-[18px]">close</span>
+                    </button>
+                </div>
+            )}
+
             {/* Sources Panel */}
             {!isProcessing && displayCourse?._id && (
                 <SourcesPanel
@@ -499,7 +562,7 @@ const DashboardCourse = () => {
             )}
 
             {/* Topics Grid */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+            <div id="course-topics" className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
                 {syllabusItems.length > 0 ? (
                     syllabusItems.map((item) => {
                         if (item.kind === 'pending') {
