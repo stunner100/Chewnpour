@@ -38,6 +38,10 @@ def test_extract_document_returns_docling_contract(monkeypatch):
     assert payload["pageCount"] == 2
     assert payload["charCount"] > 0
     assert len(payload["pages"]) == 2
+    assert payload["blocks"]
+    assert payload["blocks"][0]["blockType"] == "heading"
+    assert any(block["blockType"] == "table" for block in payload["blocks"])
+    assert any(block["headingPath"] == ["Title"] for block in payload["blocks"])
     assert payload["metrics"]["tableCount"] >= 1
 
 

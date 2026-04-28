@@ -17,6 +17,19 @@ export type DoclingPage = {
     source?: string;
 };
 
+export type DoclingBlock = {
+    id: string;
+    page: number;
+    blockType: string;
+    sectionHint?: string;
+    headingPath?: string[];
+    text: string;
+    startChar?: number;
+    endChar?: number;
+    flags?: string[];
+    source?: string;
+};
+
 export type DoclingExtractResponse = {
     backend: "docling";
     kind: string;
@@ -25,6 +38,7 @@ export type DoclingExtractResponse = {
     charCount: number;
     pageCount: number;
     pages: DoclingPage[];
+    blocks?: DoclingBlock[];
     warnings?: string[];
     metrics?: {
         tableCount?: number;

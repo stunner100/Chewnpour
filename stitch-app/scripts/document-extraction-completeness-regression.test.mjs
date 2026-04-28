@@ -116,9 +116,11 @@ assert.ok(
 );
 assert.ok(
   groundedEvidenceIndexSource.includes('cleanDataLabBlockText')
-    && groundedEvidenceIndexSource.includes('block?.sectionHint || block?.blockType')
+    && groundedEvidenceIndexSource.includes('doclingBlocks')
+    && groundedEvidenceIndexSource.includes('sourceBackend: "docling"')
+    && groundedEvidenceIndexSource.includes('headingPath')
     && groundedEvidenceIndexSource.includes("flags.push(\"table\")"),
-  'Expected grounded evidence indexing to preserve cleaned block text and structural hints from Datalab blocks.'
+  'Expected grounded evidence indexing to preserve cleaned structural block text from Docling and Datalab blocks.'
 );
 assert.ok(
   datalabTextSource.includes('decodeHtmlEntities')
@@ -129,8 +131,9 @@ assert.ok(
 assert.ok(
   doclingClientSource.includes('callDoclingExtract')
     && doclingClientSource.includes('DOCLING_EXTRACT_URL')
-    && doclingClientSource.includes('FormData'),
-  'Expected Docling requests to be isolated in the dedicated client helper.'
+    && doclingClientSource.includes('FormData')
+    && doclingClientSource.includes('DoclingBlock'),
+  'Expected Docling requests and structured block responses to be isolated in the dedicated client helper.'
 );
 assert.ok(
   llamaClientSource.includes('callLlamaParseExtract')

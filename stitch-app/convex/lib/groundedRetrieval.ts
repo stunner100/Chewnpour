@@ -281,6 +281,11 @@ const fetchVectorCandidates = async (args: {
             flags: Array.isArray(passage?.flags)
                 ? passage.flags.map((flag: any) => String(flag || "").trim()).filter(Boolean)
                 : [],
+            blockType: String(passage?.blockType || "").trim() || undefined,
+            headingPath: Array.isArray(passage?.headingPath)
+                ? passage.headingPath.map((entry: any) => String(entry || "").trim()).filter(Boolean)
+                : [],
+            sourceBackend: String(passage?.sourceBackend || "").trim() || undefined,
             score: scoreById.get(String(passage?._id || "")) || 0,
         }));
     } catch (error) {

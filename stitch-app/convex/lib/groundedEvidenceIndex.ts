@@ -10,6 +10,9 @@ export type EvidencePassage = {
     sectionHint: string;
     text: string;
     flags: string[];
+    blockType?: string;
+    headingPath?: string[];
+    sourceBackend?: string;
 };
 
 export type GroundedEvidenceIndex = {
@@ -31,6 +34,11 @@ type ExtractionArtifactBlock = {
     page?: number;
     blockType?: string;
     sectionHint?: string;
+    headingPath?: string[];
+    startChar?: number;
+    endChar?: number;
+    flags?: string[];
+    source?: string;
     text?: string;
 };
 
@@ -38,6 +46,7 @@ type ExtractionArtifactLike = {
     pages?: ExtractionArtifactPage[];
     metadata?: {
         datalabBlocks?: ExtractionArtifactBlock[];
+        doclingBlocks?: ExtractionArtifactBlock[];
     };
 };
 
@@ -68,6 +77,16 @@ const buildFlags = (text: string) => {
     if (/```/.test(text)) flags.push("code");
     return flags;
 };
+
+const mergeFlags = (...flagGroups: Array<string[] | undefined>) =>
+    Array.from(
+        new Set(
+            flagGroups
+                .flatMap((group) => Array.isArray(group) ? group : [])
+                .map((flag) => String(flag || "").trim())
+                .filter(Boolean)
+        )
+    );
 
 const createSegmentationBlock = (
     source: string,
@@ -410,40 +429,67 @@ const splitIntoPassages = (pageText: string, page: number): EvidencePassage[] =>
     return passages;
 };
 
+const buildStructuredBlockPassages = (args: {
+    blocks: ExtractionArtifactBlock[];
+    sourceBackend: "datalab" | "docling";
+}) =>
+    (Array.isArray(args.blocks) ? args.blocks : [])
+        .map((block, index) => {
+            const text = sanitizeText(String(block?.text || ""));
+            const page = Number(block?.page);
+            const blockType = sanitizeText(String(block?.blockType || "")).toLowerCase();
+            const rawId = String(block?.id || "").trim();
+            const passageId = rawId || `${args.sourceBackend}-p${Math.max(0, Number.isFinite(page) ? Math.floor(page) : 0) + 1}-${index}`;
+            if (!passageId || !text || !Number.isFinite(page) || page < 0) {
+                return null;
+            }
+            const headingPath = Array.isArray(block?.headingPath)
+                ? block.headingPath.map((entry) => sanitizeText(String(entry || ""))).filter(Boolean).slice(0, 12)
+                : [];
+            const sectionHint = sanitizeText(
+                String(block?.sectionHint || headingPath.join(" > ") || block?.blockType || text.split("\n")[0] || "")
+            ).slice(0, 160);
+            const flags = mergeFlags(buildFlags(text), block?.flags);
+            const structuralHint = String([
+                block?.sectionHint || "",
+                block?.blockType || "",
+                ...(headingPath || []),
+            ].join(" "));
+            if (/table/i.test(structuralHint) && !flags.includes("table")) flags.push("table");
+            if (/formula|equation/i.test(structuralHint) && !flags.includes("formula")) flags.push("formula");
+            if (blockType && !flags.includes(blockType)) flags.push(blockType);
+            const startChar = Math.max(0, Math.floor(Number(block?.startChar || 0)));
+            const endChar = Math.max(startChar, Math.floor(Number(block?.endChar || text.length)));
+            return {
+                passageId,
+                page: Math.max(0, Math.floor(page)),
+                startChar,
+                endChar,
+                sectionHint,
+                text,
+                flags,
+                blockType: blockType || undefined,
+                headingPath,
+                sourceBackend: args.sourceBackend,
+            } satisfies EvidencePassage;
+        })
+        .filter((passage): passage is EvidencePassage => Boolean(passage));
+
 export const buildGroundedEvidenceIndexFromArtifact = (args: {
     artifact: ExtractionArtifactLike;
     uploadId?: string;
 }): GroundedEvidenceIndex => {
     const blockPassages = (() => {
-        const blocks = Array.isArray(args.artifact?.metadata?.datalabBlocks)
+        const doclingBlocks = Array.isArray(args.artifact?.metadata?.doclingBlocks)
+            ? args.artifact.metadata.doclingBlocks
+            : [];
+        const datalabBlocks = Array.isArray(args.artifact?.metadata?.datalabBlocks)
             ? args.artifact.metadata.datalabBlocks
             : [];
-        return blocks
-            .map((block) => {
-                const passageId = String(block?.id || "").trim();
-                const text = sanitizeText(String(block?.text || ""));
-                const page = Number(block?.page);
-                if (!passageId || !text || !Number.isFinite(page) || page < 0) {
-                    return null;
-                }
-                const sectionHint = sanitizeText(
-                    String(block?.sectionHint || block?.blockType || text.split("\n")[0] || "")
-                ).slice(0, 120);
-                const flags = buildFlags(text);
-                const structuralHint = String(block?.sectionHint || block?.blockType || "");
-                if (/table/i.test(structuralHint) && !flags.includes("table")) flags.push("table");
-                if (/formula|equation/i.test(structuralHint) && !flags.includes("formula")) flags.push("formula");
-                return {
-                    passageId,
-                    page: Math.max(0, Math.floor(page)),
-                    startChar: 0,
-                    endChar: text.length,
-                    sectionHint,
-                    text,
-                    flags,
-                } satisfies EvidencePassage;
-            })
-            .filter((passage): passage is EvidencePassage => Boolean(passage));
+        return [
+            ...buildStructuredBlockPassages({ blocks: doclingBlocks, sourceBackend: "docling" }),
+            ...buildStructuredBlockPassages({ blocks: datalabBlocks, sourceBackend: "datalab" }),
+        ];
     })();
 
     if (blockPassages.length > 0) {

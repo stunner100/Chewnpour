@@ -49,6 +49,9 @@ type MaterializedEvidencePassage = {
     endChar: number;
     sectionHint: string;
     flags: string[];
+    blockType?: string;
+    headingPath?: string[];
+    sourceBackend?: string;
     text: string;
     embedding?: number[];
     embeddingModel?: string;
@@ -260,6 +263,11 @@ const buildMaterializedEvidenceRows = async (args: {
             flags: Array.isArray(passage?.flags)
                 ? passage.flags.map((flag) => String(flag || "").trim()).filter(Boolean)
                 : [],
+            blockType: String(passage?.blockType || "").trim() || undefined,
+            headingPath: Array.isArray(passage?.headingPath)
+                ? passage.headingPath.map((entry) => String(entry || "").trim()).filter(Boolean).slice(0, 12)
+                : [],
+            sourceBackend: String(passage?.sourceBackend || "").trim() || undefined,
             text: normalizePassageText(String(passage?.text || "")),
         }))
         .filter((passage) => passage.passageId && passage.text);
@@ -275,6 +283,9 @@ const buildMaterializedEvidenceRows = async (args: {
         endChar: Math.max(passage.startChar, passage.endChar),
         sectionHint: passage.sectionHint,
         flags: passage.flags,
+        blockType: passage.blockType,
+        headingPath: passage.headingPath,
+        sourceBackend: passage.sourceBackend,
         text: passage.text,
         createdAt,
     }));
@@ -622,6 +633,9 @@ export const insertEvidencePassageBatch = internalMutation({
             endChar: v.number(),
             sectionHint: v.string(),
             flags: v.array(v.string()),
+            blockType: v.optional(v.string()),
+            headingPath: v.optional(v.array(v.string())),
+            sourceBackend: v.optional(v.string()),
             text: v.string(),
             embedding: v.optional(v.array(v.float64())),
             embeddingModel: v.optional(v.string()),

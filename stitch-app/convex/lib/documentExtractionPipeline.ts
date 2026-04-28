@@ -15,6 +15,7 @@ import {
 } from "./datalabClient";
 import {
     callDoclingExtract,
+    type DoclingBlock,
     type DoclingExtractResponse,
     type DoclingParserId as DoclingClientParserId,
     isDoclingEnabled,
@@ -87,6 +88,11 @@ type PassResult = {
     pageCount: number;
     tableCount: number;
     formulaCount: number;
+};
+
+type ExtractionArtifactMetadata = {
+    doclingBlocks?: DoclingBlock[];
+    [key: string]: unknown;
 };
 
 type PipelineMetrics = {
@@ -1259,7 +1265,7 @@ const buildDocumentExtractionResult = (args: {
     readPass: PassResult;
     providerTrace: ExtractionPassTrace[];
     fallbackRecommendation?: ExtractionFallbackRecommendation | null;
-    artifactMetadata?: Record<string, unknown>;
+    artifactMetadata?: ExtractionArtifactMetadata | Record<string, unknown>;
 }): DocumentExtractionResult => {
     const mergedPages = mergePassPages(
         args.nativePass,
@@ -1329,6 +1335,35 @@ const toDoclingPassResult = (payload: DoclingExtractResponse): PassResult => {
         tableCount: Math.max(0, Number(payload.metrics?.tableCount || 0)),
         formulaCount: Math.max(0, Number(payload.metrics?.formulaCount || 0)),
     };
+};
+
+const normalizeDoclingBlocks = (payload: DoclingExtractResponse): DoclingBlock[] => {
+    const blocks = Array.isArray(payload.blocks) ? payload.blocks : [];
+    return blocks
+        .map((block, index) => {
+            const text = sanitizeText(String(block?.text || ""));
+            const page = Math.max(0, Math.floor(Number(block?.page || 0)));
+            const id = String(block?.id || `docling-p${page + 1}-${index}`).trim();
+            const blockType = String(block?.blockType || "paragraph").trim() || "paragraph";
+            if (!id || !text) return null;
+            return {
+                id,
+                page,
+                blockType,
+                sectionHint: sanitizeText(String(block?.sectionHint || "")).slice(0, 160),
+                headingPath: Array.isArray(block?.headingPath)
+                    ? block.headingPath.map((entry) => String(entry || "").trim()).filter(Boolean).slice(0, 12)
+                    : [],
+                text,
+                startChar: Math.max(0, Math.floor(Number(block?.startChar || 0))),
+                endChar: Math.max(0, Math.floor(Number(block?.endChar || text.length))),
+                flags: Array.isArray(block?.flags)
+                    ? block.flags.map((flag) => String(flag || "").trim()).filter(Boolean).slice(0, 12)
+                    : [],
+                source: "docling",
+            } satisfies DoclingBlock;
+        })
+        .filter((block): block is DoclingBlock => Boolean(block));
 };
 
 const toDataLabPassResult = (payload: DataLabExtractResponse): PassResult => {
@@ -1614,6 +1649,7 @@ export const runDoclingExtractionCandidate = async (
     });
     const latencyMs = Date.now() - startedAt;
     const doclingPass = toDoclingPassResult(payload);
+    const doclingBlocks = normalizeDoclingBlocks(payload);
     const result = buildDocumentExtractionResult({
         backend: "docling",
         parser,
@@ -1629,6 +1665,9 @@ export const runDoclingExtractionCandidate = async (
             pageCount: doclingPass.pageCount,
         }],
         fallbackRecommendation: null,
+        artifactMetadata: {
+            doclingBlocks,
+        },
     });
     const warnings = Array.from(new Set([...(payload.warnings || []), ...result.warnings]));
     return {
