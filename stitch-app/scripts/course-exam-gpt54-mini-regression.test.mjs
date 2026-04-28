@@ -10,24 +10,27 @@ const aiSource = readFileSync(aiPath, 'utf8');
 const envSource = readFileSync(envPath, 'utf8');
 
 assert.ok(
-  aiSource.includes('const OPENAI_PIPELINE_MODEL = String(process.env.OPENAI_PIPELINE_MODEL || "gpt-5.4-mini").trim() || "gpt-5.4-mini";'),
-  'Expected ai.ts to pin the course and exam pipeline model to GPT-5.4 mini.'
+  aiSource.includes('const DEEPSEEK_DOCUMENT_FLASH_MODEL = String(process.env.DEEPSEEK_DOCUMENT_FLASH_MODEL || "deepseek-v4-flash").trim() || "deepseek-v4-flash";')
+    && aiSource.includes('const DEEPSEEK_DOCUMENT_PRO_MODEL = String(process.env.DEEPSEEK_DOCUMENT_PRO_MODEL || "deepseek-v4-pro").trim() || "deepseek-v4-pro";'),
+  'Expected ai.ts to pin the document pipeline to DeepSeek V4 Flash and Pro models.'
 );
 assert.ok(
-  aiSource.includes('const HARD_CUTOVER_OPENAI_FEATURES = new Set([')
+  aiSource.includes('const DEEPSEEK_DOCUMENT_PIPELINE_FEATURES = new Set([')
     && aiSource.includes('"course_generation"')
     && aiSource.includes('"mcq_generation"')
     && aiSource.includes('"essay_generation"'),
-  'Expected ai.ts to hard-cut course and exam generation features onto the OpenAI GPT-5.4 mini path.'
+  'Expected ai.ts to hard-cut course and exam generation features onto the DeepSeek document pipeline.'
 );
 assert.ok(
-  aiSource.includes('const openAiModel = pipelineOpenAiRequired ? OPENAI_PIPELINE_MODEL : model;')
-    && aiSource.includes('OPENAI_API_KEY environment variable not set for the GPT-5.4 mini pipeline.'),
-  'Expected ai.ts to force GPT-5.4 mini for course and exam generation instead of silently falling back.'
+  aiSource.includes('const COMPLEX_DOCUMENT_PIPELINE_FEATURES = new Set([')
+    && aiSource.includes('const openAiModel = pipelineOpenAiRequired ? resolveDeepSeekDocumentPipelineModel(llmFeature) : model;')
+    && aiSource.includes('DEEPSEEK_API_KEY environment variable not set for the DeepSeek document pipeline.'),
+  'Expected ai.ts to force DeepSeek Flash for normal docs and DeepSeek Pro for complex docs instead of silently falling back.'
 );
 assert.ok(
-  envSource.includes('OPENAI_PIPELINE_MODEL=gpt-5.4-mini'),
-  'Expected .env.example to document the GPT-5.4 mini pipeline model setting.'
+  envSource.includes('DEEPSEEK_DOCUMENT_FLASH_MODEL=deepseek-v4-flash')
+    && envSource.includes('DEEPSEEK_DOCUMENT_PRO_MODEL=deepseek-v4-pro'),
+  'Expected .env.example to document the DeepSeek document model settings.'
 );
 
-console.log('course-exam-gpt54-mini-regression.test.mjs passed');
+console.log('course-exam-deepseek-regression.test.mjs passed');

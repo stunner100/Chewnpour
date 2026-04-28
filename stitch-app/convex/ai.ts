@@ -142,15 +142,15 @@ import {
     normalizeTutorPersona,
 } from "./lib/tutorSupport";
 
-// Text generation routes by feature and uses OpenAI -> Bedrock -> Inception fallback for generation.
-const OPENAI_BASE_URL = (() => {
-    const raw = String(process.env.OPENAI_BASE_URL || "https://api.openai.com/v1/").trim();
-    if (!raw) return "https://api.openai.com/v1/";
+// Text generation routes by feature and uses DeepSeek -> Bedrock -> Inception fallback for generation.
+const DEEPSEEK_BASE_URL = (() => {
+    const raw = String(process.env.DEEPSEEK_BASE_URL || "https://api.deepseek.com/v1/").trim();
+    if (!raw) return "https://api.deepseek.com/v1/";
     return raw.endsWith("/") ? raw : `${raw}/`;
 })();
-const OPENAI_BASE_URL_IS_PLACEHOLDER = /your_resource_name/i.test(OPENAI_BASE_URL);
-const OPENAI_MODEL = String(process.env.OPENAI_MODEL || "gpt-5.4-mini").trim() || "gpt-5.4-mini";
-const OPENAI_PIPELINE_MODEL = String(process.env.OPENAI_PIPELINE_MODEL || "gpt-5.4-mini").trim() || "gpt-5.4-mini";
+const DEEPSEEK_BASE_URL_IS_PLACEHOLDER = /your_resource_name/i.test(DEEPSEEK_BASE_URL);
+const DEEPSEEK_DOCUMENT_FLASH_MODEL = String(process.env.DEEPSEEK_DOCUMENT_FLASH_MODEL || "deepseek-v4-flash").trim() || "deepseek-v4-flash";
+const DEEPSEEK_DOCUMENT_PRO_MODEL = String(process.env.DEEPSEEK_DOCUMENT_PRO_MODEL || "deepseek-v4-pro").trim() || "deepseek-v4-pro";
 const BEDROCK_BASE_URL = (() => {
     const raw = String(process.env.BEDROCK_BASE_URL || "https://bedrock-runtime.us-east-1.amazonaws.com/openai/v1/").trim();
     if (!raw) return "https://bedrock-runtime.us-east-1.amazonaws.com/openai/v1/";
@@ -159,8 +159,8 @@ const BEDROCK_BASE_URL = (() => {
 const BEDROCK_MODEL = String(process.env.BEDROCK_MODEL || "moonshotai.kimi-k2.5").trim() || "moonshotai.kimi-k2.5";
 const INCEPTION_BASE_URL = process.env.INCEPTION_BASE_URL || "https://api.inceptionlabs.ai/v1";
 const INCEPTION_MODEL = process.env.INCEPTION_MODEL || "mercury-2";
-const DEFAULT_MODEL = OPENAI_MODEL;
-const DEFAULT_TIMEOUT_MS = Number(process.env.OPENAI_TIMEOUT_MS || 60000);
+const DEFAULT_MODEL = DEEPSEEK_DOCUMENT_FLASH_MODEL;
+const DEFAULT_TIMEOUT_MS = Number(process.env.DEEPSEEK_TIMEOUT_MS || 60000);
 const BEDROCK_TIMEOUT_MS = Number(process.env.BEDROCK_TIMEOUT_MS || DEFAULT_TIMEOUT_MS);
 const INCEPTION_TIMEOUT_MS = Number(process.env.INCEPTION_TIMEOUT_MS || DEFAULT_TIMEOUT_MS);
 const INCEPTION_MAX_RETRIES = (() => {
@@ -377,20 +377,19 @@ type LlmUsageContext = {
     userId: string;
     feature: string;
 };
-type TextProvider = "openai" | "inception";
+type TextProvider = "deepseek" | "inception";
 
 const llmUsageContextStorage = new AsyncLocalStorage<LlmUsageContext>();
 const INCEPTION_PRIMARY_FEATURES = new Set([
     "assignment_follow_up",
     "topic_tutor",
 ]);
-const OPENAI_PRIMARY_FEATURES = new Set([
+const DEEPSEEK_DOCUMENT_PIPELINE_FEATURES = new Set([
     "course_generation",
     "mcq_generation",
     "essay_generation",
 ]);
-const HARD_CUTOVER_OPENAI_FEATURES = new Set([
-    "course_generation",
+const COMPLEX_DOCUMENT_PIPELINE_FEATURES = new Set([
     "mcq_generation",
     "essay_generation",
 ]);
@@ -599,29 +598,34 @@ const resolvePreferredTextProvider = (): TextProvider => {
     if (INCEPTION_PRIMARY_FEATURES.has(feature)) {
         return "inception";
     }
-    if (OPENAI_PRIMARY_FEATURES.has(feature)) {
-        return "openai";
+    if (DEEPSEEK_DOCUMENT_PIPELINE_FEATURES.has(feature)) {
+        return "deepseek";
     }
-    return "openai";
+    return "deepseek";
 };
 
-const featureRequiresOpenAiHardCutover = (feature: string) =>
-    HARD_CUTOVER_OPENAI_FEATURES.has(String(feature || "").trim());
+const featureUsesDeepSeekDocumentPipeline = (feature: string) =>
+    DEEPSEEK_DOCUMENT_PIPELINE_FEATURES.has(String(feature || "").trim());
+
+const resolveDeepSeekDocumentPipelineModel = (feature: string) =>
+    COMPLEX_DOCUMENT_PIPELINE_FEATURES.has(String(feature || "").trim())
+        ? DEEPSEEK_DOCUMENT_PRO_MODEL
+        : DEEPSEEK_DOCUMENT_FLASH_MODEL;
 
 async function callInception(
     messages: Message[],
     model: string = DEFAULT_MODEL,
     options?: { temperature?: number; maxTokens?: number; timeoutMs?: number; responseFormat?: "json_object" }
 ): Promise<string> {
-    const openAiApiKey = String(process.env.OPENAI_API_KEY || "").trim();
+    const openAiApiKey = String(process.env.DEEPSEEK_API_KEY || "").trim();
     const bedrockApiKey = String(process.env.BEDROCK_API_KEY || "").trim();
     const inceptionApiKey = String(process.env.INCEPTION_API_KEY || "").trim();
     const timeoutMs = options?.timeoutMs ?? DEFAULT_TIMEOUT_MS;
     const llmFeature = String(llmUsageContextStorage.getStore()?.feature || "unknown").trim() || "unknown";
     const preferredProvider = resolvePreferredTextProvider();
-    const pipelineOpenAiRequired = featureRequiresOpenAiHardCutover(llmFeature);
-    const openAiModel = pipelineOpenAiRequired ? OPENAI_PIPELINE_MODEL : model;
-    const openAiAvailable = Boolean(openAiApiKey) && !OPENAI_BASE_URL_IS_PLACEHOLDER;
+    const pipelineOpenAiRequired = featureUsesDeepSeekDocumentPipeline(llmFeature);
+    const openAiModel = pipelineOpenAiRequired ? resolveDeepSeekDocumentPipelineModel(llmFeature) : model;
+    const openAiAvailable = Boolean(openAiApiKey) && !DEEPSEEK_BASE_URL_IS_PLACEHOLDER;
     const bedrockAvailable = Boolean(bedrockApiKey);
     const openAiOrBedrockAvailable = openAiAvailable || bedrockAvailable;
 
@@ -651,8 +655,8 @@ async function callInception(
         const labels = Array.from(new Set([parsed.code, parsed.type, parsed.param].filter(Boolean))).join(", ");
         const detail = parsed.message || String(raw || "").trim() || "Unknown provider error.";
         return labels
-            ? `openai API error: ${status} (${labels}) - ${detail}`
-            : `openai API error: ${status} - ${detail}`;
+            ? `deepseek API error: ${status} (${labels}) - ${detail}`
+            : `deepseek API error: ${status} - ${detail}`;
     };
 
     const formatBedrockApiError = (status: number, raw: string) => {
@@ -697,10 +701,10 @@ async function callInception(
 
     const callOpenAiText = async () => {
         if (!openAiApiKey) {
-            throw new Error("OPENAI_API_KEY environment variable not set.");
+            throw new Error("DEEPSEEK_API_KEY environment variable not set.");
         }
-        if (OPENAI_BASE_URL_IS_PLACEHOLDER) {
-            throw new Error("OPENAI_BASE_URL environment variable not configured.");
+        if (DEEPSEEK_BASE_URL_IS_PLACEHOLDER) {
+            throw new Error("DEEPSEEK_BASE_URL environment variable not configured.");
         }
 
         const controller = new AbortController();
@@ -710,22 +714,21 @@ async function callInception(
             const timeoutPromise = new Promise<never>((_, reject) => {
                 timeoutId = setTimeout(() => {
                     controller.abort();
-                    reject(new Error(`openai request timed out after ${timeoutMs}ms`));
+                    reject(new Error(`deepseek request timed out after ${timeoutMs}ms`));
                 }, timeoutMs);
             });
 
-            const requestPromise = fetch(new URL("chat/completions", OPENAI_BASE_URL).toString(), {
+            const requestPromise = fetch(new URL("chat/completions", DEEPSEEK_BASE_URL).toString(), {
                 method: "POST",
                 headers: {
                     "Content-Type": "application/json",
                     Authorization: `Bearer ${openAiApiKey}`,
-                    "api-key": openAiApiKey,
                 },
                 body: JSON.stringify({
                     model: openAiModel,
                     messages,
                     temperature: options?.temperature ?? 0.3,
-                    max_completion_tokens: options?.maxTokens ?? 2048,
+                    max_tokens: options?.maxTokens ?? 2048,
                     response_format: options?.responseFormat ? { type: options.responseFormat } : undefined,
                 }),
                 signal: controller.signal,
@@ -745,11 +748,11 @@ async function callInception(
             const data: ChatCompletionResponse = await response.json();
             const responseText = String(data?.choices?.[0]?.message?.content || "").trim();
             if (!responseText) {
-                throw new Error("openai API error: empty response.");
+                throw new Error("deepseek API error: empty response.");
             }
 
             await recordLlmUsage({
-                provider: "openai",
+                provider: "deepseek",
                 model: openAiModel,
                 promptTokens: data?.usage?.prompt_tokens,
                 completionTokens: data?.usage?.completion_tokens,
@@ -765,10 +768,10 @@ async function callInception(
             const errorMessage = error instanceof Error ? error.message : String(error);
             const lowerError = errorMessage.toLowerCase();
             if (lowerError.includes("timed out") || lowerError.includes("aborted")) {
-                throw new Error(`openai request timed out after ${timeoutMs}ms`);
+                throw new Error(`deepseek request timed out after ${timeoutMs}ms`);
             }
             if (lowerError.includes("network") || lowerError.includes("failed to fetch")) {
-                throw new Error(`openai API error: network - ${errorMessage}`);
+                throw new Error(`deepseek API error: network - ${errorMessage}`);
             }
             throw error;
         }
@@ -942,7 +945,7 @@ async function callInception(
     };
 
     const callBedrockWithOptionalInceptionFallback = async (args: {
-        sourceProvider: "openai" | "inception";
+        sourceProvider: "deepseek" | "inception";
         sourceModel: string;
         sourceMessage: string;
         allowInceptionFallback: boolean;
@@ -972,65 +975,65 @@ async function callInception(
     const callOpenAiWithFallbackText = async (args: { allowInceptionFallback: boolean }) => {
         if (!openAiApiKey) {
             if (pipelineOpenAiRequired) {
-                throw new Error("OPENAI_API_KEY environment variable not set for the GPT-5.4 mini pipeline.");
+                throw new Error("DEEPSEEK_API_KEY environment variable not set for the DeepSeek document pipeline.");
             }
             if (bedrockAvailable) {
                 console.warn("[LLM] primary_provider_unavailable_using_fallback", {
                     feature: llmFeature,
-                    primaryProvider: "openai",
+                    primaryProvider: "deepseek",
                     fallbackProvider: "bedrock",
-                    reason: "missing_openai_api_key",
+                    reason: "missing_deepseek_api_key",
                     fallbackModel: BEDROCK_MODEL,
                 });
                 return callBedrockWithOptionalInceptionFallback({
-                    sourceProvider: "openai",
+                    sourceProvider: "deepseek",
                     sourceModel: openAiModel,
-                    sourceMessage: "OPENAI_API_KEY environment variable not set.",
+                    sourceMessage: "DEEPSEEK_API_KEY environment variable not set.",
                     allowInceptionFallback: args.allowInceptionFallback,
                 });
             }
             if (args.allowInceptionFallback && inceptionApiKey) {
                 console.warn("[LLM] primary_provider_unavailable_using_fallback", {
                     feature: llmFeature,
-                    primaryProvider: "openai",
+                    primaryProvider: "deepseek",
                     fallbackProvider: "inception",
-                    reason: "missing_openai_api_key",
+                    reason: "missing_deepseek_api_key",
                     fallbackModel: INCEPTION_MODEL,
                 });
                 return callInceptionText();
             }
-            throw new Error("OPENAI_API_KEY environment variable not set.");
+            throw new Error("DEEPSEEK_API_KEY environment variable not set.");
         }
-        if (OPENAI_BASE_URL_IS_PLACEHOLDER) {
+        if (DEEPSEEK_BASE_URL_IS_PLACEHOLDER) {
             if (pipelineOpenAiRequired) {
-                throw new Error("OPENAI_BASE_URL environment variable not configured for the GPT-5.4 mini pipeline.");
+                throw new Error("DEEPSEEK_BASE_URL environment variable not configured for the DeepSeek document pipeline.");
             }
             if (bedrockAvailable) {
                 console.warn("[LLM] primary_provider_unavailable_using_fallback", {
                     feature: llmFeature,
-                    primaryProvider: "openai",
+                    primaryProvider: "deepseek",
                     fallbackProvider: "bedrock",
-                    reason: "invalid_openai_base_url",
+                    reason: "invalid_deepseek_base_url",
                     fallbackModel: BEDROCK_MODEL,
                 });
                 return callBedrockWithOptionalInceptionFallback({
-                    sourceProvider: "openai",
+                    sourceProvider: "deepseek",
                     sourceModel: openAiModel,
-                    sourceMessage: "OPENAI_BASE_URL environment variable not configured.",
+                    sourceMessage: "DEEPSEEK_BASE_URL environment variable not configured.",
                     allowInceptionFallback: args.allowInceptionFallback,
                 });
             }
             if (args.allowInceptionFallback && inceptionApiKey) {
                 console.warn("[LLM] primary_provider_unavailable_using_fallback", {
                     feature: llmFeature,
-                    primaryProvider: "openai",
+                    primaryProvider: "deepseek",
                     fallbackProvider: "inception",
-                    reason: "invalid_openai_base_url",
+                    reason: "invalid_deepseek_base_url",
                     fallbackModel: INCEPTION_MODEL,
                 });
                 return callInceptionText();
             }
-            throw new Error("OPENAI_BASE_URL environment variable not configured.");
+            throw new Error("DEEPSEEK_BASE_URL environment variable not configured.");
         }
 
         try {
@@ -1043,14 +1046,14 @@ async function callInception(
             if (shouldFallbackToBedrockText({ errorMessage, bedrockAvailable })) {
                 console.warn("[LLM] primary_provider_failed_using_fallback", {
                     feature: llmFeature,
-                    primaryProvider: "openai",
+                    primaryProvider: "deepseek",
                     fallbackProvider: "bedrock",
                     primaryModel: openAiModel,
                     fallbackModel: BEDROCK_MODEL,
                     message: errorMessage,
                 });
                 return callBedrockWithOptionalInceptionFallback({
-                    sourceProvider: "openai",
+                    sourceProvider: "deepseek",
                     sourceModel: openAiModel,
                     sourceMessage: errorMessage,
                     allowInceptionFallback: args.allowInceptionFallback,
@@ -1059,7 +1062,7 @@ async function callInception(
             if (args.allowInceptionFallback && shouldFallbackToInceptionText({ errorMessage, inceptionApiKey })) {
                 console.warn("[LLM] primary_provider_failed_using_fallback", {
                     feature: llmFeature,
-                    primaryProvider: "openai",
+                    primaryProvider: "deepseek",
                     fallbackProvider: "inception",
                     primaryModel: openAiModel,
                     fallbackModel: INCEPTION_MODEL,
@@ -1077,7 +1080,7 @@ async function callInception(
                 console.warn("[LLM] primary_provider_unavailable_using_fallback", {
                     feature: llmFeature,
                     primaryProvider: "inception",
-                    fallbackProvider: openAiAvailable ? "openai" : "bedrock",
+                    fallbackProvider: openAiAvailable ? "deepseek" : "bedrock",
                     reason: "missing_inception_api_key",
                     fallbackModel: openAiAvailable ? openAiModel : BEDROCK_MODEL,
                 });
@@ -1094,7 +1097,7 @@ async function callInception(
                 console.warn("[LLM] primary_provider_failed_using_fallback", {
                     feature: llmFeature,
                     primaryProvider: "inception",
-                    fallbackProvider: openAiAvailable ? "openai" : "bedrock",
+                    fallbackProvider: openAiAvailable ? "deepseek" : "bedrock",
                     primaryModel: INCEPTION_MODEL,
                     fallbackModel: openAiAvailable ? openAiModel : BEDROCK_MODEL,
                     message: errorMessage,
@@ -2141,6 +2144,7 @@ const isProviderThrottleMessage = (value: any) => {
     return normalized.includes("429")
         && (
             normalized.includes("openai api error")
+            || normalized.includes("deepseek api error")
             || normalized.includes("bedrock api error")
             || normalized.includes("inception api error")
             || normalized.includes("too many requests")
@@ -5641,10 +5645,10 @@ const normalizeAssignmentProcessingErrorMessage = (error: unknown) => {
         return message;
     }
     if (
-        /openai_api_key environment variable not set/i.test(message)
-        || /openai_base_url environment variable not configured/i.test(message)
-        || /openai request timed out/i.test(message)
-        || /openai api error/i.test(message)
+        /deepseek_api_key environment variable not set/i.test(message)
+        || /deepseek_base_url environment variable not configured/i.test(message)
+        || /deepseek request timed out/i.test(message)
+        || /deepseek api error/i.test(message)
         || /inception_api_key environment variable not set/i.test(message)
         || /inception request timed out/i.test(message)
         || /inception api error/i.test(message)
