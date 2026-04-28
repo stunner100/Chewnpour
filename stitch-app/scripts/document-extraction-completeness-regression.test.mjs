@@ -119,8 +119,10 @@ assert.ok(
     && groundedEvidenceIndexSource.includes('doclingBlocks')
     && groundedEvidenceIndexSource.includes('sourceBackend: "docling"')
     && groundedEvidenceIndexSource.includes('headingPath')
+    && groundedEvidenceIndexSource.includes('coalesceStructuredPassages')
+    && groundedEvidenceIndexSource.includes('buildContextualizedStructuredText')
     && groundedEvidenceIndexSource.includes("flags.push(\"table\")"),
-  'Expected grounded evidence indexing to preserve cleaned structural block text from Docling and Datalab blocks.'
+  'Expected grounded evidence indexing to preserve cleaned, contextual structural block text from Docling and Datalab blocks.'
 );
 assert.ok(
   datalabTextSource.includes('decodeHtmlEntities')

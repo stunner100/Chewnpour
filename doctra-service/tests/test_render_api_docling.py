@@ -45,6 +45,30 @@ def test_extract_document_returns_docling_contract(monkeypatch):
     assert payload["metrics"]["tableCount"] >= 1
 
 
+def test_markdown_blocks_keep_title_context_for_inferred_headings():
+    blocks = app_module._extract_markdown_blocks(
+        "\n\n".join(
+            [
+                "## Active Reading Study Guide",
+                "## Overview",
+                "Active reading starts with a clear purpose.",
+                "Key Strategies",
+                "Survey the source before reading in detail.",
+            ]
+        ),
+        1,
+    )
+
+    assert [block["blockType"] for block in blocks[:4]] == [
+        "heading",
+        "heading",
+        "paragraph",
+        "heading",
+    ]
+    assert blocks[2]["headingPath"] == ["Active Reading Study Guide", "Overview"]
+    assert blocks[4]["headingPath"] == ["Active Reading Study Guide", "Key Strategies"]
+
+
 def test_extract_document_enforces_shared_secret(monkeypatch):
     monkeypatch.setattr(app_module, "DOCLING_SHARED_SECRET", "secret")
 

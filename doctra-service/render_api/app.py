@@ -93,6 +93,22 @@ def _is_list_line(line: str) -> bool:
     return bool(re.match(r"^\s*(?:[-*+]\s+|\d+[.)]\s+)", line))
 
 
+def _is_plain_heading_line(line: str) -> bool:
+    stripped = _sanitize_text(line)
+    if not stripped or len(stripped) > 90:
+        return False
+    if _is_heading_line(stripped) or _is_list_line(stripped):
+        return False
+    if re.search(r"\s{2,}", stripped):
+        return False
+    if re.search(r"[.!?]$", stripped):
+        return False
+    words = re.findall(r"[A-Za-z0-9][A-Za-z0-9'’-]*", stripped)
+    if not words or len(words) > 8:
+        return False
+    return bool(re.match(r"^[A-Z][A-Za-z0-9 ,/&()'’:-]+$", stripped))
+
+
 def _block_type_for_text(text: str) -> str:
     stripped = text.strip()
     if _is_heading_line(stripped):
@@ -117,6 +133,8 @@ def _flags_for_block(block_type: str, text: str) -> list[str]:
         flags.append("formula")
     if block_type == "code" or "```" in text:
         flags.append("code")
+    if block_type == "heading":
+        flags.append("heading")
     return list(dict.fromkeys(flags))
 
 
@@ -142,10 +160,14 @@ def _extract_markdown_blocks(markdown: str, page_count: int) -> list[dict[str, A
 
     blocks: list[dict[str, Any]] = []
     heading_stack: list[tuple[int, str]] = []
+    document_title: str | None = None
     paragraph_lines: list[dict[str, Any]] = []
 
     def current_heading_path() -> list[str]:
-        return [entry[1] for entry in heading_stack]
+        path = [entry[1] for entry in heading_stack]
+        if document_title and (not path or path[0] != document_title):
+            return [document_title, *path]
+        return path
 
     def add_block(raw_text: str, start: int, end: int, block_type: str | None = None) -> None:
         text = _sanitize_text(raw_text)
@@ -222,6 +244,22 @@ def _extract_markdown_blocks(markdown: str, page_count: int) -> list[dict[str, A
             flush_paragraph()
             level = len(heading_match.group(1))
             title = heading_match.group(2).strip()
+            if not document_title:
+                document_title = title
+            heading_stack = [entry for entry in heading_stack if entry[0] < level]
+            heading_stack.append((level, title))
+            add_block(stripped, line["start"], line["end"], "heading")
+            index += 1
+            continue
+
+        if _is_plain_heading_line(stripped):
+            flush_paragraph()
+            title = stripped.rstrip(":").strip()
+            if not document_title:
+                document_title = title
+                level = 1
+            else:
+                level = 2
             heading_stack = [entry for entry in heading_stack if entry[0] < level]
             heading_stack.append((level, title))
             add_block(stripped, line["start"], line["end"], "heading")
