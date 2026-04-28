@@ -820,6 +820,47 @@ export const updateTopicAssessmentMetadataInternal = internalMutation({
     },
 });
 
+export const updateAssessmentRoutingInternal = internalMutation({
+    args: {
+        topicId: v.id("topics"),
+        topicKind: v.optional(v.string()),
+        assessmentClassification: v.optional(v.string()),
+        assessmentRoute: v.optional(v.string()),
+        assessmentRouteReason: v.optional(v.string()),
+        assessmentReadinessScore: v.optional(v.number()),
+        evidenceVolumeScore: v.optional(v.number()),
+        evidenceDiversityScore: v.optional(v.number()),
+        distinctivenessScore: v.optional(v.number()),
+        questionVarietyScore: v.optional(v.number()),
+        redundancyRiskScore: v.optional(v.number()),
+        strongestNeighborOverlap: v.optional(v.number()),
+        supportedQuestionTypes: v.optional(v.array(v.string())),
+    },
+    handler: async (ctx, args) => {
+        const topic = await ctx.db.get(args.topicId);
+        if (!topic) {
+            throw new Error("Topic not found");
+        }
+
+        await ctx.db.patch(args.topicId, {
+            topicKind: args.topicKind ?? topic.topicKind,
+            assessmentClassification: args.assessmentClassification ?? topic.assessmentClassification,
+            assessmentRoute: args.assessmentRoute ?? topic.assessmentRoute,
+            assessmentRouteReason: args.assessmentRouteReason ?? topic.assessmentRouteReason,
+            assessmentReadinessScore: args.assessmentReadinessScore ?? topic.assessmentReadinessScore,
+            evidenceVolumeScore: args.evidenceVolumeScore ?? topic.evidenceVolumeScore,
+            evidenceDiversityScore: args.evidenceDiversityScore ?? topic.evidenceDiversityScore,
+            distinctivenessScore: args.distinctivenessScore ?? topic.distinctivenessScore,
+            questionVarietyScore: args.questionVarietyScore ?? topic.questionVarietyScore,
+            redundancyRiskScore: args.redundancyRiskScore ?? topic.redundancyRiskScore,
+            strongestNeighborOverlap: args.strongestNeighborOverlap ?? topic.strongestNeighborOverlap,
+            supportedQuestionTypes: args.supportedQuestionTypes ?? topic.supportedQuestionTypes,
+        });
+
+        return { topicId: args.topicId, updated: true };
+    },
+});
+
 export const saveAssessmentBlueprintInternal = internalMutation({
     args: {
         topicId: v.id("topics"),

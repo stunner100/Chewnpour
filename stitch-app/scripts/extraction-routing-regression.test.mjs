@@ -39,9 +39,10 @@ assert.ok(
   'Expected extraction pipeline to expose Datalab, Azure, Docling, and LlamaParse candidate runners behind a single orchestrator.'
 );
 assert.ok(
-  pipelineSource.includes('if (args.backend === "datalab")')
+  pipelineSource.includes('if (isDoclingEnabled())')
+    && pipelineSource.includes('return await runDoclingExtractionCandidate({')
     && pipelineSource.includes('return await runDataLabExtractionCandidate(args);'),
-  'Expected the default upload extraction route to cut over to Datalab.'
+  'Expected the default upload extraction route to cut over to Docling when configured, with Datalab as the unconfigured fallback.'
 );
 assert.ok(
   extractionSource.includes('v.literal("datalab")')
@@ -94,7 +95,7 @@ assert.ok(
     && envSource.includes('LLAMA_CLOUD_API_KEY=')
     && envSource.includes('LLAMAPARSE_TIER=')
     && envSource.includes('LLAMAPARSE_VERSION='),
-  'Expected .env.example to document the Datalab-first extraction runtime configuration and the explicit diagnostic backends.'
+  'Expected .env.example to document the Docling-primary extraction runtime configuration and the explicit fallback/diagnostic backends.'
 );
 assert.ok(
   envSource.includes('DOCLING_ENABLED=')

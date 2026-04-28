@@ -530,14 +530,14 @@ export const QUESTION_BANK_INTERACTIVE_PROFILE = resolveQuestionBankProfile({
     batchSize: 6,
     minBatchSize: 3,
     maxBatchAttempts: 1,
-    requestTimeoutMs: 20_000,
-    repairTimeoutMs: 3_000,
+    requestTimeoutMs: 30_000,
+    repairTimeoutMs: 6_000,
     parallelRequests: 1,
     minRounds: 3,
     maxRounds: 8,
     bufferRounds: 1,
     noProgressLimit: 3,
-    timeBudgetMs: 90_000,
+    timeBudgetMs: 150_000,
 });
 
 export const MCQ_ATTEMPT_MIN_COUNT = 1;

@@ -151,6 +151,7 @@ const DEEPSEEK_BASE_URL = (() => {
 const DEEPSEEK_BASE_URL_IS_PLACEHOLDER = /your_resource_name/i.test(DEEPSEEK_BASE_URL);
 const DEEPSEEK_DOCUMENT_FLASH_MODEL = String(process.env.DEEPSEEK_DOCUMENT_FLASH_MODEL || "deepseek-v4-flash").trim() || "deepseek-v4-flash";
 const DEEPSEEK_DOCUMENT_PRO_MODEL = String(process.env.DEEPSEEK_DOCUMENT_PRO_MODEL || "deepseek-v4-pro").trim() || "deepseek-v4-pro";
+const DEEPSEEK_DOCUMENT_PRO_MIN_MAX_TOKENS = Number(process.env.DEEPSEEK_DOCUMENT_PRO_MIN_MAX_TOKENS || 8192);
 const BEDROCK_BASE_URL = (() => {
     const raw = String(process.env.BEDROCK_BASE_URL || "https://bedrock-runtime.us-east-1.amazonaws.com/openai/v1/").trim();
     if (!raw) return "https://bedrock-runtime.us-east-1.amazonaws.com/openai/v1/";
@@ -390,7 +391,6 @@ const DEEPSEEK_DOCUMENT_PIPELINE_FEATURES = new Set([
     "essay_generation",
 ]);
 const COMPLEX_DOCUMENT_PIPELINE_FEATURES = new Set([
-    "mcq_generation",
     "essay_generation",
 ]);
 
@@ -625,6 +625,10 @@ async function callInception(
     const preferredProvider = resolvePreferredTextProvider();
     const pipelineOpenAiRequired = featureUsesDeepSeekDocumentPipeline(llmFeature);
     const openAiModel = pipelineOpenAiRequired ? resolveDeepSeekDocumentPipelineModel(llmFeature) : model;
+    const requestedOpenAiMaxTokens = options?.maxTokens ?? 2048;
+    const openAiMaxTokens = openAiModel === DEEPSEEK_DOCUMENT_PRO_MODEL
+        ? Math.max(requestedOpenAiMaxTokens, DEEPSEEK_DOCUMENT_PRO_MIN_MAX_TOKENS)
+        : requestedOpenAiMaxTokens;
     const openAiAvailable = Boolean(openAiApiKey) && !DEEPSEEK_BASE_URL_IS_PLACEHOLDER;
     const bedrockAvailable = Boolean(bedrockApiKey);
     const openAiOrBedrockAvailable = openAiAvailable || bedrockAvailable;
@@ -728,7 +732,7 @@ async function callInception(
                     model: openAiModel,
                     messages,
                     temperature: options?.temperature ?? 0.3,
-                    max_tokens: options?.maxTokens ?? 2048,
+                    max_tokens: openAiMaxTokens,
                     response_format: options?.responseFormat ? { type: options.responseFormat } : undefined,
                 }),
                 signal: controller.signal,
@@ -7953,6 +7957,84 @@ const scheduleRoutingSyncRetry = async (ctx: any, args: {
     });
 };
 
+const countDistinctValues = (values: unknown[]) =>
+    new Set(values.map((value) => String(value || "").trim()).filter(Boolean)).size;
+
+const scoreTopicForDirectAssessment = (topic: any) => {
+    const sourcePassageCount = Array.isArray(topic?.sourcePassageIds)
+        ? topic.sourcePassageIds.length
+        : 0;
+    const sourcePageCount = Array.isArray(topic?.structuredSourcePages)
+        ? countDistinctValues(topic.structuredSourcePages)
+        : 0;
+    const learningObjectiveCount = Array.isArray(topic?.structuredLearningObjectives)
+        ? topic.structuredLearningObjectives.length
+        : 0;
+    const contentWords = countWords(String(topic?.content || ""));
+
+    const evidenceVolumeScore = Math.min(1, (sourcePassageCount + learningObjectiveCount) / 8);
+    const evidenceDiversityScore = Math.min(1, Math.max(sourcePageCount, 1) / 3);
+    const questionVarietyScore = Math.min(1, Math.max(learningObjectiveCount, 1) / 4);
+    const assessmentReadinessScore = Math.max(
+        0,
+        Math.min(
+            1,
+            (evidenceVolumeScore * 0.45)
+                + (evidenceDiversityScore * 0.25)
+                + (questionVarietyScore * 0.2)
+                + (Math.min(1, contentWords / 350) * 0.1)
+        )
+    );
+
+    return {
+        evidenceVolumeScore,
+        evidenceDiversityScore,
+        questionVarietyScore,
+        assessmentReadinessScore,
+        classification: assessmentReadinessScore >= 0.72
+            ? "strong"
+            : assessmentReadinessScore >= 0.45
+                ? "standard"
+                : "limited",
+    };
+};
+
+const syncAssessmentRoutingForUpload = async (ctx: any, args: {
+    courseId: Id<"courses">;
+    uploadId: Id<"uploads">;
+}) => {
+    const topics = await getCourseTopicsSorted(ctx, args.courseId);
+    const lessonTopics = topics.filter((topic: any) =>
+        topic?.sourceUploadId === args.uploadId
+        && String(topic?.topicKind || "").trim() !== "document_final_exam"
+    );
+
+    for (const topic of lessonTopics) {
+        const score = scoreTopicForDirectAssessment(topic);
+        await ctx.runMutation((internal as any).topics.updateAssessmentRoutingInternal, {
+            topicId: topic._id,
+            topicKind: "lesson",
+            assessmentClassification: score.classification,
+            assessmentRoute: "topic_quiz",
+            assessmentRouteReason: "direct_topic_assessment",
+            assessmentReadinessScore: score.assessmentReadinessScore,
+            evidenceVolumeScore: score.evidenceVolumeScore,
+            evidenceDiversityScore: score.evidenceDiversityScore,
+            distinctivenessScore: 1,
+            questionVarietyScore: score.questionVarietyScore,
+            redundancyRiskScore: 0,
+            strongestNeighborOverlap: 0,
+            supportedQuestionTypes: ["multiple_choice", "essay"],
+        });
+    }
+
+    return {
+        success: true,
+        lessonTopicCount: lessonTopics.length,
+        finalAssessmentTopicId: null,
+    };
+};
+
 const reconcileUploadStatusAfterRoutingSync = async (ctx: any, args: {
     courseId: Id<"courses">;
     uploadId: Id<"uploads">;
@@ -10110,7 +10192,7 @@ const generateQuestionCandidatesBatch = async (args: {
             },
             { role: "user", content: prompt },
         ], DEFAULT_MODEL, {
-            maxTokens: 2400,
+            maxTokens: 5200,
             responseFormat: "json_object",
             timeoutMs,
         });
@@ -10179,7 +10261,7 @@ const generateTrueFalseQuestionCandidatesBatch = async (args: {
             },
             { role: "user", content: prompt },
         ], DEFAULT_MODEL, {
-            maxTokens: 1800,
+            maxTokens: 2600,
             responseFormat: "json_object",
             timeoutMs,
         });
@@ -10248,7 +10330,7 @@ const generateFillBlankQuestionCandidatesBatch = async (args: {
             },
             { role: "user", content: prompt },
         ], DEFAULT_MODEL, {
-            maxTokens: 2000,
+            maxTokens: 3000,
             responseFormat: "json_object",
             timeoutMs,
         });
@@ -10847,6 +10929,13 @@ const generateQuestionBankForTopic = async (
         const key = resolveObjectivePlanItemKey(resolved);
         return key ? objectivePlanItemByKey.get(key) || resolved : resolved;
     };
+    const validSubClaimIds = new Set(
+        subClaims.map((claim: any) => String(claim?._id || "").trim()).filter(Boolean)
+    );
+    const normalizePersistedSubClaimId = (value: unknown) => {
+        const normalized = String(value || "").trim();
+        return normalized && validSubClaimIds.has(normalized) ? normalized : undefined;
+    };
     const topicContent = String(topicWithQuestions.content || "");
     const rawExistingQuestions = filterQuestionsForActiveAssessment({
         topic: effectiveTopic,
@@ -11418,7 +11507,7 @@ const generateQuestionBankForTopic = async (
             bloomLevel: String(questionRecord?.bloomLevel || resolvedOutcome?.bloomLevel || "").trim() || undefined,
             outcomeKey: String(questionRecord?.outcomeKey || resolvedOutcome?.key || "").trim() || undefined,
             tier: normalizeGeneratedTier(questionRecord?.tier ?? resolvedObjectivePlanItem?.targetTier),
-            subClaimId: String(questionRecord?.subClaimId || resolvedObjectivePlanItem?.subClaimId || "").trim() || undefined,
+            subClaimId: normalizePersistedSubClaimId(questionRecord?.subClaimId || resolvedObjectivePlanItem?.subClaimId),
             cognitiveOperation: normalizeGeneratedCognitiveOperation(
                 questionRecord?.cognitiveOperation || resolvedObjectivePlanItem?.targetOp
             ),
@@ -11488,7 +11577,7 @@ const generateQuestionBankForTopic = async (
             bloomLevel: String(questionRecord?.bloomLevel || resolvedOutcome?.bloomLevel || "").trim() || undefined,
             outcomeKey: String(questionRecord?.outcomeKey || resolvedOutcome?.key || "").trim() || undefined,
             tier: normalizeGeneratedTier(questionRecord?.tier ?? resolvedObjectivePlanItem?.targetTier),
-            subClaimId: String(questionRecord?.subClaimId || resolvedObjectivePlanItem?.subClaimId || "").trim() || undefined,
+            subClaimId: normalizePersistedSubClaimId(questionRecord?.subClaimId || resolvedObjectivePlanItem?.subClaimId),
             cognitiveOperation: normalizeGeneratedCognitiveOperation(
                 questionRecord?.cognitiveOperation || resolvedObjectivePlanItem?.targetOp
             ),

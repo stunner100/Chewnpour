@@ -1732,5 +1732,19 @@ export const runDocumentExtractionPipeline = async (
     if (args.backend === "azure") {
         return await runAzureExtractionCandidate(args);
     }
+    if (isDoclingEnabled()) {
+        const fileType = String(args.fileType || "").toLowerCase();
+        const primaryDoclingParser: DoclingParserId | null =
+            fileType === "docx"
+                ? "docx_structured"
+                : ["png", "jpg", "jpeg", "webp"].includes(fileType)
+                    ? "image_ocr"
+                    : null;
+        return await runDoclingExtractionCandidate({
+            ...args,
+            backend: "docling",
+            parser: args.parser || primaryDoclingParser,
+        });
+    }
     return await runDataLabExtractionCandidate(args);
 };
