@@ -33,4 +33,11 @@ assert.ok(
   'Expected question persistence to omit synthetic subClaimId values that are not real topicSubClaims ids.',
 );
 
+assert.ok(
+  aiSource.includes('last_resort_grounded_fallback_saved')
+    && aiSource.includes('quality_gate_bypassed_for_grounded_fallback')
+    && aiSource.includes('getUniqueQuestionCount() === 0 && groundedPack.evidence.length > 0'),
+  'Expected question generation to save one grounded limited fallback instead of leaving Docling-backed topics with zero questions.',
+);
+
 console.log('assessment-routing-sync-regression.test.mjs passed');

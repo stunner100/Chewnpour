@@ -396,12 +396,41 @@ const runNativePass = async (fileType: string, fileBuffer: ArrayBuffer): Promise
     };
 };
 
+const normalizeUploadFileType = (fileType: string, fileName?: string) => {
+    const rawType = String(fileType || "").trim().toLowerCase().split(";")[0];
+    const rawName = String(fileName || "").trim().toLowerCase();
+    const candidate = rawType || rawName;
+
+    if (candidate === "pdf" || candidate.endsWith(".pdf") || candidate.includes("application/pdf")) return "pdf";
+    if (
+        candidate === "docx"
+        || candidate.endsWith(".docx")
+        || candidate.includes("wordprocessingml.document")
+    ) return "docx";
+    if (
+        candidate === "pptx"
+        || candidate.endsWith(".pptx")
+        || candidate.includes("presentationml.presentation")
+    ) return "pptx";
+    if (candidate === "png" || candidate.endsWith(".png") || candidate.includes("image/png")) return "png";
+    if (
+        candidate === "jpg"
+        || candidate === "jpeg"
+        || candidate.endsWith(".jpg")
+        || candidate.endsWith(".jpeg")
+        || candidate.includes("image/jpeg")
+    ) return "jpg";
+    if (candidate === "webp" || candidate.endsWith(".webp") || candidate.includes("image/webp")) return "webp";
+    return rawType || rawName;
+};
+
 const mapUploadTypeToContentType = (fileType: string) => {
-    if (fileType === "pdf") return "application/pdf";
-    if (fileType === "docx") return "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
-    if (fileType === "png") return "image/png";
-    if (fileType === "jpg" || fileType === "jpeg") return "image/jpeg";
-    if (fileType === "webp") return "image/webp";
+    const normalizedFileType = normalizeUploadFileType(fileType);
+    if (normalizedFileType === "pdf") return "application/pdf";
+    if (normalizedFileType === "docx") return "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
+    if (normalizedFileType === "png") return "image/png";
+    if (normalizedFileType === "jpg" || normalizedFileType === "jpeg") return "image/jpeg";
+    if (normalizedFileType === "webp") return "image/webp";
     return "application/vnd.openxmlformats-officedocument.presentationml.presentation";
 };
 
@@ -1024,7 +1053,7 @@ const buildMetrics = (args: {
         1
     );
 
-    const normalizedFileType = String(args.fileType || "").toLowerCase();
+    const normalizedFileType = normalizeUploadFileType(args.fileType);
     const requiredPagePresence = normalizedFileType === "pptx"
         ? STRICT_PAGE_PRESENCE_PPTX_THRESHOLD
         : (scannedLikely ? STRICT_PAGE_PRESENCE_SCANNED_THRESHOLD : STRICT_PAGE_PRESENCE_THRESHOLD);
@@ -1083,7 +1112,7 @@ export const shouldRunDoclingFallback = (args: {
     layoutPass: PassResult;
     readPass: PassResult;
 }): boolean => {
-    const fileType = String(args.fileType || "").toLowerCase();
+    const fileType = normalizeUploadFileType(args.fileType);
     if (!["pdf", "docx", "png", "jpg", "jpeg", "webp"].includes(fileType)) {
         return false;
     }
@@ -1122,7 +1151,7 @@ export const selectDoclingParser = (args: {
     layoutPass: PassResult;
     readPass: PassResult;
 }): DoclingParserId | null => {
-    const fileType = String(args.fileType || "").toLowerCase();
+    const fileType = normalizeUploadFileType(args.fileType);
     if (fileType === "pdf" && args.metrics.scannedLikely) {
         return "enhanced_pdf";
     }
@@ -1189,7 +1218,7 @@ export const shouldRunLlamaParseFallback = (args: {
         return false;
     }
 
-    const fileType = String(args.fileType || "").toLowerCase();
+    const fileType = normalizeUploadFileType(args.fileType);
     if (!["pdf", "pptx"].includes(fileType)) {
         return false;
     }
@@ -1458,7 +1487,7 @@ export const runAzureExtractionCandidate = async (
     args: RunDocumentExtractionArgs
 ): Promise<DocumentExtractionResult> => {
     const startedAt = Date.now();
-    const normalizedFileType = String(args.fileType || "").toLowerCase();
+    const normalizedFileType = normalizeUploadFileType(args.fileType, args.fileName);
     const contentType = mapUploadTypeToContentType(normalizedFileType);
     const nativeBuffer = cloneArrayBuffer(args.fileBuffer);
     const layoutBuffer = cloneArrayBuffer(args.fileBuffer);
@@ -1553,7 +1582,7 @@ export const runDataLabExtractionCandidate = async (
     }
 
     const startedAt = Date.now();
-    const normalizedFileType = String(args.fileType || "").toLowerCase();
+    const normalizedFileType = normalizeUploadFileType(args.fileType, args.fileName);
     const contentType = mapUploadTypeToContentType(normalizedFileType);
     const nativePassPromise = normalizedFileType === "pptx" || normalizedFileType === "docx"
         ? runNativePass(normalizedFileType, cloneArrayBuffer(args.fileBuffer))
@@ -1605,7 +1634,7 @@ export const runDoclingExtractionCandidate = async (
     args: RunDocumentExtractionArgs
 ): Promise<DocumentExtractionResult> => {
     const startedAt = Date.now();
-    const normalizedFileType = String(args.fileType || "").toLowerCase();
+    const normalizedFileType = normalizeUploadFileType(args.fileType, args.fileName);
     const contentType = mapUploadTypeToContentType(normalizedFileType);
     const parser = (
         args.parser && args.parser !== "azure_layout_read"
@@ -1688,7 +1717,7 @@ export const runLlamaParseExtractionCandidate = async (
     }
 
     const startedAt = Date.now();
-    const normalizedFileType = String(args.fileType || "").toLowerCase();
+    const normalizedFileType = normalizeUploadFileType(args.fileType, args.fileName);
     const contentType = mapUploadTypeToContentType(normalizedFileType);
     const payload = await callLlamaParseExtract({
         fileName: args.fileName,
@@ -1733,7 +1762,7 @@ export const runDocumentExtractionPipeline = async (
         return await runAzureExtractionCandidate(args);
     }
     if (isDoclingEnabled()) {
-        const fileType = String(args.fileType || "").toLowerCase();
+        const fileType = normalizeUploadFileType(args.fileType, args.fileName);
         const primaryDoclingParser: DoclingParserId | null =
             fileType === "docx"
                 ? "docx_structured"

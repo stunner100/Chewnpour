@@ -12065,6 +12065,125 @@ const generateQuestionBankForTopic = async (
         }
     }
 
+    if (getUniqueQuestionCount() === 0 && groundedPack.evidence.length > 0) {
+        const fallbackEvidence = groundedPack.evidence.find((entry: any) =>
+            String(entry?.passageId || "").trim() && String(entry?.text || "").trim()
+        );
+        if (fallbackEvidence) {
+            const citation = buildFreshFallbackCitation(fallbackEvidence);
+            const quotedStatement = normalizeFreshFallbackText(citation.quote, 220);
+            const fallbackPlan = getAssessmentPlanForQuestionType(
+                assessmentBlueprint,
+                QUESTION_TYPE_MULTIPLE_CHOICE,
+            );
+            const fallbackAllowedOutcomeKeys = new Set(
+                (Array.isArray(fallbackPlan?.targetOutcomeKeys) ? fallbackPlan.targetOutcomeKeys : [])
+                    .map((value: any) => normalizeOutcomeKey(value))
+                    .filter(Boolean)
+            );
+            const fallbackOutcomes = Array.isArray(assessmentBlueprint?.outcomes)
+                ? assessmentBlueprint.outcomes
+                : [];
+            const fallbackOutcome = (
+                fallbackOutcomes.find((outcome: any) => {
+                    const outcomeKey = normalizeOutcomeKey(outcome?.key);
+                    return outcomeKey && fallbackAllowedOutcomeKeys.has(outcomeKey);
+                })
+                || fallbackOutcomes[0]
+                || null
+            );
+            const fallbackOutcomeKey = normalizeOutcomeKey(fallbackOutcome?.key || "applied-reading") || "applied-reading";
+            const fallbackBloomLevel = normalizeBloomLevel(fallbackOutcome?.bloomLevel || "Apply") || "Apply";
+            const fallbackPlanItem = Array.isArray(assessmentBlueprint?.objectivePlan?.items)
+                ? assessmentBlueprint.objectivePlan.items.find((item: any) =>
+                    normalizeQuestionType(item?.targetType || item?.questionType) === QUESTION_TYPE_MULTIPLE_CHOICE
+                    && normalizeOutcomeKey(item?.outcomeKey) === fallbackOutcomeKey
+                    && normalizePersistedSubClaimId(item?.subClaimId)
+                )
+                : null;
+            const fallbackQuestionText = anchorTextToTopic(
+                `Which statement is directly supported by the cited source for ${effectiveTopic.title}?`,
+                effectiveTopic.title,
+                topicKeywords,
+            );
+            const fallbackSignature = buildQuestionPromptSignature(fallbackQuestionText);
+            const fallbackNormalizedKey = String(fallbackSignature?.normalized || "");
+
+            if (quotedStatement && fallbackNormalizedKey && !existingQuestionKeys.has(fallbackNormalizedKey)) {
+                const saveStartedAt = Date.now();
+                const fallbackQuestionPayload: Record<string, any> = {
+                    topicId,
+                    questionText: fallbackQuestionText,
+                    questionType: QUESTION_TYPE_MULTIPLE_CHOICE,
+                    correctAnswer: "A",
+                    explanation: `Option A is directly supported by the cited source: "${quotedStatement}"`,
+                    difficulty: "easy",
+                    options: [
+                        { label: "A", text: quotedStatement, isCorrect: true },
+                        { label: "B", text: "The source says this topic has no practical study value.", isCorrect: false },
+                        { label: "C", text: "The source says the cited idea should be ignored during revision.", isCorrect: false },
+                        { label: "D", text: "The source says the cited evidence is unrelated to learning.", isCorrect: false },
+                    ],
+                    citations: [citation],
+                    sourcePassageIds: [citation.passageId],
+                    groundingScore: 1,
+                    factualityStatus: "verified",
+                    generationVersion: ASSESSMENT_QUESTION_GENERATION_VERSION,
+                    generationRunId,
+                    learningObjective: String(fallbackOutcome?.objective || "").trim() || undefined,
+                    bloomLevel: fallbackBloomLevel,
+                    outcomeKey: fallbackOutcomeKey,
+                    tier: normalizeGeneratedTier(fallbackPlanItem?.targetTier || 1),
+                    subClaimId: normalizePersistedSubClaimId(fallbackPlanItem?.subClaimId),
+                    cognitiveOperation: normalizeGeneratedCognitiveOperation(fallbackPlanItem?.targetOp || "recognition"),
+                    groundingEvidence: quotedStatement,
+                    qualityScore: 0.62,
+                    qualityTier: QUALITY_TIER_LIMITED,
+                    rigorScore: 0.42,
+                    clarityScore: 0.8,
+                    diversityCluster: "multiple_choice::last_resort_grounded_fallback",
+                    distractorScore: 0.35,
+                    freshnessBucket: QUESTION_FRESHNESS_BUCKET_FRESH,
+                    qualityFlags: normalizeQualityFlags([
+                        "last_resort_grounded_fallback",
+                        "quality_gate_bypassed_for_grounded_fallback",
+                    ]),
+                };
+                const questionId = await ctx.runMutation(internal.topics.createQuestionInternal, fallbackQuestionPayload);
+                timingBreakdown.saveMs += normalizeTimingMs(Date.now() - saveStartedAt);
+                if (questionId) {
+                    existingQuestionKeys.add(fallbackNormalizedKey);
+                    existingQuestionSignatures.push(fallbackSignature);
+                    coverageQuestions.push({
+                        questionType: QUESTION_TYPE_MULTIPLE_CHOICE,
+                        questionText: fallbackQuestionText,
+                        options: fallbackQuestionPayload.options,
+                        bloomLevel: fallbackQuestionPayload.bloomLevel,
+                        outcomeKey: fallbackQuestionPayload.outcomeKey,
+                        tier: fallbackQuestionPayload.tier,
+                        subClaimId: fallbackQuestionPayload.subClaimId,
+                        cognitiveOperation: fallbackQuestionPayload.cognitiveOperation,
+                        groundingEvidence: quotedStatement,
+                        qualityTier: QUALITY_TIER_LIMITED,
+                        qualityScore: fallbackQuestionPayload.qualityScore,
+                        rigorScore: fallbackQuestionPayload.rigorScore,
+                        clarityScore: fallbackQuestionPayload.clarityScore,
+                        diversityCluster: fallbackQuestionPayload.diversityCluster,
+                        distractorScore: fallbackQuestionPayload.distractorScore,
+                    });
+                    added += 1;
+                    countBreakdown.savedQuestionCount += 1;
+                    console.warn("[QuestionBank] last_resort_grounded_fallback_saved", {
+                        topicId,
+                        topicTitle: topicWithQuestions.title,
+                        questionId,
+                        passageId: citation.passageId,
+                    });
+                }
+            }
+        }
+    }
+
     const incomplete = getUniqueQuestionCount() < targetCount;
     const stoppedForNoProgress = incomplete && noProgressRounds >= profile.noProgressLimit;
     const stoppedForMaxRounds = incomplete && round >= maxRounds;

@@ -45,6 +45,12 @@ assert.ok(
   'Expected the default upload extraction route to cut over to Docling when configured, with Datalab as the unconfigured fallback.'
 );
 assert.ok(
+  pipelineSource.includes('const normalizeUploadFileType = (fileType: string, fileName?: string) =>')
+    && pipelineSource.includes('candidate.includes("wordprocessingml.document")')
+    && pipelineSource.includes('const normalizedFileType = normalizeUploadFileType(args.fileType, args.fileName);'),
+  'Expected extraction routing to normalize browser MIME types before selecting Docling parsers.'
+);
+assert.ok(
   extractionSource.includes('v.literal("datalab")')
     && extractionSource.includes('v.literal("azure")')
     && extractionSource.includes('v.literal("docling")')
