@@ -19,6 +19,7 @@ COPY pyproject.toml ./
 COPY render_api ./render_api
 
 RUN pip install --upgrade pip \
+    && pip install --index-url https://download.pytorch.org/whl/cpu torch torchvision \
     && pip install .
 
 EXPOSE 10000
