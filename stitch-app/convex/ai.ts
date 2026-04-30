@@ -8546,6 +8546,7 @@ export const generateCourseFromText = action({
                     status: "processing",
                     processingStep: "generating_topics",
                     processingProgress: 40,
+                    errorMessage: "",
                 });
 
                 checkTimeout();
@@ -8582,6 +8583,7 @@ export const generateCourseFromText = action({
                     plannedTopicCount: totalTopics,
                     generatedTopicCount: 0,
                     plannedTopicTitles,
+                    errorMessage: "",
                 });
 
                 checkTimeout();
@@ -8610,6 +8612,7 @@ export const generateCourseFromText = action({
                     plannedTopicCount: totalTopics,
                     generatedTopicCount,
                     plannedTopicTitles,
+                    errorMessage: "",
                 });
 
                 console.info("[CourseGeneration] first_topic_ready", {
@@ -8908,6 +8911,7 @@ export const processUploadedFile = action({
                 status: "processing",
                 processingStep: "extracting",
                 processingProgress: 5,
+                errorMessage: "",
             });
 
             // Update to analyzing phase
@@ -8916,6 +8920,7 @@ export const processUploadedFile = action({
                 status: "processing",
                 processingStep: "analyzing",
                 processingProgress: 20,
+                errorMessage: "",
             });
 
             checkTimeout();
@@ -9020,6 +9025,7 @@ export const addSourceToCourse = action({
                     status: "processing",
                     processingStep: "generating_topics",
                     processingProgress: 40,
+                    errorMessage: "",
                 });
 
                 checkTimeout();

@@ -27,7 +27,7 @@ export const shouldShowProcessingConfirmation = ({
     hasTopics,
 }) => {
     if (!upload) return false;
-    if (upload.status === 'error') return true;
+    if (upload.status === 'error') return isFirstTopicReady({ upload, hasTopics });
     if (upload.status !== 'ready') return false;
     return isFirstTopicReady({ upload, hasTopics });
 };
