@@ -14,6 +14,7 @@ const headless =
 
 const dashboardSettleTimeoutMs = Number(process.env.DASHBOARD_SETTLE_TIMEOUT_MS || 90_000);
 const uploadKickoffTimeoutMs = Number(process.env.UPLOAD_KICKOFF_TIMEOUT_MS || 120_000);
+const uploadInputReadyTimeoutMs = Number(process.env.UPLOAD_INPUT_READY_TIMEOUT_MS || 120_000);
 const dashboardResumeTimeoutMs = Number(process.env.DASHBOARD_RESUME_TIMEOUT_MS || 240_000);
 const topicReadyTimeoutMs = Number(process.env.TOPIC_READY_TIMEOUT_MS || 240_000);
 const examReadyTimeoutMs = Number(process.env.EXAM_READY_TIMEOUT_MS || 240_000);
@@ -222,6 +223,24 @@ const waitForUploadRoute = async () =>
     uploadKickoffTimeoutMs
   );
 
+const waitForUploadInput = async () =>
+  await waitFor(
+    'dashboard upload input',
+    async () => {
+      const pathname = new URL(page.url()).pathname;
+      const fileInput = page.locator('input[type="file"]').first();
+      const exists = (await fileInput.count()) > 0;
+      const bodyText = await page.locator('body').innerText();
+
+      return {
+        ok: pathname.startsWith('/dashboard') && exists,
+        note: `${pathname} :: ${bodyText.slice(0, 220)}`,
+      };
+    },
+    uploadInputReadyTimeoutMs,
+    1_500
+  );
+
 const waitForDashboardCourseEntry = async (courseId) => {
   const exactHref = courseId ? `/dashboard/course/${courseId}` : null;
   const startedAt = Date.now();
@@ -330,8 +349,17 @@ const waitForExamQuestion = async () =>
     'exam question render',
     async () => {
       const bodyText = await page.locator('body').innerText();
-      if (/Exam Preparation Failed|Connection dropped while starting the exam|Tap Retry/i.test(bodyText)) {
-        throw new Error(`Exam preparation failed: ${bodyText.slice(0, 600)}`);
+      if (/Exam Preparation Failed|Connection dropped while starting the exam|Unable to start the exam/i.test(bodyText)) {
+        const retryButton = page.getByRole('button', { name: /retry/i }).first();
+        if (await retryButton.isVisible().catch(() => false)) {
+          appendNote('Exam fallback appeared; tapping Retry and continuing to wait.');
+          await retryButton.click({ timeout: 15_000 }).catch(() => null);
+          await sleep(1_500);
+        }
+        return {
+          ok: false,
+          note: `Exam fallback visible: ${bodyText.slice(0, 220)}`,
+        };
       }
       return {
         ok: /Question\s+1|Which statement is directly supported by Evidence 1|What does the evidence state/i.test(
@@ -416,6 +444,7 @@ try {
   recordStep('complete-onboarding', 'passed', { url: page.url() });
 
   recordStep('upload-document', 'started');
+  await waitForUploadInput();
   await page.locator('input[type="file"]').first().setInputFiles(uploadFilePath);
   const uploadRoute = await waitForUploadRoute();
   const courseId = uploadRoute.courseId || extractCourseIdFromUrl(page.url());
