@@ -501,8 +501,8 @@ const ExamMode = () => {
         });
     }, []);
 
-    const START_EXAM_ATTEMPT_TIMEOUT_MS = 120_000;
-    const EXAM_LOADING_STALL_TIMEOUT_MS = 150_000;
+    const START_EXAM_ATTEMPT_TIMEOUT_MS = 240_000;
+    const EXAM_LOADING_STALL_TIMEOUT_MS = 270_000;
 
     const loadingExamTypeLabel = examFormat === 'essay' ? 'essay' : 'objective';
     const activePreparationMessage = `Generating your ${loadingExamTypeLabel} exam from this topic.`;

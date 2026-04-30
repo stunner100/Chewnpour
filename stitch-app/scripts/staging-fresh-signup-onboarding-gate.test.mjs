@@ -17,7 +17,7 @@ const uploadKickoffTimeoutMs = Number(process.env.UPLOAD_KICKOFF_TIMEOUT_MS || 1
 const uploadInputReadyTimeoutMs = Number(process.env.UPLOAD_INPUT_READY_TIMEOUT_MS || 120_000);
 const dashboardResumeTimeoutMs = Number(process.env.DASHBOARD_RESUME_TIMEOUT_MS || 240_000);
 const topicReadyTimeoutMs = Number(process.env.TOPIC_READY_TIMEOUT_MS || 240_000);
-const examReadyTimeoutMs = Number(process.env.EXAM_READY_TIMEOUT_MS || 240_000);
+const examReadyTimeoutMs = Number(process.env.EXAM_READY_TIMEOUT_MS || 360_000);
 
 const runId = `staging-onboarding-gate-${new Date().toISOString().replace(/[:.]/g, '-')}`;
 const artifactsDir = path.join(root, 'output', 'playwright', runId);
