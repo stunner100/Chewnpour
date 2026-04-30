@@ -142,6 +142,7 @@ export default defineSchema({
             vectorField: "embedding",
             dimensions: 1536,
             filterFields: ["userId", "uploadId", "courseId"],
+            staged: true,
         }),
 
     questionTargetAuditRuns: defineTable({
