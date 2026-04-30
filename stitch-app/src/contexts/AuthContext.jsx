@@ -474,20 +474,17 @@ const AuthProviderConvex = ({ children }) => {
     }, [isConvexAuthenticated, sessionUser?.id, touchPresence]);
 
     const signUp = async (email, password, fullName) => {
-        const callbackURL = absoluteUrl('/dashboard');
         try {
             const result = await betterSignUp.email({
                 email,
                 password,
                 name: fullName,
-                callbackURL,
             });
             if (result.error) {
                 if (isTransientSessionError(result.error)) {
                     captureAuthFailure({
                         error: result.error,
                         operation: 'sign_up',
-                        callbackURL,
                         extras: {
                             phase: 'result_error',
                         },
@@ -517,7 +514,6 @@ const AuthProviderConvex = ({ children }) => {
             captureAuthFailure({
                 error,
                 operation: 'sign_up',
-                callbackURL,
                 extras: {
                     phase: 'exception',
                     transient,
@@ -529,19 +525,16 @@ const AuthProviderConvex = ({ children }) => {
     };
 
     const signIn = async (email, password) => {
-        const callbackURL = absoluteUrl('/dashboard');
         try {
             const result = await betterSignIn.email({
                 email,
                 password,
-                callbackURL,
             });
             if (result.error) {
                 if (isTransientSessionError(result.error)) {
                     captureAuthFailure({
                         error: result.error,
                         operation: 'sign_in',
-                        callbackURL,
                         extras: {
                             phase: 'result_error',
                         },
@@ -556,7 +549,6 @@ const AuthProviderConvex = ({ children }) => {
             captureAuthFailure({
                 error,
                 operation: 'sign_in',
-                callbackURL,
                 extras: {
                     phase: 'exception',
                     transient,
