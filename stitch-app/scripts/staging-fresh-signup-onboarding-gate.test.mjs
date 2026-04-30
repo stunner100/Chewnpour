@@ -11,6 +11,7 @@ const headless =
   process.env.HEADLESS === undefined
     ? true
     : !['0', 'false'].includes(String(process.env.HEADLESS).toLowerCase());
+const chromiumHostResolverRules = String(process.env.CHROMIUM_HOST_RESOLVER_RULES || '').trim();
 
 const dashboardSettleTimeoutMs = Number(process.env.DASHBOARD_SETTLE_TIMEOUT_MS || 90_000);
 const uploadKickoffTimeoutMs = Number(process.env.UPLOAD_KICKOFF_TIMEOUT_MS || 120_000);
@@ -18,12 +19,19 @@ const uploadInputReadyTimeoutMs = Number(process.env.UPLOAD_INPUT_READY_TIMEOUT_
 const dashboardResumeTimeoutMs = Number(process.env.DASHBOARD_RESUME_TIMEOUT_MS || 240_000);
 const topicReadyTimeoutMs = Number(process.env.TOPIC_READY_TIMEOUT_MS || 240_000);
 const examReadyTimeoutMs = Number(process.env.EXAM_READY_TIMEOUT_MS || 360_000);
+const postUploadProcessingSettleMs = Math.max(
+  0,
+  Number(process.env.POST_UPLOAD_PROCESSING_SETTLE_MS || 0)
+);
 
 const runId = `staging-onboarding-gate-${new Date().toISOString().replace(/[:.]/g, '-')}`;
 const artifactsDir = path.join(root, 'output', 'playwright', runId);
 await fs.mkdir(artifactsDir, { recursive: true });
 
-const browser = await chromium.launch({ headless });
+const chromiumLaunchArgs = chromiumHostResolverRules
+  ? [`--host-resolver-rules=${chromiumHostResolverRules}`]
+  : [];
+const browser = await chromium.launch({ headless, args: chromiumLaunchArgs });
 const context = await browser.newContext({ viewport: { width: 1440, height: 1100 } });
 const page = await context.newPage();
 page.setDefaultTimeout(30_000);
@@ -452,6 +460,9 @@ try {
     throw new Error(`Could not determine course ID after upload kickoff from ${page.url()}`);
   }
   summary.courseId = courseId;
+  if (postUploadProcessingSettleMs > 0) {
+    await sleep(postUploadProcessingSettleMs);
+  }
   await screenshot('05-upload-kickoff');
   recordStep('upload-document', 'passed', { url: page.url(), courseId });
 
