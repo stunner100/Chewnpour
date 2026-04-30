@@ -13976,9 +13976,19 @@ const FRESH_CONTEXT_AUTHORING_TIMEOUT_MS = Math.max(
     5000,
     Math.min(DEFAULT_TIMEOUT_MS, Number(process.env.FRESH_CONTEXT_AUTHORING_TIMEOUT_MS || 45000)),
 );
+const FRESH_CONTEXT_INTERACTIVE_BUDGET_MS = Math.max(
+    30000,
+    Number(process.env.FRESH_CONTEXT_INTERACTIVE_BUDGET_MS || 95000),
+);
 
 const resolveFreshRequestedExamFormat = (value: unknown) =>
     String(value || "").trim().toLowerCase() === "essay" ? "essay" : "mcq";
+
+const getFreshExamRemainingMs = (deadlineMs: number, reserveMs = 0) =>
+    Math.max(0, Math.round(Number(deadlineMs || 0) - Date.now() - Math.max(0, reserveMs)));
+
+const isFreshExamDeadlineExceeded = (deadlineMs: number, reserveMs = 0) =>
+    getFreshExamRemainingMs(deadlineMs, reserveMs) <= 0;
 
 const resolveFreshConfiguredTargetCount = (value: unknown, fallback: number) => {
     const numeric = Number(value);
@@ -15142,6 +15152,8 @@ export const generateFreshExamSnapshotInternal = internalAction({
                     });
                 }
 
+                const interactiveDeadlineMs = Date.now() + FRESH_CONTEXT_INTERACTIVE_BUDGET_MS;
+
                 const configuredTarget = resolveFreshConfiguredTargetCount(
                     examFormat === "essay" ? topic?.essayTargetCount : topic?.mcqTargetCount,
                     examFormat === "essay" ? FRESH_CONTEXT_ESSAY_DEFAULT_COUNT : FRESH_CONTEXT_OBJECTIVE_DEFAULT_COUNT,
@@ -15167,6 +15179,13 @@ export const generateFreshExamSnapshotInternal = internalAction({
                 try {
                     let validationFeedback: string[] = [];
                     for (let attempt = 0; attempt < 2; attempt += 1) {
+                        if (isFreshExamDeadlineExceeded(interactiveDeadlineMs, 5000)) {
+                            throw new ConvexError({
+                                code: "EXAM_GENERATION_TIMEOUT",
+                                message: "Fresh exam generation ran out of interactive budget.",
+                            });
+                        }
+
                         const prompt = examFormat === "essay"
                             ? buildFreshEssayExamPrompt({
                                 topic,
@@ -15194,14 +15213,29 @@ export const generateFreshExamSnapshotInternal = internalAction({
                         ], DEFAULT_MODEL, {
                             maxTokens: examFormat === "essay" ? 3200 : 5200,
                             responseFormat: "json_object",
-                            timeoutMs: FRESH_CONTEXT_AUTHORING_TIMEOUT_MS,
+                            timeoutMs: Math.max(
+                                5000,
+                                Math.min(
+                                    FRESH_CONTEXT_AUTHORING_TIMEOUT_MS,
+                                    getFreshExamRemainingMs(interactiveDeadlineMs, 3000),
+                                ),
+                            ),
                             temperature: 0.2,
                         });
 
                         const parsed = await parseFreshExamQuestionsWithRepair(
                             response,
                             examFormat === "essay" ? "essay" : "objective",
-                            { repairTimeoutMs: FRESH_CONTEXT_AUTHORING_TIMEOUT_MS }
+                            {
+                                deadlineMs: interactiveDeadlineMs,
+                                repairTimeoutMs: Math.max(
+                                    1500,
+                                    Math.min(
+                                        FRESH_CONTEXT_AUTHORING_TIMEOUT_MS,
+                                        getFreshExamRemainingMs(interactiveDeadlineMs, 2000),
+                                    ),
+                                ),
+                            }
                         );
                         const rawQuestions = Array.isArray(parsed?.questions) ? parsed.questions : [];
                         const normalizedQuestions = examFormat === "essay"
@@ -15240,6 +15274,12 @@ export const generateFreshExamSnapshotInternal = internalAction({
                         }
 
                         validationFeedback = validation.errors.slice(0, 8);
+                        if (attempt === 0 && isFreshExamDeadlineExceeded(interactiveDeadlineMs, 18000)) {
+                            throw new ConvexError({
+                                code: "EXAM_GENERATION_TIMEOUT",
+                                message: "Fresh exam validation exhausted the interactive budget.",
+                            });
+                        }
                     }
 
                     if (examFormat === "mcq") {
@@ -15248,6 +15288,13 @@ export const generateFreshExamSnapshotInternal = internalAction({
                             : [requestedCount];
 
                         for (const fallbackCount of fallbackCounts) {
+                            if (isFreshExamDeadlineExceeded(interactiveDeadlineMs, 8000)) {
+                                throw new ConvexError({
+                                    code: "EXAM_GENERATION_TIMEOUT",
+                                    message: "Fresh exam fallback authoring ran out of interactive budget.",
+                                });
+                            }
+
                             const fallbackPrompt = buildFreshObjectiveExamPrompt({
                                 topic,
                                 requestedCount: fallbackCount,
@@ -15271,14 +15318,29 @@ export const generateFreshExamSnapshotInternal = internalAction({
                             ], DEFAULT_MODEL, {
                                 maxTokens: 5200,
                                 responseFormat: "json_object",
-                                timeoutMs: FRESH_CONTEXT_AUTHORING_TIMEOUT_MS,
+                                timeoutMs: Math.max(
+                                    5000,
+                                    Math.min(
+                                        FRESH_CONTEXT_AUTHORING_TIMEOUT_MS,
+                                        getFreshExamRemainingMs(interactiveDeadlineMs, 3000),
+                                    ),
+                                ),
                                 temperature: 0.2,
                             });
 
                             const fallbackParsed = await parseFreshExamQuestionsWithRepair(
                                 fallbackResponse,
                                 "objective",
-                                { repairTimeoutMs: FRESH_CONTEXT_AUTHORING_TIMEOUT_MS }
+                                {
+                                    deadlineMs: interactiveDeadlineMs,
+                                    repairTimeoutMs: Math.max(
+                                        1500,
+                                        Math.min(
+                                            FRESH_CONTEXT_AUTHORING_TIMEOUT_MS,
+                                            getFreshExamRemainingMs(interactiveDeadlineMs, 2000),
+                                        ),
+                                    ),
+                                }
                             );
                             const fallbackRawQuestions = Array.isArray(fallbackParsed?.questions) ? fallbackParsed.questions : [];
                             const fallbackQuestions = fallbackRawQuestions.map((question, index) =>
@@ -15322,6 +15384,13 @@ export const generateFreshExamSnapshotInternal = internalAction({
                             : [];
 
                         for (const fallbackCount of essayFallbackCounts) {
+                            if (isFreshExamDeadlineExceeded(interactiveDeadlineMs, 8000)) {
+                                throw new ConvexError({
+                                    code: "EXAM_GENERATION_TIMEOUT",
+                                    message: "Fresh essay fallback authoring ran out of interactive budget.",
+                                });
+                            }
+
                             const fallbackPrompt = buildFreshEssayExamPrompt({
                                 topic,
                                 requestedCount: fallbackCount,
@@ -15342,14 +15411,29 @@ export const generateFreshExamSnapshotInternal = internalAction({
                             ], DEFAULT_MODEL, {
                                 maxTokens: 3200,
                                 responseFormat: "json_object",
-                                timeoutMs: FRESH_CONTEXT_AUTHORING_TIMEOUT_MS,
+                                timeoutMs: Math.max(
+                                    5000,
+                                    Math.min(
+                                        FRESH_CONTEXT_AUTHORING_TIMEOUT_MS,
+                                        getFreshExamRemainingMs(interactiveDeadlineMs, 3000),
+                                    ),
+                                ),
                                 temperature: 0.2,
                             });
 
                             const fallbackParsed = await parseFreshExamQuestionsWithRepair(
                                 fallbackResponse,
                                 "essay",
-                                { repairTimeoutMs: FRESH_CONTEXT_AUTHORING_TIMEOUT_MS }
+                                {
+                                    deadlineMs: interactiveDeadlineMs,
+                                    repairTimeoutMs: Math.max(
+                                        1500,
+                                        Math.min(
+                                            FRESH_CONTEXT_AUTHORING_TIMEOUT_MS,
+                                            getFreshExamRemainingMs(interactiveDeadlineMs, 2000),
+                                        ),
+                                    ),
+                                }
                             );
                             const fallbackRawQuestions = Array.isArray(fallbackParsed?.questions) ? fallbackParsed.questions : [];
                             const fallbackQuestions = fallbackRawQuestions.map((question, index) =>
