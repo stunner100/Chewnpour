@@ -12,10 +12,9 @@ name: chewnpour-docling
 region: nyc
 services:
   - name: docling-service
-    github:
-      repo: stunner100/Chewnpour
+    git:
+      repo_clone_url: https://github.com/stunner100/Chewnpour.git
       branch: codex/topic-podcast-generation
-      deploy_on_push: true
     dockerfile_path: docling-service/Dockerfile
     source_dir: docling-service
     http_port: 10000
