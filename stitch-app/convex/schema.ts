@@ -137,13 +137,7 @@ export default defineSchema({
     })
         .index("by_uploadId", ["uploadId"])
         .index("by_courseId", ["courseId"])
-        .index("by_uploadId_passageId", ["uploadId", "passageId"])
-        .vectorIndex("by_embedding", {
-            vectorField: "embedding",
-            dimensions: 1536,
-            filterFields: ["userId", "uploadId", "courseId"],
-            staged: true,
-        }),
+        .index("by_uploadId_passageId", ["uploadId", "passageId"]),
 
     questionTargetAuditRuns: defineTable({
         dryRun: v.boolean(),

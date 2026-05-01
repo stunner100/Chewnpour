@@ -14,7 +14,6 @@ const [schemaSource, groundedSource, retrievalSource, aiSource, envExample] = aw
 
 for (const requiredPattern of [
   'evidencePassages: defineTable({',
-  '.vectorIndex("by_embedding"',
   'searchDocuments: defineTable({',
   '.searchIndex("search_body"',
   'embeddingsStatus: v.optional(v.string())',
@@ -30,8 +29,7 @@ for (const requiredPattern of [
   'buildMaterializedEvidenceRows',
   'grounded.materializeEvidencePassagesForUpload',
   'insertEvidencePassageBatch',
-  'VOYAGE_EMBEDDINGS_VERSION',
-  'inputType: "document"',
+  'lexical-structured-passages',
 ]) {
   if (!groundedSource.includes(requiredPattern)) {
     throw new Error(`Expected grounded.ts to include "${requiredPattern}" for passage materialization.`);
@@ -39,21 +37,22 @@ for (const requiredPattern of [
 }
 
 for (const requiredPattern of [
-  'ctx.vectorSearch("evidencePassages", "by_embedding"',
-  'embedText(args.query, { inputType: "query" })',
+  'GROUNDED_VECTOR_RETRIEVAL_ENABLED',
   'numericAgreement',
-  'retrievalMode: "hybrid"',
   'hybrid_lexical_only',
-  'isVoyageEmbeddingsConfigured',
-  'inputType: "query"',
+  'retrievalSource: "lexical"',
 ]) {
   if (!retrievalSource.includes(requiredPattern)) {
-    throw new Error(`Expected groundedRetrieval.ts to include "${requiredPattern}" for hybrid retrieval.`);
+    throw new Error(`Expected groundedRetrieval.ts to include "${requiredPattern}" for structured lexical retrieval.`);
   }
 }
 
+if (schemaSource.includes('.vectorIndex("by_embedding"')) {
+  throw new Error("evidencePassages.by_embedding must stay removed to keep Convex index memory down.");
+}
+
 for (const requiredPattern of [
-  'retrievalMode: retrieval.retrievalMode',
+  'retrievalMode: effectiveRetrieval.retrievalMode',
   '[GroundedRetrieval] topic_retrieval_completed',
   'SOURCE EVIDENCE:',
   'queryFragments: [question]',
@@ -67,6 +66,7 @@ for (const requiredPattern of [
 for (const requiredPattern of [
   'VOYAGE_EMBEDDINGS_MODEL=voyage-large-2',
   'VOYAGE_EMBEDDINGS_TIMEOUT_MS=20000',
+  'GROUNDED_VECTOR_RETRIEVAL_ENABLED=false',
 ]) {
   if (!envExample.includes(requiredPattern)) {
     throw new Error(`Expected .env.example to include "${requiredPattern}" for embeddings configuration.`);

@@ -1,4 +1,5 @@
 import { action, internalQuery, mutation, query } from "./_generated/server";
+import { paginationOptsValidator } from "convex/server";
 import { v } from "convex/values";
 import { components, internal } from "./_generated/api";
 
@@ -40,6 +41,9 @@ const PAYMENT_PROVIDER_DEFAULT = String(process.env.PAYMENT_PROVIDER || PAYMENT_
 const PAYMENT_RECONCILE_MIN_AGE_MS = 15 * 60 * 1000;
 const PAYMENT_RECONCILE_RETRY_INTERVAL_MS = 60 * 60 * 1000;
 const UNRESOLVED_PAYMENT_ROWS_LIMIT = 25;
+const DISPOSABLE_E2E_EMAIL_PREFIX = "gate_";
+const DISPOSABLE_E2E_EMAIL_DOMAIN = "example.com";
+const DISPOSABLE_E2E_MAX_USERS_PER_RUN = 25;
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/i;
 
@@ -160,6 +164,14 @@ const normalizeFeedbackMessage = (value: unknown) =>
         : "";
 
 const isValidEmail = (value: string) => EMAIL_PATTERN.test(value);
+
+const isDisposableE2EEmail = (value: unknown) => {
+    const email = normalizeEmail(value);
+    return (
+        email.endsWith(`@${DISPOSABLE_E2E_EMAIL_DOMAIN}`)
+        && email.startsWith(DISPOSABLE_E2E_EMAIL_PREFIX)
+    );
+};
 
 const toTimestamp = (value: unknown, fallback: number) => {
     const parsed = Number(value);
@@ -492,8 +504,9 @@ const listAdminEmailsFromMap = (sourceMap: Map<string, Set<"bootstrap" | "env" |
 const resolveAdminAccess = async (ctx: any, identity: any) => {
     const authUserIdCandidates = collectAuthUserIdCandidates(identity);
     const subjectAuthUserId = normalizeUserIdCandidate(identity?.subject);
+    const identityEmail = resolveIdentityEmail(identity);
     let resolvedAuthUsers: any[] = [];
-    if (subjectAuthUserId) {
+    if (subjectAuthUserId && !identityEmail) {
         try {
             resolvedAuthUsers = await fetchAuthUsersByIds(ctx, [subjectAuthUserId]);
         } catch {
@@ -502,7 +515,7 @@ const resolveAdminAccess = async (ctx: any, identity: any) => {
     }
     const resolvedAuthUser = resolvedAuthUsers[0] || null;
     const authUserId = normalizeAuthUserId(resolvedAuthUser) || subjectAuthUserId || authUserIdCandidates[0] || "";
-    const authEmail = resolveIdentityEmail(identity) || normalizeEmail(resolvedAuthUser?.email);
+    const authEmail = identityEmail || normalizeEmail(resolvedAuthUser?.email);
     const adminUserIdAllowlist = parseConfiguredAdminUserIds();
     const adminEmailSourceMap = await buildAdminEmailSourceMap(ctx);
     const adminEmails = listAdminEmailsFromMap(adminEmailSourceMap);
@@ -710,6 +723,537 @@ export const getAccountStateByEmailInternal = internalQuery({
                 createdAt: toTimestamp(authUser.createdAt, 0),
             })),
             userStates,
+        };
+    },
+});
+
+const collectRowsByIndex = async (
+    ctx: any,
+    tableName: string,
+    indexName: string,
+    fieldName: string,
+    value: any
+) =>
+    await (ctx.db as any)
+        .query(tableName)
+        .withIndex(indexName, (q: any) => q.eq(fieldName, value))
+        .collect();
+
+const incrementCleanupCount = (
+    counts: Record<string, number>,
+    tableName: string,
+    amount = 1
+) => {
+    counts[tableName] = (counts[tableName] || 0) + amount;
+};
+
+const deleteRows = async (
+    ctx: any,
+    counts: Record<string, number>,
+    tableName: string,
+    rows: any[],
+    dryRun: boolean
+) => {
+    incrementCleanupCount(counts, tableName, rows.length);
+    if (dryRun) return;
+    for (const row of rows) {
+        await ctx.db.delete(row._id);
+    }
+};
+
+const deleteStorageObject = async (
+    ctx: any,
+    counts: Record<string, number>,
+    storageId: any,
+    dryRun: boolean
+) => {
+    if (!storageId) return;
+    incrementCleanupCount(counts, "_storage");
+    if (dryRun) return;
+    try {
+        await ctx.storage.delete(storageId);
+    } catch {
+        // Cleanup should keep going if a derived artifact was already removed.
+    }
+};
+
+const cleanupTopicTree = async (
+    ctx: any,
+    counts: Record<string, number>,
+    topic: any,
+    dryRun: boolean
+) => {
+    const topicId = topic._id;
+
+    const podcasts = await collectRowsByIndex(ctx, "topicPodcasts", "by_topicId", "topicId", topicId);
+    for (const podcast of podcasts) {
+        await deleteStorageObject(ctx, counts, podcast.audioStorageId, dryRun);
+    }
+    await deleteRows(ctx, counts, "topicPodcasts", podcasts, dryRun);
+
+    const subClaims = await collectRowsByIndex(ctx, "topicSubClaims", "by_topicId", "topicId", topicId);
+    for (const subClaim of subClaims) {
+        const distractors = await collectRowsByIndex(
+            ctx,
+            "distractorBank",
+            "by_subClaimId",
+            "subClaimId",
+            subClaim._id
+        );
+        await deleteRows(ctx, counts, "distractorBank", distractors, dryRun);
+    }
+
+    const topicScopedTables = [
+        ["lessons", "by_topicId"],
+        ["questions", "by_topicId"],
+        ["examAttempts", "by_topicId"],
+        ["examPreparations", "by_topicId"],
+        ["conceptExercises", "by_topicId"],
+        ["conceptAttempts", "by_topicId"],
+        ["topicNotes", "by_topicId"],
+        ["distractorBank", "by_topicId"],
+    ] as const;
+
+    for (const [tableName, indexName] of topicScopedTables) {
+        const rows = await collectRowsByIndex(ctx, tableName, indexName, "topicId", topicId);
+        await deleteRows(ctx, counts, tableName, rows, dryRun);
+    }
+
+    await deleteRows(ctx, counts, "topicSubClaims", subClaims, dryRun);
+    await deleteStorageObject(ctx, counts, topic.illustrationStorageId, dryRun);
+    await deleteRows(ctx, counts, "topics", [topic], dryRun);
+};
+
+const cleanupUploadTree = async (
+    ctx: any,
+    counts: Record<string, number>,
+    upload: any,
+    dryRun: boolean
+) => {
+    const uploadId = upload._id;
+
+    const evidencePassages = await collectRowsByIndex(
+        ctx,
+        "evidencePassages",
+        "by_uploadId",
+        "uploadId",
+        uploadId
+    );
+    await deleteRows(ctx, counts, "evidencePassages", evidencePassages, dryRun);
+
+    const extractions = await collectRowsByIndex(
+        ctx,
+        "documentExtractions",
+        "by_uploadId",
+        "uploadId",
+        uploadId
+    );
+    for (const extraction of extractions) {
+        await deleteStorageObject(ctx, counts, extraction.artifactStorageId, dryRun);
+    }
+    await deleteRows(ctx, counts, "documentExtractions", extractions, dryRun);
+
+    const evidenceIndexes = await collectRowsByIndex(
+        ctx,
+        "uploadEvidenceIndexes",
+        "by_uploadId",
+        "uploadId",
+        uploadId
+    );
+    for (const evidenceIndex of evidenceIndexes) {
+        await deleteStorageObject(ctx, counts, evidenceIndex.storageId, dryRun);
+    }
+    await deleteRows(ctx, counts, "uploadEvidenceIndexes", evidenceIndexes, dryRun);
+
+    const courseUploads = await collectRowsByIndex(
+        ctx,
+        "courseUploads",
+        "by_uploadId",
+        "uploadId",
+        uploadId
+    );
+    await deleteRows(ctx, counts, "courseUploads", courseUploads, dryRun);
+
+    await deleteStorageObject(ctx, counts, upload.storageId, dryRun);
+    await deleteStorageObject(ctx, counts, upload.extractionArtifactStorageId, dryRun);
+    await deleteStorageObject(ctx, counts, upload.evidenceIndexStorageId, dryRun);
+    await deleteRows(ctx, counts, "uploads", [upload], dryRun);
+};
+
+const cleanupCourseTree = async (
+    ctx: any,
+    counts: Record<string, number>,
+    course: any,
+    dryRun: boolean
+) => {
+    const courseId = course._id;
+
+    const topics = await collectRowsByIndex(ctx, "topics", "by_courseId", "courseId", courseId);
+    for (const topic of topics) {
+        await cleanupTopicTree(ctx, counts, topic, dryRun);
+    }
+
+    const evidencePassages = await collectRowsByIndex(
+        ctx,
+        "evidencePassages",
+        "by_courseId",
+        "courseId",
+        courseId
+    );
+    await deleteRows(ctx, counts, "evidencePassages", evidencePassages, dryRun);
+
+    const channels = await collectRowsByIndex(
+        ctx,
+        "communityChannels",
+        "by_courseId",
+        "courseId",
+        courseId
+    );
+    for (const channel of channels) {
+        const posts = await collectRowsByIndex(ctx, "communityPosts", "by_channelId", "channelId", channel._id);
+        for (const post of posts) {
+            const flags = await collectRowsByIndex(ctx, "communityFlags", "by_postId", "postId", post._id);
+            await deleteRows(ctx, counts, "communityFlags", flags, dryRun);
+        }
+        await deleteRows(ctx, counts, "communityPosts", posts, dryRun);
+
+        const members = await collectRowsByIndex(
+            ctx,
+            "communityMembers",
+            "by_channelId",
+            "channelId",
+            channel._id
+        );
+        await deleteRows(ctx, counts, "communityMembers", members, dryRun);
+    }
+    await deleteRows(ctx, counts, "communityChannels", channels, dryRun);
+
+    const courseUploads = await collectRowsByIndex(
+        ctx,
+        "courseUploads",
+        "by_courseId",
+        "courseId",
+        courseId
+    );
+    await deleteRows(ctx, counts, "courseUploads", courseUploads, dryRun);
+    await deleteRows(ctx, counts, "courses", [course], dryRun);
+};
+
+const cleanupDisposableUserData = async (
+    ctx: any,
+    userId: string,
+    dryRun: boolean
+) => {
+    const counts: Record<string, number> = {};
+
+    const courses = await collectRowsByIndex(ctx, "courses", "by_userId", "userId", userId);
+    for (const course of courses) {
+        await cleanupCourseTree(ctx, counts, course, dryRun);
+    }
+
+    const uploads = await collectRowsByIndex(ctx, "uploads", "by_userId", "userId", userId);
+    for (const upload of uploads) {
+        await cleanupUploadTree(ctx, counts, upload, dryRun);
+    }
+
+    const assignmentThreads = await collectRowsByIndex(
+        ctx,
+        "assignmentThreads",
+        "by_userId",
+        "userId",
+        userId
+    );
+    for (const thread of assignmentThreads) {
+        const messages = await collectRowsByIndex(
+            ctx,
+            "assignmentMessages",
+            "by_threadId",
+            "threadId",
+            thread._id
+        );
+        await deleteRows(ctx, counts, "assignmentMessages", messages, dryRun);
+        await deleteStorageObject(ctx, counts, thread.storageId, dryRun);
+    }
+    await deleteRows(ctx, counts, "assignmentThreads", assignmentThreads, dryRun);
+
+    const userScopedTables = [
+        ["profiles", "by_userId"],
+        ["subscriptions", "by_userId"],
+        ["humanizerUsage", "by_userId_date"],
+        ["aiMessageUsage", "by_userId_date"],
+        ["llmUsageDaily", "by_userId_date"],
+        ["userPresence", "by_userId"],
+        ["courseFolders", "by_userId"],
+        ["userTutorProfiles", "by_userId"],
+        ["userTutorMemory", "by_userId_updatedAt"],
+        ["userTopicProgress", "by_userId_lastStudied"],
+        ["conceptMastery", "by_userId_nextReviewAt"],
+        ["examAttempts", "by_userId"],
+        ["conceptAttempts", "by_userId"],
+        ["feedback", "by_userId"],
+        ["productResearchResponses", "by_userId"],
+        ["campaignCreditGrants", "by_userId_campaignId"],
+        ["campaignLandingEvents", "by_userId_campaignId"],
+        ["paymentTransactions", "by_userId"],
+        ["communityMembers", "by_userId"],
+        ["communityFlags", "by_userId_postId"],
+        ["topicPodcasts", "by_userId"],
+        ["searchDocuments", "by_userId_kind_entityId"],
+    ] as const;
+
+    for (const [tableName, indexName] of userScopedTables) {
+        const rows = await collectRowsByIndex(ctx, tableName, indexName, "userId", userId);
+        if (tableName === "topicPodcasts") {
+            for (const podcast of rows) {
+                await deleteStorageObject(ctx, counts, podcast.audioStorageId, dryRun);
+            }
+        }
+        await deleteRows(ctx, counts, tableName, rows, dryRun);
+    }
+
+    return counts;
+};
+
+export const cleanupDisposableE2EAccounts = mutation({
+    args: {
+        email: v.optional(v.string()),
+        dryRun: v.optional(v.boolean()),
+        maxUsers: v.optional(v.number()),
+        deleteAuthRecords: v.optional(v.boolean()),
+    },
+    handler: async (ctx, args) => {
+        const adminGuard = await requireAdminAccess(ctx);
+        if (adminGuard.denied) {
+            throw new Error("Admin access required.");
+        }
+
+        const requestedEmail = normalizeEmail(args.email);
+        if (requestedEmail && !isDisposableE2EEmail(requestedEmail)) {
+            throw new Error("Cleanup is restricted to disposable gate_*@example.com accounts.");
+        }
+
+        const dryRun = args.dryRun !== false;
+        const maxUsers = Math.max(
+            1,
+            Math.min(
+                DISPOSABLE_E2E_MAX_USERS_PER_RUN,
+                Math.floor(Number(args.maxUsers || DISPOSABLE_E2E_MAX_USERS_PER_RUN))
+            )
+        );
+        const authUsersResult = requestedEmail
+            ? await fetchBetterAuthRows(ctx, {
+                model: "user",
+                where: [{ field: "email", value: requestedEmail }],
+                sortBy: { field: "createdAt", direction: "asc" },
+                pageSize: maxUsers,
+                maxPages: 1,
+            })
+            : await fetchBetterAuthRows(ctx, {
+                model: "user",
+                sortBy: { field: "createdAt", direction: "asc" },
+                pageSize: BETTER_AUTH_PAGE_SIZE,
+                maxPages: BETTER_AUTH_MAX_PAGES,
+            });
+
+        const candidates = authUsersResult.rows
+            .filter((authUser: any) => isDisposableE2EEmail(authUser?.email))
+            .slice(0, maxUsers)
+            .map((authUser: any) => ({
+                userId: normalizeAuthUserId(authUser),
+                email: normalizeEmail(authUser?.email),
+                name: String(authUser?.name || "").trim(),
+            }))
+            .filter((authUser) => authUser.userId);
+
+        const users = [];
+        const totals: Record<string, number> = {};
+        for (const candidate of candidates) {
+            const counts = await cleanupDisposableUserData(ctx, candidate.userId, dryRun);
+            for (const [tableName, count] of Object.entries(counts)) {
+                incrementCleanupCount(totals, tableName, count);
+            }
+            users.push({
+                ...candidate,
+                counts,
+            });
+        }
+
+        return {
+            ok: true,
+            dryRun,
+            scannedAuthUsers: authUsersResult.rows.length,
+            authUsersTruncated: authUsersResult.truncated,
+            matchedUsers: candidates.length,
+            authRecordsDeleted: false,
+            authRecordCleanupSkipped: args.deleteAuthRecords === true,
+            totals,
+            users,
+            safety: "Restricted to gate_*@example.com disposable E2E accounts.",
+        };
+    },
+});
+
+export const stripEvidenceEmbeddingPayloads = mutation({
+    args: {
+        dryRun: v.optional(v.boolean()),
+        paginationOpts: paginationOptsValidator,
+    },
+    handler: async (ctx, args) => {
+        const adminGuard = await requireAdminAccess(ctx);
+        if (adminGuard.denied) {
+            throw new Error("Admin access required.");
+        }
+
+        const dryRun = args.dryRun !== false;
+        const page = await ctx.db
+            .query("evidencePassages")
+            .order("asc")
+            .paginate({
+                cursor: args.paginationOpts.cursor,
+                numItems: Math.max(
+                    1,
+                    Math.min(100, Math.floor(Number(args.paginationOpts.numItems || 25)))
+                ),
+            });
+        const rowsWithEmbeddings = page.page.filter((row: any) =>
+            Array.isArray(row?.embedding) || row?.embeddingModel
+        );
+
+        if (!dryRun) {
+            for (const row of rowsWithEmbeddings) {
+                await ctx.db.patch(row._id, {
+                    embedding: undefined,
+                    embeddingModel: undefined,
+                });
+            }
+        }
+
+        return {
+            ok: true,
+            dryRun,
+            scannedCount: page.page.length,
+            strippedCount: rowsWithEmbeddings.length,
+            continueCursor: page.continueCursor,
+            isDone: page.isDone,
+        };
+    },
+});
+
+export const stripEvidenceEmbeddingPayloadsForUpload = mutation({
+    args: {
+        uploadId: v.id("uploads"),
+        dryRun: v.optional(v.boolean()),
+        paginationOpts: paginationOptsValidator,
+    },
+    handler: async (ctx, args) => {
+        const adminGuard = await requireAdminAccess(ctx);
+        if (adminGuard.denied) {
+            throw new Error("Admin access required.");
+        }
+
+        const dryRun = args.dryRun !== false;
+        const page = await ctx.db
+            .query("evidencePassages")
+            .withIndex("by_uploadId", (q) => q.eq("uploadId", args.uploadId))
+            .paginate({
+                cursor: args.paginationOpts.cursor,
+                numItems: Math.max(
+                    1,
+                    Math.min(100, Math.floor(Number(args.paginationOpts.numItems || 25)))
+                ),
+            });
+        const rowsWithEmbeddings = page.page.filter((row: any) =>
+            Array.isArray(row?.embedding) || row?.embeddingModel
+        );
+
+        if (!dryRun) {
+            for (const row of rowsWithEmbeddings) {
+                await ctx.db.patch(row._id, {
+                    embedding: undefined,
+                    embeddingModel: undefined,
+                });
+            }
+        }
+
+        return {
+            ok: true,
+            uploadId: args.uploadId,
+            dryRun,
+            scannedCount: page.page.length,
+            strippedCount: rowsWithEmbeddings.length,
+            continueCursor: page.continueCursor,
+            isDone: page.isDone,
+        };
+    },
+});
+
+export const listUploadsForEvidenceRematerializationInternal = internalQuery({
+    args: {
+        paginationOpts: paginationOptsValidator,
+    },
+    handler: async (ctx, args) => {
+        return await ctx.db
+            .query("uploads")
+            .order("desc")
+            .paginate(args.paginationOpts);
+    },
+});
+
+export const scheduleLexicalEvidenceRematerialization = action({
+    args: {
+        paginationOpts: paginationOptsValidator,
+    },
+    handler: async (ctx, args) => {
+        const access = await ctx.runQuery(internal.admin.getAdminAccessStatusInternal, {});
+        if (!access?.authUserId) {
+            throw new Error("Admin sign-in required.");
+        }
+        if (!access.allowlistConfigured || !access.isAllowed) {
+            throw new Error("Admin access required.");
+        }
+
+        const page = await ctx.runQuery(
+            (internal as any).admin.listUploadsForEvidenceRematerializationInternal,
+            {
+                paginationOpts: {
+                    cursor: args.paginationOpts.cursor,
+                    numItems: Math.max(
+                        1,
+                        Math.min(50, Math.floor(Number(args.paginationOpts.numItems || 25)))
+                    ),
+                },
+            }
+        );
+
+        let scheduledCount = 0;
+        const skipped: Array<{ uploadId: string; reason: string }> = [];
+        for (const upload of Array.isArray(page?.page) ? page.page : []) {
+            if (upload?.evidenceIndexStorageId || upload?.extractionArtifactStorageId) {
+                await ctx.scheduler.runAfter(
+                    0,
+                    (internal as any).grounded.materializeEvidencePassagesForUpload,
+                    {
+                        uploadId: upload._id,
+                        evidenceIndexStorageId: upload.evidenceIndexStorageId,
+                        artifactStorageId: upload.extractionArtifactStorageId,
+                    }
+                );
+                scheduledCount += 1;
+            } else {
+                skipped.push({
+                    uploadId: String(upload?._id || ""),
+                    reason: "missing_evidence_index_or_artifact",
+                });
+            }
+        }
+
+        return {
+            ok: true,
+            scannedCount: Array.isArray(page?.page) ? page.page.length : 0,
+            scheduledCount,
+            skipped,
+            continueCursor: page?.continueCursor || null,
+            isDone: page?.isDone === true,
         };
     },
 });
