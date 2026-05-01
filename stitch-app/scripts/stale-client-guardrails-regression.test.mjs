@@ -21,6 +21,13 @@ const requiredStaleSignatures = [
   'subscriptions:getPublicTopUpPricing',
   'subscriptions:getVoiceGenerationQuotaStatus',
   'topics:getTopicWithQuestions',
+  'topics:getUserTopicProgress',
+  'topics:getTopicSourcePassages',
+  'topicNotes:getNote',
+  'topicChat:getMessages',
+  'tutor:getTopicTutorSupport',
+  'podcasts:listTopicPodcasts',
+  'concepts:getConceptMasteryForTopic',
 ];
 
 for (const signature of requiredStaleSignatures) {
@@ -69,6 +76,10 @@ if (!chunkRecoverySource.includes('export const isStaleTopicRouteLookupError = (
   throw new Error('Regression detected: chunk recovery no longer identifies stale topic route lookup errors.');
 }
 
+if (!chunkRecoverySource.includes('const STALE_TOPIC_ROUTE_FOUND_ID_PATTERN =')) {
+  throw new Error('Regression detected: stale topic route recovery no longer falls back to table-mismatch ID errors.');
+}
+
 if (!chunkRecoverySource.includes('window.location.replace(\'/dashboard\');')) {
   throw new Error('Regression detected: stale topic route redirect no longer targets the dashboard.');
 }
@@ -87,10 +98,10 @@ for (const { name, source } of guardedPages) {
   if (!source.includes("api.topics.getTopicWithQuestions")) {
     throw new Error(`Regression detected: ${name} no longer uses the topic query.`);
   }
-  if (!source.includes("routeTopicId ? { topicId: routeTopicId } : 'skip'")) {
+  if (!source.includes("routeTopicId") || !source.includes("{ topicId: routeTopicId }") || !source.includes("'skip'")) {
     throw new Error(`Regression detected: ${name} no longer guards the topic query with routeTopicId.`);
   }
-  if (!source.includes("useRouteResolvedTopic(routeTopicId, topicQueryResult)")) {
+  if (!source.includes("useRouteResolvedTopic(routeTopicId, topicQueryResult")) {
     throw new Error(`Regression detected: ${name} no longer resolves topic queries against the active route.`);
   }
   if (source.includes("isLikelyConvexId")) {

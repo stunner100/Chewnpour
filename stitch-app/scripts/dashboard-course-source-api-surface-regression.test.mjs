@@ -8,32 +8,56 @@ const root = path.resolve(__dirname, "..");
 
 const read = (relativePath) => fs.readFile(path.join(root, relativePath), "utf8");
 
-const [dashboardCourseSource, coursesSource, aiSource, schemaSource] = await Promise.all([
+const [
+  dashboardCourseSource,
+  sourceFileCardSource,
+  coursesSource,
+  aiSource,
+  schemaSource,
+] = await Promise.all([
   read("src/pages/DashboardCourse.jsx"),
+  read("src/components/course/SourceFileCard.jsx"),
   read("convex/courses.ts"),
   read("convex/ai.ts"),
   read("convex/schema.ts"),
 ]);
 
-const dashboardExpectations = [
+// Source management is mounted from DashboardCourse via the SourceFileCard
+// component. Either surface satisfies the regression as long as the API wiring
+// is preserved end-to-end.
+const courseSurface = `${dashboardCourseSource}\n${sourceFileCardSource}`;
+
+const courseSurfaceExpectations = [
   "api.courses.getCourseSources",
   "api.courses.addUploadToCourse",
   "api.courses.removeSourceFromCourse",
   "api.ai.addSourceToCourse",
 ];
 
-for (const snippet of dashboardExpectations) {
-  if (!dashboardCourseSource.includes(snippet)) {
-    throw new Error(`DashboardCourse is missing expected API usage: ${snippet}`);
+for (const snippet of courseSurfaceExpectations) {
+  if (!courseSurface.includes(snippet)) {
+    throw new Error(
+      `Course source-management surface is missing expected API usage: ${snippet}`,
+    );
   }
 }
 
-if (dashboardCourseSource.includes("fileUrl: uploadUrl")) {
-  throw new Error("DashboardCourse source uploads must not pass fileUrl to uploads.createUpload.");
+if (courseSurface.includes("fileUrl: uploadUrl")) {
+  throw new Error(
+    "Course source uploads must not pass fileUrl to uploads.createUpload.",
+  );
 }
 
-if (!dashboardCourseSource.includes("storageId,")) {
-  throw new Error("DashboardCourse source uploads must pass storageId to uploads.createUpload.");
+if (!courseSurface.includes("storageId,")) {
+  throw new Error(
+    "Course source uploads must pass storageId to uploads.createUpload.",
+  );
+}
+
+if (!dashboardCourseSource.includes("SourceFileCard")) {
+  throw new Error(
+    "DashboardCourse must mount SourceFileCard so the source-management surface remains reachable.",
+  );
 }
 
 const coursesExpectations = [

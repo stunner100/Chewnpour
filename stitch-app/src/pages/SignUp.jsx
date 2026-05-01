@@ -1,12 +1,16 @@
 import React from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
-import PublicShell, { ArrowBadge } from '../components/PublicShell';
+import PublicShell from '../components/PublicShell';
+
+const ACCENT = 'rgb(145, 75, 241)';
+const CARD_BG = 'rgb(39, 40, 41)';
+const SUBTEXT = 'rgb(163, 163, 163)';
 
 const features = [
-    { icon: 'menu_book', label: 'Smart Lessons', bg: '#E8651B', text: '#fff' },
-    { icon: 'quiz', label: 'AI Quizzes', bg: '#B39DFF', text: '#0A0A0A' },
-    { icon: 'psychology', label: 'AI Tutor', bg: '#F3C64A', text: '#0A0A0A' },
+    { icon: 'menu_book', label: 'Smart Lessons' },
+    { icon: 'quiz', label: 'AI Quizzes' },
+    { icon: 'psychology', label: 'AI Tutor' },
 ];
 
 const SignUp = () => {
@@ -49,30 +53,51 @@ const SignUp = () => {
             <div className="grid lg:grid-cols-2 gap-12 lg:gap-20 items-center">
                 {/* Left — pitch */}
                 <div className="hidden lg:flex flex-col gap-8">
-                    <div className="inline-flex items-center gap-3 text-xs font-bold uppercase tracking-[0.2em] text-[#F3C64A]">
-                        <span className="inline-block w-8 h-[2px] bg-[#F3C64A]" /> New here
+                    <div
+                        className="inline-flex items-center gap-3 text-xs font-bold uppercase tracking-[0.2em]"
+                        style={{ color: ACCENT, fontFamily: 'Inter, sans-serif' }}
+                    >
+                        <span className="inline-block w-8 h-[2px]" style={{ background: ACCENT }} />
+                        New here
                     </div>
-                    <h1 className="text-5xl xl:text-6xl font-bold leading-[1.05] tracking-tight">
-                        Study
-                        <br />
-                        <span className="text-[#F3C64A]">smarter,</span>
-                        <br />
-                        <span className="inline-flex items-center gap-3">
-                            <ArrowBadge size={44} /> not harder
-                        </span>
+                    <h1
+                        style={{
+                            fontFamily: 'Outfit, sans-serif',
+                            fontWeight: 600,
+                            fontSize: 'clamp(40px, 5vw, 60px)',
+                            lineHeight: 1.05,
+                            letterSpacing: '-0.025em',
+                        }}
+                    >
+                        Study<br />
+                        <span style={{ color: ACCENT }}>smarter,</span><br />
+                        not harder
                     </h1>
-                    <p className="text-white/70 text-base leading-relaxed max-w-md">
+                    <p
+                        className="max-w-md"
+                        style={{ color: SUBTEXT, fontSize: 17, lineHeight: 1.55, fontFamily: 'Outfit, sans-serif' }}
+                    >
                         Upload your slides and notes. Get AI-generated lessons, practice quizzes, and a personal tutor in seconds.
                     </p>
-                    <div className="grid grid-cols-3 gap-3 max-w-sm pt-4 border-t border-white/10">
-                        {features.map((f, i) => (
+                    <div className="grid grid-cols-3 gap-3 max-w-sm pt-6" style={{ borderTop: '1px solid rgba(255,255,255,0.08)' }}>
+                        {features.map((f) => (
                             <div
                                 key={f.label}
-                                className={`rounded-2xl p-4 flex flex-col items-center gap-2 text-center ${i === 1 ? 'rotate-1' : i === 0 ? '-rotate-1' : 'rotate-1'}`}
-                                style={{ background: f.bg, color: f.text }}
+                                className="rounded-xl p-4 flex flex-col items-center gap-2 text-center"
+                                style={{ background: CARD_BG, border: '1px solid rgba(255,255,255,0.06)' }}
                             >
-                                <span className="material-symbols-outlined text-[22px]">{f.icon}</span>
-                                <span className="text-[11px] font-bold uppercase tracking-wider">{f.label}</span>
+                                <span
+                                    className="inline-flex items-center justify-center w-9 h-9 rounded-full"
+                                    style={{ background: ACCENT }}
+                                >
+                                    <span className="material-symbols-outlined text-white" style={{ fontSize: 18 }}>{f.icon}</span>
+                                </span>
+                                <span
+                                    className="text-[11px] font-semibold uppercase tracking-wider text-white"
+                                    style={{ fontFamily: 'Inter, sans-serif' }}
+                                >
+                                    {f.label}
+                                </span>
                             </div>
                         ))}
                     </div>
@@ -81,19 +106,47 @@ const SignUp = () => {
                 {/* Right — form card */}
                 <div className="cp-card">
                     <div className="mb-6">
-                        <h2 className="text-2xl font-bold mb-1">Create your account</h2>
-                        <p className="text-sm text-white/60">Join your campus community and start studying smarter.</p>
+                        <h2
+                            style={{
+                                fontFamily: 'Outfit, sans-serif',
+                                fontWeight: 600,
+                                fontSize: 28,
+                                letterSpacing: '-0.02em',
+                                marginBottom: 6,
+                            }}
+                        >
+                            Create your account
+                        </h2>
+                        <p style={{ color: SUBTEXT, fontSize: 14, fontFamily: 'Outfit, sans-serif' }}>
+                            Join your campus community and start studying smarter.
+                        </p>
                     </div>
 
                     {refCode && (
-                        <div className="mb-5 rounded-xl border border-[#F3C64A]/40 bg-[#F3C64A]/10 px-4 py-3 text-sm text-[#F3C64A] flex items-center gap-2">
+                        <div
+                            className="mb-5 rounded-xl px-4 py-3 text-sm flex items-center gap-2"
+                            style={{
+                                border: `1px solid ${ACCENT}66`,
+                                background: 'rgba(145,75,241,0.1)',
+                                color: ACCENT,
+                                fontFamily: 'Inter, sans-serif',
+                            }}
+                        >
                             <span className="material-symbols-outlined text-[18px]">redeem</span>
                             You were referred! Sign up and upload to earn a free credit.
                         </div>
                     )}
 
                     {error && (
-                        <div className="mb-5 rounded-xl border border-[#E8651B]/40 bg-[#E8651B]/10 px-4 py-3 text-sm text-[#F3C64A] flex items-center gap-2">
+                        <div
+                            className="mb-5 rounded-xl px-4 py-3 text-sm flex items-center gap-2"
+                            style={{
+                                border: '1px solid rgba(239,68,68,0.4)',
+                                background: 'rgba(239,68,68,0.1)',
+                                color: 'rgb(252,165,165)',
+                                fontFamily: 'Inter, sans-serif',
+                            }}
+                        >
                             <span className="material-symbols-outlined text-[18px]">error</span>
                             {error}
                         </div>
@@ -114,9 +167,14 @@ const SignUp = () => {
                     </button>
 
                     <div className="flex items-center gap-3 my-5">
-                        <div className="flex-1 border-t border-white/10" />
-                        <span className="text-[11px] font-semibold tracking-[0.15em] uppercase text-white/40">or</span>
-                        <div className="flex-1 border-t border-white/10" />
+                        <div className="flex-1" style={{ borderTop: '1px solid rgba(255,255,255,0.08)' }} />
+                        <span
+                            className="text-[11px] font-semibold tracking-[0.15em] uppercase"
+                            style={{ color: SUBTEXT, fontFamily: 'Inter, sans-serif' }}
+                        >
+                            or
+                        </span>
+                        <div className="flex-1" style={{ borderTop: '1px solid rgba(255,255,255,0.08)' }} />
                     </div>
 
                     <Link
@@ -127,9 +185,12 @@ const SignUp = () => {
                         Continue with Email
                     </Link>
 
-                    <p className="mt-6 text-center text-sm text-white/60">
+                    <p
+                        className="mt-6 text-center text-sm"
+                        style={{ color: SUBTEXT, fontFamily: 'Inter, sans-serif' }}
+                    >
                         Already have an account?{' '}
-                        <Link to="/login" className="font-semibold text-[#F3C64A] hover:underline">
+                        <Link to="/login" className="font-semibold hover:underline" style={{ color: ACCENT }}>
                             Sign in
                         </Link>
                     </p>

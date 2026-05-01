@@ -14,18 +14,19 @@ import {
     type DataLabExtractResponse,
 } from "./datalabClient";
 import {
-    callDoctraExtract,
-    type DoctraExtractResponse,
-    type DoctraParserId as DoctraClientParserId,
-    isDoctraEnabled,
-} from "./doctraClient";
+    callDoclingExtract,
+    type DoclingBlock,
+    type DoclingExtractResponse,
+    type DoclingParserId as DoclingClientParserId,
+    isDoclingEnabled,
+} from "./doclingClient";
 import {
     callLlamaParseExtract,
     isLlamaParseEnabled,
     type LlamaParseExtractResponse,
 } from "./llamaParseClient";
 
-export type ExtractionBackendId = "datalab" | "azure" | "doctra" | "llamaparse";
+export type ExtractionBackendId = "datalab" | "azure" | "docling" | "llamaparse";
 export type ExtractionParserId =
     | "datalab"
     | "azure_layout_read"
@@ -34,7 +35,7 @@ export type ExtractionParserId =
     | "docx_structured"
     | "image_ocr"
     | "llamaparse";
-export type DoctraParserId = Exclude<ExtractionParserId, "datalab" | "azure_layout_read" | "llamaparse">;
+export type DoclingParserId = Exclude<ExtractionParserId, "datalab" | "azure_layout_read" | "llamaparse">;
 export type ExtractionFallbackRecommendation =
     | {
         backend: "datalab";
@@ -42,8 +43,8 @@ export type ExtractionFallbackRecommendation =
         reason: string;
     }
     | {
-        backend: "doctra";
-        parser: DoctraParserId;
+        backend: "docling";
+        parser: DoclingParserId;
         reason: string;
     }
     | {
@@ -64,7 +65,7 @@ export type ExtractionPassTrace = {
 type ExtractionPage = {
     index: number;
     text: string;
-    source: "native" | "azure_layout" | "azure_read" | "datalab" | "doctra" | "llamaparse" | "none";
+    source: "native" | "azure_layout" | "azure_read" | "datalab" | "docling" | "llamaparse" | "none";
     chars: number;
     words: number;
     lexicalRatio: number;
@@ -76,7 +77,7 @@ type ExtractionPage = {
 type CandidatePage = {
     index: number;
     text: string;
-    source: "native" | "azure_layout" | "azure_read" | "datalab" | "doctra" | "llamaparse";
+    source: "native" | "azure_layout" | "azure_read" | "datalab" | "docling" | "llamaparse";
     tableCount: number;
     formulaCount: number;
 };
@@ -87,6 +88,11 @@ type PassResult = {
     pageCount: number;
     tableCount: number;
     formulaCount: number;
+};
+
+type ExtractionArtifactMetadata = {
+    doclingBlocks?: DoclingBlock[];
+    [key: string]: unknown;
 };
 
 type PipelineMetrics = {
@@ -390,12 +396,41 @@ const runNativePass = async (fileType: string, fileBuffer: ArrayBuffer): Promise
     };
 };
 
+const normalizeUploadFileType = (fileType: string, fileName?: string) => {
+    const rawType = String(fileType || "").trim().toLowerCase().split(";")[0];
+    const rawName = String(fileName || "").trim().toLowerCase();
+    const candidate = rawType || rawName;
+
+    if (candidate === "pdf" || candidate.endsWith(".pdf") || candidate.includes("application/pdf")) return "pdf";
+    if (
+        candidate === "docx"
+        || candidate.endsWith(".docx")
+        || candidate.includes("wordprocessingml.document")
+    ) return "docx";
+    if (
+        candidate === "pptx"
+        || candidate.endsWith(".pptx")
+        || candidate.includes("presentationml.presentation")
+    ) return "pptx";
+    if (candidate === "png" || candidate.endsWith(".png") || candidate.includes("image/png")) return "png";
+    if (
+        candidate === "jpg"
+        || candidate === "jpeg"
+        || candidate.endsWith(".jpg")
+        || candidate.endsWith(".jpeg")
+        || candidate.includes("image/jpeg")
+    ) return "jpg";
+    if (candidate === "webp" || candidate.endsWith(".webp") || candidate.includes("image/webp")) return "webp";
+    return rawType || rawName;
+};
+
 const mapUploadTypeToContentType = (fileType: string) => {
-    if (fileType === "pdf") return "application/pdf";
-    if (fileType === "docx") return "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
-    if (fileType === "png") return "image/png";
-    if (fileType === "jpg" || fileType === "jpeg") return "image/jpeg";
-    if (fileType === "webp") return "image/webp";
+    const normalizedFileType = normalizeUploadFileType(fileType);
+    if (normalizedFileType === "pdf") return "application/pdf";
+    if (normalizedFileType === "docx") return "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
+    if (normalizedFileType === "png") return "image/png";
+    if (normalizedFileType === "jpg" || normalizedFileType === "jpeg") return "image/jpeg";
+    if (normalizedFileType === "webp") return "image/webp";
     return "application/vnd.openxmlformats-officedocument.presentationml.presentation";
 };
 
@@ -1018,7 +1053,7 @@ const buildMetrics = (args: {
         1
     );
 
-    const normalizedFileType = String(args.fileType || "").toLowerCase();
+    const normalizedFileType = normalizeUploadFileType(args.fileType);
     const requiredPagePresence = normalizedFileType === "pptx"
         ? STRICT_PAGE_PRESENCE_PPTX_THRESHOLD
         : (scannedLikely ? STRICT_PAGE_PRESENCE_SCANNED_THRESHOLD : STRICT_PAGE_PRESENCE_THRESHOLD);
@@ -1070,14 +1105,14 @@ const buildWarnings = (metrics: PipelineMetrics) => {
     return warnings;
 };
 
-export const shouldRunDoctraFallback = (args: {
+export const shouldRunDoclingFallback = (args: {
     fileType: string;
     metrics: PipelineMetrics;
     nativePass: PassResult;
     layoutPass: PassResult;
     readPass: PassResult;
 }): boolean => {
-    const fileType = String(args.fileType || "").toLowerCase();
+    const fileType = normalizeUploadFileType(args.fileType);
     if (!["pdf", "docx", "png", "jpg", "jpeg", "webp"].includes(fileType)) {
         return false;
     }
@@ -1110,13 +1145,13 @@ export const shouldRunDoctraFallback = (args: {
     return false;
 };
 
-export const selectDoctraParser = (args: {
+export const selectDoclingParser = (args: {
     fileType: string;
     metrics: PipelineMetrics;
     layoutPass: PassResult;
     readPass: PassResult;
-}): DoctraParserId | null => {
-    const fileType = String(args.fileType || "").toLowerCase();
+}): DoclingParserId | null => {
+    const fileType = normalizeUploadFileType(args.fileType);
     if (fileType === "pdf" && args.metrics.scannedLikely) {
         return "enhanced_pdf";
     }
@@ -1138,21 +1173,21 @@ export const selectDoctraParser = (args: {
     return null;
 };
 
-const getDoctraFallbackRecommendation = (args: {
+const getDoclingFallbackRecommendation = (args: {
     fileType: string;
     metrics: PipelineMetrics;
     nativePass: PassResult;
     layoutPass: PassResult;
     readPass: PassResult;
 }): ExtractionFallbackRecommendation | null => {
-    if (!isDoctraEnabled()) {
+    if (!isDoclingEnabled()) {
         return null;
     }
-    if (!shouldRunDoctraFallback(args)) {
+    if (!shouldRunDoclingFallback(args)) {
         return null;
     }
 
-    const parser = selectDoctraParser(args);
+    const parser = selectDoclingParser(args);
     if (!parser) {
         return null;
     }
@@ -1169,7 +1204,7 @@ const getDoctraFallbackRecommendation = (args: {
     }
 
     return {
-        backend: "doctra",
+        backend: "docling",
         parser,
         reason,
     };
@@ -1183,7 +1218,7 @@ export const shouldRunLlamaParseFallback = (args: {
         return false;
     }
 
-    const fileType = String(args.fileType || "").toLowerCase();
+    const fileType = normalizeUploadFileType(args.fileType);
     if (!["pdf", "pptx"].includes(fileType)) {
         return false;
     }
@@ -1193,7 +1228,7 @@ export const shouldRunLlamaParseFallback = (args: {
     }
 
     // Keep scanned, table-heavy, and formula-loss-heavy documents on the
-    // Doctra path. LlamaParse is only a fallback for weaker Azure quality on
+    // Docling path. LlamaParse is only a fallback for weaker Azure quality on
     // otherwise normal PDF/PPTX layouts.
     if (args.metrics.scannedLikely) {
         return false;
@@ -1237,9 +1272,9 @@ const getAzureFallbackRecommendation = (args: {
     layoutPass: PassResult;
     readPass: PassResult;
 }): ExtractionFallbackRecommendation | null => {
-    const doctraFallback = getDoctraFallbackRecommendation(args);
-    if (doctraFallback && doctraFallback.reason !== "weak_page_ratio_candidate") {
-        return doctraFallback;
+    const doclingFallback = getDoclingFallbackRecommendation(args);
+    if (doclingFallback && doclingFallback.reason !== "weak_page_ratio_candidate") {
+        return doclingFallback;
     }
 
     const llamaParseFallback = getLlamaParseFallbackRecommendation(args);
@@ -1247,7 +1282,7 @@ const getAzureFallbackRecommendation = (args: {
         return llamaParseFallback;
     }
 
-    return doctraFallback;
+    return doclingFallback;
 };
 
 const buildDocumentExtractionResult = (args: {
@@ -1259,7 +1294,7 @@ const buildDocumentExtractionResult = (args: {
     readPass: PassResult;
     providerTrace: ExtractionPassTrace[];
     fallbackRecommendation?: ExtractionFallbackRecommendation | null;
-    artifactMetadata?: Record<string, unknown>;
+    artifactMetadata?: ExtractionArtifactMetadata | Record<string, unknown>;
 }): DocumentExtractionResult => {
     const mergedPages = mergePassPages(
         args.nativePass,
@@ -1310,13 +1345,13 @@ const buildDocumentExtractionResult = (args: {
     };
 };
 
-const toDoctraPassResult = (payload: DoctraExtractResponse): PassResult => {
+const toDoclingPassResult = (payload: DoclingExtractResponse): PassResult => {
     const rawPages = Array.isArray(payload.pages) ? payload.pages : [];
     const pages: CandidatePage[] = rawPages
         .map((page) => ({
             index: Math.max(0, Number(page.index || 0)),
             text: sanitizeText(String(page.text || "")),
-            source: "doctra" as const,
+            source: "docling" as const,
             tableCount: Math.max(0, Number(page.tableCount || 0)),
             formulaCount: Math.max(0, Number(page.formulaCount || 0)),
         }))
@@ -1329,6 +1364,35 @@ const toDoctraPassResult = (payload: DoctraExtractResponse): PassResult => {
         tableCount: Math.max(0, Number(payload.metrics?.tableCount || 0)),
         formulaCount: Math.max(0, Number(payload.metrics?.formulaCount || 0)),
     };
+};
+
+const normalizeDoclingBlocks = (payload: DoclingExtractResponse): DoclingBlock[] => {
+    const blocks = Array.isArray(payload.blocks) ? payload.blocks : [];
+    return blocks
+        .map((block, index) => {
+            const text = sanitizeText(String(block?.text || ""));
+            const page = Math.max(0, Math.floor(Number(block?.page || 0)));
+            const id = String(block?.id || `docling-p${page + 1}-${index}`).trim();
+            const blockType = String(block?.blockType || "paragraph").trim() || "paragraph";
+            if (!id || !text) return null;
+            return {
+                id,
+                page,
+                blockType,
+                sectionHint: sanitizeText(String(block?.sectionHint || "")).slice(0, 160),
+                headingPath: Array.isArray(block?.headingPath)
+                    ? block.headingPath.map((entry) => String(entry || "").trim()).filter(Boolean).slice(0, 12)
+                    : [],
+                text,
+                startChar: Math.max(0, Math.floor(Number(block?.startChar || 0))),
+                endChar: Math.max(0, Math.floor(Number(block?.endChar || text.length))),
+                flags: Array.isArray(block?.flags)
+                    ? block.flags.map((flag) => String(flag || "").trim()).filter(Boolean).slice(0, 12)
+                    : [],
+                source: "docling",
+            } satisfies DoclingBlock;
+        })
+        .filter((block): block is DoclingBlock => Boolean(block));
 };
 
 const toDataLabPassResult = (payload: DataLabExtractResponse): PassResult => {
@@ -1423,7 +1487,7 @@ export const runAzureExtractionCandidate = async (
     args: RunDocumentExtractionArgs
 ): Promise<DocumentExtractionResult> => {
     const startedAt = Date.now();
-    const normalizedFileType = String(args.fileType || "").toLowerCase();
+    const normalizedFileType = normalizeUploadFileType(args.fileType, args.fileName);
     const contentType = mapUploadTypeToContentType(normalizedFileType);
     const nativeBuffer = cloneArrayBuffer(args.fileBuffer);
     const layoutBuffer = cloneArrayBuffer(args.fileBuffer);
@@ -1518,7 +1582,7 @@ export const runDataLabExtractionCandidate = async (
     }
 
     const startedAt = Date.now();
-    const normalizedFileType = String(args.fileType || "").toLowerCase();
+    const normalizedFileType = normalizeUploadFileType(args.fileType, args.fileName);
     const contentType = mapUploadTypeToContentType(normalizedFileType);
     const nativePassPromise = normalizedFileType === "pptx" || normalizedFileType === "docx"
         ? runNativePass(normalizedFileType, cloneArrayBuffer(args.fileBuffer))
@@ -1566,16 +1630,16 @@ export const runDataLabExtractionCandidate = async (
     };
 };
 
-export const runDoctraExtractionCandidate = async (
+export const runDoclingExtractionCandidate = async (
     args: RunDocumentExtractionArgs
 ): Promise<DocumentExtractionResult> => {
     const startedAt = Date.now();
-    const normalizedFileType = String(args.fileType || "").toLowerCase();
+    const normalizedFileType = normalizeUploadFileType(args.fileType, args.fileName);
     const contentType = mapUploadTypeToContentType(normalizedFileType);
     const parser = (
         args.parser && args.parser !== "azure_layout_read"
             ? args.parser
-            : selectDoctraParser({
+            : selectDoclingParser({
                 fileType: normalizedFileType,
                 metrics: {
                     fileType: normalizedFileType,
@@ -1595,13 +1659,13 @@ export const runDoctraExtractionCandidate = async (
                 layoutPass: emptyPassResult(),
                 readPass: emptyPassResult(),
             })
-    ) as DoctraClientParserId | null;
+    ) as DoclingClientParserId | null;
 
     if (!parser) {
-        throw new Error(`No Doctra parser available for file type: ${normalizedFileType}`);
+        throw new Error(`No Docling parser available for file type: ${normalizedFileType}`);
     }
 
-    const payload = await callDoctraExtract({
+    const payload = await callDoclingExtract({
         fileName: args.fileName,
         contentType,
         fileBuffer: cloneArrayBuffer(args.fileBuffer),
@@ -1613,22 +1677,26 @@ export const runDoctraExtractionCandidate = async (
             : undefined,
     });
     const latencyMs = Date.now() - startedAt;
-    const doctraPass = toDoctraPassResult(payload);
+    const doclingPass = toDoclingPassResult(payload);
+    const doclingBlocks = normalizeDoclingBlocks(payload);
     const result = buildDocumentExtractionResult({
-        backend: "doctra",
+        backend: "docling",
         parser,
         fileType: normalizedFileType,
         nativePass: emptyPassResult(),
         layoutPass: emptyPassResult(),
-        readPass: doctraPass,
+        readPass: doclingPass,
         providerTrace: [{
-            pass: "doctra",
+            pass: "docling",
             status: "ok",
             latencyMs,
-            chars: doctraPass.text.length,
-            pageCount: doctraPass.pageCount,
+            chars: doclingPass.text.length,
+            pageCount: doclingPass.pageCount,
         }],
         fallbackRecommendation: null,
+        artifactMetadata: {
+            doclingBlocks,
+        },
     });
     const warnings = Array.from(new Set([...(payload.warnings || []), ...result.warnings]));
     return {
@@ -1649,7 +1717,7 @@ export const runLlamaParseExtractionCandidate = async (
     }
 
     const startedAt = Date.now();
-    const normalizedFileType = String(args.fileType || "").toLowerCase();
+    const normalizedFileType = normalizeUploadFileType(args.fileType, args.fileName);
     const contentType = mapUploadTypeToContentType(normalizedFileType);
     const payload = await callLlamaParseExtract({
         fileName: args.fileName,
@@ -1684,14 +1752,28 @@ export const runDocumentExtractionPipeline = async (
     if (args.backend === "datalab") {
         return await runDataLabExtractionCandidate(args);
     }
-    if (args.backend === "doctra") {
-        return await runDoctraExtractionCandidate(args);
+    if (args.backend === "docling") {
+        return await runDoclingExtractionCandidate(args);
     }
     if (args.backend === "llamaparse") {
         return await runLlamaParseExtractionCandidate(args);
     }
     if (args.backend === "azure") {
         return await runAzureExtractionCandidate(args);
+    }
+    if (isDoclingEnabled()) {
+        const fileType = normalizeUploadFileType(args.fileType, args.fileName);
+        const primaryDoclingParser: DoclingParserId | null =
+            fileType === "docx"
+                ? "docx_structured"
+                : ["png", "jpg", "jpeg", "webp"].includes(fileType)
+                    ? "image_ocr"
+                    : null;
+        return await runDoclingExtractionCandidate({
+            ...args,
+            backend: "docling",
+            parser: args.parser || primaryDoclingParser,
+        });
     }
     return await runDataLabExtractionCandidate(args);
 };

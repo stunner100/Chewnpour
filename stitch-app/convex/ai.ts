@@ -142,15 +142,16 @@ import {
     normalizeTutorPersona,
 } from "./lib/tutorSupport";
 
-// Text generation routes by feature and uses OpenAI -> Bedrock -> Inception fallback for generation.
-const OPENAI_BASE_URL = (() => {
-    const raw = String(process.env.OPENAI_BASE_URL || "https://api.openai.com/v1/").trim();
-    if (!raw) return "https://api.openai.com/v1/";
+// Text generation routes by feature and uses DeepSeek -> Bedrock -> Inception fallback for generation.
+const DEEPSEEK_BASE_URL = (() => {
+    const raw = String(process.env.DEEPSEEK_BASE_URL || "https://api.deepseek.com/v1/").trim();
+    if (!raw) return "https://api.deepseek.com/v1/";
     return raw.endsWith("/") ? raw : `${raw}/`;
 })();
-const OPENAI_BASE_URL_IS_PLACEHOLDER = /your_resource_name/i.test(OPENAI_BASE_URL);
-const OPENAI_MODEL = String(process.env.OPENAI_MODEL || "gpt-5.4-mini").trim() || "gpt-5.4-mini";
-const OPENAI_PIPELINE_MODEL = String(process.env.OPENAI_PIPELINE_MODEL || "gpt-5.4-mini").trim() || "gpt-5.4-mini";
+const DEEPSEEK_BASE_URL_IS_PLACEHOLDER = /your_resource_name/i.test(DEEPSEEK_BASE_URL);
+const DEEPSEEK_DOCUMENT_FLASH_MODEL = String(process.env.DEEPSEEK_DOCUMENT_FLASH_MODEL || "deepseek-v4-flash").trim() || "deepseek-v4-flash";
+const DEEPSEEK_DOCUMENT_PRO_MODEL = String(process.env.DEEPSEEK_DOCUMENT_PRO_MODEL || "deepseek-v4-pro").trim() || "deepseek-v4-pro";
+const DEEPSEEK_DOCUMENT_PRO_MIN_MAX_TOKENS = Number(process.env.DEEPSEEK_DOCUMENT_PRO_MIN_MAX_TOKENS || 8192);
 const BEDROCK_BASE_URL = (() => {
     const raw = String(process.env.BEDROCK_BASE_URL || "https://bedrock-runtime.us-east-1.amazonaws.com/openai/v1/").trim();
     if (!raw) return "https://bedrock-runtime.us-east-1.amazonaws.com/openai/v1/";
@@ -159,8 +160,8 @@ const BEDROCK_BASE_URL = (() => {
 const BEDROCK_MODEL = String(process.env.BEDROCK_MODEL || "moonshotai.kimi-k2.5").trim() || "moonshotai.kimi-k2.5";
 const INCEPTION_BASE_URL = process.env.INCEPTION_BASE_URL || "https://api.inceptionlabs.ai/v1";
 const INCEPTION_MODEL = process.env.INCEPTION_MODEL || "mercury-2";
-const DEFAULT_MODEL = OPENAI_MODEL;
-const DEFAULT_TIMEOUT_MS = Number(process.env.OPENAI_TIMEOUT_MS || 60000);
+const DEFAULT_MODEL = DEEPSEEK_DOCUMENT_FLASH_MODEL;
+const DEFAULT_TIMEOUT_MS = Number(process.env.DEEPSEEK_TIMEOUT_MS || 60000);
 const BEDROCK_TIMEOUT_MS = Number(process.env.BEDROCK_TIMEOUT_MS || DEFAULT_TIMEOUT_MS);
 const INCEPTION_TIMEOUT_MS = Number(process.env.INCEPTION_TIMEOUT_MS || DEFAULT_TIMEOUT_MS);
 const INCEPTION_MAX_RETRIES = (() => {
@@ -377,21 +378,19 @@ type LlmUsageContext = {
     userId: string;
     feature: string;
 };
-type TextProvider = "openai" | "inception";
+type TextProvider = "deepseek" | "inception";
 
 const llmUsageContextStorage = new AsyncLocalStorage<LlmUsageContext>();
 const INCEPTION_PRIMARY_FEATURES = new Set([
     "assignment_follow_up",
     "topic_tutor",
 ]);
-const OPENAI_PRIMARY_FEATURES = new Set([
+const DEEPSEEK_DOCUMENT_PIPELINE_FEATURES = new Set([
     "course_generation",
     "mcq_generation",
     "essay_generation",
 ]);
-const HARD_CUTOVER_OPENAI_FEATURES = new Set([
-    "course_generation",
-    "mcq_generation",
+const COMPLEX_DOCUMENT_PIPELINE_FEATURES = new Set([
     "essay_generation",
 ]);
 
@@ -599,29 +598,38 @@ const resolvePreferredTextProvider = (): TextProvider => {
     if (INCEPTION_PRIMARY_FEATURES.has(feature)) {
         return "inception";
     }
-    if (OPENAI_PRIMARY_FEATURES.has(feature)) {
-        return "openai";
+    if (DEEPSEEK_DOCUMENT_PIPELINE_FEATURES.has(feature)) {
+        return "deepseek";
     }
-    return "openai";
+    return "deepseek";
 };
 
-const featureRequiresOpenAiHardCutover = (feature: string) =>
-    HARD_CUTOVER_OPENAI_FEATURES.has(String(feature || "").trim());
+const featureUsesDeepSeekDocumentPipeline = (feature: string) =>
+    DEEPSEEK_DOCUMENT_PIPELINE_FEATURES.has(String(feature || "").trim());
+
+const resolveDeepSeekDocumentPipelineModel = (feature: string) =>
+    COMPLEX_DOCUMENT_PIPELINE_FEATURES.has(String(feature || "").trim())
+        ? DEEPSEEK_DOCUMENT_PRO_MODEL
+        : DEEPSEEK_DOCUMENT_FLASH_MODEL;
 
 async function callInception(
     messages: Message[],
     model: string = DEFAULT_MODEL,
     options?: { temperature?: number; maxTokens?: number; timeoutMs?: number; responseFormat?: "json_object" }
 ): Promise<string> {
-    const openAiApiKey = String(process.env.OPENAI_API_KEY || "").trim();
+    const openAiApiKey = String(process.env.DEEPSEEK_API_KEY || "").trim();
     const bedrockApiKey = String(process.env.BEDROCK_API_KEY || "").trim();
     const inceptionApiKey = String(process.env.INCEPTION_API_KEY || "").trim();
     const timeoutMs = options?.timeoutMs ?? DEFAULT_TIMEOUT_MS;
     const llmFeature = String(llmUsageContextStorage.getStore()?.feature || "unknown").trim() || "unknown";
     const preferredProvider = resolvePreferredTextProvider();
-    const pipelineOpenAiRequired = featureRequiresOpenAiHardCutover(llmFeature);
-    const openAiModel = pipelineOpenAiRequired ? OPENAI_PIPELINE_MODEL : model;
-    const openAiAvailable = Boolean(openAiApiKey) && !OPENAI_BASE_URL_IS_PLACEHOLDER;
+    const pipelineOpenAiRequired = featureUsesDeepSeekDocumentPipeline(llmFeature);
+    const openAiModel = pipelineOpenAiRequired ? resolveDeepSeekDocumentPipelineModel(llmFeature) : model;
+    const requestedOpenAiMaxTokens = options?.maxTokens ?? 2048;
+    const openAiMaxTokens = openAiModel === DEEPSEEK_DOCUMENT_PRO_MODEL
+        ? Math.max(requestedOpenAiMaxTokens, DEEPSEEK_DOCUMENT_PRO_MIN_MAX_TOKENS)
+        : requestedOpenAiMaxTokens;
+    const openAiAvailable = Boolean(openAiApiKey) && !DEEPSEEK_BASE_URL_IS_PLACEHOLDER;
     const bedrockAvailable = Boolean(bedrockApiKey);
     const openAiOrBedrockAvailable = openAiAvailable || bedrockAvailable;
 
@@ -651,8 +659,8 @@ async function callInception(
         const labels = Array.from(new Set([parsed.code, parsed.type, parsed.param].filter(Boolean))).join(", ");
         const detail = parsed.message || String(raw || "").trim() || "Unknown provider error.";
         return labels
-            ? `openai API error: ${status} (${labels}) - ${detail}`
-            : `openai API error: ${status} - ${detail}`;
+            ? `deepseek API error: ${status} (${labels}) - ${detail}`
+            : `deepseek API error: ${status} - ${detail}`;
     };
 
     const formatBedrockApiError = (status: number, raw: string) => {
@@ -697,10 +705,10 @@ async function callInception(
 
     const callOpenAiText = async () => {
         if (!openAiApiKey) {
-            throw new Error("OPENAI_API_KEY environment variable not set.");
+            throw new Error("DEEPSEEK_API_KEY environment variable not set.");
         }
-        if (OPENAI_BASE_URL_IS_PLACEHOLDER) {
-            throw new Error("OPENAI_BASE_URL environment variable not configured.");
+        if (DEEPSEEK_BASE_URL_IS_PLACEHOLDER) {
+            throw new Error("DEEPSEEK_BASE_URL environment variable not configured.");
         }
 
         const controller = new AbortController();
@@ -710,22 +718,21 @@ async function callInception(
             const timeoutPromise = new Promise<never>((_, reject) => {
                 timeoutId = setTimeout(() => {
                     controller.abort();
-                    reject(new Error(`openai request timed out after ${timeoutMs}ms`));
+                    reject(new Error(`deepseek request timed out after ${timeoutMs}ms`));
                 }, timeoutMs);
             });
 
-            const requestPromise = fetch(new URL("chat/completions", OPENAI_BASE_URL).toString(), {
+            const requestPromise = fetch(new URL("chat/completions", DEEPSEEK_BASE_URL).toString(), {
                 method: "POST",
                 headers: {
                     "Content-Type": "application/json",
                     Authorization: `Bearer ${openAiApiKey}`,
-                    "api-key": openAiApiKey,
                 },
                 body: JSON.stringify({
                     model: openAiModel,
                     messages,
                     temperature: options?.temperature ?? 0.3,
-                    max_completion_tokens: options?.maxTokens ?? 2048,
+                    max_tokens: openAiMaxTokens,
                     response_format: options?.responseFormat ? { type: options.responseFormat } : undefined,
                 }),
                 signal: controller.signal,
@@ -745,11 +752,11 @@ async function callInception(
             const data: ChatCompletionResponse = await response.json();
             const responseText = String(data?.choices?.[0]?.message?.content || "").trim();
             if (!responseText) {
-                throw new Error("openai API error: empty response.");
+                throw new Error("deepseek API error: empty response.");
             }
 
             await recordLlmUsage({
-                provider: "openai",
+                provider: "deepseek",
                 model: openAiModel,
                 promptTokens: data?.usage?.prompt_tokens,
                 completionTokens: data?.usage?.completion_tokens,
@@ -765,10 +772,10 @@ async function callInception(
             const errorMessage = error instanceof Error ? error.message : String(error);
             const lowerError = errorMessage.toLowerCase();
             if (lowerError.includes("timed out") || lowerError.includes("aborted")) {
-                throw new Error(`openai request timed out after ${timeoutMs}ms`);
+                throw new Error(`deepseek request timed out after ${timeoutMs}ms`);
             }
             if (lowerError.includes("network") || lowerError.includes("failed to fetch")) {
-                throw new Error(`openai API error: network - ${errorMessage}`);
+                throw new Error(`deepseek API error: network - ${errorMessage}`);
             }
             throw error;
         }
@@ -942,7 +949,7 @@ async function callInception(
     };
 
     const callBedrockWithOptionalInceptionFallback = async (args: {
-        sourceProvider: "openai" | "inception";
+        sourceProvider: "deepseek" | "inception";
         sourceModel: string;
         sourceMessage: string;
         allowInceptionFallback: boolean;
@@ -972,65 +979,65 @@ async function callInception(
     const callOpenAiWithFallbackText = async (args: { allowInceptionFallback: boolean }) => {
         if (!openAiApiKey) {
             if (pipelineOpenAiRequired) {
-                throw new Error("OPENAI_API_KEY environment variable not set for the GPT-5.4 mini pipeline.");
+                throw new Error("DEEPSEEK_API_KEY environment variable not set for the DeepSeek document pipeline.");
             }
             if (bedrockAvailable) {
                 console.warn("[LLM] primary_provider_unavailable_using_fallback", {
                     feature: llmFeature,
-                    primaryProvider: "openai",
+                    primaryProvider: "deepseek",
                     fallbackProvider: "bedrock",
-                    reason: "missing_openai_api_key",
+                    reason: "missing_deepseek_api_key",
                     fallbackModel: BEDROCK_MODEL,
                 });
                 return callBedrockWithOptionalInceptionFallback({
-                    sourceProvider: "openai",
+                    sourceProvider: "deepseek",
                     sourceModel: openAiModel,
-                    sourceMessage: "OPENAI_API_KEY environment variable not set.",
+                    sourceMessage: "DEEPSEEK_API_KEY environment variable not set.",
                     allowInceptionFallback: args.allowInceptionFallback,
                 });
             }
             if (args.allowInceptionFallback && inceptionApiKey) {
                 console.warn("[LLM] primary_provider_unavailable_using_fallback", {
                     feature: llmFeature,
-                    primaryProvider: "openai",
+                    primaryProvider: "deepseek",
                     fallbackProvider: "inception",
-                    reason: "missing_openai_api_key",
+                    reason: "missing_deepseek_api_key",
                     fallbackModel: INCEPTION_MODEL,
                 });
                 return callInceptionText();
             }
-            throw new Error("OPENAI_API_KEY environment variable not set.");
+            throw new Error("DEEPSEEK_API_KEY environment variable not set.");
         }
-        if (OPENAI_BASE_URL_IS_PLACEHOLDER) {
+        if (DEEPSEEK_BASE_URL_IS_PLACEHOLDER) {
             if (pipelineOpenAiRequired) {
-                throw new Error("OPENAI_BASE_URL environment variable not configured for the GPT-5.4 mini pipeline.");
+                throw new Error("DEEPSEEK_BASE_URL environment variable not configured for the DeepSeek document pipeline.");
             }
             if (bedrockAvailable) {
                 console.warn("[LLM] primary_provider_unavailable_using_fallback", {
                     feature: llmFeature,
-                    primaryProvider: "openai",
+                    primaryProvider: "deepseek",
                     fallbackProvider: "bedrock",
-                    reason: "invalid_openai_base_url",
+                    reason: "invalid_deepseek_base_url",
                     fallbackModel: BEDROCK_MODEL,
                 });
                 return callBedrockWithOptionalInceptionFallback({
-                    sourceProvider: "openai",
+                    sourceProvider: "deepseek",
                     sourceModel: openAiModel,
-                    sourceMessage: "OPENAI_BASE_URL environment variable not configured.",
+                    sourceMessage: "DEEPSEEK_BASE_URL environment variable not configured.",
                     allowInceptionFallback: args.allowInceptionFallback,
                 });
             }
             if (args.allowInceptionFallback && inceptionApiKey) {
                 console.warn("[LLM] primary_provider_unavailable_using_fallback", {
                     feature: llmFeature,
-                    primaryProvider: "openai",
+                    primaryProvider: "deepseek",
                     fallbackProvider: "inception",
-                    reason: "invalid_openai_base_url",
+                    reason: "invalid_deepseek_base_url",
                     fallbackModel: INCEPTION_MODEL,
                 });
                 return callInceptionText();
             }
-            throw new Error("OPENAI_BASE_URL environment variable not configured.");
+            throw new Error("DEEPSEEK_BASE_URL environment variable not configured.");
         }
 
         try {
@@ -1043,14 +1050,14 @@ async function callInception(
             if (shouldFallbackToBedrockText({ errorMessage, bedrockAvailable })) {
                 console.warn("[LLM] primary_provider_failed_using_fallback", {
                     feature: llmFeature,
-                    primaryProvider: "openai",
+                    primaryProvider: "deepseek",
                     fallbackProvider: "bedrock",
                     primaryModel: openAiModel,
                     fallbackModel: BEDROCK_MODEL,
                     message: errorMessage,
                 });
                 return callBedrockWithOptionalInceptionFallback({
-                    sourceProvider: "openai",
+                    sourceProvider: "deepseek",
                     sourceModel: openAiModel,
                     sourceMessage: errorMessage,
                     allowInceptionFallback: args.allowInceptionFallback,
@@ -1059,7 +1066,7 @@ async function callInception(
             if (args.allowInceptionFallback && shouldFallbackToInceptionText({ errorMessage, inceptionApiKey })) {
                 console.warn("[LLM] primary_provider_failed_using_fallback", {
                     feature: llmFeature,
-                    primaryProvider: "openai",
+                    primaryProvider: "deepseek",
                     fallbackProvider: "inception",
                     primaryModel: openAiModel,
                     fallbackModel: INCEPTION_MODEL,
@@ -1077,7 +1084,7 @@ async function callInception(
                 console.warn("[LLM] primary_provider_unavailable_using_fallback", {
                     feature: llmFeature,
                     primaryProvider: "inception",
-                    fallbackProvider: openAiAvailable ? "openai" : "bedrock",
+                    fallbackProvider: openAiAvailable ? "deepseek" : "bedrock",
                     reason: "missing_inception_api_key",
                     fallbackModel: openAiAvailable ? openAiModel : BEDROCK_MODEL,
                 });
@@ -1094,7 +1101,7 @@ async function callInception(
                 console.warn("[LLM] primary_provider_failed_using_fallback", {
                     feature: llmFeature,
                     primaryProvider: "inception",
-                    fallbackProvider: openAiAvailable ? "openai" : "bedrock",
+                    fallbackProvider: openAiAvailable ? "deepseek" : "bedrock",
                     primaryModel: INCEPTION_MODEL,
                     fallbackModel: openAiAvailable ? openAiModel : BEDROCK_MODEL,
                     message: errorMessage,
@@ -2141,6 +2148,7 @@ const isProviderThrottleMessage = (value: any) => {
     return normalized.includes("429")
         && (
             normalized.includes("openai api error")
+            || normalized.includes("deepseek api error")
             || normalized.includes("bedrock api error")
             || normalized.includes("inception api error")
             || normalized.includes("too many requests")
@@ -5641,10 +5649,10 @@ const normalizeAssignmentProcessingErrorMessage = (error: unknown) => {
         return message;
     }
     if (
-        /openai_api_key environment variable not set/i.test(message)
-        || /openai_base_url environment variable not configured/i.test(message)
-        || /openai request timed out/i.test(message)
-        || /openai api error/i.test(message)
+        /deepseek_api_key environment variable not set/i.test(message)
+        || /deepseek_base_url environment variable not configured/i.test(message)
+        || /deepseek request timed out/i.test(message)
+        || /deepseek api error/i.test(message)
         || /inception_api_key environment variable not set/i.test(message)
         || /inception request timed out/i.test(message)
         || /inception api error/i.test(message)
@@ -7949,6 +7957,84 @@ const scheduleRoutingSyncRetry = async (ctx: any, args: {
     });
 };
 
+const countDistinctValues = (values: unknown[]) =>
+    new Set(values.map((value) => String(value || "").trim()).filter(Boolean)).size;
+
+const scoreTopicForDirectAssessment = (topic: any) => {
+    const sourcePassageCount = Array.isArray(topic?.sourcePassageIds)
+        ? topic.sourcePassageIds.length
+        : 0;
+    const sourcePageCount = Array.isArray(topic?.structuredSourcePages)
+        ? countDistinctValues(topic.structuredSourcePages)
+        : 0;
+    const learningObjectiveCount = Array.isArray(topic?.structuredLearningObjectives)
+        ? topic.structuredLearningObjectives.length
+        : 0;
+    const contentWords = countWords(String(topic?.content || ""));
+
+    const evidenceVolumeScore = Math.min(1, (sourcePassageCount + learningObjectiveCount) / 8);
+    const evidenceDiversityScore = Math.min(1, Math.max(sourcePageCount, 1) / 3);
+    const questionVarietyScore = Math.min(1, Math.max(learningObjectiveCount, 1) / 4);
+    const assessmentReadinessScore = Math.max(
+        0,
+        Math.min(
+            1,
+            (evidenceVolumeScore * 0.45)
+                + (evidenceDiversityScore * 0.25)
+                + (questionVarietyScore * 0.2)
+                + (Math.min(1, contentWords / 350) * 0.1)
+        )
+    );
+
+    return {
+        evidenceVolumeScore,
+        evidenceDiversityScore,
+        questionVarietyScore,
+        assessmentReadinessScore,
+        classification: assessmentReadinessScore >= 0.72
+            ? "strong"
+            : assessmentReadinessScore >= 0.45
+                ? "standard"
+                : "limited",
+    };
+};
+
+const syncAssessmentRoutingForUpload = async (ctx: any, args: {
+    courseId: Id<"courses">;
+    uploadId: Id<"uploads">;
+}) => {
+    const topics = await getCourseTopicsSorted(ctx, args.courseId);
+    const lessonTopics = topics.filter((topic: any) =>
+        topic?.sourceUploadId === args.uploadId
+        && String(topic?.topicKind || "").trim() !== "document_final_exam"
+    );
+
+    for (const topic of lessonTopics) {
+        const score = scoreTopicForDirectAssessment(topic);
+        await ctx.runMutation((internal as any).topics.updateAssessmentRoutingInternal, {
+            topicId: topic._id,
+            topicKind: "lesson",
+            assessmentClassification: score.classification,
+            assessmentRoute: "topic_quiz",
+            assessmentRouteReason: "direct_topic_assessment",
+            assessmentReadinessScore: score.assessmentReadinessScore,
+            evidenceVolumeScore: score.evidenceVolumeScore,
+            evidenceDiversityScore: score.evidenceDiversityScore,
+            distinctivenessScore: 1,
+            questionVarietyScore: score.questionVarietyScore,
+            redundancyRiskScore: 0,
+            strongestNeighborOverlap: 0,
+            supportedQuestionTypes: ["multiple_choice", "essay"],
+        });
+    }
+
+    return {
+        success: true,
+        lessonTopicCount: lessonTopics.length,
+        finalAssessmentTopicId: null,
+    };
+};
+
 const reconcileUploadStatusAfterRoutingSync = async (ctx: any, args: {
     courseId: Id<"courses">;
     uploadId: Id<"uploads">;
@@ -8460,6 +8546,7 @@ export const generateCourseFromText = action({
                     status: "processing",
                     processingStep: "generating_topics",
                     processingProgress: 40,
+                    errorMessage: "",
                 });
 
                 checkTimeout();
@@ -8496,6 +8583,7 @@ export const generateCourseFromText = action({
                     plannedTopicCount: totalTopics,
                     generatedTopicCount: 0,
                     plannedTopicTitles,
+                    errorMessage: "",
                 });
 
                 checkTimeout();
@@ -8524,6 +8612,7 @@ export const generateCourseFromText = action({
                     plannedTopicCount: totalTopics,
                     generatedTopicCount,
                     plannedTopicTitles,
+                    errorMessage: "",
                 });
 
                 console.info("[CourseGeneration] first_topic_ready", {
@@ -8822,6 +8911,7 @@ export const processUploadedFile = action({
                 status: "processing",
                 processingStep: "extracting",
                 processingProgress: 5,
+                errorMessage: "",
             });
 
             // Update to analyzing phase
@@ -8830,6 +8920,7 @@ export const processUploadedFile = action({
                 status: "processing",
                 processingStep: "analyzing",
                 processingProgress: 20,
+                errorMessage: "",
             });
 
             checkTimeout();
@@ -8934,6 +9025,7 @@ export const addSourceToCourse = action({
                     status: "processing",
                     processingStep: "generating_topics",
                     processingProgress: 40,
+                    errorMessage: "",
                 });
 
                 checkTimeout();
@@ -10106,7 +10198,7 @@ const generateQuestionCandidatesBatch = async (args: {
             },
             { role: "user", content: prompt },
         ], DEFAULT_MODEL, {
-            maxTokens: 2400,
+            maxTokens: 5200,
             responseFormat: "json_object",
             timeoutMs,
         });
@@ -10175,7 +10267,7 @@ const generateTrueFalseQuestionCandidatesBatch = async (args: {
             },
             { role: "user", content: prompt },
         ], DEFAULT_MODEL, {
-            maxTokens: 1800,
+            maxTokens: 2600,
             responseFormat: "json_object",
             timeoutMs,
         });
@@ -10244,7 +10336,7 @@ const generateFillBlankQuestionCandidatesBatch = async (args: {
             },
             { role: "user", content: prompt },
         ], DEFAULT_MODEL, {
-            maxTokens: 2000,
+            maxTokens: 3000,
             responseFormat: "json_object",
             timeoutMs,
         });
@@ -10843,6 +10935,13 @@ const generateQuestionBankForTopic = async (
         const key = resolveObjectivePlanItemKey(resolved);
         return key ? objectivePlanItemByKey.get(key) || resolved : resolved;
     };
+    const validSubClaimIds = new Set(
+        subClaims.map((claim: any) => String(claim?._id || "").trim()).filter(Boolean)
+    );
+    const normalizePersistedSubClaimId = (value: unknown) => {
+        const normalized = String(value || "").trim();
+        return normalized && validSubClaimIds.has(normalized) ? normalized : undefined;
+    };
     const topicContent = String(topicWithQuestions.content || "");
     const rawExistingQuestions = filterQuestionsForActiveAssessment({
         topic: effectiveTopic,
@@ -11414,7 +11513,7 @@ const generateQuestionBankForTopic = async (
             bloomLevel: String(questionRecord?.bloomLevel || resolvedOutcome?.bloomLevel || "").trim() || undefined,
             outcomeKey: String(questionRecord?.outcomeKey || resolvedOutcome?.key || "").trim() || undefined,
             tier: normalizeGeneratedTier(questionRecord?.tier ?? resolvedObjectivePlanItem?.targetTier),
-            subClaimId: String(questionRecord?.subClaimId || resolvedObjectivePlanItem?.subClaimId || "").trim() || undefined,
+            subClaimId: normalizePersistedSubClaimId(questionRecord?.subClaimId || resolvedObjectivePlanItem?.subClaimId),
             cognitiveOperation: normalizeGeneratedCognitiveOperation(
                 questionRecord?.cognitiveOperation || resolvedObjectivePlanItem?.targetOp
             ),
@@ -11484,7 +11583,7 @@ const generateQuestionBankForTopic = async (
             bloomLevel: String(questionRecord?.bloomLevel || resolvedOutcome?.bloomLevel || "").trim() || undefined,
             outcomeKey: String(questionRecord?.outcomeKey || resolvedOutcome?.key || "").trim() || undefined,
             tier: normalizeGeneratedTier(questionRecord?.tier ?? resolvedObjectivePlanItem?.targetTier),
-            subClaimId: String(questionRecord?.subClaimId || resolvedObjectivePlanItem?.subClaimId || "").trim() || undefined,
+            subClaimId: normalizePersistedSubClaimId(questionRecord?.subClaimId || resolvedObjectivePlanItem?.subClaimId),
             cognitiveOperation: normalizeGeneratedCognitiveOperation(
                 questionRecord?.cognitiveOperation || resolvedObjectivePlanItem?.targetOp
             ),
@@ -11969,6 +12068,125 @@ const generateQuestionBankForTopic = async (
                 targetCount,
             });
             break;
+        }
+    }
+
+    if (getUniqueQuestionCount() === 0 && groundedPack.evidence.length > 0) {
+        const fallbackEvidence = groundedPack.evidence.find((entry: any) =>
+            String(entry?.passageId || "").trim() && String(entry?.text || "").trim()
+        );
+        if (fallbackEvidence) {
+            const citation = buildFreshFallbackCitation(fallbackEvidence);
+            const quotedStatement = normalizeFreshFallbackText(citation.quote, 220);
+            const fallbackPlan = getAssessmentPlanForQuestionType(
+                assessmentBlueprint,
+                QUESTION_TYPE_MULTIPLE_CHOICE,
+            );
+            const fallbackAllowedOutcomeKeys = new Set(
+                (Array.isArray(fallbackPlan?.targetOutcomeKeys) ? fallbackPlan.targetOutcomeKeys : [])
+                    .map((value: any) => normalizeOutcomeKey(value))
+                    .filter(Boolean)
+            );
+            const fallbackOutcomes = Array.isArray(assessmentBlueprint?.outcomes)
+                ? assessmentBlueprint.outcomes
+                : [];
+            const fallbackOutcome = (
+                fallbackOutcomes.find((outcome: any) => {
+                    const outcomeKey = normalizeOutcomeKey(outcome?.key);
+                    return outcomeKey && fallbackAllowedOutcomeKeys.has(outcomeKey);
+                })
+                || fallbackOutcomes[0]
+                || null
+            );
+            const fallbackOutcomeKey = normalizeOutcomeKey(fallbackOutcome?.key || "applied-reading") || "applied-reading";
+            const fallbackBloomLevel = normalizeBloomLevel(fallbackOutcome?.bloomLevel || "Apply") || "Apply";
+            const fallbackPlanItem = Array.isArray(assessmentBlueprint?.objectivePlan?.items)
+                ? assessmentBlueprint.objectivePlan.items.find((item: any) =>
+                    normalizeQuestionType(item?.targetType || item?.questionType) === QUESTION_TYPE_MULTIPLE_CHOICE
+                    && normalizeOutcomeKey(item?.outcomeKey) === fallbackOutcomeKey
+                    && normalizePersistedSubClaimId(item?.subClaimId)
+                )
+                : null;
+            const fallbackQuestionText = anchorTextToTopic(
+                `Which statement is directly supported by the cited source for ${effectiveTopic.title}?`,
+                effectiveTopic.title,
+                topicKeywords,
+            );
+            const fallbackSignature = buildQuestionPromptSignature(fallbackQuestionText);
+            const fallbackNormalizedKey = String(fallbackSignature?.normalized || "");
+
+            if (quotedStatement && fallbackNormalizedKey && !existingQuestionKeys.has(fallbackNormalizedKey)) {
+                const saveStartedAt = Date.now();
+                const fallbackQuestionPayload: Record<string, any> = {
+                    topicId,
+                    questionText: fallbackQuestionText,
+                    questionType: QUESTION_TYPE_MULTIPLE_CHOICE,
+                    correctAnswer: "A",
+                    explanation: `Option A is directly supported by the cited source: "${quotedStatement}"`,
+                    difficulty: "easy",
+                    options: [
+                        { label: "A", text: quotedStatement, isCorrect: true },
+                        { label: "B", text: "The source says this topic has no practical study value.", isCorrect: false },
+                        { label: "C", text: "The source says the cited idea should be ignored during revision.", isCorrect: false },
+                        { label: "D", text: "The source says the cited evidence is unrelated to learning.", isCorrect: false },
+                    ],
+                    citations: [citation],
+                    sourcePassageIds: [citation.passageId],
+                    groundingScore: 1,
+                    factualityStatus: "verified",
+                    generationVersion: ASSESSMENT_QUESTION_GENERATION_VERSION,
+                    generationRunId,
+                    learningObjective: String(fallbackOutcome?.objective || "").trim() || undefined,
+                    bloomLevel: fallbackBloomLevel,
+                    outcomeKey: fallbackOutcomeKey,
+                    tier: normalizeGeneratedTier(fallbackPlanItem?.targetTier || 1),
+                    subClaimId: normalizePersistedSubClaimId(fallbackPlanItem?.subClaimId),
+                    cognitiveOperation: normalizeGeneratedCognitiveOperation(fallbackPlanItem?.targetOp || "recognition"),
+                    groundingEvidence: quotedStatement,
+                    qualityScore: 0.62,
+                    qualityTier: QUALITY_TIER_LIMITED,
+                    rigorScore: 0.42,
+                    clarityScore: 0.8,
+                    diversityCluster: "multiple_choice::last_resort_grounded_fallback",
+                    distractorScore: 0.35,
+                    freshnessBucket: QUESTION_FRESHNESS_BUCKET_FRESH,
+                    qualityFlags: normalizeQualityFlags([
+                        "last_resort_grounded_fallback",
+                        "quality_gate_bypassed_for_grounded_fallback",
+                    ]),
+                };
+                const questionId = await ctx.runMutation(internal.topics.createQuestionInternal, fallbackQuestionPayload);
+                timingBreakdown.saveMs += normalizeTimingMs(Date.now() - saveStartedAt);
+                if (questionId) {
+                    existingQuestionKeys.add(fallbackNormalizedKey);
+                    existingQuestionSignatures.push(fallbackSignature);
+                    coverageQuestions.push({
+                        questionType: QUESTION_TYPE_MULTIPLE_CHOICE,
+                        questionText: fallbackQuestionText,
+                        options: fallbackQuestionPayload.options,
+                        bloomLevel: fallbackQuestionPayload.bloomLevel,
+                        outcomeKey: fallbackQuestionPayload.outcomeKey,
+                        tier: fallbackQuestionPayload.tier,
+                        subClaimId: fallbackQuestionPayload.subClaimId,
+                        cognitiveOperation: fallbackQuestionPayload.cognitiveOperation,
+                        groundingEvidence: quotedStatement,
+                        qualityTier: QUALITY_TIER_LIMITED,
+                        qualityScore: fallbackQuestionPayload.qualityScore,
+                        rigorScore: fallbackQuestionPayload.rigorScore,
+                        clarityScore: fallbackQuestionPayload.clarityScore,
+                        diversityCluster: fallbackQuestionPayload.diversityCluster,
+                        distractorScore: fallbackQuestionPayload.distractorScore,
+                    });
+                    added += 1;
+                    countBreakdown.savedQuestionCount += 1;
+                    console.warn("[QuestionBank] last_resort_grounded_fallback_saved", {
+                        topicId,
+                        topicTitle: topicWithQuestions.title,
+                        questionId,
+                        passageId: citation.passageId,
+                    });
+                }
+            }
         }
     }
 
@@ -13764,9 +13982,19 @@ const FRESH_CONTEXT_AUTHORING_TIMEOUT_MS = Math.max(
     5000,
     Math.min(DEFAULT_TIMEOUT_MS, Number(process.env.FRESH_CONTEXT_AUTHORING_TIMEOUT_MS || 45000)),
 );
+const FRESH_CONTEXT_INTERACTIVE_BUDGET_MS = Math.max(
+    30000,
+    Number(process.env.FRESH_CONTEXT_INTERACTIVE_BUDGET_MS || 95000),
+);
 
 const resolveFreshRequestedExamFormat = (value: unknown) =>
     String(value || "").trim().toLowerCase() === "essay" ? "essay" : "mcq";
+
+const getFreshExamRemainingMs = (deadlineMs: number, reserveMs = 0) =>
+    Math.max(0, Math.round(Number(deadlineMs || 0) - Date.now() - Math.max(0, reserveMs)));
+
+const isFreshExamDeadlineExceeded = (deadlineMs: number, reserveMs = 0) =>
+    getFreshExamRemainingMs(deadlineMs, reserveMs) <= 0;
 
 const resolveFreshConfiguredTargetCount = (value: unknown, fallback: number) => {
     const numeric = Number(value);
@@ -13863,11 +14091,19 @@ const formatRetrievedEvidenceForPrompt = (evidence: RetrievedEvidence[], maxChar
     evidence
         .map((entry, index) => {
             const trimmed = String(entry.text || "").slice(0, 900).trim();
+            const sectionHint = String(entry.sectionHint || "").trim();
+            const blockType = String(entry.blockType || "").trim();
+            const headingPath = Array.isArray(entry.headingPath)
+                ? entry.headingPath.map((heading: any) => String(heading || "").trim()).filter(Boolean).join(" > ")
+                : "";
             return [
                 `EVIDENCE_${index + 1}:`,
                 `passageId=${entry.passageId}; page=${entry.page}; start=${entry.startChar}; end=${entry.endChar}`,
+                sectionHint ? `section=${sectionHint}` : "",
+                headingPath ? `headingPath=${headingPath}` : "",
+                blockType ? `blockType=${blockType}` : "",
                 `"""${trimmed}"""`,
-            ].join("\n");
+            ].filter(Boolean).join("\n");
         })
         .join("\n\n")
         .slice(0, maxChars);
@@ -14727,8 +14963,8 @@ const isFreshExamAuthoringFallbackEligibleError = (error: any) => {
 };
 
 // ── Topic podcast script generation ────────────────────────────────────────
-// Generates a single-narrator explainer podcast script grounded in the topic
-// content. Returns plain text suitable for direct synthesis with a TTS provider.
+// Generates a grounded two-speaker explainer podcast transcript suitable for
+// direct synthesis with a TTS provider.
 
 const PODCAST_DEFAULT_TARGET_WORDS = 1200;
 const PODCAST_MIN_WORDS = 400;
@@ -14808,20 +15044,20 @@ export const generatePodcastScriptInternal = internalAction({
             }
 
             const systemPrompt =
-                "You are a friendly, clear-spoken explainer podcast host. "
-                + "You are recording a single-narrator audio episode for a learner studying the lesson below. "
+                "You are writing a friendly, clear-spoken explainer podcast transcript for two speakers helping a learner study the lesson below. "
                 + "Rules: "
-                + "1) Output plain spoken prose only — no markdown, no headings, no bullet points, no stage directions, no speaker tags. "
-                + "2) Speak as one consistent narrator throughout. "
-                + "3) Open with a one-sentence hook, then explain the concept clearly with concrete examples drawn from the lesson, then end with a brief summary. "
-                + "4) Use natural sentence-level flow that sounds good when read aloud. Short sentences. Vary rhythm. "
+                + "1) Output transcript lines only. Every spoken turn must begin with either 'HOST:' or 'GUEST:'. "
+                + "2) Alternate naturally between HOST and GUEST. Do not let either speaker disappear for long stretches. "
+                + "3) The HOST should guide the lesson, ask sharp setup questions, and summarize transitions. The GUEST should explain, clarify, and work through examples. "
+                + "4) Use natural spoken language that sounds good when read aloud. Short sentences. Vary rhythm. "
                 + "5) Stay grounded in the LESSON CONTENT and SOURCE EVIDENCE. Do not invent facts. "
-                + "6) Do not use placeholders like [pause] or [music]. Do not say 'In this podcast' or 'Welcome back'. "
-                + "7) Aim for approximately " + targetWords + " words. Stop when you've covered the material clearly.";
+                + "6) No markdown, no headings, no bullet points, no stage directions, no sound cues, and no narration outside speaker lines. "
+                + "7) Open quickly with a hook and move straight into the concept. End with a concise recap. "
+                + "8) Aim for approximately " + targetWords + " words across both speakers. Stop when the material is clearly covered.";
 
             const userPrompt =
                 `${lessonBlock}${evidenceBlock}\n\n`
-                + `Write the spoken podcast script now. Approximately ${targetWords} words. Plain prose only.`;
+                + `Write the two-speaker podcast transcript now. Approximately ${targetWords} words total.`;
 
             const rawScript = await callInception(
                 [
@@ -14922,6 +15158,8 @@ export const generateFreshExamSnapshotInternal = internalAction({
                     });
                 }
 
+                const interactiveDeadlineMs = Date.now() + FRESH_CONTEXT_INTERACTIVE_BUDGET_MS;
+
                 const configuredTarget = resolveFreshConfiguredTargetCount(
                     examFormat === "essay" ? topic?.essayTargetCount : topic?.mcqTargetCount,
                     examFormat === "essay" ? FRESH_CONTEXT_ESSAY_DEFAULT_COUNT : FRESH_CONTEXT_OBJECTIVE_DEFAULT_COUNT,
@@ -14947,6 +15185,13 @@ export const generateFreshExamSnapshotInternal = internalAction({
                 try {
                     let validationFeedback: string[] = [];
                     for (let attempt = 0; attempt < 2; attempt += 1) {
+                        if (isFreshExamDeadlineExceeded(interactiveDeadlineMs, 5000)) {
+                            throw new ConvexError({
+                                code: "EXAM_GENERATION_TIMEOUT",
+                                message: "Fresh exam generation ran out of interactive budget.",
+                            });
+                        }
+
                         const prompt = examFormat === "essay"
                             ? buildFreshEssayExamPrompt({
                                 topic,
@@ -14974,14 +15219,29 @@ export const generateFreshExamSnapshotInternal = internalAction({
                         ], DEFAULT_MODEL, {
                             maxTokens: examFormat === "essay" ? 3200 : 5200,
                             responseFormat: "json_object",
-                            timeoutMs: FRESH_CONTEXT_AUTHORING_TIMEOUT_MS,
+                            timeoutMs: Math.max(
+                                5000,
+                                Math.min(
+                                    FRESH_CONTEXT_AUTHORING_TIMEOUT_MS,
+                                    getFreshExamRemainingMs(interactiveDeadlineMs, 3000),
+                                ),
+                            ),
                             temperature: 0.2,
                         });
 
                         const parsed = await parseFreshExamQuestionsWithRepair(
                             response,
                             examFormat === "essay" ? "essay" : "objective",
-                            { repairTimeoutMs: FRESH_CONTEXT_AUTHORING_TIMEOUT_MS }
+                            {
+                                deadlineMs: interactiveDeadlineMs,
+                                repairTimeoutMs: Math.max(
+                                    1500,
+                                    Math.min(
+                                        FRESH_CONTEXT_AUTHORING_TIMEOUT_MS,
+                                        getFreshExamRemainingMs(interactiveDeadlineMs, 2000),
+                                    ),
+                                ),
+                            }
                         );
                         const rawQuestions = Array.isArray(parsed?.questions) ? parsed.questions : [];
                         const normalizedQuestions = examFormat === "essay"
@@ -15020,6 +15280,12 @@ export const generateFreshExamSnapshotInternal = internalAction({
                         }
 
                         validationFeedback = validation.errors.slice(0, 8);
+                        if (attempt === 0 && isFreshExamDeadlineExceeded(interactiveDeadlineMs, 18000)) {
+                            throw new ConvexError({
+                                code: "EXAM_GENERATION_TIMEOUT",
+                                message: "Fresh exam validation exhausted the interactive budget.",
+                            });
+                        }
                     }
 
                     if (examFormat === "mcq") {
@@ -15028,6 +15294,13 @@ export const generateFreshExamSnapshotInternal = internalAction({
                             : [requestedCount];
 
                         for (const fallbackCount of fallbackCounts) {
+                            if (isFreshExamDeadlineExceeded(interactiveDeadlineMs, 8000)) {
+                                throw new ConvexError({
+                                    code: "EXAM_GENERATION_TIMEOUT",
+                                    message: "Fresh exam fallback authoring ran out of interactive budget.",
+                                });
+                            }
+
                             const fallbackPrompt = buildFreshObjectiveExamPrompt({
                                 topic,
                                 requestedCount: fallbackCount,
@@ -15051,14 +15324,29 @@ export const generateFreshExamSnapshotInternal = internalAction({
                             ], DEFAULT_MODEL, {
                                 maxTokens: 5200,
                                 responseFormat: "json_object",
-                                timeoutMs: FRESH_CONTEXT_AUTHORING_TIMEOUT_MS,
+                                timeoutMs: Math.max(
+                                    5000,
+                                    Math.min(
+                                        FRESH_CONTEXT_AUTHORING_TIMEOUT_MS,
+                                        getFreshExamRemainingMs(interactiveDeadlineMs, 3000),
+                                    ),
+                                ),
                                 temperature: 0.2,
                             });
 
                             const fallbackParsed = await parseFreshExamQuestionsWithRepair(
                                 fallbackResponse,
                                 "objective",
-                                { repairTimeoutMs: FRESH_CONTEXT_AUTHORING_TIMEOUT_MS }
+                                {
+                                    deadlineMs: interactiveDeadlineMs,
+                                    repairTimeoutMs: Math.max(
+                                        1500,
+                                        Math.min(
+                                            FRESH_CONTEXT_AUTHORING_TIMEOUT_MS,
+                                            getFreshExamRemainingMs(interactiveDeadlineMs, 2000),
+                                        ),
+                                    ),
+                                }
                             );
                             const fallbackRawQuestions = Array.isArray(fallbackParsed?.questions) ? fallbackParsed.questions : [];
                             const fallbackQuestions = fallbackRawQuestions.map((question, index) =>
@@ -15102,6 +15390,13 @@ export const generateFreshExamSnapshotInternal = internalAction({
                             : [];
 
                         for (const fallbackCount of essayFallbackCounts) {
+                            if (isFreshExamDeadlineExceeded(interactiveDeadlineMs, 8000)) {
+                                throw new ConvexError({
+                                    code: "EXAM_GENERATION_TIMEOUT",
+                                    message: "Fresh essay fallback authoring ran out of interactive budget.",
+                                });
+                            }
+
                             const fallbackPrompt = buildFreshEssayExamPrompt({
                                 topic,
                                 requestedCount: fallbackCount,
@@ -15122,14 +15417,29 @@ export const generateFreshExamSnapshotInternal = internalAction({
                             ], DEFAULT_MODEL, {
                                 maxTokens: 3200,
                                 responseFormat: "json_object",
-                                timeoutMs: FRESH_CONTEXT_AUTHORING_TIMEOUT_MS,
+                                timeoutMs: Math.max(
+                                    5000,
+                                    Math.min(
+                                        FRESH_CONTEXT_AUTHORING_TIMEOUT_MS,
+                                        getFreshExamRemainingMs(interactiveDeadlineMs, 3000),
+                                    ),
+                                ),
                                 temperature: 0.2,
                             });
 
                             const fallbackParsed = await parseFreshExamQuestionsWithRepair(
                                 fallbackResponse,
                                 "essay",
-                                { repairTimeoutMs: FRESH_CONTEXT_AUTHORING_TIMEOUT_MS }
+                                {
+                                    deadlineMs: interactiveDeadlineMs,
+                                    repairTimeoutMs: Math.max(
+                                        1500,
+                                        Math.min(
+                                            FRESH_CONTEXT_AUTHORING_TIMEOUT_MS,
+                                            getFreshExamRemainingMs(interactiveDeadlineMs, 2000),
+                                        ),
+                                    ),
+                                }
                             );
                             const fallbackRawQuestions = Array.isArray(fallbackParsed?.questions) ? fallbackParsed.questions : [];
                             const fallbackQuestions = fallbackRawQuestions.map((question, index) =>

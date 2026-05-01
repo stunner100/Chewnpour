@@ -5,7 +5,8 @@ import { useAuth } from '../contexts/AuthContext';
 
 const navItems = [
     { label: 'Dashboard', icon: 'space_dashboard', path: '/dashboard', exact: true },
-    { label: 'Search', icon: 'search', path: '/dashboard/search' },
+    { label: 'Library', icon: 'auto_stories', path: '/dashboard/search' },
+    { label: 'Study Plan', icon: 'event_note', path: '/dashboard/analysis' },
     { label: 'Assignments', icon: 'edit_note', path: '/dashboard/assignment-helper' },
     { label: 'Humanizer', icon: 'auto_fix_high', path: '/dashboard/humanizer' },
     { label: 'Community', icon: 'forum', path: '/dashboard/community' },

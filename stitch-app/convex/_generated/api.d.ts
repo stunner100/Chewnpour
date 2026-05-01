@@ -36,7 +36,7 @@ import type * as lib_conceptMastery from "../lib/conceptMastery.js";
 import type * as lib_conceptSessionSelection from "../lib/conceptSessionSelection.js";
 import type * as lib_datalabClient from "../lib/datalabClient.js";
 import type * as lib_datalabText from "../lib/datalabText.js";
-import type * as lib_doctraClient from "../lib/doctraClient.js";
+import type * as lib_doclingClient from "../lib/doclingClient.js";
 import type * as lib_documentExtractionPipeline from "../lib/documentExtractionPipeline.js";
 import type * as lib_examAttemptReuse from "../lib/examAttemptReuse.js";
 import type * as lib_examQuestionSelection from "../lib/examQuestionSelection.js";
@@ -81,8 +81,6 @@ import type * as topicNotes from "../topicNotes.js";
 import type * as topics from "../topics.js";
 import type * as tutor from "../tutor.js";
 import type * as uploads from "../uploads.js";
-import type * as videos from "../videos.js";
-import type * as videosActions from "../videosActions.js";
 import type * as voiceHttp from "../voiceHttp.js";
 import type * as winbackCampaigns from "../winbackCampaigns.js";
 
@@ -121,7 +119,7 @@ declare const fullApi: ApiFromModules<{
   "lib/conceptSessionSelection": typeof lib_conceptSessionSelection;
   "lib/datalabClient": typeof lib_datalabClient;
   "lib/datalabText": typeof lib_datalabText;
-  "lib/doctraClient": typeof lib_doctraClient;
+  "lib/doclingClient": typeof lib_doclingClient;
   "lib/documentExtractionPipeline": typeof lib_documentExtractionPipeline;
   "lib/examAttemptReuse": typeof lib_examAttemptReuse;
   "lib/examQuestionSelection": typeof lib_examQuestionSelection;
@@ -166,8 +164,6 @@ declare const fullApi: ApiFromModules<{
   topics: typeof topics;
   tutor: typeof tutor;
   uploads: typeof uploads;
-  videos: typeof videos;
-  videosActions: typeof videosActions;
   voiceHttp: typeof voiceHttp;
   winbackCampaigns: typeof winbackCampaigns;
 }>;

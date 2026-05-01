@@ -1,15 +1,17 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useLocation, useNavigate, useParams } from 'react-router-dom';
 import { useQuery, useMutation, useAction } from 'convex/react';
+import { ConvexHttpClient } from 'convex/browser';
 import { api } from '../../convex/_generated/api';
 import { useAuth } from '../contexts/AuthContext';
-import { getSession } from '../lib/auth-client';
+import { authBaseUrl, getSession } from '../lib/auth-client';
 import { useStudyTimer } from '../hooks/useStudyTimer';
 import { useExamTimer } from '../hooks/useExamTimer';
 import { useRouteResolvedTopic } from '../hooks/useRouteResolvedTopic';
 import { addSentryBreadcrumb, captureSentryException, captureSentryMessage } from '../lib/sentry';
 import ExamQuestionCard from '../components/ExamQuestionCard';
 import ExamPreparationLoader from '../components/ExamPreparationLoader';
+import { convexUrl } from '../lib/convex-config';
 
 // ── Pure option-parsing helpers (hoisted out of the component) ──
 
@@ -347,6 +349,67 @@ const getExamTransientStartRetryMessage = () =>
 const getExamTransientSubmitRetryMessage = () =>
     'Connection dropped while submitting your exam. Please retry once your connection is stable.';
 
+const waitForDuration = (durationMs) =>
+    new Promise((resolve) => {
+        setTimeout(resolve, durationMs);
+    });
+
+const readCachedConvexBrowserToken = () => {
+    if (typeof window === 'undefined') return '';
+    try {
+        const raw = window.localStorage.getItem('better-auth_cookie');
+        if (!raw) return '';
+        const parsed = JSON.parse(raw);
+        const cachedToken = parsed?.['better-auth.convex_jwt'];
+        const token = typeof cachedToken?.value === 'string' ? cachedToken.value.trim() : '';
+        if (!token) return '';
+        const expiresAt = Date.parse(String(cachedToken?.expires || ''));
+        if (Number.isFinite(expiresAt) && expiresAt <= Date.now()) {
+            return '';
+        }
+        return token;
+    } catch {
+        return '';
+    }
+};
+
+const fetchConvexBrowserToken = async () => {
+    const cachedToken = readCachedConvexBrowserToken();
+    if (cachedToken) {
+        return cachedToken;
+    }
+
+    let lastError = null;
+    for (let attempt = 0; attempt < 6; attempt += 1) {
+        try {
+            await getSession().catch(() => null);
+            const refreshedCachedToken = readCachedConvexBrowserToken();
+            if (refreshedCachedToken) {
+                return refreshedCachedToken;
+            }
+            const response = await fetch(`${authBaseUrl}/api/auth/convex/token`, {
+                credentials: 'include',
+            });
+            if (!response.ok) {
+                throw new Error(`Failed to fetch Convex auth token (${response.status})`);
+            }
+            const payload = await response.json().catch(() => null);
+            const token = typeof payload?.token === 'string' ? payload.token.trim() : '';
+            if (!token) {
+                throw new Error('Session is still syncing.');
+            }
+            return token;
+        } catch (error) {
+            lastError = error;
+            if (attempt >= 5) break;
+            await waitForDuration(500 * (attempt + 1));
+        }
+    }
+    throw lastError instanceof Error
+        ? lastError
+        : new Error('Session is still syncing.');
+};
+
 const isRecoverableExamSubmitError = ({ error, message }) => {
     if (isUserCorrectableEssaySubmitError(message)) return true;
     if (isConvexAuthenticationError(error)) return true;
@@ -374,7 +437,7 @@ const ExamMode = () => {
     const routeTopicId = typeof topicIdParam === 'string' ? topicIdParam.trim() : '';
     const location = useLocation();
     const navigate = useNavigate();
-    const { user } = useAuth();
+    const { user, loading: authLoading } = useAuth();
     const [currentQuestion, setCurrentQuestion] = useState(0);
     const [selectedAnswers, setSelectedAnswers] = useState({});
     const [examStarted, setExamStarted] = useState(false);
@@ -422,13 +485,24 @@ const ExamMode = () => {
             ? { courseId: topic.courseId, sourceUploadId: topic.sourceUploadId }
             : 'skip'
     );
-    const startExamAttempt = useAction(api.exams.startExamAttempt);
     const ensureAssessmentRoutingForTopic = useAction(api.ai.ensureAssessmentRoutingForTopic);
     const submitExam = useMutation(api.exams.submitExamAttempt);
     const submitEssayExam = useAction(api.exams.submitEssayExam);
+    const startExamAttemptHttp = useCallback(async ({ topicId: nextTopicId, examFormat: nextExamFormat }) => {
+        if (!convexUrl) {
+            throw new Error('Convex is not configured for this deployment.');
+        }
+        const token = await fetchConvexBrowserToken();
+        const client = new ConvexHttpClient(convexUrl);
+        client.setAuth(token);
+        return await client.action(api.exams.startExamAttempt, {
+            topicId: nextTopicId,
+            examFormat: nextExamFormat,
+        });
+    }, []);
 
-    const START_EXAM_ATTEMPT_TIMEOUT_MS = 120_000;
-    const EXAM_LOADING_STALL_TIMEOUT_MS = 150_000;
+    const START_EXAM_ATTEMPT_TIMEOUT_MS = 240_000;
+    const EXAM_LOADING_STALL_TIMEOUT_MS = 270_000;
 
     const loadingExamTypeLabel = examFormat === 'essay' ? 'essay' : 'objective';
     const activePreparationMessage = `Generating your ${loadingExamTypeLabel} exam from this topic.`;
@@ -607,7 +681,7 @@ const ExamMode = () => {
         });
         try {
             const result = await withTimeout(
-                startExamAttempt({ topicId, examFormat }),
+                startExamAttemptHttp({ topicId, examFormat }),
                 START_EXAM_ATTEMPT_TIMEOUT_MS,
                 'Exam preparation initialization timed out.'
             );
@@ -721,7 +795,7 @@ const ExamMode = () => {
             attemptStartTimeRef.current = null;
             setStartingExamAttempt(false);
         }
-    }, [examFormat, startExamAttempt, topicId, userId, withTimeout, START_EXAM_ATTEMPT_TIMEOUT_MS, setTimeRemaining]);
+    }, [examFormat, startExamAttemptHttp, topicId, userId, withTimeout, START_EXAM_ATTEMPT_TIMEOUT_MS, setTimeRemaining]);
 
     const handleRetryStart = useCallback(async () => {
         await beginExamAttempt();
@@ -788,6 +862,8 @@ const ExamMode = () => {
         if (
             topicId &&
             examFormat &&
+            userId &&
+            !authLoading &&
             !examStarted &&
             !startingExamAttempt &&
             !hasAttemptQuestions &&
@@ -798,6 +874,8 @@ const ExamMode = () => {
     }, [
         topicId,
         examFormat,
+        userId,
+        authLoading,
         examStarted,
         startingExamAttempt,
         hasAttemptQuestions,

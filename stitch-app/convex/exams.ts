@@ -58,6 +58,48 @@ const getAttemptGradingContextMap = (attempt: any) => {
 const getAttemptGradingEntry = (attempt: any, questionId: unknown) =>
     getAttemptGradingContextMap(attempt)[normalizeAttemptQuestionKey(questionId)] || null;
 
+const resolveTopicReference = async (ctx: any, rawTopicId: unknown) => {
+    const normalizedRawTopicId = typeof rawTopicId === "string"
+        ? rawTopicId.trim()
+        : rawTopicId
+            ? String(rawTopicId).trim()
+            : "";
+    if (!normalizedRawTopicId) {
+        return {
+            topicId: "",
+            topic: null,
+        };
+    }
+
+    try {
+        const normalizedTopicId = ctx.db.normalizeId("topics", normalizedRawTopicId);
+        if (!normalizedTopicId) {
+            return {
+                topicId: "",
+                topic: null,
+            };
+        }
+
+        const topic = await ctx.db.get(normalizedTopicId);
+        if (!topic || !topic.courseId) {
+            return {
+                topicId: "",
+                topic: null,
+            };
+        }
+
+        return {
+            topicId: String(normalizedTopicId),
+            topic,
+        };
+    } catch {
+        return {
+            topicId: "",
+            topic: null,
+        };
+    }
+};
+
 
 export const requestEssayQuestionTopUp = mutation({
     args: {
@@ -498,9 +540,10 @@ export const getUserExamAttempts = query({
         // Enrich with topic info
         const enrichedAttempts = await Promise.all(
             attempts.map(async (attempt) => {
-                const topic = await ctx.db.get(attempt.topicId);
+                const { topicId, topic } = await resolveTopicReference(ctx, attempt.topicId);
                 return {
                     ...attempt,
+                    topicId,
                     topicTitle: topic?.title || "Unknown Topic",
                 };
             })
@@ -551,7 +594,7 @@ export const getExamAttempt = query({
             return null;
         }
 
-        const topic = await ctx.db.get(attempt.topicId);
+        const { topicId: resolvedTopicId, topic } = await resolveTopicReference(ctx, attempt.topicId);
         const generatedQuestionMap = buildGeneratedQuestionMap(attempt);
         const gradingContextMap = getAttemptGradingContextMap(attempt);
 
@@ -589,6 +632,7 @@ export const getExamAttempt = query({
 
         return {
             ...attempt,
+            topicId: resolvedTopicId,
             topicTitle: topic?.title || "Unknown Topic",
             answers: enrichedAnswers,
             percentage,
@@ -1000,16 +1044,20 @@ export const getUserPerformanceInsights = query({
 
         const entries = await Promise.all(
             Array.from(topicMap.values()).map(async ({ best, topicId }) => {
-                const topic = await ctx.db.get(topicId);
-                return { topicId: String(topicId), title: topic?.title || "Unknown Topic", best };
+                const resolved = await resolveTopicReference(ctx, topicId);
+                if (!resolved.topicId || !resolved.topic) {
+                    return null;
+                }
+                return { topicId: resolved.topicId, title: resolved.topic.title || "Unknown Topic", best };
             })
         );
 
-        const mastered = entries.filter((e) => e.best >= 80).sort((a, b) => b.best - a.best);
-        const progressing = entries.filter((e) => e.best >= 50 && e.best < 80).sort((a, b) => b.best - a.best);
-        const needsWork = entries.filter((e) => e.best < 50).sort((a, b) => a.best - b.best);
-        const overallPreparedness = entries.length > 0
-            ? Math.round(entries.reduce((sum, e) => sum + e.best, 0) / entries.length)
+        const validEntries = entries.filter(Boolean);
+        const mastered = validEntries.filter((e) => e.best >= 80).sort((a, b) => b.best - a.best);
+        const progressing = validEntries.filter((e) => e.best >= 50 && e.best < 80).sort((a, b) => b.best - a.best);
+        const needsWork = validEntries.filter((e) => e.best < 50).sort((a, b) => a.best - b.best);
+        const overallPreparedness = validEntries.length > 0
+            ? Math.round(validEntries.reduce((sum, e) => sum + e.best, 0) / validEntries.length)
             : 0;
 
         return { mastered, progressing, needsWork, overallPreparedness };

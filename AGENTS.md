@@ -3,7 +3,7 @@
 ## Repo Layout
 - This repository contains two active projects:
 - `stitch-app/`: React + Vite frontend with Convex functions.
-- `doctra-service/`: Python package plus FastAPI extraction service (`render_api`).
+- `docling-service/`: Python package plus FastAPI Docling extraction service (`render_api`).
 
 ## Global Rules
 - Bugs: add a regression test when it fits.
@@ -24,8 +24,8 @@
 - Convex schema/functions live in `stitch-app/convex/*.ts`.
 - If schema or API signatures change, regenerate Convex outputs through the CLI (for example `npx convex dev`) instead of hand-editing `_generated`.
 
-## doctra-service Workflow
-- Setup: `cd doctra-service && python -m venv .venv && source .venv/bin/activate && pip install -e ".[dev]"`.
+## docling-service Workflow
+- Setup: `cd docling-service && python -m venv .venv && source .venv/bin/activate && pip install -e ".[dev]"`.
 - Test: `pytest` (or targeted `pytest tests/test_render_api_utils.py`).
 - Run API locally: `uvicorn render_api.app:app --reload --port 10000`.
 - System dependencies for full PDF extraction: Poppler and Tesseract (`poppler-utils`, `tesseract-ocr`).

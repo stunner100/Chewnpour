@@ -48,6 +48,12 @@ if (!/const assertPodcastCapacityAvailable = async/.test(podcastsSource)) {
 if (!/const consumePodcastGenerationCredit = async/.test(podcastsSource)) {
     throw new Error('Expected podcasts.ts to share voice quota checks between request and retry.');
 }
+if (!/const resolveTtsProvider = \(\)/.test(podcastsSource)) {
+    throw new Error('Expected podcasts.ts to resolve the active podcast TTS provider.');
+}
+if (!/return `\$\{provider\}:\$\{hostVoiceModel\}\|\$\{guestVoiceModel\}`;/.test(podcastsSource)) {
+    throw new Error('Expected podcasts.ts to persist the provider alongside the selected podcast voices.');
+}
 if (!/export const sweepStuckPodcastsInternal = internalMutation/.test(podcastsSource)) {
     throw new Error('Expected podcasts.ts to expose sweepStuckPodcastsInternal for the cron sweeper.');
 }
@@ -70,6 +76,42 @@ if (!/'use node'|"use node"/.test(podcastsActionsSource)) {
 if (!/internal\.ai\.generatePodcastScriptInternal/.test(podcastsActionsSource)) {
     throw new Error('Expected podcastsActions.kickoff to delegate script generation to ai.generatePodcastScriptInternal.');
 }
+if (!/const resolveVoiceModels = \(provider: TtsProvider\)/.test(podcastsActionsSource)) {
+    throw new Error('Expected podcastsActions.ts to resolve separate host and guest voice models.');
+}
+if (!/const resolveTtsProvider = \(\): TtsProvider =>/.test(podcastsActionsSource)) {
+    throw new Error('Expected podcastsActions.ts to resolve the active TTS provider.');
+}
+if (!/const resolveMimoApiKey = \(\)/.test(podcastsActionsSource)) {
+    throw new Error('Expected podcastsActions.ts to read the MiMo API key when MiMo synthesis is enabled.');
+}
+if (!/DEFAULT_HOST_VOICE_MODEL = "aura-2-apollo-en"/.test(podcastsActionsSource)) {
+    throw new Error('Expected podcastsActions.ts to default the host to a masculine Deepgram voice.');
+}
+if (!/DEFAULT_GUEST_VOICE_MODEL = "aura-2-luna-en"/.test(podcastsActionsSource)) {
+    throw new Error('Expected podcastsActions.ts to default the guest to a feminine Deepgram voice.');
+}
+if (!/DEFAULT_MIMO_HOST_VOICE = "Milo"/.test(podcastsActionsSource)) {
+    throw new Error('Expected podcastsActions.ts to default MiMo host voice to Milo.');
+}
+if (!/DEFAULT_MIMO_GUEST_VOICE = "Chloe"/.test(podcastsActionsSource)) {
+    throw new Error('Expected podcastsActions.ts to default MiMo guest voice to Chloe.');
+}
+if (!/const parseDialogueTurns = \(script: string\): DialogueTurn\[] =>/.test(podcastsActionsSource)) {
+    throw new Error('Expected podcastsActions.ts to parse HOST and GUEST dialogue turns.');
+}
+if (!/chunk\.speaker === "HOST" \? hostVoiceModel : guestVoiceModel/.test(podcastsActionsSource)) {
+    throw new Error('Expected podcastsActions.ts to synthesize host and guest turns with different voice models.');
+}
+if (!/https:\/\/api\.xiaomimimo\.com\/v1/.test(podcastsActionsSource)) {
+    throw new Error('Expected podcastsActions.ts to support the MiMo TTS API endpoint.');
+}
+if (!/model: "mimo-v2\.5-tts"/.test(podcastsActionsSource)) {
+    throw new Error('Expected podcastsActions.ts to request the MiMo V2.5 TTS model when MiMo is enabled.');
+}
+if (!/message\?\.audio\?\.data/.test(podcastsActionsSource)) {
+    throw new Error('Expected podcastsActions.ts to decode base64 audio returned by MiMo.');
+}
 if (!/\/v1\/speak\?model=/.test(podcastsActionsSource)) {
     throw new Error('Expected podcastsActions.ts to call the Deepgram /v1/speak endpoint.');
 }
@@ -78,6 +120,9 @@ if (!/encoding=mp3/.test(podcastsActionsSource)) {
 }
 if (!/ctx\.storage\.store\(blob\)/.test(podcastsActionsSource)) {
     throw new Error('Expected podcastsActions.ts to persist the synthesized audio in Convex file storage.');
+}
+if (!/mimeType = "audio\/wav"/.test(podcastsActionsSource)) {
+    throw new Error('Expected podcastsActions.ts to support WAV output when MiMo is the provider.');
 }
 if (!/internal\.podcasts\.markReadyInternal/.test(podcastsActionsSource)) {
     throw new Error('Expected podcastsActions.ts to mark the row ready after storage.');
@@ -95,6 +140,9 @@ if (!/expectedStartedAt: attemptStartedAt/.test(podcastsActionsSource)) {
 if (!/export const generatePodcastScriptInternal = internalAction/.test(aiSource)) {
     throw new Error('Expected ai.ts to expose generatePodcastScriptInternal.');
 }
+if (!/Every spoken turn must begin with either 'HOST:' or 'GUEST:'/i.test(aiSource)) {
+    throw new Error('Expected the script generator to require HOST and GUEST dialogue turns.');
+}
 if (!/PODCAST_SCRIPT_TOO_SHORT/.test(aiSource)) {
     throw new Error('Expected the script generator to reject scripts that are too short to use.');
 }
@@ -106,6 +154,9 @@ if (!/internal\.podcasts\.sweepStuckPodcastsInternal/.test(cronsSource)) {
 if (!/api\.podcasts\.requestTopicPodcast/.test(panelSource)) {
     throw new Error('Expected TopicPodcastPanel to call api.podcasts.requestTopicPodcast.');
 }
+if (!/two-speaker audio explainer/.test(panelSource)) {
+    throw new Error('Expected TopicPodcastPanel copy to describe the two-speaker format.');
+}
 if (!/<audio\b/.test(panelSource)) {
     throw new Error('Expected TopicPodcastPanel to render an <audio> element when ready.');
 }
@@ -116,14 +167,14 @@ if (!/class TopicPodcastPanelBoundary extends Component/.test(panelSource)) {
     throw new Error('Expected TopicPodcastPanel to isolate podcast query failures from the topic page.');
 }
 
-if (!/import TopicPodcastPanel from '\.\.\/components\/TopicPodcastPanel'/.test(topicDetailSource)) {
-    throw new Error('Expected TopicDetail.jsx to import TopicPodcastPanel.');
+if (!/import LessonPodcastCard from '\.\.\/components\/lesson\/LessonPodcastCard'/.test(topicDetailSource)) {
+    throw new Error('Expected TopicDetail.jsx to import LessonPodcastCard.');
 }
 if (!/VITE_PODCAST_GEN_ENABLED/.test(topicDetailSource)) {
     throw new Error('Expected TopicDetail.jsx to gate the podcast panel on VITE_PODCAST_GEN_ENABLED.');
 }
-if (!/<TopicPodcastPanel\b/.test(topicDetailSource)) {
-    throw new Error('Expected TopicDetail.jsx to mount the TopicPodcastPanel.');
+if (!/<LessonPodcastCard\b/.test(topicDetailSource)) {
+    throw new Error('Expected TopicDetail.jsx to mount the podcast lesson card.');
 }
 
 console.log('topic-podcast-generation-regression.test.mjs passed');

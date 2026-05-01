@@ -5,7 +5,10 @@ import { api, internal } from "./_generated/api";
 import { resolveAuthUserId } from "./lib/examSecurity";
 
 const DEFAULT_TARGET_WORD_COUNT = 1200;
-const DEFAULT_VOICE_MODEL = "aura-asteria-en";
+const DEFAULT_HOST_VOICE_MODEL = "aura-2-apollo-en";
+const DEFAULT_GUEST_VOICE_MODEL = "aura-2-luna-en";
+const DEFAULT_MIMO_HOST_VOICE = "Milo";
+const DEFAULT_MIMO_GUEST_VOICE = "Chloe";
 
 const MAX_CONCURRENT_PODCAST_JOBS = Number(process.env.MAX_CONCURRENT_PODCAST_JOBS ?? 5);
 const STUCK_JOB_MS = 15 * 60 * 1000;
@@ -15,9 +18,22 @@ type PodcastStatus = "pending" | "running" | "ready" | "failed";
 const isFeatureEnabled = () =>
     String(process.env.PODCAST_GEN_ENABLED ?? "").toLowerCase() === "true";
 
-const resolveVoiceModel = () => {
-    const configured = String(process.env.PODCAST_VOICE_MODEL ?? "").trim();
-    return configured || DEFAULT_VOICE_MODEL;
+const resolveTtsProvider = () =>
+    String(process.env.PODCAST_TTS_PROVIDER ?? "deepgram").trim().toLowerCase() === "mimo"
+        ? "mimo"
+        : "deepgram";
+
+const resolveVoiceModelDescriptor = () => {
+    const provider = resolveTtsProvider();
+    const defaultHostVoiceModel =
+        provider === "mimo" ? DEFAULT_MIMO_HOST_VOICE : DEFAULT_HOST_VOICE_MODEL;
+    const defaultGuestVoiceModel =
+        provider === "mimo" ? DEFAULT_MIMO_GUEST_VOICE : DEFAULT_GUEST_VOICE_MODEL;
+    const hostVoiceModel = String(process.env.PODCAST_HOST_VOICE_MODEL ?? "").trim()
+        || defaultHostVoiceModel;
+    const guestVoiceModel = String(process.env.PODCAST_GUEST_VOICE_MODEL ?? "").trim()
+        || defaultGuestVoiceModel;
+    return `${provider}:${hostVoiceModel}|${guestVoiceModel}`;
 };
 
 const isPodcastInFlight = (row: { status?: string }) =>
@@ -212,7 +228,7 @@ export const requestTopicPodcast = mutation({
             userId,
             topicId: args.topicId,
             status: "pending",
-            voiceModel: resolveVoiceModel(),
+            voiceModel: resolveVoiceModelDescriptor(),
             targetWordCount,
             startedAt: now,
             createdAt: now,
@@ -258,6 +274,50 @@ export const listTopicPodcasts = query({
         rows.sort((a, b) => b.createdAt - a.createdAt);
 
         return await Promise.all(rows.map((row) => serializeRow(ctx, row)));
+    },
+});
+
+// Lightweight dashboard query: most recent podcasts the signed-in user has
+// generated, joined with topic + course titles. Used by the dashboard
+// "Recent podcasts" section. Returns up to `limit` rows (default 6).
+export const listRecentUserPodcasts = query({
+    args: { limit: v.optional(v.number()) },
+    handler: async (ctx, args) => {
+        const identity = await ctx.auth.getUserIdentity();
+        const userId = resolveAuthUserId(identity);
+        if (!userId) return [];
+
+        const limit = Math.max(1, Math.min(20, Math.floor(Number(args.limit ?? 6)) || 6));
+
+        const rows = await ctx.db
+            .query("topicPodcasts")
+            .withIndex("by_userId", (q) => q.eq("userId", userId))
+            .collect();
+
+        rows.sort((a, b) => b.createdAt - a.createdAt);
+        const recent = rows.slice(0, limit);
+
+        return await Promise.all(
+            recent.map(async (row) => {
+                const topic = await ctx.db.get(row.topicId);
+                const course = topic ? await ctx.db.get(topic.courseId) : null;
+                return {
+                    _id: row._id,
+                    topicId: row.topicId,
+                    courseId: topic?.courseId ?? null,
+                    topicTitle: topic?.title ?? "Untitled topic",
+                    courseTitle: course?.title ?? "",
+                    status: row.status as PodcastStatus,
+                    durationSeconds: row.durationSeconds ?? null,
+                    createdAt: row.createdAt,
+                    updatedAt: row.updatedAt,
+                    audioUrl: row.audioStorageId
+                        ? await ctx.storage.getUrl(row.audioStorageId)
+                        : null,
+                    errorMessage: row.errorMessage ?? null,
+                };
+            }),
+        );
     },
 });
 

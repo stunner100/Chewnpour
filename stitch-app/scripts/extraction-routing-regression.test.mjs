@@ -7,7 +7,7 @@ const aiPath = resolve(rootDir, 'convex/ai.ts');
 const extractionPath = resolve(rootDir, 'convex/extraction.ts');
 const pipelinePath = resolve(rootDir, 'convex/lib/documentExtractionPipeline.ts');
 const datalabClientPath = resolve(rootDir, 'convex/lib/datalabClient.ts');
-const clientPath = resolve(rootDir, 'convex/lib/doctraClient.ts');
+const clientPath = resolve(rootDir, 'convex/lib/doclingClient.ts');
 const llamaClientPath = resolve(rootDir, 'convex/lib/llamaParseClient.ts');
 const envPath = resolve(rootDir, '.env.example');
 
@@ -20,33 +20,40 @@ const llamaClientSource = readFileSync(llamaClientPath, 'utf8');
 const envSource = readFileSync(envPath, 'utf8');
 
 assert.equal(
-  aiSource.includes('callDoctraExtract'),
+  aiSource.includes('callDoclingExtract'),
   false,
-  'Expected ai.ts to avoid calling Doctra directly.'
+  'Expected ai.ts to avoid calling Docling directly.'
 );
 assert.equal(
-  extractionSource.includes('callDoctraExtract'),
+  extractionSource.includes('callDoclingExtract'),
   false,
-  'Expected extraction.ts to route Doctra calls through documentExtractionPipeline.'
+  'Expected extraction.ts to route Docling calls through documentExtractionPipeline.'
 );
 
 assert.ok(
   pipelineSource.includes('runDataLabExtractionCandidate')
     && pipelineSource.includes('runAzureExtractionCandidate')
-    && pipelineSource.includes('runDoctraExtractionCandidate')
+    && pipelineSource.includes('runDoclingExtractionCandidate')
     && pipelineSource.includes('runLlamaParseExtractionCandidate')
     && pipelineSource.includes('runDocumentExtractionPipeline'),
-  'Expected extraction pipeline to expose Datalab, Azure, Doctra, and LlamaParse candidate runners behind a single orchestrator.'
+  'Expected extraction pipeline to expose Datalab, Azure, Docling, and LlamaParse candidate runners behind a single orchestrator.'
 );
 assert.ok(
-  pipelineSource.includes('if (args.backend === "datalab")')
+  pipelineSource.includes('if (isDoclingEnabled())')
+    && pipelineSource.includes('return await runDoclingExtractionCandidate({')
     && pipelineSource.includes('return await runDataLabExtractionCandidate(args);'),
-  'Expected the default upload extraction route to cut over to Datalab.'
+  'Expected the default upload extraction route to cut over to Docling when configured, with Datalab as the unconfigured fallback.'
+);
+assert.ok(
+  pipelineSource.includes('const normalizeUploadFileType = (fileType: string, fileName?: string) =>')
+    && pipelineSource.includes('candidate.includes("wordprocessingml.document")')
+    && pipelineSource.includes('const normalizedFileType = normalizeUploadFileType(args.fileType, args.fileName);'),
+  'Expected extraction routing to normalize browser MIME types before selecting Docling parsers.'
 );
 assert.ok(
   extractionSource.includes('v.literal("datalab")')
     && extractionSource.includes('v.literal("azure")')
-    && extractionSource.includes('v.literal("doctra")')
+    && extractionSource.includes('v.literal("docling")')
     && extractionSource.includes('v.literal("llamaparse")'),
   'Expected background extraction actions to accept Datalab plus the explicit diagnostic backends.'
 );
@@ -56,7 +63,7 @@ assert.ok(
 );
 assert.ok(
   pipelineSource.includes('runAzureExtractionCandidate')
-    && pipelineSource.includes('runDoctraExtractionCandidate')
+    && pipelineSource.includes('runDoclingExtractionCandidate')
     && pipelineSource.includes('runLlamaParseExtractionCandidate')
     && pipelineSource.includes('runDocumentExtractionPipeline'),
   'Expected legacy diagnostic runners to remain callable behind the shared extraction orchestrator.'
@@ -71,10 +78,10 @@ assert.ok(
   'Expected the Datalab client helper to own the marker-and-poll structured extraction contract.'
 );
 assert.ok(
-  clientSource.includes('callDoctraExtract')
+  clientSource.includes('callDoclingExtract')
     && clientSource.includes('profile')
-    && clientSource.includes('DOCTRA_EXTRACT_URL'),
-  'Expected Doctra client helper to own the remote extract request contract.'
+    && clientSource.includes('DOCLING_EXTRACT_URL'),
+  'Expected Docling client helper to own the remote extract request contract.'
 );
 assert.ok(
   llamaClientSource.includes('callLlamaParseExtract')
@@ -87,20 +94,20 @@ assert.ok(
     && envSource.includes('DATALAB_API_BASE_URL=')
     && envSource.includes('DATALAB_TIMEOUT_MS=')
     && envSource.includes('DATALAB_POLL_INTERVAL_MS=')
-    && envSource.includes('DOCTRA_ENABLED=')
-    && envSource.includes('DOCTRA_EXTRACT_URL=')
-    && envSource.includes('DOCTRA_TIMEOUT_MS=')
-    && envSource.includes('DOCTRA_SHARED_SECRET=')
+    && envSource.includes('DOCLING_ENABLED=')
+    && envSource.includes('DOCLING_EXTRACT_URL=')
+    && envSource.includes('DOCLING_TIMEOUT_MS=')
+    && envSource.includes('DOCLING_SHARED_SECRET=')
     && envSource.includes('LLAMA_CLOUD_API_KEY=')
     && envSource.includes('LLAMAPARSE_TIER=')
     && envSource.includes('LLAMAPARSE_VERSION='),
-  'Expected .env.example to document the Datalab-first extraction runtime configuration and the explicit diagnostic backends.'
+  'Expected .env.example to document the Docling-primary extraction runtime configuration and the explicit fallback/diagnostic backends.'
 );
 assert.ok(
-  envSource.includes('DOCTRA_ENABLED=')
-    && envSource.includes('DOCTRA_EXTRACT_URL=')
-    && envSource.includes('DOCTRA_TIMEOUT_MS=')
-    && envSource.includes('DOCTRA_SHARED_SECRET=')
+  envSource.includes('DOCLING_ENABLED=')
+    && envSource.includes('DOCLING_EXTRACT_URL=')
+    && envSource.includes('DOCLING_TIMEOUT_MS=')
+    && envSource.includes('DOCLING_SHARED_SECRET=')
     && envSource.includes('LLAMA_CLOUD_API_KEY=')
     && envSource.includes('LLAMAPARSE_TIER=')
     && envSource.includes('LLAMAPARSE_VERSION='),

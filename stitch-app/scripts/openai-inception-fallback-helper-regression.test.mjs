@@ -10,11 +10,11 @@ import {
 
 assert.equal(
   isOpenAiProviderFailure(
-    'openai API error: 429 (rate_limit_reached) - Rate limit reached: too many requests per minute'
+    'deepseek API error: 429 (rate_limit_reached) - Rate limit reached: too many requests per minute'
   ),
   true
 );
-assert.equal(isOpenAiProviderFailure('openai request timed out after 60000ms'), true);
+assert.equal(isOpenAiProviderFailure('deepseek request timed out after 60000ms'), true);
 assert.equal(
   isOpenAiProviderFailure('openai API error: 401 - {"error":"Incorrect API key provided"}'),
   true

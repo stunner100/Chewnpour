@@ -10,8 +10,6 @@ import {
 } from "./lib/groundedEvidenceIndex";
 import { retrieveGroundedEvidence } from "./lib/groundedRetrieval";
 import {
-    embedTexts,
-    isVoyageEmbeddingsConfigured,
     VOYAGE_EMBEDDINGS_VERSION,
 } from "./lib/voyageEmbeddings";
 import { isUsableExamQuestion } from "./lib/examSecurity";
@@ -49,6 +47,9 @@ type MaterializedEvidencePassage = {
     endChar: number;
     sectionHint: string;
     flags: string[];
+    blockType?: string;
+    headingPath?: string[];
+    sourceBackend?: string;
     text: string;
     embedding?: number[];
     embeddingModel?: string;
@@ -226,7 +227,6 @@ const loadSelectedTopicsForBenchmark = async (ctx: any, args: {
     return collected;
 };
 
-const EVIDENCE_EMBEDDING_BATCH_SIZE = 16;
 const EVIDENCE_PASSAGE_WRITE_BATCH_SIZE = 30;
 
 const normalizePassageText = (value: string) =>
@@ -260,6 +260,11 @@ const buildMaterializedEvidenceRows = async (args: {
             flags: Array.isArray(passage?.flags)
                 ? passage.flags.map((flag) => String(flag || "").trim()).filter(Boolean)
                 : [],
+            blockType: String(passage?.blockType || "").trim() || undefined,
+            headingPath: Array.isArray(passage?.headingPath)
+                ? passage.headingPath.map((entry) => String(entry || "").trim()).filter(Boolean).slice(0, 12)
+                : [],
+            sourceBackend: String(passage?.sourceBackend || "").trim() || undefined,
             text: normalizePassageText(String(passage?.text || "")),
         }))
         .filter((passage) => passage.passageId && passage.text);
@@ -275,6 +280,9 @@ const buildMaterializedEvidenceRows = async (args: {
         endChar: Math.max(passage.startChar, passage.endChar),
         sectionHint: passage.sectionHint,
         flags: passage.flags,
+        blockType: passage.blockType,
+        headingPath: passage.headingPath,
+        sourceBackend: passage.sourceBackend,
         text: passage.text,
         createdAt,
     }));
@@ -288,49 +296,12 @@ const buildMaterializedEvidenceRows = async (args: {
         };
     }
 
-    if (!isVoyageEmbeddingsConfigured()) {
-        return {
-            rows: baseRows,
-            embeddingsStatus: "pending",
-            embeddingModel: VOYAGE_EMBEDDINGS_VERSION,
-            embeddedPassageCount: 0,
-        };
-    }
-
-    try {
-        const embeddingResult = await embedTexts(
-            baseRows.map((row) => [row.sectionHint, row.text].filter(Boolean).join("\n\n")),
-            {
-                batchSize: EVIDENCE_EMBEDDING_BATCH_SIZE,
-                inputType: "document",
-            }
-        );
-
-        const rowsWithEmbeddings = baseRows.map((row, index) => ({
-            ...row,
-            embedding: embeddingResult.embeddings[index],
-            embeddingModel: embeddingResult.model,
-        }));
-
-        return {
-            rows: rowsWithEmbeddings,
-            embeddingsStatus: "ready",
-            embeddingModel: embeddingResult.model,
-            embeddedPassageCount: rowsWithEmbeddings.filter((row) => Array.isArray(row.embedding)).length,
-        };
-    } catch (error) {
-        console.warn("[Grounded] evidence_embedding_materialization_failed", {
-            uploadId: String(args.upload._id),
-            fileName: String(args.upload.fileName || ""),
-            message: toErrorSummary(error),
-        });
-        return {
-            rows: baseRows,
-            embeddingsStatus: "failed",
-            embeddingModel: VOYAGE_EMBEDDINGS_VERSION,
-            embeddedPassageCount: 0,
-        };
-    }
+    return {
+        rows: baseRows,
+        embeddingsStatus: "ready",
+        embeddingModel: "lexical-structured-passages",
+        embeddedPassageCount: 0,
+    };
 };
 
 const loadGroundedEvidenceIndexForTopicSweep = async (ctx: any, topic: any) => {
@@ -622,6 +593,9 @@ export const insertEvidencePassageBatch = internalMutation({
             endChar: v.number(),
             sectionHint: v.string(),
             flags: v.array(v.string()),
+            blockType: v.optional(v.string()),
+            headingPath: v.optional(v.array(v.string())),
+            sourceBackend: v.optional(v.string()),
             text: v.string(),
             embedding: v.optional(v.array(v.float64())),
             embeddingModel: v.optional(v.string()),
@@ -839,7 +813,7 @@ export const materializeEvidencePassagesForUpload = internalAction({
             uploadId: args.uploadId,
             status: String(upload.status || "processing"),
             embeddingsStatus: "running",
-            embeddingsVersion: VOYAGE_EMBEDDINGS_VERSION,
+            embeddingsVersion: "lexical-structured-passages",
         });
 
         const materialized = await buildMaterializedEvidenceRows({

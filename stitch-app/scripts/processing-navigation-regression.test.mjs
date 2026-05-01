@@ -71,6 +71,14 @@ assert.equal(
         upload: { ...baseUpload, status: 'error' },
         hasTopics: false,
     }),
+    false
+);
+
+assert.equal(
+    shouldShowProcessingConfirmation({
+        upload: { ...baseUpload, status: 'error', processingStep: 'first_topic_ready', generatedTopicCount: 1 },
+        hasTopics: false,
+    }),
     true
 );
 

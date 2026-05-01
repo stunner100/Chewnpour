@@ -127,6 +127,9 @@ export default defineSchema({
         endChar: v.number(),
         sectionHint: v.string(),
         flags: v.array(v.string()),
+        blockType: v.optional(v.string()),
+        headingPath: v.optional(v.array(v.string())),
+        sourceBackend: v.optional(v.string()),
         text: v.string(),
         embedding: v.optional(v.array(v.float64())),
         embeddingModel: v.optional(v.string()),
@@ -134,12 +137,7 @@ export default defineSchema({
     })
         .index("by_uploadId", ["uploadId"])
         .index("by_courseId", ["courseId"])
-        .index("by_uploadId_passageId", ["uploadId", "passageId"])
-        .vectorIndex("by_embedding", {
-            vectorField: "embedding",
-            dimensions: 1536,
-            filterFields: ["userId", "uploadId", "courseId"],
-        }),
+        .index("by_uploadId_passageId", ["uploadId", "passageId"]),
 
     questionTargetAuditRuns: defineTable({
         dryRun: v.boolean(),
@@ -252,6 +250,8 @@ export default defineSchema({
         distinctivenessScore: v.optional(v.number()),
         questionVarietyScore: v.optional(v.number()),
         redundancyRiskScore: v.optional(v.number()),
+        strongestNeighborOverlap: v.optional(v.number()),
+        supportedQuestionTypes: v.optional(v.array(v.string())),
         sourceChunkIds: v.optional(v.array(v.number())),
         sourcePassageIds: v.optional(v.array(v.string())),
         structuredSubtopics: v.optional(v.array(v.string())),
@@ -798,36 +798,7 @@ export default defineSchema({
     }).index("by_postId", ["postId"])
       .index("by_userId_postId", ["userId", "postId"]),
 
-    // Seedance-generated explainer videos for a topic (staging feature).
-    topicVideos: defineTable({
-        userId: v.string(),
-        topicId: v.id("topics"),
-        status: v.string(), // 'pending' | 'running' | 'ready' | 'failed'
-        providerJobId: v.optional(v.string()),
-        pollingUrl: v.optional(v.string()),
-        providerStatus: v.optional(v.string()), // raw last-seen OpenRouter status
-        promptText: v.string(),
-        sourceSnippet: v.string(),
-        durationSeconds: v.number(),
-        width: v.number(),
-        height: v.number(),
-        aspectRatio: v.optional(v.string()),
-        videoStorageId: v.optional(v.id("_storage")),
-        providerUrl: v.optional(v.string()),
-        tokenCount: v.optional(v.number()),
-        costUsd: v.optional(v.number()),
-        errorMessage: v.optional(v.string()),
-        pollAttempts: v.optional(v.number()),
-        startedAt: v.number(),
-        createdAt: v.number(),
-        updatedAt: v.number(),
-    })
-        .index("by_userId", ["userId"])
-        .index("by_topicId", ["topicId"])
-        .index("by_userId_topicId", ["userId", "topicId"])
-        .index("by_status_startedAt", ["status", "startedAt"]),
-
-    // Deepgram-generated single-narrator explainer podcasts for a topic (staging feature).
+    // Deepgram-generated two-speaker explainer podcasts for a topic (staging feature).
     topicPodcasts: defineTable({
         userId: v.string(),
         topicId: v.id("topics"),

@@ -7,7 +7,7 @@ import {
     signUp as betterSignUp,
     signOut as betterSignOut,
 } from '../lib/auth-client';
-import { useQuery, useMutation } from 'convex/react';
+import { useQuery, useMutation, useConvexAuth } from 'convex/react';
 import { api } from '../../convex/_generated/api';
 import { hasConvexUrl as convexEnabled } from '../lib/convex-config';
 import {
@@ -268,6 +268,7 @@ const AuthProviderFallback = ({ children }) => {
 };
 
 const AuthProviderConvex = ({ children }) => {
+    const { isAuthenticated: isConvexAuthenticated, isLoading: isConvexAuthLoading } = useConvexAuth();
     const { data: session, isPending, refetch, error: sessionError } = useSession();
     const [lastKnownUser, setLastKnownUser] = useState(() => readCachedSessionUser());
     const [profileOverride, setProfileOverride] = useState(null);
@@ -366,7 +367,7 @@ const AuthProviderConvex = ({ children }) => {
 
     const profileData = useQuery(
         api.profiles.getProfile,
-        sessionUser?.id ? { userId: sessionUser.id } : 'skip'
+        sessionUser?.id && isConvexAuthenticated ? { userId: sessionUser.id } : 'skip'
     );
     const profile = useMemo(() => {
         if (!sessionUser) return null;
@@ -377,9 +378,10 @@ const AuthProviderConvex = ({ children }) => {
             ...profileOverride,
         };
     }, [profileData, profileOverride, sessionUser]);
-    const profileLoading = sessionUser ? profileData === undefined : false;
-    const loading = isPending || profileLoading || ottPending;
-    const profileReady = !sessionUser || profileData !== undefined;
+    const awaitingConvexAuth = Boolean(sessionUser?.id) && !isConvexAuthenticated;
+    const profileLoading = sessionUser && isConvexAuthenticated ? profileData === undefined : false;
+    const loading = isPending || ottPending || isConvexAuthLoading || awaitingConvexAuth || profileLoading;
+    const profileReady = !sessionUser || (isConvexAuthenticated && profileData !== undefined);
 
     const upsertProfile = useMutation(api.profiles.upsertProfile);
     const touchPresence = useMutation(api.profiles.touchPresence);
@@ -418,7 +420,7 @@ const AuthProviderConvex = ({ children }) => {
 
     useEffect(() => {
         const activeUserId = sessionUser?.id;
-        if (!activeUserId) {
+        if (!activeUserId || !isConvexAuthenticated) {
             lastPresenceHeartbeatAtRef.current = 0;
             return undefined;
         }
@@ -469,23 +471,20 @@ const AuthProviderConvex = ({ children }) => {
             document.removeEventListener('visibilitychange', onVisibilityChange);
             window.removeEventListener('focus', onWindowFocus);
         };
-    }, [sessionUser?.id, touchPresence]);
+    }, [isConvexAuthenticated, sessionUser?.id, touchPresence]);
 
     const signUp = async (email, password, fullName) => {
-        const callbackURL = absoluteUrl('/dashboard');
         try {
             const result = await betterSignUp.email({
                 email,
                 password,
                 name: fullName,
-                callbackURL,
             });
             if (result.error) {
                 if (isTransientSessionError(result.error)) {
                     captureAuthFailure({
                         error: result.error,
                         operation: 'sign_up',
-                        callbackURL,
                         extras: {
                             phase: 'result_error',
                         },
@@ -515,7 +514,6 @@ const AuthProviderConvex = ({ children }) => {
             captureAuthFailure({
                 error,
                 operation: 'sign_up',
-                callbackURL,
                 extras: {
                     phase: 'exception',
                     transient,
@@ -527,19 +525,16 @@ const AuthProviderConvex = ({ children }) => {
     };
 
     const signIn = async (email, password) => {
-        const callbackURL = absoluteUrl('/dashboard');
         try {
             const result = await betterSignIn.email({
                 email,
                 password,
-                callbackURL,
             });
             if (result.error) {
                 if (isTransientSessionError(result.error)) {
                     captureAuthFailure({
                         error: result.error,
                         operation: 'sign_in',
-                        callbackURL,
                         extras: {
                             phase: 'result_error',
                         },
@@ -554,7 +549,6 @@ const AuthProviderConvex = ({ children }) => {
             captureAuthFailure({
                 error,
                 operation: 'sign_in',
-                callbackURL,
                 extras: {
                     phase: 'exception',
                     transient,

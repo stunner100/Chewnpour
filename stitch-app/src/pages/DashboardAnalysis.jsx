@@ -20,9 +20,18 @@ import {
 import {
     buildUploadLimitMessageFromOptions,
 } from '../lib/pricingCurrency';
-import { buildConceptPracticePath } from '../lib/conceptReviewLinks';
 import CourseCard from '../components/CourseCard';
 import CourseFoldersSection from '../components/CourseFoldersSection';
+import DashboardHero from '../components/dashboard/DashboardHero';
+import TodayStudyPlan from '../components/dashboard/TodayStudyPlan';
+import ContinueLearningCard from '../components/dashboard/ContinueLearningCard';
+import PodcastSection from '../components/dashboard/PodcastSection';
+import WeakConceptsCard from '../components/dashboard/WeakConceptsCard';
+import QuickActionsGrid from '../components/dashboard/QuickActionsGrid';
+import ProgressSnapshot from '../components/dashboard/ProgressSnapshot';
+import EmptyState from '../components/dashboard/EmptyState';
+import useThemeMode from '../lib/useThemeMode';
+import { buildStudyPlan, DEFAULT_QUICK_ACTIONS } from '../lib/dashboardPlan';
 
 // ─── Referral CTA shown when credits are low ────────────────────────────────
 
@@ -48,7 +57,7 @@ const DashboardReferralCTA = ({ remaining, profile }) => {
     };
 
     return (
-        <div className="mt-4 w-full sm:w-72 rounded-xl border border-emerald-200 dark:border-emerald-800 bg-emerald-50 dark:bg-emerald-900/20 p-3">
+        <div className="mt-4 w-full sm:w-80 rounded-2xl border border-emerald-200 dark:border-emerald-800/50 bg-emerald-50 dark:bg-emerald-900/20 p-3.5">
             <p className="text-xs font-bold text-emerald-700 dark:text-emerald-300 mb-1">
                 {normalizedRemaining === 0 ? 'Out of uploads?' : 'Running low on uploads?'}
             </p>
@@ -167,6 +176,7 @@ const DashboardAnalysis = () => {
     const navigate = useNavigate();
     const { user } = useAuth();
     const { isAuthenticated: isConvexAuthenticated } = useConvexAuth();
+    const { mode: themeMode, toggle: toggleTheme } = useThemeMode();
 
     // Get userId from Better Auth session
     const userId = user?.id;
@@ -180,6 +190,10 @@ const DashboardAnalysis = () => {
     );
     const conceptReviewQueue = useQuery(
         api.concepts.getConceptReviewQueue,
+        isConvexAuthenticated ? { limit: 6 } : 'skip'
+    );
+    const recentPodcasts = useQuery(
+        api.podcasts.listRecentUserPodcasts,
         isConvexAuthenticated ? { limit: 6 } : 'skip'
     );
     const uploadQuota = useQuery(
@@ -478,9 +492,6 @@ const DashboardAnalysis = () => {
             autoJoinCommunity({ courseId, userId }).catch(() => {});
 
             // Step 5: Trigger AI processing in the background (don't await).
-            // Dispatch before navigation so quick route transitions can't drop kickoff.
-            // Note: server runs its own extraction pipeline; client-side extraction was removed
-            // because the server never used the extractedText argument.
             currentStage = 'dispatch_ai_processing';
             reportUploadStage(uploadObservation, currentStage, { uploadId, courseId });
             processUploadedFile({ uploadId, courseId, userId, extractedText: '' }).catch((err) => {
@@ -607,6 +618,36 @@ const DashboardAnalysis = () => {
         return showAllCourses ? unfiledCourses : unfiledCourses.slice(0, 3);
     }, [unfiledCourses, showAllCourses]);
 
+    const studyPlanItems = React.useMemo(
+        () => buildStudyPlan({
+            courses,
+            conceptReviewQueue,
+            podcasts: recentPodcasts,
+            userStats,
+        }),
+        [courses, conceptReviewQueue, recentPodcasts, userStats]
+    );
+
+    const activeCourse = React.useMemo(() => {
+        if (!Array.isArray(courses)) return null;
+        return (
+            courses.find((c) => (c.status || '').toLowerCase() === 'in_progress')
+            || courses[0]
+            || null
+        );
+    }, [courses]);
+
+    const quickActions = React.useMemo(() => {
+        const targetCourse = activeCourse;
+        return DEFAULT_QUICK_ACTIONS.map((action) => {
+            if (!targetCourse || !action.courseAction) return action;
+            return {
+                ...action,
+                to: `/dashboard/course/${targetCourse._id}?action=${action.courseAction}`,
+            };
+        });
+    }, [activeCourse]);
+
     const canToggleAllCourses = unfiledCourses.length > 3;
 
     const handleMoveCourseToFolder = async (course, folderId) => {
@@ -639,57 +680,88 @@ const DashboardAnalysis = () => {
         }
     };
 
+    const handleGoToActiveCourse = (action) => {
+        if (!activeCourse) return;
+        const suffix = typeof action === 'string' && action ? `?action=${action}` : '';
+        navigate(`/dashboard/course/${activeCourse._id}${suffix}`);
+    };
+
+    const displayName = user?.name || profile?.name || 'Student';
+    const initials = displayName.split(' ').map((n) => n[0]).join('').slice(0, 2).toUpperCase();
+
     return (
-        <div className="min-h-full font-body antialiased">
+        <div className="min-h-full font-body antialiased bg-background-light dark:bg-background-dark text-text-main-light dark:text-text-main-dark">
             {/* Top Bar */}
-            <header className="sticky top-0 z-40 h-15 flex items-center justify-between gap-4 px-5 md:px-8 border-b border-border-subtle dark:border-border-subtle-dark bg-surface-light/80 dark:bg-surface-dark/80 backdrop-blur-xl">
+            <header className="sticky top-0 z-40 h-16 flex items-center justify-between gap-4 px-5 md:px-8 border-b border-border-subtle dark:border-border-subtle-dark bg-surface-light/85 dark:bg-surface-dark/85 backdrop-blur-xl">
                 <div className="flex items-center gap-3 min-w-0">
-                    <h1 className="text-display-sm text-text-main-light dark:text-text-main-dark truncate">Dashboard</h1>
+                    <div className="hidden md:flex flex-col leading-tight min-w-0">
+                        <span className="text-caption text-text-faint-light dark:text-text-faint-dark">Welcome back</span>
+                        <h1 className="text-body-md font-bold text-text-main-light dark:text-text-main-dark truncate">{displayName}</h1>
+                    </div>
+                    <h1 className="md:hidden text-display-sm text-text-main-light dark:text-text-main-dark truncate">Dashboard</h1>
                     {subscription && (
                         subscription.plan === 'premium' ? (
-                            <span className="badge bg-amber-50 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400 border border-amber-200/50 dark:border-amber-700/30">Premium</span>
+                            <span
+                                className="badge bg-amber-50 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400 border border-amber-200/50 dark:border-amber-700/30 shrink-0"
+                                title="Premium plan"
+                            >
+                                <span className="material-symbols-outlined text-[12px]" style={{ fontVariationSettings: "'FILL' 1" }}>workspace_premium</span>
+                                <span className="hidden sm:inline">Premium</span>
+                            </span>
                         ) : (
-                            <span className="badge bg-surface-hover dark:bg-surface-hover-dark text-text-faint-light dark:text-text-faint-dark">Free</span>
+                            <span className="badge bg-surface-hover dark:bg-surface-hover-dark text-text-faint-light dark:text-text-faint-dark shrink-0 hidden sm:inline-flex">Free</span>
                         )
                     )}
                 </div>
                 <div className="flex items-center gap-2">
-                    {/* Streak badge */}
-                    <div className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-orange-50 dark:bg-orange-900/15 border border-orange-200/50 dark:border-orange-800/30">
-                        <span className="material-symbols-outlined text-orange-500 text-[16px]" style={{ fontVariationSettings: "'FILL' 1" }}>local_fire_department</span>
-                        <span className="text-caption font-semibold text-orange-700 dark:text-orange-300">
-                            {userStats?.streakDays || 0}d
-                        </span>
-                    </div>
                     {/* Search — desktop */}
                     <div className="hidden md:block relative">
                         <span className="absolute left-3 top-1/2 -translate-y-1/2 material-symbols-outlined text-[18px] text-text-faint-light dark:text-text-faint-dark">search</span>
                         <input
-                            className="w-56 lg:w-72 pl-9 pr-3 py-2 rounded-xl bg-surface-hover dark:bg-surface-hover-dark border border-transparent focus:border-primary/20 focus:bg-surface-light dark:focus:bg-surface-dark text-body-sm placeholder:text-text-faint-light dark:placeholder:text-text-faint-dark transition-all focus:ring-2 focus:ring-primary/10"
-                            placeholder="Search courses or topics..."
+                            className="w-56 lg:w-72 pl-9 pr-3 py-2 rounded-xl bg-surface-hover dark:bg-surface-hover-dark border border-transparent focus:border-primary/30 focus:bg-surface-light dark:focus:bg-surface-dark text-body-sm placeholder:text-text-faint-light dark:placeholder:text-text-faint-dark transition-all focus:ring-2 focus:ring-primary/15 focus:outline-none"
+                            placeholder="Search courses, topics, podcasts…"
                             type="text"
                             value={searchQuery}
                             onChange={(e) => setSearchQuery(e.target.value)}
                             onKeyDown={handleSearchKeyDown}
                         />
                     </div>
-                    {/* Profile link */}
-                    <Link to="/profile" className="relative">
-                        <div className="w-8 h-8 rounded-full bg-primary-100 dark:bg-primary-900/30 flex items-center justify-center text-xs font-bold text-primary-700 dark:text-primary-300">
-                            {user?.name?.[0]?.toUpperCase() || 'S'}
+                    {/* Streak chip */}
+                    <div className="hidden sm:flex items-center gap-1.5 px-3 h-9 rounded-xl bg-amber-50 dark:bg-amber-900/15 border border-amber-200/50 dark:border-amber-800/30">
+                        <span className="material-symbols-outlined text-amber-500 text-[16px]" style={{ fontVariationSettings: "'FILL' 1" }}>local_fire_department</span>
+                        <span className="text-caption font-bold text-amber-700 dark:text-amber-300">
+                            {userStats?.streakDays || 0}d
+                        </span>
+                    </div>
+                    {/* Theme toggle */}
+                    <button
+                        type="button"
+                        onClick={toggleTheme}
+                        className="btn-icon"
+                        aria-label={themeMode === 'dark' ? 'Switch to light mode' : 'Switch to focus (dark) mode'}
+                        title={themeMode === 'dark' ? 'Light mode' : 'Focus mode'}
+                    >
+                        <span className="material-symbols-outlined text-[20px]" style={{ fontVariationSettings: "'FILL' 1" }}>
+                            {themeMode === 'dark' ? 'light_mode' : 'dark_mode'}
+                        </span>
+                    </button>
+                    {/* Profile */}
+                    <Link to="/profile" className="relative" aria-label="Profile">
+                        <div className="w-9 h-9 rounded-full bg-primary text-white flex items-center justify-center text-[12px] font-bold shadow-sm">
+                            {initials || 'S'}
                         </div>
-                        <div className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 bg-accent-emerald rounded-full border-2 border-surface-light dark:border-surface-dark"></div>
+                        <div className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 bg-emerald-500 rounded-full border-2 border-surface-light dark:border-surface-dark" />
                     </Link>
                 </div>
             </header>
 
-            <div className="px-5 md:px-8 py-6 md:py-8 pb-24 md:pb-8 max-w-[1400px] space-y-6">
+            <div className="px-5 md:px-8 py-6 md:py-8 pb-24 md:pb-12 max-w-[1400px] mx-auto space-y-6">
                 {/* Mobile Search */}
                 <div className="md:hidden relative">
                     <span className="absolute left-3.5 top-1/2 -translate-y-1/2 material-symbols-outlined text-[18px] text-text-faint-light dark:text-text-faint-dark">search</span>
                     <input
                         className="input-field pl-10"
-                        placeholder="Search courses or topics..."
+                        placeholder="Search courses, topics, podcasts…"
                         type="text"
                         value={searchQuery}
                         onChange={(e) => setSearchQuery(e.target.value)}
@@ -697,164 +769,29 @@ const DashboardAnalysis = () => {
                     />
                 </div>
 
-                {/* Hero Upload Section */}
-                <div className="card-base p-6 md:p-8 animate-fade-in">
-                    <div className="flex flex-col md:flex-row items-start md:items-center gap-6">
-                        <div className="flex-1 space-y-4">
-                            <div className="flex items-center gap-2">
-                                <span className="badge-primary">
-                                    <span className="material-symbols-outlined text-[12px]" style={{ fontVariationSettings: "'FILL' 1" }}>auto_awesome</span>
-                                    AI Powered
-                                </span>
-                            </div>
-                            <h2 className="text-display-md md:text-display-lg text-text-main-light dark:text-text-main-dark">
-                                Upload your materials
-                            </h2>
-                            <p className="text-body-md text-text-sub-light dark:text-text-sub-dark max-w-lg">
-                                Drop your PDFs, PowerPoints, or Word docs. AI transforms them into structured lessons with practice quizzes.
-                            </p>
-                            {uploadError && (
-                                <div className="p-3 rounded-xl bg-red-50 dark:bg-red-900/15 border border-red-200 dark:border-red-800/40 text-body-sm font-medium text-red-700 dark:text-red-400 flex items-center gap-2">
-                                    <span className="material-symbols-outlined text-[16px]">error</span>
-                                    {uploadError}
-                                </div>
-                            )}
-                            <div className="flex flex-col sm:flex-row items-start gap-3">
-                                <input ref={fileInputRef} type="file" accept=".pdf,.pptx,.docx" className="hidden" disabled={uploading} onChange={handleFileSelect} />
-                                <button onClick={handleUploadClick} disabled={uploading} className="btn-primary h-11 disabled:opacity-50 disabled:cursor-not-allowed">
-                                    <span className="material-symbols-outlined text-[18px]" style={{ fontVariationSettings: "'FILL' 1" }}>
-                                        {uploading ? 'hourglass_empty' : 'cloud_upload'}
-                                    </span>
-                                    {uploading ? 'Uploading...' : 'Upload Materials'}
-                                </button>
-                                <span className="text-caption text-text-faint-light dark:text-text-faint-dark flex items-center gap-1 pt-1.5 sm:pt-3">
-                                    PDF, PPTX, DOCX &middot; Max 50MB
-                                </span>
-                            </div>
-                            {uploadQuota && (
-                                <div className="max-w-xs space-y-1.5">
-                                    <div className="flex items-center justify-between">
-                                        <span className="text-caption text-text-sub-light dark:text-text-sub-dark">
-                                            {uploadQuota.remaining}/{uploadQuota.totalAllowed} uploads
-                                        </span>
-                                        <Link to={buildUploadLimitSubscriptionPath()} className="text-caption font-semibold text-primary hover:text-primary-hover transition-colors">
-                                            Top up
-                                        </Link>
-                                    </div>
-                                    <div className="w-full h-1.5 bg-border-subtle dark:bg-border-subtle-dark rounded-full overflow-hidden">
-                                        <div
-                                            className={`h-full rounded-full transition-[width] duration-500 ${
-                                                uploadQuota.remaining === 0 ? 'bg-red-500'
-                                                : uploadQuota.remaining <= 1 ? 'bg-amber-500'
-                                                : 'bg-accent-emerald'
-                                            }`}
-                                            style={{ width: `${Math.round((uploadQuota.remaining / uploadQuota.totalAllowed) * 100)}%` }}
-                                        />
-                                    </div>
-                                </div>
-                            )}
-                            <DashboardReferralCTA remaining={uploadQuota?.remaining} profile={profile} />
-                        </div>
-                        {/* Illustration */}
-                        <div className="hidden md:flex items-center justify-center w-48">
-                            <div className="w-36 h-36 rounded-2xl bg-primary-50 dark:bg-primary-900/20 flex items-center justify-center">
-                                <span className="material-symbols-outlined text-[56px] text-primary" style={{ fontVariationSettings: "'FILL' 1" }}>school</span>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                {/* Quick Actions */}
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 animate-fade-in-up animate-delay-100">
-                    {[
-                        { to: '/dashboard/assignment-helper', icon: 'edit_note', label: 'Assignments', desc: 'AI-powered answers', color: 'bg-primary' },
-                        { to: '/dashboard/humanizer', icon: 'auto_fix_high', label: 'Humanizer', desc: 'Make AI text natural', color: 'bg-secondary', badge: 'New' },
-                        { to: '/dashboard/community', icon: 'forum', label: 'Community', desc: 'Study with peers', color: 'bg-accent-teal', badge: 'New' },
-                    ].map((item) => (
-                        <Link
-                            key={item.to}
-                            to={item.to}
-                            className="group card-interactive p-4 flex items-center gap-3.5"
-                        >
-                            <div className={`w-10 h-10 rounded-xl ${item.color} flex items-center justify-center shrink-0`}>
-                                <span className="material-symbols-outlined text-white text-[20px]" style={{ fontVariationSettings: "'FILL' 1" }}>{item.icon}</span>
-                            </div>
-                            <div className="min-w-0 flex-1">
-                                <div className="flex items-center gap-2">
-                                    <span className="text-body-sm font-semibold text-text-main-light dark:text-text-main-dark">{item.label}</span>
-                                    {item.badge && <span className="text-overline text-primary">{item.badge}</span>}
-                                </div>
-                                <span className="text-caption text-text-faint-light dark:text-text-faint-dark">{item.desc}</span>
-                            </div>
-                            <span className="material-symbols-outlined text-[18px] text-text-faint-light dark:text-text-faint-dark group-hover:text-primary group-hover:translate-x-0.5 transition-all">
-                                arrow_forward
-                            </span>
-                        </Link>
-                    ))}
-                </div>
-
-                {conceptReviewQueue && conceptReviewQueue.items.length > 0 && (
-                    <section className="space-y-4 animate-fade-in-up animate-delay-150">
-                        <div className="flex items-center justify-between gap-3">
-                            <div>
-                                <h2 className="text-display-sm text-text-main-light dark:text-text-main-dark">Review weak concepts</h2>
-                                <p className="text-body-sm text-text-sub-light dark:text-text-sub-dark">
-                                    {conceptReviewQueue.dueConceptCount > 0
-                                        ? `${conceptReviewQueue.dueConceptCount} concepts are due for review across ${conceptReviewQueue.dueTopicCount} topics.`
-                                        : 'Stay ahead by revisiting concepts before they fade.'}
-                                </p>
-                            </div>
-                        </div>
-                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
-                            {conceptReviewQueue.items.map((item) => (
-                                <Link
-                                    key={item.topicId}
-                                    to={buildConceptPracticePath(item.topicId, item.reviewConceptKeys)}
-                                    className="group card-interactive p-4"
-                                >
-                                    <div className="flex items-start justify-between gap-3">
-                                        <div className="min-w-0">
-                                            <div className="flex flex-wrap items-center gap-2 mb-1.5">
-                                                <span className={`rounded-full px-2.5 py-1 text-caption font-semibold ${
-                                                    item.dueCount > 0
-                                                        ? 'bg-accent-amber/10 text-accent-amber'
-                                                        : 'bg-primary/8 text-primary'
-                                                }`}>
-                                                    {item.dueCount > 0 ? `${item.dueCount} due` : 'Scheduled'}
-                                                </span>
-                                                <span className="text-caption text-text-faint-light dark:text-text-faint-dark">
-                                                    {item.weakCount} weak · {item.shakyCount} shaky · {item.strongCount} strong
-                                                </span>
-                                            </div>
-                                            <h3 className="text-body-sm font-semibold text-text-main-light dark:text-text-main-dark line-clamp-1">
-                                                {item.topicTitle}
-                                            </h3>
-                                            <p className="mt-2 text-caption text-text-sub-light dark:text-text-sub-dark line-clamp-2">
-                                                {Array.isArray(item.concepts) && item.concepts.length > 0
-                                                    ? item.concepts.map((concept) => concept.conceptLabel).join(' · ')
-                                                    : 'Open a focused review session for this topic.'}
-                                            </p>
-                                        </div>
-                                        <span className="material-symbols-outlined text-[18px] text-text-faint-light dark:text-text-faint-dark group-hover:text-primary group-hover:translate-x-0.5 transition-all">
-                                            arrow_forward
-                                        </span>
-                                    </div>
-                                </Link>
-                            ))}
-                        </div>
-                    </section>
-                )}
+                {/* 1. Hero / Upload */}
+                <DashboardHero
+                    uploading={uploading}
+                    uploadError={uploadError}
+                    uploadQuota={uploadQuota}
+                    uploadLimitMessage={uploadLimitMessage}
+                    onUploadClick={handleUploadClick}
+                    fileInputRef={fileInputRef}
+                    onFileSelect={handleFileSelect}
+                    referralSlot={<DashboardReferralCTA remaining={uploadQuota?.remaining} profile={profile} />}
+                    topUpHref={buildUploadLimitSubscriptionPath()}
+                />
 
                 {/* Upgrade Banner */}
                 {subscription && subscription.plan !== 'premium' && (
-                    <div className="card-base p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 bg-primary-50 dark:bg-primary-900/15 border-primary-200/50 dark:border-primary-800/30 animate-fade-in-up animate-delay-150">
+                    <div className="card-base p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 bg-primary-50 dark:bg-primary-900/15 border-primary-200/50 dark:border-primary-800/30 animate-fade-in-up animate-delay-100">
                         <div className="flex items-center gap-3">
-                            <div className="w-9 h-9 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
+                            <div className="w-10 h-10 rounded-xl bg-primary/15 flex items-center justify-center shrink-0">
                                 <span className="material-symbols-outlined text-primary text-[20px]" style={{ fontVariationSettings: "'FILL' 1" }}>rocket_launch</span>
                             </div>
                             <div>
-                                <p className="text-body-sm font-semibold text-text-main-light dark:text-text-main-dark">Unlock more uploads</p>
-                                <p className="text-caption text-text-sub-light dark:text-text-sub-dark">Top up to keep learning without interruptions.</p>
+                                <p className="text-body-sm font-semibold text-text-main-light dark:text-text-main-dark">Unlock unlimited uploads</p>
+                                <p className="text-caption text-text-sub-light dark:text-text-sub-dark">Upgrade to keep learning without interruptions.</p>
                             </div>
                         </div>
                         <Link to="/subscription" className="btn-primary text-body-sm shrink-0">
@@ -863,10 +800,38 @@ const DashboardAnalysis = () => {
                     </div>
                 )}
 
-                {/* Courses */}
-                <section className="animate-fade-in-up animate-delay-200">
-                    <div className="flex items-center justify-between mb-4">
-                        <h2 className="text-display-sm text-text-main-light dark:text-text-main-dark">Your courses</h2>
+                {/* 2. Today's Study Plan */}
+                <TodayStudyPlan items={studyPlanItems} completedToday={0} />
+
+                {/* 3. Continue Learning */}
+                {activeCourse && (
+                    <ContinueLearningCard
+                        course={activeCourse}
+                        nextLesson={activeCourse.description}
+                        estimatedTime="15 min"
+                        onGenerateQuiz={() => handleGoToActiveCourse('quiz')}
+                        onGeneratePodcast={() => navigate('/dashboard/podcasts?generate=1')}
+                    />
+                )}
+
+                {/* 4. Podcasts */}
+                <PodcastSection podcasts={recentPodcasts || []} />
+
+                {/* 5. Weak Concepts */}
+                <WeakConceptsCard queue={conceptReviewQueue} />
+
+                {/* 6. Quick Actions */}
+                <QuickActionsGrid actions={quickActions} />
+
+                {/* 7. Your Courses */}
+                <section className="space-y-4 animate-fade-in-up animate-delay-300">
+                    <div className="flex items-center justify-between">
+                        <div>
+                            <h2 className="text-display-sm text-text-main-light dark:text-text-main-dark">Your courses</h2>
+                            <p className="text-body-sm text-text-sub-light dark:text-text-sub-dark mt-0.5">
+                                Tap any course to keep learning.
+                            </p>
+                        </div>
                         {canToggleAllCourses && (
                             <button
                                 type="button"
@@ -879,7 +844,7 @@ const DashboardAnalysis = () => {
                         )}
                     </div>
                     {folderActionError && (
-                        <div className="mb-3 text-caption text-red-600 dark:text-red-400">{folderActionError}</div>
+                        <div className="text-caption text-rose-600 dark:text-rose-400">{folderActionError}</div>
                     )}
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
                         {displayCourses.length > 0 ? (
@@ -900,46 +865,44 @@ const DashboardAnalysis = () => {
                                 />
                             ))
                         ) : (
-                            <div className="col-span-full py-12 text-center card-flat">
-                                <div className="w-14 h-14 rounded-2xl bg-surface-hover dark:bg-surface-hover-dark flex items-center justify-center mx-auto mb-3">
-                                    <span className="material-symbols-outlined text-2xl text-text-faint-light dark:text-text-faint-dark">school</span>
-                                </div>
-                                <h3 className="text-body-md font-semibold text-text-main-light dark:text-text-main-dark mb-1">
-                                    {searchQuery.trim() ? 'No matching courses' : 'No courses yet'}
-                                </h3>
-                                <p className="text-body-sm text-text-sub-light dark:text-text-sub-dark mb-4 max-w-xs mx-auto">
-                                    {searchQuery.trim() ? 'Try a different keyword.' : 'Upload your first study material to get started.'}
-                                </p>
-                                {!searchQuery.trim() && (
-                                    <button type="button" onClick={handleUploadClick} disabled={uploading} className="btn-primary text-body-sm disabled:opacity-50 disabled:cursor-not-allowed">
-                                        <span className="material-symbols-outlined text-[16px]">cloud_upload</span>
-                                        Upload Now
-                                    </button>
-                                )}
+                            <div className="col-span-full">
+                                <EmptyState
+                                    icon="auto_stories"
+                                    title={searchQuery.trim() ? 'No matching courses' : 'No courses yet'}
+                                    description={
+                                        searchQuery.trim()
+                                            ? 'Try a different keyword.'
+                                            : 'Upload your first document and ChewnPour will turn it into a structured course, quiz, podcast, and revision plan.'
+                                    }
+                                    actionLabel={!searchQuery.trim() ? 'Upload your first document' : undefined}
+                                    onAction={!searchQuery.trim() ? handleUploadClick : undefined}
+                                />
                             </div>
                         )}
                         {/* Add new course tile */}
-                        <button
-                            type="button"
-                            onClick={handleUploadClick}
-                            disabled={uploading}
-                            className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-border-light dark:border-border-dark text-text-faint-light dark:text-text-faint-dark hover:border-primary hover:text-primary hover:bg-primary-50/50 dark:hover:bg-primary-900/10 transition-all duration-200 cursor-pointer min-h-[200px] group disabled:cursor-not-allowed disabled:opacity-50"
-                        >
-                            <div className="w-11 h-11 rounded-xl bg-surface-hover dark:bg-surface-hover-dark flex items-center justify-center mb-2 group-hover:bg-primary-100 dark:group-hover:bg-primary-900/30 transition-colors">
-                                <span className="material-symbols-outlined text-xl">add</span>
-                            </div>
-                            <span className="text-body-sm font-semibold">Add Course</span>
-                            <span className="text-caption mt-0.5">PDF, PPTX, DOCX</span>
-                        </button>
+                        {displayCourses.length > 0 && (
+                            <button
+                                type="button"
+                                onClick={handleUploadClick}
+                                disabled={uploading}
+                                className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-border-light dark:border-border-dark text-text-faint-light dark:text-text-faint-dark hover:border-primary hover:text-primary hover:bg-primary-50/50 dark:hover:bg-primary-900/10 transition-all duration-200 cursor-pointer min-h-[200px] group disabled:cursor-not-allowed disabled:opacity-50"
+                            >
+                                <div className="w-11 h-11 rounded-xl bg-surface-hover dark:bg-surface-hover-dark flex items-center justify-center mb-2 group-hover:bg-primary-100 dark:group-hover:bg-primary-900/30 transition-colors">
+                                    <span className="material-symbols-outlined text-xl">add</span>
+                                </div>
+                                <span className="text-body-sm font-semibold">Add Course</span>
+                                <span className="text-caption mt-0.5">PDF, PPTX, DOCX</span>
+                            </button>
+                        )}
                     </div>
                     {deleteError && (
-                        <div className="mt-4 p-3 rounded-xl bg-amber-50 dark:bg-amber-900/15 border border-amber-200 dark:border-amber-800/40 text-body-sm font-medium text-amber-800 dark:text-amber-300">
+                        <div className="p-3 rounded-xl bg-amber-50 dark:bg-amber-900/15 border border-amber-200 dark:border-amber-800/40 text-body-sm font-medium text-amber-800 dark:text-amber-300">
                             {deleteError}
                         </div>
                     )}
                 </section>
 
-                {/* Folders */}
+                {/* 8. Folders */}
                 {userId && (
                     <CourseFoldersSection
                         userId={userId}
@@ -956,88 +919,21 @@ const DashboardAnalysis = () => {
                     />
                 )}
 
-                {/* Performance Insights */}
-                {performanceInsights && (
-                    <section className="space-y-4 animate-fade-in-up animate-delay-300">
-                        <h2 className="text-display-sm text-text-main-light dark:text-text-main-dark">Progress snapshot</h2>
+                {/* 9. Progress Snapshot */}
+                <ProgressSnapshot
+                    insights={performanceInsights}
+                    userStats={userStats}
+                    podcastCount={Array.isArray(recentPodcasts) ? recentPodcasts.length : 0}
+                    uploadQuota={uploadQuota}
+                />
 
-                        <div className="card-base p-5 flex items-center gap-5">
-                            <div className="relative w-14 h-14 shrink-0">
-                                <svg className="w-14 h-14 -rotate-90" viewBox="0 0 64 64">
-                                    <circle cx="32" cy="32" r="26" fill="none" stroke="currentColor" strokeWidth="5" className="text-border-subtle dark:text-border-subtle-dark" />
-                                    <circle
-                                        cx="32" cy="32" r="26" fill="none" strokeWidth="5"
-                                        strokeDasharray={`${(performanceInsights.overallPreparedness / 100) * 163.4} 163.4`}
-                                        strokeLinecap="round"
-                                        className={
-                                            performanceInsights.overallPreparedness >= 80 ? 'text-accent-emerald stroke-current'
-                                            : performanceInsights.overallPreparedness >= 50 ? 'text-primary stroke-current'
-                                            : 'text-accent-amber stroke-current'
-                                        }
-                                    />
-                                </svg>
-                                <span className="absolute inset-0 flex items-center justify-center text-body-sm font-bold text-text-main-light dark:text-text-main-dark">
-                                    {performanceInsights.overallPreparedness}%
-                                </span>
-                            </div>
-                            <div>
-                                <p className="text-body-md font-semibold text-text-main-light dark:text-text-main-dark">
-                                    {performanceInsights.overallPreparedness >= 80 ? 'Exam Ready'
-                                    : performanceInsights.overallPreparedness >= 50 ? 'Almost Ready'
-                                    : 'Needs More Practice'}
-                                </p>
-                                <p className="text-body-sm text-text-sub-light dark:text-text-sub-dark">
-                                    {performanceInsights.mastered.length} mastered &middot; {performanceInsights.progressing.length} progressing &middot; {performanceInsights.needsWork.length} needs work
-                                </p>
-                            </div>
-                        </div>
-
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                            {performanceInsights.mastered.length > 0 && (
-                                <div className="card-flat p-4 bg-emerald-50/50 dark:bg-emerald-900/10 border-emerald-200/50 dark:border-emerald-800/30">
-                                    <div className="flex items-center gap-2 mb-3">
-                                        <span className="material-symbols-outlined text-accent-emerald text-[18px]">workspace_premium</span>
-                                        <span className="text-overline text-accent-emerald">Strengths</span>
-                                    </div>
-                                    <ul className="space-y-2">
-                                        {performanceInsights.mastered.slice(0, 4).map((t) => (
-                                            <li key={t.topicId} className="flex items-center justify-between gap-2">
-                                                <span className="text-body-sm text-text-main-light dark:text-text-main-dark truncate">{t.title}</span>
-                                                <span className="text-caption font-semibold text-accent-emerald shrink-0">{t.best}%</span>
-                                            </li>
-                                        ))}
-                                    </ul>
-                                </div>
-                            )}
-                            {performanceInsights.needsWork.length > 0 && (
-                                <div className="card-flat p-4 bg-amber-50/50 dark:bg-amber-900/10 border-amber-200/50 dark:border-amber-800/30">
-                                    <div className="flex items-center gap-2 mb-3">
-                                        <span className="material-symbols-outlined text-accent-amber text-[18px]">priority_high</span>
-                                        <span className="text-overline text-accent-amber">Needs Attention</span>
-                                    </div>
-                                    <ul className="space-y-2">
-                                        {performanceInsights.needsWork.slice(0, 4).map((t) => (
-                                            <li key={t.topicId} className="flex items-center justify-between gap-2">
-                                                <span className="text-body-sm text-text-main-light dark:text-text-main-dark truncate">{t.title}</span>
-                                                <Link to={`/dashboard/topic/${t.topicId}`} className="text-caption font-semibold text-primary hover:text-primary-hover transition-colors shrink-0">
-                                                    Study
-                                                </Link>
-                                            </li>
-                                        ))}
-                                    </ul>
-                                </div>
-                            )}
-                        </div>
-                    </section>
-                )}
-
-                {/* Feedback */}
+                {/* 10. Feedback */}
                 <section className="animate-fade-in-up animate-delay-300">
                     <div className="card-base p-5 md:p-6">
                         {feedbackSubmitted ? (
                             <div className="text-center py-4">
                                 <div className="w-12 h-12 rounded-full bg-emerald-50 dark:bg-emerald-900/20 flex items-center justify-center mx-auto mb-3">
-                                    <span className="material-symbols-outlined text-2xl text-accent-emerald" style={{ fontVariationSettings: "'FILL' 1" }}>check_circle</span>
+                                    <span className="material-symbols-outlined text-2xl text-emerald-600" style={{ fontVariationSettings: "'FILL' 1" }}>check_circle</span>
                                 </div>
                                 <h3 className="text-body-lg font-semibold text-text-main-light dark:text-text-main-dark mb-1">Thanks for your feedback!</h3>
                                 <p className="text-body-sm text-text-sub-light dark:text-text-sub-dark">Your input helps us improve ChewnPour.</p>
@@ -1045,7 +941,7 @@ const DashboardAnalysis = () => {
                         ) : (
                             <>
                                 <div className="flex items-center gap-3 mb-5">
-                                    <div className="w-9 h-9 rounded-lg bg-primary-50 dark:bg-primary-900/20 flex items-center justify-center shrink-0">
+                                    <div className="w-10 h-10 rounded-xl bg-primary-50 dark:bg-primary-900/20 flex items-center justify-center shrink-0">
                                         <span className="material-symbols-outlined text-primary text-[20px]" style={{ fontVariationSettings: "'FILL' 1" }}>rate_review</span>
                                     </div>
                                     <div>
@@ -1063,14 +959,14 @@ const DashboardAnalysis = () => {
                                             aria-label={`Rate ${star} star${star > 1 ? 's' : ''}`}
                                         >
                                             <span
-                                                className={`material-symbols-outlined text-2xl transition-colors ${star <= feedbackRating ? 'text-accent-amber' : 'text-border-light dark:text-border-dark hover:text-accent-amber/50'}`}
+                                                className={`material-symbols-outlined text-2xl transition-colors ${star <= feedbackRating ? 'text-amber-500' : 'text-border-light dark:text-border-dark hover:text-amber-300'}`}
                                                 style={star <= feedbackRating ? { fontVariationSettings: "'FILL' 1" } : undefined}
                                             >star</span>
                                         </button>
                                     ))}
                                     {feedbackRating > 0 && (
                                         <span className="ml-2 text-caption font-semibold text-primary">
-                                            {['', 'Needs work', 'Could be better', 'It\'s okay', 'Really good!', 'Love it!'][feedbackRating]}
+                                            {['', 'Needs work', 'Could be better', "It's okay", 'Really good!', 'Love it!'][feedbackRating]}
                                         </span>
                                     )}
                                 </div>
