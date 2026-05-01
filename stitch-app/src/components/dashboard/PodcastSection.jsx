@@ -27,7 +27,9 @@ const WaveformBars = () => (
     </div>
 );
 
-const PodcastSection = ({ podcasts = [], onGeneratePodcast, generateDisabled = false }) => {
+const GENERATE_PATH = '/dashboard/podcasts?generate=1';
+
+const PodcastSection = ({ podcasts = [] }) => {
     const hasPodcasts = podcasts.length > 0;
     const featured = hasPodcasts ? podcasts[0] : null;
     const rest = hasPodcasts ? podcasts.slice(1, 4) : [];
@@ -42,15 +44,10 @@ const PodcastSection = ({ podcasts = [], onGeneratePodcast, generateDisabled = f
                     </p>
                 </div>
                 {hasPodcasts && (
-                    <button
-                        type="button"
-                        onClick={onGeneratePodcast}
-                        disabled={generateDisabled}
-                        className="btn-ghost text-caption disabled:opacity-50"
-                    >
+                    <Link to={GENERATE_PATH} className="btn-ghost text-caption">
                         <span className="material-symbols-outlined text-[16px]">add</span>
                         New podcast
-                    </button>
+                    </Link>
                 )}
             </div>
 
@@ -58,7 +55,7 @@ const PodcastSection = ({ podcasts = [], onGeneratePodcast, generateDisabled = f
                 {/* Player / Hero card */}
                 {featured ? (
                     <Link
-                        to={`/dashboard/topic/${featured.topicId}?panel=podcast`}
+                        to="/dashboard/podcasts"
                         className="group relative overflow-hidden rounded-3xl border border-border-subtle dark:border-border-subtle-dark bg-gradient-to-br from-[#1c1234] via-[#2c1c4a] to-[#3a1f5e] text-white p-5 md:p-6 shadow-elevated hover:shadow-modal transition-all"
                     >
                         <div className="pointer-events-none absolute -right-16 -top-16 h-48 w-48 rounded-full bg-primary/40 blur-3xl" aria-hidden="true" />
@@ -103,15 +100,13 @@ const PodcastSection = ({ podcasts = [], onGeneratePodcast, generateDisabled = f
                             </span>
                             <h3 className="text-display-md font-semibold leading-tight">Turn your slides into a study podcast</h3>
                             <p className="text-body-sm text-white/75">Generate an audio lesson from your uploaded materials and revise while walking, commuting, or resting.</p>
-                            <button
-                                type="button"
-                                onClick={onGeneratePodcast}
-                                disabled={generateDisabled}
-                                className="inline-flex items-center gap-2 h-11 px-5 rounded-xl bg-white text-[#2c1c4a] font-semibold text-body-sm shadow-md hover:shadow-lg active:scale-[0.98] transition-all disabled:opacity-60 disabled:cursor-not-allowed"
+                            <Link
+                                to={GENERATE_PATH}
+                                className="inline-flex items-center gap-2 h-11 px-5 rounded-xl bg-white text-[#2c1c4a] font-semibold text-body-sm shadow-md hover:shadow-lg active:scale-[0.98] transition-all"
                             >
                                 <span className="material-symbols-outlined text-[18px]" style={{ fontVariationSettings: "'FILL' 1" }}>graphic_eq</span>
                                 Generate Podcast
-                            </button>
+                            </Link>
                         </div>
                     </div>
                 )}
@@ -120,6 +115,14 @@ const PodcastSection = ({ podcasts = [], onGeneratePodcast, generateDisabled = f
                 <div className="card-base p-4 md:p-5">
                     <div className="flex items-center justify-between gap-3 mb-3">
                         <h4 className="text-body-md font-semibold text-text-main-light dark:text-text-main-dark">Recent podcasts</h4>
+                        {hasPodcasts && (
+                            <Link
+                                to="/dashboard/podcasts"
+                                className="text-caption font-semibold text-primary hover:text-primary-hover transition-colors"
+                            >
+                                View all
+                            </Link>
+                        )}
                     </div>
                     {rest.length === 0 ? (
                         <div className="text-center py-6 px-2">
@@ -133,7 +136,7 @@ const PodcastSection = ({ podcasts = [], onGeneratePodcast, generateDisabled = f
                             {rest.map((p) => (
                                 <li key={p._id}>
                                     <Link
-                                        to={`/dashboard/topic/${p.topicId}?panel=podcast`}
+                                        to="/dashboard/podcasts"
                                         className="flex items-center gap-3 p-2.5 rounded-xl border border-transparent hover:border-primary/20 hover:bg-primary-50/40 dark:hover:bg-primary-900/10 transition-all group"
                                     >
                                         <span className="inline-flex items-center justify-center w-9 h-9 rounded-lg bg-primary/10 text-primary shrink-0 group-hover:bg-primary group-hover:text-white transition-colors">

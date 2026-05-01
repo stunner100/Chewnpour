@@ -1,21 +1,20 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 
-// Hex-framed logo lockup — matches the landing-page HexLogo so every
-// public surface uses the same brand mark.
-export const HexLogo = ({ size = 48, withWordmark = true, className = '' }) => (
-    <span className={`inline-flex flex-col items-center gap-1.5 ${className}`} aria-label="ChewnPour">
-        <span className="relative inline-flex items-center justify-center" style={{ width: size, height: size }}>
-            <svg
-                viewBox="0 0 100 100"
-                className="absolute inset-0 w-full h-full text-white/85"
-                fill="none"
-                aria-hidden="true"
-            >
+const ACCENT = 'rgb(145, 75, 241)';
+const PAGE_BG = 'rgb(16, 17, 18)';
+const FOOTER_BG = 'rgb(20, 20, 19)';
+const SUBTEXT = 'rgb(163, 163, 163)';
+
+// Hex-framed logo lockup using the same outline-only mark as the landing-page nav.
+export const HexLogo = ({ size = 32, withWordmark = false, className = '' }) => (
+    <span className={`inline-flex items-center gap-2.5 text-white ${className}`} aria-label="ChewnPour">
+        <span className="relative inline-flex items-center justify-center" style={{ width: size, height: size }} aria-hidden="true">
+            <svg viewBox="0 0 100 100" className="absolute inset-0 w-full h-full text-white" fill="none">
                 <polygon
                     points="50,6 90,28 90,72 50,94 10,72 10,28"
                     stroke="currentColor"
-                    strokeWidth="2.5"
+                    strokeWidth="6"
                     strokeLinejoin="round"
                     fill="none"
                 />
@@ -23,80 +22,93 @@ export const HexLogo = ({ size = 48, withWordmark = true, className = '' }) => (
             <img
                 src="/logonew.jpeg"
                 alt=""
-                aria-hidden="true"
                 className="relative block object-contain rounded-full"
-                style={{ width: size * 0.72, height: size * 0.72 }}
-                decoding="async"
+                style={{ width: size * 0.55, height: size * 0.55 }}
             />
         </span>
         {withWordmark && (
-            <span className="font-mono font-bold tracking-tight text-white text-xs leading-none select-none">
+            <span style={{ fontFamily: 'Outfit, sans-serif', fontWeight: 600, fontSize: 20, letterSpacing: '-0.02em' }}>
                 ChewnPour
             </span>
         )}
     </span>
 );
 
-// Orange circular arrow badge, lifted from the landing page — used anywhere
-// we want the "click / go" accent on a public page.
+// Purple "go" badge — kept for backwards compat with pages that still import it.
 export const ArrowBadge = ({ size = 40, className = '' }) => (
     <span
-        className={`inline-flex items-center justify-center rounded-full bg-[#E8651B] text-white shrink-0 ${className}`}
-        style={{ width: size, height: size }}
+        className={`inline-flex items-center justify-center rounded-full text-white shrink-0 ${className}`}
+        style={{ width: size, height: size, background: ACCENT }}
         aria-hidden="true"
     >
         <span className="material-symbols-outlined" style={{ fontSize: Math.round(size * 0.55) }}>
-            south_east
+            arrow_outward
         </span>
     </span>
 );
 
-// Shared shell for all unauthenticated / marketing surfaces. Gives every
-// public page the landing-page vibe: black bg, mono type, hex-framed logo
-// header, orange footer.
+// Shared shell for all unauthenticated / marketing surfaces. Matches the landing page:
+// near-black bg rgb(16,17,18), Outfit type, floating pill nav, slim dark footer.
 const PublicShell = ({ children, showAuthNav = true, className = '' }) => (
-    <div className={`relative min-h-screen overflow-x-hidden bg-[#0A0A0A] text-white selection:bg-[#E8651B]/40 font-mono ${className}`}>
-        <header className="relative z-50 w-full border-b border-white/10">
-            <div className="mx-auto flex max-w-6xl items-center justify-between px-6 lg:px-8 py-5">
-                <nav className="hidden md:flex items-center gap-8 text-sm font-semibold text-white/80">
-                    <Link to="/" className="hover:text-white transition-colors">Home</Link>
-                    {showAuthNav && (
-                        <>
-                            <Link to="/login" className="hover:text-white transition-colors">Sign In</Link>
-                            <Link to="/signup" className="hover:text-white transition-colors">Sign Up</Link>
-                        </>
-                    )}
-                </nav>
-                <Link to="/" className="flex items-center gap-2.5 text-white/90 hover:text-white transition-colors" aria-label="ChewnPour home">
-                    <HexLogo size={52} />
+    <div
+        className={`relative min-h-screen overflow-x-hidden ${className}`}
+        style={{
+            background: PAGE_BG,
+            color: '#fff',
+            fontFamily: '"Outfit", "Inter", system-ui, sans-serif',
+        }}
+    >
+        <header className="sticky top-0 z-50" style={{ background: PAGE_BG }}>
+            <div className="mx-auto max-w-[1200px] px-6 lg:px-12 py-5 flex items-center justify-between">
+                <Link to="/" className="flex items-center gap-2.5 text-white" aria-label="ChewnPour home">
+                    <HexLogo size={28} withWordmark />
                 </Link>
+                {showAuthNav && (
+                    <nav className="flex items-center gap-6 text-sm" style={{ fontFamily: 'Inter, sans-serif' }}>
+                        <Link to="/" className="text-white/80 hover:text-white transition-colors">Home</Link>
+                        <Link to="/login" className="text-white/80 hover:text-white transition-colors">Sign In</Link>
+                        <Link
+                            to="/signup"
+                            className="inline-flex items-center justify-center h-9 px-4 rounded-full text-white font-semibold"
+                            style={{ background: ACCENT }}
+                        >
+                            Get Started
+                        </Link>
+                    </nav>
+                )}
             </div>
         </header>
 
-        <main className="relative mx-auto w-full max-w-6xl px-6 lg:px-8 py-12 lg:py-20">
+        <main className="relative mx-auto w-full max-w-[1200px] px-6 lg:px-12 py-10 lg:py-16">
             {children}
         </main>
 
-        <footer className="mt-16 bg-[#E8651B] text-white">
-            <div className="mx-auto max-w-6xl px-6 lg:px-8 py-10 flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
-                <div className="flex items-center gap-4">
-                    <HexLogo size={44} withWordmark={false} />
-                    <div className="font-mono text-sm leading-tight">
-                        <div className="font-bold">ChewnPour</div>
-                        <div className="text-white/80">Your AI study companion.</div>
-                    </div>
-                </div>
-                <div className="flex flex-wrap items-center gap-x-6 gap-y-2 text-sm font-semibold">
-                    <Link to="/" className="hover:underline">Home</Link>
-                    <Link to="/login" className="hover:underline">Sign In</Link>
-                    <Link to="/signup" className="hover:underline">Sign Up</Link>
-                    <Link to="/privacy" className="hover:underline">Privacy</Link>
-                    <Link to="/terms" className="hover:underline">Terms</Link>
-                    <a href="mailto:info@chewnpour.com" className="hover:underline">info@chewnpour.com</a>
-                </div>
+        <footer className="mt-16" style={{ background: FOOTER_BG, borderTop: '1px solid rgba(217,217,217,0.08)' }}>
+            <div className="mx-auto max-w-[1200px] px-6 lg:px-12 py-10 flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
+                <Link to="/" className="flex items-center gap-2.5 text-white">
+                    <HexLogo size={28} withWordmark />
+                </Link>
+                <nav
+                    className="flex flex-wrap items-center gap-6 text-sm"
+                    style={{ fontFamily: 'Inter, sans-serif' }}
+                >
+                    <Link to="/" className="text-white/80 hover:text-white transition-colors">Home</Link>
+                    <Link to="/login" className="text-white/80 hover:text-white transition-colors">Sign In</Link>
+                    <Link to="/signup" className="text-white/80 hover:text-white transition-colors">Sign Up</Link>
+                    <Link to="/privacy" className="text-white/80 hover:text-white transition-colors">Privacy</Link>
+                    <Link to="/terms" className="text-white/80 hover:text-white transition-colors">Terms</Link>
+                    <a href="mailto:info@chewnpour.com" className="text-white/80 hover:text-white transition-colors">Contact</a>
+                </nav>
             </div>
-            <div className="border-t border-black/10 py-4 text-center text-xs font-mono text-white/90">
-                © {new Date().getFullYear()} ChewnPour. Built for students.
+            <div
+                className="py-4 text-center text-xs"
+                style={{
+                    borderTop: '1px solid rgba(217,217,217,0.08)',
+                    color: SUBTEXT,
+                    fontFamily: 'Inter, sans-serif',
+                }}
+            >
+                © {new Date().getFullYear()} ChewnPour, Inc. Built for students.
             </div>
         </footer>
     </div>

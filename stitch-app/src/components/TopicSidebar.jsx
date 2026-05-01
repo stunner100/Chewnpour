@@ -52,7 +52,7 @@ const TopicSidebar = memo(function TopicSidebar({
 
     // Mobile-only: render just the sticky dropdown
     const mobileToc = toc?.length > 0 && (
-        <div className="lg:hidden sticky top-14 z-30 bg-surface-light/95 dark:bg-surface-dark/95 backdrop-blur-sm border-b border-border-light dark:border-border-dark px-4 py-2.5">
+        <div className="lg:hidden sticky top-[100px] z-20 bg-surface-light/95 dark:bg-surface-dark/95 backdrop-blur-sm border border-border-subtle dark:border-border-subtle-dark rounded-2xl px-3.5 py-2 shadow-soft mb-2">
             <button
                 onClick={() => setMobileOpen(v => !v)}
                 className="flex items-center gap-2 w-full text-body-sm text-text-sub-light dark:text-text-sub-dark"
@@ -78,7 +78,7 @@ const TopicSidebar = memo(function TopicSidebar({
                                     setMobileOpen(false);
                                     const el = document.getElementById(item.id);
                                     if (!el) return;
-                                    const top = el.getBoundingClientRect().top + window.scrollY - 96;
+                                    const top = el.getBoundingClientRect().top + window.scrollY - 108;
                                     window.scrollTo({ top, behavior: 'smooth' });
                                 }}
                                 className={`block py-1.5 text-body-sm transition-colors ${getIndent(item.level)} ${

@@ -701,12 +701,15 @@ const DashboardAnalysis = () => {
                     <h1 className="md:hidden text-display-sm text-text-main-light dark:text-text-main-dark truncate">Dashboard</h1>
                     {subscription && (
                         subscription.plan === 'premium' ? (
-                            <span className="badge bg-amber-50 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400 border border-amber-200/50 dark:border-amber-700/30">
+                            <span
+                                className="badge bg-amber-50 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400 border border-amber-200/50 dark:border-amber-700/30 shrink-0"
+                                title="Premium plan"
+                            >
                                 <span className="material-symbols-outlined text-[12px]" style={{ fontVariationSettings: "'FILL' 1" }}>workspace_premium</span>
-                                Premium
+                                <span className="hidden sm:inline">Premium</span>
                             </span>
                         ) : (
-                            <span className="badge bg-surface-hover dark:bg-surface-hover-dark text-text-faint-light dark:text-text-faint-dark">Free</span>
+                            <span className="badge bg-surface-hover dark:bg-surface-hover-dark text-text-faint-light dark:text-text-faint-dark shrink-0 hidden sm:inline-flex">Free</span>
                         )
                     )}
                 </div>
@@ -807,16 +810,12 @@ const DashboardAnalysis = () => {
                         nextLesson={activeCourse.description}
                         estimatedTime="15 min"
                         onGenerateQuiz={() => handleGoToActiveCourse('quiz')}
-                        onGeneratePodcast={() => handleGoToActiveCourse('podcast')}
+                        onGeneratePodcast={() => navigate('/dashboard/podcasts?generate=1')}
                     />
                 )}
 
                 {/* 4. Podcasts */}
-                <PodcastSection
-                    podcasts={recentPodcasts || []}
-                    onGeneratePodcast={() => handleGoToActiveCourse('podcast')}
-                    generateDisabled={!activeCourse}
-                />
+                <PodcastSection podcasts={recentPodcasts || []} />
 
                 {/* 5. Weak Concepts */}
                 <WeakConceptsCard queue={conceptReviewQueue} />

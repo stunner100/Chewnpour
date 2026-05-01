@@ -8,12 +8,10 @@ const isThemeValue = (value) => value === LIGHT_THEME || value === DARK_THEME;
 export const isDarkModeEnabled = () =>
   typeof document !== 'undefined' && document.documentElement.classList.contains(DARK_THEME);
 
-const getSystemTheme = () => {
-  if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') {
-    return LIGHT_THEME;
-  }
-  return window.matchMedia('(prefers-color-scheme: dark)').matches ? DARK_THEME : LIGHT_THEME;
-};
+// Default to light unless the user has explicitly opted into dark via the in-app
+// toggle. We deliberately ignore prefers-color-scheme so the brand stays
+// consistent for first-time visitors regardless of OS appearance.
+const getSystemTheme = () => LIGHT_THEME;
 
 export const getStoredTheme = () => {
   if (typeof window === 'undefined') return null;

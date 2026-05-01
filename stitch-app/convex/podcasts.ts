@@ -277,6 +277,50 @@ export const listTopicPodcasts = query({
     },
 });
 
+// Lightweight dashboard query: most recent podcasts the signed-in user has
+// generated, joined with topic + course titles. Used by the dashboard
+// "Recent podcasts" section. Returns up to `limit` rows (default 6).
+export const listRecentUserPodcasts = query({
+    args: { limit: v.optional(v.number()) },
+    handler: async (ctx, args) => {
+        const identity = await ctx.auth.getUserIdentity();
+        const userId = resolveAuthUserId(identity);
+        if (!userId) return [];
+
+        const limit = Math.max(1, Math.min(20, Math.floor(Number(args.limit ?? 6)) || 6));
+
+        const rows = await ctx.db
+            .query("topicPodcasts")
+            .withIndex("by_userId", (q) => q.eq("userId", userId))
+            .collect();
+
+        rows.sort((a, b) => b.createdAt - a.createdAt);
+        const recent = rows.slice(0, limit);
+
+        return await Promise.all(
+            recent.map(async (row) => {
+                const topic = await ctx.db.get(row.topicId);
+                const course = topic ? await ctx.db.get(topic.courseId) : null;
+                return {
+                    _id: row._id,
+                    topicId: row.topicId,
+                    courseId: topic?.courseId ?? null,
+                    topicTitle: topic?.title ?? "Untitled topic",
+                    courseTitle: course?.title ?? "",
+                    status: row.status as PodcastStatus,
+                    durationSeconds: row.durationSeconds ?? null,
+                    createdAt: row.createdAt,
+                    updatedAt: row.updatedAt,
+                    audioUrl: row.audioStorageId
+                        ? await ctx.storage.getUrl(row.audioStorageId)
+                        : null,
+                    errorMessage: row.errorMessage ?? null,
+                };
+            }),
+        );
+    },
+});
+
 export const getTopicPodcast = query({
     args: { podcastId: v.id("topicPodcasts") },
     handler: async (ctx, args) => {

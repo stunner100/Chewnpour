@@ -58,7 +58,7 @@ export const buildStudyPlan = ({ courses, conceptReviewQueue, podcasts, userStat
             subtitle: `Try it on ${firstCourse.title}`,
             estimatedTime: '2 min setup',
             cta: 'Create',
-            href: `/dashboard/course/${firstCourse._id}`,
+            href: '/dashboard/podcasts?generate=1',
         });
     }
 
@@ -103,8 +103,7 @@ export const DEFAULT_QUICK_ACTIONS = [
         label: 'Generate Podcast',
         description: 'Turn a topic into an audio lesson.',
         color: 'rose',
-        to: '/dashboard',
-        courseAction: 'podcast',
+        to: '/dashboard/podcasts?generate=1',
     },
     {
         id: 'humanizer',
