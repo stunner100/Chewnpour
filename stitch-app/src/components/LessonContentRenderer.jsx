@@ -213,13 +213,15 @@ const LessonContentRenderer = memo(function LessonContentRenderer({
 
                 if (block.type === 'wordbank_widget') {
                     return (
-                        <InteractiveWordBank
-                            key={block.key}
-                            terms={wordBankTerms}
-                            topicId={topicId}
-                            starredTerms={starredTerms}
-                            onTermsStarred={onTermsStarred}
-                        />
+                        <div key={block.key} id="topic-wordbank" style={{ scrollMarginTop: 108 }}>
+                            <InteractiveWordBank
+                                key={starredTerms ? `wb-${starredTerms.length}` : 'wb-0'}
+                                terms={wordBankTerms}
+                                topicId={topicId}
+                                starredTerms={starredTerms}
+                                onTermsStarred={onTermsStarred}
+                            />
+                        </div>
                     );
                 }
 

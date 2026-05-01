@@ -91,8 +91,8 @@ export const DEFAULT_QUICK_ACTIONS = [
     {
         id: 'flashcards',
         icon: 'style',
-        label: 'Create Flashcards',
-        description: 'Active recall on key terms and ideas.',
+        label: 'Study Word Bank',
+        description: 'Review key terms inside any topic lesson.',
         color: 'indigo',
         to: '/dashboard',
         courseAction: 'flashcards',

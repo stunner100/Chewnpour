@@ -118,6 +118,14 @@ const TopicDetail = () => {
         }, 350);
         return () => window.clearTimeout(timer);
     }, [focusPanel]);
+    useEffect(() => {
+        if (focusPanel !== 'wordbank') return undefined;
+        const timer = window.setTimeout(() => {
+            const node = document.getElementById('topic-wordbank');
+            if (node) node.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }, 350);
+        return () => window.clearTimeout(timer);
+    }, [focusPanel]);
     const reloadDashboard = useCallback(() => {
         if (typeof window !== 'undefined') {
             window.location.assign('/dashboard');
@@ -655,6 +663,16 @@ const TopicDetail = () => {
         return { blocks, toc, readingMinutes, quickCheckPairs, wordBankTerms };
     }, [normalizedContent]);
 
+    // Prefer structured definitions from the DB (always available, already cleaned) over the
+    // markdown parse (fragile — only present when AI used a "Word Bank" heading in the right format).
+    const dbDefinitions = topic?.structuredDefinitions ?? topic?.contentGraph?.definitions;
+    const wordBankTerms = useMemo(() => {
+        if (dbDefinitions?.length > 0) {
+            return dbDefinitions.map((d, i) => ({ term: d.term, definition: d.meaning, key: `db-${i}` }));
+        }
+        return parsed.wordBankTerms;
+    }, [dbDefinitions, parsed.wordBankTerms]);
+
     // Section filtering by study mode
     const filteredBlocks = useMemo(() => {
         if (!studyMode || studyMode === 'full' || !SECTION_SETS[studyMode]) return parsed.blocks;
@@ -698,7 +716,7 @@ const TopicDetail = () => {
 
             if (
                 !insertedWordBank &&
-                parsed.wordBankTerms?.length > 0 &&
+                wordBankTerms?.length > 0 &&
                 (normalized.includes('word bank') || normalized.includes('glossary'))
             ) {
                 blocksWithWidgets.push({
@@ -716,7 +734,7 @@ const TopicDetail = () => {
             });
         }
 
-        if (!insertedWordBank && parsed.wordBankTerms?.length > 0) {
+        if (!insertedWordBank && wordBankTerms?.length > 0) {
             blocksWithWidgets.push({
                 type: 'wordbank_widget',
                 key: 'wordbank-widget-fallback',
@@ -724,7 +742,7 @@ const TopicDetail = () => {
         }
 
         return blocksWithWidgets;
-    }, [filteredBlocks, parsed.quickCheckPairs, parsed.wordBankTerms]);
+    }, [filteredBlocks, parsed.quickCheckPairs, wordBankTerms]);
 
     const assessmentRoute = topic?.assessmentRoute || 'topic_quiz';
     const isTopicQuizRoute = assessmentRoute === 'topic_quiz' || topic?.topicKind === 'document_final_exam';
@@ -1071,7 +1089,7 @@ const TopicDetail = () => {
                                 onViewSource={() => setSourceOpen(true)}
                                 onAskTutor={handleAskTutor}
                                 quickCheckPairs={parsed.quickCheckPairs}
-                                wordBankTerms={parsed.wordBankTerms}
+                                wordBankTerms={wordBankTerms}
                                 topicId={topicId}
                                 starredTerms={topicProgress?.termsStarred}
                                 onTermsStarred={(starred) => {
@@ -1136,7 +1154,7 @@ const TopicDetail = () => {
                             percentage={null}
                             completedAt={topicProgress?.completedAt}
                             bestScore={topicProgress?.bestScore}
-                            hasWordBank={parsed.wordBankTerms?.length > 0}
+                            hasWordBank={wordBankTerms?.length > 0}
                             onOpenChat={openChat}
                             examLabel={isTopicQuizRoute ? 'Start the objective quiz' : 'Take the final objective quiz'}
                             examDescription={isTopicQuizRoute
