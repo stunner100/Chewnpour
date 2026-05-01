@@ -11,7 +11,6 @@ import TopicReExplainModal from '../components/TopicReExplainModal';
 import TopicSidebar from '../components/TopicSidebar';
 import TopicNotesPanel from '../components/TopicNotesPanel';
 import TopicChatPanel from '../components/TopicChatPanel';
-import TopicPodcastPanel from '../components/TopicPodcastPanel';
 import HighlightExplainPopover from '../components/HighlightExplainPopover';
 import LessonHeader from '../components/lesson/LessonHeader';
 import LessonProgressBar from '../components/lesson/LessonProgressBar';
@@ -146,6 +145,7 @@ const TopicDetail = () => {
         courseId && topic?.sourceUploadId ? { courseId, sourceUploadId: topic.sourceUploadId } : 'skip'
     );
     const voiceModeEnabled = Boolean(profile?.voiceModeEnabled);
+    const podcastEnabled = import.meta.env.VITE_PODCAST_GEN_ENABLED === 'true' && topicId;
     const voiceQuota = useQuery(
         api.subscriptions.getVoiceGenerationQuotaStatus,
         user?.id && isConvexAuthenticated ? {} : 'skip'
@@ -1147,9 +1147,11 @@ const TopicDetail = () => {
                     </div>
 
                     {/* Podcast */}
-                    <div id="topic-podcast">
-                        <LessonPodcastCard topicId={topicId} />
-                    </div>
+                    {podcastEnabled ? (
+                        <div id="topic-podcast">
+                            <LessonPodcastCard topicId={topicId} />
+                        </div>
+                    ) : null}
                 </main>
 
                 {/* Right rail */}

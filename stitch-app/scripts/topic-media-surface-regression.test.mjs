@@ -5,9 +5,8 @@ const root = process.cwd();
 const topicDetailSource = await fs.readFile(path.join(root, 'src/pages/TopicDetail.jsx'), 'utf8');
 
 for (const snippet of [
-  "import TopicPodcastPanel from '../components/TopicPodcastPanel';",
   "import.meta.env.VITE_PODCAST_GEN_ENABLED === 'true' && topicId",
-  '<TopicPodcastPanel topicId={topicId} />',
+  '<LessonPodcastCard topicId={topicId} />',
 ]) {
   if (!topicDetailSource.includes(snippet)) {
     throw new Error(`Regression detected: podcast surface missing snippet: ${snippet}`);

@@ -167,14 +167,14 @@ if (!/class TopicPodcastPanelBoundary extends Component/.test(panelSource)) {
     throw new Error('Expected TopicPodcastPanel to isolate podcast query failures from the topic page.');
 }
 
-if (!/import TopicPodcastPanel from '\.\.\/components\/TopicPodcastPanel'/.test(topicDetailSource)) {
-    throw new Error('Expected TopicDetail.jsx to import TopicPodcastPanel.');
+if (!/import LessonPodcastCard from '\.\.\/components\/lesson\/LessonPodcastCard'/.test(topicDetailSource)) {
+    throw new Error('Expected TopicDetail.jsx to import LessonPodcastCard.');
 }
 if (!/VITE_PODCAST_GEN_ENABLED/.test(topicDetailSource)) {
     throw new Error('Expected TopicDetail.jsx to gate the podcast panel on VITE_PODCAST_GEN_ENABLED.');
 }
-if (!/<TopicPodcastPanel\b/.test(topicDetailSource)) {
-    throw new Error('Expected TopicDetail.jsx to mount the TopicPodcastPanel.');
+if (!/<LessonPodcastCard\b/.test(topicDetailSource)) {
+    throw new Error('Expected TopicDetail.jsx to mount the podcast lesson card.');
 }
 
 console.log('topic-podcast-generation-regression.test.mjs passed');
