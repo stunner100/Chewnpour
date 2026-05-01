@@ -25,9 +25,9 @@ const ACTION_PROMPTS = {
     },
     flashcards: {
         icon: 'style',
-        title: 'Pick a topic to study flashcards',
+        title: 'Pick a topic to open its Word Bank',
         description:
-            'Flashcards live inside each topic. Open one to review key terms with active recall.',
+            'Each topic lesson contains a Word Bank with key terms. Open one and scroll to the Word Bank to start reviewing.',
     },
 };
 
