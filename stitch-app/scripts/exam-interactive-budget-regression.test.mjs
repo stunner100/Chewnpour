@@ -26,8 +26,12 @@ if (!/getFreshExamRemainingMs\(interactiveDeadlineMs, 3000\)/.test(source)) {
   throw new Error('Expected fresh exam authoring timeouts to clamp to the remaining interactive budget.');
 }
 
-if (!/buildDeterministicFreshExamFallbackSnapshot\(\{[\s\S]*reason: "authoring-timeout"/.test(source)) {
-  throw new Error('Expected the deterministic fresh exam fallback to remain the timeout recovery path.');
+if (/buildDeterministicFreshExamFallbackSnapshot\(\{[\s\S]*reason: "authoring-timeout"/.test(source)) {
+  throw new Error('Expected authoring timeout recovery not to return deterministic fallback questions.');
+}
+
+if (!/authoring_failed_without_deterministic_fallback/.test(source)) {
+  throw new Error('Expected exhausted fresh exam authoring to fail cleanly instead of serving fallback questions.');
 }
 
 console.log('exam-interactive-budget-regression.test.mjs passed');
