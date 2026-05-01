@@ -2956,95 +2956,6 @@ const buildObjectiveSubtypeGenerationDeficits = (args: {
         : args.objectiveSubtypeMixPolicy.deficits;
 };
 
-const splitEvidenceStatements = (text: string) => {
-    return String(text || "")
-        .replace(/\s+/g, " ")
-        .split(/(?<=[.!?])\s+/)
-        .map((statement) => statement.trim())
-        .filter((statement) => statement.length >= 32);
-};
-
-const buildDeterministicTrueFalseFallbackCandidate = (args: {
-    evidence: RetrievedEvidence[];
-    assessmentBlueprint: AssessmentBlueprint | null | undefined;
-    existingQuestions: any[];
-}) => {
-    const plan = getAssessmentPlanForQuestionType(args.assessmentBlueprint, QUESTION_TYPE_TRUE_FALSE);
-    const preferredOutcomeKeys = new Set(
-        (Array.isArray(plan?.targetOutcomeKeys) ? plan.targetOutcomeKeys : [])
-            .map((value) => normalizeOutcomeKey(value))
-            .filter(Boolean)
-    );
-    const outcomes = Array.isArray(args.assessmentBlueprint?.outcomes)
-        ? args.assessmentBlueprint.outcomes
-        : [];
-    const usedQuestionKeys = new Set(
-        (Array.isArray(args.existingQuestions) ? args.existingQuestions : [])
-            .map((question: any) => normalizeQuestionKey(question?.questionText || ""))
-            .filter(Boolean)
-    );
-
-    for (const passage of Array.isArray(args.evidence) ? args.evidence : []) {
-        const rawText = String(passage?.text || "").trim();
-        if (!rawText) continue;
-
-        const statements = splitEvidenceStatements(rawText);
-        for (const statement of statements) {
-            const normalizedStatementKey = normalizeQuestionKey(statement);
-            if (!normalizedStatementKey || usedQuestionKeys.has(normalizedStatementKey)) {
-                continue;
-            }
-
-            const normalizedStatement = statement.toLowerCase();
-            const matchingOutcome =
-                outcomes.find((outcome: any) => {
-                    const outcomeKey = normalizeOutcomeKey(outcome?.key);
-                    if (preferredOutcomeKeys.size > 0 && outcomeKey && !preferredOutcomeKeys.has(outcomeKey)) {
-                        return false;
-                    }
-                    const evidenceFocus = String(outcome?.evidenceFocus || "").toLowerCase();
-                    return evidenceFocus && (
-                        normalizedStatement.includes(evidenceFocus)
-                        || evidenceFocus.includes(normalizedStatement)
-                    );
-                })
-                || outcomes.find((outcome: any) => {
-                    const outcomeKey = normalizeOutcomeKey(outcome?.key);
-                    return preferredOutcomeKeys.size === 0 || (outcomeKey && preferredOutcomeKeys.has(outcomeKey));
-                })
-                || outcomes[0]
-                || null;
-
-            const startChar = Math.max(0, rawText.indexOf(statement));
-            const endChar = startChar + statement.length;
-            return {
-                questionText: statement,
-                questionType: QUESTION_TYPE_TRUE_FALSE,
-                options: [
-                    { label: "A", text: "True", isCorrect: true },
-                    { label: "B", text: "False", isCorrect: false },
-                ],
-                correctAnswer: "A",
-                explanation: `The source explicitly states: ${statement}`,
-                difficulty: normalizeDifficultyLabel(matchingOutcome?.difficultyBand || "easy"),
-                learningObjective: String(matchingOutcome?.objective || "").trim() || undefined,
-                bloomLevel: String(matchingOutcome?.bloomLevel || "").trim() || undefined,
-                outcomeKey: String(matchingOutcome?.key || "").trim() || undefined,
-                citations: [{
-                    passageId: String(passage?.passageId || "").trim(),
-                    page: Number(passage?.page || 0),
-                    startChar,
-                    endChar,
-                    quote: statement,
-                }].filter((citation) => citation.passageId),
-                qualityFlags: ["deterministic_true_false_fallback"],
-            };
-        }
-    }
-
-    return null;
-};
-
 const buildQuestionTypeCoverageTargets = (args: {
     questionType: string;
     coveragePolicy: ReturnType<typeof resolveAssessmentGenerationPolicy>;
@@ -11403,11 +11314,7 @@ const generateQuestionBankForTopic = async (
             questionText: finalQuestionText,
             options,
         });
-        const isDeterministicTrueFalseFallback =
-            normalizedQuestionType === QUESTION_TYPE_TRUE_FALSE
-            && Array.isArray(questionRecord?.qualityFlags)
-            && questionRecord.qualityFlags.includes("deterministic_true_false_fallback");
-        if (!objectiveQualityGate.passes && !isDeterministicTrueFalseFallback) {
+        if (!objectiveQualityGate.passes) {
             recordObjectivePlanItemFailure(resolvedObjectivePlanItem, {
                 failReason: classifyPlanItemFailReason([objectiveQualityGate.reason], normalizedQuestionType),
                 failDetails: `Objective quality gate rejected candidate: ${String(objectiveQualityGate.reason || "unknown")}`,
@@ -11418,27 +11325,15 @@ const generateQuestionBankForTopic = async (
         }
         questionRecord = {
             ...questionRecord,
-            qualityTier: isDeterministicTrueFalseFallback
-                ? QUALITY_TIER_LIMITED
-                : objectiveQualityGate.quality.qualityTier,
-            qualityScore: isDeterministicTrueFalseFallback
-                ? Number(questionRecord?.groundingScore || 0.7)
-                : Number(objectiveQualityGate.quality.qualitySignals.qualityScore || 0),
-            rigorScore: isDeterministicTrueFalseFallback
-                ? 0.6
-                : Number(objectiveQualityGate.quality.qualitySignals.rigorScore || 0),
-            clarityScore: isDeterministicTrueFalseFallback
-                ? 0.8
-                : Number(objectiveQualityGate.quality.qualitySignals.clarityScore || 0),
-            diversityCluster: isDeterministicTrueFalseFallback
-                ? "true_false::deterministic_fallback"
-                : String(objectiveQualityGate.quality.qualitySignals.diversityCluster || ""),
-            distractorScore: isDeterministicTrueFalseFallback
-                ? undefined
-                : objectiveQualityGate.quality.qualitySignals.distractorScore,
+            qualityTier: objectiveQualityGate.quality.qualityTier,
+            qualityScore: Number(objectiveQualityGate.quality.qualitySignals.qualityScore || 0),
+            rigorScore: Number(objectiveQualityGate.quality.qualitySignals.rigorScore || 0),
+            clarityScore: Number(objectiveQualityGate.quality.qualitySignals.clarityScore || 0),
+            diversityCluster: String(objectiveQualityGate.quality.qualitySignals.diversityCluster || ""),
+            distractorScore: objectiveQualityGate.quality.qualitySignals.distractorScore,
             qualityFlags: normalizeQualityFlags([
                 ...(Array.isArray(questionRecord?.qualityFlags) ? questionRecord.qualityFlags : []),
-                ...(isDeterministicTrueFalseFallback ? ["quality_gate_bypassed_for_grounded_fallback"] : objectiveQualityGate.quality.qualityWarnings),
+                ...objectiveQualityGate.quality.qualityWarnings,
             ]),
         };
         const signature = buildQuestionPromptSignature(finalQuestionText);
@@ -11913,81 +11808,6 @@ const generateQuestionBankForTopic = async (
             countBreakdown.repairSuccesses += acceptanceMetrics.repairSuccesses;
             groundingRejects += acceptance.rejected.length;
         }
-        if (!providerThrottleDetectedInRound && roundAdded === 0 && getUniqueQuestionCount() < targetCount) {
-            const deterministicTrueFalseFallback = buildDeterministicTrueFalseFallbackCandidate({
-                evidence: groundedPack.evidence,
-                assessmentBlueprint: assessmentBlueprint as AssessmentBlueprint,
-                existingQuestions: coverageQuestions,
-            });
-            if (deterministicTrueFalseFallback) {
-                const acceptanceMetrics = createGroundedAcceptanceMetrics();
-                const acceptanceStartedAt = Date.now();
-                const { acceptance, persistedCount } = await acceptAndPersistQuestionCandidates({
-                    type: "true_false",
-                    requestedCount: 1,
-                    evidenceIndex,
-                    assessmentBlueprint,
-                    topicTitle: effectiveTopic.title,
-                    topicDescription: effectiveTopic.description,
-                    structuredTopicContext: groundedPack.structuredTopicContext,
-                    evidence: groundedPack.evidence,
-                    deadlineMs,
-                    forceLimited: groundedPack.usedIndexFallback === true,
-                    candidates: [deterministicTrueFalseFallback],
-                    maxRepairCandidates: 0,
-                    maxLlmVerifications: 1,
-                    llmVerify: async (candidate) =>
-                        verifyGroundedCandidateWithLlm({
-                            type: "true_false",
-                            candidate,
-                            evidenceSnippet,
-                            timeoutMs: runMode === "interactive" ? 5000 : 7000,
-                        }),
-                    metrics: acceptanceMetrics,
-                    persistCandidate: async (question) => {
-                        const saved = await persistObjectiveCandidate(question, QUESTION_TYPE_TRUE_FALSE);
-                        if (saved) {
-                            roundAdded += 1;
-                        }
-                        return saved;
-                    },
-                });
-                timingBreakdown.acceptanceMs += normalizeTimingMs(Date.now() - acceptanceStartedAt);
-                timingBreakdown.deterministicMs += normalizeTimingMs(acceptanceMetrics.deterministicMs);
-                timingBreakdown.llmVerificationMs += normalizeTimingMs(acceptanceMetrics.llmVerificationMs);
-                timingBreakdown.repairMs += normalizeTimingMs(acceptanceMetrics.repairMs);
-                countBreakdown.acceptedCandidateCount += acceptance.accepted.length;
-                countBreakdown.rejectedCandidateCount += acceptance.rejected.length;
-                countBreakdown.deterministicChecks += acceptanceMetrics.deterministicChecks;
-                countBreakdown.llmVerificationCount += acceptanceMetrics.llmVerifications;
-                countBreakdown.llmVerificationErrorCount += acceptanceMetrics.llmVerificationErrors;
-                countBreakdown.llmRejectedCount += acceptanceMetrics.llmRejected;
-                groundingRejects += acceptance.rejected.length;
-                for (const rejectedCandidate of acceptance.rejected) {
-                    const failedPlanItem = resolveObjectivePlanItemFromCandidate(
-                        rejectedCandidate?.candidate,
-                        QUESTION_TYPE_TRUE_FALSE,
-                    );
-                    recordObjectivePlanItemFailure(failedPlanItem, {
-                        failReason: classifyPlanItemFailReason(rejectedCandidate?.reasons, QUESTION_TYPE_TRUE_FALSE),
-                        failDetails: Array.isArray(rejectedCandidate?.reasons)
-                            ? rejectedCandidate.reasons.join("; ")
-                            : "Deterministic true/false fallback was rejected.",
-                        strategy: failedPlanItem?.retryStrategy || "initial",
-                        candidateSnapshot: buildCandidateSnapshot(rejectedCandidate?.candidate),
-                    });
-                }
-                if (persistedCount > 0) {
-                    console.info("[QuestionBank] deterministic_true_false_fallback_saved", {
-                        topicId,
-                        topicTitle: topicWithQuestions.title,
-                        round,
-                        totalCount: getUniqueQuestionCount(),
-                        targetCount,
-                    });
-                }
-            }
-        }
         coveragePolicy = computeQuestionCoverageGaps({
             assessmentBlueprint,
             examFormat: "mcq",
@@ -12068,125 +11888,6 @@ const generateQuestionBankForTopic = async (
                 targetCount,
             });
             break;
-        }
-    }
-
-    if (getUniqueQuestionCount() === 0 && groundedPack.evidence.length > 0) {
-        const fallbackEvidence = groundedPack.evidence.find((entry: any) =>
-            String(entry?.passageId || "").trim() && String(entry?.text || "").trim()
-        );
-        if (fallbackEvidence) {
-            const citation = buildFreshFallbackCitation(fallbackEvidence);
-            const quotedStatement = normalizeFreshFallbackText(citation.quote, 220);
-            const fallbackPlan = getAssessmentPlanForQuestionType(
-                assessmentBlueprint,
-                QUESTION_TYPE_MULTIPLE_CHOICE,
-            );
-            const fallbackAllowedOutcomeKeys = new Set(
-                (Array.isArray(fallbackPlan?.targetOutcomeKeys) ? fallbackPlan.targetOutcomeKeys : [])
-                    .map((value: any) => normalizeOutcomeKey(value))
-                    .filter(Boolean)
-            );
-            const fallbackOutcomes = Array.isArray(assessmentBlueprint?.outcomes)
-                ? assessmentBlueprint.outcomes
-                : [];
-            const fallbackOutcome = (
-                fallbackOutcomes.find((outcome: any) => {
-                    const outcomeKey = normalizeOutcomeKey(outcome?.key);
-                    return outcomeKey && fallbackAllowedOutcomeKeys.has(outcomeKey);
-                })
-                || fallbackOutcomes[0]
-                || null
-            );
-            const fallbackOutcomeKey = normalizeOutcomeKey(fallbackOutcome?.key || "applied-reading") || "applied-reading";
-            const fallbackBloomLevel = normalizeBloomLevel(fallbackOutcome?.bloomLevel || "Apply") || "Apply";
-            const fallbackPlanItem = Array.isArray(assessmentBlueprint?.objectivePlan?.items)
-                ? assessmentBlueprint.objectivePlan.items.find((item: any) =>
-                    normalizeQuestionType(item?.targetType || item?.questionType) === QUESTION_TYPE_MULTIPLE_CHOICE
-                    && normalizeOutcomeKey(item?.outcomeKey) === fallbackOutcomeKey
-                    && normalizePersistedSubClaimId(item?.subClaimId)
-                )
-                : null;
-            const fallbackQuestionText = anchorTextToTopic(
-                `Which statement is directly supported by the cited source for ${effectiveTopic.title}?`,
-                effectiveTopic.title,
-                topicKeywords,
-            );
-            const fallbackSignature = buildQuestionPromptSignature(fallbackQuestionText);
-            const fallbackNormalizedKey = String(fallbackSignature?.normalized || "");
-
-            if (quotedStatement && fallbackNormalizedKey && !existingQuestionKeys.has(fallbackNormalizedKey)) {
-                const saveStartedAt = Date.now();
-                const fallbackQuestionPayload: Record<string, any> = {
-                    topicId,
-                    questionText: fallbackQuestionText,
-                    questionType: QUESTION_TYPE_MULTIPLE_CHOICE,
-                    correctAnswer: "A",
-                    explanation: `Option A is directly supported by the cited source: "${quotedStatement}"`,
-                    difficulty: "easy",
-                    options: [
-                        { label: "A", text: quotedStatement, isCorrect: true },
-                        { label: "B", text: "The source says this topic has no practical study value.", isCorrect: false },
-                        { label: "C", text: "The source says the cited idea should be ignored during revision.", isCorrect: false },
-                        { label: "D", text: "The source says the cited evidence is unrelated to learning.", isCorrect: false },
-                    ],
-                    citations: [citation],
-                    sourcePassageIds: [citation.passageId],
-                    groundingScore: 1,
-                    factualityStatus: "verified",
-                    generationVersion: ASSESSMENT_QUESTION_GENERATION_VERSION,
-                    generationRunId,
-                    learningObjective: String(fallbackOutcome?.objective || "").trim() || undefined,
-                    bloomLevel: fallbackBloomLevel,
-                    outcomeKey: fallbackOutcomeKey,
-                    tier: normalizeGeneratedTier(fallbackPlanItem?.targetTier || 1),
-                    subClaimId: normalizePersistedSubClaimId(fallbackPlanItem?.subClaimId),
-                    cognitiveOperation: normalizeGeneratedCognitiveOperation(fallbackPlanItem?.targetOp || "recognition"),
-                    groundingEvidence: quotedStatement,
-                    qualityScore: 0.62,
-                    qualityTier: QUALITY_TIER_LIMITED,
-                    rigorScore: 0.42,
-                    clarityScore: 0.8,
-                    diversityCluster: "multiple_choice::last_resort_grounded_fallback",
-                    distractorScore: 0.35,
-                    freshnessBucket: QUESTION_FRESHNESS_BUCKET_FRESH,
-                    qualityFlags: normalizeQualityFlags([
-                        "last_resort_grounded_fallback",
-                        "quality_gate_bypassed_for_grounded_fallback",
-                    ]),
-                };
-                const questionId = await ctx.runMutation(internal.topics.createQuestionInternal, fallbackQuestionPayload);
-                timingBreakdown.saveMs += normalizeTimingMs(Date.now() - saveStartedAt);
-                if (questionId) {
-                    existingQuestionKeys.add(fallbackNormalizedKey);
-                    existingQuestionSignatures.push(fallbackSignature);
-                    coverageQuestions.push({
-                        questionType: QUESTION_TYPE_MULTIPLE_CHOICE,
-                        questionText: fallbackQuestionText,
-                        options: fallbackQuestionPayload.options,
-                        bloomLevel: fallbackQuestionPayload.bloomLevel,
-                        outcomeKey: fallbackQuestionPayload.outcomeKey,
-                        tier: fallbackQuestionPayload.tier,
-                        subClaimId: fallbackQuestionPayload.subClaimId,
-                        cognitiveOperation: fallbackQuestionPayload.cognitiveOperation,
-                        groundingEvidence: quotedStatement,
-                        qualityTier: QUALITY_TIER_LIMITED,
-                        qualityScore: fallbackQuestionPayload.qualityScore,
-                        rigorScore: fallbackQuestionPayload.rigorScore,
-                        clarityScore: fallbackQuestionPayload.clarityScore,
-                        diversityCluster: fallbackQuestionPayload.diversityCluster,
-                        distractorScore: fallbackQuestionPayload.distractorScore,
-                    });
-                    added += 1;
-                    countBreakdown.savedQuestionCount += 1;
-                    console.warn("[QuestionBank] last_resort_grounded_fallback_saved", {
-                        topicId,
-                        topicTitle: topicWithQuestions.title,
-                        questionId,
-                        passageId: citation.passageId,
-                    });
-                }
-            }
         }
     }
 
@@ -14771,197 +14472,6 @@ const buildFreshExamSnapshot = (args: {
     };
 };
 
-const normalizeFreshFallbackText = (value: unknown, maxLength = 220) =>
-    String(value || "")
-        .replace(/\s+/g, " ")
-        .trim()
-        .slice(0, maxLength)
-        .trim();
-
-const buildFreshFallbackCitation = (evidence: RetrievedEvidence) => {
-    const passageText = String(evidence?.text || "").replace(/\s+/g, " ").trim();
-    const sentenceMatch = passageText.match(/^.{40,220}?(?:[.!?](?:\s|$)|$)/);
-    const quote = normalizeFreshFallbackText(
-        sentenceMatch?.[0] || passageText.slice(0, 220),
-        220,
-    ) || "The cited passage contains the supporting evidence.";
-    const sourceText = String(evidence?.text || "");
-    const localStart = sourceText.indexOf(quote);
-    const startChar = localStart >= 0 ? localStart : Math.max(0, Math.round(Number(evidence?.startChar || 0)));
-
-    return {
-        passageId: String(evidence?.passageId || "fallback-passage"),
-        page: Math.max(0, Math.round(Number(evidence?.page || 0))),
-        startChar,
-        endChar: startChar + quote.length,
-        quote,
-    };
-};
-
-const selectFreshFallbackOutcome = (
-    assessmentBlueprint: AssessmentBlueprint,
-    requestedOutcomeKey: string | undefined,
-) => {
-    const normalizedOutcomeKey = normalizeOutcomeKey(requestedOutcomeKey || "");
-    return (
-        findAssessmentOutcome(assessmentBlueprint, normalizedOutcomeKey)
-        || (Array.isArray(assessmentBlueprint?.outcomes) ? assessmentBlueprint.outcomes[0] : null)
-        || null
-    );
-};
-
-const buildDeterministicFreshObjectiveQuestions = (args: {
-    topic: any;
-    evidence: RetrievedEvidence[];
-    requestedCount: number;
-    assessmentBlueprint: AssessmentBlueprint;
-}) => {
-    const topicTitle = normalizeFreshFallbackText(args.topic?.title, 80) || "this topic";
-    const sourceEvidence = args.evidence.length > 0 ? args.evidence : [{ text: topicTitle, passageId: "fallback-passage", page: 0, startChar: 0, endChar: topicTitle.length } as RetrievedEvidence];
-    const requestedCount = Math.max(1, Math.round(Number(args.requestedCount || 1)));
-    const objectivePlanItems = Array.isArray(args.assessmentBlueprint?.objectivePlan?.items)
-        ? args.assessmentBlueprint.objectivePlan.items.filter((item: any) =>
-            normalizeQuestionType(item?.targetType || item?.questionType) === QUESTION_TYPE_MULTIPLE_CHOICE
-        )
-        : [];
-
-    return Array.from({ length: requestedCount }).map((_, index) => {
-        const evidence = sourceEvidence[index % sourceEvidence.length];
-        const citation = buildFreshFallbackCitation(evidence);
-        const planItem = objectivePlanItems.length > 0 ? objectivePlanItems[index % objectivePlanItems.length] : null;
-        const outcome = selectFreshFallbackOutcome(args.assessmentBlueprint, planItem?.outcomeKey);
-        const outcomeKey = normalizeOutcomeKey(outcome?.key || planItem?.outcomeKey || "core-understanding") || "core-understanding";
-        const bloomLevel = normalizeBloomLevel(outcome?.bloomLevel || "Understand") || "Understand";
-        const learningObjective = normalizeFreshFallbackText(
-            outcome?.objective || `Identify evidence-supported ideas in ${topicTitle}.`,
-            180,
-        );
-        const quotedStatement = normalizeFreshFallbackText(citation.quote, 220);
-
-        return {
-            _id: `fresh-deterministic-objective-${index + 1}`,
-            questionType: "multiple_choice",
-            questionText: `Which statement is directly supported by Evidence ${index + 1} for ${topicTitle}?`,
-            options: [
-                { label: "A", text: quotedStatement, isCorrect: true },
-                { label: "B", text: `The cited evidence says ${topicTitle} cannot be assessed from the lesson material.`, isCorrect: false },
-                { label: "C", text: "The cited evidence is unrelated to the current lesson topic.", isCorrect: false },
-                { label: "D", text: "The cited evidence gives no useful information for answering the question.", isCorrect: false },
-            ],
-            correctAnswer: "A",
-            explanation: `Option A restates the cited evidence: "${quotedStatement}"`,
-            difficulty: "medium",
-            citations: [citation],
-            sourcePassageIds: [citation.passageId],
-            learningObjective,
-            bloomLevel,
-            outcomeKey,
-            subClaimId: String(planItem?.subClaimId || "").trim() || undefined,
-            cognitiveOperation: normalizeGeneratedCognitiveOperation(planItem?.targetOp || "recognition"),
-            tier: normalizeGeneratedTier(planItem?.targetTier || 1),
-            qualityTier: QUALITY_TIER_LIMITED,
-        };
-    });
-};
-
-const buildDeterministicFreshEssayQuestions = (args: {
-    topic: any;
-    evidence: RetrievedEvidence[];
-    requestedCount: number;
-    assessmentBlueprint: AssessmentBlueprint;
-}) => {
-    const topicTitle = normalizeFreshFallbackText(args.topic?.title, 80) || "this topic";
-    const sourceEvidence = args.evidence.length > 0 ? args.evidence : [{ text: topicTitle, passageId: "fallback-passage", page: 0, startChar: 0, endChar: topicTitle.length } as RetrievedEvidence];
-    const requestedCount = Math.max(1, Math.round(Number(args.requestedCount || 1)));
-    const essayPlanItems = Array.isArray((args.assessmentBlueprint as any)?.essayPlan?.items)
-        ? (args.assessmentBlueprint as any).essayPlan.items
-        : [];
-
-    return Array.from({ length: requestedCount }).map((_, index) => {
-        const evidence = sourceEvidence[index % sourceEvidence.length];
-        const citation = buildFreshFallbackCitation(evidence);
-        const planItem = essayPlanItems.length > 0 ? essayPlanItems[index % essayPlanItems.length] : null;
-        const sourceOutcomeKey = Array.isArray(planItem?.sourceOutcomeKeys) ? planItem.sourceOutcomeKeys[0] : undefined;
-        const outcome = selectFreshFallbackOutcome(args.assessmentBlueprint, sourceOutcomeKey);
-        const outcomeKey = normalizeOutcomeKey(outcome?.key || sourceOutcomeKey || "evidence-analysis") || "evidence-analysis";
-        const bloomLevel = normalizeBloomLevel(planItem?.targetBloomLevel || outcome?.bloomLevel || "Analyze") || "Analyze";
-        const learningObjective = normalizeFreshFallbackText(
-            outcome?.objective || `Analyze how evidence supports the main ideas in ${topicTitle}.`,
-            180,
-        );
-        const quotedStatement = normalizeFreshFallbackText(citation.quote, 220);
-
-        return {
-            _id: `fresh-deterministic-essay-${index + 1}`,
-            questionType: "essay",
-            questionText: `Using the cited evidence, explain the main idea in Evidence ${index + 1} and how it connects to ${topicTitle}.`,
-            correctAnswer: `A strong answer explains that the cited evidence states "${quotedStatement}" and connects that point to the lesson's main ideas about ${topicTitle}.`,
-            explanation: `This prompt is grounded in the cited passage and should be answered by interpreting that evidence in context.`,
-            difficulty: "medium",
-            citations: [citation],
-            sourcePassageIds: [citation.passageId],
-            learningObjective,
-            bloomLevel,
-            outcomeKey,
-            authenticContext: undefined,
-            rubricPoints: [
-                "Accurately restates the cited evidence.",
-                `Explains how the evidence connects to ${topicTitle}.`,
-                "Uses clear reasoning without adding unsupported claims.",
-            ],
-            sourceSubClaimIds: Array.isArray(planItem?.sourceSubClaimIds)
-                ? planItem.sourceSubClaimIds.map((item: any) => String(item || "").trim()).filter(Boolean)
-                : undefined,
-            essayPlanItemKey: planItem ? resolveEssayPlanItemKey(planItem) : undefined,
-            qualityTier: QUALITY_TIER_LIMITED,
-        };
-    });
-};
-
-const buildDeterministicFreshExamFallbackSnapshot = (args: {
-    topic: any;
-    examFormat: "mcq" | "essay";
-    requestedCount: number;
-    evidence: RetrievedEvidence[];
-    assessmentBlueprint: AssessmentBlueprint;
-    reason: string;
-}) => {
-    const questions = args.examFormat === "essay"
-        ? buildDeterministicFreshEssayQuestions(args)
-        : buildDeterministicFreshObjectiveQuestions(args);
-    const snapshot = buildFreshExamSnapshot({
-        topic: args.topic,
-        examFormat: args.examFormat,
-        questions,
-        evidence: args.evidence,
-        questionMix: args.examFormat === "essay"
-            ? { essay: questions.length }
-            : { multiple_choice: questions.length, true_false: 0, fill_blank: 0 },
-        qualityTier: "unverified",
-    });
-
-    return {
-        ...snapshot,
-        qualityWarnings: [
-            "deterministic-fresh-exam-fallback",
-            args.reason,
-        ],
-    };
-};
-
-const isFreshExamAuthoringFallbackEligibleError = (error: any) => {
-    const code = String(error?.data?.code || error?.code || "").toLowerCase();
-    const message = String(error?.message || error?.data?.message || error || "").toLowerCase();
-    return (
-        code.includes("timeout")
-        || message.includes("timed out")
-        || message.includes("timeout")
-        || message.includes("deadline")
-        || message.includes("network")
-        || message.includes("connection")
-    );
-};
-
 // ── Topic podcast script generation ────────────────────────────────────────
 // Generates a grounded two-speaker explainer podcast transcript suitable for
 // direct synthesis with a TTS provider.
@@ -15482,21 +14992,16 @@ export const generateFreshExamSnapshotInternal = internalAction({
                             : "We couldn't generate a valid objective exam from this topic right now. Please try again.",
                     });
                 } catch (error) {
-                    if (!isFreshExamAuthoringFallbackEligibleError(error)) {
-                        throw error;
-                    }
-                    console.warn("[FreshExam] deterministic_fallback_after_authoring_failure", {
+                    console.warn("[FreshExam] authoring_failed_without_deterministic_fallback", {
                         topicId: String(topic?._id || ""),
                         examFormat,
                         reason: String((error as any)?.message || error || "").slice(0, 220),
                     });
-                    return buildDeterministicFreshExamFallbackSnapshot({
-                        topic,
-                        examFormat,
-                        requestedCount,
-                        evidence: effectiveEvidence,
-                        assessmentBlueprint,
-                        reason: "authoring-timeout",
+                    throw new ConvexError({
+                        code: "EXAM_GENERATION_FAILED",
+                        message: examFormat === "essay"
+                            ? "We couldn't generate a valid essay exam from this topic right now. Please try again."
+                            : "We couldn't generate a valid objective exam from this topic right now. Please try again.",
                     });
                 }
             }

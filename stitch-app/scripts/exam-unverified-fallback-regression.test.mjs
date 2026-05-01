@@ -40,19 +40,32 @@ if (!/const FRESH_CONTEXT_BLUEPRINT_TIMEOUT_MS = Math\.max\([\s\S]*30000/.test(a
 }
 
 if (!/const FRESH_CONTEXT_AUTHORING_TIMEOUT_MS = Math\.max\([\s\S]*45000/.test(aiSource)) {
-  throw new Error('Expected fresh exam authoring to use a bounded timeout before falling back.');
+  throw new Error('Expected fresh exam authoring to use a bounded timeout before returning a retryable failure.');
 }
 
-if (!/const buildDeterministicFreshExamFallbackSnapshot = \(/.test(aiSource)) {
-  throw new Error('Expected ai.ts to define a deterministic fresh exam fallback snapshot for authoring failures.');
+for (const forbidden of [
+  'buildDeterministicFreshExamFallbackSnapshot',
+  'buildDeterministicFreshObjectiveQuestions',
+  'buildDeterministicFreshEssayQuestions',
+  'deterministic-fresh-exam-fallback',
+  'fresh-deterministic-objective',
+  'fresh-deterministic-essay',
+  'Which statement is directly supported by Evidence',
+  'cannot be assessed from the lesson material',
+  'The cited evidence is unrelated to the current lesson topic.',
+  'The cited evidence gives no useful information for answering the question.',
+]) {
+  if (aiSource.includes(forbidden)) {
+    throw new Error(`Expected fresh exam generation not to contain deterministic fallback question text: ${forbidden}`);
+  }
 }
 
-if (!/deterministic-fresh-exam-fallback/.test(aiSource)) {
-  throw new Error('Expected deterministic fresh exam fallback snapshots to include an explicit quality warning.');
+if (!/authoring_failed_without_deterministic_fallback/.test(aiSource)) {
+  throw new Error('Expected fresh exam authoring failures to be logged without serving deterministic fallback questions.');
 }
 
-if (!/isFreshExamAuthoringFallbackEligibleError\(error\)[\s\S]*buildDeterministicFreshExamFallbackSnapshot\(\{/.test(aiSource)) {
-  throw new Error('Expected fresh exam authoring timeouts/network failures to return a deterministic fallback snapshot.');
+if (!/throw new ConvexError\(\{[\s\S]*code: "EXAM_GENERATION_FAILED"[\s\S]*Please try again/.test(aiSource)) {
+  throw new Error('Expected fresh exam authoring failures to return a retryable error instead of a fallback exam snapshot.');
 }
 
 if (!/const recommendedFloor = topicKind === "document_final_exam" \? 3 : 1;/.test(aiSource)) {
