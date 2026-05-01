@@ -204,7 +204,6 @@ const InteractiveWordBank = ({ terms, starredTerms, onTermsStarred }) => {
             {/* Tab content */}
             {activeTab === 'flashcards' && (
                 <FlashcardDeck
-                    key={`deck-${starredTerms ? starredTerms.length : 0}`}
                     terms={terms}
                     starredTerms={[...starred]}
                     onTermsStarred={onTermsStarred}

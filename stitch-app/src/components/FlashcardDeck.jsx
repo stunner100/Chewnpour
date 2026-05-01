@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useEffect } from 'react';
+import React, { useState, useCallback, useMemo, useEffect } from 'react';
 
 // Single flipping card
 const FlashCard = ({ term, definition, flipped, onFlip }) => (
@@ -47,10 +47,10 @@ const FlashCard = ({ term, definition, flipped, onFlip }) => (
 );
 
 const FlashcardDeck = ({ terms, starredTerms, onTermsStarred }) => {
-    const [starred, setStarred] = useState(() => new Set(starredTerms || []));
     const [index, setIndex] = useState(0);
     const [flipped, setFlipped] = useState(false);
     const [starredOnly, setStarredOnly] = useState(false);
+    const starred = useMemo(() => new Set(starredTerms || []), [starredTerms]);
 
     const deck = starredOnly
         ? terms.filter((t) => starred.has(t.term))
@@ -70,14 +70,11 @@ const FlashcardDeck = ({ terms, starredTerms, onTermsStarred }) => {
     const next = useCallback(() => goTo((safeIndex + 1) % safeDeck.length), [goTo, safeIndex, safeDeck.length]);
 
     const toggleStar = useCallback(() => {
-        setStarred((prev) => {
-            const next = new Set(prev);
-            if (next.has(current.term)) next.delete(current.term);
-            else next.add(current.term);
-            if (onTermsStarred) onTermsStarred([...next]);
-            return next;
-        });
-    }, [current, onTermsStarred]);
+        const next = new Set(starred);
+        if (next.has(current.term)) next.delete(current.term);
+        else next.add(current.term);
+        if (onTermsStarred) onTermsStarred([...next]);
+    }, [current, onTermsStarred, starred]);
 
     // Keyboard: ← → to navigate, Space/Enter to flip
     useEffect(() => {
