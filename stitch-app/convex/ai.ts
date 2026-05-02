@@ -607,6 +607,9 @@ const resolvePreferredTextProvider = (): TextProvider => {
 const featureUsesDeepSeekDocumentPipeline = (feature: string) =>
     DEEPSEEK_DOCUMENT_PIPELINE_FEATURES.has(String(feature || "").trim());
 
+const featureAllowsDocumentPipelineProviderFallback = (feature: string) =>
+    ["mcq_generation", "essay_generation"].includes(String(feature || "").trim());
+
 const resolveDeepSeekDocumentPipelineModel = (feature: string) =>
     COMPLEX_DOCUMENT_PIPELINE_FEATURES.has(String(feature || "").trim())
         ? DEEPSEEK_DOCUMENT_PRO_MODEL
@@ -624,6 +627,7 @@ async function callInception(
     const llmFeature = String(llmUsageContextStorage.getStore()?.feature || "unknown").trim() || "unknown";
     const preferredProvider = resolvePreferredTextProvider();
     const pipelineOpenAiRequired = featureUsesDeepSeekDocumentPipeline(llmFeature);
+    const pipelineProviderFallbackAllowed = featureAllowsDocumentPipelineProviderFallback(llmFeature);
     const openAiModel = pipelineOpenAiRequired ? resolveDeepSeekDocumentPipelineModel(llmFeature) : model;
     const requestedOpenAiMaxTokens = options?.maxTokens ?? 2048;
     const openAiMaxTokens = openAiModel === DEEPSEEK_DOCUMENT_PRO_MODEL
@@ -1044,7 +1048,7 @@ async function callInception(
             return await callOpenAiText();
         } catch (error) {
             const errorMessage = error instanceof Error ? error.message : String(error);
-            if (pipelineOpenAiRequired) {
+            if (pipelineOpenAiRequired && !pipelineProviderFallbackAllowed) {
                 throw error;
             }
             if (shouldFallbackToBedrockText({ errorMessage, bedrockAvailable })) {
@@ -2551,6 +2555,7 @@ const ensureAssessmentBlueprintForTopic = async (args: {
     deadlineMs?: number;
     repairTimeoutMs?: number;
     forceRegenerate?: boolean;
+    skipSubClaimGeneration?: boolean;
 }): Promise<AssessmentBlueprint> => {
     const buildFallbackAssessmentBlueprint = () => {
         const topicTitle = String(args.topic?.title || "this topic").trim() || "this topic";
@@ -2615,13 +2620,22 @@ const ensureAssessmentBlueprintForTopic = async (args: {
         }
     }
 
-    const subClaims = await ensureTopicSubClaimsForExamGeneration({
-        ctx: args.ctx,
-        topic: args.topic,
-        evidence: args.evidence,
-        deadlineMs: args.deadlineMs,
-        forceRegenerate: args.forceRegenerate,
-    });
+    let subClaims: any[] = [];
+    if (!args.forceRegenerate) {
+        const existingClaims = await args.ctx.runQuery(internal.topics.getSubClaimsByTopicInternal, {
+            topicId,
+        });
+        subClaims = Array.isArray(existingClaims) ? existingClaims : [];
+    }
+    if (subClaims.length === 0 && !args.skipSubClaimGeneration) {
+        subClaims = await ensureTopicSubClaimsForExamGeneration({
+            ctx: args.ctx,
+            topic: args.topic,
+            evidence: args.evidence,
+            deadlineMs: args.deadlineMs,
+            forceRegenerate: args.forceRegenerate,
+        });
+    }
     const distractors = Array.isArray(subClaims) && subClaims.length > 0
         ? await args.ctx.runQuery(internal.topics.getDistractorsByTopicInternal, { topicId })
         : [];
@@ -13674,6 +13688,7 @@ export const generateEssayQuestionsForTopic = action({
 
 const FRESH_CONTEXT_EXAM_PROMPT_VERSION = "fresh_context_v1";
 const FRESH_CONTEXT_OBJECTIVE_DEFAULT_COUNT = 10;
+const FRESH_CONTEXT_OBJECTIVE_INTERACTIVE_MAX_COUNT = 5;
 const FRESH_CONTEXT_ESSAY_DEFAULT_COUNT = 1;
 const FRESH_CONTEXT_BLUEPRINT_TIMEOUT_MS = Math.max(
     5000,
@@ -13788,10 +13803,11 @@ const resolveFreshExamTargetCount = (
     return buildFreshObjectiveCountCandidates(topic, evidence, configuredTarget)[0] || 1;
 };
 
-const formatRetrievedEvidenceForPrompt = (evidence: RetrievedEvidence[], maxChars = 14000) =>
+const formatRetrievedEvidenceForPrompt = (evidence: RetrievedEvidence[], maxChars = 3500) =>
     evidence
+        .slice(0, 6)
         .map((entry, index) => {
-            const trimmed = String(entry.text || "").slice(0, 900).trim();
+            const trimmed = String(entry.text || "").slice(0, 420).trim();
             const sectionHint = String(entry.sectionHint || "").trim();
             const blockType = String(entry.blockType || "").trim();
             const headingPath = Array.isArray(entry.headingPath)
@@ -13838,8 +13854,29 @@ const buildFreshLessonContext = (topic: any) => {
         structuredSubtopics.length > 0
             ? `SUBTOPICS:\n${structuredSubtopics.map((item: string) => `- ${item}`).join("\n")}`
             : "",
-        `LESSON CONTENT:\n"""\n${String(topic?.content || "").slice(0, 12000)}\n"""`,
+        `LESSON CONTENT:\n"""\n${String(topic?.content || "").slice(0, 2500)}\n"""`,
     ].filter(Boolean).join("\n\n");
+};
+
+const formatFreshAssessmentBlueprintForPrompt = (blueprint: AssessmentBlueprint) => {
+    const targetKeys = Array.isArray(blueprint?.mcqPlan?.targetOutcomeKeys)
+        ? blueprint.mcqPlan.targetOutcomeKeys.map((key: any) => String(key || "").trim()).filter(Boolean)
+        : [];
+    const outcomes = Array.isArray(blueprint?.outcomes)
+        ? blueprint.outcomes
+            .map((outcome: any) => ({
+                key: String(outcome?.key || "").trim(),
+                objective: String(outcome?.objective || "").replace(/\s+/g, " ").trim(),
+                bloomLevel: String(outcome?.bloomLevel || "").trim(),
+            }))
+            .filter((outcome) => outcome.key && (!targetKeys.length || targetKeys.includes(outcome.key)))
+            .slice(0, 5)
+        : [];
+
+    return JSON.stringify({
+        targetOutcomeKeys: targetKeys.slice(0, 5),
+        outcomes,
+    });
 };
 
 const buildFreshObjectiveTypeMix = (requestedCount: number) => {
@@ -13881,7 +13918,7 @@ GROUNDED EVIDENCE:
 ${formatRetrievedEvidenceForPrompt(args.evidence)}
 
 ASSESSMENT BLUEPRINT:
-${JSON.stringify(args.assessmentBlueprint, null, 2)}
+${formatFreshAssessmentBlueprintForPrompt(args.assessmentBlueprint)}
 ${feedbackBlock}
 Rules:
 ${generationRule}
@@ -14679,10 +14716,14 @@ export const generateFreshExamSnapshotInternal = internalAction({
                     : [];
                 const requestedCount = examFormat === "essay"
                     ? (essayCountCandidates[0] || configuredTarget)
-                    : resolveFreshExamTargetCount(topic, examFormat, effectiveEvidence);
+                    : Math.min(
+                        FRESH_CONTEXT_OBJECTIVE_INTERACTIVE_MAX_COUNT,
+                        resolveFreshExamTargetCount(topic, examFormat, effectiveEvidence),
+                    );
                 const objectiveCountCandidates = examFormat === "essay"
                     ? []
-                    : buildFreshObjectiveCountCandidates(topic, effectiveEvidence, configuredTarget);
+                    : buildFreshObjectiveCountCandidates(topic, effectiveEvidence, configuredTarget)
+                        .filter((count) => count <= requestedCount);
 
                 const assessmentBlueprint = await ensureAssessmentBlueprintForTopic({
                     ctx,
@@ -14690,11 +14731,13 @@ export const generateFreshExamSnapshotInternal = internalAction({
                     evidence: effectiveEvidence,
                     deadlineMs: Date.now() + FRESH_CONTEXT_BLUEPRINT_TIMEOUT_MS,
                     repairTimeoutMs: FRESH_CONTEXT_BLUEPRINT_TIMEOUT_MS,
+                    skipSubClaimGeneration: true,
                 });
 
                 try {
                     let validationFeedback: string[] = [];
-                    for (let attempt = 0; attempt < 2; attempt += 1) {
+                    const authoringAttempts = examFormat === "essay" ? 2 : 1;
+                    for (let attempt = 0; attempt < authoringAttempts; attempt += 1) {
                         if (isFreshExamDeadlineExceeded(interactiveDeadlineMs, 5000)) {
                             throw new ConvexError({
                                 code: "EXAM_GENERATION_TIMEOUT",
@@ -14716,6 +14759,7 @@ export const generateFreshExamSnapshotInternal = internalAction({
                                 evidence: effectiveEvidence,
                                 assessmentBlueprint,
                                 validationFeedback,
+                                forceQuestionType: "multiple_choice",
                             });
 
                         const response = await callInception([
@@ -14727,12 +14771,14 @@ export const generateFreshExamSnapshotInternal = internalAction({
                             },
                             { role: "user", content: prompt },
                         ], DEFAULT_MODEL, {
-                            maxTokens: examFormat === "essay" ? 3200 : 5200,
+                            maxTokens: examFormat === "essay" ? 3200 : 3000,
                             responseFormat: "json_object",
                             timeoutMs: Math.max(
                                 5000,
                                 Math.min(
-                                    FRESH_CONTEXT_AUTHORING_TIMEOUT_MS,
+                                    examFormat === "essay"
+                                        ? FRESH_CONTEXT_AUTHORING_TIMEOUT_MS
+                                        : 15000,
                                     getFreshExamRemainingMs(interactiveDeadlineMs, 3000),
                                 ),
                             ),
@@ -14769,6 +14815,7 @@ export const generateFreshExamSnapshotInternal = internalAction({
                                 requestedCount,
                                 evidenceIndex: effectiveIndex,
                                 assessmentBlueprint,
+                                enforceMix: false,
                             });
 
                         if (validation.valid) {
@@ -14790,6 +14837,14 @@ export const generateFreshExamSnapshotInternal = internalAction({
                         }
 
                         validationFeedback = validation.errors.slice(0, 8);
+                        console.warn("[FreshExam] validation_failed", {
+                            topicId: String(topic?._id || ""),
+                            examFormat,
+                            attempt,
+                            requestedCount,
+                            errors: validation.errors.slice(0, 5),
+                            warnings: validation.warnings.slice(0, 5),
+                        });
                         if (attempt === 0 && isFreshExamDeadlineExceeded(interactiveDeadlineMs, 18000)) {
                             throw new ConvexError({
                                 code: "EXAM_GENERATION_TIMEOUT",
@@ -14837,7 +14892,7 @@ export const generateFreshExamSnapshotInternal = internalAction({
                                 timeoutMs: Math.max(
                                     5000,
                                     Math.min(
-                                        FRESH_CONTEXT_AUTHORING_TIMEOUT_MS,
+                                        15000,
                                         getFreshExamRemainingMs(interactiveDeadlineMs, 3000),
                                     ),
                                 ),
