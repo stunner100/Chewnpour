@@ -1,0 +1,38 @@
+project: chewnpour
+phase: questionnaire
+analysis:
+  apps:
+    - stitch-app
+    - docling-service
+answers:
+  default_target: production
+  restrictions: []
+  production_write_policy: allowed_for_qa
+  personas:
+    baseline_roles:
+      - learner
+      - premium
+      - admin
+    provisioning: create_via_signup
+    credentials_source: vercel_env
+    existing_test_accounts: none
+    permission_baseline: detected_defaults
+    admin_coverage: manual_admin_only
+  critical_flows:
+    baseline: full
+    success_criteria: include_external_side_effects
+    persona_coverage: full_persona_matrix
+    persistent_data_cleanup: always
+  integrations:
+    payments: test_sandbox_only
+    email_verification: dedicated_inboxes
+    oauth_coverage: include_google_oauth
+    docling_auth: shared_secret_env_var
+  cleanup:
+    strategy: admin_panel_cleanup
+  imagemagick: true
+  github_action:
+    generate: true
+    merge_policy: required
+    web_ci_target: local_dev_server
+  failure_learning: open_pr

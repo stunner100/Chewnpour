@@ -1,0 +1,157 @@
+project: ChewnPour
+imagemagick: true
+
+environments:
+  development:
+    url: http://localhost:5173
+    restrictions:
+      - Uses the local Vite app plus the dev Convex deployment from stitch-app/.env.local.
+      - Preferred target for checked-out branch validation in CI because no PR preview workflow was detected.
+    app_urls:
+      stitch-app: http://localhost:5173
+      docling-service: http://127.0.0.1:10000
+  staging:
+    url: https://stitch-app-git-staging-stunner100s-projects.vercel.app
+    restrictions:
+      - Staging is a Vercel preview for the staging branch and must use a non-production Convex deployment.
+      - Safe place for write-heavy smoke tests when the operator prefers not to touch production.
+    app_urls:
+      stitch-app: https://stitch-app-git-staging-stunner100s-projects.vercel.app
+      docling-service: ${QA_DOCLING_EXTRACT_URL}
+  production:
+    url: https://chewnpour.com
+    restrictions:
+      - Operator approved QA writes in production for this setup.
+      - Use Paystack sandbox/test coverage only.
+      - Clean up QA-created data through the admin panel after runs.
+    app_urls:
+      stitch-app: https://chewnpour.com
+      docling-service: ${QA_DOCLING_EXTRACT_URL}
+
+default_target: production
+
+auth:
+  method: email-password-and-google-oauth
+  provider: Better Auth + Convex
+  frontend_url_envs:
+    - APP_BASE_URL
+    - FRONTEND_URL
+    - FRONTEND_URLS
+  oauth_provider: Google
+  oauth_test_email_secret: QA_GOOGLE_TEST_EMAIL
+  oauth_test_password_secret: QA_GOOGLE_TEST_PASSWORD
+
+personas:
+  - name: learner
+    description: 'Core learner covering signup/login, onboarding, upload, study, exams, results, community, and profile flows.'
+    email: QA_LEARNER_EMAIL
+    credentials_source: env-var
+    secret_name: QA_DEFAULT_TEST_PASSWORD
+    provisioning: signup_if_missing_then_login
+    test_focus:
+      - auth
+      - onboarding
+      - uploads
+      - topic-study
+      - exams
+      - results
+      - community
+      - profile
+    cannot_do:
+      - access /admin
+      - use premium-only capabilities after free limits
+  - name: premium
+    description: 'Paid learner covering sandbox top-up, premium entitlements, voice mode, podcasts, humanizer, and unlimited AI flows.'
+    email: QA_PREMIUM_EMAIL
+    credentials_source: env-var
+    secret_name: QA_DEFAULT_TEST_PASSWORD
+    provisioning: signup_if_missing_then_upgrade_via_sandbox
+    test_focus:
+      - subscription
+      - paystack-topup
+      - voice
+      - podcasts
+      - humanizer
+      - premium-ai
+    cannot_do:
+      - access /admin
+  - name: admin
+    description: 'Allowlisted operator for admin dashboard checks and post-run cleanup.'
+    email: QA_ADMIN_EMAIL
+    credentials_source: env-var
+    secret_name: QA_ADMIN_PASSWORD
+    provisioning: manual_only
+    test_focus:
+      - admin-dashboard
+      - payment-provider-settings
+      - admin-email-management
+      - cleanup
+    cannot_do:
+      - run as an unattended default persona until an allowlisted test account exists
+
+apps:
+  stitch-app:
+    path_patterns:
+      - stitch-app/src/**
+      - stitch-app/convex/**
+      - stitch-app/api/**
+      - stitch-app/public/**
+      - stitch-app/config/**
+      - stitch-app/package.json
+      - stitch-app/package-lock.json
+      - stitch-app/vite.config.js
+      - stitch-app/vercel.json
+    skill: qa-stitch-app
+    test_tool: agent-browser
+    build_command: npm run build --prefix stitch-app
+    dev_command: npm run dev --prefix stitch-app -- --host 127.0.0.1 --port 5173
+  docling-service:
+    path_patterns:
+      - docling-service/render_api/**
+      - docling-service/pyproject.toml
+      - docling-service/Dockerfile
+      - render.yaml
+      - .do/app.yaml
+      - .do/app.scale-to-zero.yaml
+    skill: qa-docling-service
+    test_tool: curl
+    build_command: python3 -m pip install -e "./docling-service[dev]"
+    dev_command: python3 -m uvicorn render_api.app:app --app-dir docling-service --host 127.0.0.1 --port 10000
+
+feature_flags:
+  provider: custom_env_and_admin_settings
+  dashboard_url: /admin
+  how_to_override: >
+    Stitch-app uses environment and runtime flags instead of LaunchDarkly/Statsig.
+    Relevant toggles include VITE_PODCAST_GEN_ENABLED, DOCLING_ENABLED,
+    GROUNDED_VECTOR_RETRIEVAL_ENABLED, TOPIC_ILLUSTRATION_GENERATION_ENABLED,
+    PAYMENT_PROVIDER, and profile-level settings like voiceModeEnabled.
+
+integrations:
+  payments:
+    provider: paystack
+    mode: sandbox_only
+    fallback_provider: manual
+  email:
+    provider: resend
+    inbox_strategy: dedicated_inboxes
+  oauth:
+    provider: google
+  docling:
+    provider: docling
+    extract_url_secret: QA_DOCLING_EXTRACT_URL
+    shared_secret_secret: DOCLING_SHARED_SECRET
+  analytics:
+    provider: posthog
+  error_monitoring:
+    provider: sentry
+
+cleanup:
+  auto_cleanup: false
+  strategy: admin-panel
+  instructions: >
+    Use the allowlisted admin persona to remove QA-created users, uploads, courses,
+    and payment artifacts after each run. Because learner and premium personas may
+    write to production in this configuration, cleanup is mandatory.
+
+failure_learning: open_pr
