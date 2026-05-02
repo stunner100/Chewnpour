@@ -313,6 +313,24 @@ export const startExamAttempt = action({
             resourceOwnerUserId: accessContext.courseUserId,
         });
 
+        const reusableAttempt: any = await ctx.runMutation(internal.exams.ensurePreparedExamAttemptInternal, {
+            userId: effectiveUserId,
+            topicId: args.topicId,
+            examFormat,
+            allowPartialReady: true,
+        });
+        const reusableQuestions = Array.isArray(reusableAttempt?.questions) ? reusableAttempt.questions : [];
+        if (reusableAttempt?.status === "ready" && reusableAttempt?.attemptId && reusableQuestions.length > 0) {
+            return {
+                attemptId: reusableAttempt.attemptId,
+                totalQuestions: reusableQuestions.length,
+                questions: reusableQuestions,
+                reusedAttempt: true,
+                qualityTier: typeof reusableAttempt?.qualityTier === "string" ? reusableAttempt.qualityTier : undefined,
+                qualityWarnings: Array.isArray(reusableAttempt?.qualityWarnings) ? reusableAttempt.qualityWarnings : [],
+            };
+        }
+
         const snapshot: any = await ctx.runAction(internal.ai.generateFreshExamSnapshotInternal, {
             topicId: args.topicId,
             examFormat,

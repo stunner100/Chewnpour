@@ -268,7 +268,7 @@ const SEVERE_QUESTION_QUALITY_FLAGS = new Set([
     "corrupted_text",
 ]);
 
-const MALFORMED_FRACTION_PLACEHOLDER_PATTERN = /(?:^|[\s(=+\-*/])(?:bc|bd|be)(?=$|[\s).,;:=+\-*/])/i;
+const MALFORMED_FRACTION_PLACEHOLDER_PATTERN = /(?:^|[\s(=+\-*/])(?:bc|bd)(?=$|[\s).,;:=+\-*/])/i;
 const hasControlCharacter = (value) => {
     for (let index = 0; index < value.length; index += 1) {
         const code = value.charCodeAt(index);
