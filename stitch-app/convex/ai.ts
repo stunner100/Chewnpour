@@ -13684,6 +13684,7 @@ export const generateEssayQuestionsForTopic = action({
 
 const FRESH_CONTEXT_EXAM_PROMPT_VERSION = "fresh_context_v1";
 const FRESH_CONTEXT_OBJECTIVE_DEFAULT_COUNT = 10;
+const FRESH_CONTEXT_OBJECTIVE_INTERACTIVE_MAX_COUNT = 5;
 const FRESH_CONTEXT_ESSAY_DEFAULT_COUNT = 1;
 const FRESH_CONTEXT_BLUEPRINT_TIMEOUT_MS = Math.max(
     5000,
@@ -13798,10 +13799,10 @@ const resolveFreshExamTargetCount = (
     return buildFreshObjectiveCountCandidates(topic, evidence, configuredTarget)[0] || 1;
 };
 
-const formatRetrievedEvidenceForPrompt = (evidence: RetrievedEvidence[], maxChars = 14000) =>
+const formatRetrievedEvidenceForPrompt = (evidence: RetrievedEvidence[], maxChars = 7000) =>
     evidence
         .map((entry, index) => {
-            const trimmed = String(entry.text || "").slice(0, 900).trim();
+            const trimmed = String(entry.text || "").slice(0, 650).trim();
             const sectionHint = String(entry.sectionHint || "").trim();
             const blockType = String(entry.blockType || "").trim();
             const headingPath = Array.isArray(entry.headingPath)
@@ -13848,7 +13849,7 @@ const buildFreshLessonContext = (topic: any) => {
         structuredSubtopics.length > 0
             ? `SUBTOPICS:\n${structuredSubtopics.map((item: string) => `- ${item}`).join("\n")}`
             : "",
-        `LESSON CONTENT:\n"""\n${String(topic?.content || "").slice(0, 12000)}\n"""`,
+        `LESSON CONTENT:\n"""\n${String(topic?.content || "").slice(0, 6000)}\n"""`,
     ].filter(Boolean).join("\n\n");
 };
 
@@ -14689,10 +14690,14 @@ export const generateFreshExamSnapshotInternal = internalAction({
                     : [];
                 const requestedCount = examFormat === "essay"
                     ? (essayCountCandidates[0] || configuredTarget)
-                    : resolveFreshExamTargetCount(topic, examFormat, effectiveEvidence);
+                    : Math.min(
+                        FRESH_CONTEXT_OBJECTIVE_INTERACTIVE_MAX_COUNT,
+                        resolveFreshExamTargetCount(topic, examFormat, effectiveEvidence),
+                    );
                 const objectiveCountCandidates = examFormat === "essay"
                     ? []
-                    : buildFreshObjectiveCountCandidates(topic, effectiveEvidence, configuredTarget);
+                    : buildFreshObjectiveCountCandidates(topic, effectiveEvidence, configuredTarget)
+                        .filter((count) => count <= requestedCount);
 
                 const assessmentBlueprint = await ensureAssessmentBlueprintForTopic({
                     ctx,
@@ -14705,7 +14710,8 @@ export const generateFreshExamSnapshotInternal = internalAction({
 
                 try {
                     let validationFeedback: string[] = [];
-                    for (let attempt = 0; attempt < 2; attempt += 1) {
+                    const authoringAttempts = examFormat === "essay" ? 2 : 1;
+                    for (let attempt = 0; attempt < authoringAttempts; attempt += 1) {
                         if (isFreshExamDeadlineExceeded(interactiveDeadlineMs, 5000)) {
                             throw new ConvexError({
                                 code: "EXAM_GENERATION_TIMEOUT",
@@ -14727,6 +14733,7 @@ export const generateFreshExamSnapshotInternal = internalAction({
                                 evidence: effectiveEvidence,
                                 assessmentBlueprint,
                                 validationFeedback,
+                                forceQuestionType: "multiple_choice",
                             });
 
                         const response = await callInception([
@@ -14738,7 +14745,7 @@ export const generateFreshExamSnapshotInternal = internalAction({
                             },
                             { role: "user", content: prompt },
                         ], DEFAULT_MODEL, {
-                            maxTokens: examFormat === "essay" ? 3200 : 5200,
+                            maxTokens: examFormat === "essay" ? 3200 : 3000,
                             responseFormat: "json_object",
                             timeoutMs: Math.max(
                                 5000,
@@ -14780,6 +14787,7 @@ export const generateFreshExamSnapshotInternal = internalAction({
                                 requestedCount,
                                 evidenceIndex: effectiveIndex,
                                 assessmentBlueprint,
+                                enforceMix: false,
                             });
 
                         if (validation.valid) {
