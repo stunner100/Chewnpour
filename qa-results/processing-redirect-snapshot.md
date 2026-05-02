@@ -1,0 +1,88 @@
+- generic [ref=e3]:
+  - complementary [ref=e4]:
+    - generic [ref=e5]:
+      - link "ChewnPour home" [ref=e6] [cursor=pointer]:
+        - /url: /dashboard
+        - generic [ref=e7]:
+          - img [ref=e8]
+          - img [ref=e10]
+        - generic [ref=e11]: ChewnPour
+      - button "menu_open" [ref=e12] [cursor=pointer]:
+        - generic [ref=e13]: menu_open
+    - navigation [ref=e14]:
+      - link "space_dashboard Dashboard" [ref=e15] [cursor=pointer]:
+        - /url: /dashboard
+        - generic [ref=e16]: space_dashboard
+        - generic [ref=e17]: Dashboard
+      - link "auto_stories Library" [ref=e18] [cursor=pointer]:
+        - /url: /dashboard/search
+        - generic [ref=e19]: auto_stories
+        - generic [ref=e20]: Library
+      - link "event_note Study Plan" [ref=e21] [cursor=pointer]:
+        - /url: /dashboard/analysis
+        - generic [ref=e22]: event_note
+        - generic [ref=e23]: Study Plan
+      - link "edit_note Assignments" [ref=e24] [cursor=pointer]:
+        - /url: /dashboard/assignment-helper
+        - generic [ref=e25]: edit_note
+        - generic [ref=e26]: Assignments
+      - link "auto_fix_high Humanizer" [ref=e27] [cursor=pointer]:
+        - /url: /dashboard/humanizer
+        - generic [ref=e28]: auto_fix_high
+        - generic [ref=e29]: Humanizer
+      - link "forum Community" [ref=e30] [cursor=pointer]:
+        - /url: /dashboard/community
+        - generic [ref=e31]: forum
+        - generic [ref=e32]: Community
+    - generic [ref=e33]:
+      - link "workspace_premium Subscription" [ref=e34] [cursor=pointer]:
+        - /url: /subscription
+        - generic [ref=e35]: workspace_premium
+        - generic [ref=e36]: Subscription
+      - link "person Profile" [ref=e37] [cursor=pointer]:
+        - /url: /profile
+        - generic [ref=e38]: person
+        - generic [ref=e39]: Profile
+      - generic [ref=e40]:
+        - generic [ref=e41]: S
+        - paragraph [ref=e43]: Student
+  - main [ref=e44]:
+    - generic [ref=e45]:
+      - navigation "Breadcrumb" [ref=e46]:
+        - link "Dashboard" [ref=e47] [cursor=pointer]:
+          - /url: /dashboard
+        - generic [ref=e48]: chevron_right
+        - link "Library" [ref=e49] [cursor=pointer]:
+          - /url: /dashboard/search
+        - generic [ref=e50]: chevron_right
+        - generic [ref=e51]: Mathematical Logic for Computer Science Mordechai Ben-Ari
+      - generic [ref=e53]:
+        - generic [ref=e54]:
+          - generic [ref=e55]
+          - heading "Mathematical Logic for Computer Science Mordechai Ben-Ari" [level=1] [ref=e60]
+          - paragraph [ref=e61]
+        - generic [ref=e63]:
+          - button "play_arrow Continue learning" [ref=e64] [cursor=pointer]
+          - button "graphic_eq Generate podcast" [ref=e66] [cursor=pointer]
+      - generic [ref=e68]:
+        - generic [ref=e69]:
+          - generic [ref=e71]: auto_stories
+          - generic [ref=e72]
+        - generic [ref=e76]:
+          - generic [ref=e78]: check_circle
+          - generic [ref=e79]
+        - generic [ref=e83]:
+          - generic [ref=e85]: quiz
+          - generic [ref=e86]
+        - generic [ref=e90]:
+          - generic [ref=e92]: graphic_eq
+          - generic [ref=e93]
+      - generic [ref=e97]:
+        - generic [ref=e98]:
+          - generic [ref=e100]
+          - generic [ref=e113]
+          - generic [ref=e125]
+          - generic [ref=e450]
+        - complementary [ref=e460]:
+          - generic [ref=e461]
+          - generic [ref=e490]

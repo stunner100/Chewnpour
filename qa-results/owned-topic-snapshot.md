@@ -1,0 +1,61 @@
+- generic [ref=e7]:
+  - complementary [ref=e8]:
+    - button "menu" [ref=e656] [cursor=pointer]:
+      - generic [ref=e17]: menu
+    - navigation [ref=e18]:
+      - link "space_dashboard" [ref=e657] [cursor=pointer]:
+        - /url: /dashboard
+        - generic [ref=e20]: space_dashboard
+      - link "auto_stories" [ref=e658] [cursor=pointer]:
+        - /url: /dashboard/search
+        - generic [ref=e23]: auto_stories
+      - link "event_note" [ref=e659] [cursor=pointer]:
+        - /url: /dashboard/analysis
+        - generic [ref=e26]: event_note
+      - link "edit_note" [ref=e660] [cursor=pointer]:
+        - /url: /dashboard/assignment-helper
+        - generic [ref=e29]: edit_note
+      - link "auto_fix_high" [ref=e661] [cursor=pointer]:
+        - /url: /dashboard/humanizer
+        - generic [ref=e32]: auto_fix_high
+      - link "forum" [ref=e662] [cursor=pointer]:
+        - /url: /dashboard/community
+        - generic [ref=e35]: forum
+    - generic [ref=e37]:
+      - link "workspace_premium" [ref=e663] [cursor=pointer]:
+        - /url: /subscription
+        - generic [ref=e39]: workspace_premium
+      - link "person" [ref=e664] [cursor=pointer]:
+        - /url: /profile
+        - generic [ref=e42]: person
+  - main [ref=e48]:
+    - generic [ref=e665]:
+      - generic [ref=e667]:
+        - link "Go back" [ref=e668] [cursor=pointer]:
+          - /url: /dashboard/course/jh7djvkyp5gc0rd174kfw0gveh85y5t3
+          - generic [ref=e669]: arrow_back
+        - generic [ref=e670]: What Is Photosynthesis?
+      - main [ref=e671]:
+        - generic [ref=e673]:
+          - generic [ref=e674]:
+            - generic [ref=e675]: menu_book
+            - heading "How do you want to study?" [level=2] [ref=e676]
+            - paragraph [ref=e677]: What Is Photosynthesis?
+          - generic [ref=e678]:
+            - button "flash_on Quick Revision Big idea, key points, and a quick self-check" [ref=e679] [cursor=pointer]:
+              - generic [ref=e680]: flash_on
+              - generic [ref=e681]: Quick Revision
+              - generic [ref=e682]: Big idea, key points, and a quick self-check
+            - button "auto_stories Full Lesson Complete lesson with all sections" [ref=e683] [cursor=pointer]:
+              - generic [ref=e684]: auto_stories
+              - generic [ref=e685]: Full Lesson
+              - generic [ref=e686]: Complete lesson with all sections
+            - button "school Exam Prep Key ideas, common mistakes, and practice" [ref=e687] [cursor=pointer]:
+              - generic [ref=e688]: school
+              - generic [ref=e689]: Exam Prep
+              - generic [ref=e690]: Key ideas, common mistakes, and practice
+            - button "quiz Practice Only Jump straight to quick check and exams" [ref=e691] [cursor=pointer]:
+              - generic [ref=e692]: quiz
+              - generic [ref=e693]: Practice Only
+              - generic [ref=e694]: Jump straight to quick check and exams
+          - button "Skip — view full lesson" [ref=e696] [cursor=pointer]

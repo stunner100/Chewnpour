@@ -1,0 +1,57 @@
+- generic [ref=e3]:
+  - complementary [ref=e4]:
+    - generic [ref=e5]:
+      - link "ChewnPour home" [ref=e6] [cursor=pointer]:
+        - /url: /dashboard
+        - generic [ref=e7]:
+          - img [ref=e8]
+          - img [ref=e10]
+        - generic [ref=e11]: ChewnPour
+      - button "menu_open" [ref=e12] [cursor=pointer]:
+        - generic [ref=e13]: menu_open
+    - navigation [ref=e14]:
+      - link "space_dashboard Dashboard" [ref=e15] [cursor=pointer]:
+        - /url: /dashboard
+        - generic [ref=e16]: space_dashboard
+        - generic [ref=e17]: Dashboard
+      - link "auto_stories Library" [ref=e18] [cursor=pointer]:
+        - /url: /dashboard/search
+        - generic [ref=e19]: auto_stories
+        - generic [ref=e20]: Library
+      - link "event_note Study Plan" [ref=e21] [cursor=pointer]:
+        - /url: /dashboard/analysis
+        - generic [ref=e22]: event_note
+        - generic [ref=e23]: Study Plan
+      - link "edit_note Assignments" [ref=e24] [cursor=pointer]:
+        - /url: /dashboard/assignment-helper
+        - generic [ref=e25]: edit_note
+        - generic [ref=e26]: Assignments
+      - link "auto_fix_high Humanizer" [ref=e27] [cursor=pointer]:
+        - /url: /dashboard/humanizer
+        - generic [ref=e28]: auto_fix_high
+        - generic [ref=e29]: Humanizer
+      - link "forum Community" [ref=e30] [cursor=pointer]:
+        - /url: /dashboard/community
+        - generic [ref=e31]: forum
+        - generic [ref=e32]: Community
+    - generic [ref=e33]:
+      - link "workspace_premium Subscription" [ref=e34] [cursor=pointer]:
+        - /url: /subscription
+        - generic [ref=e35]: workspace_premium
+        - generic [ref=e36]: Subscription
+      - link "person Profile" [ref=e37] [cursor=pointer]:
+        - /url: /profile
+        - generic [ref=e38]: person
+        - generic [ref=e39]: Profile
+      - generic [ref=e40]:
+        - generic [ref=e41]: S
+        - paragraph [ref=e43]: Student
+  - main [ref=e44]:
+    - generic [ref=e45]:
+      - generic [ref=e47]:
+        - generic [ref=e48]: search
+        - textbox "Search courses, topics, or notes..." [active] [ref=e49]
+      - generic [ref=e50]:
+        - generic [ref=e52]: search
+        - heading "Search your study space" [level=3] [ref=e53]
+        - paragraph [ref=e54]: Find courses, topics, and notes across all your materials.

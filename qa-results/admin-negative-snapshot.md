@@ -1,0 +1,10 @@
+- generic [ref=e8]:
+  - generic [ref=e9]:
+    - generic [ref=e10]: lock
+    - heading "Admin access required" [level=1] [ref=e11]
+  - paragraph [ref=e12]: Your account is signed in but does not have admin access.
+  - paragraph [ref=e14]: "Signed in as: [redacted QA learner]"
+  - link "arrow_back Back to dashboard" [ref=e16] [cursor=pointer]:
+    - /url: /dashboard
+    - generic [ref=e17]: arrow_back
+    - text: Back to dashboard

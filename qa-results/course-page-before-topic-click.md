@@ -1,0 +1,241 @@
+- generic [ref=e3]:
+  - complementary [ref=e4]:
+    - generic [ref=e5]:
+      - link "ChewnPour home" [ref=e6] [cursor=pointer]:
+        - /url: /dashboard
+        - generic [ref=e7]:
+          - img [ref=e8]
+          - img [ref=e10]
+        - generic [ref=e11]: ChewnPour
+      - button "menu_open" [ref=e12] [cursor=pointer]:
+        - generic [ref=e13]: menu_open
+    - navigation [ref=e14]:
+      - link "space_dashboard Dashboard" [ref=e15] [cursor=pointer]:
+        - /url: /dashboard
+        - generic [ref=e16]: space_dashboard
+        - generic [ref=e17]: Dashboard
+      - link "auto_stories Library" [ref=e18] [cursor=pointer]:
+        - /url: /dashboard/search
+        - generic [ref=e19]: auto_stories
+        - generic [ref=e20]: Library
+      - link "event_note Study Plan" [ref=e21] [cursor=pointer]:
+        - /url: /dashboard/analysis
+        - generic [ref=e22]: event_note
+        - generic [ref=e23]: Study Plan
+      - link "edit_note Assignments" [ref=e24] [cursor=pointer]:
+        - /url: /dashboard/assignment-helper
+        - generic [ref=e25]: edit_note
+        - generic [ref=e26]: Assignments
+      - link "auto_fix_high Humanizer" [ref=e27] [cursor=pointer]:
+        - /url: /dashboard/humanizer
+        - generic [ref=e28]: auto_fix_high
+        - generic [ref=e29]: Humanizer
+      - link "forum Community" [ref=e30] [cursor=pointer]:
+        - /url: /dashboard/community
+        - generic [ref=e31]: forum
+        - generic [ref=e32]: Community
+    - generic [ref=e33]:
+      - link "workspace_premium Subscription" [ref=e34] [cursor=pointer]:
+        - /url: /subscription
+        - generic [ref=e35]: workspace_premium
+        - generic [ref=e36]: Subscription
+      - link "person Profile" [ref=e37] [cursor=pointer]:
+        - /url: /profile
+        - generic [ref=e38]: person
+        - generic [ref=e39]: Profile
+      - generic [ref=e40]:
+        - generic [ref=e41]: S
+        - paragraph [ref=e43]: Student
+  - main [ref=e44]:
+    - generic [ref=e45]:
+      - navigation "Breadcrumb" [ref=e46]:
+        - link "Dashboard" [ref=e47] [cursor=pointer]:
+          - /url: /dashboard
+        - generic [ref=e48]: chevron_right
+        - link "Library" [ref=e49] [cursor=pointer]:
+          - /url: /dashboard/search
+        - generic [ref=e50]: chevron_right
+        - generic [ref=e51]: Mathematical Logic for Computer Science Mordechai Ben-Ari
+      - generic [ref=e53]:
+        - generic [ref=e54]:
+          - generic [ref=e55]:
+            - generic [ref=e56]:
+              - generic [ref=e57]: auto_awesome
+              - text: AI generated course
+            - generic [ref=e58]:
+              - generic [ref=e59]: description
+              - text: PDF
+          - heading "Mathematical Logic for Computer Science Mordechai Ben-Ari" [level=1] [ref=e60]
+          - paragraph [ref=e61]:
+            - text: Generated from your uploaded PDF.
+            - generic [ref=e62]: · 15 topics ready · 36 min estimated study time
+        - generic [ref=e63]:
+          - button "play_arrow Continue learning" [ref=e64] [cursor=pointer]:
+            - generic [ref=e65]: play_arrow
+            - text: Continue learning
+          - button "graphic_eq Generate podcast" [ref=e66] [cursor=pointer]:
+            - generic [ref=e67]: graphic_eq
+            - text: Generate podcast
+      - generic [ref=e68]:
+        - generic [ref=e69]:
+          - generic [ref=e71]: auto_stories
+          - generic [ref=e72]:
+            - paragraph [ref=e73]: Topics ready
+            - paragraph [ref=e74]: 15 / 15
+            - paragraph [ref=e75]: 100% generated
+        - generic [ref=e76]:
+          - generic [ref=e78]: check_circle
+          - generic [ref=e79]:
+            - paragraph [ref=e80]: Course progress
+            - paragraph [ref=e81]: 0%
+            - paragraph [ref=e82]: 0 of 15 completed
+        - generic [ref=e83]:
+          - generic [ref=e85]: quiz
+          - generic [ref=e86]:
+            - paragraph [ref=e87]: Quizzes ready
+            - paragraph [ref=e88]: "0"
+            - paragraph [ref=e89]: Coming soon
+        - generic [ref=e90]:
+          - generic [ref=e92]: graphic_eq
+          - generic [ref=e93]:
+            - paragraph [ref=e94]: Audio lesson
+            - paragraph [ref=e95]: Not generated
+            - paragraph [ref=e96]: 36 min study time
+      - generic [ref=e97]:
+        - generic [ref=e98]:
+          - generic [ref=e100]:
+            - generic [ref=e101]:
+              - generic [ref=e102]: play_circle
+              - generic [ref=e103]: Continue learning
+            - generic [ref=e104]:
+              - generic [ref=e105]:
+                - paragraph [ref=e106]: Continue where you left off · Module 1
+                - heading "Preface and Organization of Mathematical Logic for Computer Science" [level=2] [ref=e107]
+                - paragraph [ref=e108]: This chunk contains the preface and table of contents of the textbook 'Mathematical Logic for Computer Science' by Mordechai Ben-Ari, outlining the book's audience, organization into four parts (Propositional Logic, First-Order Logic, Temporal Logic, Program Verification), and changes in the third edition.
+              - link "play_arrow Start topic" [ref=e110] [cursor=pointer]:
+                - /url: /dashboard/topic/k97ffcww4vrs7az7cd3grbr64985y9m8
+                - generic [ref=e111]: play_arrow
+                - text: Start topic
+          - generic [ref=e113]:
+            - generic [ref=e114]:
+              - generic [ref=e115]:
+                - paragraph [ref=e116]: Study this course as a podcast
+                - heading "Listen on the go" [level=3] [ref=e117]
+                - paragraph [ref=e118]: Mathematical Logic for Computer Science Mordechai Ben-Ari
+              - generic [ref=e119]:
+                - generic [ref=e120]: graphic_eq
+                - text: Not generated
+            - generic [ref=e121]:
+              - paragraph [ref=e122]: Generate an audio lesson from a topic in this course and listen anywhere.
+              - link "graphic_eq Generate podcast" [ref=e123] [cursor=pointer]:
+                - /url: /dashboard/podcasts?generate=1
+                - generic [ref=e124]: graphic_eq
+                - text: Generate podcast
+          - generic [ref=e125]:
+            - generic [ref=e127]:
+              - heading "Generated learning path" [level=2] [ref=e128]
+              - paragraph [ref=e129]: Course modules in the recommended study order.
+            - generic [ref=e130]:
+              - article [ref=e131]:
+                - link "Open Preface and Organization of Mathematical Logic for Computer Science" [ref=e132] [cursor=pointer]:
+                  - /url: /dashboard/topic/k97ffcww4vrs7az7cd3grbr64985y9m8
+                - generic [ref=e138]
+              - article [ref=e156]:
+                - 'link "Open Propositional Logic: Syntax, Notation, and Semantics" [ref=e157] [cursor=pointer]':
+                  - /url: /dashboard/topic/k97bb1hn2m40k45a1wcmwf8pv585y2ce
+                - generic [ref=e161]
+              - article [ref=e177]:
+                - link "Open Boolean Operators, Adequate Sets, and Semantic Tableaux" [ref=e178] [cursor=pointer]:
+                  - /url: /dashboard/topic/k977htkr44ev8scsd18vq6yhx185yadv
+                - generic [ref=e182]
+              - article [ref=e198]:
+                - link "Open Gentzen System G and Hilbert System H" [ref=e199] [cursor=pointer]:
+                  - /url: /dashboard/topic/k972aax6saj8vd2kc8mvs1qdpn85zzq6
+                - generic [ref=e203]
+              - article [ref=e219]:
+                - link "Open Derived Rules in Hilbert System H" [ref=e220] [cursor=pointer]:
+                  - /url: /dashboard/topic/k972m9b7acf121ka6p6554aj2s85yjw5
+                - generic [ref=e224]
+              - article [ref=e240]:
+                - 'link "Open Binary Decision Diagrams: Definitions and Operations" [ref=e241] [cursor=pointer]':
+                  - /url: /dashboard/topic/k9798t6h2wh43rke38t1j9pay185yxcf
+                - generic [ref=e245]
+              - article [ref=e261]:
+                - link "Open SAT Solvers and Clausal Form Transformations" [ref=e262] [cursor=pointer]:
+                  - /url: /dashboard/topic/k973v56crhfwrgdeadcvazvx3985z2bv
+                - generic [ref=e266]
+              - article [ref=e282]:
+                - link "Open Semantic Tableaux for First-Order Logic" [ref=e283] [cursor=pointer]:
+                  - /url: /dashboard/topic/k97bbtqyh4xqq5xd90ceawmmt585zmsb
+                - generic [ref=e287]
+              - article [ref=e303]:
+                - 'link "Open First-Order Logic: Ground Terms, PCNF, and Skolemization" [ref=e304] [cursor=pointer]':
+                  - /url: /dashboard/topic/k9789nx9s4p97a31h7xwea68th85yeyt
+                - generic [ref=e308]
+              - article [ref=e324]:
+                - 'link "Open Prolog: Execution, Backtracking, and Practical Constructs" [ref=e325] [cursor=pointer]':
+                  - /url: /dashboard/topic/k97bb5gxp1h00518jckdt3jqj585zpce
+                - generic [ref=e329]
+              - article [ref=e345]:
+                - 'link "Open LTL Semantic Tableaux: Rules and Construction" [ref=e346] [cursor=pointer]':
+                  - /url: /dashboard/topic/k97bpqrgfz58yvbk1avnrvx55n85znsy
+                - generic [ref=e350]
+              - article [ref=e366]:
+                - link "Open Hoare Logic for Sequential Program Verification" [ref=e367] [cursor=pointer]:
+                  - /url: /dashboard/topic/k9764fvwt0gxcev6x044c0bp9h85y5d9
+                - generic [ref=e371]
+              - article [ref=e387]:
+                - link "Open Section 1" [ref=e388] [cursor=pointer]:
+                  - /url: /dashboard/topic/k974sksepxhf36mnzaag0kf3e185yj15
+                - generic [ref=e392]
+              - article [ref=e408]:
+                - 'link "Open Set Theory: Relations, Functions, Cardinality, and Induction" [ref=e409] [cursor=pointer]':
+                  - /url: /dashboard/topic/k975vq4jyqr5nhmqebcwe79rax85zf7a
+                - generic [ref=e413]
+              - article [ref=e429]:
+                - 'link "Open Subject Index: Mathematical Logic for Computer Science" [ref=e430] [cursor=pointer]':
+                  - /url: /dashboard/topic/k978t8cg1prjmx1kp1gpct2zyx85z6da
+                - generic [ref=e434]
+          - generic [ref=e450]:
+            - generic [ref=e452]:
+              - heading "flash_on Concepts to review" [level=2] [ref=e453]:
+                - generic [ref=e454]: flash_on
+                - text: Concepts to review
+              - paragraph [ref=e455]: Quick spaced-repetition picks based on your recent performance.
+            - generic [ref=e456]:
+              - generic [ref=e457]: verified
+              - paragraph [ref=e458]: You're all caught up.
+              - paragraph [ref=e459]: Weak concepts will appear after quizzes or topic reviews in this course.
+        - complementary [ref=e460]:
+          - generic [ref=e461]:
+            - generic [ref=e462]:
+              - heading "analytics Course progress" [level=3] [ref=e463]:
+                - generic [ref=e464]: analytics
+                - text: Course progress
+              - generic [ref=e465]:
+                - img [ref=e466]
+                - generic [ref=e470]
+            - generic [ref=e480]:
+              - heading "bolt Quick actions" [level=3] [ref=e481]:
+                - generic [ref=e482]: bolt
+                - text: Quick actions
+              - generic [ref=e483]:
+                - button "play_arrow Continue learning" [ref=e484] [cursor=pointer]
+                - button "graphic_eq Generate podcast" [ref=e486] [cursor=pointer]
+                - link "trending_up View study plan" [ref=e488] [cursor=pointer]:
+                  - /url: /dashboard/analysis
+          - generic [ref=e490]:
+            - generic [ref=e491]:
+              - heading "folder_open Source files" [level=3] [ref=e492]:
+                - generic [ref=e493]: folder_open
+                - text: Source files
+              - generic [ref=e494]: 1 file
+            - list [ref=e495]:
+              - listitem [ref=e496]:
+                - generic [ref=e497]: picture_as_pdf
+                - generic [ref=e498]
+                - generic [ref=e501]: check_circle
+                - button "Remove source" [ref=e502] [cursor=pointer]
+            - button "add Add source" [ref=e504] [cursor=pointer]:
+              - generic [ref=e505]: add
+              - text: Add source

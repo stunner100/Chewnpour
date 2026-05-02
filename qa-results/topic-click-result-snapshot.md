@@ -1,0 +1,35 @@
+- generic [ref=e3]:
+  - complementary [ref=e4]:
+    - button "menu" [ref=e506] [cursor=pointer]:
+      - generic [ref=e13]: menu
+    - navigation [ref=e14]:
+      - link "space_dashboard" [ref=e507] [cursor=pointer]:
+        - /url: /dashboard
+        - generic [ref=e16]: space_dashboard
+      - link "auto_stories" [ref=e508] [cursor=pointer]:
+        - /url: /dashboard/search
+        - generic [ref=e19]: auto_stories
+      - link "event_note" [ref=e509] [cursor=pointer]:
+        - /url: /dashboard/analysis
+        - generic [ref=e22]: event_note
+      - link "edit_note" [ref=e510] [cursor=pointer]:
+        - /url: /dashboard/assignment-helper
+        - generic [ref=e25]: edit_note
+      - link "auto_fix_high" [ref=e511] [cursor=pointer]:
+        - /url: /dashboard/humanizer
+        - generic [ref=e28]: auto_fix_high
+      - link "forum" [ref=e512] [cursor=pointer]:
+        - /url: /dashboard/community
+        - generic [ref=e31]: forum
+    - generic [ref=e33]:
+      - link "workspace_premium" [ref=e513] [cursor=pointer]:
+        - /url: /subscription
+        - generic [ref=e35]: workspace_premium
+      - link "person" [ref=e514] [cursor=pointer]:
+        - /url: /profile
+        - generic [ref=e38]: person
+  - main [ref=e44]:
+    - generic [ref=e516]:
+      - heading "This topic link is stale" [level=2] [ref=e517]
+      - paragraph [ref=e518]: Reload the dashboard, reopen the course, and start from the topic card again.
+      - button "Reload Dashboard" [ref=e519] [cursor=pointer]
