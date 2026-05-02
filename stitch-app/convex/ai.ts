@@ -2551,6 +2551,7 @@ const ensureAssessmentBlueprintForTopic = async (args: {
     deadlineMs?: number;
     repairTimeoutMs?: number;
     forceRegenerate?: boolean;
+    skipSubClaimGeneration?: boolean;
 }): Promise<AssessmentBlueprint> => {
     const buildFallbackAssessmentBlueprint = () => {
         const topicTitle = String(args.topic?.title || "this topic").trim() || "this topic";
@@ -2615,13 +2616,22 @@ const ensureAssessmentBlueprintForTopic = async (args: {
         }
     }
 
-    const subClaims = await ensureTopicSubClaimsForExamGeneration({
-        ctx: args.ctx,
-        topic: args.topic,
-        evidence: args.evidence,
-        deadlineMs: args.deadlineMs,
-        forceRegenerate: args.forceRegenerate,
-    });
+    let subClaims: any[] = [];
+    if (!args.forceRegenerate) {
+        const existingClaims = await args.ctx.runQuery(internal.topics.getSubClaimsByTopicInternal, {
+            topicId,
+        });
+        subClaims = Array.isArray(existingClaims) ? existingClaims : [];
+    }
+    if (subClaims.length === 0 && !args.skipSubClaimGeneration) {
+        subClaims = await ensureTopicSubClaimsForExamGeneration({
+            ctx: args.ctx,
+            topic: args.topic,
+            evidence: args.evidence,
+            deadlineMs: args.deadlineMs,
+            forceRegenerate: args.forceRegenerate,
+        });
+    }
     const distractors = Array.isArray(subClaims) && subClaims.length > 0
         ? await args.ctx.runQuery(internal.topics.getDistractorsByTopicInternal, { topicId })
         : [];
@@ -14690,6 +14700,7 @@ export const generateFreshExamSnapshotInternal = internalAction({
                     evidence: effectiveEvidence,
                     deadlineMs: Date.now() + FRESH_CONTEXT_BLUEPRINT_TIMEOUT_MS,
                     repairTimeoutMs: FRESH_CONTEXT_BLUEPRINT_TIMEOUT_MS,
+                    skipSubClaimGeneration: true,
                 });
 
                 try {
