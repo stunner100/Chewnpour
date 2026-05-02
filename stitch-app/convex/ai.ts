@@ -13799,10 +13799,11 @@ const resolveFreshExamTargetCount = (
     return buildFreshObjectiveCountCandidates(topic, evidence, configuredTarget)[0] || 1;
 };
 
-const formatRetrievedEvidenceForPrompt = (evidence: RetrievedEvidence[], maxChars = 7000) =>
+const formatRetrievedEvidenceForPrompt = (evidence: RetrievedEvidence[], maxChars = 3500) =>
     evidence
+        .slice(0, 6)
         .map((entry, index) => {
-            const trimmed = String(entry.text || "").slice(0, 650).trim();
+            const trimmed = String(entry.text || "").slice(0, 420).trim();
             const sectionHint = String(entry.sectionHint || "").trim();
             const blockType = String(entry.blockType || "").trim();
             const headingPath = Array.isArray(entry.headingPath)
@@ -13849,8 +13850,29 @@ const buildFreshLessonContext = (topic: any) => {
         structuredSubtopics.length > 0
             ? `SUBTOPICS:\n${structuredSubtopics.map((item: string) => `- ${item}`).join("\n")}`
             : "",
-        `LESSON CONTENT:\n"""\n${String(topic?.content || "").slice(0, 6000)}\n"""`,
+        `LESSON CONTENT:\n"""\n${String(topic?.content || "").slice(0, 2500)}\n"""`,
     ].filter(Boolean).join("\n\n");
+};
+
+const formatFreshAssessmentBlueprintForPrompt = (blueprint: AssessmentBlueprint) => {
+    const targetKeys = Array.isArray(blueprint?.mcqPlan?.targetOutcomeKeys)
+        ? blueprint.mcqPlan.targetOutcomeKeys.map((key: any) => String(key || "").trim()).filter(Boolean)
+        : [];
+    const outcomes = Array.isArray(blueprint?.outcomes)
+        ? blueprint.outcomes
+            .map((outcome: any) => ({
+                key: String(outcome?.key || "").trim(),
+                objective: String(outcome?.objective || "").replace(/\s+/g, " ").trim(),
+                bloomLevel: String(outcome?.bloomLevel || "").trim(),
+            }))
+            .filter((outcome) => outcome.key && (!targetKeys.length || targetKeys.includes(outcome.key)))
+            .slice(0, 5)
+        : [];
+
+    return JSON.stringify({
+        targetOutcomeKeys: targetKeys.slice(0, 5),
+        outcomes,
+    });
 };
 
 const buildFreshObjectiveTypeMix = (requestedCount: number) => {
@@ -13892,7 +13914,7 @@ GROUNDED EVIDENCE:
 ${formatRetrievedEvidenceForPrompt(args.evidence)}
 
 ASSESSMENT BLUEPRINT:
-${JSON.stringify(args.assessmentBlueprint, null, 2)}
+${formatFreshAssessmentBlueprintForPrompt(args.assessmentBlueprint)}
 ${feedbackBlock}
 Rules:
 ${generationRule}
@@ -14809,6 +14831,14 @@ export const generateFreshExamSnapshotInternal = internalAction({
                         }
 
                         validationFeedback = validation.errors.slice(0, 8);
+                        console.warn("[FreshExam] validation_failed", {
+                            topicId: String(topic?._id || ""),
+                            examFormat,
+                            attempt,
+                            requestedCount,
+                            errors: validation.errors.slice(0, 5),
+                            warnings: validation.warnings.slice(0, 5),
+                        });
                         if (attempt === 0 && isFreshExamDeadlineExceeded(interactiveDeadlineMs, 18000)) {
                             throw new ConvexError({
                                 code: "EXAM_GENERATION_TIMEOUT",
