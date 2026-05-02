@@ -14,7 +14,7 @@ const formatRelative = (timestamp) => {
     return new Date(timestamp).toLocaleDateString();
 };
 
-const ContinueLearningCard = ({ course, nextLesson, estimatedTime = '15 min', onGenerateQuiz, onGeneratePodcast }) => {
+const ContinueLearningCard = ({ course, nextLesson, estimatedTime = '15 min', onGenerateQuiz }) => {
     if (!course) return null;
     const progress = Math.max(0, Math.min(100, Number(course.progress) || 0));
 
@@ -72,10 +72,6 @@ const ContinueLearningCard = ({ course, nextLesson, estimatedTime = '15 min', on
                         <button type="button" onClick={onGenerateQuiz} className="btn-secondary text-body-sm">
                             <span className="material-symbols-outlined text-[16px]">quiz</span>
                             Generate Quiz
-                        </button>
-                        <button type="button" onClick={onGeneratePodcast} className="btn-secondary text-body-sm">
-                            <span className="material-symbols-outlined text-[16px]">podcasts</span>
-                            Generate Podcast
                         </button>
                     </div>
                 </div>

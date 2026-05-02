@@ -48,18 +48,6 @@ export const buildStudyPlan = ({ courses, conceptReviewQueue, podcasts, userStat
             cta: 'Play',
             href: `/dashboard/topic/${readyPodcast.topicId}?panel=podcast`,
         });
-    } else if ((courses || []).length > 0) {
-        const firstCourse = courses[0];
-        items.push({
-            id: 'generate-podcast',
-            icon: 'graphic_eq',
-            priority: 'low',
-            title: 'Generate a study podcast',
-            subtitle: `Try it on ${firstCourse.title}`,
-            estimatedTime: '2 min setup',
-            cta: 'Create',
-            href: '/dashboard/podcasts?generate=1',
-        });
     }
 
     if ((userStats?.streakDays ?? 0) > 0 && items.length < 4) {
@@ -96,14 +84,6 @@ export const DEFAULT_QUICK_ACTIONS = [
         color: 'indigo',
         to: '/dashboard',
         courseAction: 'flashcards',
-    },
-    {
-        id: 'podcast',
-        icon: 'podcasts',
-        label: 'Generate Podcast',
-        description: 'Turn a topic into an audio lesson.',
-        color: 'rose',
-        to: '/dashboard/podcasts?generate=1',
     },
     {
         id: 'humanizer',

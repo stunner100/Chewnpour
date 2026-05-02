@@ -1047,15 +1047,15 @@ const ExamMode = () => {
     handleSubmitRef.current = handleSubmit;
 
     const currentQ = questions[currentQuestion];
-    const progress = questions.length > 0
-        ? ((currentQuestion + 1) / questions.length) * 100
-        : 0;
     const answeredQuestionCount = examFormat === 'essay'
         ? questions.filter((question) => {
             const value = selectedAnswers[question._id];
             return String(value ?? '').trim().length >= MIN_ESSAY_SUBMIT_CHAR_COUNT;
         }).length
         : questions.filter((question) => Boolean(selectedAnswers[question._id])).length;
+    const progress = questions.length > 0
+        ? (answeredQuestionCount / questions.length) * 100
+        : 0;
     const isEssaySubmitBlocked = examFormat === 'essay' && answeredQuestionCount < questions.length;
     const examQualityTier = attemptQualityTier;
 
@@ -1411,7 +1411,7 @@ const ExamMode = () => {
                     {/* Progress */}
                     <div className="mb-5">
                         <div className="flex justify-between items-center mb-2">
-                            <span className="text-body-sm text-text-sub-light dark:text-text-sub-dark">Progress</span>
+                            <span className="text-body-sm text-text-sub-light dark:text-text-sub-dark">Answered</span>
                             <span className="text-body-sm font-semibold text-primary">{Math.round(progress)}%</span>
                         </div>
                         <div className="w-full bg-border-light dark:bg-border-dark rounded-full h-1.5">

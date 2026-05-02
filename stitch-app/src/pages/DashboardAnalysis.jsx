@@ -810,7 +810,6 @@ const DashboardAnalysis = () => {
                         nextLesson={activeCourse.description}
                         estimatedTime="15 min"
                         onGenerateQuiz={() => handleGoToActiveCourse('quiz')}
-                        onGeneratePodcast={() => navigate('/dashboard/podcasts?generate=1')}
                     />
                 )}
 

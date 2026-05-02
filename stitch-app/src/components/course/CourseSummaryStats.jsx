@@ -40,6 +40,7 @@ const CourseSummaryStats = ({
     topicsReady,
     plannedTopics,
     completedTopics,
+    completedTopicsLabel,
     quizzesReady,
     estimatedMinutes,
     progressPercent,
@@ -65,8 +66,10 @@ const CourseSummaryStats = ({
                 label="Course progress"
                 value={`${progressPercent ?? 0}%`}
                 sub={
-                    totalTopics > 0
-                        ? `${completedTopics ?? 0} of ${totalTopics} completed`
+                    completedTopicsLabel
+                        ? completedTopicsLabel
+                        : totalTopics > 0
+                            ? `${completedTopics ?? 0} of ${totalTopics} completed`
                         : ''
                 }
                 accent="emerald"

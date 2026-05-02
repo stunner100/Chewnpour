@@ -54,6 +54,20 @@ const DashboardSearch = () => {
         setLocalQuery(query);
     }, [query]);
 
+    React.useEffect(() => {
+        const timeoutId = window.setTimeout(() => {
+            const trimmed = localQuery.trim();
+            if (trimmed === normalizedQuery) return;
+            if (trimmed) {
+                setSearchParams({ q: trimmed }, { replace: true });
+                return;
+            }
+            setSearchParams({}, { replace: true });
+        }, 250);
+
+        return () => window.clearTimeout(timeoutId);
+    }, [localQuery, normalizedQuery, setSearchParams]);
+
     const normalizedQuery = query.trim();
     const searchResults = useQuery(
         api.search.searchDashboardContent,
@@ -123,7 +137,7 @@ const DashboardSearch = () => {
                         Search your study space
                     </h3>
                     <p className="text-body-sm text-text-sub-light dark:text-text-sub-dark max-w-sm">
-                        Find courses, topics, and notes across all your materials.
+                        Start typing to search courses, topics, and notes across all your materials.
                     </p>
                 </div>
 

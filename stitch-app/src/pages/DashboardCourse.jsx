@@ -307,9 +307,15 @@ const DashboardCourse = () => {
     }, [topics, courseProgress]);
 
     const totalReadyTopics = topics.length;
-    const courseProgressPercent = totalReadyTopics > 0
-        ? Math.round((completedTopics / totalReadyTopics) * 100)
-        : 0;
+    const storedCourseProgress = Number(displayCourse?.progress);
+    const courseProgressPercent = Number.isFinite(storedCourseProgress)
+        ? Math.max(0, Math.min(100, Math.round(storedCourseProgress)))
+        : totalReadyTopics > 0
+            ? Math.round((completedTopics / totalReadyTopics) * 100)
+            : 0;
+    const completedTopicsLabel = courseProgressPercent > 0 && completedTopics === 0
+        ? 'Activity in progress'
+        : `${completedTopics} of ${totalReadyTopics} completed`;
 
     const quizzesReady = useMemo(
         () =>
@@ -482,6 +488,7 @@ const DashboardCourse = () => {
                         topicsReady={totalReadyTopics}
                         plannedTopics={plannedCount}
                         completedTopics={completedTopics}
+                        completedTopicsLabel={completedTopicsLabel}
                         quizzesReady={quizzesReady}
                         estimatedMinutes={totalEstimatedMinutes || null}
                         progressPercent={courseProgressPercent}
@@ -642,6 +649,7 @@ const DashboardCourse = () => {
                             <CourseProgressSidebar
                                 progressPercent={courseProgressPercent}
                                 completedTopics={completedTopics}
+                                completedTopicsLabel={completedTopicsLabel}
                                 totalTopics={totalReadyTopics}
                                 quizzesReady={quizzesReady}
                                 quizAccuracy={quizAccuracy}

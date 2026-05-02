@@ -388,8 +388,8 @@ const Profile = () => {
                 <div className="grid grid-cols-2 gap-3">
                     {[
                         { to: '/dashboard/assignment-helper', icon: 'assignment', label: 'Assignment Helper', sub: 'Get AI answers' },
-                        { to: '/dashboard/humanizer', icon: 'auto_fix_high', label: 'AI Humanizer', sub: 'Bypass detection' },
-                        { to: '/dashboard/exam', icon: 'quiz', label: 'Past Questions', sub: 'Test your knowledge' },
+                        { to: '/dashboard/humanizer', icon: 'auto_fix_high', label: 'Rewrite & Polish', sub: 'Improve clarity and tone' },
+                        { to: '/dashboard/exam', icon: 'quiz', label: 'Past Questions', sub: 'Coming soon' },
                         { to: '/dashboard', icon: 'dashboard', label: 'Dashboard', sub: 'Go to dashboard' },
                     ].map(item => (
                         <Link

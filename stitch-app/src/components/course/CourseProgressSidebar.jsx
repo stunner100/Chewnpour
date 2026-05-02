@@ -63,6 +63,7 @@ const Row = ({ label, value, sub }) => (
 const CourseProgressSidebar = ({
     progressPercent = 0,
     completedTopics,
+    completedTopicsLabel,
     totalTopics,
     quizzesReady,
     quizAccuracy,
@@ -86,6 +87,11 @@ const CourseProgressSidebar = ({
                             value={`${completedTopics ?? 0}`}
                             sub={`/ ${totalTopics ?? 0}`}
                         />
+                        {completedTopicsLabel && completedTopicsLabel !== `${completedTopics ?? 0} of ${totalTopics ?? 0} completed` && (
+                            <p className="text-caption text-text-faint-light dark:text-text-faint-dark">
+                                {completedTopicsLabel}
+                            </p>
+                        )}
                         <Row label="Quizzes ready" value={quizzesReady ?? 0} />
                         {typeof quizAccuracy === 'number' && quizAccuracy > 0 && (
                             <Row label="Quiz accuracy" value={`${quizAccuracy}%`} />
