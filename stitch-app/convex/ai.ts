@@ -13985,6 +13985,7 @@ ${generationRule}
 - bloomLevel must exactly match the selected outcome's bloomLevel.
 - Every question must include citations with exact evidence quotes and passage metadata.
 - Every question must include explanation, difficulty, learningObjective, bloomLevel, and outcomeKey.
+- Keep output compact: explanation <= 16 words, learningObjective <= 12 words, each option <= 16 words, each citation quote <= 120 characters.
 - For multiple_choice:
   - include exactly 4 options
   - set correctAnswer to the correct option label only
@@ -13996,7 +13997,7 @@ ${generationRule}
   - set correctAnswer to the canonical answer text
   - include acceptedAnswers with 1-4 acceptable answer strings
 - Avoid duplicates and avoid repeatedly testing the same fact.
-- Return JSON only.
+- Return compact JSON only.
 
 Return JSON only:
 {
@@ -14827,14 +14828,14 @@ export const generateFreshExamSnapshotInternal = internalAction({
                             },
                             { role: "user", content: prompt },
                         ], DEFAULT_MODEL, {
-                            maxTokens: examFormat === "essay" ? 3200 : 3000,
+                            maxTokens: examFormat === "essay" ? 3200 : 5200,
                             responseFormat: "json_object",
                             timeoutMs: Math.max(
                                 5000,
                                 Math.min(
                                     examFormat === "essay"
                                         ? FRESH_CONTEXT_AUTHORING_TIMEOUT_MS
-                                        : 15000,
+                                        : 30000,
                                     getFreshExamRemainingMs(interactiveDeadlineMs, 3000),
                                 ),
                             ),

@@ -39,4 +39,12 @@ if (source.includes("objective-fallback-mcq-only")) {
   throw new Error("Interactive MCQ startup must not use an extra fallback authoring loop.");
 }
 
+if (!/maxTokens:\s*examFormat === "essay" \? 3200 : 5200/.test(source)) {
+  throw new Error("Expected interactive MCQ generation to have enough output budget for 5 grounded questions.");
+}
+
+if (!/explanation <= 16 words/.test(source) || !/each citation quote <= 120 characters/.test(source)) {
+  throw new Error("Expected fresh MCQ prompt to enforce compact JSON fields.");
+}
+
 console.log("fresh-exam-correct-answer-normalization-regression.test.mjs passed");
