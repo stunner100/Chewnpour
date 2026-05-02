@@ -8951,13 +8951,45 @@ export const processUploadedFile = action({
         } catch (error) {
             console.error("File processing failed:", error);
             const errorMessage = getErrorMessage(error);
+            let latestUpload: any = null;
+            try {
+                latestUpload = await ctx.runQuery(api.uploads.getUpload, { uploadId });
+            } catch (lookupError) {
+                console.warn("[Extraction] failed_status_lookup_unavailable", {
+                    uploadId: String(uploadId),
+                    message: getErrorMessage(lookupError),
+                });
+            }
 
-            await ctx.runMutation(api.uploads.updateUploadStatus, {
+            const extractionStatus = String(latestUpload?.extractionStatus || "");
+            const hasUsableExtraction = Boolean(latestUpload?.extractionArtifactStorageId)
+                || extractionStatus === "complete"
+                || extractionStatus === "provisional";
+            const hasBackgroundCourseProgress = String(latestUpload?.status || "") === "processing"
+                && Number(latestUpload?.generatedTopicCount || 0) > 0;
+            const isAlreadyReady = String(latestUpload?.status || "") === "ready";
+            const updatePayload: {
+                uploadId: typeof uploadId;
+                status?: string;
+                extractionStatus?: string;
+                errorMessage?: string;
+            } = {
                 uploadId,
-                status: "error",
-                extractionStatus: "failed",
-                errorMessage,
-            });
+            };
+
+            if (!isAlreadyReady && !hasBackgroundCourseProgress) {
+                updatePayload.status = "error";
+                updatePayload.errorMessage = errorMessage;
+            }
+
+            if (!hasUsableExtraction) {
+                updatePayload.extractionStatus = "failed";
+                updatePayload.errorMessage = errorMessage;
+            }
+
+            if (updatePayload.status || updatePayload.extractionStatus || updatePayload.errorMessage) {
+                await ctx.runMutation(api.uploads.updateUploadStatus, updatePayload);
+            }
 
             throw error;
         }
