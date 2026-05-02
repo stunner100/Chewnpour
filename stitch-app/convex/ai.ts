@@ -14189,6 +14189,26 @@ const validateFreshFillBlankSupport = (candidate: any, evidenceIndex: GroundedEv
     });
 };
 
+const describeFreshObjectiveStructureIssue = (question: any) => {
+    const questionType = String(question?.questionType || "").trim();
+    const options = Array.isArray(question?.options) ? question.options : [];
+    if (questionType === "multiple_choice" && !hasUsableQuestionOptions(options)) {
+        const optionSummary = options
+            .slice(0, 4)
+            .map((option: any) => `${String(option?.label || "?")}:${String(option?.text || "").slice(0, 60)}`)
+            .join(" | ");
+        return `unusable multiple_choice options (${options.length}): ${optionSummary}`;
+    }
+    if (questionType === "true_false") {
+        const optionTexts = options.map((option: any) => String(option?.text || "").trim()).join(" | ");
+        return `unusable true_false options (${options.length}): ${optionTexts}`;
+    }
+    if (questionType === "fill_blank") {
+        return `unusable fill_blank acceptedAnswers=${Array.isArray(question?.acceptedAnswers) ? question.acceptedAnswers.length : 0}`;
+    }
+    return `unusable question type or quality gate: ${questionType || "missing"}`;
+};
+
 const normalizeFreshObjectiveQuestion = (candidate: any, index: number, blueprint: AssessmentBlueprint) => {
     const questionType = normalizeFreshObjectiveQuestionType(candidate?.questionType);
     const normalizedBase = normalizeGeneratedAssessmentCandidate({
@@ -14319,7 +14339,7 @@ const validateFreshObjectiveExamSet = (args: {
         mix[String(question?.questionType || "multiple_choice") as keyof typeof mix] += 1;
 
         if (!isUsableExamQuestion(question, { allowEssay: false })) {
-            errors.push(`Invalid objective question structure: "${String(question?.questionText || "").slice(0, 80)}"`);
+            errors.push(`Invalid objective question structure (${describeFreshObjectiveStructureIssue(question)}): "${String(question?.questionText || "").slice(0, 80)}"`);
             continue;
         }
         if (!Array.isArray(question?.citations) || question.citations.length === 0 || !Array.isArray(question?.sourcePassageIds) || question.sourcePassageIds.length === 0) {
