@@ -607,6 +607,9 @@ const resolvePreferredTextProvider = (): TextProvider => {
 const featureUsesDeepSeekDocumentPipeline = (feature: string) =>
     DEEPSEEK_DOCUMENT_PIPELINE_FEATURES.has(String(feature || "").trim());
 
+const featureAllowsDocumentPipelineProviderFallback = (feature: string) =>
+    ["mcq_generation", "essay_generation"].includes(String(feature || "").trim());
+
 const resolveDeepSeekDocumentPipelineModel = (feature: string) =>
     COMPLEX_DOCUMENT_PIPELINE_FEATURES.has(String(feature || "").trim())
         ? DEEPSEEK_DOCUMENT_PRO_MODEL
@@ -624,6 +627,7 @@ async function callInception(
     const llmFeature = String(llmUsageContextStorage.getStore()?.feature || "unknown").trim() || "unknown";
     const preferredProvider = resolvePreferredTextProvider();
     const pipelineOpenAiRequired = featureUsesDeepSeekDocumentPipeline(llmFeature);
+    const pipelineProviderFallbackAllowed = featureAllowsDocumentPipelineProviderFallback(llmFeature);
     const openAiModel = pipelineOpenAiRequired ? resolveDeepSeekDocumentPipelineModel(llmFeature) : model;
     const requestedOpenAiMaxTokens = options?.maxTokens ?? 2048;
     const openAiMaxTokens = openAiModel === DEEPSEEK_DOCUMENT_PRO_MODEL
@@ -1044,7 +1048,7 @@ async function callInception(
             return await callOpenAiText();
         } catch (error) {
             const errorMessage = error instanceof Error ? error.message : String(error);
-            if (pipelineOpenAiRequired) {
+            if (pipelineOpenAiRequired && !pipelineProviderFallbackAllowed) {
                 throw error;
             }
             if (shouldFallbackToBedrockText({ errorMessage, bedrockAvailable })) {
@@ -14772,7 +14776,9 @@ export const generateFreshExamSnapshotInternal = internalAction({
                             timeoutMs: Math.max(
                                 5000,
                                 Math.min(
-                                    FRESH_CONTEXT_AUTHORING_TIMEOUT_MS,
+                                    examFormat === "essay"
+                                        ? FRESH_CONTEXT_AUTHORING_TIMEOUT_MS
+                                        : 15000,
                                     getFreshExamRemainingMs(interactiveDeadlineMs, 3000),
                                 ),
                             ),
@@ -14886,7 +14892,7 @@ export const generateFreshExamSnapshotInternal = internalAction({
                                 timeoutMs: Math.max(
                                     5000,
                                     Math.min(
-                                        FRESH_CONTEXT_AUTHORING_TIMEOUT_MS,
+                                        15000,
                                         getFreshExamRemainingMs(interactiveDeadlineMs, 3000),
                                     ),
                                 ),
