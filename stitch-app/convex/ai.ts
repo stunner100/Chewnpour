@@ -4200,6 +4200,64 @@ const fillOptionLabels = (options: any[]) =>
         isCorrect: option.isCorrect,
     }));
 
+const stripOptionLabelPrefix = (value: string) =>
+    String(value || "").replace(/^\s*[A-D][\)\.\-:\s]+/i, "").trim();
+
+const collectFreshCorrectAnswerCandidates = (candidate: any) => {
+    const values = [
+        candidate?.correctAnswer,
+        candidate?.answer,
+        candidate?.correctOption,
+        candidate?.correct_option,
+        candidate?.correct,
+    ];
+
+    return values
+        .map((value) => String(value || "").trim())
+        .filter(Boolean);
+};
+
+const resolveFreshCorrectOptionIndex = (options: any[], candidate: any) => {
+    const firstMarked = options.findIndex((option) => option.isCorrect);
+    if (firstMarked >= 0) return firstMarked;
+
+    const answers = collectFreshCorrectAnswerCandidates(candidate);
+    for (const answer of answers) {
+        const labelMatch = answer.match(/^\s*([A-D])(?:[\)\.\-:\s]|$)/i);
+        if (labelMatch) {
+            const answerLabel = labelMatch[1].toUpperCase();
+            const labelIndex = options.findIndex((option, index) => {
+                const optionLabel = String(option?.label || String.fromCharCode(65 + index)).trim().toUpperCase();
+                return optionLabel === answerLabel;
+            });
+            if (labelIndex >= 0) return labelIndex;
+        }
+
+        const answerKey = normalizeOptionComparisonKey(stripOptionLabelPrefix(answer));
+        if (!answerKey) continue;
+        const textIndex = options.findIndex((option) => {
+            const optionKey = normalizeOptionComparisonKey(option?.text || "");
+            return optionKey && (
+                optionKey === answerKey
+                || optionKey.includes(answerKey)
+                || answerKey.includes(optionKey)
+            );
+        });
+        if (textIndex >= 0) return textIndex;
+    }
+
+    console.warn("[FreshExam] no correct option marker or answer match; defaulting to option A");
+    return 0;
+};
+
+const markFreshCorrectOption = (options: any[], candidate: any) => {
+    const correctIndex = resolveFreshCorrectOptionIndex(options, candidate);
+    return options.map((option, index) => ({
+        ...option,
+        isCorrect: index === correctIndex,
+    }));
+};
+
 const TOPIC_STOP_WORDS = new Set([
     "the",
     "and",
@@ -14167,7 +14225,10 @@ const normalizeFreshObjectiveQuestion = (candidate: any, index: number, blueprin
         };
     }
 
-    const normalizedOptions = fillOptionLabels(ensureSingleCorrect(sanitizeQuestionOptions(normalizeOptions(candidate?.options))));
+    const normalizedOptions = markFreshCorrectOption(
+        fillOptionLabels(sanitizeQuestionOptions(normalizeOptions(candidate?.options))),
+        candidate
+    );
     const validOptions = questionType === "true_false"
         ? normalizedOptions
             .map((option, optionIndex) => ({
@@ -14720,11 +14781,6 @@ export const generateFreshExamSnapshotInternal = internalAction({
                         FRESH_CONTEXT_OBJECTIVE_INTERACTIVE_MAX_COUNT,
                         resolveFreshExamTargetCount(topic, examFormat, effectiveEvidence),
                     );
-                const objectiveCountCandidates = examFormat === "essay"
-                    ? []
-                    : buildFreshObjectiveCountCandidates(topic, effectiveEvidence, configuredTarget)
-                        .filter((count) => count <= requestedCount);
-
                 const assessmentBlueprint = await ensureAssessmentBlueprintForTopic({
                     ctx,
                     topic,
@@ -14850,102 +14906,6 @@ export const generateFreshExamSnapshotInternal = internalAction({
                                 code: "EXAM_GENERATION_TIMEOUT",
                                 message: "Fresh exam validation exhausted the interactive budget.",
                             });
-                        }
-                    }
-
-                    if (examFormat === "mcq") {
-                        const fallbackCounts = objectiveCountCandidates.length > 0
-                            ? objectiveCountCandidates
-                            : [requestedCount];
-
-                        for (const fallbackCount of fallbackCounts) {
-                            if (isFreshExamDeadlineExceeded(interactiveDeadlineMs, 8000)) {
-                                throw new ConvexError({
-                                    code: "EXAM_GENERATION_TIMEOUT",
-                                    message: "Fresh exam fallback authoring ran out of interactive budget.",
-                                });
-                            }
-
-                            const fallbackPrompt = buildFreshObjectiveExamPrompt({
-                                topic,
-                                requestedCount: fallbackCount,
-                                evidence: effectiveEvidence,
-                                assessmentBlueprint,
-                                validationFeedback: [
-                                    ...validationFeedback,
-                                    fallbackCount === requestedCount
-                                        ? "Fallback mode: generate only multiple_choice questions while keeping exact count and citations."
-                                        : `Fallback mode: generate only multiple_choice questions. Reduce the count to ${fallbackCount} so the set stays valid and well grounded.`,
-                                ],
-                                forceQuestionType: "multiple_choice",
-                            });
-
-                            const fallbackResponse = await callInception([
-                                {
-                                    role: "system",
-                                    content: "You are an expert exam author. Return valid JSON only.",
-                                },
-                                { role: "user", content: fallbackPrompt },
-                            ], DEFAULT_MODEL, {
-                                maxTokens: 5200,
-                                responseFormat: "json_object",
-                                timeoutMs: Math.max(
-                                    5000,
-                                    Math.min(
-                                        15000,
-                                        getFreshExamRemainingMs(interactiveDeadlineMs, 3000),
-                                    ),
-                                ),
-                                temperature: 0.2,
-                            });
-
-                            const fallbackParsed = await parseFreshExamQuestionsWithRepair(
-                                fallbackResponse,
-                                "objective",
-                                {
-                                    deadlineMs: interactiveDeadlineMs,
-                                    repairTimeoutMs: Math.max(
-                                        1500,
-                                        Math.min(
-                                            FRESH_CONTEXT_AUTHORING_TIMEOUT_MS,
-                                            getFreshExamRemainingMs(interactiveDeadlineMs, 2000),
-                                        ),
-                                    ),
-                                }
-                            );
-                            const fallbackRawQuestions = Array.isArray(fallbackParsed?.questions) ? fallbackParsed.questions : [];
-                            const fallbackQuestions = fallbackRawQuestions.map((question, index) =>
-                                normalizeFreshObjectiveQuestion(question, index, assessmentBlueprint)
-                            );
-                            const fallbackValidation = validateFreshObjectiveExamSet({
-                                questions: fallbackQuestions,
-                                requestedCount: fallbackCount,
-                                evidenceIndex: effectiveIndex,
-                                assessmentBlueprint,
-                                enforceMix: false,
-                            });
-
-                            if (fallbackValidation.valid) {
-                                const snapshot = buildFreshExamSnapshot({
-                                    topic,
-                                    examFormat,
-                                    questions: fallbackQuestions,
-                                    evidence: effectiveEvidence,
-                                    questionMix: fallbackValidation.questionMix,
-                                    qualityTier: snapshotQualityTier,
-                                });
-                                return {
-                                    ...snapshot,
-                                    qualityWarnings: [
-                                        ...(Array.isArray(fallbackValidation.warnings) ? fallbackValidation.warnings : []),
-                                        "objective-fallback-mcq-only",
-                                        ...(fallbackCount < requestedCount ? [`objective-fallback-reduced-count:${fallbackCount}`] : []),
-                                        ...(snapshotQualityTier === "unverified" ? ["unverified-synthetic-evidence"] : []),
-                                    ],
-                                };
-                            }
-
-                            validationFeedback = fallbackValidation.errors.slice(0, 8);
                         }
                     }
 
