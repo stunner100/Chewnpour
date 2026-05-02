@@ -218,6 +218,9 @@ const runWithAzureQueue = async <T>(run: () => Promise<T>): Promise<T> => {
     }
 };
 
+const summarizeExtractionError = (error: unknown) =>
+    error instanceof Error ? error.message : String(error);
+
 const countWords = (value: string) =>
     String(value || "")
         .trim()
@@ -1769,11 +1772,48 @@ export const runDocumentExtractionPipeline = async (
                 : ["png", "jpg", "jpeg", "webp"].includes(fileType)
                     ? "image_ocr"
                     : null;
-        return await runDoclingExtractionCandidate({
-            ...args,
-            backend: "docling",
-            parser: args.parser || primaryDoclingParser,
-        });
+        const doclingStartedAt = Date.now();
+        try {
+            return await runDoclingExtractionCandidate({
+                ...args,
+                backend: "docling",
+                parser: args.parser || primaryDoclingParser,
+            });
+        } catch (error) {
+            const errorSummary = summarizeExtractionError(error);
+            const fallback = await runAzureExtractionCandidate({
+                ...args,
+                backend: "azure",
+                parser: "azure_layout_read",
+            });
+            const warnings = Array.from(new Set([
+                `docling_primary_failed:${errorSummary.slice(0, 180)}`,
+                ...fallback.warnings,
+            ]));
+            return {
+                ...fallback,
+                warnings,
+                providerTrace: [
+                    {
+                        pass: "docling_primary",
+                        status: "error",
+                        latencyMs: Date.now() - doclingStartedAt,
+                        chars: 0,
+                        pageCount: 0,
+                        error: errorSummary,
+                    },
+                    ...fallback.providerTrace,
+                ],
+                artifact: {
+                    ...fallback.artifact,
+                    warnings,
+                    metadata: {
+                        ...(fallback.artifact.metadata || {}),
+                        doclingPrimaryError: errorSummary,
+                    },
+                },
+            };
+        }
     }
     return await runDataLabExtractionCandidate(args);
 };
