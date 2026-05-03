@@ -5,33 +5,31 @@ import { query, mutation } from "./_generated/server";
 // Queries
 // ────────────────────────────────────────────────────────────────
 
-// List all channels ordered by last activity (most recent first)
+// List public community channels ordered by last activity (most recent first).
+// Hard cutover: legacy upload/course-generated channels are no longer part of
+// the Community surface.
 export const listChannels = query({
     args: {},
     handler: async (ctx) => {
-        const limit = 20;
         const channels = await ctx.db
             .query("communityChannels")
             .withIndex("by_lastActivity")
             .order("desc")
             .collect();
 
-        const seededChannels = channels.filter((channel) => channel.isSeeded);
-        const recentChannels = channels
-            .filter((channel) => !channel.isSeeded)
-            .slice(0, limit);
-
-        return [...seededChannels, ...recentChannels].sort(
-            (a, b) => b.lastActivityAt - a.lastActivityAt
-        );
+        return channels
+            .filter((channel) => channel.isSeeded)
+            .sort((a, b) => b.lastActivityAt - a.lastActivityAt);
     },
 });
 
-// Get a single channel by ID
+// Get a single public community channel by ID
 export const getChannel = query({
     args: { channelId: v.id("communityChannels") },
     handler: async (ctx, args) => {
-        return await ctx.db.get(args.channelId);
+        const channel = await ctx.db.get(args.channelId);
+        if (!channel?.isSeeded) return null;
+        return channel;
     },
 });
 
@@ -157,7 +155,7 @@ export const getUserChannels = query({
 
         // Filter out nulls (deleted channels) and sort by last activity
         return channels
-            .filter((c): c is NonNullable<typeof c> => c !== null)
+            .filter((c): c is NonNullable<typeof c> => c !== null && Boolean(c.isSeeded))
             .sort((a, b) => b.lastActivityAt - a.lastActivityAt);
     },
 });
