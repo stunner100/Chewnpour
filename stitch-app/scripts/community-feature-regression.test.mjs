@@ -30,13 +30,16 @@ for (const pattern of [
 }
 
 const dashboardSource = await read('src/pages/DashboardAnalysis.jsx');
-for (const pattern of [
+const dashboardPlanSource = await read('src/lib/dashboardPlan.js');
+if (!dashboardPlanSource.includes("to: '/dashboard/community'")) {
+  throw new Error('Expected dashboard quick actions to link to /dashboard/community.');
+}
+for (const removedPattern of [
   'autoJoinCommunity',
   'api.community.autoJoinOnUpload',
-  "to=\"/dashboard/community\"",
 ]) {
-  if (!dashboardSource.includes(pattern)) {
-    throw new Error(`Expected DashboardAnalysis.jsx to include "${pattern}".`);
+  if (dashboardSource.includes(removedPattern)) {
+    throw new Error(`DashboardAnalysis.jsx should not include removed upload auto-channel pattern "${removedPattern}".`);
   }
 }
 
@@ -44,11 +47,11 @@ const communityPageSource = await read('src/pages/Community.jsx');
 for (const pattern of [
   'api.community.listChannels',
   'api.community.getUserChannels',
-  'api.community.seedDefaultChannels',
-  'seedDefaultChannels({})',
+  'api.community.joinSeededChannels',
+  'joinSeededChannels({ userId })',
   'Available to Everyone',
   'to="/dashboard"',
-  'Back to Dashboard',
+  'Go to Dashboard',
   '/dashboard/community/${channel._id}',
 ]) {
   if (!communityPageSource.includes(pattern)) {
@@ -92,9 +95,11 @@ for (const pattern of [
   'export const getWeeklyLeaderboard = query({',
   'const DEFAULT_CHANNELS = [',
   'export const seedDefaultChannels = mutation({',
+  'export const joinSeededChannels = mutation({',
   'export const joinChannel = mutation({',
   'export const createPost = mutation({',
   'export const autoJoinOnUpload = mutation({',
+  'Number(channel.memberCount || 0) + 1',
 ]) {
   if (!communityConvexSource.includes(pattern)) {
     throw new Error(`Expected community.ts to include "${pattern}".`);

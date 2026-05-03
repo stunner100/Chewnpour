@@ -536,10 +536,34 @@ const DEFAULT_CHANNELS = [
 export const joinSeededChannels = mutation({
     args: { userId: v.string() },
     handler: async (ctx, args) => {
-        const seeded = await ctx.db
+        const channels = await ctx.db
             .query("communityChannels")
             .collect();
-        const seededOnly = seeded.filter((c) => c.isSeeded);
+        const channelsByTitle = new Map(channels.map((channel) => [channel.title, channel]));
+        const now = Date.now();
+        const seededOnly = [];
+
+        for (const defaultChannel of DEFAULT_CHANNELS) {
+            const existing = channelsByTitle.get(defaultChannel.title);
+            if (existing) {
+                seededOnly.push(existing);
+                continue;
+            }
+
+            const channelId = await ctx.db.insert("communityChannels", {
+                createdBy: "system",
+                title: defaultChannel.title,
+                description: defaultChannel.description,
+                icon: defaultChannel.icon,
+                memberCount: 0,
+                postCount: 0,
+                lastActivityAt: now,
+                createdAt: now,
+                isSeeded: true,
+            });
+            const created = await ctx.db.get(channelId);
+            if (created) seededOnly.push(created);
+        }
 
         const memberships = await ctx.db
             .query("communityMembers")
@@ -547,7 +571,6 @@ export const joinSeededChannels = mutation({
             .collect();
         const joinedChannelIds = new Set(memberships.map((m) => String(m.channelId)));
 
-        const now = Date.now();
         const joined: string[] = [];
 
         for (const channel of seededOnly) {
@@ -559,7 +582,7 @@ export const joinSeededChannels = mutation({
                 role: "member",
             });
             await ctx.db.patch(channel._id, {
-                memberCount: channel.memberCount + 1,
+                memberCount: Number(channel.memberCount || 0) + 1,
             });
             joined.push(channel.title);
         }
