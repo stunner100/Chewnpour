@@ -28,6 +28,12 @@ for (const requiredPattern of [
   }
 }
 
+const normalizedQueryDeclaration = dashboardSearchSource.indexOf("const normalizedQuery = query.trim();");
+const debounceEffect = dashboardSearchSource.indexOf("window.setTimeout");
+if (normalizedQueryDeclaration === -1 || debounceEffect === -1 || normalizedQueryDeclaration > debounceEffect) {
+  throw new Error("DashboardSearch.jsx must declare normalizedQuery before the debounce effect uses it.");
+}
+
 for (const requiredPattern of [
   "export const searchDashboardContent = query({",
   '.withSearchIndex("search_body"',

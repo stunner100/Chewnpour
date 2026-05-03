@@ -49,6 +49,7 @@ const DashboardSearch = () => {
     const [searchParams, setSearchParams] = useSearchParams();
     const query = searchParams.get('q') || '';
     const [localQuery, setLocalQuery] = React.useState(query);
+    const normalizedQuery = query.trim();
 
     React.useEffect(() => {
         setLocalQuery(query);
@@ -68,7 +69,6 @@ const DashboardSearch = () => {
         return () => window.clearTimeout(timeoutId);
     }, [localQuery, normalizedQuery, setSearchParams]);
 
-    const normalizedQuery = query.trim();
     const searchResults = useQuery(
         api.search.searchDashboardContent,
         normalizedQuery ? { query: normalizedQuery, limit: 8 } : 'skip'
