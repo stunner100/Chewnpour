@@ -217,7 +217,6 @@ const DashboardAnalysis = () => {
     const moveCourseToFolderMutation = useMutation(api.courseFolders.moveCourseToFolder);
     const processUploadedFile = useAction(api.ai.processUploadedFile);
     const submitFeedbackMutation = useMutation(api.feedback.submitFeedback);
-    const autoJoinCommunity = useMutation(api.community.autoJoinOnUpload);
 
     useEffect(() => {
         lastSeenStreakRef.current = null;
@@ -487,9 +486,6 @@ const DashboardAnalysis = () => {
                 description: 'Processing your study materials...',
                 uploadId,
             });
-
-            // Step 4b: Auto-create community channel and join user (fire-and-forget)
-            autoJoinCommunity({ courseId, userId }).catch(() => {});
 
             // Step 5: Trigger AI processing in the background (don't await).
             currentStage = 'dispatch_ai_processing';

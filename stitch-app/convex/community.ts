@@ -438,8 +438,13 @@ export const flagPost = mutation({
     },
 });
 
-// Auto-join a user when they upload/create a course.
-// Creates the channel if it doesn't exist yet, then joins the user.
+// DEPRECATED: previously called from the upload flow to auto-create a per-course
+// channel. That model produced a graveyard of single-member channels and exposed
+// users' upload titles publicly in the Discover list. New uploads no longer call
+// this. Kept exported because pre-existing channels created by it remain valid;
+// removing it would orphan their `createdBy` audit trail.
+// For the "create a study group for this course" UX, use createChannelForCourse
+// behind an explicit user click.
 export const autoJoinOnUpload = mutation({
     args: {
         courseId: v.id("courses"),
@@ -522,6 +527,69 @@ const DEFAULT_CHANNELS = [
     { title: "Mathematics", description: "Calculus, statistics, algebra — numbers talk here.", icon: "calculate" },
     { title: "Humanities", description: "History, philosophy, languages, literature, and the arts.", icon: "menu_book" },
 ];
+
+// Auto-join the current user to every seeded channel they aren't already in.
+// Called on first visit to /dashboard/community so new users land in a populated
+// sidebar instead of an empty "Available to Everyone" list — the Slack-style
+// onboarding model where you start with a few default channels already joined.
+// Idempotent: safe to call on every visit.
+export const joinSeededChannels = mutation({
+    args: { userId: v.string() },
+    handler: async (ctx, args) => {
+        const channels = await ctx.db
+            .query("communityChannels")
+            .collect();
+        const channelsByTitle = new Map(channels.map((channel) => [channel.title, channel]));
+        const now = Date.now();
+        const seededOnly = [];
+
+        for (const defaultChannel of DEFAULT_CHANNELS) {
+            const existing = channelsByTitle.get(defaultChannel.title);
+            if (existing) {
+                seededOnly.push(existing);
+                continue;
+            }
+
+            const channelId = await ctx.db.insert("communityChannels", {
+                createdBy: "system",
+                title: defaultChannel.title,
+                description: defaultChannel.description,
+                icon: defaultChannel.icon,
+                memberCount: 0,
+                postCount: 0,
+                lastActivityAt: now,
+                createdAt: now,
+                isSeeded: true,
+            });
+            const created = await ctx.db.get(channelId);
+            if (created) seededOnly.push(created);
+        }
+
+        const memberships = await ctx.db
+            .query("communityMembers")
+            .withIndex("by_userId", (q) => q.eq("userId", args.userId))
+            .collect();
+        const joinedChannelIds = new Set(memberships.map((m) => String(m.channelId)));
+
+        const joined: string[] = [];
+
+        for (const channel of seededOnly) {
+            if (joinedChannelIds.has(String(channel._id))) continue;
+            await ctx.db.insert("communityMembers", {
+                channelId: channel._id,
+                userId: args.userId,
+                joinedAt: now,
+                role: "member",
+            });
+            await ctx.db.patch(channel._id, {
+                memberCount: Number(channel.memberCount || 0) + 1,
+            });
+            joined.push(channel.title);
+        }
+
+        return { joined, alreadyMember: seededOnly.length - joined.length };
+    },
+});
 
 // Idempotent: only creates channels that don't already exist.
 // Call once from the Convex dashboard or on app init.

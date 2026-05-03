@@ -139,23 +139,26 @@ const Community = () => {
     const { user } = useAuth();
     const userId = user?.id;
     const [searchQuery, setSearchQuery] = useState('');
-    const hasRequestedDefaultChannels = useRef(false);
+    const hasJoinedSeededChannels = useRef(false);
 
-    const seedDefaultChannels = useMutation(api.community.seedDefaultChannels);
+    const joinSeededChannels = useMutation(api.community.joinSeededChannels);
     const allChannels = useQuery(api.community.listChannels, {});
     const userChannels = useQuery(
         api.community.getUserChannels,
         userId ? { userId } : 'skip'
     );
 
+    // First visit per session: enroll the user into the default seeded channels
+    // (General, Exam Prep, Science, Math, Humanities) so the directory shows
+    // a populated "Your Channels" section instead of an empty page. Idempotent
+    // server-side — safe to fire once per mount.
     useEffect(() => {
-        if (!userId || hasRequestedDefaultChannels.current) return;
-        hasRequestedDefaultChannels.current = true;
-
-        void seedDefaultChannels({}).catch(() => {
-            hasRequestedDefaultChannels.current = false;
+        if (!userId || hasJoinedSeededChannels.current) return;
+        hasJoinedSeededChannels.current = true;
+        void joinSeededChannels({ userId }).catch(() => {
+            hasJoinedSeededChannels.current = false;
         });
-    }, [seedDefaultChannels, userId]);
+    }, [joinSeededChannels, userId]);
 
     const isLoading = allChannels === undefined || (userId ? userChannels === undefined : false);
 
