@@ -68,6 +68,7 @@ import type * as lib_uploadDisplayStatus from "../lib/uploadDisplayStatus.js";
 import type * as lib_voiceStreamToken from "../lib/voiceStreamToken.js";
 import type * as lib_voyageEmbeddings from "../lib/voyageEmbeddings.js";
 import type * as lib_yieldEstimation from "../lib/yieldEstimation.js";
+import type * as library from "../library.js";
 import type * as llmUsage from "../llmUsage.js";
 import type * as podcasts from "../podcasts.js";
 import type * as podcastsActions from "../podcastsActions.js";
@@ -151,6 +152,7 @@ declare const fullApi: ApiFromModules<{
   "lib/voiceStreamToken": typeof lib_voiceStreamToken;
   "lib/voyageEmbeddings": typeof lib_voyageEmbeddings;
   "lib/yieldEstimation": typeof lib_yieldEstimation;
+  library: typeof library;
   llmUsage: typeof llmUsage;
   podcasts: typeof podcasts;
   podcastsActions: typeof podcastsActions;

@@ -33,8 +33,8 @@ assert.ok(
 );
 
 assert.ok(
-    searchSource.includes('window.setTimeout') && searchSource.includes('setSearchParams({ q: trimmed }, { replace: true })'),
-    'Library search should update results as the user types, without requiring Enter.',
+    searchSource.includes('api.library.listMaterials') && searchSource.includes('Share to Library'),
+    'Library tab should show the shared reading-materials library, not the old dashboard search page.',
 );
 
 assert.ok(

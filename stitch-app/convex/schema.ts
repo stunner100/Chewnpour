@@ -116,6 +116,22 @@ export default defineSchema({
         .index("by_uploadId", ["uploadId"])
         .index("by_uploadId_createdAt", ["uploadId", "createdAt"]),
 
+    // Public reading materials shared in the Library tab
+    libraryMaterials: defineTable({
+        uploadedBy: v.string(),
+        title: v.string(),
+        description: v.optional(v.string()),
+        fileName: v.string(),
+        fileType: v.optional(v.string()),
+        fileSize: v.optional(v.number()),
+        storageId: v.id("_storage"),
+        createdAt: v.number(),
+        updatedAt: v.number(),
+        isHidden: v.optional(v.boolean()),
+    })
+        .index("by_createdAt", ["createdAt"])
+        .index("by_uploadedBy", ["uploadedBy"]),
+
     evidencePassages: defineTable({
         userId: v.string(),
         uploadId: v.id("uploads"),
