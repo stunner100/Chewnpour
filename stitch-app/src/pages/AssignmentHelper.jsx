@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { useAction, useMutation, useQuery, useConvexAuth } from 'convex/react';
 import { api } from '../../convex/_generated/api';
 import { useAuth } from '../contexts/AuthContext';
@@ -711,16 +711,11 @@ const AssignmentHelper = () => {
         <div className="bg-background-light dark:bg-background-dark antialiased min-h-screen flex flex-col">
             <header className="sticky top-0 z-50 w-full bg-surface-light/90 dark:bg-surface-dark/90 backdrop-blur-md border-b border-border-light dark:border-border-dark">
                 <div className="max-w-[1600px] mx-auto px-4 md:px-6 h-14 flex items-center justify-between gap-4">
-                    <div className="flex items-center gap-3">
-                        <Link to="/dashboard" aria-label="Back to dashboard" className="btn-icon w-10 h-10">
-                            <span className="material-symbols-outlined text-[20px]">arrow_back</span>
-                        </Link>
-                        <div className="flex items-center gap-2">
-                            <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center text-white">
-                                <span className="material-symbols-outlined text-[18px]">assignment</span>
-                            </div>
-                            <h1 className="text-body-base font-semibold text-text-main-light dark:text-text-main-dark">Assignment Helper</h1>
+                    <div className="flex items-center gap-2">
+                        <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center text-white">
+                            <span className="material-symbols-outlined text-[18px]">assignment</span>
                         </div>
+                        <h1 className="text-body-base font-semibold text-text-main-light dark:text-text-main-dark">Assignment Helper</h1>
                     </div>
                     <div className="flex items-center gap-2">
                         <button
@@ -812,7 +807,7 @@ const AssignmentHelper = () => {
                                         <div
                                             key={thread._id}
                                             role="listitem"
-                                            className={`group rounded-xl p-3 transition-all relative ${isActive
+                                            className={`group rounded-xl p-2.5 transition-all relative ${isActive
                                                 ? 'bg-primary/5 dark:bg-primary/10 border-2 border-primary'
                                                 : 'border border-border-light dark:border-border-dark hover:border-primary/30'
                                                 } ${isDeleting ? 'opacity-50' : ''}`}
@@ -831,8 +826,7 @@ const AssignmentHelper = () => {
                                                         <h3 className={`text-body-sm font-semibold truncate ${isActive ? 'text-primary' : 'text-text-main-light dark:text-text-main-dark'}`}>
                                                             {thread.title}
                                                         </h3>
-                                                        <p className="text-caption text-text-faint-light dark:text-text-faint-dark truncate mt-0.5">{thread.fileName}</p>
-                                                        <div className="flex items-center gap-2 mt-1.5">
+                                                        <div className="flex items-center gap-2 mt-1">
                                                             <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded-full ${thread.status === 'ready'
                                                                 ? 'bg-accent-emerald/10 text-accent-emerald'
                                                                 : thread.status === 'error'
@@ -1126,7 +1120,7 @@ const AssignmentHelper = () => {
                                                                                     </div>
                                                                                 </div>
                                                                             )}
-                                                                            <div className="flex items-center gap-2 pt-1">
+                                                                            <div className="flex items-center gap-1.5 pt-1">
                                                                                 <button
                                                                                     type="button"
                                                                                     onClick={() => handleAskAboutQuestion(q.number || qi + 1)}
@@ -1135,31 +1129,33 @@ const AssignmentHelper = () => {
                                                                                     <span className="material-symbols-outlined text-[13px]">chat</span>
                                                                                     Ask about Q{q.number || qi + 1}
                                                                                 </button>
-                                                                                <button
-                                                                                    type="button"
-                                                                                    onClick={() => navigate('/dashboard/humanizer', { state: { text: q.answer } })}
-                                                                                    className="inline-flex items-center gap-1 text-caption font-medium text-primary hover:text-primary/80 bg-primary/10 hover:bg-primary/15 px-2.5 py-1.5 rounded-lg transition-colors"
-                                                                                >
-                                                                                    <span className="material-symbols-outlined text-[13px]">auto_fix_high</span>
-                                                                                    Humanize
-                                                                                </button>
-                                                                                {(() => {
-                                                                                    const copyId = `${message._id}-q${qi}`;
-                                                                                    const isCopied = copiedMessageId === copyId;
-                                                                                    return (
-                                                                                        <button
-                                                                                            type="button"
-                                                                                            onClick={() => handleCopy(q.answer + (q.workings ? `\n\nWorkings:\n${q.workings}` : ''), copyId)}
-                                                                                            className={`inline-flex items-center gap-1 text-caption font-medium px-2.5 py-1.5 rounded-lg transition-colors ${isCopied
-                                                                                                ? 'text-accent-emerald bg-accent-emerald/10'
-                                                                                                : 'text-text-faint-light dark:text-text-faint-dark bg-surface-hover-light dark:bg-surface-hover-dark hover:text-text-main-light dark:hover:text-text-main-dark'
-                                                                                            }`}
-                                                                                        >
-                                                                                            <span className="material-symbols-outlined text-[13px]">{isCopied ? 'check' : 'content_copy'}</span>
-                                                                                            {isCopied ? 'Copied!' : 'Copy'}
-                                                                                        </button>
-                                                                                    );
-                                                                                })()}
+                                                                                <div className="flex items-center bg-surface-hover-light dark:bg-surface-hover-dark rounded-lg">
+                                                                                    <button
+                                                                                        type="button"
+                                                                                        onClick={() => navigate('/dashboard/humanizer', { state: { text: q.answer } })}
+                                                                                        aria-label="Humanize answer"
+                                                                                        className="inline-flex items-center justify-center w-8 h-8 text-text-faint-light dark:text-text-faint-dark hover:text-primary transition-colors rounded-lg"
+                                                                                    >
+                                                                                        <span className="material-symbols-outlined text-[16px]">auto_fix_high</span>
+                                                                                    </button>
+                                                                                    {(() => {
+                                                                                        const copyId = `${message._id}-q${qi}`;
+                                                                                        const isCopied = copiedMessageId === copyId;
+                                                                                        return (
+                                                                                            <button
+                                                                                                type="button"
+                                                                                                onClick={() => handleCopy(q.answer + (q.workings ? `\n\nWorkings:\n${q.workings}` : ''), copyId)}
+                                                                                                aria-label={isCopied ? 'Copied' : 'Copy answer'}
+                                                                                                className={`inline-flex items-center justify-center w-8 h-8 transition-colors rounded-lg ${isCopied
+                                                                                                    ? 'text-accent-emerald'
+                                                                                                    : 'text-text-faint-light dark:text-text-faint-dark hover:text-text-main-light dark:hover:text-text-main-dark'
+                                                                                                }`}
+                                                                                            >
+                                                                                                <span className="material-symbols-outlined text-[16px]">{isCopied ? 'check' : 'content_copy'}</span>
+                                                                                            </button>
+                                                                                        );
+                                                                                    })()}
+                                                                                </div>
                                                                             </div>
                                                                         </div>
                                                                     )}
@@ -1184,7 +1180,7 @@ const AssignmentHelper = () => {
                                                 )}
                                                 <div className={`max-w-[85%] md:max-w-[75%] rounded-2xl px-4 py-3 whitespace-pre-wrap text-body-sm leading-relaxed ${isAssistant
                                                     ? 'bg-surface-light dark:bg-surface-dark border border-border-light dark:border-border-dark text-text-main-light dark:text-text-main-dark rounded-tl-sm'
-                                                    : 'bg-primary text-white rounded-tr-sm'
+                                                    : 'bg-surface-hover-light dark:bg-surface-hover-dark border border-border-light dark:border-border-dark text-text-main-light dark:text-text-main-dark rounded-tr-sm'
                                                     }`}>
                                                     <div className="prose prose-sm max-w-none dark:prose-invert">
                                                         {displayContent.split('\n').map((paragraph, i) => (
@@ -1194,31 +1190,33 @@ const AssignmentHelper = () => {
                                                         ))}
                                                     </div>
                                                     {isAssistant && displayContent && (
-                                                        <div className="mt-3 pt-3 border-t border-border-light dark:border-border-dark flex items-center gap-2">
-                                                            <button
-                                                                type="button"
-                                                                onClick={() => navigate('/dashboard/humanizer', { state: { text: displayContent } })}
-                                                                className="inline-flex items-center gap-1.5 text-caption font-medium text-primary hover:text-primary/80 bg-primary/10 hover:bg-primary/15 px-3 py-1.5 rounded-lg transition-colors"
-                                                            >
-                                                                <span className="material-symbols-outlined text-[14px]">auto_fix_high</span>
-                                                                Humanize
-                                                            </button>
-                                                            {(() => {
-                                                                const isCopied = copiedMessageId === message._id;
-                                                                return (
-                                                                    <button
-                                                                        type="button"
-                                                                        onClick={() => handleCopy(displayContent, message._id)}
-                                                                        className={`inline-flex items-center gap-1.5 text-caption font-medium px-3 py-1.5 rounded-lg transition-colors ${isCopied
-                                                                            ? 'text-accent-emerald bg-accent-emerald/10'
-                                                                            : 'text-text-faint-light dark:text-text-faint-dark bg-surface-hover-light dark:bg-surface-hover-dark hover:text-text-main-light dark:hover:text-text-main-dark'
-                                                                        }`}
-                                                                    >
-                                                                        <span className="material-symbols-outlined text-[14px]">{isCopied ? 'check' : 'content_copy'}</span>
-                                                                        {isCopied ? 'Copied!' : 'Copy'}
-                                                                    </button>
-                                                                );
-                                                            })()}
+                                                        <div className="mt-3 pt-3 border-t border-border-light dark:border-border-dark flex items-center gap-1.5">
+                                                            <div className="flex items-center bg-surface-hover-light dark:bg-surface-hover-dark rounded-lg">
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={() => navigate('/dashboard/humanizer', { state: { text: displayContent } })}
+                                                                    aria-label="Humanize text"
+                                                                    className="inline-flex items-center justify-center w-8 h-8 text-text-faint-light dark:text-text-faint-dark hover:text-primary transition-colors rounded-lg"
+                                                                >
+                                                                    <span className="material-symbols-outlined text-[16px]">auto_fix_high</span>
+                                                                </button>
+                                                                {(() => {
+                                                                    const isCopied = copiedMessageId === message._id;
+                                                                    return (
+                                                                        <button
+                                                                            type="button"
+                                                                            onClick={() => handleCopy(displayContent, message._id)}
+                                                                            aria-label={isCopied ? 'Copied' : 'Copy text'}
+                                                                            className={`inline-flex items-center justify-center w-8 h-8 transition-colors rounded-lg ${isCopied
+                                                                                ? 'text-accent-emerald'
+                                                                                : 'text-text-faint-light dark:text-text-faint-dark hover:text-text-main-light dark:hover:text-text-main-dark'
+                                                                            }`}
+                                                                        >
+                                                                            <span className="material-symbols-outlined text-[16px]">{isCopied ? 'check' : 'content_copy'}</span>
+                                                                        </button>
+                                                                    );
+                                                                })()}
+                                                            </div>
                                                         </div>
                                                     )}
                                                 </div>
@@ -1251,7 +1249,7 @@ const AssignmentHelper = () => {
                                     <div ref={endRef} />
                                 </div>
 
-                                <div className="px-4 py-3 border-t border-border-light dark:border-border-dark bg-surface-light dark:bg-surface-dark">
+                                <div className="px-4 py-3 border-t border-border-light dark:border-border-dark bg-surface-light dark:bg-surface-dark shadow-[0_-4px_12px_rgba(0,0,0,0.04)] dark:shadow-[0_-4px_12px_rgba(0,0,0,0.12)]">
                                     {threadStatus === 'processing' ? (
                                         <div className="rounded-lg bg-surface-hover-light dark:bg-surface-hover-dark border border-border-light dark:border-border-dark px-3 py-3 flex items-center justify-center gap-2">
                                             <span className="material-symbols-outlined text-text-faint-light dark:text-text-faint-dark text-[18px] animate-spin">refresh</span>
