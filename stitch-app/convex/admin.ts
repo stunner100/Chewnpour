@@ -354,6 +354,91 @@ const markActiveWindow = (
     }
 };
 
+const buildFeatureUsageAnalytics = (
+    featureInputs: Array<{
+        key: string;
+        label: string;
+        icon: string;
+        rows: any[];
+        getUserId: (row: any) => unknown;
+        getTimestamp: (row: any) => number;
+        getCount?: (row: any) => number;
+    }>,
+    sevenDaysAgo: number,
+    fourteenDaysAgo: number
+) => {
+    const features = featureInputs.map((feature) => {
+        const users = new Set<string>();
+        const lastWindowUsers = new Set<string>();
+        let totalUses = 0;
+        let lastWindowUses = 0;
+        let previousWindowUses = 0;
+        let lastUsedAt = 0;
+
+        for (const row of feature.rows) {
+            const userId = String(feature.getUserId(row) || "").trim();
+            const timestampMs = toTimestamp(feature.getTimestamp(row), toTimestamp(row?._creationTime, 0));
+            const count = Math.max(0, Math.floor(Number(feature.getCount ? feature.getCount(row) : 1) || 0));
+            if (count <= 0) continue;
+
+            totalUses += count;
+            if (userId) users.add(userId);
+            if (timestampMs > lastUsedAt) lastUsedAt = timestampMs;
+
+            if (timestampMs >= sevenDaysAgo) {
+                lastWindowUses += count;
+                if (userId) lastWindowUsers.add(userId);
+            } else if (timestampMs >= fourteenDaysAgo) {
+                previousWindowUses += count;
+            }
+        }
+
+        return {
+            key: feature.key,
+            label: feature.label,
+            icon: feature.icon,
+            totalUses,
+            lastWindowUses,
+            previousWindowUses,
+            trend: lastWindowUses - previousWindowUses,
+            uniqueUsers: users.size,
+            uniqueUsersLastWindow: lastWindowUsers.size,
+            lastUsedAt: lastUsedAt || null,
+            sharePercent: 0,
+        };
+    });
+
+    const totalUses = features.reduce((sum, feature) => sum + feature.totalUses, 0);
+    const totalLastWindowUses = features.reduce((sum, feature) => sum + feature.lastWindowUses, 0);
+    const allUsers = new Set<string>();
+
+    for (const feature of featureInputs) {
+        for (const row of feature.rows) {
+            const userId = String(feature.getUserId(row) || "").trim();
+            if (userId) allUsers.add(userId);
+        }
+    }
+
+    const rankedFeatures = features
+        .map((feature) => ({
+            ...feature,
+            sharePercent: totalUses > 0
+                ? Math.round((feature.totalUses / totalUses) * 1000) / 10
+                : 0,
+        }))
+        .sort((left, right) => {
+            if (right.totalUses !== left.totalUses) return right.totalUses - left.totalUses;
+            return String(left.label).localeCompare(String(right.label));
+        });
+
+    return {
+        totalUses,
+        totalLastWindowUses,
+        totalUniqueUsers: allUsers.size,
+        features: rankedFeatures,
+    };
+};
+
 const normalizeSessionUserId = (session: any) =>
     String(session?.userId || "").trim();
 
@@ -1560,11 +1645,12 @@ export const getDashboardSnapshot = query({
         const fiveMinutesAgo = now - ACTIVE_USERS_5M_WINDOW_MS;
         const sevenDaysAgoDateKey = new Date(sevenDaysAgo).toISOString().slice(0, 10);
 
-        const [profiles, uploads, assignmentThreads, examAttempts, conceptAttempts, feedbackEntries, productResearchResponses, activeSessionsResult, subscriptions, paymentTransactions, courses, humanizerUsage, aiMessageUsage, llmUsageDaily, userPresenceLast5Minutes, allUserPresence, questionTargetAuditRuns, campaignCreditGrants, campaignLandingEvents] =
+        const [profiles, uploads, assignmentThreads, assignmentMessages, examAttempts, conceptAttempts, feedbackEntries, productResearchResponses, activeSessionsResult, subscriptions, paymentTransactions, courses, humanizerUsage, aiMessageUsage, llmUsageDaily, topicNotes, topicChatMessages, communityPosts, libraryMaterials, topicPodcasts, userPresenceLast5Minutes, allUserPresence, questionTargetAuditRuns, campaignCreditGrants, campaignLandingEvents] =
             await Promise.all([
                 ctx.db.query("profiles").collect(),
                 ctx.db.query("uploads").collect(),
                 ctx.db.query("assignmentThreads").collect(),
+                ctx.db.query("assignmentMessages").collect(),
                 ctx.db.query("examAttempts").collect(),
                 ctx.db.query("conceptAttempts").collect(),
                 ctx.db.query("feedback").collect(),
@@ -1580,6 +1666,11 @@ export const getDashboardSnapshot = query({
                 ctx.db.query("humanizerUsage").collect(),
                 ctx.db.query("aiMessageUsage").collect(),
                 ctx.db.query("llmUsageDaily").collect(),
+                ctx.db.query("topicNotes").collect(),
+                ctx.db.query("topicChatMessages").collect(),
+                ctx.db.query("communityPosts").collect(),
+                ctx.db.query("libraryMaterials").collect(),
+                ctx.db.query("topicPodcasts").collect(),
                 ctx.db
                     .query("userPresence")
                     .withIndex("by_lastSeenAt", (q) => q.gte("lastSeenAt", fiveMinutesAgo))
@@ -2237,6 +2328,122 @@ export const getDashboardSnapshot = query({
             totalHumanizerUsage,
             humanizerUsageLastWindow,
         };
+
+        const dateKeyTimestamp = (value: unknown, fallback: number) => {
+            const normalized = String(value || "").trim();
+            if (!/^\d{4}-\d{2}-\d{2}$/.test(normalized)) return fallback;
+            const parsed = Date.parse(`${normalized}T00:00:00.000Z`);
+            return Number.isFinite(parsed) ? parsed : fallback;
+        };
+
+        const featureUsageAnalytics = buildFeatureUsageAnalytics([
+            {
+                key: "study_uploads",
+                label: "Study Material Uploads",
+                icon: "cloud_upload",
+                rows: uploads,
+                getUserId: (row) => row.userId,
+                getTimestamp: (row) => toTimestamp(row.createdAt, toTimestamp(row._creationTime, 0)),
+            },
+            {
+                key: "library_materials",
+                label: "Shared Library",
+                icon: "local_library",
+                rows: libraryMaterials.filter((row) => !row.isHidden),
+                getUserId: (row) => row.uploadedBy,
+                getTimestamp: (row) => toTimestamp(row.createdAt, toTimestamp(row._creationTime, 0)),
+            },
+            {
+                key: "courses",
+                label: "Course Creation",
+                icon: "library_books",
+                rows: courses,
+                getUserId: (row) => row.userId,
+                getTimestamp: (row) => toTimestamp(row.createdAt, toTimestamp(row._creationTime, 0)),
+            },
+            {
+                key: "assignment_helper",
+                label: "Assignment Helper",
+                icon: "assignment",
+                rows: assignmentThreads,
+                getUserId: (row) => row.userId,
+                getTimestamp: (row) => toTimestamp(row.updatedAt, toTimestamp(row._creationTime, 0)),
+            },
+            {
+                key: "assignment_chat",
+                label: "Assignment Chat",
+                icon: "forum",
+                rows: assignmentMessages.filter((row) => row.role === "user"),
+                getUserId: (row) => row.userId,
+                getTimestamp: (row) => toTimestamp(row.createdAt, toTimestamp(row._creationTime, 0)),
+            },
+            {
+                key: "exam_practice",
+                label: "Exam Practice",
+                icon: "quiz",
+                rows: examAttempts,
+                getUserId: (row) => row.userId,
+                getTimestamp: (row) => toTimestamp(row.completedAt, toTimestamp(row.startedAt, toTimestamp(row._creationTime, 0))),
+            },
+            {
+                key: "concept_practice",
+                label: "Concept Practice",
+                icon: "psychology",
+                rows: conceptAttempts,
+                getUserId: (row) => row.userId,
+                getTimestamp: (row) => toTimestamp(row.completedAt, toTimestamp(row._creationTime, 0)),
+            },
+            {
+                key: "humanizer",
+                label: "Humanizer",
+                icon: "auto_fix_high",
+                rows: humanizerUsage,
+                getUserId: (row) => row.userId,
+                getTimestamp: (row) => dateKeyTimestamp(row.date, toTimestamp(row._creationTime, 0)),
+                getCount: (row) => toNonNegativeInteger(row.count),
+            },
+            {
+                key: "ai_tutor_messages",
+                label: "AI Tutor Messages",
+                icon: "smart_toy",
+                rows: aiMessageUsage,
+                getUserId: (row) => row.userId,
+                getTimestamp: (row) => dateKeyTimestamp(row.date, toTimestamp(row._creationTime, 0)),
+                getCount: (row) => toNonNegativeInteger(row.count),
+            },
+            {
+                key: "topic_chat",
+                label: "Topic Chat",
+                icon: "chat",
+                rows: topicChatMessages.filter((row) => row.role === "user"),
+                getUserId: (row) => row.userId,
+                getTimestamp: (row) => toTimestamp(row.createdAt, toTimestamp(row._creationTime, 0)),
+            },
+            {
+                key: "topic_notes",
+                label: "Topic Notes",
+                icon: "edit_note",
+                rows: topicNotes,
+                getUserId: (row) => row.userId,
+                getTimestamp: (row) => toTimestamp(row.updatedAt, toTimestamp(row._creationTime, 0)),
+            },
+            {
+                key: "community_posts",
+                label: "Community Posts",
+                icon: "groups",
+                rows: communityPosts.filter((row) => !row.isHidden),
+                getUserId: (row) => row.userId,
+                getTimestamp: (row) => toTimestamp(row.createdAt, toTimestamp(row._creationTime, 0)),
+            },
+            {
+                key: "podcasts",
+                label: "Podcasts",
+                icon: "graphic_eq",
+                rows: topicPodcasts,
+                getUserId: (row) => row.userId,
+                getTimestamp: (row) => toTimestamp(row.updatedAt, toTimestamp(row.createdAt, toTimestamp(row.startedAt, toTimestamp(row._creationTime, 0)))),
+            },
+        ], sevenDaysAgo, fourteenDaysAgo);
 
         const newUsersLastWindow = profiles.filter((profile) => profile._creationTime >= sevenDaysAgo).length;
         const newUsersPrevWindow = profiles.filter(
@@ -3143,6 +3350,7 @@ export const getDashboardSnapshot = query({
             billingRecovery,
             contentAnalytics,
             engagementAnalytics,
+            featureUsageAnalytics,
         };
     },
 });

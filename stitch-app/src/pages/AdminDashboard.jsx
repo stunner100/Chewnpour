@@ -123,6 +123,7 @@ const formatResearchChoice = (value) => {
 const TABS = [
     { key: 'overview', label: 'Overview', icon: 'dashboard' },
     { key: 'learning', label: 'Learning', icon: 'school' },
+    { key: 'features', label: 'Features', icon: 'analytics' },
     { key: 'revenue', label: 'Revenue', icon: 'payments' },
     { key: 'content', label: 'Content', icon: 'library_books' },
     { key: 'users', label: 'Users', icon: 'group' },
@@ -482,6 +483,108 @@ const LearningPanel = ({ snapshot, activeUsersDays }) => {
                     </div>
                 </SectionCard>
             ) : null}
+        </div>
+    );
+};
+
+const FeatureUsagePanel = ({ snapshot, activeUsersDays }) => {
+    const usage = snapshot.featureUsageAnalytics || {};
+    const features = Array.isArray(usage.features) ? usage.features : [];
+    const topFeature = features[0] || null;
+    const maxUses = Math.max(...features.map((feature) => Number(feature.totalUses) || 0), 1);
+    const recentFeatures = features.filter((feature) => Number(feature.lastWindowUses) > 0).length;
+
+    return (
+        <div className="space-y-4">
+            <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+                <StatCard
+                    label="Feature events"
+                    value={usage.totalUses}
+                    sublabel={`${formatNumber(usage.totalLastWindowUses)} in last ${activeUsersDays}d`}
+                    icon="analytics"
+                />
+                <StatCard
+                    label="Feature users"
+                    value={usage.totalUniqueUsers}
+                    sublabel="Users with at least one tracked event"
+                    icon="group"
+                    color="emerald"
+                />
+                <StatCard
+                    label="Active features"
+                    value={recentFeatures}
+                    sublabel={`Used in last ${activeUsersDays}d`}
+                    icon="bolt"
+                    color="blue"
+                />
+                <StatCard
+                    label="Most used"
+                    value={topFeature?.label || 'N/A'}
+                    sublabel={topFeature ? `${formatNumber(topFeature.totalUses)} events • ${formatPercent(topFeature.sharePercent)}` : 'No feature data yet'}
+                    icon={topFeature?.icon || 'insights'}
+                    color="amber"
+                />
+            </section>
+
+            <SectionCard title="Feature Usage" badge={`${formatNumber(features.length)} tracked features`}>
+                {features.length > 0 ? (
+                    <div className="space-y-3">
+                        {features.map((feature) => {
+                            const totalUses = Number(feature.totalUses) || 0;
+                            const width = maxUses > 0 ? Math.max((totalUses / maxUses) * 100, 2) : 2;
+                            const trend = Number(feature.trend) || 0;
+                            const trendLabel = trend > 0 ? `+${formatNumber(trend)}` : formatNumber(trend);
+                            return (
+                                <div key={feature.key} className="rounded-2xl border border-border-light dark:border-border-dark p-4">
+                                    <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+                                        <div className="flex min-w-0 items-start gap-3">
+                                            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-primary/8 text-primary">
+                                                <span className="material-symbols-outlined text-[20px]">{feature.icon || 'analytics'}</span>
+                                            </div>
+                                            <div className="min-w-0">
+                                                <p className="font-bold text-text-main-light dark:text-text-main-dark">{feature.label}</p>
+                                                <p className="mt-1 text-xs text-text-faint-light dark:text-text-faint-dark">
+                                                    Last used {formatDateTime(feature.lastUsedAt)}
+                                                </p>
+                                            </div>
+                                        </div>
+                                        <div className="grid grid-cols-2 gap-3 text-right sm:grid-cols-5 lg:min-w-[560px]">
+                                            <div>
+                                                <p className="text-xs text-text-faint-light dark:text-text-faint-dark">Total</p>
+                                                <p className="font-bold text-text-main-light dark:text-text-main-dark">{formatNumber(totalUses)}</p>
+                                            </div>
+                                            <div>
+                                                <p className="text-xs text-text-faint-light dark:text-text-faint-dark">Last {activeUsersDays}d</p>
+                                                <p className="font-bold text-text-main-light dark:text-text-main-dark">{formatNumber(feature.lastWindowUses)}</p>
+                                            </div>
+                                            <div>
+                                                <p className="text-xs text-text-faint-light dark:text-text-faint-dark">Users</p>
+                                                <p className="font-bold text-text-main-light dark:text-text-main-dark">{formatNumber(feature.uniqueUsers)}</p>
+                                            </div>
+                                            <div>
+                                                <p className="text-xs text-text-faint-light dark:text-text-faint-dark">Share</p>
+                                                <p className="font-bold text-text-main-light dark:text-text-main-dark">{formatPercent(feature.sharePercent)}</p>
+                                            </div>
+                                            <div>
+                                                <p className="text-xs text-text-faint-light dark:text-text-faint-dark">Trend</p>
+                                                <p className={`font-bold ${trend >= 0 ? 'text-accent-emerald' : 'text-rose-600 dark:text-rose-400'}`}>{trendLabel}</p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div className="mt-3 h-2 overflow-hidden rounded-full bg-surface-hover-light dark:bg-surface-hover-dark">
+                                        <div
+                                            className="h-full rounded-full bg-primary transition-all"
+                                            style={{ width: `${Math.max(0, Math.min(width, 100))}%` }}
+                                        />
+                                    </div>
+                                </div>
+                            );
+                        })}
+                    </div>
+                ) : (
+                    <p className="text-sm text-text-faint-light dark:text-text-faint-dark">No feature usage has been tracked yet.</p>
+                )}
+            </SectionCard>
         </div>
     );
 };
@@ -1803,6 +1906,8 @@ const AdminDashboard = () => {
                 return <OverviewPanel snapshot={snapshot} totals={totals} activeUsersDays={activeUsersDays} newUsersDays={newUsersDays} flags={flags} />;
             case 'learning':
                 return <LearningPanel snapshot={snapshot} activeUsersDays={activeUsersDays} />;
+            case 'features':
+                return <FeatureUsagePanel snapshot={snapshot} activeUsersDays={activeUsersDays} />;
             case 'revenue':
                 return (
                     <RevenuePanel
