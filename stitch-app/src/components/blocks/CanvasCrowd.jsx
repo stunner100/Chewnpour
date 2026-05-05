@@ -11,14 +11,17 @@ const CanvasCrowd = ({ className = '', height = 280 }) => {
         if (!canvas) return;
 
         const ctx = canvas.getContext('2d');
+        if (!ctx) return;
+
         let width = canvas.offsetWidth;
         let dpr = window.devicePixelRatio || 1;
 
         const resize = () => {
             width = canvas.offsetWidth;
+            dpr = window.devicePixelRatio || 1;
             canvas.width = width * dpr;
             canvas.height = height * dpr;
-            ctx.scale(dpr, dpr);
+            ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
         };
 
         resize();

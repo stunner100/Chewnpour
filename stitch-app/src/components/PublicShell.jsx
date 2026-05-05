@@ -1,5 +1,6 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
+import CanvasCrowd from './blocks/CanvasCrowd';
 
 const ACCENT = 'rgb(145, 75, 241)';
 const PAGE_BG = 'rgb(16, 17, 18)';
@@ -83,7 +84,7 @@ const PublicShell = ({ children, showAuthNav = true, className = '' }) => (
             {children}
         </main>
 
-        <footer className="mt-16" style={{ background: FOOTER_BG, borderTop: '1px solid rgba(217,217,217,0.08)' }}>
+        <footer className="mt-16 overflow-hidden" style={{ background: FOOTER_BG, borderTop: '1px solid rgba(217,217,217,0.08)' }}>
             <div className="mx-auto max-w-[1200px] px-6 lg:px-12 py-10 flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
                 <Link to="/" className="flex items-center gap-2.5 text-white">
                     <HexLogo size={28} withWordmark />
@@ -99,6 +100,19 @@ const PublicShell = ({ children, showAuthNav = true, className = '' }) => (
                     <Link to="/terms" className="text-white/80 hover:text-white transition-colors">Terms</Link>
                     <a href="mailto:info@chewnpour.com" className="text-white/80 hover:text-white transition-colors">Contact</a>
                 </nav>
+            </div>
+            <div
+                className="relative h-[180px] sm:h-[240px] overflow-hidden"
+                style={{ borderTop: '1px solid rgba(217,217,217,0.08)' }}
+                aria-hidden="true"
+            >
+                <CanvasCrowd height={240} />
+                <div
+                    className="absolute inset-0 pointer-events-none"
+                    style={{
+                        background: `linear-gradient(to top, ${FOOTER_BG} 0%, rgba(20,20,19,0) 52%, ${FOOTER_BG} 100%)`,
+                    }}
+                />
             </div>
             <div
                 className="py-4 text-center text-xs"
