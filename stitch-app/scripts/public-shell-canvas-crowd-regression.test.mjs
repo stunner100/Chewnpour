@@ -11,6 +11,7 @@ const read = async (relativePath) =>
 const publicShell = await read('src/components/PublicShell.jsx');
 const landingPage = await read('src/pages/LandingPage.jsx');
 const canvasCrowd = await read('src/components/blocks/CanvasCrowd.jsx');
+const packageJson = await read('package.json');
 
 assert.equal(
   publicShell.includes("import CanvasCrowd from './blocks/CanvasCrowd'"),
@@ -37,9 +38,27 @@ assert.equal(
 );
 
 assert.equal(
-  canvasCrowd.includes('ctx.setTransform(dpr, 0, 0, dpr, 0, 0)'),
+  canvasCrowd.includes('ctx.scale(stage.dpr, stage.dpr)'),
   true,
-  'CanvasCrowd must reset the canvas transform on resize instead of accumulating scale.',
+  'CanvasCrowd must render at device-pixel-ratio scale.',
+);
+
+assert.equal(
+  canvasCrowd.includes("import { gsap } from 'gsap'"),
+  true,
+  'CanvasCrowd must use GSAP for the Skiper walking crowd animation.',
+);
+
+assert.equal(
+  canvasCrowd.includes("const DEFAULT_SRC = '/images/peeps/all-peeps.png'"),
+  true,
+  'CanvasCrowd must default to the Open Peeps sprite sheet.',
+);
+
+assert.equal(
+  packageJson.includes('"gsap"'),
+  true,
+  'package.json must include the GSAP runtime dependency.',
 );
 
 console.log('public-shell-canvas-crowd-regression.test.mjs passed');
