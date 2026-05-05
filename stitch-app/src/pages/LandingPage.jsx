@@ -631,30 +631,39 @@ const LandingPage = () => {
                     .hero-card {
                         height: auto;
                         min-height: min-content;
-                        padding: 32px 20px 220px;
+                        padding: 32px 20px 24px;
                         border-radius: 28px;
                     }
                     .hero-grid {
                         grid-template-columns: 1fr;
-                        gap: 20px;
+                        gap: 24px;
                     }
                     .hero-copy { padding-right: 0; }
                     .hero-title { font-size: 36px; line-height: 1.08; }
                     .hero-sub { font-size: 15px; max-width: 100%; margin-top: 16px; }
                     .hero-visual {
-                        position: absolute;
-                        right: -30px;
-                        bottom: -30px;
+                        position: relative;
+                        right: auto;
+                        bottom: auto;
                         height: 240px;
-                        width: 280px;
-                        max-width: 72%;
+                        width: 100%;
+                        max-width: 100%;
+                        margin-top: 8px;
+                        justify-content: center;
                     }
-                    .hero-swirl { width: 100%; margin-right: 0; }
+                    .hero-swirl,
+                    .cta-swirl {
+                        width: 100%;
+                        height: 100%;
+                        object-position: center;
+                        -webkit-mask-image: radial-gradient(ellipse 80% 80% at 50% 50%, #000 45%, rgba(0,0,0,0.8) 65%, rgba(0,0,0,0.3) 85%, transparent 100%);
+                        mask-image: radial-gradient(ellipse 80% 80% at 50% 50%, #000 45%, rgba(0,0,0,0.8) 65%, rgba(0,0,0,0.3) 85%, transparent 100%);
+                    }
                 }
                 @media (max-width: 380px) {
-                    .hero-card { padding: 28px 18px 200px; }
+                    .hero-card { padding: 28px 18px 24px; }
                     .hero-title { font-size: 32px; }
-                    .hero-visual { height: 200px; width: 240px; }
+                    .hero-visual { height: 200px; }
                 }
             `}</style>
 
