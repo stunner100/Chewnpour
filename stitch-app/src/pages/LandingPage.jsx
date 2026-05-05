@@ -5,6 +5,7 @@ import { api } from '../../convex/_generated/api';
 import { useAuth } from '../contexts/AuthContext';
 import { capturePostHogEvent } from '../lib/posthog';
 import { formatPlanPrice, normalizeTopUpOptions } from '../lib/pricingCurrency';
+import CanvasCrowd from '../components/blocks/CanvasCrowd';
 
 /**
  * Landing page styled to the NajmAI design specification (Outfit font, rgb(16,17,18) background,
@@ -1278,6 +1279,19 @@ const LandingPage = () => {
                             <a href="https://t.me/+jIHi6XFYdl9kNDA0" target="_blank" rel="noopener noreferrer" className="hover:text-white transition-colors">Telegram</a>
                         </div>
                     </div>
+                </div>
+                <div
+                    className="relative h-[180px] sm:h-[260px] overflow-hidden"
+                    style={{ borderTop: '1px solid rgba(217,217,217,0.12)' }}
+                    aria-hidden="true"
+                >
+                    <CanvasCrowd height={260} />
+                    <div
+                        className="absolute inset-0 pointer-events-none"
+                        style={{
+                            background: `linear-gradient(to top, ${FOOTER_BG} 0%, rgba(20,20,19,0) 52%, ${FOOTER_BG} 100%)`,
+                        }}
+                    />
                 </div>
             </footer>
 
