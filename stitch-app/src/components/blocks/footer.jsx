@@ -1,5 +1,6 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
+import CanvasCrowd from './CanvasCrowd';
 
 const MailIcon = ({ className }) => (
     <svg className={className} fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24" strokeLinecap="round" strokeLinejoin="round">
@@ -105,6 +106,10 @@ export function Footer({ onCtaClick = () => {} }) {
                         </ul>
                     </div>
                 </div>
+            </div>
+            <div className="relative w-full h-[200px] sm:h-[260px] overflow-hidden border-t border-border/20 mt-16 sm:mt-24">
+                <CanvasCrowd height={260} />
+                <div className="absolute inset-0 bg-gradient-to-t from-background via-transparent to-transparent pointer-events-none" />
             </div>
             <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full h-full bg-primary/5 blur-[120px] rounded-full pointer-events-none z-0" />
         </footer>
