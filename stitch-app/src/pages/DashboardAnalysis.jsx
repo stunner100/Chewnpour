@@ -113,6 +113,45 @@ const isConvexAuthenticationError = (error) => {
 const getUploadAuthNotReadyMessage = () =>
     'Your session is still syncing. Please wait a few seconds and try again. If this continues, refresh and sign in again.';
 
+const SUPPORTED_STUDY_MIME_TYPES = new Map([
+    ['application/pdf', 'pdf'],
+    ['application/vnd.openxmlformats-officedocument.presentationml.presentation', 'pptx'],
+    ['application/vnd.openxmlformats-officedocument.wordprocessingml.document', 'docx'],
+    ['audio/mpeg', 'mp3'],
+    ['audio/mp3', 'mp3'],
+    ['audio/mp4', 'mp4'],
+    ['audio/x-m4a', 'm4a'],
+    ['audio/wav', 'wav'],
+    ['audio/x-wav', 'wav'],
+    ['audio/webm', 'webm'],
+    ['audio/ogg', 'ogg'],
+    ['audio/aac', 'aac'],
+    ['audio/flac', 'flac'],
+]);
+
+const SUPPORTED_STUDY_EXTENSIONS = new Set([
+    'pdf',
+    'pptx',
+    'docx',
+    'mp3',
+    'm4a',
+    'mp4',
+    'wav',
+    'webm',
+    'ogg',
+    'aac',
+    'flac',
+]);
+
+const getStudyUploadFileType = (file) => {
+    const mimeType = String(file?.type || '').trim().toLowerCase().split(';')[0];
+    if (SUPPORTED_STUDY_MIME_TYPES.has(mimeType)) {
+        return SUPPORTED_STUDY_MIME_TYPES.get(mimeType);
+    }
+    const ext = String(file?.name || '').split('.').pop()?.toLowerCase() || '';
+    return SUPPORTED_STUDY_EXTENSIONS.has(ext) ? ext : '';
+};
+
 const resolveQuotaExceededMessage = (error, fallbackTopUpOptions, fallbackCurrency = 'GHS') => {
     const topUpOptions = Array.isArray(error?.data?.topUpOptions)
         ? error.data.topUpOptions
@@ -335,14 +374,9 @@ const DashboardAnalysis = () => {
             return;
         }
 
-        // Validate file type
-        const validTypes = [
-            'application/pdf',
-            'application/vnd.openxmlformats-officedocument.presentationml.presentation',
-            'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-        ];
-        if (!validTypes.includes(file.type)) {
-            setUploadError('Please upload a PDF, PPTX, or DOCX file');
+        const uploadFileType = getStudyUploadFileType(file);
+        if (!uploadFileType) {
+            setUploadError('Please upload a PDF, PPTX, DOCX, or audio recording file');
             reportUploadValidationRejected({
                 flowType: 'study_material',
                 source: 'dashboard_analysis',
@@ -468,11 +502,7 @@ const DashboardAnalysis = () => {
             const uploadId = await createUpload({
                 userId,
                 fileName: file.name,
-                fileType: file.type.includes('pdf')
-                    ? 'pdf'
-                    : file.type.includes('wordprocessingml.document')
-                        ? 'docx'
-                        : 'pptx',
+                fileType: uploadFileType,
                 fileSize: file.size,
                 storageId,
             });
@@ -482,7 +512,7 @@ const DashboardAnalysis = () => {
             reportUploadStage(uploadObservation, currentStage);
             const courseId = await createCourse({
                 userId,
-                title: file.name.replace(/\.(pdf|pptx|docx)$/i, ''),
+                title: file.name.replace(/\.(pdf|pptx|docx|mp3|m4a|mp4|wav|webm|ogg|aac|flac)$/i, ''),
                 description: 'Processing your study materials...',
                 uploadId,
             });

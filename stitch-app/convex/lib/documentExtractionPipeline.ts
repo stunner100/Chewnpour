@@ -25,8 +25,12 @@ import {
     isLlamaParseEnabled,
     type LlamaParseExtractResponse,
 } from "./llamaParseClient";
+import {
+    callDeepgramAudioTranscription,
+    type AudioTranscriptionResponse,
+} from "./audioTranscriptionClient";
 
-export type ExtractionBackendId = "datalab" | "azure" | "docling" | "llamaparse";
+export type ExtractionBackendId = "datalab" | "azure" | "docling" | "llamaparse" | "audio";
 export type ExtractionParserId =
     | "datalab"
     | "azure_layout_read"
@@ -34,8 +38,9 @@ export type ExtractionParserId =
     | "paddleocr_vl"
     | "docx_structured"
     | "image_ocr"
-    | "llamaparse";
-export type DoclingParserId = Exclude<ExtractionParserId, "datalab" | "azure_layout_read" | "llamaparse">;
+    | "llamaparse"
+    | "audio_transcript";
+export type DoclingParserId = Exclude<ExtractionParserId, "datalab" | "azure_layout_read" | "llamaparse" | "audio_transcript">;
 export type ExtractionFallbackRecommendation =
     | {
         backend: "datalab";
@@ -65,7 +70,7 @@ export type ExtractionPassTrace = {
 type ExtractionPage = {
     index: number;
     text: string;
-    source: "native" | "azure_layout" | "azure_read" | "datalab" | "docling" | "llamaparse" | "none";
+    source: "native" | "azure_layout" | "azure_read" | "datalab" | "docling" | "llamaparse" | "audio" | "none";
     chars: number;
     words: number;
     lexicalRatio: number;
@@ -77,7 +82,7 @@ type ExtractionPage = {
 type CandidatePage = {
     index: number;
     text: string;
-    source: "native" | "azure_layout" | "azure_read" | "datalab" | "docling" | "llamaparse";
+    source: "native" | "azure_layout" | "azure_read" | "datalab" | "docling" | "llamaparse" | "audio";
     tableCount: number;
     formulaCount: number;
 };
@@ -281,7 +286,7 @@ const parsePdfPagesFromNative = (value: string): CandidatePage[] => {
 
 const splitTextIntoSyntheticPages = (
     value: string,
-    source: "native" | "azure_layout" | "azure_read" | "datalab" | "llamaparse",
+    source: "native" | "azure_layout" | "azure_read" | "datalab" | "llamaparse" | "audio",
     targetCharsPerPage = 2600
 ): CandidatePage[] => {
     const text = sanitizeText(value);
@@ -424,6 +429,15 @@ const normalizeUploadFileType = (fileType: string, fileName?: string) => {
         || candidate.includes("image/jpeg")
     ) return "jpg";
     if (candidate === "webp" || candidate.endsWith(".webp") || candidate.includes("image/webp")) return "webp";
+    if (candidate === "mp3" || candidate.endsWith(".mp3") || candidate.includes("audio/mpeg") || candidate.includes("audio/mp3")) return "mp3";
+    if (candidate === "m4a" || candidate.endsWith(".m4a") || candidate.includes("audio/x-m4a")) return "m4a";
+    if (candidate === "mp4" || candidate.endsWith(".mp4") || candidate.includes("audio/mp4")) return "mp4";
+    if (candidate === "wav" || candidate.endsWith(".wav") || candidate.includes("audio/wav") || candidate.includes("audio/x-wav")) return "wav";
+    if (candidate === "webm" || candidate.endsWith(".webm") || candidate.includes("audio/webm")) return "webm";
+    if (candidate === "ogg" || candidate.endsWith(".ogg") || candidate.includes("audio/ogg")) return "ogg";
+    if (candidate === "aac" || candidate.endsWith(".aac") || candidate.includes("audio/aac")) return "aac";
+    if (candidate === "flac" || candidate.endsWith(".flac") || candidate.includes("audio/flac")) return "flac";
+    if (candidate === "audio" || candidate.startsWith("audio/")) return "audio";
     return rawType || rawName;
 };
 
@@ -434,8 +448,21 @@ const mapUploadTypeToContentType = (fileType: string) => {
     if (normalizedFileType === "png") return "image/png";
     if (normalizedFileType === "jpg" || normalizedFileType === "jpeg") return "image/jpeg";
     if (normalizedFileType === "webp") return "image/webp";
+    if (normalizedFileType === "mp3") return "audio/mpeg";
+    if (normalizedFileType === "m4a") return "audio/x-m4a";
+    if (normalizedFileType === "mp4") return "audio/mp4";
+    if (normalizedFileType === "wav") return "audio/wav";
+    if (normalizedFileType === "webm") return "audio/webm";
+    if (normalizedFileType === "ogg") return "audio/ogg";
+    if (normalizedFileType === "aac") return "audio/aac";
+    if (normalizedFileType === "flac") return "audio/flac";
+    if (normalizedFileType === "audio") return "application/octet-stream";
     return "application/vnd.openxmlformats-officedocument.presentationml.presentation";
 };
+
+const isAudioFileType = (fileType: string, fileName?: string) =>
+    ["mp3", "m4a", "mp4", "wav", "webm", "ogg", "aac", "flac", "audio"]
+        .includes(normalizeUploadFileType(fileType, fileName));
 
 const formatAzureTable = (table: any) => {
     const cells = table?.cells || [];
@@ -1448,6 +1475,48 @@ const toLlamaParsePassResult = (payload: LlamaParseExtractResponse): PassResult 
     };
 };
 
+const formatTimestamp = (seconds: number | undefined) => {
+    if (!Number.isFinite(Number(seconds))) return "";
+    const totalSeconds = Math.max(0, Math.floor(Number(seconds)));
+    const minutes = Math.floor(totalSeconds / 60);
+    const remainingSeconds = totalSeconds % 60;
+    return `[${String(minutes).padStart(2, "0")}:${String(remainingSeconds).padStart(2, "0")}]`;
+};
+
+const toAudioTranscriptionPassResult = (payload: AudioTranscriptionResponse): PassResult => {
+    const segmentPages = Array.isArray(payload.segments)
+        ? payload.segments
+            .map((segment, index) => {
+                const timestamp = formatTimestamp(segment.startSeconds);
+                const text = sanitizeText(
+                    timestamp
+                        ? `${timestamp} ${segment.text}`
+                        : String(segment.text || "")
+                );
+                return {
+                    index,
+                    text,
+                    source: "audio" as const,
+                    tableCount: 0,
+                    formulaCount: 0,
+                };
+            })
+            .filter((page) => Boolean(page.text))
+        : [];
+    const text = sanitizeText(String(payload.text || ""));
+    const pages = segmentPages.length > 0
+        ? segmentPages
+        : splitTextIntoSyntheticPages(text, "audio");
+
+    return {
+        text,
+        pages,
+        pageCount: Math.max(pages.length, text ? 1 : 0),
+        tableCount: 0,
+        formulaCount: 0,
+    };
+};
+
 const runPassWithTrace = async (
     pass: string,
     run: () => Promise<PassResult>
@@ -1749,9 +1818,81 @@ export const runLlamaParseExtractionCandidate = async (
     });
 };
 
+export const runAudioTranscriptionCandidate = async (
+    args: RunDocumentExtractionArgs
+): Promise<DocumentExtractionResult> => {
+    const startedAt = Date.now();
+    const normalizedFileType = normalizeUploadFileType(args.fileType, args.fileName);
+    const contentType = mapUploadTypeToContentType(normalizedFileType);
+    const payload = await callDeepgramAudioTranscription({
+        fileName: args.fileName,
+        contentType,
+        fileBuffer: cloneArrayBuffer(args.fileBuffer),
+        timeoutMs: args.maxDurationMs,
+    });
+    const latencyMs = Date.now() - startedAt;
+    const audioPass = toAudioTranscriptionPassResult(payload);
+
+    const result = buildDocumentExtractionResult({
+        backend: "audio",
+        parser: "audio_transcript",
+        fileType: normalizedFileType,
+        nativePass: emptyPassResult(),
+        layoutPass: emptyPassResult(),
+        readPass: audioPass,
+        providerTrace: [{
+            pass: "deepgram_audio_transcription",
+            status: "ok",
+            latencyMs,
+            chars: audioPass.text.length,
+            pageCount: audioPass.pageCount,
+        }],
+        fallbackRecommendation: null,
+        artifactMetadata: {
+            audioTranscription: payload.metadata,
+        },
+    });
+
+    const metrics = {
+        ...result.artifact.metrics,
+        qualityScore: 1,
+        coverage: 1,
+        strictPass: true,
+        provisional: false,
+        pagePresenceRatio: 1,
+        weakPageRatio: 0,
+        requiredPagePresence: 1,
+        weakPageThreshold: 1,
+    };
+
+    return {
+        ...result,
+        qualityScore: metrics.qualityScore,
+        coverage: metrics.coverage,
+        strictPass: true,
+        provisional: false,
+        warnings: [],
+        artifact: {
+            ...result.artifact,
+            metrics,
+            warnings: [],
+        },
+    };
+};
+
 export const runDocumentExtractionPipeline = async (
     args: RunDocumentExtractionArgs
 ): Promise<DocumentExtractionResult> => {
+    if (args.backend === "audio") {
+        return await runAudioTranscriptionCandidate(args);
+    }
+    if (isAudioFileType(args.fileType, args.fileName)) {
+        return await runAudioTranscriptionCandidate({
+            ...args,
+            backend: "audio",
+            parser: "audio_transcript",
+        });
+    }
     if (args.backend === "datalab") {
         return await runDataLabExtractionCandidate(args);
     }

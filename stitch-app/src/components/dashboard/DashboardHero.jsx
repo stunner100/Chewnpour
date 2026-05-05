@@ -28,10 +28,10 @@ const DashboardHero = ({
                         AI Powered
                     </span>
                     <h1 className="text-display-md md:text-display-lg lg:text-display-xl text-text-main-light dark:text-text-main-dark tracking-tight leading-tight">
-                        Turn your documents into a <span className="text-primary">personal study system</span>
+                        Turn your materials into a <span className="text-primary">personal study system</span>
                     </h1>
                     <p className="text-body-md md:text-body-lg text-text-sub-light dark:text-text-sub-dark max-w-xl">
-                        Upload PDFs, slides, or Word docs. ChewnPour creates lessons, summaries, quizzes, flashcards, podcasts, and weak-concept reviews automatically.
+                        Upload PDFs, slides, Word docs, or class recordings. ChewnPour creates lessons, summaries, quizzes, flashcards, podcasts, and weak-concept reviews automatically.
                     </p>
 
                     {uploadError && (
@@ -45,7 +45,7 @@ const DashboardHero = ({
                         <input
                             ref={fileInputRef}
                             type="file"
-                            accept=".pdf,.pptx,.docx"
+                            accept=".pdf,.pptx,.docx,.mp3,.m4a,.mp4,.wav,.webm,.ogg,.aac,.flac,audio/*"
                             className="hidden"
                             disabled={uploading}
                             onChange={onFileSelect}
@@ -62,7 +62,7 @@ const DashboardHero = ({
                             {uploading ? 'Uploading…' : 'Upload Study Material'}
                         </button>
                         <span className="text-caption text-text-faint-light dark:text-text-faint-dark pt-1.5 sm:pt-3">
-                            PDF, PPTX, DOCX · Max 50MB
+                            PDF, PPTX, DOCX, audio · Max 50MB
                         </span>
                     </div>
 
@@ -103,7 +103,7 @@ const DashboardHero = ({
                             <p className="text-body-sm font-semibold text-text-main-light dark:text-text-main-dark">Drop a file, get a course</p>
                             <p className="text-caption text-text-sub-light dark:text-text-sub-dark">Lessons · Quizzes · Flashcards · Podcasts</p>
                             <div className="flex gap-1.5 pt-1">
-                                {['picture_as_pdf', 'slideshow', 'description'].map((icon) => (
+                                {['picture_as_pdf', 'slideshow', 'description', 'graphic_eq'].map((icon) => (
                                     <span key={icon} className="w-8 h-8 rounded-lg bg-primary-50 dark:bg-primary-900/30 flex items-center justify-center">
                                         <span className="material-symbols-outlined text-primary text-[16px]">{icon}</span>
                                     </span>
