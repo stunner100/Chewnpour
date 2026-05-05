@@ -1,157 +1,213 @@
 import React, { useEffect, useRef } from 'react';
+import { gsap } from 'gsap';
 
-const CanvasCrowd = ({ className = '', height = 280 }) => {
+const DEFAULT_SRC = '/images/peeps/all-peeps.png';
+
+const CanvasCrowd = ({
+    src = DEFAULT_SRC,
+    rows = 15,
+    cols = 7,
+    className = '',
+    height = 280,
+}) => {
     const canvasRef = useRef(null);
-    const animationRef = useRef(null);
-    const particlesRef = useRef([]);
-    const mouseRef = useRef({ x: -1000, y: -1000, active: false });
 
     useEffect(() => {
         const canvas = canvasRef.current;
-        if (!canvas) return;
+        if (!canvas) return undefined;
 
         const ctx = canvas.getContext('2d');
-        if (!ctx) return;
+        if (!ctx) return undefined;
 
-        let width = canvas.offsetWidth;
-        let dpr = window.devicePixelRatio || 1;
+        const prefersReducedMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+        const image = document.createElement('img');
+        const stage = { width: 0, height: 0, dpr: window.devicePixelRatio || 1 };
+        const allPeeps = [];
+        const availablePeeps = [];
+        const crowd = [];
+        let initialized = false;
 
-        const resize = () => {
-            width = canvas.offsetWidth;
-            dpr = window.devicePixelRatio || 1;
-            canvas.width = width * dpr;
-            canvas.height = height * dpr;
-            ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+        const randomRange = (min, max) => min + Math.random() * (max - min);
+        const randomIndex = (array) => Math.floor(randomRange(0, array.length));
+        const removeFromArray = (array, index) => array.splice(index, 1)[0];
+        const removeItemFromArray = (array, item) => {
+            const index = array.indexOf(item);
+            return index >= 0 ? removeFromArray(array, index) : null;
         };
+        const removeRandomFromArray = (array) => removeFromArray(array, randomIndex(array));
 
-        resize();
-
-        const particleCount = Math.min(Math.floor(width / 12), 90);
-        const particles = [];
-
-        for (let i = 0; i < particleCount; i++) {
-            particles.push({
-                x: Math.random() * width,
-                y: Math.random() * height,
-                baseX: Math.random() * width,
-                baseY: Math.random() * height,
-                size: Math.random() * 2.5 + 1.5,
-                color: `rgba(${145 + Math.random() * 60}, ${75 + Math.random() * 50}, ${241}, ${0.3 + Math.random() * 0.4})`,
-                vx: 0,
-                vy: 0,
-                speed: Math.random() * 0.5 + 0.2,
-                angle: Math.random() * Math.PI * 2,
-                angleSpeed: (Math.random() - 0.5) * 0.02,
-                wanderRadius: Math.random() * 30 + 10,
-            });
-        }
-        particlesRef.current = particles;
-
-        const handleMouseMove = (e) => {
-            const rect = canvas.getBoundingClientRect();
-            mouseRef.current = {
-                x: e.clientX - rect.left,
-                y: e.clientY - rect.top,
-                active: true,
+        const createPeep = (rect) => {
+            const peep = {
+                rect,
+                width: rect[2],
+                height: rect[3],
+                x: 0,
+                y: 0,
+                anchorY: 0,
+                scaleX: 1,
+                walk: null,
+                render(renderCtx) {
+                    renderCtx.save();
+                    renderCtx.translate(this.x, this.y);
+                    renderCtx.scale(this.scaleX, 1);
+                    renderCtx.drawImage(
+                        image,
+                        this.rect[0],
+                        this.rect[1],
+                        this.rect[2],
+                        this.rect[3],
+                        0,
+                        0,
+                        this.width,
+                        this.height,
+                    );
+                    renderCtx.restore();
+                },
             };
+            return peep;
         };
 
-        const handleMouseLeave = () => {
-            mouseRef.current.active = false;
+        const createPeeps = () => {
+            const rectWidth = image.naturalWidth / rows;
+            const rectHeight = image.naturalHeight / cols;
+            const total = rows * cols;
+
+            allPeeps.length = 0;
+            for (let i = 0; i < total; i += 1) {
+                allPeeps.push(createPeep([
+                    (i % rows) * rectWidth,
+                    Math.floor(i / rows) * rectHeight,
+                    rectWidth,
+                    rectHeight,
+                ]));
+            }
         };
 
-        canvas.addEventListener('mousemove', handleMouseMove);
-        canvas.addEventListener('mouseleave', handleMouseLeave);
+        const resetPeep = (peep) => {
+            const direction = Math.random() > 0.5 ? 1 : -1;
+            const offsetY = 100 - 250 * gsap.parseEase('power2.in')(Math.random());
+            const startY = stage.height - peep.height + offsetY;
+            const startX = direction === 1 ? -peep.width : stage.width + peep.width;
+            const endX = direction === 1 ? stage.width : 0;
 
-        const animate = () => {
-            ctx.clearRect(0, 0, width, height);
+            peep.scaleX = direction;
+            peep.x = startX;
+            peep.y = startY;
+            peep.anchorY = startY;
 
-            const mouse = mouseRef.current;
+            return { endX, startY };
+        };
 
-            particles.forEach((p) => {
-                // Wander behavior
-                p.angle += p.angleSpeed;
-                const targetX = p.baseX + Math.cos(p.angle) * p.wanderRadius;
-                const targetY = p.baseY + Math.sin(p.angle) * p.wanderRadius;
+        const removePeepFromCrowd = (peep) => {
+            removeItemFromArray(crowd, peep);
+            availablePeeps.push(peep);
+        };
 
-                // Mouse repulsion
-                let repelX = 0;
-                let repelY = 0;
-                if (mouse.active) {
-                    const dx = p.x - mouse.x;
-                    const dy = p.y - mouse.y;
-                    const dist = Math.sqrt(dx * dx + dy * dy);
-                    if (dist < 120 && dist > 0) {
-                        const force = (120 - dist) / 120;
-                        repelX = (dx / dist) * force * 3;
-                        repelY = (dy / dist) * force * 3;
-                    }
-                }
+        const addPeepToCrowd = () => {
+            if (!availablePeeps.length) return null;
 
-                // Spring back to target
-                p.vx += (targetX - p.x) * 0.015 + repelX * 0.1;
-                p.vy += (targetY - p.y) * 0.015 + repelY * 0.1;
-                p.vx *= 0.94;
-                p.vy *= 0.94;
+            const peep = removeRandomFromArray(availablePeeps);
+            const { endX, startY } = resetPeep(peep);
+            const xDuration = 10;
+            const yDuration = 0.25;
 
-                p.x += p.vx;
-                p.y += p.vy;
-
-                // Draw particle
-                ctx.beginPath();
-                ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
-                ctx.fillStyle = p.color;
-                ctx.fill();
+            const walk = gsap.timeline();
+            walk.timeScale(randomRange(0.5, 1.5));
+            walk.to(peep, { duration: xDuration, x: endX, ease: 'none' }, 0);
+            walk.to(peep, {
+                duration: yDuration,
+                repeat: xDuration / yDuration,
+                yoyo: true,
+                y: startY - 10,
+            }, 0);
+            walk.eventCallback('onComplete', () => {
+                removePeepFromCrowd(peep);
+                addPeepToCrowd();
             });
 
-            // Draw connections between nearby particles
-            for (let i = 0; i < particles.length; i++) {
-                for (let j = i + 1; j < particles.length; j++) {
-                    const dx = particles[i].x - particles[j].x;
-                    const dy = particles[i].y - particles[j].y;
-                    const dist = Math.sqrt(dx * dx + dy * dy);
-                    if (dist < 60) {
-                        ctx.beginPath();
-                        ctx.moveTo(particles[i].x, particles[i].y);
-                        ctx.lineTo(particles[j].x, particles[j].y);
-                        ctx.strokeStyle = `rgba(145, 75, 241, ${0.08 * (1 - dist / 60)})`;
-                        ctx.lineWidth = 0.5;
-                        ctx.stroke();
-                    }
-                }
+            peep.walk = walk;
+            crowd.push(peep);
+            crowd.sort((a, b) => a.anchorY - b.anchorY);
+
+            if (prefersReducedMotion) {
+                walk.progress(Math.random()).pause();
             }
 
-            animationRef.current = requestAnimationFrame(animate);
+            return peep;
         };
 
-        animate();
+        const initCrowd = () => {
+            while (availablePeeps.length) {
+                const peep = addPeepToCrowd();
+                peep?.walk?.progress(Math.random());
+            }
+        };
+
+        const render = () => {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            ctx.save();
+            ctx.scale(stage.dpr, stage.dpr);
+            crowd.forEach((peep) => peep.render(ctx));
+            ctx.restore();
+        };
+
+        const resize = () => {
+            stage.width = canvas.clientWidth;
+            stage.height = canvas.clientHeight;
+            stage.dpr = window.devicePixelRatio || 1;
+
+            canvas.width = stage.width * stage.dpr;
+            canvas.height = stage.height * stage.dpr;
+
+            crowd.forEach((peep) => peep.walk?.kill());
+            crowd.length = 0;
+            availablePeeps.length = 0;
+            availablePeeps.push(...allPeeps);
+            initCrowd();
+            render();
+        };
+
+        const init = () => {
+            if (initialized) return;
+            initialized = true;
+            createPeeps();
+            resize();
+            if (!prefersReducedMotion) {
+                gsap.ticker.add(render);
+            }
+        };
 
         const handleResize = () => {
-            resize();
-            // Re-distribute particles on resize
-            particles.forEach((p) => {
-                p.baseX = Math.min(p.baseX, width);
-                p.x = Math.min(p.x, width);
-            });
+            if (initialized) resize();
         };
 
+        image.onload = init;
+        image.src = src;
         window.addEventListener('resize', handleResize);
 
         return () => {
-            cancelAnimationFrame(animationRef.current);
-            canvas.removeEventListener('mousemove', handleMouseMove);
-            canvas.removeEventListener('mouseleave', handleMouseLeave);
             window.removeEventListener('resize', handleResize);
+            gsap.ticker.remove(render);
+            crowd.forEach((peep) => peep.walk?.kill());
         };
-    }, [height]);
+    }, [cols, rows, src]);
 
     return (
         <canvas
             ref={canvasRef}
-            className={`w-full block ${className}`}
+            className={`block w-full ${className}`}
             style={{ height: `${height}px` }}
         />
     );
 };
 
 export default CanvasCrowd;
+
+/**
+ * Adapted from Skiper UI's "Canvas crowd" component:
+ * https://skiper-ui.com/v1/skiper39
+ *
+ * Inspired by Zach Saucier's CodePen and illustrated with Open Peeps:
+ * https://codepen.io/zadvorsky/pen/xxwbBQV
+ * https://www.openpeeps.com/
+ */
