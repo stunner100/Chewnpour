@@ -2,6 +2,7 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 import { SparklesText } from '../magicui/SparklesText';
 import { Marquee } from '../magicui/Marquee';
+import { Particles } from '../magicui/Particles';
 
 const DashboardHero = ({
     uploading,
@@ -22,6 +23,13 @@ const DashboardHero = ({
         <section className="relative overflow-hidden rounded-3xl border border-border-subtle dark:border-border-subtle-dark bg-gradient-to-br from-primary-50 via-white to-white dark:from-primary-900/20 dark:via-surface-dark dark:to-surface-dark p-5 md:p-8 shadow-soft animate-fade-in">
             <div className="pointer-events-none absolute -right-20 -top-20 h-64 w-64 rounded-full bg-primary/15 blur-3xl" aria-hidden="true" />
             <div className="pointer-events-none absolute -left-10 bottom-0 h-40 w-40 rounded-full bg-accent-teal/15 blur-3xl" aria-hidden="true" />
+            <Particles
+                className="absolute inset-0 h-full w-full"
+                quantity={60}
+                ease={70}
+                color="#914bf1"
+                size={0.5}
+            />
 
             <div className="relative grid grid-cols-1 lg:grid-cols-[1.4fr_1fr] gap-8 items-center">
                 <div className="space-y-5">

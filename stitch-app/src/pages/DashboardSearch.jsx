@@ -4,6 +4,7 @@ import { api } from '../../convex/_generated/api';
 import { useAuth } from '../contexts/AuthContext';
 import { uploadToStorageWithRetry } from '../lib/uploadNetworkResilience';
 import { MagicCard } from '../components/magicui/MagicCard';
+import { OrbitingCircles } from '../components/magicui/OrbitingCircles';
 
 const ACCEPTED_LIBRARY_TYPES = [
     'application/pdf',
@@ -345,14 +346,31 @@ const DashboardSearch = () => {
                         ))}
                     </div>
                 ) : (
-                    <div className="text-center py-20">
-                        <div className="relative w-20 h-20 mx-auto mb-5">
-                            <div className="absolute inset-0 rounded-3xl bg-primary/8 dark:bg-primary/15" />
-                            <div className="absolute inset-0 rounded-3xl flex items-center justify-center">
-                                <span className="material-symbols-outlined text-[32px] text-primary/70 dark:text-primary/60">
+                    <div className="text-center py-12 md:py-20">
+                        <div className="relative w-64 h-64 mx-auto mb-6 flex items-center justify-center">
+                            <div className="relative z-10 w-20 h-20 rounded-3xl bg-primary/10 dark:bg-primary/20 flex items-center justify-center shadow-soft">
+                                <span className="material-symbols-outlined text-[32px] text-primary">
                                     local_library
                                 </span>
                             </div>
+                            <OrbitingCircles iconSize={36} radius={70} duration={20} delay={0}>
+                                <span className="material-symbols-outlined text-[18px] text-primary">picture_as_pdf</span>
+                            </OrbitingCircles>
+                            <OrbitingCircles iconSize={36} radius={70} duration={20} delay={5}>
+                                <span className="material-symbols-outlined text-[18px] text-primary">description</span>
+                            </OrbitingCircles>
+                            <OrbitingCircles iconSize={36} radius={70} duration={20} delay={10}>
+                                <span className="material-symbols-outlined text-[18px] text-primary">menu_book</span>
+                            </OrbitingCircles>
+                            <OrbitingCircles iconSize={36} radius={70} duration={20} delay={15}>
+                                <span className="material-symbols-outlined text-[18px] text-primary">slideshow</span>
+                            </OrbitingCircles>
+                            <OrbitingCircles iconSize={28} radius={108} duration={28} delay={3} reverse path={false}>
+                                <span className="material-symbols-outlined text-[14px] text-primary/80">school</span>
+                            </OrbitingCircles>
+                            <OrbitingCircles iconSize={28} radius={108} duration={28} delay={17} reverse path={false}>
+                                <span className="material-symbols-outlined text-[14px] text-primary/80">auto_stories</span>
+                            </OrbitingCircles>
                         </div>
                         <h2 className="text-body-lg font-semibold text-text-main-light dark:text-text-main-dark mb-1.5">
                             No shared materials yet

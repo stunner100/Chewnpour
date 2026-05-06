@@ -30,6 +30,7 @@ import WeakConceptsCard from '../components/dashboard/WeakConceptsCard';
 import QuickActionsGrid from '../components/dashboard/QuickActionsGrid';
 import ProgressSnapshot from '../components/dashboard/ProgressSnapshot';
 import EmptyState from '../components/dashboard/EmptyState';
+import { Meteors } from '../components/magicui/Meteors';
 import useThemeMode from '../lib/useThemeMode';
 import { buildStudyPlan, DEFAULT_QUICK_ACTIONS } from '../lib/dashboardPlan';
 
@@ -810,8 +811,9 @@ const DashboardAnalysis = () => {
 
                 {/* Upgrade Banner */}
                 {subscription && subscription.plan !== 'premium' && (
-                    <div className="card-base p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 bg-primary-50 dark:bg-primary-900/15 border-primary-200/50 dark:border-primary-800/30 animate-fade-in-up animate-delay-100">
-                        <div className="flex items-center gap-3">
+                    <div className="relative overflow-hidden card-base p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 bg-primary-50 dark:bg-primary-900/15 border-primary-200/50 dark:border-primary-800/30 animate-fade-in-up animate-delay-100">
+                        <Meteors number={12} />
+                        <div className="relative flex items-center gap-3">
                             <div className="w-10 h-10 rounded-xl bg-primary/15 flex items-center justify-center shrink-0">
                                 <span className="material-symbols-outlined text-primary text-[20px]" style={{ fontVariationSettings: "'FILL' 1" }}>rocket_launch</span>
                             </div>
@@ -820,33 +822,52 @@ const DashboardAnalysis = () => {
                                 <p className="text-caption text-text-sub-light dark:text-text-sub-dark">Upgrade to keep learning without interruptions.</p>
                             </div>
                         </div>
-                        <Link to="/subscription" className="btn-primary text-body-sm shrink-0">
+                        <Link to="/subscription" className="relative btn-primary text-body-sm shrink-0">
                             Upgrade
                         </Link>
                     </div>
                 )}
 
-                {/* 2. Today's Study Plan */}
-                <TodayStudyPlan items={studyPlanItems} completedToday={0} />
+                {/* 2-6. Bento layout: Study Plan, Continue Learning, Podcasts, Weak Concepts, Quick Actions */}
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 auto-rows-min">
+                    {/* Today's Study Plan — wide */}
+                    <div className="lg:col-span-2">
+                        <TodayStudyPlan items={studyPlanItems} completedToday={0} />
+                    </div>
 
-                {/* 3. Continue Learning */}
-                {activeCourse && (
-                    <ContinueLearningCard
-                        course={activeCourse}
-                        nextLesson={activeCourse.description}
-                        estimatedTime="15 min"
-                        onGenerateQuiz={() => handleGoToActiveCourse('quiz')}
-                    />
-                )}
+                    {/* Continue Learning — narrow */}
+                    <div className="lg:col-span-1">
+                        {activeCourse ? (
+                            <ContinueLearningCard
+                                course={activeCourse}
+                                nextLesson={activeCourse.description}
+                                estimatedTime="15 min"
+                                onGenerateQuiz={() => handleGoToActiveCourse('quiz')}
+                            />
+                        ) : (
+                            <div className="card-base p-5 h-full flex flex-col items-center justify-center text-center">
+                                <span className="material-symbols-outlined text-[28px] text-text-faint-light dark:text-text-faint-dark mb-2">school</span>
+                                <p className="text-body-sm font-semibold text-text-main-light dark:text-text-main-dark">Start your first course</p>
+                                <p className="text-caption text-text-faint-light dark:text-text-faint-dark mt-1">Upload a document above to begin.</p>
+                            </div>
+                        )}
+                    </div>
 
-                {/* 4. Podcasts */}
-                <PodcastSection podcasts={recentPodcasts || []} />
+                    {/* Podcasts — wide */}
+                    <div className="lg:col-span-2">
+                        <PodcastSection podcasts={recentPodcasts || []} />
+                    </div>
 
-                {/* 5. Weak Concepts */}
-                <WeakConceptsCard queue={conceptReviewQueue} />
+                    {/* Weak Concepts — narrow */}
+                    <div className="lg:col-span-1">
+                        <WeakConceptsCard queue={conceptReviewQueue} />
+                    </div>
 
-                {/* 6. Quick Actions */}
-                <QuickActionsGrid actions={quickActions} />
+                    {/* Quick Actions — full width */}
+                    <div className="lg:col-span-3">
+                        <QuickActionsGrid actions={quickActions} />
+                    </div>
+                </div>
 
                 {/* 7. Your Courses */}
                 <section className="space-y-4 animate-fade-in-up animate-delay-300">
