@@ -96,7 +96,8 @@ export const Particles = ({
 
         const tick = () => {
             clear();
-            particles.forEach((p, i) => {
+            for (let i = particles.length - 1; i >= 0; i--) {
+                const p = particles[i];
                 const edge = [
                     p.x + p.translateX - p.size,
                     canvasSize.w - p.x - p.translateX - p.size,
@@ -125,7 +126,7 @@ export const Particles = ({
                     particles.splice(i, 1);
                     particles.push(createParticle());
                 }
-            });
+            }
             animationRef.current = requestAnimationFrame(tick);
         };
 
