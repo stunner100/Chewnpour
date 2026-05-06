@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { cn } from '../../lib/utils';
 
 const hexToRgb = (hex) => {
@@ -28,8 +28,20 @@ export const Particles = ({
     const canvasRef = useRef(null);
     const containerRef = useRef(null);
     const animationRef = useRef(null);
+    const [prefersReducedMotion, setPrefersReducedMotion] = useState(false);
 
     useEffect(() => {
+        const mediaQuery = window.matchMedia('(prefers-reduced-motion: reduce)');
+        const handleChange = () => setPrefersReducedMotion(mediaQuery.matches);
+        handleChange();
+        mediaQuery.addEventListener('change', handleChange);
+        return () => mediaQuery.removeEventListener('change', handleChange);
+    }, []);
+
+    useEffect(() => {
+        if (prefersReducedMotion) {
+            return undefined;
+        }
         const canvas = canvasRef.current;
         const container = containerRef.current;
         if (!canvas || !container) return undefined;
@@ -131,7 +143,11 @@ export const Particles = ({
             window.removeEventListener('resize', handleResize);
             if (animationRef.current) cancelAnimationFrame(animationRef.current);
         };
-    }, [quantity, staticity, ease, size, color, vx, vy]);
+    }, [prefersReducedMotion, quantity, staticity, ease, size, color, vx, vy]);
+
+    if (prefersReducedMotion) {
+        return null;
+    }
 
     return (
         <div ref={containerRef} className={cn('pointer-events-none', className)} aria-hidden="true">
