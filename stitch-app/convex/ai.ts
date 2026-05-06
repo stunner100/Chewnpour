@@ -3714,6 +3714,23 @@ const hasCurrentGroundedEvidenceIndex = (upload: any, index: any) => {
     return !uploadVersion || uploadVersion === GROUNDED_EVIDENCE_INDEX_VERSION;
 };
 
+const POST_PROCESSING_EVIDENCE_INDEX_DELAY_MS = 5_000;
+
+const scheduleEvidenceIndexAfterProcessing = (ctx: any, args: {
+    uploadId: any;
+    artifactStorageId?: any;
+}) => {
+    if (!args.uploadId) return;
+    void ctx.scheduler.runAfter(
+        POST_PROCESSING_EVIDENCE_INDEX_DELAY_MS,
+        (internal as any).grounded.buildEvidenceIndex,
+        {
+            uploadId: args.uploadId,
+            artifactStorageId: args.artifactStorageId,
+        },
+    ).catch(() => { });
+};
+
 const loadGroundedEvidenceIndexForUpload = async (ctx: any, uploadId: any): Promise<{
     index: GroundedEvidenceIndex | null;
     upload: any | null;
@@ -3741,11 +3758,6 @@ const loadGroundedEvidenceIndexForUpload = async (ctx: any, uploadId: any): Prom
                 artifact,
                 uploadId: String(upload._id || ""),
             });
-            // Best effort async persistence of freshly built or upgraded index.
-            void ctx.scheduler.runAfter(0, (internal as any).grounded.buildEvidenceIndex, {
-                uploadId: upload._id,
-                artifactStorageId: upload.extractionArtifactStorageId,
-            }).catch(() => { });
         }
     }
 
@@ -8758,6 +8770,12 @@ export const generateRemainingTopicsInBackground = internalAction({
                     generatedTopicCount: finalGeneratedCount,
                     plannedTopicTitles,
                     errorMessage: routingSyncErrorMessage,
+                });
+
+                const finalizedUpload = await ctx.runQuery(api.uploads.getUpload, { uploadId });
+                scheduleEvidenceIndexAfterProcessing(ctx, {
+                    uploadId,
+                    artifactStorageId: finalizedUpload?.extractionArtifactStorageId,
                 });
 
                 return {
