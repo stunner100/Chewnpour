@@ -1,6 +1,7 @@
 import React, { Component, memo, useMemo, useState } from 'react';
 import { useQuery, useMutation } from 'convex/react';
 import { api } from '../../convex/_generated/api';
+import PodcastWaveformPlayer from './podcast/PodcastWaveformPlayer';
 
 const STATUS_COPY = {
     pending: 'Queued — writing your script…',
@@ -154,15 +155,13 @@ const TopicPodcastPanelInner = memo(function TopicPodcastPanelInner({ topicId })
                     </div>
 
                     {latest.status === 'ready' && latest.audioUrl && (
-                        <audio
+                        <PodcastWaveformPlayer
                             key={latest._id}
-                            src={latest.audioUrl}
-                            controls
-                            preload="none"
-                            className="w-full rounded-xl border border-border-light dark:border-border-dark"
-                        >
-                            <track kind="captions" />
-                        </audio>
+                            audioUrl={latest.audioUrl}
+                            title="Topic podcast"
+                            subtitle="Scrub the waveform to review any section"
+                            durationSeconds={latest.durationSeconds}
+                        />
                     )}
 
                     {latest.status === 'failed' && (
