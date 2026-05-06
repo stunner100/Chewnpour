@@ -23,6 +23,20 @@ const PROCESSING_STEPS = [
     { key: 'ready', label: 'Ready', icon: 'check_circle', description: 'Your course is ready!' },
 ];
 
+const formatExtractionWarning = (warning) => {
+    const value = String(warning || '');
+    if (/docling_primary_failed/i.test(value) && /504|gateway timeout|<!doctype html|<html[\s>]/i.test(value)) {
+        return 'Docling took too long, so we continued with another extractor.';
+    }
+    if (/docling_primary_failed/i.test(value) && /No Docling parser available/i.test(value)) {
+        return 'Docling is not available for this file type, so we continued with another extractor.';
+    }
+    if (/docling_primary_failed/i.test(value)) {
+        return 'Docling could not finish this file, so we continued with another extractor.';
+    }
+    return value.replace(/\s+/g, ' ').trim();
+};
+
 const DashboardProcessing = () => {
     const { courseId } = useParams();
     const { user } = useAuth();
@@ -381,7 +395,7 @@ const DashboardProcessing = () => {
                                         <div className="text-left">
                                             <p className="text-body-sm font-semibold text-amber-800 dark:text-amber-300">Heads up</p>
                                             {upload.extractionWarnings.map((w, i) => (
-                                                <p key={i} className="text-caption text-amber-700 dark:text-amber-400 mt-1">{w}</p>
+                                                <p key={i} className="text-caption text-amber-700 dark:text-amber-400 mt-1">{formatExtractionWarning(w)}</p>
                                             ))}
                                         </div>
                                     </div>
