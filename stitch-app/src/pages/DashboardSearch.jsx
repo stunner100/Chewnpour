@@ -3,6 +3,7 @@ import { useMutation, useQuery } from 'convex/react';
 import { api } from '../../convex/_generated/api';
 import { useAuth } from '../contexts/AuthContext';
 import { uploadToStorageWithRetry } from '../lib/uploadNetworkResilience';
+import { MagicCard } from '../components/magicui/MagicCard';
 
 const ACCEPTED_LIBRARY_TYPES = [
     'application/pdf',
@@ -38,7 +39,8 @@ const getFileTypeLabel = (material) => {
 };
 
 const LibraryMaterialCard = ({ material }) => (
-    <article className="card-base p-4 md:p-5 flex flex-col gap-4">
+    <MagicCard className="rounded-2xl">
+        <article className="card-base p-4 md:p-5 flex flex-col gap-4">
         <div className="flex items-start gap-3">
             <div className="w-11 h-11 rounded-xl bg-primary/8 dark:bg-primary/15 flex items-center justify-center shrink-0">
                 <span className="material-symbols-outlined text-[22px] text-primary">menu_book</span>
@@ -77,7 +79,8 @@ const LibraryMaterialCard = ({ material }) => (
                 {material.fileName}
             </span>
         </div>
-    </article>
+        </article>
+    </MagicCard>
 );
 
 const DashboardSearch = () => {

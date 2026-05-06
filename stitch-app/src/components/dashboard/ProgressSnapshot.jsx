@@ -1,7 +1,10 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
+import { NumberTicker } from '../magicui/NumberTicker';
 
-const StatCard = ({ icon, label, value, hint, accent = 'primary' }) => {
+const isFiniteNumber = (n) => typeof n === 'number' && Number.isFinite(n);
+
+const StatCard = ({ icon, label, value, hint, accent = 'primary', animateNumeric = true }) => {
     const accentClasses = {
         primary: 'bg-primary-50 text-primary-700 dark:bg-primary-900/25 dark:text-primary-300',
         emerald: 'bg-emerald-50 text-emerald-700 dark:bg-emerald-900/25 dark:text-emerald-300',
@@ -9,6 +12,11 @@ const StatCard = ({ icon, label, value, hint, accent = 'primary' }) => {
         rose: 'bg-rose-50 text-rose-700 dark:bg-rose-900/20 dark:text-rose-300',
         teal: 'bg-teal-50 text-teal-700 dark:bg-teal-900/25 dark:text-teal-300',
     }[accent] || 'bg-primary-50 text-primary-700';
+
+    const numericMatch = animateNumeric && typeof value === 'string'
+        ? value.match(/^(\d+(?:\.\d+)?)(.*)$/)
+        : null;
+    const animatedNumeric = animateNumeric && isFiniteNumber(value);
 
     return (
         <div className="card-flat p-4">
@@ -18,7 +26,17 @@ const StatCard = ({ icon, label, value, hint, accent = 'primary' }) => {
                 </div>
                 <div className="min-w-0">
                     <p className="text-caption text-text-sub-light dark:text-text-sub-dark">{label}</p>
-                    <p className="text-body-lg font-bold text-text-main-light dark:text-text-main-dark leading-tight">{value}</p>
+                    <p className="text-body-lg font-bold text-text-main-light dark:text-text-main-dark leading-tight">
+                        {animatedNumeric ? (
+                            <NumberTicker value={Number(value)} />
+                        ) : numericMatch ? (
+                            <>
+                                <NumberTicker value={Number(numericMatch[1])} />{numericMatch[2]}
+                            </>
+                        ) : (
+                            value
+                        )}
+                    </p>
                 </div>
             </div>
             {hint && <p className="text-caption text-text-faint-light dark:text-text-faint-dark mt-2">{hint}</p>}
@@ -60,7 +78,7 @@ const ProgressSnapshot = ({ insights, userStats, podcastCount = 0, uploadQuota }
                                 />
                             </svg>
                             <span className="absolute inset-0 flex items-center justify-center text-display-sm font-bold text-text-main-light dark:text-text-main-dark">
-                                {overall}%
+                                <NumberTicker value={overall} suffix="%" />
                             </span>
                         </div>
                         <div className="flex-1">
