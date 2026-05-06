@@ -57,6 +57,22 @@ const DOCLING_SHARED_SECRET = String(process.env.DOCLING_SHARED_SECRET || "").tr
 export const isDoclingEnabled = () =>
     DOCLING_ENABLED && Boolean(DOCLING_EXTRACT_URL);
 
+const isHtmlErrorBody = (value: string) =>
+    /<!doctype html|<html[\s>]/i.test(String(value || ""));
+
+const summarizeDoclingHttpError = (status: number, body: string) => {
+    if (status === 504) {
+        return "gateway timeout";
+    }
+    if (status === 502 || status === 503) {
+        return "service temporarily unavailable";
+    }
+    if (isHtmlErrorBody(body)) {
+        return "HTML error page";
+    }
+    return String(body || "empty error response").replace(/\s+/g, " ").trim().slice(0, 300);
+};
+
 export const callDoclingExtract = async (args: {
     fileName: string;
     contentType: string;
@@ -93,7 +109,9 @@ export const callDoclingExtract = async (args: {
 
         if (!response.ok) {
             const errorBody = await response.text().catch(() => "");
-            throw new Error(`Docling extract error: ${response.status} - ${errorBody}`);
+            throw new Error(
+                `Docling extract error: ${response.status} - ${summarizeDoclingHttpError(response.status, errorBody)}`
+            );
         }
 
         const payload = await response.json();

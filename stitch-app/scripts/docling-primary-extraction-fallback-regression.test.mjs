@@ -27,8 +27,16 @@ if (!/runAzureExtractionCandidate/.test(pipelineSource)) {
   throw new Error("Expected Docling failures to fall back to native/Azure extraction.");
 }
 
-if (!/docling_primary_failed/.test(pipelineSource)) {
-  throw new Error("Expected Docling fallback to record a visible warning.");
+if (!/summarizeDoclingFallbackWarning/.test(source)) {
+  throw new Error("Expected Docling fallback warnings to be summarized before user display.");
+}
+
+if (/`docling_primary_failed:\$\{errorSummary\.slice/.test(source)) {
+  throw new Error("Docling fallback must not persist raw extractor errors as user-facing warnings.");
+}
+
+if (!/continued with another extractor/.test(source)) {
+  throw new Error("Expected Docling fallback to record a readable user-facing warning.");
 }
 
 if (!/pass:\s*"docling_primary"/.test(pipelineSource)) {

@@ -226,6 +226,23 @@ const runWithAzureQueue = async <T>(run: () => Promise<T>): Promise<T> => {
 const summarizeExtractionError = (error: unknown) =>
     error instanceof Error ? error.message : String(error);
 
+const summarizeDoclingFallbackWarning = (error: unknown) => {
+    const summary = summarizeExtractionError(error);
+    if (/Docling extract error:\s*504/i.test(summary) || /gateway timeout/i.test(summary)) {
+        return "Docling took too long, so we continued with another extractor.";
+    }
+    if (/Docling extract error:\s*(502|503)/i.test(summary) || /temporarily unavailable/i.test(summary)) {
+        return "Docling was temporarily unavailable, so we continued with another extractor.";
+    }
+    if (/No Docling parser available/i.test(summary)) {
+        return "Docling is not available for this file type, so we continued with another extractor.";
+    }
+    if (/<!doctype html|<html[\s>]/i.test(summary)) {
+        return "Docling returned an upstream error, so we continued with another extractor.";
+    }
+    return "Docling could not finish this file, so we continued with another extractor.";
+};
+
 const countWords = (value: string) =>
     String(value || "")
         .trim()
@@ -1922,13 +1939,14 @@ export const runDocumentExtractionPipeline = async (
             });
         } catch (error) {
             const errorSummary = summarizeExtractionError(error);
+            const fallbackWarning = summarizeDoclingFallbackWarning(error);
             const fallback = await runAzureExtractionCandidate({
                 ...args,
                 backend: "azure",
                 parser: "azure_layout_read",
             });
             const warnings = Array.from(new Set([
-                `docling_primary_failed:${errorSummary.slice(0, 180)}`,
+                fallbackWarning,
                 ...fallback.warnings,
             ]));
             return {
