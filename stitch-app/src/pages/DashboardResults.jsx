@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { useQuery, useAction, useConvexAuth } from 'convex/react';
 import { api } from '../../convex/_generated/api';
@@ -8,6 +8,7 @@ import {
     normalizeQuestionType,
 } from '../lib/objectiveExam';
 import NextStepsGuidance from '../components/NextStepsGuidance';
+import { Confetti } from '../components/magicui/Confetti';
 
 // ─── Post-exam upgrade prompt ────────────────────────────────────────────────
 
@@ -394,6 +395,31 @@ const DashboardResults = () => {
         attemptId ? { attemptId } : 'skip'
     );
     const profile = useQuery(api.profiles.getProfile, isConvexAuthenticated ? {} : 'skip');
+    const [showConfetti, setShowConfetti] = useState(false);
+    const confettiTriggeredRef = useRef(false);
+
+    // Compute percentage early for confetti hook (must be before any early return)
+    const rawPercentage = attempt && typeof attempt === 'object'
+        ? (typeof attempt.percentage === 'number'
+            ? attempt.percentage
+            : ((attempt.answers?.length || attempt.totalQuestions || 0) > 0
+                ? Math.round(((attempt.score || 0) / (attempt.answers?.length || attempt.totalQuestions || 0)) * 100)
+                : 0))
+        : 0;
+
+    // Trigger confetti on good scores (≥70%) once per page load
+    useEffect(() => {
+        if (!confettiTriggeredRef.current && rawPercentage >= 70) {
+            confettiTriggeredRef.current = true;
+            const timer = setTimeout(() => setShowConfetti(true), 400);
+            const clearTimer = setTimeout(() => setShowConfetti(false), 6000);
+            return () => {
+                clearTimeout(timer);
+                clearTimeout(clearTimer);
+            };
+        }
+        return undefined;
+    }, [rawPercentage]);
 
     if (!attemptId) {
         return (
@@ -477,6 +503,7 @@ const DashboardResults = () => {
 
     return (
         <div className="bg-background-light dark:bg-background-dark min-h-screen flex flex-col">
+            <Confetti active={showConfetti} />
             <header className="w-full bg-surface-light dark:bg-surface-dark border-b border-border-light dark:border-border-dark sticky top-0 z-30">
                 <div className="max-w-5xl mx-auto flex items-center justify-between px-4 md:px-8 py-3">
                     <div className="flex items-center gap-3">

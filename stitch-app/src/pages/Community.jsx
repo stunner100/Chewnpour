@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { useMutation, useQuery } from 'convex/react';
 import { api } from '../../convex/_generated/api';
 import { useAuth } from '../contexts/AuthContext';
+import { AnimatedList } from '../components/magicui/AnimatedList';
 
 // ── Relative time formatter ──────────────────────────────────────────────────
 
@@ -272,33 +273,33 @@ const Community = () => {
                     {myChannels.length > 0 && (
                         <section>
                             <h2 className="text-overline text-text-faint-light dark:text-text-faint-dark mb-3">Your Channels</h2>
-                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                            <AnimatedList className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
                                 {myChannels.map((channel) => (
                                     <ChannelCard key={channel._id} channel={channel} isMember />
                                 ))}
-                            </div>
+                            </AnimatedList>
                         </section>
                     )}
 
                     {everyoneChannels.length > 0 && (
                         <section>
                             <h2 className="text-overline text-text-faint-light dark:text-text-faint-dark mb-3">Available to Everyone</h2>
-                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                            <AnimatedList className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
                                 {everyoneChannels.map((channel) => (
                                     <ChannelCard key={channel._id} channel={channel} isMember={false} />
                                 ))}
-                            </div>
+                            </AnimatedList>
                         </section>
                     )}
 
                     {discoverChannels.length > 0 && (
                         <section>
                             <h2 className="text-overline text-text-faint-light dark:text-text-faint-dark mb-3">Discover</h2>
-                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                            <AnimatedList className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
                                 {discoverChannels.map((channel) => (
                                     <ChannelCard key={channel._id} channel={channel} isMember={false} />
                                 ))}
-                            </div>
+                            </AnimatedList>
                         </section>
                     )}
 

@@ -1,5 +1,7 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
+import { SparklesText } from '../magicui/SparklesText';
+import { Marquee } from '../magicui/Marquee';
 
 const DashboardHero = ({
     uploading,
@@ -25,7 +27,7 @@ const DashboardHero = ({
                 <div className="space-y-5">
                     <span className="badge-primary">
                         <span className="material-symbols-outlined text-[12px]" style={{ fontVariationSettings: "'FILL' 1" }}>auto_awesome</span>
-                        AI Powered
+                        <SparklesText sparklesCount={3}>AI Powered</SparklesText>
                     </span>
                     <h1 className="text-display-md md:text-display-lg lg:text-display-xl text-text-main-light dark:text-text-main-dark tracking-tight leading-tight">
                         Turn your materials into a <span className="text-primary">personal study system</span>
@@ -112,6 +114,25 @@ const DashboardHero = ({
                         </div>
                     </div>
                 </div>
+            </div>
+
+            {/* Feature marquee */}
+            <div className="mt-6 md:mt-8">
+                <Marquee
+                    pauseOnHover
+                    className="py-2"
+                    duration={25}
+                >
+                    {['Lessons', 'Quizzes', 'Flashcards', 'Podcasts', 'Weak Concepts', 'Exam Prep', 'AI Tutor', 'Summaries'].map((feature) => (
+                        <span
+                            key={feature}
+                            className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-primary-50 dark:bg-primary-900/20 text-primary text-caption font-medium whitespace-nowrap"
+                        >
+                            <span className="w-1.5 h-1.5 rounded-full bg-primary inline-block" />
+                            {feature}
+                        </span>
+                    ))}
+                </Marquee>
             </div>
         </section>
     );
