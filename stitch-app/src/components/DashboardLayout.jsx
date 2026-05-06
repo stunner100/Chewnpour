@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import MobileBottomNav from './MobileBottomNav';
 import { useAuth } from '../contexts/AuthContext';
+import { BlurFade } from './magicui/BlurFade';
 
 const navItems = [
     { label: 'Dashboard', icon: 'space_dashboard', path: '/dashboard', exact: true },
@@ -159,7 +160,9 @@ const DashboardLayout = ({ children }) => {
 
             {/* Main Content */}
             <main id="dashboard-main" className="flex-1 overflow-y-auto overflow-x-hidden">
-                {children}
+                <BlurFade key={location.pathname} duration={0.35} yOffset={8}>
+                    {children}
+                </BlurFade>
             </main>
 
             {/* Mobile Bottom Nav */}

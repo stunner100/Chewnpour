@@ -8,6 +8,7 @@ import {
     formatPlanPrice,
     normalizeTopUpOptions,
 } from '../lib/pricingCurrency';
+import { ShimmerButton } from '../components/magicui/ShimmerButton';
 
 const sanitizeReturnPath = (value) => {
     const fallback = '/dashboard';
@@ -308,11 +309,11 @@ const Subscription = () => {
             </div>
 
             {/* Checkout Button */}
-            <button
-                type="button"
+            <ShimmerButton
                 onClick={handleCheckout}
                 disabled={loading || quota === undefined || !selectedTopUpPlan}
                 className="w-full btn-primary text-body-base py-3 flex items-center justify-center gap-2"
+                shimmerColor="#914bf1"
             >
                 {loading ? (
                     <>
@@ -320,7 +321,7 @@ const Subscription = () => {
                         Redirecting to {providerHint || 'checkout'}...
                     </>
                 ) : `Pay ${formatPlanPrice(selectedTopUpPlan?.amountMajor || 0, selectedTopUpPlan?.currency || currency)} and get +${selectedTopUpPlan?.credits || 0} uploads`}
-            </button>
+            </ShimmerButton>
         </div>
     );
 };
