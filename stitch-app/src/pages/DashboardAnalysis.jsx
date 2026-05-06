@@ -828,46 +828,27 @@ const DashboardAnalysis = () => {
                     </div>
                 )}
 
-                {/* 2-6. Bento layout: Study Plan, Continue Learning, Podcasts, Weak Concepts, Quick Actions */}
-                <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 auto-rows-min">
-                    {/* Today's Study Plan — wide */}
-                    <div className="lg:col-span-2">
-                        <TodayStudyPlan items={studyPlanItems} completedToday={0} />
-                    </div>
+                {/* 2. Today's Study Plan */}
+                <TodayStudyPlan items={studyPlanItems} completedToday={0} />
 
-                    {/* Continue Learning — narrow */}
-                    <div className="lg:col-span-1">
-                        {activeCourse ? (
-                            <ContinueLearningCard
-                                course={activeCourse}
-                                nextLesson={activeCourse.description}
-                                estimatedTime="15 min"
-                                onGenerateQuiz={() => handleGoToActiveCourse('quiz')}
-                            />
-                        ) : (
-                            <div className="card-base p-5 h-full flex flex-col items-center justify-center text-center">
-                                <span className="material-symbols-outlined text-[28px] text-text-faint-light dark:text-text-faint-dark mb-2">school</span>
-                                <p className="text-body-sm font-semibold text-text-main-light dark:text-text-main-dark">Start your first course</p>
-                                <p className="text-caption text-text-faint-light dark:text-text-faint-dark mt-1">Upload a document above to begin.</p>
-                            </div>
-                        )}
-                    </div>
+                {/* 3. Continue Learning */}
+                {activeCourse && (
+                    <ContinueLearningCard
+                        course={activeCourse}
+                        nextLesson={activeCourse.description}
+                        estimatedTime="15 min"
+                        onGenerateQuiz={() => handleGoToActiveCourse('quiz')}
+                    />
+                )}
 
-                    {/* Podcasts — wide */}
-                    <div className="lg:col-span-2">
-                        <PodcastSection podcasts={recentPodcasts || []} />
-                    </div>
+                {/* 4. Podcasts */}
+                <PodcastSection podcasts={recentPodcasts || []} />
 
-                    {/* Weak Concepts — narrow */}
-                    <div className="lg:col-span-1">
-                        <WeakConceptsCard queue={conceptReviewQueue} />
-                    </div>
+                {/* 5. Weak Concepts */}
+                <WeakConceptsCard queue={conceptReviewQueue} />
 
-                    {/* Quick Actions — full width */}
-                    <div className="lg:col-span-3">
-                        <QuickActionsGrid actions={quickActions} />
-                    </div>
-                </div>
+                {/* 6. Quick Actions */}
+                <QuickActionsGrid actions={quickActions} />
 
                 {/* 7. Your Courses */}
                 <section className="space-y-4 animate-fade-in-up animate-delay-300">
