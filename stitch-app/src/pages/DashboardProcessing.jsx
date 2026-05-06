@@ -8,6 +8,8 @@ import {
     shouldAutoNavigateFromProcessing,
     shouldShowProcessingConfirmation,
 } from '../lib/processingNavigation';
+import { AnimatedCircularProgressBar } from '../components/magicui/AnimatedCircularProgressBar';
+import { BorderBeam } from '../components/magicui/BorderBeam';
 
 // Processing steps configuration
 const PROCESSING_STEPS = [
@@ -292,7 +294,8 @@ const DashboardProcessing = () => {
             <main className="w-full max-w-3xl mx-auto flex-1 px-4 py-8 flex flex-col items-center justify-center">
                 {!showConfirmation ? (
                     <div className="w-full flex flex-col items-center text-center">
-                        <div className="w-full card-base p-8 md:p-12">
+                        <div className="relative w-full card-base p-8 md:p-12 overflow-hidden">
+                            <BorderBeam size={220} duration={9} colorFrom="#914bf1" colorTo="#FE8BBB" />
                             {/* Header */}
                             <div className="mb-8">
                                 <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-primary/8 mb-6">
@@ -311,42 +314,28 @@ const DashboardProcessing = () => {
                                 </p>
                             </div>
 
-                            {/* Current Step Visual */}
-                            <div className="mb-8">
-                                <div className="relative w-20 h-20 mx-auto mb-6">
-                                    <div className="absolute inset-0 rounded-full border-2 border-border-light dark:border-border-dark"></div>
-                                    <div
-                                        className="absolute inset-0 rounded-full border-2 border-primary border-t-transparent animate-spin"
-                                        style={{ animationDuration: '2s' }}
-                                    ></div>
-                                    <div className="absolute inset-2 rounded-full bg-primary flex items-center justify-center text-white">
-                                        <span className="material-symbols-outlined text-[28px]">{currentStepInfo.icon}</span>
+                            {/* Current Step Visual + Progress */}
+                            <div className="mb-8 flex flex-col items-center">
+                                <div className="relative mb-6">
+                                    <AnimatedCircularProgressBar
+                                        value={progress}
+                                        size={140}
+                                        strokeWidth={9}
+                                        gaugePrimaryColor="#914bf1"
+                                        gaugeSecondaryColor="rgba(145, 75, 241, 0.12)"
+                                    />
+                                    <div className="absolute -bottom-2 left-1/2 -translate-x-1/2 w-9 h-9 rounded-full bg-primary flex items-center justify-center text-white shadow-lg shadow-primary/30">
+                                        <span className="material-symbols-outlined text-[20px]">{currentStepInfo.icon}</span>
                                     </div>
                                 </div>
 
-                                <div className="space-y-1" aria-live="polite">
+                                <div className="space-y-1 mt-2" aria-live="polite">
                                     <h2 className="text-body-lg font-semibold text-text-main-light dark:text-text-main-dark">
                                         {currentStepInfo.label}
                                     </h2>
                                     <p className="text-body-sm text-text-sub-light dark:text-text-sub-dark max-w-md mx-auto">
                                         {currentStepInfo.description}
                                     </p>
-                                </div>
-                            </div>
-
-                            {/* Progress Display */}
-                            <div className="mb-8">
-                                <div className="flex items-center justify-between mb-2">
-                                    <span className="text-caption font-medium text-text-faint-light dark:text-text-faint-dark">Progress</span>
-                                    <span className="text-display-sm text-text-main-light dark:text-text-main-dark">{progress}%</span>
-                                </div>
-                                <div className="h-2 bg-surface-hover-light dark:bg-surface-hover-dark rounded-full overflow-hidden">
-                                    <div
-                                        className="h-full bg-primary rounded-full transition-all duration-700 ease-out relative"
-                                        style={{ width: `${progress}%` }}
-                                    >
-                                        <div className="absolute inset-0 bg-white/20 animate-pulse"></div>
-                                    </div>
                                 </div>
                             </div>
 
