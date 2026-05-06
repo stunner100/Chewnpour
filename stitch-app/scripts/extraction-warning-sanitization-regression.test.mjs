@@ -21,16 +21,16 @@ if (/Docling extract error:\s*\$\{response\.status\}\s*-\s*\$\{errorBody\}/.test
   throw new Error("Docling client must not include raw HTML response bodies in thrown errors.");
 }
 
-if (!/formatExtractionWarning/.test(processingPageSource)) {
-  throw new Error("Expected processing UI to format stored extraction warnings.");
+if (/formatExtractionWarning/.test(processingPageSource)) {
+  throw new Error("Processing UI must not render extraction warnings to learners.");
 }
 
-if (!/docling_primary_failed/i.test(processingPageSource)) {
-  throw new Error("Expected processing UI to sanitize old persisted Docling warning prefixes.");
+if (/extractionWarnings\.map/.test(processingPageSource)) {
+  throw new Error("Processing UI must not map backend extraction warnings into visible copy.");
 }
 
-if (!/Docling took too long, so we continued with another extractor/.test(processingPageSource)) {
-  throw new Error("Expected old Docling 504 warnings to render as readable fallback copy.");
+if (/Heads up/.test(processingPageSource)) {
+  throw new Error("Processing UI must not show non-actionable fallback warning banners.");
 }
 
 console.log("extraction-warning-sanitization-regression.test.mjs passed");
