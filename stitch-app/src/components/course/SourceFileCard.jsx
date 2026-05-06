@@ -2,13 +2,34 @@ import React, { useCallback, useRef, useState } from 'react';
 import { useQuery, useMutation, useAction } from 'convex/react';
 import { api } from '../../../convex/_generated/api';
 
-const ACCEPTED_FILE_TYPES = '.pdf,.pptx,.docx';
+const ACCEPTED_FILE_TYPES = '.pdf,.pptx,.docx,.mp3,.m4a,.mp4,.wav,.webm,.ogg,.aac,.flac,audio/*';
 const MAX_FILE_SIZE = 50 * 1024 * 1024; // 50MB
+const SUPPORTED_FILE_EXTENSIONS = new Set([
+    'pdf',
+    'pptx',
+    'docx',
+    'mp3',
+    'm4a',
+    'mp4',
+    'wav',
+    'webm',
+    'ogg',
+    'aac',
+    'flac',
+]);
 
 const FILE_TYPE_ICONS = {
     pdf: 'picture_as_pdf',
     pptx: 'slideshow',
     docx: 'description',
+    mp3: 'graphic_eq',
+    m4a: 'graphic_eq',
+    mp4: 'graphic_eq',
+    wav: 'graphic_eq',
+    webm: 'graphic_eq',
+    ogg: 'graphic_eq',
+    aac: 'graphic_eq',
+    flac: 'graphic_eq',
 };
 
 const formatFileSize = (bytes) => {
@@ -64,8 +85,8 @@ const SourceFileCard = ({ courseId, userId }) => {
                 return;
             }
             const ext = file.name.split('.').pop()?.toLowerCase();
-            if (!['pdf', 'pptx', 'docx'].includes(ext)) {
-                setUploadError('Only PDF, PPTX, and DOCX files are supported.');
+            if (!SUPPORTED_FILE_EXTENSIONS.has(ext)) {
+                setUploadError('Only PDF, PPTX, DOCX, and audio recording files are supported.');
                 return;
             }
 
@@ -141,7 +162,7 @@ const SourceFileCard = ({ courseId, userId }) => {
 
             {sourceList.length === 0 ? (
                 <p className="text-caption text-text-sub-light dark:text-text-sub-dark">
-                    Add a PDF, slide deck, or document to expand this course.
+                    Add a PDF, slide deck, document, or recording to expand this course.
                 </p>
             ) : (
                 <ul className="space-y-1.5">

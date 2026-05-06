@@ -101,6 +101,7 @@ const formatFileTypeLabel = (value) => {
     if (normalized === 'pdf') return 'PDF';
     if (normalized === 'docx') return 'DOCX';
     if (normalized === 'pptx') return 'PPTX';
+    if (['mp3', 'm4a', 'mp4', 'wav', 'webm', 'ogg', 'aac', 'flac'].includes(normalized)) return 'AUDIO';
     if (normalized === 'txt') return 'TXT';
     return normalized.toUpperCase();
 };

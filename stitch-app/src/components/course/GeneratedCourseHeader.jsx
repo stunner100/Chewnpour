@@ -6,6 +6,14 @@ const SOURCE_LABEL = {
     ppt: 'PPT',
     docx: 'DOCX',
     doc: 'DOC',
+    mp3: 'AUDIO',
+    m4a: 'AUDIO',
+    mp4: 'AUDIO',
+    wav: 'AUDIO',
+    webm: 'AUDIO',
+    ogg: 'AUDIO',
+    aac: 'AUDIO',
+    flac: 'AUDIO',
 };
 
 const SOURCE_DESCRIPTOR = {
@@ -14,6 +22,14 @@ const SOURCE_DESCRIPTOR = {
     ppt: 'uploaded presentation',
     docx: 'uploaded document',
     doc: 'uploaded document',
+    mp3: 'uploaded recording',
+    m4a: 'uploaded recording',
+    mp4: 'uploaded recording',
+    wav: 'uploaded recording',
+    webm: 'uploaded recording',
+    ogg: 'uploaded recording',
+    aac: 'uploaded recording',
+    flac: 'uploaded recording',
 };
 
 const formatRelative = (timestamp) => {

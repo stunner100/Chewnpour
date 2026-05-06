@@ -4,6 +4,7 @@ import { useQuery, useMutation, useConvexAuth } from 'convex/react';
 import { api } from '../../convex/_generated/api';
 import { useAuth } from '../contexts/AuthContext';
 import PodcastStatusBadge from '../components/dashboard/PodcastStatusBadge';
+import PodcastWaveformPlayer from '../components/podcast/PodcastWaveformPlayer';
 
 const formatDuration = (seconds) => {
     if (!seconds) return '—';
@@ -61,15 +62,14 @@ const PodcastListItem = ({ podcast }) => {
             </div>
 
             {podcast.status === 'ready' && podcast.audioUrl && (
-                <audio
+                <PodcastWaveformPlayer
                     key={podcast._id}
-                    src={podcast.audioUrl}
-                    controls
-                    preload="none"
-                    className="mt-4 w-full rounded-xl border border-border-light dark:border-border-dark"
-                >
-                    <track kind="captions" />
-                </audio>
+                    audioUrl={podcast.audioUrl}
+                    title={podcast.topicTitle}
+                    subtitle={podcast.courseTitle}
+                    durationSeconds={podcast.durationSeconds}
+                    className="mt-4"
+                />
             )}
 
             {isInFlight && (

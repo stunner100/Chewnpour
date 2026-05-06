@@ -21,7 +21,7 @@ const KNOWN_HYPHENATED_PREFIXES = new Set([
 ]);
 
 const stripExtension = (value) =>
-    value.replace(/\.(pdf|pptx?|docx?|txt|md|rtf|key|odp|ods|odt|csv|xlsx?)$/i, '');
+    value.replace(/\.(pdf|pptx?|docx?|txt|md|rtf|key|odp|ods|odt|csv|xlsx?|mp3|m4a|mp4|wav|webm|ogg|aac|flac)$/i, '');
 
 const normaliseSeparators = (value) => value.replace(/[_]+/g, ' ').replace(/\s+/g, ' ').trim();
 
