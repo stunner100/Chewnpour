@@ -369,15 +369,6 @@ export const runForegroundExtraction = internalAction({
                 warnings: result.warnings,
             });
 
-            // Schedule evidence index build non-blocking — it isn't needed
-            // until retrieval during topic generation, and ai.ts has a
-            // fallback that rebuilds from the artifact if the index isn't
-            // ready yet.
-            ctx.scheduler.runAfter(0, (internal as any).grounded.buildEvidenceIndex, {
-                uploadId: args.uploadId,
-                artifactStorageId,
-            });
-
             return {
                 text: result.text,
                 qualityScore: result.qualityScore,
