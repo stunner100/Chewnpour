@@ -5,7 +5,9 @@ import { useQuery, useMutation } from 'convex/react';
 import { api } from '../../convex/_generated/api';
 import StatsDetailModal from '../components/StatsDetailModal';
 import ExamActionModal from '../components/ExamActionModal';
-import Toast from '../components/Toast';
+import { WatermelonWidget, WatermelonWidgetsGrid } from '../components/watermelon/WatermelonWidgets';
+import { WatermelonScheduler } from '../components/watermelon/WatermelonScheduler';
+import { watermelonToast } from '../components/watermelon/watermelonToast';
 import { useShare } from '../hooks/useShare';
 import { isDarkModeEnabled, toggleThemePreference } from '../lib/theme';
 
@@ -43,6 +45,13 @@ const Profile = () => {
             ensureReferralCode({ userId }).catch(() => {});
         }
     }, [userId, profile, ensureReferralCode]);
+
+    useEffect(() => {
+        if (toastMessage) {
+            watermelonToast(toastMessage, { type: 'info' });
+            hideToast();
+        }
+    }, [toastMessage, hideToast]);
 
     const handleLogout = async () => {
         await signOut();
@@ -119,7 +128,11 @@ const Profile = () => {
         setVoiceSaving(true);
         const { error } = await updateProfile({ voiceModeEnabled: !voiceModeEnabled });
         if (error) {
-            setVoiceError(error.message || 'Unable to update voice mode setting');
+            const message = error.message || 'Unable to update voice mode setting';
+            setVoiceError(message);
+            watermelonToast(message, { type: 'error' });
+        } else {
+            watermelonToast(`Voice mode ${!voiceModeEnabled ? 'enabled' : 'disabled'}.`, { type: 'success' });
         }
         setVoiceSaving(false);
     };
@@ -266,24 +279,27 @@ const Profile = () => {
             </div>
 
             {/* Stats */}
-            <div className="grid grid-cols-4 gap-3">
+            <WatermelonWidgetsGrid cols={4}>
                 {[
-                    { type: 'topics', icon: 'menu_book', value: displayStats.topics, label: 'Topics' },
-                    { type: 'accuracy', icon: 'check_circle', value: `${displayStats.accuracy}%`, label: 'Accuracy' },
-                    { type: 'courses', icon: 'school', value: displayStats.courses, label: 'Courses' },
-                    { type: 'hours', icon: 'schedule', value: `${Number(displayStats.studyTime || 0).toFixed(1)}h`, label: 'Hours' },
+                    { type: 'topics', icon: 'menu_book', value: displayStats.topics, label: 'Topics', accent: 'primary' },
+                    { type: 'accuracy', icon: 'check_circle', value: `${displayStats.accuracy}%`, label: 'Accuracy', accent: 'emerald' },
+                    { type: 'courses', icon: 'school', value: displayStats.courses, label: 'Courses', accent: 'indigo' },
+                    { type: 'hours', icon: 'schedule', value: `${Number(displayStats.studyTime || 0).toFixed(1)}h`, label: 'Hours', accent: 'teal' },
                 ].map(stat => (
                     <button
                         key={stat.type}
                         onClick={() => setStatsModal({ open: true, type: stat.type })}
-                        className="card-base p-3 flex flex-col items-center gap-1.5 hover:bg-surface-hover-light dark:hover:bg-surface-hover-dark transition-colors cursor-pointer"
+                        className="text-left appearance-none bg-transparent border-0 p-0 cursor-pointer"
                     >
-                        <span className="material-symbols-outlined text-primary text-[18px]">{stat.icon}</span>
-                        <p className="text-display-sm text-text-main-light dark:text-text-main-dark">{stat.value}</p>
-                        <p className="text-overline text-text-faint-light dark:text-text-faint-dark">{stat.label}</p>
+                        <WatermelonWidget
+                            title={stat.label}
+                            value={stat.value}
+                            icon={stat.icon}
+                            accent={stat.accent}
+                        />
                     </button>
                 ))}
-            </div>
+            </WatermelonWidgetsGrid>
 
             {/* Subscription */}
             <div className={`card-base p-4 ${isPremium ? 'bg-primary border-primary' : ''}`}>
@@ -369,15 +385,21 @@ const Profile = () => {
                 )}
 
                 {referralStats && (
-                    <div className="flex gap-3 pt-3 border-t border-border-light dark:border-border-dark">
-                        <div className="flex-1 text-center">
-                            <p className="text-display-sm text-text-main-light dark:text-text-main-dark">{referralStats.successfulReferrals}</p>
-                            <p className="text-overline text-text-faint-light dark:text-text-faint-dark">Referrals</p>
-                        </div>
-                        <div className="flex-1 text-center">
-                            <p className="text-display-sm text-accent-emerald">+{referralStats.creditsEarned}</p>
-                            <p className="text-overline text-text-faint-light dark:text-text-faint-dark">Credits Earned</p>
-                        </div>
+                    <div className="pt-3 border-t border-border-light dark:border-border-dark">
+                        <WatermelonWidgetsGrid cols={2}>
+                            <WatermelonWidget
+                                title="Referrals"
+                                value={referralStats.successfulReferrals}
+                                icon="group"
+                                accent="primary"
+                            />
+                            <WatermelonWidget
+                                title="Credits Earned"
+                                value={`+${referralStats.creditsEarned}`}
+                                icon="redeem"
+                                accent="emerald"
+                            />
+                        </WatermelonWidgetsGrid>
                     </div>
                 )}
             </div>
@@ -529,39 +551,22 @@ const Profile = () => {
                     )}
                 </div>
                 {visibleExamAttempts.length > 0 ? (
-                    <div className="card-base divide-y divide-border-light dark:divide-border-dark">
-                        {visibleExamAttempts.map((attempt) => {
+                    <WatermelonScheduler
+                        items={visibleExamAttempts.map((attempt) => {
                             const scorePercent = Math.round((attempt.score / attempt.totalQuestions) * 100);
-                            const isExcellent = scorePercent >= 80;
-                            const isGood = scorePercent >= 60;
-                            return (
-                                <button
-                                    key={attempt._id}
-                                    onClick={() => setExamModal({ open: true, attempt })}
-                                    className="w-full flex items-center gap-3 p-4 hover:bg-surface-hover-light dark:hover:bg-surface-hover-dark transition-colors text-left"
-                                >
-                                    <div className="w-9 h-9 rounded-lg bg-primary/8 dark:bg-primary/15 flex items-center justify-center shrink-0">
-                                        <span className="material-symbols-outlined text-primary text-[18px]">quiz</span>
-                                    </div>
-                                    <div className="flex-1 min-w-0">
-                                        <p className="text-body-sm font-semibold text-text-main-light dark:text-text-main-dark truncate">{attempt.topicTitle}</p>
-                                        <div className="flex items-center gap-2 mt-1">
-                                            <div className="flex-1 h-1 bg-border-light dark:bg-border-dark rounded-full overflow-hidden max-w-[60px]">
-                                                <div
-                                                    className={`h-full rounded-full ${isExcellent ? 'bg-accent-emerald' : isGood ? 'bg-accent-amber' : 'bg-red-500'}`}
-                                                    style={{ width: `${scorePercent}%` }}
-                                                />
-                                            </div>
-                                            <span className={`text-caption font-semibold ${isExcellent ? 'text-accent-emerald' : isGood ? 'text-accent-amber' : 'text-red-500'}`}>
-                                                {scorePercent}%
-                                            </span>
-                                        </div>
-                                    </div>
-                                    <span className="text-caption text-text-faint-light dark:text-text-faint-dark whitespace-nowrap">{formatDate(attempt._creationTime)}</span>
-                                </button>
-                            );
+                            const priority = scorePercent >= 80 ? 'low' : scorePercent >= 60 ? 'medium' : 'high';
+                            return {
+                                id: attempt._id,
+                                time: formatDate(attempt._creationTime),
+                                title: attempt.topicTitle,
+                                subtitle: `Score ${scorePercent}% · ${attempt.score}/${attempt.totalQuestions}`,
+                                priority,
+                                status: 'done',
+                                _attempt: attempt,
+                            };
                         })}
-                    </div>
+                        onItemClick={(item) => setExamModal({ open: true, attempt: item._attempt })}
+                    />
                 ) : (
                     <div className="card-base border-dashed p-8 text-center">
                         <div className="w-12 h-12 rounded-xl bg-surface-hover-light dark:bg-surface-hover-dark flex items-center justify-center mx-auto mb-3">
@@ -596,7 +601,6 @@ const Profile = () => {
                 onClose={() => setExamModal({ open: false, attempt: null })}
                 attempt={examModal.attempt}
             />
-            <Toast message={toastMessage} onClose={hideToast} />
         </div>
     );
 };
