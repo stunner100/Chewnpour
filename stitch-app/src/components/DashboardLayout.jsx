@@ -1,8 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { Link, useLocation } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import MobileBottomNav from './MobileBottomNav';
+import { WatermelonToaster } from './watermelon/WatermelonSonner';
 import { useAuth } from '../contexts/AuthContext';
 import { BlurFade } from './magicui/BlurFade';
+import { WatermelonCombobox } from './watermelon/WatermelonCombobox';
 
 const navItems = [
     { label: 'Dashboard', icon: 'space_dashboard', path: '/dashboard', exact: true },
@@ -20,6 +22,7 @@ const bottomNavItems = [
 
 const DashboardLayout = ({ children }) => {
     const location = useLocation();
+    const navigate = useNavigate();
     const { profile } = useAuth();
     const hideMobileBottomNav = location.pathname.startsWith('/dashboard/exam');
     const isTopicPage = location.pathname.startsWith('/dashboard/topic/');
@@ -97,6 +100,28 @@ const DashboardLayout = ({ children }) => {
                     </button>
                 </div>
 
+                {/* Quick Navigation */}
+                {!sidebarCollapsed && (
+                    <div className="px-2.5 pt-2">
+                        <WatermelonCombobox
+                            placeholder="Quick jump to..."
+                            icon="bolt"
+                            options={[
+                                { label: 'Dashboard', value: '/dashboard', icon: 'space_dashboard', keywords: ['home', 'main'] },
+                                { label: 'Library', value: '/dashboard/search', icon: 'auto_stories', keywords: ['books', 'materials'] },
+                                { label: 'Study Plan', value: '/dashboard/analysis', icon: 'event_note', keywords: ['schedule', 'plan'] },
+                                { label: 'Assignments', value: '/dashboard/assignment-helper', icon: 'edit_note', keywords: ['homework', 'tasks'] },
+                                { label: 'Humanizer', value: '/dashboard/humanizer', icon: 'auto_fix_high', keywords: ['ai', 'rewrite'] },
+                                { label: 'Community', value: '/dashboard/community', icon: 'forum', keywords: ['chat', 'discuss'] },
+                                { label: 'Subscription', value: '/subscription', icon: 'workspace_premium', keywords: ['premium', 'pay'] },
+                                { label: 'Profile', value: '/profile', icon: 'person', keywords: ['account', 'settings'] },
+                            ]}
+                            value=""
+                            onChange={(v) => v && navigate(v)}
+                        />
+                    </div>
+                )}
+
                 {/* Navigation */}
                 <nav className="flex-1 overflow-y-auto py-3 px-2.5 space-y-0.5">
                     {navItems.map((item) => {
@@ -165,6 +190,7 @@ const DashboardLayout = ({ children }) => {
                 </BlurFade>
             </main>
 
+            <WatermelonToaster position="bottom-center" />
             {/* Mobile Bottom Nav */}
             {!hideMobileBottomNav && <MobileBottomNav />}
         </div>
