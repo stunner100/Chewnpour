@@ -48,6 +48,10 @@ if (!topicDetailSource.includes('const getCurrentHashTargetId = () => {')) {
   throw new Error('TopicDetail must use a shared helper for detecting deep-linked section hashes.');
 }
 
+if (!topicDetailSource.includes('const scrollHashTargetIntoView = ({ behavior = \'auto\' } = {}) => {')) {
+  throw new Error('TopicDetail must use a shared helper for scrolling the current hash target into view.');
+}
+
 if (!/useState\(\(\) => getCurrentHashTargetId\(\) \? 'full' : null\)/.test(topicDetailSource)) {
   throw new Error('TopicDetail must bypass the study-mode chooser when the URL already points at a lesson section hash.');
 }
@@ -60,8 +64,12 @@ if (!/if \(getCurrentHashTargetId\(\)\) return;[\s\S]*window\.scrollTo\(0, 0\);/
   throw new Error('TopicDetail must not run its top-of-page navigation reset when loading a hash deep link.');
 }
 
-if (!/node\.scrollIntoView\(\{\s*behavior: 'auto',\s*block: 'start',?\s*\}\)/s.test(topicDetailSource)) {
+if (!/node\.scrollIntoView\(\{\s*behavior,\s*block: 'start',?\s*\}\)/s.test(topicDetailSource)) {
   throw new Error('TopicDetail must scroll the hashed section into view after the lesson content has mounted.');
+}
+
+if (!/window\.addEventListener\('hashchange', scrollAfterHashChange\)/.test(topicDetailSource)) {
+  throw new Error('TopicDetail must react to native/browser hash changes so section links cannot update the URL without scrolling.');
 }
 
 if (/WatermelonTabs/.test(topicDetailSource)) {
@@ -76,7 +84,7 @@ for (const expected of [
   'const sidePanelScrollYRef = useRef(0);',
   'const captureLessonScrollForSidePanel = useCallback(() => {',
   'const restoreLessonScrollAfterPanelClose = useCallback(() => {',
-  'target.scrollIntoView({ behavior: \'auto\', block: \'start\' });',
+  'if (scrollHashTargetIntoView({ behavior: \'auto\' })) return;',
   'window.setTimeout(restore, 120);',
 ]) {
   if (!topicDetailSource.includes(expected)) {

@@ -82,6 +82,15 @@ const getCurrentHashTargetId = () => {
     }
 };
 
+const scrollHashTargetIntoView = ({ behavior = 'auto' } = {}) => {
+    const targetId = getCurrentHashTargetId();
+    if (!targetId) return false;
+    const node = document.getElementById(targetId);
+    if (!node) return false;
+    node.scrollIntoView({ behavior, block: 'start' });
+    return true;
+};
+
 const TopicDetail = () => {
     const { topicId: topicIdParam } = useParams();
     const routeTopicId = typeof topicIdParam === 'string' ? topicIdParam.trim() : '';
@@ -117,12 +126,7 @@ const TopicDetail = () => {
         if (typeof window === 'undefined') return;
         const top = sidePanelScrollYRef.current;
         const restore = () => {
-            const targetId = getCurrentHashTargetId();
-            const target = targetId ? document.getElementById(targetId) : null;
-            if (target) {
-                target.scrollIntoView({ behavior: 'auto', block: 'start' });
-                return;
-            }
+            if (scrollHashTargetIntoView({ behavior: 'auto' })) return;
             window.scrollTo({ top, behavior: 'auto' });
         };
         window.requestAnimationFrame(() => {
@@ -806,16 +810,28 @@ const TopicDetail = () => {
 
     useEffect(() => {
         if (!studyMode) return undefined;
-        const targetId = getCurrentHashTargetId();
-        if (!targetId) return undefined;
+        if (!getCurrentHashTargetId()) return undefined;
         const timer = window.setTimeout(() => {
-            const node = document.getElementById(targetId);
-            if (node) {
-                node.scrollIntoView({ behavior: 'auto', block: 'start' });
-            }
+            scrollHashTargetIntoView({ behavior: 'auto' });
         }, 100);
         return () => window.clearTimeout(timer);
     }, [displayBlocks, studyMode]);
+
+    useEffect(() => {
+        if (typeof window === 'undefined') return undefined;
+        const scrollAfterHashChange = () => {
+            if (!getCurrentHashTargetId()) return;
+            setStudyMode('full');
+            const restore = () => scrollHashTargetIntoView({ behavior: 'auto' });
+            window.requestAnimationFrame(() => {
+                restore();
+                window.setTimeout(restore, 120);
+            });
+        };
+
+        window.addEventListener('hashchange', scrollAfterHashChange);
+        return () => window.removeEventListener('hashchange', scrollAfterHashChange);
+    }, []);
 
     const assessmentRoute = topic?.assessmentRoute || 'topic_quiz';
     const isTopicQuizRoute = assessmentRoute === 'topic_quiz' || topic?.topicKind === 'document_final_exam';
