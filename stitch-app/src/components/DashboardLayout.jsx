@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import MobileBottomNav from './MobileBottomNav';
 import { WatermelonToaster } from './watermelon/WatermelonSonner';
+import { watermelonToast } from './watermelon/watermelonToast';
 import { useAuth } from '../contexts/AuthContext';
 import { BlurFade } from './magicui/BlurFade';
 import { WatermelonCombobox } from './watermelon/WatermelonCombobox';
@@ -28,6 +29,23 @@ const DashboardLayout = ({ children }) => {
     const hideMobileBottomNav = location.pathname.startsWith('/dashboard/exam');
     const isTopicPage = location.pathname.startsWith('/dashboard/topic/');
     const [sidebarCollapsed, setSidebarCollapsed] = useState(isTopicPage);
+
+    useEffect(() => {
+        const incomingToast = location.state?.watermelonToast;
+        if (!incomingToast?.message) return undefined;
+
+        const { watermelonToast: _watermelonToast, ...nextState } = location.state ?? {};
+        const timeoutId = window.setTimeout(() => {
+            const options = { type: incomingToast.type || 'info' };
+            if (typeof incomingToast.duration === 'number') {
+                options.duration = incomingToast.duration;
+            }
+            watermelonToast(String(incomingToast.message), options);
+            navigate(`${location.pathname}${location.search}`, { replace: true, state: nextState });
+        }, 0);
+
+        return () => window.clearTimeout(timeoutId);
+    }, [location.pathname, location.search, location.state, navigate]);
 
     useEffect(() => {
         if (!isTopicPage) return undefined;

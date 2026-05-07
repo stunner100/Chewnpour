@@ -64,8 +64,15 @@ const OnboardingName = () => {
                     const newUserId = data?.user?.id ?? data?.id;
                     if (newUserId) setReferredBy({ userId: newUserId, referralCode }).catch(() => {});
                 }
-                watermelonToast(`Welcome, ${trimmedName.split(' ')[0]}!`, { type: 'success' });
-                navigate('/dashboard');
+                navigate('/dashboard', {
+                    replace: true,
+                    state: {
+                        watermelonToast: {
+                            message: `Welcome, ${trimmedName.split(' ')[0]}!`,
+                            type: 'success',
+                        },
+                    },
+                });
             }
         } catch {
             const fallback = 'An unexpected error occurred';

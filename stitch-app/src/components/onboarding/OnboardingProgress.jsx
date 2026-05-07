@@ -30,7 +30,7 @@ export const OnboardingProgress = ({ step = 1, total = 3 }) => {
                         style={{ background: INACTIVE }}
                     >
                         <Motion.div
-                            initial={false}
+                            initial={{ scaleX: 0, opacity: 0 }}
                             animate={{
                                 scaleX: isFilled ? 1 : 0,
                                 opacity: isFilled ? 1 : 0,

@@ -54,8 +54,15 @@ const OnboardingDepartment = () => {
                 department: selectedDepts.length > 0 ? selectedDepts.join(',') : undefined,
                 onboardingCompleted: true,
             });
-            watermelonToast("You're all set. Let's learn.", { type: 'success' });
-            navigate('/dashboard', { replace: true });
+            navigate('/dashboard', {
+                replace: true,
+                state: {
+                    watermelonToast: {
+                        message: "You're all set. Let's learn.",
+                        type: 'success',
+                    },
+                },
+            });
         } catch (err) {
             console.error('Failed to update profile:', err);
             const msg = 'Failed to save. Please try again.';
