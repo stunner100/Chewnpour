@@ -1,5 +1,6 @@
 import React from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
+import { WatermelonScheduler } from '../watermelon/WatermelonScheduler';
 
 const PRIORITY_STYLES = {
     high: 'bg-rose-50 dark:bg-rose-900/20 text-rose-700 dark:text-rose-300 border-rose-200/60 dark:border-rose-800/40',
@@ -9,6 +10,16 @@ const PRIORITY_STYLES = {
 
 const TodayStudyPlan = ({ items = [], completedToday = 0 }) => {
     const total = items.length;
+    const navigate = useNavigate();
+
+    const schedulerItems = items.map(item => ({
+        id: item.id,
+        title: item.title,
+        subtitle: item.subtitle,
+        time: item.estimatedTime || 'Anytime',
+        priority: item.priority || 'medium',
+        status: item.completed ? 'done' : 'pending',
+    }));
 
     return (
         <section className="card-base p-5 md:p-6 animate-fade-in-up animate-delay-100">
@@ -70,6 +81,16 @@ const TodayStudyPlan = ({ items = [], completedToday = 0 }) => {
                         );
                     })}
                 </ul>
+            )}
+
+            {items.length > 0 && (
+                <div className="mt-6 pt-4 border-t border-border-subtle dark:border-border-subtle-dark">
+                    <p className="text-caption font-semibold text-text-faint-light dark:text-text-faint-dark uppercase tracking-wider mb-3">Timeline</p>
+                    <WatermelonScheduler items={schedulerItems} onItemClick={(item) => {
+                        const original = items.find(i => i.id === item.id);
+                        if (original?.href) navigate(original.href);
+                    }} />
+                </div>
             )}
         </section>
     );

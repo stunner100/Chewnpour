@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { useMutation } from 'convex/react';
 import { api } from '../../convex/_generated/api';
 import CourseCard from './CourseCard';
+import { WatermelonDisclosure } from './watermelon/WatermelonDisclosure';
 
 const CourseFoldersSection = ({
     userId,
@@ -182,133 +183,131 @@ const CourseFoldersSection = ({
                     const isMenuOpen = menuOpenId === folder._id;
                     const isConfirmingDelete = confirmDeleteFolderId === folder._id;
 
-                    return (
-                        <div
-                            key={folder._id}
-                            className="card-flat p-4"
-                        >
-                            <div className="flex items-center justify-between gap-3 mb-3">
-                                <button
-                                    type="button"
-                                    onClick={() => toggleCollapse(folder._id)}
-                                    className="flex items-center gap-2 min-w-0 flex-1 text-left"
-                                    aria-expanded={!isCollapsed}
-                                >
-                                    <span className="material-symbols-outlined text-[18px] text-text-faint-light dark:text-text-faint-dark">
-                                        {isCollapsed ? 'chevron_right' : 'expand_more'}
-                                    </span>
-                                    <span className="material-symbols-outlined text-[18px] text-primary" style={{ fontVariationSettings: "'FILL' 1" }}>folder</span>
-                                    {isRenaming ? (
-                                        <input
-                                            type="text"
-                                            value={renameValue}
-                                            onChange={(e) => setRenameValue(e.target.value)}
-                                            onClick={(e) => e.stopPropagation()}
-                                            onBlur={() => submitRename(folder)}
-                                            onKeyDown={(e) => {
-                                                if (e.key === 'Enter') { e.preventDefault(); submitRename(folder); }
-                                                if (e.key === 'Escape') { setRenamingId(null); }
-                                            }}
-                                            maxLength={80}
-                                            autoFocus
-                                            className="flex-1 min-w-0 px-2 py-1 rounded border border-primary bg-surface-light dark:bg-surface-dark text-body-md font-semibold text-text-main-light dark:text-text-main-dark focus:outline-none"
-                                        />
-                                    ) : (
-                                        <span className="text-body-md font-semibold text-text-main-light dark:text-text-main-dark truncate">
-                                            {folder.name}
-                                        </span>
-                                    )}
-                                    <span className="text-caption text-text-faint-light dark:text-text-faint-dark ml-1">
-                                        {coursesInFolder.length}
-                                    </span>
-                                </button>
-
-                                {isConfirmingDelete ? (
-                                    <div className="flex items-center gap-1.5">
-                                        <span className="text-caption text-red-600 dark:text-red-400">Delete folder?</span>
-                                        <button
-                                            type="button"
-                                            onClick={() => confirmDeleteFolder(folder)}
-                                            className="text-caption font-semibold text-red-600 hover:text-red-700 px-1.5 py-0.5 rounded hover:bg-red-50 dark:hover:bg-red-900/30 transition-colors"
-                                        >Yes</button>
-                                        <button
-                                            type="button"
-                                            onClick={() => setConfirmDeleteFolderId(null)}
-                                            className="text-caption text-text-sub-light px-1.5 py-0.5 rounded hover:bg-surface-hover transition-colors"
-                                        >No</button>
-                                    </div>
-                                ) : (
-                                    <div
-                                        ref={(node) => {
-                                            if (node) menuRefs.current.set(folder._id, node);
-                                            else menuRefs.current.delete(folder._id);
+                    const folderHeader = (
+                        <div className="flex items-center justify-between gap-3 flex-1 min-w-0">
+                            <div className="flex items-center gap-2 min-w-0 flex-1">
+                                <span className="material-symbols-outlined text-[18px] text-primary" style={{ fontVariationSettings: "'FILL' 1" }}>folder</span>
+                                {isRenaming ? (
+                                    <input
+                                        type="text"
+                                        value={renameValue}
+                                        onChange={(e) => setRenameValue(e.target.value)}
+                                        onClick={(e) => e.stopPropagation()}
+                                        onBlur={() => submitRename(folder)}
+                                        onKeyDown={(e) => {
+                                            if (e.key === 'Enter') { e.preventDefault(); submitRename(folder); }
+                                            if (e.key === 'Escape') { setRenamingId(null); }
                                         }}
-                                        className="relative"
-                                    >
-                                        <button
-                                            type="button"
-                                            onClick={() => setMenuOpenId(isMenuOpen ? null : folder._id)}
-                                            className="btn-icon w-7 h-7"
-                                            aria-haspopup="menu"
-                                            aria-expanded={isMenuOpen}
-                                            aria-label={`Actions for folder ${folder.name}`}
-                                        >
-                                            <span className="material-symbols-outlined text-[16px]">more_horiz</span>
-                                        </button>
-                                        {isMenuOpen && (
-                                            <div
-                                                role="menu"
-                                                className="absolute right-0 mt-1 w-40 rounded-lg border border-border-subtle dark:border-border-subtle-dark bg-surface-light dark:bg-surface-dark shadow-lg py-1 z-30"
-                                            >
-                                                <button
-                                                    type="button"
-                                                    onClick={() => beginRename(folder)}
-                                                    className="w-full flex items-center gap-2 px-3 py-2 text-body-sm text-left text-text-main-light dark:text-text-main-dark hover:bg-surface-hover dark:hover:bg-surface-hover-dark"
-                                                >
-                                                    <span className="material-symbols-outlined text-[16px]">edit</span>
-                                                    Rename
-                                                </button>
-                                                <button
-                                                    type="button"
-                                                    onClick={() => { setMenuOpenId(null); setConfirmDeleteFolderId(folder._id); }}
-                                                    className="w-full flex items-center gap-2 px-3 py-2 text-body-sm text-left text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 border-t border-border-subtle dark:border-border-subtle-dark"
-                                                >
-                                                    <span className="material-symbols-outlined text-[16px]">delete</span>
-                                                    Delete
-                                                </button>
-                                            </div>
-                                        )}
-                                    </div>
+                                        maxLength={80}
+                                        autoFocus
+                                        className="flex-1 min-w-0 px-2 py-1 rounded border border-primary bg-surface-light dark:bg-surface-dark text-body-md font-semibold text-text-main-light dark:text-text-main-dark focus:outline-none"
+                                    />
+                                ) : (
+                                    <span className="text-body-md font-semibold text-text-main-light dark:text-text-main-dark truncate">
+                                        {folder.name}
+                                    </span>
                                 )}
+                                <span className="text-caption text-text-faint-light dark:text-text-faint-dark ml-1">
+                                    {coursesInFolder.length}
+                                </span>
                             </div>
 
-                            {!isCollapsed && (
-                                coursesInFolder.length === 0 ? (
-                                    <p className="text-caption text-text-faint-light dark:text-text-faint-dark px-1">
-                                        Empty. Move courses here using the <span className="material-symbols-outlined text-[12px] align-middle">more_horiz</span> menu on a course.
-                                    </p>
-                                ) : (
-                                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
-                                        {coursesInFolder.map((course, index) => (
-                                            <CourseCard
-                                                key={course._id}
-                                                course={course}
-                                                index={index}
-                                                folders={allFolders}
-                                                currentFolderId={folder._id}
-                                                deletingCourseId={deletingCourseId}
-                                                confirmDeleteId={confirmDeleteId}
-                                                movingCourseId={movingCourseId}
-                                                onRequestDelete={onRequestDelete}
-                                                onCancelDelete={onCancelDelete}
-                                                onConfirmDelete={onConfirmDelete}
-                                                onMoveToFolder={onMoveToFolder}
-                                            />
-                                        ))}
-                                    </div>
-                                )
+                            {isConfirmingDelete ? (
+                                <div className="flex items-center gap-1.5">
+                                    <span className="text-caption text-red-600 dark:text-red-400">Delete folder?</span>
+                                    <button
+                                        type="button"
+                                        onClick={(e) => { e.stopPropagation(); confirmDeleteFolder(folder); }}
+                                        className="text-caption font-semibold text-red-600 hover:text-red-700 px-1.5 py-0.5 rounded hover:bg-red-50 dark:hover:bg-red-900/30 transition-colors"
+                                    >Yes</button>
+                                    <button
+                                        type="button"
+                                        onClick={(e) => { e.stopPropagation(); setConfirmDeleteFolderId(null); }}
+                                        className="text-caption text-text-sub-light px-1.5 py-0.5 rounded hover:bg-surface-hover transition-colors"
+                                    >No</button>
+                                </div>
+                            ) : (
+                                <div
+                                    ref={(node) => {
+                                        if (node) menuRefs.current.set(folder._id, node);
+                                        else menuRefs.current.delete(folder._id);
+                                    }}
+                                    className="relative"
+                                    onClick={(e) => e.stopPropagation()}
+                                >
+                                    <button
+                                        type="button"
+                                        onClick={() => setMenuOpenId(isMenuOpen ? null : folder._id)}
+                                        className="btn-icon w-7 h-7"
+                                        aria-haspopup="menu"
+                                        aria-expanded={isMenuOpen}
+                                        aria-label={`Actions for folder ${folder.name}`}
+                                    >
+                                        <span className="material-symbols-outlined text-[16px]">more_horiz</span>
+                                    </button>
+                                    {isMenuOpen && (
+                                        <div
+                                            role="menu"
+                                            className="absolute right-0 mt-1 w-40 rounded-lg border border-border-subtle dark:border-border-subtle-dark bg-surface-light dark:bg-surface-dark shadow-lg py-1 z-30"
+                                        >
+                                            <button
+                                                type="button"
+                                                onClick={() => beginRename(folder)}
+                                                className="w-full flex items-center gap-2 px-3 py-2 text-body-sm text-left text-text-main-light dark:text-text-main-dark hover:bg-surface-hover dark:hover:bg-surface-hover-dark"
+                                            >
+                                                <span className="material-symbols-outlined text-[16px]">edit</span>
+                                                Rename
+                                            </button>
+                                            <button
+                                                type="button"
+                                                onClick={() => { setMenuOpenId(null); setConfirmDeleteFolderId(folder._id); }}
+                                                className="w-full flex items-center gap-2 px-3 py-2 text-body-sm text-left text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 border-t border-border-subtle dark:border-border-subtle-dark"
+                                            >
+                                                <span className="material-symbols-outlined text-[16px]">delete</span>
+                                                Delete
+                                            </button>
+                                        </div>
+                                    )}
+                                </div>
                             )}
                         </div>
+                    );
+
+                    return (
+                        <WatermelonDisclosure
+                            key={folder._id}
+                            title={folderHeader}
+                            open={!isCollapsed}
+                            onOpenChange={() => toggleCollapse(folder._id)}
+                            className="card-flat overflow-hidden"
+                            headerClassName="px-4 py-3"
+                            contentClassName="px-4 pb-4"
+                        >
+                            {coursesInFolder.length === 0 ? (
+                                <p className="text-caption text-text-faint-light dark:text-text-faint-dark px-1">
+                                    Empty. Move courses here using the <span className="material-symbols-outlined text-[12px] align-middle">more_horiz</span> menu on a course.
+                                </p>
+                            ) : (
+                                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
+                                    {coursesInFolder.map((course, index) => (
+                                        <CourseCard
+                                            key={course._id}
+                                            course={course}
+                                            index={index}
+                                            folders={allFolders}
+                                            currentFolderId={folder._id}
+                                            deletingCourseId={deletingCourseId}
+                                            confirmDeleteId={confirmDeleteId}
+                                            movingCourseId={movingCourseId}
+                                            onRequestDelete={onRequestDelete}
+                                            onCancelDelete={onCancelDelete}
+                                            onConfirmDelete={onConfirmDelete}
+                                            onMoveToFolder={onMoveToFolder}
+                                        />
+                                    ))}
+                                </div>
+                            )}
+                        </WatermelonDisclosure>
                     );
                 })}
             </div>

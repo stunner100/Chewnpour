@@ -5,6 +5,13 @@ import { api } from '../../convex/_generated/api';
 import { useAuth } from '../contexts/AuthContext';
 import Toast from '../components/Toast';
 import {
+    WatermelonDialog,
+    WatermelonDialogHeader,
+    WatermelonDialogTitle,
+    WatermelonDialogDescription,
+    WatermelonDialogFooter,
+} from '../components/watermelon/WatermelonDialog';
+import {
     createUploadObservation,
     reportUploadFlowCompleted,
     reportUploadFlowFailed,
@@ -25,6 +32,7 @@ import CourseFoldersSection from '../components/CourseFoldersSection';
 import DashboardHero from '../components/dashboard/DashboardHero';
 import TodayStudyPlan from '../components/dashboard/TodayStudyPlan';
 import ContinueLearningCard from '../components/dashboard/ContinueLearningCard';
+import { WatermelonCarousel } from '../components/watermelon/WatermelonCarousel';
 import PodcastSection from '../components/dashboard/PodcastSection';
 import WeakConceptsCard from '../components/dashboard/WeakConceptsCard';
 import QuickActionsGrid from '../components/dashboard/QuickActionsGrid';
@@ -696,8 +704,9 @@ const DashboardAnalysis = () => {
 
     const handleRequestDelete = (course) => setConfirmDeleteId(course._id);
     const handleCancelDelete = () => setConfirmDeleteId(null);
-    const handleConfirmDelete = (course) => {
-        handleDeleteCourse(course);
+    const handleConfirmDelete = () => {
+        const course = Array.isArray(courses) ? courses.find(c => c._id === confirmDeleteId) : null;
+        if (course) handleDeleteCourse(course);
         setConfirmDeleteId(null);
     };
 
@@ -839,6 +848,29 @@ const DashboardAnalysis = () => {
                         estimatedTime="15 min"
                         onGenerateQuiz={() => handleGoToActiveCourse('quiz')}
                     />
+                )}
+
+                {/* Recently Studied Carousel */}
+                {displayCourses.length > 1 && (
+                    <section className="animate-fade-in-up animate-delay-150">
+                        <h2 className="text-display-sm text-text-main-light dark:text-text-main-dark mb-3">Recently studied</h2>
+                        <WatermelonCarousel autoPlay interval={6000} showDots showArrows>
+                            {displayCourses.slice(0, 5).map((course) => (
+                                <Link
+                                    key={course._id}
+                                    to={`/dashboard/course/${course._id}`}
+                                    className="absolute inset-0 flex items-end p-6 rounded-2xl"
+                                    style={{ background: course.coverColor || 'linear-gradient(135deg, #914bf1 0%, #6d28d9 100%)' }}
+                                >
+                                    <div className="text-white">
+                                        <p className="text-[10px] font-bold uppercase tracking-wider opacity-80">Course</p>
+                                        <h3 className="text-xl font-bold mt-1 line-clamp-1">{course.title}</h3>
+                                        <p className="text-sm opacity-80 mt-0.5">{course.progress || 0}% complete</p>
+                                    </div>
+                                </Link>
+                            ))}
+                        </WatermelonCarousel>
+                    </section>
                 )}
 
                 {/* 4. Podcasts */}
@@ -1028,6 +1060,23 @@ const DashboardAnalysis = () => {
                     </div>
                 </section>
             </div>
+            <WatermelonDialog open={!!confirmDeleteId} onOpenChange={(open) => { if (!open) handleCancelDelete(); }}>
+                <WatermelonDialogHeader>
+                    <WatermelonDialogTitle>Delete Course</WatermelonDialogTitle>
+                    <WatermelonDialogDescription>
+                        Are you sure you want to delete this course? This action cannot be undone.
+                    </WatermelonDialogDescription>
+                </WatermelonDialogHeader>
+                <WatermelonDialogFooter>
+                    <button type="button" onClick={handleCancelDelete} className="btn-ghost text-body-sm px-4 py-2">
+                        Cancel
+                    </button>
+                    <button type="button" onClick={handleConfirmDelete} className="btn-primary bg-red-500 hover:bg-red-600 text-body-sm px-4 py-2">
+                        Delete
+                    </button>
+                </WatermelonDialogFooter>
+            </WatermelonDialog>
+
             <Toast message={streakToastMessage} onClose={() => setStreakToastMessage('')} />
         </div>
     );

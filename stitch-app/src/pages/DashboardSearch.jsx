@@ -5,6 +5,8 @@ import { useAuth } from '../contexts/AuthContext';
 import { uploadToStorageWithRetry } from '../lib/uploadNetworkResilience';
 import { MagicCard } from '../components/magicui/MagicCard';
 import { OrbitingCircles } from '../components/magicui/OrbitingCircles';
+import { WatermelonChoiceChips } from '../components/watermelon/WatermelonChoiceChips';
+import { WatermelonFilterBar, WatermelonFilterGroup } from '../components/watermelon/WatermelonFilters';
 
 const ACCEPTED_LIBRARY_TYPES = [
     'application/pdf',
@@ -98,6 +100,7 @@ const DashboardSearch = () => {
     const [uploadSuccess, setUploadSuccess] = React.useState('');
     const [isUploading, setIsUploading] = React.useState(false);
     const [isDragOver, setIsDragOver] = React.useState(false);
+    const [selectedTypes, setSelectedTypes] = React.useState([]);
     const fileInputRef = React.useRef(null);
 
     const materials = useQuery(api.library.listMaterials, {
@@ -196,6 +199,41 @@ const DashboardSearch = () => {
 
     const isLoading = materials === undefined;
     const hasMaterials = Array.isArray(materials) && materials.length > 0;
+
+    const typeCounts = React.useMemo(() => {
+        if (!materials) return { pdf: 0, docx: 0, epub: 0, txt: 0 };
+        return {
+            pdf: materials.filter(m => (m.fileName || '').toLowerCase().endsWith('.pdf')).length,
+            docx: materials.filter(m => { const n = (m.fileName || '').toLowerCase(); return n.endsWith('.doc') || n.endsWith('.docx'); }).length,
+            epub: materials.filter(m => (m.fileName || '').toLowerCase().endsWith('.epub')).length,
+            txt: materials.filter(m => (m.fileName || '').toLowerCase().endsWith('.txt')).length,
+        };
+    }, [materials]);
+
+    const filteredMaterials = React.useMemo(() => {
+        if (!materials) return [];
+        let result = materials;
+        if (searchQuery.trim()) {
+            const q = searchQuery.toLowerCase();
+            result = result.filter(m =>
+                (m.title || '').toLowerCase().includes(q) ||
+                (m.fileName || '').toLowerCase().includes(q)
+            );
+        }
+        if (selectedTypes.length > 0) {
+            result = result.filter(m => {
+                const name = (m.fileName || '').toLowerCase();
+                return selectedTypes.some(type => {
+                    if (type === 'pdf') return name.endsWith('.pdf');
+                    if (type === 'docx') return name.endsWith('.doc') || name.endsWith('.docx');
+                    if (type === 'epub') return name.endsWith('.epub');
+                    if (type === 'txt') return name.endsWith('.txt');
+                    return false;
+                });
+            });
+        }
+        return result;
+    }, [materials, searchQuery, selectedTypes]);
 
     return (
         <div className="w-full max-w-6xl mx-auto px-4 md:px-8 py-8 pb-24 md:pb-12 space-y-8">
@@ -333,6 +371,27 @@ const DashboardSearch = () => {
                     </div>
                 </div>
 
+                <WatermelonFilterBar
+                    hasActive={selectedTypes.length > 0 || searchQuery.trim().length > 0}
+                    onClear={() => {
+                        setSelectedTypes([]);
+                        setSearchQuery('');
+                    }}
+                >
+                    <WatermelonFilterGroup
+                        label="File Type"
+                        options={[
+                            { label: 'PDF', value: 'pdf', count: typeCounts.pdf },
+                            { label: 'Word', value: 'docx', count: typeCounts.docx },
+                            { label: 'EPUB', value: 'epub', count: typeCounts.epub },
+                            { label: 'Text', value: 'txt', count: typeCounts.txt },
+                        ]}
+                        value={selectedTypes}
+                        onChange={setSelectedTypes}
+                        multiple
+                    />
+                </WatermelonFilterBar>
+
                 {isLoading ? (
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                         {Array.from({ length: 4 }).map((_, index) => (
@@ -341,7 +400,7 @@ const DashboardSearch = () => {
                     </div>
                 ) : hasMaterials ? (
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                        {materials.map((material) => (
+                        {filteredMaterials.map((material) => (
                             <LibraryMaterialCard key={material._id} material={material} />
                         ))}
                     </div>

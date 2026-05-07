@@ -23,6 +23,7 @@ import FloatingStudyTools from '../components/lesson/FloatingStudyTools';
 import useReadingProgress from '../components/lesson/useReadingProgress';
 import LessonContentRenderer from '../components/LessonContentRenderer';
 import StudyModeSelector from '../components/StudyModeSelector';
+import { WatermelonTabs, WatermelonTabsList, WatermelonTabsTrigger, WatermelonTabsContent } from '../components/watermelon/WatermelonTabs';
 import SourcePanel from '../components/SourcePanel';
 import NextStepsGuidance from '../components/NextStepsGuidance';
 import GuidedStudyPath from '../components/GuidedStudyPath';
@@ -871,11 +872,51 @@ const TopicDetail = () => {
                 </header>
 
                 <main className="flex-1 pt-14">
-                    <StudyModeSelector
-                        topicTitle={headerTopicTitle}
-                        onSelect={handleStudyModeSelect}
-                        onSkip={handleStudyModeSkip}
-                    />
+                    <WatermelonTabs value="full" onValueChange={(v) => handleStudyModeSelect(v)}>
+                        <WatermelonTabsList>
+                            <WatermelonTabsTrigger value="full">Full Lesson</WatermelonTabsTrigger>
+                            <WatermelonTabsTrigger value="summary">Summary</WatermelonTabsTrigger>
+                            <WatermelonTabsTrigger value="quiz">Quiz</WatermelonTabsTrigger>
+                            <WatermelonTabsTrigger value="flashcards">Flashcards</WatermelonTabsTrigger>
+                            <WatermelonTabsTrigger value="podcast">Podcast</WatermelonTabsTrigger>
+                        </WatermelonTabsList>
+
+                        <WatermelonTabsContent value="full">
+                            <StudyModeSelector
+                                topicTitle={headerTopicTitle}
+                                onSelect={handleStudyModeSelect}
+                                onSkip={handleStudyModeSkip}
+                            />
+                        </WatermelonTabsContent>
+                        <WatermelonTabsContent value="summary">
+                            <StudyModeSelector
+                                topicTitle={headerTopicTitle}
+                                onSelect={handleStudyModeSelect}
+                                onSkip={handleStudyModeSkip}
+                            />
+                        </WatermelonTabsContent>
+                        <WatermelonTabsContent value="quiz">
+                            <StudyModeSelector
+                                topicTitle={headerTopicTitle}
+                                onSelect={handleStudyModeSelect}
+                                onSkip={handleStudyModeSkip}
+                            />
+                        </WatermelonTabsContent>
+                        <WatermelonTabsContent value="flashcards">
+                            <StudyModeSelector
+                                topicTitle={headerTopicTitle}
+                                onSelect={handleStudyModeSelect}
+                                onSkip={handleStudyModeSkip}
+                            />
+                        </WatermelonTabsContent>
+                        <WatermelonTabsContent value="podcast">
+                            <StudyModeSelector
+                                topicTitle={headerTopicTitle}
+                                onSelect={handleStudyModeSelect}
+                                onSkip={handleStudyModeSkip}
+                            />
+                        </WatermelonTabsContent>
+                    </WatermelonTabs>
                 </main>
             </div>
         );

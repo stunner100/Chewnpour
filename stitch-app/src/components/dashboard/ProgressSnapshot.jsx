@@ -1,6 +1,7 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import { NumberTicker } from '../magicui/NumberTicker';
+import { WatermelonWidget, WatermelonWidgetsGrid } from '../watermelon/WatermelonWidgets';
 
 const isFiniteNumber = (n) => typeof n === 'number' && Number.isFinite(n);
 
@@ -100,36 +101,36 @@ const ProgressSnapshot = ({ insights, userStats, podcastCount = 0, uploadQuota }
                     </div>
                 )}
 
-                <div className="grid grid-cols-2 gap-3">
-                    <StatCard
-                        icon="local_fire_department"
-                        label="Streak"
+                <WatermelonWidgetsGrid cols={2}>
+                    <WatermelonWidget
+                        title="Streak"
                         value={`${userStats?.streakDays ?? 0}d`}
-                        hint="Keep it going daily"
+                        subtitle="Keep it going daily"
+                        icon="local_fire_department"
                         accent="amber"
                     />
-                    <StatCard
-                        icon="podcasts"
-                        label="Podcasts"
+                    <WatermelonWidget
+                        title="Podcasts"
                         value={podcastCount}
-                        hint={podcastCount === 0 ? 'Generate your first' : 'Generated this month'}
+                        subtitle={podcastCount === 0 ? 'Generate your first' : 'Generated this month'}
+                        icon="podcasts"
                         accent="primary"
                     />
-                    <StatCard
-                        icon="workspace_premium"
-                        label="Mastered"
+                    <WatermelonWidget
+                        title="Mastered"
                         value={masteredCount}
-                        hint="Strong concepts"
+                        subtitle="Strong concepts"
+                        icon="workspace_premium"
                         accent="emerald"
                     />
-                    <StatCard
-                        icon="cloud_upload"
-                        label="Uploads left"
+                    <WatermelonWidget
+                        title="Uploads left"
                         value={uploadQuota?.remaining ?? '—'}
-                        hint={uploadQuota ? `of ${uploadQuota.totalAllowed}` : 'Quota loading'}
+                        subtitle={uploadQuota ? `of ${uploadQuota.totalAllowed}` : 'Quota loading'}
+                        icon="cloud_upload"
                         accent="teal"
                     />
-                </div>
+                </WatermelonWidgetsGrid>
             </div>
 
             {insights && (insights.mastered?.length > 0 || insights.needsWork?.length > 0) && (
