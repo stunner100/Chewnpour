@@ -4,13 +4,31 @@ import React, { useEffect, useRef } from 'react';
 const SCROLL_OFFSET = 96;
 
 const LessonTOC = ({ toc = [], activeId, headerOffset = SCROLL_OFFSET }) => {
+    const navRef = useRef(null);
     const listRef = useRef(null);
 
     // Auto-scroll the active TOC entry into view inside the rail when it changes.
     useEffect(() => {
-        if (!activeId || !listRef.current) return;
+        if (!activeId || !listRef.current || !navRef.current) return;
         const node = listRef.current.querySelector(`[data-toc-id="${activeId}"]`);
-        if (node) node.scrollIntoView({ block: 'nearest' });
+        if (!node) return;
+
+        const scrollContainer = navRef.current;
+        const containerRect = scrollContainer.getBoundingClientRect();
+        const nodeRect = node.getBoundingClientRect();
+        const breathingRoom = 8;
+
+        if (nodeRect.top < containerRect.top) {
+            scrollContainer.scrollTo({
+                top: scrollContainer.scrollTop + nodeRect.top - containerRect.top - breathingRoom,
+                behavior: 'smooth',
+            });
+        } else if (nodeRect.bottom > containerRect.bottom) {
+            scrollContainer.scrollTo({
+                top: scrollContainer.scrollTop + nodeRect.bottom - containerRect.bottom + breathingRoom,
+                behavior: 'smooth',
+            });
+        }
     }, [activeId]);
 
     if (!Array.isArray(toc) || toc.length === 0) return null;
@@ -27,7 +45,7 @@ const LessonTOC = ({ toc = [], activeId, headerOffset = SCROLL_OFFSET }) => {
     };
 
     return (
-        <nav aria-label="Lesson contents" className="sticky top-[110px] max-h-[calc(100vh-7.5rem)] overflow-y-auto pr-2">
+        <nav ref={navRef} aria-label="Lesson contents" className="sticky top-[110px] max-h-[calc(100vh-7.5rem)] overflow-y-auto pr-2">
             <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-text-faint-light dark:text-text-faint-dark mb-3 px-2">In this lesson</p>
             <ul ref={listRef} className="space-y-0.5">
                 {toc.map((entry) => {
