@@ -622,7 +622,6 @@ const AssignmentHelper = () => {
                 setSelectedThreadId(null);
             }
             setSuccessMessage('Thread deleted.');
-            watermelonToast('Thread deleted.', { type: 'success' });
         } catch (deleteError) {
             setError(resolveConvexActionError(deleteError, 'Could not delete this thread right now.'));
         } finally {
@@ -697,7 +696,6 @@ const AssignmentHelper = () => {
                 userId,
             });
             setSuccessMessage('Assignment reprocessed successfully.');
-            watermelonToast('Assignment reprocessed successfully.', { type: 'success' });
         } catch (retryError) {
             setError(resolveConvexActionError(retryError, 'Retry failed. Please try uploading again.'));
         } finally {

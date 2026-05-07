@@ -5,7 +5,7 @@ const root = process.cwd();
 const filePath = path.join(root, 'src', 'pages', 'ExamMode.jsx');
 const source = await fs.readFile(filePath, 'utf8');
 
-const firstGuardIndex = source.indexOf('if (!topicId) {');
+const firstGuardIndex = source.indexOf('if (!routeTopicId) {');
 if (firstGuardIndex === -1) {
   throw new Error('Could not locate the first guard return in ExamMode.jsx');
 }

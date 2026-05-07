@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom';
 import { motion as Motion, AnimatePresence } from 'motion/react';
 import { cn } from '../lib/utils';
+import { signOut } from '../lib/auth-client';
 
 const NAV_OPTIONS = [
     { label: 'Dashboard', value: '/dashboard', icon: 'space_dashboard', keywords: ['home', 'main'] },
@@ -12,9 +13,15 @@ const NAV_OPTIONS = [
     { label: 'Community', value: '/dashboard/community', icon: 'forum', keywords: ['chat', 'discuss'] },
     { label: 'Subscription', value: '/subscription', icon: 'workspace_premium', keywords: ['premium', 'pay', 'upgrade'] },
     { label: 'Profile', value: '/profile', icon: 'person', keywords: ['account', 'settings'] },
-    { label: 'Start Exam', value: '/dashboard/exam', icon: 'quiz', keywords: ['test', 'exam', 'assessment'] },
+    { label: 'Past Questions', value: '/dashboard/exam', icon: 'quiz', keywords: ['test', 'exam', 'assessment'] },
     { label: 'Sign Out', value: '__signout', icon: 'logout', keywords: ['sign out', 'log out', 'exit'] },
 ];
+
+const isEditableTarget = (target) => {
+    if (!(target instanceof HTMLElement)) return false;
+    const tagName = target.tagName.toLowerCase();
+    return target.isContentEditable || tagName === 'input' || tagName === 'textarea' || tagName === 'select';
+};
 
 export const CommandPalette = () => {
     const [open, setOpen] = useState(false);
@@ -27,6 +34,7 @@ export const CommandPalette = () => {
     useEffect(() => {
         const handleKeyDown = (e) => {
             if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
+                if (isEditableTarget(e.target)) return;
                 e.preventDefault();
                 setOpen((prev) => !prev);
                 if (!open) {
@@ -55,22 +63,23 @@ export const CommandPalette = () => {
         );
     }, [query]);
 
-    useEffect(() => {
-        setActiveIndex(0);
-    }, [filtered]);
-
     const handleSelect = useCallback(
         (value) => {
             setOpen(false);
             setQuery('');
             if (value === '__signout') {
-                import('../lib/auth-client').then(({ signOut }) => signOut?.());
+                signOut().finally(() => navigate('/login', { replace: true }));
                 return;
             }
             navigate(value);
         },
         [navigate],
     );
+
+    const handleQueryChange = (value) => {
+        setQuery(value);
+        setActiveIndex(0);
+    };
 
     const handleKeyDown = (e) => {
         if (e.key === 'ArrowDown') {
@@ -128,7 +137,7 @@ export const CommandPalette = () => {
                                     ref={inputRef}
                                     type="text"
                                     value={query}
-                                    onChange={(e) => setQuery(e.target.value)}
+                                    onChange={(e) => handleQueryChange(e.target.value)}
                                     onKeyDown={handleKeyDown}
                                     placeholder="Search pages, actions..."
                                     className="flex-1 py-4 text-sm bg-transparent text-text-main-light dark:text-text-main-dark placeholder:text-text-faint-light dark:placeholder:text-text-faint-dark focus:outline-none"
