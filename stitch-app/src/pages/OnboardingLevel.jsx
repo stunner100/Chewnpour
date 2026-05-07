@@ -1,8 +1,13 @@
 import React, { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import { motion as Motion } from 'motion/react';
 import { useAuth } from '../contexts/AuthContext';
 import { resolveOnboardingPath } from '../lib/onboarding';
 import { HexLogo } from '../components/PublicShell';
+import { BlurFade } from '../components/magicui/BlurFade';
+import { OnboardingProgress } from '../components/onboarding/OnboardingProgress';
+import { WatermelonToaster } from '../components/watermelon/WatermelonSonner';
+import { watermelonToast } from '../components/watermelon/watermelonToast';
 
 const ACCENT = 'rgb(145, 75, 241)';
 const PAGE_BG = 'rgb(16, 17, 18)';
@@ -32,7 +37,9 @@ const OnboardingLevel = () => {
             navigate('/onboarding/department');
         } catch (err) {
             console.error('Failed to update profile:', err);
-            setError('Failed to save. Please try again.');
+            const msg = 'Failed to save. Please try again.';
+            setError(msg);
+            watermelonToast(msg, { type: 'error' });
         } finally {
             setLoading(false);
         }
@@ -61,11 +68,7 @@ const OnboardingLevel = () => {
                     <Link to="/" className="flex items-center gap-2.5 text-white mb-5">
                         <HexLogo size={28} withWordmark />
                     </Link>
-                    <div className="flex gap-2">
-                        <div className="h-1 flex-1 rounded-full" style={{ background: ACCENT }} />
-                        <div className="h-1 flex-1 rounded-full" style={{ background: ACCENT }} />
-                        <div className="h-1 flex-1 rounded-full" style={{ background: 'rgba(255,255,255,0.1)' }} />
-                    </div>
+                    <OnboardingProgress step={2} total={3} />
                     <div className="flex items-center justify-between mt-4">
                         <button
                             type="button"
@@ -92,33 +95,42 @@ const OnboardingLevel = () => {
 
             <main className="flex-1 flex flex-col items-center justify-start px-6 pt-10 pb-32">
                 <div className="text-center max-w-xl mb-10">
-                    <h1
-                        style={{
-                            fontFamily: 'Outfit, sans-serif',
-                            fontWeight: 600,
-                            fontSize: 'clamp(32px, 5vw, 44px)',
-                            lineHeight: 1.05,
-                            letterSpacing: '-0.025em',
-                            marginBottom: 12,
-                        }}
-                    >
-                        Your <span style={{ color: ACCENT }}>current</span> level?
-                    </h1>
-                    <p style={{ color: SUBTEXT, fontSize: 16, lineHeight: 1.55 }}>
-                        Select your academic year so we can tailor the difficulty.
-                    </p>
+                    <BlurFade delay={0.05} yOffset={12}>
+                        <h1
+                            style={{
+                                fontFamily: 'Outfit, sans-serif',
+                                fontWeight: 600,
+                                fontSize: 'clamp(32px, 5vw, 44px)',
+                                lineHeight: 1.05,
+                                letterSpacing: '-0.025em',
+                                marginBottom: 12,
+                            }}
+                        >
+                            Your <span style={{ color: ACCENT }}>current</span> level?
+                        </h1>
+                    </BlurFade>
+                    <BlurFade delay={0.15} yOffset={10}>
+                        <p style={{ color: SUBTEXT, fontSize: 16, lineHeight: 1.55 }}>
+                            Select your academic year so we can tailor the difficulty.
+                        </p>
+                    </BlurFade>
                 </div>
 
                 {error && (
-                    <div
+                    <Motion.div
+                        role="alert"
+                        aria-atomic="true"
+                        initial={{ opacity: 0, y: -8, scale: 0.98 }}
+                        animate={{ opacity: 1, y: 0, scale: 1 }}
+                        transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
                         className="w-full max-w-md mb-6 p-3.5 rounded-xl text-sm font-medium text-center"
                         style={{ background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.4)', color: 'rgb(252,165,165)', fontFamily: 'Inter, sans-serif' }}
                     >
                         {error}
-                    </div>
+                    </Motion.div>
                 )}
 
-                <div className="w-full max-w-3xl">
+                <BlurFade delay={0.25} yOffset={10} className="w-full max-w-3xl">
                     <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
                         {[100, 200, 300, 400].map((level) => {
                             const isSelected = selectedLevel === level;
@@ -165,7 +177,7 @@ const OnboardingLevel = () => {
                             );
                         })}
                     </div>
-                </div>
+                </BlurFade>
             </main>
 
             <div
@@ -192,6 +204,7 @@ const OnboardingLevel = () => {
                     </button>
                 </div>
             </div>
+            <WatermelonToaster position="bottom-center" />
         </div>
     );
 };
