@@ -25,9 +25,16 @@ export const WatermelonDisclosure = ({
 
     return (
         <div className={cn('rounded-2xl border border-border-subtle dark:border-border-subtle-dark bg-surface-light dark:bg-surface-dark overflow-hidden', className)}>
-            <button
-                type="button"
+            <div
+                role="button"
+                tabIndex={0}
                 onClick={toggle}
+                onKeyDown={(event) => {
+                    if (event.key === 'Enter' || event.key === ' ') {
+                        event.preventDefault();
+                        toggle();
+                    }
+                }}
                 className={cn(
                     'w-full flex items-center justify-between gap-3 px-4 py-3.5 text-left transition-colors hover:bg-surface-hover-light dark:hover:bg-surface-hover-dark',
                     headerClassName,
@@ -42,7 +49,7 @@ export const WatermelonDisclosure = ({
                 >
                     {icon}
                 </Motion.span>
-            </button>
+            </div>
             <AnimatePresence initial={false}>
                 {isOpen && (
                     <Motion.div
