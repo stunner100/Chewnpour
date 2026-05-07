@@ -993,7 +993,7 @@ const TopicDetail = () => {
             description: 'Get help on this lesson',
             onClick: openChat,
         },
-        {
+        podcastEnabled && {
             id: 'podcast-rail',
             icon: 'podcasts',
             label: 'Listen as Podcast',
@@ -1049,7 +1049,7 @@ const TopicDetail = () => {
         examTopicId && { id: 'p-essay', icon: 'edit_note', label: essayExamActionLabel, href: essayExamRoute, reloadDocument: true },
         topicId && { id: 'p-fillins', icon: 'spellcheck', label: 'Concept Fill-ins', href: `/dashboard/concept-intro/${topicId}` },
         { id: 'p-tutor', icon: 'smart_toy', label: 'Ask AI Tutor', onClick: openChat },
-        { id: 'p-podcast', icon: 'podcasts', label: 'Generate Podcast', onClick: () => {
+        podcastEnabled && { id: 'p-podcast', icon: 'podcasts', label: 'Generate Podcast', onClick: () => {
             const node = document.getElementById('topic-podcast');
             if (node) node.scrollIntoView({ behavior: 'smooth', block: 'start' });
         } },
@@ -1071,12 +1071,12 @@ const TopicDetail = () => {
         { id: 'm-tutor', icon: 'smart_toy', label: 'Tutor', onClick: openChat },
         { id: 'm-notes', icon: 'edit_note', label: 'Notes', onClick: openNotes },
         topicProgress?.completedAt
-            ? { id: 'm-podcast', icon: 'podcasts', label: 'Podcast', onClick: () => {
+            ? podcastEnabled && { id: 'm-podcast', icon: 'podcasts', label: 'Podcast', onClick: () => {
                 const node = document.getElementById('topic-podcast');
                 if (node) node.scrollIntoView({ behavior: 'smooth', block: 'start' });
             } }
             : { id: 'm-done', icon: 'check_circle', label: 'Done', primary: true, onClick: () => upsertProgress({ topicId, completedAt: Date.now(), lastStudiedAt: Date.now() }).catch(() => {}) },
-    ];
+    ].filter(Boolean);
 
     return (
         <div className="bg-background-light dark:bg-background-dark font-body antialiased text-text-main-light dark:text-text-main-dark min-h-screen flex flex-col overflow-x-hidden">
