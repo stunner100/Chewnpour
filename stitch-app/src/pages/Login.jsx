@@ -84,8 +84,15 @@ const Login = () => {
                 setError(error.message);
                 watermelonToast(error.message, { type: 'error' });
             } else {
-                watermelonToast('Welcome back!', { type: 'success' });
-                navigate(redirectTarget, { replace: true });
+                navigate(redirectTarget, {
+                    replace: true,
+                    state: {
+                        watermelonToast: {
+                            message: 'Welcome back!',
+                            type: 'success',
+                        },
+                    },
+                });
             }
         } catch {
             const msg = 'An unexpected error occurred';

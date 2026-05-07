@@ -1,5 +1,5 @@
 import React from 'react';
-import { motion as Motion } from 'motion/react';
+import { motion as Motion, useReducedMotion } from 'motion/react';
 
 const ACCENT = 'rgb(145, 75, 241)';
 const BASE = 'rgba(255,255,255,0.05)';
@@ -26,20 +26,25 @@ export const WatermelonSkeleton = ({
     rounded = 8,
     className = '',
     style = {},
-}) => (
-    <Motion.div
-        className={className}
-        style={{
-            width,
-            height,
-            borderRadius: rounded,
-            ...shimmerStyle,
-            ...style,
-        }}
-        animate={shimmerAnimate}
-        transition={shimmerTransition}
-    />
-);
+}) => {
+    const shouldReduceMotion = useReducedMotion();
+
+    return (
+        <Motion.div
+            className={className}
+            style={{
+                width,
+                height,
+                borderRadius: rounded,
+                ...shimmerStyle,
+                backgroundPosition: shouldReduceMotion ? '0% 0%' : undefined,
+                ...style,
+            }}
+            animate={shouldReduceMotion ? undefined : shimmerAnimate}
+            transition={shouldReduceMotion ? undefined : shimmerTransition}
+        />
+    );
+};
 
 export const WatermelonSkeletonCard = ({ children, className = '', style = {} }) => (
     <div
@@ -96,18 +101,22 @@ export const WatermelonSkeletonGrid = ({ tiles = 4, columns = 'sm:grid-cols-2 lg
     </div>
 );
 
-export const WatermelonSkeletonPulse = ({ size = 12, color = ACCENT }) => (
-    <Motion.span
-        style={{
-            display: 'inline-block',
-            width: size,
-            height: size,
-            borderRadius: '50%',
-            background: color,
-        }}
-        animate={{ scale: [1, 1.4, 1], opacity: [0.7, 1, 0.7] }}
-        transition={{ duration: 1.4, repeat: Infinity, ease: 'easeInOut' }}
-    />
-);
+export const WatermelonSkeletonPulse = ({ size = 12, color = ACCENT }) => {
+    const shouldReduceMotion = useReducedMotion();
+
+    return (
+        <Motion.span
+            style={{
+                display: 'inline-block',
+                width: size,
+                height: size,
+                borderRadius: '50%',
+                background: color,
+            }}
+            animate={shouldReduceMotion ? undefined : { scale: [1, 1.4, 1], opacity: [0.7, 1, 0.7] }}
+            transition={shouldReduceMotion ? undefined : { duration: 1.4, repeat: Infinity, ease: 'easeInOut' }}
+        />
+    );
+};
 
 export default WatermelonSkeleton;
