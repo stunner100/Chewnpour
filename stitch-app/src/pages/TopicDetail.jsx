@@ -116,8 +116,18 @@ const TopicDetail = () => {
     const restoreLessonScrollAfterPanelClose = useCallback(() => {
         if (typeof window === 'undefined') return;
         const top = sidePanelScrollYRef.current;
-        window.requestAnimationFrame(() => {
+        const restore = () => {
+            const targetId = getCurrentHashTargetId();
+            const target = targetId ? document.getElementById(targetId) : null;
+            if (target) {
+                target.scrollIntoView({ behavior: 'auto', block: 'start' });
+                return;
+            }
             window.scrollTo({ top, behavior: 'auto' });
+        };
+        window.requestAnimationFrame(() => {
+            restore();
+            window.setTimeout(restore, 120);
         });
     }, []);
     const openNotes = useCallback(() => {

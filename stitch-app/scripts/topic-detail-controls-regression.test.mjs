@@ -76,6 +76,8 @@ for (const expected of [
   'const sidePanelScrollYRef = useRef(0);',
   'const captureLessonScrollForSidePanel = useCallback(() => {',
   'const restoreLessonScrollAfterPanelClose = useCallback(() => {',
+  'target.scrollIntoView({ behavior: \'auto\', block: \'start\' });',
+  'window.setTimeout(restore, 120);',
 ]) {
   if (!topicDetailSource.includes(expected)) {
     throw new Error(`TopicDetail must preserve the lesson scroll position when side panels open/close: ${expected}`);
