@@ -3,7 +3,8 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import { useAction, useMutation, useQuery, useConvexAuth } from 'convex/react';
 import { api } from '../../convex/_generated/api';
 import { useAuth } from '../contexts/AuthContext';
-import Toast from '../components/Toast';
+import { WatermelonDisclosure } from '../components/watermelon/WatermelonDisclosure';
+import { watermelonToast } from '../components/watermelon/watermelonToast';
 import {
     createUploadObservation,
     reportUploadFlowCompleted,
@@ -296,12 +297,14 @@ const AssignmentHelper = () => {
 
     useEffect(() => {
         if (!successMessage) return undefined;
+        watermelonToast(successMessage, { type: 'success' });
         const timer = window.setTimeout(() => setSuccessMessage(''), 2500);
         return () => window.clearTimeout(timer);
     }, [successMessage]);
 
     useEffect(() => {
         if (!paywallToastMessage) return undefined;
+        watermelonToast(paywallToastMessage, { type: 'warning', duration: 5000 });
         const timer = window.setTimeout(() => setPaywallToastMessage(''), 4200);
         return () => window.clearTimeout(timer);
     }, [paywallToastMessage]);
@@ -758,18 +761,9 @@ const AssignmentHelper = () => {
             />
 
             <main className="flex-1 w-full max-w-[1600px] mx-auto px-4 py-6 md:px-6 md:py-8 pb-24 md:pb-8">
-                {(error || successMessage) && (
-                    <div className="mb-5 space-y-2">
-                        {error && (
-                            <div className="p-3 rounded-xl border border-red-200 dark:border-red-900/30 bg-red-50 dark:bg-red-900/10 text-body-sm font-medium text-red-700 dark:text-red-300">
-                                {error}
-                            </div>
-                        )}
-                        {successMessage && (
-                            <div className="p-3 rounded-xl border border-emerald-200 dark:border-emerald-900/30 bg-accent-emerald/10 text-body-sm font-medium text-accent-emerald">
-                                {successMessage}
-                            </div>
-                        )}
+                {error && (
+                    <div className="mb-5 p-3 rounded-xl border border-red-200 dark:border-red-900/30 bg-red-50 dark:bg-red-900/10 text-body-sm font-medium text-red-700 dark:text-red-300">
+                        {error}
                     </div>
                 )}
 
@@ -1083,28 +1077,14 @@ const AssignmentHelper = () => {
                                                         {structured.questions.map((q, qi) => {
                                                             const isOpen = expandedQuestionIndex === qi;
                                                             return (
-                                                                <div
+                                                                <WatermelonDisclosure
                                                                     key={qi}
-                                                                    className="rounded-xl border border-border-subtle dark:border-border-subtle-dark bg-white dark:bg-surface-elevated overflow-hidden shadow-xs"
+                                                                    title={q.questionText || `Question ${q.number || qi + 1}`}
+                                                                    open={isOpen}
+                                                                    onOpenChange={(o) => setExpandedQuestionIndex(o ? qi : -1)}
+                                                                    headerClassName="!px-4 !py-3"
+                                                                    contentClassName="space-y-3"
                                                                 >
-                                                                    <button
-                                                                        type="button"
-                                                                        onClick={() => setExpandedQuestionIndex(isOpen ? -1 : qi)}
-                                                                        className="w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-surface-hover-light dark:hover:bg-surface-hover-dark transition-colors"
-                                                                    >
-                                                                        <span className="w-7 h-7 rounded-full bg-primary/10 text-primary text-caption font-bold flex items-center justify-center shrink-0">
-                                                                            {q.number || qi + 1}
-                                                                        </span>
-                                                                        <span className="flex-1 text-body-sm font-medium text-text-main-light dark:text-text-main-dark truncate">
-                                                                            {q.questionText || `Question ${q.number || qi + 1}`}
-                                                                        </span>
-                                                                        <span className={`material-symbols-outlined text-text-faint-light dark:text-text-faint-dark text-[18px] transition-transform ${isOpen ? 'rotate-180' : ''}`}>
-                                                                            expand_more
-                                                                        </span>
-                                                                    </button>
-
-                                                                    {isOpen && (
-                                                                        <div className="px-4 pb-4 space-y-3 border-t border-border-light dark:border-border-dark">
                                                                             {q.questionText && (
                                                                                 <p className="text-caption text-text-faint-light dark:text-text-faint-dark pt-3 italic">
                                                                                     {q.questionText}
@@ -1161,9 +1141,7 @@ const AssignmentHelper = () => {
                                                                                     })()}
                                                                                 </div>
                                                                             </div>
-                                                                        </div>
-                                                                    )}
-                                                                </div>
+                                                                </WatermelonDisclosure>
                                                             );
                                                         })}
                                                     </div>
@@ -1326,7 +1304,6 @@ const AssignmentHelper = () => {
                     </section>
                 </div>
             </main>
-            <Toast message={paywallToastMessage} onClose={() => setPaywallToastMessage('')} />
         </div>
     );
 };

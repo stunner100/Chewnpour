@@ -5,6 +5,7 @@ import { WatermelonToaster } from './watermelon/WatermelonSonner';
 import { useAuth } from '../contexts/AuthContext';
 import { BlurFade } from './magicui/BlurFade';
 import { WatermelonCombobox } from './watermelon/WatermelonCombobox';
+import CommandPalette from './CommandPalette';
 
 const navItems = [
     { label: 'Dashboard', icon: 'space_dashboard', path: '/dashboard', exact: true },
@@ -191,6 +192,7 @@ const DashboardLayout = ({ children }) => {
             </main>
 
             <WatermelonToaster position="bottom-center" />
+            <CommandPalette />
             {/* Mobile Bottom Nav */}
             {!hideMobileBottomNav && <MobileBottomNav />}
         </div>

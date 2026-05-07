@@ -8,6 +8,7 @@ import {
     normalizeQuestionType,
 } from '../lib/objectiveExam';
 import NextStepsGuidance from '../components/NextStepsGuidance';
+import { WatermelonWidget, WatermelonWidgetsGrid } from '../components/watermelon/WatermelonWidgets';
 import { Confetti } from '../components/magicui/Confetti';
 
 // ─── Post-exam upgrade prompt ────────────────────────────────────────────────
@@ -553,6 +554,52 @@ const DashboardResults = () => {
                         {answers.length > 0 && <DifficultyPills answers={answers} />}
                         {answers.length > 0 && <BloomBreakdown answers={answers} />}
                     </div>
+                </section>
+
+                {/* Score Breakdown Widgets */}
+                <section className="w-full max-w-2xl">
+                    <WatermelonWidgetsGrid cols={isEssay ? 2 : 4}>
+                        <WatermelonWidget
+                            title="Score"
+                            value={`${percentage}%`}
+                            icon="percent"
+                            accent={percentage >= 70 ? 'emerald' : percentage >= 50 ? 'amber' : 'rose'}
+                        />
+                        {!isEssay && (
+                            <WatermelonWidget
+                                title="Correct"
+                                value={correctCount}
+                                subtitle={`of ${totalQuestions}`}
+                                icon="check_circle"
+                                accent="emerald"
+                            />
+                        )}
+                        {!isEssay && incorrectCount > 0 && (
+                            <WatermelonWidget
+                                title="Incorrect"
+                                value={incorrectCount}
+                                icon="cancel"
+                                accent="rose"
+                            />
+                        )}
+                        {!isEssay && skippedCount > 0 && (
+                            <WatermelonWidget
+                                title="Skipped"
+                                value={skippedCount}
+                                icon="skip_next"
+                                accent="amber"
+                            />
+                        )}
+                        {isEssay && (
+                            <WatermelonWidget
+                                title="Questions"
+                                value={totalQuestions}
+                                subtitle="essay format"
+                                icon="edit_note"
+                                accent="primary"
+                            />
+                        )}
+                    </WatermelonWidgetsGrid>
                 </section>
 
                 {/* Share prompt for high scores */}
