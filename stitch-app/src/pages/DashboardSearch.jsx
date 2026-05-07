@@ -7,6 +7,7 @@ import { MagicCard } from '../components/magicui/MagicCard';
 import { OrbitingCircles } from '../components/magicui/OrbitingCircles';
 import { WatermelonChoiceChips } from '../components/watermelon/WatermelonChoiceChips';
 import { WatermelonFilterBar, WatermelonFilterGroup } from '../components/watermelon/WatermelonFilters';
+import { WatermelonSkeleton, WatermelonSkeletonCard } from '../components/watermelon/WatermelonSkeleton';
 
 const ACCEPTED_LIBRARY_TYPES = [
     'application/pdf',
@@ -395,7 +396,19 @@ const DashboardSearch = () => {
                 {isLoading ? (
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                         {Array.from({ length: 4 }).map((_, index) => (
-                            <div key={index} className="card-base h-40 animate-pulse bg-surface-hover-light dark:bg-surface-hover-dark" />
+                            <WatermelonSkeletonCard key={index} style={{ height: 160 }}>
+                                <div className="flex items-start gap-3 h-full">
+                                    <WatermelonSkeleton width={48} height={48} rounded={12} />
+                                    <div className="flex-1 flex flex-col gap-2">
+                                        <WatermelonSkeleton width="70%" height={14} />
+                                        <WatermelonSkeleton width="55%" height={11} />
+                                        <div className="mt-auto flex gap-2">
+                                            <WatermelonSkeleton width={60} height={20} rounded={10} />
+                                            <WatermelonSkeleton width={48} height={20} rounded={10} />
+                                        </div>
+                                    </div>
+                                </div>
+                            </WatermelonSkeletonCard>
                         ))}
                     </div>
                 ) : hasMaterials ? (

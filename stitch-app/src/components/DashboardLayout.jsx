@@ -1,11 +1,53 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { motion as Motion } from 'motion/react';
 import MobileBottomNav from './MobileBottomNav';
 import { WatermelonToaster } from './watermelon/WatermelonSonner';
 import { useAuth } from '../contexts/AuthContext';
 import { BlurFade } from './magicui/BlurFade';
 import { WatermelonCombobox } from './watermelon/WatermelonCombobox';
 import CommandPalette from './CommandPalette';
+
+const SidebarLink = ({ item, active, collapsed, indicatorId }) => (
+    <Motion.div
+        whileHover={{ x: 2 }}
+        whileTap={{ scale: 0.97 }}
+        transition={{ type: 'spring', stiffness: 400, damping: 28 }}
+        className="relative"
+    >
+        {active && (
+            <Motion.span
+                layoutId={indicatorId}
+                aria-hidden="true"
+                className="absolute inset-0 rounded-xl bg-primary-50 dark:bg-primary-900/20 pointer-events-none"
+                transition={{ type: 'spring', stiffness: 380, damping: 32 }}
+            />
+        )}
+        {active && (
+            <Motion.span
+                layoutId={`${indicatorId}-bar`}
+                aria-hidden="true"
+                className="absolute left-0 top-1/2 -translate-y-1/2 h-5 w-[3px] rounded-r-full"
+                style={{ background: 'rgb(145, 75, 241)' }}
+                transition={{ type: 'spring', stiffness: 380, damping: 32 }}
+            />
+        )}
+        <Link
+            to={item.path}
+            className={`${active ? 'sidebar-link-active' : 'sidebar-link'} relative z-[1]`}
+            title={collapsed ? item.label : undefined}
+            style={active ? { background: 'transparent' } : undefined}
+        >
+            <span
+                className={`material-symbols-outlined text-[20px] ${active ? 'filled' : ''}`}
+                style={active ? { fontVariationSettings: "'FILL' 1" } : undefined}
+            >
+                {item.icon}
+            </span>
+            {!collapsed && <span>{item.label}</span>}
+        </Link>
+    </Motion.div>
+);
 
 const navItems = [
     { label: 'Dashboard', icon: 'space_dashboard', path: '/dashboard', exact: true },
@@ -125,48 +167,28 @@ const DashboardLayout = ({ children }) => {
 
                 {/* Navigation */}
                 <nav className="flex-1 overflow-y-auto py-3 px-2.5 space-y-0.5">
-                    {navItems.map((item) => {
-                        const active = isActive(item);
-                        return (
-                            <Link
-                                key={item.path}
-                                to={item.path}
-                                className={active ? 'sidebar-link-active' : 'sidebar-link'}
-                                title={sidebarCollapsed ? item.label : undefined}
-                            >
-                                <span
-                                    className={`material-symbols-outlined text-[20px] ${active ? 'filled' : ''}`}
-                                    style={active ? { fontVariationSettings: "'FILL' 1" } : undefined}
-                                >
-                                    {item.icon}
-                                </span>
-                                {!sidebarCollapsed && <span>{item.label}</span>}
-                            </Link>
-                        );
-                    })}
+                    {navItems.map((item) => (
+                        <SidebarLink
+                            key={item.path}
+                            item={item}
+                            active={isActive(item)}
+                            collapsed={sidebarCollapsed}
+                            indicatorId="sidebar-active-primary"
+                        />
+                    ))}
                 </nav>
 
                 {/* Bottom Section */}
                 <div className="border-t border-border-subtle dark:border-border-subtle-dark py-3 px-2.5 space-y-0.5">
-                    {bottomNavItems.map((item) => {
-                        const active = isActive(item);
-                        return (
-                            <Link
-                                key={item.path}
-                                to={item.path}
-                                className={active ? 'sidebar-link-active' : 'sidebar-link'}
-                                title={sidebarCollapsed ? item.label : undefined}
-                            >
-                                <span
-                                    className={`material-symbols-outlined text-[20px] ${active ? 'filled' : ''}`}
-                                    style={active ? { fontVariationSettings: "'FILL' 1" } : undefined}
-                                >
-                                    {item.icon}
-                                </span>
-                                {!sidebarCollapsed && <span>{item.label}</span>}
-                            </Link>
-                        );
-                    })}
+                    {bottomNavItems.map((item) => (
+                        <SidebarLink
+                            key={item.path}
+                            item={item}
+                            active={isActive(item)}
+                            collapsed={sidebarCollapsed}
+                            indicatorId="sidebar-active-secondary"
+                        />
+                    ))}
 
                     {/* User Avatar */}
                     {!sidebarCollapsed && (
