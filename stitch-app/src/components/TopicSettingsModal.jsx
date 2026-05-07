@@ -14,13 +14,19 @@ const TopicSettingsModal = memo(function TopicSettingsModal({
     if (!open) return null;
 
     return (
-        <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/40 px-4">
-            <div className="w-full max-w-md rounded-3xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xl p-6">
+        <div className="fixed inset-0 z-[80] flex items-center justify-center overflow-y-auto bg-black/50 px-4 py-6">
+            <div
+                role="dialog"
+                aria-modal="true"
+                aria-labelledby="topic-settings-title"
+                className="w-full max-w-md rounded-3xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xl p-6"
+            >
                 <div className="flex items-center justify-between mb-4">
-                    <h3 className="text-lg font-bold text-slate-900 dark:text-white">Lesson Settings</h3>
+                    <h3 id="topic-settings-title" className="text-lg font-bold text-slate-900 dark:text-white">Lesson Settings</h3>
                     <button
                         onClick={onClose}
                         className="w-9 h-9 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-500 hover:text-primary flex items-center justify-center"
+                        aria-label="Close lesson settings"
                     >
                         <span className="material-symbols-outlined text-[20px]">close</span>
                     </button>

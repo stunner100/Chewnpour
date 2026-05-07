@@ -23,7 +23,6 @@ import FloatingStudyTools from '../components/lesson/FloatingStudyTools';
 import useReadingProgress from '../components/lesson/useReadingProgress';
 import LessonContentRenderer from '../components/LessonContentRenderer';
 import StudyModeSelector from '../components/StudyModeSelector';
-import { WatermelonTabs, WatermelonTabsList, WatermelonTabsTrigger, WatermelonTabsContent } from '../components/watermelon/WatermelonTabs';
 import SourcePanel from '../components/SourcePanel';
 import NextStepsGuidance from '../components/NextStepsGuidance';
 import GuidedStudyPath from '../components/GuidedStudyPath';
@@ -72,6 +71,17 @@ const buildObjectiveExamRoute = (examTopicId) =>
 const buildEssayExamRoute = (examTopicId) =>
     examTopicId ? `/dashboard/exam/${examTopicId}?autostart=essay` : '/dashboard';
 
+const getCurrentHashTargetId = () => {
+    if (typeof window === 'undefined') return '';
+    const rawHash = window.location.hash ? window.location.hash.slice(1) : '';
+    if (!rawHash) return '';
+    try {
+        return decodeURIComponent(rawHash).trim();
+    } catch {
+        return rawHash.trim();
+    }
+};
+
 const TopicDetail = () => {
     const { topicId: topicIdParam } = useParams();
     const routeTopicId = typeof topicIdParam === 'string' ? topicIdParam.trim() : '';
@@ -95,7 +105,7 @@ const TopicDetail = () => {
     const [notesAppendText, setNotesAppendText] = useState('');
     const [chatOpen, setChatOpen] = useState(false);
     const [sourceOpen, setSourceOpen] = useState(false);
-    const [studyMode, setStudyMode] = useState(null);
+    const [studyMode, setStudyMode] = useState(() => getCurrentHashTargetId() ? 'full' : null);
 
     const [chatInitialPrompt, setChatInitialPrompt] = useState('');
     const openNotes = useCallback(() => { setChatOpen(false); setNotesOpen(true); }, []);
@@ -248,7 +258,7 @@ const TopicDetail = () => {
     }, [contentCacheKey, topic?.content]);
 
     useEffect(() => {
-        setStudyMode(null);
+        setStudyMode(getCurrentHashTargetId() ? 'full' : null);
     }, [routeTopicId]);
 
 
@@ -359,6 +369,7 @@ const TopicDetail = () => {
 
     // Scroll to top on mount/navigation
     useEffect(() => {
+        if (getCurrentHashTargetId()) return;
         if (mainRef.current) mainRef.current.scrollTop = 0;
         window.scrollTo(0, 0);
     }, [topicId]);
@@ -745,6 +756,19 @@ const TopicDetail = () => {
         return blocksWithWidgets;
     }, [filteredBlocks, parsed.quickCheckPairs, wordBankTerms]);
 
+    useEffect(() => {
+        if (!studyMode) return undefined;
+        const targetId = getCurrentHashTargetId();
+        if (!targetId) return undefined;
+        const timer = window.setTimeout(() => {
+            const node = document.getElementById(targetId);
+            if (node) {
+                node.scrollIntoView({ behavior: 'auto', block: 'start' });
+            }
+        }, 100);
+        return () => window.clearTimeout(timer);
+    }, [displayBlocks, studyMode]);
+
     const assessmentRoute = topic?.assessmentRoute || 'topic_quiz';
     const isTopicQuizRoute = assessmentRoute === 'topic_quiz' || topic?.topicKind === 'document_final_exam';
     const examTopicId = isTopicQuizRoute
@@ -810,8 +834,10 @@ const TopicDetail = () => {
 
     const handleStudyModeSelect = useCallback((mode) => {
         setStudyMode(mode || 'full');
-        if (mainRef.current) mainRef.current.scrollTop = 0;
-        window.scrollTo(0, 0);
+        if (!getCurrentHashTargetId()) {
+            if (mainRef.current) mainRef.current.scrollTop = 0;
+            window.scrollTo(0, 0);
+        }
     }, []);
 
     const handleStudyModeSkip = useCallback(() => {
@@ -872,51 +898,11 @@ const TopicDetail = () => {
                 </header>
 
                 <main className="flex-1 pt-14">
-                    <WatermelonTabs value="full" onValueChange={(v) => handleStudyModeSelect(v)}>
-                        <WatermelonTabsList>
-                            <WatermelonTabsTrigger value="full">Full Lesson</WatermelonTabsTrigger>
-                            <WatermelonTabsTrigger value="summary">Summary</WatermelonTabsTrigger>
-                            <WatermelonTabsTrigger value="quiz">Quiz</WatermelonTabsTrigger>
-                            <WatermelonTabsTrigger value="flashcards">Flashcards</WatermelonTabsTrigger>
-                            <WatermelonTabsTrigger value="podcast">Podcast</WatermelonTabsTrigger>
-                        </WatermelonTabsList>
-
-                        <WatermelonTabsContent value="full">
-                            <StudyModeSelector
-                                topicTitle={headerTopicTitle}
-                                onSelect={handleStudyModeSelect}
-                                onSkip={handleStudyModeSkip}
-                            />
-                        </WatermelonTabsContent>
-                        <WatermelonTabsContent value="summary">
-                            <StudyModeSelector
-                                topicTitle={headerTopicTitle}
-                                onSelect={handleStudyModeSelect}
-                                onSkip={handleStudyModeSkip}
-                            />
-                        </WatermelonTabsContent>
-                        <WatermelonTabsContent value="quiz">
-                            <StudyModeSelector
-                                topicTitle={headerTopicTitle}
-                                onSelect={handleStudyModeSelect}
-                                onSkip={handleStudyModeSkip}
-                            />
-                        </WatermelonTabsContent>
-                        <WatermelonTabsContent value="flashcards">
-                            <StudyModeSelector
-                                topicTitle={headerTopicTitle}
-                                onSelect={handleStudyModeSelect}
-                                onSkip={handleStudyModeSkip}
-                            />
-                        </WatermelonTabsContent>
-                        <WatermelonTabsContent value="podcast">
-                            <StudyModeSelector
-                                topicTitle={headerTopicTitle}
-                                onSelect={handleStudyModeSelect}
-                                onSkip={handleStudyModeSkip}
-                            />
-                        </WatermelonTabsContent>
-                    </WatermelonTabs>
+                    <StudyModeSelector
+                        topicTitle={headerTopicTitle}
+                        onSelect={handleStudyModeSelect}
+                        onSkip={handleStudyModeSkip}
+                    />
                 </main>
             </div>
         );
@@ -1186,24 +1172,26 @@ const TopicDetail = () => {
                         </div>
                     </details>
 
-                    {/* What's next */}
-                    <div className="bg-surface-light dark:bg-surface-dark rounded-3xl border border-border-subtle dark:border-border-subtle-dark p-5 md:p-6">
-                        <NextStepsGuidance
-                            topicId={topicId}
-                            examTopicId={examTopicId}
-                            topicTitle={resolvedTopicTitle}
-                            percentage={null}
-                            completedAt={topicProgress?.completedAt}
-                            bestScore={topicProgress?.bestScore}
-                            hasWordBank={wordBankTerms?.length > 0}
-                            onOpenChat={openChat}
-                            examLabel={isTopicQuizRoute ? 'Start the objective quiz' : 'Take the final objective quiz'}
-                            examDescription={isTopicQuizRoute
-                                ? 'Choose objective, essay, or concept practice for this topic.'
-                                : 'This topic is assessed as part of the final exam.'}
-                            variant="lesson"
-                        />
-                    </div>
+                    {/* Post-lesson guidance */}
+                    {topicProgress?.completedAt && (
+                        <div className="bg-surface-light dark:bg-surface-dark rounded-3xl border border-border-subtle dark:border-border-subtle-dark p-5 md:p-6">
+                            <NextStepsGuidance
+                                topicId={topicId}
+                                examTopicId={examTopicId}
+                                topicTitle={resolvedTopicTitle}
+                                percentage={null}
+                                completedAt={topicProgress?.completedAt}
+                                bestScore={topicProgress?.bestScore}
+                                hasWordBank={wordBankTerms?.length > 0}
+                                onOpenChat={openChat}
+                                examLabel={isTopicQuizRoute ? 'Start the objective quiz' : 'Take the final objective quiz'}
+                                examDescription={isTopicQuizRoute
+                                    ? 'Choose objective, essay, or concept practice for this topic.'
+                                    : 'This topic is assessed as part of the final exam.'}
+                                variant="lesson"
+                            />
+                        </div>
+                    )}
 
                     {/* Podcast */}
                     {podcastEnabled ? (

@@ -6,7 +6,12 @@ const root = process.cwd();
 const read = (relativePath) => fs.readFile(path.join(root, relativePath), 'utf8');
 
 const lessonTocSource = await read('src/components/lesson/LessonTOC.jsx');
+const topicDetailSource = await read('src/pages/TopicDetail.jsx');
 const topicSidebarSource = await read('src/components/TopicSidebar.jsx');
+const topicChatPanelSource = await read('src/components/TopicChatPanel.jsx');
+const topicNotesPanelSource = await read('src/components/TopicNotesPanel.jsx');
+const sourcePanelSource = await read('src/components/SourcePanel.jsx');
+const topicSettingsModalSource = await read('src/components/TopicSettingsModal.jsx');
 const voicePlaybackSource = await read('src/lib/useVoicePlayback.js');
 
 if (/node\.scrollIntoView\(\{ block: 'nearest' \}\)/.test(lessonTocSource)) {
@@ -37,6 +42,52 @@ for (const expected of [
   if (!lessonTocSource.includes(expected)) {
     throw new Error(`Expected LessonTOC to keep active-item scrolling inside the TOC rail with "${expected}".`);
   }
+}
+
+if (!topicDetailSource.includes('const getCurrentHashTargetId = () => {')) {
+  throw new Error('TopicDetail must use a shared helper for detecting deep-linked section hashes.');
+}
+
+if (!/useState\(\(\) => getCurrentHashTargetId\(\) \? 'full' : null\)/.test(topicDetailSource)) {
+  throw new Error('TopicDetail must bypass the study-mode chooser when the URL already points at a lesson section hash.');
+}
+
+if (/setStudyMode\(null\);/.test(topicDetailSource)) {
+  throw new Error('TopicDetail route changes must preserve hash deep links instead of always resetting to the chooser.');
+}
+
+if (!/if \(getCurrentHashTargetId\(\)\) return;[\s\S]*window\.scrollTo\(0, 0\);/.test(topicDetailSource)) {
+  throw new Error('TopicDetail must not run its top-of-page navigation reset when loading a hash deep link.');
+}
+
+if (!/node\.scrollIntoView\(\{\s*behavior: 'auto',\s*block: 'start',?\s*\}\)/s.test(topicDetailSource)) {
+  throw new Error('TopicDetail must scroll the hashed section into view after the lesson content has mounted.');
+}
+
+if (/WatermelonTabs/.test(topicDetailSource)) {
+  throw new Error('TopicDetail study-mode chooser must not render misleading top tabs that disappear after selection.');
+}
+
+if (!/topicProgress\?\.completedAt && \([\s\S]*<NextStepsGuidance/.test(topicDetailSource)) {
+  throw new Error('TopicDetail should only show the post-lesson next-steps card after completion to avoid duplicating practice CTAs.');
+}
+
+for (const [name, source] of [
+  ['TopicChatPanel', topicChatPanelSource],
+  ['TopicNotesPanel', topicNotesPanelSource],
+  ['SourcePanel', sourcePanelSource],
+]) {
+  if (/lg:(relative|z-auto)/.test(source)) {
+    throw new Error(`${name} must stay fixed on desktop so it opens as a stable right-side panel.`);
+  }
+}
+
+if (!topicSettingsModalSource.includes('z-[80]')) {
+  throw new Error('TopicSettingsModal must render above lesson headers and side-panel layers.');
+}
+
+if (!topicSettingsModalSource.includes('role="dialog"') || !topicSettingsModalSource.includes('aria-modal="true"')) {
+  throw new Error('TopicSettingsModal must expose dialog semantics when open.');
 }
 
 if (!voicePlaybackSource.includes('const sourceUrl = await fetchRemoteAudioBlobUrl(streamUrl);')) {
