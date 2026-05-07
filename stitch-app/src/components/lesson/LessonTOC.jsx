@@ -1,9 +1,6 @@
 import React, { useEffect, useRef } from 'react';
 
-// Default offset accounts for sticky header (~64px) + progress bar (~28px) + breath.
-const SCROLL_OFFSET = 96;
-
-const LessonTOC = ({ toc = [], activeId, headerOffset = SCROLL_OFFSET }) => {
+const LessonTOC = ({ toc = [], activeId }) => {
     const navRef = useRef(null);
     const listRef = useRef(null);
 
@@ -37,8 +34,10 @@ const LessonTOC = ({ toc = [], activeId, headerOffset = SCROLL_OFFSET }) => {
         event.preventDefault();
         const node = document.getElementById(id);
         if (!node) return;
-        const top = node.getBoundingClientRect().top + window.scrollY - headerOffset;
-        window.scrollTo({ top: Math.max(0, top), behavior: 'smooth' });
+        node.scrollIntoView({
+            behavior: 'smooth',
+            block: 'start',
+        });
         if (typeof window !== 'undefined' && window.history?.replaceState) {
             window.history.replaceState(null, '', `#${id}`);
         }

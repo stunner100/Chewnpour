@@ -78,8 +78,13 @@ const TopicSidebar = memo(function TopicSidebar({
                                     setMobileOpen(false);
                                     const el = document.getElementById(item.id);
                                     if (!el) return;
-                                    const top = el.getBoundingClientRect().top + window.scrollY - 108;
-                                    window.scrollTo({ top, behavior: 'smooth' });
+                                    el.scrollIntoView({
+                                        behavior: 'smooth',
+                                        block: 'start',
+                                    });
+                                    if (typeof window !== 'undefined' && window.history?.replaceState) {
+                                        window.history.replaceState(null, '', `#${item.id}`);
+                                    }
                                 }}
                                 className={`block py-1.5 text-body-sm transition-colors ${getIndent(item.level)} ${
                                     isActive

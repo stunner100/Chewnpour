@@ -1053,7 +1053,7 @@ const TopicDetail = () => {
             {/* Three-column reader layout */}
             <div className="flex-1 max-w-[1400px] w-full mx-auto px-4 md:px-6 lg:px-8 py-5 lg:py-8 grid grid-cols-1 lg:grid-cols-[220px_minmax(0,1fr)_300px] gap-4 lg:gap-8">
                 <div className="hidden lg:block">
-                    <LessonTOC toc={parsed.toc} activeId={activeSectionId} headerOffset={108} />
+                    <LessonTOC toc={parsed.toc} activeId={activeSectionId} />
                 </div>
 
                 <main ref={mainRef} className="min-w-0 space-y-6">
