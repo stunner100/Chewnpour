@@ -5,8 +5,12 @@ const ACCENT = 'rgb(145, 75, 241)';
 const INACTIVE = 'rgba(255,255,255,0.1)';
 
 export const OnboardingProgress = ({ step = 1, total = 3 }) => {
-    const normalizedTotal = Math.max(1, Number(total) || 1);
-    const normalizedStep = Math.min(Math.max(1, Number(step) || 1), normalizedTotal);
+    const parsedTotal = Number(total);
+    const totalSegments = Number.isFinite(parsedTotal) ? Math.floor(parsedTotal) : 1;
+    const normalizedTotal = Math.max(1, totalSegments);
+    const parsedStep = Number(step);
+    const currentStep = Number.isFinite(parsedStep) ? Math.floor(parsedStep) : 1;
+    const normalizedStep = Math.min(Math.max(1, currentStep), normalizedTotal);
 
     return (
         <div

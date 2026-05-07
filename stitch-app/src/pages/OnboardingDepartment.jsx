@@ -55,7 +55,7 @@ const OnboardingDepartment = () => {
                 onboardingCompleted: true,
             });
             watermelonToast("You're all set. Let's learn.", { type: 'success' });
-            navigate('/dashboard');
+            navigate('/dashboard', { replace: true });
         } catch (err) {
             console.error('Failed to update profile:', err);
             const msg = 'Failed to save. Please try again.';
@@ -71,7 +71,7 @@ const OnboardingDepartment = () => {
         setError('');
         try {
             await updateProfile({ onboardingCompleted: true });
-            navigate('/dashboard');
+            navigate('/dashboard', { replace: true });
         } catch (err) {
             console.error('Failed to update profile on skip:', err);
             const msg = 'Failed to save. Please try again.';
