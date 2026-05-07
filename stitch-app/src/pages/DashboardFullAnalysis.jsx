@@ -4,6 +4,11 @@ import { useQuery, useConvexAuth } from 'convex/react';
 import { api } from '../../convex/_generated/api';
 import { useAuth } from '../contexts/AuthContext';
 import { buildConceptPracticePath } from '../lib/conceptReviewLinks';
+import {
+    WatermelonSkeleton,
+    WatermelonSkeletonCard,
+    WatermelonSkeletonGrid,
+} from '../components/watermelon/WatermelonSkeleton';
 
 const TIER_STYLES = {
     mastered: {
@@ -226,17 +231,20 @@ const DashboardFullAnalysis = () => {
         return (
             <div className="min-h-screen bg-background-light dark:bg-background-dark">
                 <div className="max-w-5xl mx-auto px-4 md:px-8 py-8 space-y-4">
-                    <div className="h-6 w-32 bg-surface-hover-light dark:bg-surface-hover-dark rounded animate-pulse" />
-                    <div className="h-10 w-56 bg-surface-hover-light dark:bg-surface-hover-dark rounded animate-pulse" />
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mt-4">
-                        {Array.from({ length: 4 }).map((_, i) => (
-                            <div
-                                key={i}
-                                className="card-base h-24 animate-pulse bg-surface-hover-light dark:bg-surface-hover-dark"
-                            />
-                        ))}
+                    <WatermelonSkeleton width={128} height={20} />
+                    <WatermelonSkeleton width={224} height={36} />
+                    <div className="mt-4">
+                        <WatermelonSkeletonGrid tiles={4} columns="md:grid-cols-4" />
                     </div>
-                    <div className="card-base h-72 animate-pulse bg-surface-hover-light dark:bg-surface-hover-dark" />
+                    <WatermelonSkeletonCard style={{ padding: 0, height: 288 }}>
+                        <div className="h-full p-5 flex flex-col gap-3">
+                            <WatermelonSkeleton width="40%" height={14} />
+                            <WatermelonSkeleton width="100%" height={12} />
+                            <WatermelonSkeleton width="85%" height={12} />
+                            <WatermelonSkeleton width="92%" height={12} />
+                            <WatermelonSkeleton width="65%" height={12} />
+                        </div>
+                    </WatermelonSkeletonCard>
                 </div>
             </div>
         );

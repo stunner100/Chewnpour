@@ -48,7 +48,7 @@ for (const pattern of [
   'readCampaignAttributionFromSearch',
   'stashPendingCampaignAttribution',
   'signInWithGoogle(redirectTarget)',
-  'navigate(redirectTarget, { replace: true })',
+  'navigate(redirectTarget, {',
 ]) {
   if (!loginSource.includes(pattern)) {
     throw new Error(`Expected Login.jsx to include "${pattern}".`);

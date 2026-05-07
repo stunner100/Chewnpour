@@ -8,6 +8,11 @@ import ExamActionModal from '../components/ExamActionModal';
 import { WatermelonWidget, WatermelonWidgetsGrid } from '../components/watermelon/WatermelonWidgets';
 import { WatermelonScheduler } from '../components/watermelon/WatermelonScheduler';
 import { watermelonToast } from '../components/watermelon/watermelonToast';
+import {
+    WatermelonSkeleton,
+    WatermelonSkeletonCard,
+    WatermelonSkeletonGrid,
+} from '../components/watermelon/WatermelonSkeleton';
 import { useShare } from '../hooks/useShare';
 import { isDarkModeEnabled, toggleThemePreference } from '../lib/theme';
 
@@ -208,14 +213,27 @@ const Profile = () => {
 
     if (loading) {
         return (
-            <div className="w-full max-w-3xl mx-auto px-4 md:px-8 py-8">
-                <div className="animate-pulse space-y-6">
-                    <div className="h-32 rounded-xl bg-surface-light dark:bg-surface-dark border border-border-light dark:border-border-dark" />
-                    <div className="grid grid-cols-4 gap-3">
-                        {[1, 2, 3, 4].map(i => <div key={i} className="h-20 rounded-xl bg-surface-light dark:bg-surface-dark border border-border-light dark:border-border-dark" />)}
+            <div className="w-full max-w-3xl mx-auto px-4 md:px-8 py-8 space-y-6">
+                <WatermelonSkeletonCard>
+                    <div className="flex items-center gap-4">
+                        <WatermelonSkeleton width={80} height={80} rounded={40} />
+                        <div className="flex-1">
+                            <WatermelonSkeleton width="55%" height={20} />
+                            <div style={{ height: 10 }} />
+                            <WatermelonSkeleton width="40%" height={12} />
+                            <div style={{ height: 8 }} />
+                            <WatermelonSkeleton width="30%" height={12} />
+                        </div>
                     </div>
-                    <div className="h-24 rounded-xl bg-surface-light dark:bg-surface-dark border border-border-light dark:border-border-dark" />
-                </div>
+                </WatermelonSkeletonCard>
+                <WatermelonSkeletonGrid tiles={4} />
+                <WatermelonSkeletonCard>
+                    <WatermelonSkeleton width="40%" height={14} />
+                    <div style={{ height: 12 }} />
+                    <WatermelonSkeleton width="100%" height={12} />
+                    <div style={{ height: 8 }} />
+                    <WatermelonSkeleton width="80%" height={12} />
+                </WatermelonSkeletonCard>
             </div>
         );
     }

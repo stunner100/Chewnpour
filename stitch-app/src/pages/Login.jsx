@@ -1,7 +1,11 @@
 import React, { useEffect, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { motion as Motion } from 'motion/react';
 import { useAuth } from '../contexts/AuthContext';
 import PublicShell, { ArrowBadge } from '../components/PublicShell';
+import { BlurFade } from '../components/magicui/BlurFade';
+import { WatermelonToaster } from '../components/watermelon/WatermelonSonner';
+import { watermelonToast } from '../components/watermelon/watermelonToast';
 import {
     readCampaignAttributionFromSearch,
     stashPendingCampaignAttribution,
@@ -56,9 +60,15 @@ const Login = () => {
         setLoading(true);
         try {
             const { error: signInError } = await signInWithGoogle(redirectTarget);
-            if (signInError) setError(resolveGoogleErrorMessage(signInError));
+            if (signInError) {
+                const msg = resolveGoogleErrorMessage(signInError);
+                setError(msg);
+                watermelonToast(msg, { type: 'error' });
+            }
         } catch {
-            setError('Unable to reach authentication right now. Please try again.');
+            const msg = 'Unable to reach authentication right now. Please try again.';
+            setError(msg);
+            watermelonToast(msg, { type: 'error' });
         } finally {
             setLoading(false);
         }
@@ -70,10 +80,24 @@ const Login = () => {
         setLoading(true);
         try {
             const { error } = await signIn(email, password);
-            if (error) setError(error.message);
-            else navigate(redirectTarget, { replace: true });
+            if (error) {
+                setError(error.message);
+                watermelonToast(error.message, { type: 'error' });
+            } else {
+                navigate(redirectTarget, {
+                    replace: true,
+                    state: {
+                        watermelonToast: {
+                            message: 'Welcome back!',
+                            type: 'success',
+                        },
+                    },
+                });
+            }
         } catch {
-            setError('An unexpected error occurred');
+            const msg = 'An unexpected error occurred';
+            setError(msg);
+            watermelonToast(msg, { type: 'error' });
         } finally {
             setLoading(false);
         }
@@ -84,21 +108,27 @@ const Login = () => {
             <div className="grid lg:grid-cols-2 gap-12 lg:gap-20 items-center">
                 {/* Left — brand pitch (landing style) */}
                 <div className="hidden lg:flex flex-col gap-8">
-                    <div className="inline-flex items-center gap-3 text-xs font-bold uppercase tracking-[0.2em] text-[rgb(145,75,241)]">
-                        <span className="inline-block w-8 h-[2px] bg-[rgb(145,75,241)]" /> Welcome back
-                    </div>
-                    <h1 className="text-5xl xl:text-6xl font-bold leading-[1.05] tracking-tight">
-                        Your AI
-                        <br />
-                        <span className="text-[rgb(145,75,241)]">study</span>
-                        <br />
-                        <span className="inline-flex items-center gap-3">
-                            <ArrowBadge size={44} /> companion
-                        </span>
-                    </h1>
-                    <p className="text-white/70 text-base leading-relaxed max-w-md">
-                        Upload your course materials and get instant lessons, smart quizzes, and an AI tutor that understands your content.
-                    </p>
+                    <BlurFade delay={0.05} yOffset={12}>
+                        <div className="inline-flex items-center gap-3 text-xs font-bold uppercase tracking-[0.2em] text-[rgb(145,75,241)]">
+                            <span className="inline-block w-8 h-[2px] bg-[rgb(145,75,241)]" /> Welcome back
+                        </div>
+                    </BlurFade>
+                    <BlurFade delay={0.12} yOffset={14}>
+                        <h1 className="text-5xl xl:text-6xl font-bold leading-[1.05] tracking-tight">
+                            Your AI
+                            <br />
+                            <span className="text-[rgb(145,75,241)]">study</span>
+                            <br />
+                            <span className="inline-flex items-center gap-3">
+                                <ArrowBadge size={44} /> companion
+                            </span>
+                        </h1>
+                    </BlurFade>
+                    <BlurFade delay={0.2} yOffset={10}>
+                        <p className="text-white/70 text-base leading-relaxed max-w-md">
+                            Upload your course materials and get instant lessons, smart quizzes, and an AI tutor that understands your content.
+                        </p>
+                    </BlurFade>
                     <div className="flex items-center gap-4 pt-4 border-t border-white/10">
                         <div className="flex -space-x-2">
                             {['/chewnpour/img1.jpg', '/chewnpour/img2.jpg', '/chewnpour/img3.jpg', '/chewnpour/img4.jpg'].map((src, i) => (
@@ -121,17 +151,22 @@ const Login = () => {
                 </div>
 
                 {/* Right — form card */}
-                <div className="cp-card">
+                <BlurFade delay={0.05} yOffset={12} className="cp-card">
                     <div className="mb-6">
                         <h2 className="text-2xl font-bold mb-1">Welcome back</h2>
                         <p className="text-sm text-white/60">Sign in to continue studying.</p>
                     </div>
 
                     {error && (
-                        <div className="mb-5 rounded-xl border border-[#E8651B]/40 bg-[#E8651B]/10 px-4 py-3 text-sm text-[rgb(145,75,241)] flex items-center gap-2">
+                        <Motion.div
+                            initial={{ opacity: 0, y: -8, scale: 0.98 }}
+                            animate={{ opacity: 1, y: 0, scale: 1 }}
+                            transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
+                            className="mb-5 rounded-xl border border-[#E8651B]/40 bg-[#E8651B]/10 px-4 py-3 text-sm text-[rgb(145,75,241)] flex items-center gap-2"
+                        >
                             <span className="material-symbols-outlined text-[18px]">error</span>
                             {error}
-                        </div>
+                        </Motion.div>
                     )}
 
                     <button
@@ -216,8 +251,9 @@ const Login = () => {
                             Create an account
                         </Link>
                     </p>
-                </div>
+                </BlurFade>
             </div>
+            <WatermelonToaster position="bottom-center" />
         </PublicShell>
     );
 };
