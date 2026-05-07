@@ -6,6 +6,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { capturePostHogEvent } from '../lib/posthog';
 import { formatPlanPrice, normalizeTopUpOptions } from '../lib/pricingCurrency';
 import CanvasCrowd from '../components/blocks/CanvasCrowd';
+import { BlurFade } from '../components/magicui/BlurFade';
 
 /**
  * Landing page styled to the NajmAI design specification (Outfit font, rgb(16,17,18) background,
@@ -777,18 +778,20 @@ const LandingPage = () => {
                         sticks. Follow these simple steps to turn your notes into mastery.
                     </p>
                     <div className="mt-10 grid grid-cols-1 md:grid-cols-3 gap-5">
-                        {HOW_CARDS.map((card) => (
-                            <div key={card.title} className="grain rounded-[16px] p-7 flex flex-col min-h-[260px]" style={{ background: CARD_BG }}>
-                                <span className="inline-flex items-center justify-center w-12 h-12 rounded-full" style={{ background: ACCENT }}>
-                                    <span className="material-symbols-outlined text-white text-[24px]">{card.icon}</span>
-                                </span>
-                                <h3 className="mt-auto pt-12 text-white" style={{ fontFamily: 'Outfit, sans-serif', fontWeight: 500, fontSize: 26 }}>
-                                    {card.title}
-                                </h3>
-                                <p className="mt-2" style={{ color: SUBTEXT, fontSize: 15, lineHeight: 1.55 }}>
-                                    {card.body}
-                                </p>
-                            </div>
+                        {HOW_CARDS.map((card, idx) => (
+                            <BlurFade key={card.title} inView delay={idx * 0.1} yOffset={20}>
+                                <div className="grain rounded-[16px] p-7 flex flex-col min-h-[260px]" style={{ background: CARD_BG }}>
+                                    <span className="inline-flex items-center justify-center w-12 h-12 rounded-full" style={{ background: ACCENT }}>
+                                        <span className="material-symbols-outlined text-white text-[24px]">{card.icon}</span>
+                                    </span>
+                                    <h3 className="mt-auto pt-12 text-white" style={{ fontFamily: 'Outfit, sans-serif', fontWeight: 500, fontSize: 26 }}>
+                                        {card.title}
+                                    </h3>
+                                    <p className="mt-2" style={{ color: SUBTEXT, fontSize: 15, lineHeight: 1.55 }}>
+                                        {card.body}
+                                    </p>
+                                </div>
+                            </BlurFade>
                         ))}
                     </div>
                 </section>
@@ -796,27 +799,29 @@ const LandingPage = () => {
                 {/* ── 5. FEATURE ROWS ── */}
                 <section id="features" className="mx-auto max-w-[1200px] px-5 sm:px-6 lg:px-12 py-12 md:py-20 space-y-12 md:space-y-28">
                     {FEATURE_ROWS.map((row) => (
-                        <div key={row.title} className="grid grid-cols-1 lg:grid-cols-2 gap-10 lg:gap-16 items-center">
-                            <div className={row.side === 'right' ? 'lg:order-1' : 'lg:order-2'}>
-                                <h3 style={{ fontFamily: 'Outfit, sans-serif', fontWeight: 500, fontSize: 'clamp(28px, 3.5vw, 38px)', lineHeight: 1.1 }}>
-                                    {row.title}
-                                </h3>
-                                <p className="mt-5 max-w-[460px]" style={{ color: SUBTEXT, fontSize: 16, lineHeight: 1.55 }}>
-                                    {row.body}
-                                </p>
-                                <Link
-                                    to="/signup"
-                                    onClick={() => captureLandingEvent('landing_cta_clicked', { cta_name: `feature_${row.title}` })}
-                                    className="inline-flex items-center justify-center mt-7 h-11 px-6 rounded-lg text-sm font-bold ui-text transition-colors"
-                                    style={{ background: ACCENT, color: '#fff' }}
-                                >
-                                    Try it Free
-                                </Link>
+                        <BlurFade key={row.title} inView yOffset={24} duration={0.55}>
+                            <div className="grid grid-cols-1 lg:grid-cols-2 gap-10 lg:gap-16 items-center">
+                                <div className={row.side === 'right' ? 'lg:order-1' : 'lg:order-2'}>
+                                    <h3 style={{ fontFamily: 'Outfit, sans-serif', fontWeight: 500, fontSize: 'clamp(28px, 3.5vw, 38px)', lineHeight: 1.1 }}>
+                                        {row.title}
+                                    </h3>
+                                    <p className="mt-5 max-w-[460px]" style={{ color: SUBTEXT, fontSize: 16, lineHeight: 1.55 }}>
+                                        {row.body}
+                                    </p>
+                                    <Link
+                                        to="/signup"
+                                        onClick={() => captureLandingEvent('landing_cta_clicked', { cta_name: `feature_${row.title}` })}
+                                        className="inline-flex items-center justify-center mt-7 h-11 px-6 rounded-lg text-sm font-bold ui-text transition-colors"
+                                        style={{ background: ACCENT, color: '#fff' }}
+                                    >
+                                        Try it Free
+                                    </Link>
+                                </div>
+                                <div className={row.side === 'right' ? 'lg:order-2' : 'lg:order-1'}>
+                                    <FeatureMockup kind={row.mockup} />
+                                </div>
                             </div>
-                            <div className={row.side === 'right' ? 'lg:order-2' : 'lg:order-1'}>
-                                <FeatureMockup kind={row.mockup} />
-                            </div>
-                        </div>
+                        </BlurFade>
                     ))}
                 </section>
 

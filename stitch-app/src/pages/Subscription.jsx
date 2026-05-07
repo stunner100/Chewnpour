@@ -9,6 +9,9 @@ import {
     normalizeTopUpOptions,
 } from '../lib/pricingCurrency';
 import { ShimmerButton } from '../components/magicui/ShimmerButton';
+import { WatermelonWidget, WatermelonWidgetsGrid } from '../components/watermelon/WatermelonWidgets';
+import { WatermelonDisclosure } from '../components/watermelon/WatermelonDisclosure';
+import { watermelonToast } from '../components/watermelon/watermelonToast';
 
 const sanitizeReturnPath = (value) => {
     const fallback = '/dashboard';
@@ -121,6 +124,12 @@ const Subscription = () => {
     }, [selectedPlanId, selectedTopUpPlan]);
 
     useEffect(() => {
+        if (error) {
+            watermelonToast(error, { type: 'warning', duration: 4500 });
+        }
+    }, [error]);
+
+    useEffect(() => {
         const reason = String(searchParams.get('reason') || '').trim();
         const stateMessage = typeof location.state?.paywallMessage === 'string'
             ? location.state.paywallMessage.trim()
@@ -218,22 +227,29 @@ const Subscription = () => {
             )}
 
             {/* Usage Stats */}
-            <div className="grid grid-cols-3 gap-3">
-                <div className="card-base p-4">
-                    <p className="text-overline text-text-faint-light dark:text-text-faint-dark">Used</p>
-                    <p className="text-display-sm text-text-main-light dark:text-text-main-dark mt-1">{consumed}</p>
-                </div>
-                <div className="card-base p-4">
-                    <p className="text-overline text-text-faint-light dark:text-text-faint-dark">Total</p>
-                    <p className="text-display-sm text-text-main-light dark:text-text-main-dark mt-1">{totalAllowed}</p>
-                </div>
-                <div className="card-base p-4">
-                    <p className="text-overline text-text-faint-light dark:text-text-faint-dark">Remaining</p>
-                    <p className={`text-display-sm mt-1 ${remaining === 0 ? 'text-red-500' : 'text-accent-emerald'}`}>
-                        {remaining}
-                    </p>
-                </div>
-            </div>
+            <WatermelonWidgetsGrid cols={3}>
+                <WatermelonWidget
+                    title="Used"
+                    value={consumed}
+                    subtitle="uploads consumed"
+                    icon="upload_file"
+                    accent="primary"
+                />
+                <WatermelonWidget
+                    title="Total"
+                    value={totalAllowed}
+                    subtitle="upload allowance"
+                    icon="inventory_2"
+                    accent="indigo"
+                />
+                <WatermelonWidget
+                    title="Remaining"
+                    value={remaining}
+                    subtitle={remaining === 0 ? 'top up to keep going' : 'available to use'}
+                    icon={remaining === 0 ? 'warning' : 'bolt'}
+                    accent={remaining === 0 ? 'rose' : 'emerald'}
+                />
+            </WatermelonWidgetsGrid>
 
             {/* Top-Up Plans */}
             <div className="card-base p-5 space-y-4">
@@ -322,6 +338,36 @@ const Subscription = () => {
                     </>
                 ) : `Pay ${formatPlanPrice(selectedTopUpPlan?.amountMajor || 0, selectedTopUpPlan?.currency || currency)} and get +${selectedTopUpPlan?.credits || 0} uploads`}
             </ShimmerButton>
+
+            {/* FAQ */}
+            <div className="space-y-2">
+                <h3 className="text-overline text-text-faint-light dark:text-text-faint-dark mb-3">Frequently Asked Questions</h3>
+                <WatermelonDisclosure title="What does an upload credit cover?">
+                    <p className="text-body-sm text-text-sub-light dark:text-text-sub-dark leading-relaxed">
+                        One upload credit lets you process a single document (PDF, DOCX, PPTX, or image). ChewnPour will turn it into a structured course with lessons, quizzes, podcasts, and a revision plan.
+                    </p>
+                </WatermelonDisclosure>
+                <WatermelonDisclosure title="Do credits expire?">
+                    <p className="text-body-sm text-text-sub-light dark:text-text-sub-dark leading-relaxed">
+                        Top-up credits never expire as long as your account is active. The Semester Pass is valid for 4 months and includes unlimited AI chat during that period.
+                    </p>
+                </WatermelonDisclosure>
+                <WatermelonDisclosure title="What happens after I run out of credits?">
+                    <p className="text-body-sm text-text-sub-light dark:text-text-sub-dark leading-relaxed">
+                        You can keep studying with all the courses you&apos;ve already uploaded. To process new documents, top up anytime — credits are added instantly after a successful payment.
+                    </p>
+                </WatermelonDisclosure>
+                <WatermelonDisclosure title="Is my payment secure?">
+                    <p className="text-body-sm text-text-sub-light dark:text-text-sub-dark leading-relaxed">
+                        Yes. All payments are processed by Paystack with bank-grade encryption. ChewnPour never stores your card details.
+                    </p>
+                </WatermelonDisclosure>
+                <WatermelonDisclosure title="Can I get a refund?">
+                    <p className="text-body-sm text-text-sub-light dark:text-text-sub-dark leading-relaxed">
+                        Unused credits are refundable within 7 days of purchase. Reach out at info@chewnpour.com and we&apos;ll sort it for you.
+                    </p>
+                </WatermelonDisclosure>
+            </div>
         </div>
     );
 };
