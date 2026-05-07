@@ -72,6 +72,16 @@ if (!/topicProgress\?\.completedAt && \([\s\S]*<NextStepsGuidance/.test(topicDet
   throw new Error('TopicDetail should only show the post-lesson next-steps card after completion to avoid duplicating practice CTAs.');
 }
 
+for (const expected of [
+  'const sidePanelScrollYRef = useRef(0);',
+  'const captureLessonScrollForSidePanel = useCallback(() => {',
+  'const restoreLessonScrollAfterPanelClose = useCallback(() => {',
+]) {
+  if (!topicDetailSource.includes(expected)) {
+    throw new Error(`TopicDetail must preserve the lesson scroll position when side panels open/close: ${expected}`);
+  }
+}
+
 for (const [name, source] of [
   ['TopicChatPanel', topicChatPanelSource],
   ['TopicNotesPanel', topicNotesPanelSource],
@@ -80,6 +90,14 @@ for (const [name, source] of [
   if (/lg:(relative|z-auto)/.test(source)) {
     throw new Error(`${name} must stay fixed on desktop so it opens as a stable right-side panel.`);
   }
+}
+
+if (/endRef\.current\.scrollIntoView/.test(topicChatPanelSource)) {
+  throw new Error('TopicChatPanel must keep auto-scroll inside the chat message container instead of scrolling the lesson page.');
+}
+
+if (!/messagesContainer\.scrollTo\(\{[\s\S]*top: messagesContainer\.scrollHeight,[\s\S]*behavior: 'smooth'/.test(topicChatPanelSource)) {
+  throw new Error('TopicChatPanel must scroll its own message container to the latest message.');
 }
 
 if (!topicSettingsModalSource.includes('z-[80]')) {

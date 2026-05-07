@@ -108,13 +108,51 @@ const TopicDetail = () => {
     const [studyMode, setStudyMode] = useState(() => getCurrentHashTargetId() ? 'full' : null);
 
     const [chatInitialPrompt, setChatInitialPrompt] = useState('');
-    const openNotes = useCallback(() => { setChatOpen(false); setNotesOpen(true); }, []);
-    const openChat = useCallback(() => { setChatInitialPrompt(''); setNotesOpen(false); setChatOpen(true); }, []);
+    const sidePanelScrollYRef = useRef(0);
+    const captureLessonScrollForSidePanel = useCallback(() => {
+        if (typeof window === 'undefined') return;
+        sidePanelScrollYRef.current = window.scrollY || 0;
+    }, []);
+    const restoreLessonScrollAfterPanelClose = useCallback(() => {
+        if (typeof window === 'undefined') return;
+        const top = sidePanelScrollYRef.current;
+        window.requestAnimationFrame(() => {
+            window.scrollTo({ top, behavior: 'auto' });
+        });
+    }, []);
+    const openNotes = useCallback(() => {
+        captureLessonScrollForSidePanel();
+        setChatOpen(false);
+        setNotesOpen(true);
+    }, [captureLessonScrollForSidePanel]);
+    const closeNotes = useCallback(() => {
+        setNotesOpen(false);
+        restoreLessonScrollAfterPanelClose();
+    }, [restoreLessonScrollAfterPanelClose]);
+    const openChat = useCallback(() => {
+        captureLessonScrollForSidePanel();
+        setChatInitialPrompt('');
+        setNotesOpen(false);
+        setChatOpen(true);
+    }, [captureLessonScrollForSidePanel]);
+    const closeChat = useCallback(() => {
+        setChatOpen(false);
+        restoreLessonScrollAfterPanelClose();
+    }, [restoreLessonScrollAfterPanelClose]);
+    const openSource = useCallback(() => {
+        captureLessonScrollForSidePanel();
+        setSourceOpen(true);
+    }, [captureLessonScrollForSidePanel]);
+    const closeSource = useCallback(() => {
+        setSourceOpen(false);
+        restoreLessonScrollAfterPanelClose();
+    }, [restoreLessonScrollAfterPanelClose]);
     const handleAskTutor = useCallback((prompt) => {
+        captureLessonScrollForSidePanel();
         setChatInitialPrompt(prompt);
         setNotesOpen(false);
         setChatOpen(true);
-    }, []);
+    }, [captureLessonScrollForSidePanel]);
     const contentRef = useRef(null);
     const mainRef = useRef(null);
     const { selection, clearSelection } = useTextSelection(contentRef);
@@ -973,7 +1011,7 @@ const TopicDetail = () => {
             id: 'source',
             icon: 'menu_book',
             label: 'View source passages',
-            onClick: () => setSourceOpen(true),
+            onClick: openSource,
         },
     ];
 
@@ -1113,7 +1151,7 @@ const TopicDetail = () => {
                                 blocks={displayBlocks}
                                 shouldAnimateBlocks={shouldAnimateBlocks}
                                 cleanInline={cleanInline}
-                                onViewSource={() => setSourceOpen(true)}
+                                onViewSource={openSource}
                                 onAskTutor={handleAskTutor}
                                 quickCheckPairs={parsed.quickCheckPairs}
                                 wordBankTerms={wordBankTerms}
@@ -1218,7 +1256,7 @@ const TopicDetail = () => {
             <TopicNotesPanel
                 topicId={topicId}
                 open={notesOpen}
-                onClose={() => setNotesOpen(false)}
+                onClose={closeNotes}
                 appendText={notesAppendText}
             />
 
@@ -1226,13 +1264,13 @@ const TopicDetail = () => {
                 topicId={topicId}
                 topicTitle={topic?.title || ''}
                 open={chatOpen}
-                onClose={() => setChatOpen(false)}
+                onClose={closeChat}
                 initialPrompt={chatInitialPrompt}
             />
 
             <SourcePanel
                 open={sourceOpen}
-                onClose={() => setSourceOpen(false)}
+                onClose={closeSource}
                 passages={sourcePassages}
             />
 

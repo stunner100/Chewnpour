@@ -69,7 +69,6 @@ const TopicChatPanel = memo(function TopicChatPanel({ topicId, topicTitle, open,
     }, [topicId]);
 
     const textareaRef = useRef(null);
-    const endRef = useRef(null);
     const messagesContainerRef = useRef(null);
 
     useEffect(() => {
@@ -104,8 +103,12 @@ const TopicChatPanel = memo(function TopicChatPanel({ topicId, topicTitle, open,
 
     // Auto-scroll to bottom when messages change or sending state changes
     useEffect(() => {
-        if (open && endRef.current) {
-            endRef.current.scrollIntoView({ behavior: 'smooth' });
+        const messagesContainer = messagesContainerRef.current;
+        if (open && messagesContainer) {
+            messagesContainer.scrollTo({
+                top: messagesContainer.scrollHeight,
+                behavior: 'smooth',
+            });
         }
     }, [open, messages, sending]);
 
@@ -424,8 +427,6 @@ const TopicChatPanel = memo(function TopicChatPanel({ topicId, topicTitle, open,
                             </div>
                         </div>
                     )}
-
-                    <div ref={endRef} />
                 </div>
 
                 {/* Error */}
