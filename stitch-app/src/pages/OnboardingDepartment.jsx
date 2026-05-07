@@ -1,7 +1,12 @@
 import React, { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import { motion as Motion } from 'motion/react';
 import { useAuth } from '../contexts/AuthContext';
 import { HexLogo } from '../components/PublicShell';
+import { BlurFade } from '../components/magicui/BlurFade';
+import { OnboardingProgress } from '../components/onboarding/OnboardingProgress';
+import { WatermelonToaster } from '../components/watermelon/WatermelonSonner';
+import { watermelonToast } from '../components/watermelon/watermelonToast';
 
 const ACCENT = 'rgb(145, 75, 241)';
 const PAGE_BG = 'rgb(16, 17, 18)';
@@ -49,10 +54,20 @@ const OnboardingDepartment = () => {
                 department: selectedDepts.length > 0 ? selectedDepts.join(',') : undefined,
                 onboardingCompleted: true,
             });
-            navigate('/dashboard');
+            navigate('/dashboard', {
+                replace: true,
+                state: {
+                    watermelonToast: {
+                        message: "You're all set. Let's learn.",
+                        type: 'success',
+                    },
+                },
+            });
         } catch (err) {
             console.error('Failed to update profile:', err);
-            setError('Failed to save. Please try again.');
+            const msg = 'Failed to save. Please try again.';
+            setError(msg);
+            watermelonToast(msg, { type: 'error' });
         } finally {
             setLoading(false);
         }
@@ -63,10 +78,12 @@ const OnboardingDepartment = () => {
         setError('');
         try {
             await updateProfile({ onboardingCompleted: true });
-            navigate('/dashboard');
+            navigate('/dashboard', { replace: true });
         } catch (err) {
             console.error('Failed to update profile on skip:', err);
-            setError('Failed to save. Please try again.');
+            const msg = 'Failed to save. Please try again.';
+            setError(msg);
+            watermelonToast(msg, { type: 'error' });
         } finally {
             setLoading(false);
         }
@@ -87,11 +104,7 @@ const OnboardingDepartment = () => {
                     <Link to="/" className="flex items-center gap-2.5 text-white mb-5">
                         <HexLogo size={28} withWordmark />
                     </Link>
-                    <div className="flex gap-2">
-                        <div className="h-1 flex-1 rounded-full" style={{ background: ACCENT }} />
-                        <div className="h-1 flex-1 rounded-full" style={{ background: ACCENT }} />
-                        <div className="h-1 flex-1 rounded-full" style={{ background: ACCENT }} />
-                    </div>
+                    <OnboardingProgress step={3} total={3} />
                     <div className="flex items-center justify-between mt-4">
                         <Link
                             to="/onboarding/level"
@@ -117,37 +130,47 @@ const OnboardingDepartment = () => {
 
             <main className="flex-1 flex flex-col items-center justify-start px-6 pt-10 pb-32 w-full max-w-md mx-auto">
                 <div className="text-center mb-6">
-                    <h1
-                        style={{
-                            fontFamily: 'Outfit, sans-serif',
-                            fontWeight: 600,
-                            fontSize: 'clamp(32px, 5vw, 44px)',
-                            lineHeight: 1.05,
-                            letterSpacing: '-0.025em',
-                            marginBottom: 12,
-                        }}
-                    >
-                        What do you <span style={{ color: ACCENT }}>study</span>?
-                    </h1>
-                    <p style={{ color: SUBTEXT, fontSize: 16, lineHeight: 1.55 }}>
-                        Choose your department so we can tailor lessons and study groups.
-                    </p>
+                    <BlurFade delay={0.05} yOffset={12}>
+                        <h1
+                            style={{
+                                fontFamily: 'Outfit, sans-serif',
+                                fontWeight: 600,
+                                fontSize: 'clamp(32px, 5vw, 44px)',
+                                lineHeight: 1.05,
+                                letterSpacing: '-0.025em',
+                                marginBottom: 12,
+                            }}
+                        >
+                            What do you <span style={{ color: ACCENT }}>study</span>?
+                        </h1>
+                    </BlurFade>
+                    <BlurFade delay={0.15} yOffset={10}>
+                        <p style={{ color: SUBTEXT, fontSize: 16, lineHeight: 1.55 }}>
+                            Choose your department so we can tailor lessons and study groups.
+                        </p>
+                    </BlurFade>
                 </div>
 
                 {error && (
-                    <div
+                    <Motion.div
+                        role="alert"
+                        aria-atomic="true"
+                        initial={{ opacity: 0, y: -8, scale: 0.98 }}
+                        animate={{ opacity: 1, y: 0, scale: 1 }}
+                        transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
                         className="w-full mb-4 p-3.5 rounded-xl text-sm font-medium text-center"
                         style={{ background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.4)', color: 'rgb(252,165,165)', fontFamily: 'Inter, sans-serif' }}
                     >
                         {error}
-                    </div>
+                    </Motion.div>
                 )}
 
-                <div className="relative w-full mb-5">
+                <BlurFade delay={0.2} yOffset={10} className="relative w-full mb-5">
                     <span className="material-symbols-outlined absolute left-3.5 top-1/2 -translate-y-1/2 text-[18px]" style={{ color: SUBTEXT }}>
                         search
                     </span>
                     <input
+                        aria-label="Search departments"
                         style={{
                             width: '100%',
                             height: 48,
@@ -165,9 +188,9 @@ const OnboardingDepartment = () => {
                         value={searchQuery}
                         onChange={(e) => setSearchQuery(e.target.value)}
                     />
-                </div>
+                </BlurFade>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 w-full">
+                <BlurFade delay={0.28} yOffset={10} className="grid grid-cols-1 sm:grid-cols-2 gap-3 w-full">
                     {visibleDepartments.map((dept) => {
                         const isSelected = selectedDepts.includes(dept.value);
                         return (
@@ -196,7 +219,7 @@ const OnboardingDepartment = () => {
                             No departments found.
                         </p>
                     )}
-                </div>
+                </BlurFade>
             </main>
 
             <div
@@ -223,6 +246,7 @@ const OnboardingDepartment = () => {
                     </button>
                 </div>
             </div>
+            <WatermelonToaster position="bottom-center" />
         </div>
     );
 };

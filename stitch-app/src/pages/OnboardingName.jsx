@@ -1,9 +1,14 @@
 import React, { useEffect, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useMutation } from 'convex/react';
+import { motion as Motion } from 'motion/react';
 import { api } from '../../convex/_generated/api';
 import { useAuth } from '../contexts/AuthContext';
 import { HexLogo } from '../components/PublicShell';
+import { BlurFade } from '../components/magicui/BlurFade';
+import { OnboardingProgress } from '../components/onboarding/OnboardingProgress';
+import { WatermelonToaster } from '../components/watermelon/WatermelonSonner';
+import { watermelonToast } from '../components/watermelon/watermelonToast';
 
 const ACCENT = 'rgb(145, 75, 241)';
 const PAGE_BG = 'rgb(16, 17, 18)';
@@ -51,16 +56,28 @@ const OnboardingName = () => {
         setLoading(true);
         try {
             const { error, data } = await signUp(trimmedEmail, password, trimmedName);
-            if (error) setError(error.message);
-            else {
+            if (error) {
+                setError(error.message);
+                watermelonToast(error.message, { type: 'error' });
+            } else {
                 if (referralCode) {
                     const newUserId = data?.user?.id ?? data?.id;
                     if (newUserId) setReferredBy({ userId: newUserId, referralCode }).catch(() => {});
                 }
-                navigate('/dashboard');
+                navigate('/dashboard', {
+                    replace: true,
+                    state: {
+                        watermelonToast: {
+                            message: `Welcome, ${trimmedName.split(' ')[0]}!`,
+                            type: 'success',
+                        },
+                    },
+                });
             }
         } catch {
-            setError('An unexpected error occurred');
+            const fallback = 'An unexpected error occurred';
+            setError(fallback);
+            watermelonToast(fallback, { type: 'error' });
         } finally {
             setLoading(false);
         }
@@ -96,11 +113,7 @@ const OnboardingName = () => {
                     <Link to="/" className="flex items-center gap-2.5 text-white mb-5">
                         <HexLogo size={28} withWordmark />
                     </Link>
-                    <div className="flex gap-2">
-                        <div className="h-1 flex-1 rounded-full" style={{ background: ACCENT }} />
-                        <div className="h-1 flex-1 rounded-full" style={{ background: 'rgba(255,255,255,0.1)' }} />
-                        <div className="h-1 flex-1 rounded-full" style={{ background: 'rgba(255,255,255,0.1)' }} />
-                    </div>
+                    <OnboardingProgress step={1} total={3} />
                     <div className="flex items-center justify-between mt-4">
                         <Link
                             to="/signup"
@@ -122,43 +135,54 @@ const OnboardingName = () => {
                     onSubmit={handleSubmit}
                     className="w-full max-w-md"
                 >
-                    <h1
-                        style={{
-                            fontFamily: 'Outfit, sans-serif',
-                            fontWeight: 600,
-                            fontSize: 'clamp(32px, 5vw, 44px)',
-                            lineHeight: 1.05,
-                            letterSpacing: '-0.025em',
-                            marginBottom: 12,
-                        }}
-                    >
-                        Create your <span style={{ color: ACCENT }}>account</span>
-                    </h1>
-                    <p style={{ color: SUBTEXT, fontSize: 16, lineHeight: 1.55, marginBottom: 32 }}>
-                        Tell us a bit about yourself to get started.
-                    </p>
+                    <BlurFade delay={0.05} yOffset={12}>
+                        <h1
+                            style={{
+                                fontFamily: 'Outfit, sans-serif',
+                                fontWeight: 600,
+                                fontSize: 'clamp(32px, 5vw, 44px)',
+                                lineHeight: 1.05,
+                                letterSpacing: '-0.025em',
+                                marginBottom: 12,
+                            }}
+                        >
+                            Create your <span style={{ color: ACCENT }}>account</span>
+                        </h1>
+                    </BlurFade>
+                    <BlurFade delay={0.15} yOffset={10}>
+                        <p style={{ color: SUBTEXT, fontSize: 16, lineHeight: 1.55, marginBottom: 32 }}>
+                            Tell us a bit about yourself to get started.
+                        </p>
+                    </BlurFade>
 
                     {referralCode && (
-                        <div
-                            className="mb-6 p-3.5 rounded-xl text-sm font-medium flex items-center gap-2.5"
-                            style={{ background: 'rgba(145,75,241,0.1)', border: `1px solid ${ACCENT}66`, color: ACCENT, fontFamily: 'Inter, sans-serif' }}
-                        >
-                            <span className="material-symbols-outlined text-[18px]">redeem</span>
-                            You were referred! Sign up and upload to earn a free credit.
-                        </div>
+                        <BlurFade delay={0.2} yOffset={8}>
+                            <div
+                                className="mb-6 p-3.5 rounded-xl text-sm font-medium flex items-center gap-2.5"
+                                style={{ background: 'rgba(145,75,241,0.1)', border: `1px solid ${ACCENT}66`, color: ACCENT, fontFamily: 'Inter, sans-serif' }}
+                            >
+                                <span className="material-symbols-outlined text-[18px]">redeem</span>
+                                You were referred! Sign up and upload to earn a free credit.
+                            </div>
+                        </BlurFade>
                     )}
 
                     {error && (
-                        <div
+                        <Motion.div
+                            role="alert"
+                            aria-atomic="true"
+                            initial={{ opacity: 0, y: -8, scale: 0.98 }}
+                            animate={{ opacity: 1, y: 0, scale: 1 }}
+                            transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
                             className="mb-6 p-3.5 rounded-xl text-sm font-medium flex items-center gap-2.5"
                             style={{ background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.4)', color: 'rgb(252,165,165)', fontFamily: 'Inter, sans-serif' }}
                         >
                             <span className="material-symbols-outlined text-[18px]">error</span>
                             {error}
-                        </div>
+                        </Motion.div>
                     )}
 
-                    <div className="space-y-5">
+                    <BlurFade delay={0.25} yOffset={10} className="space-y-5">
                         {/* Name */}
                         <div className="space-y-2">
                             <label className="text-sm font-semibold text-white" style={{ fontFamily: 'Inter, sans-serif' }}>
@@ -222,14 +246,16 @@ const OnboardingName = () => {
                                 </p>
                             )}
                         </div>
-                    </div>
+                    </BlurFade>
 
-                    <p className="mt-6 text-center text-sm" style={{ color: SUBTEXT, fontFamily: 'Inter, sans-serif' }}>
-                        Already have an account?{' '}
-                        <Link to="/login" className="font-semibold hover:underline" style={{ color: ACCENT }}>
-                            Sign in
-                        </Link>
-                    </p>
+                    <BlurFade delay={0.35} yOffset={6}>
+                        <p className="mt-6 text-center text-sm" style={{ color: SUBTEXT, fontFamily: 'Inter, sans-serif' }}>
+                            Already have an account?{' '}
+                            <Link to="/login" className="font-semibold hover:underline" style={{ color: ACCENT }}>
+                                Sign in
+                            </Link>
+                        </p>
+                    </BlurFade>
                 </form>
             </main>
 
@@ -265,6 +291,7 @@ const OnboardingName = () => {
                     </button>
                 </div>
             </div>
+            <WatermelonToaster position="bottom-center" />
         </div>
     );
 };
