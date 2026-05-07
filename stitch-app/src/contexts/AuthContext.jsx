@@ -637,13 +637,14 @@ const AuthProviderConvex = ({ children }) => {
             setLastKnownUser(null);
             return { error: null };
         } catch (error) {
+            const transient = isTransientSessionError(error);
             captureAuthFailure({
                 error,
                 operation: 'sign_out',
                 extras: {
                     phase: 'exception',
                 },
-                level: 'error',
+                level: transient ? 'warning' : 'error',
             });
             return { error };
         }
