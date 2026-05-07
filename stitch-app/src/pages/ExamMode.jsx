@@ -11,6 +11,7 @@ import { useRouteResolvedTopic } from '../hooks/useRouteResolvedTopic';
 import { addSentryBreadcrumb, captureSentryException, captureSentryMessage } from '../lib/sentry';
 import ExamQuestionCard from '../components/ExamQuestionCard';
 import ExamPreparationLoader from '../components/ExamPreparationLoader';
+import { WatermelonTabs, WatermelonTabsList, WatermelonTabsTrigger } from '../components/watermelon/WatermelonTabs';
 import { convexUrl } from '../lib/convex-config';
 
 // ── Pure option-parsing helpers (hoisted out of the component) ──
@@ -1329,28 +1330,28 @@ const ExamMode = () => {
                             <span className="text-body-sm text-text-sub-light dark:text-text-sub-dark">Question Navigator</span>
                             <span className="text-caption text-text-faint-light dark:text-text-faint-dark">{answeredQuestionCount} of {questions.length} answered</span>
                         </div>
-                        <div className="grid grid-cols-8 gap-1.5">
-                            {questions.map((q, index) => {
-                                const isAnswered = examFormat === 'essay'
-                                    ? String(selectedAnswers[q._id] ?? '').trim().length >= MIN_ESSAY_SUBMIT_CHAR_COUNT
-                                    : Boolean(selectedAnswers[q._id]);
-                                const isCurrent = index === currentQuestion;
-                                return (
-                                    <button
-                                        key={q._id}
-                                        onClick={() => setCurrentQuestion(index)}
-                                        className={`aspect-square rounded-lg font-semibold text-caption flex items-center justify-center transition-all ${isCurrent
-                                            ? 'bg-primary text-white'
-                                            : isAnswered
-                                                ? 'bg-surface-hover-light dark:bg-surface-hover-dark text-text-sub-light dark:text-text-sub-dark'
-                                                : 'border border-border-light dark:border-border-dark text-text-faint-light dark:text-text-faint-dark'
-                                            }`}
-                                    >
-                                        {index + 1}
-                                    </button>
-                                );
-                            })}
-                        </div>
+                        <WatermelonTabs
+                            defaultValue={String(currentQuestion)}
+                            value={String(currentQuestion)}
+                            onValueChange={(v) => setCurrentQuestion(Number(v))}
+                        >
+                            <WatermelonTabsList className="flex-wrap gap-1">
+                                {questions.map((q, index) => {
+                                    const isAnswered = examFormat === 'essay'
+                                        ? String(selectedAnswers[q._id] ?? '').trim().length >= MIN_ESSAY_SUBMIT_CHAR_COUNT
+                                        : Boolean(selectedAnswers[q._id]);
+                                    return (
+                                        <WatermelonTabsTrigger
+                                            key={q._id}
+                                            value={String(index)}
+                                            className={`w-9 h-9 !flex-none !px-0 !py-0 text-center ${isAnswered ? '!text-emerald-600 dark:!text-emerald-400' : ''}`}
+                                        >
+                                            {index + 1}
+                                        </WatermelonTabsTrigger>
+                                    );
+                                })}
+                            </WatermelonTabsList>
+                        </WatermelonTabs>
                     </div>
                 </div>
 
@@ -1419,31 +1420,31 @@ const ExamMode = () => {
                         </div>
                     </div>
 
-                    {/* Question Grid */}
+                    {/* Question Navigation Tabs */}
                     <div className="mb-5">
                         <span className="text-overline text-text-faint-light dark:text-text-faint-dark block mb-3">Questions</span>
-                        <div className="grid grid-cols-5 gap-1.5">
-                            {questions.map((q, index) => {
-                                const isAnswered = examFormat === 'essay'
-                                    ? String(selectedAnswers[q._id] ?? '').trim().length >= MIN_ESSAY_SUBMIT_CHAR_COUNT
-                                    : Boolean(selectedAnswers[q._id]);
-                                const isCurrent = index === currentQuestion;
-                                return (
-                                    <button
-                                        key={q._id}
-                                        onClick={() => setCurrentQuestion(index)}
-                                        className={`aspect-square rounded-lg font-semibold text-caption flex items-center justify-center transition-all ${isCurrent
-                                            ? 'bg-primary text-white'
-                                            : isAnswered
-                                                ? 'bg-surface-hover-light dark:bg-surface-hover-dark text-text-sub-light dark:text-text-sub-dark'
-                                                : 'border border-border-light dark:border-border-dark text-text-faint-light dark:text-text-faint-dark hover:border-text-faint-light'
-                                            }`}
-                                    >
-                                        {index + 1}
-                                    </button>
-                                );
-                            })}
-                        </div>
+                        <WatermelonTabs
+                            defaultValue={String(currentQuestion)}
+                            value={String(currentQuestion)}
+                            onValueChange={(v) => setCurrentQuestion(Number(v))}
+                        >
+                            <WatermelonTabsList className="flex-wrap gap-1">
+                                {questions.map((q, index) => {
+                                    const isAnswered = examFormat === 'essay'
+                                        ? String(selectedAnswers[q._id] ?? '').trim().length >= MIN_ESSAY_SUBMIT_CHAR_COUNT
+                                        : Boolean(selectedAnswers[q._id]);
+                                    return (
+                                        <WatermelonTabsTrigger
+                                            key={q._id}
+                                            value={String(index)}
+                                            className={`w-9 h-9 !flex-none !px-0 !py-0 text-center ${isAnswered ? '!text-emerald-600 dark:!text-emerald-400' : ''}`}
+                                        >
+                                            {index + 1}
+                                        </WatermelonTabsTrigger>
+                                    );
+                                })}
+                            </WatermelonTabsList>
+                        </WatermelonTabs>
                     </div>
                 </div>
 
