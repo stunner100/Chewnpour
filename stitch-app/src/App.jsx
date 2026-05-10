@@ -63,9 +63,10 @@ const isLazyRouteTimeoutError = (error) =>
 const resolveLazyRouteModule = (mod, { componentName, namedExport } = {}) => {
   if (mod?.default) return mod;
 
-  const exportCandidates = [namedExport, componentName]
-    .filter(Boolean)
-    .filter((candidate, index, array) => array.indexOf(candidate) === index);
+  const exportCandidates = [];
+  for (const candidate of [namedExport, componentName]) {
+    if (candidate && !exportCandidates.includes(candidate)) exportCandidates.push(candidate);
+  }
 
   for (const candidate of exportCandidates) {
     if (mod?.[candidate]) {
@@ -272,7 +273,7 @@ const RouteLoader = () => (
   <div className="bg-background-light dark:bg-background-dark min-h-screen flex items-center justify-center">
     <div className="flex flex-col items-center gap-4">
       <div className="animate-spin rounded-full size-12 border-t-2 border-b-2 border-primary"></div>
-      <p className="text-text-faint-light dark:text-text-faint-dark text-body-sm font-medium">Loading...</p>
+      <p className="text-text-faint-light dark:text-text-faint-dark text-body-sm font-medium">Loading…</p>
     </div>
   </div>
 );

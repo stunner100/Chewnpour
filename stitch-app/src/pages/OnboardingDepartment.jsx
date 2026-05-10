@@ -12,7 +12,6 @@ const ACCENT = 'rgb(145, 75, 241)';
 const PAGE_BG = 'rgb(16, 17, 18)';
 const CARD_BG = 'rgb(39, 40, 41)';
 const SUBTEXT = 'rgb(163, 163, 163)';
-const INPUT_BG = 'rgb(28, 29, 30)';
 
 const departments = [
     { value: 'cs', label: 'Computer Science', icon: 'terminal' },
@@ -171,18 +170,7 @@ const OnboardingDepartment = () => {
                     </span>
                     <input
                         aria-label="Search departments"
-                        style={{
-                            width: '100%',
-                            height: 48,
-                            padding: '0 16px 0 40px',
-                            borderRadius: 12,
-                            background: INPUT_BG,
-                            border: '1px solid rgba(255,255,255,0.1)',
-                            color: '#fff',
-                            fontSize: 14,
-                            fontFamily: 'Inter, sans-serif',
-                            outline: 'none',
-                        }}
+                        className="h-12 w-full rounded-xl border border-white/10 bg-[rgb(28,29,30)] px-4 pl-10 text-sm text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/70"
                         placeholder="Search departments…"
                         type="text"
                         value={searchQuery}

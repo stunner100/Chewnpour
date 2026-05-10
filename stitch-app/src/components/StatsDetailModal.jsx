@@ -1,4 +1,4 @@
-import React, { useRef, useState, useEffect, useCallback } from 'react';
+import React, { useRef, useState, useEffect, useCallback, useEffectEvent } from 'react';
 import { useQuery } from 'convex/react';
 import { api } from '../../convex/_generated/api';
 
@@ -30,6 +30,10 @@ const StatsDetailModal = ({ isOpen, onClose, type, userId }) => {
         currentTranslateY.current = 0;
         onClose();
     }, [onClose]);
+
+    const closeOnEscape = useEffectEvent(() => {
+        if (isOpen) closeModal();
+    });
     
     // Always call hooks first - pass 'skip' when modal is closed or no userId
     const shouldFetchCourses = isOpen && userId && type === 'courses';
@@ -117,14 +121,12 @@ const StatsDetailModal = ({ isOpen, onClose, type, userId }) => {
     // Add keyboard escape handler
     useEffect(() => {
         const handleKeyDown = (e) => {
-            if (e.key === 'Escape' && isOpen) {
-                closeModal();
-            }
+            if (e.key === 'Escape') closeOnEscape();
         };
         
         window.addEventListener('keydown', handleKeyDown);
         return () => window.removeEventListener('keydown', handleKeyDown);
-    }, [closeModal, isOpen]);
+    }, []);
 
     // Return null after all hooks are called
     if (!isOpen || !userId) return null;
@@ -134,36 +136,33 @@ const StatsDetailModal = ({ isOpen, onClose, type, userId }) => {
         closeModal();
     };
 
-    const renderContent = () => {
-        switch (type) {
-            case 'topics':
-                return <TopicsContent examAttempts={examAttempts} />;
-            case 'accuracy':
-                return <AccuracyContent examAttempts={examAttempts} />;
-            case 'courses':
-                return <CoursesContent courses={courses} />;
-            case 'hours':
-                return <HoursContent profile={profile} />;
-            default:
-                return null;
-        }
-    };
+    const content = type === 'topics'
+        ? <TopicsContent examAttempts={examAttempts} />
+        : type === 'accuracy'
+            ? <AccuracyContent examAttempts={examAttempts} />
+            : type === 'courses'
+                ? <CoursesContent courses={courses} />
+                : type === 'hours'
+                    ? <HoursContent profile={profile} />
+                    : null;
 
-    const getTitle = () => {
-        switch (type) {
-            case 'topics': return 'Completed Topics';
-            case 'accuracy': return 'Accuracy Breakdown';
-            case 'courses': return 'Your Courses';
-            case 'hours': return 'Study Time';
-            default: return '';
-        }
-    };
+    const title = type === 'topics'
+        ? 'Completed Topics'
+        : type === 'accuracy'
+            ? 'Accuracy Breakdown'
+            : type === 'courses'
+                ? 'Your Courses'
+                : type === 'hours'
+                    ? 'Study Time'
+                    : '';
 
     return (
         <div className="fixed inset-0 z-50 flex items-end md:items-center justify-center">
             {/* Backdrop */}
-            <div 
-                className="modal-backdrop absolute inset-0 bg-black/50 backdrop-blur-sm transition-opacity"
+            <button
+                type="button"
+                aria-label="Close stat details"
+                className="modal-backdrop absolute inset-0 border-0 bg-black/50 p-0 backdrop-blur-sm transition-opacity"
                 onClick={handleCloseClick}
                 onTouchStart={handleTouchStart}
                 onTouchMove={handleTouchMove}
@@ -197,7 +196,7 @@ const StatsDetailModal = ({ isOpen, onClose, type, userId }) => {
                     onTouchMove={handleTouchMove}
                     onTouchEnd={handleTouchEnd}
                 >
-                    <h2 className="text-lg font-semibold text-zinc-900 dark:text-white">{getTitle()}</h2>
+                    <h2 className="text-lg font-semibold text-zinc-900 dark:text-white">{title}</h2>
                     <button 
                         onClick={handleCloseClick}
                         className="size-10 rounded-full flex items-center justify-center hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors active:scale-95"
@@ -212,7 +211,7 @@ const StatsDetailModal = ({ isOpen, onClose, type, userId }) => {
                     style={{ overscrollBehavior: 'contain' }}
                     onTouchStart={handleContentTouch}
                 >
-                    {renderContent()}
+                    {content}
                 </div>
             </div>
         </div>
@@ -255,7 +254,6 @@ const TopicsContent = ({ examAttempts }) => {
                 <div 
                     key={topic.topicId} 
                     className="flex items-center gap-4 p-4 bg-zinc-50 dark:bg-zinc-800/50 rounded-2xl active:scale-[0.98] transition-transform"
-                    onClick={() => triggerHaptic('light')}
                 >
                     <div className="size-10 rounded-xl bg-gradient-to-br from-blue-500 to-primary-600 text-white flex items-center justify-center font-bold">
                         {index + 1}
@@ -333,7 +331,6 @@ const AccuracyContent = ({ examAttempts }) => {
                         <div 
                             key={topic.topicId} 
                             className="p-4 bg-zinc-50 dark:bg-zinc-800/50 rounded-2xl active:scale-[0.98] transition-transform"
-                            onClick={() => triggerHaptic('light')}
                         >
                             <div className="flex items-center justify-between mb-2">
                                 <p className="font-bold text-zinc-900 dark:text-white truncate flex-1 mr-4">
@@ -382,7 +379,6 @@ const CoursesContent = ({ courses }) => {
                 <div 
                     key={course._id} 
                     className="flex items-center gap-4 p-4 bg-zinc-50 dark:bg-zinc-800/50 rounded-2xl active:scale-[0.98] transition-transform"
-                    onClick={() => triggerHaptic('light')}
                 >
                     <div 
                         className="size-12 rounded-xl flex items-center justify-center text-white"
@@ -447,7 +443,6 @@ const HoursContent = ({ profile }) => {
                     <div 
                         key={stat.label}
                         className="p-4 bg-zinc-50 dark:bg-zinc-800/50 rounded-2xl text-center active:scale-[0.98] transition-transform"
-                        onClick={() => triggerHaptic('light')}
                     >
                         <div className={`size-10 ${stat.color} rounded-xl flex items-center justify-center text-white mx-auto mb-2`}>
                             <span className="material-symbols-outlined filled">{stat.icon}</span>
@@ -475,8 +470,8 @@ const HoursContent = ({ profile }) => {
 // Loading State
 const LoadingState = () => (
     <div className="space-y-4 animate-pulse">
-        {[1, 2, 3].map((i) => (
-            <div key={i} className="flex items-center gap-4 p-4">
+        {[1, 2, 3].map((slot) => (
+            <div key={`loading-${slot}`} className="flex items-center gap-4 p-4">
                 <div className="size-12 bg-zinc-200 dark:bg-zinc-700 rounded-xl"></div>
                 <div className="flex-1 space-y-2">
                     <div className="h-4 bg-zinc-200 dark:bg-zinc-700 rounded w-3/4"></div>

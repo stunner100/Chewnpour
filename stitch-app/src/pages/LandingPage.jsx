@@ -68,7 +68,7 @@ const TRANSFORM_CARDS = [
         title: 'Witness the Future',
     },
     {
-        body: 'Step beyond cramming. ChewnPour reorganises material the way working memory actually absorbs it — with practice and recall built in from day one.',
+        body: 'Step beyond cramming. ChewnPour reorganises material the way working memory actually absorbs it, with practice and recall built in from day one.',
         title: 'Visualize the Impossible',
     },
     {
@@ -91,12 +91,12 @@ const TESTIMONIALS = [
 ];
 
 const FAQS = [
-    { q: 'How does the AI generate lessons?', a: 'Our model reads your uploads the way a tutor would — extracting key concepts, definitions, and worked examples — then rewrites them as a structured lesson with quizzes built in.' },
+    { q: 'How does the AI generate lessons?', a: 'Our model reads your uploads the way a tutor would, extracting key concepts, definitions, and worked examples, then rewrites them as a structured lesson with quizzes built in.' },
     { q: 'Can I customize the AI-generated lessons?', a: 'Yes. You can re-explain, change tone, dive deeper into any section, or generate quizzes focused on a specific subtopic.' },
     { q: 'What support options are available?', a: 'Reach us on Telegram or email and a real human will get back to you. We are students-turned-builders and we read every message.' },
     { q: 'Is there a free trial available?', a: 'You get 3 free uploads with full access to AI lessons, quizzes, the AI tutor, and progress tracking before deciding to upgrade.' },
     { q: 'How secure is my data?', a: 'Your uploads are stored securely and only used to generate your own lessons. We never sell your data or use it to train public models.' },
-    { q: 'What integrations are available?', a: 'ChewnPour works with PDFs, slide decks, scanned notes, and group-chat exports — wherever your study material lives, we meet it there.' },
+    { q: 'What integrations are available?', a: 'ChewnPour works with PDFs, slide decks, scanned notes, and group-chat exports, wherever your study material lives, we meet it there.' },
 ];
 
 const BLOG_POSTS = [
@@ -104,36 +104,36 @@ const BLOG_POSTS = [
         date: 'Apr 22, 2026',
         read: '6 min read',
         title: 'How to revise a 200-page lecture deck in one evening',
-        excerpt: 'A practical playbook for turning a giant slide pack into a focused study session — what to skim, what to memorise, and how ChewnPour shortens the loop.',
+        excerpt: 'A practical playbook for turning a giant slide pack into a focused study session, what to skim, what to memorise, and how ChewnPour shortens the loop.',
         tone: 'rgb(180, 130, 255)',
         author: 'The ChewnPour Team',
         body: [
             { type: 'p', text: 'Every semester ends the same way. Three weeks of warning, two weeks of half-trying, and one panicked evening with a 200-page slide deck and a single highlighter. The good news is that the problem is rarely the volume. It is the order in which you tackle it.' },
-            { type: 'h2', text: 'Step 1 — Triage before you read' },
+            { type: 'h2', text: 'Step 1, Triage before you read' },
             { type: 'p', text: 'Open the deck and skim every single slide for thirty seconds. You are not reading; you are mapping. Mark the slides that have diagrams, definitions, or anything your lecturer described as "important" in class. That is your real syllabus. Everything else is supporting prose.' },
-            { type: 'h2', text: 'Step 2 — Convert, do not transcribe' },
-            { type: 'p', text: 'Drop the deck into ChewnPour and let it produce a structured lesson. The point is not to replace reading — it is to give you a clean spine: definitions on top, mechanisms in the middle, worked examples at the bottom. From there you decide what needs deeper attention.' },
-            { type: 'h2', text: 'Step 3 — Quiz yourself before you feel ready' },
-            { type: 'p', text: 'This is the step everyone skips. Generate a short quiz on the first third of the material before you finish reading the rest. The questions you get wrong tell you what to focus on for the next two hours. Re-reading without testing is the slowest way to learn — your brain rewards retrieval, not recognition.' },
-            { type: 'h2', text: 'Step 4 — Sleep, then recall' },
+            { type: 'h2', text: 'Step 2, Convert, do not transcribe' },
+            { type: 'p', text: 'Drop the deck into ChewnPour and let it produce a structured lesson. The point is not to replace reading, it is to give you a clean spine: definitions on top, mechanisms in the middle, worked examples at the bottom. From there you decide what needs deeper attention.' },
+            { type: 'h2', text: 'Step 3, Quiz yourself before you feel ready' },
+            { type: 'p', text: 'This is the step everyone skips. Generate a short quiz on the first third of the material before you finish reading the rest. The questions you get wrong tell you what to focus on for the next two hours. Re-reading without testing is the slowest way to learn, your brain rewards retrieval, not recognition.' },
+            { type: 'h2', text: 'Step 4, Sleep, then recall' },
             { type: 'p', text: 'If you have any time at all the next morning, do one final pass: cover the lesson, write down everything you remember, then check. Twenty minutes of recall beats two hours of re-reading. Walk into the exam knowing what you know.' },
         ],
     },
     {
         date: 'Apr 8, 2026',
         read: '5 min read',
-        title: 'Listen, do not just read — why podcast revision actually works',
+        title: 'Listen, do not just read, why podcast revision actually works',
         excerpt: 'The science behind audio learning and how converting your slides into a two-speaker podcast helps concepts stick on the bus, at the gym, or between lectures.',
         tone: 'rgb(145, 75, 241)',
         author: 'The ChewnPour Team',
         body: [
-            { type: 'p', text: 'Most students think learning has to happen at a desk with a textbook. That assumption is the single biggest reason revision feels miserable. The truth is that your brain is happy to absorb structured material from your ears — sometimes more so than from your eyes.' },
+            { type: 'p', text: 'Most students think learning has to happen at a desk with a textbook. That assumption is the single biggest reason revision feels miserable. The truth is that your brain is happy to absorb structured material from your ears, sometimes more so than from your eyes.' },
             { type: 'h2', text: 'Why audio sticks' },
-            { type: 'p', text: 'When you read a paragraph, your eyes move ahead of your understanding. When you listen, the pace is set for you, and your brain has to follow in real time. That gentle constraint forces deeper processing. It is the same reason a good lecturer can make a hard concept feel obvious — pace, tone, and the rhythm of explanation matter.' },
+            { type: 'p', text: 'When you read a paragraph, your eyes move ahead of your understanding. When you listen, the pace is set for you, and your brain has to follow in real time. That gentle constraint forces deeper processing. It is the same reason a good lecturer can make a hard concept feel obvious, pace, tone, and the rhythm of explanation matter.' },
             { type: 'h2', text: 'Why two speakers beat one' },
             { type: 'p', text: 'A monologue is fine. A dialogue is better. When a tutor explains a concept and a student asks a clarifying question right after, you get both the answer and the misunderstanding modelled for you. ChewnPour generates podcasts in this two-speaker format on purpose: you hear the question you would have asked, and the answer lands harder.' },
             { type: 'h2', text: 'How to actually use it' },
-            { type: 'p', text: 'Generate the podcast the night before. Listen on the bus to campus, while cooking, between lectures, on your evening walk. Aim for two passes per topic — the first is exposure, the second is recall. By the time you sit down to revise properly, the structure is already in your head.' },
+            { type: 'p', text: 'Generate the podcast the night before. Listen on the bus to campus, while cooking, between lectures, on your evening walk. Aim for two passes per topic, the first is exposure, the second is recall. By the time you sit down to revise properly, the structure is already in your head.' },
             { type: 'h2', text: 'A note on attention' },
             { type: 'p', text: 'Audio works when you are doing something low-stakes with your hands. It does not work when you are scrolling, replying to messages, or driving in heavy traffic. Pair it with movement, not multitasking.' },
         ],
@@ -148,15 +148,15 @@ const BLOG_POSTS = [
         body: [
             { type: 'p', text: 'Walk into any library on a Sunday evening and you will see the same scene: students underlining their notes, copying definitions into fresh notebooks, re-reading chapters they already half-know. It looks like work. It feels like work. It is barely work at all.' },
             { type: 'h2', text: 'The problem with re-reading' },
-            { type: 'p', text: 'When you re-read familiar material, your brain confuses fluency with mastery. The words look familiar, so you assume you understand them. Then the exam asks you to apply a concept you have only ever seen, never used, and the recall is not there. Active recall — pulling information out of your head instead of letting your eyes pass over it — is the cure.' },
+            { type: 'p', text: 'When you re-read familiar material, your brain confuses fluency with mastery. The words look familiar, so you assume you understand them. Then the exam asks you to apply a concept you have only ever seen, never used, and the recall is not there. Active recall, pulling information out of your head instead of letting your eyes pass over it, is the cure.' },
             { type: 'h2', text: 'Build your own question bank' },
-            { type: 'p', text: 'After every lecture, write five questions about what was taught. Not summaries — questions. The harder you make them, the more you learn. Tomorrow morning, answer them from memory. Next week, answer them again. The questions you keep getting wrong are your real syllabus.' },
+            { type: 'p', text: 'After every lecture, write five questions about what was taught. Not summaries, questions. The harder you make them, the more you learn. Tomorrow morning, answer them from memory. Next week, answer them again. The questions you keep getting wrong are your real syllabus.' },
             { type: 'h2', text: 'Mirror the format' },
-            { type: 'p', text: 'University exams have patterns. UG essays reward structured arguments with cited examples. KNUST engineering papers reward clean derivations with units. UCC nursing exams reward clinical scenarios with prioritisation. Whatever your course, your practice questions should mirror the format of the real thing — same length, same depth, same vibe.' },
+            { type: 'p', text: 'University exams have patterns. UG essays reward structured arguments with cited examples. KNUST engineering papers reward clean derivations with units. UCC nursing exams reward clinical scenarios with prioritisation. Whatever your course, your practice questions should mirror the format of the real thing, same length, same depth, same vibe.' },
             { type: 'h2', text: 'Use AI to scale, not replace' },
-            { type: 'p', text: 'ChewnPour can generate hundreds of practice questions from your slides in seconds. The leverage is not in the volume — it is in the variation. Different angles on the same concept reveal where your understanding is shallow. Treat the AI as a sparring partner, not a tutor: it asks, you answer, you learn what you actually know.' },
+            { type: 'p', text: 'ChewnPour can generate hundreds of practice questions from your slides in seconds. The leverage is not in the volume, it is in the variation. Different angles on the same concept reveal where your understanding is shallow. Treat the AI as a sparring partner, not a tutor: it asks, you answer, you learn what you actually know.' },
             { type: 'h2', text: 'Sleep is part of the protocol' },
-            { type: 'p', text: 'Recall consolidates during sleep. A short session before bed and a short session in the morning will outperform a single long session every time. This is not a productivity hack — it is how human memory works.' },
+            { type: 'p', text: 'Recall consolidates during sleep. A short session before bed and a short session in the morning will outperform a single long session every time. This is not a productivity hack, it is how human memory works.' },
         ],
     },
 ];
@@ -179,7 +179,7 @@ const HexLogo = ({ size = 28 }) => (
     </span>
 );
 
-// Hero visual — uses the rendered photo at /chewnpour/hero.png (study desk with laptop +
+// Hero visual, uses the rendered photo at /chewnpour/hero.png (study desk with laptop +
 // floating notes lit in violet) instead of the SVG swirl.
 const PurpleSwirl = ({ className = '' }) => (
     <img
@@ -503,7 +503,7 @@ const LandingPage = () => {
                 .marquee-right { animation: marqueeRight 35s linear infinite; }
                 .marquee-left { animation: marqueeLeft 35s linear infinite; }
 
-                /* Hero card — exact NajmAI dimensions */
+                /* Hero card, exact NajmAI dimensions */
                 .hero-section {
                     display: flex;
                     justify-content: center;
@@ -534,7 +534,7 @@ const LandingPage = () => {
                     justify-content: flex-end;
                     overflow: hidden;
                 }
-                /* Hero / CTA photo — contain so nothing crops, then feather the edges
+                /* Hero / CTA photo, contain so nothing crops, then feather the edges
                    into the dark card background with a radial mask so it reads as if
                    the violet glow seamlessly bleeds out of the card itself. */
                 .hero-swirl,
@@ -550,7 +550,7 @@ const LandingPage = () => {
                 .hero-visual,
                 .cta-visual { overflow: visible; }
 
-                /* Transforming Study cards — exact NajmAI grid */
+                /* Transforming Study cards, exact NajmAI grid */
                 .transform-grid {
                     display: grid;
                     grid-template-columns: repeat(5, 1fr);
@@ -574,7 +574,7 @@ const LandingPage = () => {
                     .transform-card { grid-column: span 1 !important; height: 280px; }
                 }
 
-                /* Arrow circle states — invert on hover for non-highlight cards,
+                /* Arrow circle states, invert on hover for non-highlight cards,
                    stay white-with-purple-arrow always for highlight cards */
                 .arrow-pill { background: ${ACCENT}; }
                 .arrow-pill .arrow-icon { color: #fff; }
@@ -587,7 +587,7 @@ const LandingPage = () => {
                 .transform-card { transition: transform 400ms cubic-bezier(0.16, 1, 0.3, 1); }
                 .transform-card:hover { transform: translateY(-4px); }
 
-                /* Testimonial carousel — auto-scrolling marquee, pauses on hover */
+                /* Testimonial carousel, auto-scrolling marquee, pauses on hover */
                 @keyframes testimonialScroll {
                     from { transform: translateX(0); }
                     to { transform: translateX(-50%); }
@@ -735,7 +735,7 @@ const LandingPage = () => {
                                 </h1>
                                 <p className="hero-sub" style={{ color: SUBTEXT, fontFamily: 'Outfit, sans-serif', lineHeight: 1.55 }}>
                                     Unlock your learning potential. Seamlessly turn slides and PDFs into structured lessons,
-                                    quizzes, and an always-on tutor — built for African students.
+                                    quizzes, and an always-on tutor, built for African students.
                                 </p>
                                 <div className="mt-7 flex flex-wrap items-center gap-3">
                                     <Link
@@ -833,7 +833,7 @@ const LandingPage = () => {
                     </h2>
                     <p className="mt-5 max-w-[760px]" style={{ color: SUBTEXT, fontSize: 16, lineHeight: 1.55 }}>
                         Unlock the full potential of your study time with ChewnPour. Explore new dimensions of
-                        revision — from focused lessons to timeless craftsmanship — and witness how AI can turn
+                        revision, from focused lessons to timeless craftsmanship, and witness how AI can turn
                         your hardest courses into mastered material.
                     </p>
                     <div className="transform-grid mt-10">
@@ -876,19 +876,7 @@ const LandingPage = () => {
                                             </span>
                                         </span>
                                     </div>
-                                    <h4
-                                        className="relative z-[1] text-white"
-                                        style={{
-                                            fontFamily: 'Outfit, sans-serif',
-                                            fontWeight: 500,
-                                            fontSize: 28,
-                                            lineHeight: '33.6px',
-                                            position: 'absolute',
-                                            left: 20,
-                                            right: 20,
-                                            bottom: 20,
-                                        }}
-                                    >
+                                    <h4 className="absolute inset-x-5 bottom-5 z-[1] text-[28px] font-medium leading-[33.6px] text-white [font-family:Outfit,sans-serif]">
                                         {card.title}
                                     </h4>
                                 </a>
@@ -979,7 +967,7 @@ const LandingPage = () => {
                     </h2>
                     <p className="mt-5 max-w-[680px]" style={{ color: SUBTEXT, fontSize: 16, lineHeight: 1.55 }}>
                         ChewnPour offers seamless integration with the materials and tools you already use, so your
-                        existing study workflow keeps moving — just smarter.
+                        existing study workflow keeps moving, just smarter.
                     </p>
 
                     <div className="mt-10 grain rounded-[16px] p-8 grid grid-cols-1 lg:grid-cols-[1fr_1.4fr] gap-10 items-center" style={{ background: CARD_BG }}>
@@ -989,7 +977,7 @@ const LandingPage = () => {
                                 <span style={{ color: ACCENT }}>study stack</span>
                             </h3>
                             <p className="mt-4 max-w-[360px]" style={{ color: SUBTEXT, fontSize: 15, lineHeight: 1.55 }}>
-                                Works with the materials and tools you already use — slides, PDFs, scanned notes, and group chats.
+                                Works with the materials and tools you already use, slides, PDFs, scanned notes, and group chats.
                             </p>
                         </div>
                         <div className="grid grid-cols-3 gap-y-6 gap-x-6 place-items-center">
@@ -1148,7 +1136,7 @@ const LandingPage = () => {
                                     <span style={{ color: ACCENT }}>Journey</span> Today
                                 </h2>
                                 <p className="mt-5 max-w-[480px]" style={{ color: SUBTEXT, fontSize: 16, lineHeight: 1.55 }}>
-                                    Sign up now and experience the power of AI-driven studying — no commitment, no
+                                    Sign up now and experience the power of AI-driven studying, no commitment, no
                                     credit card.
                                 </p>
                                 <Link
@@ -1172,16 +1160,19 @@ const LandingPage = () => {
             {activePost && (
                 <div
                     className="fixed inset-0 z-[100] flex items-center justify-center p-4 sm:p-6"
-                    style={{ background: 'rgba(0,0,0,0.75)', backdropFilter: 'blur(6px)' }}
-                    onClick={() => setActivePost(null)}
                     role="dialog"
                     aria-modal="true"
                     aria-labelledby="post-title"
                 >
+                    <button
+                        type="button"
+                        aria-label="Close post"
+                        className="absolute inset-0 border-0 bg-black/75 p-0 backdrop-blur-[6px]"
+                        onClick={() => setActivePost(null)}
+                    />
                     <div
-                        className="grain relative w-full max-w-[760px] max-h-[88vh] overflow-y-auto rounded-[24px]"
+                        className="grain relative z-10 w-full max-w-[760px] max-h-[88vh] overflow-y-auto rounded-[24px]"
                         style={{ background: CARD_BG, border: '1px solid rgba(255,255,255,0.08)' }}
-                        onClick={(e) => e.stopPropagation()}
                     >
                         {/* Hero strip */}
                         <div className="aspect-[5/2] relative">

@@ -2,8 +2,10 @@ import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { motion as Motion, AnimatePresence } from 'motion/react';
 import { cn } from '../../lib/utils';
 
+const EMPTY_ARRAY = [];
+
 export const WatermelonCombobox = ({
-    options = [],
+    options = EMPTY_ARRAY,
     value,
     onChange,
     placeholder = 'Search...',

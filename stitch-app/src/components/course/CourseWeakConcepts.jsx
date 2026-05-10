@@ -2,7 +2,9 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 import { buildConceptPracticePath } from '../../lib/conceptReviewLinks';
 
-const CourseWeakConcepts = ({ items = [] }) => {
+const EMPTY_ARRAY = [];
+
+const CourseWeakConcepts = ({ items = EMPTY_ARRAY }) => {
     return (
         <section className="card-base p-5">
             <div className="flex items-center justify-between gap-3 mb-3">

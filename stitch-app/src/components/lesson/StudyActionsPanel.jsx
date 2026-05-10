@@ -1,6 +1,8 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 
+const EMPTY_ARRAY = [];
+
 const ActionButton = ({ icon, label, description, onClick, href, reloadDocument, variant = 'secondary', disabled }) => {
     const palette = {
         primary: 'bg-primary text-white hover:bg-primary-hover shadow-button',
@@ -51,8 +53,8 @@ const StudyActionsPanel = ({
     progress = 0,
     completed,
     primaryAction,
-    actions = [],
-    secondaryActions = [],
+    actions = EMPTY_ARRAY,
+    secondaryActions = EMPTY_ARRAY,
     relatedCourse,
 }) => (
     <aside className="space-y-4 sticky top-[110px] max-h-[calc(100vh-7.5rem)] overflow-y-auto pl-1 pr-1 py-1 -mr-1 scrollbar-thin">

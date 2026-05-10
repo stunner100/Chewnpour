@@ -295,7 +295,7 @@ export const AIHumanizer = () => {
                             <div className="flex items-center gap-3">
                                 {inputText.length > 40000 && (
                                     <span className="text-caption text-accent-amber">
-                                        Long text — may take longer
+                                        Long text, may take longer
                                     </span>
                                 )}
                                 <button
@@ -428,9 +428,9 @@ export const AIHumanizer = () => {
                                     </p>
                                     {detectionResult.flags?.length > 0 && (
                                         <div className="mt-2 flex flex-wrap gap-1">
-                                            {detectionResult.flags.slice(0, 5).map((flag, idx) => (
+                                            {detectionResult.flags.slice(0, 5).map((flag) => (
                                                 <span
-                                                    key={idx}
+                                                    key={flag}
                                                     className="text-caption px-2 py-1 rounded-full bg-surface-hover-light dark:bg-surface-hover-dark text-text-faint-light dark:text-text-faint-dark"
                                                 >
                                                     {flag}
@@ -524,7 +524,7 @@ export const AIHumanizer = () => {
                             <li>Choose a writing style that matches your assignment type</li>
                             <li>Use Light strength for polish, Heavy for a complete rewrite</li>
                             <li>Long texts are automatically split into sections and reassembled</li>
-                            <li>Review the output — you may want to make small edits</li>
+                            <li>Review the output, you may want to make small edits</li>
                         </ul>
                     </div>
                 </div>

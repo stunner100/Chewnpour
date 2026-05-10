@@ -130,14 +130,14 @@ const Login = () => {
                         </p>
                     </BlurFade>
                     <div className="flex items-center gap-4 pt-4 border-t border-white/10">
-                        <div className="flex -space-x-2">
+                        <div className="flex">
                             {['/chewnpour/img1.jpg', '/chewnpour/img2.jpg', '/chewnpour/img3.jpg', '/chewnpour/img4.jpg'].map((src, i) => (
                                 <img
                                     key={src}
                                     src={src}
                                     alt=""
                                     aria-hidden="true"
-                                    className="size-9 rounded-full border-2 border-[#0A0A0A] object-cover shadow-md login-avatar-bob"
+                                    className="size-9 -ml-2 first:ml-0 rounded-full border-2 border-[#0A0A0A] object-cover shadow-md login-avatar-bob"
                                     style={{ animationDelay: `${i * 0.35}s`, zIndex: 10 - i }}
                                     decoding="async"
                                     loading="lazy"

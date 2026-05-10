@@ -800,7 +800,6 @@ const AssignmentHelper = () => {
                                         <div
                                             key={thread._id}
                                             role="listitem"
-                                            onClick={() => !isDeleting && setSelectedThreadId(thread._id)}
                                             className={`group rounded-xl transition-all relative cursor-pointer ${isActive
                                                 ? 'bg-primary/[0.04] dark:bg-primary/[0.08] border-l-[3px] border-l-primary border border-border-light dark:border-border-dark shadow-xs'
                                                 : 'bg-transparent border border-transparent hover:bg-surface-hover-light dark:hover:bg-surface-hover-dark hover:border-border-light dark:hover:border-border-dark'
@@ -1219,7 +1218,7 @@ const AssignmentHelper = () => {
                                                         {[0, 1, 2].map((dot) => (
                                                             <span
                                                                 key={dot}
-                                                                className="size-1 rounded-full bg-primary animate-bounce"
+                                                                className="size-1 rounded-full bg-primary animate-pulse"
                                                                 style={{ animationDelay: `${dot * 150}ms` }}
                                                             />
                                                         ))}
@@ -1236,7 +1235,7 @@ const AssignmentHelper = () => {
                                         <div className="rounded-lg bg-surface-hover-light dark:bg-surface-hover-dark border border-border-light dark:border-border-dark p-3 flex items-center justify-center gap-2">
                                             <span className="material-symbols-outlined text-text-faint-light dark:text-text-faint-dark text-[18px] animate-spin">refresh</span>
                                             <p className="text-caption text-text-faint-light dark:text-text-faint-dark">
-                                                Processing assignment... Chat will be available soon
+                                                Processing assignment… Chat will be available soon
                                             </p>
                                         </div>
                                     ) : (

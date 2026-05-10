@@ -2,6 +2,8 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 import CanvasCrowd from './CanvasCrowd';
 
+const FOOTER_YEAR = new Date().getFullYear();
+
 const MailIcon = ({ className }) => (
     <svg className={className} fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24" strokeLinecap="round" strokeLinejoin="round">
         <path d="M4 4h16v16H4z" />
@@ -45,7 +47,7 @@ export function Footer({ onCtaClick = () => {} }) {
                         />
                     </Link>
                     <p className="text-sm font-medium text-muted-foreground tracking-wide">
-                        &copy; {new Date().getFullYear()} ChewnPour. All rights reserved.
+                        &copy; {FOOTER_YEAR} ChewnPour. All rights reserved.
                     </p>
                 </div>
 

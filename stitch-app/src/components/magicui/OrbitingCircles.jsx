@@ -39,14 +39,9 @@ export const OrbitingCircles = ({
                     '--duration': duration,
                     '--radius': radius,
                     '--delay': `-${delay}s`,
-                    '--angle': '0',
+                    '--direction': reverse ? 'reverse' : 'normal',
                     width: `${iconSize}px`,
                     height: `${iconSize}px`,
-                    animationDuration: `${duration}s`,
-                    animationDelay: `-${delay}s`,
-                    animationDirection: reverse ? 'reverse' : 'normal',
-                    animationIterationCount: 'infinite',
-                    animationTimingFunction: 'linear',
                 }}
             >
                 {children}

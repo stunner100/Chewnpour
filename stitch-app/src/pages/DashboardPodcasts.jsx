@@ -112,15 +112,19 @@ const TopicPickerModal = ({ open, onClose, courses, onSelectTopic, generatingTop
 
     return (
         <div
-            className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/40 backdrop-blur-sm p-0 sm:p-4"
-            onClick={onClose}
+            className="fixed inset-0 z-50 flex items-end justify-center p-0 sm:items-center sm:p-4"
             role="dialog"
             aria-modal="true"
             aria-labelledby="podcast-picker-title"
         >
+            <button
+                type="button"
+                aria-label="Close podcast picker"
+                className="absolute inset-0 border-0 bg-black/40 p-0 backdrop-blur-sm"
+                onClick={onClose}
+            />
             <div
-                className="w-full sm:max-w-lg bg-surface-light dark:bg-surface-dark rounded-t-3xl sm:rounded-2xl shadow-elevated overflow-hidden flex flex-col max-h-[90vh]"
-                onClick={(e) => e.stopPropagation()}
+                className="relative z-10 flex max-h-[90vh] w-full flex-col overflow-hidden rounded-t-3xl bg-surface-light shadow-elevated dark:bg-surface-dark sm:max-w-lg sm:rounded-2xl"
             >
                 <div className="flex items-center justify-between gap-3 px-5 py-4 border-b border-border-subtle dark:border-border-subtle-dark">
                     <div>
@@ -145,7 +149,7 @@ const TopicPickerModal = ({ open, onClose, courses, onSelectTopic, generatingTop
                 </div>
 
                 <div className="px-5 py-4 border-b border-border-subtle dark:border-border-subtle-dark">
-                    <label className="text-caption font-semibold text-text-sub-light dark:text-text-sub-dark uppercase tracking-wide">
+                    <label htmlFor="podcast-course-select" className="text-caption font-semibold text-text-sub-light dark:text-text-sub-dark uppercase tracking-wide">
                         Course
                     </label>
                     {!Array.isArray(courses) || courses.length === 0 ? (
@@ -154,6 +158,7 @@ const TopicPickerModal = ({ open, onClose, courses, onSelectTopic, generatingTop
                         </p>
                     ) : (
                         <select
+                            id="podcast-course-select"
                             value={effectiveCourseId}
                             onChange={(e) => setSelectedCourseId(e.target.value)}
                             className="mt-2 w-full px-3 py-2 rounded-xl border border-border-subtle dark:border-border-subtle-dark bg-surface-hover dark:bg-surface-hover-dark text-body-sm text-text-main-light dark:text-text-main-dark focus:outline-none focus:ring-2 focus:ring-primary/30"

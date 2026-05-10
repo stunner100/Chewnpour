@@ -908,6 +908,14 @@ const TopicDetail = () => {
         handleStudyModeSelect('full');
     }, [handleStudyModeSelect]);
 
+    const handleTermsStarred = useCallback((starred) => {
+        upsertProgress({
+            topicId,
+            termsStarred: starred,
+            lastStudiedAt: Date.now(),
+        }).catch(() => {});
+    }, [topicId, upsertProgress]);
+
     if (!routeTopicId) {
         return (
             <div className="min-h-screen flex items-center justify-center bg-background-light dark:bg-background-dark">
@@ -925,7 +933,7 @@ const TopicDetail = () => {
             <div className="min-h-screen flex items-center justify-center bg-background-light dark:bg-background-dark">
                 <div className="text-center">
                     <div className="animate-spin rounded-full size-10 border-2 border-border-light dark:border-border-dark border-t-primary mx-auto mb-4" />
-                    <p className="text-body-sm text-text-sub-light dark:text-text-sub-dark">Loading lesson...</p>
+                    <p className="text-body-sm text-text-sub-light dark:text-text-sub-dark">Loading lesson…</p>
                 </div>
             </div>
         );
@@ -1183,13 +1191,7 @@ const TopicDetail = () => {
                                 wordBankTerms={wordBankTerms}
                                 topicId={topicId}
                                 starredTerms={topicProgress?.termsStarred}
-                                onTermsStarred={(starred) => {
-                                    upsertProgress({
-                                        topicId,
-                                        termsStarred: starred,
-                                        lastStudiedAt: Date.now(),
-                                    }).catch(() => {});
-                                }}
+                                onTermsStarred={handleTermsStarred}
                             />
                         ) : (
                             <div className="flex flex-col items-center justify-center py-20 text-center">

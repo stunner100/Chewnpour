@@ -2,9 +2,11 @@ import React from 'react';
 import { motion as Motion } from 'motion/react';
 import { cn } from '../../lib/utils';
 
+const EMPTY_ARRAY = [];
+
 export const WatermelonFilterGroup = ({
     label,
-    options = [],
+    options = EMPTY_ARRAY,
     value,
     onChange,
     multiple = false,

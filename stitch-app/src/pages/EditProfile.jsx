@@ -165,10 +165,11 @@ const EditProfile = () => {
             <div className="card-base divide-y divide-border-light dark:divide-border-dark">
                 {/* Full Name */}
                 <div className="p-4 space-y-2">
-                    <label className="text-caption font-semibold text-text-sub-light dark:text-text-sub-dark">
+                    <label htmlFor="edit-profile-full-name" className="text-caption font-semibold text-text-sub-light dark:text-text-sub-dark">
                         Full Name
                     </label>
                     <input
+                        id="edit-profile-full-name"
                         type="text"
                         value={fullName}
                         onChange={(e) => {
@@ -182,11 +183,12 @@ const EditProfile = () => {
 
                 {/* Education Level */}
                 <div className="p-4 space-y-2">
-                    <label className="text-caption font-semibold text-text-sub-light dark:text-text-sub-dark">
+                    <label htmlFor="edit-profile-education-level" className="text-caption font-semibold text-text-sub-light dark:text-text-sub-dark">
                         Education Level
                     </label>
                     <div className="relative">
                         <select
+                            id="edit-profile-education-level"
                             value={educationLevel}
                             onChange={(e) => setEducationLevel(e.target.value)}
                             className="input-field text-body-sm appearance-none pr-10 cursor-pointer"
@@ -204,11 +206,12 @@ const EditProfile = () => {
 
                 {/* Department */}
                 <div className="p-4 space-y-2">
-                    <label className="text-caption font-semibold text-text-sub-light dark:text-text-sub-dark">
+                    <label htmlFor="edit-profile-department" className="text-caption font-semibold text-text-sub-light dark:text-text-sub-dark">
                         Department
                     </label>
                     <div className="relative">
                         <select
+                            id="edit-profile-department"
                             value={department}
                             onChange={(e) => setDepartment(e.target.value)}
                             className="input-field text-body-sm appearance-none pr-10 cursor-pointer"

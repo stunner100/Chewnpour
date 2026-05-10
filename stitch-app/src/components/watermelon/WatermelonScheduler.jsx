@@ -2,6 +2,8 @@ import React, { useMemo } from 'react';
 import { motion as Motion } from 'motion/react';
 import { cn } from '../../lib/utils';
 
+const EMPTY_ARRAY = [];
+
 const PRIORITY_DOT = {
     high: 'bg-rose-500',
     medium: 'bg-amber-500',
@@ -27,7 +29,7 @@ const STATUS_COLOR = {
 };
 
 export const WatermelonScheduler = ({
-    items = [],
+    items = EMPTY_ARRAY,
     className,
     onItemClick,
 }) => {

@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, useMemo, useRef } from 'react';
+import React, { createContext, use, useState, useEffect, useMemo, useRef } from 'react';
 import {
     authBaseUrl,
     authClient,
@@ -239,7 +239,7 @@ const verifyOttTokenWithRetry = async (token, maxRetries = 1) => {
 
 // eslint-disable-next-line react-refresh/only-export-components
 export const useAuth = () => {
-    const context = useContext(AuthContext);
+    const context = use(AuthContext);
     if (!context) {
         throw new Error('useAuth must be used within an AuthProvider');
     }

@@ -1,6 +1,8 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 
+const EMPTY_ARRAY = [];
+
 const ActionButton = ({ action, tone }) => {
     const Tag = action.href ? Link : 'button';
     const tagProps = action.href ? { to: action.href, reloadDocument: action.reloadDocument } : { type: 'button', onClick: action.onClick };
@@ -20,9 +22,9 @@ const ActionButton = ({ action, tone }) => {
 const PracticeActionsCard = ({
     title,
     description,
-    primaryActions = [],
-    secondaryActions = [],
-    tertiaryActions = [],
+    primaryActions = EMPTY_ARRAY,
+    secondaryActions = EMPTY_ARRAY,
+    tertiaryActions = EMPTY_ARRAY,
     completed,
     bestScore,
 }) => (

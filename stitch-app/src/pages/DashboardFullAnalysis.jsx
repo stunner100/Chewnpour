@@ -436,9 +436,9 @@ const DashboardFullAnalysis = () => {
                                                 vectorEffect="non-scaling-stroke"
                                                 className="text-primary"
                                             />
-                                            {trendChart.coords.map((c, idx) => (
+                                            {trendChart.coords.map((c) => (
                                                 <circle
-                                                    key={idx}
+                                                    key={`${c.x}-${c.y}`}
                                                     cx={c.x}
                                                     cy={c.y}
                                                     r="3.5"

@@ -1,4 +1,4 @@
-import React, { useRef, useState, useCallback, useEffect } from 'react';
+import React, { useRef, useState, useCallback, useEffect, useEffectEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
 
 // Haptic feedback helper
@@ -38,6 +38,10 @@ const ExamActionModal = ({ isOpen, onClose, attempt }) => {
         currentTranslateY.current = 0;
         onClose();
     }, [onClose]);
+
+    const closeOnEscape = useEffectEvent(() => {
+        if (isOpen) closeModal();
+    });
 
     // Handle touch start for swipe-to-close (only on header/drag handle)
     const handleTouchStart = useCallback((e) => {
@@ -101,14 +105,12 @@ const ExamActionModal = ({ isOpen, onClose, attempt }) => {
     // Add keyboard escape handler
     useEffect(() => {
         const handleKeyDown = (e) => {
-            if (e.key === 'Escape' && isOpen) {
-                closeModal();
-            }
+            if (e.key === 'Escape') closeOnEscape();
         };
 
         window.addEventListener('keydown', handleKeyDown);
         return () => window.removeEventListener('keydown', handleKeyDown);
-    }, [closeModal, isOpen]);
+    }, []);
 
     if (!isOpen || !attempt) return null;
 
@@ -142,8 +144,10 @@ const ExamActionModal = ({ isOpen, onClose, attempt }) => {
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
             {/* Backdrop */}
-            <div
-                className="modal-backdrop absolute inset-0 bg-black/50 backdrop-blur-sm transition-opacity"
+            <button
+                type="button"
+                aria-label="Close exam results"
+                className="modal-backdrop absolute inset-0 border-0 bg-black/50 p-0 backdrop-blur-sm transition-opacity"
                 onClick={handleCloseClick}
                 onTouchStart={handleTouchStart}
                 onTouchMove={handleTouchMove}

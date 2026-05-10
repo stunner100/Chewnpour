@@ -185,10 +185,11 @@ const OnboardingName = () => {
                     <BlurFade delay={0.25} yOffset={10} className="space-y-5">
                         {/* Name */}
                         <div className="space-y-2">
-                            <label className="text-sm font-semibold text-white" style={{ fontFamily: 'Inter, sans-serif' }}>
+                            <label htmlFor="onboarding-name" className="text-sm font-semibold text-white" style={{ fontFamily: 'Inter, sans-serif' }}>
                                 Your name
                             </label>
                             <input
+                                id="onboarding-name"
                                 style={inputStyle(isNameValid, touched.name, name)}
                                 placeholder="What should we call you?"
                                 type="text"
@@ -206,10 +207,11 @@ const OnboardingName = () => {
 
                         {/* Email */}
                         <div className="space-y-2">
-                            <label className="text-sm font-semibold text-white" style={{ fontFamily: 'Inter, sans-serif' }}>
+                            <label htmlFor="onboarding-email" className="text-sm font-semibold text-white" style={{ fontFamily: 'Inter, sans-serif' }}>
                                 Email address
                             </label>
                             <input
+                                id="onboarding-email"
                                 style={inputStyle(isEmailValid, touched.email, email)}
                                 placeholder="student@university.edu"
                                 type="email"
@@ -227,10 +229,11 @@ const OnboardingName = () => {
 
                         {/* Password */}
                         <div className="space-y-2">
-                            <label className="text-sm font-semibold text-white" style={{ fontFamily: 'Inter, sans-serif' }}>
+                            <label htmlFor="onboarding-password" className="text-sm font-semibold text-white" style={{ fontFamily: 'Inter, sans-serif' }}>
                                 Password
                             </label>
                             <input
+                                id="onboarding-password"
                                 style={inputStyle(isPasswordValid, touched.password, password)}
                                 placeholder="Create a strong password"
                                 type="password"

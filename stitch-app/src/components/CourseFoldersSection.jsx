@@ -30,7 +30,17 @@ const CourseFoldersSection = ({
     const [renameValue, setRenameValue] = useState('');
     const [menuOpenId, setMenuOpenId] = useState(null);
     const [confirmDeleteFolderId, setConfirmDeleteFolderId] = useState(null);
+    const createInputRef = useRef(null);
+    const renameInputRef = useRef(null);
     const menuRefs = useRef(new Map());
+
+    useEffect(() => {
+        if (creating) createInputRef.current?.focus();
+    }, [creating]);
+
+    useEffect(() => {
+        if (renamingId) renameInputRef.current?.focus();
+    }, [renamingId]);
 
     useEffect(() => {
         if (menuOpenId === null) return;
@@ -133,12 +143,12 @@ const CourseFoldersSection = ({
                     className="mb-4 flex flex-col sm:flex-row gap-2 items-stretch sm:items-center card-flat p-3"
                 >
                     <input
+                        ref={createInputRef}
                         type="text"
                         value={newName}
                         onChange={(e) => setNewName(e.target.value)}
                         placeholder="Folder name"
                         maxLength={80}
-                        autoFocus
                         className="flex-1 px-3 py-2 rounded-lg border border-border-subtle dark:border-border-subtle-dark bg-surface-light dark:bg-surface-dark text-body-sm text-text-main-light dark:text-text-main-dark focus:outline-none focus:border-primary"
                     />
                     <div className="flex gap-2">
@@ -189,6 +199,7 @@ const CourseFoldersSection = ({
                                 <span className="material-symbols-outlined text-[18px] text-primary" style={{ fontVariationSettings: "'FILL' 1" }}>folder</span>
                                 {isRenaming ? (
                                     <input
+                                        ref={renameInputRef}
                                         type="text"
                                         value={renameValue}
                                         onChange={(e) => setRenameValue(e.target.value)}
@@ -199,7 +210,6 @@ const CourseFoldersSection = ({
                                             if (e.key === 'Escape') { setRenamingId(null); }
                                         }}
                                         maxLength={80}
-                                        autoFocus
                                         className="flex-1 min-w-0 px-2 py-1 rounded border border-primary bg-surface-light dark:bg-surface-dark text-body-md font-semibold text-text-main-light dark:text-text-main-dark focus:outline-none"
                                     />
                                 ) : (
@@ -219,12 +229,12 @@ const CourseFoldersSection = ({
                                         type="button"
                                         onClick={(e) => { e.stopPropagation(); confirmDeleteFolder(folder); }}
                                         className="text-caption font-semibold text-red-600 hover:text-red-700 px-1.5 py-0.5 rounded hover:bg-red-50 dark:hover:bg-red-900/30 transition-colors"
-                                    >Yes</button>
+                                    >Delete folder</button>
                                     <button
                                         type="button"
                                         onClick={(e) => { e.stopPropagation(); setConfirmDeleteFolderId(null); }}
                                         className="text-caption text-text-sub-light px-1.5 py-0.5 rounded hover:bg-surface-hover transition-colors"
-                                    >No</button>
+                                    >Keep folder</button>
                                 </div>
                             ) : (
                                 <div
@@ -233,7 +243,6 @@ const CourseFoldersSection = ({
                                         else menuRefs.current.delete(folder._id);
                                     }}
                                     className="relative"
-                                    onClick={(e) => e.stopPropagation()}
                                 >
                                     <button
                                         type="button"

@@ -18,12 +18,30 @@ const ACCEPTED_LIBRARY_TYPES = [
 ];
 
 const ACCEPTED_EXTENSIONS = ['.pdf', '.doc', '.docx', '.epub', '.txt'];
+const MATERIAL_DATE_FORMATTER = new Intl.DateTimeFormat(undefined, {
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric',
+});
 
 const formatFileSize = (size) => {
     const bytes = Number(size || 0);
     if (!bytes) return 'Unknown size';
     if (bytes < 1024 * 1024) return `${Math.max(1, Math.round(bytes / 1024))} KB`;
     return `${(bytes / (1024 * 1024)).toFixed(bytes >= 10 * 1024 * 1024 ? 0 : 1)} MB`;
+};
+
+const toTimestamp = (value) => {
+    if (typeof value === 'number') return value;
+    const numeric = Number(value);
+    if (Number.isFinite(numeric)) return numeric;
+    const parsed = Date.parse(String(value || ''));
+    return Number.isFinite(parsed) ? parsed : null;
+};
+
+const formatMaterialDate = (value) => {
+    const timestamp = toTimestamp(value);
+    return timestamp ? MATERIAL_DATE_FORMATTER.format(timestamp) : 'Unknown date';
 };
 
 const inferTitleFromFile = (fileName) =>
@@ -57,7 +75,7 @@ const LibraryMaterialCard = ({ material }) => (
                     <span className="badge badge-primary shrink-0">{getFileTypeLabel(material)}</span>
                 </div>
                 <p className="text-caption text-text-faint-light dark:text-text-faint-dark mt-1">
-                    Shared by {material.uploaderName} · {new Date(material.createdAt).toLocaleDateString()} · {formatFileSize(material.fileSize)}
+                    Shared by {material.uploaderName} · {formatMaterialDate(material.createdAt)} · {formatFileSize(material.fileSize)}
                 </p>
             </div>
         </div>

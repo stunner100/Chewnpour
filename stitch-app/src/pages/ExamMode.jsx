@@ -210,7 +210,10 @@ const buildFallbackOptionsFromRaw = (rawOptions) => {
 
 const resolveQuestionOptions = (rawOptions) => {
     const options = coerceOptions(rawOptions);
-    const renderOptions = options.map((o, i) => normalizeOption(o, i)).filter(Boolean);
+    const renderOptions = options.flatMap((option, index) => {
+        const normalized = normalizeOption(option, index);
+        return normalized ? [normalized] : [];
+    });
     const hasRawArtifacts = renderOptions.some((o) => {
         if (typeof o.text !== 'string') return false;
         return (
@@ -1100,7 +1103,7 @@ const ExamMode = () => {
             <div className="bg-background-light dark:bg-background-dark min-h-screen flex items-center justify-center">
                 <div className="text-center">
                     <div className="animate-spin rounded-full size-10 border-2 border-border-light dark:border-border-dark border-t-primary mx-auto mb-4"></div>
-                    <p className="text-body-sm text-text-sub-light dark:text-text-sub-dark">Preparing your exam environment...</p>
+                    <p className="text-body-sm text-text-sub-light dark:text-text-sub-dark">Preparing your exam environment…</p>
                 </div>
             </div>
         );
@@ -1128,7 +1131,7 @@ const ExamMode = () => {
             <div className="bg-background-light dark:bg-background-dark min-h-screen flex items-center justify-center">
                 <div className="text-center">
                     <div className="animate-spin rounded-full size-10 border-2 border-border-light dark:border-border-dark border-t-primary mx-auto mb-4"></div>
-                    <p className="text-body-sm text-text-sub-light dark:text-text-sub-dark">Preparing your final exam...</p>
+                    <p className="text-body-sm text-text-sub-light dark:text-text-sub-dark">Preparing your final exam…</p>
                 </div>
             </div>
         );
@@ -1139,7 +1142,7 @@ const ExamMode = () => {
             <div className="bg-background-light dark:bg-background-dark min-h-screen flex items-center justify-center">
                 <div className="text-center">
                     <div className="animate-spin rounded-full size-10 border-2 border-border-light dark:border-border-dark border-t-primary mx-auto mb-4"></div>
-                    <p className="text-body-sm text-text-sub-light dark:text-text-sub-dark">Preparing the best assessment route for this topic...</p>
+                    <p className="text-body-sm text-text-sub-light dark:text-text-sub-dark">Preparing the best assessment route for this topic…</p>
                 </div>
             </div>
         );
@@ -1150,7 +1153,7 @@ const ExamMode = () => {
             <div className="bg-background-light dark:bg-background-dark min-h-screen flex items-center justify-center">
                 <div className="text-center">
                     <div className="animate-spin rounded-full size-10 border-2 border-border-light dark:border-border-dark border-t-primary mx-auto mb-4"></div>
-                    <p className="text-body-sm text-text-sub-light dark:text-text-sub-dark">Redirecting to your final exam...</p>
+                    <p className="text-body-sm text-text-sub-light dark:text-text-sub-dark">Redirecting to your final exam…</p>
                 </div>
             </div>
         );
@@ -1247,7 +1250,7 @@ const ExamMode = () => {
                             <span className="material-symbols-outlined text-3xl text-primary">psychology</span>
                         </div>
                         <h3 className="text-body-lg font-semibold text-text-main-light dark:text-text-main-dark mb-2">Grading Your Answers</h3>
-                        <p className="text-body-sm text-text-sub-light dark:text-text-sub-dark">Our AI is reading and evaluating each of your responses. This may take a moment...</p>
+                        <p className="text-body-sm text-text-sub-light dark:text-text-sub-dark">Our AI is reading and evaluating each of your responses. This may take a moment…</p>
                         <div className="mt-6 w-full h-1 bg-border-light dark:bg-border-dark rounded-full overflow-hidden">
                             <div className="h-full bg-primary rounded-full animate-[pulse_1.5s_ease-in-out_infinite]" style={{ width: '70%' }}></div>
                         </div>

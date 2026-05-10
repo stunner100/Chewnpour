@@ -13,7 +13,7 @@ export const WatermelonDisclosure = ({
     contentClassName,
     icon = 'expand_more',
 }) => {
-    const [internalOpen, setInternalOpen] = useState(defaultOpen);
+    const [internalOpen, setInternalOpen] = useState(() => defaultOpen);
     const isOpen = controlledOpen !== undefined ? controlledOpen : internalOpen;
     const contentRef = useRef(null);
 

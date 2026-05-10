@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useMemo, useEffect } from 'react';
+import React, { useState, useCallback, useMemo, useEffect, useEffectEvent } from 'react';
 
 // Single flipping card
 const FlashCard = ({ term, definition, flipped, onFlip }) => (
@@ -68,6 +68,12 @@ const FlashcardDeck = ({ terms, starredTerms, onTermsStarred }) => {
 
     const prev = useCallback(() => goTo((safeIndex - 1 + safeDeck.length) % safeDeck.length), [goTo, safeIndex, safeDeck.length]);
     const next = useCallback(() => goTo((safeIndex + 1) % safeDeck.length), [goTo, safeIndex, safeDeck.length]);
+    const handleDeckKey = useEffectEvent((e) => {
+        if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+        if (e.key === 'ArrowLeft') { e.preventDefault(); prev(); }
+        if (e.key === 'ArrowRight') { e.preventDefault(); next(); }
+        if (e.key === ' ') { e.preventDefault(); setFlipped((f) => !f); }
+    });
 
     const toggleStar = useCallback(() => {
         const next = new Set(starred);
@@ -79,14 +85,11 @@ const FlashcardDeck = ({ terms, starredTerms, onTermsStarred }) => {
     // Keyboard: ← → to navigate, Space/Enter to flip
     useEffect(() => {
         const onKey = (e) => {
-            if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
-            if (e.key === 'ArrowLeft') { e.preventDefault(); prev(); }
-            if (e.key === 'ArrowRight') { e.preventDefault(); next(); }
-            if (e.key === ' ') { e.preventDefault(); setFlipped((f) => !f); }
+            handleDeckKey(e);
         };
         window.addEventListener('keydown', onKey);
         return () => window.removeEventListener('keydown', onKey);
-    }, [prev, next]);
+    }, []);
 
     if (!terms || terms.length === 0) return null;
 

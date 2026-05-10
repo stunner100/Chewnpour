@@ -162,14 +162,14 @@ const OnboardingLevel = () => {
                                             fontSize: 40,
                                             color: isSelected ? ACCENT : '#fff',
                                             marginBottom: 4,
-                                            letterSpacing: '-0.025em',
+                                            letterSpacing: 0,
                                         }}
                                     >
                                         {level}
                                     </span>
                                     <span
                                         className="font-semibold uppercase tracking-widest"
-                                        style={{ color: isSelected ? `${ACCENT}cc` : SUBTEXT, fontSize: 11, fontFamily: 'Inter, sans-serif' }}
+                                        style={{ color: isSelected ? `${ACCENT}cc` : SUBTEXT, fontSize: 12, fontFamily: 'Inter, sans-serif' }}
                                     >
                                         Level
                                     </span>

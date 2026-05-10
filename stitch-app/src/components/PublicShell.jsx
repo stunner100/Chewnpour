@@ -6,6 +6,7 @@ const ACCENT = 'rgb(145, 75, 241)';
 const PAGE_BG = 'rgb(16, 17, 18)';
 const FOOTER_BG = 'rgb(20, 20, 19)';
 const SUBTEXT = 'rgb(163, 163, 163)';
+const FOOTER_YEAR = new Date().getFullYear();
 
 // Hex-framed logo lockup using the same outline-only mark as the landing-page nav.
 export const HexLogo = ({ size = 32, withWordmark = false, className = '' }) => (
@@ -122,7 +123,7 @@ const PublicShell = ({ children, showAuthNav = true, className = '' }) => (
                     fontFamily: 'Inter, sans-serif',
                 }}
             >
-                © {new Date().getFullYear()} ChewnPour, Inc. Built for students.
+                © {FOOTER_YEAR} ChewnPour, Inc. Built for students.
             </div>
         </footer>
     </div>

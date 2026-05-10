@@ -1,6 +1,8 @@
 import React, { useEffect, useRef } from 'react';
 
-const LessonTOC = ({ toc = [], activeId }) => {
+const EMPTY_ARRAY = [];
+
+const LessonTOC = ({ toc = EMPTY_ARRAY, activeId }) => {
     const navRef = useRef(null);
     const listRef = useRef(null);
 

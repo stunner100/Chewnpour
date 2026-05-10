@@ -354,7 +354,7 @@ const Subscription = () => {
                 </WatermelonDisclosure>
                 <WatermelonDisclosure title="What happens after I run out of credits?">
                     <p className="text-body-sm text-text-sub-light dark:text-text-sub-dark leading-relaxed">
-                        You can keep studying with all the courses you&apos;ve already uploaded. To process new documents, top up anytime — credits are added instantly after a successful payment.
+                        You can keep studying with all the courses you&apos;ve already uploaded. To process new documents, top up anytime, credits are added instantly after a successful payment.
                     </p>
                 </WatermelonDisclosure>
                 <WatermelonDisclosure title="Is my payment secure?">

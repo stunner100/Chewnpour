@@ -383,7 +383,7 @@ const DashboardProcessing = () => {
                                                 Processing encountered an issue
                                             </p>
                                             <p className="text-caption text-amber-700 dark:text-amber-400 mt-1">
-                                                Redirecting to available content...
+                                                Redirecting to available content…
                                             </p>
                                         </div>
                                     </div>

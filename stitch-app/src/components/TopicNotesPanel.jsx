@@ -74,7 +74,7 @@ const TopicNotesPanel = memo(function TopicNotesPanel({ topicId, open, onClose, 
         }, SAVE_DEBOUNCE_MS);
     }, [topicId, saveNote]);
 
-    const handleChange = (e) => {
+    const handleDraftChange = (e) => {
         const value = e.target.value;
         setDraft(value);
         debouncedSave(value);
@@ -85,7 +85,7 @@ const TopicNotesPanel = memo(function TopicNotesPanel({ topicId, open, onClose, 
         if (!open) return;
         const update = () => {
             if (saving) {
-                setStatusText('Saving...');
+                setStatusText('Saving…');
             } else if (lastSavedAt) {
                 setStatusText(formatTimeSince(lastSavedAt));
             } else {
@@ -145,8 +145,10 @@ const TopicNotesPanel = memo(function TopicNotesPanel({ topicId, open, onClose, 
     return (
         <>
             {/* Backdrop (mobile/medium only) */}
-            <div
-                className={`fixed inset-0 z-[55] bg-black/30 md:bg-transparent md:pointer-events-none lg:hidden transition-opacity ${isClosing ? 'opacity-0' : 'opacity-100'}`}
+            <button
+                type="button"
+                aria-label="Close notes panel"
+                className={`fixed inset-0 z-[55] border-0 bg-black/30 p-0 md:bg-transparent md:pointer-events-none lg:hidden transition-opacity ${isClosing ? 'opacity-0' : 'opacity-100'}`}
                 onClick={handleClose}
             />
 
@@ -172,7 +174,7 @@ const TopicNotesPanel = memo(function TopicNotesPanel({ topicId, open, onClose, 
                     <textarea
                         ref={textareaRef}
                         value={draft}
-                        onChange={handleChange}
+                        onChange={handleDraftChange}
                         placeholder="Jot down insights as you study..."
                         className="size-full min-h-[200px] md:min-h-0 resize-none rounded-2xl border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800/50 px-4 py-3 text-sm text-zinc-800 dark:text-zinc-200 placeholder:text-zinc-400 dark:placeholder:text-zinc-500 focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary/50"
                     />
@@ -184,7 +186,7 @@ const TopicNotesPanel = memo(function TopicNotesPanel({ topicId, open, onClose, 
                         {saving && (
                             <span className="inline-flex items-center gap-1">
                                 <span className="size-1.5 rounded-full bg-amber-400 animate-pulse" />
-                                Saving...
+                                Saving…
                             </span>
                         )}
                         {!saving && statusText && statusText}

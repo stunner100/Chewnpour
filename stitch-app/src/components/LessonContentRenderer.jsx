@@ -33,25 +33,29 @@ const parseInlineFormatting = (text, cleanInline) => {
     if (!text) return '';
     const TOKEN_RE = /(\*\*[^*]+?\*\*|\*[^*\n]+?\*|`[^`\n]+?`|\[[^\]]+?\]\([^)]+?\))/g;
     const parts = text.split(TOKEN_RE);
-    return parts.map((part, i) => {
+    const partCounts = new Map();
+    return parts.map((part) => {
         if (!part) return null;
+        const seenCount = partCounts.get(part) || 0;
+        partCounts.set(part, seenCount + 1);
+        const key = `${part}-${seenCount}`;
         if (part.startsWith('**') && part.endsWith('**')) {
             return (
-                <strong key={i} className="font-semibold text-neutral-900 dark:text-white">
+                <strong key={key} className="font-semibold text-neutral-900 dark:text-white">
                     {cleanInline(part.slice(2, -2))}
                 </strong>
             );
         }
         if (part.startsWith('*') && part.endsWith('*') && part.length > 2) {
             return (
-                <em key={i} className="italic text-neutral-700 dark:text-neutral-300">
+                <em key={key} className="italic text-neutral-700 dark:text-neutral-300">
                     {cleanInline(part.slice(1, -1))}
                 </em>
             );
         }
         if (part.startsWith('`') && part.endsWith('`') && part.length > 2) {
             return (
-                <code key={i} className="px-1.5 py-0.5 rounded-md bg-neutral-100 dark:bg-neutral-800 text-[0.9em] font-mono text-neutral-800 dark:text-neutral-200 border border-neutral-200/60 dark:border-neutral-700/60">
+                <code key={key} className="px-1.5 py-0.5 rounded-md bg-neutral-100 dark:bg-neutral-800 text-[0.9em] font-mono text-neutral-800 dark:text-neutral-200 border border-neutral-200/60 dark:border-neutral-700/60">
                     {part.slice(1, -1)}
                 </code>
             );
@@ -59,7 +63,7 @@ const parseInlineFormatting = (text, cleanInline) => {
         const linkMatch = part.match(/^\[([^\]]+)\]\(([^)]+)\)$/);
         if (linkMatch) {
             return (
-                <a key={i} href={linkMatch[2]} target="_blank" rel="noopener noreferrer" className="text-primary underline underline-offset-2 decoration-primary/30 hover:decoration-primary/70 transition-colors">
+                <a key={key} href={linkMatch[2]} target="_blank" rel="noopener noreferrer" className="text-primary underline underline-offset-2 decoration-primary/30 hover:decoration-primary/70 transition-colors">
                     {cleanInline(linkMatch[1])}
                 </a>
             );

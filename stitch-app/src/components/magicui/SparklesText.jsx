@@ -4,8 +4,8 @@ import { cn } from '../../lib/utils';
 
 const Sparkle = ({ delay, duration, x, y, size }) => (
     <Motion.svg
-        initial={{ opacity: 0, scale: 0, rotate: 0 }}
-        animate={{ opacity: [0, 1, 0], scale: [0, 1, 0], rotate: [0, 180, 360] }}
+        initial={{ opacity: 0, scale: 0.95, rotate: 0 }}
+        animate={{ opacity: [0, 1, 0], scale: [0.95, 1, 0.95], rotate: [0, 180, 360] }}
         transition={{ duration, delay, repeat: Infinity, repeatDelay: duration * 1.5 }}
         className="absolute pointer-events-none"
         style={{ left: x, top: y, width: size, height: size }}

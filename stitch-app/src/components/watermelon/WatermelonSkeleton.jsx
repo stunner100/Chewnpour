@@ -1,6 +1,8 @@
 import React from 'react';
 import { motion as Motion, useReducedMotion } from 'motion/react';
 
+const EMPTY_OBJECT = {};
+
 const ACCENT = 'rgb(145, 75, 241)';
 const BASE = 'rgba(255,255,255,0.05)';
 const HIGHLIGHT = 'rgba(255,255,255,0.10)';
@@ -25,7 +27,7 @@ export const WatermelonSkeleton = ({
     height = 16,
     rounded = 8,
     className = '',
-    style = {},
+    style = EMPTY_OBJECT,
 }) => {
     const shouldReduceMotion = useReducedMotion();
 
@@ -46,7 +48,7 @@ export const WatermelonSkeleton = ({
     );
 };
 
-export const WatermelonSkeletonCard = ({ children, className = '', style = {} }) => (
+export const WatermelonSkeletonCard = ({ children, className = '', style = EMPTY_OBJECT }) => (
     <div
         className={className}
         style={{
@@ -77,8 +79,8 @@ export const WatermelonSkeletonStat = ({ label }) => (
 
 export const WatermelonSkeletonList = ({ rows = 4 }) => (
     <div className="flex flex-col gap-3">
-        {Array.from({ length: rows }, (_, i) => (
-            <WatermelonSkeletonCard key={i} style={{ padding: 16 }}>
+        {Array.from({ length: rows }, (_, row) => `row-${row}`).map((rowKey) => (
+            <WatermelonSkeletonCard key={rowKey} style={{ padding: 16 }}>
                 <div className="flex items-center gap-3">
                     <WatermelonSkeleton width={42} height={42} rounded={12} />
                     <div className="flex-1">
@@ -95,8 +97,8 @@ export const WatermelonSkeletonList = ({ rows = 4 }) => (
 
 export const WatermelonSkeletonGrid = ({ tiles = 4, columns = 'sm:grid-cols-2 lg:grid-cols-4' }) => (
     <div className={`grid grid-cols-1 ${columns} gap-3`}>
-        {Array.from({ length: tiles }, (_, i) => (
-            <WatermelonSkeletonStat key={i} label />
+        {Array.from({ length: tiles }, (_, tile) => `tile-${tile}`).map((tileKey) => (
+            <WatermelonSkeletonStat key={tileKey} label />
         ))}
     </div>
 );

@@ -266,8 +266,8 @@ const DashboardCourse = () => {
     const moduleItems = useMemo(() => {
         if (!topics.length && plannedCount === 0) return [];
         const topicsByOrder = new Map(
-            [...topics]
-                .sort((a, b) => a.orderIndex - b.orderIndex)
+            topics
+                .toSorted((a, b) => a.orderIndex - b.orderIndex)
                 .map((topic) => [topic.orderIndex, topic]),
         );
         return Array.from({ length: Math.max(plannedCount, topics.length) }, (_, index) => {
@@ -327,9 +327,11 @@ const DashboardCourse = () => {
 
     const quizAccuracy = useMemo(() => {
         if (!courseProgress) return 0;
-        const scores = topics
-            .map((t) => courseProgress?.[t._id]?.bestScore)
-            .filter((s) => typeof s === 'number');
+        const scores = [];
+        for (const topic of topics) {
+            const score = courseProgress?.[topic._id]?.bestScore;
+            if (typeof score === 'number') scores.push(score);
+        }
         if (scores.length === 0) return 0;
         const sum = scores.reduce((a, b) => a + b, 0);
         return Math.round(sum / scores.length);
@@ -348,7 +350,7 @@ const DashboardCourse = () => {
     // Recommended next module: in-progress > earliest not-started ready module.
     const nextModule = useMemo(() => {
         if (topics.length === 0) return null;
-        const ordered = [...topics].sort((a, b) => a.orderIndex - b.orderIndex);
+        const ordered = topics.toSorted((a, b) => a.orderIndex - b.orderIndex);
         const inProgress = ordered.find(
             (t) => courseProgress?.[t._id] && !courseProgress?.[t._id]?.completedAt,
         );

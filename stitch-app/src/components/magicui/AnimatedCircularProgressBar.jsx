@@ -25,15 +25,6 @@ export const AnimatedCircularProgressBar = ({
                 className,
             )}
             style={{
-                '--circle-size': `${size}px`,
-                '--circumference': circumference,
-                '--percent-to-px': `${circumference / 100}px`,
-                '--gap-percent': '5',
-                '--offset-factor': '0',
-                '--transition-length': '1s',
-                '--transition-step': '200ms',
-                '--delay': '0s',
-                '--percent-to-deg': '3.6deg',
                 width: `${size}px`,
                 height: `${size}px`,
                 transform: 'translateZ(0)',
@@ -63,10 +54,10 @@ export const AnimatedCircularProgressBar = ({
                             stroke: gaugeSecondaryColor,
                             strokeDasharray: `${90 - percent}px ${circumference}px`,
                             transform:
-                                'rotate(calc(1deg * (90 + var(--gap-percent) * var(--percent-to-deg) + var(--percent-to-deg) * var(--percent, 0))))',
+                                `rotate(${90 + (5 * 3.6) + (3.6 * percent)}deg)`,
                             transformOrigin: '50px 50px',
                             transition:
-                                'all var(--transition-length) ease var(--delay), stroke var(--transition-length) ease var(--delay)',
+                                'stroke-dasharray 1s ease, transform 1s ease, stroke 1s ease',
                         }}
                     />
                 )}
@@ -83,8 +74,7 @@ export const AnimatedCircularProgressBar = ({
                         stroke: gaugePrimaryColor,
                         strokeDasharray: `${percent * 2.827}px ${circumference}px`,
                         transition:
-                            'all var(--transition-length) ease var(--delay), stroke var(--transition-length) ease var(--delay)',
-                        transitionProperty: 'stroke-dasharray, transform',
+                            'stroke-dasharray 1s ease, transform 1s ease, stroke 1s ease',
                         transform:
                             'rotate(-90deg)',
                         transformOrigin: '50px 50px',
@@ -97,7 +87,7 @@ export const AnimatedCircularProgressBar = ({
                         className="text-2xl font-bold leading-none"
                         style={{
                             color: gaugePrimaryColor,
-                            transition: 'color var(--transition-length) ease var(--delay)',
+                            transition: 'color 1s ease',
                         }}
                     >
                         {Math.round(percent)}%

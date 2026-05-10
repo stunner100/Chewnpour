@@ -588,6 +588,9 @@ html.is-safari .safari-backdrop {
 
 .animate-orbit {
     animation: orbit calc(var(--duration) * 1s) linear infinite;
+    animation-delay: var(--delay, 0s);
+    animation-direction: var(--direction, normal);
+    --angle: 0;
 }
 
 @media (prefers-reduced-motion: reduce) {

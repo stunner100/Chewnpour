@@ -65,16 +65,15 @@ const QuizTab = ({ terms }) => {
     }, []);
 
     const advance = useCallback((gotIt) => {
-        const newScore = gotIt ? score + 1 : score;
         if (index + 1 >= terms.length) {
-            setScore(newScore);
+            setScore((currentScore) => (gotIt ? currentScore + 1 : currentScore));
             setDone(true);
         } else {
-            setScore(newScore);
-            setIndex(index + 1);
+            setScore((currentScore) => (gotIt ? currentScore + 1 : currentScore));
+            setIndex((currentIndex) => currentIndex + 1);
             setRevealed(false);
         }
-    }, [index, score, terms.length]);
+    }, [index, terms.length]);
 
     if (done) {
         const pct = Math.round((score / terms.length) * 100);

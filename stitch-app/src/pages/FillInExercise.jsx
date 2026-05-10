@@ -24,6 +24,76 @@ const shuffleQuestions = (questions) => {
     return next;
 };
 
+const SentenceRenderer = ({
+    answers,
+    isReview,
+    onAnswerChange,
+    onRegisterInput,
+    qIdx,
+    question,
+    results,
+    submitted,
+}) => {
+    const parts = question.sentence.split('___');
+    const elements = [];
+
+    for (let i = 0; i < parts.length; i += 1) {
+        if (parts[i]) {
+            elements.push(
+                <span key={`text-${qIdx}-${i}`} className="text-text-sub-light dark:text-text-sub-dark">
+                    {parts[i]}
+                </span>
+            );
+        }
+        if (i < question.blanks.length) {
+            const bIdx = i;
+            const answerKey = `q${qIdx}-b${bIdx}`;
+            const userAnswer = String(answers[answerKey] || '');
+            const blank = question.blanks[bIdx];
+
+            if (isReview && results) {
+                const detail = results.details[qIdx]?.blankResults[bIdx];
+                const isCorrect = detail?.isCorrect;
+                elements.push(
+                    <span
+                        key={`blank-${answerKey}`}
+                        className={`inline-flex items-center gap-1 px-2.5 py-1 mx-1 rounded-lg font-semibold text-body-sm ${
+                            isCorrect
+                                ? 'bg-accent-emerald/10 text-accent-emerald border border-accent-emerald/30'
+                                : 'bg-red-50 dark:bg-red-900/10 text-red-600 dark:text-red-400 border border-red-300 dark:border-red-800'
+                        }`}
+                    >
+                        {userAnswer || '—'}
+                        {!isCorrect && (
+                            <span className="text-caption text-text-faint-light dark:text-text-faint-dark ml-1">
+                                → {blank.answer}
+                            </span>
+                        )}
+                    </span>
+                );
+            } else {
+                elements.push(
+                    <input
+                        key={`input-${answerKey}`}
+                        ref={(el) => { onRegisterInput(answerKey, el); }}
+                        type="text"
+                        value={userAnswer}
+                        onChange={(event) => onAnswerChange(qIdx, bIdx, event.target.value)}
+                        disabled={submitted}
+                        placeholder="type answer"
+                        autoComplete="off"
+                        autoCapitalize="off"
+                        spellCheck="false"
+                        className="inline-block w-32 sm:w-40 mx-1 px-3 py-1.5 rounded-lg border-2 border-dashed border-border-light dark:border-border-dark bg-surface-hover-light dark:bg-surface-hover-dark text-body-sm text-text-main-light dark:text-text-main-dark font-semibold text-center placeholder:text-text-faint-light dark:placeholder:text-text-faint-dark placeholder:font-normal focus:border-primary focus:border-solid focus:outline-none focus:ring-1 focus:ring-primary/30 transition-all disabled:opacity-50"
+                    />
+                );
+            }
+        }
+    }
+
+    return <>{elements}</>;
+};
+
 const FillInExercise = () => {
     const { topicId: topicIdParam } = useParams();
     const routeTopicId = typeof topicIdParam === 'string' ? topicIdParam.trim() : '';
@@ -87,13 +157,17 @@ const FillInExercise = () => {
             let qs = Array.isArray(response?.questions) ? response.questions : [];
             if (qs.length === 0) throw new Error('No questions generated.');
             const previousSetKey = excludeSentences
-                .map((sentence) => normalize(sentence))
-                .filter(Boolean)
+                .flatMap((sentence) => {
+                    const normalized = normalize(sentence);
+                    return normalized ? [normalized] : [];
+                })
                 .sort()
                 .join('|');
             const nextSetKey = qs
-                .map((question) => normalize(question?.sentence))
-                .filter(Boolean)
+                .flatMap((question) => {
+                    const normalized = normalize(question?.sentence);
+                    return normalized ? [normalized] : [];
+                })
                 .sort()
                 .join('|');
             if (previousSetKey && previousSetKey === nextSetKey && qs.length > 1) {
@@ -146,6 +220,10 @@ const FillInExercise = () => {
         setAnswers((prev) => ({ ...prev, [key]: value }));
     }, []);
 
+    const registerInput = useCallback((key, element) => {
+        inputRefs.current[key] = element;
+    }, []);
+
     const handleSubmit = useCallback(async () => {
         if (!questions || !topicId || !userId || !allFilled) return;
         setSaving(true);
@@ -185,6 +263,15 @@ const FillInExercise = () => {
             setSaving(false);
         }
     }, [questions, answers, topicId, userId, allFilled, totalBlanks, startedAt, createConceptAttempt]);
+
+    const handleRetake = useCallback(() => {
+        setAnswers({});
+        setSubmitted(false);
+        setResults(null);
+        setSaveError('');
+        setCurrentIdx(0);
+        setStartedAt(Date.now());
+    }, []);
 
     // Focus first input of current question
     useEffect(() => {
@@ -257,67 +344,6 @@ const FillInExercise = () => {
     const isLast = currentIdx === questions.length - 1;
     const isFirst = currentIdx === 0;
 
-    /* ── render sentence with inline inputs ────────────────────── */
-    const renderSentence = (question, qIdx, isReview) => {
-        const parts = question.sentence.split('___');
-        const elements = [];
-
-        for (let i = 0; i < parts.length; i++) {
-            if (parts[i]) {
-                elements.push(
-                    <span key={`text-${qIdx}-${i}`} className="text-text-sub-light dark:text-text-sub-dark">
-                        {parts[i]}
-                    </span>
-                );
-            }
-            if (i < question.blanks.length) {
-                const bIdx = i;
-                const key = `q${qIdx}-b${bIdx}`;
-                const userAnswer = String(answers[key] || '');
-                const blank = question.blanks[bIdx];
-
-                if (isReview && results) {
-                    const detail = results.details[qIdx]?.blankResults[bIdx];
-                    const isCorrect = detail?.isCorrect;
-                    elements.push(
-                        <span
-                            key={`blank-${key}`}
-                            className={`inline-flex items-center gap-1 px-2.5 py-1 mx-1 rounded-lg font-semibold text-body-sm ${
-                                isCorrect
-                                    ? 'bg-accent-emerald/10 text-accent-emerald border border-accent-emerald/30'
-                                    : 'bg-red-50 dark:bg-red-900/10 text-red-600 dark:text-red-400 border border-red-300 dark:border-red-800'
-                            }`}
-                        >
-                            {userAnswer || '—'}
-                            {!isCorrect && (
-                                <span className="text-caption text-text-faint-light dark:text-text-faint-dark ml-1">
-                                    → {blank.answer}
-                                </span>
-                            )}
-                        </span>
-                    );
-                } else {
-                    elements.push(
-                        <input
-                            key={`input-${key}`}
-                            ref={(el) => { inputRefs.current[key] = el; }}
-                            type="text"
-                            value={userAnswer}
-                            onChange={(e) => handleAnswerChange(qIdx, bIdx, e.target.value)}
-                            disabled={submitted}
-                            placeholder="type answer"
-                            autoComplete="off"
-                            autoCapitalize="off"
-                            spellCheck="false"
-                            className="inline-block w-32 sm:w-40 mx-1 px-3 py-1.5 rounded-lg border-2 border-dashed border-border-light dark:border-border-dark bg-surface-hover-light dark:bg-surface-hover-dark text-body-sm text-text-main-light dark:text-text-main-dark font-semibold text-center placeholder:text-text-faint-light dark:placeholder:text-text-faint-dark placeholder:font-normal focus:border-primary focus:border-solid focus:outline-none focus:ring-1 focus:ring-primary/30 transition-all disabled:opacity-50"
-                        />
-                    );
-                }
-            }
-        }
-        return elements;
-    };
-
     /* ── main render ───────────────────────────────────────────── */
     return (
         <div className="min-h-screen bg-background-light dark:bg-background-dark">
@@ -360,21 +386,30 @@ const FillInExercise = () => {
 
                         <div className="card-base p-6 md:p-8 mb-4">
                             <div className="flex flex-wrap items-baseline gap-1 text-body-lg md:text-display-sm leading-relaxed">
-                                {renderSentence(currentQ, currentIdx, false)}
+                                <SentenceRenderer
+                                    answers={answers}
+                                    isReview={false}
+                                    onAnswerChange={handleAnswerChange}
+                                    onRegisterInput={registerInput}
+                                    qIdx={currentIdx}
+                                    question={currentQ}
+                                    results={results}
+                                    submitted={submitted}
+                                />
                             </div>
                         </div>
 
                         {/* Question dots */}
                         <div className="flex items-center justify-center gap-2 my-6">
-                            {questions.map((_, idx) => {
-                                const qBlanks = questions[idx].blanks || [];
+                            {questions.map((question, idx) => {
+                                const qBlanks = question.blanks || [];
                                 const allQFilled = qBlanks.every((_, bIdx) => {
                                     const v = answers[`q${idx}-b${bIdx}`];
                                     return String(v || '').trim().length > 0;
                                 });
                                 return (
                                     <button
-                                        key={idx}
+                                        key={question.sentence}
                                         type="button"
                                         onClick={() => setCurrentIdx(idx)}
                                         className={`size-3 rounded-full transition-all ${
@@ -458,12 +493,21 @@ const FillInExercise = () => {
 
                         <div className="space-y-4">
                             {questions.map((q, qIdx) => (
-                                <div key={qIdx} className="card-base p-5">
+                                <div key={q.sentence} className="card-base p-5">
                                     <p className="text-caption font-semibold text-text-faint-light dark:text-text-faint-dark mb-3">
                                         Question {qIdx + 1}
                                     </p>
                                     <div className="flex flex-wrap items-baseline gap-1 text-body-base leading-relaxed">
-                                        {renderSentence(q, qIdx, true)}
+                                        <SentenceRenderer
+                                            answers={answers}
+                                            isReview
+                                            onAnswerChange={handleAnswerChange}
+                                            onRegisterInput={registerInput}
+                                            qIdx={qIdx}
+                                            question={q}
+                                            results={results}
+                                            submitted={submitted}
+                                        />
                                     </div>
                                 </div>
                             ))}
@@ -484,14 +528,7 @@ const FillInExercise = () => {
                     {submitted ? (
                         <>
                             <button
-                                onClick={() => {
-                                    setAnswers({});
-                                    setSubmitted(false);
-                                    setResults(null);
-                                    setSaveError('');
-                                    setCurrentIdx(0);
-                                    setStartedAt(Date.now());
-                                }}
+                                onClick={handleRetake}
                                 className="btn-secondary flex-1 py-3 text-body-sm flex items-center justify-center gap-2"
                             >
                                 <span className="material-symbols-outlined text-[18px]">replay</span>
@@ -506,7 +543,7 @@ const FillInExercise = () => {
                                     setLoadError('');
                                     loadExercise({
                                         excludeSentences: Array.isArray(questions)
-                                            ? questions.map((question) => question?.sentence).filter(Boolean)
+                                            ? questions.flatMap((question) => (question?.sentence ? [question.sentence] : []))
                                             : [],
                                     });
                                 }}

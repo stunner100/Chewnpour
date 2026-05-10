@@ -1,6 +1,8 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 
+const EMPTY_ARRAY = [];
+
 const ACTION_GRADIENTS = {
     primary: 'from-primary-500 to-primary-700',
     teal: 'from-teal-500 to-cyan-600',
@@ -41,7 +43,7 @@ const QuickActionCard = ({ action }) => {
     );
 };
 
-const QuickActionsGrid = ({ actions = [] }) => {
+const QuickActionsGrid = ({ actions = EMPTY_ARRAY }) => {
     if (actions.length === 0) return null;
     return (
         <section className="space-y-3 animate-fade-in-up animate-delay-250">

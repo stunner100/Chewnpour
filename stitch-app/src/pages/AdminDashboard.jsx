@@ -4,7 +4,13 @@ import { useAction, useMutation, useQuery } from 'convex/react';
 import { api } from '../../convex/_generated/api';
 import { useAuth } from '../contexts/AuthContext';
 
-const formatNumber = (value) => new Intl.NumberFormat().format(Number(value) || 0);
+const NUMBER_FORMATTER = new Intl.NumberFormat();
+const DATE_TIME_FORMATTER = new Intl.DateTimeFormat(undefined, {
+    dateStyle: 'medium',
+    timeStyle: 'short',
+});
+
+const formatNumber = (value) => NUMBER_FORMATTER.format(Number(value) || 0);
 const formatPercent = (value) => {
     const parsed = Number(value);
     const safe = Number.isFinite(parsed) ? parsed : 0;
@@ -22,10 +28,7 @@ const formatRatioPercent = (value) => {
 const formatDateTime = (timestampMs) => {
     const parsed = Number(timestampMs);
     if (!Number.isFinite(parsed) || parsed <= 0) return 'N/A';
-    return new Intl.DateTimeFormat(undefined, {
-        dateStyle: 'medium',
-        timeStyle: 'short',
-    }).format(parsed);
+    return DATE_TIME_FORMATTER.format(parsed);
 };
 
 const formatRelativeHours = (value) => {
@@ -1680,7 +1683,7 @@ const SettingsPanel = ({
                 <div className="grow">
                     <p className="mt-1 text-xs text-text-faint-light dark:text-text-faint-dark">
                         Current: {paymentProviderConfig?.selectedLabel || paymentProviderConfig?.selected || 'Unknown'}
-                        {paymentProviderConfig?.updatedAt ? ` • Updated ${new Date(paymentProviderConfig.updatedAt).toLocaleString()}` : null}
+                        {paymentProviderConfig?.updatedAt ? ` • Updated ${formatDateTime(paymentProviderConfig.updatedAt)}` : null}
                     </p>
                     {!paymentProviderConfig ? (
                         <p className="mt-2 text-xs text-amber-700 dark:text-amber-300">
@@ -1784,7 +1787,7 @@ const AdminDashboard = () => {
             <div className="bg-background-light dark:bg-background-dark min-h-screen flex items-center justify-center">
                 <div className="flex flex-col items-center gap-4">
                     <div className="animate-spin rounded-full size-12 border-t-2 border-b-2 border-primary"></div>
-                    <p className="text-text-faint-light dark:text-text-faint-dark text-sm font-medium">Loading admin dashboard...</p>
+                    <p className="text-text-faint-light dark:text-text-faint-dark text-sm font-medium">Loading admin dashboard…</p>
                 </div>
             </div>
         );
@@ -1901,71 +1904,66 @@ const AdminDashboard = () => {
         }
     };
 
-    const renderActivePanel = () => {
-        switch (activeTab) {
-            case 'overview':
-                return <OverviewPanel snapshot={snapshot} totals={totals} activeUsersDays={activeUsersDays} newUsersDays={newUsersDays} flags={flags} />;
-            case 'learning':
-                return <LearningPanel snapshot={snapshot} activeUsersDays={activeUsersDays} />;
-            case 'features':
-                return <FeatureUsagePanel snapshot={snapshot} activeUsersDays={activeUsersDays} />;
-            case 'revenue':
-                return (
-                    <RevenuePanel
-                        snapshot={snapshot}
-                        activeUsersDays={activeUsersDays}
-                        handleReconcilePayment={handleReconcilePayment}
-                        billingActionError={billingActionError}
-                        billingActionMessage={billingActionMessage}
-                        reconcilingReferences={reconcilingReferences}
-                    />
-                );
-            case 'content':
-                return (
-                    <ContentPanel
-                        snapshot={snapshot}
-                        retrievalTopicId={retrievalTopicId}
-                        setRetrievalTopicId={setRetrievalTopicId}
-                        retrievalDiagnostics={retrievalDiagnostics}
-                        retrievalDiagnosticsError={retrievalDiagnosticsError}
-                        retrievalDiagnosticsLoading={retrievalDiagnosticsLoading}
-                        handleDiagnoseRetrieval={handleDiagnoseRetrieval}
-                    />
-                );
-            case 'users':
-                return <UsersPanel signedInUsers={signedInUsers} recentUsers={recentUsers} premiumUsers={premiumUsers} flags={flags} snapshot={snapshot} activeUsersDays={activeUsersDays} />;
-            case 'uploads':
-                return <UploadsPanel snapshot={snapshot} />;
-            case 'feedback':
-                return (
-                    <FeedbackPanel
-                        recentFeedback={recentFeedback}
-                        recentProductResearchResponses={recentProductResearchResponses}
-                        campaignPerformanceReports={campaignPerformanceReports}
-                        totals={totals}
-                        activeUsersDays={activeUsersDays}
-                    />
-                );
-            case 'settings':
-                return (
-                    <SettingsPanel
-                        adminEmails={adminEmails}
-                        handleAddAdminEmail={handleAddAdminEmail}
-                        handleRemoveAdminEmail={handleRemoveAdminEmail}
-                        newAdminEmail={newAdminEmail}
-                        setNewAdminEmail={setNewAdminEmail}
-                        adminActionLoading={adminActionLoading}
-                        adminActionError={adminActionError}
-                        paymentProviderConfig={paymentProviderConfig}
-                        paymentProviderDraft={paymentProviderDraft}
-                        setPaymentProviderDraft={setPaymentProviderDraft}
-                        handleSavePaymentProvider={handleSavePaymentProvider}
-                    />
-                );
-            default:
-                return null;
-        }
-    };
+    const activePanel = activeTab === 'overview'
+        ? <OverviewPanel snapshot={snapshot} totals={totals} activeUsersDays={activeUsersDays} newUsersDays={newUsersDays} flags={flags} />
+        : activeTab === 'learning'
+            ? <LearningPanel snapshot={snapshot} activeUsersDays={activeUsersDays} />
+            : activeTab === 'features'
+                ? <FeatureUsagePanel snapshot={snapshot} activeUsersDays={activeUsersDays} />
+                : activeTab === 'revenue'
+                    ? (
+                        <RevenuePanel
+                            snapshot={snapshot}
+                            activeUsersDays={activeUsersDays}
+                            handleReconcilePayment={handleReconcilePayment}
+                            billingActionError={billingActionError}
+                            billingActionMessage={billingActionMessage}
+                            reconcilingReferences={reconcilingReferences}
+                        />
+                    )
+                    : activeTab === 'content'
+                        ? (
+                            <ContentPanel
+                                snapshot={snapshot}
+                                retrievalTopicId={retrievalTopicId}
+                                setRetrievalTopicId={setRetrievalTopicId}
+                                retrievalDiagnostics={retrievalDiagnostics}
+                                retrievalDiagnosticsError={retrievalDiagnosticsError}
+                                retrievalDiagnosticsLoading={retrievalDiagnosticsLoading}
+                                handleDiagnoseRetrieval={handleDiagnoseRetrieval}
+                            />
+                        )
+                        : activeTab === 'users'
+                            ? <UsersPanel signedInUsers={signedInUsers} recentUsers={recentUsers} premiumUsers={premiumUsers} flags={flags} snapshot={snapshot} activeUsersDays={activeUsersDays} />
+                            : activeTab === 'uploads'
+                                ? <UploadsPanel snapshot={snapshot} />
+                                : activeTab === 'feedback'
+                                    ? (
+                                        <FeedbackPanel
+                                            recentFeedback={recentFeedback}
+                                            recentProductResearchResponses={recentProductResearchResponses}
+                                            campaignPerformanceReports={campaignPerformanceReports}
+                                            totals={totals}
+                                            activeUsersDays={activeUsersDays}
+                                        />
+                                    )
+                                    : activeTab === 'settings'
+                                        ? (
+                                            <SettingsPanel
+                                                adminEmails={adminEmails}
+                                                handleAddAdminEmail={handleAddAdminEmail}
+                                                handleRemoveAdminEmail={handleRemoveAdminEmail}
+                                                newAdminEmail={newAdminEmail}
+                                                setNewAdminEmail={setNewAdminEmail}
+                                                adminActionLoading={adminActionLoading}
+                                                adminActionError={adminActionError}
+                                                paymentProviderConfig={paymentProviderConfig}
+                                                paymentProviderDraft={paymentProviderDraft}
+                                                setPaymentProviderDraft={setPaymentProviderDraft}
+                                                handleSavePaymentProvider={handleSavePaymentProvider}
+                                            />
+                                        )
+                                        : null;
 
     return (
         <div className="min-h-screen bg-background-light dark:bg-background-dark px-4 py-6 sm:px-6 lg:px-8">
@@ -1993,7 +1991,7 @@ const AdminDashboard = () => {
 
                 <TabBar activeTab={activeTab} onTabChange={setActiveTab} />
 
-                {renderActivePanel()}
+                {activePanel}
             </div>
         </div>
     );

@@ -72,7 +72,7 @@ const StudyModeSelector = ({ topicTitle, onSelect, onSkip, onStartExam }) => {
                         onClick={onSkip}
                         className="btn-ghost text-caption text-text-faint-light dark:text-text-faint-dark"
                     >
-                        Skip — view full lesson
+                        Skip, view full lesson
                     </button>
                 </div>
 

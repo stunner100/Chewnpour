@@ -34,7 +34,7 @@ export function Features() {
                     </h2>
                     <p className="mt-4 text-base md:text-lg text-muted-foreground">
                         ChewnPour transforms your lecture materials into structured lessons,
-                        smart quizzes, and a personal AI tutor — all in one place, built for
+                        smart quizzes, and a personal AI tutor, all in one place, built for
                         university students.
                     </p>
                 </div>

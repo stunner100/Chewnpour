@@ -131,9 +131,10 @@ const buildSessionSummary = (results) => {
     const score = items.reduce((sum, item) => sum + (item.score || 0), 0);
     const total = items.reduce((sum, item) => sum + (item.total || 0), 0);
     const weakConceptKeys = new Set();
-    const weakItems = items
-        .filter((item) => Number(item.score || 0) < Number(item.total || 0))
-        .map((item) => ({
+    const weakItems = [];
+    for (const item of items) {
+        if (Number(item.score || 0) >= Number(item.total || 0)) continue;
+        weakItems.push({
             conceptKey: item.conceptKey,
             conceptLabel: humanizeConceptKey(item.conceptKey),
             exerciseType: resolveExerciseType(item),
@@ -141,7 +142,8 @@ const buildSessionSummary = (results) => {
             correctAnswers: item.correctAnswers,
             explanation: item.explanation,
             evidenceQuotes: collectEvidenceQuotes(item.citations),
-        }));
+        });
+    }
 
     weakItems.forEach((item) => {
         const conceptKey = String(item.conceptKey || '').trim();
@@ -339,10 +341,13 @@ const ConceptBuilder = () => {
         [currentExercise],
     );
 
-    const selectedTokenIds = useMemo(
-        () => new Set(selectedTokens.filter(Boolean).map((token) => token.id)),
-        [selectedTokens],
-    );
+    const selectedTokenIds = useMemo(() => {
+        const ids = new Set();
+        for (const token of selectedTokens) {
+            if (token) ids.add(token.id);
+        }
+        return ids;
+    }, [selectedTokens]);
 
     const availableTokens = useMemo(
         () => tokenItems.filter((token) => !selectedTokenIds.has(token.id)),
@@ -588,7 +593,7 @@ const ConceptBuilder = () => {
             <div className="min-h-screen bg-background-light dark:bg-background-dark flex items-center justify-center">
                 <div className="text-center">
                     <div className="animate-spin rounded-full size-10 border-2 border-border-light dark:border-border-dark border-t-primary mx-auto mb-4"></div>
-                    <p className="text-body-sm text-text-sub-light dark:text-text-sub-dark">Loading topic...</p>
+                    <p className="text-body-sm text-text-sub-light dark:text-text-sub-dark">Loading topic…</p>
                 </div>
             </div>
         );
@@ -800,8 +805,8 @@ const ConceptBuilder = () => {
                             </p>
                         ) : (
                             <div className="space-y-4">
-                                {sessionSummary.weakItems.map((item, index) => (
-                                    <div key={`${item.questionText}-${index}`} className="rounded-2xl border border-border-light dark:border-border-dark bg-surface-hover-light dark:bg-surface-hover-dark p-4">
+                                {sessionSummary.weakItems.map((item) => (
+                                    <div key={item.questionText || item.conceptKey} className="rounded-2xl border border-border-light dark:border-border-dark bg-surface-hover-light dark:bg-surface-hover-dark p-4">
                                         <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-primary/8 text-primary text-caption font-semibold mb-3">
                                             <span className="material-symbols-outlined text-[14px]">neurology</span>
                                             <span>{formatExerciseTypeLabel(item.exerciseType)}</span>
@@ -881,7 +886,7 @@ const ConceptBuilder = () => {
             <div className="min-h-screen bg-background-light dark:bg-background-dark flex items-center justify-center">
                 <div className="text-center">
                     <div className="animate-spin rounded-full size-10 border-2 border-border-light dark:border-border-dark border-t-primary mx-auto mb-4"></div>
-                    <p className="text-body-sm text-text-sub-light dark:text-text-sub-dark">Loading your session...</p>
+                    <p className="text-body-sm text-text-sub-light dark:text-text-sub-dark">Loading your session…</p>
                 </div>
             </div>
         );
@@ -956,12 +961,21 @@ const ConceptBuilder = () => {
                                         && currentResult
                                         && normalizeConceptAnswer(currentResult.userAnswers[slotIndex]) !== normalizeConceptAnswer(currentResult.correctAnswers[slotIndex]);
                                     blankCounter += 1;
+                                    const blankKey = `blank-${slotIndex}`;
                                     return (
                                         <div
-                                            key={`blank-${index}`}
+                                            key={blankKey}
                                             onClick={() => handleSlotClick(slotIndex)}
+                                            onKeyDown={(event) => {
+                                                if (event.key === 'Enter' || event.key === ' ') {
+                                                    event.preventDefault();
+                                                    handleSlotClick(slotIndex);
+                                                }
+                                            }}
                                             onDragOver={handleDragOver}
                                             onDrop={(event) => handleDrop(event, slotIndex)}
+                                            role="button"
+                                            tabIndex={isInteractionDisabled ? -1 : 0}
                                             className={`min-h-[44px] min-w-[100px] px-4 py-2 rounded-xl flex items-center justify-center border-2 transition-all cursor-pointer ${
                                                 token
                                                     ? isCorrect
@@ -977,8 +991,9 @@ const ConceptBuilder = () => {
                                     );
                                 }
 
+                                const partKey = `text-${part}-${index}`;
                                 return (
-                                    <span key={`text-${index}`} className="text-text-sub-light dark:text-text-sub-dark">
+                                    <span key={partKey} className="text-text-sub-light dark:text-text-sub-dark">
                                         {part}
                                     </span>
                                 );
@@ -1056,8 +1071,8 @@ const ConceptBuilder = () => {
                                 <div className="mt-4">
                                     <div className="text-overline text-text-faint-light dark:text-text-faint-dark mb-2">Evidence from your source</div>
                                     <div className="space-y-2">
-                                        {evidenceQuotes.map((quote, index) => (
-                                            <div key={`${quote.quote}-${index}`} className="rounded-xl bg-surface-light dark:bg-surface-dark px-3 py-2">
+                                        {evidenceQuotes.map((quote) => (
+                                            <div key={quote.quote} className="rounded-xl bg-surface-light dark:bg-surface-dark px-3 py-2">
                                                 <p className="text-body-sm text-text-sub-light dark:text-text-sub-dark">"{quote.quote}"</p>
                                                 {quote.page ? (
                                                     <p className="text-caption text-text-faint-light dark:text-text-faint-dark mt-1">Source page {quote.page}</p>

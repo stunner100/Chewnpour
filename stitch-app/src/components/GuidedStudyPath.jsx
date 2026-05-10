@@ -13,10 +13,19 @@ const isGenericSection = (value) =>
     GENERIC_SECTION_PATTERNS.some((pattern) => pattern.test(String(value || '')));
 
 const buildGuidedSteps = (topicTitle, blocks) => {
-    const headerBlocks = (Array.isArray(blocks) ? blocks : [])
-        .filter((block) => block?.type === 'header' && block?.id && block?.text)
-        .filter((block) => Number(block.level || 0) >= 2 && !isGenericSection(block.text))
-        .slice(0, 4);
+    const headerBlocks = [];
+    for (const block of Array.isArray(blocks) ? blocks : []) {
+        if (
+            block?.type === 'header'
+            && block?.id
+            && block?.text
+            && Number(block.level || 0) >= 2
+            && !isGenericSection(block.text)
+        ) {
+            headerBlocks.push(block);
+            if (headerBlocks.length === 4) break;
+        }
+    }
 
     if (headerBlocks.length > 0) {
         return headerBlocks.map((block, index) => ({

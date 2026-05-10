@@ -1,6 +1,8 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 
+const EMPTY_ARRAY = [];
+
 const LessonHeader = ({
     courseTitle,
     courseHref,
@@ -9,7 +11,7 @@ const LessonHeader = ({
     statusBadge,
     bestScore,
     primaryAction,
-    secondaryActions = [],
+    secondaryActions = EMPTY_ARRAY,
     onOpenSettings,
     onOpenReExplain,
 }) => {

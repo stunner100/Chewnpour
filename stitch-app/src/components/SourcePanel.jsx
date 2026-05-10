@@ -16,8 +16,10 @@ const SourcePanel = ({ open, onClose, passages }) => {
     return (
         <>
             {/* Backdrop */}
-            <div
-                className={`fixed inset-0 z-[55] bg-black/30 md:bg-transparent md:pointer-events-none lg:hidden transition-opacity duration-200 ${isClosing ? 'opacity-0' : 'opacity-100'}`}
+            <button
+                type="button"
+                aria-label="Close sources panel"
+                className={`fixed inset-0 z-[55] border-0 bg-black/30 p-0 md:bg-transparent md:pointer-events-none lg:hidden transition-opacity duration-200 ${isClosing ? 'opacity-0' : 'opacity-100'}`}
                 onClick={handleClose}
             />
 

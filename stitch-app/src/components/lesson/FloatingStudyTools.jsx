@@ -1,6 +1,8 @@
 import React, { useEffect, useRef, useState } from 'react';
 
-const FloatingStudyTools = ({ tools = [], hidden }) => {
+const EMPTY_ARRAY = [];
+
+const FloatingStudyTools = ({ tools = EMPTY_ARRAY, hidden }) => {
     const [open, setOpen] = useState(false);
     const wrapperRef = useRef(null);
 

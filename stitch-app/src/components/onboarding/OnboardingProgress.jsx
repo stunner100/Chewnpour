@@ -21,11 +21,12 @@ export const OnboardingProgress = ({ step = 1, total = 3 }) => {
             aria-valuemin={1}
             aria-valuemax={normalizedTotal}
         >
-            {Array.from({ length: normalizedTotal }, (_, i) => {
-                const isFilled = i < normalizedStep;
+            {Array.from({ length: normalizedTotal }, (_, stepIndex) => {
+                const stepKey = `step-${stepIndex + 1}`;
+                const isFilled = stepIndex < normalizedStep;
                 return (
                     <div
-                        key={i}
+                        key={stepKey}
                         className="h-1 flex-1 rounded-full overflow-hidden"
                         style={{ background: INACTIVE }}
                     >
@@ -38,7 +39,7 @@ export const OnboardingProgress = ({ step = 1, total = 3 }) => {
                             transition={{
                                 duration: 0.5,
                                 ease: [0.16, 1, 0.3, 1],
-                                delay: isFilled ? i * 0.08 : 0,
+                                delay: isFilled ? stepIndex * 0.08 : 0,
                             }}
                             style={{
                                 background: ACCENT,

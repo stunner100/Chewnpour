@@ -1,4 +1,4 @@
-import React, { useState, createContext, useContext } from 'react';
+import React, { use, useState, createContext } from 'react';
 import { motion as Motion } from 'motion/react';
 import { cn } from '../../lib/utils';
 
@@ -12,7 +12,7 @@ export const WatermelonTabs = ({
     className,
     orientation = 'horizontal',
 }) => {
-    const [internalValue, setInternalValue] = useState(defaultValue);
+    const [internalValue, setInternalValue] = useState(() => defaultValue);
     const activeValue = controlledValue !== undefined ? controlledValue : internalValue;
 
     const setValue = (v) => {
@@ -44,7 +44,7 @@ export const WatermelonTabsList = ({ children, className }) => {
 };
 
 export const WatermelonTabsTrigger = ({ children, value, className }) => {
-    const ctx = useContext(TabsContext);
+    const ctx = use(TabsContext);
     if (!ctx) throw new Error('WatermelonTabsTrigger must be inside WatermelonTabs');
     const { value: activeValue, setValue } = ctx;
     const isActive = activeValue === value;
@@ -76,7 +76,7 @@ export const WatermelonTabsTrigger = ({ children, value, className }) => {
 };
 
 export const WatermelonTabsContent = ({ children, value, className }) => {
-    const ctx = useContext(TabsContext);
+    const ctx = use(TabsContext);
     if (!ctx) throw new Error('WatermelonTabsContent must be inside WatermelonTabs');
     const { value: activeValue } = ctx;
     const isActive = activeValue === value;

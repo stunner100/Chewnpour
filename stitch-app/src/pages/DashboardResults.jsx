@@ -227,8 +227,8 @@ const StrengthsAndFocus = ({ answers }) => {
                         <span className="text-overline text-accent-emerald">Your Strengths</span>
                     </div>
                     <ul className="space-y-2">
-                        {strengths.map((a, i) => (
-                            <li key={i} className="text-caption text-text-sub-light dark:text-text-sub-dark leading-snug">
+                        {strengths.map((a) => (
+                            <li key={a.questionId || a.questionText} className="text-caption text-text-sub-light dark:text-text-sub-dark leading-snug">
                                 {truncate(a.questionText)}
                             </li>
                         ))}
@@ -242,8 +242,8 @@ const StrengthsAndFocus = ({ answers }) => {
                         <span className="text-overline text-accent-amber">Focus Areas</span>
                     </div>
                     <ul className="space-y-2">
-                        {focusAreas.map((a, i) => (
-                            <li key={i} className="text-caption text-text-sub-light dark:text-text-sub-dark leading-snug">
+                        {focusAreas.map((a) => (
+                            <li key={a.questionId || a.questionText} className="text-caption text-text-sub-light dark:text-text-sub-dark leading-snug">
                                 {truncate(a.questionText)}
                             </li>
                         ))}
@@ -444,7 +444,7 @@ const DashboardResults = () => {
             <div className="bg-background-light dark:bg-background-dark min-h-screen flex items-center justify-center">
                 <div className="text-center">
                     <div className="animate-spin rounded-full size-10 border-2 border-border-light dark:border-border-dark border-t-primary mx-auto mb-4"></div>
-                    <p className="text-body-sm text-text-sub-light dark:text-text-sub-dark">Loading exam results...</p>
+                    <p className="text-body-sm text-text-sub-light dark:text-text-sub-dark">Loading exam results…</p>
                 </div>
             </div>
         );
@@ -652,7 +652,7 @@ const DashboardResults = () => {
                                 const isCorrect = Boolean(answer.isCorrect);
                                 const hasEssayFeedback = isEssay && Boolean(answer.feedback);
                                 return (
-                                    <div key={`${answer.questionId}-${index}`} className="card-base p-5">
+                                    <div key={answer.questionId || answer.questionText} className="card-base p-5">
                                         <div className="flex justify-between items-center mb-3">
                                             <div className="flex items-center gap-2 flex-wrap">
                                                 <span className="text-overline text-text-faint-light dark:text-text-faint-dark">Question {index + 1}</span>

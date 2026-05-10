@@ -98,7 +98,7 @@ const TopicSettingsModal = memo(function TopicSettingsModal({
                         onClick={onClose}
                         className="px-4 py-2 rounded-xl text-sm font-semibold bg-primary text-white"
                     >
-                        Done
+                        Close settings
                     </button>
                 </div>
             </div>

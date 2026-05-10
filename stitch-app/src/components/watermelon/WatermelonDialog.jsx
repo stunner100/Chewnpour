@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useEffectEvent } from 'react';
 import { motion as Motion, AnimatePresence } from 'motion/react';
 import { cn } from '../../lib/utils';
 
@@ -8,6 +8,13 @@ export const WatermelonDialog = ({
     children,
     className,
 }) => {
+    const closeDialog = useEffectEvent(() => {
+        onOpenChange?.(false);
+    });
+    const handleBackdropClick = () => {
+        onOpenChange?.(false);
+    };
+
     useEffect(() => {
         if (open) {
             document.body.style.overflow = 'hidden';
@@ -20,11 +27,11 @@ export const WatermelonDialog = ({
     useEffect(() => {
         if (!open) return undefined;
         const handleKey = (e) => {
-            if (e.key === 'Escape') onOpenChange?.(false);
+            if (e.key === 'Escape') closeDialog();
         };
         document.addEventListener('keydown', handleKey);
         return () => document.removeEventListener('keydown', handleKey);
-    }, [open, onOpenChange]);
+    }, [open]);
 
     return (
         <AnimatePresence>
@@ -36,7 +43,7 @@ export const WatermelonDialog = ({
                         exit={{ opacity: 0 }}
                         transition={{ duration: 0.2 }}
                         className="absolute inset-0 bg-black/50 backdrop-blur-sm"
-                        onClick={() => onOpenChange?.(false)}
+                        onClick={handleBackdropClick}
                     />
                     <Motion.div
                         initial={{ opacity: 0, scale: 0.96, y: 8 }}

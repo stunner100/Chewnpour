@@ -207,7 +207,7 @@ const ExamPreparationLoader = memo(function ExamPreparationLoader({
             <div className="w-full max-w-md relative z-10">
                 <div className="text-center mb-8">
                     <div className="relative size-24 mx-auto mb-6">
-                        <svg className="absolute inset-0 size-full animate-spin" style={{ animationDuration: '3s' }} viewBox="0 0 96 96">
+                        <svg className="absolute inset-0 size-full animate-spin" style={{ animationDuration: '900ms' }} viewBox="0 0 96 96">
                             <circle cx="48" cy="48" r="44" fill="none" stroke="currentColor" className="text-border-light dark:text-border-dark" strokeWidth="2" />
                             <circle
                                 cx="48" cy="48" r="44" fill="none"

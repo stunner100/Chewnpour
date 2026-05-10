@@ -20,7 +20,6 @@ const MobileBottomNav = () => {
             className="fixed bottom-0 inset-x-0 z-50 md:hidden safe-area-bottom
                        bg-surface-light/90 dark:bg-surface-dark/90 backdrop-blur-xl
                        border-t border-border-subtle dark:border-border-subtle-dark"
-            role="navigation"
             aria-label="Main navigation"
         >
             <div className="flex items-stretch h-14 max-w-md mx-auto">

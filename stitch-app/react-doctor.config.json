@@ -1,0 +1,16 @@
+{
+  "ignore": {
+    "files": [
+      "api/**",
+      "convex/**",
+      "dist/**",
+      "scripts/**"
+    ],
+    "rules": [
+      "knip/duplicates",
+      "knip/exports",
+      "knip/files",
+      "knip/types"
+    ]
+  }
+}

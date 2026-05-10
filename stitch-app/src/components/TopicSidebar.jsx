@@ -14,10 +14,10 @@ const TopicSidebar = memo(function TopicSidebar({
     useEffect(() => {
         if (!toc || toc.length === 0) return;
 
-        const ids = toc.map((item) => item.id);
-        const elements = ids
-            .map((id) => document.getElementById(id))
-            .filter(Boolean);
+        const elements = toc.flatMap((item) => {
+            const element = document.getElementById(item.id);
+            return element ? [element] : [];
+        });
 
         if (elements.length === 0) return;
 
@@ -166,7 +166,7 @@ const TopicSidebar = memo(function TopicSidebar({
                             const summaryLine = cleanLine(line);
                             if (!summaryLine) return null;
                             return (
-                                <li key={idx} className="flex items-start gap-2">
+                                <li key={`${summaryLine}-${idx}`} className="flex items-start gap-2">
                                     <span className="material-symbols-outlined text-primary text-[14px] mt-0.5 shrink-0">check</span>
                                     <span className="text-caption text-text-sub-light dark:text-text-sub-dark line-clamp-2">{summaryLine}</span>
                                 </li>

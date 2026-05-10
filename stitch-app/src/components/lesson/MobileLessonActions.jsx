@@ -1,7 +1,9 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 
-const MobileLessonActions = ({ items = [] }) => {
+const EMPTY_ARRAY = [];
+
+const MobileLessonActions = ({ items = EMPTY_ARRAY }) => {
     if (items.length === 0) return null;
     return (
         <nav

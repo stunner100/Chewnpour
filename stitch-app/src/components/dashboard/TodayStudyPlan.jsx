@@ -2,13 +2,15 @@ import React from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { WatermelonScheduler } from '../watermelon/WatermelonScheduler';
 
+const EMPTY_ARRAY = [];
+
 const PRIORITY_STYLES = {
     high: 'bg-rose-50 dark:bg-rose-900/20 text-rose-700 dark:text-rose-300 border-rose-200/60 dark:border-rose-800/40',
     medium: 'bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-300 border-amber-200/60 dark:border-amber-800/40',
     low: 'bg-emerald-50 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-300 border-emerald-200/60 dark:border-emerald-800/40',
 };
 
-const TodayStudyPlan = ({ items = [], completedToday = 0 }) => {
+const TodayStudyPlan = ({ items = EMPTY_ARRAY, completedToday = 0 }) => {
     const total = items.length;
     const navigate = useNavigate();
 
@@ -41,7 +43,7 @@ const TodayStudyPlan = ({ items = [], completedToday = 0 }) => {
             {items.length === 0 ? (
                 <div className="text-center py-8">
                     <span className="material-symbols-outlined text-[36px] text-text-faint-light dark:text-text-faint-dark">task_alt</span>
-                    <p className="mt-2 text-body-sm text-text-sub-light dark:text-text-sub-dark">No study items for today yet — upload a doc or finish a quiz to populate your plan.</p>
+                    <p className="mt-2 text-body-sm text-text-sub-light dark:text-text-sub-dark">No study items for today yet, upload a doc or finish a quiz to populate your plan.</p>
                 </div>
             ) : (
                 <ul className="space-y-2">

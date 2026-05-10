@@ -2,6 +2,11 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 import PodcastStatusBadge from '../dashboard/PodcastStatusBadge';
 
+const WAVEFORM_BARS = [8, 16, 24, 12, 28, 20, 14, 22, 18, 26, 10, 20].map((height, position) => ({
+    id: `bar-${position}-${height}`,
+    height,
+}));
+
 const formatDuration = (seconds) => {
     if (!seconds) return '';
     const total = Math.max(0, Math.round(Number(seconds)));
@@ -20,11 +25,11 @@ const formatRelative = (timestamp) => {
 
 const WaveformBars = () => (
     <div className="flex items-end gap-[3px] h-8" aria-hidden="true">
-        {[8, 16, 24, 12, 28, 20, 14, 22, 18, 26, 10, 20].map((h, i) => (
+        {WAVEFORM_BARS.map((bar) => (
             <span
-                key={i}
+                key={bar.id}
                 className="w-[3px] rounded-full bg-white/80"
-                style={{ height: `${h}px` }}
+                style={{ height: `${bar.height}px` }}
             />
         ))}
     </div>

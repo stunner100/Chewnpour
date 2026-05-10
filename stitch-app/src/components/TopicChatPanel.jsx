@@ -232,8 +232,10 @@ const TopicChatPanel = memo(function TopicChatPanel({ topicId, topicTitle, open,
     return (
         <>
             {/* Backdrop (mobile/medium only) */}
-            <div
-                className={`fixed inset-0 z-[55] bg-black/20 md:bg-transparent md:pointer-events-none lg:hidden transition-opacity ${isClosing ? 'opacity-0' : 'opacity-100'}`}
+            <button
+                type="button"
+                aria-label="Close AI tutor panel"
+                className={`fixed inset-0 z-[55] border-0 bg-black/20 p-0 md:bg-transparent md:pointer-events-none lg:hidden transition-opacity ${isClosing ? 'opacity-0' : 'opacity-100'}`}
                 onClick={handleClose}
             />
 
@@ -419,9 +421,9 @@ const TopicChatPanel = memo(function TopicChatPanel({ topicId, topicTitle, open,
                                 <span className="inline-flex items-center gap-1">
                                     Thinking
                                     <span className="inline-flex gap-0.5">
-                                        <span className="size-1 rounded-full bg-text-faint-light dark:bg-text-faint-dark animate-bounce" style={{ animationDelay: '0ms' }} />
-                                        <span className="size-1 rounded-full bg-text-faint-light dark:bg-text-faint-dark animate-bounce" style={{ animationDelay: '150ms' }} />
-                                        <span className="size-1 rounded-full bg-text-faint-light dark:bg-text-faint-dark animate-bounce" style={{ animationDelay: '300ms' }} />
+                                        <span className="size-1 rounded-full bg-text-faint-light dark:bg-text-faint-dark animate-pulse" style={{ animationDelay: '0ms' }} />
+                                        <span className="size-1 rounded-full bg-text-faint-light dark:bg-text-faint-dark animate-pulse" style={{ animationDelay: '150ms' }} />
+                                        <span className="size-1 rounded-full bg-text-faint-light dark:bg-text-faint-dark animate-pulse" style={{ animationDelay: '300ms' }} />
                                     </span>
                                 </span>
                             </div>

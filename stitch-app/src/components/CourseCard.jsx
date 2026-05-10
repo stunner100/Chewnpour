@@ -1,6 +1,8 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 
+const EMPTY_ARRAY = [];
+
 const gradients = [
     '#7c3aed',
     '#f43f5e',
@@ -11,7 +13,7 @@ const gradients = [
 const CourseCard = ({
     course,
     index = 0,
-    folders = [],
+    folders = EMPTY_ARRAY,
     currentFolderId = null,
     deletingCourseId,
     confirmDeleteId,
@@ -79,6 +81,11 @@ const CourseCard = ({
                 {isConfirmingDelete ? (
                     <div
                         onClick={stopCardNav}
+                        onKeyDown={(event) => {
+                            if (event.key === 'Enter' || event.key === ' ') stopCardNav(event);
+                        }}
+                        role="group"
+                        aria-label={`Confirm deleting ${course.title}`}
                         className="absolute top-2 right-2 z-20 flex items-center gap-1.5 bg-surface-light dark:bg-surface-dark border border-border-light dark:border-border-dark rounded-lg px-2.5 py-1.5 shadow-card"
                     >
                         <span className="text-caption text-red-600 dark:text-red-400">Delete?</span>
@@ -86,16 +93,21 @@ const CourseCard = ({
                             onClick={(e) => { stopCardNav(e); onConfirmDelete && onConfirmDelete(course); }}
                             disabled={isDeleting}
                             className="text-caption font-semibold text-red-600 hover:text-red-700 px-1.5 py-0.5 rounded hover:bg-red-50 dark:hover:bg-red-900/30 transition-colors disabled:opacity-60"
-                        >Yes</button>
+                        >Delete course</button>
                         <button
                             onClick={(e) => { stopCardNav(e); onCancelDelete && onCancelDelete(); }}
                             className="text-caption text-text-sub-light px-1.5 py-0.5 rounded hover:bg-surface-hover transition-colors"
-                        >No</button>
+                        >Keep course</button>
                     </div>
                 ) : (
                     <div
                         ref={menuRef}
                         onClick={stopCardNav}
+                        onKeyDown={(event) => {
+                            if (event.key === 'Enter' || event.key === ' ') stopCardNav(event);
+                        }}
+                        role="group"
+                        aria-label={`Actions for ${course.title}`}
                         className="absolute top-2 right-2 z-20"
                     >
                         <button
