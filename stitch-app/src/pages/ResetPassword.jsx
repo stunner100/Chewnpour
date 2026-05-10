@@ -28,7 +28,7 @@ const ResetPassword = () => {
                 setError(error.message || 'Failed to send reset email.');
             } else {
                 setSuccess(
-                    'If this email exists, a reset link has been sent. In dev, check the server logs for the reset URL.'
+                    'If this email exists, a reset link has been sent.'
                 );
             }
         } catch {

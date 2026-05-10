@@ -27,6 +27,18 @@ if (!/import\s+authConfig\s+from\s+["']\.\/auth\.config["']/.test(authConfigSour
   throw new Error('Expected convex/authConfig.ts to import authConfig from ./auth.config.');
 }
 
+if (!/import\s+\{\s*sendEmail\s*\}\s+from\s+["']\.\/lib\/emailSender["']/.test(authConfigSource)) {
+  throw new Error('Expected convex/authConfig.ts to import the shared Cloudflare email sender.');
+}
+
+if (!/sendResetPassword:\s*async\s*\(\{\s*user,\s*url\s*\}\)\s*=>[\s\S]*sendEmail\(\{[\s\S]*subject:\s*"Reset your ChewnPour password"[\s\S]*context:\s*"authPasswordReset"/.test(authConfigSource)) {
+  throw new Error('Expected password reset to send a Cloudflare email with the authPasswordReset context.');
+}
+
+if (/Reset URL:/.test(authConfigSource)) {
+  throw new Error('Expected password reset to avoid log-only reset URL delivery.');
+}
+
 if (!/convex\(\{\s*authConfig[\s\S]*jwksRotateOnTokenGenerationError:\s*true[\s\S]*\}\)/.test(authConfigSource)) {
   throw new Error('Expected convex/authConfig.ts to register convex plugin with authConfig and jwksRotateOnTokenGenerationError: true.');
 }

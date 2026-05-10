@@ -2,6 +2,7 @@ import { betterAuth } from "better-auth";
 import { authComponent } from "./auth";
 import { convex, crossDomain } from "@convex-dev/better-auth/plugins";
 import authConfig from "./auth.config";
+import { sendEmail } from "./lib/emailSender";
 
 // The frontend URL - where users should be redirected after auth
 // In development, this is localhost; in production, this should be your app URL
@@ -88,6 +89,57 @@ const isLocalhostOrigin = (origin: string) => {
     }
 };
 
+const escapeHtml = (value: string) =>
+    value
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#39;");
+
+const buildPasswordResetEmail = (params: { name: string; url: string }) => {
+    const safeName = escapeHtml(params.name || "there");
+    const safeUrl = escapeHtml(params.url);
+
+    return {
+        html: `<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Reset your ChewnPour password</title>
+</head>
+<body style="margin:0;padding:0;background:#f4f4f7;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;">
+  <div style="max-width:560px;margin:24px auto;background:#ffffff;border-radius:12px;overflow:hidden;border:1px solid #e5e7eb;">
+    <div style="padding:28px 24px;background:#111827;color:#ffffff;">
+      <h1 style="margin:0;font-size:22px;line-height:1.2;">Reset your ChewnPour password</h1>
+    </div>
+    <div style="padding:28px 24px;color:#1f2937;font-size:15px;line-height:1.6;">
+      <p>Hi ${safeName},</p>
+      <p>Use the button below to set a new password for your ChewnPour account.</p>
+      <p style="margin:28px 0;">
+        <a href="${safeUrl}" style="display:inline-block;background:#6366f1;color:#ffffff;text-decoration:none;padding:12px 22px;border-radius:8px;font-weight:700;">Reset password</a>
+      </p>
+      <p>This link expires in 1 hour. If you did not request a password reset, you can ignore this email.</p>
+    </div>
+    <div style="padding:16px 24px;color:#6b7280;font-size:12px;border-top:1px solid #e5e7eb;">
+      <p style="margin:0;">If the button does not work, paste this link into your browser:</p>
+      <p style="word-break:break-all;margin:8px 0 0;"><a href="${safeUrl}" style="color:#4f46e5;">${safeUrl}</a></p>
+    </div>
+  </div>
+</body>
+</html>`,
+        text: [
+            `Hi ${params.name || "there"},`,
+            "",
+            "Use this link to reset your ChewnPour password:",
+            params.url,
+            "",
+            "This link expires in 1 hour. If you did not request a password reset, you can ignore this email.",
+        ].join("\n"),
+    };
+};
+
 // Create the Better Auth instance for request handling
 export const createAuth = (ctx: any) =>
     betterAuth({
@@ -96,12 +148,20 @@ export const createAuth = (ctx: any) =>
         emailAndPassword: {
             enabled: true,
             autoSignIn: true,
-            // Dev-only: log reset URL; replace with real email provider in production.
             sendResetPassword: async ({ user, url }) => {
-                console.log(
-                    `[better-auth] Password reset requested for ${user.email}.`
-                );
-                console.log(`[better-auth] Reset URL: ${url}`);
+                const email = String(user.email || "").trim();
+                const name = String(user.name || email.split("@")[0] || "there").trim();
+                const { html, text } = buildPasswordResetEmail({ name, url });
+                const sent = await sendEmail({
+                    to: email,
+                    subject: "Reset your ChewnPour password",
+                    html,
+                    text,
+                    context: "authPasswordReset",
+                });
+                if (!sent) {
+                    throw new Error("PASSWORD_RESET_EMAIL_FAILED");
+                }
             },
             resetPasswordTokenExpiresIn: 60 * 60 * 1, // 1 hour
             revokeSessionsOnPasswordReset: true,
