@@ -1,6 +1,7 @@
 import { v } from "convex/values";
 import { action, internalAction, internalMutation, internalQuery } from "./_generated/server";
 import { components, internal } from "./_generated/api";
+import { sendEmail } from "./lib/emailSender";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 const CHURN_THRESHOLD_DAYS = 30;
@@ -149,50 +150,6 @@ const buildNeverActivatedTemplate = (
   </div>
 </body>
 </html>`;
-
-const sendEmailViaResend = async (params: {
-    to: string;
-    subject: string;
-    html: string;
-}): Promise<boolean> => {
-    const apiKey = process.env.RESEND_API_KEY;
-    if (!apiKey) {
-        console.warn("[winbackCampaigns] RESEND_API_KEY not set -- skipping send.");
-        return false;
-    }
-
-    try {
-        const response = await fetch("https://api.resend.com/emails", {
-            method: "POST",
-            headers: {
-                Authorization: `Bearer ${apiKey}`,
-                "Content-Type": "application/json",
-            },
-            body: JSON.stringify({
-                from: `${APP_NAME} <noreply@chewnpour.com>`,
-                to: params.to,
-                subject: params.subject,
-                html: params.html,
-            }),
-        });
-
-        if (!response.ok) {
-            const body = await response.text().catch(() => "");
-            console.error("[winbackCampaigns] Resend API error", {
-                status: response.status,
-                body: body.slice(0, 500),
-            });
-            return false;
-        }
-
-        return true;
-    } catch (error) {
-        console.error("[winbackCampaigns] Failed to send email", {
-            error: error instanceof Error ? error.message : String(error),
-        });
-        return false;
-    }
-};
 
 const fetchAuthUsersByIds = async (ctx: any, userIds: string[]) => {
     const normalizedIds = Array.from(new Set(userIds.map((userId) => normalizeUserId(userId)).filter(Boolean)));
@@ -764,10 +721,11 @@ export const sendChurnWinbackCampaignInternal = internalAction({
                 }),
             );
 
-            const ok = await sendEmailViaResend({
+            const ok = await sendEmail({
                 to: email,
                 subject: `We added +${WINBACK_CREDITS} upload credits to your ${APP_NAME} account`,
                 html,
+                context: "winbackCampaigns",
             });
             if (!ok) {
                 emailFailures += 1;
@@ -930,10 +888,11 @@ export const sendNeverActivatedCampaignInternal = internalAction({
                 }),
             );
 
-            const ok = await sendEmailViaResend({
+            const ok = await sendEmail({
                 to: email,
                 subject: `We added +${WINBACK_CREDITS} upload credits to your ${APP_NAME} account`,
                 html,
+                context: "winbackCampaigns",
             });
             if (!ok) {
                 emailFailures += 1;

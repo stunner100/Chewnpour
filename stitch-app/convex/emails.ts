@@ -3,6 +3,7 @@
 import { internalAction } from "./_generated/server";
 import { internal } from "./_generated/api";
 import { components } from "./_generated/api";
+import { sendEmail } from "./lib/emailSender";
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -134,54 +135,6 @@ const chunkArray = <T>(arr: T[], size: number): T[][] => {
         chunks.push(arr.slice(i, i + size));
     }
     return chunks;
-};
-
-/**
- * Send an email via Resend. Gracefully returns false if the API key is not
- * configured so the system keeps working without Resend in development.
- */
-const sendEmailViaResend = async (params: {
-    to: string;
-    subject: string;
-    html: string;
-}): Promise<boolean> => {
-    const apiKey = process.env.RESEND_API_KEY;
-    if (!apiKey) {
-        console.warn("[emails] RESEND_API_KEY not set -- skipping email send.");
-        return false;
-    }
-
-    try {
-        const response = await fetch("https://api.resend.com/emails", {
-            method: "POST",
-            headers: {
-                Authorization: `Bearer ${apiKey}`,
-                "Content-Type": "application/json",
-            },
-            body: JSON.stringify({
-                from: `${APP_NAME} <noreply@chewnpour.com>`,
-                to: params.to,
-                subject: params.subject,
-                html: params.html,
-            }),
-        });
-
-        if (!response.ok) {
-            const body = await response.text().catch(() => "");
-            console.error("[emails] Resend API error", {
-                status: response.status,
-                body: body.slice(0, 500),
-            });
-            return false;
-        }
-
-        return true;
-    } catch (error) {
-        console.error("[emails] Failed to send email", {
-            error: error instanceof Error ? error.message : String(error),
-        });
-        return false;
-    }
 };
 
 const buildUnsubscribeUrl = (token: string, emailType: string) =>
@@ -342,10 +295,11 @@ export const checkStreaksAndNotify = internalAction({
                     if (token) {
                         const unsubUrl = buildUnsubscribeUrl(token, "streak_broken");
                         const html = streakBrokenTemplate(displayName, profile.streakDays || 0, unsubUrl);
-                        const ok = await sendEmailViaResend({
+                        const ok = await sendEmail({
                             to: email,
                             subject: `Your ${profile.streakDays}-day streak has ended -- start a new one!`,
                             html,
+                            context: "emails",
                         });
                         if (ok) {
                             await ctx.runMutation(internal.emailHelpers.logEmailSent, {
@@ -373,10 +327,11 @@ export const checkStreaksAndNotify = internalAction({
                     if (token) {
                         const unsubUrl = buildUnsubscribeUrl(token, "streak_reminders");
                         const html = streakAtRiskTemplate(displayName, streak.streakDays, unsubUrl);
-                        const ok = await sendEmailViaResend({
+                        const ok = await sendEmail({
                             to: email,
                             subject: `Your ${streak.streakDays}-day streak is at risk!`,
                             html,
+                            context: "emails",
                         });
                         if (ok) {
                             await ctx.runMutation(internal.emailHelpers.logEmailSent, {
@@ -473,10 +428,11 @@ export const sendWeeklySummary = internalAction({
                 studyHours: profile.totalStudyHours || 0,
             }, unsubUrl);
 
-            const ok = await sendEmailViaResend({
+            const ok = await sendEmail({
                 to: email,
                 subject: `Your ${APP_NAME} Weekly Study Summary`,
                 html,
+                context: "emails",
             });
 
             if (ok) {

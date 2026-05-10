@@ -2,6 +2,7 @@
 
 import { internalAction } from "./_generated/server";
 import { components, internal } from "./_generated/api";
+import { sendEmail } from "./lib/emailSender";
 
 const APP_NAME = "ChewnPour";
 const APP_URL = "https://chewnpour.com";
@@ -68,50 +69,6 @@ const researchInviteTemplate = (
   </div>
 </body>
 </html>`;
-
-const sendEmailViaResend = async (params: {
-    to: string;
-    subject: string;
-    html: string;
-}): Promise<boolean> => {
-    const apiKey = process.env.RESEND_API_KEY;
-    if (!apiKey) {
-        console.warn("[productResearch] RESEND_API_KEY not set -- skipping outreach send.");
-        return false;
-    }
-
-    try {
-        const response = await fetch("https://api.resend.com/emails", {
-            method: "POST",
-            headers: {
-                Authorization: `Bearer ${apiKey}`,
-                "Content-Type": "application/json",
-            },
-            body: JSON.stringify({
-                from: `${APP_NAME} <noreply@chewnpour.com>`,
-                to: params.to,
-                subject: params.subject,
-                html: params.html,
-            }),
-        });
-
-        if (!response.ok) {
-            const body = await response.text().catch(() => "");
-            console.error("[productResearch] Resend API error", {
-                status: response.status,
-                body: body.slice(0, 500),
-            });
-            return false;
-        }
-
-        return true;
-    } catch (error) {
-        console.error("[productResearch] Failed to send outreach email", {
-            error: error instanceof Error ? error.message : String(error),
-        });
-        return false;
-    }
-};
 
 const fetchAuthUsersByIds = async (ctx: any, userIds: string[]) => {
     const normalizedIds = Array.from(
@@ -211,10 +168,11 @@ export const sendOutreachEmails = internalAction({
                 String(candidate.fullName || authUser?.name || email.split("@")[0] || "there").trim() || "there";
 
             const html = researchInviteTemplate(displayName, researchUrl, unsubscribeUrl);
-            const ok = await sendEmailViaResend({
+            const ok = await sendEmail({
                 to: email,
                 subject: "Quick question: how are you using ChewnPour?",
                 html,
+                context: "productResearch",
             });
             if (!ok) {
                 skipped += 1;

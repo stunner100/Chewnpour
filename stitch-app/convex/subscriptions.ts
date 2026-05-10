@@ -9,6 +9,7 @@ import {
 } from "./_generated/server";
 import { internal } from "./_generated/api";
 import { collectAuthUserIdCandidates } from "./lib/examSecurity";
+import { sendEmail } from "./lib/emailSender";
 
 export const FREE_UPLOAD_LIMIT = 3;
 export const TOPUP_CURRENCY = "GHS";
@@ -52,7 +53,6 @@ const BOOTSTRAP_BILLING_ALERT_EMAILS = ["patrickannor35@gmail.com"];
 const PAYSTACK_BASE_URL = String(process.env.PAYSTACK_BASE_URL || "https://api.paystack.co").replace(/\/+$/, "");
 const PAYSTACK_SECRET_KEY = String(process.env.PAYSTACK_SECRET_KEY || "").trim();
 const PAYSTACK_WEBHOOK_FORWARD_SECRET = String(process.env.PAYSTACK_WEBHOOK_FORWARD_SECRET || "").trim();
-const RESEND_API_KEY = String(process.env.RESEND_API_KEY || "").trim();
 const APP_BASE_URL = String(
     process.env.APP_BASE_URL
     || process.env.FRONTEND_URL
@@ -383,48 +383,6 @@ const callPaystackApi = async (
         return payload;
     } finally {
         clearTimeout(timeoutId);
-    }
-};
-
-const sendBillingAlertEmail = async (params: {
-    to: string[];
-    subject: string;
-    html: string;
-}) => {
-    if (!RESEND_API_KEY || params.to.length === 0) {
-        return false;
-    }
-
-    try {
-        const response = await fetch("https://api.resend.com/emails", {
-            method: "POST",
-            headers: {
-                Authorization: `Bearer ${RESEND_API_KEY}`,
-                "Content-Type": "application/json",
-            },
-            body: JSON.stringify({
-                from: `${APP_NAME} <noreply@chewnpour.com>`,
-                to: params.to,
-                subject: params.subject,
-                html: params.html,
-            }),
-        });
-
-        if (!response.ok) {
-            const body = await response.text().catch(() => "");
-            console.error("[billing] failed to send alert email", {
-                status: response.status,
-                body: body.slice(0, 500),
-            });
-            return false;
-        }
-
-        return true;
-    } catch (error) {
-        console.error("[billing] failed to send alert email", {
-            error: error instanceof Error ? error.message : String(error),
-        });
-        return false;
     }
 };
 
@@ -1220,10 +1178,11 @@ export const reconcilePaymentReferenceInternal = internalAction({
                 "</div>",
             ].join("");
 
-            const sent = await sendBillingAlertEmail({
+            const sent = await sendEmail({
                 to,
                 subject: params.subject,
                 html,
+                context: "billing",
             });
             if (sent) {
                 await ctx.runMutation(internal.subscriptions.updatePaymentVerificationStateInternal, {
