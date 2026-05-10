@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useReducer } from 'react';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { useAction, useMutation, useQuery } from 'convex/react';
 import { api } from '../../convex/_generated/api';
@@ -172,7 +172,815 @@ const isStaleConceptRouteError = (error) => {
     return /topic not found/i.test(message);
 };
 
-const ConceptBuilder = () => {
+const initialPracticeState = {
+    session: null,
+    loading: false,
+    loadError: '',
+    currentIndex: 0,
+    selectedTokens: [],
+    selectedOptionId: '',
+    submitted: false,
+    currentResult: null,
+    responses: [],
+    saving: false,
+    saveError: '',
+    startedAt: null,
+    sessionSummary: null,
+    loadingStartedAt: null,
+    loadingElapsedMs: 0,
+    hasStaleSessionRouteError: false,
+};
+
+const conceptPracticeReducer = (state, action) => {
+    switch (action.type) {
+        case 'loadStarted':
+            return {
+                ...state,
+                loading: true,
+                loadingStartedAt: action.startedAt,
+                loadingElapsedMs: 0,
+                hasStaleSessionRouteError: false,
+                loadError: '',
+                saveError: '',
+            };
+        case 'loadSucceeded': {
+            const firstExercise = action.session?.items?.[0] || null;
+            return {
+                ...initialPracticeState,
+                session: action.session,
+                loading: false,
+                selectedTokens: createEmptySlots(firstExercise),
+                startedAt: action.startedAt,
+            };
+        }
+        case 'loadFailed':
+            return {
+                ...state,
+                session: null,
+                loading: false,
+                selectedTokens: [],
+                selectedOptionId: '',
+                hasStaleSessionRouteError: Boolean(action.stale),
+                loadError: action.loadError || '',
+            };
+        case 'loadingElapsed':
+            return {
+                ...state,
+                loadingElapsedMs: action.elapsedMs,
+            };
+        case 'resetExerciseInputs':
+            return {
+                ...state,
+                selectedTokens: action.isCloze ? createEmptySlots(action.exercise) : [],
+                selectedOptionId: '',
+            };
+        case 'placeToken': {
+            const next = [...state.selectedTokens];
+            const existingIndex = next.findIndex((item) => item?.id === action.token.id);
+            if (existingIndex !== -1) next[existingIndex] = null;
+            next[action.slotIndex] = action.token;
+            return {
+                ...state,
+                selectedTokens: next,
+            };
+        }
+        case 'clearSlot': {
+            const next = [...state.selectedTokens];
+            next[action.slotIndex] = null;
+            return {
+                ...state,
+                selectedTokens: next,
+            };
+        }
+        case 'selectOption':
+            return {
+                ...state,
+                selectedOptionId: action.optionId,
+            };
+        case 'submitResult':
+            return {
+                ...state,
+                currentResult: action.result,
+                submitted: true,
+                saveError: '',
+            };
+        case 'advance':
+            return {
+                ...state,
+                responses: action.responses,
+                currentIndex: state.currentIndex + 1,
+                submitted: false,
+                currentResult: null,
+                saveError: '',
+            };
+        case 'saveStarted':
+            return {
+                ...state,
+                saving: true,
+                saveError: '',
+            };
+        case 'saveSucceeded':
+            return {
+                ...state,
+                responses: action.responses,
+                submitted: false,
+                currentResult: null,
+                sessionSummary: action.summary,
+                saving: false,
+            };
+        case 'saveFailed':
+            return {
+                ...state,
+                saving: false,
+                saveError: action.saveError,
+            };
+        default:
+            return state;
+    }
+};
+
+const ConceptSessionLoadingView = ({ loadingState, reviewFocusCount }) => (
+    <div className="min-h-screen bg-background-light dark:bg-background-dark flex items-center justify-center px-4">
+        <div className="card-base w-full max-w-xl p-6 md:p-8">
+            <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-primary/8 text-primary text-caption font-semibold mb-4">
+                <span className="material-symbols-outlined text-[14px]">hourglass_top</span>
+                <span>Preparing concept practice</span>
+            </div>
+            <div className="flex items-start justify-between gap-4 mb-4">
+                <div>
+                    <h2 className="text-body-lg font-semibold text-text-main-light dark:text-text-main-dark mb-2">
+                        {loadingState.stageLabel}
+                    </h2>
+                    <p className="text-body-sm text-text-sub-light dark:text-text-sub-dark">
+                        {loadingState.detailLabel}
+                    </p>
+                </div>
+                <div className="text-right shrink-0">
+                    <div className="text-caption uppercase tracking-[0.12em] text-text-faint-light dark:text-text-faint-dark mb-1">
+                        ETA
+                    </div>
+                    <div className="text-body-base font-semibold text-text-main-light dark:text-text-main-dark">
+                        {loadingState.etaLabel}
+                    </div>
+                </div>
+            </div>
+
+            <div className="w-full h-2 bg-border-light dark:bg-border-dark rounded-full overflow-hidden mb-2">
+                <div
+                    className="h-full bg-primary transition-all duration-500"
+                    style={{ width: `${loadingState.progressPercent}%` }}
+                ></div>
+            </div>
+            <div className="flex items-center justify-between text-caption text-text-faint-light dark:text-text-faint-dark mb-5">
+                <span>{loadingState.progressPercent}% complete</span>
+                <span>{loadingState.helperLabel}</span>
+            </div>
+
+            <div className="grid gap-2">
+                {loadingState.steps.map((step) => {
+                    const isComplete = step.status === 'complete';
+                    const isActive = step.status === 'active';
+                    return (
+                        <div
+                            key={step.label}
+                            className={`flex items-center gap-3 rounded-2xl border px-4 py-3 transition-colors ${
+                                isActive
+                                    ? 'border-primary/40 bg-primary/6'
+                                    : 'border-border-light dark:border-border-dark bg-surface-hover-light dark:bg-surface-hover-dark'
+                            }`}
+                        >
+                            <div
+                                className={`size-8 rounded-full flex items-center justify-center ${
+                                    isComplete
+                                        ? 'bg-accent-emerald/12 text-accent-emerald'
+                                        : isActive
+                                            ? 'bg-primary/12 text-primary'
+                                            : 'bg-surface-light dark:bg-surface-dark text-text-faint-light dark:text-text-faint-dark'
+                                }`}
+                            >
+                                <span className="material-symbols-outlined text-[18px]">
+                                    {isComplete ? 'check' : isActive ? 'autorenew' : 'more_horiz'}
+                                </span>
+                            </div>
+                            <div className="flex-1">
+                                <div className="text-body-sm font-medium text-text-main-light dark:text-text-main-dark">
+                                    {step.label}
+                                </div>
+                            </div>
+                            <div className="text-caption text-text-faint-light dark:text-text-faint-dark capitalize">
+                                {step.status}
+                            </div>
+                        </div>
+                    );
+                })}
+            </div>
+
+            <p className="text-caption text-text-faint-light dark:text-text-faint-dark mt-5">
+                {reviewFocusCount > 0
+                    ? 'We are rebuilding a focused review set from your weak concepts.'
+                    : 'We are grounding the session in your source material before it opens.'}
+            </p>
+        </div>
+    </div>
+);
+
+const ConceptSessionSummaryView = ({
+    conceptMastery,
+    logicStrength,
+    onRetry,
+    session,
+    sessionFocusConceptKeys,
+    sessionLength,
+    sessionSummary,
+    topicId,
+    topicTitle,
+}) => (
+    <div className="min-h-screen bg-background-light dark:bg-background-dark">
+        <header className="sticky top-0 z-40 bg-surface-light/90 dark:bg-surface-dark/90 backdrop-blur-md border-b border-border-light dark:border-border-dark">
+            <div className="max-w-4xl mx-auto px-4 py-3 flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                    <Link to={`/dashboard/topic/${topicId}`} className="btn-icon size-10">
+                        <span className="material-symbols-outlined text-[20px]">arrow_back</span>
+                    </Link>
+                    <div>
+                        <h1 className="text-body-base font-semibold text-text-main-light dark:text-text-main-dark">Concept Practice</h1>
+                        <p className="text-caption text-text-faint-light dark:text-text-faint-dark truncate max-w-[150px] sm:max-w-xs">{topicTitle}</p>
+                    </div>
+                </div>
+                <div className="text-caption font-semibold px-2.5 py-1 rounded-full bg-accent-emerald/10 text-accent-emerald">
+                    Session Complete
+                </div>
+            </div>
+        </header>
+
+        <main className="max-w-4xl mx-auto px-4 py-6 pb-20">
+            <div className="card-base p-6 md:p-8 mb-4">
+                <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-primary/8 text-primary text-caption font-semibold mb-4">
+                    <span className="material-symbols-outlined text-[14px]">bolt</span>
+                    <span>{sessionLength}-item session complete</span>
+                </div>
+                <h2 className="text-body-lg md:text-display-sm text-text-main-light dark:text-text-main-dark mb-3">
+                    You answered {sessionSummary.score} of {sessionSummary.total} concept checks correctly.
+                </h2>
+                <p className="text-body-sm text-text-sub-light dark:text-text-sub-dark mb-5">
+                    Accuracy: <span className="font-semibold text-text-main-light dark:text-text-main-dark">{sessionSummary.accuracyPercent}%</span>
+                </p>
+                <div className="w-full h-2 bg-border-light dark:bg-border-dark rounded-full overflow-hidden">
+                    <div className="h-full rounded-full bg-primary" style={{ width: `${sessionSummary.accuracyPercent}%` }}></div>
+                </div>
+            </div>
+
+            <div className="grid gap-4 md:grid-cols-3 mb-6">
+                <div className="card-base p-5">
+                    <div className="text-caption text-text-faint-light dark:text-text-faint-dark mb-1">Mastery snapshot</div>
+                    <div className="text-display-sm font-semibold text-text-main-light dark:text-text-main-dark">
+                        {conceptMastery?.averageStrength !== null && conceptMastery?.averageStrength !== undefined
+                            ? `${conceptMastery.averageStrength}%`
+                            : logicStrength !== null ? `${logicStrength}%` : 'New'}
+                    </div>
+                    <p className="text-body-sm text-text-sub-light dark:text-text-sub-dark mt-2">
+                        {conceptMastery
+                            ? `${conceptMastery.strongCount} strong · ${conceptMastery.shakyCount} shaky · ${conceptMastery.weakCount} weak`
+                            : 'Based on your saved concept practice for this topic.'}
+                    </p>
+                </div>
+                <div className="card-base p-5">
+                    <div className="text-caption text-text-faint-light dark:text-text-faint-dark mb-1">Review queue</div>
+                    <div className="text-display-sm font-semibold text-text-main-light dark:text-text-main-dark">
+                        {conceptMastery?.dueCount ? `${conceptMastery.dueCount} due` : formatNextReviewLabel(conceptMastery?.nextReviewAt)}
+                    </div>
+                    <p className="text-body-sm text-text-sub-light dark:text-text-sub-dark mt-2">
+                        {conceptMastery?.dueCount
+                            ? 'Review weak concepts before they fade.'
+                            : 'Your next concept review is already scheduled.'}
+                    </p>
+                </div>
+                <div className="card-base p-5">
+                    <div className="text-caption text-text-faint-light dark:text-text-faint-dark mb-1">Session coverage</div>
+                    <div className="text-display-sm font-semibold text-text-main-light dark:text-text-main-dark">
+                        {sessionLength}/{session?.targetSize || sessionLength}
+                    </div>
+                    <p className="text-body-sm text-text-sub-light dark:text-text-sub-dark mt-2">
+                        Mixed concept prompts reused from your bank first, with fresh generation only when needed.
+                    </p>
+                </div>
+            </div>
+
+            <div className="card-base p-6 md:p-8 mb-6">
+                <h3 className="text-body-base font-semibold text-text-main-light dark:text-text-main-dark mb-3">Review Focus</h3>
+                {sessionSummary.weakItems.length === 0 ? (
+                    <p className="text-body-sm text-text-sub-light dark:text-text-sub-dark">
+                        You cleared every item in this session. Move on to the objective quiz while the topic is fresh.
+                    </p>
+                ) : (
+                    <div className="space-y-4">
+                        {sessionSummary.weakItems.map((item) => (
+                            <div key={item.questionText || item.conceptKey} className="rounded-2xl border border-border-light dark:border-border-dark bg-surface-hover-light dark:bg-surface-hover-dark p-4">
+                                <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-primary/8 text-primary text-caption font-semibold mb-3">
+                                    <span className="material-symbols-outlined text-[14px]">neurology</span>
+                                    <span>{formatExerciseTypeLabel(item.exerciseType)}</span>
+                                </div>
+                                <div className="text-overline text-text-faint-light dark:text-text-faint-dark mb-2">
+                                    {item.conceptLabel}
+                                </div>
+                                <p className="text-body-sm font-semibold text-text-main-light dark:text-text-main-dark mb-2">
+                                    {item.questionText}
+                                </p>
+                                <p className="text-body-sm text-text-sub-light dark:text-text-sub-dark">
+                                    Correct answer: <span className="font-medium text-text-main-light dark:text-text-main-dark">{formatCorrectAnswerLabel(item.correctAnswers)}</span>
+                                </p>
+                                {item.explanation ? (
+                                    <p className="text-body-sm text-text-sub-light dark:text-text-sub-dark mt-3">
+                                        {item.explanation}
+                                    </p>
+                                ) : null}
+                                {item.evidenceQuotes.length > 0 && (
+                                    <div className="mt-3 space-y-2">
+                                        {item.evidenceQuotes.map((quote, quoteIndex) => (
+                                            <div key={`${quote.quote}-${quoteIndex}`} className="rounded-xl bg-surface-light dark:bg-surface-dark px-3 py-2">
+                                                <p className="text-body-sm text-text-sub-light dark:text-text-sub-dark">"{quote.quote}"</p>
+                                                {quote.page ? (
+                                                    <p className="text-caption text-text-faint-light dark:text-text-faint-dark mt-1">Source page {quote.page}</p>
+                                                ) : null}
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
+                        ))}
+                    </div>
+                )}
+            </div>
+
+            <div className="flex flex-col sm:flex-row gap-3">
+                <button
+                    type="button"
+                    onClick={onRetry}
+                    className="btn-primary flex-1 py-3 text-body-sm flex items-center justify-center gap-2"
+                >
+                    <span className="material-symbols-outlined text-[18px]">refresh</span>
+                    <span>
+                        {sessionSummary.weakConceptKeys.length > 0
+                            ? 'Review Weak Concepts'
+                            : sessionFocusConceptKeys.length > 0
+                                ? 'Retry Review Session'
+                                : 'Retry Session'}
+                    </span>
+                </button>
+                <Link
+                    to={`/dashboard/exam/${topicId}`}
+                    className="btn-secondary flex-1 py-3 text-body-sm flex items-center justify-center gap-2"
+                >
+                    <span className="material-symbols-outlined text-[18px]">quiz</span>
+                    <span>Start Objective Quiz</span>
+                </Link>
+                <Link
+                    to={`/dashboard/topic/${topicId}`}
+                    className="btn-secondary px-4 py-3 flex items-center justify-center"
+                >
+                    <span className="material-symbols-outlined text-[18px]">arrow_back</span>
+                </Link>
+            </div>
+        </main>
+    </div>
+);
+
+const buildTemplateSegments = (templateParts) => templateParts.reduce(
+    (accumulator, part, index) => {
+        if (part === '__') {
+            return {
+                blankCount: accumulator.blankCount + 1,
+                segments: [
+                    ...accumulator.segments,
+                    {
+                        key: `blank-${accumulator.blankCount}`,
+                        slotIndex: accumulator.blankCount,
+                        type: 'blank',
+                    },
+                ],
+            };
+        }
+
+        return {
+            ...accumulator,
+            segments: [
+                ...accumulator.segments,
+                {
+                    key: `text-${index}-${part}`,
+                    text: part,
+                    type: 'text',
+                },
+            ],
+        };
+    },
+    { blankCount: 0, segments: [] },
+).segments;
+
+const ConceptPracticeHeader = ({
+    currentIndex,
+    logicStrength,
+    progressPercent,
+    sessionFocusConceptKeys,
+    sessionLength,
+    topicId,
+    topicTitle,
+}) => (
+    <header className="sticky top-0 z-40 bg-surface-light/90 dark:bg-surface-dark/90 backdrop-blur-md border-b border-border-light dark:border-border-dark">
+        <div className="max-w-4xl mx-auto px-4 py-3 flex items-center justify-between">
+            <div className="flex items-center gap-3">
+                <Link to={`/dashboard/topic/${topicId}`} className="btn-icon size-10">
+                    <span className="material-symbols-outlined text-[20px]">arrow_back</span>
+                </Link>
+                <div>
+                    <h1 className="text-body-base font-semibold text-text-main-light dark:text-text-main-dark">Concept Practice</h1>
+                    <p className="text-caption text-text-faint-light dark:text-text-faint-dark truncate max-w-[150px] sm:max-w-xs">{topicTitle}</p>
+                </div>
+            </div>
+            <div className="flex items-center gap-3">
+                {sessionFocusConceptKeys.length > 0 && (
+                    <div className="hidden sm:inline-flex items-center gap-1.5 rounded-full bg-accent-amber/10 px-2.5 py-1 text-caption font-semibold text-accent-amber">
+                        <span className="material-symbols-outlined text-[14px]">cycle</span>
+                        <span>Review mode</span>
+                    </div>
+                )}
+                {logicStrength !== null && (
+                    <div className="hidden sm:flex items-center gap-2">
+                        <div className="w-20 h-1.5 bg-surface-hover-light dark:bg-surface-hover-dark rounded-full overflow-hidden">
+                            <div className="h-full bg-accent-emerald rounded-full" style={{ width: `${logicStrength}%` }}></div>
+                        </div>
+                        <span className="text-caption font-semibold text-text-sub-light dark:text-text-sub-dark">{logicStrength}%</span>
+                    </div>
+                )}
+                <div className="text-caption font-semibold px-2.5 py-1 rounded-full bg-primary/8 text-primary">
+                    {Math.min(currentIndex + 1, sessionLength)}/{sessionLength}
+                </div>
+            </div>
+        </div>
+        <div className="h-1 bg-surface-hover-light dark:bg-surface-hover-dark">
+            <div className="h-full bg-primary transition-all duration-300" style={{ width: `${progressPercent}%` }}></div>
+        </div>
+    </header>
+);
+
+const ConceptPracticePromptCard = ({
+    currentExercise,
+    currentExerciseType,
+    currentIndex,
+    currentOptions,
+    currentResult,
+    evidenceQuotes,
+    handleDragOver,
+    handleDrop,
+    handleOptionSelect,
+    handleSlotClick,
+    isClozeExercise,
+    isInteractionDisabled,
+    selectedOptionId,
+    selectedTokens,
+    sessionLength,
+    submitted,
+}) => {
+    const templateParts = Array.isArray(currentExercise?.template) ? currentExercise.template : [];
+    const templateSegments = buildTemplateSegments(templateParts);
+
+    return (
+        <>
+            <div className="mb-8">
+                <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-primary/8 text-primary text-caption font-semibold mb-3">
+                    <span className="material-symbols-outlined text-[14px]">neurology</span>
+                    <span>{formatExerciseTypeLabel(currentExerciseType)}</span>
+                </div>
+                <h2 className="text-body-lg md:text-display-sm text-text-main-light dark:text-text-main-dark leading-relaxed">
+                    {currentExercise.questionText || 'Complete the concept statement.'}
+                </h2>
+                <p className="text-body-sm text-text-sub-light dark:text-text-sub-dark mt-3">
+                    Item {currentIndex + 1} of {sessionLength}. {formatExerciseInstructions(currentExerciseType)}
+                </p>
+            </div>
+
+            <div className="card-base p-6 md:p-8 mb-4">
+                {isClozeExercise ? (
+                    <div className="flex flex-wrap gap-3 items-center justify-center text-body-lg md:text-display-sm leading-relaxed">
+                        {templateSegments.map((segment) => {
+                            if (segment.type === 'blank') {
+                                const slotIndex = segment.slotIndex;
+                                const token = selectedTokens[slotIndex];
+                                const isCorrect = submitted
+                                    && currentResult
+                                    && normalizeConceptAnswer(currentResult.userAnswers[slotIndex]) === normalizeConceptAnswer(currentResult.correctAnswers[slotIndex]);
+                                const isWrong = submitted
+                                    && currentResult
+                                    && normalizeConceptAnswer(currentResult.userAnswers[slotIndex]) !== normalizeConceptAnswer(currentResult.correctAnswers[slotIndex]);
+                                return (
+                                    <div
+                                        key={segment.key}
+                                        onClick={() => handleSlotClick(slotIndex)}
+                                        onKeyDown={(event) => {
+                                            if (event.key === 'Enter' || event.key === ' ') {
+                                                event.preventDefault();
+                                                handleSlotClick(slotIndex);
+                                            }
+                                        }}
+                                        onDragOver={handleDragOver}
+                                        onDrop={(event) => handleDrop(event, slotIndex)}
+                                        role="button"
+                                        tabIndex={isInteractionDisabled ? -1 : 0}
+                                        className={`min-h-[44px] min-w-[100px] px-4 py-2 rounded-xl flex items-center justify-center border-2 transition-all cursor-pointer ${
+                                            token
+                                                ? isCorrect
+                                                    ? 'bg-accent-emerald/10 border-accent-emerald text-accent-emerald'
+                                                    : isWrong
+                                                        ? 'bg-red-50 dark:bg-red-900/10 border-red-400 dark:border-red-500 text-red-700 dark:text-red-400'
+                                                        : 'bg-primary/5 dark:bg-primary/10 border-primary text-primary'
+                                                : 'bg-surface-hover-light dark:bg-surface-hover-dark border-dashed border-border-light dark:border-border-dark text-text-faint-light dark:text-text-faint-dark'
+                                        } ${isInteractionDisabled ? 'cursor-default' : 'hover:border-primary'}`}
+                                    >
+                                        <span className="font-semibold">{token ? token.text : '___'}</span>
+                                    </div>
+                                );
+                            }
+
+                            return (
+                                <span key={segment.key} className="text-text-sub-light dark:text-text-sub-dark">
+                                    {segment.text}
+                                </span>
+                            );
+                        })}
+                    </div>
+                ) : (
+                    <div className="grid gap-3">
+                        {currentOptions.map((option, index) => {
+                            const isSelected = selectedOptionId === option.id;
+                            const isCorrect = submitted && option.id === currentExercise.correctOptionId;
+                            const isWrong = submitted && isSelected && option.id !== currentExercise.correctOptionId;
+                            const optionLabel = String.fromCharCode(65 + index);
+
+                            return (
+                                <button
+                                    key={option.id}
+                                    type="button"
+                                    onClick={() => handleOptionSelect(option.id)}
+                                    disabled={isInteractionDisabled}
+                                    className={`w-full rounded-2xl border p-4 text-left transition-all ${
+                                        isCorrect
+                                            ? 'border-accent-emerald bg-accent-emerald/10 text-accent-emerald'
+                                            : isWrong
+                                                ? 'border-red-400 dark:border-red-500 bg-red-50 dark:bg-red-900/10 text-red-700 dark:text-red-400'
+                                                : isSelected
+                                                    ? 'border-primary bg-primary/8 text-primary'
+                                                    : 'border-border-light dark:border-border-dark bg-surface-hover-light dark:bg-surface-hover-dark text-text-main-light dark:text-text-main-dark'
+                                    } ${isInteractionDisabled ? 'cursor-default' : 'hover:border-primary active:scale-[0.99]'}`}
+                                >
+                                    <div className="flex items-start gap-3">
+                                        <div className={`mt-0.5 flex size-7 shrink-0 items-center justify-center rounded-full border text-caption font-semibold ${
+                                            isCorrect
+                                                ? 'border-accent-emerald text-accent-emerald'
+                                                : isWrong
+                                                    ? 'border-red-400 dark:border-red-500 text-red-700 dark:text-red-400'
+                                                    : isSelected
+                                                        ? 'border-primary text-primary'
+                                                        : 'border-border-light dark:border-border-dark text-text-faint-light dark:text-text-faint-dark'
+                                        }`}>
+                                            {optionLabel}
+                                        </div>
+                                        <span className="text-body-sm">{option.text}</span>
+                                    </div>
+                                </button>
+                            );
+                        })}
+                    </div>
+                )}
+
+                {submitted && currentResult && (
+                    <div className="mt-6 p-4 rounded-xl bg-surface-hover-light dark:bg-surface-hover-dark">
+                        <div className="flex items-center justify-between mb-2">
+                            <span className="text-body-sm font-medium text-text-sub-light dark:text-text-sub-dark">Item Score</span>
+                            <span className={`text-display-sm font-semibold ${currentResult.score === currentResult.total ? 'text-accent-emerald' : 'text-primary'}`}>
+                                {currentResult.score}/{currentResult.total}
+                            </span>
+                        </div>
+                        <div className="w-full h-2 bg-border-light dark:bg-border-dark rounded-full overflow-hidden">
+                            <div
+                                className={`h-full rounded-full ${currentResult.score === currentResult.total ? 'bg-accent-emerald' : 'bg-primary'}`}
+                                style={{ width: `${(currentResult.score / currentResult.total) * 100}%` }}
+                            ></div>
+                        </div>
+                        {currentResult.score < currentResult.total && (
+                            <div className="mt-3 text-body-sm text-text-sub-light dark:text-text-sub-dark">
+                                <span className="font-medium">Correct answer:</span> {formatCorrectAnswerLabel(currentResult.correctAnswers)}
+                            </div>
+                        )}
+                        {currentResult.explanation ? (
+                            <div className="mt-3 text-body-sm text-text-sub-light dark:text-text-sub-dark">
+                                {currentResult.explanation}
+                            </div>
+                        ) : null}
+                        {evidenceQuotes.length > 0 && (
+                            <div className="mt-4">
+                                <div className="text-overline text-text-faint-light dark:text-text-faint-dark mb-2">Evidence from your source</div>
+                                <div className="space-y-2">
+                                    {evidenceQuotes.map((quote) => (
+                                        <div key={quote.quote} className="rounded-xl bg-surface-light dark:bg-surface-dark px-3 py-2">
+                                            <p className="text-body-sm text-text-sub-light dark:text-text-sub-dark">"{quote.quote}"</p>
+                                            {quote.page ? (
+                                                <p className="text-caption text-text-faint-light dark:text-text-faint-dark mt-1">Source page {quote.page}</p>
+                                            ) : null}
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
+                    </div>
+                )}
+            </div>
+        </>
+    );
+};
+
+const ConceptWordBank = ({
+    availableTokens,
+    blanksCount,
+    filledCount,
+    handleDragStart,
+    handleTokenClick,
+    isInteractionDisabled,
+}) => (
+    <div className="card-base p-6">
+        <div className="flex items-center justify-between gap-3 mb-4">
+            <h3 className="text-overline text-text-faint-light dark:text-text-faint-dark">Word Bank</h3>
+            <span className="text-caption text-text-faint-light dark:text-text-faint-dark">
+                {filledCount}/{blanksCount} placed
+            </span>
+        </div>
+        <div className="flex flex-wrap gap-2">
+            {availableTokens.length === 0 ? (
+                <div className="w-full text-center py-4 text-text-faint-light dark:text-text-faint-dark text-body-sm">
+                    All words placed!
+                </div>
+            ) : (
+                availableTokens.map((token) => (
+                    <button
+                        key={token.id}
+                        draggable={!isInteractionDisabled}
+                        onDragStart={(event) => handleDragStart(event, token)}
+                        onClick={() => handleTokenClick(token)}
+                        disabled={isInteractionDisabled}
+                        className={`px-4 py-2 rounded-xl font-medium text-body-sm transition-all ${
+                            isInteractionDisabled
+                                ? 'bg-surface-hover-light dark:bg-surface-hover-dark text-text-faint-light dark:text-text-faint-dark cursor-not-allowed'
+                                : 'bg-primary/8 text-primary hover:bg-primary/15 active:scale-95 cursor-pointer'
+                        }`}
+                    >
+                        {token.text}
+                    </button>
+                ))
+            )}
+        </div>
+    </div>
+);
+
+const ConceptPracticeFooter = ({
+    canSubmit,
+    currentIndex,
+    handleAdvance,
+    handleSubmit,
+    saving,
+    sessionLength,
+    submitted,
+    topicId,
+}) => (
+    <div className="fixed bottom-16 md:bottom-0 inset-x-0 bg-surface-light dark:bg-surface-dark border-t border-border-light dark:border-border-dark p-4" style={{ paddingBottom: 'max(1rem, env(safe-area-inset-bottom, 1rem))' }}>
+        <div className="max-w-4xl mx-auto flex gap-3">
+            {submitted ? (
+                <>
+                    <button
+                        type="button"
+                        onClick={() => void handleAdvance()}
+                        disabled={saving}
+                        className="btn-primary flex-1 py-3 text-body-sm flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                        <span>{saving ? 'Saving...' : currentIndex >= sessionLength - 1 ? 'Finish Session' : 'Next Item'}</span>
+                        {!saving && (
+                            <span className="material-symbols-outlined text-[18px]">
+                                {currentIndex >= sessionLength - 1 ? 'done_all' : 'arrow_forward'}
+                            </span>
+                        )}
+                    </button>
+                    <Link to={`/dashboard/topic/${topicId}`} className="btn-secondary px-4 py-3 flex items-center justify-center">
+                        <span className="material-symbols-outlined text-[18px]">arrow_back</span>
+                    </Link>
+                </>
+            ) : (
+                <button
+                    type="button"
+                    onClick={handleSubmit}
+                    disabled={!canSubmit || saving}
+                    className="btn-primary w-full py-3 text-body-sm flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                    <span>Check Answer</span>
+                    <span className="material-symbols-outlined text-[18px]">check</span>
+                </button>
+            )}
+        </div>
+    </div>
+);
+
+const ConceptPracticeView = ({
+    availableTokens,
+    blanksCount,
+    canSubmit,
+    currentExercise,
+    currentExerciseType,
+    currentIndex,
+    currentOptions,
+    currentResult,
+    evidenceQuotes,
+    filledCount,
+    handleAdvance,
+    handleDragOver,
+    handleDragStart,
+    handleDrop,
+    handleOptionSelect,
+    handleSlotClick,
+    handleSubmit,
+    handleTokenClick,
+    isClozeExercise,
+    isInteractionDisabled,
+    logicStrength,
+    progressPercent,
+    saveError,
+    saving,
+    selectedOptionId,
+    selectedTokens,
+    sessionFocusConceptKeys,
+    sessionLength,
+    submitted,
+    topicId,
+    topicTitle,
+}) => (
+    <div className="min-h-screen bg-background-light dark:bg-background-dark">
+        <ConceptPracticeHeader
+            currentIndex={currentIndex}
+            logicStrength={logicStrength}
+            progressPercent={progressPercent}
+            sessionFocusConceptKeys={sessionFocusConceptKeys}
+            sessionLength={sessionLength}
+            topicId={topicId}
+            topicTitle={topicTitle}
+        />
+
+        <main className="max-w-4xl mx-auto px-4 py-6 pb-44 md:pb-32">
+            <ConceptPracticePromptCard
+                currentExercise={currentExercise}
+                currentExerciseType={currentExerciseType}
+                currentIndex={currentIndex}
+                currentOptions={currentOptions}
+                currentResult={currentResult}
+                evidenceQuotes={evidenceQuotes}
+                handleDragOver={handleDragOver}
+                handleDrop={handleDrop}
+                handleOptionSelect={handleOptionSelect}
+                handleSlotClick={handleSlotClick}
+                isClozeExercise={isClozeExercise}
+                isInteractionDisabled={isInteractionDisabled}
+                selectedOptionId={selectedOptionId}
+                selectedTokens={selectedTokens}
+                sessionLength={sessionLength}
+                submitted={submitted}
+            />
+
+            {isClozeExercise ? (
+                <ConceptWordBank
+                    availableTokens={availableTokens}
+                    blanksCount={blanksCount}
+                    filledCount={filledCount}
+                    handleDragStart={handleDragStart}
+                    handleTokenClick={handleTokenClick}
+                    isInteractionDisabled={isInteractionDisabled}
+                />
+            ) : null}
+
+            {saveError && (
+                <div className="mt-4 p-3 rounded-xl bg-red-50 dark:bg-red-900/10 border border-red-200 dark:border-red-900/30 text-body-sm text-red-700 dark:text-red-300">
+                    {saveError}
+                </div>
+            )}
+        </main>
+
+        <ConceptPracticeFooter
+            canSubmit={canSubmit}
+            currentIndex={currentIndex}
+            handleAdvance={handleAdvance}
+            handleSubmit={handleSubmit}
+            saving={saving}
+            sessionLength={sessionLength}
+            submitted={submitted}
+            topicId={topicId}
+        />
+    </div>
+);
+
+const useConceptBuilderController = () => {
     const { topicId: topicIdParam } = useParams();
     const [searchParams] = useSearchParams();
     const routeTopicId = typeof topicIdParam === 'string' ? topicIdParam.trim() : '';
@@ -216,22 +1024,25 @@ const ConceptBuilder = () => {
     const getConceptSessionForTopic = useAction(api.concepts.getConceptSessionForTopic);
     const createConceptSessionAttempt = useMutation(api.concepts.createConceptSessionAttempt);
 
-    const [session, setSession] = useState(null);
-    const [loading, setLoading] = useState(false);
-    const [loadError, setLoadError] = useState('');
-    const [currentIndex, setCurrentIndex] = useState(0);
-    const [selectedTokens, setSelectedTokens] = useState([]);
-    const [selectedOptionId, setSelectedOptionId] = useState('');
-    const [submitted, setSubmitted] = useState(false);
-    const [currentResult, setCurrentResult] = useState(null);
-    const [responses, setResponses] = useState([]);
-    const [saving, setSaving] = useState(false);
-    const [saveError, setSaveError] = useState('');
-    const [startedAt, setStartedAt] = useState(null);
-    const [sessionSummary, setSessionSummary] = useState(null);
-    const [loadingStartedAt, setLoadingStartedAt] = useState(null);
-    const [loadingElapsedMs, setLoadingElapsedMs] = useState(0);
-    const [hasStaleSessionRouteError, setHasStaleSessionRouteError] = useState(false);
+    const [practiceState, dispatchPractice] = useReducer(conceptPracticeReducer, initialPracticeState);
+    const {
+        session,
+        loading,
+        loadError,
+        currentIndex,
+        selectedTokens,
+        selectedOptionId,
+        submitted,
+        currentResult,
+        responses,
+        saving,
+        saveError,
+        startedAt,
+        sessionSummary,
+        loadingStartedAt,
+        loadingElapsedMs,
+        hasStaleSessionRouteError,
+    } = practiceState;
 
     const topicTitle = topic?.title || session?.topicTitle || 'Concept Practice';
 
@@ -257,13 +1068,8 @@ const ConceptBuilder = () => {
     const loadSession = useCallback(async (overrideFocusConceptKeys = requestedReviewConceptKeys) => {
         if (!topicId || !userId) return;
 
-        setLoading(true);
         const requestStartedAt = Date.now();
-        setLoadingStartedAt(requestStartedAt);
-        setLoadingElapsedMs(0);
-        setHasStaleSessionRouteError(false);
-        setLoadError('');
-        setSaveError('');
+        dispatchPractice({ type: 'loadStarted', startedAt: requestStartedAt });
 
         try {
             const focusConceptKeys = Array.isArray(overrideFocusConceptKeys)
@@ -278,28 +1084,21 @@ const ConceptBuilder = () => {
                 throw new Error('No concept practice items are ready for this topic yet.');
             }
 
-            setSession(response);
-            setCurrentIndex(0);
-            setSelectedTokens(createEmptySlots(items[0]));
-            setSelectedOptionId('');
-            setSubmitted(false);
-            setCurrentResult(null);
-            setResponses([]);
-            setSessionSummary(null);
-            setStartedAt(Date.now());
+            dispatchPractice({
+                type: 'loadSucceeded',
+                session: response,
+                startedAt: Date.now(),
+            });
         } catch (error) {
             console.error('Failed to prepare concept session:', error);
-            setSession(null);
-            setSelectedTokens([]);
-            setSelectedOptionId('');
             if (isStaleConceptRouteError(error)) {
-                setHasStaleSessionRouteError(true);
-                setLoadError('');
+                dispatchPractice({ type: 'loadFailed', stale: true });
                 return;
             }
-            setLoadError('Failed to prepare a concept practice session. Please try again.');
-        } finally {
-            setLoading(false);
+            dispatchPractice({
+                type: 'loadFailed',
+                loadError: 'Failed to prepare a concept practice session. Please try again.',
+            });
         }
     }, [getConceptSessionForTopic, requestedReviewConceptKeys, topicId, userId]);
 
@@ -311,7 +1110,10 @@ const ConceptBuilder = () => {
         if (!loading || session || !loadingStartedAt) return undefined;
 
         const updateElapsed = () => {
-            setLoadingElapsedMs(Math.max(0, Date.now() - loadingStartedAt));
+            dispatchPractice({
+                type: 'loadingElapsed',
+                elapsedMs: Math.max(0, Date.now() - loadingStartedAt),
+            });
         };
 
         updateElapsed();
@@ -326,13 +1128,11 @@ const ConceptBuilder = () => {
 
     useEffect(() => {
         if (!currentExercise || submitted || sessionSummary) return;
-        if (resolveExerciseType(currentExercise) === EXERCISE_TYPE_CLOZE) {
-            setSelectedTokens(createEmptySlots(currentExercise));
-            setSelectedOptionId('');
-            return;
-        }
-        setSelectedTokens([]);
-        setSelectedOptionId('');
+        dispatchPractice({
+            type: 'resetExerciseInputs',
+            exercise: currentExercise,
+            isCloze: resolveExerciseType(currentExercise) === EXERCISE_TYPE_CLOZE,
+        });
     }, [currentExercise, submitted, sessionSummary]);
 
     const tokenItems = useMemo(() => buildTokenItems(currentExercise), [currentExercise]);
@@ -381,15 +1181,7 @@ const ConceptBuilder = () => {
 
     const placeTokenInSlot = (slotIndex, token) => {
         if (isInteractionDisabled) return;
-        setSelectedTokens((prev) => {
-            const next = [...prev];
-            const existingIndex = next.findIndex((item) => item?.id === token.id);
-            if (existingIndex !== -1) {
-                next[existingIndex] = null;
-            }
-            next[slotIndex] = token;
-            return next;
-        });
+        dispatchPractice({ type: 'placeToken', slotIndex, token });
     };
 
     const handleTokenClick = (token) => {
@@ -401,11 +1193,7 @@ const ConceptBuilder = () => {
 
     const handleSlotClick = (slotIndex) => {
         if (isInteractionDisabled) return;
-        setSelectedTokens((prev) => {
-            const next = [...prev];
-            next[slotIndex] = null;
-            return next;
-        });
+        dispatchPractice({ type: 'clearSlot', slotIndex });
     };
 
     const handleDragStart = (event, token) => {
@@ -440,7 +1228,7 @@ const ConceptBuilder = () => {
 
     const handleOptionSelect = (optionId) => {
         if (isInteractionDisabled) return;
-        setSelectedOptionId(optionId);
+        dispatchPractice({ type: 'selectOption', optionId });
     };
 
     const handleSubmit = () => {
@@ -453,24 +1241,25 @@ const ConceptBuilder = () => {
             const correctAnswer = correctOption?.text || '';
             const score = selectedOptionId === currentExercise.correctOptionId ? 1 : 0;
 
-            setCurrentResult({
-                exerciseKey: currentExercise.exerciseKey,
-                exerciseType: currentExerciseType,
-                conceptKey: currentExercise.conceptKey,
-                difficulty: currentExercise.difficulty,
-                questionText: currentExercise.questionText,
-                explanation: currentExercise.explanation,
-                userAnswers: [userAnswer],
-                correctAnswers: [correctAnswer],
-                options: currentOptions,
-                selectedOptionId,
-                correctOptionId: currentExercise.correctOptionId,
-                score,
-                total: 1,
-                citations: currentExercise.citations || [],
+            dispatchPractice({
+                type: 'submitResult',
+                result: {
+                    exerciseKey: currentExercise.exerciseKey,
+                    exerciseType: currentExerciseType,
+                    conceptKey: currentExercise.conceptKey,
+                    difficulty: currentExercise.difficulty,
+                    questionText: currentExercise.questionText,
+                    explanation: currentExercise.explanation,
+                    userAnswers: [userAnswer],
+                    correctAnswers: [correctAnswer],
+                    options: currentOptions,
+                    selectedOptionId,
+                    correctOptionId: currentExercise.correctOptionId,
+                    score,
+                    total: 1,
+                    citations: currentExercise.citations || [],
+                },
             });
-            setSubmitted(true);
-            setSaveError('');
             return;
         }
 
@@ -481,29 +1270,29 @@ const ConceptBuilder = () => {
             sum + (normalizeConceptAnswer(answer) === normalizedCorrectAnswers[index] ? 1 : 0)
         ), 0);
 
-        setCurrentResult({
-            exerciseKey: currentExercise.exerciseKey,
-            exerciseType: currentExerciseType,
-            conceptKey: currentExercise.conceptKey,
-            difficulty: currentExercise.difficulty,
-            questionText: currentExercise.questionText,
-            explanation: currentExercise.explanation,
-            template: currentExercise.template,
-            userAnswers,
-            correctAnswers,
-            score,
-            total: normalizedCorrectAnswers.length,
-            citations: currentExercise.citations || [],
+        dispatchPractice({
+            type: 'submitResult',
+            result: {
+                exerciseKey: currentExercise.exerciseKey,
+                exerciseType: currentExerciseType,
+                conceptKey: currentExercise.conceptKey,
+                difficulty: currentExercise.difficulty,
+                questionText: currentExercise.questionText,
+                explanation: currentExercise.explanation,
+                template: currentExercise.template,
+                userAnswers,
+                correctAnswers,
+                score,
+                total: normalizedCorrectAnswers.length,
+                citations: currentExercise.citations || [],
+            },
         });
-        setSubmitted(true);
-        setSaveError('');
     };
 
     const finalizeSession = async (nextResponses) => {
         if (!topicId || !userId || !session) return;
 
-        setSaving(true);
-        setSaveError('');
+        dispatchPractice({ type: 'saveStarted' });
 
         try {
             const summary = buildSessionSummary(nextResponses);
@@ -541,15 +1330,17 @@ const ConceptBuilder = () => {
                 questionText: `${session.items.length}-item concept practice session`,
             });
 
-            setResponses(nextResponses);
-            setSubmitted(false);
-            setCurrentResult(null);
-            setSessionSummary(summary);
+            dispatchPractice({
+                type: 'saveSucceeded',
+                responses: nextResponses,
+                summary,
+            });
         } catch (error) {
             console.error('Failed to save concept session:', error);
-            setSaveError('Failed to save your session. Please try again.');
-        } finally {
-            setSaving(false);
+            dispatchPractice({
+                type: 'saveFailed',
+                saveError: 'Failed to save your session. Please try again.',
+            });
         }
     };
 
@@ -563,12 +1354,105 @@ const ConceptBuilder = () => {
             return;
         }
 
-        setResponses(nextResponses);
-        setCurrentIndex((index) => index + 1);
-        setSubmitted(false);
-        setCurrentResult(null);
-        setSaveError('');
+        dispatchPractice({ type: 'advance', responses: nextResponses });
     };
+
+    return {
+        availableTokens,
+        blanksCount,
+        canSubmit,
+        conceptMastery,
+        currentExercise,
+        currentExerciseType,
+        currentIndex,
+        currentOptions,
+        currentResult,
+        evidenceQuotes,
+        filledCount,
+        handleAdvance,
+        handleDragOver,
+        handleDragStart,
+        handleDrop,
+        handleOptionSelect,
+        handleSlotClick,
+        handleSubmit,
+        handleTokenClick,
+        hasStaleSessionRouteError,
+        isClozeExercise,
+        isInteractionDisabled,
+        isLoadingRouteTopic,
+        isMissingRouteTopic,
+        loadError,
+        loading,
+        loadingState,
+        loadSession,
+        logicStrength,
+        progressPercent,
+        reloadDashboard,
+        reviewFocusCount,
+        routeTopicId,
+        saveError,
+        saving,
+        selectedOptionId,
+        selectedTokens,
+        session,
+        sessionFocusConceptKeys,
+        sessionLength,
+        sessionSummary,
+        submitted,
+        topicId,
+        topicTitle,
+    };
+};
+
+const ConceptBuilder = () => {
+    const controller = useConceptBuilderController();
+    const {
+        availableTokens,
+        blanksCount,
+        canSubmit,
+        conceptMastery,
+        currentExercise,
+        currentExerciseType,
+        currentIndex,
+        currentOptions,
+        currentResult,
+        evidenceQuotes,
+        filledCount,
+        handleAdvance,
+        handleDragOver,
+        handleDragStart,
+        handleDrop,
+        handleOptionSelect,
+        handleSlotClick,
+        handleSubmit,
+        handleTokenClick,
+        hasStaleSessionRouteError,
+        isClozeExercise,
+        isInteractionDisabled,
+        isLoadingRouteTopic,
+        isMissingRouteTopic,
+        loadError,
+        loading,
+        loadingState,
+        loadSession,
+        logicStrength,
+        progressPercent,
+        reloadDashboard,
+        reviewFocusCount,
+        routeTopicId,
+        saveError,
+        saving,
+        selectedOptionId,
+        selectedTokens,
+        session,
+        sessionFocusConceptKeys,
+        sessionLength,
+        sessionSummary,
+        submitted,
+        topicId,
+        topicTitle,
+    } = controller;
 
     if (!routeTopicId) {
         return (
@@ -601,88 +1485,7 @@ const ConceptBuilder = () => {
 
     if (loading && !session) {
         return (
-            <div className="min-h-screen bg-background-light dark:bg-background-dark flex items-center justify-center px-4">
-                <div className="card-base w-full max-w-xl p-6 md:p-8">
-                    <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-primary/8 text-primary text-caption font-semibold mb-4">
-                        <span className="material-symbols-outlined text-[14px]">hourglass_top</span>
-                        <span>Preparing concept practice</span>
-                    </div>
-                    <div className="flex items-start justify-between gap-4 mb-4">
-                        <div>
-                            <h2 className="text-body-lg font-semibold text-text-main-light dark:text-text-main-dark mb-2">
-                                {loadingState.stageLabel}
-                            </h2>
-                            <p className="text-body-sm text-text-sub-light dark:text-text-sub-dark">
-                                {loadingState.detailLabel}
-                            </p>
-                        </div>
-                        <div className="text-right shrink-0">
-                            <div className="text-caption uppercase tracking-[0.12em] text-text-faint-light dark:text-text-faint-dark mb-1">
-                                ETA
-                            </div>
-                            <div className="text-body-base font-semibold text-text-main-light dark:text-text-main-dark">
-                                {loadingState.etaLabel}
-                            </div>
-                        </div>
-                    </div>
-
-                    <div className="w-full h-2 bg-border-light dark:bg-border-dark rounded-full overflow-hidden mb-2">
-                        <div
-                            className="h-full bg-primary transition-all duration-500"
-                            style={{ width: `${loadingState.progressPercent}%` }}
-                        ></div>
-                    </div>
-                    <div className="flex items-center justify-between text-caption text-text-faint-light dark:text-text-faint-dark mb-5">
-                        <span>{loadingState.progressPercent}% complete</span>
-                        <span>{loadingState.helperLabel}</span>
-                    </div>
-
-                    <div className="grid gap-2">
-                        {loadingState.steps.map((step) => {
-                            const isComplete = step.status === 'complete';
-                            const isActive = step.status === 'active';
-                            return (
-                                <div
-                                    key={step.label}
-                                    className={`flex items-center gap-3 rounded-2xl border px-4 py-3 transition-colors ${
-                                        isActive
-                                            ? 'border-primary/40 bg-primary/6'
-                                            : 'border-border-light dark:border-border-dark bg-surface-hover-light dark:bg-surface-hover-dark'
-                                    }`}
-                                >
-                                    <div
-                                        className={`size-8 rounded-full flex items-center justify-center ${
-                                            isComplete
-                                                ? 'bg-accent-emerald/12 text-accent-emerald'
-                                                : isActive
-                                                    ? 'bg-primary/12 text-primary'
-                                                    : 'bg-surface-light dark:bg-surface-dark text-text-faint-light dark:text-text-faint-dark'
-                                        }`}
-                                    >
-                                        <span className="material-symbols-outlined text-[18px]">
-                                            {isComplete ? 'check' : isActive ? 'autorenew' : 'more_horiz'}
-                                        </span>
-                                    </div>
-                                    <div className="flex-1">
-                                        <div className="text-body-sm font-medium text-text-main-light dark:text-text-main-dark">
-                                            {step.label}
-                                        </div>
-                                    </div>
-                                    <div className="text-caption text-text-faint-light dark:text-text-faint-dark capitalize">
-                                        {step.status}
-                                    </div>
-                                </div>
-                            );
-                        })}
-                    </div>
-
-                    <p className="text-caption text-text-faint-light dark:text-text-faint-dark mt-5">
-                        {reviewFocusCount > 0
-                            ? 'We are rebuilding a focused review set from your weak concepts.'
-                            : 'We are grounding the session in your source material before it opens.'}
-                    </p>
-                </div>
-            </div>
+            <ConceptSessionLoadingView loadingState={loadingState} reviewFocusCount={reviewFocusCount} />
         );
     }
 
@@ -726,158 +1529,21 @@ const ConceptBuilder = () => {
 
     if (sessionSummary) {
         return (
-            <div className="min-h-screen bg-background-light dark:bg-background-dark">
-                <header className="sticky top-0 z-40 bg-surface-light/90 dark:bg-surface-dark/90 backdrop-blur-md border-b border-border-light dark:border-border-dark">
-                    <div className="max-w-4xl mx-auto px-4 py-3 flex items-center justify-between">
-                        <div className="flex items-center gap-3">
-                            <Link to={`/dashboard/topic/${topicId}`} className="btn-icon size-10">
-                                <span className="material-symbols-outlined text-[20px]">arrow_back</span>
-                            </Link>
-                            <div>
-                                <h1 className="text-body-base font-semibold text-text-main-light dark:text-text-main-dark">Concept Practice</h1>
-                                <p className="text-caption text-text-faint-light dark:text-text-faint-dark truncate max-w-[150px] sm:max-w-xs">{topicTitle}</p>
-                            </div>
-                        </div>
-                        <div className="text-caption font-semibold px-2.5 py-1 rounded-full bg-accent-emerald/10 text-accent-emerald">
-                            Session Complete
-                        </div>
-                    </div>
-                </header>
-
-                <main className="max-w-4xl mx-auto px-4 py-6 pb-20">
-                    <div className="card-base p-6 md:p-8 mb-4">
-                        <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-primary/8 text-primary text-caption font-semibold mb-4">
-                            <span className="material-symbols-outlined text-[14px]">bolt</span>
-                            <span>{sessionLength}-item session complete</span>
-                        </div>
-                        <h2 className="text-body-lg md:text-display-sm text-text-main-light dark:text-text-main-dark mb-3">
-                            You answered {sessionSummary.score} of {sessionSummary.total} concept checks correctly.
-                        </h2>
-                        <p className="text-body-sm text-text-sub-light dark:text-text-sub-dark mb-5">
-                            Accuracy: <span className="font-semibold text-text-main-light dark:text-text-main-dark">{sessionSummary.accuracyPercent}%</span>
-                        </p>
-                        <div className="w-full h-2 bg-border-light dark:bg-border-dark rounded-full overflow-hidden">
-                            <div className="h-full rounded-full bg-primary" style={{ width: `${sessionSummary.accuracyPercent}%` }}></div>
-                        </div>
-                    </div>
-
-                    <div className="grid gap-4 md:grid-cols-3 mb-6">
-                        <div className="card-base p-5">
-                            <div className="text-caption text-text-faint-light dark:text-text-faint-dark mb-1">Mastery snapshot</div>
-                            <div className="text-display-sm font-semibold text-text-main-light dark:text-text-main-dark">
-                                {conceptMastery?.averageStrength !== null && conceptMastery?.averageStrength !== undefined
-                                    ? `${conceptMastery.averageStrength}%`
-                                    : logicStrength !== null ? `${logicStrength}%` : 'New'}
-                            </div>
-                            <p className="text-body-sm text-text-sub-light dark:text-text-sub-dark mt-2">
-                                {conceptMastery
-                                    ? `${conceptMastery.strongCount} strong · ${conceptMastery.shakyCount} shaky · ${conceptMastery.weakCount} weak`
-                                    : 'Based on your saved concept practice for this topic.'}
-                            </p>
-                        </div>
-                        <div className="card-base p-5">
-                            <div className="text-caption text-text-faint-light dark:text-text-faint-dark mb-1">Review queue</div>
-                            <div className="text-display-sm font-semibold text-text-main-light dark:text-text-main-dark">
-                                {conceptMastery?.dueCount ? `${conceptMastery.dueCount} due` : formatNextReviewLabel(conceptMastery?.nextReviewAt)}
-                            </div>
-                            <p className="text-body-sm text-text-sub-light dark:text-text-sub-dark mt-2">
-                                {conceptMastery?.dueCount
-                                    ? 'Review weak concepts before they fade.'
-                                    : 'Your next concept review is already scheduled.'}
-                            </p>
-                        </div>
-                        <div className="card-base p-5">
-                            <div className="text-caption text-text-faint-light dark:text-text-faint-dark mb-1">Session coverage</div>
-                            <div className="text-display-sm font-semibold text-text-main-light dark:text-text-main-dark">
-                                {sessionLength}/{session?.targetSize || sessionLength}
-                            </div>
-                            <p className="text-body-sm text-text-sub-light dark:text-text-sub-dark mt-2">
-                                Mixed concept prompts reused from your bank first, with fresh generation only when needed.
-                            </p>
-                        </div>
-                    </div>
-
-                    <div className="card-base p-6 md:p-8 mb-6">
-                        <h3 className="text-body-base font-semibold text-text-main-light dark:text-text-main-dark mb-3">Review Focus</h3>
-                        {sessionSummary.weakItems.length === 0 ? (
-                            <p className="text-body-sm text-text-sub-light dark:text-text-sub-dark">
-                                You cleared every item in this session. Move on to the objective quiz while the topic is fresh.
-                            </p>
-                        ) : (
-                            <div className="space-y-4">
-                                {sessionSummary.weakItems.map((item) => (
-                                    <div key={item.questionText || item.conceptKey} className="rounded-2xl border border-border-light dark:border-border-dark bg-surface-hover-light dark:bg-surface-hover-dark p-4">
-                                        <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-primary/8 text-primary text-caption font-semibold mb-3">
-                                            <span className="material-symbols-outlined text-[14px]">neurology</span>
-                                            <span>{formatExerciseTypeLabel(item.exerciseType)}</span>
-                                        </div>
-                                        <div className="text-overline text-text-faint-light dark:text-text-faint-dark mb-2">
-                                            {item.conceptLabel}
-                                        </div>
-                                        <p className="text-body-sm font-semibold text-text-main-light dark:text-text-main-dark mb-2">
-                                            {item.questionText}
-                                        </p>
-                                        <p className="text-body-sm text-text-sub-light dark:text-text-sub-dark">
-                                            Correct answer: <span className="font-medium text-text-main-light dark:text-text-main-dark">{formatCorrectAnswerLabel(item.correctAnswers)}</span>
-                                        </p>
-                                        {item.explanation ? (
-                                            <p className="text-body-sm text-text-sub-light dark:text-text-sub-dark mt-3">
-                                                {item.explanation}
-                                            </p>
-                                        ) : null}
-                                        {item.evidenceQuotes.length > 0 && (
-                                            <div className="mt-3 space-y-2">
-                                                {item.evidenceQuotes.map((quote, quoteIndex) => (
-                                                    <div key={`${quote.quote}-${quoteIndex}`} className="rounded-xl bg-surface-light dark:bg-surface-dark px-3 py-2">
-                                                        <p className="text-body-sm text-text-sub-light dark:text-text-sub-dark">"{quote.quote}"</p>
-                                                        {quote.page ? (
-                                                            <p className="text-caption text-text-faint-light dark:text-text-faint-dark mt-1">Source page {quote.page}</p>
-                                                        ) : null}
-                                                    </div>
-                                                ))}
-                                            </div>
-                                        )}
-                                    </div>
-                                ))}
-                            </div>
-                        )}
-                    </div>
-
-                    <div className="flex flex-col sm:flex-row gap-3">
-                        <button
-                            type="button"
-                            onClick={() => void loadSession(
-                                sessionSummary.weakConceptKeys.length > 0
-                                    ? sessionSummary.weakConceptKeys
-                                    : sessionFocusConceptKeys
-                            )}
-                            className="btn-primary flex-1 py-3 text-body-sm flex items-center justify-center gap-2"
-                        >
-                            <span className="material-symbols-outlined text-[18px]">refresh</span>
-                            <span>
-                                {sessionSummary.weakConceptKeys.length > 0
-                                    ? 'Review Weak Concepts'
-                                    : sessionFocusConceptKeys.length > 0
-                                        ? 'Retry Review Session'
-                                        : 'Retry Session'}
-                            </span>
-                        </button>
-                        <Link
-                            to={`/dashboard/exam/${topicId}`}
-                            className="btn-secondary flex-1 py-3 text-body-sm flex items-center justify-center gap-2"
-                        >
-                            <span className="material-symbols-outlined text-[18px]">quiz</span>
-                            <span>Start Objective Quiz</span>
-                        </Link>
-                        <Link
-                            to={`/dashboard/topic/${topicId}`}
-                            className="btn-secondary px-4 py-3 flex items-center justify-center"
-                        >
-                            <span className="material-symbols-outlined text-[18px]">arrow_back</span>
-                        </Link>
-                    </div>
-                </main>
-            </div>
+            <ConceptSessionSummaryView
+                conceptMastery={conceptMastery}
+                logicStrength={logicStrength}
+                onRetry={() => void loadSession(
+                    sessionSummary.weakConceptKeys.length > 0
+                        ? sessionSummary.weakConceptKeys
+                        : sessionFocusConceptKeys
+                )}
+                session={session}
+                sessionFocusConceptKeys={sessionFocusConceptKeys}
+                sessionLength={sessionLength}
+                sessionSummary={sessionSummary}
+                topicId={topicId}
+                topicTitle={topicTitle}
+            />
         );
     }
 
@@ -892,277 +1558,40 @@ const ConceptBuilder = () => {
         );
     }
 
-    const templateParts = Array.isArray(currentExercise?.template) ? currentExercise.template : [];
-    let blankCounter = 0;
-
     return (
-        <div className="min-h-screen bg-background-light dark:bg-background-dark">
-            <header className="sticky top-0 z-40 bg-surface-light/90 dark:bg-surface-dark/90 backdrop-blur-md border-b border-border-light dark:border-border-dark">
-                <div className="max-w-4xl mx-auto px-4 py-3 flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                        <Link to={`/dashboard/topic/${topicId}`} className="btn-icon size-10">
-                            <span className="material-symbols-outlined text-[20px]">arrow_back</span>
-                        </Link>
-                        <div>
-                            <h1 className="text-body-base font-semibold text-text-main-light dark:text-text-main-dark">Concept Practice</h1>
-                            <p className="text-caption text-text-faint-light dark:text-text-faint-dark truncate max-w-[150px] sm:max-w-xs">{topicTitle}</p>
-                        </div>
-                    </div>
-                    <div className="flex items-center gap-3">
-                        {sessionFocusConceptKeys.length > 0 && (
-                            <div className="hidden sm:inline-flex items-center gap-1.5 rounded-full bg-accent-amber/10 px-2.5 py-1 text-caption font-semibold text-accent-amber">
-                                <span className="material-symbols-outlined text-[14px]">cycle</span>
-                                <span>Review mode</span>
-                            </div>
-                        )}
-                        {logicStrength !== null && (
-                            <div className="hidden sm:flex items-center gap-2">
-                                <div className="w-20 h-1.5 bg-surface-hover-light dark:bg-surface-hover-dark rounded-full overflow-hidden">
-                                    <div className="h-full bg-accent-emerald rounded-full" style={{ width: `${logicStrength}%` }}></div>
-                                </div>
-                                <span className="text-caption font-semibold text-text-sub-light dark:text-text-sub-dark">{logicStrength}%</span>
-                            </div>
-                        )}
-                        <div className="text-caption font-semibold px-2.5 py-1 rounded-full bg-primary/8 text-primary">
-                            {Math.min(currentIndex + 1, sessionLength)}/{sessionLength}
-                        </div>
-                    </div>
-                </div>
-                <div className="h-1 bg-surface-hover-light dark:bg-surface-hover-dark">
-                    <div className="h-full bg-primary transition-all duration-300" style={{ width: `${progressPercent}%` }}></div>
-                </div>
-            </header>
-
-            <main className="max-w-4xl mx-auto px-4 py-6 pb-44 md:pb-32">
-                <div className="mb-8">
-                    <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-primary/8 text-primary text-caption font-semibold mb-3">
-                        <span className="material-symbols-outlined text-[14px]">neurology</span>
-                        <span>{formatExerciseTypeLabel(currentExerciseType)}</span>
-                    </div>
-                    <h2 className="text-body-lg md:text-display-sm text-text-main-light dark:text-text-main-dark leading-relaxed">
-                        {currentExercise.questionText || 'Complete the concept statement.'}
-                    </h2>
-                    <p className="text-body-sm text-text-sub-light dark:text-text-sub-dark mt-3">
-                        Item {currentIndex + 1} of {sessionLength}. {formatExerciseInstructions(currentExerciseType)}
-                    </p>
-                </div>
-
-                <div className="card-base p-6 md:p-8 mb-4">
-                    {isClozeExercise ? (
-                        <div className="flex flex-wrap gap-3 items-center justify-center text-body-lg md:text-display-sm leading-relaxed">
-                            {templateParts.map((part, index) => {
-                                if (part === '__') {
-                                    const slotIndex = blankCounter;
-                                    const token = selectedTokens[slotIndex];
-                                    const isCorrect = submitted
-                                        && currentResult
-                                        && normalizeConceptAnswer(currentResult.userAnswers[slotIndex]) === normalizeConceptAnswer(currentResult.correctAnswers[slotIndex]);
-                                    const isWrong = submitted
-                                        && currentResult
-                                        && normalizeConceptAnswer(currentResult.userAnswers[slotIndex]) !== normalizeConceptAnswer(currentResult.correctAnswers[slotIndex]);
-                                    blankCounter += 1;
-                                    const blankKey = `blank-${slotIndex}`;
-                                    return (
-                                        <div
-                                            key={blankKey}
-                                            onClick={() => handleSlotClick(slotIndex)}
-                                            onKeyDown={(event) => {
-                                                if (event.key === 'Enter' || event.key === ' ') {
-                                                    event.preventDefault();
-                                                    handleSlotClick(slotIndex);
-                                                }
-                                            }}
-                                            onDragOver={handleDragOver}
-                                            onDrop={(event) => handleDrop(event, slotIndex)}
-                                            role="button"
-                                            tabIndex={isInteractionDisabled ? -1 : 0}
-                                            className={`min-h-[44px] min-w-[100px] px-4 py-2 rounded-xl flex items-center justify-center border-2 transition-all cursor-pointer ${
-                                                token
-                                                    ? isCorrect
-                                                        ? 'bg-accent-emerald/10 border-accent-emerald text-accent-emerald'
-                                                        : isWrong
-                                                            ? 'bg-red-50 dark:bg-red-900/10 border-red-400 dark:border-red-500 text-red-700 dark:text-red-400'
-                                                            : 'bg-primary/5 dark:bg-primary/10 border-primary text-primary'
-                                                    : 'bg-surface-hover-light dark:bg-surface-hover-dark border-dashed border-border-light dark:border-border-dark text-text-faint-light dark:text-text-faint-dark'
-                                            } ${isInteractionDisabled ? 'cursor-default' : 'hover:border-primary'}`}
-                                        >
-                                            <span className="font-semibold">{token ? token.text : '___'}</span>
-                                        </div>
-                                    );
-                                }
-
-                                const partKey = `text-${part}-${index}`;
-                                return (
-                                    <span key={partKey} className="text-text-sub-light dark:text-text-sub-dark">
-                                        {part}
-                                    </span>
-                                );
-                            })}
-                        </div>
-                    ) : (
-                        <div className="grid gap-3">
-                            {currentOptions.map((option, index) => {
-                                const isSelected = selectedOptionId === option.id;
-                                const isCorrect = submitted && option.id === currentExercise.correctOptionId;
-                                const isWrong = submitted && isSelected && option.id !== currentExercise.correctOptionId;
-                                const optionLabel = String.fromCharCode(65 + index);
-
-                                return (
-                                    <button
-                                        key={option.id}
-                                        type="button"
-                                        onClick={() => handleOptionSelect(option.id)}
-                                        disabled={isInteractionDisabled}
-                                        className={`w-full rounded-2xl border p-4 text-left transition-all ${
-                                            isCorrect
-                                                ? 'border-accent-emerald bg-accent-emerald/10 text-accent-emerald'
-                                                : isWrong
-                                                    ? 'border-red-400 dark:border-red-500 bg-red-50 dark:bg-red-900/10 text-red-700 dark:text-red-400'
-                                                    : isSelected
-                                                        ? 'border-primary bg-primary/8 text-primary'
-                                                        : 'border-border-light dark:border-border-dark bg-surface-hover-light dark:bg-surface-hover-dark text-text-main-light dark:text-text-main-dark'
-                                        } ${isInteractionDisabled ? 'cursor-default' : 'hover:border-primary active:scale-[0.99]'}`}
-                                    >
-                                        <div className="flex items-start gap-3">
-                                            <div className={`mt-0.5 flex size-7 shrink-0 items-center justify-center rounded-full border text-caption font-semibold ${
-                                                isCorrect
-                                                    ? 'border-accent-emerald text-accent-emerald'
-                                                    : isWrong
-                                                        ? 'border-red-400 dark:border-red-500 text-red-700 dark:text-red-400'
-                                                        : isSelected
-                                                            ? 'border-primary text-primary'
-                                                            : 'border-border-light dark:border-border-dark text-text-faint-light dark:text-text-faint-dark'
-                                            }`}>
-                                                {optionLabel}
-                                            </div>
-                                            <span className="text-body-sm">{option.text}</span>
-                                        </div>
-                                    </button>
-                                );
-                            })}
-                        </div>
-                    )}
-
-                    {submitted && currentResult && (
-                        <div className="mt-6 p-4 rounded-xl bg-surface-hover-light dark:bg-surface-hover-dark">
-                            <div className="flex items-center justify-between mb-2">
-                                <span className="text-body-sm font-medium text-text-sub-light dark:text-text-sub-dark">Item Score</span>
-                                <span className={`text-display-sm font-semibold ${currentResult.score === currentResult.total ? 'text-accent-emerald' : 'text-primary'}`}>
-                                    {currentResult.score}/{currentResult.total}
-                                </span>
-                            </div>
-                            <div className="w-full h-2 bg-border-light dark:bg-border-dark rounded-full overflow-hidden">
-                                <div
-                                    className={`h-full rounded-full ${currentResult.score === currentResult.total ? 'bg-accent-emerald' : 'bg-primary'}`}
-                                    style={{ width: `${(currentResult.score / currentResult.total) * 100}%` }}
-                                ></div>
-                            </div>
-                            {currentResult.score < currentResult.total && (
-                                <div className="mt-3 text-body-sm text-text-sub-light dark:text-text-sub-dark">
-                                    <span className="font-medium">Correct answer:</span> {formatCorrectAnswerLabel(currentResult.correctAnswers)}
-                                </div>
-                            )}
-                            {currentResult.explanation ? (
-                                <div className="mt-3 text-body-sm text-text-sub-light dark:text-text-sub-dark">
-                                    {currentResult.explanation}
-                                </div>
-                            ) : null}
-                            {evidenceQuotes.length > 0 && (
-                                <div className="mt-4">
-                                    <div className="text-overline text-text-faint-light dark:text-text-faint-dark mb-2">Evidence from your source</div>
-                                    <div className="space-y-2">
-                                        {evidenceQuotes.map((quote) => (
-                                            <div key={quote.quote} className="rounded-xl bg-surface-light dark:bg-surface-dark px-3 py-2">
-                                                <p className="text-body-sm text-text-sub-light dark:text-text-sub-dark">"{quote.quote}"</p>
-                                                {quote.page ? (
-                                                    <p className="text-caption text-text-faint-light dark:text-text-faint-dark mt-1">Source page {quote.page}</p>
-                                                ) : null}
-                                            </div>
-                                        ))}
-                                    </div>
-                                </div>
-                            )}
-                        </div>
-                    )}
-                </div>
-
-                {isClozeExercise ? (
-                    <div className="card-base p-6">
-                        <div className="flex items-center justify-between gap-3 mb-4">
-                            <h3 className="text-overline text-text-faint-light dark:text-text-faint-dark">Word Bank</h3>
-                            <span className="text-caption text-text-faint-light dark:text-text-faint-dark">
-                                {filledCount}/{blanksCount} placed
-                            </span>
-                        </div>
-                        <div className="flex flex-wrap gap-2">
-                            {availableTokens.length === 0 ? (
-                                <div className="w-full text-center py-4 text-text-faint-light dark:text-text-faint-dark text-body-sm">
-                                    All words placed!
-                                </div>
-                            ) : (
-                                availableTokens.map((token) => (
-                                    <button
-                                        key={token.id}
-                                        draggable={!isInteractionDisabled}
-                                        onDragStart={(event) => handleDragStart(event, token)}
-                                        onClick={() => handleTokenClick(token)}
-                                        disabled={isInteractionDisabled}
-                                        className={`px-4 py-2 rounded-xl font-medium text-body-sm transition-all ${
-                                            isInteractionDisabled
-                                                ? 'bg-surface-hover-light dark:bg-surface-hover-dark text-text-faint-light dark:text-text-faint-dark cursor-not-allowed'
-                                                : 'bg-primary/8 text-primary hover:bg-primary/15 active:scale-95 cursor-pointer'
-                                        }`}
-                                    >
-                                        {token.text}
-                                    </button>
-                                ))
-                            )}
-                        </div>
-                    </div>
-                ) : null}
-
-                {saveError && (
-                    <div className="mt-4 p-3 rounded-xl bg-red-50 dark:bg-red-900/10 border border-red-200 dark:border-red-900/30 text-body-sm text-red-700 dark:text-red-300">
-                        {saveError}
-                    </div>
-                )}
-            </main>
-
-            <div className="fixed bottom-16 md:bottom-0 inset-x-0 bg-surface-light dark:bg-surface-dark border-t border-border-light dark:border-border-dark p-4" style={{ paddingBottom: 'max(1rem, env(safe-area-inset-bottom, 1rem))' }}>
-                <div className="max-w-4xl mx-auto flex gap-3">
-                    {submitted ? (
-                        <>
-                            <button
-                                type="button"
-                                onClick={() => void handleAdvance()}
-                                disabled={saving}
-                                className="btn-primary flex-1 py-3 text-body-sm flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
-                            >
-                                <span>{saving ? 'Saving...' : currentIndex >= sessionLength - 1 ? 'Finish Session' : 'Next Item'}</span>
-                                {!saving && (
-                                    <span className="material-symbols-outlined text-[18px]">
-                                        {currentIndex >= sessionLength - 1 ? 'done_all' : 'arrow_forward'}
-                                    </span>
-                                )}
-                            </button>
-                            <Link to={`/dashboard/topic/${topicId}`} className="btn-secondary px-4 py-3 flex items-center justify-center">
-                                <span className="material-symbols-outlined text-[18px]">arrow_back</span>
-                            </Link>
-                        </>
-                    ) : (
-                        <button
-                            type="button"
-                            onClick={handleSubmit}
-                            disabled={!canSubmit || saving}
-                            className="btn-primary w-full py-3 text-body-sm flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
-                        >
-                            <span>Check Answer</span>
-                            <span className="material-symbols-outlined text-[18px]">check</span>
-                        </button>
-                    )}
-                </div>
-            </div>
-        </div>
+        <ConceptPracticeView
+            availableTokens={availableTokens}
+            blanksCount={blanksCount}
+            canSubmit={canSubmit}
+            currentExercise={currentExercise}
+            currentExerciseType={currentExerciseType}
+            currentIndex={currentIndex}
+            currentOptions={currentOptions}
+            currentResult={currentResult}
+            evidenceQuotes={evidenceQuotes}
+            filledCount={filledCount}
+            handleAdvance={handleAdvance}
+            handleDragOver={handleDragOver}
+            handleDragStart={handleDragStart}
+            handleDrop={handleDrop}
+            handleOptionSelect={handleOptionSelect}
+            handleSlotClick={handleSlotClick}
+            handleSubmit={handleSubmit}
+            handleTokenClick={handleTokenClick}
+            isClozeExercise={isClozeExercise}
+            isInteractionDisabled={isInteractionDisabled}
+            logicStrength={logicStrength}
+            progressPercent={progressPercent}
+            saveError={saveError}
+            saving={saving}
+            selectedOptionId={selectedOptionId}
+            selectedTokens={selectedTokens}
+            sessionFocusConceptKeys={sessionFocusConceptKeys}
+            sessionLength={sessionLength}
+            submitted={submitted}
+            topicId={topicId}
+            topicTitle={topicTitle}
+        />
     );
 };
 
