@@ -173,7 +173,7 @@ const InteractiveWordBank = ({ terms, starredTerms, onTermsStarred }) => {
         <div className="space-y-4">
             {/* Section header */}
             <div className="flex items-center gap-2">
-                <span className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
+                <span className="size-8 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
                     <span className="material-symbols-outlined text-primary text-[16px]" style={{ fontVariationSettings: "'FILL' 1" }}>style</span>
                 </span>
                 <div>

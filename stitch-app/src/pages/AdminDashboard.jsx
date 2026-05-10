@@ -192,7 +192,7 @@ const StatCard = ({ label, value, sublabel, icon, color = 'primary' }) => {
                         <p className="mt-1 text-sm text-text-faint-light dark:text-text-faint-dark">{sublabel}</p>
                     ) : null}
                 </div>
-                <div className={`h-11 w-11 shrink-0 rounded-2xl flex items-center justify-center ${bgMap[color] || bgMap.primary}`}>
+                <div className={`size-11 shrink-0 rounded-2xl flex items-center justify-center ${bgMap[color] || bgMap.primary}`}>
                     <span className="material-symbols-outlined">{icon}</span>
                 </div>
             </div>
@@ -238,7 +238,7 @@ const BarChart = ({ items, maxValue }) => {
 const SectionCard = ({ title, badge, children }) => (
     <div className="card-base p-5">
         <div className="flex flex-wrap items-center justify-between gap-2 mb-4">
-            <h2 className="text-lg font-bold text-text-main-light dark:text-text-main-dark">{title}</h2>
+            <h2 className="text-lg font-semibold text-text-main-light dark:text-text-main-dark">{title}</h2>
             {badge ? (
                 <span className="text-xs text-text-faint-light dark:text-text-faint-dark">{badge}</span>
             ) : null}
@@ -263,7 +263,7 @@ const DeniedCard = ({ reason, signedInEmail, signedInUserId }) => {
             <div className="mx-auto w-full max-w-3xl card-base p-6 sm:p-8">
                 <div className="flex items-center gap-3 text-amber-600">
                     <span className="material-symbols-outlined">lock</span>
-                    <h1 className="text-xl font-bold text-text-main-light dark:text-text-main-dark">Admin access required</h1>
+                    <h1 className="text-xl font-semibold text-text-main-light dark:text-text-main-dark">Admin access required</h1>
                 </div>
                 <p className="mt-3 text-sm text-text-sub-light dark:text-text-sub-dark">{reasonMessage}</p>
                 <div className="mt-4 rounded-2xl border border-border-light dark:border-border-dark bg-surface-hover-light dark:bg-surface-hover-dark p-4 text-sm">
@@ -539,7 +539,7 @@ const FeatureUsagePanel = ({ snapshot, activeUsersDays }) => {
                                 <div key={feature.key} className="rounded-2xl border border-border-light dark:border-border-dark p-4">
                                     <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
                                         <div className="flex min-w-0 items-start gap-3">
-                                            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-primary/8 text-primary">
+                                            <div className="flex size-10 shrink-0 items-center justify-center rounded-2xl bg-primary/8 text-primary">
                                                 <span className="material-symbols-outlined text-[20px]">{feature.icon || 'analytics'}</span>
                                             </div>
                                             <div className="min-w-0">
@@ -718,20 +718,20 @@ const RevenuePanel = ({
                                     const isLoading = Boolean(reconcilingReferences[payment.reference]);
                                     return (
                                         <tr key={payment.reference} className="border-b border-border-light dark:border-border-dark">
-                                            <td className="px-3 py-3 text-text-main-light dark:text-text-main-dark">
+                                            <td className="p-3 text-text-main-light dark:text-text-main-dark">
                                                 <div className="font-semibold">{payment.customerEmail || 'Unknown user'}</div>
                                                 {payment.userId ? (
                                                     <div className="text-xs text-text-faint-light dark:text-text-faint-dark">{payment.userId}</div>
                                                 ) : null}
                                             </td>
-                                            <td className="px-3 py-3 text-text-sub-light dark:text-text-sub-dark">
+                                            <td className="p-3 text-text-sub-light dark:text-text-sub-dark">
                                                 <div className="max-w-[260px] truncate" title={payment.reference}>{payment.reference}</div>
                                                 {payment.verificationMessage ? (
                                                     <div className="mt-1 text-xs text-text-faint-light dark:text-text-faint-dark">{payment.verificationMessage}</div>
                                                 ) : null}
                                             </td>
-                                            <td className="px-3 py-3 text-text-sub-light dark:text-text-sub-dark">{formatCurrency(payment.amountMinor, payment.currency)}</td>
-                                            <td className="px-3 py-3">
+                                            <td className="p-3 text-text-sub-light dark:text-text-sub-dark">{formatCurrency(payment.amountMinor, payment.currency)}</td>
+                                            <td className="p-3">
                                                 <div className="flex flex-col gap-1">
                                                     <span className="inline-flex w-fit rounded-full bg-amber-100 px-2.5 py-1 text-xs font-semibold text-amber-700 dark:bg-amber-900/30 dark:text-amber-300">
                                                         {formatTokenLabel(payment.status)}
@@ -741,9 +741,9 @@ const RevenuePanel = ({
                                                     </span>
                                                 </div>
                                             </td>
-                                            <td className="px-3 py-3 text-text-sub-light dark:text-text-sub-dark">{formatRelativeHours(payment.ageHours)}</td>
-                                            <td className="px-3 py-3 text-text-sub-light dark:text-text-sub-dark">{formatDateTime(payment.lastVerifiedAt)}</td>
-                                            <td className="px-3 py-3">
+                                            <td className="p-3 text-text-sub-light dark:text-text-sub-dark">{formatRelativeHours(payment.ageHours)}</td>
+                                            <td className="p-3 text-text-sub-light dark:text-text-sub-dark">{formatDateTime(payment.lastVerifiedAt)}</td>
+                                            <td className="p-3">
                                                 <button
                                                     type="button"
                                                     onClick={() => handleReconcilePayment(payment.reference)}
@@ -780,18 +780,18 @@ const RetrievalCandidatesTable = ({ title, rows, showPenaltyColumns = false }) =
                 <table className="min-w-full text-xs">
                     <thead>
                         <tr className="border-b border-border-light dark:border-border-dark">
-                            <th className="px-2 py-2 text-left font-semibold text-text-faint-light dark:text-text-faint-dark">Passage</th>
-                            <th className="px-2 py-2 text-left font-semibold text-text-faint-light dark:text-text-faint-dark">Page</th>
-                            <th className="px-2 py-2 text-left font-semibold text-text-faint-light dark:text-text-faint-dark">Source</th>
-                            <th className="px-2 py-2 text-left font-semibold text-text-faint-light dark:text-text-faint-dark">Final</th>
-                            <th className="px-2 py-2 text-left font-semibold text-text-faint-light dark:text-text-faint-dark">Lexical</th>
-                            <th className="px-2 py-2 text-left font-semibold text-text-faint-light dark:text-text-faint-dark">Vector</th>
-                            <th className="px-2 py-2 text-left font-semibold text-text-faint-light dark:text-text-faint-dark">Numeric</th>
+                            <th className="p-2 text-left font-semibold text-text-faint-light dark:text-text-faint-dark">Passage</th>
+                            <th className="p-2 text-left font-semibold text-text-faint-light dark:text-text-faint-dark">Page</th>
+                            <th className="p-2 text-left font-semibold text-text-faint-light dark:text-text-faint-dark">Source</th>
+                            <th className="p-2 text-left font-semibold text-text-faint-light dark:text-text-faint-dark">Final</th>
+                            <th className="p-2 text-left font-semibold text-text-faint-light dark:text-text-faint-dark">Lexical</th>
+                            <th className="p-2 text-left font-semibold text-text-faint-light dark:text-text-faint-dark">Vector</th>
+                            <th className="p-2 text-left font-semibold text-text-faint-light dark:text-text-faint-dark">Numeric</th>
                             {showPenaltyColumns ? (
                                 <>
-                                    <th className="px-2 py-2 text-left font-semibold text-text-faint-light dark:text-text-faint-dark">Flag Boost</th>
-                                    <th className="px-2 py-2 text-left font-semibold text-text-faint-light dark:text-text-faint-dark">Num Penalty</th>
-                                    <th className="px-2 py-2 text-left font-semibold text-text-faint-light dark:text-text-faint-dark">Broad Penalty</th>
+                                    <th className="p-2 text-left font-semibold text-text-faint-light dark:text-text-faint-dark">Flag Boost</th>
+                                    <th className="p-2 text-left font-semibold text-text-faint-light dark:text-text-faint-dark">Num Penalty</th>
+                                    <th className="p-2 text-left font-semibold text-text-faint-light dark:text-text-faint-dark">Broad Penalty</th>
                                 </>
                             ) : null}
                         </tr>
@@ -799,21 +799,21 @@ const RetrievalCandidatesTable = ({ title, rows, showPenaltyColumns = false }) =
                     <tbody>
                         {rows.map((row) => (
                             <tr key={`${title}-${row.passageId}-${row.page}`} className="border-b border-border-light dark:border-border-dark align-top">
-                                <td className="px-2 py-2">
+                                <td className="p-2">
                                     <p className="font-semibold text-text-main-light dark:text-text-main-dark">{row.passageId}</p>
                                     <p className="mt-1 max-w-xs text-[11px] text-text-faint-light dark:text-text-faint-dark">{row.sectionHint || 'No section hint'}</p>
                                 </td>
-                                <td className="px-2 py-2 text-text-sub-light dark:text-text-sub-dark">{formatNumber(row.page)}</td>
-                                <td className="px-2 py-2 text-text-sub-light dark:text-text-sub-dark uppercase">{row.retrievalSource || 'n/a'}</td>
-                                <td className="px-2 py-2 text-text-sub-light dark:text-text-sub-dark">{formatRatioPercent(row.finalScore)}</td>
-                                <td className="px-2 py-2 text-text-sub-light dark:text-text-sub-dark">{formatRatioPercent(row.lexicalScore)}</td>
-                                <td className="px-2 py-2 text-text-sub-light dark:text-text-sub-dark">{formatRatioPercent(row.vectorScore)}</td>
-                                <td className="px-2 py-2 text-text-sub-light dark:text-text-sub-dark">{formatRatioPercent(row.numericAgreement)}</td>
+                                <td className="p-2 text-text-sub-light dark:text-text-sub-dark">{formatNumber(row.page)}</td>
+                                <td className="p-2 text-text-sub-light dark:text-text-sub-dark uppercase">{row.retrievalSource || 'n/a'}</td>
+                                <td className="p-2 text-text-sub-light dark:text-text-sub-dark">{formatRatioPercent(row.finalScore)}</td>
+                                <td className="p-2 text-text-sub-light dark:text-text-sub-dark">{formatRatioPercent(row.lexicalScore)}</td>
+                                <td className="p-2 text-text-sub-light dark:text-text-sub-dark">{formatRatioPercent(row.vectorScore)}</td>
+                                <td className="p-2 text-text-sub-light dark:text-text-sub-dark">{formatRatioPercent(row.numericAgreement)}</td>
                                 {showPenaltyColumns ? (
                                     <>
-                                        <td className="px-2 py-2 text-text-sub-light dark:text-text-sub-dark">{formatRatioPercent(row.preferFlagBoost)}</td>
-                                        <td className="px-2 py-2 text-text-sub-light dark:text-text-sub-dark">{formatRatioPercent(row.vectorOnlyMissingNumericPenalty)}</td>
-                                        <td className="px-2 py-2 text-text-sub-light dark:text-text-sub-dark">{formatRatioPercent(row.vectorOnlyBroadTopicPenalty)}</td>
+                                        <td className="p-2 text-text-sub-light dark:text-text-sub-dark">{formatRatioPercent(row.preferFlagBoost)}</td>
+                                        <td className="p-2 text-text-sub-light dark:text-text-sub-dark">{formatRatioPercent(row.vectorOnlyMissingNumericPenalty)}</td>
+                                        <td className="p-2 text-text-sub-light dark:text-text-sub-dark">{formatRatioPercent(row.vectorOnlyBroadTopicPenalty)}</td>
                                     </>
                                 ) : null}
                             </tr>
@@ -982,21 +982,21 @@ const ContentPanel = ({
                                         <tbody>
                                             {latestAuditWithRebases.rebasedTopics.map((topic) => (
                                                 <tr key={`${topic.format}-${topic.topicId}`} className="border-b border-border-light dark:border-border-dark">
-                                                    <td className="px-3 py-3">
+                                                    <td className="p-3">
                                                         <p className="font-semibold text-text-main-light dark:text-text-main-dark">{topic.topicTitle || topic.topicId}</p>
                                                         <p className="text-xs text-text-faint-light dark:text-text-faint-dark">{topic.topicId}</p>
                                                     </td>
-                                                    <td className="px-3 py-3 text-text-sub-light dark:text-text-sub-dark uppercase">{topic.format}</td>
-                                                    <td className="px-3 py-3 text-text-sub-light dark:text-text-sub-dark">
+                                                    <td className="p-3 text-text-sub-light dark:text-text-sub-dark uppercase">{topic.format}</td>
+                                                    <td className="p-3 text-text-sub-light dark:text-text-sub-dark">
                                                         {formatNumber(topic.currentTarget)} → {formatNumber(topic.recalculatedTarget)}
                                                     </td>
-                                                    <td className="px-3 py-3 text-text-sub-light dark:text-text-sub-dark">
+                                                    <td className="p-3 text-text-sub-light dark:text-text-sub-dark">
                                                         {topic.format === 'essay'
                                                             ? `${formatNumber(topic.usableEssayCount)} essay`
                                                             : `${formatNumber(topic.usableObjectiveCount ?? topic.usableMcqCount)} objective`}
                                                     </td>
-                                                    <td className="px-3 py-3 text-text-sub-light dark:text-text-sub-dark">{formatSignedPercent((Number(topic.fillRatio) || 0) * 100)}</td>
-                                                    <td className="px-3 py-3 text-text-sub-light dark:text-text-sub-dark">{topic.scheduled ? 'Yes' : 'No'}</td>
+                                                    <td className="p-3 text-text-sub-light dark:text-text-sub-dark">{formatSignedPercent((Number(topic.fillRatio) || 0) * 100)}</td>
+                                                    <td className="p-3 text-text-sub-light dark:text-text-sub-dark">{topic.scheduled ? 'Yes' : 'No'}</td>
                                                 </tr>
                                             ))}
                                         </tbody>
@@ -1208,18 +1208,18 @@ const UsersPanel = ({ signedInUsers, recentUsers, premiumUsers, flags, snapshot,
                                 </tr>
                             ) : signedInUsers.map((record) => (
                                 <tr key={record.userId} className="border-b border-border-light dark:border-border-dark">
-                                    <td className="px-3 py-3">
+                                    <td className="p-3">
                                         <p className="font-semibold text-text-main-light dark:text-text-main-dark">{record.email || record.fullName || record.userId}</p>
                                         <p className="text-xs text-text-faint-light dark:text-text-faint-dark">{record.department || ''}</p>
                                     </td>
-                                    <td className="px-3 py-3 text-text-sub-light dark:text-text-sub-dark">{record.emailVerified ? 'Yes' : 'No'}</td>
-                                    <td className="px-3 py-3 text-text-sub-light dark:text-text-sub-dark">{formatNumber(record.activeSessionCount)}</td>
-                                    <td className="px-3 py-3 text-text-sub-light dark:text-text-sub-dark">
+                                    <td className="p-3 text-text-sub-light dark:text-text-sub-dark">{record.emailVerified ? 'Yes' : 'No'}</td>
+                                    <td className="p-3 text-text-sub-light dark:text-text-sub-dark">{formatNumber(record.activeSessionCount)}</td>
+                                    <td className="p-3 text-text-sub-light dark:text-text-sub-dark">
                                         <div>{formatNumber(record.llmTokensTotal)}<span className="ml-2 text-xs text-text-faint-light dark:text-text-faint-dark">Tracked • 7d {formatNumber(record.llmTokensLastWindow)}</span></div>
                                         <div className="mt-1 text-xs text-text-faint-light dark:text-text-faint-dark">Hist. est. {formatNumber(record.estimatedHistoricalTokensTotal)} • 7d {formatNumber(record.estimatedHistoricalTokensLastWindow)}</div>
                                     </td>
-                                    <td className="px-3 py-3 text-text-sub-light dark:text-text-sub-dark">{formatDateTime(record.lastSessionAt)}</td>
-                                    <td className="px-3 py-3 text-text-sub-light dark:text-text-sub-dark">{formatDateTime(record.createdAt)}</td>
+                                    <td className="p-3 text-text-sub-light dark:text-text-sub-dark">{formatDateTime(record.lastSessionAt)}</td>
+                                    <td className="p-3 text-text-sub-light dark:text-text-sub-dark">{formatDateTime(record.createdAt)}</td>
                                 </tr>
                             ))}
                         </tbody>
@@ -1249,18 +1249,18 @@ const UsersPanel = ({ signedInUsers, recentUsers, premiumUsers, flags, snapshot,
                             </tr>
                         ) : premiumUsers.map((record) => (
                             <tr key={record.userId} className="border-b border-border-light dark:border-border-dark">
-                                <td className="px-3 py-3">
+                                <td className="p-3">
                                     <p className="font-semibold text-text-main-light dark:text-text-main-dark">{record.email || record.fullName || record.userId}</p>
                                     <p className="text-xs text-text-faint-light dark:text-text-faint-dark">{record.department || ''}</p>
                                 </td>
-                                <td className="px-3 py-3 text-text-sub-light dark:text-text-sub-dark capitalize">{record.status || 'unknown'}</td>
-                                <td className="px-3 py-3 text-text-sub-light dark:text-text-sub-dark">{formatMajorCurrency(record.amountMajor, record.currency)}</td>
-                                <td className="px-3 py-3 text-text-sub-light dark:text-text-sub-dark">
+                                <td className="p-3 text-text-sub-light dark:text-text-sub-dark capitalize">{record.status || 'unknown'}</td>
+                                <td className="p-3 text-text-sub-light dark:text-text-sub-dark">{formatMajorCurrency(record.amountMajor, record.currency)}</td>
+                                <td className="p-3 text-text-sub-light dark:text-text-sub-dark">
                                     <div>{formatNumber(record.llmTokensTotal)}<span className="ml-2 text-xs text-text-faint-light dark:text-text-faint-dark">Tracked • 7d {formatNumber(record.llmTokensLastWindow)}</span></div>
                                     <div className="mt-1 text-xs text-text-faint-light dark:text-text-faint-dark">Hist. est. {formatNumber(record.estimatedHistoricalTokensTotal)} • 7d {formatNumber(record.estimatedHistoricalTokensLastWindow)}</div>
                                 </td>
-                                <td className="px-3 py-3 text-text-sub-light dark:text-text-sub-dark">{formatDateTime(record.lastPaymentAt)}</td>
-                                <td className="px-3 py-3 text-text-sub-light dark:text-text-sub-dark">{record.nextBillingDate || 'N/A'}</td>
+                                <td className="p-3 text-text-sub-light dark:text-text-sub-dark">{formatDateTime(record.lastPaymentAt)}</td>
+                                <td className="p-3 text-text-sub-light dark:text-text-sub-dark">{record.nextBillingDate || 'N/A'}</td>
                             </tr>
                         ))}
                     </tbody>
@@ -1288,18 +1288,18 @@ const UsersPanel = ({ signedInUsers, recentUsers, premiumUsers, flags, snapshot,
                             </tr>
                         ) : recentUsers.map((record) => (
                             <tr key={record.userId || record.createdAt} className="border-b border-border-light dark:border-border-dark">
-                                <td className="px-3 py-3">
+                                <td className="p-3">
                                     <p className="font-semibold text-text-main-light dark:text-text-main-dark">{record.email || record.fullName || record.userId || 'Unknown'}</p>
                                     <p className="text-xs text-text-faint-light dark:text-text-faint-dark">{record.department || 'No dept'}{record.educationLevel ? ` • ${record.educationLevel}` : ''}</p>
                                 </td>
-                                <td className="px-3 py-3 text-text-sub-light dark:text-text-sub-dark">{formatDateTime(record.createdAt)}</td>
-                                <td className="px-3 py-3 text-text-sub-light dark:text-text-sub-dark">{formatDateTime(record.lastActiveAt)}</td>
-                                <td className="px-3 py-3 text-text-sub-light dark:text-text-sub-dark">{formatNumber(record.documentsProcessed)}</td>
-                                <td className="px-3 py-3 text-text-sub-light dark:text-text-sub-dark">
+                                <td className="p-3 text-text-sub-light dark:text-text-sub-dark">{formatDateTime(record.createdAt)}</td>
+                                <td className="p-3 text-text-sub-light dark:text-text-sub-dark">{formatDateTime(record.lastActiveAt)}</td>
+                                <td className="p-3 text-text-sub-light dark:text-text-sub-dark">{formatNumber(record.documentsProcessed)}</td>
+                                <td className="p-3 text-text-sub-light dark:text-text-sub-dark">
                                     <div>{formatNumber(record.llmTokensTotal)}<span className="ml-2 text-xs text-text-faint-light dark:text-text-faint-dark">Tracked • 7d {formatNumber(record.llmTokensLastWindow)}</span></div>
                                     <div className="mt-1 text-xs text-text-faint-light dark:text-text-faint-dark">Hist. est. {formatNumber(record.estimatedHistoricalTokensTotal)} • 7d {formatNumber(record.estimatedHistoricalTokensLastWindow)}</div>
                                 </td>
-                                <td className="px-3 py-3 text-text-sub-light dark:text-text-sub-dark">{formatNumber(record.feedbackCount)}</td>
+                                <td className="p-3 text-text-sub-light dark:text-text-sub-dark">{formatNumber(record.feedbackCount)}</td>
                             </tr>
                         ))}
                     </tbody>
@@ -1474,33 +1474,33 @@ const FeedbackPanel = ({
                                 </div>
 
                                 <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
-                                    <div className="rounded-xl bg-surface-hover-light dark:bg-surface-hover-dark px-3 py-3">
+                                    <div className="rounded-xl bg-surface-hover-light dark:bg-surface-hover-dark p-3">
                                         <p className="text-[11px] font-semibold uppercase tracking-wide text-text-faint-light dark:text-text-faint-dark">Sent</p>
                                         <p className="mt-1 text-xl font-black text-text-main-light dark:text-text-main-dark">{formatNumber(sentCount)}</p>
                                     </div>
-                                    <div className="rounded-xl bg-surface-hover-light dark:bg-surface-hover-dark px-3 py-3">
+                                    <div className="rounded-xl bg-surface-hover-light dark:bg-surface-hover-dark p-3">
                                         <p className="text-[11px] font-semibold uppercase tracking-wide text-text-faint-light dark:text-text-faint-dark">Returned</p>
                                         <p className="mt-1 text-xl font-black text-text-main-light dark:text-text-main-dark">{formatNumber(returnedCount)}</p>
                                         <p className="mt-1 text-xs text-text-faint-light dark:text-text-faint-dark">{formatRatioPercent(rates?.returned)}</p>
                                     </div>
-                                    <div className="rounded-xl bg-surface-hover-light dark:bg-surface-hover-dark px-3 py-3">
+                                    <div className="rounded-xl bg-surface-hover-light dark:bg-surface-hover-dark p-3">
                                         <p className="text-[11px] font-semibold uppercase tracking-wide text-text-faint-light dark:text-text-faint-dark">Uploaded</p>
                                         <p className="mt-1 text-xl font-black text-text-main-light dark:text-text-main-dark">{formatNumber(uploadedCount)}</p>
                                         <p className="mt-1 text-xs text-text-faint-light dark:text-text-faint-dark">{formatRatioPercent(rates?.uploaded)}</p>
                                     </div>
-                                    <div className="rounded-xl bg-surface-hover-light dark:bg-surface-hover-dark px-3 py-3">
+                                    <div className="rounded-xl bg-surface-hover-light dark:bg-surface-hover-dark p-3">
                                         <p className="text-[11px] font-semibold uppercase tracking-wide text-text-faint-light dark:text-text-faint-dark">Activated</p>
                                         <p className="mt-1 text-xl font-black text-text-main-light dark:text-text-main-dark">{formatNumber(activatedCount)}</p>
                                         <p className="mt-1 text-xs text-text-faint-light dark:text-text-faint-dark">{formatRatioPercent(rates?.activated)}</p>
                                     </div>
-                                    <div className="rounded-xl bg-surface-hover-light dark:bg-surface-hover-dark px-3 py-3">
+                                    <div className="rounded-xl bg-surface-hover-light dark:bg-surface-hover-dark p-3">
                                         <p className="text-[11px] font-semibold uppercase tracking-wide text-text-faint-light dark:text-text-faint-dark">Paid</p>
                                         <p className="mt-1 text-xl font-black text-text-main-light dark:text-text-main-dark">{formatNumber(paidCount)}</p>
                                         <p className="mt-1 text-xs text-text-faint-light dark:text-text-faint-dark">{formatRatioPercent(rates?.paid)}</p>
                                     </div>
                                 </div>
 
-                                <div className="mt-4 rounded-xl border border-indigo-100 bg-indigo-50/70 px-3 py-3 dark:border-indigo-900/40 dark:bg-indigo-950/20">
+                                <div className="mt-4 rounded-xl border border-primary-100 bg-primary-50/70 p-3 dark:border-primary-900/40 dark:bg-primary-950/20">
                                     <StatRow
                                         label="Attributed CTA landings"
                                         value={formatNumber(attributedLandingCount)}
@@ -1580,7 +1580,7 @@ const FeedbackPanel = ({
                                     </div>
                                     <div className="flex flex-wrap items-center gap-2 text-xs">
                                         {campaign ? (
-                                            <span className="rounded-full bg-indigo-50 px-2.5 py-1 font-semibold text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-200">
+                                            <span className="rounded-full bg-primary-50 px-2.5 py-1 font-semibold text-primary-700 dark:bg-primary-900/30 dark:text-primary-200">
                                                 Campaign: {campaign}
                                             </span>
                                         ) : null}
@@ -1783,7 +1783,7 @@ const AdminDashboard = () => {
         return (
             <div className="bg-background-light dark:bg-background-dark min-h-screen flex items-center justify-center">
                 <div className="flex flex-col items-center gap-4">
-                    <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary"></div>
+                    <div className="animate-spin rounded-full size-12 border-t-2 border-b-2 border-primary"></div>
                     <p className="text-text-faint-light dark:text-text-faint-dark text-sm font-medium">Loading admin dashboard...</p>
                 </div>
             </div>
@@ -1974,7 +1974,7 @@ const AdminDashboard = () => {
                     <div className="flex flex-wrap items-center justify-between gap-3">
                         <div>
                             <p className="text-xs font-semibold uppercase tracking-wider text-primary">Admin</p>
-                            <h1 className="mt-1 text-2xl font-black text-text-main-light dark:text-text-main-dark">
+                            <h1 className="mt-1 text-2xl font-semibold text-text-main-light dark:text-text-main-dark">
                                 Stitch Operations Dashboard
                             </h1>
                             <p className="mt-2 text-sm text-text-faint-light dark:text-text-faint-dark">

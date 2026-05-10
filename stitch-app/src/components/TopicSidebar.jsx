@@ -70,11 +70,10 @@ const TopicSidebar = memo(function TopicSidebar({
                     {toc.map((item) => {
                         const isActive = activeSection === item.id;
                         return (
-                            <a
+                            <button
+                                type="button"
                                 key={item.id}
-                                href={`#${item.id}`}
-                                onClick={(e) => {
-                                    e.preventDefault();
+                                onClick={() => {
                                     setMobileOpen(false);
                                     const el = document.getElementById(item.id);
                                     if (!el) return;
@@ -86,14 +85,14 @@ const TopicSidebar = memo(function TopicSidebar({
                                         window.history.replaceState(null, '', `#${item.id}`);
                                     }
                                 }}
-                                className={`block py-1.5 text-body-sm transition-colors ${getIndent(item.level)} ${
+                                className={`block w-full py-1.5 text-left text-body-sm transition-colors ${getIndent(item.level)} ${
                                     isActive
                                         ? 'text-primary font-semibold'
                                         : 'text-text-sub-light dark:text-text-sub-dark hover:text-text-main-light dark:hover:text-text-main-dark'
                                 }`}
                             >
                                 {item.text}
-                            </a>
+                            </button>
                         );
                     })}
                 </nav>
@@ -129,25 +128,27 @@ const TopicSidebar = memo(function TopicSidebar({
                             {toc.map((item) => {
                                 const isActive = activeSection === item.id;
                                 return (
-                                    <a
+                                    <button
+                                        type="button"
                                         key={item.id}
-                                        href={`#${item.id}`}
-                                        onClick={(e) => {
-                                            e.preventDefault();
+                                        onClick={() => {
                                             const el = document.getElementById(item.id);
                                             if (!el) return;
                                             const offset = 80;
                                             const top = el.getBoundingClientRect().top + window.scrollY - offset;
                                             window.scrollTo({ top, behavior: 'smooth' });
+                                            if (typeof window !== 'undefined' && window.history?.replaceState) {
+                                                window.history.replaceState(null, '', `#${item.id}`);
+                                            }
                                         }}
-                                        className={`block py-1.5 text-body-sm transition-colors ${getIndent(item.level)} ${
+                                        className={`block w-full py-1.5 text-left text-body-sm transition-colors ${getIndent(item.level)} ${
                                             isActive
                                                 ? 'text-primary font-semibold'
                                                 : 'text-text-sub-light dark:text-text-sub-dark hover:text-text-main-light dark:hover:text-text-main-dark'
                                         }`}
                                     >
                                         {item.text}
-                                    </a>
+                                    </button>
                                 );
                             })}
                         </nav>

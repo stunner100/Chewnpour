@@ -27,7 +27,7 @@ const VERIFICATION_STEPS = [
 const HUMANIZE_CHUNK_ESTIMATE_CHARS = 4000;
 
 export const AIHumanizer = () => {
-    const location = useLocation();
+    const routerLocation = useLocation();
     const navigate = useNavigate();
     const { user } = useAuth();
     const { isAuthenticated: isConvexAuthenticated } = useConvexAuth();
@@ -58,11 +58,11 @@ export const AIHumanizer = () => {
     const [chunkProgressLabel, setChunkProgressLabel] = useState('');
 
     useEffect(() => {
-        if (location.state?.text) {
-            setInputText(location.state.text);
-            navigate(location.pathname, { replace: true });
+        if (routerLocation.state?.text) {
+            setInputText(routerLocation.state.text);
+            navigate(routerLocation.pathname, { replace: true });
         }
-    }, [location.state, navigate, location.pathname]);
+    }, [routerLocation.state, navigate, routerLocation.pathname]);
 
     useEffect(() => {
         return () => {
@@ -396,7 +396,7 @@ export const AIHumanizer = () => {
 
                         {isHumanizing && verificationStep && (
                             <div className="mt-3 flex items-center gap-2 text-caption text-text-faint-light dark:text-text-faint-dark">
-                                <span className="inline-block w-3 h-3 rounded-full border-2 border-primary border-t-transparent animate-spin" />
+                                <span className="inline-block size-3 rounded-full border-2 border-primary border-t-transparent animate-spin" />
                                 <span className="font-medium">
                                     {chunkProgressLabel || VERIFICATION_STEPS.find((s) => s.key === verificationStep)?.label || 'Processing...'}
                                 </span>
@@ -407,7 +407,7 @@ export const AIHumanizer = () => {
                     {detectionResult && (
                         <div className={`rounded-xl border p-4 ${getConfidenceBg(detectionResult.confidence)} dark:bg-surface-dark dark:border-border-dark`}>
                             <div className="flex items-start gap-3">
-                                <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${detectionResult.confidence >= 70 ? 'bg-red-100 dark:bg-red-900/20 text-red-600' : detectionResult.confidence >= 40 ? 'bg-amber-100 dark:bg-amber-900/20 text-amber-600' : 'bg-emerald-100 dark:bg-emerald-900/20 text-emerald-600'}`}>
+                                <div className={`size-10 rounded-xl flex items-center justify-center ${detectionResult.confidence >= 70 ? 'bg-red-100 dark:bg-red-900/20 text-red-600' : detectionResult.confidence >= 40 ? 'bg-amber-100 dark:bg-amber-900/20 text-amber-600' : 'bg-emerald-100 dark:bg-emerald-900/20 text-emerald-600'}`}>
                                     <span className="material-symbols-outlined text-[20px]">
                                         {detectionResult.confidence >= 70 ? 'warning' : detectionResult.confidence >= 40 ? 'help' : 'check_circle'}
                                     </span>

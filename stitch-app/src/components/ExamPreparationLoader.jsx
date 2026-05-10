@@ -158,7 +158,7 @@ const ExamPreparationLoader = memo(function ExamPreparationLoader({
             <div className="min-h-screen bg-background-light dark:bg-background-dark flex items-center justify-center p-4">
                 <div className="w-full max-w-md">
                     <div className="card-base p-8 text-center">
-                        <div className="w-16 h-16 rounded-2xl bg-accent-amber/10 flex items-center justify-center mx-auto mb-4">
+                        <div className="size-16 rounded-2xl bg-accent-amber/10 flex items-center justify-center mx-auto mb-4">
                             <span className="material-symbols-outlined text-2xl text-accent-amber">warning</span>
                         </div>
                         <h2 className="text-body-lg font-semibold text-text-main-light dark:text-text-main-dark mb-2">
@@ -202,12 +202,12 @@ const ExamPreparationLoader = memo(function ExamPreparationLoader({
     /* ── loading state ─────────────────────────────────────────── */
     return (
         <div className="min-h-screen bg-background-light dark:bg-background-dark flex items-center justify-center p-4 relative overflow-hidden">
-            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[500px] h-[500px] rounded-full bg-primary/[0.04] blur-[100px] pointer-events-none" />
+            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 size-[500px] rounded-full bg-primary/[0.04] blur-[100px] pointer-events-none" />
 
             <div className="w-full max-w-md relative z-10">
                 <div className="text-center mb-8">
-                    <div className="relative w-24 h-24 mx-auto mb-6">
-                        <svg className="absolute inset-0 w-full h-full animate-spin" style={{ animationDuration: '3s' }} viewBox="0 0 96 96">
+                    <div className="relative size-24 mx-auto mb-6">
+                        <svg className="absolute inset-0 size-full animate-spin" style={{ animationDuration: '3s' }} viewBox="0 0 96 96">
                             <circle cx="48" cy="48" r="44" fill="none" stroke="currentColor" className="text-border-light dark:text-border-dark" strokeWidth="2" />
                             <circle
                                 cx="48" cy="48" r="44" fill="none"
@@ -270,7 +270,7 @@ const ExamPreparationLoader = memo(function ExamPreparationLoader({
                                     key={stage.key}
                                     className={`flex items-center gap-3 py-2 px-3 rounded-xl transition-all duration-300 ${isActive ? 'bg-primary/[0.06]' : ''}`}
                                 >
-                                    <div className={`w-7 h-7 rounded-lg flex items-center justify-center shrink-0 transition-all duration-300 ${isDone ? 'bg-accent-emerald/15' : isActive ? 'bg-primary/15' : 'bg-transparent'}`}>
+                                    <div className={`size-7 rounded-lg flex items-center justify-center shrink-0 transition-all duration-300 ${isDone ? 'bg-accent-emerald/15' : isActive ? 'bg-primary/15' : 'bg-transparent'}`}>
                                         <span className={`material-symbols-outlined text-[18px] transition-all duration-300 ${isDone ? 'text-accent-emerald' : isActive ? 'text-primary' : 'text-text-faint-light dark:text-text-faint-dark opacity-40'}`}>
                                             {isDone ? 'check_circle' : isActive ? stage.icon : 'radio_button_unchecked'}
                                         </span>

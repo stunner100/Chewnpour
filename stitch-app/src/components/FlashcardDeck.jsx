@@ -145,7 +145,7 @@ const FlashcardDeck = ({ terms, starredTerms, onTermsStarred }) => {
                 <button
                     type="button"
                     onClick={prev}
-                    className="btn-icon w-10 h-10"
+                    className="btn-icon size-10"
                     aria-label="Previous card"
                 >
                     <span className="material-symbols-outlined text-[20px]">arrow_back</span>
@@ -171,7 +171,7 @@ const FlashcardDeck = ({ terms, starredTerms, onTermsStarred }) => {
                 <button
                     type="button"
                     onClick={next}
-                    className="btn-icon w-10 h-10"
+                    className="btn-icon size-10"
                     aria-label="Next card"
                 >
                     <span className="material-symbols-outlined text-[20px]">arrow_forward</span>

@@ -188,10 +188,12 @@ const FillInExercise = () => {
 
     // Focus first input of current question
     useEffect(() => {
-        if (!questions || submitted) return;
+        if (!questions || submitted) return undefined;
         const firstKey = `q${currentIdx}-b0`;
         const el = inputRefs.current[firstKey];
-        if (el) setTimeout(() => el.focus(), 100);
+        if (!el) return undefined;
+        const timer = setTimeout(() => el.focus(), 100);
+        return () => clearTimeout(timer);
     }, [currentIdx, questions, submitted]);
 
     /* ── guard states ──────────────────────────────────────────── */
@@ -199,7 +201,7 @@ const FillInExercise = () => {
         return (
             <div className="min-h-screen bg-background-light dark:bg-background-dark flex items-center justify-center px-4">
                 <div className="text-center max-w-md">
-                    <div className="w-14 h-14 rounded-2xl bg-primary/8 flex items-center justify-center mx-auto mb-4">
+                    <div className="size-14 rounded-2xl bg-primary/8 flex items-center justify-center mx-auto mb-4">
                         <span className="material-symbols-outlined text-primary text-[24px]">edit_note</span>
                     </div>
                     <h2 className="text-body-lg font-semibold text-text-main-light dark:text-text-main-dark mb-2">Select a Topic</h2>
@@ -214,7 +216,7 @@ const FillInExercise = () => {
         return (
             <div className="min-h-screen bg-background-light dark:bg-background-dark flex items-center justify-center px-4">
                 <div className="text-center max-w-md">
-                    <div className="w-14 h-14 rounded-2xl bg-red-500/10 flex items-center justify-center mx-auto mb-4">
+                    <div className="size-14 rounded-2xl bg-red-500/10 flex items-center justify-center mx-auto mb-4">
                         <span className="material-symbols-outlined text-red-500 text-[24px]">error</span>
                     </div>
                     <h2 className="text-body-lg font-semibold text-text-main-light dark:text-text-main-dark mb-2">This link is stale</h2>
@@ -323,7 +325,7 @@ const FillInExercise = () => {
             <header className="sticky top-0 z-40 bg-surface-light/90 dark:bg-surface-dark/90 backdrop-blur-md border-b border-border-light dark:border-border-dark">
                 <div className="max-w-4xl mx-auto px-4 py-3 flex items-center justify-between">
                     <div className="flex items-center gap-3">
-                        <Link to={topicId ? `/dashboard/topic/${topicId}` : '/dashboard'} className="btn-icon w-10 h-10">
+                        <Link to={topicId ? `/dashboard/topic/${topicId}` : '/dashboard'} className="btn-icon size-10">
                             <span className="material-symbols-outlined text-[20px]">arrow_back</span>
                         </Link>
                         <div>
@@ -375,7 +377,7 @@ const FillInExercise = () => {
                                         key={idx}
                                         type="button"
                                         onClick={() => setCurrentIdx(idx)}
-                                        className={`w-3 h-3 rounded-full transition-all ${
+                                        className={`size-3 rounded-full transition-all ${
                                             idx === currentIdx
                                                 ? 'bg-primary scale-125'
                                                 : allQFilled
@@ -427,7 +429,7 @@ const FillInExercise = () => {
                                         reloadDocument
                                         className="flex items-center gap-3 p-3 rounded-xl border transition-colors cursor-pointer bg-surface-hover-light dark:bg-surface-hover-dark border-border-light dark:border-border-dark hover:border-primary/30"
                                     >
-                                        <div className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0 bg-surface-hover-light dark:bg-surface-hover-dark">
+                                        <div className="size-9 rounded-xl flex items-center justify-center shrink-0 bg-surface-hover-light dark:bg-surface-hover-dark">
                                             <span className="material-symbols-outlined text-[18px] text-text-sub-light dark:text-text-sub-dark">quiz</span>
                                         </div>
                                         <div className="flex-1 min-w-0">
@@ -441,7 +443,7 @@ const FillInExercise = () => {
                                         reloadDocument
                                         className="flex items-center gap-3 p-3 rounded-xl border transition-colors cursor-pointer bg-surface-hover-light dark:bg-surface-hover-dark border-border-light dark:border-border-dark hover:border-primary/30"
                                     >
-                                        <div className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0 bg-surface-hover-light dark:bg-surface-hover-dark">
+                                        <div className="size-9 rounded-xl flex items-center justify-center shrink-0 bg-surface-hover-light dark:bg-surface-hover-dark">
                                             <span className="material-symbols-outlined text-[18px] text-text-sub-light dark:text-text-sub-dark">edit_note</span>
                                         </div>
                                         <div className="flex-1 min-w-0">

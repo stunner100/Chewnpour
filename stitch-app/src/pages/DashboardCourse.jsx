@@ -63,7 +63,7 @@ const ProcessingState = ({ processingStep }) => {
 
     return (
         <section className="card-base p-8 md:p-10 text-center">
-            <div className="relative w-14 h-14 mx-auto mb-5">
+            <div className="relative size-14 mx-auto mb-5">
                 <div className="absolute inset-0 rounded-full border-[3px] border-border-light dark:border-border-dark" />
                 <div className="absolute inset-0 rounded-full border-[3px] border-primary border-t-transparent animate-spin" />
                 <div className="absolute inset-2 rounded-full bg-primary/10 flex items-center justify-center">
@@ -456,7 +456,7 @@ const DashboardCourse = () => {
                     {/* Action prompt banner (deep links from quick actions) */}
                     {actionPrompt && (
                         <div className="p-4 rounded-2xl border border-primary/20 bg-primary/5 dark:bg-primary/10 flex items-start gap-3">
-                            <div className="w-10 h-10 rounded-xl bg-primary/15 text-primary flex items-center justify-center shrink-0">
+                            <div className="size-10 rounded-xl bg-primary/15 text-primary flex items-center justify-center shrink-0">
                                 <span
                                     className="material-symbols-outlined text-[20px]"
                                     style={{ fontVariationSettings: "'FILL' 1" }}
@@ -667,7 +667,7 @@ const DashboardCourse = () => {
                     {/* Empty state */}
                     {moduleItems.length === 0 && !isProcessing && (
                         <div className="card-base text-center p-10">
-                            <div className="w-14 h-14 rounded-2xl bg-surface-hover-light dark:bg-surface-hover-dark flex items-center justify-center mx-auto mb-4">
+                            <div className="size-14 rounded-2xl bg-surface-hover-light dark:bg-surface-hover-dark flex items-center justify-center mx-auto mb-4">
                                 <span className="material-symbols-outlined text-2xl text-text-faint-light dark:text-text-faint-dark">
                                     school
                                 </span>

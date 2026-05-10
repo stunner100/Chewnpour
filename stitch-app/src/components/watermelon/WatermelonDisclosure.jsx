@@ -53,11 +53,11 @@ export const WatermelonDisclosure = ({
             <AnimatePresence initial={false}>
                 {isOpen && (
                     <Motion.div
-                        initial={{ height: 0, opacity: 0 }}
-                        animate={{ height: 'auto', opacity: 1 }}
-                        exit={{ height: 0, opacity: 0 }}
+                        initial={{ opacity: 0, scaleY: 0.98 }}
+                        animate={{ opacity: 1, scaleY: 1 }}
+                        exit={{ opacity: 0, scaleY: 0.98 }}
                         transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
-                        className="overflow-hidden"
+                        className="origin-top overflow-hidden"
                     >
                         <div ref={contentRef} className={cn('px-4 pb-4', contentClassName)}>
                             {children}

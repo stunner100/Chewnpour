@@ -69,12 +69,12 @@ const Unsubscribe = () => {
             <div className="max-w-xl mx-auto">
                 <div className="cp-card text-center">
                     <div
-                        className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl"
+                        className="mx-auto flex size-16 items-center justify-center rounded-2xl"
                         style={{ background: iconChip.bg, color: iconChip.fg }}
                     >
                         <span className="material-symbols-outlined text-[28px]">{iconChip.icon}</span>
                     </div>
-                    <h1 className="mt-5 text-2xl font-bold">
+                    <h1 className="mt-5 text-2xl font-semibold">
                         {status === 'success' ? 'Preferences updated' : status === 'error' ? 'Unsubscribe failed' : 'Updating preferences'}
                     </h1>
                     <p className="mt-2 text-sm text-white/60">

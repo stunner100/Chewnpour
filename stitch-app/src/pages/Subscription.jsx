@@ -67,7 +67,7 @@ const DEFAULT_TOP_UP_OPTIONS = [
 ];
 
 const Subscription = () => {
-    const location = useLocation();
+    const routerLocation = useLocation();
     const { user } = useAuth();
     const { isAuthenticated: isConvexAuthenticated } = useConvexAuth();
     const userId = user?.id;
@@ -83,7 +83,7 @@ const Subscription = () => {
     );
     const initializeCheckout = useAction(api.subscriptions.initializePaystackTopUpCheckout);
 
-    const searchParams = useMemo(() => new URLSearchParams(location.search), [location.search]);
+    const searchParams = useMemo(() => new URLSearchParams(routerLocation.search), [routerLocation.search]);
     const returnPath = useMemo(
         () => sanitizeReturnPath(searchParams.get('from') || '/dashboard'),
         [searchParams]
@@ -131,8 +131,8 @@ const Subscription = () => {
 
     useEffect(() => {
         const reason = String(searchParams.get('reason') || '').trim();
-        const stateMessage = typeof location.state?.paywallMessage === 'string'
-            ? location.state.paywallMessage.trim()
+        const stateMessage = typeof routerLocation.state?.paywallMessage === 'string'
+            ? routerLocation.state.paywallMessage.trim()
             : '';
         if (!reason) {
             setError(remaining <= 0 ? stateMessage : '');
@@ -162,7 +162,7 @@ const Subscription = () => {
         };
 
         setError(reasonMessages[reason] || 'Could not complete payment. Please try again.');
-    }, [location.state, searchParams, uploadLimitMessage, remaining]);
+    }, [routerLocation.state, searchParams, uploadLimitMessage, remaining]);
 
     const handleCheckout = async (event) => {
         event.preventDefault();

@@ -46,8 +46,8 @@ class AppErrorBoundary extends Component {
             return (
                 <div className="min-h-screen flex items-center justify-center bg-background-light dark:bg-background-dark px-6 text-center">
                     <div>
-                        <h1 className="text-xl font-bold text-slate-900 dark:text-white">Something went wrong</h1>
-                        <p className="mt-2 text-sm font-medium text-slate-500 dark:text-slate-300">
+                        <h1 className="text-xl font-semibold text-zinc-900 dark:text-white">Something went wrong</h1>
+                        <p className="mt-2 text-sm font-medium text-zinc-500 dark:text-zinc-300">
                             We captured this issue. Please refresh and try again.
                         </p>
                     </div>

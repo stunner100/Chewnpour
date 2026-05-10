@@ -65,29 +65,29 @@ const bottomNavItems = [
 ];
 
 const DashboardLayout = ({ children }) => {
-    const location = useLocation();
+    const routerLocation = useLocation();
     const navigate = useNavigate();
     const { profile } = useAuth();
-    const hideMobileBottomNav = location.pathname.startsWith('/dashboard/exam');
-    const isTopicPage = location.pathname.startsWith('/dashboard/topic/');
+    const hideMobileBottomNav = routerLocation.pathname.startsWith('/dashboard/exam');
+    const isTopicPage = routerLocation.pathname.startsWith('/dashboard/topic/');
     const [sidebarCollapsed, setSidebarCollapsed] = useState(isTopicPage);
 
     useEffect(() => {
-        const incomingToast = location.state?.watermelonToast;
+        const incomingToast = routerLocation.state?.watermelonToast;
         if (!incomingToast?.message) return undefined;
 
-        const { watermelonToast: _watermelonToast, ...nextState } = location.state ?? {};
+        const { watermelonToast: _watermelonToast, ...nextState } = routerLocation.state ?? {};
         const timeoutId = window.setTimeout(() => {
             const options = { type: incomingToast.type || 'info' };
             if (typeof incomingToast.duration === 'number') {
                 options.duration = incomingToast.duration;
             }
             watermelonToast(String(incomingToast.message), options);
-            navigate(`${location.pathname}${location.search}`, { replace: true, state: nextState });
+            navigate(`${routerLocation.pathname}${routerLocation.search}`, { replace: true, state: nextState });
         }, 0);
 
         return () => window.clearTimeout(timeoutId);
-    }, [location.pathname, location.search, location.state, navigate]);
+    }, [routerLocation.pathname, routerLocation.search, routerLocation.state, navigate]);
 
     useEffect(() => {
         if (!isTopicPage) return undefined;
@@ -102,8 +102,8 @@ const DashboardLayout = ({ children }) => {
     }, [isTopicPage]);
 
     const isActive = (item) => {
-        if (item.exact) return location.pathname === item.path;
-        return location.pathname.startsWith(item.path);
+        if (item.exact) return routerLocation.pathname === item.path;
+        return routerLocation.pathname.startsWith(item.path);
     };
 
     const displayName = profile?.name || profile?.email?.split('@')[0] || 'Student';
@@ -124,7 +124,7 @@ const DashboardLayout = ({ children }) => {
                             <span className="relative inline-flex items-center justify-center shrink-0" style={{ width: 40, height: 40 }}>
                                 <svg
                                     viewBox="0 0 100 100"
-                                    className="absolute inset-0 w-full h-full text-text-main-light/85 dark:text-white/85"
+                                    className="absolute inset-0 size-full text-text-main-light/85 dark:text-white/85"
                                     fill="none"
                                     aria-hidden="true"
                                 >
@@ -211,7 +211,7 @@ const DashboardLayout = ({ children }) => {
                     {/* User Avatar */}
                     {!sidebarCollapsed && (
                         <div className="flex items-center gap-3 px-3 py-2.5 mt-1">
-                            <div className="w-8 h-8 rounded-full bg-primary-100 dark:bg-primary-900/30 flex items-center justify-center text-xs font-bold text-primary-700 dark:text-primary-300">
+                            <div className="size-8 rounded-full bg-primary-100 dark:bg-primary-900/30 flex items-center justify-center text-xs font-bold text-primary-700 dark:text-primary-300">
                                 {initials}
                             </div>
                             <div className="min-w-0 flex-1">
@@ -226,7 +226,7 @@ const DashboardLayout = ({ children }) => {
 
             {/* Main Content */}
             <main id="dashboard-main" className="flex-1 overflow-y-auto overflow-x-hidden">
-                <BlurFade key={location.pathname} duration={0.35} yOffset={8}>
+                <BlurFade key={routerLocation.pathname} duration={0.35} yOffset={8}>
                     {children}
                 </BlurFade>
             </main>

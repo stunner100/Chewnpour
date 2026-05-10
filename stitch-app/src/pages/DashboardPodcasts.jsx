@@ -196,7 +196,7 @@ const TopicPickerModal = ({ open, onClose, courses, onSelectTopic, generatingTop
                                             disabled={Boolean(generatingTopicId)}
                                             className="w-full flex items-center gap-3 p-3 rounded-xl border border-transparent hover:border-primary/30 hover:bg-primary-50/40 dark:hover:bg-primary-900/10 transition-all text-left disabled:opacity-60 disabled:cursor-not-allowed"
                                         >
-                                            <span className="inline-flex items-center justify-center w-9 h-9 rounded-lg bg-primary/10 text-primary shrink-0">
+                                            <span className="inline-flex items-center justify-center size-9 rounded-lg bg-primary/10 text-primary shrink-0">
                                                 <span className="material-symbols-outlined text-[18px]">
                                                     {isGenerating ? 'hourglass_top' : 'play_arrow'}
                                                 </span>
@@ -311,7 +311,7 @@ const DashboardPodcasts = () => {
                             type="button"
                             onClick={() => navigate('/dashboard')}
                             aria-label="Back to dashboard"
-                            className="btn-icon w-10 h-10 shrink-0"
+                            className="btn-icon size-10 shrink-0"
                         >
                             <span className="material-symbols-outlined text-[20px]">arrow_back</span>
                         </button>
@@ -348,7 +348,7 @@ const DashboardPodcasts = () => {
                     </div>
                 ) : !hasPodcasts ? (
                     <div className="card-base p-8 md:p-10 text-center">
-                        <div className="w-14 h-14 mx-auto mb-4 rounded-2xl bg-primary/10 text-primary flex items-center justify-center">
+                        <div className="size-14 mx-auto mb-4 rounded-2xl bg-primary/10 text-primary flex items-center justify-center">
                             <span className="material-symbols-outlined text-[28px]">podcasts</span>
                         </div>
                         <h2 className="text-display-sm text-text-main-light dark:text-text-main-dark mb-1">

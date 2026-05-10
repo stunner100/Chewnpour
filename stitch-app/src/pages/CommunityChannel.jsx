@@ -116,7 +116,7 @@ const TagBadge = ({ tag }) => {
     const config = TAG_CONFIG[tag] || TAG_CONFIG.discussion;
     return (
         <span className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-bold uppercase tracking-wide ${config.classes}`}>
-            <span className={`w-1 h-1 rounded-full ${config.dot}`} aria-hidden="true" />
+            <span className={`size-1 rounded-full ${config.dot}`} aria-hidden="true" />
             {config.label}
         </span>
     );
@@ -184,7 +184,7 @@ const ReplyThread = ({ postId, channelId, userId }) => {
                     <button
                         onClick={handleSubmit}
                         disabled={!replyText.trim() || submitting}
-                        className="btn-primary p-1.5 h-8 w-8 disabled:opacity-40 inline-flex items-center justify-center"
+                        className="btn-primary p-1.5 size-8 disabled:opacity-40 inline-flex items-center justify-center"
                         aria-label="Send reply"
                     >
                         <span className="material-symbols-outlined text-[14px]">send</span>
@@ -356,7 +356,7 @@ const Composer = ({ channelId, userId, isMember, onJoin }) => {
         : 'Send a message...';
 
     return (
-        <div className="border-t border-border-light dark:border-border-dark bg-surface-light dark:bg-surface-dark px-3 py-3">
+        <div className="border-t border-border-light dark:border-border-dark bg-surface-light dark:bg-surface-dark p-3">
             <div className="rounded-xl border border-border-light dark:border-border-dark focus-within:border-primary/50 transition-colors">
                 <textarea
                     ref={textareaRef}
@@ -393,7 +393,7 @@ const Composer = ({ channelId, userId, isMember, onJoin }) => {
                     <button
                         onClick={handleSubmit}
                         disabled={!content.trim() || submitting}
-                        className={`inline-flex items-center justify-center w-8 h-8 rounded-lg transition-colors ${
+                        className={`inline-flex items-center justify-center size-8 rounded-lg transition-colors ${
                             content.trim() && !submitting
                                 ? 'bg-primary text-white hover:bg-primary-hover'
                                 : 'bg-surface-hover-light dark:bg-surface-hover-dark text-text-faint-light dark:text-text-faint-dark cursor-not-allowed'
@@ -478,7 +478,7 @@ const FilterTabBar = ({ activeFilter, onChange }) => (
 const MessageSkeleton = () => (
     <div className="px-3 py-2 animate-pulse">
         <div className="flex gap-3">
-            <div className="w-9 h-9 rounded-full bg-border-light dark:bg-border-dark shrink-0" />
+            <div className="size-9 rounded-full bg-border-light dark:bg-border-dark shrink-0" />
             <div className="flex-1 space-y-2 min-w-0">
                 <div className="h-3 w-24 bg-border-light dark:bg-border-dark rounded" />
                 <div className="h-3 w-3/4 bg-border-light dark:bg-border-dark rounded" />
@@ -551,7 +551,7 @@ const CommunityChannel = () => {
         return (
             <div className="w-full max-w-5xl mx-auto px-4 md:px-8 py-8 text-center">
                 <div className="py-16">
-                    <div className="w-14 h-14 rounded-2xl bg-surface-light dark:bg-surface-dark border border-border-light dark:border-border-dark flex items-center justify-center mx-auto mb-4">
+                    <div className="size-14 rounded-2xl bg-surface-light dark:bg-surface-dark border border-border-light dark:border-border-dark flex items-center justify-center mx-auto mb-4">
                         <span className="material-symbols-outlined text-2xl text-text-faint-light dark:text-text-faint-dark">forum</span>
                     </div>
                     <h1 className="text-body-lg font-semibold text-text-main-light dark:text-text-main-dark mb-1">Channel not found</h1>
@@ -579,7 +579,7 @@ const CommunityChannel = () => {
                     <div className="flex items-center gap-3 pb-3 border-b border-border-light dark:border-border-dark">
                         <button
                             onClick={() => navigate('/dashboard/community')}
-                            className="btn-icon w-9 h-9"
+                            className="btn-icon size-9"
                             aria-label="Back to community"
                         >
                             <span className="material-symbols-outlined text-[18px]">arrow_back</span>
@@ -642,7 +642,7 @@ const CommunityChannel = () => {
 
                         {!isLoading && posts && groupedMessages.length === 0 && (
                             <div className="text-center py-16">
-                                <div className="w-12 h-12 rounded-xl bg-surface-hover-light dark:bg-surface-hover-dark flex items-center justify-center mx-auto mb-3">
+                                <div className="size-12 rounded-xl bg-surface-hover-light dark:bg-surface-hover-dark flex items-center justify-center mx-auto mb-3">
                                     <span className="material-symbols-outlined text-xl text-text-faint-light dark:text-text-faint-dark">
                                         {activeFilter === 'all' ? 'chat_bubble_outline' : activeFilter === 'question' ? 'help_outline' : 'link'}
                                     </span>

@@ -76,7 +76,7 @@ const GeneratedCourseHeader = ({
     return (
         <section className="relative overflow-hidden rounded-3xl border border-border-subtle dark:border-border-subtle-dark bg-surface-light dark:bg-surface-dark p-6 md:p-8">
             <div
-                className="pointer-events-none absolute -right-24 -top-24 h-64 w-64 rounded-full bg-gradient-to-br from-primary/30 via-violet-400/20 to-transparent blur-3xl"
+                className="pointer-events-none absolute -right-24 -top-24 size-64 rounded-full bg-gradient-to-br from-primary/30 via-violet-400/20 to-transparent blur-3xl"
                 aria-hidden="true"
             />
             <div className="relative flex flex-col gap-5 md:flex-row md:items-end md:justify-between">

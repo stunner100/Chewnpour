@@ -52,7 +52,7 @@ export const WatermelonScheduler = ({
                 grouped.map(([time, groupItems], groupIdx) => (
                     <div key={time} className="relative">
                         <div className="flex items-center gap-3 mb-2">
-                            <div className="w-8 h-8 rounded-lg bg-surface-hover-light dark:bg-surface-hover-dark flex items-center justify-center shrink-0">
+                            <div className="size-8 rounded-lg bg-surface-hover-light dark:bg-surface-hover-dark flex items-center justify-center shrink-0">
                                 <span className="material-symbols-outlined text-[16px] text-text-faint-light dark:text-text-faint-dark">schedule</span>
                             </div>
                             <span className="text-caption font-semibold text-text-faint-light dark:text-text-faint-dark uppercase tracking-wider">{time}</span>
@@ -86,7 +86,7 @@ export const WatermelonScheduler = ({
                                             <p className="text-caption text-text-sub-light dark:text-text-sub-dark mt-0.5 truncate">{item.subtitle}</p>
                                         )}
                                     </div>
-                                    <span className={cn('w-2 h-2 rounded-full shrink-0', PRIORITY_DOT[item.priority] || PRIORITY_DOT.medium)} />
+                                    <span className={cn('size-2 rounded-full shrink-0', PRIORITY_DOT[item.priority] || PRIORITY_DOT.medium)} />
                                 </Motion.div>
                             ))}
                         </div>

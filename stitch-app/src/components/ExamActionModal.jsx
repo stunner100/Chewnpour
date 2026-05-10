@@ -179,9 +179,9 @@ const ExamActionModal = ({ isOpen, onClose, attempt }) => {
                 {/* Close Button */}
                 <button
                     onClick={handleCloseClick}
-                    className="absolute top-4 right-4 z-10 w-10 h-10 rounded-full flex items-center justify-center bg-black/10 hover:bg-black/20 transition-colors active:scale-95"
+                    className="absolute top-4 right-4 z-10 size-10 rounded-full flex items-center justify-center bg-black/10 hover:bg-black/20 transition-colors active:scale-95"
                 >
-                    <span className="material-symbols-outlined text-slate-700 dark:text-slate-300">close</span>
+                    <span className="material-symbols-outlined text-zinc-700 dark:text-zinc-300">close</span>
                 </button>
 
                 {/* Header with Gradient */}
@@ -192,18 +192,18 @@ const ExamActionModal = ({ isOpen, onClose, attempt }) => {
                     onTouchMove={handleTouchMove}
                     onTouchEnd={handleTouchEnd}
                 >
-                    <div className="w-20 h-20 bg-white/20 backdrop-blur-sm rounded-2xl flex items-center justify-center mx-auto mb-4">
+                    <div className="size-20 bg-white/20 backdrop-blur-sm rounded-2xl flex items-center justify-center mx-auto mb-4">
                         <span className="material-symbols-outlined text-4xl text-white filled">quiz</span>
                     </div>
-                    <h2 className="text-xl font-bold text-white mb-1">
+                    <h2 className="text-xl font-semibold text-white mb-1">
                         {attempt.topicTitle || 'Exam'}
                     </h2>
                     <p className="text-white/80 text-sm">{formattedDate}</p>
                 </div>
 
                 {/* Score Section */}
-                <div className="p-6 text-center border-b border-slate-200 dark:border-slate-700">
-                    <p className="text-sm text-slate-500 dark:text-slate-400 mb-2">Your Score</p>
+                <div className="p-6 text-center border-b border-zinc-200 dark:border-zinc-700">
+                    <p className="text-sm text-zinc-500 dark:text-zinc-400 mb-2">Your Score</p>
                     <div className="flex items-center justify-center gap-2">
                         <span className={`text-5xl font-bold ${
                             isExcellent ? 'text-green-600' :
@@ -212,7 +212,7 @@ const ExamActionModal = ({ isOpen, onClose, attempt }) => {
                             {scorePercent}%
                         </span>
                     </div>
-                    <p className="text-sm text-slate-500 mt-2">
+                    <p className="text-sm text-zinc-500 mt-2">
                         {attempt.score} / {attempt.totalQuestions} correct
                     </p>
 
@@ -245,7 +245,7 @@ const ExamActionModal = ({ isOpen, onClose, attempt }) => {
 
                     <button
                         onClick={handleRetryExam}
-                        className="w-full h-14 rounded-2xl bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-bold hover:bg-slate-200 dark:hover:bg-slate-700 active:scale-[0.98] transition-all flex items-center justify-center gap-2"
+                        className="w-full h-14 rounded-2xl bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 font-bold hover:bg-zinc-200 dark:hover:bg-zinc-700 active:scale-[0.98] transition-all flex items-center justify-center gap-2"
                     >
                         <span className="material-symbols-outlined">replay</span>
                         Retry Exam

@@ -46,7 +46,7 @@ const FloatingStudyTools = ({ tools = [], hidden }) => {
             <button
                 type="button"
                 onClick={() => setOpen((v) => !v)}
-                className="w-12 h-12 rounded-full bg-primary text-white shadow-elevated hover:bg-primary-hover transition-colors flex items-center justify-center active:scale-95"
+                className="size-12 rounded-full bg-primary text-white shadow-elevated hover:bg-primary-hover transition-colors flex items-center justify-center active:scale-95"
                 aria-label={open ? 'Close study tools' : 'Open study tools'}
                 aria-expanded={open}
             >

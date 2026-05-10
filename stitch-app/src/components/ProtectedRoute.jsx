@@ -39,8 +39,8 @@ const ProtectedRoute = ({ children }) => {
                     return (
                         <div className="bg-background-light dark:bg-background-dark min-h-screen flex items-center justify-center">
                             <div className="flex flex-col items-center gap-4">
-                                <div className="w-10 h-10 border-[3px] border-slate-200 dark:border-slate-700 border-t-primary rounded-full animate-spin"></div>
-                                <p className="text-slate-500 dark:text-slate-400 text-sm font-medium">Loading your account...</p>
+                                <div className="size-10 border-[3px] border-zinc-200 dark:border-zinc-700 border-t-primary rounded-full animate-spin"></div>
+                                <p className="text-zinc-500 dark:text-zinc-400 text-sm font-medium">Loading your account...</p>
                             </div>
                         </div>
                     );

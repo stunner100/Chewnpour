@@ -172,7 +172,7 @@ const PodcastWaveformPlayer = ({
                         type="button"
                         onClick={togglePlayback}
                         disabled={!audioUrl}
-                        className="group inline-flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-white text-[#22143d] shadow-lg transition-all hover:scale-105 active:scale-95 disabled:cursor-not-allowed disabled:opacity-60"
+                        className="group inline-flex size-14 shrink-0 items-center justify-center rounded-2xl bg-white text-[#22143d] shadow-lg transition-all hover:scale-105 active:scale-95 disabled:cursor-not-allowed disabled:opacity-60"
                         aria-label={playing ? 'Pause podcast' : 'Play podcast'}
                     >
                         <span
@@ -210,7 +210,7 @@ const PodcastWaveformPlayer = ({
                             aria-valuemin={0}
                             aria-valuemax={Math.max(0, Math.round(effectiveDuration))}
                             aria-valuenow={Math.max(0, Math.round(currentTime))}
-                            className="group relative mt-3 h-16 cursor-pointer touch-none select-none rounded-2xl border border-white/10 bg-white/[0.06] px-3 py-3 outline-none transition-colors focus-visible:ring-2 focus-visible:ring-primary/70"
+                            className="group relative mt-3 h-16 cursor-pointer touch-none select-none rounded-2xl border border-white/10 bg-white/[0.06] p-3 outline-none transition-colors focus-visible:ring-2 focus-visible:ring-primary/70"
                             onPointerDown={handlePointerDown}
                             onPointerMove={handlePointerMove}
                             onPointerUp={handlePointerUp}

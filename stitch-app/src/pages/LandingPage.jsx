@@ -167,7 +167,7 @@ const FOOTER_NAV = ['How it Works', 'Features', 'Pricing', 'Blog', 'FAQs', 'Cont
 
 const HexLogo = ({ size = 28 }) => (
     <span className="relative inline-flex items-center justify-center" style={{ width: size, height: size }} aria-hidden="true">
-        <svg viewBox="0 0 100 100" className="absolute inset-0 w-full h-full text-white" fill="none">
+        <svg viewBox="0 0 100 100" className="absolute inset-0 size-full text-white" fill="none">
             <polygon points="50,6 90,28 90,72 50,94 10,72 10,28" stroke="currentColor" strokeWidth="6" strokeLinejoin="round" fill="none" />
         </svg>
         <img
@@ -250,7 +250,7 @@ const CollabMock = () => (
         </div>
         <div className="flex items-center gap-2 mb-4">
             {['A', 'K', 'E', 'Y', 'B'].map((initial, i) => (
-                <div key={i} className="w-9 h-9 rounded-full flex items-center justify-center text-white text-xs font-bold border-2 border-white" style={{ background: ['#7C3AED', '#22C55E', '#F59E0B', '#EC4899', '#3B82F6'][i] }}>
+                <div key={i} className="size-9 rounded-full flex items-center justify-center text-white text-xs font-bold border-2 border-white" style={{ background: ['#7C3AED', '#22C55E', '#F59E0B', '#EC4899', '#3B82F6'][i] }}>
                     {initial}
                 </div>
             ))}
@@ -308,7 +308,7 @@ const ScheduleMock = () => (
 const PodcastMock = () => (
     <div className="rounded-xl bg-white shadow-2xl p-4 w-[80%] text-[#0A0A0A]">
         <div className="flex items-center gap-3 mb-3">
-            <div className="w-12 h-12 rounded-lg flex items-center justify-center" style={{ background: ACCENT }}>
+            <div className="size-12 rounded-lg flex items-center justify-center" style={{ background: ACCENT }}>
                 <span className="material-symbols-outlined text-white" style={{ fontSize: 24 }}>headphones</span>
             </div>
             <div className="flex-1 min-w-0">
@@ -337,7 +337,7 @@ const PodcastMock = () => (
             <div className="flex items-center gap-3">
                 <span className="material-symbols-outlined text-[18px]">replay_10</span>
                 <span
-                    className="material-symbols-outlined inline-flex items-center justify-center w-7 h-7 rounded-full text-white"
+                    className="material-symbols-outlined inline-flex items-center justify-center size-7 rounded-full text-white"
                     style={{ background: ACCENT, fontSize: 16 }}
                 >
                     pause
@@ -351,13 +351,13 @@ const PodcastMock = () => (
                 className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold text-white"
                 style={{ background: ACCENT, fontFamily: 'Inter, sans-serif' }}
             >
-                <span className="w-1.5 h-1.5 rounded-full bg-white" /> Tutor
+                <span className="size-1.5 rounded-full bg-white" /> Tutor
             </span>
             <span
                 className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold"
                 style={{ background: 'rgba(145,75,241,0.12)', color: ACCENT, fontFamily: 'Inter, sans-serif' }}
             >
-                <span className="w-1.5 h-1.5 rounded-full" style={{ background: ACCENT }} /> Student
+                <span className="size-1.5 rounded-full" style={{ background: ACCENT }} /> Student
             </span>
         </div>
     </div>
@@ -679,7 +679,7 @@ const LandingPage = () => {
                         <a href="#features" className="hidden md:inline text-sm text-white ui-text hover:opacity-80 transition-opacity">More Features</a>
                         <button
                             onClick={() => setMobileMenuOpen((o) => !o)}
-                            className="inline-flex items-center justify-center w-11 h-11 rounded-lg"
+                            className="inline-flex items-center justify-center size-11 rounded-lg"
                             style={{ background: CARD_BG }}
                             aria-label="Open menu"
                             aria-expanded={mobileMenuOpen}
@@ -781,7 +781,7 @@ const LandingPage = () => {
                         {HOW_CARDS.map((card, idx) => (
                             <BlurFade key={card.title} inView delay={idx * 0.1} yOffset={20}>
                                 <div className="grain rounded-[16px] p-7 flex flex-col min-h-[260px]" style={{ background: CARD_BG }}>
-                                    <span className="inline-flex items-center justify-center w-12 h-12 rounded-full" style={{ background: ACCENT }}>
+                                    <span className="inline-flex items-center justify-center size-12 rounded-full" style={{ background: ACCENT }}>
                                         <span className="material-symbols-outlined text-white text-[24px]">{card.icon}</span>
                                     </span>
                                     <h3 className="mt-auto pt-12 text-white" style={{ fontFamily: 'Outfit, sans-serif', fontWeight: 500, fontSize: 26 }}>
@@ -918,7 +918,7 @@ const LandingPage = () => {
                             style={{ background: ACCENT }}
                         >
                             <span
-                                className={`inline-block h-5 w-5 transform rounded-full bg-white shadow transition-transform duration-300 ${billing === 'yearly' ? 'translate-x-8' : 'translate-x-1'}`}
+                                className={`inline-block size-5 transform rounded-full bg-white shadow transition-transform duration-300 ${billing === 'yearly' ? 'translate-x-8' : 'translate-x-1'}`}
                             />
                         </button>
                         <span className="ui-text text-sm font-semibold" style={{ color: billing === 'yearly' ? '#fff' : SUBTEXT }}>Yearly</span>
@@ -1190,7 +1190,7 @@ const LandingPage = () => {
                             <button
                                 type="button"
                                 onClick={() => setActivePost(null)}
-                                className="absolute top-4 right-4 inline-flex items-center justify-center w-10 h-10 rounded-full text-white"
+                                className="absolute top-4 right-4 inline-flex items-center justify-center size-10 rounded-full text-white"
                                 style={{ background: 'rgba(0,0,0,0.55)' }}
                                 aria-label="Close article"
                             >

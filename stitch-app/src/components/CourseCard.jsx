@@ -102,7 +102,7 @@ const CourseCard = ({
                             type="button"
                             onClick={(e) => { stopCardNav(e); setMenuOpen((v) => !v); setMoveSubmenuOpen(false); }}
                             disabled={isDeleting || isMoving}
-                            className="btn-icon w-7 h-7 bg-surface-light/90 dark:bg-surface-dark/90 border border-border-subtle dark:border-border-subtle-dark opacity-0 group-hover:opacity-100 focus:opacity-100 data-[open=true]:opacity-100 transition-all"
+                            className="btn-icon size-7 bg-surface-light/90 dark:bg-surface-dark/90 border border-border-subtle dark:border-border-subtle-dark opacity-0 group-hover:opacity-100 focus:opacity-100 data-[open=true]:opacity-100 transition-all"
                             data-open={menuOpen}
                             title="Course actions"
                             aria-label={`Actions for ${course.title}`}
@@ -181,7 +181,7 @@ const CourseCard = ({
                     </div>
                 )}
                 <div
-                    className="w-full h-full flex items-center justify-center transition-transform duration-300 group-hover:scale-[1.03]"
+                    className="size-full flex items-center justify-center transition-transform duration-300 group-hover:scale-[1.03]"
                     style={{ background: course.coverColor || gradients[index % gradients.length] }}
                 >
                     <span className="material-symbols-outlined text-white/90 text-3xl" style={{ fontVariationSettings: "'FILL' 1" }}>menu_book</span>

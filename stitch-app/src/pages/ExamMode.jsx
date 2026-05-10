@@ -436,7 +436,7 @@ const isUserCorrectableEssaySubmitError = (message) => {
 const ExamMode = () => {
     const { topicId: topicIdParam } = useParams();
     const routeTopicId = typeof topicIdParam === 'string' ? topicIdParam.trim() : '';
-    const location = useLocation();
+    const routerLocation = useLocation();
     const navigate = useNavigate();
     const { user, loading: authLoading } = useAuth();
     const [currentQuestion, setCurrentQuestion] = useState(0);
@@ -449,7 +449,7 @@ const ExamMode = () => {
     const [startExamError, setStartExamError] = useState('');
 
     // Essay exam state
-    const [examFormat, setExamFormat] = useState(() => resolveAutostartExamFormat(location.search)); // null = not chosen, 'mcq' | 'essay'
+    const [examFormat, setExamFormat] = useState(() => resolveAutostartExamFormat(routerLocation.search)); // null = not chosen, 'mcq' | 'essay'
     const [gradingEssay, setGradingEssay] = useState(false);
     const [submitError, setSubmitError] = useState('');
     const invalidRouteReportedRef = useRef('');
@@ -555,14 +555,14 @@ const ExamMode = () => {
         setAttemptQualityTier('');
         setStartingExamAttempt(false);
         setStartExamError('');
-        setExamFormat(resolveAutostartExamFormat(location.search));
+        setExamFormat(resolveAutostartExamFormat(routerLocation.search));
         setGradingEssay(false);
         setSubmitError('');
         routingBootstrapKeyRef.current = '';
         setRoutingBootstrapPending(false);
     }, [
         routeTopicId,
-        location.search,
+        routerLocation.search,
     ]);
 
     useEffect(() => {
@@ -624,11 +624,11 @@ const ExamMode = () => {
                 routeTopicId,
                 rawTopicId,
                 hasMismatchedCachedTopic,
-                pathname: location.pathname,
+                pathname: routerLocation.pathname,
                 referrer: typeof document !== 'undefined' ? document.referrer || '' : '',
             },
         });
-    }, [hasMismatchedCachedTopic, isMissingRouteTopic, location.pathname, rawTopicId, routeTopicId]);
+    }, [hasMismatchedCachedTopic, isMissingRouteTopic, routerLocation.pathname, rawTopicId, routeTopicId]);
 
     const shouldRedirectToFinalExam = (
         topic?.topicKind !== 'document_final_exam'
@@ -640,8 +640,8 @@ const ExamMode = () => {
         if (!shouldRedirectToFinalExam) return;
         if (!routedFinalAssessmentTopic?._id) return;
         if (routedFinalAssessmentTopic._id === topicId) return;
-        navigate(`/dashboard/exam/${routedFinalAssessmentTopic._id}${location.search || ''}`, { replace: true });
-    }, [location.search, navigate, routedFinalAssessmentTopic?._id, shouldRedirectToFinalExam, topicId]);
+        navigate(`/dashboard/exam/${routedFinalAssessmentTopic._id}${routerLocation.search || ''}`, { replace: true });
+    }, [routerLocation.search, navigate, routedFinalAssessmentTopic?._id, shouldRedirectToFinalExam, topicId]);
 
     const withTimeout = useCallback((promise, timeoutMs, timeoutMessage) => {
         let timeoutHandle;
@@ -1081,7 +1081,7 @@ const ExamMode = () => {
         return (
             <div className="bg-background-light dark:bg-background-dark min-h-screen flex items-center justify-center">
                 <div className="text-center max-w-md px-6">
-                    <div className="w-14 h-14 rounded-2xl bg-surface-light dark:bg-surface-dark border border-border-light dark:border-border-dark flex items-center justify-center mx-auto mb-4">
+                    <div className="size-14 rounded-2xl bg-surface-light dark:bg-surface-dark border border-border-light dark:border-border-dark flex items-center justify-center mx-auto mb-4">
                         <span className="material-symbols-outlined text-2xl text-text-faint-light dark:text-text-faint-dark">quiz</span>
                     </div>
                     <h2 className="text-body-lg font-semibold text-text-main-light dark:text-text-main-dark mb-2">Select a topic to start an exam</h2>
@@ -1099,7 +1099,7 @@ const ExamMode = () => {
         return (
             <div className="bg-background-light dark:bg-background-dark min-h-screen flex items-center justify-center">
                 <div className="text-center">
-                    <div className="animate-spin rounded-full h-10 w-10 border-2 border-border-light dark:border-border-dark border-t-primary mx-auto mb-4"></div>
+                    <div className="animate-spin rounded-full size-10 border-2 border-border-light dark:border-border-dark border-t-primary mx-auto mb-4"></div>
                     <p className="text-body-sm text-text-sub-light dark:text-text-sub-dark">Preparing your exam environment...</p>
                 </div>
             </div>
@@ -1110,7 +1110,7 @@ const ExamMode = () => {
         return (
             <div className="bg-background-light dark:bg-background-dark min-h-screen flex items-center justify-center">
                 <div className="text-center max-w-md px-6">
-                    <div className="w-14 h-14 rounded-2xl bg-surface-light dark:bg-surface-dark border border-border-light dark:border-border-dark flex items-center justify-center mx-auto mb-4">
+                    <div className="size-14 rounded-2xl bg-surface-light dark:bg-surface-dark border border-border-light dark:border-border-dark flex items-center justify-center mx-auto mb-4">
                         <span className="material-symbols-outlined text-2xl text-text-faint-light dark:text-text-faint-dark">search_off</span>
                     </div>
                     <h2 className="text-body-lg font-semibold text-text-main-light dark:text-text-main-dark mb-2">This exam link is stale</h2>
@@ -1127,7 +1127,7 @@ const ExamMode = () => {
         return (
             <div className="bg-background-light dark:bg-background-dark min-h-screen flex items-center justify-center">
                 <div className="text-center">
-                    <div className="animate-spin rounded-full h-10 w-10 border-2 border-border-light dark:border-border-dark border-t-primary mx-auto mb-4"></div>
+                    <div className="animate-spin rounded-full size-10 border-2 border-border-light dark:border-border-dark border-t-primary mx-auto mb-4"></div>
                     <p className="text-body-sm text-text-sub-light dark:text-text-sub-dark">Preparing your final exam...</p>
                 </div>
             </div>
@@ -1138,7 +1138,7 @@ const ExamMode = () => {
         return (
             <div className="bg-background-light dark:bg-background-dark min-h-screen flex items-center justify-center">
                 <div className="text-center">
-                    <div className="animate-spin rounded-full h-10 w-10 border-2 border-border-light dark:border-border-dark border-t-primary mx-auto mb-4"></div>
+                    <div className="animate-spin rounded-full size-10 border-2 border-border-light dark:border-border-dark border-t-primary mx-auto mb-4"></div>
                     <p className="text-body-sm text-text-sub-light dark:text-text-sub-dark">Preparing the best assessment route for this topic...</p>
                 </div>
             </div>
@@ -1149,7 +1149,7 @@ const ExamMode = () => {
         return (
             <div className="bg-background-light dark:bg-background-dark min-h-screen flex items-center justify-center">
                 <div className="text-center">
-                    <div className="animate-spin rounded-full h-10 w-10 border-2 border-border-light dark:border-border-dark border-t-primary mx-auto mb-4"></div>
+                    <div className="animate-spin rounded-full size-10 border-2 border-border-light dark:border-border-dark border-t-primary mx-auto mb-4"></div>
                     <p className="text-body-sm text-text-sub-light dark:text-text-sub-dark">Redirecting to your final exam...</p>
                 </div>
             </div>
@@ -1160,7 +1160,7 @@ const ExamMode = () => {
         return (
             <div className="bg-background-light dark:bg-background-dark min-h-screen flex items-center justify-center">
                 <div className="text-center max-w-md px-6">
-                    <div className="w-14 h-14 rounded-2xl bg-surface-light dark:bg-surface-dark border border-border-light dark:border-border-dark flex items-center justify-center mx-auto mb-4">
+                    <div className="size-14 rounded-2xl bg-surface-light dark:bg-surface-dark border border-border-light dark:border-border-dark flex items-center justify-center mx-auto mb-4">
                         <span className="material-symbols-outlined text-2xl text-text-faint-light dark:text-text-faint-dark">hourglass_top</span>
                     </div>
                     <h2 className="text-body-lg font-semibold text-text-main-light dark:text-text-main-dark mb-2">This topic is covered in the final exam</h2>
@@ -1178,7 +1178,7 @@ const ExamMode = () => {
             <div className="min-h-screen bg-background-light dark:bg-background-dark flex items-center justify-center p-4">
                 <div className="w-full max-w-md">
                     <div className="card-base p-8 text-center">
-                        <div className="w-16 h-16 mx-auto mb-6 rounded-2xl bg-primary/10 flex items-center justify-center">
+                        <div className="size-16 mx-auto mb-6 rounded-2xl bg-primary/10 flex items-center justify-center">
                             <span className="material-symbols-outlined text-3xl text-primary">quiz</span>
                         </div>
                         <h2 className="text-display-sm text-text-main-light dark:text-text-main-dark mb-2">Choose Exam Format</h2>
@@ -1192,7 +1192,7 @@ const ExamMode = () => {
                                 }}
                                 className="w-full flex items-center gap-4 p-4 rounded-xl border border-border-light dark:border-border-dark hover:border-primary hover:bg-primary/5 transition-all text-left group"
                             >
-                                <div className="w-11 h-11 rounded-xl bg-primary/10 flex items-center justify-center group-hover:bg-primary/15 transition-colors">
+                                <div className="size-11 rounded-xl bg-primary/10 flex items-center justify-center group-hover:bg-primary/15 transition-colors">
                                     <span className="material-symbols-outlined text-primary">radio_button_checked</span>
                                 </div>
                                 <div>
@@ -1208,7 +1208,7 @@ const ExamMode = () => {
                                 }}
                                 className="w-full flex items-center gap-4 p-4 rounded-xl border border-border-light dark:border-border-dark hover:border-accent-emerald hover:bg-accent-emerald/5 transition-all text-left group"
                             >
-                                <div className="w-11 h-11 rounded-xl bg-accent-emerald/10 flex items-center justify-center group-hover:bg-accent-emerald/15 transition-colors">
+                                <div className="size-11 rounded-xl bg-accent-emerald/10 flex items-center justify-center group-hover:bg-accent-emerald/15 transition-colors">
                                     <span className="material-symbols-outlined text-accent-emerald">edit_note</span>
                                 </div>
                                 <div>
@@ -1243,7 +1243,7 @@ const ExamMode = () => {
             {gradingEssay && (
                 <div className="fixed inset-0 z-50 bg-background-light/80 dark:bg-background-dark/80 backdrop-blur-sm flex items-center justify-center p-4">
                     <div className="card-base p-8 text-center max-w-sm w-full">
-                        <div className="w-16 h-16 mx-auto mb-6 rounded-2xl bg-primary/10 flex items-center justify-center animate-pulse">
+                        <div className="size-16 mx-auto mb-6 rounded-2xl bg-primary/10 flex items-center justify-center animate-pulse">
                             <span className="material-symbols-outlined text-3xl text-primary">psychology</span>
                         </div>
                         <h3 className="text-body-lg font-semibold text-text-main-light dark:text-text-main-dark mb-2">Grading Your Answers</h3>
@@ -1260,7 +1260,7 @@ const ExamMode = () => {
                 <header className="sticky top-0 z-40 bg-surface-light/90 dark:bg-surface-dark/90 backdrop-blur-md border-b border-border-light dark:border-border-dark">
                     <div className="max-w-4xl mx-auto px-4 py-3 flex items-center justify-between">
                         <div className="flex items-center gap-3">
-                            <Link to={topicId ? `/dashboard/topic/${topicId}` : '/dashboard'} className="btn-icon w-9 h-9">
+                            <Link to={topicId ? `/dashboard/topic/${topicId}` : '/dashboard'} className="btn-icon size-9">
                                 <span className="material-symbols-outlined text-lg">close</span>
                             </Link>
                             <div>
@@ -1344,7 +1344,7 @@ const ExamMode = () => {
                                         <WatermelonTabsTrigger
                                             key={q._id}
                                             value={String(index)}
-                                            className={`w-9 h-9 !flex-none !px-0 !py-0 text-center ${isAnswered ? '!text-emerald-600 dark:!text-emerald-400' : ''}`}
+                                            className={`size-9 !flex-none !px-0 !py-0 text-center ${isAnswered ? '!text-emerald-600 dark:!text-emerald-400' : ''}`}
                                         >
                                             {index + 1}
                                         </WatermelonTabsTrigger>
@@ -1437,7 +1437,7 @@ const ExamMode = () => {
                                         <WatermelonTabsTrigger
                                             key={q._id}
                                             value={String(index)}
-                                            className={`w-9 h-9 !flex-none !px-0 !py-0 text-center ${isAnswered ? '!text-emerald-600 dark:!text-emerald-400' : ''}`}
+                                            className={`size-9 !flex-none !px-0 !py-0 text-center ${isAnswered ? '!text-emerald-600 dark:!text-emerald-400' : ''}`}
                                         >
                                             {index + 1}
                                         </WatermelonTabsTrigger>

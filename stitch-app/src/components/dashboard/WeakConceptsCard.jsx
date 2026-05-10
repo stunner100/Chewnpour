@@ -38,7 +38,7 @@ const WeakConceptsCard = ({ queue }) => {
         return (
             <section className="card-base p-5 md:p-6 animate-fade-in-up animate-delay-200">
                 <div className="flex items-start gap-3">
-                    <div className="w-10 h-10 rounded-xl bg-emerald-50 dark:bg-emerald-900/20 flex items-center justify-center shrink-0">
+                    <div className="size-10 rounded-xl bg-emerald-50 dark:bg-emerald-900/20 flex items-center justify-center shrink-0">
                         <span className="material-symbols-outlined text-emerald-600 text-[20px]" style={{ fontVariationSettings: "'FILL' 1" }}>check_circle</span>
                     </div>
                     <div>
@@ -93,9 +93,9 @@ const WeakConceptsCard = ({ queue }) => {
                             </p>
                             <div className="mt-3 flex items-center justify-between">
                                 <span className="inline-flex items-center gap-3 text-caption text-text-faint-light dark:text-text-faint-dark">
-                                    <span className="inline-flex items-center gap-1"><span className="w-1.5 h-1.5 rounded-full bg-rose-400" />{item.weakCount}</span>
-                                    <span className="inline-flex items-center gap-1"><span className="w-1.5 h-1.5 rounded-full bg-amber-400" />{item.shakyCount}</span>
-                                    <span className="inline-flex items-center gap-1"><span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />{item.strongCount}</span>
+                                    <span className="inline-flex items-center gap-1"><span className="size-1.5 rounded-full bg-rose-400" />{item.weakCount}</span>
+                                    <span className="inline-flex items-center gap-1"><span className="size-1.5 rounded-full bg-amber-400" />{item.shakyCount}</span>
+                                    <span className="inline-flex items-center gap-1"><span className="size-1.5 rounded-full bg-emerald-400" />{item.strongCount}</span>
                                 </span>
                                 <span className="inline-flex items-center gap-1 text-caption font-semibold text-primary group-hover:translate-x-0.5 transition-transform">
                                     Review

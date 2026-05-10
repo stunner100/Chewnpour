@@ -117,7 +117,7 @@ const OnboardingName = () => {
                     <div className="flex items-center justify-between mt-4">
                         <Link
                             to="/signup"
-                            className="inline-flex items-center justify-center w-9 h-9 rounded-full text-white/70 hover:text-white hover:bg-white/5 transition-colors"
+                            className="inline-flex items-center justify-center size-9 rounded-full text-white/70 hover:text-white hover:bg-white/5 transition-colors"
                             aria-label="Back"
                         >
                             <span className="material-symbols-outlined text-[20px]">arrow_back</span>
@@ -282,7 +282,7 @@ const OnboardingName = () => {
                     >
                         {loading ? (
                             <>
-                                <div className="animate-spin rounded-full h-4 w-4 border-2 border-white/30 border-t-white" />
+                                <div className="animate-spin rounded-full size-4 border-2 border-white/30 border-t-white" />
                                 <span>Creating account…</span>
                             </>
                         ) : (

@@ -166,7 +166,7 @@ const CourseFoldersSection = ({
 
             {folders.length === 0 && !creating && (
                 <div className="py-8 text-center card-flat">
-                    <div className="w-12 h-12 rounded-2xl bg-surface-hover dark:bg-surface-hover-dark flex items-center justify-center mx-auto mb-2">
+                    <div className="size-12 rounded-2xl bg-surface-hover dark:bg-surface-hover-dark flex items-center justify-center mx-auto mb-2">
                         <span className="material-symbols-outlined text-xl text-text-faint-light dark:text-text-faint-dark">folder</span>
                     </div>
                     <p className="text-body-sm text-text-sub-light dark:text-text-sub-dark">
@@ -238,7 +238,7 @@ const CourseFoldersSection = ({
                                     <button
                                         type="button"
                                         onClick={() => setMenuOpenId(isMenuOpen ? null : folder._id)}
-                                        className="btn-icon w-7 h-7"
+                                        className="btn-icon size-7"
                                         aria-haspopup="menu"
                                         aria-expanded={isMenuOpen}
                                         aria-label={`Actions for folder ${folder.name}`}

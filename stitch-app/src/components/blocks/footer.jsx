@@ -79,7 +79,7 @@ export function Footer({ onCtaClick = () => {} }) {
                                     onClick={() => onCtaClick('footer_email')}
                                     className="flex items-center gap-3 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
                                 >
-                                    <MailIcon className="h-4 w-4" /> info@chewnpour.com
+                                    <MailIcon className="size-4" /> info@chewnpour.com
                                 </a>
                             </li>
                             <li>
@@ -90,17 +90,17 @@ export function Footer({ onCtaClick = () => {} }) {
                                     onClick={() => onCtaClick('footer_telegram')}
                                     className="flex items-center gap-3 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
                                 >
-                                    <TelegramIcon className="h-4 w-4" /> Telegram Community
+                                    <TelegramIcon className="size-4" /> Telegram Community
                                 </a>
                             </li>
                             <li>
                                 <Link to="/privacy" className="flex items-center gap-3 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">
-                                    <ShieldIcon className="h-4 w-4" /> Privacy Policy
+                                    <ShieldIcon className="size-4" /> Privacy Policy
                                 </Link>
                             </li>
                             <li>
                                 <Link to="/terms" className="flex items-center gap-3 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">
-                                    <FileIcon className="h-4 w-4" /> Terms of Service
+                                    <FileIcon className="size-4" /> Terms of Service
                                 </Link>
                             </li>
                         </ul>
@@ -111,7 +111,7 @@ export function Footer({ onCtaClick = () => {} }) {
                 <CanvasCrowd height={260} />
                 <div className="absolute inset-0 bg-gradient-to-t from-background via-transparent to-transparent pointer-events-none" />
             </div>
-            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full h-full bg-primary/5 blur-[120px] rounded-full pointer-events-none z-0" />
+            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 size-full bg-primary/5 blur-[120px] rounded-full pointer-events-none z-0" />
         </footer>
     );
 }

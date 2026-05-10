@@ -21,10 +21,10 @@ const DashboardHero = ({
 
     return (
         <section className="relative overflow-hidden rounded-3xl border border-border-subtle dark:border-border-subtle-dark bg-gradient-to-br from-primary-50 via-white to-white dark:from-primary-900/20 dark:via-surface-dark dark:to-surface-dark p-5 md:p-8 shadow-soft animate-fade-in">
-            <div className="pointer-events-none absolute -right-20 -top-20 h-64 w-64 rounded-full bg-primary/15 blur-3xl" aria-hidden="true" />
-            <div className="pointer-events-none absolute -left-10 bottom-0 h-40 w-40 rounded-full bg-accent-teal/15 blur-3xl" aria-hidden="true" />
+            <div className="pointer-events-none absolute -right-20 -top-20 size-64 rounded-full bg-primary/15 blur-3xl" aria-hidden="true" />
+            <div className="pointer-events-none absolute -left-10 bottom-0 size-40 rounded-full bg-accent-teal/15 blur-3xl" aria-hidden="true" />
             <Particles
-                className="absolute inset-0 h-full w-full"
+                className="absolute inset-0 size-full"
                 quantity={60}
                 ease={70}
                 color="#914bf1"
@@ -114,7 +114,7 @@ const DashboardHero = ({
                             <p className="text-caption text-text-sub-light dark:text-text-sub-dark">Lessons · Quizzes · Flashcards · Podcasts</p>
                             <div className="flex gap-1.5 pt-1">
                                 {['picture_as_pdf', 'slideshow', 'description', 'graphic_eq'].map((icon) => (
-                                    <span key={icon} className="w-8 h-8 rounded-lg bg-primary-50 dark:bg-primary-900/30 flex items-center justify-center">
+                                    <span key={icon} className="size-8 rounded-lg bg-primary-50 dark:bg-primary-900/30 flex items-center justify-center">
                                         <span className="material-symbols-outlined text-primary text-[16px]">{icon}</span>
                                     </span>
                                 ))}
@@ -136,7 +136,7 @@ const DashboardHero = ({
                             key={feature}
                             className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-primary-50 dark:bg-primary-900/20 text-primary text-caption font-medium whitespace-nowrap"
                         >
-                            <span className="w-1.5 h-1.5 rounded-full bg-primary inline-block" />
+                            <span className="size-1.5 rounded-full bg-primary inline-block" />
                             {feature}
                         </span>
                     ))}

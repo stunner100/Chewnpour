@@ -8,7 +8,7 @@ const LessonPodcastCard = ({ topicId }) => {
     return (
         <section className="rounded-3xl overflow-hidden border border-border-subtle dark:border-border-subtle-dark bg-surface-light dark:bg-surface-dark shadow-soft">
             <div className="bg-gradient-to-br from-[#1c1234] via-[#2c1c4a] to-[#3a1f5e] text-white px-5 md:px-6 py-5 flex items-start gap-3">
-                <div className="w-10 h-10 rounded-xl bg-white/12 flex items-center justify-center shrink-0">
+                <div className="size-10 rounded-xl bg-white/12 flex items-center justify-center shrink-0">
                     <span className="material-symbols-outlined text-white text-[20px]" style={{ fontVariationSettings: "'FILL' 1" }}>podcasts</span>
                 </div>
                 <div className="min-w-0 flex-1">

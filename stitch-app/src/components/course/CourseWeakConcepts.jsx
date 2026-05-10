@@ -47,7 +47,7 @@ const CourseWeakConcepts = ({ items = [] }) => {
                                     to={buildConceptPracticePath(item.topicId, item.reviewConceptKeys)}
                                     className="flex items-center gap-3 p-3 rounded-xl border border-transparent hover:border-primary/20 hover:bg-primary-50/40 dark:hover:bg-primary-900/10 transition-all group"
                                 >
-                                    <span className="inline-flex items-center justify-center w-9 h-9 rounded-lg bg-rose-50 text-rose-500 dark:bg-rose-900/20 shrink-0">
+                                    <span className="inline-flex items-center justify-center size-9 rounded-lg bg-rose-50 text-rose-500 dark:bg-rose-900/20 shrink-0">
                                         <span className="material-symbols-outlined text-[18px]">flash_on</span>
                                     </span>
                                     <div className="min-w-0 flex-1">

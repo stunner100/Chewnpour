@@ -40,7 +40,7 @@ const CoursePodcastCard = ({ podcast, courseTitle, generatePath }) => {
     return (
         <section className="relative overflow-hidden rounded-3xl border border-border-subtle dark:border-border-subtle-dark bg-gradient-to-br from-[#1c1234] via-[#2c1c4a] to-[#3a1f5e] text-white p-5 md:p-6 shadow-elevated">
             <div
-                className="pointer-events-none absolute -right-16 -top-16 h-48 w-48 rounded-full bg-primary/40 blur-3xl"
+                className="pointer-events-none absolute -right-16 -top-16 size-48 rounded-full bg-primary/40 blur-3xl"
                 aria-hidden="true"
             />
             <div className="relative flex flex-col gap-5">
@@ -65,7 +65,7 @@ const CoursePodcastCard = ({ podcast, courseTitle, generatePath }) => {
                         <div className="flex items-center gap-3">
                             <Link
                                 to="/dashboard/podcasts"
-                                className="inline-flex items-center justify-center w-12 h-12 rounded-full bg-white text-[#2c1c4a] shadow-lg hover:scale-105 transition-transform"
+                                className="inline-flex items-center justify-center size-12 rounded-full bg-white text-[#2c1c4a] shadow-lg hover:scale-105 transition-transform"
                                 aria-label="Open podcast library"
                             >
                                 <span

@@ -22,7 +22,7 @@ const StatCard = ({ icon, label, value, hint, accent = 'primary', animateNumeric
     return (
         <div className="card-flat p-4">
             <div className="flex items-center gap-2.5">
-                <div className={`w-9 h-9 rounded-xl flex items-center justify-center ${accentClasses}`}>
+                <div className={`size-9 rounded-xl flex items-center justify-center ${accentClasses}`}>
                     <span className="material-symbols-outlined text-[18px]" style={{ fontVariationSettings: "'FILL' 1" }}>{icon}</span>
                 </div>
                 <div className="min-w-0">
@@ -68,8 +68,8 @@ const ProgressSnapshot = ({ insights, userStats, podcastCount = 0, uploadQuota }
                 {/* Mastery Ring */}
                 {insights && (
                     <div className="card-base p-5 md:p-6 flex items-center gap-5">
-                        <div className="relative w-20 h-20 shrink-0">
-                            <svg className="w-20 h-20 -rotate-90" viewBox="0 0 80 80">
+                        <div className="relative size-20 shrink-0">
+                            <svg className="size-20 -rotate-90" viewBox="0 0 80 80">
                                 <circle cx="40" cy="40" r="34" fill="none" stroke="currentColor" strokeWidth="6" className="text-border-subtle dark:text-border-subtle-dark" />
                                 <circle
                                     cx="40" cy="40" r="34" fill="none" strokeWidth="6"

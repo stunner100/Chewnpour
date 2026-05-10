@@ -114,9 +114,9 @@ const TopicChatPanel = memo(function TopicChatPanel({ topicId, topicTitle, open,
 
     // Focus textarea when panel opens
     useEffect(() => {
-        if (open && textareaRef.current) {
-            setTimeout(() => textareaRef.current?.focus(), 200);
-        }
+        if (!open || !textareaRef.current) return undefined;
+        const timer = setTimeout(() => textareaRef.current?.focus(), 200);
+        return () => clearTimeout(timer);
     }, [open]);
 
     // Handle close with exit animation
@@ -256,7 +256,7 @@ const TopicChatPanel = memo(function TopicChatPanel({ topicId, topicTitle, open,
                         {messageList.length > 0 && (
                             <button
                                 onClick={handleClearChat}
-                                className="btn-icon w-8 h-8 text-text-faint-light dark:text-text-faint-dark hover:text-red-500"
+                                className="btn-icon size-8 text-text-faint-light dark:text-text-faint-dark hover:text-red-500"
                                 title="Clear chat"
                                 aria-label="Clear chat"
                             >
@@ -265,7 +265,7 @@ const TopicChatPanel = memo(function TopicChatPanel({ topicId, topicTitle, open,
                         )}
                         <button
                             onClick={handleClose}
-                            className="btn-icon w-8 h-8"
+                            className="btn-icon size-8"
                             aria-label="Close chat panel"
                         >
                             <span className="material-symbols-outlined text-[16px]">close</span>
@@ -356,7 +356,7 @@ const TopicChatPanel = memo(function TopicChatPanel({ topicId, topicTitle, open,
                     {messageList.length === 0 && !sending && (
                         <div className="space-y-4">
                             <div className="flex gap-2.5 items-start">
-                                <div className="w-7 h-7 shrink-0 rounded-lg bg-primary/10 flex items-center justify-center mt-0.5">
+                                <div className="size-7 shrink-0 rounded-lg bg-primary/10 flex items-center justify-center mt-0.5">
                                     <span className="material-symbols-outlined text-primary text-[14px]">smart_toy</span>
                                 </div>
                                 <div className="rounded-xl rounded-tl-sm bg-background-light dark:bg-background-dark border border-border-light dark:border-border-dark px-3 py-2.5 text-body-sm text-text-main-light dark:text-text-main-dark max-w-[85%]">
@@ -388,7 +388,7 @@ const TopicChatPanel = memo(function TopicChatPanel({ topicId, topicTitle, open,
                             return (
                                 <div key={msg._id} className="flex gap-2.5 items-start">
                                     {showAvatar ? (
-                                        <div className="w-7 h-7 shrink-0 rounded-lg bg-primary/10 flex items-center justify-center mt-0.5">
+                                        <div className="size-7 shrink-0 rounded-lg bg-primary/10 flex items-center justify-center mt-0.5">
                                             <span className="material-symbols-outlined text-primary text-[14px]">smart_toy</span>
                                         </div>
                                     ) : (
@@ -412,16 +412,16 @@ const TopicChatPanel = memo(function TopicChatPanel({ topicId, topicTitle, open,
 
                     {sending && (
                         <div className="flex gap-2.5 items-start">
-                            <div className="w-7 h-7 shrink-0 rounded-lg bg-primary/10 flex items-center justify-center mt-0.5">
+                            <div className="size-7 shrink-0 rounded-lg bg-primary/10 flex items-center justify-center mt-0.5">
                                 <span className="material-symbols-outlined text-primary text-[14px]">smart_toy</span>
                             </div>
                             <div className="rounded-xl rounded-tl-sm bg-background-light dark:bg-background-dark border border-border-light dark:border-border-dark px-3 py-2.5 text-body-sm text-text-faint-light dark:text-text-faint-dark max-w-[85%]">
                                 <span className="inline-flex items-center gap-1">
                                     Thinking
                                     <span className="inline-flex gap-0.5">
-                                        <span className="w-1 h-1 rounded-full bg-text-faint-light dark:bg-text-faint-dark animate-bounce" style={{ animationDelay: '0ms' }} />
-                                        <span className="w-1 h-1 rounded-full bg-text-faint-light dark:bg-text-faint-dark animate-bounce" style={{ animationDelay: '150ms' }} />
-                                        <span className="w-1 h-1 rounded-full bg-text-faint-light dark:bg-text-faint-dark animate-bounce" style={{ animationDelay: '300ms' }} />
+                                        <span className="size-1 rounded-full bg-text-faint-light dark:bg-text-faint-dark animate-bounce" style={{ animationDelay: '0ms' }} />
+                                        <span className="size-1 rounded-full bg-text-faint-light dark:bg-text-faint-dark animate-bounce" style={{ animationDelay: '150ms' }} />
+                                        <span className="size-1 rounded-full bg-text-faint-light dark:bg-text-faint-dark animate-bounce" style={{ animationDelay: '300ms' }} />
                                     </span>
                                 </span>
                             </div>
@@ -462,7 +462,7 @@ const TopicChatPanel = memo(function TopicChatPanel({ topicId, topicTitle, open,
                         <button
                             onClick={() => handleSend()}
                             disabled={sending || !input.trim() || isFreeQuotaExhausted}
-                            className="w-9 h-9 shrink-0 rounded-xl bg-primary text-white flex items-center justify-center shadow-sm hover:bg-primary-hover hover:shadow-md active:scale-95 transition-all disabled:opacity-40 disabled:cursor-not-allowed disabled:shadow-none disabled:active:scale-100"
+                            className="size-9 shrink-0 rounded-xl bg-primary text-white flex items-center justify-center shadow-sm hover:bg-primary-hover hover:shadow-md active:scale-95 transition-all disabled:opacity-40 disabled:cursor-not-allowed disabled:shadow-none disabled:active:scale-100"
                             aria-label="Send message"
                         >
                             <span className="material-symbols-outlined text-[18px]">send</span>

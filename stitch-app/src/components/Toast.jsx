@@ -12,14 +12,14 @@ const Toast = ({ message, onClose, type = 'success' }) => {
 
     return (
         <div className="fixed bottom-24 left-1/2 -translate-x-1/2 z-50 animate-slide-up" role="alert" aria-live="assertive">
-            <div className="bg-slate-900 dark:bg-white text-white dark:text-slate-900 px-6 py-3 rounded-full shadow-lg flex items-center gap-2">
+            <div className="bg-zinc-900 dark:bg-white text-white dark:text-zinc-900 px-6 py-3 rounded-full shadow-lg flex items-center gap-2">
                 <span className={`material-symbols-outlined ${iconColor}`}>{icon}</span>
                 <span className="text-sm font-medium">{message}</span>
                 {onClose && (
                     <button
                         type="button"
                         onClick={onClose}
-                        className="ml-1 rounded-full text-white/70 hover:text-white dark:text-slate-900/60 dark:hover:text-slate-900"
+                        className="ml-1 rounded-full text-white/70 hover:text-white dark:text-zinc-900/60 dark:hover:text-zinc-900"
                         aria-label="Dismiss notification"
                     >
                         <span className="material-symbols-outlined text-[16px]">close</span>

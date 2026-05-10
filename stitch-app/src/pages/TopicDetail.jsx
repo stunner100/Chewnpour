@@ -924,7 +924,7 @@ const TopicDetail = () => {
         return (
             <div className="min-h-screen flex items-center justify-center bg-background-light dark:bg-background-dark">
                 <div className="text-center">
-                    <div className="animate-spin rounded-full h-10 w-10 border-2 border-border-light dark:border-border-dark border-t-primary mx-auto mb-4" />
+                    <div className="animate-spin rounded-full size-10 border-2 border-border-light dark:border-border-dark border-t-primary mx-auto mb-4" />
                     <p className="text-body-sm text-text-sub-light dark:text-text-sub-dark">Loading lesson...</p>
                 </div>
             </div>
@@ -951,7 +951,7 @@ const TopicDetail = () => {
                         <Link
                             to={courseId ? `/dashboard/course/${courseId}` : '/dashboard'}
                             aria-label="Go back"
-                            className="btn-icon w-8 h-8 shrink-0"
+                            className="btn-icon size-8 shrink-0"
                         >
                             <span className="material-symbols-outlined text-[18px]">arrow_back</span>
                         </Link>
@@ -1132,7 +1132,7 @@ const TopicDetail = () => {
                     {isVoiceSupported && speechText && (
                         <div className="flex items-center justify-between gap-3 rounded-2xl border border-border-subtle dark:border-border-subtle-dark bg-surface-light dark:bg-surface-dark px-3.5 py-2.5">
                             <div className="flex items-center gap-2 min-w-0">
-                                <span className="w-8 h-8 rounded-lg bg-primary-50 dark:bg-primary-900/25 flex items-center justify-center shrink-0">
+                                <span className="size-8 rounded-lg bg-primary-50 dark:bg-primary-900/25 flex items-center justify-center shrink-0">
                                     <span className="material-symbols-outlined text-primary text-[16px]" style={{ fontVariationSettings: "'FILL' 1" }}>graphic_eq</span>
                                 </span>
                                 <div className="min-w-0">
@@ -1158,10 +1158,10 @@ const TopicDetail = () => {
                                 </button>
                                 {(isPlaying || isPaused) && (
                                     <>
-                                        <button onClick={pauseVoice} disabled={!isPlaying} className="btn-icon w-8 h-8 disabled:opacity-50" aria-label="Pause">
+                                        <button onClick={pauseVoice} disabled={!isPlaying} className="btn-icon size-8 disabled:opacity-50" aria-label="Pause">
                                             <span className="material-symbols-outlined text-[16px]">pause</span>
                                         </button>
-                                        <button onClick={stopVoice} className="btn-icon w-8 h-8" aria-label="Stop">
+                                        <button onClick={stopVoice} className="btn-icon size-8" aria-label="Stop">
                                             <span className="material-symbols-outlined text-[16px]">stop</span>
                                         </button>
                                     </>
@@ -1171,7 +1171,7 @@ const TopicDetail = () => {
                     )}
 
                     {/* Lesson reader — let the renderer own its surface; outer is just a typography scope. */}
-                    <article className="bg-surface-light dark:bg-surface-dark rounded-3xl border border-border-subtle dark:border-border-subtle-dark shadow-soft px-5 py-6 md:px-8 md:py-8" ref={contentRef}>
+                    <article className="bg-surface-light dark:bg-surface-dark rounded-3xl border border-border-subtle dark:border-border-subtle-dark shadow-soft px-5 py-6 md:p-8" ref={contentRef}>
                         {normalizedContent ? (
                             <LessonContentRenderer
                                 blocks={displayBlocks}
@@ -1193,7 +1193,7 @@ const TopicDetail = () => {
                             />
                         ) : (
                             <div className="flex flex-col items-center justify-center py-20 text-center">
-                                <div className="w-14 h-14 rounded-2xl bg-primary-50 dark:bg-primary-900/20 flex items-center justify-center mb-4 animate-pulse">
+                                <div className="size-14 rounded-2xl bg-primary-50 dark:bg-primary-900/20 flex items-center justify-center mb-4 animate-pulse">
                                     <span className="material-symbols-outlined text-primary text-[26px]">auto_stories</span>
                                 </div>
                                 <h3 className="text-body-lg font-semibold text-text-main-light dark:text-text-main-dark">Preparing your lesson</h3>
@@ -1218,7 +1218,7 @@ const TopicDetail = () => {
                     {/* Guided study path — collapsed by default so it complements rather than competes with "What's next" below. */}
                     <details className="group bg-surface-light dark:bg-surface-dark rounded-3xl border border-border-subtle dark:border-border-subtle-dark px-5 md:px-6">
                         <summary className="flex items-center gap-3 py-4 cursor-pointer list-none [&::-webkit-details-marker]:hidden">
-                            <span className="w-9 h-9 rounded-xl bg-primary-50 dark:bg-primary-900/25 flex items-center justify-center shrink-0">
+                            <span className="size-9 rounded-xl bg-primary-50 dark:bg-primary-900/25 flex items-center justify-center shrink-0">
                                 <span className="material-symbols-outlined text-primary text-[18px]" style={{ fontVariationSettings: "'FILL' 1" }}>route</span>
                             </span>
                             <span className="flex-1 min-w-0">
@@ -1314,7 +1314,7 @@ const TopicDetail = () => {
             {showScrollTop && !notesOpen && !chatOpen && (
                 <button
                     onClick={scrollToTop}
-                    className="fixed z-30 bottom-[calc(4.25rem+env(safe-area-inset-bottom))] right-4 lg:bottom-6 lg:right-auto lg:left-6 btn-icon w-10 h-10 bg-surface-light dark:bg-surface-dark border border-border-subtle dark:border-border-subtle-dark shadow-card"
+                    className="fixed z-30 bottom-[calc(4.25rem+env(safe-area-inset-bottom))] right-4 lg:bottom-6 lg:right-auto lg:left-6 btn-icon size-10 bg-surface-light dark:bg-surface-dark border border-border-subtle dark:border-border-subtle-dark shadow-card"
                     aria-label="Scroll to top"
                 >
                     <span className="material-symbols-outlined text-[18px]">arrow_upward</span>

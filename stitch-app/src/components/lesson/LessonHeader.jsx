@@ -54,7 +54,7 @@ const LessonHeader = ({
                             <button
                                 type="button"
                                 onClick={onOpenSettings}
-                                className="btn-icon w-9 h-9"
+                                className="btn-icon size-9"
                                 aria-label="Lesson settings"
                             >
                                 <span className="material-symbols-outlined text-[18px]">settings</span>

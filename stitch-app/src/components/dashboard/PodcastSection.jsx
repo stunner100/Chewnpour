@@ -58,7 +58,7 @@ const PodcastSection = ({ podcasts = [] }) => {
                         to="/dashboard/podcasts"
                         className="group relative overflow-hidden rounded-3xl border border-border-subtle dark:border-border-subtle-dark bg-gradient-to-br from-[#1c1234] via-[#2c1c4a] to-[#3a1f5e] text-white p-5 md:p-6 shadow-elevated hover:shadow-modal transition-all"
                     >
-                        <div className="pointer-events-none absolute -right-16 -top-16 h-48 w-48 rounded-full bg-primary/40 blur-3xl" aria-hidden="true" />
+                        <div className="pointer-events-none absolute -right-16 -top-16 size-48 rounded-full bg-primary/40 blur-3xl" aria-hidden="true" />
                         <div className="relative flex flex-col h-full gap-5">
                             <div className="flex items-start justify-between gap-3">
                                 <div>
@@ -73,7 +73,7 @@ const PodcastSection = ({ podcasts = [] }) => {
 
                             <div className="mt-auto space-y-3">
                                 <div className="flex items-center gap-3">
-                                    <span className="inline-flex items-center justify-center w-12 h-12 rounded-full bg-white text-[#2c1c4a] shadow-lg group-hover:scale-105 transition-transform">
+                                    <span className="inline-flex items-center justify-center size-12 rounded-full bg-white text-[#2c1c4a] shadow-lg group-hover:scale-105 transition-transform">
                                         <span className="material-symbols-outlined text-[26px]" style={{ fontVariationSettings: "'FILL' 1" }}>
                                             {featured.status === 'ready' ? 'play_arrow' : 'graphic_eq'}
                                         </span>
@@ -92,7 +92,7 @@ const PodcastSection = ({ podcasts = [] }) => {
                     </Link>
                 ) : (
                     <div className="relative overflow-hidden rounded-3xl border border-border-subtle dark:border-border-subtle-dark bg-gradient-to-br from-[#1c1234] via-[#2c1c4a] to-[#3a1f5e] text-white p-6 md:p-8 shadow-elevated">
-                        <div className="pointer-events-none absolute -right-16 -top-16 h-48 w-48 rounded-full bg-primary/40 blur-3xl" aria-hidden="true" />
+                        <div className="pointer-events-none absolute -right-16 -top-16 size-48 rounded-full bg-primary/40 blur-3xl" aria-hidden="true" />
                         <div className="relative space-y-4 max-w-md">
                             <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-white/10 text-white text-[10px] font-bold uppercase tracking-wide">
                                 <span className="material-symbols-outlined text-[12px]" style={{ fontVariationSettings: "'FILL' 1" }}>auto_awesome</span>
@@ -139,7 +139,7 @@ const PodcastSection = ({ podcasts = [] }) => {
                                         to="/dashboard/podcasts"
                                         className="flex items-center gap-3 p-2.5 rounded-xl border border-transparent hover:border-primary/20 hover:bg-primary-50/40 dark:hover:bg-primary-900/10 transition-all group"
                                     >
-                                        <span className="inline-flex items-center justify-center w-9 h-9 rounded-lg bg-primary/10 text-primary shrink-0 group-hover:bg-primary group-hover:text-white transition-colors">
+                                        <span className="inline-flex items-center justify-center size-9 rounded-lg bg-primary/10 text-primary shrink-0 group-hover:bg-primary group-hover:text-white transition-colors">
                                             <span className="material-symbols-outlined text-[18px]" style={{ fontVariationSettings: "'FILL' 1" }}>play_arrow</span>
                                         </span>
                                         <div className="min-w-0 flex-1">

@@ -46,7 +46,7 @@ const LibraryMaterialCard = ({ material }) => (
     <MagicCard className="rounded-2xl">
         <article className="card-base p-4 md:p-5 flex flex-col gap-4">
         <div className="flex items-start gap-3">
-            <div className="w-11 h-11 rounded-xl bg-primary/8 dark:bg-primary/15 flex items-center justify-center shrink-0">
+            <div className="size-11 rounded-xl bg-primary/8 dark:bg-primary/15 flex items-center justify-center shrink-0">
                 <span className="material-symbols-outlined text-[22px] text-primary">menu_book</span>
             </div>
             <div className="min-w-0 flex-1">
@@ -247,7 +247,7 @@ const DashboardSearch = () => {
 
             <form onSubmit={handleSubmit} className="card-base shadow-card p-5 md:p-6 space-y-5 border-l-[3px] border-l-primary/40 dark:border-l-primary/30">
                 <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-xl bg-accent-emerald/10 flex items-center justify-center">
+                    <div className="size-10 rounded-xl bg-accent-emerald/10 flex items-center justify-center">
                         <span className="material-symbols-outlined text-[20px] text-accent-emerald">upload_file</span>
                     </div>
                     <div>
@@ -308,7 +308,7 @@ const DashboardSearch = () => {
                     ].join(' ')}
                 >
                     <div className={[
-                        'w-12 h-12 rounded-2xl flex items-center justify-center transition-colors duration-200',
+                        'size-12 rounded-2xl flex items-center justify-center transition-colors duration-200',
                         isDragOver
                             ? 'bg-primary/10 dark:bg-primary/20'
                             : 'bg-surface-hover dark:bg-surface-hover-dark group-hover:bg-primary/8 dark:group-hover:bg-primary/15',
@@ -419,8 +419,8 @@ const DashboardSearch = () => {
                     </div>
                 ) : (
                     <div className="text-center py-12 md:py-20">
-                        <div className="relative w-64 h-64 mx-auto mb-6 flex items-center justify-center">
-                            <div className="relative z-10 w-20 h-20 rounded-3xl bg-primary/10 dark:bg-primary/20 flex items-center justify-center shadow-soft">
+                        <div className="relative size-64 mx-auto mb-6 flex items-center justify-center">
+                            <div className="relative z-10 size-20 rounded-3xl bg-primary/10 dark:bg-primary/20 flex items-center justify-center shadow-soft">
                                 <span className="material-symbols-outlined text-[32px] text-primary">
                                     local_library
                                 </span>

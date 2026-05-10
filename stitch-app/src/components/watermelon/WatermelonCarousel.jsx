@@ -69,7 +69,7 @@ export const WatermelonCarousel = ({
                     <button
                         type="button"
                         onClick={prev}
-                        className="absolute left-3 top-1/2 -translate-y-1/2 w-9 h-9 rounded-full bg-black/40 hover:bg-black/60 text-white flex items-center justify-center transition-colors backdrop-blur-sm z-10"
+                        className="absolute left-3 top-1/2 -translate-y-1/2 size-9 rounded-full bg-black/40 hover:bg-black/60 text-white flex items-center justify-center transition-colors backdrop-blur-sm z-10"
                         aria-label="Previous slide"
                     >
                         <span className="material-symbols-outlined text-[18px]">chevron_left</span>
@@ -77,7 +77,7 @@ export const WatermelonCarousel = ({
                     <button
                         type="button"
                         onClick={next}
-                        className="absolute right-3 top-1/2 -translate-y-1/2 w-9 h-9 rounded-full bg-black/40 hover:bg-black/60 text-white flex items-center justify-center transition-colors backdrop-blur-sm z-10"
+                        className="absolute right-3 top-1/2 -translate-y-1/2 size-9 rounded-full bg-black/40 hover:bg-black/60 text-white flex items-center justify-center transition-colors backdrop-blur-sm z-10"
                         aria-label="Next slide"
                     >
                         <span className="material-symbols-outlined text-[18px]">chevron_right</span>

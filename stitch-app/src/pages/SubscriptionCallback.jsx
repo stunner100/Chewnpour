@@ -87,7 +87,7 @@ const SubscriptionCallback = () => {
     return (
         <div className="min-h-screen bg-background-light dark:bg-background-dark flex items-center justify-center px-4">
             <div className="w-full max-w-md card-base p-8 text-center">
-                <div className={`mx-auto w-14 h-14 rounded-2xl flex items-center justify-center mb-4 ${
+                <div className={`mx-auto size-14 rounded-2xl flex items-center justify-center mb-4 ${
                     status === 'failed'
                         ? 'bg-red-500/10 text-red-600 dark:text-red-400'
                         : 'bg-primary/8 text-primary'
@@ -105,7 +105,7 @@ const SubscriptionCallback = () => {
                         : 'Please wait while we confirm your payment and unlock uploads.'}
                 </p>
                 <div className="mt-6 flex justify-center">
-                    <div className="animate-spin rounded-full h-8 w-8 border-2 border-border-light dark:border-border-dark border-t-primary"></div>
+                    <div className="animate-spin rounded-full size-8 border-2 border-border-light dark:border-border-dark border-t-primary"></div>
                 </div>
             </div>
         </div>

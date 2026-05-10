@@ -285,7 +285,7 @@ const DashboardProcessing = () => {
                         <span className="material-symbols-outlined text-[16px]">local_fire_department</span>
                         <span className="text-caption font-semibold">Processing</span>
                     </div>
-                    <Link to="/profile" className="btn-icon w-9 h-9 rounded-full bg-primary/8 text-primary text-caption font-bold">
+                    <Link to="/profile" className="btn-icon size-9 rounded-full bg-primary/8 text-primary text-caption font-bold">
                         {user?.name?.[0]?.toUpperCase() || 'S'}
                     </Link>
                 </div>
@@ -299,9 +299,9 @@ const DashboardProcessing = () => {
                             {/* Header */}
                             <div className="mb-8">
                                 <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-primary/8 mb-6">
-                                    <span className="relative flex h-2 w-2">
-                                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75"></span>
-                                        <span className="relative inline-flex rounded-full h-2 w-2 bg-primary"></span>
+                                    <span className="relative flex size-2">
+                                        <span className="animate-ping absolute inline-flex size-full rounded-full bg-primary opacity-75"></span>
+                                        <span className="relative inline-flex rounded-full size-2 bg-primary"></span>
                                     </span>
                                     <span className="text-primary text-caption font-semibold">Processing</span>
                                 </div>
@@ -324,7 +324,7 @@ const DashboardProcessing = () => {
                                         gaugePrimaryColor="#914bf1"
                                         gaugeSecondaryColor="rgba(145, 75, 241, 0.12)"
                                     />
-                                    <div className="absolute -bottom-2 left-1/2 -translate-x-1/2 w-9 h-9 rounded-full bg-primary flex items-center justify-center text-white shadow-lg shadow-primary/30">
+                                    <div className="absolute -bottom-2 left-1/2 -translate-x-1/2 size-9 rounded-full bg-primary flex items-center justify-center text-white shadow-lg shadow-primary/30">
                                         <span className="material-symbols-outlined text-[20px]">{currentStepInfo.icon}</span>
                                     </div>
                                 </div>
@@ -348,7 +348,7 @@ const DashboardProcessing = () => {
                                     return (
                                         <div key={step.key} className="flex items-center">
                                             <div
-                                                className={`w-7 h-7 rounded-full flex items-center justify-center text-caption font-bold transition-all duration-300 ${
+                                                className={`size-7 rounded-full flex items-center justify-center text-caption font-bold transition-all duration-300 ${
                                                     isCompleted
                                                         ? 'bg-accent-emerald/10 text-accent-emerald'
                                                         : isCurrent
@@ -403,9 +403,9 @@ const DashboardProcessing = () => {
                     <div className="w-full flex flex-col items-center text-center">
                         <div className="w-full card-base p-8 md:p-12">
                             {/* Success Icon */}
-                            <div className="relative w-16 h-16 mx-auto mb-5">
+                            <div className="relative size-16 mx-auto mb-5">
                                 <div className="absolute inset-0 rounded-full bg-accent-emerald/10 animate-ping opacity-50"></div>
-                                <div className="relative w-full h-full rounded-full bg-accent-emerald flex items-center justify-center text-white">
+                                <div className="relative size-full rounded-full bg-accent-emerald flex items-center justify-center text-white">
                                     <span className="material-symbols-outlined text-[28px]">check</span>
                                 </div>
                             </div>
@@ -425,7 +425,7 @@ const DashboardProcessing = () => {
                             {/* Stats */}
                             <div className="flex items-center justify-center gap-3 mb-8">
                                 <div className="flex items-center gap-3 card-base px-4 py-3">
-                                    <div className="w-9 h-9 rounded-lg bg-primary/8 flex items-center justify-center">
+                                    <div className="size-9 rounded-lg bg-primary/8 flex items-center justify-center">
                                         <span className="material-symbols-outlined text-primary text-[18px]">menu_book</span>
                                     </div>
                                     <div className="text-left">
@@ -434,7 +434,7 @@ const DashboardProcessing = () => {
                                     </div>
                                 </div>
                                 <div className="flex items-center gap-3 card-base px-4 py-3">
-                                    <div className="w-9 h-9 rounded-lg bg-primary/8 flex items-center justify-center">
+                                    <div className="size-9 rounded-lg bg-primary/8 flex items-center justify-center">
                                         <span className="material-symbols-outlined text-primary text-[18px]">quiz</span>
                                     </div>
                                     <div className="text-left">
@@ -456,7 +456,7 @@ const DashboardProcessing = () => {
                                                 key={topic._id}
                                                 className="flex items-center gap-3 bg-surface-hover-light dark:bg-surface-hover-dark p-3 rounded-xl text-left"
                                             >
-                                                <div className={`w-7 h-7 rounded-lg flex items-center justify-center text-white text-caption font-bold ${
+                                                <div className={`size-7 rounded-lg flex items-center justify-center text-white text-caption font-bold ${
                                                     index === 0
                                                         ? 'bg-primary'
                                                         : 'bg-text-faint-light dark:bg-text-faint-dark'

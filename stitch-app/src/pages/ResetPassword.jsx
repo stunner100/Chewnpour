@@ -76,7 +76,7 @@ const ResetPassword = () => {
                     <div className="inline-flex items-center gap-3 text-xs font-bold uppercase tracking-[0.2em] text-[#E8651B]">
                         <span className="inline-block w-8 h-[2px] bg-[#E8651B]" /> Account recovery
                     </div>
-                    <h1 className="text-5xl xl:text-6xl font-bold leading-[1.05] tracking-tight">
+                    <h1 className="text-5xl xl:text-6xl font-semibold leading-[1.05] tracking-tight">
                         {token ? (
                             <>
                                 Set a<br />
@@ -107,7 +107,7 @@ const ResetPassword = () => {
                 {/* Right — form card */}
                 <div className="cp-card">
                     <div className="mb-6">
-                        <h2 className="text-2xl font-bold mb-1">
+                        <h2 className="text-2xl font-semibold mb-1">
                             {token ? 'Set a new password' : 'Reset your password'}
                         </h2>
                         <p className="text-sm text-white/60">
@@ -147,7 +147,7 @@ const ResetPassword = () => {
                             <button type="submit" disabled={loading} className="cp-btn-primary mt-2">
                                 {loading ? (
                                     <>
-                                        <div className="animate-spin rounded-full h-4 w-4 border-2 border-white/30 border-t-white" />
+                                        <div className="animate-spin rounded-full size-4 border-2 border-white/30 border-t-white" />
                                         <span>Sending…</span>
                                     </>
                                 ) : (
@@ -184,7 +184,7 @@ const ResetPassword = () => {
                             <button type="submit" disabled={loading} className="cp-btn-primary mt-2">
                                 {loading ? (
                                     <>
-                                        <div className="animate-spin rounded-full h-4 w-4 border-2 border-white/30 border-t-white" />
+                                        <div className="animate-spin rounded-full size-4 border-2 border-white/30 border-t-white" />
                                         <span>Updating…</span>
                                     </>
                                 ) : (

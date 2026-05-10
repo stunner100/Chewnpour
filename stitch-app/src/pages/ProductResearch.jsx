@@ -75,7 +75,7 @@ const ProductResearch = () => {
         return (
             <div className="min-h-screen bg-background-light dark:bg-background-dark flex items-center justify-center px-4 py-10">
                 <div className="w-full max-w-2xl card-base p-6 sm:p-8 text-center">
-                    <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-accent-emerald/10 text-accent-emerald">
+                    <div className="mx-auto flex size-14 items-center justify-center rounded-2xl bg-accent-emerald/10 text-accent-emerald">
                         <span className="material-symbols-outlined text-[24px]">done</span>
                     </div>
                     <h1 className="mt-4 text-display-sm text-text-main-light dark:text-text-main-dark">Thanks for your feedback</h1>

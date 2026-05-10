@@ -28,7 +28,7 @@ const PracticeActionsCard = ({
 }) => (
     <section className="rounded-3xl border border-border-subtle dark:border-border-subtle-dark bg-gradient-to-br from-primary-50 via-surface-light to-surface-light dark:from-primary-900/15 dark:via-surface-dark dark:to-surface-dark p-6 md:p-7 shadow-soft">
         <div className="flex items-start gap-3 mb-4">
-            <div className="w-10 h-10 rounded-xl bg-primary/15 flex items-center justify-center shrink-0">
+            <div className="size-10 rounded-xl bg-primary/15 flex items-center justify-center shrink-0">
                 <span className="material-symbols-outlined text-primary text-[20px]" style={{ fontVariationSettings: "'FILL' 1" }}>{completed ? 'emoji_events' : 'rocket_launch'}</span>
             </div>
             <div className="flex-1 min-w-0">

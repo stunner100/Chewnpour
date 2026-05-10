@@ -65,7 +65,7 @@ const StatCard = ({ icon, label, value, sub }) => (
 
 const EmptyState = () => (
     <div className="card-base p-8 md:p-10 text-center">
-        <div className="w-14 h-14 mx-auto mb-4 rounded-2xl bg-primary/10 text-primary flex items-center justify-center">
+        <div className="size-14 mx-auto mb-4 rounded-2xl bg-primary/10 text-primary flex items-center justify-center">
             <span className="material-symbols-outlined text-[28px]">insights</span>
         </div>
         <h2 className="text-display-sm text-text-main-light dark:text-text-main-dark mb-1">
@@ -260,7 +260,7 @@ const DashboardFullAnalysis = () => {
             <header className="sticky top-0 z-30 w-full bg-surface-light/90 dark:bg-surface-dark/90 backdrop-blur-md border-b border-border-light dark:border-border-dark">
                 <div className="max-w-5xl mx-auto px-4 md:px-8 py-3 flex items-center justify-between">
                     <div className="flex items-center gap-3">
-                        <Link to="/dashboard" aria-label="Back to dashboard" className="btn-icon w-10 h-10">
+                        <Link to="/dashboard" aria-label="Back to dashboard" className="btn-icon size-10">
                             <span className="material-symbols-outlined text-[20px]">arrow_back</span>
                         </Link>
                         <div className="flex flex-col">
@@ -272,7 +272,7 @@ const DashboardFullAnalysis = () => {
                             </p>
                         </div>
                     </div>
-                    <div className="h-9 w-9 rounded-xl bg-primary/8 flex items-center justify-center text-primary">
+                    <div className="size-9 rounded-xl bg-primary/8 flex items-center justify-center text-primary">
                         <span className="material-symbols-outlined text-[18px]">analytics</span>
                     </div>
                 </div>
@@ -321,15 +321,15 @@ const DashboardFullAnalysis = () => {
                                     </h2>
                                     <div className="flex items-center gap-2 text-caption text-text-faint-light dark:text-text-faint-dark">
                                         <span className="inline-flex items-center gap-1">
-                                            <span className="w-2 h-2 rounded-full bg-rose-500" />
+                                            <span className="size-2 rounded-full bg-rose-500" />
                                             {needsWorkCount}
                                         </span>
                                         <span className="inline-flex items-center gap-1">
-                                            <span className="w-2 h-2 rounded-full bg-primary" />
+                                            <span className="size-2 rounded-full bg-primary" />
                                             {progressingCount}
                                         </span>
                                         <span className="inline-flex items-center gap-1">
-                                            <span className="w-2 h-2 rounded-full bg-accent-emerald" />
+                                            <span className="size-2 rounded-full bg-accent-emerald" />
                                             {masteredCount}
                                         </span>
                                     </div>
@@ -473,7 +473,7 @@ const DashboardFullAnalysis = () => {
                                     <div className="space-y-3">
                                         <div className="flex items-center justify-between p-3 rounded-xl bg-surface-hover-light dark:bg-surface-hover-dark">
                                             <div className="flex items-center gap-3">
-                                                <div className="w-10 h-10 rounded-xl bg-primary/8 flex items-center justify-center text-primary">
+                                                <div className="size-10 rounded-xl bg-primary/8 flex items-center justify-center text-primary">
                                                     <span className="material-symbols-outlined text-[20px]">quiz</span>
                                                 </div>
                                                 <div>
@@ -492,7 +492,7 @@ const DashboardFullAnalysis = () => {
                                         </div>
                                         <div className="flex items-center justify-between p-3 rounded-xl bg-surface-hover-light dark:bg-surface-hover-dark">
                                             <div className="flex items-center gap-3">
-                                                <div className="w-10 h-10 rounded-xl bg-primary/8 flex items-center justify-center text-primary">
+                                                <div className="size-10 rounded-xl bg-primary/8 flex items-center justify-center text-primary">
                                                     <span className="material-symbols-outlined text-[20px]">edit_note</span>
                                                 </div>
                                                 <div>
@@ -530,7 +530,7 @@ const DashboardFullAnalysis = () => {
                                                     to={buildConceptPracticePath(item.topicId, item.reviewConceptKeys)}
                                                     className="flex items-center gap-3 p-2.5 rounded-xl border border-transparent hover:border-primary/20 hover:bg-primary-50/40 dark:hover:bg-primary-900/10 transition-all group"
                                                 >
-                                                    <span className="inline-flex items-center justify-center w-9 h-9 rounded-lg bg-rose-500/10 text-rose-500 shrink-0">
+                                                    <span className="inline-flex items-center justify-center size-9 rounded-lg bg-rose-500/10 text-rose-500 shrink-0">
                                                         <span className="material-symbols-outlined text-[18px]">flash_on</span>
                                                     </span>
                                                     <div className="min-w-0 flex-1">
@@ -556,8 +556,8 @@ const DashboardFullAnalysis = () => {
                         {/* AI Improvement Plan */}
                         {recommendations.length > 0 && (
                             <section className="relative overflow-hidden bg-primary rounded-2xl p-6 md:p-8 text-white">
-                                <div className="absolute top-0 right-0 w-48 h-48 bg-white/10 rounded-full blur-3xl -mr-16 -mt-16" />
-                                <div className="absolute bottom-0 left-0 w-36 h-36 bg-white/5 rounded-full blur-2xl -ml-12 -mb-12" />
+                                <div className="absolute top-0 right-0 size-48 bg-white/10 rounded-full blur-3xl -mr-16 -mt-16" />
+                                <div className="absolute bottom-0 left-0 size-36 bg-white/5 rounded-full blur-2xl -ml-12 -mb-12" />
                                 <div className="relative z-10 flex flex-col md:flex-row md:items-start md:gap-6">
                                     <div className="flex-1 space-y-5">
                                         <div className="flex items-center gap-3 mb-2">
@@ -578,7 +578,7 @@ const DashboardFullAnalysis = () => {
                                                     to={item.to}
                                                     className="flex items-start gap-3 bg-white/10 hover:bg-white/15 transition-colors p-4 rounded-xl border border-white/10"
                                                 >
-                                                    <div className="bg-white text-primary rounded-full w-6 h-6 flex items-center justify-center shrink-0 mt-0.5">
+                                                    <div className="bg-white text-primary rounded-full size-6 flex items-center justify-center shrink-0 mt-0.5">
                                                         <span className="text-caption font-bold">{item.num}</span>
                                                     </div>
                                                     <div className="min-w-0">

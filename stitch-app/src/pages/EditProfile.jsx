@@ -102,7 +102,7 @@ const EditProfile = () => {
         return (
             <div className="w-full max-w-2xl mx-auto px-4 md:px-8 py-8">
                 <div className="animate-pulse space-y-6">
-                    <div className="h-24 w-24 rounded-full bg-surface-light dark:bg-surface-dark border border-border-light dark:border-border-dark mx-auto" />
+                    <div className="size-24 rounded-full bg-surface-light dark:bg-surface-dark border border-border-light dark:border-border-dark mx-auto" />
                     <div className="space-y-4">
                         <div className="h-12 rounded-xl bg-surface-light dark:bg-surface-dark border border-border-light dark:border-border-dark" />
                         <div className="h-12 rounded-xl bg-surface-light dark:bg-surface-dark border border-border-light dark:border-border-dark" />
@@ -137,7 +137,7 @@ const EditProfile = () => {
             {/* Avatar Section */}
             <div className="card-base p-6 flex flex-col items-center gap-5">
                 <div
-                    className="w-20 h-20 rounded-full flex items-center justify-center text-white text-3xl font-bold"
+                    className="size-20 rounded-full flex items-center justify-center text-white text-3xl font-bold"
                     style={{ background: GRADIENTS[selectedGradient].style }}
                 >
                     {initial}
@@ -148,7 +148,7 @@ const EditProfile = () => {
                         <button
                             key={gradient.id}
                             onClick={() => setSelectedGradient(gradient.id)}
-                            className={`w-8 h-8 rounded-full transition-all ${
+                            className={`size-8 rounded-full transition-all ${
                                 selectedGradient === gradient.id
                                     ? 'ring-2 ring-offset-2 ring-primary ring-offset-surface-light dark:ring-offset-surface-dark scale-110'
                                     : 'hover:scale-105'

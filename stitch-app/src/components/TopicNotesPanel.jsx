@@ -99,9 +99,9 @@ const TopicNotesPanel = memo(function TopicNotesPanel({ topicId, open, onClose, 
 
     // Focus textarea when panel opens
     useEffect(() => {
-        if (open && textareaRef.current) {
-            setTimeout(() => textareaRef.current?.focus(), 200);
-        }
+        if (!open || !textareaRef.current) return undefined;
+        const timer = setTimeout(() => textareaRef.current?.focus(), 200);
+        return () => clearTimeout(timer);
     }, [open]);
 
     // Handle close with exit animation
@@ -151,16 +151,16 @@ const TopicNotesPanel = memo(function TopicNotesPanel({ topicId, open, onClose, 
             />
 
             {/* Panel */}
-            <div className={`fixed inset-0 z-[60] md:inset-x-auto md:right-0 md:top-0 md:bottom-0 md:w-[420px] flex flex-col bg-white dark:bg-slate-900 border-t md:border-t-0 md:border-l border-slate-200 dark:border-slate-800 shadow-xl ${panelAnimClass} pb-[env(safe-area-inset-bottom)] md:pb-0`}>
+            <div className={`fixed inset-0 z-[60] md:inset-x-auto md:right-0 md:top-0 md:bottom-0 md:w-[420px] flex flex-col bg-white dark:bg-zinc-900 border-t md:border-t-0 md:border-l border-zinc-200 dark:border-zinc-800 shadow-xl ${panelAnimClass} pb-[env(safe-area-inset-bottom)] md:pb-0`}>
                 {/* Header */}
-                <div className="flex items-center justify-between px-4 py-3 border-b border-slate-100 dark:border-slate-800">
+                <div className="flex items-center justify-between px-4 py-3 border-b border-zinc-100 dark:border-zinc-800">
                     <div className="flex items-center gap-2">
                         <span className="material-symbols-outlined text-amber-500 text-xl">edit_note</span>
-                        <h3 className="text-base font-bold text-slate-900 dark:text-white">My Notes</h3>
+                        <h3 className="text-base font-semibold text-zinc-900 dark:text-white">My Notes</h3>
                     </div>
                     <button
                         onClick={handleClose}
-                        className="w-10 h-10 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-500 hover:text-primary flex items-center justify-center"
+                        className="size-10 rounded-full bg-zinc-100 dark:bg-zinc-800 text-zinc-500 hover:text-primary flex items-center justify-center"
                         aria-label="Close notes panel"
                     >
                         <span className="material-symbols-outlined text-[18px]">close</span>
@@ -174,22 +174,22 @@ const TopicNotesPanel = memo(function TopicNotesPanel({ topicId, open, onClose, 
                         value={draft}
                         onChange={handleChange}
                         placeholder="Jot down insights as you study..."
-                        className="w-full h-full min-h-[200px] md:min-h-0 resize-none rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 px-4 py-3 text-sm text-slate-800 dark:text-slate-200 placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary/50"
+                        className="size-full min-h-[200px] md:min-h-0 resize-none rounded-2xl border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800/50 px-4 py-3 text-sm text-zinc-800 dark:text-zinc-200 placeholder:text-zinc-400 dark:placeholder:text-zinc-500 focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary/50"
                     />
                 </div>
 
                 {/* Footer */}
-                <div className="px-4 py-2 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between">
-                    <span className="text-xs text-slate-400 dark:text-neutral-400">
+                <div className="px-4 py-2 border-t border-zinc-100 dark:border-zinc-800 flex items-center justify-between">
+                    <span className="text-xs text-zinc-400 dark:text-neutral-400">
                         {saving && (
                             <span className="inline-flex items-center gap-1">
-                                <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" />
+                                <span className="size-1.5 rounded-full bg-amber-400 animate-pulse" />
                                 Saving...
                             </span>
                         )}
                         {!saving && statusText && statusText}
                     </span>
-                    <span className="text-xs text-slate-400 dark:text-neutral-400">
+                    <span className="text-xs text-zinc-400 dark:text-neutral-400">
                         {draft.length > 0 && `${draft.length} chars`}
                     </span>
                 </div>

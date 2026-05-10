@@ -33,7 +33,7 @@ const SourcePanel = ({ open, onClose, passages }) => {
                         <span className="material-symbols-outlined text-[18px] text-primary">link</span>
                         <h3 className="text-body-sm font-semibold text-text-main-light dark:text-text-main-dark">Sources</h3>
                     </div>
-                    <button onClick={handleClose} className="btn-icon w-8 h-8">
+                    <button onClick={handleClose} className="btn-icon size-8">
                         <span className="material-symbols-outlined text-[18px]">close</span>
                     </button>
                 </div>

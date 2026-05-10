@@ -25,7 +25,7 @@ const LAZY_ROUTE_IMPORT_TIMEOUT_MS = 12000;
 const ChunkRecoveryFallback = ({ componentName }) => (
   <div className="bg-background-light dark:bg-background-dark min-h-screen flex items-center justify-center px-6">
     <div className="w-full max-w-md card-base p-6 text-center">
-      <h2 className="text-body-lg font-bold text-text-main-light dark:text-text-main-dark">Refreshing app files</h2>
+      <h2 className="text-body-lg font-semibold text-text-main-light dark:text-text-main-dark">Refreshing app files</h2>
       <p className="mt-2 text-body-sm font-medium text-text-faint-light dark:text-text-faint-dark">
         We hit a stale app bundle while opening {componentName}. Please reload once.
       </p>
@@ -157,40 +157,40 @@ const CommunityChannel = lazyRoute(() => import('./pages/CommunityChannel'), { c
 const AdminDashboard = lazyRoute(() => import('./pages/AdminDashboard'), { componentName: 'AdminDashboard' });
 
 function RouteChangeTracker() {
-  const location = useLocation();
+  const routerLocation = useLocation();
 
   useEffect(() => {
     addSentryBreadcrumb({
       category: 'navigation',
       message: 'Route changed',
       data: {
-        pathname: location.pathname,
-        search: location.search,
-        hash: location.hash,
+        pathname: routerLocation.pathname,
+        search: routerLocation.search,
+        hash: routerLocation.hash,
       },
     });
     capturePostHogPageView({
-      pathname: location.pathname,
-      search: location.search || '',
-      hash: location.hash || '',
+      pathname: routerLocation.pathname,
+      search: routerLocation.search || '',
+      hash: routerLocation.hash || '',
       title: typeof document !== 'undefined' ? document.title : undefined,
     });
-  }, [location.pathname, location.search, location.hash]);
+  }, [routerLocation.pathname, routerLocation.search, routerLocation.hash]);
 
   return null;
 }
 
 function CampaignAttributionTracker() {
-  const location = useLocation();
+  const routerLocation = useLocation();
   const { user } = useAuth();
   const recordCampaignLanding = useMutation(api.campaignAttribution.recordCampaignLanding);
 
   useEffect(() => {
-    const attributionFromUrl = readCampaignAttributionFromSearch(location.search, location.pathname);
+    const attributionFromUrl = readCampaignAttributionFromSearch(routerLocation.search, routerLocation.pathname);
     if (attributionFromUrl) {
       stashPendingCampaignAttribution(attributionFromUrl);
     }
-  }, [location.pathname, location.search]);
+  }, [routerLocation.pathname, routerLocation.search]);
 
   useEffect(() => {
     if (!user?.id) return undefined;
@@ -215,8 +215,8 @@ function CampaignAttributionTracker() {
       source: pendingAttribution.source,
       medium: pendingAttribution.medium,
       content: pendingAttribution.content,
-      landingPath: pendingAttribution.landingPath || location.pathname,
-      landingSearch: pendingAttribution.landingSearch || location.search || '',
+      landingPath: pendingAttribution.landingPath || routerLocation.pathname,
+      landingSearch: pendingAttribution.landingSearch || routerLocation.search || '',
     })
       .then(() => {
         if (cancelled) return;
@@ -225,8 +225,8 @@ function CampaignAttributionTracker() {
           campaignSource: pendingAttribution.source,
           campaignMedium: pendingAttribution.medium,
           campaignContent: pendingAttribution.content,
-          landingPath: pendingAttribution.landingPath || location.pathname,
-          landingSearch: pendingAttribution.landingSearch || location.search || '',
+          landingPath: pendingAttribution.landingPath || routerLocation.pathname,
+          landingSearch: pendingAttribution.landingSearch || routerLocation.search || '',
           userId: String(user.id),
         });
         markRecordedCampaignAttribution(deliveryKey);
@@ -239,7 +239,7 @@ function CampaignAttributionTracker() {
     return () => {
       cancelled = true;
     };
-  }, [location.pathname, location.search, recordCampaignLanding, user?.id]);
+  }, [routerLocation.pathname, routerLocation.search, recordCampaignLanding, user?.id]);
 
   return null;
 }
@@ -250,7 +250,7 @@ const NotFound = () => (
       <div className="inline-flex items-center gap-3 text-xs font-bold uppercase tracking-[0.2em] text-[#E8651B] justify-center mb-6">
         <span className="inline-block w-8 h-[2px] bg-[#E8651B]" /> 404
       </div>
-      <h1 className="text-5xl sm:text-6xl font-bold leading-[1.05] tracking-tight mb-6">
+      <h1 className="text-5xl sm:text-6xl font-semibold leading-[1.05] tracking-tight mb-6">
         Page <span className="text-[#F3C64A]">not</span>
         <br />
         <span className="inline-flex items-center gap-3">
@@ -271,7 +271,7 @@ const NotFound = () => (
 const RouteLoader = () => (
   <div className="bg-background-light dark:bg-background-dark min-h-screen flex items-center justify-center">
     <div className="flex flex-col items-center gap-4">
-      <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary"></div>
+      <div className="animate-spin rounded-full size-12 border-t-2 border-b-2 border-primary"></div>
       <p className="text-text-faint-light dark:text-text-faint-dark text-body-sm font-medium">Loading...</p>
     </div>
   </div>

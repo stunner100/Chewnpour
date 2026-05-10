@@ -569,7 +569,7 @@ const ConceptBuilder = () => {
         return (
             <div className="min-h-screen bg-background-light dark:bg-background-dark flex items-center justify-center px-4">
                 <div className="text-center max-w-md">
-                    <div className="w-14 h-14 rounded-2xl bg-primary/8 flex items-center justify-center mx-auto mb-4">
+                    <div className="size-14 rounded-2xl bg-primary/8 flex items-center justify-center mx-auto mb-4">
                         <span className="material-symbols-outlined text-primary text-[24px]">school</span>
                     </div>
                     <h2 className="text-body-lg font-semibold text-text-main-light dark:text-text-main-dark mb-2">Select a Topic</h2>
@@ -587,7 +587,7 @@ const ConceptBuilder = () => {
         return (
             <div className="min-h-screen bg-background-light dark:bg-background-dark flex items-center justify-center">
                 <div className="text-center">
-                    <div className="animate-spin rounded-full h-10 w-10 border-2 border-border-light dark:border-border-dark border-t-primary mx-auto mb-4"></div>
+                    <div className="animate-spin rounded-full size-10 border-2 border-border-light dark:border-border-dark border-t-primary mx-auto mb-4"></div>
                     <p className="text-body-sm text-text-sub-light dark:text-text-sub-dark">Loading topic...</p>
                 </div>
             </div>
@@ -646,7 +646,7 @@ const ConceptBuilder = () => {
                                     }`}
                                 >
                                     <div
-                                        className={`w-8 h-8 rounded-full flex items-center justify-center ${
+                                        className={`size-8 rounded-full flex items-center justify-center ${
                                             isComplete
                                                 ? 'bg-accent-emerald/12 text-accent-emerald'
                                                 : isActive
@@ -685,7 +685,7 @@ const ConceptBuilder = () => {
         return (
             <div className="min-h-screen bg-background-light dark:bg-background-dark flex items-center justify-center px-4">
                 <div className="text-center max-w-md">
-                    <div className="w-14 h-14 rounded-2xl bg-red-500/10 flex items-center justify-center mx-auto mb-4">
+                    <div className="size-14 rounded-2xl bg-red-500/10 flex items-center justify-center mx-auto mb-4">
                         <span className="material-symbols-outlined text-red-500 text-[24px]">error</span>
                     </div>
                     <h2 className="text-body-lg font-semibold text-text-main-light dark:text-text-main-dark mb-2">This concept link is stale</h2>
@@ -702,7 +702,7 @@ const ConceptBuilder = () => {
         return (
             <div className="min-h-screen bg-background-light dark:bg-background-dark flex items-center justify-center px-4">
                 <div className="text-center max-w-md">
-                    <div className="w-14 h-14 rounded-2xl bg-accent-amber/10 flex items-center justify-center mx-auto mb-4">
+                    <div className="size-14 rounded-2xl bg-accent-amber/10 flex items-center justify-center mx-auto mb-4">
                         <span className="material-symbols-outlined text-accent-amber text-[24px]">warning</span>
                     </div>
                     <h2 className="text-body-lg font-semibold text-text-main-light dark:text-text-main-dark mb-2">Session Not Ready</h2>
@@ -725,7 +725,7 @@ const ConceptBuilder = () => {
                 <header className="sticky top-0 z-40 bg-surface-light/90 dark:bg-surface-dark/90 backdrop-blur-md border-b border-border-light dark:border-border-dark">
                     <div className="max-w-4xl mx-auto px-4 py-3 flex items-center justify-between">
                         <div className="flex items-center gap-3">
-                            <Link to={`/dashboard/topic/${topicId}`} className="btn-icon w-10 h-10">
+                            <Link to={`/dashboard/topic/${topicId}`} className="btn-icon size-10">
                                 <span className="material-symbols-outlined text-[20px]">arrow_back</span>
                             </Link>
                             <div>
@@ -880,7 +880,7 @@ const ConceptBuilder = () => {
         return (
             <div className="min-h-screen bg-background-light dark:bg-background-dark flex items-center justify-center">
                 <div className="text-center">
-                    <div className="animate-spin rounded-full h-10 w-10 border-2 border-border-light dark:border-border-dark border-t-primary mx-auto mb-4"></div>
+                    <div className="animate-spin rounded-full size-10 border-2 border-border-light dark:border-border-dark border-t-primary mx-auto mb-4"></div>
                     <p className="text-body-sm text-text-sub-light dark:text-text-sub-dark">Loading your session...</p>
                 </div>
             </div>
@@ -895,7 +895,7 @@ const ConceptBuilder = () => {
             <header className="sticky top-0 z-40 bg-surface-light/90 dark:bg-surface-dark/90 backdrop-blur-md border-b border-border-light dark:border-border-dark">
                 <div className="max-w-4xl mx-auto px-4 py-3 flex items-center justify-between">
                     <div className="flex items-center gap-3">
-                        <Link to={`/dashboard/topic/${topicId}`} className="btn-icon w-10 h-10">
+                        <Link to={`/dashboard/topic/${topicId}`} className="btn-icon size-10">
                             <span className="material-symbols-outlined text-[20px]">arrow_back</span>
                         </Link>
                         <div>
@@ -998,7 +998,7 @@ const ConceptBuilder = () => {
                                         type="button"
                                         onClick={() => handleOptionSelect(option.id)}
                                         disabled={isInteractionDisabled}
-                                        className={`w-full rounded-2xl border px-4 py-4 text-left transition-all ${
+                                        className={`w-full rounded-2xl border p-4 text-left transition-all ${
                                             isCorrect
                                                 ? 'border-accent-emerald bg-accent-emerald/10 text-accent-emerald'
                                                 : isWrong
@@ -1009,7 +1009,7 @@ const ConceptBuilder = () => {
                                         } ${isInteractionDisabled ? 'cursor-default' : 'hover:border-primary active:scale-[0.99]'}`}
                                     >
                                         <div className="flex items-start gap-3">
-                                            <div className={`mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full border text-caption font-semibold ${
+                                            <div className={`mt-0.5 flex size-7 shrink-0 items-center justify-center rounded-full border text-caption font-semibold ${
                                                 isCorrect
                                                     ? 'border-accent-emerald text-accent-emerald'
                                                     : isWrong

@@ -79,7 +79,7 @@ const DashboardReferralCTA = ({ remaining, profile }) => {
                     onClick={handleShareWhatsApp}
                     className="flex-1 inline-flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#25D366] text-white text-[11px] font-bold hover:brightness-110 transition-all"
                 >
-                    <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z"/><path d="M12 0C5.373 0 0 5.373 0 12c0 2.625.846 5.059 2.284 7.034L.789 23.492a.5.5 0 00.611.611l4.458-1.495A11.952 11.952 0 0012 24c6.627 0 12-5.373 12-12S18.627 0 12 0zm0 22c-2.291 0-4.42-.658-6.237-1.794l-.435-.27-2.642.886.886-2.642-.27-.435A9.956 9.956 0 012 12C2 6.486 6.486 2 12 2s10 4.486 10 10-4.486 10-10 10z"/></svg>
+                    <svg className="size-3.5" viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z"/><path d="M12 0C5.373 0 0 5.373 0 12c0 2.625.846 5.059 2.284 7.034L.789 23.492a.5.5 0 00.611.611l4.458-1.495A11.952 11.952 0 0012 24c6.627 0 12-5.373 12-12S18.627 0 12 0zm0 22c-2.291 0-4.42-.658-6.237-1.794l-.435-.27-2.642.886.886-2.642-.27-.435A9.956 9.956 0 012 12C2 6.486 6.486 2 12 2s10 4.486 10 10-4.486 10-10 10z"/></svg>
                     WhatsApp
                 </button>
                 <button
@@ -87,7 +87,7 @@ const DashboardReferralCTA = ({ remaining, profile }) => {
                     onClick={handleShareTelegram}
                     className="flex-1 inline-flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#0088cc] text-white text-[11px] font-bold hover:brightness-110 transition-all"
                 >
-                    <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="currentColor"><path d="M11.944 0A12 12 0 000 12a12 12 0 0012 12 12 12 0 0012-12A12 12 0 0012 0zm4.962 7.224c.1-.002.321.023.465.14a.506.506 0 01.171.325c.016.093.036.306.02.472-.18 1.898-.962 6.502-1.36 8.627-.168.9-.499 1.201-.82 1.23-.696.065-1.225-.46-1.9-.902-1.056-.693-1.653-1.124-2.678-1.8-1.185-.78-.417-1.21.258-1.91.177-.184 3.247-2.977 3.307-3.23.007-.032.014-.15-.056-.212s-.174-.041-.249-.024c-.106.024-1.793 1.14-5.061 3.345-.479.33-.913.49-1.302.48-.428-.008-1.252-.241-1.865-.44-.752-.245-1.349-.374-1.297-.789.027-.216.325-.437.893-.663 3.498-1.524 5.83-2.529 6.998-3.014 3.332-1.386 4.025-1.627 4.476-1.635z"/></svg>
+                    <svg className="size-3.5" viewBox="0 0 24 24" fill="currentColor"><path d="M11.944 0A12 12 0 000 12a12 12 0 0012 12 12 12 0 0012-12A12 12 0 0012 0zm4.962 7.224c.1-.002.321.023.465.14a.506.506 0 01.171.325c.016.093.036.306.02.472-.18 1.898-.962 6.502-1.36 8.627-.168.9-.499 1.201-.82 1.23-.696.065-1.225-.46-1.9-.902-1.056-.693-1.653-1.124-2.678-1.8-1.185-.78-.417-1.21.258-1.91.177-.184 3.247-2.977 3.307-3.23.007-.032.014-.15-.056-.212s-.174-.041-.249-.024c-.106.024-1.793 1.14-5.061 3.345-.479.33-.913.49-1.302.48-.428-.008-1.252-.241-1.865-.44-.752-.245-1.349-.374-1.297-.789.027-.216.325-.437.893-.663 3.498-1.524 5.83-2.529 6.998-3.014 3.332-1.386 4.025-1.627 4.476-1.635z"/></svg>
                     Telegram
                 </button>
             </div>
@@ -220,7 +220,7 @@ const DashboardAnalysis = () => {
     const fileInputRef = useRef(null);
     const uploadInFlightRef = useRef(false);
     const lastSeenStreakRef = useRef(null);
-    const location = useLocation();
+    const routerLocation = useLocation();
     const navigate = useNavigate();
     const { user } = useAuth();
     const { isAuthenticated: isConvexAuthenticated } = useConvexAuth();
@@ -321,12 +321,12 @@ const DashboardAnalysis = () => {
     }, [streakToastMessage]);
 
     useEffect(() => {
-        const paywallToastMessage = location.state?.paywallToastMessage;
+        const paywallToastMessage = routerLocation.state?.paywallToastMessage;
         if (!paywallToastMessage) return;
 
         setStreakToastMessage(String(paywallToastMessage));
-        navigate(`${location.pathname}${location.search}`, { replace: true, state: {} });
-    }, [location.pathname, location.search, location.state, navigate]);
+        navigate(`${routerLocation.pathname}${routerLocation.search}`, { replace: true, state: {} });
+    }, [routerLocation.pathname, routerLocation.search, routerLocation.state, navigate]);
 
     const redirectToUploadTopUp = () => {
         navigate(buildUploadLimitSubscriptionPath(), {
@@ -732,7 +732,7 @@ const DashboardAnalysis = () => {
                 <div className="flex items-center gap-3 min-w-0">
                     <div className="hidden md:flex flex-col leading-tight min-w-0">
                         <span className="text-caption text-text-faint-light dark:text-text-faint-dark">Welcome back</span>
-                        <h1 className="text-body-md font-bold text-text-main-light dark:text-text-main-dark truncate">{displayName}</h1>
+                        <h1 className="text-body-md font-semibold text-text-main-light dark:text-text-main-dark truncate">{displayName}</h1>
                     </div>
                     <h1 className="md:hidden text-display-sm text-text-main-light dark:text-text-main-dark truncate">Dashboard</h1>
                     {subscription && (
@@ -783,10 +783,10 @@ const DashboardAnalysis = () => {
                     </button>
                     {/* Profile */}
                     <Link to="/profile" className="relative" aria-label="Profile">
-                        <div className="w-9 h-9 rounded-full bg-primary text-white flex items-center justify-center text-[12px] font-bold shadow-sm">
+                        <div className="size-9 rounded-full bg-primary text-white flex items-center justify-center text-[12px] font-bold shadow-sm">
                             {initials || 'S'}
                         </div>
-                        <div className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 bg-emerald-500 rounded-full border-2 border-surface-light dark:border-surface-dark" />
+                        <div className="absolute -bottom-0.5 -right-0.5 size-2.5 bg-emerald-500 rounded-full border-2 border-surface-light dark:border-surface-dark" />
                     </Link>
                 </div>
             </header>
@@ -823,7 +823,7 @@ const DashboardAnalysis = () => {
                     <div className="relative overflow-hidden card-base p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 bg-primary-50 dark:bg-primary-900/15 border-primary-200/50 dark:border-primary-800/30 animate-fade-in-up animate-delay-100">
                         <Meteors number={12} />
                         <div className="relative flex items-center gap-3">
-                            <div className="w-10 h-10 rounded-xl bg-primary/15 flex items-center justify-center shrink-0">
+                            <div className="size-10 rounded-xl bg-primary/15 flex items-center justify-center shrink-0">
                                 <span className="material-symbols-outlined text-primary text-[20px]" style={{ fontVariationSettings: "'FILL' 1" }}>rocket_launch</span>
                             </div>
                             <div>
@@ -864,7 +864,7 @@ const DashboardAnalysis = () => {
                                 >
                                     <div className="text-white">
                                         <p className="text-[10px] font-bold uppercase tracking-wider opacity-80">Course</p>
-                                        <h3 className="text-xl font-bold mt-1 line-clamp-1">{course.title}</h3>
+                                        <h3 className="text-xl font-semibold mt-1 line-clamp-1">{course.title}</h3>
                                         <p className="text-sm opacity-80 mt-0.5">{course.progress || 0}% complete</p>
                                     </div>
                                 </Link>
@@ -946,7 +946,7 @@ const DashboardAnalysis = () => {
                                 disabled={uploading}
                                 className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-border-light dark:border-border-dark text-text-faint-light dark:text-text-faint-dark hover:border-primary hover:text-primary hover:bg-primary-50/50 dark:hover:bg-primary-900/10 transition-all duration-200 cursor-pointer min-h-[200px] group disabled:cursor-not-allowed disabled:opacity-50"
                             >
-                                <div className="w-11 h-11 rounded-xl bg-surface-hover dark:bg-surface-hover-dark flex items-center justify-center mb-2 group-hover:bg-primary-100 dark:group-hover:bg-primary-900/30 transition-colors">
+                                <div className="size-11 rounded-xl bg-surface-hover dark:bg-surface-hover-dark flex items-center justify-center mb-2 group-hover:bg-primary-100 dark:group-hover:bg-primary-900/30 transition-colors">
                                     <span className="material-symbols-outlined text-xl">add</span>
                                 </div>
                                 <span className="text-body-sm font-semibold">Add Course</span>
@@ -991,7 +991,7 @@ const DashboardAnalysis = () => {
                     <div className="card-base p-5 md:p-6">
                         {feedbackSubmitted ? (
                             <div className="text-center py-4">
-                                <div className="w-12 h-12 rounded-full bg-emerald-50 dark:bg-emerald-900/20 flex items-center justify-center mx-auto mb-3">
+                                <div className="size-12 rounded-full bg-emerald-50 dark:bg-emerald-900/20 flex items-center justify-center mx-auto mb-3">
                                     <span className="material-symbols-outlined text-2xl text-emerald-600" style={{ fontVariationSettings: "'FILL' 1" }}>check_circle</span>
                                 </div>
                                 <h3 className="text-body-lg font-semibold text-text-main-light dark:text-text-main-dark mb-1">Thanks for your feedback!</h3>
@@ -1000,7 +1000,7 @@ const DashboardAnalysis = () => {
                         ) : (
                             <>
                                 <div className="flex items-center gap-3 mb-5">
-                                    <div className="w-10 h-10 rounded-xl bg-primary-50 dark:bg-primary-900/20 flex items-center justify-center shrink-0">
+                                    <div className="size-10 rounded-xl bg-primary-50 dark:bg-primary-900/20 flex items-center justify-center shrink-0">
                                         <span className="material-symbols-outlined text-primary text-[20px]" style={{ fontVariationSettings: "'FILL' 1" }}>rate_review</span>
                                     </div>
                                     <div>

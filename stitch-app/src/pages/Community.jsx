@@ -76,7 +76,7 @@ const ChannelCard = ({ channel, isMember }) => {
             <div className="flex items-start justify-between gap-2 mb-2">
                 <div className="flex items-center gap-2.5 min-w-0">
                     {channel.icon && (
-                        <div className="w-9 h-9 shrink-0 rounded-lg bg-primary/8 dark:bg-primary/15 flex items-center justify-center">
+                        <div className="size-9 shrink-0 rounded-lg bg-primary/8 dark:bg-primary/15 flex items-center justify-center">
                             <span className="material-symbols-outlined text-[18px] text-primary">{channel.icon}</span>
                         </div>
                     )}
@@ -233,7 +233,7 @@ const Community = () => {
                 {searchQuery && (
                     <button
                         onClick={() => setSearchQuery('')}
-                        className="absolute right-3 top-1/2 -translate-y-1/2 btn-icon w-6 h-6"
+                        className="absolute right-3 top-1/2 -translate-y-1/2 btn-icon size-6"
                         aria-label="Clear search"
                     >
                         <span className="material-symbols-outlined text-[16px]">close</span>
@@ -253,7 +253,7 @@ const Community = () => {
             {/* Empty */}
             {hasNoChannels && (
                 <div className="text-center py-16">
-                    <div className="w-14 h-14 rounded-2xl bg-surface-light dark:bg-surface-dark border border-border-light dark:border-border-dark flex items-center justify-center mx-auto mb-4">
+                    <div className="size-14 rounded-2xl bg-surface-light dark:bg-surface-dark border border-border-light dark:border-border-dark flex items-center justify-center mx-auto mb-4">
                         <span className="material-symbols-outlined text-2xl text-text-faint-light dark:text-text-faint-dark">forum</span>
                     </div>
                     <h3 className="text-body-lg font-semibold text-text-main-light dark:text-text-main-dark mb-1">No community channels yet</h3>
