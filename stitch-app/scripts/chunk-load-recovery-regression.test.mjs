@@ -54,7 +54,8 @@ if (!/isChunkLoadError\(error\)\s*&&\s*attemptChunkRecoveryReload\('chunk-load'\
 
 for (const pattern of [
   'ChunkRecoveryFallback',
-  'if (attemptChunkRecoveryReload(routeName))',
+  'const reloadRequested = attemptChunkRecoveryReload(routeName);',
+  'reloadRequested={reloadRequested}',
   'We hit a stale app bundle while opening',
 ]) {
   if (!appSource.includes(pattern)) {

@@ -21,12 +21,12 @@ import PublicShell, { ArrowBadge } from './components/PublicShell';
 import { addSentryBreadcrumb } from './lib/sentry';
 import { attemptChunkRecoveryReload, isChunkLoadError } from './lib/chunkLoadRecovery';
 
-const LAZY_ROUTE_IMPORT_TIMEOUT_MS = 12000;
-
-const ChunkRecoveryFallback = ({ componentName }) => (
+const ChunkRecoveryFallback = ({ componentName, reloadRequested = false }) => (
   <div className="bg-background-light dark:bg-background-dark min-h-screen flex items-center justify-center px-6">
     <div className="w-full max-w-md card-base p-6 text-center">
-      <h2 className="text-body-lg font-semibold text-text-main-light dark:text-text-main-dark">Refreshing app files</h2>
+      <h2 className="text-body-lg font-semibold text-text-main-light dark:text-text-main-dark">
+        {reloadRequested ? 'Refreshing app files' : 'Reload needed'}
+      </h2>
       <p className="mt-2 text-body-sm font-medium text-text-faint-light dark:text-text-faint-dark">
         We hit a stale app bundle while opening {componentName}. Please reload once.
       </p>
@@ -40,26 +40,6 @@ const ChunkRecoveryFallback = ({ componentName }) => (
     </div>
   </div>
 );
-
-const createLazyRouteImportTimeoutError = (routeName) => {
-  const error = new Error(`Dynamic import timed out while opening ${routeName}.`);
-  error.name = 'LazyRouteImportTimeoutError';
-  return error;
-};
-
-const withLazyRouteTimeout = (importer, routeName) =>
-  Promise.race([
-    importer(),
-    new Promise((_, reject) => {
-      window.setTimeout(() => {
-        reject(createLazyRouteImportTimeoutError(routeName));
-      }, LAZY_ROUTE_IMPORT_TIMEOUT_MS);
-    }),
-  ]);
-
-const isLazyRouteTimeoutError = (error) =>
-  error?.name === 'LazyRouteImportTimeoutError'
-  || String(error?.message || '').toLowerCase().includes('dynamic import timed out');
 
 const resolveLazyRouteModule = (mod, { componentName, namedExport } = {}) => {
   if (mod?.default) return mod;
@@ -91,7 +71,7 @@ const resolveLazyRouteModule = (mod, { componentName, namedExport } = {}) => {
 };
 
 const lazyRoute = (importer, { componentName, namedExport } = {}) => lazy(() =>
-  withLazyRouteTimeout(importer, componentName || namedExport || 'route')
+  importer()
     .then((mod) => {
       const resolvedModule = resolveLazyRouteModule(mod, { componentName, namedExport });
       if (resolvedModule) {
@@ -99,18 +79,19 @@ const lazyRoute = (importer, { componentName, namedExport } = {}) => lazy(() =>
       }
 
       const routeName = componentName || namedExport || 'route';
-      attemptChunkRecoveryReload(routeName);
-
-      return {
-        default: () => <ChunkRecoveryFallback componentName={routeName} />,
-      };
+      throw new Error(`Lazy route "${routeName}" did not export a React component.`);
     })
     .catch((error) => {
       const routeName = componentName || namedExport || 'route';
-      if (isChunkLoadError(error) || isLazyRouteTimeoutError(error)) {
-        attemptChunkRecoveryReload(routeName);
+      if (isChunkLoadError(error)) {
+        const reloadRequested = attemptChunkRecoveryReload(routeName);
         return {
-          default: () => <ChunkRecoveryFallback componentName={routeName} />,
+          default: () => (
+            <ChunkRecoveryFallback
+              componentName={routeName}
+              reloadRequested={reloadRequested}
+            />
+          ),
         };
       }
       throw error;
