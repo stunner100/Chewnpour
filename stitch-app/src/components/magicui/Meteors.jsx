@@ -2,7 +2,8 @@ import React, { useState } from 'react';
 import { cn } from '../../lib/utils';
 
 const generateStyles = (count) =>
-    Array.from({ length: count }, () => ({
+    Array.from({ length: count }, (_, index) => ({
+        id: `meteor-${String(index).padStart(2, '0')}`,
         top: `${Math.floor(Math.random() * 100)}%`,
         left: `${Math.floor(Math.random() * 100)}%`,
         animationDelay: `${(Math.random() * 5).toFixed(2)}s`,
@@ -20,9 +21,9 @@ export const Meteors = ({
             aria-hidden="true"
             className={cn('absolute inset-0 overflow-hidden pointer-events-none', className)}
         >
-            {meteorStyles.map((style, idx) => (
+            {meteorStyles.map(({ id, ...style }) => (
                 <span
-                    key={idx}
+                    key={id}
                     className="absolute size-0.5 rotate-[215deg] animate-meteor rounded-full bg-primary shadow-[0_0_0_1px_#ffffff10]"
                     style={style}
                 >

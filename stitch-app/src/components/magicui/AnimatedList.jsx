@@ -1,6 +1,8 @@
 import React, { useMemo } from 'react';
-import { motion as Motion, AnimatePresence } from 'motion/react';
+import { AnimatePresence, LazyMotion, domAnimation, m } from 'motion/react';
 import { cn } from '../../lib/utils';
+
+const MotionDiv = m.div;
 
 export const AnimatedList = ({
     children,
@@ -13,24 +15,26 @@ export const AnimatedList = ({
 
     return (
         <div className={cn(className)}>
-            <AnimatePresence>
-                {childrenArray.map((item, index) => (
-                    <Motion.div
-                        key={index}
-                        initial={{ opacity: 0, y: 20, scale: 0.95 }}
-                        animate={{ opacity: 1, y: 0, scale: 1 }}
-                        exit={{ opacity: 0, scale: 0.95 }}
-                        transition={{
-                            duration: 0.4,
-                            delay: index * 0.08,
-                            ease: [0.16, 1, 0.3, 1],
-                        }}
-                        className="w-full"
-                    >
-                        {item}
-                    </Motion.div>
-                ))}
-            </AnimatePresence>
+            <LazyMotion features={domAnimation}>
+                <AnimatePresence>
+                    {childrenArray.map((item, index) => (
+                        <MotionDiv
+                            key={item.key}
+                            initial={{ opacity: 0, y: 20, scale: 0.95 }}
+                            animate={{ opacity: 1, y: 0, scale: 1 }}
+                            exit={{ opacity: 0, scale: 0.95 }}
+                            transition={{
+                                duration: 0.4,
+                                delay: index * 0.08,
+                                ease: [0.16, 1, 0.3, 1],
+                            }}
+                            className="w-full"
+                        >
+                            {item}
+                        </MotionDiv>
+                    ))}
+                </AnimatePresence>
+            </LazyMotion>
         </div>
     );
 };

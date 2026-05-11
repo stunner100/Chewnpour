@@ -36,15 +36,18 @@ const SentenceRenderer = ({
 }) => {
     const parts = question.sentence.split('___');
     const elements = [];
+    let sentenceOffset = 0;
 
     for (let i = 0; i < parts.length; i += 1) {
-        if (parts[i]) {
+        const part = parts[i];
+        if (part) {
             elements.push(
-                <span key={`text-${qIdx}-${i}`} className="text-text-sub-light dark:text-text-sub-dark">
-                    {parts[i]}
+                <span key={`text-${qIdx}-${sentenceOffset}-${part.length}`} className="text-text-sub-light dark:text-text-sub-dark">
+                    {part}
                 </span>
             );
         }
+        sentenceOffset += part.length + 3;
         if (i < question.blanks.length) {
             const bIdx = i;
             const answerKey = `q${qIdx}-b${bIdx}`;

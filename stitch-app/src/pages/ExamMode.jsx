@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useReducer, useRef } from 'react';
 import { Link, useLocation, useNavigate, useParams } from 'react-router-dom';
 import { useQuery, useMutation, useAction } from 'convex/react';
 import { ConvexHttpClient } from 'convex/browser';
@@ -244,6 +244,96 @@ const TRANSIENT_TRANSPORT_ERROR_PATTERNS = [
 ];
 const EXAM_DURATION_SECONDS = 45 * 60;
 const MIN_ESSAY_SUBMIT_CHAR_COUNT = 20;
+const createInitialExamState = (search) => ({
+    attemptId: null,
+    attemptQualityTier: '',
+    attemptQuestions: null,
+    currentQuestion: 0,
+    examFormat: resolveAutostartExamFormat(search),
+    examStarted: false,
+    gradingEssay: false,
+    routingBootstrapPending: false,
+    selectedAnswers: {},
+    startExamError: '',
+    startingExamAttempt: false,
+    submitError: '',
+});
+
+const examModeReducer = (state, action) => {
+    switch (action.type) {
+        case 'answerSelected':
+            return {
+                ...state,
+                selectedAnswers: {
+                    ...state.selectedAnswers,
+                    [action.questionId]: action.answer,
+                },
+                submitError: '',
+            };
+        case 'beginPreparation':
+            return {
+                ...state,
+                attemptId: null,
+                attemptQualityTier: '',
+                attemptQuestions: null,
+                examStarted: false,
+                startExamError: '',
+                startingExamAttempt: true,
+                submitError: '',
+            };
+        case 'chooseFormat':
+            return {
+                ...state,
+                examFormat: action.examFormat,
+                startExamError: '',
+            };
+        case 'clearStartAndFormat':
+            return {
+                ...state,
+                examFormat: null,
+                startExamError: '',
+            };
+        case 'finishPreparation':
+            return {
+                ...state,
+                startingExamAttempt: false,
+            };
+        case 'moveQuestion':
+            return {
+                ...state,
+                currentQuestion: Math.min(Math.max(action.index, 0), Math.max(action.maxIndex, 0)),
+            };
+        case 'patch':
+            return {
+                ...state,
+                ...action.patch,
+            };
+        case 'preparationFailed':
+            return {
+                ...state,
+                attemptId: null,
+                attemptQuestions: null,
+                examStarted: false,
+                startExamError: action.message,
+            };
+        case 'preparationSucceeded':
+            return {
+                ...state,
+                attemptId: action.attemptId,
+                attemptQualityTier: action.qualityTier,
+                attemptQuestions: action.questions,
+                currentQuestion: 0,
+                examStarted: true,
+                selectedAnswers: {},
+                startExamError: '',
+            };
+        case 'resetForRoute':
+            return createInitialExamState(action.search);
+        default:
+            return state;
+    }
+};
+
 const resolveAutostartExamFormat = (search) => {
     const params = new URLSearchParams(String(search || ''));
     const raw = String(params.get('autostart') || '').trim().toLowerCase();
@@ -383,8 +473,7 @@ const fetchConvexBrowserToken = async () => {
         return cachedToken;
     }
 
-    let lastError = null;
-    for (let attempt = 0; attempt < 6; attempt += 1) {
+    const requestToken = async (attempt = 0) => {
         try {
             await getSession().catch(() => null);
             const refreshedCachedToken = readCachedConvexBrowserToken();
@@ -404,14 +493,17 @@ const fetchConvexBrowserToken = async () => {
             }
             return token;
         } catch (error) {
-            lastError = error;
-            if (attempt >= 5) break;
+            if (attempt >= 5) {
+                throw error instanceof Error
+                    ? error
+                    : new Error('Session is still syncing.');
+            }
             await waitForDuration(500 * (attempt + 1));
+            return requestToken(attempt + 1);
         }
-    }
-    throw lastError instanceof Error
-        ? lastError
-        : new Error('Session is still syncing.');
+    };
+
+    return requestToken();
 };
 
 const isRecoverableExamSubmitError = ({ error, message }) => {
@@ -442,19 +534,25 @@ const ExamMode = () => {
     const routerLocation = useLocation();
     const navigate = useNavigate();
     const { user, loading: authLoading } = useAuth();
-    const [currentQuestion, setCurrentQuestion] = useState(0);
-    const [selectedAnswers, setSelectedAnswers] = useState({});
-    const [examStarted, setExamStarted] = useState(false);
-    const [attemptId, setAttemptId] = useState(null);
-    const [attemptQuestions, setAttemptQuestions] = useState(null);
-    const [attemptQualityTier, setAttemptQualityTier] = useState('');
-    const [startingExamAttempt, setStartingExamAttempt] = useState(false);
-    const [startExamError, setStartExamError] = useState('');
-
-    // Essay exam state
-    const [examFormat, setExamFormat] = useState(() => resolveAutostartExamFormat(routerLocation.search)); // null = not chosen, 'mcq' | 'essay'
-    const [gradingEssay, setGradingEssay] = useState(false);
-    const [submitError, setSubmitError] = useState('');
+    const [examState, dispatchExamState] = useReducer(
+        examModeReducer,
+        routerLocation.search,
+        createInitialExamState,
+    );
+    const {
+        attemptId,
+        attemptQualityTier,
+        attemptQuestions,
+        currentQuestion,
+        examFormat,
+        examStarted,
+        gradingEssay,
+        routingBootstrapPending,
+        selectedAnswers,
+        startExamError,
+        startingExamAttempt,
+        submitError,
+    } = examState;
     const invalidRouteReportedRef = useRef('');
 
 
@@ -524,7 +622,6 @@ const ExamMode = () => {
     const handleSubmitRef = useRef(() => { });
     const submittingRef = useRef(false);
     const routingBootstrapKeyRef = useRef('');
-    const [routingBootstrapPending, setRoutingBootstrapPending] = useState(false);
     // Optimized timer: only re-renders when the displayed second changes
     const {
         timeRemaining,
@@ -550,19 +647,8 @@ const ExamMode = () => {
         examFlowStartTimeRef.current = Date.now();
         attemptStartTimeRef.current = null;
         loadingStallReportedRef.current = false;
-        setCurrentQuestion(0);
-        setSelectedAnswers({});
-        setExamStarted(false);
-        setAttemptId(null);
-        setAttemptQuestions(null);
-        setAttemptQualityTier('');
-        setStartingExamAttempt(false);
-        setStartExamError('');
-        setExamFormat(resolveAutostartExamFormat(routerLocation.search));
-        setGradingEssay(false);
-        setSubmitError('');
         routingBootstrapKeyRef.current = '';
-        setRoutingBootstrapPending(false);
+        dispatchExamState({ type: 'resetForRoute', search: routerLocation.search });
     }, [
         routeTopicId,
         routerLocation.search,
@@ -592,14 +678,14 @@ const ExamMode = () => {
         }
 
         routingBootstrapKeyRef.current = bootstrapKey;
-        setRoutingBootstrapPending(true);
+        dispatchExamState({ type: 'patch', patch: { routingBootstrapPending: true } });
 
         ensureAssessmentRoutingForTopic({ topicId })
             .catch((error) => {
                 console.warn('Failed to bootstrap assessment routing for exam topic', error);
             })
             .finally(() => {
-                setRoutingBootstrapPending(false);
+                dispatchExamState({ type: 'patch', patch: { routingBootstrapPending: false } });
             });
     }, [
         hasFinalAssessmentRoutingContext,
@@ -664,13 +750,7 @@ const ExamMode = () => {
     const beginExamAttempt = useCallback(async () => {
         if (!topicId || !examFormat || attemptStartTimeRef.current) return;
 
-        setStartExamError('');
-        setSubmitError('');
-        setStartingExamAttempt(true);
-        setAttemptId(null);
-        setAttemptQuestions(null);
-        setAttemptQualityTier('');
-        setExamStarted(false);
+        dispatchExamState({ type: 'beginPreparation' });
         attemptStartTimeRef.current = Date.now();
         examFlowStartTimeRef.current = Date.now();
         loadingStallReportedRef.current = false;
@@ -691,14 +771,13 @@ const ExamMode = () => {
             );
             const selectedQuestions = Array.isArray(result?.questions) ? result.questions : [];
             if (result?.attemptId && selectedQuestions.length > 0) {
-                setStartExamError('');
-                setAttemptId(result.attemptId);
-                setAttemptQuestions(selectedQuestions);
-                setAttemptQualityTier(typeof result?.qualityTier === 'string' ? result.qualityTier : '');
-                setCurrentQuestion(0);
-                setSelectedAnswers({});
+                dispatchExamState({
+                    type: 'preparationSucceeded',
+                    attemptId: result.attemptId,
+                    questions: selectedQuestions,
+                    qualityTier: typeof result?.qualityTier === 'string' ? result.qualityTier : '',
+                });
                 setTimeRemaining(EXAM_DURATION_SECONDS);
-                setExamStarted(true);
                 const elapsedMs = Date.now() - attemptStartTimeRef.current;
                 addSentryBreadcrumb({
                     category: 'exam',
@@ -713,11 +792,12 @@ const ExamMode = () => {
                 return;
             }
 
-            setStartExamError(
-                typeof result?.message === 'string' && result.message.trim()
+            dispatchExamState({
+                type: 'preparationFailed',
+                message: typeof result?.message === 'string' && result.message.trim()
                     ? result.message.trim()
-                    : 'We could not finish preparing your exam. Please try again.'
-            );
+                    : 'We could not finish preparing your exam. Please try again.',
+            });
         } catch (error) {
             const errorCode = getConvexErrorCode(error);
             const message = resolveConvexActionError(error, 'Unable to start the exam. Please try again.');
@@ -727,28 +807,27 @@ const ExamMode = () => {
             const elapsedMs = attemptStartTimeRef.current
                 ? Date.now() - attemptStartTimeRef.current
                 : null;
+            let nextStartExamError = 'Unable to start the exam. Please try again.';
             if (authError) {
                 const { refreshed, expired } = await refreshAuthSessionQuietly();
                 if (expired) {
-                    setStartExamError(getExamSessionExpiredMessage());
+                    nextStartExamError = getExamSessionExpiredMessage();
                 } else {
-                    setStartExamError(getExamAuthNotReadyMessage(refreshed));
+                    nextStartExamError = getExamAuthNotReadyMessage(refreshed);
                 }
             } else if (transientTransportError) {
-                setStartExamError(getExamTransientStartRetryMessage());
+                nextStartExamError = getExamTransientStartRetryMessage();
             } else if (timedOut) {
-                setStartExamError('Exam setup is taking longer than expected. Tap Retry.');
+                nextStartExamError = 'Exam setup is taking longer than expected. Tap Retry.';
             } else if (isLikelyPostDisconnectAuthError(error)) {
                 const { refreshed, expired } = await refreshAuthSessionQuietly();
                 if (expired) {
-                    setStartExamError(getExamSessionExpiredMessage());
+                    nextStartExamError = getExamSessionExpiredMessage();
                 } else if (refreshed) {
-                    setStartExamError(getExamAuthNotReadyMessage(true));
+                    nextStartExamError = getExamAuthNotReadyMessage(true);
                 } else {
-                    setStartExamError('Something went wrong. Please wait a moment and tap Retry.');
+                    nextStartExamError = 'Something went wrong. Please wait a moment and tap Retry.';
                 }
-            } else {
-                setStartExamError('Unable to start the exam. Please try again.');
             }
             const likelyPostDisconnect = isLikelyPostDisconnectAuthError(error);
             const recoverableError = timedOut || authError || transientTransportError || likelyPostDisconnect;
@@ -792,12 +871,10 @@ const ExamMode = () => {
                     },
                 });
             }
-            setAttemptId(null);
-            setAttemptQuestions(null);
-            setExamStarted(false);
+            dispatchExamState({ type: 'preparationFailed', message: nextStartExamError });
         } finally {
             attemptStartTimeRef.current = null;
-            setStartingExamAttempt(false);
+            dispatchExamState({ type: 'finishPreparation' });
         }
     }, [examFormat, startExamAttemptHttp, topicId, userId, withTimeout, START_EXAM_ATTEMPT_TIMEOUT_MS, setTimeRemaining]);
 
@@ -890,26 +967,22 @@ const ExamMode = () => {
     // Timer managed by useExamTimer hook above
 
     const handleAnswerSelect = useCallback((questionId, answer) => {
-        setSubmitError((prev) => (prev ? '' : prev));
-        setSelectedAnswers((prev) => ({
-            ...prev,
-            [questionId]: answer,
-        }));
+        dispatchExamState({ type: 'answerSelected', questionId, answer });
     }, []);
 
     const handleNext = useCallback(() => {
-        setCurrentQuestion((prev) => Math.min(prev + 1, questions.length - 1));
-    }, [questions.length]);
+        dispatchExamState({ type: 'moveQuestion', index: currentQuestion + 1, maxIndex: questions.length - 1 });
+    }, [currentQuestion, questions.length]);
 
     const handlePrevious = useCallback(() => {
-        setCurrentQuestion((prev) => Math.max(prev - 1, 0));
-    }, []);
+        dispatchExamState({ type: 'moveQuestion', index: currentQuestion - 1, maxIndex: questions.length - 1 });
+    }, [currentQuestion, questions.length]);
 
     const handleSubmit = useCallback(async () => {
         if (submittingRef.current) return;
         if (!attemptId) return;
         submittingRef.current = true;
-        setSubmitError('');
+        dispatchExamState({ type: 'patch', patch: { submitError: '' } });
 
         if (examFormat === 'essay') {
             const answeredEssayQuestions = questions.filter((question) => {
@@ -917,12 +990,12 @@ const ExamMode = () => {
                 return String(value ?? '').trim().length >= MIN_ESSAY_SUBMIT_CHAR_COUNT;
             }).length;
             if (answeredEssayQuestions < questions.length) {
-                setSubmitError('Please answer all essay questions before submitting.');
+                dispatchExamState({ type: 'patch', patch: { submitError: 'Please answer all essay questions before submitting.' } });
                 submittingRef.current = false;
                 return;
             }
 
-            setGradingEssay(true);
+            dispatchExamState({ type: 'patch', patch: { gradingEssay: true } });
             try {
                 const answers = questions.map((question) => ({
                     questionId: question._id,
@@ -945,15 +1018,18 @@ const ExamMode = () => {
                 const transientTransportError = isTransientExamTransportError(error, message);
                 if (authError) {
                     const { refreshed, expired } = await refreshAuthSessionQuietly();
-                    setSubmitError(
-                        expired
-                            ? getExamSessionExpiredMessage()
-                            : getExamAuthNotReadyMessage(refreshed)
-                    );
+                    dispatchExamState({
+                        type: 'patch',
+                        patch: {
+                            submitError: expired
+                                ? getExamSessionExpiredMessage()
+                                : getExamAuthNotReadyMessage(refreshed),
+                        },
+                    });
                 } else if (transientTransportError) {
-                    setSubmitError(getExamTransientSubmitRetryMessage());
+                    dispatchExamState({ type: 'patch', patch: { submitError: getExamTransientSubmitRetryMessage() } });
                 } else {
-                    setSubmitError(message);
+                    dispatchExamState({ type: 'patch', patch: { submitError: message } });
                 }
                 const recoverableError = isRecoverableExamSubmitError({ error, message });
                 if (recoverableError) {
@@ -976,7 +1052,7 @@ const ExamMode = () => {
                     });
                 }
             } finally {
-                setGradingEssay(false);
+                dispatchExamState({ type: 'patch', patch: { gradingEssay: false } });
                 submittingRef.current = false;
             }
             return;
@@ -1002,15 +1078,18 @@ const ExamMode = () => {
             const transientTransportError = isTransientExamTransportError(error, message);
             if (authError) {
                 const { refreshed, expired } = await refreshAuthSessionQuietly();
-                setSubmitError(
-                    expired
-                        ? getExamSessionExpiredMessage()
-                        : getExamAuthNotReadyMessage(refreshed)
-                );
+                dispatchExamState({
+                    type: 'patch',
+                    patch: {
+                        submitError: expired
+                            ? getExamSessionExpiredMessage()
+                            : getExamAuthNotReadyMessage(refreshed),
+                    },
+                });
             } else if (transientTransportError) {
-                setSubmitError(getExamTransientSubmitRetryMessage());
+                dispatchExamState({ type: 'patch', patch: { submitError: getExamTransientSubmitRetryMessage() } });
             } else {
-                setSubmitError(message);
+                dispatchExamState({ type: 'patch', patch: { submitError: message } });
             }
             if (authError || transientTransportError) {
                 captureSentryMessage('Exam submission requires retry', {
@@ -1190,8 +1269,7 @@ const ExamMode = () => {
                         <div className="space-y-3">
                             <button
                                 onClick={() => {
-                                    setStartExamError('');
-                                    setExamFormat('mcq');
+                                    dispatchExamState({ type: 'chooseFormat', examFormat: 'mcq' });
                                 }}
                                 className="w-full flex items-center gap-4 p-4 rounded-xl border border-border-light dark:border-border-dark hover:border-primary hover:bg-primary/5 transition-all text-left group"
                             >
@@ -1206,8 +1284,7 @@ const ExamMode = () => {
 
                             <button
                                 onClick={() => {
-                                    setStartExamError('');
-                                    setExamFormat('essay');
+                                    dispatchExamState({ type: 'chooseFormat', examFormat: 'essay' });
                                 }}
                                 className="w-full flex items-center gap-4 p-4 rounded-xl border border-border-light dark:border-border-dark hover:border-accent-emerald hover:bg-accent-emerald/5 transition-all text-left group"
                             >
@@ -1234,7 +1311,7 @@ const ExamMode = () => {
                 failed={Boolean(startExamError)}
                 errorMsg={startExamError}
                 onRetry={handleRetryStart}
-                onBack={() => { setStartExamError(''); setExamFormat(null); }}
+                onBack={() => dispatchExamState({ type: 'clearStartAndFormat' })}
                 isSessionExpired={startExamError === getExamSessionExpiredMessage()}
             />
         );
@@ -1336,7 +1413,7 @@ const ExamMode = () => {
                         <WatermelonTabs
                             defaultValue={String(currentQuestion)}
                             value={String(currentQuestion)}
-                            onValueChange={(v) => setCurrentQuestion(Number(v))}
+                            onValueChange={(v) => dispatchExamState({ type: 'moveQuestion', index: Number(v), maxIndex: questions.length - 1 })}
                         >
                             <WatermelonTabsList className="flex-wrap gap-1">
                                 {questions.map((q, index) => {
@@ -1429,7 +1506,7 @@ const ExamMode = () => {
                         <WatermelonTabs
                             defaultValue={String(currentQuestion)}
                             value={String(currentQuestion)}
-                            onValueChange={(v) => setCurrentQuestion(Number(v))}
+                            onValueChange={(v) => dispatchExamState({ type: 'moveQuestion', index: Number(v), maxIndex: questions.length - 1 })}
                         >
                             <WatermelonTabsList className="flex-wrap gap-1">
                                 {questions.map((q, index) => {

@@ -1,5 +1,4 @@
 import React, { useCallback, useEffect, useRef } from 'react';
-import { motion as Motion, AnimatePresence } from 'motion/react';
 
 const COLORS = [
     '#914bf1', '#10b981', '#f59e0b', '#ef4444',

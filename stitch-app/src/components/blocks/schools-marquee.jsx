@@ -10,7 +10,10 @@ const schools = [
 ];
 
 export function SchoolsMarquee() {
-    const items = [...schools, ...schools];
+    const items = [
+        ...schools.map((school) => ({ id: `${school}-primary`, school })),
+        ...schools.map((school) => ({ id: `${school}-repeat`, school })),
+    ];
 
     return (
         <section className="border-y border-border bg-background py-12 md:py-16 overflow-hidden">
@@ -25,9 +28,9 @@ export function SchoolsMarquee() {
                 <div className="pointer-events-none absolute right-0 top-0 h-full w-24 z-10 bg-gradient-to-l from-background to-transparent" />
 
                 <div className="flex animate-marquee gap-16 whitespace-nowrap w-max">
-                    {items.map((school, i) => (
+                    {items.map(({ id, school }) => (
                         <span
-                            key={i}
+                            key={id}
                             className="text-base font-semibold text-foreground/70 hover:text-foreground transition-colors duration-200 cursor-default"
                         >
                             {school}

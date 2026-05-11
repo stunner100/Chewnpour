@@ -64,8 +64,12 @@ const resolveLazyRouteModule = (mod, { componentName, namedExport } = {}) => {
   if (mod?.default) return mod;
 
   const exportCandidates = [];
+  const seenExportCandidates = new Set();
   for (const candidate of [namedExport, componentName]) {
-    if (candidate && !exportCandidates.includes(candidate)) exportCandidates.push(candidate);
+    if (candidate && !seenExportCandidates.has(candidate)) {
+      seenExportCandidates.add(candidate);
+      exportCandidates.push(candidate);
+    }
   }
 
   for (const candidate of exportCandidates) {

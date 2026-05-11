@@ -1,6 +1,8 @@
 import React from 'react';
-import { motion as Motion } from 'motion/react';
+import { LazyMotion, domAnimation, m } from 'motion/react';
 import { cn } from '../../lib/utils';
+
+const MotionDiv = m.div;
 
 const defaultContainerVariants = {
     hidden: { opacity: 0 },
@@ -111,6 +113,7 @@ const presetVariants = {
 };
 
 function AnimatedGroup({ children, className, variants, preset }) {
+    const childrenArray = React.Children.toArray(children);
     const selectedVariants = preset
         ? presetVariants[preset]
         : { container: defaultContainerVariants, item: defaultItemVariants };
@@ -118,18 +121,20 @@ function AnimatedGroup({ children, className, variants, preset }) {
     const itemVariants = variants?.item || selectedVariants.item;
 
     return (
-        <Motion.div
-            initial="hidden"
-            animate="visible"
-            variants={containerVariants}
-            className={cn(className)}
-        >
-            {React.Children.map(children, (child, index) => (
-                <Motion.div key={index} variants={itemVariants}>
-                    {child}
-                </Motion.div>
-            ))}
-        </Motion.div>
+        <LazyMotion features={domAnimation}>
+            <MotionDiv
+                initial="hidden"
+                animate="visible"
+                variants={containerVariants}
+                className={cn(className)}
+            >
+                {childrenArray.map((child) => (
+                    <MotionDiv key={child.key} variants={itemVariants}>
+                        {child}
+                    </MotionDiv>
+                ))}
+            </MotionDiv>
+        </LazyMotion>
     );
 }
 

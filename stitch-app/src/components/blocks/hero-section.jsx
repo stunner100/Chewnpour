@@ -174,13 +174,13 @@ export function HeroHeader({ onCtaClick = () => {} }) {
 
                         {/* Nav links — center (desktop) */}
                         <ul className="hidden lg:flex items-center gap-1 absolute left-1/2 -translate-x-1/2">
-                            {menuItems.map((item, index) => (
-                                <li key={index}>
+                            {menuItems.map((item) => (
+                                <li key={item.name}>
                                     <a
                                         href={item.href}
                                         className={cn(
                                             'px-4 py-1.5 rounded-full text-sm font-medium transition-colors duration-150',
-                                            index === 0
+                                            item.href === '/'
                                                 ? 'text-white bg-white/10'
                                                 : 'text-white/50 hover:text-white/90'
                                         )}
@@ -224,8 +224,8 @@ export function HeroHeader({ onCtaClick = () => {} }) {
                     {/* Mobile menu */}
                     <div className="group-data-[state=active]:block hidden lg:hidden pb-4 border-t border-white/8 mt-0 pt-4">
                         <ul className="flex flex-col gap-1 mb-4">
-                            {menuItems.map((item, index) => (
-                                <li key={index}>
+                            {menuItems.map((item) => (
+                                <li key={item.name}>
                                     <a
                                         href={item.href}
                                         onClick={() => setMenuState(false)}
