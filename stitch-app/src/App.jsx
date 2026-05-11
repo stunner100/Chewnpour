@@ -1,6 +1,7 @@
 import React, { Suspense, lazy, useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, useLocation } from 'react-router-dom';
 import { useMutation } from 'convex/react';
+import { LazyMotion, domAnimation } from 'motion/react';
 import { api } from '../convex/_generated/api';
 import { useAuth } from './contexts/AuthContext';
 import { hasConvexUrl } from './lib/convex-config';
@@ -290,10 +291,11 @@ const withSuspense = (element) => (
 
 function App() {
   return (
-    <Router>
-      <RouteChangeTracker />
-      {hasConvexUrl ? <CampaignAttributionTracker /> : null}
-      <Routes>
+    <LazyMotion features={domAnimation}>
+      <Router>
+        <RouteChangeTracker />
+        {hasConvexUrl ? <CampaignAttributionTracker /> : null}
+        <Routes>
         {/* Public Routes */}
         <Route path="/" element={withSuspense(<LandingPage />)} />
         <Route path="/login" element={withSuspense(<Login />)} />
@@ -348,8 +350,9 @@ function App() {
 
         {/* 404 Catch-all */}
         <Route path="*" element={<NotFound />} />
-      </Routes>
-    </Router>
+        </Routes>
+      </Router>
+    </LazyMotion>
   );
 }
 

@@ -1,13 +1,88 @@
-import React, { memo, useState, useEffect, useRef, useCallback } from 'react';
+import React, { memo, useReducer, useEffect, useRef, useCallback } from 'react';
 import { useQuery, useMutation } from 'convex/react';
 import { api } from '../../convex/_generated/api';
 
 const SAVE_DEBOUNCE_MS = 1500;
 const EXIT_ANIMATION_MS = 250;
 
-const formatTimeSince = (timestamp) => {
+const notesInitialState = {
+    draft: '',
+    saving: false,
+    lastSavedAt: null,
+    statusNow: Date.now(),
+    isClosing: false,
+};
+
+const notesReducer = (state, action) => {
+    switch (action.type) {
+        case 'topicChanged':
+            return {
+                ...state,
+                draft: '',
+                saving: false,
+                lastSavedAt: null,
+                statusNow: Date.now(),
+            };
+        case 'noteLoaded':
+            return {
+                ...state,
+                draft: action.content,
+                lastSavedAt: action.updatedAt,
+                statusNow: Date.now(),
+            };
+        case 'appendText': {
+            const separator = state.draft.trim() ? '\n\n---\n\n' : '';
+            return {
+                ...state,
+                draft: state.draft + separator + action.text,
+            };
+        }
+        case 'draftChanged':
+            return {
+                ...state,
+                draft: action.value,
+            };
+        case 'saveStarted':
+            return {
+                ...state,
+                saving: true,
+            };
+        case 'saveSucceeded':
+            return {
+                ...state,
+                saving: false,
+                lastSavedAt: action.savedAt,
+                statusNow: action.savedAt,
+            };
+        case 'saveFinished':
+            return {
+                ...state,
+                saving: false,
+            };
+        case 'statusTick':
+            return {
+                ...state,
+                statusNow: action.now,
+            };
+        case 'startClosing':
+            return {
+                ...state,
+                isClosing: true,
+            };
+        case 'finishClosing':
+        case 'reopen':
+            return {
+                ...state,
+                isClosing: false,
+            };
+        default:
+            return state;
+    }
+};
+
+const formatTimeSince = (timestamp, now = Date.now()) => {
     if (!timestamp) return '';
-    const seconds = Math.round((Date.now() - timestamp) / 1000);
+    const seconds = Math.round((now - timestamp) / 1000);
     if (seconds < 10) return 'Saved just now';
     if (seconds < 60) return `Saved ${seconds}s ago`;
     const minutes = Math.round(seconds / 60);
@@ -18,11 +93,10 @@ const formatTimeSince = (timestamp) => {
 const TopicNotesPanel = memo(function TopicNotesPanel({ topicId, open, onClose, appendText }) {
     const note = useQuery(api.topicNotes.getNote, topicId ? { topicId } : 'skip');
     const saveNote = useMutation(api.topicNotes.saveNote);
-    const [draft, setDraft] = useState('');
-    const [saving, setSaving] = useState(false);
-    const [lastSavedAt, setLastSavedAt] = useState(null);
-    const [statusText, setStatusText] = useState('');
-    const [isClosing, setIsClosing] = useState(false);
+    const [{ draft, saving, lastSavedAt, statusNow, isClosing }, dispatchNotes] = useReducer(
+        notesReducer,
+        notesInitialState,
+    );
     const saveTimerRef = useRef(null);
     const textareaRef = useRef(null);
     const initializedRef = useRef(false);
@@ -31,8 +105,11 @@ const TopicNotesPanel = memo(function TopicNotesPanel({ topicId, open, onClose, 
     // Initialize draft from DB on first load
     useEffect(() => {
         if (note && !initializedRef.current) {
-            setDraft(note.content || '');
-            setLastSavedAt(note.updatedAt || null);
+            dispatchNotes({
+                type: 'noteLoaded',
+                content: note.content || '',
+                updatedAt: note.updatedAt || null,
+            });
             initializedRef.current = true;
         }
         if (note === null && !initializedRef.current) {
@@ -43,18 +120,13 @@ const TopicNotesPanel = memo(function TopicNotesPanel({ topicId, open, onClose, 
     // Reset initialization when topic changes
     useEffect(() => {
         initializedRef.current = false;
-        setDraft('');
-        setLastSavedAt(null);
-        setStatusText('');
+        dispatchNotes({ type: 'topicChanged' });
     }, [topicId]);
 
     // Handle appendText from "Copy to notes"
     useEffect(() => {
         if (!appendText || !open) return;
-        setDraft((prev) => {
-            const separator = prev.trim() ? '\n\n---\n\n' : '';
-            return prev + separator + appendText;
-        });
+        dispatchNotes({ type: 'appendText', text: appendText });
     }, [appendText, open]);
 
     // Auto-save with debounce
@@ -62,38 +134,31 @@ const TopicNotesPanel = memo(function TopicNotesPanel({ topicId, open, onClose, 
         if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
         saveTimerRef.current = setTimeout(async () => {
             if (!topicId) return;
-            setSaving(true);
+            dispatchNotes({ type: 'saveStarted' });
             try {
                 await saveNote({ topicId, content });
-                setLastSavedAt(Date.now());
+                dispatchNotes({ type: 'saveSucceeded', savedAt: Date.now() });
             } catch {
                 // Silent — user sees stale "last saved" timestamp
             } finally {
-                setSaving(false);
+                dispatchNotes({ type: 'saveFinished' });
             }
         }, SAVE_DEBOUNCE_MS);
     }, [topicId, saveNote]);
 
     const handleDraftChange = (e) => {
         const value = e.target.value;
-        setDraft(value);
+        dispatchNotes({ type: 'draftChanged', value });
         debouncedSave(value);
     };
 
     // Update status text periodically
     useEffect(() => {
-        if (!open) return;
-        const update = () => {
-            if (saving) {
-                setStatusText('Saving…');
-            } else if (lastSavedAt) {
-                setStatusText(formatTimeSince(lastSavedAt));
-            } else {
-                setStatusText('');
-            }
-        };
-        update();
-        const interval = setInterval(update, 5000);
+        if (!open || saving || !lastSavedAt) return undefined;
+        dispatchNotes({ type: 'statusTick', now: Date.now() });
+        const interval = setInterval(() => {
+            dispatchNotes({ type: 'statusTick', now: Date.now() });
+        }, 5000);
         return () => clearInterval(interval);
     }, [open, saving, lastSavedAt]);
 
@@ -107,9 +172,9 @@ const TopicNotesPanel = memo(function TopicNotesPanel({ topicId, open, onClose, 
     // Handle close with exit animation
     const handleClose = useCallback(() => {
         if (isClosing) return;
-        setIsClosing(true);
+        dispatchNotes({ type: 'startClosing' });
         closingTimerRef.current = setTimeout(() => {
-            setIsClosing(false);
+            dispatchNotes({ type: 'finishClosing' });
             onClose();
         }, EXIT_ANIMATION_MS);
     }, [isClosing, onClose]);
@@ -120,11 +185,6 @@ const TopicNotesPanel = memo(function TopicNotesPanel({ topicId, open, onClose, 
             if (closingTimerRef.current) clearTimeout(closingTimerRef.current);
         };
     }, []);
-
-    // Reset closing state when panel reopens
-    useEffect(() => {
-        if (open) setIsClosing(false);
-    }, [open]);
 
     // Escape to close
     useEffect(() => {
@@ -141,6 +201,7 @@ const TopicNotesPanel = memo(function TopicNotesPanel({ topicId, open, onClose, 
     const panelAnimClass = isClosing
         ? 'animate-panel-slide-down md:animate-panel-slide-right'
         : 'animate-panel-slide-up md:animate-panel-slide-left';
+    const statusText = saving ? 'Saving…' : formatTimeSince(lastSavedAt, statusNow);
 
     return (
         <>

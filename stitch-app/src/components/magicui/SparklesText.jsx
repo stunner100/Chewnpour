@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { motion as Motion, AnimatePresence } from 'motion/react';
+import { m as Motion, AnimatePresence } from 'motion/react';
 import { cn } from '../../lib/utils';
 
 const Sparkle = ({ delay, duration, x, y, size }) => (

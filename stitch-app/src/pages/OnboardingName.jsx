@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useMutation } from 'convex/react';
-import { motion as Motion } from 'motion/react';
+import { m as Motion } from 'motion/react';
 import { api } from '../../convex/_generated/api';
 import { useAuth } from '../contexts/AuthContext';
 import { HexLogo } from '../components/PublicShell';

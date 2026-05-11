@@ -1,5 +1,5 @@
 import React from 'react';
-import { motion as Motion } from 'motion/react';
+import { m as Motion } from 'motion/react';
 import { cn } from '../../lib/utils';
 
 export const BlurFade = ({

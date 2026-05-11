@@ -23,22 +23,23 @@ const CourseCard = ({
     onConfirmDelete,
     onMoveToFolder,
 }) => {
-    const [menuOpen, setMenuOpen] = useState(false);
-    const [moveSubmenuOpen, setMoveSubmenuOpen] = useState(false);
+    const [menuState, setMenuState] = useState({
+        menuOpen: false,
+        moveSubmenuOpen: false,
+    });
+    const { menuOpen, moveSubmenuOpen } = menuState;
     const menuRef = useRef(null);
 
     useEffect(() => {
         if (!menuOpen) return;
         const handleClickOutside = (event) => {
             if (menuRef.current && !menuRef.current.contains(event.target)) {
-                setMenuOpen(false);
-                setMoveSubmenuOpen(false);
+                setMenuState({ menuOpen: false, moveSubmenuOpen: false });
             }
         };
         const handleKey = (event) => {
             if (event.key === 'Escape') {
-                setMenuOpen(false);
-                setMoveSubmenuOpen(false);
+                setMenuState({ menuOpen: false, moveSubmenuOpen: false });
             }
         };
         document.addEventListener('mousedown', handleClickOutside);
@@ -63,8 +64,7 @@ const CourseCard = ({
     };
 
     const closeMenu = () => {
-        setMenuOpen(false);
-        setMoveSubmenuOpen(false);
+        setMenuState({ menuOpen: false, moveSubmenuOpen: false });
     };
 
     const handleMove = async (folderId) => {
@@ -112,7 +112,13 @@ const CourseCard = ({
                     >
                         <button
                             type="button"
-                            onClick={(e) => { stopCardNav(e); setMenuOpen((v) => !v); setMoveSubmenuOpen(false); }}
+                            onClick={(e) => {
+                                stopCardNav(e);
+                                setMenuState((state) => ({
+                                    menuOpen: !state.menuOpen,
+                                    moveSubmenuOpen: false,
+                                }));
+                            }}
                             disabled={isDeleting || isMoving}
                             className="btn-icon size-7 bg-surface-light/90 dark:bg-surface-dark/90 border border-border-subtle dark:border-border-subtle-dark opacity-0 group-hover:opacity-100 focus:opacity-100 data-[open=true]:opacity-100 transition-all"
                             data-open={menuOpen}
@@ -132,7 +138,13 @@ const CourseCard = ({
                             >
                                 <button
                                     type="button"
-                                    onClick={(e) => { stopCardNav(e); setMoveSubmenuOpen((v) => !v); }}
+                                    onClick={(e) => {
+                                        stopCardNav(e);
+                                        setMenuState((state) => ({
+                                            ...state,
+                                            moveSubmenuOpen: !state.moveSubmenuOpen,
+                                        }));
+                                    }}
                                     className="w-full flex items-center justify-between gap-2 px-3 py-2 text-body-sm text-left text-text-main-light dark:text-text-main-dark hover:bg-surface-hover dark:hover:bg-surface-hover-dark"
                                     aria-haspopup="menu"
                                     aria-expanded={moveSubmenuOpen}

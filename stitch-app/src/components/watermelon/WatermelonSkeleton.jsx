@@ -1,5 +1,5 @@
 import React from 'react';
-import { motion as Motion, useReducedMotion } from 'motion/react';
+import { m as Motion, useReducedMotion } from 'motion/react';
 
 const EMPTY_OBJECT = {};
 

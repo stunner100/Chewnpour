@@ -20,8 +20,11 @@ const SubscriptionCallback = () => {
     const reference = useMemo(() => String(searchParams.get('reference') || '').trim(), [searchParams]);
     const returnPath = useMemo(() => sanitizeReturnPath(searchParams.get('from') || '/dashboard'), [searchParams]);
 
-    const [status, setStatus] = useState('verifying');
-    const [errorMessage, setErrorMessage] = useState('');
+    const [verificationState, setVerificationState] = useState({
+        status: 'verifying',
+        errorMessage: '',
+    });
+    const { status, errorMessage } = verificationState;
 
     useEffect(() => {
         let cancelled = false;
@@ -46,7 +49,7 @@ const SubscriptionCallback = () => {
                     const grantedCredits = Number.isFinite(Number(result?.grantedCredits))
                         ? Math.max(0, Math.floor(Number(result.grantedCredits)))
                         : 0;
-                    setStatus('success');
+                    setVerificationState({ status: 'success', errorMessage: '' });
                     navigate(redirectTo, {
                         replace: true,
                         state: {
@@ -58,7 +61,7 @@ const SubscriptionCallback = () => {
                     return;
                 }
 
-                setStatus('failed');
+                setVerificationState({ status: 'failed', errorMessage: '' });
                 const failureRedirect = String(result?.redirectTo || '').trim();
                 if (failureRedirect.startsWith('/')) {
                     navigate(failureRedirect, { replace: true });
@@ -69,8 +72,10 @@ const SubscriptionCallback = () => {
                 }
             } catch (error) {
                 if (cancelled) return;
-                setStatus('failed');
-                setErrorMessage(error instanceof Error ? error.message : 'Could not verify payment.');
+                setVerificationState({
+                    status: 'failed',
+                    errorMessage: error instanceof Error ? error.message : 'Could not verify payment.',
+                });
                 navigate(`/subscription?from=${encodeURIComponent(returnPath)}&reason=verification_failed`, {
                     replace: true,
                 });

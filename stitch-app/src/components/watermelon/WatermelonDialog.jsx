@@ -1,5 +1,5 @@
 import React, { useEffect, useEffectEvent } from 'react';
-import { motion as Motion, AnimatePresence } from 'motion/react';
+import { m as Motion, AnimatePresence } from 'motion/react';
 import { cn } from '../../lib/utils';
 
 export const WatermelonDialog = ({

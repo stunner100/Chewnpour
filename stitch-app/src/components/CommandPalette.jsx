@@ -1,6 +1,6 @@
-import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
+import React, { useReducer, useEffect, useEffectEvent, useRef, useMemo, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { motion as Motion, AnimatePresence } from 'motion/react';
+import { m as Motion, AnimatePresence } from 'motion/react';
 import { cn } from '../lib/utils';
 import { signOut } from '../lib/auth-client';
 
@@ -23,29 +23,56 @@ const isEditableTarget = (target) => {
     return target.isContentEditable || tagName === 'input' || tagName === 'textarea' || tagName === 'select';
 };
 
+const commandPaletteInitialState = {
+    open: false,
+    query: '',
+    activeIndex: 0,
+};
+
+const commandPaletteReducer = (state, action) => {
+    switch (action.type) {
+        case 'toggleShortcut':
+            return state.open
+                ? { ...state, open: false }
+                : { open: true, query: '', activeIndex: 0 };
+        case 'close':
+            return { ...state, open: false };
+        case 'closeAndClear':
+            return { open: false, query: '', activeIndex: 0 };
+        case 'queryChanged':
+            return { ...state, query: action.value, activeIndex: 0 };
+        case 'activate':
+            return { ...state, activeIndex: action.index };
+        case 'activateNext':
+            return { ...state, activeIndex: Math.min(state.activeIndex + 1, Math.max(0, action.maxIndex)) };
+        case 'activatePrevious':
+            return { ...state, activeIndex: Math.max(state.activeIndex - 1, 0) };
+        default:
+            return state;
+    }
+};
+
 export const CommandPalette = () => {
-    const [open, setOpen] = useState(false);
-    const [query, setQuery] = useState('');
-    const [activeIndex, setActiveIndex] = useState(0);
+    const [{ open, query, activeIndex }, dispatchPalette] = useReducer(
+        commandPaletteReducer,
+        commandPaletteInitialState,
+    );
     const navigate = useNavigate();
     const inputRef = useRef(null);
     const listRef = useRef(null);
 
+    const handleGlobalKeyDown = useEffectEvent((e) => {
+        if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
+            if (isEditableTarget(e.target)) return;
+            e.preventDefault();
+            dispatchPalette({ type: 'toggleShortcut' });
+        }
+    });
+
     useEffect(() => {
-        const handleKeyDown = (e) => {
-            if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
-                if (isEditableTarget(e.target)) return;
-                e.preventDefault();
-                setOpen((prev) => !prev);
-                if (!open) {
-                    setQuery('');
-                    setActiveIndex(0);
-                }
-            }
-        };
-        document.addEventListener('keydown', handleKeyDown);
-        return () => document.removeEventListener('keydown', handleKeyDown);
-    }, [open]);
+        document.addEventListener('keydown', handleGlobalKeyDown);
+        return () => document.removeEventListener('keydown', handleGlobalKeyDown);
+    }, []);
 
     useEffect(() => {
         if (open) {
@@ -65,8 +92,7 @@ export const CommandPalette = () => {
 
     const handleSelect = useCallback(
         (value) => {
-            setOpen(false);
-            setQuery('');
+            dispatchPalette({ type: 'closeAndClear' });
             if (value === '__signout') {
                 signOut().finally(() => navigate('/login', { replace: true }));
                 return;
@@ -77,33 +103,23 @@ export const CommandPalette = () => {
     );
 
     const handleQueryChange = (value) => {
-        setQuery(value);
-        setActiveIndex(0);
+        dispatchPalette({ type: 'queryChanged', value });
     };
 
     const handleKeyDown = (e) => {
         if (e.key === 'ArrowDown') {
             e.preventDefault();
-            setActiveIndex((i) => Math.min(i + 1, filtered.length - 1));
+            dispatchPalette({ type: 'activateNext', maxIndex: filtered.length - 1 });
         } else if (e.key === 'ArrowUp') {
             e.preventDefault();
-            setActiveIndex((i) => Math.max(i - 1, 0));
+            dispatchPalette({ type: 'activatePrevious' });
         } else if (e.key === 'Enter' && filtered[activeIndex]) {
             e.preventDefault();
             handleSelect(filtered[activeIndex].value);
         } else if (e.key === 'Escape') {
-            setOpen(false);
+            dispatchPalette({ type: 'close' });
         }
     };
-
-    useEffect(() => {
-        if (!open) return undefined;
-        const handleClick = (e) => {
-            if (e.target === e.currentTarget) setOpen(false);
-        };
-        document.addEventListener('click', handleClick);
-        return () => document.removeEventListener('click', handleClick);
-    }, [open]);
 
     useEffect(() => {
         if (!listRef.current) return;
@@ -121,7 +137,7 @@ export const CommandPalette = () => {
                         exit={{ opacity: 0 }}
                         transition={{ duration: 0.15 }}
                         className="fixed inset-0 z-[200] bg-black/50 backdrop-blur-sm"
-                        onClick={() => setOpen(false)}
+                        onClick={() => dispatchPalette({ type: 'close' })}
                     />
                     <Motion.div
                         initial={{ opacity: 0, scale: 0.95, y: -10 }}
@@ -157,7 +173,7 @@ export const CommandPalette = () => {
                                             key={option.value}
                                             type="button"
                                             onClick={() => handleSelect(option.value)}
-                                            onMouseEnter={() => setActiveIndex(index)}
+                                            onMouseEnter={() => dispatchPalette({ type: 'activate', index })}
                                             className={cn(
                                                 'w-full flex items-center gap-3 px-4 py-3 text-left text-sm transition-colors',
                                                 index === activeIndex

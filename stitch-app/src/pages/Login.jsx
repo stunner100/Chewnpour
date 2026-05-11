@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { motion as Motion } from 'motion/react';
+import { m as Motion } from 'motion/react';
 import { useAuth } from '../contexts/AuthContext';
 import PublicShell, { ArrowBadge } from '../components/PublicShell';
 import { BlurFade } from '../components/magicui/BlurFade';

@@ -1,4 +1,4 @@
-import React, { memo, useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import React, { memo, useReducer, useState, useEffect, useEffectEvent, useRef, useCallback, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { useQuery, useAction, useMutation, useConvexAuth } from 'convex/react';
 import { api } from '../../convex/_generated/api';
@@ -25,6 +25,17 @@ const isAiMessageQuotaExceededError = (error) => {
 
 const EXIT_ANIMATION_MS = 250;
 
+const inputReducer = (state, action) => {
+    switch (action.type) {
+        case 'set':
+            return String(action.value || '');
+        case 'clear':
+            return '';
+        default:
+            return state;
+    }
+};
+
 const TopicChatPanel = memo(function TopicChatPanel({ topicId, topicTitle, open, onClose, initialPrompt }) {
     const { isAuthenticated: isConvexAuthenticated } = useConvexAuth();
     const messages = useQuery(api.topicChat.getMessages, topicId ? { topicId } : 'skip');
@@ -40,7 +51,7 @@ const TopicChatPanel = memo(function TopicChatPanel({ topicId, topicTitle, open,
     const clearChat = useMutation(api.topicChat.clearChat);
     const setTutorPersona = useMutation(api.tutor.setTutorPersona);
 
-    const [input, setInput] = useState('');
+    const [input, dispatchInput] = useReducer(inputReducer, '');
     const [sending, setSending] = useState(false);
     const [error, setError] = useState('');
     const [isClosing, setIsClosing] = useState(false);
@@ -70,6 +81,9 @@ const TopicChatPanel = memo(function TopicChatPanel({ topicId, topicTitle, open,
 
     const textareaRef = useRef(null);
     const messagesContainerRef = useRef(null);
+    const applyInitialPrompt = useEffectEvent((prompt) => {
+        dispatchInput({ type: 'set', value: prompt });
+    });
 
     useEffect(() => {
         if (!tutorSupport?.persona) return;
@@ -144,7 +158,7 @@ const TopicChatPanel = memo(function TopicChatPanel({ topicId, topicTitle, open,
     // Pre-fill input from initialPrompt (tutor entry points)
     useEffect(() => {
         if (open && initialPrompt) {
-            setInput(initialPrompt);
+            applyInitialPrompt(initialPrompt);
         }
     }, [open, initialPrompt]);
 
@@ -173,7 +187,7 @@ const TopicChatPanel = memo(function TopicChatPanel({ topicId, topicTitle, open,
         }
         setSending(true);
         setError('');
-        setInput('');
+        dispatchInput({ type: 'clear' });
         if (textareaRef.current) textareaRef.current.style.height = 'auto';
         try {
             await askTutor({ topicId, question, persona: selectedPersona });
@@ -206,9 +220,8 @@ const TopicChatPanel = memo(function TopicChatPanel({ topicId, topicTitle, open,
     }, [handleSend]);
 
     const handleTextareaChange = useCallback((e) => {
-        setInput(e.target.value);
+        dispatchInput({ type: 'set', value: e.target.value });
         // Auto-expand textarea
-        e.target.style.height = 'auto';
         e.target.style.height = Math.min(e.target.scrollHeight, 120) + 'px';
     }, []);
 

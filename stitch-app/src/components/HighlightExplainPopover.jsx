@@ -15,42 +15,52 @@ const HighlightExplainPopover = memo(function HighlightExplainPopover({
     onCopyToNotes,
 }) {
     const explainSelection = useAction(api.ai.explainSelection);
-    const [loading, setLoading] = useState(false);
-    const [explanation, setExplanation] = useState('');
-    const [error, setError] = useState('');
-    const [activeStyle, setActiveStyle] = useState('');
+    const [explainState, setExplainState] = useState({
+        selectionText: '',
+        loading: false,
+        explanation: '',
+        error: '',
+        activeStyle: '',
+    });
+    const selectionText = selection?.text || '';
+    const hasCurrentSelectionState = explainState.selectionText === selectionText;
+    const loading = hasCurrentSelectionState ? explainState.loading : false;
+    const explanation = hasCurrentSelectionState ? explainState.explanation : '';
+    const error = hasCurrentSelectionState ? explainState.error : '';
+    const activeStyle = hasCurrentSelectionState ? explainState.activeStyle : '';
     const popoverRef = useRef(null);
-    const prevSelectionTextRef = useRef('');
-
-    // Reset state when selection changes
-    useEffect(() => {
-        if (!selection) return;
-        if (selection.text !== prevSelectionTextRef.current) {
-            setExplanation('');
-            setError('');
-            setLoading(false);
-            setActiveStyle('');
-            prevSelectionTextRef.current = selection.text;
-        }
-    }, [selection]);
 
     const handleExplain = useCallback(async (style) => {
         if (!topicId || !selection?.text) return;
-        setActiveStyle(style);
-        setError('');
-        setLoading(true);
-        setExplanation('');
+        const selectedText = selection.text;
+        setExplainState({
+            selectionText: selectedText,
+            loading: true,
+            explanation: '',
+            error: '',
+            activeStyle: style,
+        });
         try {
             const result = await explainSelection({
                 topicId,
-                selectedText: selection.text.slice(0, 1000),
+                selectedText: selectedText.slice(0, 1000),
                 style,
             });
-            setExplanation(result?.explanation || 'No explanation generated.');
+            setExplainState({
+                selectionText: selectedText,
+                loading: false,
+                explanation: result?.explanation || 'No explanation generated.',
+                error: '',
+                activeStyle: style,
+            });
         } catch {
-            setError('Failed to generate explanation. Please try again.');
-        } finally {
-            setLoading(false);
+            setExplainState({
+                selectionText: selectedText,
+                loading: false,
+                explanation: '',
+                error: 'Failed to generate explanation. Please try again.',
+                activeStyle: style,
+            });
         }
     }, [topicId, selection, explainSelection]);
 
@@ -179,9 +189,13 @@ const HighlightExplainPopover = memo(function HighlightExplainPopover({
                                 )}
                                 <button
                                     onClick={() => {
-                                        setExplanation('');
-                                        setError('');
-                                        setActiveStyle('');
+                                        setExplainState({
+                                            selectionText,
+                                            loading: false,
+                                            explanation: '',
+                                            error: '',
+                                            activeStyle: '',
+                                        });
                                     }}
                                     className="flex items-center gap-1 text-xs font-semibold text-zinc-400 hover:text-zinc-600"
                                 >

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { motion as Motion } from 'motion/react';
+import { m as Motion } from 'motion/react';
 import MobileBottomNav from './MobileBottomNav';
 import { WatermelonToaster } from './watermelon/WatermelonSonner';
 import { watermelonToast } from './watermelon/watermelonToast';

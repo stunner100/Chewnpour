@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { useAction, useConvexAuth, useQuery } from 'convex/react';
 import { api } from '../../convex/_generated/api';
@@ -73,7 +73,7 @@ const Subscription = () => {
     const userId = user?.id;
 
     const [loading, setLoading] = useState(false);
-    const [error, setError] = useState('');
+    const [checkoutError, setCheckoutError] = useState('');
     const [providerHint, setProviderHint] = useState('');
     const [selectedPlanId, setSelectedPlanId] = useState(DEFAULT_TOP_UP_OPTIONS[0].id);
 
@@ -88,6 +88,9 @@ const Subscription = () => {
         () => sanitizeReturnPath(searchParams.get('from') || '/dashboard'),
         [searchParams]
     );
+    const paywallStateMessage = typeof routerLocation.state?.paywallMessage === 'string'
+        ? routerLocation.state.paywallMessage.trim()
+        : '';
 
     const safeQuota = quota || {
         freeLimit: 3,
@@ -116,40 +119,21 @@ const Subscription = () => {
         () => buildUploadLimitMessageFromOptions(topUpOptions, currency),
         [topUpOptions, currency]
     );
-
-    useEffect(() => {
-        if (!selectedTopUpPlan) return;
-        if (selectedTopUpPlan.id === selectedPlanId) return;
-        setSelectedPlanId(selectedTopUpPlan.id);
-    }, [selectedPlanId, selectedTopUpPlan]);
-
-    useEffect(() => {
-        if (error) {
-            watermelonToast(error, { type: 'warning', duration: 4500 });
-        }
-    }, [error]);
-
-    useEffect(() => {
+    const routeError = useMemo(() => {
         const reason = String(searchParams.get('reason') || '').trim();
-        const stateMessage = typeof routerLocation.state?.paywallMessage === 'string'
-            ? routerLocation.state.paywallMessage.trim()
-            : '';
         if (!reason) {
-            setError(remaining <= 0 ? stateMessage : '');
-            return;
+            return remaining <= 0 ? paywallStateMessage : '';
         }
 
         if (reason === 'upload_limit') {
-            setError(remaining <= 0 ? (stateMessage || uploadLimitMessage) : '');
-            return;
+            return remaining <= 0 ? (paywallStateMessage || uploadLimitMessage) : '';
         }
 
         if (reason === 'ai_message_limit') {
-            setError(
-                stateMessage
+            return (
+                paywallStateMessage
                 || "You've used your free AI messages today. Upgrade to premium for unlimited AI chat."
             );
-            return;
         }
 
         const reasonMessages = {
@@ -161,18 +145,26 @@ const Subscription = () => {
             missing_reference: 'Missing payment reference. Start checkout again.',
         };
 
-        setError(reasonMessages[reason] || 'Could not complete payment. Please try again.');
-    }, [routerLocation.state, searchParams, uploadLimitMessage, remaining]);
+        return reasonMessages[reason] || 'Could not complete payment. Please try again.';
+    }, [paywallStateMessage, remaining, searchParams, uploadLimitMessage]);
+    const error = loading ? checkoutError : (checkoutError || routeError);
+
+    const handlePlanSelect = (planId) => {
+        setSelectedPlanId(planId);
+        setCheckoutError('');
+    };
 
     const handleCheckout = async (event) => {
         event.preventDefault();
         if (!selectedTopUpPlan) {
-            setError('No top-up plan is available right now. Please refresh and try again.');
+            const message = 'No top-up plan is available right now. Please refresh and try again.';
+            setCheckoutError(message);
+            watermelonToast(message, { type: 'warning', duration: 4500 });
             return;
         }
 
         setLoading(true);
-        setError('');
+        setCheckoutError('');
 
         try {
             const result = await initializeCheckout({
@@ -185,8 +177,10 @@ const Subscription = () => {
                 throw new Error('Could not start checkout right now.');
             }
             window.location.assign(authorizationUrl);
-        } catch (checkoutError) {
-            setError(resolveConvexActionError(checkoutError, 'Could not initialize checkout.'));
+        } catch (err) {
+            const message = resolveConvexActionError(err, 'Could not initialize checkout.');
+            setCheckoutError(message);
+            watermelonToast(message, { type: 'warning', duration: 4500 });
             setLoading(false);
         }
     };
@@ -263,7 +257,7 @@ const Subscription = () => {
                             <button
                                 key={plan.id}
                                 type="button"
-                                onClick={() => setSelectedPlanId(plan.id)}
+                                onClick={() => handlePlanSelect(plan.id)}
                                 className={`relative rounded-xl border px-4 py-3 text-left transition-colors ${
                                     active
                                         ? isSemester

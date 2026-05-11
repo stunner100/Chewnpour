@@ -1,5 +1,5 @@
 import React, { useCallback, useRef } from 'react';
-import { motion as Motion, useMotionTemplate, useMotionValue } from 'motion/react';
+import { m as Motion, useMotionTemplate, useMotionValue } from 'motion/react';
 import { cn } from '../../lib/utils';
 
 export const MagicCard = ({

@@ -1,5 +1,5 @@
 import React from 'react';
-import { motion as Motion } from 'motion/react';
+import { m as Motion } from 'motion/react';
 
 const ACCENT = 'rgb(145, 75, 241)';
 const INACTIVE = 'rgba(255,255,255,0.1)';

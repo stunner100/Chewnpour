@@ -18,8 +18,11 @@ const normalizeType = (value) => String(value || '').trim().toLowerCase();
 const Unsubscribe = () => {
     const [searchParams] = useSearchParams();
     const unsubscribeByToken = useMutation(api.profiles.unsubscribeByToken);
-    const [status, setStatus] = useState('loading');
-    const [message, setMessage] = useState('');
+    const [unsubscribeState, setUnsubscribeState] = useState({
+        status: 'loading',
+        message: '',
+    });
+    const { status, message } = unsubscribeState;
 
     const token = String(searchParams.get('token') || '').trim();
     const emailType = normalizeType(searchParams.get('type') || 'all');
@@ -31,8 +34,10 @@ const Unsubscribe = () => {
         const run = async () => {
             if (!token) {
                 if (!disposed) {
-                    setStatus('error');
-                    setMessage('This unsubscribe link is missing a token.');
+                    setUnsubscribeState({
+                        status: 'error',
+                        message: 'This unsubscribe link is missing a token.',
+                    });
                 }
                 return;
             }
@@ -40,13 +45,17 @@ const Unsubscribe = () => {
             try {
                 await unsubscribeByToken({ token, emailType });
                 if (!disposed) {
-                    setStatus('success');
-                    setMessage(`You have been unsubscribed from ${label}.`);
+                    setUnsubscribeState({
+                        status: 'success',
+                        message: `You have been unsubscribed from ${label}.`,
+                    });
                 }
             } catch (error) {
                 if (!disposed) {
-                    setStatus('error');
-                    setMessage(String(error?.message || error || 'We could not process this unsubscribe link.'));
+                    setUnsubscribeState({
+                        status: 'error',
+                        message: String(error?.message || error || 'We could not process this unsubscribe link.'),
+                    });
                 }
             }
         };

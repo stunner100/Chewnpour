@@ -161,12 +161,12 @@ const TopicSidebar = memo(function TopicSidebar({
                     <ul className="space-y-2">
                         {(contentLines && contentLines.length > 0 ? contentLines : [
                             cleanLine(topic?.description || 'Lesson summary loading...')
-                        ]).slice(0, 3).map((line, idx) => {
+                        ]).slice(0, 3).map((line) => {
                             if (!line || typeof line !== 'string') return null;
                             const summaryLine = cleanLine(line);
                             if (!summaryLine) return null;
                             return (
-                                <li key={`${summaryLine}-${idx}`} className="flex items-start gap-2">
+                                <li key={summaryLine} className="flex items-start gap-2">
                                     <span className="material-symbols-outlined text-primary text-[14px] mt-0.5 shrink-0">check</span>
                                     <span className="text-caption text-text-sub-light dark:text-text-sub-dark line-clamp-2">{summaryLine}</span>
                                 </li>

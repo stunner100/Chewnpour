@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect, useMemo } from 'react';
-import { motion as Motion, AnimatePresence } from 'motion/react';
+import { m as Motion, AnimatePresence } from 'motion/react';
 import { cn } from '../../lib/utils';
 
 const EMPTY_ARRAY = [];
