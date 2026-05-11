@@ -520,6 +520,12 @@ const LandingPageStyles = () => (
             padding: 20px;
             height: 324px;
             overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+        .transform-card-title {
+            margin-top: auto;
+            padding-top: 28px;
         }
         @media (max-width: 809px) {
             .transform-grid {
@@ -530,17 +536,12 @@ const LandingPageStyles = () => (
                 grid-column: span 1 !important;
                 min-height: 320px;
                 height: auto;
-                display: flex !important;
-                flex-direction: column;
             }
             .transform-card-copy {
                 width: min(100%, calc(100% - 96px)) !important;
                 line-height: 1.35 !important;
             }
             .transform-card-title {
-                position: static !important;
-                inset: auto !important;
-                margin-top: auto;
                 padding-top: 28px;
             }
         }
@@ -842,7 +843,7 @@ const TransformSection = () => (
                     <a
                         key={card.title}
                         href="#features"
-                        className="transform-card grain group relative overflow-hidden block"
+                        className="transform-card grain group relative overflow-hidden"
                         style={{ gridColumn: `span ${span}` }}
                     >
                         <div
@@ -887,7 +888,7 @@ const TransformSection = () => (
                                 </svg>
                             </span>
                         </div>
-                        <h4 className="transform-card-title absolute inset-x-5 bottom-5 z-[1] text-[28px] font-medium leading-[33.6px] text-white [font-family:Outfit,sans-serif]">
+                        <h4 className="transform-card-title relative z-[1] text-[28px] font-medium leading-[33.6px] text-white [font-family:Outfit,sans-serif]">
                             {card.title}
                         </h4>
                     </a>
