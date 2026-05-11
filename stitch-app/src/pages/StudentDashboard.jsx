@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 
 const StudentDashboard = () => {
     return (
-        <div className="flex-1 pt-24 px-space-8 pb-space-16 max-w-container-max mx-auto w-full">
+        <div className="flex-1 pt-space-8 px-space-8 pb-space-16 max-w-container-max mx-auto w-full">
             {/* Welcome Header */}
             <div className="flex justify-between items-end mb-space-10">
                 <div>
