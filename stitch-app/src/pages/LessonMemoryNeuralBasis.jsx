@@ -12,9 +12,9 @@ const LessonMemoryNeuralBasis = () => {
     const [showExplanation, setShowExplanation] = useState(false);
 
     return (
-        <div className="flex-1 flex flex-col lg:flex-row relative pb-20 md:pb-0 pt-16">
+        <div className="flex-1 flex flex-col lg:flex-row relative pb-20 md:pb-0">
             {/* Lesson Canvas */}
-            <article className="flex-1 max-w-[800px] mx-auto w-full px-space-4 md:px-space-10 py-space-8 lg:py-space-12">
+            <article className="flex-1 max-w-[800px] mx-auto w-full px-space-4 md:px-space-10 pt-space-6 pb-space-8 md:pt-space-8 md:pb-space-10 lg:pt-space-8 lg:pb-space-12">
                 {/* Breadcrumb & Meta */}
                 <div className="mb-space-6 flex flex-col gap-2">
                     <nav className="flex items-center gap-2 text-text-muted font-body-sm text-body-sm">
