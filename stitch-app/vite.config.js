@@ -41,6 +41,11 @@ export default defineConfig(({ mode, command }) => {
   }
 
   return {
+    resolve: {
+      alias: {
+        '@': path.resolve(thisDir, 'src'),
+      },
+    },
     define: {
       'import.meta.env.VITE_CONVEX_URL': JSON.stringify(resolvedConvexUrl),
     },

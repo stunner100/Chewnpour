@@ -1,4 +1,21 @@
 import React, { useState } from 'react';
+import {
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuGroup,
+    DropdownMenuLabel,
+    DropdownMenuRadioGroup,
+    DropdownMenuRadioItem,
+    DropdownMenuSeparator,
+    DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+
+const SESSION_LENGTH_OPTIONS = [
+    { value: '25', title: 'Pomodoro', detail: '25m focus sprint', triggerDetail: '25m', icon: 'timer' },
+    { value: '45', title: 'Standard', detail: '45m study block', triggerDetail: '45m', icon: 'schedule' },
+    { value: '60', title: 'Deep Work', detail: '60m extended focus', triggerDetail: '60m', icon: 'psychology' },
+    { value: '90', title: 'Extended', detail: '90m mastery session', triggerDetail: '90m', icon: 'self_improvement' },
+];
 
 const AccountStudySettings = () => {
     const [dailyGoal, setDailyGoal] = useState(120);
@@ -9,6 +26,7 @@ const AccountStudySettings = () => {
         processingAlerts: true,
         weeklyReport: false,
     });
+    const selectedSessionLength = SESSION_LENGTH_OPTIONS.find((option) => option.value === sessionLength) || SESSION_LENGTH_OPTIONS[1];
 
     return (
         <div className="ml-0 md:ml-0 min-h-[calc(100vh-64px)]">
@@ -88,15 +106,51 @@ const AccountStudySettings = () => {
                                 </div>
                                 <div>
                                     <label className="block font-label-md text-label-md text-text-secondary mb-space-2">Preferred Session Length</label>
-                                    <div className="relative">
-                                        <select value={sessionLength} onChange={(e) => setSessionLength(e.target.value)} className="w-full bg-surface-soft border border-border-default rounded-lg px-space-4 py-space-3 font-body-base text-text-primary focus:ring-2 focus:ring-primary-soft focus:border-primary outline-none transition-all appearance-none cursor-pointer">
-                                            <option value="25">Pomodoro (25m)</option>
-                                            <option value="45">Standard (45m)</option>
-                                            <option value="60">Deep Work (60m)</option>
-                                            <option value="90">Extended (90m)</option>
-                                        </select>
-                                        <span className="material-symbols-outlined absolute right-4 top-1/2 -translate-y-1/2 text-text-muted pointer-events-none">expand_more</span>
-                                    </div>
+                                    <DropdownMenu>
+                                        <DropdownMenuTrigger asChild>
+                                            <button
+                                                type="button"
+                                                aria-label="Preferred session length"
+                                                className="flex w-full items-center gap-space-3 rounded-lg border border-border-default bg-surface-soft px-space-3 py-space-2 text-left font-body-base text-text-primary outline-none transition-all hover:bg-surface-muted focus:border-primary focus:ring-2 focus:ring-primary-soft"
+                                            >
+                                                <span className="material-symbols-outlined flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-primary-soft text-[18px] text-primary">
+                                                    {selectedSessionLength.icon}
+                                                </span>
+                                                <span className="flex min-w-0 flex-1 flex-col leading-tight">
+                                                    <span className="truncate font-label-md text-label-md text-text-primary">{selectedSessionLength.title}</span>
+                                                    <span className="truncate font-body-sm text-body-sm text-text-muted">{selectedSessionLength.triggerDetail}</span>
+                                                </span>
+                                                <span className="material-symbols-outlined text-[20px] text-text-muted">unfold_more</span>
+                                            </button>
+                                        </DropdownMenuTrigger>
+                                        <DropdownMenuContent align="end" className="w-[var(--radix-dropdown-menu-trigger-width)] min-w-[240px] p-space-2">
+                                            <div className="px-space-2 py-space-2">
+                                                <p className="font-label-md text-label-md text-text-primary">Session length</p>
+                                                <p className="mt-1 font-body-sm text-body-sm text-text-muted">Choose your default study block.</p>
+                                            </div>
+                                            <DropdownMenuSeparator />
+                                            <DropdownMenuGroup>
+                                                <DropdownMenuLabel>Options</DropdownMenuLabel>
+                                                <DropdownMenuRadioGroup value={sessionLength} onValueChange={setSessionLength}>
+                                                    {SESSION_LENGTH_OPTIONS.map((option) => (
+                                                        <DropdownMenuRadioItem
+                                                            key={option.value}
+                                                            value={option.value}
+                                                            className="items-start gap-space-3 rounded-lg px-space-2 py-space-2 pr-space-8"
+                                                        >
+                                                            <span className="material-symbols-outlined mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-primary-subtle text-[18px] text-primary">
+                                                                {option.icon}
+                                                            </span>
+                                                            <span className="flex min-w-0 flex-col gap-1">
+                                                                <span className="font-label-md text-label-md text-text-primary">{option.title}</span>
+                                                                <span className="font-body-sm text-body-sm text-text-muted">{option.detail}</span>
+                                                            </span>
+                                                        </DropdownMenuRadioItem>
+                                                    ))}
+                                                </DropdownMenuRadioGroup>
+                                            </DropdownMenuGroup>
+                                        </DropdownMenuContent>
+                                    </DropdownMenu>
                                 </div>
                             </div>
                         </section>
