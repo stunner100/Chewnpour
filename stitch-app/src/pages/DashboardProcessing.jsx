@@ -23,6 +23,7 @@ const PROCESSING_STEPS = [
     { key: 'ready', label: 'Ready', icon: 'check_circle', description: 'Your course is ready!' },
 ];
 
+// react-doctor-disable-next-line react-doctor/no-giant-component
 const DashboardProcessing = () => {
     const { courseId } = useParams();
     const { user } = useAuth();

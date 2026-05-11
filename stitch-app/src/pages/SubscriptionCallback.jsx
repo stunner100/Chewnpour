@@ -49,7 +49,6 @@ const SubscriptionCallback = () => {
                     const grantedCredits = Number.isFinite(Number(result?.grantedCredits))
                         ? Math.max(0, Math.floor(Number(result.grantedCredits)))
                         : 0;
-                    setVerificationState({ status: 'success', errorMessage: '' });
                     navigate(redirectTo, {
                         replace: true,
                         state: {
@@ -61,7 +60,6 @@ const SubscriptionCallback = () => {
                     return;
                 }
 
-                setVerificationState({ status: 'failed', errorMessage: '' });
                 const failureRedirect = String(result?.redirectTo || '').trim();
                 if (failureRedirect.startsWith('/')) {
                     navigate(failureRedirect, { replace: true });

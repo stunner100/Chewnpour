@@ -50,9 +50,9 @@ export const Confetti = ({
     }, [originX, originY, particleCount]);
 
     useEffect(() => {
-        if (active) {
-            burst();
-        }
+        if (!active) return undefined;
+        burst();
+        return undefined;
     }, [active, burst]);
 
     useEffect(() => {

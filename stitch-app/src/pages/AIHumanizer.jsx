@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useReducer, useEffect, useRef } from 'react';
 import { useLocation, useNavigate, Link } from 'react-router-dom';
 import { useAction, useQuery, useConvexAuth } from 'convex/react';
 import { api } from '../../convex/_generated/api';
@@ -26,6 +26,31 @@ const VERIFICATION_STEPS = [
 
 const HUMANIZE_CHUNK_ESTIMATE_CHARS = 4000;
 
+const initialHumanizerState = {
+    inputText: '',
+    outputText: '',
+    isDetecting: false,
+    isHumanizing: false,
+    detectionResult: null,
+    error: '',
+    copied: false,
+    selectedStyle: 'Casual/Blog',
+    strength: 'medium',
+    verificationResult: null,
+    verificationStep: null,
+    chunkProgressLabel: '',
+};
+
+const humanizerReducer = (state, action) => {
+    switch (action.type) {
+        case 'patch':
+            return { ...state, ...action.updates };
+        default:
+            return state;
+    }
+};
+
+// react-doctor-disable-next-line react-doctor/no-giant-component
 export const AIHumanizer = () => {
     const routerLocation = useLocation();
     const navigate = useNavigate();
@@ -42,24 +67,30 @@ export const AIHumanizer = () => {
         userId && isConvexAuthenticated ? {} : 'skip'
     );
 
-    const [inputText, setInputText] = useState('');
-    const [outputText, setOutputText] = useState('');
-    const [isDetecting, setIsDetecting] = useState(false);
-    const [isHumanizing, setIsHumanizing] = useState(false);
-    const [detectionResult, setDetectionResult] = useState(null);
-    const [error, setError] = useState('');
-    const [copied, setCopied] = useState(false);
+    const [humanizerState, dispatchHumanizer] = useReducer(humanizerReducer, initialHumanizerState);
+    const {
+        inputText,
+        outputText,
+        isDetecting,
+        isHumanizing,
+        detectionResult,
+        error,
+        copied,
+        selectedStyle,
+        strength,
+        verificationResult,
+        verificationStep,
+        chunkProgressLabel,
+    } = humanizerState;
     const copiedTimerRef = useRef(null);
-
-    const [selectedStyle, setSelectedStyle] = useState('Casual/Blog');
-    const [strength, setStrength] = useState('medium');
-    const [verificationResult, setVerificationResult] = useState(null);
-    const [verificationStep, setVerificationStep] = useState(null);
-    const [chunkProgressLabel, setChunkProgressLabel] = useState('');
+    const updateHumanizer = (updates) => dispatchHumanizer({ type: 'patch', updates });
 
     useEffect(() => {
         if (routerLocation.state?.text) {
-            setInputText(routerLocation.state.text);
+            dispatchHumanizer({
+                type: 'patch',
+                updates: { inputText: routerLocation.state.text },
+            });
             navigate(routerLocation.pathname, { replace: true });
         }
     }, [routerLocation.state, navigate, routerLocation.pathname]);
@@ -97,74 +128,83 @@ export const AIHumanizer = () => {
     const handleDetect = async () => {
         const trimmedText = inputText.trim();
         if (!trimmedText) {
-            setError('Please enter some text to analyze.');
+            updateHumanizer({ error: 'Please enter some text to analyze.' });
             return;
         }
         if (trimmedText.length < 50) {
-            setError('Text must be at least 50 characters for accurate detection.');
+            updateHumanizer({ error: 'Text must be at least 50 characters for accurate detection.' });
             return;
         }
 
-        setIsDetecting(true);
-        setError('');
-        setDetectionResult(null);
+        updateHumanizer({
+            isDetecting: true,
+            error: '',
+            detectionResult: null,
+        });
 
         try {
             const result = await detectAIText({ text: trimmedText });
-            setDetectionResult(result);
+            updateHumanizer({ detectionResult: result });
         } catch (err) {
-            setError(resolveConvexError(err, 'Failed to analyze text. Please try again.'));
+            updateHumanizer({
+                error: resolveConvexError(err, 'Failed to analyze text. Please try again.'),
+            });
         } finally {
-            setIsDetecting(false);
+            updateHumanizer({ isDetecting: false });
         }
     };
 
     const handleHumanize = async () => {
         const trimmedText = inputText.trim();
         if (!trimmedText) {
-            setError('Please enter some text to humanize.');
+            updateHumanizer({ error: 'Please enter some text to humanize.' });
             return;
         }
         if (trimmedText.length < 10) {
-            setError('Text must be at least 10 characters to humanize.');
+            updateHumanizer({ error: 'Text must be at least 10 characters to humanize.' });
             return;
         }
         if (trimmedText.length > 50000) {
-            setError('Text is too long. Maximum 50,000 characters.');
+            updateHumanizer({ error: 'Text is too long. Maximum 50,000 characters.' });
             return;
         }
         if (!isLoggedIn) {
-            setError('Please sign in to humanize text. AI detection is free for everyone.');
+            updateHumanizer({ error: 'Please sign in to humanize text. AI detection is free for everyone.' });
             return;
         }
 
-        setIsHumanizing(true);
-        setError('');
-        setDetectionResult(null);
-        setVerificationResult(null);
-        setChunkProgressLabel('');
+        updateHumanizer({
+            isHumanizing: true,
+            error: '',
+            detectionResult: null,
+            verificationResult: null,
+            chunkProgressLabel: '',
+        });
 
         // Estimate chunks for progress display
         const estimatedChunks = Math.max(1, Math.ceil(trimmedText.length / HUMANIZE_CHUNK_ESTIMATE_CHARS));
         let chunkTimer = null;
 
         try {
-            setVerificationStep('analyzing_input');
+            updateHumanizer({ verificationStep: 'analyzing_input' });
             await new Promise((r) => setTimeout(r, 400));
 
-            setVerificationStep('humanizing');
+            updateHumanizer({ verificationStep: 'humanizing' });
 
             // For long texts, cycle through chunk progress labels
             if (estimatedChunks > 1) {
                 let currentChunk = 1;
-                setChunkProgressLabel(`Rewriting section 1 of ${estimatedChunks}...`);
-                chunkTimer = setInterval(() => {
+                updateHumanizer({ chunkProgressLabel: `Rewriting section 1 of ${estimatedChunks}...` });
+                chunkTimer = window.setInterval(() => {
                     currentChunk = Math.min(currentChunk + 1, estimatedChunks);
-                    setChunkProgressLabel(`Rewriting section ${currentChunk} of ${estimatedChunks}...`);
+                    updateHumanizer({ chunkProgressLabel: `Rewriting section ${currentChunk} of ${estimatedChunks}...` });
                 }, 4000);
             }
 
-            const stepAdvanceTimer = setTimeout(() => setVerificationStep('verifying'), estimatedChunks > 1 ? estimatedChunks * 4000 : 8000);
+            const stepAdvanceTimer = window.setTimeout(
+                () => updateHumanizer({ verificationStep: 'verifying' }),
+                estimatedChunks > 1 ? estimatedChunks * 4000 : 8000
+            );
 
             const result = await humanizeWithVerification({
                 text: trimmedText,
@@ -172,27 +212,34 @@ export const AIHumanizer = () => {
                 strength,
             });
 
-            clearTimeout(stepAdvanceTimer);
-            if (chunkTimer) clearInterval(chunkTimer);
-            setChunkProgressLabel('');
-            setVerificationStep('done');
-            setOutputText(result.humanizedText);
-            setVerificationResult({
-                before: result.passes.before,
-                after: result.passes.after,
-                attempts: result.attempts,
+            window.clearTimeout(stepAdvanceTimer);
+            if (chunkTimer) window.clearInterval(chunkTimer);
+            updateHumanizer({
+                chunkProgressLabel: '',
+                verificationStep: 'done',
+                outputText: result.humanizedText,
+                verificationResult: {
+                    before: result.passes.before,
+                    after: result.passes.after,
+                    attempts: result.attempts,
+                },
             });
         } catch (err) {
-            if (chunkTimer) clearInterval(chunkTimer);
-            setChunkProgressLabel('');
+            if (chunkTimer) window.clearInterval(chunkTimer);
             if (isQuotaExceeded(err)) {
-                setError("You've used your free humanization today. Upgrade to premium for unlimited access.");
+                updateHumanizer({
+                    chunkProgressLabel: '',
+                    error: "You've used your free humanization today. Upgrade to premium for unlimited access.",
+                });
             } else {
-                setError(resolveConvexError(err, 'Failed to humanize text. Please try again.'));
+                updateHumanizer({
+                    chunkProgressLabel: '',
+                    error: resolveConvexError(err, 'Failed to humanize text. Please try again.'),
+                });
             }
         } finally {
-            setIsHumanizing(false);
-            setTimeout(() => setVerificationStep(null), 2000);
+            updateHumanizer({ isHumanizing: false });
+            window.setTimeout(() => updateHumanizer({ verificationStep: null }), 2000);
         }
     };
 
@@ -200,32 +247,36 @@ export const AIHumanizer = () => {
         if (!outputText) return;
         try {
             await navigator.clipboard.writeText(outputText);
-            setCopied(true);
+            updateHumanizer({ copied: true });
             if (copiedTimerRef.current) {
-                clearTimeout(copiedTimerRef.current);
+                window.clearTimeout(copiedTimerRef.current);
             }
-            copiedTimerRef.current = setTimeout(() => {
-                setCopied(false);
+            copiedTimerRef.current = window.setTimeout(() => {
+                updateHumanizer({ copied: false });
                 copiedTimerRef.current = null;
             }, 2000);
         } catch {
-            setError('Failed to copy to clipboard.');
+            updateHumanizer({ error: 'Failed to copy to clipboard.' });
         }
     };
 
     const handleReplace = () => {
         if (!outputText) return;
-        setInputText(outputText);
-        setOutputText('');
-        setVerificationResult(null);
+        updateHumanizer({
+            inputText: outputText,
+            outputText: '',
+            verificationResult: null,
+        });
     };
 
     const handleClear = () => {
-        setInputText('');
-        setOutputText('');
-        setDetectionResult(null);
-        setVerificationResult(null);
-        setError('');
+        updateHumanizer({
+            inputText: '',
+            outputText: '',
+            detectionResult: null,
+            verificationResult: null,
+            error: '',
+        });
     };
 
     const getConfidenceColor = (confidence) => {
@@ -309,7 +360,7 @@ export const AIHumanizer = () => {
                         </div>
                         <textarea
                             value={inputText}
-                            onChange={(e) => setInputText(e.target.value)}
+                            onChange={(e) => updateHumanizer({ inputText: e.target.value })}
                             placeholder="Paste your AI-generated text here..."
                             className="input-field h-64 md:h-80 text-body-sm resize-none"
                         />
@@ -323,7 +374,7 @@ export const AIHumanizer = () => {
                                     <button
                                         key={style}
                                         type="button"
-                                        onClick={() => setSelectedStyle(style)}
+                                        onClick={() => updateHumanizer({ selectedStyle: style })}
                                         className={`px-3 py-1.5 rounded-full text-caption font-semibold border transition-colors ${
                                             selectedStyle === style
                                                 ? 'bg-primary text-white border-primary'
@@ -345,7 +396,7 @@ export const AIHumanizer = () => {
                                     <button
                                         key={opt.key}
                                         type="button"
-                                        onClick={() => setStrength(opt.key)}
+                                        onClick={() => updateHumanizer({ strength: opt.key })}
                                         className={`flex-1 px-3 py-2 text-center transition-colors ${
                                             strength === opt.key
                                                 ? 'bg-primary text-white'

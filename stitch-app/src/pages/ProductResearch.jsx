@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useReducer } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { useMutation } from 'convex/react';
 import { api } from '../../convex/_generated/api';
@@ -25,16 +25,56 @@ const getTrimmedParam = (searchParams, key) => {
     return value || '';
 };
 
+const initialResearchState = {
+    howUsingApp: '',
+    wantedFeatures: '',
+    notes: '',
+    submitting: false,
+    submitted: false,
+    errorMessage: '',
+};
+
+const researchReducer = (state, action) => {
+    switch (action.type) {
+        case 'fieldChanged':
+            return {
+                ...state,
+                [action.field]: action.value,
+            };
+        case 'submitStarted':
+            return {
+                ...state,
+                submitting: true,
+                errorMessage: '',
+            };
+        case 'submitSucceeded':
+            return {
+                ...state,
+                submitting: false,
+                submitted: true,
+            };
+        case 'submitFailed':
+            return {
+                ...state,
+                submitting: false,
+                errorMessage: action.message,
+            };
+        default:
+            return state;
+    }
+};
+
 const ProductResearch = () => {
     const [searchParams] = useSearchParams();
     const submitResponseByToken = useMutation(api.productResearch.submitResponseByToken);
-
-    const [howUsingApp, setHowUsingApp] = useState('');
-    const [wantedFeatures, setWantedFeatures] = useState('');
-    const [notes, setNotes] = useState('');
-    const [submitting, setSubmitting] = useState(false);
-    const [submitted, setSubmitted] = useState(false);
-    const [errorMessage, setErrorMessage] = useState('');
+    const [{
+        howUsingApp,
+        wantedFeatures,
+        notes,
+        submitting,
+        submitted,
+        errorMessage,
+    }, dispatchResearch] = useReducer(researchReducer, initialResearchState);
 
     const token = getTrimmedParam(searchParams, 'token');
     const campaign = getTrimmedParam(searchParams, 'campaign');
@@ -45,8 +85,7 @@ const ProductResearch = () => {
         event.preventDefault();
         if (tokenMissing || submitting) return;
 
-        setSubmitting(true);
-        setErrorMessage('');
+        dispatchResearch({ type: 'submitStarted' });
 
         try {
             await submitResponseByToken({
@@ -58,16 +97,20 @@ const ProductResearch = () => {
                 additionalNotes: notes.trim() || undefined,
                 source: 'email_research_form',
             });
-            setSubmitted(true);
+            dispatchResearch({ type: 'submitSucceeded' });
         } catch (error) {
             const message = String(error?.message || error || '');
             if (message.includes('invalid or expired')) {
-                setErrorMessage('This research link is no longer valid. Please use the latest email link.');
+                dispatchResearch({
+                    type: 'submitFailed',
+                    message: 'This research link is no longer valid. Please use the latest email link.',
+                });
             } else {
-                setErrorMessage('We could not save your response right now. Please try again shortly.');
+                dispatchResearch({
+                    type: 'submitFailed',
+                    message: 'We could not save your response right now. Please try again shortly.',
+                });
             }
-        } finally {
-            setSubmitting(false);
         }
     };
 
@@ -118,7 +161,11 @@ const ProductResearch = () => {
                         <span className="text-body-sm font-semibold text-text-main-light dark:text-text-main-dark">How are you mainly using the app?</span>
                         <select
                             value={howUsingApp}
-                            onChange={(event) => setHowUsingApp(event.target.value)}
+                            onChange={(event) => dispatchResearch({
+                                type: 'fieldChanged',
+                                field: 'howUsingApp',
+                                value: event.target.value,
+                            })}
                             required
                             disabled={tokenMissing || submitting}
                             className="input-field text-body-sm"
@@ -134,7 +181,11 @@ const ProductResearch = () => {
                         <span className="text-body-sm font-semibold text-text-main-light dark:text-text-main-dark">What would you most like us to improve next?</span>
                         <select
                             value={wantedFeatures}
-                            onChange={(event) => setWantedFeatures(event.target.value)}
+                            onChange={(event) => dispatchResearch({
+                                type: 'fieldChanged',
+                                field: 'wantedFeatures',
+                                value: event.target.value,
+                            })}
                             required
                             disabled={tokenMissing || submitting}
                             className="input-field text-body-sm"
@@ -150,7 +201,11 @@ const ProductResearch = () => {
                         <span className="text-body-sm font-semibold text-text-main-light dark:text-text-main-dark">Anything else we should know? (optional)</span>
                         <textarea
                             value={notes}
-                            onChange={(event) => setNotes(event.target.value)}
+                            onChange={(event) => dispatchResearch({
+                                type: 'fieldChanged',
+                                field: 'notes',
+                                value: event.target.value,
+                            })}
                             rows={4}
                             maxLength={1200}
                             disabled={tokenMissing || submitting}

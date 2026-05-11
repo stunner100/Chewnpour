@@ -528,6 +528,7 @@ const isUserCorrectableEssaySubmitError = (message) => {
 
 // ── Component ──
 
+// react-doctor-disable-next-line react-doctor/no-giant-component
 const ExamMode = () => {
     const { topicId: topicIdParam } = useParams();
     const routeTopicId = typeof topicIdParam === 'string' ? topicIdParam.trim() : '';

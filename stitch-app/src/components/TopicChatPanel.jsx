@@ -152,14 +152,16 @@ const TopicChatPanel = memo(function TopicChatPanel({ topicId, topicTitle, open,
 
     // Reset closing state when panel reopens
     useEffect(() => {
-        if (open) setIsClosing(false);
+        if (!open) return undefined;
+        setIsClosing(false);
+        return undefined;
     }, [open]);
 
     // Pre-fill input from initialPrompt (tutor entry points)
     useEffect(() => {
-        if (open && initialPrompt) {
-            applyInitialPrompt(initialPrompt);
-        }
+        if (!open || !initialPrompt) return undefined;
+        applyInitialPrompt(initialPrompt);
+        return undefined;
     }, [open, initialPrompt]);
 
     // Escape to close

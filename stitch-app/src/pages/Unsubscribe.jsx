@@ -32,31 +32,29 @@ const Unsubscribe = () => {
         let disposed = false;
 
         const run = async () => {
+            let nextState;
             if (!token) {
-                if (!disposed) {
-                    setUnsubscribeState({
-                        status: 'error',
-                        message: 'This unsubscribe link is missing a token.',
-                    });
-                }
-                return;
-            }
-
-            try {
-                await unsubscribeByToken({ token, emailType });
-                if (!disposed) {
-                    setUnsubscribeState({
+                nextState = {
+                    status: 'error',
+                    message: 'This unsubscribe link is missing a token.',
+                };
+            } else {
+                try {
+                    await unsubscribeByToken({ token, emailType });
+                    nextState = {
                         status: 'success',
                         message: `You have been unsubscribed from ${label}.`,
-                    });
-                }
-            } catch (error) {
-                if (!disposed) {
-                    setUnsubscribeState({
+                    };
+                } catch (error) {
+                    nextState = {
                         status: 'error',
                         message: String(error?.message || error || 'We could not process this unsubscribe link.'),
-                    });
+                    };
                 }
+            }
+
+            if (!disposed) {
+                setUnsubscribeState(nextState);
             }
         };
 

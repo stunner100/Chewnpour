@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useReducer, useRef } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useAction, useConvexAuth } from 'convex/react';
 import { api } from '../../convex/_generated/api';
@@ -202,21 +202,54 @@ const writeLastSeenStreak = (userId, streakDays) => {
     );
 };
 
+const initialDashboardState = {
+    uploading: false,
+    uploadError: '',
+    deleteError: '',
+    deletingCourseId: '',
+    confirmDeleteId: null,
+    searchQuery: '',
+    showAllCourses: false,
+    movingCourseId: '',
+    folderActionError: '',
+    streakToastMessage: '',
+    feedbackText: '',
+    feedbackRating: 0,
+    feedbackSubmitted: false,
+    feedbackSubmitting: false,
+};
+
+const dashboardStateReducer = (state, action) => {
+    switch (action.type) {
+        case 'patch':
+            return { ...state, ...action.updates };
+        case 'toggleShowAllCourses':
+            return { ...state, showAllCourses: !state.showAllCourses };
+        default:
+            return state;
+    }
+};
+
+// react-doctor-disable-next-line react-doctor/no-giant-component
 const DashboardAnalysis = () => {
-    const [uploading, setUploading] = useState(false);
-    const [uploadError, setUploadError] = useState('');
-    const [deleteError, setDeleteError] = useState('');
-    const [deletingCourseId, setDeletingCourseId] = useState('');
-    const [confirmDeleteId, setConfirmDeleteId] = useState(null);
-    const [searchQuery, setSearchQuery] = useState('');
-    const [showAllCourses, setShowAllCourses] = useState(false);
-    const [movingCourseId, setMovingCourseId] = useState('');
-    const [folderActionError, setFolderActionError] = useState('');
-    const [streakToastMessage, setStreakToastMessage] = useState('');
-    const [feedbackText, setFeedbackText] = useState('');
-    const [feedbackRating, setFeedbackRating] = useState(0);
-    const [feedbackSubmitted, setFeedbackSubmitted] = useState(false);
-    const [feedbackSubmitting, setFeedbackSubmitting] = useState(false);
+    const [dashboardState, dispatchDashboard] = useReducer(dashboardStateReducer, initialDashboardState);
+    const {
+        uploading,
+        uploadError,
+        deleteError,
+        deletingCourseId,
+        confirmDeleteId,
+        searchQuery,
+        showAllCourses,
+        movingCourseId,
+        folderActionError,
+        streakToastMessage,
+        feedbackText,
+        feedbackRating,
+        feedbackSubmitted,
+        feedbackSubmitting,
+    } = dashboardState;
+    const updateDashboard = (updates) => dispatchDashboard({ type: 'patch', updates });
     const fileInputRef = useRef(null);
     const uploadInFlightRef = useRef(false);
     const lastSeenStreakRef = useRef(null);
@@ -268,7 +301,7 @@ const DashboardAnalysis = () => {
 
     useEffect(() => {
         lastSeenStreakRef.current = null;
-        setStreakToastMessage('');
+        dispatchDashboard({ type: 'patch', updates: { streakToastMessage: '' } });
     }, [userId]);
 
     useEffect(() => {
@@ -300,9 +333,12 @@ const DashboardAnalysis = () => {
 
             if (reachedMilestones.length > 0) {
                 const reachedMilestone = reachedMilestones[reachedMilestones.length - 1];
-                setStreakToastMessage(
-                    `Congrats! You've reached a ${reachedMilestone}-day streak. Keep going!`
-                );
+                dispatchDashboard({
+                    type: 'patch',
+                    updates: {
+                        streakToastMessage: `Congrats! You've reached a ${reachedMilestone}-day streak. Keep going!`,
+                    },
+                });
             }
         }
 
@@ -315,7 +351,7 @@ const DashboardAnalysis = () => {
     useEffect(() => {
         if (!streakToastMessage) return undefined;
         const timeoutId = window.setTimeout(() => {
-            setStreakToastMessage('');
+            dispatchDashboard({ type: 'patch', updates: { streakToastMessage: '' } });
         }, 4200);
         return () => window.clearTimeout(timeoutId);
     }, [streakToastMessage]);
@@ -324,7 +360,10 @@ const DashboardAnalysis = () => {
         const paywallToastMessage = routerLocation.state?.paywallToastMessage;
         if (!paywallToastMessage) return;
 
-        setStreakToastMessage(String(paywallToastMessage));
+        dispatchDashboard({
+            type: 'patch',
+            updates: { streakToastMessage: String(paywallToastMessage) },
+        });
         navigate(`${routerLocation.pathname}${routerLocation.search}`, { replace: true, state: {} });
     }, [routerLocation.pathname, routerLocation.search, routerLocation.state, navigate]);
 
@@ -342,7 +381,7 @@ const DashboardAnalysis = () => {
         if (!file) return;
 
         if (uploadInFlightRef.current) {
-            setUploadError('An upload is already in progress. Please wait for it to finish.');
+            updateDashboard({ uploadError: 'An upload is already in progress. Please wait for it to finish.' });
             reportUploadValidationRejected({
                 flowType: 'study_material',
                 source: 'dashboard_analysis',
@@ -357,7 +396,7 @@ const DashboardAnalysis = () => {
         }
 
         if (!userId) {
-            setUploadError('Please log in to upload files');
+            updateDashboard({ uploadError: 'Please log in to upload files' });
             reportUploadValidationRejected({
                 flowType: 'study_material',
                 source: 'dashboard_analysis',
@@ -369,7 +408,7 @@ const DashboardAnalysis = () => {
         }
 
         if (!isConvexAuthenticated) {
-            setUploadError(getUploadAuthNotReadyMessage());
+            updateDashboard({ uploadError: getUploadAuthNotReadyMessage() });
             reportUploadValidationRejected({
                 flowType: 'study_material',
                 source: 'dashboard_analysis',
@@ -385,7 +424,7 @@ const DashboardAnalysis = () => {
 
         const uploadFileType = getStudyUploadFileType(file);
         if (!uploadFileType) {
-            setUploadError('Please upload a PDF, PPTX, DOCX, or audio recording file');
+            updateDashboard({ uploadError: 'Please upload a PDF, PPTX, DOCX, or audio recording file' });
             reportUploadValidationRejected({
                 flowType: 'study_material',
                 source: 'dashboard_analysis',
@@ -398,7 +437,7 @@ const DashboardAnalysis = () => {
 
         // Validate file size (50MB max)
         if (file.size > 50 * 1024 * 1024) {
-            setUploadError('File must be less than 50MB');
+            updateDashboard({ uploadError: 'File must be less than 50MB' });
             reportUploadValidationRejected({
                 flowType: 'study_material',
                 source: 'dashboard_analysis',
@@ -410,7 +449,7 @@ const DashboardAnalysis = () => {
         }
 
         if (uploadQuota && Number(uploadQuota.remaining) <= 0) {
-            setUploadError(uploadLimitMessage);
+            updateDashboard({ uploadError: uploadLimitMessage });
             reportUploadValidationRejected({
                 flowType: 'study_material',
                 source: 'dashboard_analysis',
@@ -432,9 +471,9 @@ const DashboardAnalysis = () => {
             file,
         });
         let currentStage = 'request_upload_url';
-        setUploadError('');
+        updateDashboard({ uploadError: '' });
         uploadInFlightRef.current = true;
-        setUploading(true);
+        updateDashboard({ uploading: true });
         reportUploadFlowStarted(uploadObservation);
 
         try {
@@ -566,13 +605,13 @@ const DashboardAnalysis = () => {
         } catch (error) {
             console.error('Upload failed:', error);
             if (getConvexErrorCode(error) === 'UPLOAD_QUOTA_EXCEEDED') {
-                setUploadError(
-                    resolveQuotaExceededMessage(
+                updateDashboard({
+                    uploadError: resolveQuotaExceededMessage(
                         error,
                         uploadQuota?.topUpOptions,
                         uploadQuota?.currency || 'GHS'
-                    )
-                );
+                    ),
+                });
                 reportUploadValidationRejected({
                     flowType: 'study_material',
                     source: 'dashboard_analysis',
@@ -594,18 +633,18 @@ const DashboardAnalysis = () => {
                         errorMessage: String(error?.data?.message || error?.message || ''),
                     }
                 );
-                setUploadError(getUploadAuthNotReadyMessage());
+                updateDashboard({ uploadError: getUploadAuthNotReadyMessage() });
                 return;
             }
             reportUploadFlowFailed(uploadObservation, error, { stage: currentStage });
             if (isTransientUploadTransportError(error)) {
-                setUploadError('Upload failed due to a temporary network issue. Please check your connection and try again.');
+                updateDashboard({ uploadError: 'Upload failed due to a temporary network issue. Please check your connection and try again.' });
             } else {
-                setUploadError('Upload failed. Please try again.');
+                updateDashboard({ uploadError: 'Upload failed. Please try again.' });
             }
         } finally {
             uploadInFlightRef.current = false;
-            setUploading(false);
+            updateDashboard({ uploading: false });
             if (inputElement) {
                 inputElement.value = '';
             }
@@ -620,15 +659,19 @@ const DashboardAnalysis = () => {
     const handleDeleteCourse = async (course) => {
         if (!course?._id || !userId) return;
 
-        setDeleteError('');
-        setDeletingCourseId(String(course._id));
+        updateDashboard({
+            deleteError: '',
+            deletingCourseId: String(course._id),
+        });
 
         try {
             await deleteCourse({ courseId: course._id, userId });
         } catch (error) {
-            setDeleteError(error?.message || 'Could not delete this course right now. Please try again.');
+            updateDashboard({
+                deleteError: error?.message || 'Could not delete this course right now. Please try again.',
+            });
         } finally {
-            setDeletingCourseId('');
+            updateDashboard({ deletingCourseId: '' });
         }
     };
 
@@ -687,8 +730,10 @@ const DashboardAnalysis = () => {
 
     const handleMoveCourseToFolder = async (course, folderId) => {
         if (!userId) return;
-        setMovingCourseId(String(course._id));
-        setFolderActionError('');
+        updateDashboard({
+            movingCourseId: String(course._id),
+            folderActionError: '',
+        });
         try {
             await moveCourseToFolderMutation({
                 courseId: course._id,
@@ -696,18 +741,18 @@ const DashboardAnalysis = () => {
                 folderId: folderId ?? null,
             });
         } catch (err) {
-            setFolderActionError(err?.message || 'Could not move course.');
+            updateDashboard({ folderActionError: err?.message || 'Could not move course.' });
         } finally {
-            setMovingCourseId('');
+            updateDashboard({ movingCourseId: '' });
         }
     };
 
-    const handleRequestDelete = (course) => setConfirmDeleteId(course._id);
-    const handleCancelDelete = () => setConfirmDeleteId(null);
+    const handleRequestDelete = (course) => updateDashboard({ confirmDeleteId: course._id });
+    const handleCancelDelete = () => updateDashboard({ confirmDeleteId: null });
     const handleConfirmDelete = () => {
         const course = Array.isArray(courses) ? courses.find(c => c._id === confirmDeleteId) : null;
         if (course) handleDeleteCourse(course);
-        setConfirmDeleteId(null);
+        updateDashboard({ confirmDeleteId: null });
     };
 
     const handleSearchKeyDown = (e) => {
@@ -758,7 +803,7 @@ const DashboardAnalysis = () => {
                             placeholder="Search courses, topics, podcasts…"
                             type="text"
                             value={searchQuery}
-                            onChange={(e) => setSearchQuery(e.target.value)}
+                            onChange={(e) => updateDashboard({ searchQuery: e.target.value })}
                             onKeyDown={handleSearchKeyDown}
                         />
                     </div>
@@ -800,7 +845,7 @@ const DashboardAnalysis = () => {
                         placeholder="Search courses, topics, podcasts…"
                         type="text"
                         value={searchQuery}
-                        onChange={(e) => setSearchQuery(e.target.value)}
+                        onChange={(e) => updateDashboard({ searchQuery: e.target.value })}
                         onKeyDown={handleSearchKeyDown}
                     />
                 </div>
@@ -894,7 +939,7 @@ const DashboardAnalysis = () => {
                         {canToggleAllCourses && (
                             <button
                                 type="button"
-                                onClick={() => setShowAllCourses((c) => !c)}
+                                onClick={() => dispatchDashboard({ type: 'toggleShowAllCourses' })}
                                 className="btn-ghost text-caption"
                             >
                                 {showAllCourses ? 'Show less' : 'View all'}
@@ -1013,7 +1058,7 @@ const DashboardAnalysis = () => {
                                         <button
                                             key={star}
                                             type="button"
-                                            onClick={() => setFeedbackRating(star)}
+                                            onClick={() => updateDashboard({ feedbackRating: star })}
                                             className="p-1 rounded-lg hover:bg-surface-hover dark:hover:bg-surface-hover-dark transition-colors"
                                             aria-label={`Rate ${star} star${star > 1 ? 's' : ''}`}
                                         >
@@ -1031,7 +1076,7 @@ const DashboardAnalysis = () => {
                                 </div>
                                 <textarea
                                     value={feedbackText}
-                                    onChange={(e) => setFeedbackText(e.target.value)}
+                                    onChange={(e) => updateDashboard({ feedbackText: e.target.value })}
                                     placeholder="What can we do better? Any features you'd love to see?"
                                     rows={3}
                                     className="input-field h-auto py-3 resize-none"
@@ -1042,12 +1087,12 @@ const DashboardAnalysis = () => {
                                         disabled={(!feedbackText.trim() && feedbackRating === 0) || feedbackSubmitting}
                                         onClick={async () => {
                                             if (!userId) return;
-                                            setFeedbackSubmitting(true);
+                                            updateDashboard({ feedbackSubmitting: true });
                                             try {
                                                 await submitFeedbackMutation({ userId, rating: feedbackRating || 0, message: feedbackText.trim() || undefined });
-                                                setFeedbackSubmitted(true);
-                                            } catch { setStreakToastMessage('Failed to send feedback. Please try again.'); }
-                                            finally { setFeedbackSubmitting(false); }
+                                                updateDashboard({ feedbackSubmitted: true });
+                                            } catch { updateDashboard({ streakToastMessage: 'Failed to send feedback. Please try again.' }); }
+                                            finally { updateDashboard({ feedbackSubmitting: false }); }
                                         }}
                                         className="btn-primary text-body-sm disabled:opacity-40 disabled:cursor-not-allowed disabled:shadow-none"
                                     >
@@ -1077,7 +1122,7 @@ const DashboardAnalysis = () => {
                 </WatermelonDialogFooter>
             </WatermelonDialog>
 
-            <Toast message={streakToastMessage} onClose={() => setStreakToastMessage('')} />
+            <Toast message={streakToastMessage} onClose={() => updateDashboard({ streakToastMessage: '' })} />
         </div>
     );
 };

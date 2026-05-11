@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useReducer, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 
@@ -34,32 +34,84 @@ const GRADIENTS = [
     { id: 4, style: 'linear-gradient(135deg, #5f6368 0%, #3c4043 100%)', name: 'Gray' },
 ];
 
+const initialProfileFormState = {
+    fullName: '',
+    educationLevel: '',
+    department: '',
+    selectedGradient: 0,
+    isSaving: false,
+    error: '',
+};
+
+const profileFormReducer = (state, action) => {
+    switch (action.type) {
+        case 'profileLoaded':
+            return {
+                ...state,
+                fullName: action.fullName,
+                educationLevel: action.educationLevel,
+                department: action.department,
+                selectedGradient: action.selectedGradient,
+                error: '',
+            };
+        case 'fieldChanged':
+            return {
+                ...state,
+                [action.field]: action.value,
+                error: action.clearError ? '' : state.error,
+            };
+        case 'saveStarted':
+            return {
+                ...state,
+                isSaving: true,
+                error: '',
+            };
+        case 'saveFailed':
+            return {
+                ...state,
+                isSaving: false,
+                error: action.error,
+            };
+        case 'saveFinished':
+            return {
+                ...state,
+                isSaving: false,
+            };
+        default:
+            return state;
+    }
+};
+
 const EditProfile = () => {
     const navigate = useNavigate();
     const { user, profile, updateProfile, loading: authLoading } = useAuth();
-    
-    const [fullName, setFullName] = useState('');
-    const [educationLevel, setEducationLevel] = useState('');
-    const [department, setDepartment] = useState('');
-    const [selectedGradient, setSelectedGradient] = useState(0);
-    const [isSaving, setIsSaving] = useState(false);
-    const [error, setError] = useState('');
+    const [{
+        fullName,
+        educationLevel,
+        department,
+        selectedGradient,
+        isSaving,
+        error,
+    }, dispatchProfileForm] = useReducer(profileFormReducer, initialProfileFormState);
 
     // Initialize form with current profile data
     useEffect(() => {
-        if (profile) {
-            const gradientValue = Number(profile.avatarGradient);
-            const safeGradient =
-                Number.isInteger(gradientValue)
-                && gradientValue >= 0
-                && gradientValue < GRADIENTS.length
-                    ? gradientValue
-                    : 0;
-            setFullName(profile.fullName || '');
-            setEducationLevel(profile.educationLevel || '');
-            setDepartment(profile.department || '');
-            setSelectedGradient(safeGradient);
-        }
+        if (!profile) return undefined;
+        const gradientValue = Number(profile.avatarGradient);
+        const safeGradient =
+            Number.isInteger(gradientValue)
+            && gradientValue >= 0
+            && gradientValue < GRADIENTS.length
+                ? gradientValue
+                : 0;
+        dispatchProfileForm({
+            type: 'profileLoaded',
+            fullName: profile.fullName || '',
+            educationLevel: profile.educationLevel || '',
+            department: profile.department || '',
+            selectedGradient: safeGradient,
+        });
+        return undefined;
     }, [profile]);
 
     const displayName = fullName || user?.name || user?.email?.split('@')[0] || 'Student';
@@ -67,12 +119,11 @@ const EditProfile = () => {
 
     const handleSave = async () => {
         if (!fullName.trim()) {
-            setError('Please enter your name');
+            dispatchProfileForm({ type: 'saveFailed', error: 'Please enter your name' });
             return;
         }
 
-        setIsSaving(true);
-        setError('');
+        dispatchProfileForm({ type: 'saveStarted' });
 
         try {
             const { error: updateError } = await updateProfile({
@@ -83,14 +134,17 @@ const EditProfile = () => {
             });
 
             if (updateError) {
-                setError(updateError.message || 'Failed to save changes');
+                dispatchProfileForm({
+                    type: 'saveFailed',
+                    error: updateError.message || 'Failed to save changes',
+                });
             } else {
                 navigate('/profile', { replace: true });
             }
         } catch {
-            setError('An unexpected error occurred');
+            dispatchProfileForm({ type: 'saveFailed', error: 'An unexpected error occurred' });
         } finally {
-            setIsSaving(false);
+            dispatchProfileForm({ type: 'saveFinished' });
         }
     };
 
@@ -147,7 +201,11 @@ const EditProfile = () => {
                     {GRADIENTS.map((gradient) => (
                         <button
                             key={gradient.id}
-                            onClick={() => setSelectedGradient(gradient.id)}
+                            onClick={() => dispatchProfileForm({
+                                type: 'fieldChanged',
+                                field: 'selectedGradient',
+                                value: gradient.id,
+                            })}
                             className={`size-8 rounded-full transition-all ${
                                 selectedGradient === gradient.id
                                     ? 'ring-2 ring-offset-2 ring-primary ring-offset-surface-light dark:ring-offset-surface-dark scale-110'
@@ -172,10 +230,12 @@ const EditProfile = () => {
                         id="edit-profile-full-name"
                         type="text"
                         value={fullName}
-                        onChange={(e) => {
-                            setFullName(e.target.value);
-                            if (error) setError('');
-                        }}
+                        onChange={(e) => dispatchProfileForm({
+                            type: 'fieldChanged',
+                            field: 'fullName',
+                            value: e.target.value,
+                            clearError: Boolean(error),
+                        })}
                         placeholder="Enter your full name"
                         className="input-field text-body-sm"
                     />
@@ -190,7 +250,11 @@ const EditProfile = () => {
                         <select
                             id="edit-profile-education-level"
                             value={educationLevel}
-                            onChange={(e) => setEducationLevel(e.target.value)}
+                            onChange={(e) => dispatchProfileForm({
+                                type: 'fieldChanged',
+                                field: 'educationLevel',
+                                value: e.target.value,
+                            })}
                             className="input-field text-body-sm appearance-none pr-10 cursor-pointer"
                         >
                             <option value="">Select your level</option>
@@ -213,7 +277,11 @@ const EditProfile = () => {
                         <select
                             id="edit-profile-department"
                             value={department}
-                            onChange={(e) => setDepartment(e.target.value)}
+                            onChange={(e) => dispatchProfileForm({
+                                type: 'fieldChanged',
+                                field: 'department',
+                                value: e.target.value,
+                            })}
                             className="input-field text-body-sm appearance-none pr-10 cursor-pointer"
                         >
                             <option value="">Select your department</option>

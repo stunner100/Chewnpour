@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useMemo, memo } from 'react';
+import { useState, useEffect, useReducer, useRef, useMemo, memo } from 'react';
 
 /**
  * Gamified preparation loader for exams and fill-in exercises.
@@ -61,6 +61,15 @@ const resolveConfig = (mode) => {
 
 const computeTotalTimedMs = (stages) => stages.reduce((s, st) => s + (st.durationMs || 0), 0);
 
+const progressReducer = (state, action) => {
+    if (action.type !== 'tick') return state;
+    return {
+        activeStage: action.activeStage,
+        stageProgress: action.stageProgress,
+        elapsedMs: action.elapsedMs,
+    };
+};
+
 /* ── component ─────────────────────────────────────────────────── */
 const ExamPreparationLoader = memo(function ExamPreparationLoader({
     mode = 'exam',
@@ -76,9 +85,11 @@ const ExamPreparationLoader = memo(function ExamPreparationLoader({
     const { stages, funFacts, etaSec } = useMemo(() => resolveConfig(mode), [mode]);
     const totalTimedMs = useMemo(() => computeTotalTimedMs(stages), [stages]);
 
-    const [activeStage, setActiveStage] = useState(0);
-    const [stageProgress, setStageProgress] = useState(0);
-    const [elapsedMs, setElapsedMs] = useState(0);
+    const [{ activeStage, stageProgress, elapsedMs }, dispatchProgress] = useReducer(progressReducer, {
+        activeStage: 0,
+        stageProgress: 0,
+        elapsedMs: 0,
+    });
     const [funFactIdx, setFunFactIdx] = useState(() => Math.floor(Math.random() * funFacts.length));
     const startTime = useRef(0);
     const rafRef = useRef(null);
@@ -95,7 +106,6 @@ const ExamPreparationLoader = memo(function ExamPreparationLoader({
         startTime.current = Date.now();
         const tick = () => {
             const elapsed = Date.now() - startTime.current;
-            setElapsedMs(elapsed);
 
             let accumulated = 0;
             let currentStage = stages.length - 1;
@@ -117,8 +127,12 @@ const ExamPreparationLoader = memo(function ExamPreparationLoader({
                 accumulated += dur;
             }
 
-            setActiveStage(currentStage);
-            setStageProgress(Math.min(100, Math.max(0, progressInStage)));
+            dispatchProgress({
+                type: 'tick',
+                activeStage: currentStage,
+                stageProgress: Math.min(100, Math.max(0, progressInStage)),
+                elapsedMs: elapsed,
+            });
             rafRef.current = requestAnimationFrame(tick);
         };
         rafRef.current = requestAnimationFrame(tick);

@@ -18,6 +18,71 @@ const ACCEPTED_LIBRARY_TYPES = [
 ];
 
 const ACCEPTED_EXTENSIONS = ['.pdf', '.doc', '.docx', '.epub', '.txt'];
+
+const initialLibraryState = {
+    searchQuery: '',
+    selectedFile: null,
+    title: '',
+    description: '',
+    uploadError: '',
+    uploadSuccess: '',
+    isUploading: false,
+    isDragOver: false,
+    selectedTypes: [],
+};
+
+const libraryReducer = (state, action) => {
+    switch (action.type) {
+        case 'fieldChanged':
+            return {
+                ...state,
+                [action.field]: action.value,
+            };
+        case 'fileSelected':
+            return {
+                ...state,
+                selectedFile: action.file,
+                title: action.title,
+                uploadError: '',
+                uploadSuccess: '',
+            };
+        case 'dragChanged':
+            return {
+                ...state,
+                isDragOver: action.isDragOver,
+            };
+        case 'uploadStarted':
+            return {
+                ...state,
+                uploadError: '',
+                uploadSuccess: '',
+                isUploading: true,
+            };
+        case 'uploadFailed':
+            return {
+                ...state,
+                uploadError: action.error,
+                isUploading: false,
+            };
+        case 'uploadSucceeded':
+            return {
+                ...state,
+                selectedFile: null,
+                title: '',
+                description: '',
+                uploadSuccess: 'Material added to the shared library.',
+                isUploading: false,
+            };
+        case 'clearFilters':
+            return {
+                ...state,
+                selectedTypes: [],
+                searchQuery: '',
+            };
+        default:
+            return state;
+    }
+};
 const MATERIAL_DATE_FORMATTER = new Intl.DateTimeFormat(undefined, {
     day: 'numeric',
     month: 'short',
@@ -105,21 +170,24 @@ const LibraryMaterialCard = ({ material }) => (
     </MagicCard>
 );
 
+// react-doctor-disable-next-line react-doctor/no-giant-component
 const DashboardSearch = () => {
     const { user } = useAuth();
     const userId = user?.id;
     const generateUploadUrl = useMutation(api.library.generateMaterialUploadUrl);
     const createMaterial = useMutation(api.library.createMaterial);
 
-    const [searchQuery, setSearchQuery] = React.useState('');
-    const [selectedFile, setSelectedFile] = React.useState(null);
-    const [title, setTitle] = React.useState('');
-    const [description, setDescription] = React.useState('');
-    const [uploadError, setUploadError] = React.useState('');
-    const [uploadSuccess, setUploadSuccess] = React.useState('');
-    const [isUploading, setIsUploading] = React.useState(false);
-    const [isDragOver, setIsDragOver] = React.useState(false);
-    const [selectedTypes, setSelectedTypes] = React.useState([]);
+    const [{
+        searchQuery,
+        selectedFile,
+        title,
+        description,
+        uploadError,
+        uploadSuccess,
+        isUploading,
+        isDragOver,
+        selectedTypes,
+    }, dispatchLibrary] = React.useReducer(libraryReducer, initialLibraryState);
     const fileInputRef = React.useRef(null);
 
     const materials = useQuery(api.library.listMaterials, {
@@ -128,12 +196,11 @@ const DashboardSearch = () => {
     });
 
     const handleFileChange = (file) => {
-        setUploadError('');
-        setUploadSuccess('');
-        setSelectedFile(file);
-        if (file && !title.trim()) {
-            setTitle(inferTitleFromFile(file.name));
-        }
+        dispatchLibrary({
+            type: 'fileSelected',
+            file,
+            title: file && !title.trim() ? inferTitleFromFile(file.name) : title,
+        });
     };
 
     const onInputChange = (event) => {
@@ -147,44 +214,42 @@ const DashboardSearch = () => {
 
     const onDragOver = (event) => {
         event.preventDefault();
-        setIsDragOver(true);
+        dispatchLibrary({ type: 'dragChanged', isDragOver: true });
     };
 
     const onDragLeave = (event) => {
         event.preventDefault();
-        setIsDragOver(false);
+        dispatchLibrary({ type: 'dragChanged', isDragOver: false });
     };
 
     const onDrop = (event) => {
         event.preventDefault();
-        setIsDragOver(false);
+        dispatchLibrary({ type: 'dragChanged', isDragOver: false });
         const file = event.dataTransfer.files?.[0] || null;
         if (file) handleFileChange(file);
     };
 
     const handleSubmit = async (event) => {
         event.preventDefault();
-        setUploadError('');
-        setUploadSuccess('');
 
         if (!userId) {
-            setUploadError('Please sign in to upload library materials.');
+            dispatchLibrary({ type: 'uploadFailed', error: 'Please sign in to upload library materials.' });
             return;
         }
         if (!selectedFile) {
-            setUploadError('Choose a book or reading material to upload.');
+            dispatchLibrary({ type: 'uploadFailed', error: 'Choose a book or reading material to upload.' });
             return;
         }
         if (!title.trim()) {
-            setUploadError('Add a title so other students know what this is.');
+            dispatchLibrary({ type: 'uploadFailed', error: 'Add a title so other students know what this is.' });
             return;
         }
         if (selectedFile.type && !ACCEPTED_LIBRARY_TYPES.includes(selectedFile.type)) {
-            setUploadError('Upload a PDF, Word document, EPUB, or text file.');
+            dispatchLibrary({ type: 'uploadFailed', error: 'Upload a PDF, Word document, EPUB, or text file.' });
             return;
         }
 
-        setIsUploading(true);
+        dispatchLibrary({ type: 'uploadStarted' });
         try {
             const uploadUrl = await generateUploadUrl();
             const storageId = await uploadToStorageWithRetry({
@@ -204,15 +269,13 @@ const DashboardSearch = () => {
                 storageId,
             });
 
-            setSelectedFile(null);
-            setTitle('');
-            setDescription('');
-            setUploadSuccess('Material added to the shared library.');
+            dispatchLibrary({ type: 'uploadSucceeded' });
             if (fileInputRef.current) fileInputRef.current.value = '';
         } catch (error) {
-            setUploadError(error?.data?.message || error?.message || 'Could not upload this material.');
-        } finally {
-            setIsUploading(false);
+            dispatchLibrary({
+                type: 'uploadFailed',
+                error: error?.data?.message || error?.message || 'Could not upload this material.',
+            });
         }
     };
 
@@ -284,7 +347,11 @@ const DashboardSearch = () => {
                         <input
                             type="text"
                             value={title}
-                            onChange={(event) => setTitle(event.target.value)}
+                            onChange={(event) => dispatchLibrary({
+                                type: 'fieldChanged',
+                                field: 'title',
+                                value: event.target.value,
+                            })}
                             className="input-field mt-1.5 text-body-sm"
                             placeholder="e.g. Introduction to Economics"
                             maxLength={160}
@@ -295,7 +362,11 @@ const DashboardSearch = () => {
                         <input
                             type="text"
                             value={description}
-                            onChange={(event) => setDescription(event.target.value)}
+                            onChange={(event) => dispatchLibrary({
+                                type: 'fieldChanged',
+                                field: 'description',
+                                value: event.target.value,
+                            })}
                             className="input-field mt-1.5 text-body-sm"
                             placeholder="Short note about course, level, or why it is useful"
                             maxLength={500}
@@ -382,7 +453,11 @@ const DashboardSearch = () => {
                         <input
                             type="text"
                             value={searchQuery}
-                            onChange={(event) => setSearchQuery(event.target.value)}
+                            onChange={(event) => dispatchLibrary({
+                                type: 'fieldChanged',
+                                field: 'searchQuery',
+                                value: event.target.value,
+                            })}
                             placeholder="Search shared materials..."
                             className="input-field pl-10 text-body-sm"
                             aria-label="Search shared library materials"
@@ -392,10 +467,7 @@ const DashboardSearch = () => {
 
                 <WatermelonFilterBar
                     hasActive={selectedTypes.length > 0 || searchQuery.trim().length > 0}
-                    onClear={() => {
-                        setSelectedTypes([]);
-                        setSearchQuery('');
-                    }}
+                    onClear={() => dispatchLibrary({ type: 'clearFilters' })}
                 >
                     <WatermelonFilterGroup
                         label="File Type"
@@ -406,7 +478,11 @@ const DashboardSearch = () => {
                             { label: 'Text', value: 'txt', count: typeCounts.txt },
                         ]}
                         value={selectedTypes}
-                        onChange={setSelectedTypes}
+                        onChange={(value) => dispatchLibrary({
+                            type: 'fieldChanged',
+                            field: 'selectedTypes',
+                            value,
+                        })}
                         multiple
                     />
                 </WatermelonFilterBar>

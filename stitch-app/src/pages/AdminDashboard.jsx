@@ -828,6 +828,7 @@ const RetrievalCandidatesTable = ({ title, rows, showPenaltyColumns = false }) =
     </div>
 );
 
+// react-doctor-disable-next-line react-doctor/no-giant-component
 const ContentPanel = ({
     snapshot,
     retrievalTopicId,
@@ -1756,6 +1757,43 @@ const SettingsPanel = ({
 
 // ── Main Component ──
 
+const initialAdminDashboardState = {
+    newAdminEmail: '',
+    adminActionLoading: false,
+    adminActionError: '',
+    billingActionError: '',
+    billingActionMessage: '',
+    reconcilingReferences: {},
+    paymentProviderDraft: 'paystack',
+    retrievalTopicId: '',
+    retrievalDiagnostics: null,
+    retrievalDiagnosticsLoading: false,
+    retrievalDiagnosticsError: '',
+    activeTab: 'overview',
+};
+
+const adminDashboardReducer = (state, action) => {
+    switch (action.type) {
+        case 'patch':
+            return { ...state, ...action.updates };
+        case 'reconcileStarted':
+            return {
+                ...state,
+                reconcilingReferences: {
+                    ...state.reconcilingReferences,
+                    [action.reference]: true,
+                },
+            };
+        case 'reconcileFinished': {
+            const reconcilingReferences = { ...state.reconcilingReferences };
+            delete reconcilingReferences[action.reference];
+            return { ...state, reconcilingReferences };
+        }
+        default:
+            return state;
+    }
+};
+
 const AdminDashboard = () => {
     const { user } = useAuth();
     const snapshot = useQuery(api.admin.getDashboardSnapshot, {});
@@ -1764,22 +1802,29 @@ const AdminDashboard = () => {
     const addAdminEmail = useMutation(api.admin.addAdminEmail);
     const removeAdminEmail = useMutation(api.admin.removeAdminEmail);
     const setPaymentProvider = useMutation(api.admin.setPaymentProvider);
-    const [newAdminEmail, setNewAdminEmail] = React.useState('');
-    const [adminActionLoading, setAdminActionLoading] = React.useState(false);
-    const [adminActionError, setAdminActionError] = React.useState('');
-    const [billingActionError, setBillingActionError] = React.useState('');
-    const [billingActionMessage, setBillingActionMessage] = React.useState('');
-    const [reconcilingReferences, setReconcilingReferences] = React.useState({});
-    const [paymentProviderDraft, setPaymentProviderDraft] = React.useState('paystack');
-    const [retrievalTopicId, setRetrievalTopicId] = React.useState('');
-    const [retrievalDiagnostics, setRetrievalDiagnostics] = React.useState(null);
-    const [retrievalDiagnosticsLoading, setRetrievalDiagnosticsLoading] = React.useState(false);
-    const [retrievalDiagnosticsError, setRetrievalDiagnosticsError] = React.useState('');
-    const [activeTab, setActiveTab] = React.useState('overview');
+    const [adminState, dispatchAdmin] = React.useReducer(adminDashboardReducer, initialAdminDashboardState);
+    const {
+        newAdminEmail,
+        adminActionLoading,
+        adminActionError,
+        billingActionError,
+        billingActionMessage,
+        reconcilingReferences,
+        paymentProviderDraft,
+        retrievalTopicId,
+        retrievalDiagnostics,
+        retrievalDiagnosticsLoading,
+        retrievalDiagnosticsError,
+        activeTab,
+    } = adminState;
+    const updateAdmin = (updates) => dispatchAdmin({ type: 'patch', updates });
 
     React.useEffect(() => {
         const selectedProvider = String(snapshot?.paymentProviderConfig?.selected || '').trim() || 'paystack';
-        setPaymentProviderDraft(selectedProvider);
+        dispatchAdmin({
+            type: 'patch',
+            updates: { paymentProviderDraft: selectedProvider },
+        });
     }, [snapshot?.paymentProviderConfig?.selected]);
 
     if (snapshot === undefined) {
@@ -1823,84 +1868,89 @@ const AdminDashboard = () => {
     const handleAddAdminEmail = async (event) => {
         event.preventDefault();
         if (!newAdminEmail.trim()) return;
-        setAdminActionError('');
-        setAdminActionLoading(true);
+        updateAdmin({
+            adminActionError: '',
+            adminActionLoading: true,
+        });
         try {
             await addAdminEmail({ email: newAdminEmail.trim() });
-            setNewAdminEmail('');
+            updateAdmin({ newAdminEmail: '' });
         } catch (error) {
-            setAdminActionError(String(error?.message || error || 'Failed to add admin email.'));
+            updateAdmin({ adminActionError: String(error?.message || error || 'Failed to add admin email.') });
         } finally {
-            setAdminActionLoading(false);
+            updateAdmin({ adminActionLoading: false });
         }
     };
 
     const handleRemoveAdminEmail = async (email) => {
-        setAdminActionError('');
-        setAdminActionLoading(true);
+        updateAdmin({
+            adminActionError: '',
+            adminActionLoading: true,
+        });
         try {
             await removeAdminEmail({ email });
         } catch (error) {
-            setAdminActionError(String(error?.message || error || 'Failed to remove admin email.'));
+            updateAdmin({ adminActionError: String(error?.message || error || 'Failed to remove admin email.') });
         } finally {
-            setAdminActionLoading(false);
+            updateAdmin({ adminActionLoading: false });
         }
     };
 
     const handleSavePaymentProvider = async (event) => {
         event.preventDefault();
         if (!paymentProviderDraft.trim()) return;
-        setAdminActionError('');
-        setAdminActionLoading(true);
+        updateAdmin({
+            adminActionError: '',
+            adminActionLoading: true,
+        });
         try {
             await setPaymentProvider({ provider: paymentProviderDraft });
         } catch (error) {
-            setAdminActionError(String(error?.message || error || 'Failed to update payment provider.'));
+            updateAdmin({ adminActionError: String(error?.message || error || 'Failed to update payment provider.') });
         } finally {
-            setAdminActionLoading(false);
+            updateAdmin({ adminActionLoading: false });
         }
     };
 
     const handleReconcilePayment = async (reference) => {
         const normalizedReference = String(reference || '').trim();
         if (!normalizedReference) return;
-        setBillingActionError('');
-        setBillingActionMessage('');
-        setReconcilingReferences((current) => ({
-            ...current,
-            [normalizedReference]: true,
-        }));
+        updateAdmin({
+            billingActionError: '',
+            billingActionMessage: '',
+        });
+        dispatchAdmin({ type: 'reconcileStarted', reference: normalizedReference });
         try {
             const result = await reconcilePaymentReference({ reference: normalizedReference });
             const baseMessage = `Reconciliation finished: ${formatTokenLabel(result?.result)}.`;
             const creditsMessage = Number(result?.grantedCredits) > 0
                 ? ` ${formatNumber(result.grantedCredits)} credit${Number(result.grantedCredits) === 1 ? '' : 's'} granted.`
                 : '';
-            setBillingActionMessage(`${baseMessage}${creditsMessage}`);
+            updateAdmin({ billingActionMessage: `${baseMessage}${creditsMessage}` });
         } catch (error) {
-            setBillingActionError(String(error?.message || error || 'Failed to reconcile payment reference.'));
+            updateAdmin({ billingActionError: String(error?.message || error || 'Failed to reconcile payment reference.') });
         } finally {
-            setReconcilingReferences((current) => {
-                const next = { ...current };
-                delete next[normalizedReference];
-                return next;
-            });
+            dispatchAdmin({ type: 'reconcileFinished', reference: normalizedReference });
         }
     };
 
     const handleDiagnoseRetrieval = async (event) => {
         event.preventDefault();
         if (!retrievalTopicId.trim()) return;
-        setRetrievalDiagnosticsError('');
-        setRetrievalDiagnosticsLoading(true);
+        updateAdmin({
+            retrievalDiagnosticsError: '',
+            retrievalDiagnosticsLoading: true,
+        });
         try {
             const diagnostics = await diagnoseRetrievalForTopic({ topicId: retrievalTopicId.trim() });
-            setRetrievalDiagnostics(diagnostics);
+            updateAdmin({ retrievalDiagnostics: diagnostics });
         } catch (error) {
-            setRetrievalDiagnostics(null);
-            setRetrievalDiagnosticsError(String(error?.message || error || 'Failed to inspect topic retrieval.'));
+            updateAdmin({
+                retrievalDiagnostics: null,
+                retrievalDiagnosticsError: String(error?.message || error || 'Failed to inspect topic retrieval.'),
+            });
         } finally {
-            setRetrievalDiagnosticsLoading(false);
+            updateAdmin({ retrievalDiagnosticsLoading: false });
         }
     };
 
@@ -1926,7 +1976,7 @@ const AdminDashboard = () => {
                             <ContentPanel
                                 snapshot={snapshot}
                                 retrievalTopicId={retrievalTopicId}
-                                setRetrievalTopicId={setRetrievalTopicId}
+                                setRetrievalTopicId={(value) => updateAdmin({ retrievalTopicId: value })}
                                 retrievalDiagnostics={retrievalDiagnostics}
                                 retrievalDiagnosticsError={retrievalDiagnosticsError}
                                 retrievalDiagnosticsLoading={retrievalDiagnosticsLoading}
@@ -1954,12 +2004,12 @@ const AdminDashboard = () => {
                                                 handleAddAdminEmail={handleAddAdminEmail}
                                                 handleRemoveAdminEmail={handleRemoveAdminEmail}
                                                 newAdminEmail={newAdminEmail}
-                                                setNewAdminEmail={setNewAdminEmail}
+                                                setNewAdminEmail={(value) => updateAdmin({ newAdminEmail: value })}
                                                 adminActionLoading={adminActionLoading}
                                                 adminActionError={adminActionError}
                                                 paymentProviderConfig={paymentProviderConfig}
                                                 paymentProviderDraft={paymentProviderDraft}
-                                                setPaymentProviderDraft={setPaymentProviderDraft}
+                                                setPaymentProviderDraft={(value) => updateAdmin({ paymentProviderDraft: value })}
                                                 handleSavePaymentProvider={handleSavePaymentProvider}
                                             />
                                         )
@@ -1989,7 +2039,7 @@ const AdminDashboard = () => {
                     </div>
                 </div>
 
-                <TabBar activeTab={activeTab} onTabChange={setActiveTab} />
+                <TabBar activeTab={activeTab} onTabChange={(value) => updateAdmin({ activeTab: value })} />
 
                 {activePanel}
             </div>

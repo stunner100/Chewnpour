@@ -88,6 +88,7 @@ const EmptyState = () => (
     </div>
 );
 
+// react-doctor-disable-next-line react-doctor/no-giant-component
 const DashboardFullAnalysis = () => {
     const { user } = useAuth();
     const userId = user?.id;

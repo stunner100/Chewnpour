@@ -69,11 +69,12 @@ export default defineConfig(({ mode, command }) => {
               return 'vendor-auth';
             }
 
-            if (
-              id.includes('/@sentry/') ||
-              id.includes('/posthog-js/')
-            ) {
-              return 'vendor-observability';
+            if (id.includes('/@sentry/')) {
+              return 'vendor-sentry';
+            }
+
+            if (id.includes('/posthog-js/')) {
+              return 'vendor-posthog';
             }
 
             if (id.includes('/pdfjs-dist/')) {

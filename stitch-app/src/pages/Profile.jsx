@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useReducer, useEffect, useCallback } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { useQuery, useMutation } from 'convex/react';
@@ -16,23 +16,66 @@ import {
 import { useShare } from '../hooks/useShare';
 import { isDarkModeEnabled, toggleThemePreference } from '../lib/theme';
 
+const initialProfileUiState = {
+    voiceSaving: false,
+    voiceError: '',
+    darkModeEnabled: isDarkModeEnabled(),
+    emailPrefSaving: null,
+    showAllExamAttempts: false,
+    referralCopied: false,
+    statsModal: { open: false, type: null },
+    examModal: { open: false, attempt: null },
+};
+
+const profileUiReducer = (state, action) => {
+    switch (action.type) {
+        case 'voiceSaveStarted':
+            return { ...state, voiceSaving: true, voiceError: '' };
+        case 'voiceSaveFailed':
+            return { ...state, voiceSaving: false, voiceError: action.error };
+        case 'voiceSaveFinished':
+            return { ...state, voiceSaving: false };
+        case 'darkModeChanged':
+            return { ...state, darkModeEnabled: action.enabled };
+        case 'emailPrefStarted':
+            return { ...state, emailPrefSaving: action.key };
+        case 'emailPrefFinished':
+            return { ...state, emailPrefSaving: null };
+        case 'toggleExamAttempts':
+            return { ...state, showAllExamAttempts: !state.showAllExamAttempts };
+        case 'referralCopied':
+            return { ...state, referralCopied: action.value };
+        case 'openStatsModal':
+            return { ...state, statsModal: { open: true, type: action.statType } };
+        case 'closeStatsModal':
+            return { ...state, statsModal: { open: false, type: null } };
+        case 'openExamModal':
+            return { ...state, examModal: { open: true, attempt: action.attempt } };
+        case 'closeExamModal':
+            return { ...state, examModal: { open: false, attempt: null } };
+        default:
+            return state;
+    }
+};
+
+// react-doctor-disable-next-line react-doctor/no-giant-component
 const Profile = () => {
     const { user, signOut, updateProfile, loading: authLoading } = useAuth();
     const navigate = useNavigate();
     const { shareProfile, toastMessage, hideToast } = useShare();
-    const [voiceSaving, setVoiceSaving] = useState(false);
-    const [voiceError, setVoiceError] = useState('');
-    const [darkModeEnabled, setDarkModeEnabled] = useState(() => isDarkModeEnabled());
-    const [emailPrefSaving, setEmailPrefSaving] = useState(null); // key being saved
-    const [showAllExamAttempts, setShowAllExamAttempts] = useState(false);
+    const [{
+        voiceSaving,
+        voiceError,
+        darkModeEnabled,
+        emailPrefSaving,
+        showAllExamAttempts,
+        referralCopied,
+        statsModal,
+        examModal,
+    }, dispatchProfileUi] = useReducer(profileUiReducer, initialProfileUiState);
 
     const updateEmailPreferences = useMutation(api.profiles.updateEmailPreferences);
     const ensureReferralCode = useMutation(api.profiles.ensureReferralCode);
-    const [referralCopied, setReferralCopied] = useState(false);
-
-    // Modal states
-    const [statsModal, setStatsModal] = useState({ open: false, type: null });
-    const [examModal, setExamModal] = useState({ open: false, attempt: null });
 
     // Get userId from Better Auth session
     const userId = user?.id;
@@ -52,10 +95,10 @@ const Profile = () => {
     }, [userId, profile, ensureReferralCode]);
 
     useEffect(() => {
-        if (toastMessage) {
-            watermelonToast(toastMessage, { type: 'info' });
-            hideToast();
-        }
+        if (!toastMessage) return undefined;
+        watermelonToast(toastMessage, { type: 'info' });
+        hideToast();
+        return undefined;
     }, [toastMessage, hideToast]);
 
     const handleLogout = async () => {
@@ -129,22 +172,21 @@ const Profile = () => {
         : 0;
 
     const handleVoiceModeToggle = async () => {
-        setVoiceError('');
-        setVoiceSaving(true);
+        dispatchProfileUi({ type: 'voiceSaveStarted' });
         const { error } = await updateProfile({ voiceModeEnabled: !voiceModeEnabled });
         if (error) {
             const message = error.message || 'Unable to update voice mode setting';
-            setVoiceError(message);
+            dispatchProfileUi({ type: 'voiceSaveFailed', error: message });
             watermelonToast(message, { type: 'error' });
         } else {
             watermelonToast(`Voice mode ${!voiceModeEnabled ? 'enabled' : 'disabled'}.`, { type: 'success' });
         }
-        setVoiceSaving(false);
+        dispatchProfileUi({ type: 'voiceSaveFinished' });
     };
 
     const handleDarkModeToggle = () => {
         const nextTheme = toggleThemePreference();
-        setDarkModeEnabled(nextTheme === 'dark');
+        dispatchProfileUi({ type: 'darkModeChanged', enabled: nextTheme === 'dark' });
     };
 
     const referralCode = referralStats?.referralCode || profile?.referralCode || '';
@@ -158,20 +200,19 @@ const Profile = () => {
         if (!referralLink) return;
         try {
             await navigator.clipboard.writeText(referralLink);
-            setReferralCopied(true);
-            setTimeout(() => setReferralCopied(false), 2000);
+            dispatchProfileUi({ type: 'referralCopied', value: true });
+            window.setTimeout(() => dispatchProfileUi({ type: 'referralCopied', value: false }), 2000);
         } catch {
             // Fallback for older browsers
             const textArea = document.createElement('textarea');
             textArea.value = referralLink;
-            textArea.style.position = 'fixed';
-            textArea.style.opacity = '0';
+            textArea.style.cssText = 'position:fixed;opacity:0;';
             document.body.appendChild(textArea);
             textArea.select();
             document.execCommand('copy');
             document.body.removeChild(textArea);
-            setReferralCopied(true);
-            setTimeout(() => setReferralCopied(false), 2000);
+            dispatchProfileUi({ type: 'referralCopied', value: true });
+            window.setTimeout(() => dispatchProfileUi({ type: 'referralCopied', value: false }), 2000);
         }
     }, [referralLink]);
 
@@ -197,7 +238,7 @@ const Profile = () => {
 
     const handleEmailPrefToggle = async (key) => {
         if (!userId || emailPrefSaving) return;
-        setEmailPrefSaving(key);
+        dispatchProfileUi({ type: 'emailPrefStarted', key });
         try {
             await updateEmailPreferences({
                 userId,
@@ -206,7 +247,7 @@ const Profile = () => {
         } catch (err) {
             console.error('Failed to update email preference', err);
         }
-        setEmailPrefSaving(null);
+        dispatchProfileUi({ type: 'emailPrefFinished' });
     };
 
     const loading = authLoading || profile === undefined || stats === undefined;
@@ -306,7 +347,7 @@ const Profile = () => {
                 ].map(stat => (
                     <button
                         key={stat.type}
-                        onClick={() => setStatsModal({ open: true, type: stat.type })}
+                        onClick={() => dispatchProfileUi({ type: 'openStatsModal', statType: stat.type })}
                         className="text-left appearance-none bg-transparent border-0 p-0 cursor-pointer"
                     >
                         <WatermelonWidget
@@ -561,7 +602,7 @@ const Profile = () => {
                     {hasMoreExamAttempts && (
                         <button
                             type="button"
-                            onClick={() => setShowAllExamAttempts(c => !c)}
+                            onClick={() => dispatchProfileUi({ type: 'toggleExamAttempts' })}
                             className="text-caption font-semibold text-primary hover:text-primary-hover transition-colors"
                         >
                             {showAllExamAttempts ? 'Show less' : 'View all'}
@@ -583,7 +624,7 @@ const Profile = () => {
                                 _attempt: attempt,
                             };
                         })}
-                        onItemClick={(item) => setExamModal({ open: true, attempt: item._attempt })}
+                        onItemClick={(item) => dispatchProfileUi({ type: 'openExamModal', attempt: item._attempt })}
                     />
                 ) : (
                     <div className="card-base border-dashed p-8 text-center">
@@ -610,13 +651,13 @@ const Profile = () => {
             {/* Modals */}
             <StatsDetailModal
                 isOpen={statsModal.open}
-                onClose={() => setStatsModal({ open: false, type: null })}
+                onClose={() => dispatchProfileUi({ type: 'closeStatsModal' })}
                 type={statsModal.type}
                 userId={userId}
             />
             <ExamActionModal
                 isOpen={examModal.open}
-                onClose={() => setExamModal({ open: false, attempt: null })}
+                onClose={() => dispatchProfileUi({ type: 'closeExamModal' })}
                 attempt={examModal.attempt}
             />
         </div>

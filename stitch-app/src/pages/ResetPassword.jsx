@@ -1,70 +1,121 @@
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useReducer } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { requestPasswordReset, resetPassword } from '../lib/auth-client';
 import PublicShell, { ArrowBadge } from '../components/PublicShell';
+
+const initialResetState = {
+    email: '',
+    newPassword: '',
+    confirmPassword: '',
+    error: '',
+    success: '',
+    loading: false,
+};
+
+const resetFormReducer = (state, action) => {
+    switch (action.type) {
+        case 'fieldChanged':
+            return {
+                ...state,
+                [action.field]: action.value,
+            };
+        case 'requestStarted':
+            return {
+                ...state,
+                error: '',
+                success: '',
+                loading: true,
+            };
+        case 'failed':
+            return {
+                ...state,
+                error: action.error,
+                success: '',
+                loading: false,
+            };
+        case 'succeeded':
+            return {
+                ...state,
+                error: '',
+                success: action.success,
+                loading: false,
+            };
+        case 'finished':
+            return {
+                ...state,
+                loading: false,
+            };
+        default:
+            return state;
+    }
+};
 
 const ResetPassword = () => {
     const [searchParams] = useSearchParams();
     const navigate = useNavigate();
     const token = useMemo(() => searchParams.get('token') || '', [searchParams]);
 
-    const [email, setEmail] = useState('');
-    const [newPassword, setNewPassword] = useState('');
-    const [confirmPassword, setConfirmPassword] = useState('');
-    const [error, setError] = useState('');
-    const [success, setSuccess] = useState('');
-    const [loading, setLoading] = useState(false);
+    const [{
+        email,
+        newPassword,
+        confirmPassword,
+        error,
+        success,
+        loading,
+    }, dispatchResetForm] = useReducer(resetFormReducer, initialResetState);
 
     const handleRequest = async (e) => {
         e.preventDefault();
-        setError('');
-        setSuccess('');
-        setLoading(true);
+        dispatchResetForm({ type: 'requestStarted' });
 
         try {
             const redirectTo = `${window.location.origin}/reset-password`;
             const { error } = await requestPasswordReset({ email, redirectTo });
             if (error) {
-                setError(error.message || 'Failed to send reset email.');
+                dispatchResetForm({
+                    type: 'failed',
+                    error: error.message || 'Failed to send reset email.',
+                });
             } else {
-                setSuccess(
-                    'If this email exists, a reset link has been sent.'
-                );
+                dispatchResetForm({
+                    type: 'succeeded',
+                    success: 'If this email exists, a reset link has been sent.',
+                });
             }
         } catch {
-            setError('An unexpected error occurred');
-        } finally {
-            setLoading(false);
+            dispatchResetForm({ type: 'failed', error: 'An unexpected error occurred' });
         }
     };
 
     const handleReset = async (e) => {
         e.preventDefault();
-        setError('');
-        setSuccess('');
 
         if (!newPassword || newPassword.length < 8) {
-            setError('Password must be at least 8 characters.');
+            dispatchResetForm({ type: 'failed', error: 'Password must be at least 8 characters.' });
             return;
         }
         if (newPassword !== confirmPassword) {
-            setError('Passwords do not match.');
+            dispatchResetForm({ type: 'failed', error: 'Passwords do not match.' });
             return;
         }
 
-        setLoading(true);
+        dispatchResetForm({ type: 'requestStarted' });
         try {
             const { error } = await resetPassword({ newPassword, token });
             if (error) {
-                setError(error.message || 'Failed to reset password.');
+                dispatchResetForm({
+                    type: 'failed',
+                    error: error.message || 'Failed to reset password.',
+                });
             } else {
-                setSuccess('Password updated. You can now log in.');
+                dispatchResetForm({
+                    type: 'succeeded',
+                    success: 'Password updated. You can now log in.',
+                });
                 setTimeout(() => navigate('/login'), 800);
             }
         } catch {
-            setError('An unexpected error occurred');
-        } finally {
-            setLoading(false);
+            dispatchResetForm({ type: 'failed', error: 'An unexpected error occurred' });
         }
     };
 
@@ -140,7 +191,11 @@ const ResetPassword = () => {
                                     placeholder="student@university.edu"
                                     type="email"
                                     value={email}
-                                    onChange={(e) => setEmail(e.target.value)}
+                                    onChange={(e) => dispatchResetForm({
+                                        type: 'fieldChanged',
+                                        field: 'email',
+                                        value: e.target.value,
+                                    })}
                                     required
                                 />
                             </div>
@@ -165,7 +220,11 @@ const ResetPassword = () => {
                                     placeholder="At least 8 characters"
                                     type="password"
                                     value={newPassword}
-                                    onChange={(e) => setNewPassword(e.target.value)}
+                                    onChange={(e) => dispatchResetForm({
+                                        type: 'fieldChanged',
+                                        field: 'newPassword',
+                                        value: e.target.value,
+                                    })}
                                     required
                                 />
                             </div>
@@ -177,7 +236,11 @@ const ResetPassword = () => {
                                     placeholder="Repeat new password"
                                     type="password"
                                     value={confirmPassword}
-                                    onChange={(e) => setConfirmPassword(e.target.value)}
+                                    onChange={(e) => dispatchResetForm({
+                                        type: 'fieldChanged',
+                                        field: 'confirmPassword',
+                                        value: e.target.value,
+                                    })}
                                     required
                                 />
                             </div>

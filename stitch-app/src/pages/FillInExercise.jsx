@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useReducer, useRef } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { useAction, useMutation, useQuery } from 'convex/react';
 import { api } from '../../convex/_generated/api';
@@ -97,6 +97,105 @@ const SentenceRenderer = ({
     return <>{elements}</>;
 };
 
+const initialFillInState = {
+    questions: null,
+    loading: false,
+    loadError: '',
+    answers: {},
+    submitted: false,
+    results: null,
+    saving: false,
+    saveError: '',
+    startedAt: null,
+    currentIdx: 0,
+};
+
+const fillInReducer = (state, action) => {
+    switch (action.type) {
+        case 'loadStarted':
+            return {
+                ...state,
+                loading: true,
+                loadError: '',
+                saveError: '',
+                submitted: false,
+                results: null,
+                answers: {},
+                currentIdx: 0,
+            };
+        case 'loadSucceeded':
+            return {
+                ...state,
+                questions: action.questions,
+                startedAt: action.startedAt,
+                loading: false,
+                loadError: '',
+            };
+        case 'loadFailed':
+            return {
+                ...state,
+                questions: action.questions,
+                startedAt: action.startedAt,
+                loadError: action.loadError,
+                loading: false,
+            };
+        case 'answerChanged':
+            return {
+                ...state,
+                answers: {
+                    ...state.answers,
+                    [action.key]: action.value,
+                },
+            };
+        case 'submitStarted':
+            return {
+                ...state,
+                saving: true,
+                saveError: '',
+            };
+        case 'submitSucceeded':
+            return {
+                ...state,
+                results: action.results,
+                submitted: true,
+                saving: false,
+            };
+        case 'submitFailed':
+            return {
+                ...state,
+                saveError: 'Failed to save your result. Please try again.',
+                saving: false,
+            };
+        case 'retake':
+            return {
+                ...state,
+                answers: {},
+                submitted: false,
+                results: null,
+                saveError: '',
+                currentIdx: 0,
+                startedAt: action.startedAt,
+            };
+        case 'newSetRequested':
+            return {
+                ...state,
+                questions: null,
+                answers: {},
+                submitted: false,
+                results: null,
+                loadError: '',
+            };
+        case 'goToQuestion':
+            return {
+                ...state,
+                currentIdx: action.index,
+            };
+        default:
+            return state;
+    }
+};
+
+// react-doctor-disable-next-line react-doctor/no-giant-component
 const FillInExercise = () => {
     const { topicId: topicIdParam } = useParams();
     const routeTopicId = typeof topicIdParam === 'string' ? topicIdParam.trim() : '';
@@ -126,16 +225,18 @@ const FillInExercise = () => {
     const generateFillInBatch = useAction(api.ai.generateFillInBatch);
     const createConceptAttempt = useMutation(api.concepts.createConceptAttempt);
 
-    const [questions, setQuestions] = useState(null); // array of { sentence, blanks }
-    const [loading, setLoading] = useState(false);
-    const [loadError, setLoadError] = useState('');
-    const [answers, setAnswers] = useState({}); // { "q0-b0": "typed text", ... }
-    const [submitted, setSubmitted] = useState(false);
-    const [results, setResults] = useState(null); // { score, total, details[] }
-    const [saving, setSaving] = useState(false);
-    const [saveError, setSaveError] = useState('');
-    const [startedAt, setStartedAt] = useState(null);
-    const [currentIdx, setCurrentIdx] = useState(0);
+    const [{
+        questions,
+        loading,
+        loadError,
+        answers,
+        submitted,
+        results,
+        saving,
+        saveError,
+        startedAt,
+        currentIdx,
+    }, dispatchFillIn] = useReducer(fillInReducer, initialFillInState);
     const inputRefs = useRef({});
 
     const topicTitle = topic?.title || 'Fill-ins';
@@ -145,13 +246,7 @@ const FillInExercise = () => {
     const loadExercise = useCallback(async (options = {}) => {
         if (!topicId || !userId) return;
         const fallbackQuestions = previousQuestionsRef.current;
-        setLoading(true);
-        setLoadError('');
-        setSaveError('');
-        setSubmitted(false);
-        setResults(null);
-        setAnswers({});
-        setCurrentIdx(0);
+        dispatchFillIn({ type: 'loadStarted' });
         try {
             const excludeSentences = Array.isArray(options?.excludeSentences)
                 ? options.excludeSentences.filter(Boolean)
@@ -177,25 +272,28 @@ const FillInExercise = () => {
                 qs = shuffleQuestions(qs);
             }
             previousQuestionsRef.current = qs;
-            setQuestions(qs);
-            setStartedAt(Date.now());
+            dispatchFillIn({ type: 'loadSucceeded', questions: qs, startedAt: Date.now() });
         } catch (error) {
             console.error('Fill-in generation failed:', error);
             // If we have previous questions, recycle them in shuffled order
             if (fallbackQuestions && fallbackQuestions.length > 0) {
                 const shuffled = shuffleQuestions(fallbackQuestions);
-                setQuestions(shuffled);
-                setStartedAt(Date.now());
+                dispatchFillIn({
+                    type: 'loadFailed',
+                    questions: shuffled,
+                    startedAt: Date.now(),
+                    loadError: '',
+                });
             } else {
-                setLoadError(
-                    String(error?.message || '').includes('INSUFFICIENT_EVIDENCE')
+                dispatchFillIn({
+                    type: 'loadFailed',
+                    questions: null,
+                    startedAt: null,
+                    loadError: String(error?.message || '').includes('INSUFFICIENT_EVIDENCE')
                         ? 'Not enough content to generate fill-ins. Try a topic with more material.'
-                        : 'Failed to generate fill-in exercises. Please try again.'
-                );
-                setQuestions(null);
+                        : 'Failed to generate fill-in exercises. Please try again.',
+                });
             }
-        } finally {
-            setLoading(false);
         }
     }, [generateFillInBatch, topicId, userId]);
 
@@ -220,7 +318,7 @@ const FillInExercise = () => {
 
     const handleAnswerChange = useCallback((questionIdx, blankIdx, value) => {
         const key = `q${questionIdx}-b${blankIdx}`;
-        setAnswers((prev) => ({ ...prev, [key]: value }));
+        dispatchFillIn({ type: 'answerChanged', key, value });
     }, []);
 
     const registerInput = useCallback((key, element) => {
@@ -229,8 +327,7 @@ const FillInExercise = () => {
 
     const handleSubmit = useCallback(async () => {
         if (!questions || !topicId || !userId || !allFilled) return;
-        setSaving(true);
-        setSaveError('');
+        dispatchFillIn({ type: 'submitStarted' });
         try {
             let correctCount = 0;
             const details = questions.map((q, qIdx) => {
@@ -257,23 +354,18 @@ const FillInExercise = () => {
                 questionText: `Fill-ins: ${questions.length} questions, ${totalBlanks} blanks`,
             });
 
-            setResults({ score: correctCount, total: totalBlanks, details });
-            setSubmitted(true);
+            dispatchFillIn({
+                type: 'submitSucceeded',
+                results: { score: correctCount, total: totalBlanks, details },
+            });
         } catch (error) {
             console.error('Failed to save fill-in attempt:', error);
-            setSaveError('Failed to save your result. Please try again.');
-        } finally {
-            setSaving(false);
+            dispatchFillIn({ type: 'submitFailed' });
         }
     }, [questions, answers, topicId, userId, allFilled, totalBlanks, startedAt, createConceptAttempt]);
 
     const handleRetake = useCallback(() => {
-        setAnswers({});
-        setSubmitted(false);
-        setResults(null);
-        setSaveError('');
-        setCurrentIdx(0);
-        setStartedAt(Date.now());
+        dispatchFillIn({ type: 'retake', startedAt: Date.now() });
     }, []);
 
     // Focus first input of current question
@@ -414,7 +506,7 @@ const FillInExercise = () => {
                                     <button
                                         key={question.sentence}
                                         type="button"
-                                        onClick={() => setCurrentIdx(idx)}
+                                        onClick={() => dispatchFillIn({ type: 'goToQuestion', index: idx })}
                                         className={`size-3 rounded-full transition-all ${
                                             idx === currentIdx
                                                 ? 'bg-primary scale-125'
@@ -539,11 +631,7 @@ const FillInExercise = () => {
                             </button>
                             <button
                                 onClick={() => {
-                                    setQuestions(null);
-                                    setAnswers({});
-                                    setSubmitted(false);
-                                    setResults(null);
-                                    setLoadError('');
+                                    dispatchFillIn({ type: 'newSetRequested' });
                                     loadExercise({
                                         excludeSentences: Array.isArray(questions)
                                             ? questions.flatMap((question) => (question?.sentence ? [question.sentence] : []))
@@ -566,7 +654,10 @@ const FillInExercise = () => {
                         <>
                             {!isFirst && (
                                 <button
-                                    onClick={() => setCurrentIdx((prev) => Math.max(0, prev - 1))}
+                                    onClick={() => dispatchFillIn({
+                                        type: 'goToQuestion',
+                                        index: Math.max(0, currentIdx - 1),
+                                    })}
                                     className="btn-secondary px-4 py-3 flex items-center justify-center"
                                 >
                                     <span className="material-symbols-outlined text-[18px]">chevron_left</span>
@@ -583,7 +674,10 @@ const FillInExercise = () => {
                                 </button>
                             ) : (
                                 <button
-                                    onClick={() => setCurrentIdx((prev) => Math.min(questions.length - 1, prev + 1))}
+                                    onClick={() => dispatchFillIn({
+                                        type: 'goToQuestion',
+                                        index: Math.min(questions.length - 1, currentIdx + 1),
+                                    })}
                                     className="btn-primary flex-1 py-3 text-body-sm flex items-center justify-center gap-2"
                                 >
                                     <span>Next</span>

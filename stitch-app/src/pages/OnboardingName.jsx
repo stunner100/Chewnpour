@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useReducer } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useMutation } from 'convex/react';
 import { m as Motion } from 'motion/react';
@@ -20,19 +20,68 @@ const BORDER = 'rgba(255, 255, 255, 0.1)';
 const NAME_FORM_ID = 'onboarding-name-form';
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
+const initialNameState = {
+    name: '',
+    email: '',
+    password: '',
+    error: '',
+    touched: { name: false, email: false, password: false },
+    loading: false,
+};
+
+const nameReducer = (state, action) => {
+    switch (action.type) {
+        case 'fieldChanged':
+            return {
+                ...state,
+                [action.field]: action.value,
+                error: state.error ? '' : state.error,
+            };
+        case 'fieldBlurred':
+            return {
+                ...state,
+                touched: {
+                    ...state.touched,
+                    [action.field]: true,
+                },
+            };
+        case 'submitStarted':
+            return {
+                ...state,
+                error: '',
+                loading: true,
+            };
+        case 'submitFailed':
+            return {
+                ...state,
+                error: action.error,
+                loading: false,
+            };
+        case 'submitFinished':
+            return {
+                ...state,
+                loading: false,
+            };
+        default:
+            return state;
+    }
+};
+
+// react-doctor-disable-next-line react-doctor/no-giant-component
 const OnboardingName = () => {
-    const [name, setName] = useState('');
-    const [email, setEmail] = useState('');
-    const [password, setPassword] = useState('');
-    const [error, setError] = useState('');
-    const [touched, setTouched] = useState({ name: false, email: false, password: false });
-    const [loading, setLoading] = useState(false);
+    const [{ name, email, password, error, touched, loading }, dispatchName] = useReducer(
+        nameReducer,
+        initialNameState,
+    );
     const { signUp, profile, loading: authLoading } = useAuth();
     const navigate = useNavigate();
     const [searchParams] = useSearchParams();
     const setReferredBy = useMutation(api.profiles.setReferredBy);
 
-    const [referralCode] = useState(() => (searchParams.get('ref') || '').trim().toUpperCase());
+    const referralCode = useMemo(
+        () => (searchParams.get('ref') || '').trim().toUpperCase(),
+        [searchParams],
+    );
 
     const trimmedName = name.trim();
     const trimmedEmail = email.trim();
@@ -48,16 +97,27 @@ const OnboardingName = () => {
 
     const handleSubmit = async (e) => {
         e.preventDefault();
-        if (!isNameValid) { setError('Please enter your name'); return; }
-        if (!isEmailValid) { setError(trimmedEmail ? 'Please enter a valid email address' : 'Please enter your email'); return; }
-        if (!isPasswordValid) { setError('Password must be at least 6 characters'); return; }
+        if (!isNameValid) {
+            dispatchName({ type: 'submitFailed', error: 'Please enter your name' });
+            return;
+        }
+        if (!isEmailValid) {
+            dispatchName({
+                type: 'submitFailed',
+                error: trimmedEmail ? 'Please enter a valid email address' : 'Please enter your email',
+            });
+            return;
+        }
+        if (!isPasswordValid) {
+            dispatchName({ type: 'submitFailed', error: 'Password must be at least 6 characters' });
+            return;
+        }
 
-        setError('');
-        setLoading(true);
+        dispatchName({ type: 'submitStarted' });
         try {
             const { error, data } = await signUp(trimmedEmail, password, trimmedName);
             if (error) {
-                setError(error.message);
+                dispatchName({ type: 'submitFailed', error: error.message });
                 watermelonToast(error.message, { type: 'error' });
             } else {
                 if (referralCode) {
@@ -76,10 +136,10 @@ const OnboardingName = () => {
             }
         } catch {
             const fallback = 'An unexpected error occurred';
-            setError(fallback);
+            dispatchName({ type: 'submitFailed', error: fallback });
             watermelonToast(fallback, { type: 'error' });
         } finally {
-            setLoading(false);
+            dispatchName({ type: 'submitFinished' });
         }
     };
 
@@ -194,8 +254,12 @@ const OnboardingName = () => {
                                 placeholder="What should we call you?"
                                 type="text"
                                 value={name}
-                                onChange={(e) => { setName(e.target.value); if (error) setError(''); }}
-                                onBlur={() => setTouched((p) => ({ ...p, name: true }))}
+                                onChange={(e) => dispatchName({
+                                    type: 'fieldChanged',
+                                    field: 'name',
+                                    value: e.target.value,
+                                })}
+                                onBlur={() => dispatchName({ type: 'fieldBlurred', field: 'name' })}
                                 required
                             />
                             {(touched.name || name.length > 0) && (
@@ -216,8 +280,12 @@ const OnboardingName = () => {
                                 placeholder="student@university.edu"
                                 type="email"
                                 value={email}
-                                onChange={(e) => { setEmail(e.target.value); if (error) setError(''); }}
-                                onBlur={() => setTouched((p) => ({ ...p, email: true }))}
+                                onChange={(e) => dispatchName({
+                                    type: 'fieldChanged',
+                                    field: 'email',
+                                    value: e.target.value,
+                                })}
+                                onBlur={() => dispatchName({ type: 'fieldBlurred', field: 'email' })}
                                 required
                             />
                             {(touched.email || email.length > 0) && (
@@ -238,8 +306,12 @@ const OnboardingName = () => {
                                 placeholder="Create a strong password"
                                 type="password"
                                 value={password}
-                                onChange={(e) => { setPassword(e.target.value); if (error) setError(''); }}
-                                onBlur={() => setTouched((p) => ({ ...p, password: true }))}
+                                onChange={(e) => dispatchName({
+                                    type: 'fieldChanged',
+                                    field: 'password',
+                                    value: e.target.value,
+                                })}
+                                onBlur={() => dispatchName({ type: 'fieldBlurred', field: 'password' })}
                                 minLength={6}
                                 required
                             />

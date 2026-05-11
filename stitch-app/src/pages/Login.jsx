@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useReducer } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { m as Motion } from 'motion/react';
 import { useAuth } from '../contexts/AuthContext';
@@ -11,12 +11,53 @@ import {
     stashPendingCampaignAttribution,
 } from '../lib/campaignAttribution';
 
+const initialLoginState = {
+    email: '',
+    password: '',
+    showPassword: false,
+    error: '',
+    loading: false,
+};
+
+const loginReducer = (state, action) => {
+    switch (action.type) {
+        case 'fieldChanged':
+            return {
+                ...state,
+                [action.field]: action.value,
+            };
+        case 'togglePassword':
+            return {
+                ...state,
+                showPassword: !state.showPassword,
+            };
+        case 'authStarted':
+            return {
+                ...state,
+                error: '',
+                loading: true,
+            };
+        case 'authFailed':
+            return {
+                ...state,
+                error: action.error,
+                loading: false,
+            };
+        case 'authFinished':
+            return {
+                ...state,
+                loading: false,
+            };
+        default:
+            return state;
+    }
+};
+
 const Login = () => {
-    const [email, setEmail] = useState('');
-    const [password, setPassword] = useState('');
-    const [showPassword, setShowPassword] = useState(false);
-    const [error, setError] = useState('');
-    const [loading, setLoading] = useState(false);
+    const [{ email, password, showPassword, error, loading }, dispatchLogin] = useReducer(
+        loginReducer,
+        initialLoginState,
+    );
     const { signIn, signInWithGoogle } = useAuth();
     const routerLocation = useLocation();
     const navigate = useNavigate();
@@ -56,32 +97,30 @@ const Login = () => {
     };
 
     const handleGoogleSignIn = async () => {
-        setError('');
-        setLoading(true);
+        dispatchLogin({ type: 'authStarted' });
         try {
             const { error: signInError } = await signInWithGoogle(redirectTarget);
             if (signInError) {
                 const msg = resolveGoogleErrorMessage(signInError);
-                setError(msg);
+                dispatchLogin({ type: 'authFailed', error: msg });
                 watermelonToast(msg, { type: 'error' });
             }
         } catch {
             const msg = 'Unable to reach authentication right now. Please try again.';
-            setError(msg);
+            dispatchLogin({ type: 'authFailed', error: msg });
             watermelonToast(msg, { type: 'error' });
         } finally {
-            setLoading(false);
+            dispatchLogin({ type: 'authFinished' });
         }
     };
 
     const handleSubmit = async (e) => {
         e.preventDefault();
-        setError('');
-        setLoading(true);
+        dispatchLogin({ type: 'authStarted' });
         try {
             const { error } = await signIn(email, password);
             if (error) {
-                setError(error.message);
+                dispatchLogin({ type: 'authFailed', error: error.message });
                 watermelonToast(error.message, { type: 'error' });
             } else {
                 navigate(redirectTarget, {
@@ -96,10 +135,10 @@ const Login = () => {
             }
         } catch {
             const msg = 'An unexpected error occurred';
-            setError(msg);
+            dispatchLogin({ type: 'authFailed', error: msg });
             watermelonToast(msg, { type: 'error' });
         } finally {
-            setLoading(false);
+            dispatchLogin({ type: 'authFinished' });
         }
     };
 
@@ -198,7 +237,11 @@ const Login = () => {
                                 placeholder="student@university.edu"
                                 type="email"
                                 value={email}
-                                onChange={(e) => setEmail(e.target.value)}
+                                onChange={(e) => dispatchLogin({
+                                    type: 'fieldChanged',
+                                    field: 'email',
+                                    value: e.target.value,
+                                })}
                                 required
                             />
                         </div>
@@ -217,13 +260,17 @@ const Login = () => {
                                     placeholder="Enter your password"
                                     type={showPassword ? 'text' : 'password'}
                                     value={password}
-                                    onChange={(e) => setPassword(e.target.value)}
+                                    onChange={(e) => dispatchLogin({
+                                        type: 'fieldChanged',
+                                        field: 'password',
+                                        value: e.target.value,
+                                    })}
                                     required
                                 />
                                 <button
                                     className="absolute right-3 top-1/2 -translate-y-1/2 text-white/40 hover:text-white/80 transition-colors"
                                     type="button"
-                                    onClick={() => setShowPassword((s) => !s)}
+                                    onClick={() => dispatchLogin({ type: 'togglePassword' })}
                                     aria-label={showPassword ? 'Hide password' : 'Show password'}
                                 >
                                     <span className="material-symbols-outlined text-[18px]">

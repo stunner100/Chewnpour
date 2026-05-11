@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useReducer, useRef } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useAction, useMutation, useQuery, useConvexAuth } from 'convex/react';
 import { api } from '../../convex/_generated/api';
@@ -257,6 +257,38 @@ const buildAiMessageLimitSubscriptionPath = () => {
     return `/subscription?${query.toString()}`;
 };
 
+const initialAssignmentState = {
+    selectedThreadId: null,
+    followUpQuestion: '',
+    busy: false,
+    sending: false,
+    error: '',
+    deletingThreadId: '',
+    processingStageIndex: 0,
+    copiedMessageId: null,
+    confirmDeleteId: null,
+    activeFollowUpQuestionNumber: null,
+    expandedQuestionIndex: 0,
+};
+
+const assignmentStateReducer = (state, action) => {
+    switch (action.type) {
+        case 'patch':
+            return { ...state, ...action.updates };
+        case 'advanceProcessingStage':
+            return {
+                ...state,
+                processingStageIndex: Math.min(
+                    state.processingStageIndex + 1,
+                    PROCESSING_STAGES.length - 1
+                ),
+            };
+        default:
+            return state;
+    }
+};
+
+// react-doctor-disable-next-line react-doctor/no-giant-component
 const AssignmentHelper = () => {
     const { user } = useAuth();
     const { isAuthenticated: isConvexAuthenticated } = useConvexAuth();
@@ -272,17 +304,21 @@ const AssignmentHelper = () => {
         api.subscriptions.getUploadQuotaStatus,
         userId && isConvexAuthenticated ? {} : 'skip'
     );
-    const [selectedThreadId, setSelectedThreadId] = useState(null);
-    const [followUpQuestion, setFollowUpQuestion] = useState('');
-    const [busy, setBusy] = useState(false);
-    const [sending, setSending] = useState(false);
-    const [error, setError] = useState('');
-    const [deletingThreadId, setDeletingThreadId] = useState('');
-    const [processingStageIndex, setProcessingStageIndex] = useState(0);
-    const [copiedMessageId, setCopiedMessageId] = useState(null);
-    const [confirmDeleteId, setConfirmDeleteId] = useState(null);
-    const [activeFollowUpQuestionNumber, setActiveFollowUpQuestionNumber] = useState(null);
-    const [expandedQuestionIndex, setExpandedQuestionIndex] = useState(0);
+    const [assignmentState, dispatchAssignment] = useReducer(assignmentStateReducer, initialAssignmentState);
+    const {
+        selectedThreadId,
+        followUpQuestion,
+        busy,
+        sending,
+        error,
+        deletingThreadId,
+        processingStageIndex,
+        copiedMessageId,
+        confirmDeleteId,
+        activeFollowUpQuestionNumber,
+        expandedQuestionIndex,
+    } = assignmentState;
+    const updateAssignment = (updates) => dispatchAssignment({ type: 'patch', updates });
     const uploadInputRef = useRef(null);
     const cameraInputRef = useRef(null);
     const endRef = useRef(null);
@@ -318,7 +354,7 @@ const AssignmentHelper = () => {
 
     useEffect(() => {
         if (!sortedThreads.length) {
-            setSelectedThreadId(null);
+            dispatchAssignment({ type: 'patch', updates: { selectedThreadId: null } });
             return;
         }
         // Protect the explicitly-set thread ID from being overridden by the sorted list
@@ -327,19 +363,26 @@ const AssignmentHelper = () => {
             return;
         }
         if (!selectedThreadId || !sortedThreads.some((thread) => String(thread._id) === String(selectedThreadId))) {
-            setSelectedThreadId(sortedThreads[0]._id);
+            dispatchAssignment({
+                type: 'patch',
+                updates: { selectedThreadId: sortedThreads[0]._id },
+            });
         }
     }, [sortedThreads, selectedThreadId]);
 
     useEffect(() => {
         if (!copiedMessageId) return undefined;
-        const timer = window.setTimeout(() => setCopiedMessageId(null), 1500);
+        const timer = window.setTimeout(() => {
+            dispatchAssignment({ type: 'patch', updates: { copiedMessageId: null } });
+        }, 1500);
         return () => window.clearTimeout(timer);
     }, [copiedMessageId]);
 
     useEffect(() => {
         if (!confirmDeleteId) return undefined;
-        const timer = window.setTimeout(() => setConfirmDeleteId(null), 3000);
+        const timer = window.setTimeout(() => {
+            dispatchAssignment({ type: 'patch', updates: { confirmDeleteId: null } });
+        }, 3000);
         return () => window.clearTimeout(timer);
     }, [confirmDeleteId]);
 
@@ -364,15 +407,12 @@ const AssignmentHelper = () => {
 
     useEffect(() => {
         if (!showProcessingExperience) {
-            setProcessingStageIndex(0);
+            dispatchAssignment({ type: 'patch', updates: { processingStageIndex: 0 } });
             return undefined;
         }
 
         const timer = window.setInterval(() => {
-            setProcessingStageIndex((current) => {
-                if (current >= PROCESSING_STAGES.length - 1) return current;
-                return current + 1;
-            });
+            dispatchAssignment({ type: 'advanceProcessingStage' });
         }, 2200);
 
         return () => window.clearInterval(timer);
@@ -394,7 +434,7 @@ const AssignmentHelper = () => {
             return;
         }
         if (!isConvexAuthenticated) {
-            setError(getUploadAuthNotReadyMessage());
+            updateAssignment({ error: getUploadAuthNotReadyMessage() });
             reportUploadValidationRejected({
                 flowType: 'assignment',
                 source: 'assignment_helper',
@@ -404,10 +444,10 @@ const AssignmentHelper = () => {
             });
             return;
         }
-        setError('');
+        updateAssignment({ error: '' });
 
         if (!isSupportedFileType(file)) {
-            setError('Unsupported file format. Upload a PDF, DOCX, or image file.');
+            updateAssignment({ error: 'Unsupported file format. Upload a PDF, DOCX, or image file.' });
             reportUploadValidationRejected({
                 flowType: 'assignment',
                 source: 'assignment_helper',
@@ -418,7 +458,7 @@ const AssignmentHelper = () => {
             return;
         }
         if (file.size > MAX_FILE_SIZE_BYTES) {
-            setError('File is too large. Maximum supported size is 50MB.');
+            updateAssignment({ error: 'File is too large. Maximum supported size is 50MB.' });
             reportUploadValidationRejected({
                 flowType: 'assignment',
                 source: 'assignment_helper',
@@ -430,7 +470,7 @@ const AssignmentHelper = () => {
         }
 
         if (uploadQuota && Number(uploadQuota.remaining) <= 0) {
-            setError(uploadLimitMessage);
+            updateAssignment({ error: uploadLimitMessage });
             reportUploadValidationRejected({
                 flowType: 'assignment',
                 source: 'assignment_helper',
@@ -449,8 +489,10 @@ const AssignmentHelper = () => {
             file,
         });
         let currentStage = 'request_upload_url';
-        setProcessingStageIndex(0);
-        setBusy(true);
+        updateAssignment({
+            processingStageIndex: 0,
+            busy: true,
+        });
         reportUploadFlowStarted(uploadObservation);
         try {
             reportUploadStage(uploadObservation, currentStage);
@@ -528,7 +570,7 @@ const AssignmentHelper = () => {
             });
 
             pendingThreadIdRef.current = threadId;
-            setSelectedThreadId(threadId);
+            updateAssignment({ selectedThreadId: threadId });
 
             let extractedText = '';
             if (file.type === 'application/pdf') {
@@ -565,13 +607,13 @@ const AssignmentHelper = () => {
             showAssignmentToast('Assignment processed. You can ask follow-up questions now.', { type: 'success' });
         } catch (uploadError) {
             if (getConvexErrorCode(uploadError) === 'UPLOAD_QUOTA_EXCEEDED') {
-                setError(
-                    resolveQuotaExceededMessage(
+                updateAssignment({
+                    error: resolveQuotaExceededMessage(
                         uploadError,
                         uploadQuota?.topUpOptions,
                         uploadQuota?.currency || 'GHS'
-                    )
-                );
+                    ),
+                });
                 reportUploadValidationRejected({
                     flowType: 'assignment',
                     source: 'assignment_helper',
@@ -593,7 +635,7 @@ const AssignmentHelper = () => {
                         errorMessage: resolveConvexActionError(uploadError, ''),
                     }
                 );
-                setError(buildAssignmentExtractionGuidance(uploadError));
+                updateAssignment({ error: buildAssignmentExtractionGuidance(uploadError) });
                 return;
             }
             if (isConvexAuthenticationError(uploadError)) {
@@ -607,18 +649,20 @@ const AssignmentHelper = () => {
                         errorMessage: resolveConvexActionError(uploadError, ''),
                     }
                 );
-                setError(getUploadAuthNotReadyMessage());
+                updateAssignment({ error: getUploadAuthNotReadyMessage() });
                 return;
             }
             console.error('Assignment upload failed:', uploadError);
             reportUploadFlowFailed(uploadObservation, uploadError, { stage: currentStage });
             if (isTransientUploadTransportError(uploadError)) {
-                setError('Upload failed due to a temporary network issue. Please check your connection and try again.');
+                updateAssignment({ error: 'Upload failed due to a temporary network issue. Please check your connection and try again.' });
             } else {
-                setError(resolveConvexActionError(uploadError, 'Could not process assignment. Please try again.'));
+                updateAssignment({
+                    error: resolveConvexActionError(uploadError, 'Could not process assignment. Please try again.'),
+                });
             }
         } finally {
-            setBusy(false);
+            updateAssignment({ busy: false });
         }
     };
 
@@ -631,22 +675,26 @@ const AssignmentHelper = () => {
     const handleDeleteThread = async (thread) => {
         if (!userId || !thread?._id) return;
 
-        setDeletingThreadId(String(thread._id));
-        setConfirmDeleteId(null);
-        setError('');
+        updateAssignment({
+            deletingThreadId: String(thread._id),
+            confirmDeleteId: null,
+            error: '',
+        });
         try {
             await deleteThread({
                 userId,
                 threadId: thread._id,
             });
             if (String(selectedThreadId) === String(thread._id)) {
-                setSelectedThreadId(null);
+                updateAssignment({ selectedThreadId: null });
             }
             showAssignmentToast('Thread deleted.', { type: 'success' });
         } catch (deleteError) {
-            setError(resolveConvexActionError(deleteError, 'Could not delete this thread right now.'));
+            updateAssignment({
+                error: resolveConvexActionError(deleteError, 'Could not delete this thread right now.'),
+            });
         } finally {
-            setDeletingThreadId('');
+            updateAssignment({ deletingThreadId: '' });
         }
     };
 
@@ -656,8 +704,10 @@ const AssignmentHelper = () => {
         const question = followUpQuestion.trim();
         if (!question) return;
 
-        setSending(true);
-        setError('');
+        updateAssignment({
+            sending: true,
+            error: '',
+        });
         try {
             const args = {
                 threadId: selectedThreadId,
@@ -668,8 +718,10 @@ const AssignmentHelper = () => {
                 args.questionNumber = activeFollowUpQuestionNumber;
             }
             await askAssignmentFollowUp(args);
-            setFollowUpQuestion('');
-            setActiveFollowUpQuestionNumber(null);
+            updateAssignment({
+                followUpQuestion: '',
+                activeFollowUpQuestionNumber: null,
+            });
             resizeTextareaToContent(textareaRef.current);
         } catch (followUpError) {
             if (getConvexErrorCode(followUpError) === 'AI_MESSAGE_QUOTA_EXCEEDED') {
@@ -677,7 +729,7 @@ const AssignmentHelper = () => {
                     followUpError,
                     "You've used your free AI messages today. Upgrade to premium for unlimited AI chat."
                 );
-                setError(paywallMessage);
+                updateAssignment({ error: paywallMessage });
                 navigate(buildAiMessageLimitSubscriptionPath(), {
                     state: {
                         paywallMessage,
@@ -685,30 +737,36 @@ const AssignmentHelper = () => {
                 });
                 return;
             }
-            setError(resolveConvexActionError(followUpError, 'Could not send follow-up question.'));
+            updateAssignment({
+                error: resolveConvexActionError(followUpError, 'Could not send follow-up question.'),
+            });
         } finally {
-            setSending(false);
+            updateAssignment({ sending: false });
         }
     };
 
     const handleAskAboutQuestion = (qNum) => {
-        setActiveFollowUpQuestionNumber(qNum);
-        setFollowUpQuestion(`Regarding Question ${qNum}: `);
+        updateAssignment({
+            activeFollowUpQuestionNumber: qNum,
+            followUpQuestion: `Regarding Question ${qNum}: `,
+        });
         textareaRef.current?.focus();
     };
 
     const handleCopy = async (content, messageId) => {
         try {
             await navigator.clipboard.writeText(content);
-            setCopiedMessageId(messageId);
+            updateAssignment({ copiedMessageId: messageId });
         } catch { /* clipboard not available */ }
     };
 
     const retryProcessing = async (thread) => {
         if (!thread || !userId || busy) return;
-        setBusy(true);
-        setError('');
-        setProcessingStageIndex(0);
+        updateAssignment({
+            busy: true,
+            error: '',
+            processingStageIndex: 0,
+        });
         try {
             await processAssignmentThread({
                 threadId: thread._id,
@@ -716,9 +774,11 @@ const AssignmentHelper = () => {
             });
             showAssignmentToast('Assignment reprocessed successfully.', { type: 'success' });
         } catch (retryError) {
-            setError(resolveConvexActionError(retryError, 'Retry failed. Please try uploading again.'));
+            updateAssignment({
+                error: resolveConvexActionError(retryError, 'Retry failed. Please try uploading again.'),
+            });
         } finally {
-            setBusy(false);
+            updateAssignment({ busy: false });
         }
     };
 
@@ -826,7 +886,7 @@ const AssignmentHelper = () => {
                                         >
                                             <button
                                                 type="button"
-                                                onClick={() => !isDeleting && setSelectedThreadId(thread._id)}
+                                                onClick={() => !isDeleting && updateAssignment({ selectedThreadId: thread._id })}
                                                 disabled={isDeleting}
                                                 className="w-full text-left p-3"
                                             >
@@ -856,14 +916,14 @@ const AssignmentHelper = () => {
                                                 <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1">
                                                     <button
                                                         type="button"
-                                                        onClick={(e) => { e.stopPropagation(); handleDeleteThread(thread); setConfirmDeleteId(null); }}
+                                                        onClick={(e) => { e.stopPropagation(); handleDeleteThread(thread); updateAssignment({ confirmDeleteId: null }); }}
                                                         className="text-[10px] font-semibold text-white bg-red-500 hover:bg-red-600 px-2 py-1 rounded-lg transition-colors"
                                                     >
                                                         Delete
                                                     </button>
                                                     <button
                                                         type="button"
-                                                        onClick={(e) => { e.stopPropagation(); setConfirmDeleteId(null); }}
+                                                        onClick={(e) => { e.stopPropagation(); updateAssignment({ confirmDeleteId: null }); }}
                                                         className="text-[10px] font-medium text-text-faint-light dark:text-text-faint-dark hover:text-text-main-light dark:hover:text-text-main-dark px-1.5 py-1 rounded-lg transition-colors"
                                                     >
                                                         Cancel
@@ -874,7 +934,7 @@ const AssignmentHelper = () => {
                                                     type="button"
                                                     onClick={(e) => {
                                                         e.stopPropagation();
-                                                        setConfirmDeleteId(String(thread._id));
+                                                        updateAssignment({ confirmDeleteId: String(thread._id) });
                                                     }}
                                                     disabled={isDeleting}
                                                     aria-label="Delete conversation"
@@ -948,7 +1008,7 @@ const AssignmentHelper = () => {
                                     <div className="flex items-center gap-3">
                                         <button
                                             type="button"
-                                            onClick={() => setSelectedThreadId(null)}
+                                            onClick={() => updateAssignment({ selectedThreadId: null })}
                                             className="lg:hidden btn-icon size-9"
                                             aria-label="Back to conversations"
                                         >
@@ -986,7 +1046,7 @@ const AssignmentHelper = () => {
                                                     id="mobile-assignment-thread-switcher"
                                                     aria-label="Switch assignment conversation"
                                                     value={selectedThreadId ? String(selectedThreadId) : ''}
-                                                    onChange={(event) => setSelectedThreadId(event.target.value || null)}
+                                                    onChange={(event) => updateAssignment({ selectedThreadId: event.target.value || null })}
                                                     className="input-field h-9 text-body-sm pl-8 pr-8"
                                                 >
                                                     {sortedThreads.map((thread) => (
@@ -1099,7 +1159,7 @@ const AssignmentHelper = () => {
                                                                     key={getStructuredQuestionKey(q)}
                                                                     title={q.questionText || `Question ${q.number || qi + 1}`}
                                                                     open={isOpen}
-                                                                    onOpenChange={(o) => setExpandedQuestionIndex(o ? qi : -1)}
+                                                                    onOpenChange={(o) => updateAssignment({ expandedQuestionIndex: o ? qi : -1 })}
                                                                     headerClassName="!px-4 !py-3"
                                                                     contentClassName="space-y-3"
                                                                 >
@@ -1267,7 +1327,7 @@ const AssignmentHelper = () => {
                                                     </span>
                                                     <button
                                                         type="button"
-                                                        onClick={() => { setActiveFollowUpQuestionNumber(null); setFollowUpQuestion(''); }}
+                                                        onClick={() => updateAssignment({ activeFollowUpQuestionNumber: null, followUpQuestion: '' })}
                                                         className="text-text-faint-light dark:text-text-faint-dark hover:text-text-main-light dark:hover:text-text-main-dark transition-colors"
                                                     >
                                                         <span className="material-symbols-outlined text-[14px]">close</span>
@@ -1283,7 +1343,7 @@ const AssignmentHelper = () => {
                                                     }}
                                                     value={followUpQuestion}
                                                     onChange={(event) => {
-                                                        setFollowUpQuestion(event.target.value);
+                                                        updateAssignment({ followUpQuestion: event.target.value });
                                                         resizeTextareaToContent(event.target);
                                                     }}
                                                     onKeyDown={onComposerKeyDown}

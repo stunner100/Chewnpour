@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useSyncExternalStore } from 'react';
 import { cn } from '../../lib/utils';
 
 const hexToRgb = (hex) => {
@@ -15,6 +15,18 @@ const remapValue = (value, start1, end1, start2, end2) => {
     return remapped > 0 ? remapped : 0;
 };
 
+const getReducedMotionSnapshot = () => {
+    if (typeof window === 'undefined') return false;
+    return window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+};
+
+const subscribeReducedMotion = (onStoreChange) => {
+    if (typeof window === 'undefined') return () => {};
+    const mediaQuery = window.matchMedia('(prefers-reduced-motion: reduce)');
+    mediaQuery.addEventListener('change', onStoreChange);
+    return () => mediaQuery.removeEventListener('change', onStoreChange);
+};
+
 export const Particles = ({
     className,
     quantity = 80,
@@ -28,15 +40,11 @@ export const Particles = ({
     const canvasRef = useRef(null);
     const containerRef = useRef(null);
     const animationRef = useRef(null);
-    const [prefersReducedMotion, setPrefersReducedMotion] = useState(false);
-
-    useEffect(() => {
-        const mediaQuery = window.matchMedia('(prefers-reduced-motion: reduce)');
-        const handleChange = () => setPrefersReducedMotion(mediaQuery.matches);
-        handleChange();
-        mediaQuery.addEventListener('change', handleChange);
-        return () => mediaQuery.removeEventListener('change', handleChange);
-    }, []);
+    const prefersReducedMotion = useSyncExternalStore(
+        subscribeReducedMotion,
+        getReducedMotionSnapshot,
+        () => false,
+    );
 
     useEffect(() => {
         if (prefersReducedMotion) {
@@ -58,9 +66,8 @@ export const Particles = ({
             canvasSize.h = container.offsetHeight;
             canvas.width = canvasSize.w * dpr;
             canvas.height = canvasSize.h * dpr;
-            canvas.style.width = `${canvasSize.w}px`;
-            canvas.style.height = `${canvasSize.h}px`;
-            ctx.scale(dpr, dpr);
+            canvas.style.cssText = `width:${canvasSize.w}px;height:${canvasSize.h}px;`;
+            ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
         };
 
         const createParticle = () => ({

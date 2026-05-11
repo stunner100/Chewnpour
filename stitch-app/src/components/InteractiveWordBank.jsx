@@ -55,19 +55,18 @@ const QuizTab = ({ terms }) => {
     const [index, setIndex] = useState(0);
     const [revealed, setRevealed] = useState(false);
     const [score, setScore] = useState(0);
-    const [done, setDone] = useState(false);
+    const done = index >= terms.length;
 
     const restart = useCallback(() => {
         setIndex(0);
         setRevealed(false);
         setScore(0);
-        setDone(false);
     }, []);
 
     const advance = useCallback((gotIt) => {
         if (index + 1 >= terms.length) {
             setScore((currentScore) => (gotIt ? currentScore + 1 : currentScore));
-            setDone(true);
+            setIndex(terms.length);
         } else {
             setScore((currentScore) => (gotIt ? currentScore + 1 : currentScore));
             setIndex((currentIndex) => currentIndex + 1);

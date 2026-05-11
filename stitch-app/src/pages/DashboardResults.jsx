@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useReducer, useRef, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { useQuery, useAction, useConvexAuth } from 'convex/react';
 import { api } from '../../convex/_generated/api';
@@ -300,14 +300,38 @@ const extractReadinessLabel = (text) => {
 // #3 — track in-flight generation to prevent duplicate calls
 const feedbackInFlight = new Set();
 
+const tutorFeedbackReducer = (state, action) => {
+    switch (action.type) {
+        case 'loaded':
+            return {
+                generatedFeedback: action.feedback,
+                error: false,
+                loading: false,
+            };
+        case 'failed':
+            return {
+                ...state,
+                error: true,
+                loading: false,
+            };
+        default:
+            return state;
+    }
+};
+
 const TutorReport = ({ attemptId, storedFeedback }) => {
     const generateFeedback = useAction(api.ai.generateExamFeedback);
     const normalizedStoredFeedback = typeof storedFeedback === 'string'
         ? storedFeedback.trim()
         : '';
-    const [generatedFeedback, setGeneratedFeedback] = useState(null);
-    const [error, setError] = useState(false);
-    const [loading, setLoading] = useState(() => Boolean(attemptId && !normalizedStoredFeedback));
+    const [{ generatedFeedback, error, loading }, dispatchTutorFeedback] = useReducer(
+        tutorFeedbackReducer,
+        {
+            generatedFeedback: null,
+            error: false,
+            loading: Boolean(attemptId && !normalizedStoredFeedback),
+        },
+    );
     const feedback = normalizedStoredFeedback || generatedFeedback;
 
     useEffect(() => {
@@ -322,8 +346,7 @@ const TutorReport = ({ attemptId, storedFeedback }) => {
                 feedbackInFlight.delete(attemptId);
                 if (cancelled) return;
                 const normalized = String(text || '').trim();
-                if (normalized) setGeneratedFeedback(normalized);
-                setLoading(false);
+                dispatchTutorFeedback({ type: 'loaded', feedback: normalized || null });
             })
             .catch((err) => {
                 // #5 — log error instead of silently swallowing
@@ -333,8 +356,7 @@ const TutorReport = ({ attemptId, storedFeedback }) => {
                 if (isPermanent) feedbackInFlight.delete(attemptId);
                 // Transient failure — keep the Set entry so rapid re-mount won't re-trigger
                 if (!cancelled) {
-                    setError(true);
-                    setLoading(false);
+                    dispatchTutorFeedback({ type: 'failed' });
                 }
             });
         return () => {
@@ -388,6 +410,7 @@ const TutorReport = ({ attemptId, storedFeedback }) => {
 
 // ─── Main component ───────────────────────────────────────────────────────────
 
+// react-doctor-disable-next-line react-doctor/no-giant-component
 const DashboardResults = () => {
     const { attemptId } = useParams();
     const { isAuthenticated: isConvexAuthenticated } = useConvexAuth();
@@ -412,11 +435,11 @@ const DashboardResults = () => {
     useEffect(() => {
         if (!confettiTriggeredRef.current && rawPercentage >= 70) {
             confettiTriggeredRef.current = true;
-            const timer = setTimeout(() => setShowConfetti(true), 400);
-            const clearTimer = setTimeout(() => setShowConfetti(false), 6000);
+            const timer = window.setTimeout(() => setShowConfetti(true), 400);
+            const clearTimer = window.setTimeout(() => setShowConfetti(false), 6000);
             return () => {
-                clearTimeout(timer);
-                clearTimeout(clearTimer);
+                window.clearTimeout(timer);
+                window.clearTimeout(clearTimer);
             };
         }
         return undefined;

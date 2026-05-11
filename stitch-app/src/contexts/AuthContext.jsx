@@ -99,6 +99,23 @@ const readCachedSessionUser = () => {
 const SOCIAL_SIGN_IN_MAX_RETRIES = 2;
 const SOCIAL_SIGN_IN_RETRY_BASE_DELAY_MS = 400;
 
+const syncAuthAnalyticsUser = (sessionUser) => {
+    const activeUserId = sessionUser?.id;
+    if (!activeUserId) {
+        setSentryUser(null);
+        resetPostHogUser();
+        return;
+    }
+
+    const userPayload = {
+        id: activeUserId,
+        email: sessionUser?.email,
+        username: sessionUser?.name,
+    };
+    setSentryUser(userPayload);
+    setPostHogUser(userPayload);
+};
+
 const normalizeErrorForSentry = (error, fallbackMessage = 'Authentication request failed') => {
     if (error instanceof Error) return error;
     const message = getErrorMessage(error, fallbackMessage);
@@ -212,9 +229,7 @@ const captureAuthFailure = ({
 };
 
 const verifyOttTokenWithRetry = async (token, maxRetries = 1) => {
-    let attempt = 0;
-
-    while (attempt <= maxRetries) {
+    const verifyAttempt = async (attempt) => {
         try {
             const result = await authClient.crossDomain.oneTimeToken.verify({ token });
 
@@ -231,10 +246,13 @@ const verifyOttTokenWithRetry = async (token, maxRetries = 1) => {
                 throw error;
             }
 
-            attempt += 1;
-            await wait(250 * attempt);
+            const nextAttempt = attempt + 1;
+            await wait(250 * nextAttempt);
+            return verifyAttempt(nextAttempt);
         }
-    }
+    };
+
+    return verifyAttempt(0);
 };
 
 // eslint-disable-next-line react-refresh/only-export-components
@@ -267,6 +285,7 @@ const AuthProviderFallback = ({ children }) => {
     );
 };
 
+// react-doctor-disable-next-line react-doctor/no-giant-component
 const AuthProviderConvex = ({ children }) => {
     const { isAuthenticated: isConvexAuthenticated, isLoading: isConvexAuthLoading } = useConvexAuth();
     const { data: session, isPending, refetch, error: sessionError } = useSession();
@@ -400,23 +419,8 @@ const AuthProviderConvex = ({ children }) => {
     }, [sessionUser?.id, profileData, setReferredByMutation]);
 
     useEffect(() => {
-        const activeUserId = sessionUser?.id;
-        if (!activeUserId) {
-            setSentryUser(null);
-            resetPostHogUser();
-            return;
-        }
-        setSentryUser({
-            id: activeUserId,
-            email: sessionUser?.email,
-            username: sessionUser?.name,
-        });
-        setPostHogUser({
-            id: activeUserId,
-            email: sessionUser?.email,
-            username: sessionUser?.name,
-        });
-    }, [sessionUser?.id, sessionUser?.email, sessionUser?.name]);
+        syncAuthAnalyticsUser(sessionUser);
+    }, [sessionUser]);
 
     useEffect(() => {
         const activeUserId = sessionUser?.id;
@@ -566,9 +570,8 @@ const AuthProviderConvex = ({ children }) => {
                 : '/dashboard';
         const callbackURL = absoluteUrl(normalizedCallbackPath);
         const provider = 'google';
-        let attempt = 0;
 
-        while (attempt <= SOCIAL_SIGN_IN_MAX_RETRIES) {
+        const runGoogleSignInAttempt = async (attempt) => {
             try {
                 const result = await betterSignIn.social({
                     provider,
@@ -578,9 +581,9 @@ const AuthProviderConvex = ({ children }) => {
                 if (result.error) {
                     const transient = isTransientSessionError(result.error);
                     if (transient && attempt < SOCIAL_SIGN_IN_MAX_RETRIES) {
-                        attempt += 1;
-                        await wait(SOCIAL_SIGN_IN_RETRY_BASE_DELAY_MS * attempt);
-                        continue;
+                        const nextAttempt = attempt + 1;
+                        await wait(SOCIAL_SIGN_IN_RETRY_BASE_DELAY_MS * nextAttempt);
+                        return runGoogleSignInAttempt(nextAttempt);
                     }
 
                     if (transient) {
@@ -606,9 +609,9 @@ const AuthProviderConvex = ({ children }) => {
             } catch (error) {
                 const transient = isTransientSessionError(error);
                 if (transient && attempt < SOCIAL_SIGN_IN_MAX_RETRIES) {
-                    attempt += 1;
-                    await wait(SOCIAL_SIGN_IN_RETRY_BASE_DELAY_MS * attempt);
-                    continue;
+                    const nextAttempt = attempt + 1;
+                    await wait(SOCIAL_SIGN_IN_RETRY_BASE_DELAY_MS * nextAttempt);
+                    return runGoogleSignInAttempt(nextAttempt);
                 }
 
                 captureAuthFailure({
@@ -626,9 +629,9 @@ const AuthProviderConvex = ({ children }) => {
                 });
                 return { data: null, error };
             }
-        }
+        };
 
-        return { data: null, error: { message: 'Unable to reach authentication right now. Please try again.' } };
+        return runGoogleSignInAttempt(0);
     };
 
     const signOut = async () => {

@@ -75,9 +75,9 @@ export const CommandPalette = () => {
     }, []);
 
     useEffect(() => {
-        if (open) {
-            requestAnimationFrame(() => inputRef.current?.focus());
-        }
+        if (!open) return undefined;
+        const frameId = requestAnimationFrame(() => inputRef.current?.focus());
+        return () => cancelAnimationFrame(frameId);
     }, [open]);
 
     const filtered = useMemo(() => {

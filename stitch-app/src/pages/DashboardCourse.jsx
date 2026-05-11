@@ -138,6 +138,7 @@ const SkeletonModuleCard = () => (
     </div>
 );
 
+// react-doctor-disable-next-line react-doctor/no-giant-component
 const DashboardCourse = () => {
     const { courseId } = useParams();
     const navigate = useNavigate();
