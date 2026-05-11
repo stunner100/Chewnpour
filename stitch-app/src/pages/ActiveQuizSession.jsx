@@ -23,9 +23,9 @@ const ActiveQuizSession = () => {
     const progress = (quizData.currentQuestion / quizData.totalQuestions) * 100;
 
     return (
-        <div className="flex-1 flex flex-col ml-0 min-h-screen pt-16">
-            <main className="flex-1 p-space-4 md:p-space-10 flex flex-col items-center justify-start overflow-y-auto">
-                <div className="w-full max-w-[800px] flex flex-col gap-space-8 mt-space-8">
+        <div className="flex-1 flex flex-col ml-0 h-[calc(100vh-64px)] overflow-hidden">
+            <main className="flex-1 min-h-0 p-space-4 md:px-space-10 md:py-space-8 flex flex-col items-center justify-start overflow-y-auto">
+                <div className="w-full max-w-[800px] flex flex-col gap-space-8">
                     {/* Progress & Meta Header */}
                     <div className="flex flex-col gap-space-4 w-full">
                         <div className="flex justify-between items-end">

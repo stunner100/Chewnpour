@@ -4,8 +4,8 @@ const FlashcardStudySession = () => {
     const [flipped, setFlipped] = useState(false);
 
     return (
-        <div className="flex-1 flex flex-col md:ml-0 min-h-screen pt-16">
-            <main className="flex-1 flex flex-col items-center justify-center p-space-8 w-full max-w-4xl mx-auto">
+        <div className="flex-1 flex flex-col md:ml-0 h-[calc(100vh-64px)] overflow-hidden">
+            <main className="flex-1 min-h-0 flex flex-col items-center justify-start px-space-8 pt-space-8 pb-space-8 w-full max-w-4xl mx-auto">
                 {/* Progress Context */}
                 <div className="w-full flex justify-between items-center mb-space-8 px-space-4">
                     <h2 className="font-headline-sm text-headline-sm text-text-primary flex items-center gap-2">
