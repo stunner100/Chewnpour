@@ -22,6 +22,9 @@ const bottomNavItems = [
     { label: 'Settings', icon: 'settings', path: '/dashboard/settings' },
 ];
 
+const SUPPORT_EMAIL = 'info@chewnpour.com';
+const SUPPORT_MAILTO = `mailto:${SUPPORT_EMAIL}?subject=ChewnPour%20Support`;
+
 const DashboardLayout = ({ children }) => {
     const routerLocation = useLocation();
     const navigate = useNavigate();
@@ -44,6 +47,32 @@ const DashboardLayout = ({ children }) => {
 
         return () => window.clearTimeout(timeoutId);
     }, [routerLocation.pathname, routerLocation.search, routerLocation.state, navigate]);
+
+    useEffect(() => {
+        if (!routerLocation.hash) return undefined;
+
+        const targetId = decodeURIComponent(routerLocation.hash.slice(1));
+        if (!targetId) return undefined;
+
+        let attempts = 0;
+        let timeoutId;
+
+        const scrollToHashTarget = () => {
+            const target = document.getElementById(targetId);
+            if (target) {
+                target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                return;
+            }
+
+            attempts += 1;
+            if (attempts < 8) {
+                timeoutId = window.setTimeout(scrollToHashTarget, 50);
+            }
+        };
+
+        timeoutId = window.setTimeout(scrollToHashTarget, 0);
+        return () => window.clearTimeout(timeoutId);
+    }, [routerLocation.pathname, routerLocation.hash]);
 
     const isActive = (item) => {
         if (item.exact) return routerLocation.pathname === item.path;
@@ -143,20 +172,34 @@ const DashboardLayout = ({ children }) => {
                         />
                     </div>
                     <div className="flex items-center gap-space-4">
-                        <button className="p-2 text-text-muted hover:text-text-primary hover:bg-surface-soft rounded-full transition-all">
+                        <a
+                            href={SUPPORT_MAILTO}
+                            aria-label={`Email support at ${SUPPORT_EMAIL}`}
+                            title={`Email support at ${SUPPORT_EMAIL}`}
+                            className="p-2 text-text-muted hover:text-text-primary hover:bg-surface-soft rounded-full transition-all"
+                        >
                             <span className="material-symbols-outlined">help_outline</span>
-                        </button>
-                        <button className="p-2 text-text-muted hover:text-text-primary hover:bg-surface-soft rounded-full transition-all relative">
+                        </a>
+                        <Link
+                            to="/dashboard/settings#notifications"
+                            aria-label="Open notification settings"
+                            title="Open notification settings"
+                            className="p-2 text-text-muted hover:text-text-primary hover:bg-surface-soft rounded-full transition-all"
+                        >
                             <span className="material-symbols-outlined">notifications</span>
-                            <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-error rounded-full"></span>
-                        </button>
-                        <div className="h-8 w-8 rounded-full overflow-hidden ml-space-2 border border-border-subtle cursor-pointer hover:shadow-sm transition-shadow bg-primary-soft flex items-center justify-center text-xs font-bold text-primary">
+                        </Link>
+                        <Link
+                            to="/dashboard/settings"
+                            aria-label="Open settings"
+                            title="Open settings"
+                            className="h-8 w-8 rounded-full overflow-hidden ml-space-2 border border-border-subtle cursor-pointer hover:shadow-sm transition-shadow bg-primary-soft flex items-center justify-center text-xs font-bold text-primary"
+                        >
                             {profile?.avatar ? (
                                 <img src={profile.avatar} alt="Student Profile" className="w-full h-full object-cover" />
                             ) : (
                                 initials
                             )}
-                        </div>
+                        </Link>
                     </div>
                 </header>
 
