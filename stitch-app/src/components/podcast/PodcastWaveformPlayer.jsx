@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useReducer, useRef } from 'react';
 
 const clamp = (value, min, max) => Math.max(min, Math.min(max, value));
 
@@ -35,8 +35,43 @@ const buildWaveform = (seedValue, barCount = 84) => {
         const phraseEnvelope = 0.55 + Math.sin(position * Math.PI * 5.5) * 0.18;
         const breath = Math.sin(position * Math.PI * 17) * 0.08;
         const noise = random() * 0.36;
-        return clamp(0.18 + phraseEnvelope * 0.42 + breath + noise, 0.18, 1);
+        return {
+            id: `waveform-bar-${String(index).padStart(2, '0')}`,
+            level: clamp(0.18 + phraseEnvelope * 0.42 + breath + noise, 0.18, 1),
+            position,
+        };
     });
+};
+
+const createInitialPlayerState = (durationSeconds) => ({
+    buffering: false,
+    currentTime: 0,
+    duration: Number(durationSeconds) || 0,
+    error: '',
+    playing: false,
+});
+
+const playerReducer = (state, action) => {
+    switch (action.type) {
+        case 'reset':
+            return createInitialPlayerState(action.durationSeconds);
+        case 'buffering':
+            return { ...state, buffering: action.value };
+        case 'clearError':
+            return { ...state, error: '' };
+        case 'duration':
+            return { ...state, duration: action.value };
+        case 'ended':
+            return { ...state, currentTime: action.currentTime, playing: false };
+        case 'error':
+            return { ...state, buffering: false, error: action.message, playing: false };
+        case 'playback':
+            return { ...state, playing: action.playing };
+        case 'seek':
+            return { ...state, currentTime: action.currentTime };
+        default:
+            return state;
+    }
 };
 
 const PodcastWaveformPlayer = ({
@@ -49,11 +84,11 @@ const PodcastWaveformPlayer = ({
     const audioRef = useRef(null);
     const scrubberRef = useRef(null);
     const draggingRef = useRef(false);
-    const [playing, setPlaying] = useState(false);
-    const [buffering, setBuffering] = useState(false);
-    const [currentTime, setCurrentTime] = useState(0);
-    const [duration, setDuration] = useState(Number(durationSeconds) || 0);
-    const [error, setError] = useState('');
+    const [{ buffering, currentTime, duration, error, playing }, dispatchPlayer] = useReducer(
+        playerReducer,
+        durationSeconds,
+        createInitialPlayerState,
+    );
 
     const waveform = useMemo(
         () => buildWaveform(`${audioUrl || ''}:${title || ''}`),
@@ -63,11 +98,7 @@ const PodcastWaveformPlayer = ({
     const progress = effectiveDuration > 0 ? clamp(currentTime / effectiveDuration, 0, 1) : 0;
 
     useEffect(() => {
-        setPlaying(false);
-        setBuffering(false);
-        setCurrentTime(0);
-        setDuration(Number(durationSeconds) || 0);
-        setError('');
+        dispatchPlayer({ type: 'reset', durationSeconds });
     }, [audioUrl, durationSeconds]);
 
     const seekToRatio = (ratio) => {
@@ -75,7 +106,7 @@ const PodcastWaveformPlayer = ({
         if (!audio || effectiveDuration <= 0) return;
         const nextTime = clamp(ratio, 0, 1) * effectiveDuration;
         audio.currentTime = nextTime;
-        setCurrentTime(nextTime);
+        dispatchPlayer({ type: 'seek', currentTime: nextTime });
     };
 
     const seekFromClientX = (clientX) => {
@@ -122,21 +153,20 @@ const PodcastWaveformPlayer = ({
     const togglePlayback = async () => {
         const audio = audioRef.current;
         if (!audio || !audioUrl) return;
-        setError('');
+        dispatchPlayer({ type: 'clearError' });
         try {
             if (audio.paused) {
-                setBuffering(true);
+                dispatchPlayer({ type: 'buffering', value: true });
                 await audio.play();
-                setPlaying(true);
+                dispatchPlayer({ type: 'playback', playing: true });
             } else {
                 audio.pause();
-                setPlaying(false);
+                dispatchPlayer({ type: 'playback', playing: false });
             }
         } catch (playError) {
-            setError(playError?.message || 'Unable to play this podcast.');
-            setPlaying(false);
+            dispatchPlayer({ type: 'error', message: playError?.message || 'Unable to play this podcast.' });
         } finally {
-            setBuffering(false);
+            dispatchPlayer({ type: 'buffering', value: false });
         }
     };
 
@@ -151,17 +181,16 @@ const PodcastWaveformPlayer = ({
                     onLoadedMetadata={(event) => {
                         const nextDuration = Number(event.currentTarget.duration);
                         if (Number.isFinite(nextDuration) && nextDuration > 0) {
-                            setDuration(nextDuration);
+                            dispatchPlayer({ type: 'duration', value: nextDuration });
                         }
                     }}
-                    onTimeUpdate={(event) => setCurrentTime(event.currentTarget.currentTime || 0)}
-                    onWaiting={() => setBuffering(true)}
-                    onCanPlay={() => setBuffering(false)}
-                    onPlay={() => setPlaying(true)}
-                    onPause={() => setPlaying(false)}
+                    onTimeUpdate={(event) => dispatchPlayer({ type: 'seek', currentTime: event.currentTarget.currentTime || 0 })}
+                    onWaiting={() => dispatchPlayer({ type: 'buffering', value: true })}
+                    onCanPlay={() => dispatchPlayer({ type: 'buffering', value: false })}
+                    onPlay={() => dispatchPlayer({ type: 'playback', playing: true })}
+                    onPause={() => dispatchPlayer({ type: 'playback', playing: false })}
                     onEnded={() => {
-                        setPlaying(false);
-                        setCurrentTime(effectiveDuration || 0);
+                        dispatchPlayer({ type: 'ended', currentTime: effectiveDuration || 0 });
                     }}
                 >
                     <track kind="captions" />
@@ -218,12 +247,11 @@ const PodcastWaveformPlayer = ({
                             onKeyDown={handleKeyDown}
                         >
                             <div className="flex h-full items-center gap-[3px]">
-                                {waveform.map((level, index) => {
-                                    const barProgress = index / Math.max(1, waveform.length - 1);
-                                    const active = barProgress <= progress;
+                                {waveform.map(({ id, level, position }) => {
+                                    const active = position <= progress;
                                     return (
                                         <span
-                                            key={index}
+                                            key={id}
                                             className={`flex-1 rounded-full transition-colors duration-150 ${
                                                 active
                                                     ? 'bg-gradient-to-t from-[#8B5CF6] to-[#34D399]'

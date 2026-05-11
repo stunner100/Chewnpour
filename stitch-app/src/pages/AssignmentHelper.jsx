@@ -40,18 +40,15 @@ const extractPdfTextFromFile = async (file) => {
     const loadingTask = pdfjsLib.getDocument({ data: arrayBuffer });
     const pdf = await loadingTask.promise;
     const maxPages = Math.min(pdf.numPages, 20);
-    let text = '';
-
-    for (let i = 1; i <= maxPages; i += 1) {
-        const page = await pdf.getPage(i);
+    const pageTexts = await Promise.all(Array.from({ length: maxPages }, async (_, index) => {
+        const page = await pdf.getPage(index + 1);
         const content = await page.getTextContent();
-        const pageText = content.items
+        return content.items
             .map((item) => (typeof item.str === 'string' ? item.str : ''))
             .join(' ');
-        text += `${pageText}\n`;
-    }
+    }));
 
-    return text.trim();
+    return pageTexts.join('\n').trim();
 };
 
 const MAX_FILE_SIZE_BYTES = 50 * 1024 * 1024;
@@ -97,6 +94,47 @@ const PROCESSING_STAGES = [
         detail: 'Reviewing answers and preparing your results.',
     },
 ];
+
+const THREAD_SKELETON_ROWS = [
+    'assignment-thread-skeleton-a',
+    'assignment-thread-skeleton-b',
+    'assignment-thread-skeleton-c',
+];
+
+const THINKING_DOTS = [
+    { delayMs: 0, id: 'thinking-dot-0' },
+    { delayMs: 150, id: 'thinking-dot-1' },
+    { delayMs: 300, id: 'thinking-dot-2' },
+];
+
+const getStructuredQuestionKey = (question) => {
+    const stableText = question?.questionText || question?.answer || question?.workings || 'question';
+    return `question-${question?.number || stableText.slice(0, 80)}`;
+};
+
+const buildParagraphBlocks = (content) => {
+    const seen = new Map();
+    return String(content || '').split('\n').map((text) => {
+        const baseKey = `${text.slice(0, 80)}-${text.length}`;
+        const count = seen.get(baseKey) || 0;
+        seen.set(baseKey, count + 1);
+        return {
+            id: count > 0 ? `${baseKey}-${count}` : baseKey,
+            text,
+        };
+    });
+};
+
+const resizeTextareaToContent = (textarea) => {
+    if (!textarea) return;
+    textarea.setAttribute('style', 'height: auto');
+    textarea.setAttribute('style', `height: ${Math.min(textarea.scrollHeight, 120)}px`);
+};
+
+const showAssignmentToast = (message, options) => {
+    if (!message) return;
+    watermelonToast(message, options);
+};
 
 const normalizeAssistantDisplayText = (value) => {
     return String(value || '')
@@ -239,8 +277,6 @@ const AssignmentHelper = () => {
     const [busy, setBusy] = useState(false);
     const [sending, setSending] = useState(false);
     const [error, setError] = useState('');
-    const [successMessage, setSuccessMessage] = useState('');
-    const [paywallToastMessage, setPaywallToastMessage] = useState('');
     const [deletingThreadId, setDeletingThreadId] = useState('');
     const [processingStageIndex, setProcessingStageIndex] = useState(0);
     const [copiedMessageId, setCopiedMessageId] = useState(null);
@@ -296,20 +332,6 @@ const AssignmentHelper = () => {
     }, [sortedThreads, selectedThreadId]);
 
     useEffect(() => {
-        if (!successMessage) return undefined;
-        watermelonToast(successMessage, { type: 'success' });
-        const timer = window.setTimeout(() => setSuccessMessage(''), 2500);
-        return () => window.clearTimeout(timer);
-    }, [successMessage]);
-
-    useEffect(() => {
-        if (!paywallToastMessage) return undefined;
-        watermelonToast(paywallToastMessage, { type: 'warning', duration: 5000 });
-        const timer = window.setTimeout(() => setPaywallToastMessage(''), 4200);
-        return () => window.clearTimeout(timer);
-    }, [paywallToastMessage]);
-
-    useEffect(() => {
         if (!copiedMessageId) return undefined;
         const timer = window.setTimeout(() => setCopiedMessageId(null), 1500);
         return () => window.clearTimeout(timer);
@@ -324,7 +346,7 @@ const AssignmentHelper = () => {
     useEffect(() => {
         const incomingToastMessage = routerLocation.state?.paywallToastMessage;
         if (!incomingToastMessage) return;
-        setPaywallToastMessage(String(incomingToastMessage));
+        showAssignmentToast(String(incomingToastMessage), { type: 'warning', duration: 5000 });
         navigate(`${routerLocation.pathname}${routerLocation.search}`, { replace: true, state: {} });
     }, [routerLocation.pathname, routerLocation.search, routerLocation.state, navigate]);
 
@@ -383,7 +405,6 @@ const AssignmentHelper = () => {
             return;
         }
         setError('');
-        setSuccessMessage('');
 
         if (!isSupportedFileType(file)) {
             setError('Unsupported file format. Upload a PDF, DOCX, or image file.');
@@ -541,7 +562,7 @@ const AssignmentHelper = () => {
                 threadId,
                 extractedTextLength: extractedText.length,
             });
-            setSuccessMessage('Assignment processed. You can ask follow-up questions now.');
+            showAssignmentToast('Assignment processed. You can ask follow-up questions now.', { type: 'success' });
         } catch (uploadError) {
             if (getConvexErrorCode(uploadError) === 'UPLOAD_QUOTA_EXCEEDED') {
                 setError(
@@ -621,7 +642,7 @@ const AssignmentHelper = () => {
             if (String(selectedThreadId) === String(thread._id)) {
                 setSelectedThreadId(null);
             }
-            setSuccessMessage('Thread deleted.');
+            showAssignmentToast('Thread deleted.', { type: 'success' });
         } catch (deleteError) {
             setError(resolveConvexActionError(deleteError, 'Could not delete this thread right now.'));
         } finally {
@@ -649,9 +670,7 @@ const AssignmentHelper = () => {
             await askAssignmentFollowUp(args);
             setFollowUpQuestion('');
             setActiveFollowUpQuestionNumber(null);
-            if (textareaRef.current) {
-                textareaRef.current.style.height = 'auto';
-            }
+            resizeTextareaToContent(textareaRef.current);
         } catch (followUpError) {
             if (getConvexErrorCode(followUpError) === 'AI_MESSAGE_QUOTA_EXCEEDED') {
                 const paywallMessage = resolveConvexActionError(
@@ -695,7 +714,7 @@ const AssignmentHelper = () => {
                 threadId: thread._id,
                 userId,
             });
-            setSuccessMessage('Assignment reprocessed successfully.');
+            showAssignmentToast('Assignment reprocessed successfully.', { type: 'success' });
         } catch (retryError) {
             setError(resolveConvexActionError(retryError, 'Retry failed. Please try uploading again.'));
         } finally {
@@ -779,8 +798,8 @@ const AssignmentHelper = () => {
                         <div className="flex-1 overflow-y-auto p-2 space-y-1" role="list">
                             {threads === undefined ? (
                                 <div className="space-y-2 p-2">
-                                    {[0, 1, 2].map((i) => (
-                                        <div key={i} className="animate-pulse rounded-xl bg-surface-hover-light dark:bg-surface-hover-dark h-[72px]" />
+                                    {THREAD_SKELETON_ROWS.map((rowId) => (
+                                        <div key={rowId} className="animate-pulse rounded-xl bg-surface-hover-light dark:bg-surface-hover-dark h-[72px]" />
                                     ))}
                                 </div>
                             ) : sortedThreads.length === 0 ? (
@@ -1077,7 +1096,7 @@ const AssignmentHelper = () => {
                                                             const isOpen = expandedQuestionIndex === qi;
                                                             return (
                                                                 <WatermelonDisclosure
-                                                                    key={qi}
+                                                                    key={getStructuredQuestionKey(q)}
                                                                     title={q.questionText || `Question ${q.number || qi + 1}`}
                                                                     open={isOpen}
                                                                     onOpenChange={(o) => setExpandedQuestionIndex(o ? qi : -1)}
@@ -1164,9 +1183,9 @@ const AssignmentHelper = () => {
                                                     : 'bg-[#f5f5f8] dark:bg-[#24252a] border border-border-subtle dark:border-[#2f3035] text-text-main-light dark:text-text-main-dark rounded-tr-sm'
                                                     }`}>
                                                     <div className="prose prose-sm max-w-none dark:prose-invert">
-                                                        {displayContent.split('\n').map((paragraph, i) => (
-                                                            <p key={i} className={i > 0 ? 'mt-2' : ''}>
-                                                                {paragraph}
+                                                        {buildParagraphBlocks(displayContent).map((paragraph, paragraphIndex) => (
+                                                            <p key={paragraph.id} className={paragraphIndex > 0 ? 'mt-2' : ''}>
+                                                                {paragraph.text}
                                                             </p>
                                                         ))}
                                                     </div>
@@ -1215,11 +1234,11 @@ const AssignmentHelper = () => {
                                                         AI is thinking
                                                     </span>
                                                     <div className="flex items-center gap-1">
-                                                        {[0, 1, 2].map((dot) => (
+                                                        {THINKING_DOTS.map((dot) => (
                                                             <span
-                                                                key={dot}
+                                                                key={dot.id}
                                                                 className="size-1 rounded-full bg-primary animate-pulse"
-                                                                style={{ animationDelay: `${dot * 150}ms` }}
+                                                                style={{ animationDelay: `${dot.delayMs}ms` }}
                                                             />
                                                         ))}
                                                     </div>
@@ -1260,16 +1279,12 @@ const AssignmentHelper = () => {
                                                 <textarea
                                                     ref={(el) => {
                                                         textareaRef.current = el;
-                                                        if (el) {
-                                                            el.style.height = 'auto';
-                                                            el.style.height = Math.min(el.scrollHeight, 120) + 'px';
-                                                        }
+                                                        resizeTextareaToContent(el);
                                                     }}
                                                     value={followUpQuestion}
                                                     onChange={(event) => {
                                                         setFollowUpQuestion(event.target.value);
-                                                        event.target.style.height = 'auto';
-                                                        event.target.style.height = Math.min(event.target.scrollHeight, 120) + 'px';
+                                                        resizeTextareaToContent(event.target);
                                                     }}
                                                     onKeyDown={onComposerKeyDown}
                                                     placeholder={canAskFollowUp ? "Ask a follow-up question..." : "Chat disabled while processing"}

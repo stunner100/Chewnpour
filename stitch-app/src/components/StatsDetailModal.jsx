@@ -16,6 +16,30 @@ const triggerHaptic = (type = 'light') => {
     }
 };
 
+const lockBodyScroll = () => {
+    const scrollY = window.scrollY;
+    const previousStyle = {
+        height: document.body.style.height,
+        overflow: document.body.style.overflow,
+        position: document.body.style.position,
+        touchAction: document.body.style.touchAction,
+        width: document.body.style.width,
+    };
+
+    Object.assign(document.body.style, {
+        height: '100%',
+        overflow: 'hidden',
+        position: 'fixed',
+        touchAction: 'none',
+        width: '100%',
+    });
+
+    return () => {
+        Object.assign(document.body.style, previousStyle);
+        window.scrollTo(0, scrollY);
+    };
+};
+
 const StatsDetailModal = ({ isOpen, onClose, type, userId }) => {
     const modalRef = useRef(null);
     const [translateY, setTranslateY] = useState(0);
@@ -95,27 +119,8 @@ const StatsDetailModal = ({ isOpen, onClose, type, userId }) => {
 
     // Lock body scroll when modal is open
     useEffect(() => {
-        if (!isOpen) return;
-        
-        // Always ensure scroll is locked when modal is open
-        document.body.style.overflow = 'hidden';
-        document.body.style.touchAction = 'none';
-        document.body.style.position = 'fixed';
-        document.body.style.width = '100%';
-        document.body.style.height = '100%';
-        
-        // Save scroll position
-        const scrollY = window.scrollY;
-        
-        return () => {
-            // Restore scroll
-            document.body.style.overflow = '';
-            document.body.style.touchAction = '';
-            document.body.style.position = '';
-            document.body.style.width = '';
-            document.body.style.height = '';
-            window.scrollTo(0, scrollY);
-        };
+        if (!isOpen) return undefined;
+        return lockBodyScroll();
     }, [isOpen, type]); // Add type to re-run when switching modals
 
     // Add keyboard escape handler

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, Navigate } from 'react-router-dom';
 import { useQuery } from 'convex/react';
 import { api } from '../../convex/_generated/api';
 import { useAuth } from '../contexts/AuthContext';
@@ -161,8 +161,6 @@ const BLOG_POSTS = [
     },
 ];
 
-const FOOTER_NAV = ['How it Works', 'Features', 'Pricing', 'Blog', 'FAQs', 'Contact'];
-
 // ── Visual primitives ───────────────────────────────────────────────────────
 
 const HexLogo = ({ size = 28 }) => (
@@ -209,6 +207,59 @@ const PARTNERS = [
     { icon: 'groups', label: 'For African Students' },
     { icon: 'bolt', label: 'Fast AI Explanations' },
 ];
+const PARTNER_MARQUEE_ITEMS = [
+    ...PARTNERS.map((partner) => ({ ...partner, id: `${partner.label}-primary` })),
+    ...PARTNERS.map((partner) => ({ ...partner, id: `${partner.label}-repeat` })),
+];
+const TESTIMONIAL_TRACK_ITEMS = [
+    ...TESTIMONIALS.map((testimonial) => ({ ...testimonial, id: `${testimonial.name}-primary` })),
+    ...TESTIMONIALS.map((testimonial) => ({ ...testimonial, id: `${testimonial.name}-repeat` })),
+];
+const MOBILE_NAV_LINKS = [
+    { href: '#how', label: 'How it Works' },
+    { href: '#features', label: 'Features' },
+    { href: '#pricing', label: 'Pricing' },
+    { href: '#faq', label: 'FAQs' },
+    { href: '#contact', label: 'Contact' },
+];
+const FOOTER_LINKS = [
+    { href: '#how', label: 'How it Works' },
+    { href: '#features', label: 'Features' },
+    { href: '#pricing', label: 'Pricing' },
+    { href: '#', label: 'Blog' },
+    { href: '#faq', label: 'FAQs' },
+    { href: '#contact', label: 'Contact' },
+];
+const COLLAB_AVATARS = [
+    { color: '#7C3AED', id: 'akosua', initial: 'A' },
+    { color: '#22C55E', id: 'kwame', initial: 'K' },
+    { color: '#F59E0B', id: 'efua', initial: 'E' },
+    { color: '#EC4899', id: 'yaw', initial: 'Y' },
+    { color: '#3B82F6', id: 'abena', initial: 'B' },
+];
+const COLLAB_PROGRESS_BARS = [
+    { id: 'lesson-outline', width: 60 },
+    { id: 'quiz-bank', width: 80 },
+    { id: 'summary', width: 45 },
+];
+const CALENDAR_DAYS = [
+    { id: 'mon', label: 'M' },
+    { id: 'tue', label: 'T' },
+    { id: 'wed', label: 'W' },
+    { id: 'thu', label: 'T' },
+    { id: 'fri', label: 'F' },
+    { id: 'sat', label: 'S' },
+    { id: 'sun', label: 'S' },
+];
+const STUDY_DAY_OFFSETS = new Set([3, 6, 9, 12, 15, 18]);
+const CALENDAR_DATE_CELLS = Array.from({ length: 21 }, (_, index) => ({
+    date: index + 5,
+    id: `april-${index + 5}`,
+    isActive: index === 9,
+    isStudy: STUDY_DAY_OFFSETS.has(index),
+}));
+const PODCAST_WAVEFORM_BARS = [6, 14, 22, 16, 28, 34, 24, 32, 38, 28, 22, 30, 36, 26, 32, 24, 18, 26, 30, 22, 16, 24, 28, 18, 12, 8, 14, 20, 12, 8]
+    .map((height, index) => ({ height, id: `wave-${String(index).padStart(2, '0')}`, played: index < 12 }));
 
 // Sub-mockups are declared at module scope so React doesn't see a fresh
 // component identity on every render of FeatureMockup (lint rule
@@ -249,8 +300,8 @@ const CollabMock = () => (
             <span className="material-symbols-outlined text-[16px] text-[#0A0A0A]/55">chevron_right</span>
         </div>
         <div className="flex items-center gap-2 mb-4">
-            {['A', 'K', 'E', 'Y', 'B'].map((initial, i) => (
-                <div key={i} className="size-9 rounded-full flex items-center justify-center text-white text-xs font-bold border-2 border-white" style={{ background: ['#7C3AED', '#22C55E', '#F59E0B', '#EC4899', '#3B82F6'][i] }}>
+            {COLLAB_AVATARS.map(({ color, id, initial }) => (
+                <div key={id} className="size-9 rounded-full flex items-center justify-center text-white text-xs font-bold border-2 border-white" style={{ background: color }}>
                     {initial}
                 </div>
             ))}
@@ -258,9 +309,9 @@ const CollabMock = () => (
         <div className="rounded-lg p-3" style={{ background: '#F4F1FE' }}>
             <p className="text-[11px] font-bold text-[#0A0A0A] mb-2" style={{ fontFamily: 'Inter, sans-serif' }}>Building Study Group Notes</p>
             <div className="space-y-1.5">
-                {[60, 80, 45].map((w, i) => (
-                    <div key={i} className="h-1.5 rounded-full bg-white overflow-hidden">
-                        <div className="h-full rounded-full" style={{ width: `${w}%`, background: ACCENT }} />
+                {COLLAB_PROGRESS_BARS.map(({ id, width }) => (
+                    <div key={id} className="h-1.5 rounded-full bg-white overflow-hidden">
+                        <div className="h-full rounded-full" style={{ width: `${width}%`, background: ACCENT }} />
                     </div>
                 ))}
             </div>
@@ -281,26 +332,22 @@ const ScheduleMock = () => (
         </div>
         <div className="text-center text-xs font-bold mb-2" style={{ fontFamily: 'Inter, sans-serif' }}>April 2026</div>
         <div className="grid grid-cols-7 gap-1 text-[10px]" style={{ fontFamily: 'Inter, sans-serif' }}>
-            {['M', 'T', 'W', 'T', 'F', 'S', 'S'].map((d, i) => (
-                <div key={`h-${i}`} className="text-center text-[#0A0A0A]/55 font-semibold">{d}</div>
+            {CALENDAR_DAYS.map(({ id, label }) => (
+                <div key={id} className="text-center text-[#0A0A0A]/55 font-semibold">{label}</div>
             ))}
-            {Array.from({ length: 21 }).map((_, i) => {
-                const isActive = i === 9;
-                const isStudy = [3, 6, 9, 12, 15, 18].includes(i);
-                return (
-                    <div
-                        key={i}
-                        className={`h-7 rounded flex items-center justify-center font-semibold ${
-                            isActive ? 'text-white' : isStudy ? 'text-[color:rgb(145,75,241)]' : 'text-[#0A0A0A]/65'
-                        }`}
-                        style={{
-                            background: isActive ? ACCENT : isStudy ? 'rgba(145,75,241,0.12)' : 'transparent',
-                        }}
-                    >
-                        {i + 5}
-                    </div>
-                );
-            })}
+            {CALENDAR_DATE_CELLS.map(({ date, id, isActive, isStudy }) => (
+                <div
+                    key={id}
+                    className={`h-7 rounded flex items-center justify-center font-semibold ${
+                        isActive ? 'text-white' : isStudy ? 'text-[color:rgb(145,75,241)]' : 'text-[#0A0A0A]/65'
+                    }`}
+                    style={{
+                        background: isActive ? ACCENT : isStudy ? 'rgba(145,75,241,0.12)' : 'transparent',
+                    }}
+                >
+                    {date}
+                </div>
+            ))}
         </div>
     </div>
 );
@@ -321,13 +368,13 @@ const PodcastMock = () => (
             </div>
         </div>
         <div className="flex items-end gap-[3px] h-10 mb-2">
-            {[6, 14, 22, 16, 28, 34, 24, 32, 38, 28, 22, 30, 36, 26, 32, 24, 18, 26, 30, 22, 16, 24, 28, 18, 12, 8, 14, 20, 12, 8].map((h, i) => (
+            {PODCAST_WAVEFORM_BARS.map(({ height, id, played }) => (
                 <span
-                    key={i}
+                    key={id}
                     className="flex-1 rounded-full"
                     style={{
-                        height: h,
-                        background: i < 12 ? ACCENT : 'rgba(145,75,241,0.22)',
+                        height,
+                        background: played ? ACCENT : 'rgba(145,75,241,0.22)',
                     }}
                 />
             ))}
@@ -397,11 +444,825 @@ const FaqItem = ({ q, a, open, onToggle }) => (
     </div>
 );
 
+const LandingPageStyles = () => (
+    <style>{`
+        .landing-root { font-family: 'Outfit', 'Inter', system-ui, sans-serif; }
+        .landing-root .font-mono { font-family: 'Outfit', 'Inter', system-ui, sans-serif !important; }
+        .landing-root h1, .landing-root h2, .landing-root h3, .landing-root h4 { font-family: 'Outfit', sans-serif; letter-spacing: -0.025em; }
+        .landing-root .ui-text { font-family: 'Inter', sans-serif; }
+        .grain { position: relative; isolation: isolate; }
+        .grain::before {
+            content: ''; position: absolute; inset: 0; pointer-events: none;
+            border-radius: inherit; opacity: 0.5; mix-blend-mode: overlay;
+            background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='180' height='180'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 1  0 0 0 0 1  0 0 0 0 1  0 0 0 0.55 0'/></filter><rect width='100%25' height='100%25' filter='url(%23n)'/></svg>");
+            background-size: 180px 180px; z-index: 0;
+        }
+        .grain > * { position: relative; z-index: 1; }
+        @keyframes marqueeRight { from { transform: translateX(0) } to { transform: translateX(-50%) } }
+        @keyframes marqueeLeft { from { transform: translateX(-50%) } to { transform: translateX(0) } }
+        .marquee-right { animation: marqueeRight 35s linear infinite; }
+        .marquee-left { animation: marqueeLeft 35s linear infinite; }
+
+        .hero-section {
+            display: flex;
+            justify-content: center;
+            padding: 16px 12px 40px;
+        }
+        .hero-card {
+            width: 100%;
+            max-width: 1200px;
+            height: 580px;
+            border-radius: 40px;
+            background: ${CARD_BG};
+            padding: 0 0 0 40px;
+        }
+        .hero-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            align-items: center;
+            gap: 16px;
+        }
+        .hero-copy { padding-right: 16px; }
+        .hero-title { font-size: 62px; }
+        .hero-sub { margin-top: 24px; max-width: 520px; font-size: 17px; }
+        .hero-visual {
+            position: relative;
+            height: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: flex-end;
+            overflow: hidden;
+        }
+        .hero-swirl,
+        .cta-swirl {
+            width: 100%;
+            height: 100%;
+            max-width: none;
+            object-fit: cover;
+            object-position: center right;
+            -webkit-mask-image: radial-gradient(ellipse 75% 80% at 65% 50%, #000 35%, rgba(0,0,0,0.85) 55%, rgba(0,0,0,0.4) 75%, transparent 100%);
+            mask-image: radial-gradient(ellipse 75% 80% at 65% 50%, #000 35%, rgba(0,0,0,0.85) 55%, rgba(0,0,0,0.4) 75%, transparent 100%);
+        }
+        .hero-visual,
+        .cta-visual { overflow: visible; }
+
+        .transform-grid {
+            display: grid;
+            grid-template-columns: repeat(5, 1fr);
+            grid-auto-rows: 324px;
+            gap: 20px;
+            width: 100%;
+        }
+        .transform-card {
+            position: relative;
+            background: ${CARD_BG};
+            border-radius: 20px;
+            padding: 20px;
+            height: 324px;
+            overflow: hidden;
+        }
+        @media (max-width: 809px) {
+            .transform-grid {
+                grid-template-columns: 1fr;
+                grid-auto-rows: 280px;
+            }
+            .transform-card { grid-column: span 1 !important; height: 280px; }
+        }
+
+        .arrow-pill { background: ${ACCENT}; }
+        .arrow-pill .arrow-icon { color: #fff; }
+        .arrow-pill.is-highlight { background: #fff; }
+        .arrow-pill.is-highlight .arrow-icon { color: ${ACCENT}; }
+        .transform-card:hover .arrow-pill { background: #fff; }
+        .transform-card:hover .arrow-pill .arrow-icon { color: ${ACCENT}; }
+
+        .transform-card { transition: transform 400ms cubic-bezier(0.16, 1, 0.3, 1); }
+        .transform-card:hover { transform: translateY(-4px); }
+
+        @keyframes testimonialScroll {
+            from { transform: translateX(0); }
+            to { transform: translateX(-50%); }
+        }
+        .testimonials-viewport {
+            position: relative;
+            overflow: hidden;
+            -webkit-mask-image: linear-gradient(to right, transparent, #000 5%, #000 95%, transparent);
+            mask-image: linear-gradient(to right, transparent, #000 5%, #000 95%, transparent);
+        }
+        .testimonials-track {
+            display: flex;
+            gap: 20px;
+            width: max-content;
+            animation: testimonialScroll 50s linear infinite;
+        }
+        .testimonials-viewport:hover .testimonials-track { animation-play-state: paused; }
+        .testimonial-card {
+            flex: 0 0 auto;
+            width: clamp(280px, 32vw, 420px);
+            border-radius: 16px;
+            padding: 20px;
+            min-height: 260px;
+        }
+        @media (min-width: 810px) {
+            .testimonial-card { padding: 28px; min-height: 280px; }
+        }
+        @media (prefers-reduced-motion: reduce) {
+            .testimonials-track { animation: none; }
+        }
+
+        @media (max-width: 1279px) and (min-width: 810px) {
+            .hero-card { padding: 60px 0 0 40px; }
+            .hero-title { font-size: 52px; }
+        }
+
+        @media (max-width: 809px) {
+            .hero-section { padding: 8px 12px 24px; }
+            .hero-card {
+                height: auto;
+                min-height: min-content;
+                padding: 32px 20px 24px;
+                border-radius: 28px;
+            }
+            .hero-grid {
+                grid-template-columns: 1fr;
+                gap: 24px;
+            }
+            .hero-copy { padding-right: 0; }
+            .hero-title { font-size: 36px; line-height: 1.08; }
+            .hero-sub { font-size: 15px; max-width: 100%; margin-top: 16px; }
+            .hero-visual {
+                position: relative;
+                right: auto;
+                bottom: auto;
+                height: 240px;
+                width: 100%;
+                max-width: 100%;
+                margin-top: 8px;
+                justify-content: center;
+            }
+            .hero-swirl,
+            .cta-swirl {
+                width: 100%;
+                height: 100%;
+                object-position: center;
+                -webkit-mask-image: radial-gradient(ellipse 80% 80% at 50% 50%, #000 45%, rgba(0,0,0,0.8) 65%, rgba(0,0,0,0.3) 85%, transparent 100%);
+                mask-image: radial-gradient(ellipse 80% 80% at 50% 50%, #000 45%, rgba(0,0,0,0.8) 65%, rgba(0,0,0,0.3) 85%, transparent 100%);
+            }
+        }
+        @media (max-width: 380px) {
+            .hero-card { padding: 28px 18px 24px; }
+            .hero-title { font-size: 32px; }
+            .hero-visual { height: 200px; }
+        }
+    `}</style>
+);
+
+const LandingHeader = ({ captureLandingEvent, mobileMenuOpen, onCloseMobileMenu, onToggleMobileMenu }) => (
+    <header className="sticky top-0 z-50" style={{ background: PAGE_BG }}>
+        <div className="mx-auto max-w-[1200px] px-5 sm:px-6 lg:px-12 py-3 md:py-5 flex items-center justify-between">
+            <Link to="/" className="flex items-center gap-2.5 text-white">
+                <HexLogo size={28} />
+                <span style={{ fontFamily: 'Outfit, sans-serif', fontWeight: 600, fontSize: 20 }}>ChewnPour</span>
+            </Link>
+            <div className="flex items-center gap-4">
+                <a href="#features" className="hidden md:inline text-sm text-white ui-text hover:opacity-80 transition-opacity">More Features</a>
+                <button
+                    onClick={onToggleMobileMenu}
+                    className="inline-flex items-center justify-center size-11 rounded-lg"
+                    style={{ background: CARD_BG }}
+                    aria-label="Open menu"
+                    aria-expanded={mobileMenuOpen}
+                >
+                    <span className="material-symbols-outlined text-white text-[22px]">{mobileMenuOpen ? 'close' : 'menu'}</span>
+                </button>
+            </div>
+        </div>
+        {mobileMenuOpen && (
+            <div className="mx-auto max-w-[1200px] px-6 lg:px-12 pb-4">
+                <div className="rounded-2xl p-4 grain" style={{ background: CARD_BG }}>
+                    <nav className="flex flex-col gap-1">
+                        {MOBILE_NAV_LINKS.map(({ href, label }) => (
+                            <a
+                                key={label}
+                                href={href}
+                                onClick={onCloseMobileMenu}
+                                className="py-2.5 px-3 rounded-lg text-sm font-semibold text-white hover:opacity-80 ui-text"
+                            >
+                                {label}
+                            </a>
+                        ))}
+                        <Link
+                            to="/login"
+                            onClick={onCloseMobileMenu}
+                            className="py-2.5 px-3 rounded-lg text-sm font-semibold text-white hover:opacity-80 ui-text"
+                        >
+                            Sign In
+                        </Link>
+                        <Link
+                            to="/signup"
+                            onClick={() => {
+                                onCloseMobileMenu();
+                                captureLandingEvent('landing_cta_clicked', { cta_name: 'mobile_signup' });
+                            }}
+                            className="mt-2 inline-flex items-center justify-center h-10 rounded-lg text-sm font-bold text-white"
+                            style={{ background: ACCENT }}
+                        >
+                            Get Started Free
+                        </Link>
+                    </nav>
+                </div>
+            </div>
+        )}
+    </header>
+);
+
+const HeroSection = ({ captureLandingEvent }) => (
+    <section className="hero-section">
+        <div className="hero-card grain relative overflow-hidden border border-white/5">
+            <div className="hero-grid h-full">
+                <div className="hero-copy">
+                    <h1 className="hero-title" style={{ fontFamily: 'Outfit, sans-serif', fontWeight: 600, lineHeight: 1.05 }}>
+                        Your AI-Powered<br />
+                        <span style={{ color: ACCENT }}>Study</span> Assistant
+                    </h1>
+                    <p className="hero-sub" style={{ color: SUBTEXT, fontFamily: 'Outfit, sans-serif', lineHeight: 1.55 }}>
+                        Unlock your learning potential. Seamlessly turn slides and PDFs into structured lessons,
+                        quizzes, and an always-on tutor, built for African students.
+                    </p>
+                    <div className="mt-7 flex flex-wrap items-center gap-3">
+                        <Link
+                            to="/signup"
+                            onClick={() => captureLandingEvent('landing_cta_clicked', { cta_name: 'hero_get_started' })}
+                            className="inline-flex items-center justify-center h-11 px-6 rounded-lg text-white text-sm font-bold ui-text"
+                            style={{ background: ACCENT }}
+                        >
+                            Get Started Free
+                        </Link>
+                    </div>
+                </div>
+                <div className="hero-visual">
+                    <PurpleSwirl className="hero-swirl" />
+                </div>
+            </div>
+        </div>
+    </section>
+);
+
+const PartnerMarqueeSection = () => (
+    <section className="py-10 md:py-14">
+        <div className="relative overflow-hidden">
+            <div className="pointer-events-none absolute inset-y-0 left-0 w-24 z-10" style={{ background: `linear-gradient(to right, ${PAGE_BG}, transparent)` }} />
+            <div className="pointer-events-none absolute inset-y-0 right-0 w-24 z-10" style={{ background: `linear-gradient(to left, ${PAGE_BG}, transparent)` }} />
+            <div className="flex marquee-right gap-16 whitespace-nowrap w-max">
+                {PARTNER_MARQUEE_ITEMS.map((partner) => (
+                    <PartnerMark key={partner.id} icon={partner.icon} label={partner.label} />
+                ))}
+            </div>
+        </div>
+    </section>
+);
+
+const HowSection = () => (
+    <section id="how" className="mx-auto max-w-[1200px] px-6 lg:px-12 py-16 md:py-24">
+        <h2 style={{ fontFamily: 'Outfit, sans-serif', fontWeight: 500, fontSize: 'clamp(34px, 4.5vw, 48px)', lineHeight: 1.1 }}>
+            Unleash Your <span style={{ color: ACCENT }}>Creativity</span>
+        </h2>
+        <p className="mt-5 max-w-[680px]" style={{ color: SUBTEXT, fontSize: 16, lineHeight: 1.55 }}>
+            Discover how ChewnPour transforms your lecture material into a study system that actually
+            sticks. Follow these simple steps to turn your notes into mastery.
+        </p>
+        <div className="mt-10 grid grid-cols-1 md:grid-cols-3 gap-5">
+            {HOW_CARDS.map((card, idx) => (
+                <BlurFade key={card.title} inView delay={idx * 0.1} yOffset={20}>
+                    <div className="grain rounded-[16px] p-7 flex flex-col min-h-[260px]" style={{ background: CARD_BG }}>
+                        <span className="inline-flex items-center justify-center size-12 rounded-full" style={{ background: ACCENT }}>
+                            <span className="material-symbols-outlined text-white text-[24px]">{card.icon}</span>
+                        </span>
+                        <h3 className="mt-auto pt-12 text-white" style={{ fontFamily: 'Outfit, sans-serif', fontWeight: 500, fontSize: 26 }}>
+                            {card.title}
+                        </h3>
+                        <p className="mt-2" style={{ color: SUBTEXT, fontSize: 15, lineHeight: 1.55 }}>
+                            {card.body}
+                        </p>
+                    </div>
+                </BlurFade>
+            ))}
+        </div>
+    </section>
+);
+
+const FeatureRowsSection = ({ captureLandingEvent }) => (
+    <section id="features" className="mx-auto max-w-[1200px] px-5 sm:px-6 lg:px-12 py-12 md:py-20 space-y-12 md:space-y-28">
+        {FEATURE_ROWS.map((row) => (
+            <BlurFade key={row.title} inView yOffset={24} duration={0.55}>
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-10 lg:gap-16 items-center">
+                    <div className={row.side === 'right' ? 'lg:order-1' : 'lg:order-2'}>
+                        <h3 style={{ fontFamily: 'Outfit, sans-serif', fontWeight: 500, fontSize: 'clamp(28px, 3.5vw, 38px)', lineHeight: 1.1 }}>
+                            {row.title}
+                        </h3>
+                        <p className="mt-5 max-w-[460px]" style={{ color: SUBTEXT, fontSize: 16, lineHeight: 1.55 }}>
+                            {row.body}
+                        </p>
+                        <Link
+                            to="/signup"
+                            onClick={() => captureLandingEvent('landing_cta_clicked', { cta_name: `feature_${row.title}` })}
+                            className="inline-flex items-center justify-center mt-7 h-11 px-6 rounded-lg text-sm font-bold ui-text transition-colors"
+                            style={{ background: ACCENT, color: '#fff' }}
+                        >
+                            Try it Free
+                        </Link>
+                    </div>
+                    <div className={row.side === 'right' ? 'lg:order-2' : 'lg:order-1'}>
+                        <FeatureMockup kind={row.mockup} />
+                    </div>
+                </div>
+            </BlurFade>
+        ))}
+    </section>
+);
+
+const TransformSection = () => (
+    <section className="mx-auto max-w-[1200px] px-6 lg:px-12 py-16 md:py-24">
+        <h2 style={{ fontFamily: 'Outfit, sans-serif', fontWeight: 500, fontSize: 'clamp(34px, 4.5vw, 48px)', lineHeight: 1.1 }}>
+            Transforming Study<br />
+            into <span style={{ color: ACCENT }}>Reality</span>
+        </h2>
+        <p className="mt-5 max-w-[760px]" style={{ color: SUBTEXT, fontSize: 16, lineHeight: 1.55 }}>
+            Unlock the full potential of your study time with ChewnPour. Explore new dimensions of
+            revision, from focused lessons to timeless craftsmanship, and witness how AI can turn
+            your hardest courses into mastered material.
+        </p>
+        <div className="transform-grid mt-10">
+            {TRANSFORM_CARDS.map((card, i) => {
+                const isHighlight = i === 0 || i === 3;
+                const span = i === 0 || i === 3 ? 2 : 3;
+                return (
+                    <a
+                        key={card.title}
+                        href="#features"
+                        className="transform-card grain group relative overflow-hidden block"
+                        style={{ gridColumn: `span ${span}` }}
+                    >
+                        <div
+                            className={`absolute inset-0 transition-opacity duration-500 ease-out ${
+                                isHighlight ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'
+                            }`}
+                            style={{ background: ACCENT, zIndex: 0 }}
+                        />
+                        <div className="relative z-[1] flex items-start justify-between gap-4">
+                            <p
+                                style={{
+                                    color: 'rgb(217, 217, 217)',
+                                    fontFamily: 'Outfit, sans-serif',
+                                    fontSize: 16,
+                                    fontWeight: 400,
+                                    lineHeight: '19.2px',
+                                    width: span === 2 ? 248 : 437,
+                                    maxWidth: '100%',
+                                }}
+                            >
+                                {card.body}
+                            </p>
+                            <span
+                                className={`shrink-0 inline-flex items-center justify-center transition-colors duration-300 arrow-pill ${isHighlight ? 'is-highlight' : ''}`}
+                                style={{ width: 71, height: 71, borderRadius: 333 }}
+                            >
+                                <span className="material-symbols-outlined arrow-icon" style={{ fontSize: 34 }}>
+                                    arrow_outward
+                                </span>
+                            </span>
+                        </div>
+                        <h4 className="absolute inset-x-5 bottom-5 z-[1] text-[28px] font-medium leading-[33.6px] text-white [font-family:Outfit,sans-serif]">
+                            {card.title}
+                        </h4>
+                    </a>
+                );
+            })}
+        </div>
+    </section>
+);
+
+const PricingSection = ({ billing, onBillingChange, planCards, starterCurrency, captureLandingEvent }) => (
+    <section id="pricing" className="mx-auto max-w-[1200px] px-6 lg:px-12 py-16 md:py-24">
+        <h2 style={{ fontFamily: 'Outfit, sans-serif', fontWeight: 500, fontSize: 'clamp(34px, 4.5vw, 48px)', lineHeight: 1.1 }}>
+            Affordable Plans for <span style={{ color: ACCENT }}>Every Student</span>
+        </h2>
+        <p className="mt-5 max-w-[680px]" style={{ color: SUBTEXT, fontSize: 16, lineHeight: 1.55 }}>
+            Choose the perfect plan for your studies, from first-year survival to final-year exams.
+            Pricing is in {starterCurrency || 'GHS'} and tuned for student budgets.
+        </p>
+
+        <div className="flex justify-center items-center gap-4 mt-10 mb-10">
+            <span className="ui-text text-sm font-semibold" style={{ color: billing === 'monthly' ? '#fff' : SUBTEXT }}>Monthly</span>
+            <button
+                type="button"
+                role="switch"
+                aria-checked={billing === 'yearly'}
+                onClick={onBillingChange}
+                className="relative inline-flex h-7 w-14 items-center rounded-full transition-colors"
+                style={{ background: ACCENT }}
+            >
+                <span
+                    className={`inline-block size-5 transform rounded-full bg-white shadow transition-transform duration-300 ${billing === 'yearly' ? 'translate-x-8' : 'translate-x-1'}`}
+                />
+            </button>
+            <span className="ui-text text-sm font-semibold" style={{ color: billing === 'yearly' ? '#fff' : SUBTEXT }}>Yearly</span>
+        </div>
+
+        <div className="grid gap-5 md:grid-cols-3 items-end">
+            {planCards.map((plan, idx) => {
+                const isFeatured = idx === 1;
+                const subColor = isFeatured ? 'rgba(255,255,255,0.85)' : SUBTEXT;
+                return (
+                    <div
+                        key={plan.tier}
+                        className="grain rounded-[20px] p-7 flex flex-col"
+                        style={{
+                            background: isFeatured ? ACCENT : CARD_BG,
+                            marginTop: isFeatured ? -24 : 0,
+                            paddingTop: isFeatured ? 36 : 28,
+                            paddingBottom: isFeatured ? 36 : 28,
+                        }}
+                    >
+                        <p className="ui-text font-semibold uppercase tracking-widest" style={{ color: subColor, fontSize: 13 }}>{plan.tier}</p>
+                        <div className="mt-3 flex items-baseline gap-1.5">
+                            <span className="text-white" style={{ fontFamily: 'Outfit, sans-serif', fontWeight: 600, fontSize: 48, lineHeight: 1 }}>{plan.price}</span>
+                            <span className="ui-text" style={{ color: subColor, fontSize: 16 }}>/{billing === 'yearly' ? 'yr' : 'm'}</span>
+                        </div>
+                        <p className="mt-2 ui-text" style={{ color: subColor, fontSize: 14 }}>{plan.suffix}</p>
+                        <div className="my-5 h-px" style={{ background: isFeatured ? 'rgba(255,255,255,0.25)' : 'rgba(217,217,217,0.15)' }} />
+                        <ul className="space-y-3 flex-1">
+                            {plan.features.map((f) => (
+                                <li key={f} className="flex items-start gap-2.5 text-white" style={{ fontSize: 14, fontFamily: 'Outfit, sans-serif' }}>
+                                    <span className="material-symbols-outlined text-[18px] mt-[1px] flex-shrink-0" style={{ color: isFeatured ? '#fff' : ACCENT }}>check_circle</span>
+                                    <span>{f}</span>
+                                </li>
+                            ))}
+                        </ul>
+                        <Link
+                            to="/signup"
+                            onClick={() => captureLandingEvent('landing_cta_clicked', { cta_name: plan.ctaName })}
+                            className="mt-7 inline-flex items-center justify-center h-11 rounded-lg ui-text text-sm font-bold transition-colors"
+                            style={
+                                isFeatured
+                                    ? { background: '#fff', color: '#0A0A0A' }
+                                    : { background: 'transparent', color: ACCENT, border: `1px solid ${ACCENT}` }
+                            }
+                        >
+                            Get Started
+                        </Link>
+                    </div>
+                );
+            })}
+        </div>
+    </section>
+);
+
+const IntegrationSection = () => (
+    <section className="mx-auto max-w-[1200px] px-6 lg:px-12 py-16 md:py-24">
+        <h2 style={{ fontFamily: 'Outfit, sans-serif', fontWeight: 500, fontSize: 'clamp(34px, 4.5vw, 48px)', lineHeight: 1.1 }}>
+            Seamless Tool <span style={{ color: ACCENT }}>Integration</span>
+        </h2>
+        <p className="mt-5 max-w-[680px]" style={{ color: SUBTEXT, fontSize: 16, lineHeight: 1.55 }}>
+            ChewnPour offers seamless integration with the materials and tools you already use, so your
+            existing study workflow keeps moving, just smarter.
+        </p>
+
+        <div className="mt-10 grain rounded-[16px] p-8 grid grid-cols-1 lg:grid-cols-[1fr_1.4fr] gap-10 items-center" style={{ background: CARD_BG }}>
+            <div>
+                <h3 style={{ fontFamily: 'Outfit, sans-serif', fontWeight: 500, fontSize: 32, lineHeight: 1.1 }}>
+                    Connect your<br />
+                    <span style={{ color: ACCENT }}>study stack</span>
+                </h3>
+                <p className="mt-4 max-w-[360px]" style={{ color: SUBTEXT, fontSize: 15, lineHeight: 1.55 }}>
+                    Works with the materials and tools you already use, slides, PDFs, scanned notes, and group chats.
+                </p>
+            </div>
+            <div className="grid grid-cols-3 gap-y-6 gap-x-6 place-items-center">
+                {PARTNERS.slice(0, 9).map((p) => (
+                    <span key={p.label} className="material-symbols-outlined text-white/85" style={{ fontSize: 44 }}>
+                        {p.icon}
+                    </span>
+                ))}
+            </div>
+        </div>
+    </section>
+);
+
+const TestimonialsSection = () => (
+    <section className="mx-auto max-w-[1200px] px-6 lg:px-12 py-16 md:py-24">
+        <div className="flex items-end justify-between gap-6 flex-wrap">
+            <div className="max-w-[680px]">
+                <h2 style={{ fontFamily: 'Outfit, sans-serif', fontWeight: 500, fontSize: 'clamp(34px, 4.5vw, 48px)', lineHeight: 1.1 }}>
+                    Student <span style={{ color: ACCENT }}>Success</span> Stories
+                </h2>
+                <p className="mt-5" style={{ color: SUBTEXT, fontSize: 16, lineHeight: 1.55 }}>
+                    Discover how ChewnPour has helped students master tough courses effortlessly.
+                    Hear directly from people who actually use it.
+                </p>
+            </div>
+        </div>
+
+        <div className="mt-10 testimonials-viewport">
+            <div className="testimonials-track">
+                {TESTIMONIAL_TRACK_ITEMS.map((t) => (
+                    <div key={t.id} className="grain testimonial-card" style={{ background: CARD_BG }}>
+                        <div className="flex items-center gap-4 mb-6">
+                            <div
+                                className="rounded-full text-white flex items-center justify-center font-bold flex-shrink-0"
+                                style={{ background: ACCENT, fontFamily: 'Inter, sans-serif', fontSize: 22, width: 56, height: 56 }}
+                            >
+                                {t.name.charAt(0)}
+                            </div>
+                            <p className="text-white" style={{ fontSize: 22, fontWeight: 600, fontFamily: 'Outfit, sans-serif' }}>
+                                {t.name}
+                            </p>
+                        </div>
+                        <p style={{ color: SUBTEXT, fontSize: 16, lineHeight: 1.55, fontFamily: 'Outfit, sans-serif' }}>
+                            “{t.quote}”
+                        </p>
+                    </div>
+                ))}
+            </div>
+        </div>
+    </section>
+);
+
+const FaqSection = ({ openFaq, onToggleFaq }) => (
+    <section id="faq" className="mx-auto max-w-[1200px] px-6 lg:px-12 py-16 md:py-24">
+        <div className="grain rounded-[16px] p-8 md:p-12 grid grid-cols-1 lg:grid-cols-[1fr_1.4fr] gap-10 lg:gap-16" style={{ background: CARD_BG }}>
+            <div>
+                <h2 style={{ fontFamily: 'Outfit, sans-serif', fontWeight: 500, fontSize: 'clamp(34px, 4.5vw, 48px)', lineHeight: 1.1 }}>
+                    Frequently Asked<br />
+                    <span style={{ color: ACCENT }}>Questions</span>
+                </h2>
+                <p className="mt-5 max-w-[420px]" style={{ color: SUBTEXT, fontSize: 16, lineHeight: 1.55 }}>
+                    Have questions about ChewnPour? Find answers to the most common ones and learn how
+                    we help students study smarter.
+                </p>
+            </div>
+            <div>
+                {FAQS.map((item, i) => (
+                    <FaqItem key={item.q} q={item.q} a={item.a} open={openFaq === i} onToggle={() => onToggleFaq(i)} />
+                ))}
+            </div>
+        </div>
+    </section>
+);
+
+const BlogSection = ({ onOpenPost }) => (
+    <section className="mx-auto max-w-[1200px] px-6 lg:px-12 py-16 md:py-24">
+        <h2 style={{ fontFamily: 'Outfit, sans-serif', fontWeight: 500, fontSize: 'clamp(34px, 4.5vw, 48px)', lineHeight: 1.1 }}>
+            Stay Inspired with Our<br />
+            Latest <span style={{ color: ACCENT }}>Insights</span>
+        </h2>
+        <p className="mt-5 max-w-[680px]" style={{ color: SUBTEXT, fontSize: 16, lineHeight: 1.55 }}>
+            Dive into the ChewnPour blog for the latest study tips, revision tactics, and insights into how AI
+            is reshaping how students learn.
+        </p>
+
+        <div className="mt-10 grid gap-5 md:grid-cols-3">
+            {BLOG_POSTS.map((post) => (
+                <button
+                    key={post.title}
+                    type="button"
+                    onClick={() => onOpenPost(post)}
+                    className="grain rounded-[16px] overflow-hidden text-left transition-transform hover:-translate-y-1"
+                    style={{ background: CARD_BG }}
+                >
+                    <div className="aspect-[5/3] relative">
+                        <div className="absolute inset-0" style={{ background: `radial-gradient(circle at 60% 50%, ${post.tone} 0%, rgba(20,20,20,0.9) 75%)` }} />
+                        <div className="absolute inset-0 mix-blend-screen opacity-70" style={{ background: 'repeating-linear-gradient(120deg, rgba(255,255,255,0.18) 0 6px, transparent 6px 28px)', filter: 'blur(1px)' }} />
+                    </div>
+                    <div className="p-5">
+                        <div className="flex items-center justify-between ui-text" style={{ color: SUBTEXT, fontSize: 12 }}>
+                            <span>{post.date}</span>
+                            <span>{post.read}</span>
+                        </div>
+                        <h3 className="mt-3 text-white" style={{ fontFamily: 'Outfit, sans-serif', fontWeight: 500, fontSize: 18, lineHeight: 1.3 }}>
+                            {post.title}
+                        </h3>
+                        {post.excerpt && (
+                            <p className="mt-2" style={{ color: SUBTEXT, fontSize: 13, lineHeight: 1.5, fontFamily: 'Outfit, sans-serif' }}>
+                                {post.excerpt}
+                            </p>
+                        )}
+                        <span
+                            className="inline-flex items-center gap-1.5 mt-4 text-xs font-semibold"
+                            style={{ color: ACCENT, fontFamily: 'Inter, sans-serif' }}
+                        >
+                            Read article
+                            <span className="material-symbols-outlined text-[14px]">arrow_forward</span>
+                        </span>
+                    </div>
+                </button>
+            ))}
+        </div>
+
+        <div className="mt-10 flex justify-center">
+            <button
+                type="button"
+                onClick={() => onOpenPost(BLOG_POSTS[0], { source: 'read_more' })}
+                className="inline-flex items-center justify-center h-11 px-7 rounded-full text-white text-sm font-bold ui-text"
+                style={{ background: ACCENT }}
+            >
+                Read More
+            </button>
+        </div>
+    </section>
+);
+
+const CtaSection = ({ captureLandingEvent }) => (
+    <section className="flex justify-center px-3 pb-16">
+        <div
+            className="grain relative overflow-hidden border border-white/5"
+            style={{
+                background: CARD_BG,
+                width: '100%',
+                maxWidth: 1200,
+                height: 480,
+                borderRadius: 40,
+                paddingLeft: 40,
+            }}
+        >
+            <div className="grid grid-cols-1 lg:grid-cols-[1fr_1fr] gap-4 items-center h-full pr-0">
+                <div className="py-10 lg:py-0">
+                    <h2 style={{ fontFamily: 'Outfit, sans-serif', fontWeight: 600, fontSize: 'clamp(36px, 5vw, 56px)', lineHeight: 1.05 }}>
+                        Start Your Study<br />
+                        <span style={{ color: ACCENT }}>Journey</span> Today
+                    </h2>
+                    <p className="mt-5 max-w-[480px]" style={{ color: SUBTEXT, fontSize: 16, lineHeight: 1.55 }}>
+                        Sign up now and experience the power of AI-driven studying, no commitment, no
+                        credit card.
+                    </p>
+                    <Link
+                        to="/signup"
+                        onClick={() => captureLandingEvent('landing_cta_clicked', { cta_name: 'final_cta' })}
+                        className="inline-flex items-center justify-center mt-7 h-11 px-7 rounded-lg text-white text-sm font-bold ui-text"
+                        style={{ background: ACCENT }}
+                    >
+                        Get Started Free
+                    </Link>
+                </div>
+                <div className="relative h-full hidden lg:flex items-center justify-end overflow-hidden">
+                    <PurpleSwirl className="cta-swirl" />
+                </div>
+            </div>
+        </div>
+    </section>
+);
+
+const BlogPostModal = ({ activePost, captureLandingEvent, onClose }) => {
+    if (!activePost) return null;
+
+    return (
+        <div
+            className="fixed inset-0 z-[100] flex items-center justify-center p-4 sm:p-6"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="post-title"
+        >
+            <button
+                type="button"
+                aria-label="Close post"
+                className="absolute inset-0 border-0 bg-black/75 p-0 backdrop-blur-[6px]"
+                onClick={onClose}
+            />
+            <div
+                className="grain relative z-10 w-full max-w-[760px] max-h-[88vh] overflow-y-auto rounded-[24px]"
+                style={{ background: CARD_BG, border: '1px solid rgba(255,255,255,0.08)' }}
+            >
+                <div className="aspect-[5/2] relative">
+                    <div className="absolute inset-0" style={{ background: `radial-gradient(circle at 60% 50%, ${activePost.tone} 0%, rgba(20,20,20,0.9) 75%)` }} />
+                    <div className="absolute inset-0 mix-blend-screen opacity-70" style={{ background: 'repeating-linear-gradient(120deg, rgba(255,255,255,0.18) 0 6px, transparent 6px 28px)', filter: 'blur(1px)' }} />
+                    <button
+                        type="button"
+                        onClick={onClose}
+                        className="absolute top-4 right-4 inline-flex items-center justify-center size-10 rounded-full text-white"
+                        style={{ background: 'rgba(0,0,0,0.55)' }}
+                        aria-label="Close article"
+                    >
+                        <span className="material-symbols-outlined text-[20px]">close</span>
+                    </button>
+                </div>
+
+                <article className="px-7 sm:px-10 py-8 sm:py-10">
+                    <div className="flex items-center gap-3 ui-text" style={{ color: SUBTEXT, fontSize: 12, fontFamily: 'Inter, sans-serif' }}>
+                        <span>{activePost.date}</span>
+                        <span aria-hidden="true">·</span>
+                        <span>{activePost.read}</span>
+                        {activePost.author && (
+                            <>
+                                <span aria-hidden="true">·</span>
+                                <span>{activePost.author}</span>
+                            </>
+                        )}
+                    </div>
+                    <h2
+                        id="post-title"
+                        className="mt-3 text-white"
+                        style={{ fontFamily: 'Outfit, sans-serif', fontWeight: 600, fontSize: 'clamp(28px, 4vw, 36px)', lineHeight: 1.15, letterSpacing: '-0.02em' }}
+                    >
+                        {activePost.title}
+                    </h2>
+                    {activePost.excerpt && (
+                        <p
+                            className="mt-4"
+                            style={{ color: 'rgba(255,255,255,0.78)', fontSize: 17, lineHeight: 1.55, fontFamily: 'Outfit, sans-serif' }}
+                        >
+                            {activePost.excerpt}
+                        </p>
+                    )}
+
+                    <div className="mt-8 space-y-5">
+                        {activePost.body?.map((block) =>
+                            block.type === 'h2' ? (
+                                <h3
+                                    key={`${block.type}-${block.text}`}
+                                    className="text-white"
+                                    style={{ fontFamily: 'Outfit, sans-serif', fontWeight: 600, fontSize: 22, letterSpacing: '-0.02em', marginTop: 24 }}
+                                >
+                                    {block.text}
+                                </h3>
+                            ) : (
+                                <p
+                                    key={`${block.type}-${block.text}`}
+                                    style={{ color: SUBTEXT, fontSize: 16, lineHeight: 1.65, fontFamily: 'Outfit, sans-serif' }}
+                                >
+                                    {block.text}
+                                </p>
+                            )
+                        )}
+                    </div>
+
+                    <div className="mt-10 pt-6 flex items-center justify-between gap-4 flex-wrap" style={{ borderTop: '1px solid rgba(255,255,255,0.08)' }}>
+                        <Link
+                            to="/signup"
+                            onClick={() => captureLandingEvent('landing_cta_clicked', { cta_name: 'blog_modal_signup' })}
+                            className="inline-flex items-center justify-center h-11 px-6 rounded-full text-white text-sm font-bold ui-text"
+                            style={{ background: ACCENT }}
+                        >
+                            Try ChewnPour Free
+                        </Link>
+                        <button
+                            type="button"
+                            onClick={onClose}
+                            className="text-sm font-semibold text-white/70 hover:text-white transition-colors ui-text"
+                        >
+                            Close
+                        </button>
+                    </div>
+                </article>
+            </div>
+        </div>
+    );
+};
+
+const LandingFooter = () => (
+    <footer id="contact" style={{ background: FOOTER_BG }}>
+        <div className="mx-auto max-w-[1200px] px-6 lg:px-12 py-10">
+            <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
+                <Link to="/" className="flex items-center gap-2.5 text-white">
+                    <HexLogo size={28} />
+                    <span style={{ fontFamily: 'Outfit, sans-serif', fontWeight: 600, fontSize: 20 }}>ChewnPour</span>
+                </Link>
+                <nav className="flex flex-wrap items-center gap-6 ui-text text-sm">
+                    {FOOTER_LINKS.map(({ href, label }) => (
+                        <a key={label} href={href} className="text-white hover:opacity-80 transition-opacity">
+                            {label}
+                        </a>
+                    ))}
+                </nav>
+            </div>
+            <div className="mt-8 pt-6 flex flex-col md:flex-row items-center justify-between gap-4 ui-text text-xs" style={{ borderTop: '1px solid rgba(217,217,217,0.12)', color: SUBTEXT }}>
+                <p>Copyright 2026 © ChewnPour, Inc.</p>
+                <div className="flex items-center gap-5">
+                    <Link to="/privacy" className="hover:text-white transition-colors">Privacy Policy</Link>
+                    <Link to="/terms" className="hover:text-white transition-colors">Terms &amp; Conditions</Link>
+                    <a href="https://t.me/+jIHi6XFYdl9kNDA0" target="_blank" rel="noopener noreferrer" className="hover:text-white transition-colors">Telegram</a>
+                </div>
+            </div>
+        </div>
+        <div
+            className="relative h-[180px] sm:h-[260px] overflow-hidden"
+            style={{ borderTop: '1px solid rgba(217,217,217,0.12)' }}
+            aria-hidden="true"
+        >
+            <CanvasCrowd height={260} />
+            <div
+                className="absolute inset-0 pointer-events-none"
+                style={{
+                    background: `linear-gradient(to top, ${FOOTER_BG} 0%, rgba(20,20,19,0) 52%, ${FOOTER_BG} 100%)`,
+                }}
+            />
+        </div>
+    </footer>
+);
+
 // ── Page ──────────────────────────────────────────────────────────────────
 
 const LandingPage = () => {
     const { user } = useAuth();
-    const navigate = useNavigate();
     const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
     const [billing, setBilling] = useState('monthly');
     const [openFaq, setOpenFaq] = useState(0);
@@ -409,10 +1270,10 @@ const LandingPage = () => {
 
     // Lock body scroll while the blog modal is open, and let Esc close it.
     useEffect(() => {
-        if (!activePost) return;
+        if (!activePost) return undefined;
         const prevOverflow = document.body.style.overflow;
         document.body.style.overflow = 'hidden';
-        const onKey = (e) => { if (e.key === 'Escape') setActivePost(null); };
+        const onKey = (event) => { if (event.key === 'Escape') setActivePost(null); };
         window.addEventListener('keydown', onKey);
         return () => {
             document.body.style.overflow = prevOverflow;
@@ -422,17 +1283,14 @@ const LandingPage = () => {
 
     const pricing = useQuery(api.subscriptions.getPublicTopUpPricing, {});
     const topUpOptions = useMemo(() => normalizeTopUpOptions(pricing?.topUpOptions), [pricing?.topUpOptions]);
-    const starterPlan = topUpOptions.find((p) => p.id === 'starter') || topUpOptions[0] || { id: 'starter', amountMajor: 20, credits: 5, currency: 'GHS' };
-    const maxPlan = topUpOptions.find((p) => p.id === 'max') || topUpOptions[topUpOptions.length - 1] || { id: 'max', amountMajor: 40, credits: 12, currency: starterPlan.currency || 'GHS' };
+    const starterPlan = topUpOptions.find((plan) => plan.id === 'starter') || topUpOptions[0] || { id: 'starter', amountMajor: 20, credits: 5, currency: 'GHS' };
+    const maxPlan = topUpOptions.find((plan) => plan.id === 'max') || topUpOptions[topUpOptions.length - 1] || { id: 'max', amountMajor: 40, credits: 12, currency: starterPlan.currency || 'GHS' };
     const captureLandingEvent = (eventName, properties = {}) =>
         capturePostHogEvent(eventName, { page: 'landing', pathname: typeof window !== 'undefined' ? window.location.pathname : '/', ...properties });
 
-    useEffect(() => {
-        if (user) navigate('/dashboard', { replace: true });
-    }, [user, navigate]);
+    if (user) return <Navigate to="/dashboard" replace />;
 
     const billingMultiplier = billing === 'yearly' ? 10 : 1;
-
     const planCards = [
         {
             tier: 'FREE',
@@ -472,834 +1330,44 @@ const LandingPage = () => {
         },
     ];
 
-    const heading = (white, accent, trailing = '') => (
-        <>
-            {white}{' '}
-            <span style={{ color: ACCENT }}>{accent}</span>
-            {trailing && <span> {trailing}</span>}
-        </>
-    );
+    const openBlogPost = (post, properties = {}) => {
+        setActivePost(post);
+        captureLandingEvent('landing_blog_opened', { post_title: post.title, ...properties });
+    };
 
     return (
         <div
             className="landing-root relative min-h-screen overflow-x-hidden"
             style={{ background: PAGE_BG, color: '#fff', fontFamily: '"Outfit", "Inter", system-ui, sans-serif' }}
         >
-            <style>{`
-                .landing-root { font-family: 'Outfit', 'Inter', system-ui, sans-serif; }
-                .landing-root .font-mono { font-family: 'Outfit', 'Inter', system-ui, sans-serif !important; }
-                .landing-root h1, .landing-root h2, .landing-root h3, .landing-root h4 { font-family: 'Outfit', sans-serif; letter-spacing: -0.025em; }
-                .landing-root .ui-text { font-family: 'Inter', sans-serif; }
-                .grain { position: relative; isolation: isolate; }
-                .grain::before {
-                    content: ''; position: absolute; inset: 0; pointer-events: none;
-                    border-radius: inherit; opacity: 0.5; mix-blend-mode: overlay;
-                    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='180' height='180'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 1  0 0 0 0 1  0 0 0 0 1  0 0 0 0.55 0'/></filter><rect width='100%25' height='100%25' filter='url(%23n)'/></svg>");
-                    background-size: 180px 180px; z-index: 0;
-                }
-                .grain > * { position: relative; z-index: 1; }
-                @keyframes marqueeRight { from { transform: translateX(0) } to { transform: translateX(-50%) } }
-                @keyframes marqueeLeft { from { transform: translateX(-50%) } to { transform: translateX(0) } }
-                .marquee-right { animation: marqueeRight 35s linear infinite; }
-                .marquee-left { animation: marqueeLeft 35s linear infinite; }
-
-                /* Hero card, exact NajmAI dimensions */
-                .hero-section {
-                    display: flex;
-                    justify-content: center;
-                    padding: 16px 12px 40px;
-                }
-                .hero-card {
-                    width: 100%;
-                    max-width: 1200px;
-                    height: 580px;
-                    border-radius: 40px;
-                    background: ${CARD_BG};
-                    padding: 0 0 0 40px;
-                }
-                .hero-grid {
-                    display: grid;
-                    grid-template-columns: 1fr 1fr;
-                    align-items: center;
-                    gap: 16px;
-                }
-                .hero-copy { padding-right: 16px; }
-                .hero-title { font-size: 62px; }
-                .hero-sub { margin-top: 24px; max-width: 520px; font-size: 17px; }
-                .hero-visual {
-                    position: relative;
-                    height: 100%;
-                    display: flex;
-                    align-items: center;
-                    justify-content: flex-end;
-                    overflow: hidden;
-                }
-                /* Hero / CTA photo, contain so nothing crops, then feather the edges
-                   into the dark card background with a radial mask so it reads as if
-                   the violet glow seamlessly bleeds out of the card itself. */
-                .hero-swirl,
-                .cta-swirl {
-                    width: 100%;
-                    height: 100%;
-                    max-width: none;
-                    object-fit: cover;
-                    object-position: center right;
-                    -webkit-mask-image: radial-gradient(ellipse 75% 80% at 65% 50%, #000 35%, rgba(0,0,0,0.85) 55%, rgba(0,0,0,0.4) 75%, transparent 100%);
-                    mask-image: radial-gradient(ellipse 75% 80% at 65% 50%, #000 35%, rgba(0,0,0,0.85) 55%, rgba(0,0,0,0.4) 75%, transparent 100%);
-                }
-                .hero-visual,
-                .cta-visual { overflow: visible; }
-
-                /* Transforming Study cards, exact NajmAI grid */
-                .transform-grid {
-                    display: grid;
-                    grid-template-columns: repeat(5, 1fr);
-                    grid-auto-rows: 324px;
-                    gap: 20px;
-                    width: 100%;
-                }
-                .transform-card {
-                    position: relative;
-                    background: ${CARD_BG};
-                    border-radius: 20px;
-                    padding: 20px;
-                    height: 324px;
-                    overflow: hidden;
-                }
-                @media (max-width: 809px) {
-                    .transform-grid {
-                        grid-template-columns: 1fr;
-                        grid-auto-rows: 280px;
-                    }
-                    .transform-card { grid-column: span 1 !important; height: 280px; }
-                }
-
-                /* Arrow circle states, invert on hover for non-highlight cards,
-                   stay white-with-purple-arrow always for highlight cards */
-                .arrow-pill { background: ${ACCENT}; }
-                .arrow-pill .arrow-icon { color: #fff; }
-                .arrow-pill.is-highlight { background: #fff; }
-                .arrow-pill.is-highlight .arrow-icon { color: ${ACCENT}; }
-                .transform-card:hover .arrow-pill { background: #fff; }
-                .transform-card:hover .arrow-pill .arrow-icon { color: ${ACCENT}; }
-
-                /* Lift the whole card slightly on hover for tactile feedback */
-                .transform-card { transition: transform 400ms cubic-bezier(0.16, 1, 0.3, 1); }
-                .transform-card:hover { transform: translateY(-4px); }
-
-                /* Testimonial carousel, auto-scrolling marquee, pauses on hover */
-                @keyframes testimonialScroll {
-                    from { transform: translateX(0); }
-                    to { transform: translateX(-50%); }
-                }
-                .testimonials-viewport {
-                    position: relative;
-                    overflow: hidden;
-                    /* Subtle edge fades so cards dissolve in/out instead of clipping hard */
-                    -webkit-mask-image: linear-gradient(to right, transparent, #000 5%, #000 95%, transparent);
-                    mask-image: linear-gradient(to right, transparent, #000 5%, #000 95%, transparent);
-                }
-                .testimonials-track {
-                    display: flex;
-                    gap: 20px;
-                    width: max-content;
-                    animation: testimonialScroll 50s linear infinite;
-                }
-                .testimonials-viewport:hover .testimonials-track { animation-play-state: paused; }
-                .testimonial-card {
-                    flex: 0 0 auto;
-                    width: clamp(280px, 32vw, 420px);
-                    border-radius: 16px;
-                    padding: 20px;
-                    min-height: 260px;
-                }
-                @media (min-width: 810px) {
-                    .testimonial-card { padding: 28px; min-height: 280px; }
-                }
-                @media (prefers-reduced-motion: reduce) {
-                    .testimonials-track { animation: none; }
-                }
-
-                /* Tablet */
-                @media (max-width: 1279px) and (min-width: 810px) {
-                    .hero-card { padding: 60px 0 0 40px; }
-                    .hero-title { font-size: 52px; }
-                }
-
-                /* Mobile */
-                @media (max-width: 809px) {
-                    .hero-section { padding: 8px 12px 24px; }
-                    .hero-card {
-                        height: auto;
-                        min-height: min-content;
-                        padding: 32px 20px 24px;
-                        border-radius: 28px;
-                    }
-                    .hero-grid {
-                        grid-template-columns: 1fr;
-                        gap: 24px;
-                    }
-                    .hero-copy { padding-right: 0; }
-                    .hero-title { font-size: 36px; line-height: 1.08; }
-                    .hero-sub { font-size: 15px; max-width: 100%; margin-top: 16px; }
-                    .hero-visual {
-                        position: relative;
-                        right: auto;
-                        bottom: auto;
-                        height: 240px;
-                        width: 100%;
-                        max-width: 100%;
-                        margin-top: 8px;
-                        justify-content: center;
-                    }
-                    .hero-swirl,
-                    .cta-swirl {
-                        width: 100%;
-                        height: 100%;
-                        object-position: center;
-                        -webkit-mask-image: radial-gradient(ellipse 80% 80% at 50% 50%, #000 45%, rgba(0,0,0,0.8) 65%, rgba(0,0,0,0.3) 85%, transparent 100%);
-                        mask-image: radial-gradient(ellipse 80% 80% at 50% 50%, #000 45%, rgba(0,0,0,0.8) 65%, rgba(0,0,0,0.3) 85%, transparent 100%);
-                    }
-                }
-                @media (max-width: 380px) {
-                    .hero-card { padding: 28px 18px 24px; }
-                    .hero-title { font-size: 32px; }
-                    .hero-visual { height: 200px; }
-                }
-            `}</style>
-
-            {/* ── 1. NAVIGATION ── */}
-            <header className="sticky top-0 z-50" style={{ background: PAGE_BG }}>
-                <div className="mx-auto max-w-[1200px] px-5 sm:px-6 lg:px-12 py-3 md:py-5 flex items-center justify-between">
-                    <Link to="/" className="flex items-center gap-2.5 text-white">
-                        <HexLogo size={28} />
-                        <span style={{ fontFamily: 'Outfit, sans-serif', fontWeight: 600, fontSize: 20 }}>ChewnPour</span>
-                    </Link>
-                    <div className="flex items-center gap-4">
-                        <a href="#features" className="hidden md:inline text-sm text-white ui-text hover:opacity-80 transition-opacity">More Features</a>
-                        <button
-                            onClick={() => setMobileMenuOpen((o) => !o)}
-                            className="inline-flex items-center justify-center size-11 rounded-lg"
-                            style={{ background: CARD_BG }}
-                            aria-label="Open menu"
-                            aria-expanded={mobileMenuOpen}
-                        >
-                            <span className="material-symbols-outlined text-white text-[22px]">{mobileMenuOpen ? 'close' : 'menu'}</span>
-                        </button>
-                    </div>
-                </div>
-                {mobileMenuOpen && (
-                    <div className="mx-auto max-w-[1200px] px-6 lg:px-12 pb-4">
-                        <div className="rounded-2xl p-4 grain" style={{ background: CARD_BG }}>
-                            <nav className="flex flex-col gap-1">
-                                {['How it Works', 'Features', 'Pricing', 'FAQs', 'Contact'].map((label, i) => (
-                                    <a
-                                        key={label}
-                                        href={['#how', '#features', '#pricing', '#faq', '#contact'][i]}
-                                        onClick={() => setMobileMenuOpen(false)}
-                                        className="py-2.5 px-3 rounded-lg text-sm font-semibold text-white hover:opacity-80 ui-text"
-                                    >
-                                        {label}
-                                    </a>
-                                ))}
-                                <Link
-                                    to="/login"
-                                    onClick={() => setMobileMenuOpen(false)}
-                                    className="py-2.5 px-3 rounded-lg text-sm font-semibold text-white hover:opacity-80 ui-text"
-                                >
-                                    Sign In
-                                </Link>
-                                <Link
-                                    to="/signup"
-                                    onClick={() => { setMobileMenuOpen(false); captureLandingEvent('landing_cta_clicked', { cta_name: 'mobile_signup' }); }}
-                                    className="mt-2 inline-flex items-center justify-center h-10 rounded-lg text-sm font-bold text-white"
-                                    style={{ background: ACCENT }}
-                                >
-                                    Get Started Free
-                                </Link>
-                            </nav>
-                        </div>
-                    </div>
-                )}
-            </header>
-
+            <LandingPageStyles />
+            <LandingHeader
+                captureLandingEvent={captureLandingEvent}
+                mobileMenuOpen={mobileMenuOpen}
+                onCloseMobileMenu={() => setMobileMenuOpen(false)}
+                onToggleMobileMenu={() => setMobileMenuOpen((open) => !open)}
+            />
             <main className="relative z-10">
-                {/* ── 2. HERO ── */}
-                <section className="hero-section">
-                    <div className="hero-card grain relative overflow-hidden border border-white/5">
-                        <div className="hero-grid h-full">
-                            <div className="hero-copy">
-                                <h1 className="hero-title" style={{ fontFamily: 'Outfit, sans-serif', fontWeight: 600, lineHeight: 1.05 }}>
-                                    Your AI-Powered<br />
-                                    <span style={{ color: ACCENT }}>Study</span> Assistant
-                                </h1>
-                                <p className="hero-sub" style={{ color: SUBTEXT, fontFamily: 'Outfit, sans-serif', lineHeight: 1.55 }}>
-                                    Unlock your learning potential. Seamlessly turn slides and PDFs into structured lessons,
-                                    quizzes, and an always-on tutor, built for African students.
-                                </p>
-                                <div className="mt-7 flex flex-wrap items-center gap-3">
-                                    <Link
-                                        to="/signup"
-                                        onClick={() => captureLandingEvent('landing_cta_clicked', { cta_name: 'hero_get_started' })}
-                                        className="inline-flex items-center justify-center h-11 px-6 rounded-lg text-white text-sm font-bold ui-text"
-                                        style={{ background: ACCENT }}
-                                    >
-                                        Get Started Free
-                                    </Link>
-                                </div>
-                            </div>
-                            <div className="hero-visual">
-                                <PurpleSwirl className="hero-swirl" />
-                            </div>
-                        </div>
-                    </div>
-                </section>
-
-                {/* ── 3. PARTNER MARQUEE ── */}
-                <section className="py-10 md:py-14">
-                    <div className="relative overflow-hidden">
-                        <div className="pointer-events-none absolute inset-y-0 left-0 w-24 z-10" style={{ background: `linear-gradient(to right, ${PAGE_BG}, transparent)` }} />
-                        <div className="pointer-events-none absolute inset-y-0 right-0 w-24 z-10" style={{ background: `linear-gradient(to left, ${PAGE_BG}, transparent)` }} />
-                        <div className="flex marquee-right gap-16 whitespace-nowrap w-max">
-                            {[...PARTNERS, ...PARTNERS].map((p, i) => (
-                                <PartnerMark key={`${p.label}-${i}`} icon={p.icon} label={p.label} />
-                            ))}
-                        </div>
-                    </div>
-                </section>
-
-                {/* ── 4. UNLEASH YOUR CREATIVITY ── */}
-                <section id="how" className="mx-auto max-w-[1200px] px-6 lg:px-12 py-16 md:py-24">
-                    <h2 style={{ fontFamily: 'Outfit, sans-serif', fontWeight: 500, fontSize: 'clamp(34px, 4.5vw, 48px)', lineHeight: 1.1 }}>
-                        {heading('Unleash Your', 'Creativity')}
-                    </h2>
-                    <p className="mt-5 max-w-[680px]" style={{ color: SUBTEXT, fontSize: 16, lineHeight: 1.55 }}>
-                        Discover how ChewnPour transforms your lecture material into a study system that actually
-                        sticks. Follow these simple steps to turn your notes into mastery.
-                    </p>
-                    <div className="mt-10 grid grid-cols-1 md:grid-cols-3 gap-5">
-                        {HOW_CARDS.map((card, idx) => (
-                            <BlurFade key={card.title} inView delay={idx * 0.1} yOffset={20}>
-                                <div className="grain rounded-[16px] p-7 flex flex-col min-h-[260px]" style={{ background: CARD_BG }}>
-                                    <span className="inline-flex items-center justify-center size-12 rounded-full" style={{ background: ACCENT }}>
-                                        <span className="material-symbols-outlined text-white text-[24px]">{card.icon}</span>
-                                    </span>
-                                    <h3 className="mt-auto pt-12 text-white" style={{ fontFamily: 'Outfit, sans-serif', fontWeight: 500, fontSize: 26 }}>
-                                        {card.title}
-                                    </h3>
-                                    <p className="mt-2" style={{ color: SUBTEXT, fontSize: 15, lineHeight: 1.55 }}>
-                                        {card.body}
-                                    </p>
-                                </div>
-                            </BlurFade>
-                        ))}
-                    </div>
-                </section>
-
-                {/* ── 5. FEATURE ROWS ── */}
-                <section id="features" className="mx-auto max-w-[1200px] px-5 sm:px-6 lg:px-12 py-12 md:py-20 space-y-12 md:space-y-28">
-                    {FEATURE_ROWS.map((row) => (
-                        <BlurFade key={row.title} inView yOffset={24} duration={0.55}>
-                            <div className="grid grid-cols-1 lg:grid-cols-2 gap-10 lg:gap-16 items-center">
-                                <div className={row.side === 'right' ? 'lg:order-1' : 'lg:order-2'}>
-                                    <h3 style={{ fontFamily: 'Outfit, sans-serif', fontWeight: 500, fontSize: 'clamp(28px, 3.5vw, 38px)', lineHeight: 1.1 }}>
-                                        {row.title}
-                                    </h3>
-                                    <p className="mt-5 max-w-[460px]" style={{ color: SUBTEXT, fontSize: 16, lineHeight: 1.55 }}>
-                                        {row.body}
-                                    </p>
-                                    <Link
-                                        to="/signup"
-                                        onClick={() => captureLandingEvent('landing_cta_clicked', { cta_name: `feature_${row.title}` })}
-                                        className="inline-flex items-center justify-center mt-7 h-11 px-6 rounded-lg text-sm font-bold ui-text transition-colors"
-                                        style={{ background: ACCENT, color: '#fff' }}
-                                    >
-                                        Try it Free
-                                    </Link>
-                                </div>
-                                <div className={row.side === 'right' ? 'lg:order-2' : 'lg:order-1'}>
-                                    <FeatureMockup kind={row.mockup} />
-                                </div>
-                            </div>
-                        </BlurFade>
-                    ))}
-                </section>
-
-                {/* ── 6. TRANSFORMING IMAGINATION ── */}
-                <section className="mx-auto max-w-[1200px] px-6 lg:px-12 py-16 md:py-24">
-                    <h2 style={{ fontFamily: 'Outfit, sans-serif', fontWeight: 500, fontSize: 'clamp(34px, 4.5vw, 48px)', lineHeight: 1.1 }}>
-                        Transforming Study<br />
-                        into <span style={{ color: ACCENT }}>Reality</span>
-                    </h2>
-                    <p className="mt-5 max-w-[760px]" style={{ color: SUBTEXT, fontSize: 16, lineHeight: 1.55 }}>
-                        Unlock the full potential of your study time with ChewnPour. Explore new dimensions of
-                        revision, from focused lessons to timeless craftsmanship, and witness how AI can turn
-                        your hardest courses into mastered material.
-                    </p>
-                    <div className="transform-grid mt-10">
-                        {TRANSFORM_CARDS.map((card, i) => {
-                            const isHighlight = i === 0 || i === 3;
-                            const span = i === 0 || i === 3 ? 2 : 3;
-                            return (
-                                <a
-                                    key={card.title}
-                                    href="#features"
-                                    className="transform-card grain group relative overflow-hidden block"
-                                    style={{ gridColumn: `span ${span}` }}
-                                >
-                                    <div
-                                        className={`absolute inset-0 transition-opacity duration-500 ease-out ${
-                                            isHighlight ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'
-                                        }`}
-                                        style={{ background: ACCENT, zIndex: 0 }}
-                                    />
-                                    <div className="relative z-[1] flex items-start justify-between gap-4">
-                                        <p
-                                            style={{
-                                                color: 'rgb(217, 217, 217)',
-                                                fontFamily: 'Outfit, sans-serif',
-                                                fontSize: 16,
-                                                fontWeight: 400,
-                                                lineHeight: '19.2px',
-                                                width: span === 2 ? 248 : 437,
-                                                maxWidth: '100%',
-                                            }}
-                                        >
-                                            {card.body}
-                                        </p>
-                                        <span
-                                            className={`shrink-0 inline-flex items-center justify-center transition-colors duration-300 arrow-pill ${isHighlight ? 'is-highlight' : ''}`}
-                                            style={{ width: 71, height: 71, borderRadius: 333 }}
-                                        >
-                                            <span className="material-symbols-outlined arrow-icon" style={{ fontSize: 34 }}>
-                                                arrow_outward
-                                            </span>
-                                        </span>
-                                    </div>
-                                    <h4 className="absolute inset-x-5 bottom-5 z-[1] text-[28px] font-medium leading-[33.6px] text-white [font-family:Outfit,sans-serif]">
-                                        {card.title}
-                                    </h4>
-                                </a>
-                            );
-                        })}
-                    </div>
-                </section>
-
-                {/* ── 7. PRICING ── */}
-                <section id="pricing" className="mx-auto max-w-[1200px] px-6 lg:px-12 py-16 md:py-24">
-                    <h2 style={{ fontFamily: 'Outfit, sans-serif', fontWeight: 500, fontSize: 'clamp(34px, 4.5vw, 48px)', lineHeight: 1.1 }}>
-                        Affordable Plans for <span style={{ color: ACCENT }}>Every Student</span>
-                    </h2>
-                    <p className="mt-5 max-w-[680px]" style={{ color: SUBTEXT, fontSize: 16, lineHeight: 1.55 }}>
-                        Choose the perfect plan for your studies, from first-year survival to final-year exams.
-                        Pricing is in {starterPlan.currency || 'GHS'} and tuned for student budgets.
-                    </p>
-
-                    <div className="flex justify-center items-center gap-4 mt-10 mb-10">
-                        <span className="ui-text text-sm font-semibold" style={{ color: billing === 'monthly' ? '#fff' : SUBTEXT }}>Monthly</span>
-                        <button
-                            type="button"
-                            role="switch"
-                            aria-checked={billing === 'yearly'}
-                            onClick={() => setBilling((b) => (b === 'monthly' ? 'yearly' : 'monthly'))}
-                            className="relative inline-flex h-7 w-14 items-center rounded-full transition-colors"
-                            style={{ background: ACCENT }}
-                        >
-                            <span
-                                className={`inline-block size-5 transform rounded-full bg-white shadow transition-transform duration-300 ${billing === 'yearly' ? 'translate-x-8' : 'translate-x-1'}`}
-                            />
-                        </button>
-                        <span className="ui-text text-sm font-semibold" style={{ color: billing === 'yearly' ? '#fff' : SUBTEXT }}>Yearly</span>
-                    </div>
-
-                    <div className="grid gap-5 md:grid-cols-3 items-end">
-                        {planCards.map((plan, idx) => {
-                            const isFeatured = idx === 1;
-                            const subColor = isFeatured ? 'rgba(255,255,255,0.85)' : SUBTEXT;
-                            return (
-                                <div
-                                    key={plan.tier}
-                                    className="grain rounded-[20px] p-7 flex flex-col"
-                                    style={{
-                                        background: isFeatured ? ACCENT : CARD_BG,
-                                        marginTop: isFeatured ? -24 : 0,
-                                        paddingTop: isFeatured ? 36 : 28,
-                                        paddingBottom: isFeatured ? 36 : 28,
-                                    }}
-                                >
-                                    <p className="ui-text font-semibold uppercase tracking-widest" style={{ color: subColor, fontSize: 13 }}>{plan.tier}</p>
-                                    <div className="mt-3 flex items-baseline gap-1.5">
-                                        <span className="text-white" style={{ fontFamily: 'Outfit, sans-serif', fontWeight: 600, fontSize: 48, lineHeight: 1 }}>{plan.price}</span>
-                                        <span className="ui-text" style={{ color: subColor, fontSize: 16 }}>/{billing === 'yearly' ? 'yr' : 'm'}</span>
-                                    </div>
-                                    <p className="mt-2 ui-text" style={{ color: subColor, fontSize: 14 }}>{plan.suffix}</p>
-                                    <div className="my-5 h-px" style={{ background: isFeatured ? 'rgba(255,255,255,0.25)' : 'rgba(217,217,217,0.15)' }} />
-                                    <ul className="space-y-3 flex-1">
-                                        {plan.features.map((f) => (
-                                            <li key={f} className="flex items-start gap-2.5 text-white" style={{ fontSize: 14, fontFamily: 'Outfit, sans-serif' }}>
-                                                <span className="material-symbols-outlined text-[18px] mt-[1px] flex-shrink-0" style={{ color: isFeatured ? '#fff' : ACCENT }}>check_circle</span>
-                                                <span>{f}</span>
-                                            </li>
-                                        ))}
-                                    </ul>
-                                    <Link
-                                        to="/signup"
-                                        onClick={() => captureLandingEvent('landing_cta_clicked', { cta_name: plan.ctaName })}
-                                        className="mt-7 inline-flex items-center justify-center h-11 rounded-lg ui-text text-sm font-bold transition-colors"
-                                        style={
-                                            isFeatured
-                                                ? { background: '#fff', color: '#0A0A0A' }
-                                                : { background: 'transparent', color: ACCENT, border: `1px solid ${ACCENT}` }
-                                        }
-                                    >
-                                        Get Started
-                                    </Link>
-                                </div>
-                            );
-                        })}
-                    </div>
-                </section>
-
-                {/* ── 8. SEAMLESS TOOL INTEGRATION ── */}
-                <section className="mx-auto max-w-[1200px] px-6 lg:px-12 py-16 md:py-24">
-                    <h2 style={{ fontFamily: 'Outfit, sans-serif', fontWeight: 500, fontSize: 'clamp(34px, 4.5vw, 48px)', lineHeight: 1.1 }}>
-                        Seamless Tool <span style={{ color: ACCENT }}>Integration</span>
-                    </h2>
-                    <p className="mt-5 max-w-[680px]" style={{ color: SUBTEXT, fontSize: 16, lineHeight: 1.55 }}>
-                        ChewnPour offers seamless integration with the materials and tools you already use, so your
-                        existing study workflow keeps moving, just smarter.
-                    </p>
-
-                    <div className="mt-10 grain rounded-[16px] p-8 grid grid-cols-1 lg:grid-cols-[1fr_1.4fr] gap-10 items-center" style={{ background: CARD_BG }}>
-                        <div>
-                            <h3 style={{ fontFamily: 'Outfit, sans-serif', fontWeight: 500, fontSize: 32, lineHeight: 1.1 }}>
-                                Connect your<br />
-                                <span style={{ color: ACCENT }}>study stack</span>
-                            </h3>
-                            <p className="mt-4 max-w-[360px]" style={{ color: SUBTEXT, fontSize: 15, lineHeight: 1.55 }}>
-                                Works with the materials and tools you already use, slides, PDFs, scanned notes, and group chats.
-                            </p>
-                        </div>
-                        <div className="grid grid-cols-3 gap-y-6 gap-x-6 place-items-center">
-                            {PARTNERS.slice(0, 9).map((p, i) => (
-                                <span key={`int-${i}`} className="material-symbols-outlined text-white/85" style={{ fontSize: 44 }}>
-                                    {p.icon}
-                                </span>
-                            ))}
-                        </div>
-                    </div>
-                </section>
-
-                {/* ── 9. CUSTOMER SUCCESS STORIES ── */}
-                <section className="mx-auto max-w-[1200px] px-6 lg:px-12 py-16 md:py-24">
-                    <div className="flex items-end justify-between gap-6 flex-wrap">
-                        <div className="max-w-[680px]">
-                            <h2 style={{ fontFamily: 'Outfit, sans-serif', fontWeight: 500, fontSize: 'clamp(34px, 4.5vw, 48px)', lineHeight: 1.1 }}>
-                                Student <span style={{ color: ACCENT }}>Success</span> Stories
-                            </h2>
-                            <p className="mt-5" style={{ color: SUBTEXT, fontSize: 16, lineHeight: 1.55 }}>
-                                Discover how ChewnPour has helped students master tough courses effortlessly.
-                                Hear directly from people who actually use it.
-                            </p>
-                        </div>
-                    </div>
-
-                    <div className="mt-10 testimonials-viewport">
-                        <div className="testimonials-track">
-                            {[...TESTIMONIALS, ...TESTIMONIALS].map((t, i) => (
-                                <div key={`${t.name}-${i}`} className="grain testimonial-card" style={{ background: CARD_BG }}>
-                                    <div className="flex items-center gap-4 mb-6">
-                                        <div
-                                            className="rounded-full text-white flex items-center justify-center font-bold flex-shrink-0"
-                                            style={{ background: ACCENT, fontFamily: 'Inter, sans-serif', fontSize: 22, width: 56, height: 56 }}
-                                        >
-                                            {t.name.charAt(0)}
-                                        </div>
-                                        <p className="text-white" style={{ fontSize: 22, fontWeight: 600, fontFamily: 'Outfit, sans-serif' }}>
-                                            {t.name}
-                                        </p>
-                                    </div>
-                                    <p style={{ color: SUBTEXT, fontSize: 16, lineHeight: 1.55, fontFamily: 'Outfit, sans-serif' }}>
-                                        “{t.quote}”
-                                    </p>
-                                </div>
-                            ))}
-                        </div>
-                    </div>
-                </section>
-
-                {/* ── 10. FAQ ── */}
-                <section id="faq" className="mx-auto max-w-[1200px] px-6 lg:px-12 py-16 md:py-24">
-                    <div className="grain rounded-[16px] p-8 md:p-12 grid grid-cols-1 lg:grid-cols-[1fr_1.4fr] gap-10 lg:gap-16" style={{ background: CARD_BG }}>
-                        <div>
-                            <h2 style={{ fontFamily: 'Outfit, sans-serif', fontWeight: 500, fontSize: 'clamp(34px, 4.5vw, 48px)', lineHeight: 1.1 }}>
-                                Frequently Asked<br />
-                                <span style={{ color: ACCENT }}>Questions</span>
-                            </h2>
-                            <p className="mt-5 max-w-[420px]" style={{ color: SUBTEXT, fontSize: 16, lineHeight: 1.55 }}>
-                                Have questions about ChewnPour? Find answers to the most common ones and learn how
-                                we help students study smarter.
-                            </p>
-                        </div>
-                        <div>
-                            {FAQS.map((item, i) => (
-                                <FaqItem key={item.q} q={item.q} a={item.a} open={openFaq === i} onToggle={() => setOpenFaq(openFaq === i ? -1 : i)} />
-                            ))}
-                        </div>
-                    </div>
-                </section>
-
-                {/* ── 11. BLOG ── */}
-                <section className="mx-auto max-w-[1200px] px-6 lg:px-12 py-16 md:py-24">
-                    <h2 style={{ fontFamily: 'Outfit, sans-serif', fontWeight: 500, fontSize: 'clamp(34px, 4.5vw, 48px)', lineHeight: 1.1 }}>
-                        Stay Inspired with Our<br />
-                        Latest <span style={{ color: ACCENT }}>Insights</span>
-                    </h2>
-                    <p className="mt-5 max-w-[680px]" style={{ color: SUBTEXT, fontSize: 16, lineHeight: 1.55 }}>
-                        Dive into the ChewnPour blog for the latest study tips, revision tactics, and insights into how AI
-                        is reshaping how students learn.
-                    </p>
-
-                    <div className="mt-10 grid gap-5 md:grid-cols-3">
-                        {BLOG_POSTS.map((post) => (
-                            <button
-                                key={post.title}
-                                type="button"
-                                onClick={() => {
-                                    setActivePost(post);
-                                    captureLandingEvent('landing_blog_opened', { post_title: post.title });
-                                }}
-                                className="grain rounded-[16px] overflow-hidden text-left transition-transform hover:-translate-y-1"
-                                style={{ background: CARD_BG }}
-                            >
-                                <div className="aspect-[5/3] relative">
-                                    <div className="absolute inset-0" style={{ background: `radial-gradient(circle at 60% 50%, ${post.tone} 0%, rgba(20,20,20,0.9) 75%)` }} />
-                                    <div className="absolute inset-0 mix-blend-screen opacity-70" style={{ background: 'repeating-linear-gradient(120deg, rgba(255,255,255,0.18) 0 6px, transparent 6px 28px)', filter: 'blur(1px)' }} />
-                                </div>
-                                <div className="p-5">
-                                    <div className="flex items-center justify-between ui-text" style={{ color: SUBTEXT, fontSize: 12 }}>
-                                        <span>{post.date}</span>
-                                        <span>{post.read}</span>
-                                    </div>
-                                    <h3 className="mt-3 text-white" style={{ fontFamily: 'Outfit, sans-serif', fontWeight: 500, fontSize: 18, lineHeight: 1.3 }}>
-                                        {post.title}
-                                    </h3>
-                                    {post.excerpt && (
-                                        <p className="mt-2" style={{ color: SUBTEXT, fontSize: 13, lineHeight: 1.5, fontFamily: 'Outfit, sans-serif' }}>
-                                            {post.excerpt}
-                                        </p>
-                                    )}
-                                    <span
-                                        className="inline-flex items-center gap-1.5 mt-4 text-xs font-semibold"
-                                        style={{ color: ACCENT, fontFamily: 'Inter, sans-serif' }}
-                                    >
-                                        Read article
-                                        <span className="material-symbols-outlined text-[14px]">arrow_forward</span>
-                                    </span>
-                                </div>
-                            </button>
-                        ))}
-                    </div>
-
-                    <div className="mt-10 flex justify-center">
-                        <button
-                            type="button"
-                            onClick={() => {
-                                setActivePost(BLOG_POSTS[0]);
-                                captureLandingEvent('landing_blog_opened', { post_title: BLOG_POSTS[0].title, source: 'read_more' });
-                            }}
-                            className="inline-flex items-center justify-center h-11 px-7 rounded-full text-white text-sm font-bold ui-text"
-                            style={{ background: ACCENT }}
-                        >
-                            Read More
-                        </button>
-                    </div>
-                </section>
-
-                {/* ── 12. CTA BANNER ── */}
-                <section className="flex justify-center px-3 pb-16">
-                    <div
-                        className="grain relative overflow-hidden border border-white/5"
-                        style={{
-                            background: CARD_BG,
-                            width: '100%',
-                            maxWidth: 1200,
-                            height: 480,
-                            borderRadius: 40,
-                            paddingLeft: 40,
-                        }}
-                    >
-                        <div className="grid grid-cols-1 lg:grid-cols-[1fr_1fr] gap-4 items-center h-full pr-0">
-                            <div className="py-10 lg:py-0">
-                                <h2 style={{ fontFamily: 'Outfit, sans-serif', fontWeight: 600, fontSize: 'clamp(36px, 5vw, 56px)', lineHeight: 1.05 }}>
-                                    Start Your Study<br />
-                                    <span style={{ color: ACCENT }}>Journey</span> Today
-                                </h2>
-                                <p className="mt-5 max-w-[480px]" style={{ color: SUBTEXT, fontSize: 16, lineHeight: 1.55 }}>
-                                    Sign up now and experience the power of AI-driven studying, no commitment, no
-                                    credit card.
-                                </p>
-                                <Link
-                                    to="/signup"
-                                    onClick={() => captureLandingEvent('landing_cta_clicked', { cta_name: 'final_cta' })}
-                                    className="inline-flex items-center justify-center mt-7 h-11 px-7 rounded-lg text-white text-sm font-bold ui-text"
-                                    style={{ background: ACCENT }}
-                                >
-                                    Get Started Free
-                                </Link>
-                            </div>
-                            <div className="relative h-full hidden lg:flex items-center justify-end overflow-hidden">
-                                <PurpleSwirl className="cta-swirl" />
-                            </div>
-                        </div>
-                    </div>
-                </section>
+                <HeroSection captureLandingEvent={captureLandingEvent} />
+                <PartnerMarqueeSection />
+                <HowSection />
+                <FeatureRowsSection captureLandingEvent={captureLandingEvent} />
+                <TransformSection />
+                <PricingSection
+                    billing={billing}
+                    captureLandingEvent={captureLandingEvent}
+                    onBillingChange={() => setBilling((current) => (current === 'monthly' ? 'yearly' : 'monthly'))}
+                    planCards={planCards}
+                    starterCurrency={starterPlan.currency}
+                />
+                <IntegrationSection />
+                <TestimonialsSection />
+                <FaqSection openFaq={openFaq} onToggleFaq={(index) => setOpenFaq((current) => (current === index ? -1 : index))} />
+                <BlogSection onOpenPost={openBlogPost} />
+                <CtaSection captureLandingEvent={captureLandingEvent} />
             </main>
-
-            {/* ── Blog post modal ── */}
-            {activePost && (
-                <div
-                    className="fixed inset-0 z-[100] flex items-center justify-center p-4 sm:p-6"
-                    role="dialog"
-                    aria-modal="true"
-                    aria-labelledby="post-title"
-                >
-                    <button
-                        type="button"
-                        aria-label="Close post"
-                        className="absolute inset-0 border-0 bg-black/75 p-0 backdrop-blur-[6px]"
-                        onClick={() => setActivePost(null)}
-                    />
-                    <div
-                        className="grain relative z-10 w-full max-w-[760px] max-h-[88vh] overflow-y-auto rounded-[24px]"
-                        style={{ background: CARD_BG, border: '1px solid rgba(255,255,255,0.08)' }}
-                    >
-                        {/* Hero strip */}
-                        <div className="aspect-[5/2] relative">
-                            <div className="absolute inset-0" style={{ background: `radial-gradient(circle at 60% 50%, ${activePost.tone} 0%, rgba(20,20,20,0.9) 75%)` }} />
-                            <div className="absolute inset-0 mix-blend-screen opacity-70" style={{ background: 'repeating-linear-gradient(120deg, rgba(255,255,255,0.18) 0 6px, transparent 6px 28px)', filter: 'blur(1px)' }} />
-                            <button
-                                type="button"
-                                onClick={() => setActivePost(null)}
-                                className="absolute top-4 right-4 inline-flex items-center justify-center size-10 rounded-full text-white"
-                                style={{ background: 'rgba(0,0,0,0.55)' }}
-                                aria-label="Close article"
-                            >
-                                <span className="material-symbols-outlined text-[20px]">close</span>
-                            </button>
-                        </div>
-
-                        <article className="px-7 sm:px-10 py-8 sm:py-10">
-                            <div className="flex items-center gap-3 ui-text" style={{ color: SUBTEXT, fontSize: 12, fontFamily: 'Inter, sans-serif' }}>
-                                <span>{activePost.date}</span>
-                                <span aria-hidden="true">·</span>
-                                <span>{activePost.read}</span>
-                                {activePost.author && (
-                                    <>
-                                        <span aria-hidden="true">·</span>
-                                        <span>{activePost.author}</span>
-                                    </>
-                                )}
-                            </div>
-                            <h2
-                                id="post-title"
-                                className="mt-3 text-white"
-                                style={{ fontFamily: 'Outfit, sans-serif', fontWeight: 600, fontSize: 'clamp(28px, 4vw, 36px)', lineHeight: 1.15, letterSpacing: '-0.02em' }}
-                            >
-                                {activePost.title}
-                            </h2>
-                            {activePost.excerpt && (
-                                <p
-                                    className="mt-4"
-                                    style={{ color: 'rgba(255,255,255,0.78)', fontSize: 17, lineHeight: 1.55, fontFamily: 'Outfit, sans-serif' }}
-                                >
-                                    {activePost.excerpt}
-                                </p>
-                            )}
-
-                            <div className="mt-8 space-y-5">
-                                {activePost.body?.map((block, i) =>
-                                    block.type === 'h2' ? (
-                                        <h3
-                                            key={i}
-                                            className="text-white"
-                                            style={{ fontFamily: 'Outfit, sans-serif', fontWeight: 600, fontSize: 22, letterSpacing: '-0.02em', marginTop: 24 }}
-                                        >
-                                            {block.text}
-                                        </h3>
-                                    ) : (
-                                        <p
-                                            key={i}
-                                            style={{ color: SUBTEXT, fontSize: 16, lineHeight: 1.65, fontFamily: 'Outfit, sans-serif' }}
-                                        >
-                                            {block.text}
-                                        </p>
-                                    )
-                                )}
-                            </div>
-
-                            <div className="mt-10 pt-6 flex items-center justify-between gap-4 flex-wrap" style={{ borderTop: '1px solid rgba(255,255,255,0.08)' }}>
-                                <Link
-                                    to="/signup"
-                                    onClick={() => captureLandingEvent('landing_cta_clicked', { cta_name: 'blog_modal_signup' })}
-                                    className="inline-flex items-center justify-center h-11 px-6 rounded-full text-white text-sm font-bold ui-text"
-                                    style={{ background: ACCENT }}
-                                >
-                                    Try ChewnPour Free
-                                </Link>
-                                <button
-                                    type="button"
-                                    onClick={() => setActivePost(null)}
-                                    className="text-sm font-semibold text-white/70 hover:text-white transition-colors ui-text"
-                                >
-                                    Close
-                                </button>
-                            </div>
-                        </article>
-                    </div>
-                </div>
-            )}
-
-            {/* ── 13. FOOTER ── */}
-            <footer id="contact" style={{ background: FOOTER_BG }}>
-                <div className="mx-auto max-w-[1200px] px-6 lg:px-12 py-10">
-                    <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
-                        <Link to="/" className="flex items-center gap-2.5 text-white">
-                            <HexLogo size={28} />
-                            <span style={{ fontFamily: 'Outfit, sans-serif', fontWeight: 600, fontSize: 20 }}>ChewnPour</span>
-                        </Link>
-                        <nav className="flex flex-wrap items-center gap-6 ui-text text-sm">
-                            {FOOTER_NAV.map((label, i) => (
-                                <a key={label} href={['#how', '#features', '#pricing', '#', '#faq', '#contact'][i]} className="text-white hover:opacity-80 transition-opacity">
-                                    {label}
-                                </a>
-                            ))}
-                        </nav>
-                    </div>
-                    <div className="mt-8 pt-6 flex flex-col md:flex-row items-center justify-between gap-4 ui-text text-xs" style={{ borderTop: '1px solid rgba(217,217,217,0.12)', color: SUBTEXT }}>
-                        <p>Copyright 2026 © ChewnPour, Inc.</p>
-                        <div className="flex items-center gap-5">
-                            <Link to="/privacy" className="hover:text-white transition-colors">Privacy Policy</Link>
-                            <Link to="/terms" className="hover:text-white transition-colors">Terms &amp; Conditions</Link>
-                            <a href="https://t.me/+jIHi6XFYdl9kNDA0" target="_blank" rel="noopener noreferrer" className="hover:text-white transition-colors">Telegram</a>
-                        </div>
-                    </div>
-                </div>
-                <div
-                    className="relative h-[180px] sm:h-[260px] overflow-hidden"
-                    style={{ borderTop: '1px solid rgba(217,217,217,0.12)' }}
-                    aria-hidden="true"
-                >
-                    <CanvasCrowd height={260} />
-                    <div
-                        className="absolute inset-0 pointer-events-none"
-                        style={{
-                            background: `linear-gradient(to top, ${FOOTER_BG} 0%, rgba(20,20,19,0) 52%, ${FOOTER_BG} 100%)`,
-                        }}
-                    />
-                </div>
-            </footer>
-
+            <BlogPostModal activePost={activePost} captureLandingEvent={captureLandingEvent} onClose={() => setActivePost(null)} />
+            <LandingFooter />
         </div>
     );
 };
