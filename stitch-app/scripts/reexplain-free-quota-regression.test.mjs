@@ -14,7 +14,7 @@ if (!schemaSource.includes('consumedReExplanations: v.optional(v.number())')) {
 const subscriptionsSource = await read('convex/subscriptions.ts');
 for (const pattern of [
   'const FREE_REEXPLAIN_LIMIT = 1;',
-  'export const consumeReExplainCreditOrThrow = mutation({',
+  'export const consumeReExplainCreditOrThrowInternal = internalMutation({',
   'code: "REEXPLAIN_QUOTA_EXCEEDED"',
   'consumedReExplanations: nextUsed',
 ]) {
@@ -26,7 +26,7 @@ for (const pattern of [
 const aiSource = await read('convex/ai.ts');
 for (const pattern of [
   'export const reExplainTopic = action({',
-  'api.subscriptions.consumeReExplainCreditOrThrow',
+  'internal.subscriptions.consumeReExplainCreditOrThrowInternal',
 ]) {
   if (!aiSource.includes(pattern)) {
     throw new Error(`Expected ai.ts to include "${pattern}" for re-explain quota consumption.`);

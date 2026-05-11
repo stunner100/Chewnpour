@@ -102,14 +102,13 @@ const SourceFileCard = ({ courseId, userId }) => {
                 const { storageId } = await result.json();
 
                 const uploadId = await createUpload({
-                    userId,
                     fileName: file.name,
                     fileType: ext,
                     fileSize: file.size,
                     storageId,
                 });
 
-                await addUploadToCourse({ courseId, uploadId, userId });
+                await addUploadToCourse({ courseId, uploadId });
 
                 addSourceAction({ uploadId, courseId, userId }).catch((err) => {
                     console.error('Add source processing failed:', err);
@@ -134,12 +133,12 @@ const SourceFileCard = ({ courseId, userId }) => {
         async (uploadId) => {
             setConfirmRemove(null);
             try {
-                await removeSource({ courseId, uploadId, userId });
+                await removeSource({ courseId, uploadId });
             } catch (err) {
                 console.error('Remove source failed:', err);
             }
         },
-        [courseId, userId, removeSource],
+        [courseId, removeSource],
     );
 
     const sourceList = Array.isArray(sources) ? sources : [];

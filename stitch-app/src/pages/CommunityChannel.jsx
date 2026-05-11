@@ -135,7 +135,7 @@ const ReplyThread = ({ postId, channelId, userId }) => {
         if (!text || submitting || !channelId || !userId) return;
         setSubmitting(true);
         try {
-            await createPost({ channelId, userId, content: text, tag: 'discussion', parentPostId: postId });
+            await createPost({ channelId, content: text, tag: 'discussion', parentPostId: postId });
             setReplyText('');
         } finally {
             setSubmitting(false);
@@ -206,7 +206,7 @@ const MessageGroup = ({ group, channelId, userId }) => {
         if (reportedIds.has(postId) || !userId) return;
         setReportedIds((prev) => new Set(prev).add(postId));
         try {
-            await flagPost({ postId, userId, reason: 'inappropriate' });
+            await flagPost({ postId, reason: 'inappropriate' });
         } catch {
             setReportedIds((prev) => {
                 const next = new Set(prev);
@@ -322,7 +322,7 @@ const Composer = ({ channelId, userId, isMember, onJoin }) => {
         if (!text || submitting || !userId || !isMember) return;
         setSubmitting(true);
         try {
-            await createPost({ channelId, userId, content: text, tag });
+            await createPost({ channelId, content: text, tag });
             setContent('');
             setTag('discussion');
             textareaRef.current?.focus();
@@ -498,7 +498,7 @@ const CommunityChannel = () => {
     const [activeFilter, setActiveFilter] = useState('all');
 
     const channel = useQuery(api.community.getChannel, channelId ? { channelId } : 'skip');
-    const userChannels = useQuery(api.community.getUserChannels, userId ? { userId } : 'skip');
+    const userChannels = useQuery(api.community.getUserChannels, userId ? {} : 'skip');
     const posts = useQuery(api.community.listPosts, channelId ? { channelId } : 'skip');
     const joinChannel = useMutation(api.community.joinChannel);
 
@@ -541,7 +541,7 @@ const CommunityChannel = () => {
     const handleJoin = useCallback(async () => {
         if (!channelId || !userId) return;
         try {
-            await joinChannel({ channelId, userId });
+            await joinChannel({ channelId });
         } catch {
             // UI updates reactively
         }

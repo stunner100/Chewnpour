@@ -415,7 +415,7 @@ const AuthProviderConvex = ({ children }) => {
         try { pendingRef = sessionStorage.getItem('pending_referral_code'); } catch { return; }
         if (!pendingRef) return;
         try { sessionStorage.removeItem('pending_referral_code'); } catch { void 0; }
-        setReferredByMutation({ userId: sessionUser.id, referralCode: pendingRef }).catch(() => {});
+        setReferredByMutation({ referralCode: pendingRef }).catch(() => {});
     }, [sessionUser?.id, profileData, setReferredByMutation]);
 
     useEffect(() => {
@@ -446,7 +446,7 @@ const AuthProviderConvex = ({ children }) => {
 
             lastPresenceHeartbeatAtRef.current = now;
             try {
-                await touchPresence({ userId: activeUserId });
+                await touchPresence({});
             } catch (error) {
                 console.warn('[AuthContext] Failed to send presence heartbeat', getErrorMessage(error, 'unknown'));
             }
@@ -503,7 +503,6 @@ const AuthProviderConvex = ({ children }) => {
             if (userId) {
                 try {
                     await upsertProfile({
-                        userId,
                         fullName,
                         onboardingCompleted: true,
                     });
@@ -656,7 +655,7 @@ const AuthProviderConvex = ({ children }) => {
     const updateProfile = async (updates) => {
         if (!user) return { error: { message: 'No user logged in' } };
         try {
-            await upsertProfile({ userId: user.id, ...updates });
+            await upsertProfile({ ...updates });
             setProfileOverride((current) => ({
                 ...(current || {}),
                 ...updates,

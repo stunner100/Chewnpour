@@ -2,7 +2,6 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useQuery, useMutation, useConvexAuth } from 'convex/react';
 import { api } from '../../convex/_generated/api';
-import { useAuth } from '../contexts/AuthContext';
 import PodcastStatusBadge from '../components/dashboard/PodcastStatusBadge';
 import PodcastWaveformPlayer from '../components/podcast/PodcastWaveformPlayer';
 
@@ -240,8 +239,6 @@ const TopicPickerModal = ({ open, onClose, courses, onSelectTopic, generatingTop
 };
 
 const DashboardPodcasts = () => {
-    const { user } = useAuth();
-    const userId = user?.id;
     const { isAuthenticated: isConvexAuthenticated } = useConvexAuth();
     const [searchParams, setSearchParams] = useSearchParams();
     const navigate = useNavigate();
@@ -250,7 +247,7 @@ const DashboardPodcasts = () => {
         api.podcasts.listRecentUserPodcasts,
         isConvexAuthenticated ? { limit: 20 } : 'skip',
     );
-    const courses = useQuery(api.courses.getUserCourses, userId ? { userId } : 'skip');
+    const courses = useQuery(api.courses.getUserCourses, isConvexAuthenticated ? {} : 'skip');
     const requestPodcast = useMutation(api.podcasts.requestTopicPodcast);
 
     const [modalOpen, setModalOpen] = useState(false);

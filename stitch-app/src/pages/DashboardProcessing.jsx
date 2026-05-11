@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
-import { useAction, useQuery } from 'convex/react';
+import { useAction, useConvexAuth, useQuery } from 'convex/react';
 import { api } from '../../convex/_generated/api';
 import { useAuth } from '../contexts/AuthContext';
 import { addSentryBreadcrumb, captureSentryMessage } from '../lib/sentry';
@@ -28,6 +28,7 @@ const DashboardProcessing = () => {
     const { courseId } = useParams();
     const { user } = useAuth();
     const userId = user?.id;
+    const { isAuthenticated: isConvexAuthenticated } = useConvexAuth();
     const navigate = useNavigate();
     const processUploadedFile = useAction(api.ai.processUploadedFile);
     const [showConfirmation, setShowConfirmation] = useState(false);
@@ -43,7 +44,7 @@ const DashboardProcessing = () => {
     );
 
     // Only fetch all user courses when no specific courseId is provided
-    const allCourses = useQuery(api.courses.getUserCourses, !courseId && userId ? { userId } : 'skip');
+    const allCourses = useQuery(api.courses.getUserCourses, !courseId && isConvexAuthenticated ? {} : 'skip');
     const latestCourse = courseId ? null : allCourses?.[0];
     const course = courseData || (latestCourse ? { ...latestCourse, topics: [] } : null);
 

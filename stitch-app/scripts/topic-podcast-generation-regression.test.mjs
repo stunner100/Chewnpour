@@ -12,6 +12,10 @@ const panelSource = await fs.readFile(
     path.join(root, 'src', 'components', 'TopicPodcastPanel.jsx'),
     'utf8',
 );
+const waveformPlayerSource = await fs.readFile(
+    path.join(root, 'src', 'components', 'podcast', 'PodcastWaveformPlayer.jsx'),
+    'utf8',
+);
 const topicDetailSource = await fs.readFile(
     path.join(root, 'src', 'pages', 'TopicDetail.jsx'),
     'utf8',
@@ -39,7 +43,7 @@ if (!/code: "PODCAST_IN_FLIGHT"/.test(podcastsSource)) {
 if (!/code: "PODCAST_CAPACITY_EXCEEDED"/.test(podcastsSource)) {
     throw new Error('Expected requestTopicPodcast to enforce a global concurrency cap.');
 }
-if (!/api\.subscriptions\.consumeVoiceGenerationCreditOrThrow/.test(podcastsSource)) {
+if (!/internal\.subscriptions\.consumeVoiceGenerationCreditOrThrowInternal/.test(podcastsSource)) {
     throw new Error('Expected requestTopicPodcast to consume the shared voice-generation credit.');
 }
 if (!/const assertPodcastCapacityAvailable = async/.test(podcastsSource)) {
@@ -157,8 +161,8 @@ if (!/api\.podcasts\.requestTopicPodcast/.test(panelSource)) {
 if (!/two-speaker audio explainer/.test(panelSource)) {
     throw new Error('Expected TopicPodcastPanel copy to describe the two-speaker format.');
 }
-if (!/<audio\b/.test(panelSource)) {
-    throw new Error('Expected TopicPodcastPanel to render an <audio> element when ready.');
+if (!/PodcastWaveformPlayer/.test(panelSource) || !/<audio\b/.test(waveformPlayerSource)) {
+    throw new Error('Expected TopicPodcastPanel to render an audio player when ready.');
 }
 if (!/api\.podcasts\.retryTopicPodcast/.test(panelSource)) {
     throw new Error('Expected TopicPodcastPanel to expose a retry path for failed podcasts.');

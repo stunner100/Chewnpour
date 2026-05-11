@@ -15,7 +15,7 @@ const subscriptionsSource = await read("convex/subscriptions.ts");
 for (const pattern of [
   "const FREE_VOICE_GENERATION_LIMIT = 1;",
   "export const getVoiceGenerationQuotaStatus = query({",
-  "export const consumeVoiceGenerationCreditOrThrow = mutation({",
+  "export const consumeVoiceGenerationCreditOrThrowInternal = internalMutation({",
   'code: "VOICE_QUOTA_EXCEEDED"',
   "consumedVoiceGenerations: nextUsed",
 ]) {
@@ -25,7 +25,7 @@ for (const pattern of [
 }
 
 const aiSource = await read("convex/ai.ts");
-if (!aiSource.includes("api.subscriptions.consumeVoiceGenerationCreditOrThrow")) {
+if (!aiSource.includes("internal.subscriptions.consumeVoiceGenerationCreditOrThrowInternal")) {
   throw new Error("Expected synthesizeTopicVoice to consume free voice quota credits.");
 }
 if (!aiSource.includes("consumeQuota: v.optional(v.boolean())")) {

@@ -126,7 +126,7 @@ const CourseFoldersSection = ({
         }
         dispatchFolderUi({ type: 'patch', patch: { error: '', submitting: true } });
         try {
-            await createFolder({ userId, name: trimmed });
+            await createFolder({ name: trimmed });
             dispatchFolderUi({ type: 'finishCreate' });
         } catch (err) {
             dispatchFolderUi({ type: 'patch', patch: { error: err?.message || 'Could not create folder.' } });
@@ -146,7 +146,7 @@ const CourseFoldersSection = ({
             return;
         }
         try {
-            await renameFolder({ folderId: folder._id, userId, name: trimmed });
+            await renameFolder({ folderId: folder._id, name: trimmed });
         } catch (err) {
             dispatchFolderUi({ type: 'patch', patch: { error: err?.message || 'Could not rename folder.' } });
         } finally {
@@ -156,7 +156,7 @@ const CourseFoldersSection = ({
 
     const confirmDeleteFolder = async (folder) => {
         try {
-            await deleteFolder({ folderId: folder._id, userId });
+            await deleteFolder({ folderId: folder._id });
             dispatchFolderUi({ type: 'patch', patch: { confirmDeleteFolderId: null } });
         } catch (err) {
             dispatchFolderUi({ type: 'patch', patch: { error: err?.message || 'Could not delete folder.' } });

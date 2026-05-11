@@ -209,11 +209,6 @@ const buildTopUpOptionsCopy = (
     .map((plan) => `${formatTopUpAmountForCopy(plan.amountMajor)} (+${plan.credits} uploads)`)
     .join(" or ");
 
-const LEGACY_PREMIUM_MIN_CREDITS = TOPUP_PLANS.reduce(
-    (maxCredits, plan) => Math.max(maxCredits, plan.credits),
-    0,
-);
-
 const TOPUP_OPTIONS_COPY = buildTopUpOptionsCopy(buildLocalizedTopUpOptions());
 
 const resolveTopUpPlanById = (
@@ -800,13 +795,14 @@ const applyPaystackTopUpCreditGrant = async (ctx: any, args: {
     };
 };
 
-// Get user's subscription (legacy compatibility)
+// Get the authenticated user's subscription.
 export const getSubscription = query({
-    args: { userId: v.optional(v.string()) },
-    handler: async (ctx, args) => {
-        if (!args.userId) return null;
+    args: {},
+    handler: async (ctx) => {
+        const identity = await ctx.auth.getUserIdentity();
+        const userId = assertAuthenticatedUserId(identity);
 
-        const subscription = await getSubscriptionRecordByUserId(ctx, args.userId);
+        const subscription = await getSubscriptionRecordByUserId(ctx, userId);
 
         if (!subscription) {
             return {
@@ -1757,92 +1753,6 @@ export const processPaystackWebhookEvent = mutation({
     },
 });
 
-// Create or update subscription (legacy compatibility)
-export const upsertSubscription = mutation({
-    args: {
-        userId: v.string(),
-        plan: v.string(),
-        amount: v.optional(v.number()),
-        currency: v.optional(v.string()),
-        status: v.string(),
-        nextBillingDate: v.optional(v.string()),
-    },
-    handler: async (ctx, args) => {
-        const existing = await getSubscriptionRecordByUserId(ctx, args.userId);
-
-        if (existing) {
-            await ctx.db.patch(existing._id, {
-                plan: args.plan,
-                amount: args.amount,
-                currency: args.currency,
-                status: args.status,
-                nextBillingDate: args.nextBillingDate,
-            });
-            return existing._id;
-        }
-
-        return await ctx.db.insert("subscriptions", {
-            userId: args.userId,
-            plan: args.plan,
-            amount: args.amount,
-            currency: args.currency,
-            status: args.status,
-            nextBillingDate: args.nextBillingDate,
-        });
-    },
-});
-
-// Legacy premium upgrade entry point (kept for compatibility)
-export const upgradeToPremium = mutation({
-    args: {
-        userId: v.string(),
-        amount: v.number(),
-        currency: v.string(),
-    },
-    handler: async (ctx, args) => {
-        const existing = await getSubscriptionRecordByUserId(ctx, args.userId);
-        const nextBilling = new Date();
-        nextBilling.setDate(nextBilling.getDate() + 30);
-
-        const data = {
-            plan: "premium",
-            status: "active",
-            amount: args.amount,
-            currency: args.currency,
-            nextBillingDate: nextBilling.toISOString(),
-            purchasedUploadCredits: Math.max(
-                toNonNegativeInt(existing?.purchasedUploadCredits),
-                LEGACY_PREMIUM_MIN_CREDITS,
-            ),
-        };
-
-        if (existing) {
-            await ctx.db.patch(existing._id, data);
-            return existing._id;
-        }
-
-        return await ctx.db.insert("subscriptions", {
-            userId: args.userId,
-            ...data,
-        });
-    },
-});
-
-// Cancel subscription (legacy compatibility)
-export const cancelSubscription = mutation({
-    args: { userId: v.string() },
-    handler: async (ctx, args) => {
-        const subscription = await getSubscriptionRecordByUserId(ctx, args.userId);
-
-        if (subscription) {
-            await ctx.db.patch(subscription._id, {
-                status: "cancelled",
-                plan: "free",
-            });
-        }
-    },
-});
-
 // ── Voice + Humanizer Rate Limiting ─────────────────────────────────────────
 
 const FREE_VOICE_GENERATION_LIMIT = 1;
@@ -1911,7 +1821,7 @@ export const getAiMessageQuotaStatus = query({
     },
 });
 
-export const consumeAiMessageCreditOrThrow = mutation({
+export const consumeAiMessageCreditOrThrowInternal = internalMutation({
     args: { userId: v.string() },
     handler: async (ctx, args) => {
         const userId = String(args.userId || "").trim();
@@ -1954,7 +1864,7 @@ export const consumeAiMessageCreditOrThrow = mutation({
     },
 });
 
-export const consumeVoiceGenerationCreditOrThrow = mutation({
+export const consumeVoiceGenerationCreditOrThrowInternal = internalMutation({
     args: { userId: v.string() },
     handler: async (ctx, args) => {
         const userId = String(args.userId || "").trim();
@@ -2007,7 +1917,7 @@ export const consumeVoiceGenerationCreditOrThrow = mutation({
     },
 });
 
-export const consumeReExplainCreditOrThrow = mutation({
+export const consumeReExplainCreditOrThrowInternal = internalMutation({
     args: { userId: v.string() },
     handler: async (ctx, args) => {
         const userId = String(args.userId || "").trim();
@@ -2075,7 +1985,7 @@ export const getHumanizerQuotaStatus = query({
     },
 });
 
-export const consumeHumanizerCreditOrThrow = mutation({
+export const consumeHumanizerCreditOrThrowInternal = internalMutation({
     args: { userId: v.string() },
     handler: async (ctx, args) => {
         const userId = String(args.userId || "").trim();

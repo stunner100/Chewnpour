@@ -1,7 +1,7 @@
 import React, { useReducer, useEffect, useCallback } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
-import { useQuery, useMutation } from 'convex/react';
+import { useConvexAuth, useQuery, useMutation } from 'convex/react';
 import { api } from '../../convex/_generated/api';
 import StatsDetailModal from '../components/StatsDetailModal';
 import ExamActionModal from '../components/ExamActionModal';
@@ -76,21 +76,22 @@ const Profile = () => {
 
     const updateEmailPreferences = useMutation(api.profiles.updateEmailPreferences);
     const ensureReferralCode = useMutation(api.profiles.ensureReferralCode);
+    const { isAuthenticated: isConvexAuthenticated } = useConvexAuth();
 
     // Get userId from Better Auth session
     const userId = user?.id;
 
     // Convex queries for real data
-    const profile = useQuery(api.profiles.getProfile, userId ? { userId } : 'skip');
-    const stats = useQuery(api.profiles.getUserStats, userId ? { userId } : 'skip');
-    const subscription = useQuery(api.subscriptions.getSubscription, userId ? { userId } : 'skip');
+    const profile = useQuery(api.profiles.getProfile, userId && isConvexAuthenticated ? { userId } : 'skip');
+    const stats = useQuery(api.profiles.getUserStats, isConvexAuthenticated ? {} : 'skip');
+    const subscription = useQuery(api.subscriptions.getSubscription, isConvexAuthenticated ? {} : 'skip');
     const examAttempts = useQuery(api.exams.getUserExamAttempts, userId ? { userId } : 'skip');
-    const referralStats = useQuery(api.profiles.getReferralStats, userId ? { userId } : 'skip');
+    const referralStats = useQuery(api.profiles.getReferralStats, isConvexAuthenticated ? {} : 'skip');
 
     // Ensure user has a referral code on profile load
     useEffect(() => {
         if (userId && profile && !profile.referralCode) {
-            ensureReferralCode({ userId }).catch(() => {});
+            ensureReferralCode({}).catch(() => {});
         }
     }, [userId, profile, ensureReferralCode]);
 
@@ -241,7 +242,6 @@ const Profile = () => {
         dispatchProfileUi({ type: 'emailPrefStarted', key });
         try {
             await updateEmailPreferences({
-                userId,
                 [key]: !emailPrefs[key],
             });
         } catch (err) {

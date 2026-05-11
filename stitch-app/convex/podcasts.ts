@@ -59,7 +59,7 @@ const assertPodcastCapacityAvailable = async (ctx: MutationCtx) => {
 };
 
 const consumePodcastGenerationCredit = async (ctx: MutationCtx, userId: string) => {
-    await ctx.runMutation(api.subscriptions.consumeVoiceGenerationCreditOrThrow, {
+    await ctx.runMutation(internal.subscriptions.consumeVoiceGenerationCreditOrThrowInternal, {
         userId,
     });
 };

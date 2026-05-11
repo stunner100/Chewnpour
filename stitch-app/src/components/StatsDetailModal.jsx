@@ -63,7 +63,7 @@ const StatsDetailModal = ({ isOpen, onClose, type, userId }) => {
     const shouldFetchCourses = isOpen && userId && type === 'courses';
     const courses = useQuery(
         shouldFetchCourses ? api.courses.getUserCourses : 'skip',
-        shouldFetchCourses ? { userId } : 'skip'
+        shouldFetchCourses ? {} : 'skip'
     );
 
     const shouldFetchAttempts = isOpen && userId && (type === 'topics' || type === 'accuracy');

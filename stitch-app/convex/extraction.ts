@@ -3,7 +3,7 @@
 import { Blob } from "node:buffer";
 import { v } from "convex/values";
 import { api, internal } from "./_generated/api";
-import { action, internalAction } from "./_generated/server";
+import { internalAction } from "./_generated/server";
 import type { Id } from "./_generated/dataModel";
 import { strToU8, zipSync } from "fflate";
 import {
@@ -275,7 +275,7 @@ const markUploadExtraction = async (ctx: any, args: {
     artifactStorageId?: Id<"_storage">;
     warnings?: string[];
 }) => {
-    await ctx.runMutation((api as any).uploads.updateUploadStatus, {
+    await ctx.runMutation((internal as any).uploads.updateUploadStatusInternal, {
         uploadId: args.uploadId,
         status: args.uploadStatus || (args.status === "failed" ? "error" : "processing"),
         extractionStatus: args.status,
@@ -486,7 +486,7 @@ export const applyExtractionUpgrade = internalAction({
             uploadId: args.uploadId,
         });
         const stableUploadStatus = upload?.status === "ready" ? "ready" : "processing";
-        const coursePayload = await ctx.runQuery(api.courses.getCourseWithTopics, {
+        const coursePayload = await ctx.runQuery(internal.courses.getCourseWithTopicsInternal, {
             courseId: args.courseId,
         });
 
@@ -543,7 +543,7 @@ export const applyExtractionUpgrade = internalAction({
             });
         }
 
-        await ctx.runMutation(api.uploads.updateUploadStatus, {
+        await ctx.runMutation(internal.uploads.updateUploadStatusInternal, {
             uploadId: args.uploadId,
             status: stableUploadStatus,
             extractionStatus: "complete",
@@ -731,7 +731,7 @@ export const getExtractionDiagnostics = internalAction({
     },
 });
 
-export const smokeDoclingExtraction = action({
+export const smokeDoclingExtractionInternal = internalAction({
     args: {},
     handler: async () => {
         const docxBytes = zipSync({

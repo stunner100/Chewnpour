@@ -1,5 +1,12 @@
 import { v } from "convex/values";
-import { query, mutation } from "./_generated/server";
+import { internalMutation, mutation, query } from "./_generated/server";
+import { assertOwnerUserId, requireAuthenticatedUserId } from "./lib/authz";
+
+const getSeededChannelOrNull = async (ctx: any, channelId: any) => {
+    const channel = await ctx.db.get(channelId);
+    if (!channel?.isSeeded) return null;
+    return channel;
+};
 
 // ────────────────────────────────────────────────────────────────
 // Queries
@@ -37,6 +44,14 @@ export const getChannel = query({
 export const getChannelByCourse = query({
     args: { courseId: v.id("courses") },
     handler: async (ctx, args) => {
+        const userId = await requireAuthenticatedUserId(ctx);
+        const course = await ctx.db.get(args.courseId);
+        assertOwnerUserId({
+            authenticatedUserId: userId,
+            ownerUserId: course?.userId,
+            message: "You do not have permission to access this course channel.",
+        });
+
         return await ctx.db
             .query("communityChannels")
             .withIndex("by_courseId", (q) => q.eq("courseId", args.courseId))
@@ -53,6 +68,8 @@ export const listPosts = query({
     },
     handler: async (ctx, args) => {
         const limit = args.limit ?? 25;
+        const channel = await getSeededChannelOrNull(ctx, args.channelId);
+        if (!channel) return [];
 
         const posts = await ctx.db
             .query("communityPosts")
@@ -89,6 +106,11 @@ export const listPosts = query({
 export const listReplies = query({
     args: { parentPostId: v.id("communityPosts") },
     handler: async (ctx, args) => {
+        const parent = await ctx.db.get(args.parentPostId);
+        if (!parent || parent.isHidden) return [];
+        const channel = await getSeededChannelOrNull(ctx, parent.channelId);
+        if (!channel) return [];
+
         const replies = await ctx.db
             .query("communityPosts")
             .withIndex("by_parentPostId", (q) => q.eq("parentPostId", args.parentPostId))
@@ -124,13 +146,13 @@ export const listReplies = query({
 export const getChannelMembership = query({
     args: {
         channelId: v.id("communityChannels"),
-        userId: v.string(),
     },
     handler: async (ctx, args) => {
+        const userId = await requireAuthenticatedUserId(ctx);
         return await ctx.db
             .query("communityMembers")
             .withIndex("by_channelId_userId", (q) =>
-                q.eq("channelId", args.channelId).eq("userId", args.userId)
+                q.eq("channelId", args.channelId).eq("userId", userId)
             )
             .first();
     },
@@ -138,11 +160,12 @@ export const getChannelMembership = query({
 
 // List all channels a user has joined
 export const getUserChannels = query({
-    args: { userId: v.string() },
-    handler: async (ctx, args) => {
+    args: {},
+    handler: async (ctx) => {
+        const userId = await requireAuthenticatedUserId(ctx);
         const memberships = await ctx.db
             .query("communityMembers")
-            .withIndex("by_userId", (q) => q.eq("userId", args.userId))
+            .withIndex("by_userId", (q) => q.eq("userId", userId))
             .collect();
 
         const channels = await Promise.all(
@@ -164,6 +187,9 @@ export const getUserChannels = query({
 export const getWeeklyLeaderboard = query({
     args: { channelId: v.id("communityChannels") },
     handler: async (ctx, args) => {
+        const channel = await getSeededChannelOrNull(ctx, args.channelId);
+        if (!channel) return [];
+
         const oneWeekAgo = Date.now() - 7 * 24 * 60 * 60 * 1000;
 
         const recentPosts = await ctx.db
@@ -213,9 +239,9 @@ export const getWeeklyLeaderboard = query({
 export const createChannelForCourse = mutation({
     args: {
         courseId: v.id("courses"),
-        userId: v.string(),
     },
     handler: async (ctx, args) => {
+        const userId = await requireAuthenticatedUserId(ctx);
         // Check if a channel already exists for this course
         const existing = await ctx.db
             .query("communityChannels")
@@ -228,15 +254,17 @@ export const createChannelForCourse = mutation({
 
         // Fetch the course to get title and description
         const course = await ctx.db.get(args.courseId);
-        if (!course) {
-            throw new Error("Course not found.");
-        }
+        assertOwnerUserId({
+            authenticatedUserId: userId,
+            ownerUserId: course?.userId,
+            message: "You do not have permission to create a channel for this course.",
+        });
 
         const now = Date.now();
 
         const channelId = await ctx.db.insert("communityChannels", {
             courseId: args.courseId,
-            createdBy: args.userId,
+            createdBy: userId,
             title: course.title,
             description: course.description ?? `Discussion channel for ${course.title}`,
             memberCount: 1,
@@ -248,7 +276,7 @@ export const createChannelForCourse = mutation({
         // Auto-add the creator as a member
         await ctx.db.insert("communityMembers", {
             channelId,
-            userId: args.userId,
+            userId,
             joinedAt: now,
             role: "creator",
         });
@@ -261,14 +289,14 @@ export const createChannelForCourse = mutation({
 export const joinChannel = mutation({
     args: {
         channelId: v.id("communityChannels"),
-        userId: v.string(),
     },
     handler: async (ctx, args) => {
+        const userId = await requireAuthenticatedUserId(ctx);
         // Check if already a member
         const existing = await ctx.db
             .query("communityMembers")
             .withIndex("by_channelId_userId", (q) =>
-                q.eq("channelId", args.channelId).eq("userId", args.userId)
+                q.eq("channelId", args.channelId).eq("userId", userId)
             )
             .first();
 
@@ -276,7 +304,7 @@ export const joinChannel = mutation({
             return existing._id;
         }
 
-        const channel = await ctx.db.get(args.channelId);
+        const channel = await getSeededChannelOrNull(ctx, args.channelId);
         if (!channel) {
             throw new Error("Channel not found.");
         }
@@ -285,7 +313,7 @@ export const joinChannel = mutation({
 
         const memberId = await ctx.db.insert("communityMembers", {
             channelId: args.channelId,
-            userId: args.userId,
+            userId,
             joinedAt: now,
             role: "member",
         });
@@ -303,13 +331,13 @@ export const joinChannel = mutation({
 export const leaveChannel = mutation({
     args: {
         channelId: v.id("communityChannels"),
-        userId: v.string(),
     },
     handler: async (ctx, args) => {
+        const userId = await requireAuthenticatedUserId(ctx);
         const membership = await ctx.db
             .query("communityMembers")
             .withIndex("by_channelId_userId", (q) =>
-                q.eq("channelId", args.channelId).eq("userId", args.userId)
+                q.eq("channelId", args.channelId).eq("userId", userId)
             )
             .first();
 
@@ -341,22 +369,29 @@ export const leaveChannel = mutation({
 export const createPost = mutation({
     args: {
         channelId: v.id("communityChannels"),
-        userId: v.string(),
         content: v.string(),
         tag: v.optional(v.string()),
         parentPostId: v.optional(v.id("communityPosts")),
     },
     handler: async (ctx, args) => {
-        const channel = await ctx.db.get(args.channelId);
+        const userId = await requireAuthenticatedUserId(ctx);
+        const channel = await getSeededChannelOrNull(ctx, args.channelId);
         if (!channel) {
             throw new Error("Channel not found.");
+        }
+
+        if (args.parentPostId) {
+            const parent = await ctx.db.get(args.parentPostId);
+            if (!parent || parent.channelId !== args.channelId || parent.isHidden) {
+                throw new Error("Reply target not found.");
+            }
         }
 
         const now = Date.now();
 
         const postId = await ctx.db.insert("communityPosts", {
             channelId: args.channelId,
-            userId: args.userId,
+            userId,
             content: args.content,
             tag: args.tag,
             parentPostId: args.parentPostId,
@@ -390,15 +425,15 @@ export const createPost = mutation({
 export const flagPost = mutation({
     args: {
         postId: v.id("communityPosts"),
-        userId: v.string(),
         reason: v.string(),
     },
     handler: async (ctx, args) => {
+        const userId = await requireAuthenticatedUserId(ctx);
         // Check if this user already flagged this post
         const existingFlag = await ctx.db
             .query("communityFlags")
             .withIndex("by_userId_postId", (q) =>
-                q.eq("userId", args.userId).eq("postId", args.postId)
+                q.eq("userId", userId).eq("postId", args.postId)
             )
             .first();
 
@@ -410,12 +445,16 @@ export const flagPost = mutation({
         if (!post) {
             throw new Error("Post not found.");
         }
+        const channel = await getSeededChannelOrNull(ctx, post.channelId);
+        if (!channel) {
+            throw new Error("Post not found.");
+        }
 
         const now = Date.now();
 
         await ctx.db.insert("communityFlags", {
             postId: args.postId,
-            userId: args.userId,
+            userId,
             reason: args.reason,
             createdAt: now,
         });
@@ -443,12 +482,19 @@ export const flagPost = mutation({
 // removing it would orphan their `createdBy` audit trail.
 // For the "create a study group for this course" UX, use createChannelForCourse
 // behind an explicit user click.
-export const autoJoinOnUpload = mutation({
+export const autoJoinOnUploadInternal = internalMutation({
     args: {
         courseId: v.id("courses"),
         userId: v.string(),
     },
     handler: async (ctx, args) => {
+        const course = await ctx.db.get(args.courseId);
+        assertOwnerUserId({
+            authenticatedUserId: args.userId,
+            ownerUserId: course?.userId,
+            message: "You do not have permission to join this course channel.",
+        });
+
         // Check if a channel already exists for this course
         let channel = await ctx.db
             .query("communityChannels")
@@ -458,12 +504,6 @@ export const autoJoinOnUpload = mutation({
         const now = Date.now();
 
         if (!channel) {
-            // Fetch the course to get title and description
-            const course = await ctx.db.get(args.courseId);
-            if (!course) {
-                throw new Error("Course not found.");
-            }
-
             const channelId = await ctx.db.insert("communityChannels", {
                 courseId: args.courseId,
                 createdBy: args.userId,
@@ -532,8 +572,9 @@ const DEFAULT_CHANNELS = [
 // onboarding model where you start with a few default channels already joined.
 // Idempotent: safe to call on every visit.
 export const joinSeededChannels = mutation({
-    args: { userId: v.string() },
-    handler: async (ctx, args) => {
+    args: {},
+    handler: async (ctx) => {
+        const userId = await requireAuthenticatedUserId(ctx);
         const channels = await ctx.db
             .query("communityChannels")
             .collect();
@@ -565,7 +606,7 @@ export const joinSeededChannels = mutation({
 
         const memberships = await ctx.db
             .query("communityMembers")
-            .withIndex("by_userId", (q) => q.eq("userId", args.userId))
+            .withIndex("by_userId", (q) => q.eq("userId", userId))
             .collect();
         const joinedChannelIds = new Set(memberships.map((m) => String(m.channelId)));
 
@@ -575,7 +616,7 @@ export const joinSeededChannels = mutation({
             if (joinedChannelIds.has(String(channel._id))) continue;
             await ctx.db.insert("communityMembers", {
                 channelId: channel._id,
-                userId: args.userId,
+                userId,
                 joinedAt: now,
                 role: "member",
             });
@@ -591,7 +632,7 @@ export const joinSeededChannels = mutation({
 
 // Idempotent: only creates channels that don't already exist.
 // Call once from the Convex dashboard or on app init.
-export const seedDefaultChannels = mutation({
+export const seedDefaultChannelsInternal = internalMutation({
     args: {},
     handler: async (ctx) => {
         const existing = await ctx.db

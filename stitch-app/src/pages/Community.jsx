@@ -146,7 +146,7 @@ const Community = () => {
     const allChannels = useQuery(api.community.listChannels, {});
     const userChannels = useQuery(
         api.community.getUserChannels,
-        userId ? { userId } : 'skip'
+        userId ? {} : 'skip'
     );
 
     // First visit per session: enroll the user into the default seeded channels
@@ -156,7 +156,7 @@ const Community = () => {
     useEffect(() => {
         if (!userId || hasJoinedSeededChannels.current) return;
         hasJoinedSeededChannels.current = true;
-        void joinSeededChannels({ userId }).catch(() => {
+        void joinSeededChannels({}).catch(() => {
             hasJoinedSeededChannels.current = false;
         });
     }, [joinSeededChannels, userId]);

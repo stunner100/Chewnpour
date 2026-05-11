@@ -11,7 +11,7 @@ const groundedSource = await fs.readFile(
 const requiredSnippets = [
     "const sourceUploadId = topic?.sourceUploadId;",
     "courseId: topic.courseId,",
-    "api.courses.getCourseSources",
+    "internal.courses.getCourseSourcesInternal",
     "return await loadGroundedEvidenceIndexFromUpload(ctx, fallbackUpload);",
 ];
 

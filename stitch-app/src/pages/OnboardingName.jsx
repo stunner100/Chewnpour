@@ -122,7 +122,7 @@ const OnboardingName = () => {
             } else {
                 if (referralCode) {
                     const newUserId = data?.user?.id ?? data?.id;
-                    if (newUserId) setReferredBy({ userId: newUserId, referralCode }).catch(() => {});
+                    if (newUserId) setReferredBy({ referralCode }).catch(() => {});
                 }
                 navigate('/dashboard', {
                     replace: true,

@@ -15,13 +15,14 @@ def test_extract_document_returns_docling_contract(monkeypatch):
             "markdown": "# Title\n\nFirst paragraph.\n\n| A | B |\n| --- | --- |\n| 1 | 2 |",
             "pageCount": 2,
             "warnings": [],
-        }
+    }
 
     monkeypatch.setattr(app_module, "_convert_with_docling", fake_convert)
-    monkeypatch.setattr(app_module, "DOCLING_SHARED_SECRET", "")
+    monkeypatch.setattr(app_module, "DOCLING_SHARED_SECRET", "secret")
 
     response = client.post(
         "/extract",
+        headers={"x-docling-shared-secret": "secret"},
         data={
             "contentType": "application/pdf",
             "profile": "enhanced_pdf",
@@ -82,3 +83,58 @@ def test_extract_document_enforces_shared_secret(monkeypatch):
     )
 
     assert response.status_code == 401
+
+
+def test_extract_document_fails_closed_when_secret_is_unset(monkeypatch):
+    monkeypatch.setattr(app_module, "DOCLING_SHARED_SECRET", "")
+    monkeypatch.setattr(app_module, "DOCLING_ALLOW_INSECURE_LOCAL", "")
+
+    response = client.post(
+        "/extract",
+        data={
+            "contentType": "application/pdf",
+            "profile": "enhanced_pdf",
+        },
+        files={"file": ("sample.pdf", b"%PDF-1.4 sample", "application/pdf")},
+    )
+
+    assert response.status_code == 503
+
+
+def test_extract_document_rejects_oversized_content_length(monkeypatch):
+    monkeypatch.setattr(app_module, "DOCLING_SHARED_SECRET", "secret")
+    monkeypatch.setattr(app_module, "DOCLING_MAX_UPLOAD_BYTES", 10)
+    monkeypatch.setattr(app_module, "DOCLING_MAX_MULTIPART_OVERHEAD_BYTES", 0)
+
+    response = client.post(
+        "/extract",
+        headers={
+            "x-docling-shared-secret": "secret",
+            "content-length": "11",
+        },
+        data={
+            "contentType": "application/pdf",
+            "profile": "enhanced_pdf",
+        },
+        files={"file": ("sample.pdf", b"%PDF-1.4 sample", "application/pdf")},
+    )
+
+    assert response.status_code == 413
+
+
+def test_extract_document_rejects_oversized_stream(monkeypatch):
+    monkeypatch.setattr(app_module, "DOCLING_SHARED_SECRET", "secret")
+    monkeypatch.setattr(app_module, "DOCLING_MAX_UPLOAD_BYTES", 5)
+    monkeypatch.setattr(app_module, "DOCLING_MAX_MULTIPART_OVERHEAD_BYTES", 1024)
+
+    response = client.post(
+        "/extract",
+        headers={"x-docling-shared-secret": "secret"},
+        data={
+            "contentType": "application/pdf",
+            "profile": "enhanced_pdf",
+        },
+        files={"file": ("sample.pdf", b"%PDF-1.4 sample", "application/pdf")},
+    )
+
+    assert response.status_code == 413

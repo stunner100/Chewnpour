@@ -1,13 +1,14 @@
 import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
+import { requireAuthenticatedUserId } from "./lib/authz";
 
 export const listFolders = query({
-    args: { userId: v.optional(v.string()) },
-    handler: async (ctx, args) => {
-        if (!args.userId) return [];
+    args: {},
+    handler: async (ctx) => {
+        const userId = await requireAuthenticatedUserId(ctx);
         return await ctx.db
             .query("courseFolders")
-            .withIndex("by_userId", (q) => q.eq("userId", args.userId!))
+            .withIndex("by_userId", (q) => q.eq("userId", userId))
             .order("desc")
             .collect();
     },
@@ -15,17 +16,17 @@ export const listFolders = query({
 
 export const createFolder = mutation({
     args: {
-        userId: v.string(),
         name: v.string(),
         color: v.optional(v.string()),
     },
     handler: async (ctx, args) => {
+        const userId = await requireAuthenticatedUserId(ctx);
         const trimmed = args.name.trim();
         if (!trimmed) throw new Error("Folder name is required.");
         if (trimmed.length > 80) throw new Error("Folder name is too long.");
 
         return await ctx.db.insert("courseFolders", {
-            userId: args.userId,
+            userId,
             name: trimmed,
             color: args.color,
         });
@@ -35,12 +36,12 @@ export const createFolder = mutation({
 export const renameFolder = mutation({
     args: {
         folderId: v.id("courseFolders"),
-        userId: v.string(),
         name: v.string(),
     },
     handler: async (ctx, args) => {
+        const userId = await requireAuthenticatedUserId(ctx);
         const folder = await ctx.db.get(args.folderId);
-        if (!folder || folder.userId !== args.userId) {
+        if (!folder || folder.userId !== userId) {
             throw new Error("Folder not found or access denied.");
         }
         const trimmed = args.name.trim();
@@ -53,11 +54,11 @@ export const renameFolder = mutation({
 export const deleteFolder = mutation({
     args: {
         folderId: v.id("courseFolders"),
-        userId: v.string(),
     },
     handler: async (ctx, args) => {
+        const userId = await requireAuthenticatedUserId(ctx);
         const folder = await ctx.db.get(args.folderId);
-        if (!folder || folder.userId !== args.userId) {
+        if (!folder || folder.userId !== userId) {
             throw new Error("Folder not found or access denied.");
         }
 
@@ -65,7 +66,7 @@ export const deleteFolder = mutation({
         const courses = await ctx.db
             .query("courses")
             .withIndex("by_userId_folderId", (q) =>
-                q.eq("userId", args.userId).eq("folderId", args.folderId)
+                q.eq("userId", userId).eq("folderId", args.folderId)
             )
             .collect();
 
@@ -80,18 +81,18 @@ export const deleteFolder = mutation({
 export const moveCourseToFolder = mutation({
     args: {
         courseId: v.id("courses"),
-        userId: v.string(),
         folderId: v.union(v.id("courseFolders"), v.null()),
     },
     handler: async (ctx, args) => {
+        const userId = await requireAuthenticatedUserId(ctx);
         const course = await ctx.db.get(args.courseId);
-        if (!course || course.userId !== args.userId) {
+        if (!course || course.userId !== userId) {
             throw new Error("Course not found or access denied.");
         }
 
         if (args.folderId !== null) {
             const folder = await ctx.db.get(args.folderId);
-            if (!folder || folder.userId !== args.userId) {
+            if (!folder || folder.userId !== userId) {
                 throw new Error("Folder not found or access denied.");
             }
         }

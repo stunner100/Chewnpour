@@ -298,7 +298,7 @@ const AssignmentHelper = () => {
 
     const threads = useQuery(
         api.assignments.listThreads,
-        userId ? { userId } : 'skip'
+        isConvexAuthenticated ? {} : 'skip'
     );
     const uploadQuota = useQuery(
         api.subscriptions.getUploadQuotaStatus,
@@ -333,7 +333,7 @@ const AssignmentHelper = () => {
 
     const selectedThreadPayload = useQuery(
         api.assignments.getThreadWithMessages,
-        userId && selectedThreadId ? { userId, threadId: selectedThreadId } : 'skip'
+        isConvexAuthenticated && selectedThreadId ? { threadId: selectedThreadId } : 'skip'
     );
     const selectedThread = selectedThreadPayload?.thread || null;
     const messages = selectedThreadPayload?.messages || [];
@@ -562,7 +562,6 @@ const AssignmentHelper = () => {
             currentStage = 'create_assignment_thread';
             reportUploadStage(uploadObservation, currentStage);
             const { threadId } = await createThreadFromUpload({
-                userId,
                 fileName: file.name,
                 fileType: file.type,
                 fileSize: file.size,
@@ -682,7 +681,6 @@ const AssignmentHelper = () => {
         });
         try {
             await deleteThread({
-                userId,
                 threadId: thread._id,
             });
             if (String(selectedThreadId) === String(thread._id)) {

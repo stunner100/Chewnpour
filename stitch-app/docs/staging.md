@@ -60,8 +60,10 @@ The staging Convex deployment also needs the Docling extraction adapter envs.
 - `DOCLING_EXTRACT_URL=https://<your-docling-service>/extract`
 - `DOCLING_TIMEOUT_MS=120000`
 - `DOCLING_SHARED_SECRET=<shared-secret>`
+- `DOCLING_MAX_UPLOAD_BYTES=52428800`
 
-Keep these on the staging Convex deployment only until the service is validated.
+Do not set `DOCLING_ALLOW_INSECURE_LOCAL` outside local-only development. Keep
+these on the staging Convex deployment only until the service is validated.
 
 ## Current Workflow
 

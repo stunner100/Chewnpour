@@ -15,7 +15,7 @@ assert.ok(processUploadedFileMatch, 'Expected to find processUploadedFile action
 const processUploadedFileSource = processUploadedFileMatch[0];
 
 assert.ok(
-  processUploadedFileSource.includes('latestUpload = await ctx.runQuery(api.uploads.getUpload, { uploadId })'),
+  processUploadedFileSource.includes('latestUpload = await ctx.runQuery(internal.uploads.getUploadInternal, { uploadId })'),
   'Expected processUploadedFile failure handling to inspect the latest upload state before patching status.'
 );
 

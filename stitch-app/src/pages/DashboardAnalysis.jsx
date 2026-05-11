@@ -263,8 +263,8 @@ const DashboardAnalysis = () => {
     const userId = user?.id;
 
     // Convex queries, mutations, and actions
-    const courses = useQuery(api.courses.getUserCourses, userId ? { userId } : 'skip');
-    const userStats = useQuery(api.profiles.getUserStats, userId ? { userId } : 'skip');
+    const courses = useQuery(api.courses.getUserCourses, isConvexAuthenticated ? {} : 'skip');
+    const userStats = useQuery(api.profiles.getUserStats, isConvexAuthenticated ? {} : 'skip');
     const performanceInsights = useQuery(
         api.exams.getUserPerformanceInsights,
         isConvexAuthenticated ? {} : 'skip'
@@ -288,13 +288,13 @@ const DashboardAnalysis = () => {
         ),
         [uploadQuota?.topUpOptions, uploadQuota?.currency]
     );
-    const subscription = useQuery(api.subscriptions.getSubscription, userId ? { userId } : 'skip');
+    const subscription = useQuery(api.subscriptions.getSubscription, isConvexAuthenticated ? {} : 'skip');
     const profile = useQuery(api.profiles.getProfile, userId && isConvexAuthenticated ? { userId } : 'skip');
     const generateUploadUrl = useMutation(api.uploads.generateUploadUrl);
     const createUpload = useMutation(api.uploads.createUpload);
     const createCourse = useMutation(api.courses.createCourse);
     const deleteCourse = useMutation(api.courses.deleteCourse);
-    const folders = useQuery(api.courseFolders.listFolders, userId ? { userId } : 'skip');
+    const folders = useQuery(api.courseFolders.listFolders, isConvexAuthenticated ? {} : 'skip');
     const moveCourseToFolderMutation = useMutation(api.courseFolders.moveCourseToFolder);
     const processUploadedFile = useAction(api.ai.processUploadedFile);
     const submitFeedbackMutation = useMutation(api.feedback.submitFeedback);
@@ -548,7 +548,6 @@ const DashboardAnalysis = () => {
             currentStage = 'create_upload_record';
             reportUploadStage(uploadObservation, currentStage);
             const uploadId = await createUpload({
-                userId,
                 fileName: file.name,
                 fileType: uploadFileType,
                 fileSize: file.size,
@@ -559,7 +558,6 @@ const DashboardAnalysis = () => {
             currentStage = 'create_course';
             reportUploadStage(uploadObservation, currentStage);
             const courseId = await createCourse({
-                userId,
                 title: file.name.replace(/\.(pdf|pptx|docx|mp3|m4a|mp4|wav|webm|ogg|aac|flac)$/i, ''),
                 description: 'Processing your study materials...',
                 uploadId,
@@ -665,7 +663,7 @@ const DashboardAnalysis = () => {
         });
 
         try {
-            await deleteCourse({ courseId: course._id, userId });
+            await deleteCourse({ courseId: course._id });
         } catch (error) {
             updateDashboard({
                 deleteError: error?.message || 'Could not delete this course right now. Please try again.',
@@ -737,7 +735,6 @@ const DashboardAnalysis = () => {
         try {
             await moveCourseToFolderMutation({
                 courseId: course._id,
-                userId,
                 folderId: folderId ?? null,
             });
         } catch (err) {

@@ -12,6 +12,72 @@ from fastapi import FastAPI, File, Form, Header, HTTPException, UploadFile
 app = FastAPI(title="Docling Extract Service")
 
 DOCLING_SHARED_SECRET = os.getenv("DOCLING_SHARED_SECRET", "").strip()
+DOCLING_ALLOW_INSECURE_LOCAL = os.getenv("DOCLING_ALLOW_INSECURE_LOCAL", "").strip().lower()
+DOCLING_MAX_UPLOAD_BYTES = int(os.getenv("DOCLING_MAX_UPLOAD_BYTES", str(50 * 1024 * 1024)))
+DOCLING_MAX_MULTIPART_OVERHEAD_BYTES = int(
+    os.getenv("DOCLING_MAX_MULTIPART_OVERHEAD_BYTES", str(1024 * 1024))
+)
+READ_CHUNK_BYTES = 1024 * 1024
+ALLOWED_SUFFIXES = {".pdf", ".docx", ".pptx", ".png", ".jpg", ".jpeg", ".webp"}
+ALLOWED_CONTENT_TYPES = {
+    "application/pdf",
+    "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+    "image/png",
+    "image/jpeg",
+    "image/webp",
+}
+
+
+def _is_insecure_local_allowed() -> bool:
+    return DOCLING_ALLOW_INSECURE_LOCAL in {"1", "true", "yes", "on"}
+
+
+def _require_shared_secret(provided_secret: str | None) -> None:
+    if not DOCLING_SHARED_SECRET:
+        if _is_insecure_local_allowed():
+            return
+        raise HTTPException(status_code=503, detail="Docling shared secret is not configured.")
+    if provided_secret != DOCLING_SHARED_SECRET:
+        raise HTTPException(status_code=401, detail="Invalid shared secret.")
+
+
+def _validate_upload_type(file_name: str, content_type: str) -> None:
+    suffix = Path(file_name or "").suffix.lower()
+    normalized_content_type = str(content_type or "").split(";", 1)[0].strip().lower()
+    upload_type_allowed = (
+        suffix in ALLOWED_SUFFIXES
+        or normalized_content_type in ALLOWED_CONTENT_TYPES
+    )
+    if not upload_type_allowed:
+        raise HTTPException(status_code=415, detail="Unsupported file type.")
+
+
+async def _write_upload_to_temp_file(file: UploadFile, suffix: str) -> tuple[Path, int]:
+    total_bytes = 0
+    temp_path: Path | None = None
+    try:
+        with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as temp_file:
+            temp_path = Path(temp_file.name)
+            while True:
+                chunk = await file.read(READ_CHUNK_BYTES)
+                if not chunk:
+                    break
+                total_bytes += len(chunk)
+                if total_bytes > DOCLING_MAX_UPLOAD_BYTES:
+                    raise HTTPException(status_code=413, detail="Uploaded file is too large.")
+                temp_file.write(chunk)
+    except Exception:
+        if temp_path is not None:
+            try:
+                temp_path.unlink(missing_ok=True)
+            except OSError:
+                pass
+        raise
+
+    if temp_path is None or total_bytes <= 0:
+        raise HTTPException(status_code=400, detail="Uploaded file is empty.")
+    return temp_path, total_bytes
 
 
 def _normalize_parser(profile: str, content_type: str, file_name: str) -> str:
@@ -409,10 +475,18 @@ async def extract_document(
     contentType: str = Form(...),
     profile: str = Form(...),
     maxPages: str | None = Form(default=None),
+    content_length: int | None = Header(default=None),
     x_docling_shared_secret: str | None = Header(default=None),
 ) -> dict[str, Any]:
-    if DOCLING_SHARED_SECRET and x_docling_shared_secret != DOCLING_SHARED_SECRET:
-        raise HTTPException(status_code=401, detail="Invalid shared secret.")
+    _require_shared_secret(x_docling_shared_secret)
+
+    if (
+        content_length is not None
+        and content_length > DOCLING_MAX_UPLOAD_BYTES + DOCLING_MAX_MULTIPART_OVERHEAD_BYTES
+    ):
+        raise HTTPException(status_code=413, detail="Uploaded file is too large.")
+
+    _validate_upload_type(file.filename or "", contentType or file.content_type or "")
 
     parser = _normalize_parser(profile, contentType, file.filename or "")
     kind = _infer_kind(file.filename or "", contentType)
@@ -425,13 +499,7 @@ async def extract_document(
             raise HTTPException(status_code=400, detail="maxPages must be an integer.") from exc
 
     suffix = Path(file.filename or "upload").suffix or ".bin"
-    payload = await file.read()
-    if not payload:
-        raise HTTPException(status_code=400, detail="Uploaded file is empty.")
-
-    with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as temp_file:
-        temp_file.write(payload)
-        temp_path = Path(temp_file.name)
+    temp_path, _total_bytes = await _write_upload_to_temp_file(file, suffix)
 
     try:
         conversion = _convert_with_docling(temp_path, max_pages)

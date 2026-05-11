@@ -319,7 +319,7 @@ const loadGroundedEvidenceIndexForTopicSweep = async (ctx: any, topic: any) => {
         }
     }
 
-    const course = await ctx.runQuery(api.courses.getCourseWithTopics, {
+    const course = await ctx.runQuery(internal.courses.getCourseWithTopicsInternal, {
         courseId: topic.courseId,
     });
     if (course?.uploadId) {
@@ -331,7 +331,7 @@ const loadGroundedEvidenceIndexForTopicSweep = async (ctx: any, topic: any) => {
         }
     }
 
-    const sources = await ctx.runQuery(api.courses.getCourseSources, {
+    const sources = await ctx.runQuery(internal.courses.getCourseSourcesInternal, {
         courseId: topic.courseId,
     });
     const fallbackUploadId = Array.isArray(sources)
@@ -766,7 +766,7 @@ export const materializeEvidencePassagesForUpload = internalAction({
 
         const courseId = materializationContext?.courseId || null;
         if (!courseId) {
-            await ctx.runMutation(api.uploads.updateUploadStatus, {
+            await ctx.runMutation(internal.uploads.updateUploadStatusInternal, {
                 uploadId: args.uploadId,
                 status: String(upload.status || "processing"),
                 embeddingsStatus: "pending",
@@ -809,7 +809,7 @@ export const materializeEvidencePassagesForUpload = internalAction({
             throw new Error("Evidence index unavailable for evidence passage materialization");
         }
 
-        await ctx.runMutation(api.uploads.updateUploadStatus, {
+        await ctx.runMutation(internal.uploads.updateUploadStatusInternal, {
             uploadId: args.uploadId,
             status: String(upload.status || "processing"),
             embeddingsStatus: "running",
@@ -832,7 +832,7 @@ export const materializeEvidencePassagesForUpload = internalAction({
             });
         }
 
-        await ctx.runMutation(api.uploads.updateUploadStatus, {
+        await ctx.runMutation(internal.uploads.updateUploadStatusInternal, {
             uploadId: args.uploadId,
             status: String(upload.status || "processing"),
             embeddingsStatus: materialized.embeddingsStatus,
@@ -886,7 +886,7 @@ export const buildEvidenceIndex = internalAction({
                 }
             );
 
-            await ctx.runMutation(api.uploads.updateUploadStatus, {
+            await ctx.runMutation(internal.uploads.updateUploadStatusInternal, {
                 uploadId: args.uploadId,
                 status: String(upload.status || "processing"),
                 evidenceIndexStorageId: storageId,
@@ -922,7 +922,7 @@ export const buildEvidenceIndex = internalAction({
                 status: "failed",
                 errorSummary: toErrorSummary(error),
             });
-            await ctx.runMutation(api.uploads.updateUploadStatus, {
+            await ctx.runMutation(internal.uploads.updateUploadStatusInternal, {
                 uploadId: args.uploadId,
                 status: String(upload.status || "processing"),
                 embeddingsStatus: "failed",
@@ -1087,7 +1087,7 @@ export const runGroundedBackfillSweep = internalAction({
             }
 
             for (const course of courses) {
-                const courseWithTopics = await ctx.runQuery(api.courses.getCourseWithTopics, {
+                const courseWithTopics = await ctx.runQuery(internal.courses.getCourseWithTopicsInternal, {
                     courseId: course._id,
                 });
                 const topics = Array.isArray(courseWithTopics?.topics) ? courseWithTopics.topics : [];

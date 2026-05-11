@@ -21,7 +21,7 @@ for (const pattern of [
   'const FREE_AI_MESSAGE_DAILY_LIMIT = 2;',
   'const getAiMessageUsageToday = async (ctx: any, userId: string) => {',
   'export const getAiMessageQuotaStatus = query({',
-  'export const consumeAiMessageCreditOrThrow = mutation({',
+  'export const consumeAiMessageCreditOrThrowInternal = internalMutation({',
   'code: "AI_MESSAGE_QUOTA_EXCEEDED"',
   'ctx.db.insert("aiMessageUsage", { userId, date, count: nextCount });',
 ]) {
@@ -31,7 +31,7 @@ for (const pattern of [
 }
 
 const aiSource = await read('convex/ai.ts');
-const consumeMatches = aiSource.match(/api\.subscriptions\.consumeAiMessageCreditOrThrow/g) || [];
+const consumeMatches = aiSource.match(/internal\.subscriptions\.consumeAiMessageCreditOrThrowInternal/g) || [];
 if (consumeMatches.length < 2) {
   throw new Error('Expected AI message quota to be consumed in both tutor and assignment follow-up actions.');
 }

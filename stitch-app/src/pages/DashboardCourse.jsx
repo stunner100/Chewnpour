@@ -177,7 +177,7 @@ const DashboardCourse = () => {
     );
     const allCourses = useQuery(
         api.courses.getUserCourses,
-        !courseId && userId ? { userId } : 'skip',
+        !courseId && isConvexAuthenticated ? {} : 'skip',
     );
     const latestCourse = courseId ? null : allCourses?.[0];
     const latestCourseTopics = useQuery(

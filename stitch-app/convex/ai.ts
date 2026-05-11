@@ -3101,7 +3101,7 @@ const loadStructuredCourseMapForUpload = async (
     uploadId: any
 ): Promise<DataLabStructuredCourseMap | null> => {
     if (!uploadId) return null;
-    const upload = await ctx.runQuery(api.uploads.getUpload, { uploadId });
+    const upload = await ctx.runQuery(internal.uploads.getUploadInternal, { uploadId });
     if (!upload?.extractionArtifactStorageId) return null;
     const artifact = await fetchJsonFromStorageId(ctx, upload.extractionArtifactStorageId);
     const structuredCourseMap = artifact?.metadata?.structuredCourseMap;
@@ -3736,7 +3736,7 @@ const loadGroundedEvidenceIndexForUpload = async (ctx: any, uploadId: any): Prom
     upload: any | null;
 }> => {
     if (!uploadId) return { index: null, upload: null };
-    const upload = await ctx.runQuery(api.uploads.getUpload, { uploadId });
+    const upload = await ctx.runQuery(internal.uploads.getUploadInternal, { uploadId });
     if (!upload) return { index: null, upload: null };
 
     let index: GroundedEvidenceIndex | null = null;
@@ -3767,10 +3767,10 @@ const loadGroundedEvidenceIndexForUpload = async (ctx: any, uploadId: any): Prom
 const resolveUploadForTopic = async (ctx: any, topic: any) => {
     const courseId = topic?.courseId;
     if (!courseId) return null;
-    const coursePayload = await ctx.runQuery(api.courses.getCourseWithTopics, { courseId });
+    const coursePayload = await ctx.runQuery(internal.courses.getCourseWithTopicsInternal, { courseId });
     const uploadId = coursePayload?.uploadId;
     if (!uploadId) return null;
-    return await ctx.runQuery(api.uploads.getUpload, { uploadId });
+    return await ctx.runQuery(internal.uploads.getUploadInternal, { uploadId });
 };
 
 const loadStructuredExamTopicProfileForTopic = async (
@@ -7923,7 +7923,7 @@ const buildPreparedTopics = (courseOutline: any, extractedText: string, fileName
 };
 
 const getCourseTopicsSorted = async (ctx: any, courseId: any) => {
-    const courseWithTopics = await ctx.runQuery(api.courses.getCourseWithTopics, { courseId });
+    const courseWithTopics = await ctx.runQuery(internal.courses.getCourseWithTopicsInternal, { courseId });
     return Array.isArray(courseWithTopics?.topics)
         ? [...courseWithTopics.topics].sort((a: any, b: any) => a.orderIndex - b.orderIndex)
         : [];
@@ -8034,17 +8034,17 @@ const reconcileUploadStatusAfterRoutingSync = async (ctx: any, args: {
     courseId: Id<"courses">;
     uploadId: Id<"uploads">;
 }) => {
-    const upload = await ctx.runQuery(api.uploads.getUpload, { uploadId: args.uploadId });
+    const upload = await ctx.runQuery(internal.uploads.getUploadInternal, { uploadId: args.uploadId });
     if (!upload) return null;
 
-    const coursePayload = await ctx.runQuery(api.courses.getCourseWithTopics, { courseId: args.courseId });
+    const coursePayload = await ctx.runQuery(internal.courses.getCourseWithTopicsInternal, { courseId: args.courseId });
     const lessonTopics = Array.isArray(coursePayload?.topics)
         ? coursePayload.topics.filter((topic: any) => topic?.sourceUploadId === args.uploadId)
         : [];
 
     const generatedTopicCount = lessonTopics.length;
     if (generatedTopicCount <= 0) {
-        await ctx.runMutation(api.uploads.updateUploadStatus, {
+        await ctx.runMutation(internal.uploads.updateUploadStatusInternal, {
             uploadId: args.uploadId,
             errorMessage: "",
         });
@@ -8082,7 +8082,7 @@ const reconcileUploadStatusAfterRoutingSync = async (ctx: any, args: {
                 }),
             };
 
-    await ctx.runMutation(api.uploads.updateUploadStatus, {
+    await ctx.runMutation(internal.uploads.updateUploadStatusInternal, {
         uploadId: args.uploadId,
         ...uploadPatch,
         plannedTopicCount,
@@ -8317,7 +8317,7 @@ const generateTopicContentForIndex = async (args: {
 
     let educationLevel = "undergrad";
     try {
-        const profile = await ctx.runQuery(api.profiles.getProfile, { userId });
+        const profile = await ctx.runQuery(internal.profiles.getProfileByUserIdInternal, { userId });
         if (profile?.educationLevel) {
             educationLevel = profile.educationLevel;
         }
@@ -8368,7 +8368,7 @@ ${index === totalTopics - 1 ? "This is the final topic — summarize and connect
         structuredLessonMap,
         contentGraph: topicContentGraph,
     });
-    const topicId = await ctx.runMutation(api.topics.createTopic, {
+    const topicId = await ctx.runMutation(internal.topics.createTopicInternal, {
         courseId,
         sourceUploadId: uploadId,
         title: safeTopicTitle,
@@ -8405,7 +8405,7 @@ ${index === totalTopics - 1 ? "This is the final topic — summarize and connect
             topicId,
             message: getErrorMessage(error),
         });
-        await ctx.runMutation(api.uploads.updateUploadStatus, {
+        await ctx.runMutation(internal.uploads.updateUploadStatusInternal, {
             uploadId,
             errorMessage,
         });
@@ -8493,7 +8493,7 @@ export const generateTopicIllustration = internalAction({
             const storageId = await ctx.storage.store(imageBlob);
             const illustrationUrl = await ctx.storage.getUrl(storageId);
 
-            await ctx.runMutation(api.topics.updateTopicIllustration, {
+            await ctx.runMutation(internal.topics.updateTopicIllustrationInternal, {
                 topicId: args.topicId,
                 illustrationStorageId: storageId,
                 illustrationUrl: illustrationUrl || undefined,
@@ -8536,7 +8536,7 @@ export const generateCourseFromText = action({
                     }
                 };
 
-                await ctx.runMutation(api.uploads.updateUploadStatus, {
+                await ctx.runMutation(internal.uploads.updateUploadStatusInternal, {
                     uploadId,
                     status: "processing",
                     processingStep: "generating_topics",
@@ -8559,7 +8559,7 @@ export const generateCourseFromText = action({
                     topicCount: Array.isArray(courseOutline?.topics) ? courseOutline.topics.length : 0,
                 });
 
-                await ctx.runMutation(api.courses.updateCourse, {
+                await ctx.runMutation(internal.courses.updateCourseInternal, {
                     courseId,
                     title: courseOutline.courseTitle || fileName.replace(/\.(pdf|pptx|docx)$/i, ""),
                     description: courseOutline.courseDescription || "AI-generated course from your study materials",
@@ -8570,7 +8570,7 @@ export const generateCourseFromText = action({
                 const totalTopics = preparedTopics.length;
                 const plannedTopicTitles = preparedTopics.map((topic) => topic.title);
 
-                await ctx.runMutation(api.uploads.updateUploadStatus, {
+                await ctx.runMutation(internal.uploads.updateUploadStatusInternal, {
                     uploadId,
                     status: "processing",
                     processingStep: "generating_first_topic",
@@ -8599,7 +8599,7 @@ export const generateCourseFromText = action({
                     totalTopics,
                 });
 
-                await ctx.runMutation(api.uploads.updateUploadStatus, {
+                await ctx.runMutation(internal.uploads.updateUploadStatusInternal, {
                     uploadId,
                     status: "processing",
                     processingStep: "first_topic_ready",
@@ -8634,7 +8634,7 @@ export const generateCourseFromText = action({
                 console.error("AI processing failed:", error);
                 const errorMessage = getErrorMessage(error);
 
-                await ctx.runMutation(api.uploads.updateUploadStatus, {
+                await ctx.runMutation(internal.uploads.updateUploadStatusInternal, {
                     uploadId,
                     status: "error",
                     errorMessage,
@@ -8669,7 +8669,7 @@ export const generateRemainingTopicsInBackground = internalAction({
             try {
                 let generatedTopicCount = await safeGeneratedCount();
                 if (totalTopics > 1 && generatedTopicCount < totalTopics) {
-                    await ctx.runMutation(api.uploads.updateUploadStatus, {
+                    await ctx.runMutation(internal.uploads.updateUploadStatusInternal, {
                         uploadId,
                         status: "processing",
                         processingStep: "generating_remaining_topics",
@@ -8698,7 +8698,7 @@ export const generateRemainingTopicsInBackground = internalAction({
                     });
 
                     generatedTopicCount = await safeGeneratedCount();
-                    await ctx.runMutation(api.uploads.updateUploadStatus, {
+                    await ctx.runMutation(internal.uploads.updateUploadStatusInternal, {
                         uploadId,
                         status: "processing",
                         processingStep: "generating_remaining_topics",
@@ -8713,7 +8713,7 @@ export const generateRemainingTopicsInBackground = internalAction({
                 }
 
                 generatedTopicCount = await safeGeneratedCount();
-                await ctx.runMutation(api.uploads.updateUploadStatus, {
+                await ctx.runMutation(internal.uploads.updateUploadStatusInternal, {
                     uploadId,
                     status: "processing",
                     processingStep: "generating_question_bank",
@@ -8740,7 +8740,7 @@ export const generateRemainingTopicsInBackground = internalAction({
                         phase: "background_generation_finalize",
                         message: getErrorMessage(error),
                     });
-                    await ctx.runMutation(api.uploads.updateUploadStatus, {
+                    await ctx.runMutation(internal.uploads.updateUploadStatusInternal, {
                         uploadId,
                         status: "processing",
                         processingStep: "generating_question_bank",
@@ -8761,7 +8761,7 @@ export const generateRemainingTopicsInBackground = internalAction({
                     totalTopics,
                 });
 
-                await ctx.runMutation(api.uploads.updateUploadStatus, {
+                await ctx.runMutation(internal.uploads.updateUploadStatusInternal, {
                     uploadId,
                     status: "ready",
                     processingStep: "ready",
@@ -8772,7 +8772,7 @@ export const generateRemainingTopicsInBackground = internalAction({
                     errorMessage: routingSyncErrorMessage,
                 });
 
-                const finalizedUpload = await ctx.runQuery(api.uploads.getUpload, { uploadId });
+                const finalizedUpload = await ctx.runQuery(internal.uploads.getUploadInternal, { uploadId });
                 scheduleEvidenceIndexAfterProcessing(ctx, {
                     uploadId,
                     artifactStorageId: finalizedUpload?.extractionArtifactStorageId,
@@ -8796,7 +8796,7 @@ export const generateRemainingTopicsInBackground = internalAction({
                     ? "generating_question_bank"
                     : "generating_remaining_topics";
 
-                await ctx.runMutation(api.uploads.updateUploadStatus, {
+                await ctx.runMutation(internal.uploads.updateUploadStatusInternal, {
                     uploadId,
                     status: "error",
                     processingStep: statusStep,
@@ -8860,7 +8860,7 @@ export const retryAssessmentRoutingForUpload = internalAction({
                 message: getErrorMessage(error),
             });
 
-            await ctx.runMutation(api.uploads.updateUploadStatus, {
+            await ctx.runMutation(internal.uploads.updateUploadStatusInternal, {
                 uploadId: args.uploadId,
                 errorMessage,
             });
@@ -8901,13 +8901,13 @@ export const processUploadedFile = action({
                 }
             };
             // Get the upload record
-            const upload = await ctx.runQuery(api.uploads.getUpload, { uploadId });
+            const upload = await ctx.runQuery(internal.uploads.getUploadInternal, { uploadId });
             if (!upload) {
                 throw new Error("Upload not found");
             }
 
             // Update status to extracting with 5% progress
-            await ctx.runMutation(api.uploads.updateUploadStatus, {
+            await ctx.runMutation(internal.uploads.updateUploadStatusInternal, {
                 uploadId,
                 status: "processing",
                 processingStep: "extracting",
@@ -8916,7 +8916,7 @@ export const processUploadedFile = action({
             });
 
             // Update to analyzing phase
-            await ctx.runMutation(api.uploads.updateUploadStatus, {
+            await ctx.runMutation(internal.uploads.updateUploadStatusInternal, {
                 uploadId,
                 status: "processing",
                 processingStep: "analyzing",
@@ -8971,7 +8971,7 @@ export const processUploadedFile = action({
             const errorMessage = getErrorMessage(error);
             let latestUpload: any = null;
             try {
-                latestUpload = await ctx.runQuery(api.uploads.getUpload, { uploadId });
+                latestUpload = await ctx.runQuery(internal.uploads.getUploadInternal, { uploadId });
             } catch (lookupError) {
                 console.warn("[Extraction] failed_status_lookup_unavailable", {
                     uploadId: String(uploadId),
@@ -9006,7 +9006,7 @@ export const processUploadedFile = action({
             }
 
             if (updatePayload.status || updatePayload.extractionStatus || updatePayload.errorMessage) {
-                await ctx.runMutation(api.uploads.updateUploadStatus, updatePayload);
+                await ctx.runMutation(internal.uploads.updateUploadStatusInternal, updatePayload);
             }
 
             throw error;
@@ -9033,11 +9033,11 @@ export const addSourceToCourse = action({
                     }
                 };
 
-                const upload = await ctx.runQuery(api.uploads.getUpload, { uploadId });
+                const upload = await ctx.runQuery(internal.uploads.getUploadInternal, { uploadId });
                 if (!upload) throw new Error("Upload not found");
 
                 // Run extraction
-                await ctx.runMutation(api.uploads.updateUploadStatus, {
+                await ctx.runMutation(internal.uploads.updateUploadStatusInternal, {
                     uploadId,
                     status: "processing",
                     processingStep: "extracting",
@@ -9053,7 +9053,7 @@ export const addSourceToCourse = action({
                 if (!extractedText) throw new Error("Extraction returned no content.");
 
                 // Generate outline from the new file
-                await ctx.runMutation(api.uploads.updateUploadStatus, {
+                await ctx.runMutation(internal.uploads.updateUploadStatusInternal, {
                     uploadId,
                     status: "processing",
                     processingStep: "generating_topics",
@@ -9087,7 +9087,7 @@ export const addSourceToCourse = action({
 
                 if (newPreparedTopics.length === 0) {
                     // No new topics to add — mark as ready
-                    await ctx.runMutation(api.uploads.updateUploadStatus, {
+                    await ctx.runMutation(internal.uploads.updateUploadStatusInternal, {
                         uploadId,
                         status: "ready",
                         processingStep: "ready",
@@ -9107,7 +9107,7 @@ export const addSourceToCourse = action({
                 const totalNewTopics = newPreparedTopics.length;
                 const plannedTopicTitles = newPreparedTopics.map((t) => t.title);
 
-                await ctx.runMutation(api.uploads.updateUploadStatus, {
+                await ctx.runMutation(internal.uploads.updateUploadStatusInternal, {
                     uploadId,
                     status: "processing",
                     processingStep: "generating_first_topic",
@@ -9138,7 +9138,7 @@ export const addSourceToCourse = action({
                     generatedCount++;
 
                     const progressPct = i === 0 ? 60 : Math.round(60 + (30 * generatedCount / totalNewTopics));
-                    await ctx.runMutation(api.uploads.updateUploadStatus, {
+                    await ctx.runMutation(internal.uploads.updateUploadStatusInternal, {
                         uploadId,
                         status: "processing",
                         processingStep: i === 0 ? "first_topic_ready" : "generating_remaining_topics",
@@ -9152,7 +9152,7 @@ export const addSourceToCourse = action({
                 // Question bank pre-build removed — exams are now generated on-demand.
 
                 // Mark upload and courseUpload as ready
-                await ctx.runMutation(api.uploads.updateUploadStatus, {
+                await ctx.runMutation(internal.uploads.updateUploadStatusInternal, {
                     uploadId,
                     status: "ready",
                     processingStep: "ready",
@@ -9177,7 +9177,7 @@ export const addSourceToCourse = action({
             } catch (error) {
                 console.error("[AddSourceToCourse] failed:", error);
                 const errorMessage = getErrorMessage(error);
-                await ctx.runMutation(api.uploads.updateUploadStatus, {
+                await ctx.runMutation(internal.uploads.updateUploadStatusInternal, {
                     uploadId,
                     status: "error",
                     errorMessage,
@@ -9208,7 +9208,7 @@ export const ensureAssessmentRoutingForTopic = action({
         }
 
         const course = topic.courseId
-            ? await ctx.runQuery(api.courses.getCourseWithTopics, { courseId: topic.courseId })
+            ? await ctx.runQuery(internal.courses.getCourseWithTopicsInternal, { courseId: topic.courseId })
             : null;
         if (!course) {
             throw new Error("Course not found.");
@@ -9254,7 +9254,7 @@ export const processAssignmentThread = action({
     handler: async (ctx, args) => {
         const failThread = async (message: string): Promise<never> => {
             try {
-                await ctx.runMutation(api.assignments.updateThreadStatus, {
+                await ctx.runMutation(internal.assignments.updateThreadStatusInternal, {
                     userId: args.userId,
                     threadId: args.threadId,
                     status: "error",
@@ -9268,7 +9268,7 @@ export const processAssignmentThread = action({
 
         return await runWithLlmUsageContext(ctx, args.userId, "assignment_processing", async () => {
             try {
-                const threadPayload = await ctx.runQuery(api.assignments.getThreadWithMessages, {
+                const threadPayload = await ctx.runQuery(internal.assignments.getThreadWithMessagesInternal, {
                     userId: args.userId,
                     threadId: args.threadId,
                 });
@@ -9295,7 +9295,7 @@ export const processAssignmentThread = action({
                     return { success: true, alreadyProcessed: true };
                 }
 
-                await ctx.runMutation(api.assignments.updateThreadStatus, {
+                await ctx.runMutation(internal.assignments.updateThreadStatusInternal, {
                     userId: args.userId,
                     threadId: args.threadId,
                     status: "processing",
@@ -9405,14 +9405,14 @@ ${assignmentContext}
                     console.info("[Assignment] prose_mode", { threadId: args.threadId, subject: subjectCategory });
                 }
 
-                await ctx.runMutation(api.assignments.appendMessage, {
+                await ctx.runMutation(internal.assignments.appendMessageInternal, {
                     userId: args.userId,
                     threadId: args.threadId,
                     role: "assistant",
                     content: assistantAnswer,
                 });
 
-                await ctx.runMutation(api.assignments.updateThreadStatus, {
+                await ctx.runMutation(internal.assignments.updateThreadStatusInternal, {
                     userId: args.userId,
                     threadId: args.threadId,
                     status: "ready",
@@ -9457,7 +9457,7 @@ export const askAssignmentFollowUp = action({
         }
 
         return await runWithLlmUsageContext(ctx, userId, "assignment_follow_up", async () => {
-            const threadPayload = await ctx.runQuery(api.assignments.getThreadWithMessages, {
+            const threadPayload = await ctx.runQuery(internal.assignments.getThreadWithMessagesInternal, {
                 userId,
                 threadId: args.threadId,
             });
@@ -9478,11 +9478,11 @@ export const askAssignmentFollowUp = action({
                 throw new Error("Assignment text is unavailable. Re-upload this assignment to continue.");
             }
 
-            await ctx.runMutation(api.subscriptions.consumeAiMessageCreditOrThrow, {
+            await ctx.runMutation(internal.subscriptions.consumeAiMessageCreditOrThrowInternal, {
                 userId,
             });
 
-            await ctx.runMutation(api.assignments.appendMessage, {
+            await ctx.runMutation(internal.assignments.appendMessageInternal, {
                 userId,
                 threadId: args.threadId,
                 role: "user",
@@ -9536,7 +9536,7 @@ ${scopedQuestion}`,
                 stripMarkdownLikeFormatting(String(followUpResponse || "").trim()) ||
                 "I could not generate a reliable answer yet. Please rephrase your follow-up question.";
 
-            await ctx.runMutation(api.assignments.appendMessage, {
+            await ctx.runMutation(internal.assignments.appendMessageInternal, {
                 userId,
                 threadId: args.threadId,
                 role: "assistant",
@@ -9574,7 +9574,7 @@ export const askTopicTutor = action({
             });
             if (!topic) throw new Error("Topic not found.");
 
-            await ctx.runMutation(api.subscriptions.consumeAiMessageCreditOrThrow, {
+            await ctx.runMutation(internal.subscriptions.consumeAiMessageCreditOrThrowInternal, {
                 userId,
             });
 
@@ -9661,7 +9661,7 @@ export const askTopicTutor = action({
                 stripMarkdownLikeFormatting(String(tutorResponse || "").trim()) ||
                 "I could not generate an answer. Please try rephrasing your question.";
 
-            await ctx.runMutation(api.topicChat.appendAssistantMessage, {
+            await ctx.runMutation(internal.topicChat.appendAssistantMessageInternal, {
                 topicId: args.topicId,
                 userId,
                 content: assistantAnswer,
@@ -10001,7 +10001,7 @@ export const synthesizeTopicVoice = action({
             });
 
             if (args.consumeQuota !== false) {
-                await ctx.runMutation(api.subscriptions.consumeVoiceGenerationCreditOrThrow, {
+                await ctx.runMutation(internal.subscriptions.consumeVoiceGenerationCreditOrThrowInternal, {
                     userId: authUserId,
                 });
             }
@@ -15917,7 +15917,7 @@ export const generateExamFeedback = action({
 
         const userId = authUserId || attempt.userId;
         return await runWithLlmUsageContext(ctx, userId, "exam_feedback", async () => {
-            const profile: any = await ctx.runQuery(api.profiles.getProfile, { userId });
+            const profile: any = await ctx.runQuery(internal.profiles.getProfileByUserIdInternal, { userId });
 
             const userName: string = profile?.fullName || "Student";
             const educationLevel: string = profile?.educationLevel || "";
@@ -16243,7 +16243,7 @@ export const reExplainTopic = action({
         const userId = resolveAuthUserId(identity);
         if (!userId) throw new Error("Not authenticated");
         return await runWithLlmUsageContext(ctx, userId, "re_explain", async () => {
-            await ctx.runMutation(api.subscriptions.consumeReExplainCreditOrThrow, { userId });
+            await ctx.runMutation(internal.subscriptions.consumeReExplainCreditOrThrowInternal, { userId });
 
             let performanceContext = "";
             try {
@@ -16633,7 +16633,7 @@ export const explainSelection = action({
         let educationLevel = "undergrad";
         if (userId) {
             try {
-                const profile: any = await ctx.runQuery(api.profiles.getProfileByUserId, { userId });
+                const profile: any = await ctx.runQuery(internal.profiles.getProfileByUserIdInternal, { userId });
                 if (profile?.educationLevel) {
                     educationLevel = profile.educationLevel;
                 }
@@ -16754,7 +16754,7 @@ export const humanizeText = action({
                 throw new ConvexError("Text is too long. Maximum 50,000 characters.");
             }
 
-            await ctx.runMutation(api.subscriptions.consumeHumanizerCreditOrThrow, { userId: authUserId });
+            await ctx.runMutation(internal.subscriptions.consumeHumanizerCreditOrThrowInternal, { userId: authUserId });
 
             const inputText = args.text.trim();
             const style = args.style || DEFAULT_HUMANIZE_STYLE;
@@ -16803,7 +16803,7 @@ export const humanizeWithVerification = action({
                 throw new ConvexError("Text is too long. Maximum 50,000 characters.");
             }
 
-            await ctx.runMutation(api.subscriptions.consumeHumanizerCreditOrThrow, { userId: authUserId });
+            await ctx.runMutation(internal.subscriptions.consumeHumanizerCreditOrThrowInternal, { userId: authUserId });
 
             const style = args.style || DEFAULT_HUMANIZE_STYLE;
             const strength = resolveStrength(args.strength);

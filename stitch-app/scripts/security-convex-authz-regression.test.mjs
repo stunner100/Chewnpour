@@ -1,9 +1,12 @@
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
 
 const root = resolve(import.meta.dirname, "..");
-const read = (path) => readFileSync(resolve(root, path), "utf8");
+const read = (path) => {
+  const fullPath = resolve(root, path);
+  return existsSync(fullPath) ? readFileSync(fullPath, "utf8") : "";
+};
 
 const forbiddenPublicExports = [
   ["convex/devAuth.ts", /export\s+const\s+devDeleteUserByEmail\s*=\s*mutation\(/],
@@ -34,15 +37,32 @@ for (const snippet of [
 }
 
 const publicUserIdArgChecks = [
-  ["convex/courses.ts", /userId:\s*v\.string\(\)/],
-  ["convex/uploads.ts", /args:\s*\{\s*userId:/],
-  ["convex/assignments.ts", /userId:\s*v\.string\(\)/],
-  ["convex/courseFolders.ts", /userId:\s*v\.string\(\)/],
-  ["convex/community.ts", /userId:\s*v\.string\(\)/],
+  ["convex/courses.ts", ["getUserCourses", "createCourse", "addUploadToCourse", "removeSourceFromCourse", "updateCourse", "deleteCourse"]],
+  ["convex/uploads.ts", ["createUpload", "getUserUploads", "getUpload", "deleteUpload"]],
+  ["convex/assignments.ts", ["listThreads", "getThreadWithMessages", "createThreadFromUpload", "renameThread", "deleteThread", "appendMessage"]],
+  ["convex/courseFolders.ts", ["listFolders", "createFolder", "renameFolder", "deleteFolder", "moveCourseToFolder"]],
+  ["convex/community.ts", ["getChannelMembership", "getUserChannels", "createChannelForCourse", "joinChannel", "leaveChannel", "createPost", "flagPost", "joinSeededChannels"]],
 ];
 
-for (const [file, pattern] of publicUserIdArgChecks) {
-  assert.equal(pattern.test(read(file)), false, `${file} still accepts userId as public authority`);
+const exportBlock = (source, exportName) => {
+  const marker = `export const ${exportName} = `;
+  const start = source.indexOf(marker);
+  if (start === -1) return "";
+  const next = source.indexOf("\nexport const ", start + marker.length);
+  return next === -1 ? source.slice(start) : source.slice(start, next);
+};
+
+for (const [file, exportNames] of publicUserIdArgChecks) {
+  const source = read(file);
+  for (const exportName of exportNames) {
+    const block = exportBlock(source, exportName);
+    assert.ok(block, `${file} is missing public export ${exportName}`);
+    assert.equal(
+      /userId:\s*v\.string\(\)/.test(block),
+      false,
+      `${file}#${exportName} still accepts userId as public authority`,
+    );
+  }
 }
 
 console.log("security-convex-authz-regression.test.mjs passed");

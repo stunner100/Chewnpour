@@ -96,7 +96,7 @@ const DashboardFullAnalysis = () => {
 
     const userStats = useQuery(
         api.profiles.getUserStats,
-        userId ? { userId } : 'skip'
+        isConvexAuthenticated ? {} : 'skip'
     );
     const performanceInsights = useQuery(
         api.exams.getUserPerformanceInsights,

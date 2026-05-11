@@ -22,6 +22,7 @@ import {
 import { resolveIllustrationUrl } from "./lib/illustrationUrl";
 import { areMcqQuestionsNearDuplicate, buildMcqUniquenessSignature } from "./lib/mcqUniqueness";
 import { areQuestionPromptsNearDuplicate, buildQuestionPromptSignature } from "./lib/questionPromptSimilarity";
+import { assertOwnerUserId, requireAuthenticatedUserId } from "./lib/authz";
 
 const DEFAULT_TOPIC_ILLUSTRATION_URL =
     String(process.env.TOPIC_PLACEHOLDER_ILLUSTRATION_URL || "/topic-placeholder.svg").trim()
@@ -374,10 +375,20 @@ const resolveTopicIdFromRoute = (ctx: any, routeId: unknown) => {
     }
 };
 
+const getTopicOwnerUserId = async (ctx: any, topic: any) => {
+    if (!topic?.courseId) return "";
+    const course = await ctx.db.get(topic.courseId);
+    return typeof course?.userId === "string" ? course.userId : "";
+};
+
 // Get all topics for a course
 export const getTopicsByCourse = query({
     args: { courseId: v.id("courses") },
     handler: async (ctx, args) => {
+        const userId = await requireAuthenticatedUserId(ctx);
+        const course = await ctx.db.get(args.courseId);
+        assertOwnerUserId({ authenticatedUserId: userId, ownerUserId: course?.userId });
+
         const topics = await ctx.db
             .query("topics")
             .withIndex("by_courseId", (q) => q.eq("courseId", args.courseId))
@@ -531,7 +542,11 @@ export const getTopicOwnerUserIdInternal = internalQuery({
 export const getQuestionsByTopic = query({
     args: { topicId: v.id("topics") },
     handler: async (ctx, args) => {
+        const userId = await requireAuthenticatedUserId(ctx);
         const topic = await ctx.db.get(args.topicId);
+        if (!topic) return [];
+        const ownerUserId = await getTopicOwnerUserId(ctx, topic);
+        assertOwnerUserId({ authenticatedUserId: userId, ownerUserId });
         const questions = await ctx.db
             .query("questions")
             .withIndex("by_topicId", (q) => q.eq("topicId", args.topicId))
@@ -585,7 +600,7 @@ export const getDistractorsByTopicInternal = internalQuery({
 });
 
 // Create a new topic
-export const createTopic = mutation({
+export const createTopicInternal = internalMutation({
     args: {
         courseId: v.id("courses"),
         sourceUploadId: v.optional(v.id("uploads")),
@@ -1098,7 +1113,7 @@ export const releaseGenerationLockInternal = internalMutation({
     },
 });
 
-export const updateTopicIllustration = mutation({
+export const updateTopicIllustrationInternal = internalMutation({
     args: {
         topicId: v.id("topics"),
         illustrationStorageId: v.optional(v.id("_storage")),
@@ -1124,8 +1139,10 @@ export const updateTopicIllustration = mutation({
 export const unlockTopic = mutation({
     args: { topicId: v.id("topics") },
     handler: async (ctx, args) => {
-        const identity = await ctx.auth.getUserIdentity();
-        if (!identity) throw new Error("Not authenticated");
+        const userId = await requireAuthenticatedUserId(ctx);
+        const topic = await ctx.db.get(args.topicId);
+        const ownerUserId = await getTopicOwnerUserId(ctx, topic);
+        assertOwnerUserId({ authenticatedUserId: userId, ownerUserId });
 
         await ctx.db.patch(args.topicId, {
             isLocked: false,
@@ -1496,6 +1513,8 @@ export const upsertTopicProgress = mutation({
 
         const topic = await ctx.db.get(topicId);
         if (!topic) throw new Error("Topic not found");
+        const ownerUserId = await getTopicOwnerUserId(ctx, topic);
+        assertOwnerUserId({ authenticatedUserId: authUserId, ownerUserId });
 
         const existing = await ctx.db
             .query("userTopicProgress")
@@ -1545,6 +1564,10 @@ export const getUserTopicProgress = query({
 
         const topicId = resolveTopicIdFromRoute(ctx, args.topicId);
         if (!topicId) return null;
+        const topic = await ctx.db.get(topicId);
+        if (!topic) return null;
+        const ownerUserId = await getTopicOwnerUserId(ctx, topic);
+        assertOwnerUserId({ authenticatedUserId: authUserId, ownerUserId });
 
         return await ctx.db
             .query("userTopicProgress")
@@ -1561,6 +1584,8 @@ export const getUserCourseProgress = query({
         const identity = await ctx.auth.getUserIdentity();
         const authUserId = resolveAuthUserId(identity);
         if (!authUserId) return {};
+        const course = await ctx.db.get(args.courseId);
+        assertOwnerUserId({ authenticatedUserId: authUserId, ownerUserId: course?.userId });
 
         const rows = await ctx.db
             .query("userTopicProgress")
@@ -1610,15 +1635,15 @@ export const getResumeTarget = query({
 export const getTopicSourcePassages = query({
     args: { topicId: v.string() },
     handler: async (ctx, args) => {
-        const identity = await ctx.auth.getUserIdentity();
-        const authUserId = resolveAuthUserId(identity);
-        if (!authUserId) return [];
+        const authUserId = await requireAuthenticatedUserId(ctx);
 
         const topicId = resolveTopicIdFromRoute(ctx, args.topicId);
         if (!topicId) return [];
 
         const topic = await ctx.db.get(topicId);
         if (!topic || !topic.sourceUploadId) return [];
+        const ownerUserId = await getTopicOwnerUserId(ctx, topic);
+        assertOwnerUserId({ authenticatedUserId: authUserId, ownerUserId });
 
         const passageIds = topic.sourcePassageIds ?? [];
         if (passageIds.length === 0) return [];

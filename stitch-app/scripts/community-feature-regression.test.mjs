@@ -48,7 +48,7 @@ for (const pattern of [
   'api.community.listChannels',
   'api.community.getUserChannels',
   'api.community.joinSeededChannels',
-  'joinSeededChannels({ userId })',
+  'joinSeededChannels({})',
   'Available to Everyone',
   'to="/dashboard"',
   'Go to Dashboard',
@@ -97,11 +97,11 @@ for (const pattern of [
   'if (!channel?.isSeeded) return null;',
   'c !== null && Boolean(c.isSeeded)',
   'const DEFAULT_CHANNELS = [',
-  'export const seedDefaultChannels = mutation({',
+  'export const seedDefaultChannelsInternal = internalMutation({',
   'export const joinSeededChannels = mutation({',
   'export const joinChannel = mutation({',
   'export const createPost = mutation({',
-  'export const autoJoinOnUpload = mutation({',
+  'export const autoJoinOnUploadInternal = internalMutation({',
   'Number(channel.memberCount || 0) + 1',
 ]) {
   if (!communityConvexSource.includes(pattern)) {
