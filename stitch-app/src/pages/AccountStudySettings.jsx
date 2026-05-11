@@ -11,7 +11,7 @@ const AccountStudySettings = () => {
     });
 
     return (
-        <div className="ml-0 md:ml-0 pt-16 min-h-screen">
+        <div className="ml-0 md:ml-0 min-h-[calc(100vh-64px)]">
             <div className="max-w-[1000px] mx-auto p-space-6 md:p-space-10 lg:p-space-12 pb-32">
                 <div className="flex items-center justify-between mb-space-8">
                     <div>
