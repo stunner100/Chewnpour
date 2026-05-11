@@ -39,8 +39,8 @@ const AIStudyTutor = () => {
     const materials = ['Biology 101', 'World History', 'Introduction to Psychology', 'Calculus I'];
 
     return (
-        <div className="flex-1 flex flex-col md:ml-0 min-h-screen pt-16">
-            <main className="flex-1 flex flex-col p-space-4 md:p-space-8 max-w-container-max mx-auto w-full">
+        <div className="flex-1 flex flex-col md:ml-0 h-[calc(100vh-64px)] overflow-hidden">
+            <main className="flex-1 min-h-0 flex flex-col p-space-4 md:p-space-8 max-w-container-max mx-auto w-full">
                 {/* Context Header */}
                 <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-space-8 gap-4">
                     <div>
@@ -64,9 +64,9 @@ const AIStudyTutor = () => {
                 </div>
 
                 {/* Chat Interface */}
-                <div className="flex-1 bg-surface rounded-2xl border border-border-subtle shadow-sm flex flex-col overflow-hidden h-[calc(100vh-220px)] min-h-[500px]">
+                <div className="flex-1 min-h-0 bg-surface rounded-2xl border border-border-subtle shadow-sm flex flex-col overflow-hidden">
                     {/* Chat History */}
-                    <div className="flex-1 overflow-y-auto p-space-6 flex flex-col gap-space-8">
+                    <div className="flex-1 min-h-0 overflow-y-auto p-space-6 flex flex-col gap-space-8">
                         {/* Timestamp */}
                         <div className="text-center">
                             <span className="font-label-xs text-label-xs text-text-muted bg-surface-soft px-3 py-1 rounded-full">Today, 10:42 AM</span>
