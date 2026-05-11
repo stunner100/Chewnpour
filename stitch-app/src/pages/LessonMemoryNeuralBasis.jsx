@@ -162,7 +162,7 @@ const LessonMemoryNeuralBasis = () => {
             </article>
 
             {/* Contextual AI Tutor Panel (Right Side) */}
-            <aside className="hidden lg:flex w-[320px] border-l border-border-subtle bg-surface-soft flex-col h-[calc(100vh-64px)] sticky top-16">
+            <aside className="hidden lg:flex w-[320px] shrink-0 border-l border-border-subtle bg-surface-soft flex-col h-[calc(100vh-64px)] sticky top-0 self-start">
                 <div className="p-space-4 border-b border-border-default bg-surface flex items-center gap-3 shadow-sm">
                     <div className="w-8 h-8 rounded-full bg-ai-soft flex items-center justify-center text-primary">
                         <span className="material-symbols-outlined text-[20px]">smart_toy</span>
