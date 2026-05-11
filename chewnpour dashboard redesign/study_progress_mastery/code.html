@@ -1,0 +1,471 @@
+<!DOCTYPE html>
+
+<html lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Progress - ChewnPour</title>
+<!-- Tailwind CSS -->
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<!-- Google Fonts: Plus Jakarta Sans & Inter -->
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&amp;family=Plus+Jakarta+Sans:wght@600;700&amp;display=swap" rel="stylesheet"/>
+<!-- Material Symbols -->
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<!-- Tailwind Configuration -->
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            "colors": {
+                    "success": "#15803D",
+                    "info-soft": "#DBEAFE",
+                    "surface-muted": "#EFE8DA",
+                    "inverse-primary": "#ffb77d",
+                    "warning": "#D97706",
+                    "on-primary": "#ffffff",
+                    "text-primary": "#1F2933",
+                    "primary-subtle": "#FFFBEB",
+                    "on-error": "#ffffff",
+                    "on-tertiary": "#ffffff",
+                    "on-secondary-fixed": "#3b0900",
+                    "text-muted": "#7B8794",
+                    "border-strong": "#B8AD9A",
+                    "mastery-soft": "#EDE9FE",
+                    "on-primary-fixed": "#2f1500",
+                    "inverse-on-surface": "#ffede3",
+                    "outline": "#887364",
+                    "tertiary-container": "#007abd",
+                    "tertiary-fixed": "#cee5ff",
+                    "tertiary-fixed-dim": "#96ccff",
+                    "surface-soft": "#F5F1E8",
+                    "border-subtle": "#E7E0D3",
+                    "secondary-fixed": "#ffdbd1",
+                    "border-default": "#D8CFBF",
+                    "error-container": "#ffdad6",
+                    "text-secondary": "#52616B",
+                    "on-primary-container": "#fffbff",
+                    "success-soft": "#DCFCE7",
+                    "on-tertiary-container": "#fdfcff",
+                    "warning-soft": "#FEF3C7",
+                    "primary": "#8d4b00",
+                    "secondary-container": "#ff987b",
+                    "on-surface": "#231a13",
+                    "primary-fixed": "#ffdcc3",
+                    "surface-container-high": "#f7e5d9",
+                    "on-tertiary-fixed-variant": "#004a75",
+                    "background": "#FAF8F3",
+                    "info": "#2563EB",
+                    "on-background": "#231a13",
+                    "on-tertiary-fixed": "#001d32",
+                    "primary-fixed-dim": "#ffb77d",
+                    "mastery": "#7C3AED",
+                    "on-secondary": "#ffffff",
+                    "primary-soft": "#FEF3C7",
+                    "surface-bright": "#fff8f5",
+                    "surface-container-lowest": "#ffffff",
+                    "surface-container-low": "#fff1e9",
+                    "surface-dim": "#e9d7cb",
+                    "error-soft": "#FEE2E2",
+                    "on-error-container": "#93000a",
+                    "surface": "#FFFFFF",
+                    "on-secondary-fixed-variant": "#792f1a",
+                    "on-secondary-container": "#782e19",
+                    "primary-hover": "#B45309",
+                    "ai-subtle": "#FFF7F4",
+                    "surface-variant": "#f2dfd3",
+                    "on-surface-variant": "#554336",
+                    "secondary-fixed-dim": "#ffb5a0",
+                    "tertiary": "#006096",
+                    "surface-container": "#fdeade",
+                    "primary-container": "#b15f00",
+                    "ai-soft": "#F8E3DC",
+                    "surface-tint": "#904d00",
+                    "on-primary-fixed-variant": "#6e3900",
+                    "error": "#DC2626",
+                    "outline-variant": "#dbc2b0",
+                    "surface-container-highest": "#f2dfd3",
+                    "secondary": "#98462f",
+                    "inverse-surface": "#392e26"
+            },
+            "borderRadius": {
+                    "DEFAULT": "0.25rem",
+                    "lg": "0.5rem",
+                    "xl": "0.75rem",
+                    "full": "9999px"
+            },
+            "spacing": {
+                    "space-4": "16px",
+                    "space-1": "4px",
+                    "space-6": "24px",
+                    "sidebar-width": "260px",
+                    "container-max": "1280px",
+                    "space-12": "48px",
+                    "space-5": "20px",
+                    "space-8": "32px",
+                    "space-3": "12px",
+                    "panel-right-width": "320px",
+                    "space-2": "8px",
+                    "space-10": "40px",
+                    "space-16": "64px"
+            },
+            "fontFamily": {
+                    "headline-sm": [
+                            "Plus Jakarta Sans"
+                    ],
+                    "body-base": [
+                            "Inter"
+                    ],
+                    "label-md": [
+                            "Inter"
+                    ],
+                    "body-lg": [
+                            "Inter"
+                    ],
+                    "display-lg": [
+                            "Plus Jakarta Sans"
+                    ],
+                    "display-xl": [
+                            "Plus Jakarta Sans"
+                    ],
+                    "body-sm": [
+                            "Inter"
+                    ],
+                    "headline-md": [
+                            "Plus Jakarta Sans"
+                    ],
+                    "label-xs": [
+                            "Inter"
+                    ]
+            },
+            "fontSize": {
+                    "headline-sm": [
+                            "20px",
+                            {
+                                    "lineHeight": "1.4",
+                                    "fontWeight": "600"
+                            }
+                    ],
+                    "body-base": [
+                            "16px",
+                            {
+                                    "lineHeight": "1.6",
+                                    "fontWeight": "400"
+                            }
+                    ],
+                    "label-md": [
+                            "14px",
+                            {
+                                    "lineHeight": "1",
+                                    "fontWeight": "600"
+                            }
+                    ],
+                    "body-lg": [
+                            "18px",
+                            {
+                                    "lineHeight": "1.6",
+                                    "fontWeight": "400"
+                            }
+                    ],
+                    "display-lg": [
+                            "32px",
+                            {
+                                    "lineHeight": "1.2",
+                                    "fontWeight": "700"
+                            }
+                    ],
+                    "display-xl": [
+                            "40px",
+                            {
+                                    "lineHeight": "1.2",
+                                    "letterSpacing": "-0.02em",
+                                    "fontWeight": "700"
+                            }
+                    ],
+                    "body-sm": [
+                            "14px",
+                            {
+                                    "lineHeight": "1.5",
+                                    "fontWeight": "400"
+                            }
+                    ],
+                    "headline-md": [
+                            "24px",
+                            {
+                                    "lineHeight": "1.3",
+                                    "fontWeight": "600"
+                            }
+                    ],
+                    "label-xs": [
+                            "12px",
+                            {
+                                    "lineHeight": "1",
+                                    "fontWeight": "500"
+                            }
+                    ]
+            }
+          }
+        }
+      }
+    </script>
+</head>
+<body class="bg-background text-text-primary min-h-screen font-body-base antialiased">
+<!-- TopAppBar -->
+<header class="fixed bg-surface border-b border-border-subtle shadow-sm flex justify-between items-center h-16 px-space-8 w-full md:ml-[260px] md:w-[calc(100%-260px)] z-20 top-0">
+<div class="flex items-center gap-space-4">
+<h1 class="font-headline-sm text-headline-sm font-bold text-primary md:hidden">ChewnPour</h1>
+</div>
+<div class="flex items-center gap-space-6">
+<div class="flex gap-space-4 text-text-muted">
+<button class="hover:text-text-primary hover:bg-surface-soft p-2 rounded-full transition-all">
+<span class="material-symbols-outlined" data-icon="notifications">notifications</span>
+</button>
+<button class="hover:text-text-primary hover:bg-surface-soft p-2 rounded-full transition-all">
+<span class="material-symbols-outlined" data-icon="help_outline">help_outline</span>
+</button>
+</div>
+<div class="h-8 w-8 rounded-full bg-surface-muted border border-border-subtle overflow-hidden flex items-center justify-center">
+<img alt="Student Profile" class="w-full h-full object-cover" data-alt="A clean, minimalist abstract geometric pattern representing a generic student profile avatar placeholder, utilizing a sophisticated palette of soft warm beige, deep charcoal grey, and subtle off-white tones. The design is flat, modern, and highly legible." src="https://lh3.googleusercontent.com/aida-public/AB6AXuDFM8fvtxC3iAK594WDhbPoNb62NpsWUX8xlYOWUI4fQDYtldbfBwQSf_h7NTCHLGwC0YwWqslIltH1yEIBMuit-zWITglHZiCMQrNnaxf8Zi6kgmJaS_j_MsqQTsOelqkOs7a3PLQp02IxAsvin_G7729q58P8WKlLji9n7IPSu7ThnyrudSJBz5myg20ruJpZt2nsWvB0Gy-M4cZgUAeb_NkQujDU0CCM3jEucnKWgke4Yc6bXNYuCfwcA5whgv3YARp3lWYkRig"/>
+</div>
+</div>
+</header>
+<!-- SideNavBar (Desktop Only) -->
+<nav class="hidden md:flex fixed left-0 top-0 h-full w-[260px] p-space-4 flex-col gap-space-6 bg-background border-r border-border-subtle z-30">
+<!-- Brand Header -->
+<div class="px-4 py-2 flex items-center gap-3">
+<div class="w-8 h-8 rounded bg-primary flex items-center justify-center">
+<span class="material-symbols-outlined text-on-primary text-[20px]" data-icon="auto_awesome">auto_awesome</span>
+</div>
+<div>
+<h2 class="font-headline-sm text-headline-sm tracking-tight text-primary font-bold">ChewnPour</h2>
+<p class="font-label-xs text-label-xs text-text-muted mt-1">AI Study Workspace</p>
+</div>
+</div>
+<!-- CTA -->
+<div class="px-2">
+<button class="w-full bg-surface border border-border-subtle shadow-sm rounded-xl py-3 px-4 font-label-md text-label-md text-text-primary flex items-center justify-center gap-2 hover:bg-surface-soft transition-colors duration-200">
+<span class="material-symbols-outlined" data-icon="add">add</span>
+                Generate Material
+            </button>
+</div>
+<!-- Navigation Links -->
+<div class="flex-1 flex flex-col gap-1 overflow-y-auto mt-4 px-2">
+<a class="flex items-center gap-3 px-4 py-3 text-text-secondary hover:text-primary hover:bg-surface-variant transition-colors duration-200 rounded-xl group" href="#">
+<span class="material-symbols-outlined group-hover:scale-[1.1] transition-transform" data-icon="dashboard">dashboard</span>
+<span class="font-label-md text-label-md">Dashboard</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 text-text-secondary hover:text-primary hover:bg-surface-variant transition-colors duration-200 rounded-xl group" href="#">
+<span class="material-symbols-outlined group-hover:scale-[1.1] transition-transform" data-icon="cloud_upload">cloud_upload</span>
+<span class="font-label-md text-label-md">Upload</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 text-text-secondary hover:text-primary hover:bg-surface-variant transition-colors duration-200 rounded-xl group" href="#">
+<span class="material-symbols-outlined group-hover:scale-[1.1] transition-transform" data-icon="folder">folder</span>
+<span class="font-label-md text-label-md">My Materials</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 text-text-secondary hover:text-primary hover:bg-surface-variant transition-colors duration-200 rounded-xl group" href="#">
+<span class="material-symbols-outlined group-hover:scale-[1.1] transition-transform" data-icon="menu_book">menu_book</span>
+<span class="font-label-md text-label-md">Lessons</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 text-text-secondary hover:text-primary hover:bg-surface-variant transition-colors duration-200 rounded-xl group" href="#">
+<span class="material-symbols-outlined group-hover:scale-[1.1] transition-transform" data-icon="quiz">quiz</span>
+<span class="font-label-md text-label-md">Quizzes</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 text-text-secondary hover:text-primary hover:bg-surface-variant transition-colors duration-200 rounded-xl group" href="#">
+<span class="material-symbols-outlined group-hover:scale-[1.1] transition-transform" data-icon="style">style</span>
+<span class="font-label-md text-label-md">Flashcards</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 text-text-secondary hover:text-primary hover:bg-surface-variant transition-colors duration-200 rounded-xl group" href="#">
+<span class="material-symbols-outlined group-hover:scale-[1.1] transition-transform" data-icon="smart_toy">smart_toy</span>
+<span class="font-label-md text-label-md">AI Tutor</span>
+</a>
+<!-- ACTIVE TAB -->
+<a class="flex items-center gap-3 px-4 py-3 text-primary font-bold bg-primary-soft rounded-xl scale-[0.98] transition-transform" href="#">
+<span class="material-symbols-outlined" data-icon="bar_chart" data-weight="fill" style="font-variation-settings: 'FILL' 1;">bar_chart</span>
+<span class="font-label-md text-label-md">Progress</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 text-text-secondary hover:text-primary hover:bg-surface-variant transition-colors duration-200 rounded-xl group mt-auto" href="#">
+<span class="material-symbols-outlined group-hover:scale-[1.1] transition-transform" data-icon="settings">settings</span>
+<span class="font-label-md text-label-md">Settings</span>
+</a>
+</div>
+</nav>
+<!-- Main Content Canvas -->
+<main class="pt-[88px] md:ml-[260px] p-space-4 md:p-space-8 max-w-container-max mx-auto flex flex-col gap-space-10 pb-20">
+<!-- Header -->
+<header class="flex flex-col gap-space-2">
+<h2 class="font-display-lg text-display-lg text-text-primary">Your Learning Journey</h2>
+<p class="font-body-lg text-body-lg text-text-secondary max-w-2xl">You're making solid progress. Keep up the momentum! Reviewing your weak spots today will strengthen your overall readiness.</p>
+</header>
+<!-- Bento Grid Layout -->
+<div class="grid grid-cols-1 md:grid-cols-3 gap-space-6">
+<!-- Stat 1: Streak -->
+<div class="bg-surface shadow-sm rounded-xl p-space-6 flex flex-col gap-space-4 border border-border-subtle">
+<div class="flex items-center justify-between">
+<span class="font-label-md text-label-md text-text-secondary uppercase tracking-wider">Study Streak</span>
+<div class="w-10 h-10 rounded-full bg-primary-soft flex items-center justify-center text-primary">
+<span class="material-symbols-outlined" data-icon="local_fire_department" data-weight="fill" style="font-variation-settings: 'FILL' 1;">local_fire_department</span>
+</div>
+</div>
+<div class="flex items-baseline gap-2">
+<span class="font-display-xl text-display-xl text-text-primary">4</span>
+<span class="font-body-base text-body-base text-text-muted">days</span>
+</div>
+</div>
+<!-- Stat 2: Lessons -->
+<div class="bg-surface shadow-sm rounded-xl p-space-6 flex flex-col gap-space-4 border border-border-subtle">
+<div class="flex items-center justify-between">
+<span class="font-label-md text-label-md text-text-secondary uppercase tracking-wider">Lessons Completed</span>
+<div class="w-10 h-10 rounded-full bg-info-soft flex items-center justify-center text-info">
+<span class="material-symbols-outlined" data-icon="menu_book" data-weight="fill" style="font-variation-settings: 'FILL' 1;">menu_book</span>
+</div>
+</div>
+<div class="flex items-baseline gap-2">
+<span class="font-display-xl text-display-xl text-text-primary">12</span>
+<span class="font-body-base text-body-base text-text-muted">total</span>
+</div>
+</div>
+<!-- Stat 3: Quiz Average -->
+<div class="bg-surface shadow-sm rounded-xl p-space-6 flex flex-col gap-space-4 border border-border-subtle">
+<div class="flex items-center justify-between">
+<span class="font-label-md text-label-md text-text-secondary uppercase tracking-wider">Quiz Average</span>
+<div class="w-10 h-10 rounded-full bg-success-soft flex items-center justify-center text-success">
+<span class="material-symbols-outlined" data-icon="analytics" data-weight="fill" style="font-variation-settings: 'FILL' 1;">analytics</span>
+</div>
+</div>
+<div class="flex items-baseline gap-2">
+<span class="font-display-xl text-display-xl text-text-primary">82%</span>
+<span class="font-body-base text-body-base text-success text-sm flex items-center"><span class="material-symbols-outlined text-[16px]" data-icon="arrow_upward">arrow_upward</span> 5%</span>
+</div>
+</div>
+<!-- Exam Readiness Gauge (Span 2) -->
+<div class="bg-surface shadow-sm rounded-xl p-space-8 border border-border-subtle md:col-span-2 flex flex-col justify-center relative overflow-hidden">
+<!-- Subtle decorative background element -->
+<div class="absolute right-0 top-0 w-64 h-64 bg-mastery-soft rounded-full blur-3xl opacity-30 -mr-20 -mt-20 pointer-events-none"></div>
+<div class="flex flex-col md:flex-row md:items-end justify-between mb-8 relative z-10 gap-4">
+<div>
+<h3 class="font-headline-md text-headline-md text-text-primary mb-1">Exam Readiness</h3>
+<p class="font-body-sm text-body-sm text-text-secondary">Based on recent quizzes and lesson completion.</p>
+</div>
+<div class="text-right">
+<span class="inline-block px-3 py-1 rounded-full bg-mastery-soft text-mastery font-label-md text-label-md mb-2">Mastery Level: Strong</span>
+</div>
+</div>
+<!-- Custom Gauge / Bar -->
+<div class="relative w-full h-8 bg-surface-muted rounded-full overflow-hidden z-10">
+<div class="absolute top-0 left-0 h-full bg-mastery rounded-full transition-all" style="width: 85%;"></div>
+<!-- Markers -->
+<div class="absolute top-0 left-1/4 h-full w-[2px] bg-surface opacity-30"></div>
+<div class="absolute top-0 left-2/4 h-full w-[2px] bg-surface opacity-30"></div>
+<div class="absolute top-0 left-3/4 h-full w-[2px] bg-surface opacity-30"></div>
+</div>
+<div class="flex justify-between mt-2 font-label-xs text-label-xs text-text-muted z-10">
+<span>Needs Work</span>
+<span>Developing</span>
+<span>Proficient</span>
+<span class="text-mastery font-bold">Strong</span>
+</div>
+</div>
+<!-- Recommended Action CTA (Span 1) -->
+<div class="bg-ai-subtle shadow-sm rounded-xl p-space-6 border border-border-subtle md:col-span-1 flex flex-col justify-between">
+<div>
+<div class="flex items-center gap-2 mb-4">
+<span class="material-symbols-outlined text-primary" data-icon="lightbulb">lightbulb</span>
+<h3 class="font-headline-sm text-headline-sm text-text-primary">Recommended Action</h3>
+</div>
+<p class="font-body-base text-body-base text-text-secondary mb-6">Your lowest score recently was in the <strong>Cell Biology</strong> module. A quick flashcard review could boost your retention.</p>
+</div>
+<button class="w-full bg-primary text-on-primary font-label-md text-label-md py-3 px-4 rounded-xl shadow-md hover:bg-primary-hover transition-colors flex justify-center items-center gap-2">
+                    Start Flashcards
+                    <span class="material-symbols-outlined text-[18px]" data-icon="arrow_forward">arrow_forward</span>
+</button>
+</div>
+<!-- Progress History Chart (Span 2) -->
+<div class="bg-surface shadow-sm rounded-xl p-space-6 border border-border-subtle md:col-span-2">
+<h3 class="font-headline-sm text-headline-sm text-text-primary mb-6">Study Activity (Last 7 Days)</h3>
+<!-- CSS Bar Chart -->
+<div class="h-48 w-full flex items-end justify-between gap-2 md:gap-4 mt-8 pb-6 border-b border-border-subtle relative">
+<!-- Y-axis labels (rough approximation) -->
+<div class="absolute left-0 top-0 h-full flex flex-col justify-between text-label-xs text-text-muted -ml-2 -mt-2">
+<span>2h</span>
+<span>1h</span>
+</div>
+<!-- Bars -->
+<div class="flex-1 flex flex-col items-center gap-2 group">
+<div class="w-full max-w-[40px] bg-primary-soft rounded-t-md group-hover:bg-primary transition-colors h-[30%]"></div>
+<span class="font-label-xs text-label-xs text-text-secondary">Mon</span>
+</div>
+<div class="flex-1 flex flex-col items-center gap-2 group">
+<div class="w-full max-w-[40px] bg-primary-soft rounded-t-md group-hover:bg-primary transition-colors h-[60%]"></div>
+<span class="font-label-xs text-label-xs text-text-secondary">Tue</span>
+</div>
+<div class="flex-1 flex flex-col items-center gap-2 group">
+<div class="w-full max-w-[40px] bg-primary rounded-t-md relative h-[80%]">
+<!-- Active/Today indicator -->
+<div class="absolute -top-8 left-1/2 -translate-x-1/2 bg-surface border border-border-subtle shadow-sm rounded px-2 py-1 font-label-xs text-label-xs opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap">1.5 hrs</div>
+</div>
+<span class="font-label-xs text-label-xs text-text-primary font-bold">Wed</span>
+</div>
+<div class="flex-1 flex flex-col items-center gap-2 group">
+<div class="w-full max-w-[40px] bg-primary-soft rounded-t-md group-hover:bg-primary transition-colors h-[40%]"></div>
+<span class="font-label-xs text-label-xs text-text-secondary">Thu</span>
+</div>
+<div class="flex-1 flex flex-col items-center gap-2 group">
+<div class="w-full max-w-[40px] bg-primary-soft rounded-t-md group-hover:bg-primary transition-colors h-[20%]"></div>
+<span class="font-label-xs text-label-xs text-text-secondary">Fri</span>
+</div>
+<div class="flex-1 flex flex-col items-center gap-2 group">
+<div class="w-full max-w-[40px] bg-surface-muted rounded-t-md group-hover:bg-primary-soft transition-colors h-[5%]"></div>
+<span class="font-label-xs text-label-xs text-text-muted">Sat</span>
+</div>
+<div class="flex-1 flex flex-col items-center gap-2 group">
+<div class="w-full max-w-[40px] bg-surface-muted rounded-t-md group-hover:bg-primary-soft transition-colors h-[0%]"></div>
+<span class="font-label-xs text-label-xs text-text-muted">Sun</span>
+</div>
+</div>
+</div>
+<!-- Strong vs Weak Topics (Span 1) -->
+<div class="bg-surface shadow-sm rounded-xl p-space-6 border border-border-subtle md:col-span-1 flex flex-col">
+<h3 class="font-headline-sm text-headline-sm text-text-primary mb-6">Topic Breakdown</h3>
+<div class="flex flex-col gap-space-4 flex-1">
+<!-- Strong Topic -->
+<div class="flex items-center justify-between p-3 rounded-lg border border-border-subtle hover:bg-surface-soft transition-colors">
+<div class="flex items-center gap-3">
+<div class="w-2 h-8 bg-success rounded-full"></div>
+<span class="font-body-sm text-body-sm font-medium text-text-primary">Genetics</span>
+</div>
+<span class="px-2 py-1 rounded bg-success-soft text-success font-label-xs text-label-xs">95%</span>
+</div>
+<!-- Strong Topic -->
+<div class="flex items-center justify-between p-3 rounded-lg border border-border-subtle hover:bg-surface-soft transition-colors">
+<div class="flex items-center gap-3">
+<div class="w-2 h-8 bg-success rounded-full"></div>
+<span class="font-body-sm text-body-sm font-medium text-text-primary">Ecology</span>
+</div>
+<span class="px-2 py-1 rounded bg-success-soft text-success font-label-xs text-label-xs">88%</span>
+</div>
+<!-- Review Topic -->
+<div class="flex items-center justify-between p-3 rounded-lg border border-border-subtle hover:bg-surface-soft transition-colors">
+<div class="flex items-center gap-3">
+<div class="w-2 h-8 bg-warning rounded-full"></div>
+<span class="font-body-sm text-body-sm font-medium text-text-primary">Evolution</span>
+</div>
+<span class="px-2 py-1 rounded bg-warning-soft text-warning font-label-xs text-label-xs">65%</span>
+</div>
+<!-- Weak Topic -->
+<div class="flex items-center justify-between p-3 rounded-lg border border-border-subtle hover:bg-surface-soft transition-colors">
+<div class="flex items-center gap-3">
+<div class="w-2 h-8 bg-error rounded-full"></div>
+<span class="font-body-sm text-body-sm font-medium text-text-primary">Cell Biology</span>
+</div>
+<span class="px-2 py-1 rounded bg-error-soft text-error font-label-xs text-label-xs">42%</span>
+</div>
+</div>
+<button class="mt-6 w-full text-center font-label-md text-label-md text-primary hover:text-primary-hover transition-colors">
+                    View Full Report
+                </button>
+</div>
+</div>
+</main>
+</body></html>

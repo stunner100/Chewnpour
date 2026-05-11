@@ -1,0 +1,273 @@
+[ 1320915ms] [WARNING] <meta name="apple-mobile-web-app-capable" content="yes"> is deprecated. Please include <meta name="mobile-web-app-capable" content="yes"> @ https://www.chewnpour.com/dashboard/topic/k9737nwptf85aqah4552hfqm2185ycjb?v=37b10c6dc#enhancing-payment-operations-with-telecel:0
+[ 5268267ms] [LOG] Attempting reconnect in 123ms @ https://www.chewnpour.com/assets/vendor-observability-CAC4cAu7.js:16
+[ 5268402ms] [ERROR] WebSocket connection to 'wss://api.chewnpour.com/api/1.31.6/sync' failed: Error in connection establishment: net::ERR_INTERNET_DISCONNECTED @ https://www.chewnpour.com/assets/vendor-auth-DFdc7BfI.js:1
+[ 5268403ms] [LOG] WebSocket closed with code 1006 @ https://www.chewnpour.com/assets/vendor-observability-CAC4cAu7.js:16
+[ 5268403ms] [LOG] Attempting reconnect in 2066ms @ https://www.chewnpour.com/assets/vendor-observability-CAC4cAu7.js:16
+[ 5270475ms] [ERROR] WebSocket connection to 'wss://api.chewnpour.com/api/1.31.6/sync' failed: Error in connection establishment: net::ERR_INTERNET_DISCONNECTED @ https://www.chewnpour.com/assets/vendor-auth-DFdc7BfI.js:1
+[ 5270476ms] [LOG] WebSocket closed with code 1006 @ https://www.chewnpour.com/assets/vendor-observability-CAC4cAu7.js:16
+[ 5270476ms] [LOG] Attempting reconnect in 3945ms @ https://www.chewnpour.com/assets/vendor-observability-CAC4cAu7.js:16
+[ 5274428ms] [ERROR] WebSocket connection to 'wss://api.chewnpour.com/api/1.31.6/sync' failed: Error in connection establishment: net::ERR_INTERNET_DISCONNECTED @ https://www.chewnpour.com/assets/vendor-auth-DFdc7BfI.js:1
+[ 5274429ms] [LOG] WebSocket closed with code 1006 @ https://www.chewnpour.com/assets/vendor-observability-CAC4cAu7.js:16
+[ 5274429ms] [LOG] Attempting reconnect in 10920ms @ https://www.chewnpour.com/assets/vendor-observability-CAC4cAu7.js:16
+[ 5285356ms] [ERROR] WebSocket connection to 'wss://api.chewnpour.com/api/1.31.6/sync' failed: Error in connection establishment: net::ERR_INTERNET_DISCONNECTED @ https://www.chewnpour.com/assets/vendor-auth-DFdc7BfI.js:1
+[ 5285357ms] [LOG] WebSocket closed with code 1006 @ https://www.chewnpour.com/assets/vendor-observability-CAC4cAu7.js:16
+[ 5285357ms] [LOG] Attempting reconnect in 22230ms @ https://www.chewnpour.com/assets/vendor-observability-CAC4cAu7.js:16
+[ 5307594ms] [ERROR] WebSocket connection to 'wss://api.chewnpour.com/api/1.31.6/sync' failed: Error in connection establishment: net::ERR_INTERNET_DISCONNECTED @ https://www.chewnpour.com/assets/vendor-auth-DFdc7BfI.js:1
+[ 5307595ms] [LOG] WebSocket closed with code 1006 @ https://www.chewnpour.com/assets/vendor-observability-CAC4cAu7.js:16
+[ 5307595ms] [LOG] Attempting reconnect in 15403ms @ https://www.chewnpour.com/assets/vendor-observability-CAC4cAu7.js:16
+[ 5323003ms] [ERROR] WebSocket connection to 'wss://api.chewnpour.com/api/1.31.6/sync' failed: Error in connection establishment: net::ERR_INTERNET_DISCONNECTED @ https://www.chewnpour.com/assets/vendor-auth-DFdc7BfI.js:1
+[ 5323004ms] [LOG] WebSocket closed with code 1006 @ https://www.chewnpour.com/assets/vendor-observability-CAC4cAu7.js:16
+[ 5323004ms] [LOG] Attempting reconnect in 10625ms @ https://www.chewnpour.com/assets/vendor-observability-CAC4cAu7.js:16
+[ 5333642ms] [ERROR] WebSocket connection to 'wss://api.chewnpour.com/api/1.31.6/sync' failed: Error in connection establishment: net::ERR_INTERNET_DISCONNECTED @ https://www.chewnpour.com/assets/vendor-auth-DFdc7BfI.js:1
+[ 5333643ms] [LOG] WebSocket closed with code 1006 @ https://www.chewnpour.com/assets/vendor-observability-CAC4cAu7.js:16
+[ 5333643ms] [LOG] Attempting reconnect in 8251ms @ https://www.chewnpour.com/assets/vendor-observability-CAC4cAu7.js:16
+[ 5341918ms] [ERROR] WebSocket connection to 'wss://api.chewnpour.com/api/1.31.6/sync' failed: Error in connection establishment: net::ERR_INTERNET_DISCONNECTED @ https://www.chewnpour.com/assets/vendor-auth-DFdc7BfI.js:1
+[ 5341919ms] [LOG] WebSocket closed with code 1006 @ https://www.chewnpour.com/assets/vendor-observability-CAC4cAu7.js:16
+[ 5341919ms] [LOG] Attempting reconnect in 15669ms @ https://www.chewnpour.com/assets/vendor-observability-CAC4cAu7.js:16
+[ 5357612ms] [ERROR] WebSocket connection to 'wss://api.chewnpour.com/api/1.31.6/sync' failed: Error in connection establishment: net::ERR_INTERNET_DISCONNECTED @ https://www.chewnpour.com/assets/vendor-auth-DFdc7BfI.js:1
+[ 5357612ms] [LOG] WebSocket closed with code 1006 @ https://www.chewnpour.com/assets/vendor-observability-CAC4cAu7.js:16
+[ 5357613ms] [LOG] Attempting reconnect in 14658ms @ https://www.chewnpour.com/assets/vendor-observability-CAC4cAu7.js:16
+[ 5372302ms] [ERROR] WebSocket connection to 'wss://api.chewnpour.com/api/1.31.6/sync' failed: Error in connection establishment: net::ERR_INTERNET_DISCONNECTED @ https://www.chewnpour.com/assets/vendor-auth-DFdc7BfI.js:1
+[ 5372303ms] [LOG] WebSocket closed with code 1006 @ https://www.chewnpour.com/assets/vendor-observability-CAC4cAu7.js:16
+[ 5372303ms] [LOG] Attempting reconnect in 8270ms @ https://www.chewnpour.com/assets/vendor-observability-CAC4cAu7.js:16
+[ 5380735ms] [ERROR] WebSocket connection to 'wss://api.chewnpour.com/api/1.31.6/sync' failed: Error in connection establishment: net::ERR_INTERNET_DISCONNECTED @ https://www.chewnpour.com/assets/vendor-auth-DFdc7BfI.js:1
+[ 5380736ms] [LOG] WebSocket closed with code 1006 @ https://www.chewnpour.com/assets/vendor-observability-CAC4cAu7.js:16
+[ 5380736ms] [LOG] Attempting reconnect in 9250ms @ https://www.chewnpour.com/assets/vendor-observability-CAC4cAu7.js:16
+[ 5389991ms] [ERROR] WebSocket connection to 'wss://api.chewnpour.com/api/1.31.6/sync' failed: Error in connection establishment: net::ERR_INTERNET_DISCONNECTED @ https://www.chewnpour.com/assets/vendor-auth-DFdc7BfI.js:1
+[ 5389992ms] [LOG] WebSocket closed with code 1006 @ https://www.chewnpour.com/assets/vendor-observability-CAC4cAu7.js:16
+[ 5389992ms] [LOG] Attempting reconnect in 9067ms @ https://www.chewnpour.com/assets/vendor-observability-CAC4cAu7.js:16
+[ 5399065ms] [ERROR] WebSocket connection to 'wss://api.chewnpour.com/api/1.31.6/sync' failed: Error in connection establishment: net::ERR_INTERNET_DISCONNECTED @ https://www.chewnpour.com/assets/vendor-auth-DFdc7BfI.js:1
+[ 5399066ms] [LOG] WebSocket closed with code 1006 @ https://www.chewnpour.com/assets/vendor-observability-CAC4cAu7.js:16
+[ 5399066ms] [LOG] Attempting reconnect in 19342ms @ https://www.chewnpour.com/assets/vendor-observability-CAC4cAu7.js:16
+[ 5418416ms] [ERROR] WebSocket connection to 'wss://api.chewnpour.com/api/1.31.6/sync' failed: Error in connection establishment: net::ERR_INTERNET_DISCONNECTED @ https://www.chewnpour.com/assets/vendor-auth-DFdc7BfI.js:1
+[ 5418416ms] [LOG] WebSocket closed with code 1006 @ https://www.chewnpour.com/assets/vendor-observability-CAC4cAu7.js:16
+[ 5418417ms] [LOG] Attempting reconnect in 12239ms @ https://www.chewnpour.com/assets/vendor-observability-CAC4cAu7.js:16
+[ 5430661ms] [ERROR] WebSocket connection to 'wss://api.chewnpour.com/api/1.31.6/sync' failed: Error in connection establishment: net::ERR_INTERNET_DISCONNECTED @ https://www.chewnpour.com/assets/vendor-auth-DFdc7BfI.js:1
+[ 5430662ms] [LOG] WebSocket closed with code 1006 @ https://www.chewnpour.com/assets/vendor-observability-CAC4cAu7.js:16
+[ 5430662ms] [LOG] Attempting reconnect in 10423ms @ https://www.chewnpour.com/assets/vendor-observability-CAC4cAu7.js:16
+[ 5441091ms] [ERROR] WebSocket connection to 'wss://api.chewnpour.com/api/1.31.6/sync' failed: Error in connection establishment: net::ERR_INTERNET_DISCONNECTED @ https://www.chewnpour.com/assets/vendor-auth-DFdc7BfI.js:1
+[ 5441091ms] [LOG] WebSocket closed with code 1006 @ https://www.chewnpour.com/assets/vendor-observability-CAC4cAu7.js:16
+[ 5441091ms] [LOG] Attempting reconnect in 17189ms @ https://www.chewnpour.com/assets/vendor-observability-CAC4cAu7.js:16
+[ 5458288ms] [ERROR] WebSocket connection to 'wss://api.chewnpour.com/api/1.31.6/sync' failed: Error in connection establishment: net::ERR_INTERNET_DISCONNECTED @ https://www.chewnpour.com/assets/vendor-auth-DFdc7BfI.js:1
+[ 5458289ms] [LOG] WebSocket closed with code 1006 @ https://www.chewnpour.com/assets/vendor-observability-CAC4cAu7.js:16
+[ 5458289ms] [LOG] Attempting reconnect in 17020ms @ https://www.chewnpour.com/assets/vendor-observability-CAC4cAu7.js:16
+[ 5475323ms] [ERROR] WebSocket connection to 'wss://api.chewnpour.com/api/1.31.6/sync' failed: Error in connection establishment: net::ERR_INTERNET_DISCONNECTED @ https://www.chewnpour.com/assets/vendor-auth-DFdc7BfI.js:1
+[ 5475323ms] [LOG] WebSocket closed with code 1006 @ https://www.chewnpour.com/assets/vendor-observability-CAC4cAu7.js:16
+[ 5475324ms] [LOG] Attempting reconnect in 8349ms @ https://www.chewnpour.com/assets/vendor-observability-CAC4cAu7.js:16
+[ 5483692ms] [ERROR] WebSocket connection to 'wss://api.chewnpour.com/api/1.31.6/sync' failed: Error in connection establishment: net::ERR_INTERNET_DISCONNECTED @ https://www.chewnpour.com/assets/vendor-auth-DFdc7BfI.js:1
+[ 5483692ms] [LOG] WebSocket closed with code 1006 @ https://www.chewnpour.com/assets/vendor-observability-CAC4cAu7.js:16
+[ 5483693ms] [LOG] Attempting reconnect in 23146ms @ https://www.chewnpour.com/assets/vendor-observability-CAC4cAu7.js:16
+[ 5506890ms] [ERROR] WebSocket connection to 'wss://api.chewnpour.com/api/1.31.6/sync' failed: Error in connection establishment: net::ERR_INTERNET_DISCONNECTED @ https://www.chewnpour.com/assets/vendor-auth-DFdc7BfI.js:1
+[ 5506891ms] [LOG] WebSocket closed with code 1006 @ https://www.chewnpour.com/assets/vendor-observability-CAC4cAu7.js:16
+[ 5506891ms] [LOG] Attempting reconnect in 20194ms @ https://www.chewnpour.com/assets/vendor-observability-CAC4cAu7.js:16
+[ 5527093ms] [ERROR] WebSocket connection to 'wss://api.chewnpour.com/api/1.31.6/sync' failed: Error in connection establishment: net::ERR_INTERNET_DISCONNECTED @ https://www.chewnpour.com/assets/vendor-auth-DFdc7BfI.js:1
+[ 5527093ms] [LOG] WebSocket closed with code 1006 @ https://www.chewnpour.com/assets/vendor-observability-CAC4cAu7.js:16
+[ 5527094ms] [LOG] Attempting reconnect in 19022ms @ https://www.chewnpour.com/assets/vendor-observability-CAC4cAu7.js:16
+[ 5546123ms] [ERROR] WebSocket connection to 'wss://api.chewnpour.com/api/1.31.6/sync' failed: Error in connection establishment: net::ERR_INTERNET_DISCONNECTED @ https://www.chewnpour.com/assets/vendor-auth-DFdc7BfI.js:1
+[ 5546124ms] [LOG] WebSocket closed with code 1006 @ https://www.chewnpour.com/assets/vendor-observability-CAC4cAu7.js:16
+[ 5546124ms] [LOG] Attempting reconnect in 9915ms @ https://www.chewnpour.com/assets/vendor-observability-CAC4cAu7.js:16
+[ 5556045ms] [ERROR] WebSocket connection to 'wss://api.chewnpour.com/api/1.31.6/sync' failed: Error in connection establishment: net::ERR_INTERNET_DISCONNECTED @ https://www.chewnpour.com/assets/vendor-auth-DFdc7BfI.js:1
+[ 5556045ms] [LOG] WebSocket closed with code 1006 @ https://www.chewnpour.com/assets/vendor-observability-CAC4cAu7.js:16
+[ 5556046ms] [LOG] Attempting reconnect in 17792ms @ https://www.chewnpour.com/assets/vendor-observability-CAC4cAu7.js:16
+[ 5573844ms] [ERROR] WebSocket connection to 'wss://api.chewnpour.com/api/1.31.6/sync' failed: Error in connection establishment: net::ERR_INTERNET_DISCONNECTED @ https://www.chewnpour.com/assets/vendor-auth-DFdc7BfI.js:1
+[ 5573844ms] [LOG] WebSocket closed with code 1006 @ https://www.chewnpour.com/assets/vendor-observability-CAC4cAu7.js:16
+[ 5573845ms] [LOG] Attempting reconnect in 23519ms @ https://www.chewnpour.com/assets/vendor-observability-CAC4cAu7.js:16
+[ 5597372ms] [ERROR] WebSocket connection to 'wss://api.chewnpour.com/api/1.31.6/sync' failed: Error in connection establishment: net::ERR_INTERNET_DISCONNECTED @ https://www.chewnpour.com/assets/vendor-auth-DFdc7BfI.js:1
+[ 5597373ms] [LOG] WebSocket closed with code 1006 @ https://www.chewnpour.com/assets/vendor-observability-CAC4cAu7.js:16
+[ 5597373ms] [LOG] Attempting reconnect in 19677ms @ https://www.chewnpour.com/assets/vendor-observability-CAC4cAu7.js:16
+[ 5617060ms] [ERROR] WebSocket connection to 'wss://api.chewnpour.com/api/1.31.6/sync' failed: Error in connection establishment: net::ERR_INTERNET_DISCONNECTED @ https://www.chewnpour.com/assets/vendor-auth-DFdc7BfI.js:1
+[ 5617061ms] [LOG] WebSocket closed with code 1006 @ https://www.chewnpour.com/assets/vendor-observability-CAC4cAu7.js:16
+[ 5617061ms] [LOG] Attempting reconnect in 14532ms @ https://www.chewnpour.com/assets/vendor-observability-CAC4cAu7.js:16
+[ 5631598ms] [ERROR] WebSocket connection to 'wss://api.chewnpour.com/api/1.31.6/sync' failed: Error in connection establishment: net::ERR_INTERNET_DISCONNECTED @ https://www.chewnpour.com/assets/vendor-auth-DFdc7BfI.js:1
+[ 5631599ms] [LOG] WebSocket closed with code 1006 @ https://www.chewnpour.com/assets/vendor-observability-CAC4cAu7.js:16
+[ 5631599ms] [LOG] Attempting reconnect in 15469ms @ https://www.chewnpour.com/assets/vendor-observability-CAC4cAu7.js:16
+[ 5647081ms] [ERROR] WebSocket connection to 'wss://api.chewnpour.com/api/1.31.6/sync' failed: Error in connection establishment: net::ERR_INTERNET_DISCONNECTED @ https://www.chewnpour.com/assets/vendor-auth-DFdc7BfI.js:1
+[ 5647081ms] [LOG] WebSocket closed with code 1006 @ https://www.chewnpour.com/assets/vendor-observability-CAC4cAu7.js:16
+[ 5647081ms] [LOG] Attempting reconnect in 9378ms @ https://www.chewnpour.com/assets/vendor-observability-CAC4cAu7.js:16
+[ 5656466ms] [ERROR] WebSocket connection to 'wss://api.chewnpour.com/api/1.31.6/sync' failed: Error in connection establishment: net::ERR_INTERNET_DISCONNECTED @ https://www.chewnpour.com/assets/vendor-auth-DFdc7BfI.js:1
+[ 5656467ms] [LOG] WebSocket closed with code 1006 @ https://www.chewnpour.com/assets/vendor-observability-CAC4cAu7.js:16
+[ 5656467ms] [LOG] Attempting reconnect in 14898ms @ https://www.chewnpour.com/assets/vendor-observability-CAC4cAu7.js:16
+[ 5671371ms] [ERROR] WebSocket connection to 'wss://api.chewnpour.com/api/1.31.6/sync' failed: Error in connection establishment: net::ERR_INTERNET_DISCONNECTED @ https://www.chewnpour.com/assets/vendor-auth-DFdc7BfI.js:1
+[ 5671372ms] [LOG] WebSocket closed with code 1006 @ https://www.chewnpour.com/assets/vendor-observability-CAC4cAu7.js:16
+[ 5671372ms] [LOG] Attempting reconnect in 16750ms @ https://www.chewnpour.com/assets/vendor-observability-CAC4cAu7.js:16
+[ 5688129ms] [ERROR] WebSocket connection to 'wss://api.chewnpour.com/api/1.31.6/sync' failed: Error in connection establishment: net::ERR_INTERNET_DISCONNECTED @ https://www.chewnpour.com/assets/vendor-auth-DFdc7BfI.js:1
+[ 5688130ms] [LOG] WebSocket closed with code 1006 @ https://www.chewnpour.com/assets/vendor-observability-CAC4cAu7.js:16
+[ 5688130ms] [LOG] Attempting reconnect in 14573ms @ https://www.chewnpour.com/assets/vendor-observability-CAC4cAu7.js:16
+[ 5702711ms] [ERROR] WebSocket connection to 'wss://api.chewnpour.com/api/1.31.6/sync' failed: Error in connection establishment: net::ERR_INTERNET_DISCONNECTED @ https://www.chewnpour.com/assets/vendor-auth-DFdc7BfI.js:1
+[ 5702711ms] [LOG] WebSocket closed with code 1006 @ https://www.chewnpour.com/assets/vendor-observability-CAC4cAu7.js:16
+[ 5702711ms] [LOG] Attempting reconnect in 21488ms @ https://www.chewnpour.com/assets/vendor-observability-CAC4cAu7.js:16
+[ 5724207ms] [ERROR] WebSocket connection to 'wss://api.chewnpour.com/api/1.31.6/sync' failed: Error in connection establishment: net::ERR_INTERNET_DISCONNECTED @ https://www.chewnpour.com/assets/vendor-auth-DFdc7BfI.js:1
+[ 5724208ms] [LOG] WebSocket closed with code 1006 @ https://www.chewnpour.com/assets/vendor-observability-CAC4cAu7.js:16
+[ 5724208ms] [LOG] Attempting reconnect in 16176ms @ https://www.chewnpour.com/assets/vendor-observability-CAC4cAu7.js:16
+[ 5740395ms] [ERROR] WebSocket connection to 'wss://api.chewnpour.com/api/1.31.6/sync' failed: Error in connection establishment: net::ERR_INTERNET_DISCONNECTED @ https://www.chewnpour.com/assets/vendor-auth-DFdc7BfI.js:1
+[ 5740396ms] [LOG] WebSocket closed with code 1006 @ https://www.chewnpour.com/assets/vendor-observability-CAC4cAu7.js:16
+[ 5740396ms] [LOG] Attempting reconnect in 21333ms @ https://www.chewnpour.com/assets/vendor-observability-CAC4cAu7.js:16
+[ 5761742ms] [ERROR] WebSocket connection to 'wss://api.chewnpour.com/api/1.31.6/sync' failed: Error in connection establishment: net::ERR_INTERNET_DISCONNECTED @ https://www.chewnpour.com/assets/vendor-auth-DFdc7BfI.js:1
+[ 5761743ms] [LOG] WebSocket closed with code 1006 @ https://www.chewnpour.com/assets/vendor-observability-CAC4cAu7.js:16
+[ 5761743ms] [LOG] Attempting reconnect in 8687ms @ https://www.chewnpour.com/assets/vendor-observability-CAC4cAu7.js:16
+[ 5770444ms] [ERROR] WebSocket connection to 'wss://api.chewnpour.com/api/1.31.6/sync' failed: Error in connection establishment: net::ERR_INTERNET_DISCONNECTED @ https://www.chewnpour.com/assets/vendor-auth-DFdc7BfI.js:1
+[ 5770445ms] [LOG] WebSocket closed with code 1006 @ https://www.chewnpour.com/assets/vendor-observability-CAC4cAu7.js:16
+[ 5770445ms] [LOG] Attempting reconnect in 17795ms @ https://www.chewnpour.com/assets/vendor-observability-CAC4cAu7.js:16
+[ 5788248ms] [ERROR] WebSocket connection to 'wss://api.chewnpour.com/api/1.31.6/sync' failed: Error in connection establishment: net::ERR_INTERNET_DISCONNECTED @ https://www.chewnpour.com/assets/vendor-auth-DFdc7BfI.js:1
+[ 5788248ms] [LOG] WebSocket closed with code 1006 @ https://www.chewnpour.com/assets/vendor-observability-CAC4cAu7.js:16
+[ 5788248ms] [LOG] Attempting reconnect in 8009ms @ https://www.chewnpour.com/assets/vendor-observability-CAC4cAu7.js:16
+[ 5796263ms] [ERROR] WebSocket connection to 'wss://api.chewnpour.com/api/1.31.6/sync' failed: Error in connection establishment: net::ERR_INTERNET_DISCONNECTED @ https://www.chewnpour.com/assets/vendor-auth-DFdc7BfI.js:1
+[ 5796264ms] [LOG] WebSocket closed with code 1006 @ https://www.chewnpour.com/assets/vendor-observability-CAC4cAu7.js:16
+[ 5796264ms] [LOG] Attempting reconnect in 8109ms @ https://www.chewnpour.com/assets/vendor-observability-CAC4cAu7.js:16
+[ 5804379ms] [ERROR] WebSocket connection to 'wss://api.chewnpour.com/api/1.31.6/sync' failed: Error in connection establishment: net::ERR_INTERNET_DISCONNECTED @ https://www.chewnpour.com/assets/vendor-auth-DFdc7BfI.js:1
+[ 5804380ms] [LOG] WebSocket closed with code 1006 @ https://www.chewnpour.com/assets/vendor-observability-CAC4cAu7.js:16
+[ 5804380ms] [LOG] Attempting reconnect in 16660ms @ https://www.chewnpour.com/assets/vendor-observability-CAC4cAu7.js:16
+[ 5819563ms] [ERROR] Failed to load resource: net::ERR_INTERNET_DISCONNECTED @ https://site.chewnpour.com/api/auth/convex/token:0
+[ 5821044ms] [ERROR] WebSocket connection to 'wss://api.chewnpour.com/api/1.31.6/sync' failed: Error in connection establishment: net::ERR_INTERNET_DISCONNECTED @ https://www.chewnpour.com/assets/vendor-auth-DFdc7BfI.js:1
+[ 5821044ms] [LOG] WebSocket closed with code 1006 @ https://www.chewnpour.com/assets/vendor-observability-CAC4cAu7.js:16
+[ 5821045ms] [LOG] Attempting reconnect in 9375ms @ https://www.chewnpour.com/assets/vendor-observability-CAC4cAu7.js:16
+[ 5830429ms] [ERROR] WebSocket connection to 'wss://api.chewnpour.com/api/1.31.6/sync' failed: Error in connection establishment: net::ERR_INTERNET_DISCONNECTED @ https://www.chewnpour.com/assets/vendor-auth-DFdc7BfI.js:1
+[ 5830430ms] [LOG] WebSocket closed with code 1006 @ https://www.chewnpour.com/assets/vendor-observability-CAC4cAu7.js:16
+[ 5830430ms] [LOG] Attempting reconnect in 16184ms @ https://www.chewnpour.com/assets/vendor-observability-CAC4cAu7.js:16
+[ 5846622ms] [ERROR] WebSocket connection to 'wss://api.chewnpour.com/api/1.31.6/sync' failed: Error in connection establishment: net::ERR_INTERNET_DISCONNECTED @ https://www.chewnpour.com/assets/vendor-auth-DFdc7BfI.js:1
+[ 5846622ms] [LOG] WebSocket closed with code 1006 @ https://www.chewnpour.com/assets/vendor-observability-CAC4cAu7.js:16
+[ 5846623ms] [LOG] Attempting reconnect in 12273ms @ https://www.chewnpour.com/assets/vendor-observability-CAC4cAu7.js:16
+[ 5858908ms] [ERROR] WebSocket connection to 'wss://api.chewnpour.com/api/1.31.6/sync' failed: Error in connection establishment: net::ERR_INTERNET_DISCONNECTED @ https://www.chewnpour.com/assets/vendor-auth-DFdc7BfI.js:1
+[ 5858908ms] [LOG] WebSocket closed with code 1006 @ https://www.chewnpour.com/assets/vendor-observability-CAC4cAu7.js:16
+[ 5858909ms] [LOG] Attempting reconnect in 14788ms @ https://www.chewnpour.com/assets/vendor-observability-CAC4cAu7.js:16
+[ 5873715ms] [ERROR] WebSocket connection to 'wss://api.chewnpour.com/api/1.31.6/sync' failed: Error in connection establishment: net::ERR_INTERNET_DISCONNECTED @ https://www.chewnpour.com/assets/vendor-auth-DFdc7BfI.js:1
+[ 5873715ms] [LOG] WebSocket closed with code 1006 @ https://www.chewnpour.com/assets/vendor-observability-CAC4cAu7.js:16
+[ 5873716ms] [LOG] Attempting reconnect in 15336ms @ https://www.chewnpour.com/assets/vendor-observability-CAC4cAu7.js:16
+[ 5889083ms] [ERROR] WebSocket connection to 'wss://api.chewnpour.com/api/1.31.6/sync' failed: Error in connection establishment: net::ERR_INTERNET_DISCONNECTED @ https://www.chewnpour.com/assets/vendor-auth-DFdc7BfI.js:1
+[ 5889084ms] [LOG] WebSocket closed with code 1006 @ https://www.chewnpour.com/assets/vendor-observability-CAC4cAu7.js:16
+[ 5889084ms] [LOG] Attempting reconnect in 12872ms @ https://www.chewnpour.com/assets/vendor-observability-CAC4cAu7.js:16
+[ 5902001ms] [ERROR] WebSocket connection to 'wss://api.chewnpour.com/api/1.31.6/sync' failed: Error in connection establishment: net::ERR_INTERNET_DISCONNECTED @ https://www.chewnpour.com/assets/vendor-auth-DFdc7BfI.js:1
+[ 5902002ms] [LOG] WebSocket closed with code 1006 @ https://www.chewnpour.com/assets/vendor-observability-CAC4cAu7.js:16
+[ 5902002ms] [LOG] Attempting reconnect in 23436ms @ https://www.chewnpour.com/assets/vendor-observability-CAC4cAu7.js:16
+[ 5925445ms] [ERROR] WebSocket connection to 'wss://api.chewnpour.com/api/1.31.6/sync' failed: Error in connection establishment: net::ERR_INTERNET_DISCONNECTED @ https://www.chewnpour.com/assets/vendor-auth-DFdc7BfI.js:1
+[ 5925446ms] [LOG] WebSocket closed with code 1006 @ https://www.chewnpour.com/assets/vendor-observability-CAC4cAu7.js:16
+[ 5925446ms] [LOG] Attempting reconnect in 12636ms @ https://www.chewnpour.com/assets/vendor-observability-CAC4cAu7.js:16
+[ 5938089ms] [ERROR] WebSocket connection to 'wss://api.chewnpour.com/api/1.31.6/sync' failed: Error in connection establishment: net::ERR_INTERNET_DISCONNECTED @ https://www.chewnpour.com/assets/vendor-auth-DFdc7BfI.js:1
+[ 5938089ms] [LOG] WebSocket closed with code 1006 @ https://www.chewnpour.com/assets/vendor-observability-CAC4cAu7.js:16
+[ 5938090ms] [LOG] Attempting reconnect in 17210ms @ https://www.chewnpour.com/assets/vendor-observability-CAC4cAu7.js:16
+[ 5955305ms] [ERROR] WebSocket connection to 'wss://api.chewnpour.com/api/1.31.6/sync' failed: Error in connection establishment: net::ERR_INTERNET_DISCONNECTED @ https://www.chewnpour.com/assets/vendor-auth-DFdc7BfI.js:1
+[ 5955306ms] [LOG] WebSocket closed with code 1006 @ https://www.chewnpour.com/assets/vendor-observability-CAC4cAu7.js:16
+[ 5955306ms] [LOG] Attempting reconnect in 15840ms @ https://www.chewnpour.com/assets/vendor-observability-CAC4cAu7.js:16
+[ 5971150ms] [ERROR] WebSocket connection to 'wss://api.chewnpour.com/api/1.31.6/sync' failed: Error in connection establishment: net::ERR_INTERNET_DISCONNECTED @ https://www.chewnpour.com/assets/vendor-auth-DFdc7BfI.js:1
+[ 5971150ms] [LOG] WebSocket closed with code 1006 @ https://www.chewnpour.com/assets/vendor-observability-CAC4cAu7.js:16
+[ 5971151ms] [LOG] Attempting reconnect in 14128ms @ https://www.chewnpour.com/assets/vendor-observability-CAC4cAu7.js:16
+[ 5985286ms] [ERROR] WebSocket connection to 'wss://api.chewnpour.com/api/1.31.6/sync' failed: Error in connection establishment: net::ERR_INTERNET_DISCONNECTED @ https://www.chewnpour.com/assets/vendor-auth-DFdc7BfI.js:1
+[ 5985286ms] [LOG] WebSocket closed with code 1006 @ https://www.chewnpour.com/assets/vendor-observability-CAC4cAu7.js:16
+[ 5985287ms] [LOG] Attempting reconnect in 16697ms @ https://www.chewnpour.com/assets/vendor-observability-CAC4cAu7.js:16
+[ 6001993ms] [ERROR] WebSocket connection to 'wss://api.chewnpour.com/api/1.31.6/sync' failed: Error in connection establishment: net::ERR_INTERNET_DISCONNECTED @ https://www.chewnpour.com/assets/vendor-auth-DFdc7BfI.js:1
+[ 6001994ms] [LOG] WebSocket closed with code 1006 @ https://www.chewnpour.com/assets/vendor-observability-CAC4cAu7.js:16
+[ 6001994ms] [LOG] Attempting reconnect in 18249ms @ https://www.chewnpour.com/assets/vendor-observability-CAC4cAu7.js:16
+[ 6020251ms] [ERROR] WebSocket connection to 'wss://api.chewnpour.com/api/1.31.6/sync' failed: Error in connection establishment: net::ERR_INTERNET_DISCONNECTED @ https://www.chewnpour.com/assets/vendor-auth-DFdc7BfI.js:1
+[ 6020252ms] [LOG] WebSocket closed with code 1006 @ https://www.chewnpour.com/assets/vendor-observability-CAC4cAu7.js:16
+[ 6020252ms] [LOG] Attempting reconnect in 22906ms @ https://www.chewnpour.com/assets/vendor-observability-CAC4cAu7.js:16
+[ 6043184ms] [ERROR] WebSocket connection to 'wss://api.chewnpour.com/api/1.31.6/sync' failed: Error in connection establishment: net::ERR_INTERNET_DISCONNECTED @ https://www.chewnpour.com/assets/vendor-auth-DFdc7BfI.js:1
+[ 6043185ms] [LOG] WebSocket closed with code 1006 @ https://www.chewnpour.com/assets/vendor-observability-CAC4cAu7.js:16
+[ 6043185ms] [LOG] Attempting reconnect in 14384ms @ https://www.chewnpour.com/assets/vendor-observability-CAC4cAu7.js:16
+[ 6057574ms] [ERROR] WebSocket connection to 'wss://api.chewnpour.com/api/1.31.6/sync' failed: Error in connection establishment: net::ERR_INTERNET_DISCONNECTED @ https://www.chewnpour.com/assets/vendor-auth-DFdc7BfI.js:1
+[ 6057574ms] [LOG] WebSocket closed with code 1006 @ https://www.chewnpour.com/assets/vendor-observability-CAC4cAu7.js:16
+[ 6057575ms] [LOG] Attempting reconnect in 10329ms @ https://www.chewnpour.com/assets/vendor-observability-CAC4cAu7.js:16
+[ 6067910ms] [ERROR] WebSocket connection to 'wss://api.chewnpour.com/api/1.31.6/sync' failed: Error in connection establishment: net::ERR_INTERNET_DISCONNECTED @ https://www.chewnpour.com/assets/vendor-auth-DFdc7BfI.js:1
+[ 6067910ms] [LOG] WebSocket closed with code 1006 @ https://www.chewnpour.com/assets/vendor-observability-CAC4cAu7.js:16
+[ 6067911ms] [LOG] Attempting reconnect in 19894ms @ https://www.chewnpour.com/assets/vendor-observability-CAC4cAu7.js:16
+[ 6087810ms] [ERROR] WebSocket connection to 'wss://api.chewnpour.com/api/1.31.6/sync' failed: Error in connection establishment: net::ERR_INTERNET_DISCONNECTED @ https://www.chewnpour.com/assets/vendor-auth-DFdc7BfI.js:1
+[ 6087811ms] [LOG] WebSocket closed with code 1006 @ https://www.chewnpour.com/assets/vendor-observability-CAC4cAu7.js:16
+[ 6087811ms] [LOG] Attempting reconnect in 17754ms @ https://www.chewnpour.com/assets/vendor-observability-CAC4cAu7.js:16
+[ 6105575ms] [ERROR] WebSocket connection to 'wss://api.chewnpour.com/api/1.31.6/sync' failed: Error in connection establishment: net::ERR_INTERNET_DISCONNECTED @ https://www.chewnpour.com/assets/vendor-auth-DFdc7BfI.js:1
+[ 6105575ms] [LOG] WebSocket closed with code 1006 @ https://www.chewnpour.com/assets/vendor-observability-CAC4cAu7.js:16
+[ 6105576ms] [LOG] Attempting reconnect in 21403ms @ https://www.chewnpour.com/assets/vendor-observability-CAC4cAu7.js:16
+[ 6126986ms] [ERROR] WebSocket connection to 'wss://api.chewnpour.com/api/1.31.6/sync' failed: Error in connection establishment: net::ERR_INTERNET_DISCONNECTED @ https://www.chewnpour.com/assets/vendor-auth-DFdc7BfI.js:1
+[ 6126987ms] [LOG] WebSocket closed with code 1006 @ https://www.chewnpour.com/assets/vendor-observability-CAC4cAu7.js:16
+[ 6126987ms] [LOG] Attempting reconnect in 21387ms @ https://www.chewnpour.com/assets/vendor-observability-CAC4cAu7.js:16
+[ 6148381ms] [ERROR] WebSocket connection to 'wss://api.chewnpour.com/api/1.31.6/sync' failed: Error in connection establishment: net::ERR_INTERNET_DISCONNECTED @ https://www.chewnpour.com/assets/vendor-auth-DFdc7BfI.js:1
+[ 6148382ms] [LOG] WebSocket closed with code 1006 @ https://www.chewnpour.com/assets/vendor-observability-CAC4cAu7.js:16
+[ 6148382ms] [LOG] Attempting reconnect in 9930ms @ https://www.chewnpour.com/assets/vendor-observability-CAC4cAu7.js:16
+[ 6158319ms] [ERROR] WebSocket connection to 'wss://api.chewnpour.com/api/1.31.6/sync' failed: Error in connection establishment: net::ERR_INTERNET_DISCONNECTED @ https://www.chewnpour.com/assets/vendor-auth-DFdc7BfI.js:1
+[ 6158320ms] [LOG] WebSocket closed with code 1006 @ https://www.chewnpour.com/assets/vendor-observability-CAC4cAu7.js:16
+[ 6158320ms] [LOG] Attempting reconnect in 12250ms @ https://www.chewnpour.com/assets/vendor-observability-CAC4cAu7.js:16
+[ 6170582ms] [ERROR] WebSocket connection to 'wss://api.chewnpour.com/api/1.31.6/sync' failed: Error in connection establishment: net::ERR_INTERNET_DISCONNECTED @ https://www.chewnpour.com/assets/vendor-auth-DFdc7BfI.js:1
+[ 6170582ms] [LOG] WebSocket closed with code 1006 @ https://www.chewnpour.com/assets/vendor-observability-CAC4cAu7.js:16
+[ 6170582ms] [LOG] Attempting reconnect in 23968ms @ https://www.chewnpour.com/assets/vendor-observability-CAC4cAu7.js:16
+[ 6194558ms] [ERROR] WebSocket connection to 'wss://api.chewnpour.com/api/1.31.6/sync' failed: Error in connection establishment: net::ERR_INTERNET_DISCONNECTED @ https://www.chewnpour.com/assets/vendor-auth-DFdc7BfI.js:1
+[ 6194562ms] [LOG] WebSocket closed with code 1006 @ https://www.chewnpour.com/assets/vendor-observability-CAC4cAu7.js:16
+[ 6194562ms] [LOG] Attempting reconnect in 11927ms @ https://www.chewnpour.com/assets/vendor-observability-CAC4cAu7.js:16
+[ 6206494ms] [ERROR] WebSocket connection to 'wss://api.chewnpour.com/api/1.31.6/sync' failed: Error in connection establishment: net::ERR_INTERNET_DISCONNECTED @ https://www.chewnpour.com/assets/vendor-auth-DFdc7BfI.js:1
+[ 6206495ms] [LOG] WebSocket closed with code 1006 @ https://www.chewnpour.com/assets/vendor-observability-CAC4cAu7.js:16
+[ 6206495ms] [LOG] Attempting reconnect in 21543ms @ https://www.chewnpour.com/assets/vendor-observability-CAC4cAu7.js:16
+[ 6228043ms] [ERROR] WebSocket connection to 'wss://api.chewnpour.com/api/1.31.6/sync' failed: Error in connection establishment: net::ERR_INTERNET_DISCONNECTED @ https://www.chewnpour.com/assets/vendor-auth-DFdc7BfI.js:1
+[ 6228044ms] [LOG] WebSocket closed with code 1006 @ https://www.chewnpour.com/assets/vendor-observability-CAC4cAu7.js:16
+[ 6228044ms] [LOG] Attempting reconnect in 23649ms @ https://www.chewnpour.com/assets/vendor-observability-CAC4cAu7.js:16
+[ 6250132ms] [LOG] Network recovery detected, reconnecting immediately @ https://www.chewnpour.com/assets/vendor-observability-CAC4cAu7.js:16
+[ 6250719ms] [LOG] WebSocket reconnected at t=4931.6s after disconnect due to InactiveServer @ https://www.chewnpour.com/assets/vendor-observability-CAC4cAu7.js:16
+[ 6250719ms] [LOG] Network recovery reconnect saved ~2s of waiting @ https://www.chewnpour.com/assets/vendor-observability-CAC4cAu7.js:16
+[ 6250896ms] [ERROR] [CONVEX M(profiles:touchPresence)] [Request ID: 9a1b68225c7e96a8] Server Error
+Uncaught Error: Unauthorized presence heartbeat.
+    at handler (../convex/profiles.ts:234:20)
+ @ https://www.chewnpour.com/assets/vendor-observability-CAC4cAu7.js:16
+[ 6250896ms] [WARNING] [AuthContext] Failed to send presence heartbeat [CONVEX M(profiles:touchPresence)] [Request ID: 9a1b68225c7e96a8] Server Error
+Uncaught Error: Unauthorized presence heartbeat.
+    at handler (../convex/profiles.ts:234:20)
+
+  Called by client @ https://www.chewnpour.com/assets/vendor-observability-CAC4cAu7.js:16
+[ 6250909ms] [ERROR] [CONVEX M(profiles:touchPresence)] [Request ID: 3a8636cc8b413df4] Server Error
+Uncaught Error: Unauthorized presence heartbeat.
+    at handler (../convex/profiles.ts:234:20)
+ @ https://www.chewnpour.com/assets/vendor-observability-CAC4cAu7.js:16
+[ 6250909ms] [WARNING] [AuthContext] Failed to send presence heartbeat [CONVEX M(profiles:touchPresence)] [Request ID: 3a8636cc8b413df4] Server Error
+Uncaught Error: Unauthorized presence heartbeat.
+    at handler (../convex/profiles.ts:234:20)
+
+  Called by client @ https://www.chewnpour.com/assets/vendor-observability-CAC4cAu7.js:16
+[ 6250919ms] [ERROR] [CONVEX M(profiles:touchPresence)] [Request ID: 28267101898d0423] Server Error
+Uncaught Error: Unauthorized presence heartbeat.
+    at handler (../convex/profiles.ts:234:20)
+ @ https://www.chewnpour.com/assets/vendor-observability-CAC4cAu7.js:16
+[ 6250920ms] [WARNING] [AuthContext] Failed to send presence heartbeat [CONVEX M(profiles:touchPresence)] [Request ID: 28267101898d0423] Server Error
+Uncaught Error: Unauthorized presence heartbeat.
+    at handler (../convex/profiles.ts:234:20)
+
+  Called by client @ https://www.chewnpour.com/assets/vendor-observability-CAC4cAu7.js:16
+[ 6250930ms] [ERROR] [CONVEX M(profiles:touchPresence)] [Request ID: ef7dff6914bd1dfb] Server Error
+Uncaught Error: Unauthorized presence heartbeat.
+    at handler (../convex/profiles.ts:234:20)
+ @ https://www.chewnpour.com/assets/vendor-observability-CAC4cAu7.js:16
+[ 6250930ms] [WARNING] [AuthContext] Failed to send presence heartbeat [CONVEX M(profiles:touchPresence)] [Request ID: ef7dff6914bd1dfb] Server Error
+Uncaught Error: Unauthorized presence heartbeat.
+    at handler (../convex/profiles.ts:234:20)
+
+  Called by client @ https://www.chewnpour.com/assets/vendor-observability-CAC4cAu7.js:16
+[ 6250968ms] [ERROR] [CONVEX M(profiles:touchPresence)] [Request ID: 3a914cc809a7c6cc] Server Error
+Uncaught Error: Unauthorized presence heartbeat.
+    at handler (../convex/profiles.ts:234:20)
+ @ https://www.chewnpour.com/assets/vendor-observability-CAC4cAu7.js:16
+[ 6250968ms] [WARNING] [AuthContext] Failed to send presence heartbeat [CONVEX M(profiles:touchPresence)] [Request ID: 3a914cc809a7c6cc] Server Error
+Uncaught Error: Unauthorized presence heartbeat.
+    at handler (../convex/profiles.ts:234:20)
+
+  Called by client @ https://www.chewnpour.com/assets/vendor-observability-CAC4cAu7.js:16
+[ 6250969ms] [ERROR] [CONVEX M(profiles:touchPresence)] [Request ID: 1565ac9720a75dae] Server Error
+Uncaught Error: Unauthorized presence heartbeat.
+    at handler (../convex/profiles.ts:234:20)
+ @ https://www.chewnpour.com/assets/vendor-observability-CAC4cAu7.js:16
+[ 6250969ms] [WARNING] [AuthContext] Failed to send presence heartbeat [CONVEX M(profiles:touchPresence)] [Request ID: 1565ac9720a75dae] Server Error
+Uncaught Error: Unauthorized presence heartbeat.
+    at handler (../convex/profiles.ts:234:20)
+
+  Called by client @ https://www.chewnpour.com/assets/vendor-observability-CAC4cAu7.js:16
+[ 6250973ms] [ERROR] [CONVEX M(profiles:touchPresence)] [Request ID: 115e5a6709cc1833] Server Error
+Uncaught Error: Unauthorized presence heartbeat.
+    at handler (../convex/profiles.ts:234:20)
+ @ https://www.chewnpour.com/assets/vendor-observability-CAC4cAu7.js:16
+[ 6250973ms] [WARNING] [AuthContext] Failed to send presence heartbeat [CONVEX M(profiles:touchPresence)] [Request ID: 115e5a6709cc1833] Server Error
+Uncaught Error: Unauthorized presence heartbeat.
+    at handler (../convex/profiles.ts:234:20)
+
+  Called by client @ https://www.chewnpour.com/assets/vendor-observability-CAC4cAu7.js:16
+[ 6251001ms] [ERROR] [CONVEX M(profiles:touchPresence)] [Request ID: 2cf0a77804ae1584] Server Error
+Uncaught Error: Unauthorized presence heartbeat.
+    at handler (../convex/profiles.ts:234:20)
+ @ https://www.chewnpour.com/assets/vendor-observability-CAC4cAu7.js:16
+[ 6251001ms] [WARNING] [AuthContext] Failed to send presence heartbeat [CONVEX M(profiles:touchPresence)] [Request ID: 2cf0a77804ae1584] Server Error
+Uncaught Error: Unauthorized presence heartbeat.
+    at handler (../convex/profiles.ts:234:20)
+
+  Called by client @ https://www.chewnpour.com/assets/vendor-observability-CAC4cAu7.js:16

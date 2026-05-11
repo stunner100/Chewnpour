@@ -1,0 +1,9 @@
+[     206ms] [WARNING] <meta name="apple-mobile-web-app-capable" content="yes"> is deprecated. Please include <meta name="mobile-web-app-capable" content="yes"> @ https://www.chewnpour.com/dashboard/search:0
+[   10070ms] [LOG] %c[CONVEX Q(search:searchDashboardContent)] [INFO] color:rgb(0, 145, 255) '[Search] dashboard_search_completed' {
+  userId: 'k5707s00kcfad7tgxx78ews9vn85y218',
+  queryLength: 5,
+  kinds: [ 'course', 'topic', 'note' ],
+  totalCount: 7,
+  searchZeroResults: false,
+  searchLatencyMs: 0
+} @ https://www.chewnpour.com/assets/vendor-observability-CAC4cAu7.js:16

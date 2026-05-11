@@ -1,0 +1,109 @@
+- generic [ref=e3]:
+  - complementary [ref=e4]:
+    - generic [ref=e5]:
+      - link "ChewnPour home" [ref=e6] [cursor=pointer]:
+        - /url: /dashboard
+        - generic [ref=e7]:
+          - img [ref=e8]
+          - img [ref=e10]
+        - generic [ref=e11]: ChewnPour
+      - button "menu_open" [ref=e12] [cursor=pointer]:
+        - generic [ref=e13]: menu_open
+    - navigation [ref=e14]:
+      - link "space_dashboard Dashboard" [ref=e15] [cursor=pointer]:
+        - /url: /dashboard
+        - generic [ref=e16]: space_dashboard
+        - generic [ref=e17]: Dashboard
+      - link "auto_stories Library" [ref=e18] [cursor=pointer]:
+        - /url: /dashboard/search
+        - generic [ref=e19]: auto_stories
+        - generic [ref=e20]: Library
+      - link "event_note Study Plan" [ref=e21] [cursor=pointer]:
+        - /url: /dashboard/analysis
+        - generic [ref=e22]: event_note
+        - generic [ref=e23]: Study Plan
+      - link "edit_note Assignments" [ref=e24] [cursor=pointer]:
+        - /url: /dashboard/assignment-helper
+        - generic [ref=e25]: edit_note
+        - generic [ref=e26]: Assignments
+      - link "auto_fix_high Humanizer" [ref=e27] [cursor=pointer]:
+        - /url: /dashboard/humanizer
+        - generic [ref=e28]: auto_fix_high
+        - generic [ref=e29]: Humanizer
+      - link "forum Community" [ref=e30] [cursor=pointer]:
+        - /url: /dashboard/community
+        - generic [ref=e31]: forum
+        - generic [ref=e32]: Community
+    - generic [ref=e33]:
+      - link "workspace_premium Subscription" [ref=e34] [cursor=pointer]:
+        - /url: /subscription
+        - generic [ref=e35]: workspace_premium
+        - generic [ref=e36]: Subscription
+      - link "person Profile" [ref=e37] [cursor=pointer]:
+        - /url: /profile
+        - generic [ref=e38]: person
+        - generic [ref=e39]: Profile
+      - generic [ref=e40]:
+        - generic [ref=e41]: S
+        - paragraph [ref=e43]: Student
+  - main [ref=e44]:
+    - generic [ref=e45]:
+      - main [ref=e46]:
+        - generic [ref=e48]:
+          - generic [ref=e49]:
+            - link "close" [ref=e50] [cursor=pointer]:
+              - /url: /dashboard/topic/k979wk61td20xzzq5bp19bza4d85ygy1
+              - generic [ref=e51]: close
+            - generic [ref=e52]:
+              - heading "Exam" [level=1] [ref=e53]
+              - paragraph [ref=e54]: What Is Photosynthesis?
+          - generic [ref=e55]:
+            - generic [ref=e56]:
+              - text: "1"
+              - generic [ref=e57]: / 5
+            - generic [ref=e58]:
+              - generic [ref=e59]: timer
+              - text: 44:51
+        - generic [ref=e63]:
+          - generic [ref=e64]:
+            - generic [ref=e65]:
+              - generic [ref=e66]: quiz
+              - generic [ref=e67]: Question 1
+            - heading "What is the primary function of photosynthesis according to the lesson?" [level=2] [ref=e68]
+          - generic [ref=e69]:
+            - button "A To convert light energy into chemical energy stored in glucose" [ref=e70] [cursor=pointer]:
+              - generic [ref=e71]: A
+              - generic [ref=e72]: To convert light energy into chemical energy stored in glucose
+            - button "B To produce oxygen only" [ref=e73] [cursor=pointer]:
+              - generic [ref=e74]: B
+              - generic [ref=e75]: To produce oxygen only
+            - button "C To absorb carbon dioxide" [ref=e76] [cursor=pointer]:
+              - generic [ref=e77]: C
+              - generic [ref=e78]: To absorb carbon dioxide
+            - button "D To generate heat energy" [ref=e79] [cursor=pointer]:
+              - generic [ref=e80]: D
+              - generic [ref=e81]: To generate heat energy
+          - generic [ref=e82]:
+            - button "arrow_back Previous" [disabled] [ref=e83]:
+              - generic [ref=e84]: arrow_back
+              - generic [ref=e85]: Previous
+            - button "Next arrow_forward" [ref=e86] [cursor=pointer]:
+              - generic [ref=e87]: Next
+              - generic [ref=e88]: arrow_forward
+      - complementary [ref=e89]:
+        - generic [ref=e90]:
+          - generic [ref=e91]:
+            - generic [ref=e92]: Time Remaining
+            - generic [ref=e93]: 44:51
+          - generic [ref=e95]:
+            - generic [ref=e96]: Progress
+            - generic [ref=e97]: 20%
+          - generic [ref=e100]:
+            - generic [ref=e101]: Questions
+            - generic [ref=e102]:
+              - button "1" [ref=e103] [cursor=pointer]
+              - button "2" [ref=e104] [cursor=pointer]
+              - button "3" [ref=e105] [cursor=pointer]
+              - button "4" [ref=e106] [cursor=pointer]
+              - button "5" [ref=e107] [cursor=pointer]
+        - button "Submit Exam" [ref=e109] [cursor=pointer]

@@ -1,0 +1,313 @@
+<!DOCTYPE html>
+
+<html lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>ChewnPour - Flashcards</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+          darkMode: "class",
+          theme: {
+            extend: {
+              "colors": {
+                      "success": "#15803D",
+                      "info-soft": "#DBEAFE",
+                      "surface-muted": "#EFE8DA",
+                      "inverse-primary": "#ffb77d",
+                      "warning": "#D97706",
+                      "on-primary": "#ffffff",
+                      "text-primary": "#1F2933",
+                      "primary-subtle": "#FFFBEB",
+                      "on-error": "#ffffff",
+                      "on-tertiary": "#ffffff",
+                      "on-secondary-fixed": "#3b0900",
+                      "text-muted": "#7B8794",
+                      "border-strong": "#B8AD9A",
+                      "mastery-soft": "#EDE9FE",
+                      "on-primary-fixed": "#2f1500",
+                      "inverse-on-surface": "#ffede3",
+                      "outline": "#887364",
+                      "tertiary-container": "#007abd",
+                      "tertiary-fixed": "#cee5ff",
+                      "tertiary-fixed-dim": "#96ccff",
+                      "surface-soft": "#F5F1E8",
+                      "border-subtle": "#E7E0D3",
+                      "secondary-fixed": "#ffdbd1",
+                      "border-default": "#D8CFBF",
+                      "error-container": "#ffdad6",
+                      "text-secondary": "#52616B",
+                      "on-primary-container": "#fffbff",
+                      "success-soft": "#DCFCE7",
+                      "on-tertiary-container": "#fdfcff",
+                      "warning-soft": "#FEF3C7",
+                      "primary": "#8d4b00",
+                      "secondary-container": "#ff987b",
+                      "on-surface": "#231a13",
+                      "primary-fixed": "#ffdcc3",
+                      "surface-container-high": "#f7e5d9",
+                      "on-tertiary-fixed-variant": "#004a75",
+                      "background": "#FAF8F3",
+                      "info": "#2563EB",
+                      "on-background": "#231a13",
+                      "on-tertiary-fixed": "#001d32",
+                      "primary-fixed-dim": "#ffb77d",
+                      "mastery": "#7C3AED",
+                      "on-secondary": "#ffffff",
+                      "primary-soft": "#FEF3C7",
+                      "surface-bright": "#fff8f5",
+                      "surface-container-lowest": "#ffffff",
+                      "surface-container-low": "#fff1e9",
+                      "surface-dim": "#e9d7cb",
+                      "error-soft": "#FEE2E2",
+                      "on-error-container": "#93000a",
+                      "surface": "#FFFFFF",
+                      "on-secondary-fixed-variant": "#792f1a",
+                      "on-secondary-container": "#782e19",
+                      "primary-hover": "#B45309",
+                      "ai-subtle": "#FFF7F4",
+                      "surface-variant": "#f2dfd3",
+                      "on-surface-variant": "#554336",
+                      "secondary-fixed-dim": "#ffb5a0",
+                      "tertiary": "#006096",
+                      "surface-container": "#fdeade",
+                      "primary-container": "#b15f00",
+                      "ai-soft": "#F8E3DC",
+                      "surface-tint": "#904d00",
+                      "on-primary-fixed-variant": "#6e3900",
+                      "error": "#DC2626",
+                      "outline-variant": "#dbc2b0",
+                      "surface-container-highest": "#f2dfd3",
+                      "secondary": "#98462f",
+                      "inverse-surface": "#392e26"
+              },
+              "borderRadius": {
+                      "DEFAULT": "0.25rem",
+                      "lg": "0.5rem",
+                      "xl": "0.75rem",
+                      "full": "9999px"
+              },
+              "spacing": {
+                      "space-4": "16px",
+                      "space-1": "4px",
+                      "space-6": "24px",
+                      "sidebar-width": "260px",
+                      "container-max": "1280px",
+                      "space-12": "48px",
+                      "space-5": "20px",
+                      "space-8": "32px",
+                      "space-3": "12px",
+                      "panel-right-width": "320px",
+                      "space-2": "8px",
+                      "space-10": "40px",
+                      "space-16": "64px"
+              },
+              "fontFamily": {
+                      "headline-sm": [
+                              "Plus Jakarta Sans"
+                      ],
+                      "body-base": [
+                              "Inter"
+                      ],
+                      "label-md": [
+                              "Inter"
+                      ],
+                      "body-lg": [
+                              "Inter"
+                      ],
+                      "display-lg": [
+                              "Plus Jakarta Sans"
+                      ],
+                      "display-xl": [
+                              "Plus Jakarta Sans"
+                      ],
+                      "body-sm": [
+                              "Inter"
+                      ],
+                      "headline-md": [
+                              "Plus Jakarta Sans"
+                      ],
+                      "label-xs": [
+                              "Inter"
+                      ]
+              },
+              "fontSize": {
+                      "headline-sm": [
+                              "20px",
+                              {
+                                      "lineHeight": "1.4",
+                                      "fontWeight": "600"
+                              }
+                      ],
+                      "body-base": [
+                              "16px",
+                              {
+                                      "lineHeight": "1.6",
+                                      "fontWeight": "400"
+                              }
+                      ],
+                      "label-md": [
+                              "14px",
+                              {
+                                      "lineHeight": "1",
+                                      "fontWeight": "600"
+                              }
+                      ],
+                      "body-lg": [
+                              "18px",
+                              {
+                                      "lineHeight": "1.6",
+                                      "fontWeight": "400"
+                              }
+                      ],
+                      "display-lg": [
+                              "32px",
+                              {
+                                      "lineHeight": "1.2",
+                                      "fontWeight": "700"
+                              }
+                      ],
+                      "display-xl": [
+                              "40px",
+                              {
+                                      "lineHeight": "1.2",
+                                      "letterSpacing": "-0.02em",
+                                      "fontWeight": "700"
+                              }
+                      ],
+                      "body-sm": [
+                              "14px",
+                              {
+                                      "lineHeight": "1.5",
+                                      "fontWeight": "400"
+                              }
+                      ],
+                      "headline-md": [
+                              "24px",
+                              {
+                                      "lineHeight": "1.3",
+                                      "fontWeight": "600"
+                              }
+                      ],
+                      "label-xs": [
+                              "12px",
+                              {
+                                      "lineHeight": "1",
+                                      "fontWeight": "500"
+                              }
+                      ]
+              }
+      },
+          },
+        }
+      </script>
+<style>
+        .material-symbols-outlined {
+          font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+    </style>
+</head>
+<body class="bg-background text-text-primary font-body-base overflow-x-hidden min-h-screen">
+<!-- SideNavBar -->
+<nav class="fixed left-0 top-0 h-full w-[260px] p-space-4 flex flex-col gap-space-6 bg-surface-soft border-r border-border-subtle z-40 hidden md:flex">
+<div class="px-space-4 py-space-2 flex items-center gap-space-3">
+<div class="w-8 h-8 rounded-lg bg-primary flex items-center justify-center text-on-primary">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">eco</span>
+</div>
+<div>
+<h1 class="font-headline-md text-headline-md font-bold text-primary">ChewnPour</h1>
+<p class="font-label-xs text-label-xs text-text-secondary mt-1">AI Study Workspace</p>
+</div>
+</div>
+<div class="flex-1 overflow-y-auto">
+<ul class="flex flex-col gap-1">
+<li><a class="flex items-center gap-3 px-4 py-3 text-text-secondary hover:text-primary hover:bg-surface-variant transition-colors duration-200 rounded-xl" href="#"><span class="material-symbols-outlined">dashboard</span><span class="font-label-md text-label-md">Dashboard</span></a></li>
+<li><a class="flex items-center gap-3 px-4 py-3 text-text-secondary hover:text-primary hover:bg-surface-variant transition-colors duration-200 rounded-xl" href="#"><span class="material-symbols-outlined">cloud_upload</span><span class="font-label-md text-label-md">Upload</span></a></li>
+<li><a class="flex items-center gap-3 px-4 py-3 text-text-secondary hover:text-primary hover:bg-surface-variant transition-colors duration-200 rounded-xl" href="#"><span class="material-symbols-outlined">folder</span><span class="font-label-md text-label-md">My Materials</span></a></li>
+<li><a class="flex items-center gap-3 px-4 py-3 text-text-secondary hover:text-primary hover:bg-surface-variant transition-colors duration-200 rounded-xl" href="#"><span class="material-symbols-outlined">menu_book</span><span class="font-label-md text-label-md">Lessons</span></a></li>
+<li><a class="flex items-center gap-3 px-4 py-3 text-text-secondary hover:text-primary hover:bg-surface-variant transition-colors duration-200 rounded-xl" href="#"><span class="material-symbols-outlined">quiz</span><span class="font-label-md text-label-md">Quizzes</span></a></li>
+<li><a class="flex items-center gap-3 px-4 py-3 text-primary font-bold bg-primary-soft rounded-xl scale-[0.98] transition-transform" href="#"><span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">style</span><span class="font-label-md text-label-md">Flashcards</span></a></li>
+<li><a class="flex items-center gap-3 px-4 py-3 text-text-secondary hover:text-primary hover:bg-surface-variant transition-colors duration-200 rounded-xl" href="#"><span class="material-symbols-outlined">smart_toy</span><span class="font-label-md text-label-md">AI Tutor</span></a></li>
+<li><a class="flex items-center gap-3 px-4 py-3 text-text-secondary hover:text-primary hover:bg-surface-variant transition-colors duration-200 rounded-xl" href="#"><span class="material-symbols-outlined">bar_chart</span><span class="font-label-md text-label-md">Progress</span></a></li>
+<li><a class="flex items-center gap-3 px-4 py-3 text-text-secondary hover:text-primary hover:bg-surface-variant transition-colors duration-200 rounded-xl" href="#"><span class="material-symbols-outlined">settings</span><span class="font-label-md text-label-md">Settings</span></a></li>
+</ul>
+</div>
+<div class="mt-auto pt-space-4">
+<button class="w-full bg-primary hover:bg-primary-hover text-on-primary font-label-md text-label-md py-space-3 rounded-xl transition-colors shadow-sm flex items-center justify-center gap-2">
+<span class="material-symbols-outlined">add</span>
+                Generate Material
+            </button>
+</div>
+</nav>
+<!-- Main Content Canvas -->
+<div class="md:ml-[260px] flex flex-col min-h-screen">
+<!-- TopAppBar -->
+<header class="flex justify-between items-center h-16 px-space-8 bg-surface border-b border-border-subtle shadow-sm z-30 sticky top-0 w-full">
+<div class="flex items-center w-full max-w-md bg-surface-muted rounded-full px-4 py-2 border border-border-subtle focus-within:ring-2 focus-within:ring-primary-soft transition-all">
+<span class="material-symbols-outlined text-text-muted mr-2">search</span>
+<input class="bg-transparent border-none focus:ring-0 text-body-sm font-body-sm w-full text-text-primary placeholder:text-text-muted outline-none" placeholder="Search materials, lessons, concepts..." type="text"/>
+</div>
+<div class="flex items-center gap-space-4">
+<button class="text-text-muted hover:text-primary transition-colors hover:bg-surface-soft p-2 rounded-full">
+<span class="material-symbols-outlined">notifications</span>
+</button>
+<button class="text-text-muted hover:text-primary transition-colors hover:bg-surface-soft p-2 rounded-full">
+<span class="material-symbols-outlined">help_outline</span>
+</button>
+<div class="w-9 h-9 rounded-full bg-tertiary-container border-2 border-border-default overflow-hidden flex items-center justify-center text-on-tertiary font-label-md cursor-pointer">
+                    JS
+                </div>
+</div>
+</header>
+<!-- Flashcard Area -->
+<main class="flex-1 flex flex-col items-center justify-center p-space-8 w-full max-w-4xl mx-auto">
+<!-- Progress Context -->
+<div class="w-full flex justify-between items-center mb-space-8 px-space-4">
+<h2 class="font-headline-sm text-headline-sm text-text-primary flex items-center gap-2">
+<span class="material-symbols-outlined text-text-muted">folder</span>
+                    Cognitive Psychology 101
+                </h2>
+<div class="flex items-center gap-3 bg-surface-soft px-4 py-2 rounded-full border border-border-subtle">
+<div class="w-32 h-1.5 bg-border-subtle rounded-full overflow-hidden">
+<div class="h-full bg-primary w-[30%] rounded-full"></div>
+</div>
+<span class="font-label-md text-label-md text-text-secondary">12/40 cards</span>
+</div>
+</div>
+<!-- The Card -->
+<div class="w-full aspect-[3/2] max-w-3xl bg-surface rounded-[24px] shadow-sm hover:shadow-md transition-shadow border border-border-subtle flex flex-col items-center justify-center relative cursor-pointer group mb-space-10">
+<div class="absolute inset-0 bg-gradient-to-b from-transparent to-surface-soft/30 rounded-[24px] pointer-events-none"></div>
+<div class="px-space-12 text-center relative z-10">
+<h3 class="font-display-xl text-display-xl text-text-primary leading-tight tracking-tight">
+                        Neuroplasticity
+                    </h3>
+</div>
+<div class="absolute bottom-space-6 flex items-center gap-2 text-text-muted font-label-xs text-label-xs opacity-70 group-hover:opacity-100 transition-opacity bg-surface-soft px-4 py-1.5 rounded-full">
+<span class="material-symbols-outlined text-[16px]">flip</span>
+<span>Click or press Space to flip</span>
+</div>
+</div>
+<!-- Mastery Actions (Simulated active state for design visibility) -->
+<div class="flex gap-space-4 justify-center w-full max-w-2xl">
+<button class="flex-1 flex flex-col items-center justify-center gap-1 bg-surface hover:bg-error-soft border border-border-subtle hover:border-error-soft py-space-3 rounded-xl transition-all shadow-sm group">
+<span class="font-label-md text-label-md text-text-primary group-hover:text-error transition-colors">Again</span>
+<span class="font-label-xs text-label-xs text-text-muted">&lt; 1m</span>
+</button>
+<button class="flex-1 flex flex-col items-center justify-center gap-1 bg-surface hover:bg-warning-soft border border-border-subtle hover:border-warning-soft py-space-3 rounded-xl transition-all shadow-sm group">
+<span class="font-label-md text-label-md text-text-primary group-hover:text-warning transition-colors">Hard</span>
+<span class="font-label-xs text-label-xs text-text-muted">6m</span>
+</button>
+<button class="flex-1 flex flex-col items-center justify-center gap-1 bg-surface hover:bg-primary-soft border border-border-subtle hover:border-primary-soft py-space-3 rounded-xl transition-all shadow-sm group">
+<span class="font-label-md text-label-md text-text-primary group-hover:text-primary-hover transition-colors">Good</span>
+<span class="font-label-xs text-label-xs text-text-muted">10m</span>
+</button>
+<button class="flex-1 flex flex-col items-center justify-center gap-1 bg-surface hover:bg-success-soft border border-border-subtle hover:border-success-soft py-space-3 rounded-xl transition-all shadow-sm group">
+<span class="font-label-md text-label-md text-text-primary group-hover:text-success transition-colors">Easy</span>
+<span class="font-label-xs text-label-xs text-text-muted">4d</span>
+</button>
+</div>
+</main>
+</div>
+</body></html>

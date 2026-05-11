@@ -600,3 +600,70 @@ html.is-safari .safari-backdrop {
         animation: none;
     }
 }
+
+/* ── ChewnPour Study Design System Theme Scope ── */
+.cp-theme {
+    --background: 250 248 243;
+    --cp-primary: #D97706;
+    --cp-primary-hover: #B45309;
+}
+
+.cp-theme .bg-primary,
+.cp-theme .bg-primary-500 {
+    background-color: #D97706 !important;
+}
+
+.cp-theme .text-primary,
+.cp-theme .text-primary-500 {
+    color: #D97706 !important;
+}
+
+.cp-theme .border-primary,
+.cp-theme .border-primary-500 {
+    border-color: #D97706 !important;
+}
+
+.cp-theme .hover\:bg-primary-hover:hover {
+    background-color: #B45309 !important;
+}
+
+.cp-theme .hover\:bg-primary:hover {
+    background-color: #D97706 !important;
+}
+
+.cp-theme .hover\:text-primary:hover {
+    color: #D97706 !important;
+}
+
+.cp-theme .hover\:border-primary:hover {
+    border-color: #D97706 !important;
+}
+
+.cp-theme .focus\:ring-primary-soft:focus {
+    --tw-ring-color: #FEF3C7 !important;
+}
+
+.cp-theme .focus-within\:ring-primary-soft:focus-within {
+    --tw-ring-color: #FEF3C7 !important;
+}
+
+.cp-theme .ring-primary-soft {
+    --tw-ring-color: #FEF3C7 !important;
+}
+
+.cp-theme .selection\:bg-primary-soft::selection {
+    background-color: #FEF3C7 !important;
+}
+
+.cp-theme .selection\:text-primary::selection {
+    color: #D97706 !important;
+}
+
+.cp-theme .bg-gradient-to-r.from-surface {
+    --tw-gradient-from: #FFFFFF !important;
+    --tw-gradient-stops: var(--tw-gradient-from), var(--tw-gradient-to) !important;
+}
+
+.cp-theme .bg-surface {
+  background-color: #FFFFFF !important;
+}
