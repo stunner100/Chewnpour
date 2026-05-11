@@ -524,9 +524,51 @@ const LandingPageStyles = () => (
         @media (max-width: 809px) {
             .transform-grid {
                 grid-template-columns: 1fr;
-                grid-auto-rows: 280px;
+                grid-auto-rows: auto;
             }
-            .transform-card { grid-column: span 1 !important; height: 280px; }
+            .transform-card {
+                grid-column: span 1 !important;
+                min-height: 320px;
+                height: auto;
+                display: flex !important;
+                flex-direction: column;
+            }
+            .transform-card-copy {
+                width: min(100%, calc(100% - 96px)) !important;
+                line-height: 1.35 !important;
+            }
+            .transform-card-title {
+                position: static !important;
+                inset: auto !important;
+                margin-top: auto;
+                padding-top: 28px;
+            }
+        }
+        @media (max-width: 480px) {
+            .transform-card {
+                min-height: 340px;
+                padding: 18px;
+            }
+            .transform-card-copy {
+                width: 100% !important;
+                padding-right: 72px;
+                font-size: 15px !important;
+            }
+            .transform-card .arrow-pill {
+                position: absolute;
+                top: 18px;
+                right: 18px;
+                width: 56px !important;
+                height: 56px !important;
+            }
+            .transform-card .arrow-icon {
+                width: 28px !important;
+                height: 28px !important;
+            }
+            .transform-card-title {
+                font-size: 28px !important;
+                line-height: 1.12 !important;
+            }
         }
 
         .arrow-pill { background: ${ACCENT}; }
@@ -811,6 +853,7 @@ const TransformSection = () => (
                         />
                         <div className="relative z-[1] flex items-start justify-between gap-4">
                             <p
+                                className="transform-card-copy"
                                 style={{
                                     color: 'rgb(217, 217, 217)',
                                     fontFamily: 'Outfit, sans-serif',
@@ -827,12 +870,24 @@ const TransformSection = () => (
                                 className={`shrink-0 inline-flex items-center justify-center transition-colors duration-300 arrow-pill ${isHighlight ? 'is-highlight' : ''}`}
                                 style={{ width: 71, height: 71, borderRadius: 333 }}
                             >
-                                <span className="material-symbols-outlined arrow-icon" style={{ fontSize: 34 }}>
-                                    arrow_outward
-                                </span>
+                                <svg
+                                    className="arrow-icon"
+                                    aria-hidden="true"
+                                    viewBox="0 0 24 24"
+                                    width="34"
+                                    height="34"
+                                    fill="none"
+                                    stroke="currentColor"
+                                    strokeWidth="2.5"
+                                    strokeLinecap="round"
+                                    strokeLinejoin="round"
+                                >
+                                    <path d="M7 17 17 7" />
+                                    <path d="M8 7h9v9" />
+                                </svg>
                             </span>
                         </div>
-                        <h4 className="absolute inset-x-5 bottom-5 z-[1] text-[28px] font-medium leading-[33.6px] text-white [font-family:Outfit,sans-serif]">
+                        <h4 className="transform-card-title absolute inset-x-5 bottom-5 z-[1] text-[28px] font-medium leading-[33.6px] text-white [font-family:Outfit,sans-serif]">
                             {card.title}
                         </h4>
                     </a>
