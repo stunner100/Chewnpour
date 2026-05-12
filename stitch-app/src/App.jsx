@@ -265,6 +265,17 @@ const RedirectLegacyFlashcardsRoute = () => {
   return <Navigate to={topicId ? `/dashboard/flashcards/${topicId}` : '/dashboard/flashcards'} replace />;
 };
 
+const TopicDetailRoute = () => {
+  const { topicId } = useParams();
+  return (
+    <ProtectedRoute>
+      <DashboardLayout>
+        <TopicDetail key={topicId || 'topic'} />
+      </DashboardLayout>
+    </ProtectedRoute>
+  );
+};
+
 function App() {
   return (
     <LazyMotion features={domAnimation}>
@@ -306,7 +317,7 @@ function App() {
         <Route path="/dashboard/processing" element={<Navigate to="/dashboard/library" replace />} />
         <Route path="/dashboard/processing/:courseId" element={<Navigate to="/dashboard/library" replace />} />
         <Route path="/dashboard/course/:courseId" element={<Navigate to="/dashboard/lessons" replace />} />
-        <Route path="/dashboard/topic/:topicId" element={withSuspense(<ProtectedRoute><DashboardLayout><TopicDetail /></DashboardLayout></ProtectedRoute>)} />
+        <Route path="/dashboard/topic/:topicId" element={withSuspense(<TopicDetailRoute />)} />
         <Route path="/dashboard/exam" element={<Navigate to="/dashboard/quiz" replace />} />
         <Route path="/dashboard/exam/:topicId" element={<RedirectLegacyQuizRoute />} />
         <Route path="/dashboard/results" element={<Navigate to="/dashboard/progress" replace />} />

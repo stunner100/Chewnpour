@@ -25,7 +25,8 @@ for (const snippet of [
   '<Route path="/dashboard/processing/:courseId" element={<Navigate to="/dashboard/library" replace />} />',
   '<Route path="/dashboard/course/:courseId" element={<Navigate to="/dashboard/lessons" replace />} />',
   "const TopicDetail = lazyRoute(() => import('./pages/TopicDetail'), { componentName: 'TopicDetail', namedExport: 'TopicDetail' });",
-  '<Route path="/dashboard/topic/:topicId" element={withSuspense(<ProtectedRoute><DashboardLayout><TopicDetail /></DashboardLayout></ProtectedRoute>)} />',
+  'const TopicDetailRoute = () => {',
+  '<Route path="/dashboard/topic/:topicId" element={withSuspense(<TopicDetailRoute />)} />',
   '<Route path="/dashboard/lessons/:lessonId" element={<RedirectLegacyLessonDetailRoute />} />',
   '<Route path="/dashboard/exam" element={<Navigate to="/dashboard/quiz" replace />} />',
   '<Route path="/dashboard/exam/:topicId" element={<RedirectLegacyQuizRoute />} />',
@@ -72,6 +73,17 @@ for (const forbiddenSnippet of [
 ]) {
   if (appSource.includes(forbiddenSnippet)) {
     throw new Error(`Old route/component should not be wired into App.jsx: ${forbiddenSnippet}`);
+  }
+}
+
+for (const forbiddenLessonsSnippet of [
+  'useParams',
+  'LessonDetailView',
+  'DetailSection',
+  'api.topics.getTopicWithQuestions',
+]) {
+  if (lessonsSource.includes(forbiddenLessonsSnippet)) {
+    throw new Error(`LessonMemoryNeuralBasis.jsx should not retain old lesson-detail rendering: ${forbiddenLessonsSnippet}`);
   }
 }
 
