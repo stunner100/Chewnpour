@@ -1,7 +1,7 @@
 import { action, internalQuery, mutation, query } from "./_generated/server";
 import { paginationOptsValidator } from "convex/server";
 import { v } from "convex/values";
-import { components, internal } from "./_generated/api";
+import { api, components, internal } from "./_generated/api";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 const ACTIVE_USERS_5M_WINDOW_MS = 5 * 60 * 1000;
@@ -823,6 +823,315 @@ const collectRowsByIndex = async (
         .query(tableName)
         .withIndex(indexName, (q: any) => q.eq(fieldName, value))
         .collect();
+
+const normalizeBackfillLimit = (value: unknown, fallback: number, max: number) => {
+    const parsed = Math.floor(Number(value) || fallback);
+    return Math.max(1, Math.min(max, parsed));
+};
+
+const normalizeOptionalUserId = (value: unknown) =>
+    String(value || "").trim();
+
+const isTopicQuizRoute = (topic: any) =>
+    String(topic?.assessmentRoute || "topic_quiz").trim() === "topic_quiz";
+
+const hasUsableObjectiveContent = (topic: any) =>
+    Number(topic?.usableObjectiveCount || topic?.usableMcqCount || 0) > 0;
+
+const hasObjectiveQuestionRows = (questions: any[]) =>
+    questions.some((question) => String(question?.questionType || "").trim() !== "essay");
+
+const hasTopicLessonContent = (topic: any) =>
+    String(topic?.content || "").trim().length > 0
+    || Boolean(topic?.contentGraph)
+    || (
+        Array.isArray(topic?.structuredLearningObjectives)
+        && topic.structuredLearningObjectives.length > 0
+    );
+
+const getCourseUploadIds = async (ctx: any, course: any) => {
+    const uploadIds: any[] = [];
+    if (course?.uploadId) uploadIds.push(course.uploadId);
+
+    const courseUploads = await collectRowsByIndex(
+        ctx,
+        "courseUploads",
+        "by_courseId",
+        "courseId",
+        course._id
+    );
+    for (const link of courseUploads) {
+        if (link?.uploadId && !uploadIds.some((uploadId) => String(uploadId) === String(link.uploadId))) {
+            uploadIds.push(link.uploadId);
+        }
+    }
+
+    return uploadIds;
+};
+
+export const listMissingStudyContentBackfillCandidatesInternal = internalQuery({
+    args: {
+        userId: v.optional(v.string()),
+        courseId: v.optional(v.id("courses")),
+        maxCourses: v.optional(v.number()),
+        maxTopics: v.optional(v.number()),
+        includeCourseTopics: v.optional(v.boolean()),
+        includeQuizQuestions: v.optional(v.boolean()),
+    },
+    handler: async (ctx, args) => {
+        const userId = normalizeOptionalUserId(args.userId);
+        const maxCourses = normalizeBackfillLimit(args.maxCourses, 25, 200);
+        const maxTopics = normalizeBackfillLimit(args.maxTopics, 100, 1000);
+        const includeCourseTopics = args.includeCourseTopics !== false;
+        const includeQuizQuestions = args.includeQuizQuestions !== false;
+
+        let courses: any[] = [];
+        if (args.courseId) {
+            const course = await ctx.db.get(args.courseId);
+            courses = course ? [course] : [];
+        } else if (userId) {
+            courses = await ctx.db
+                .query("courses")
+                .withIndex("by_userId", (q: any) => q.eq("userId", userId))
+                .order("desc")
+                .collect();
+        } else {
+            courses = await ctx.db
+                .query("courses")
+                .order("desc")
+                .take(maxCourses);
+        }
+
+        const selectedCourses = courses
+            .filter((course) => !userId || String(course?.userId || "") === userId)
+            .slice(0, maxCourses);
+
+        const courseTopicBackfills: any[] = [];
+        const quizQuestionBackfills: any[] = [];
+        const quizReadinessRefreshes: any[] = [];
+        const skipped: any[] = [];
+        let scannedTopicCount = 0;
+
+        for (const course of selectedCourses) {
+            const topics = await ctx.db
+                .query("topics")
+                .withIndex("by_courseId", (q: any) => q.eq("courseId", course._id))
+                .collect();
+
+            if (includeCourseTopics && topics.length === 0) {
+                const uploadIds = await getCourseUploadIds(ctx, course);
+                const uploadId = uploadIds[0] || null;
+                if (uploadId) {
+                    courseTopicBackfills.push({
+                        courseId: course._id,
+                        uploadId,
+                        userId: course.userId,
+                        title: String(course.title || "Untitled course"),
+                        reason: "course_has_no_topics",
+                    });
+                } else {
+                    skipped.push({
+                        courseId: course._id,
+                        title: String(course.title || "Untitled course"),
+                        reason: "course_has_no_source_upload",
+                    });
+                }
+            }
+
+            if (!includeQuizQuestions || scannedTopicCount >= maxTopics) {
+                continue;
+            }
+
+            for (const topic of topics) {
+                if (scannedTopicCount >= maxTopics) break;
+                scannedTopicCount += 1;
+                if (!isTopicQuizRoute(topic) || hasUsableObjectiveContent(topic)) {
+                    continue;
+                }
+
+                const questions = await ctx.db
+                    .query("questions")
+                    .withIndex("by_topicId", (q: any) => q.eq("topicId", topic._id))
+                    .collect();
+
+                if (hasObjectiveQuestionRows(questions)) {
+                    quizReadinessRefreshes.push({
+                        topicId: topic._id,
+                        courseId: course._id,
+                        userId: course.userId,
+                        title: String(topic.title || "Untitled topic"),
+                        reason: "objective_questions_exist_but_readiness_is_stale",
+                    });
+                    continue;
+                }
+
+                quizQuestionBackfills.push({
+                    topicId: topic._id,
+                    courseId: course._id,
+                    userId: course.userId,
+                    title: String(topic.title || "Untitled topic"),
+                    topicContentMissing: !hasTopicLessonContent(topic),
+                    reason: "topic_has_no_objective_questions",
+                });
+            }
+        }
+
+        return {
+            scannedCourseCount: selectedCourses.length,
+            scannedTopicCount,
+            courseTopicBackfills,
+            quizQuestionBackfills,
+            quizReadinessRefreshes,
+            skipped,
+        };
+    },
+});
+
+export const scheduleMissingStudyContentBackfill = action({
+    args: {
+        email: v.optional(v.string()),
+        userId: v.optional(v.string()),
+        courseId: v.optional(v.id("courses")),
+        global: v.optional(v.boolean()),
+        dryRun: v.optional(v.boolean()),
+        maxCourses: v.optional(v.number()),
+        maxTopics: v.optional(v.number()),
+        includeCourseTopics: v.optional(v.boolean()),
+        includeQuizQuestions: v.optional(v.boolean()),
+    },
+    handler: async (ctx, args) => {
+        const access = await ctx.runQuery(internal.admin.getAdminAccessStatusInternal, {});
+        if (!access?.authUserId) {
+            throw new Error("Admin sign-in required.");
+        }
+        if (!access.allowlistConfigured || !access.isAllowed) {
+            throw new Error("Admin access required.");
+        }
+
+        const dryRun = args.dryRun !== false;
+        const maxCourses = normalizeBackfillLimit(args.maxCourses, 25, 200);
+        const maxTopics = normalizeBackfillLimit(args.maxTopics, 100, 1000);
+        const targetUserIds = new Set<string>();
+        const requestedUserId = normalizeOptionalUserId(args.userId);
+        if (requestedUserId) {
+            targetUserIds.add(requestedUserId);
+        }
+
+        const requestedEmail = normalizeEmail(args.email);
+        if (requestedEmail) {
+            const authUsersResult = await fetchBetterAuthRows(ctx, {
+                model: "user",
+                where: [{ field: "email", value: requestedEmail }],
+                sortBy: { field: "createdAt", direction: "asc" },
+            });
+            for (const authUser of authUsersResult.rows) {
+                const authUserId = normalizeAuthUserId(authUser);
+                if (authUserId) targetUserIds.add(authUserId);
+            }
+            if (targetUserIds.size === 0) {
+                throw new Error(`No account found for ${requestedEmail}.`);
+            }
+        }
+
+        if (!args.global && !args.courseId && targetUserIds.size === 0) {
+            targetUserIds.add(access.authUserId);
+        }
+
+        const scopes = args.courseId || args.global
+            ? [null]
+            : Array.from(targetUserIds);
+        const aggregate = {
+            scannedCourseCount: 0,
+            scannedTopicCount: 0,
+            courseTopicBackfills: [] as any[],
+            quizQuestionBackfills: [] as any[],
+            quizReadinessRefreshes: [] as any[],
+            skipped: [] as any[],
+        };
+
+        for (const scopedUserId of scopes) {
+            const result = await ctx.runQuery(
+                (internal as any).admin.listMissingStudyContentBackfillCandidatesInternal,
+                {
+                    userId: scopedUserId || undefined,
+                    courseId: args.courseId,
+                    maxCourses,
+                    maxTopics,
+                    includeCourseTopics: args.includeCourseTopics,
+                    includeQuizQuestions: args.includeQuizQuestions,
+                }
+            );
+
+            aggregate.scannedCourseCount += Number(result?.scannedCourseCount || 0);
+            aggregate.scannedTopicCount += Number(result?.scannedTopicCount || 0);
+            aggregate.courseTopicBackfills.push(...(Array.isArray(result?.courseTopicBackfills) ? result.courseTopicBackfills : []));
+            aggregate.quizQuestionBackfills.push(...(Array.isArray(result?.quizQuestionBackfills) ? result.quizQuestionBackfills : []));
+            aggregate.quizReadinessRefreshes.push(...(Array.isArray(result?.quizReadinessRefreshes) ? result.quizReadinessRefreshes : []));
+            aggregate.skipped.push(...(Array.isArray(result?.skipped) ? result.skipped : []));
+        }
+
+        let scheduledCourseTopicCount = 0;
+        let scheduledQuizQuestionCount = 0;
+        let scheduledReadinessRefreshCount = 0;
+
+        if (!dryRun) {
+            for (const candidate of aggregate.courseTopicBackfills) {
+                await ctx.scheduler.runAfter(0, (api as any).ai.processUploadedFile, {
+                    uploadId: candidate.uploadId,
+                    courseId: candidate.courseId,
+                    userId: candidate.userId,
+                });
+                scheduledCourseTopicCount += 1;
+            }
+
+            for (const candidate of aggregate.quizReadinessRefreshes) {
+                await ctx.scheduler.runAfter(0, internal.topics.refreshTopicExamReadinessInternal, {
+                    topicId: candidate.topicId,
+                });
+                scheduledReadinessRefreshCount += 1;
+            }
+
+            for (const candidate of aggregate.quizQuestionBackfills) {
+                await ctx.scheduler.runAfter(0, internal.ai.retryAssessmentGapFillInternal, {
+                    topicId: candidate.topicId,
+                    allowObjective: true,
+                    allowEssay: false,
+                    reason: "admin_missing_study_content_backfill",
+                });
+                scheduledQuizQuestionCount += 1;
+            }
+        }
+
+        return {
+            dryRun,
+            scope: {
+                email: requestedEmail || null,
+                userIds: Array.from(targetUserIds),
+                courseId: args.courseId || null,
+                global: args.global === true,
+            },
+            scannedCourseCount: aggregate.scannedCourseCount,
+            scannedTopicCount: aggregate.scannedTopicCount,
+            candidateCounts: {
+                courseTopics: aggregate.courseTopicBackfills.length,
+                quizQuestions: aggregate.quizQuestionBackfills.length,
+                quizReadinessRefreshes: aggregate.quizReadinessRefreshes.length,
+                skipped: aggregate.skipped.length,
+            },
+            scheduledCounts: {
+                courseTopics: scheduledCourseTopicCount,
+                quizQuestions: scheduledQuizQuestionCount,
+                quizReadinessRefreshes: scheduledReadinessRefreshCount,
+            },
+            candidates: {
+                courseTopics: aggregate.courseTopicBackfills.slice(0, 25),
+                quizQuestions: aggregate.quizQuestionBackfills.slice(0, 25),
+                quizReadinessRefreshes: aggregate.quizReadinessRefreshes.slice(0, 25),
+                skipped: aggregate.skipped.slice(0, 25),
+            },
+        };
+    },
+});
 
 const incrementCleanupCount = (
     counts: Record<string, number>,

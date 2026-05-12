@@ -1,3 +1,27 @@
+# Missing Study Content Backfill
+
+Add an admin-only backfill path that can find lesson/quiz cards with no
+generated content and enqueue the existing generation pipeline. Dry-run is the
+default so staging/production data is not mutated by accident.
+
+- [x] Trace the existing upload, topic, and quiz generation pipeline.
+- [x] Add an admin-only audit/backfill action.
+- [x] Add regression coverage for dry-run safety and existing generator reuse.
+- [x] Verify with targeted tests, lint, and build.
+- [x] Commit and push the change.
+
+## Review
+
+- Added `admin.scheduleMissingStudyContentBackfill` for admin-only dry-run and
+  scheduling of missing generated study content.
+- Reuses existing generators: `ai.processUploadedFile` for courses with no
+  topics, `ai.retryAssessmentGapFillInternal` for topic quiz gaps, and
+  `topics.refreshTopicExamReadinessInternal` for stale readiness.
+- Verification completed with targeted regression checks, lint, production
+  build using a non-Convex-Cloud placeholder URL, and Convex codegen.
+
+---
+
 # Topic Concept Video Generation (Staging Only)
 
 Generate short explainer video clips from a topic's document text using
