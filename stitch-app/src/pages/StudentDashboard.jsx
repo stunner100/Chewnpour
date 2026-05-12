@@ -187,7 +187,7 @@ const StudentDashboard = () => {
                                 <span className="material-symbols-outlined text-[14px]">schedule</span>
                                 {resumeTarget?.lastStudiedAt ? `Last studied ${formatRelativeTime(resumeTarget.lastStudiedAt)}` : 'Ready when you are'}
                             </span>
-                            <h3 className="font-display-lg text-display-lg text-text-primary mb-space-2">
+                            <h3 className="font-display-md text-display-md text-text-primary mb-space-2 leading-tight line-clamp-2 [overflow-wrap:anywhere]">
                                 {resumeCourse?.title || 'No course selected'}
                             </h3>
                             <p className="font-body-base text-body-base text-text-secondary max-w-md">
