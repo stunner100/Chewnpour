@@ -1,4 +1,14 @@
 import React, { useState } from 'react';
+import {
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuGroup,
+    DropdownMenuLabel,
+    DropdownMenuRadioGroup,
+    DropdownMenuRadioItem,
+    DropdownMenuSeparator,
+    DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 
 const suggestedPrompts = [
     { icon: 'lightbulb', text: 'Explain in simple terms' },
@@ -32,11 +42,17 @@ const messages = [
     },
 ];
 
+const MATERIAL_OPTIONS = [
+    { value: 'Biology 101', detail: 'Cellular systems', icon: 'science' },
+    { value: 'World History', detail: 'People and eras', icon: 'public' },
+    { value: 'Introduction to Psychology', detail: 'Mind and behavior', icon: 'psychology' },
+    { value: 'Calculus I', detail: 'Limits and derivatives', icon: 'functions' },
+];
+
 const AIStudyTutor = () => {
     const [inputValue, setInputValue] = useState('');
     const [selectedMaterial, setSelectedMaterial] = useState('Biology 101');
-
-    const materials = ['Biology 101', 'World History', 'Introduction to Psychology', 'Calculus I'];
+    const selectedMaterialOption = MATERIAL_OPTIONS.find((option) => option.value === selectedMaterial) || MATERIAL_OPTIONS[0];
 
     return (
         <div className="flex-1 flex flex-col md:ml-0 h-[calc(100vh-64px)] overflow-hidden">
@@ -49,18 +65,51 @@ const AIStudyTutor = () => {
                             Your personal academic assistant, ready to help you understand complex topics.
                         </p>
                     </div>
-                    <div className="relative">
-                        <select
-                            value={selectedMaterial}
-                            onChange={(e) => setSelectedMaterial(e.target.value)}
-                            className="appearance-none bg-surface border border-border-default rounded-lg pl-4 pr-10 py-2.5 font-label-md text-label-md text-text-primary focus:ring-2 focus:ring-primary-soft focus:border-primary shadow-sm cursor-pointer min-w-[200px]"
-                        >
-                            {materials.map((m) => (
-                                <option key={m} value={m}>{m}</option>
-                            ))}
-                        </select>
-                        <span className="material-symbols-outlined absolute right-3 top-1/2 -translate-y-1/2 text-text-muted pointer-events-none">expand_more</span>
-                    </div>
+                    <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                            <button
+                                type="button"
+                                aria-label="AI tutor material"
+                                className="flex w-full min-w-[220px] sm:w-[320px] items-center gap-space-3 rounded-lg border border-border-default bg-surface px-space-3 py-space-2 text-left font-body-base text-text-primary shadow-sm outline-none transition-all hover:bg-surface-soft focus:border-primary focus:ring-2 focus:ring-primary-soft"
+                            >
+                                <span className="material-symbols-outlined flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-primary-soft text-[18px] text-primary">
+                                    {selectedMaterialOption.icon}
+                                </span>
+                                <span className="flex min-w-0 flex-1 flex-col leading-tight">
+                                    <span className="truncate font-label-md text-label-md text-text-primary">{selectedMaterialOption.value}</span>
+                                    <span className="truncate font-body-sm text-body-sm text-text-muted">{selectedMaterialOption.detail}</span>
+                                </span>
+                                <span className="material-symbols-outlined text-[20px] text-text-muted">unfold_more</span>
+                            </button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end" className="w-[var(--radix-dropdown-menu-trigger-width)] min-w-[320px] p-space-2">
+                            <div className="px-space-2 py-space-2">
+                                <p className="font-label-md text-label-md text-text-primary">Tutor context</p>
+                                <p className="mt-1 font-body-sm text-body-sm text-text-muted">Choose the material this chat should use.</p>
+                            </div>
+                            <DropdownMenuSeparator />
+                            <DropdownMenuGroup>
+                                <DropdownMenuLabel>Materials</DropdownMenuLabel>
+                                <DropdownMenuRadioGroup value={selectedMaterial} onValueChange={setSelectedMaterial}>
+                                    {MATERIAL_OPTIONS.map((material) => (
+                                        <DropdownMenuRadioItem
+                                            key={material.value}
+                                            value={material.value}
+                                            className="items-start gap-space-3 rounded-lg px-space-2 py-space-2 pr-space-8"
+                                        >
+                                            <span className="material-symbols-outlined mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-primary-subtle text-[18px] text-primary">
+                                                {material.icon}
+                                            </span>
+                                            <span className="flex min-w-0 flex-col gap-1">
+                                                <span className="font-label-md text-label-md text-text-primary">{material.value}</span>
+                                                <span className="font-body-sm text-body-sm text-text-muted">{material.detail}</span>
+                                            </span>
+                                        </DropdownMenuRadioItem>
+                                    ))}
+                                </DropdownMenuRadioGroup>
+                            </DropdownMenuGroup>
+                        </DropdownMenuContent>
+                    </DropdownMenu>
                 </div>
 
                 {/* Chat Interface */}
