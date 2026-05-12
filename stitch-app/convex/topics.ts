@@ -800,6 +800,24 @@ export const refreshTopicExamReadinessInternal = internalMutation({
     },
 });
 
+export const patchTopicLessonContentInternal = internalMutation({
+    args: {
+        topicId: v.id("topics"),
+        content: v.string(),
+    },
+    handler: async (ctx, args) => {
+        await ctx.db.patch(args.topicId, {
+            content: args.content,
+            groundingVersion: "grounded-lesson-regeneration-v2",
+        });
+        void ctx.scheduler.runAfter(0, (internal as any).search.upsertSearchDocumentsForEntity, {
+            kind: "topic",
+            entityId: args.topicId,
+        }).catch(() => undefined);
+        return { ok: true };
+    },
+});
+
 export const updateTopicAssessmentMetadataInternal = internalMutation({
     args: {
         topicId: v.id("topics"),

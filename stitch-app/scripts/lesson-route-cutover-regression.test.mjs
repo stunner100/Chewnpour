@@ -22,21 +22,21 @@ const requireExcludes = (source, snippet, label) => {
   }
 };
 
-requireIncludes(appSource, 'const RedirectLegacyLessonRoute = () => {', 'App.jsx');
+requireIncludes(appSource, 'const RedirectLegacyLessonDetailRoute = () => {', 'App.jsx');
+requireIncludes(appSource, 'const TopicDetailRoute = () => {', 'App.jsx');
 requireIncludes(
   appSource,
-  '<Route path="/dashboard/topic/:topicId" element={<RedirectLegacyLessonRoute />} />',
+  '<Route path="/dashboard/topic/:topicId" element={withSuspense(<TopicDetailRoute />)} />',
   'App.jsx',
 );
-requireExcludes(appSource, "const TopicDetail = lazyRoute", 'App.jsx');
-requireExcludes(appSource, '<TopicDetail />', 'App.jsx');
+requireIncludes(appSource, "const TopicDetail = lazyRoute(() => import('./pages/TopicDetail'), { componentName: 'TopicDetail', namedExport: 'TopicDetail' });", 'App.jsx');
+requireIncludes(appSource, "<TopicDetail key={topicId || 'topic'} />", 'App.jsx');
 
-requireIncludes(lessonsSource, 'const LessonDetailView = ({ topic }) => {', 'LessonMemoryNeuralBasis.jsx');
-requireIncludes(lessonsSource, 'api.topics.getTopicWithQuestions', 'LessonMemoryNeuralBasis.jsx');
-requireIncludes(lessonsSource, 'return <LessonDetailView topic={topicDetail} />;', 'LessonMemoryNeuralBasis.jsx');
-requireIncludes(lessonsSource, 'to={`/dashboard/lessons/${resumeTarget.topicId}`}', 'LessonMemoryNeuralBasis.jsx');
-requireIncludes(lessonsSource, 'to={`/dashboard/lessons/${topic._id}`}', 'LessonMemoryNeuralBasis.jsx');
+requireExcludes(lessonsSource, 'const LessonDetailView = ({ topic }) => {', 'LessonMemoryNeuralBasis.jsx');
+requireExcludes(lessonsSource, 'api.topics.getTopicWithQuestions', 'LessonMemoryNeuralBasis.jsx');
+requireExcludes(lessonsSource, 'return <LessonDetailView topic={topicDetail} />;', 'LessonMemoryNeuralBasis.jsx');
+requireIncludes(lessonsSource, 'to={`/dashboard/topic/${resumeTarget.topicId}`}', 'LessonMemoryNeuralBasis.jsx');
+requireIncludes(lessonsSource, 'to={`/dashboard/topic/${topic._id}`}', 'LessonMemoryNeuralBasis.jsx');
 requireExcludes(lessonsSource, "Navigate to={`/dashboard/topic/${lessonId}`}", 'LessonMemoryNeuralBasis.jsx');
-requireExcludes(lessonsSource, 'to={`/dashboard/topic/${resumeTarget.topicId}`}', 'LessonMemoryNeuralBasis.jsx');
 
 console.log('lesson-route-cutover-regression.test.mjs passed');

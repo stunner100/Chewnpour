@@ -6163,10 +6163,33 @@ const LESSON_GENERIC_FILLER_PATTERNS = [
     /^the correct answer comes from following the steps/i,
 ];
 
+const LESSON_LOW_SIGNAL_SOURCE_PATTERNS = [
+    /\bDOI\s+10\.\d{4,9}\//i,
+    /©\s*Springer/i,
+    /\bSpringer-Verlag\b/i,
+    /^Ben-Ari,\s+Mathematical Logic for Computer Science/i,
+    /\bThe weaker formula x\s*[≥>=]/i,
+    /\bIn clausal form,\s*the first form\b/i,
+];
+
 const isGenericLessonFiller = (value: string) => {
     const normalized = normalizeLessonSentence(value, 28);
     if (!normalized) return true;
     return LESSON_GENERIC_FILLER_PATTERNS.some((pattern) => pattern.test(normalized));
+};
+
+const isLowSignalLessonSourceFragment = (value: string) => {
+    const normalized = normalizeStructuredTopicString(value, 600);
+    if (!normalized) return true;
+    return LESSON_LOW_SIGNAL_SOURCE_PATTERNS.some((pattern) => pattern.test(normalized));
+};
+
+const hasWeakLessonContentPattern = (value: string) => {
+    const normalized = String(value || "");
+    if (!normalized.trim()) return true;
+    if (/The correct answer comes from following the steps in order/i.test(normalized)) return true;
+    if (/What is reported for[^?\n]*(?:DOI\s+10\.|Springer-Verlag|©)/i.test(normalized)) return true;
+    return LESSON_LOW_SIGNAL_SOURCE_PATTERNS.some((pattern) => pattern.test(normalized));
 };
 
 const compactGroundedLessonFact = (value: any, maxWords = 26) => {
@@ -6178,6 +6201,9 @@ const compactGroundedLessonFact = (value: any, maxWords = 26) => {
         .trim();
     if (!cleaned) return "";
     const firstSentence = cleaned.split(/(?<=[.!?])\s+/)[0] || cleaned;
+    if (isLowSignalLessonSourceFragment(firstSentence)) {
+        return "";
+    }
     const clauseAware = compactClauseAwareSentence(firstSentence, maxWords);
     if (clauseAware) {
         return clauseAware;
@@ -6326,7 +6352,10 @@ const buildGroundedLessonFactCandidates = (contentGraph: TopicContentGraph, titl
             ...tableFacts,
             ...exampleFacts,
             ...subtopicFacts,
-        ].filter((entry) => !isGenericLessonFiller(String(entry || ""))),
+        ].filter((entry) =>
+            !isGenericLessonFiller(String(entry || ""))
+            && !isLowSignalLessonSourceFragment(String(entry || ""))
+        ),
         12,
         22
     );
@@ -6340,9 +6369,9 @@ const buildGroundedWorkedExampleFallback = (args: {
     const tableFact = buildTableFinanceFactsFromGraph(args.contentGraph)[0] || "";
     const exampleSource = narrativeFact
         || tableFact
-        || args.contentGraph.examples.find(Boolean)
-        || args.contentGraph.sourcePassages.find((entry) => /[:|]/.test(entry.text))?.text
-        || args.contentGraph.keyPoints.find(Boolean)
+        || args.contentGraph.examples.find((entry) => !isLowSignalLessonSourceFragment(entry))
+        || args.contentGraph.sourcePassages.find((entry) => /[:|]/.test(entry.text) && !isLowSignalLessonSourceFragment(entry.text))?.text
+        || args.contentGraph.keyPoints.find((entry) => !isLowSignalLessonSourceFragment(entry))
         || "";
     const normalizedSource = compactGroundedLessonFact(exampleSource, 24);
     const [label, value] = normalizedSource.split(/\s*:\s*/, 2);
@@ -6357,6 +6386,13 @@ const buildGroundedWorkedExampleFallback = (args: {
     ) || args.title;
     const answerValue = normalizeLessonSentence(
         wereMatch ? `${wereMatch[2]} in ${wereMatch[3]}` : (value || normalizedSource),
+        22
+    );
+    const groundedFallbackAnswer = normalizeLessonSentence(
+        normalizedSource
+            || args.contentGraph.description
+            || args.contentGraph.keyPoints.find((entry) => !isLowSignalLessonSourceFragment(entry))
+            || args.title,
         22
     );
     return {
@@ -6386,7 +6422,7 @@ const buildGroundedWorkedExampleFallback = (args: {
             : wereMatch
                 ? `${topicLabel} were ${answerValue}.`
                 : `${topicLabel}: ${answerValue}.`
-            : `The source shows this exact grounded point about ${args.title}: ${normalizedSource}.`,
+            : `${args.title}: ${groundedFallbackAnswer}.`,
     };
 };
 
@@ -6474,7 +6510,12 @@ const normalizeDefinitionEntries = (rawDefinitions: any, fallbackTerms: string[]
     return normalized.slice(0, 8);
 };
 
-const normalizeWorkedExamples = (rawExamples: any, fallbackQuestion: string, fallbackReasoning: string[]) => {
+const normalizeWorkedExamples = (
+    rawExamples: any,
+    fallbackQuestion: string,
+    fallbackReasoning: string[],
+    fallbackAnswer: string
+) => {
     const examples = Array.isArray(rawExamples) ? rawExamples : [];
     const normalized: Array<{ question: string; reasoning: string[]; answer: string }> = [];
 
@@ -6487,6 +6528,7 @@ const normalizeWorkedExamples = (rawExamples: any, fallbackQuestion: string, fal
         );
         const answer = normalizeLessonSentence(answerRaw, 18);
         if (!question || reasoning.length < 2 || !answer) return;
+        if (isGenericLessonFiller(answer) || hasWeakLessonContentPattern(`${question} ${answer}`)) return;
         normalized.push({ question, reasoning, answer });
     };
 
@@ -6501,10 +6543,11 @@ const normalizeWorkedExamples = (rawExamples: any, fallbackQuestion: string, fal
     }
 
     if (normalized.length === 0) {
+        const groundedAnswer = normalizeLessonSentence(fallbackAnswer, 22);
         normalized.push({
             question: fallbackQuestion,
             reasoning: fallbackReasoning.slice(0, 3),
-            answer: "The correct answer comes from following the steps in order and checking the result against the topic rules.",
+            answer: groundedAnswer || "The answer should cite one concrete fact preserved from the topic source evidence.",
         });
     }
 
@@ -6691,7 +6734,8 @@ const buildStructuredLessonFallbackMap = (args: {
         };
         }),
         workedExampleFallback.question,
-        workedExampleFallback.reasoning
+        workedExampleFallback.reasoning,
+        workedExampleFallback.answer
     );
     const formulas = normalizeFormulaEntries(
         contentGraph.formulas.map((formula, index) => ({
@@ -6866,7 +6910,8 @@ const normalizeStructuredLessonMap = (rawMap: any, args: {
     const examples = normalizeWorkedExamples(
         rawMap?.examples,
         fallback.examples[0]?.question || `How do you solve a simple problem involving ${args.title}?`,
-        fallback.examples[0]?.reasoning || []
+        fallback.examples[0]?.reasoning || [],
+        fallback.examples[0]?.answer || ""
     );
     const formulas = normalizeFormulaEntries(rawMap?.formulas);
     const likelyConfusions = normalizeConfusionEntries(rawMap?.likelyConfusions, keyPoints);
@@ -6986,6 +7031,9 @@ const evaluateStructuredLessonQuality = (content: string) => {
     }
     if (quickCheckPairs < 3) {
         reasons.push("Quick Check must include 3 question/answer pairs.");
+    }
+    if (hasWeakLessonContentPattern(normalized)) {
+        reasons.push("Lesson must not include generic worked-example filler or low-signal source fragments.");
     }
 
     const semanticKeys = [
@@ -8401,13 +8449,15 @@ const generateTopicContentForIndex = async (args: {
         description: groundedTopicData.description,
         keyPoints: groundedTopicData.keyPoints,
     });
-    const topicContext = [
-        evidenceContext,
-        groundedStructuredSourceMap,
-        chunkBoundContext,
-        groundedTopicData.sourceContext,
-        fallbackContext,
-    ]
+    const scopedTopicContextParts = evidenceContext
+        ? [evidenceContext, groundedStructuredSourceMap]
+        : [
+            groundedStructuredSourceMap,
+            chunkBoundContext,
+            groundedTopicData.sourceContext,
+            fallbackContext,
+        ];
+    const topicContext = scopedTopicContextParts
         .filter(Boolean)
         .join("\n\n")
         .slice(0, TOPIC_CONTEXT_LIMIT)
@@ -16323,6 +16373,126 @@ const generateGhanaianPidginRewrite = async (args: {
         return bestContent || sourceContent;
     }
 };
+
+// Rebuild stored lesson content without changing topic ids or existing study records.
+const rebuildStoredTopicLessonContent = async (ctx: any, topic: any) => {
+    const contentGraph = normalizeTopicContentGraph(topic?.contentGraph || topic);
+    const topicContext = [
+        buildTopicContentGraphContext(contentGraph),
+        (contentGraph.sourcePassages || []).map((entry) => entry.text).filter(Boolean).join("\n\n"),
+    ]
+        .filter(Boolean)
+        .join("\n\n")
+        .slice(0, TOPIC_CONTEXT_LIMIT)
+        .trim();
+    const title = String(topic?.title || contentGraph.title || "Generated Lesson").trim();
+    const description = String(topic?.description || contentGraph.description || "").trim();
+    const keyPoints = contentGraph.keyPoints.length > 0
+        ? contentGraph.keyPoints
+        : extractTopicKeywords(`${title} ${description}`).slice(0, 8);
+
+    let structuredLessonMap: any = null;
+    try {
+        const lessonResponse = await callInception([
+            {
+                role: "system",
+                content: "You are an expert educator rebuilding source-grounded lesson maps. Return valid JSON only.",
+            },
+            {
+                role: "user",
+                content: buildStructuredLessonMapPrompt({
+                    title,
+                    description,
+                    keyPoints,
+                    topicContext,
+                    contentGraphContext: buildTopicContentGraphContext(contentGraph),
+                    structuredSourceMap: "",
+                    sequencingContext: "",
+                    educationDirective: "Use only the topic content graph and source passages. Do not introduce bibliography snippets, unrelated formulas, or generic study advice.",
+                }),
+            },
+        ], DEFAULT_MODEL, { maxTokens: 6000, responseFormat: "json_object" });
+        structuredLessonMap = parseJsonFromResponse(lessonResponse, "stored structured lesson map");
+    } catch (error) {
+        console.warn("[CourseGeneration] stored_lesson_regeneration_map_fallback", {
+            topicId: String(topic?._id || ""),
+            topicTitle: title,
+            message: error instanceof Error ? error.message : String(error),
+        });
+    }
+
+    const content = await ensureTopicLessonContent({
+        title,
+        description,
+        keyPoints,
+        topicContext,
+        structuredLessonMap,
+        contentGraph,
+    });
+    return {
+        content,
+        quality: evaluateStructuredLessonQuality(content),
+    };
+};
+
+export const regenerateLessonContent = action({
+    args: {
+        topicId: v.optional(v.id("topics")),
+        courseId: v.optional(v.id("courses")),
+        dryRun: v.optional(v.boolean()),
+        maxTopics: v.optional(v.number()),
+    },
+    handler: async (ctx, args) => {
+        const identity = await ctx.auth.getUserIdentity();
+        const authUserId = resolveAuthUserId(identity);
+        assertAuthorizedUser({ authUserId });
+
+        const dryRun = args.dryRun !== false;
+        const maxTopics = Math.max(1, Math.min(25, Math.floor(Number(args.maxTopics || 10))));
+        const topicsToRegenerate: any[] = [];
+
+        if (args.topicId) {
+            const owner = await ctx.runQuery(internal.topics.getTopicOwnerUserIdInternal, { topicId: args.topicId });
+            if (!owner) throw new Error("Topic not found.");
+            assertAuthorizedUser({ authUserId, resourceOwnerUserId: owner.userId });
+            const topic = await ctx.runQuery(internal.topics.getTopicWithQuestionsInternal, { topicId: args.topicId });
+            if (topic) topicsToRegenerate.push(topic);
+        } else if (args.courseId) {
+            const course = await ctx.runQuery(internal.courses.getCourseWithTopicsInternal, { courseId: args.courseId });
+            if (!course) throw new Error("Course not found.");
+            assertAuthorizedUser({ authUserId, resourceOwnerUserId: course.userId });
+            topicsToRegenerate.push(...(Array.isArray(course.topics) ? course.topics : []).slice(0, maxTopics));
+        } else {
+            throw new Error("Provide topicId or courseId.");
+        }
+
+        const results = [];
+        for (const topic of topicsToRegenerate) {
+            const rebuilt = await rebuildStoredTopicLessonContent(ctx, topic);
+            if (!dryRun) {
+                await ctx.runMutation((internal as any).topics.patchTopicLessonContentInternal, {
+                    topicId: topic._id,
+                    content: rebuilt.content,
+                });
+            }
+            results.push({
+                topicId: topic._id,
+                title: topic.title,
+                updated: !dryRun,
+                qualityPassed: rebuilt.quality.passed,
+                qualityReasons: rebuilt.quality.reasons,
+                wordCount: countWords(stripMarkdownLikeFormatting(rebuilt.content)),
+            });
+        }
+
+        return {
+            dryRun,
+            requested: topicsToRegenerate.length,
+            updated: dryRun ? 0 : topicsToRegenerate.length,
+            results,
+        };
+    },
+});
 
 // Re-explain a topic in a different style on demand
 export const reExplainTopic = action({
