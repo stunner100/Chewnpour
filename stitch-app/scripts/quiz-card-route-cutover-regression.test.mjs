@@ -24,9 +24,10 @@ const requireExcludes = (source, snippet, label) => {
 
 requireIncludes(quizSource, 'const targetTopicId = course.firstQuizTopicId || course.firstTopicId;', 'ActiveQuizSession.jsx');
 requireIncludes(quizSource, '? buildObjectiveExamRoute(targetTopicId)', 'ActiveQuizSession.jsx');
-requireIncludes(quizSource, ': `/dashboard/lessons?courseId=${course._id}`;', 'ActiveQuizSession.jsx');
-requireIncludes(quizSource, "{targetTopicId ? 'Start quiz' : 'Open lessons'}", 'ActiveQuizSession.jsx');
+requireIncludes(quizSource, ': `/dashboard/quiz?courseId=${course._id}`;', 'ActiveQuizSession.jsx');
+requireIncludes(quizSource, "{targetTopicId ? 'Start quiz' : 'Choose topic'}", 'ActiveQuizSession.jsx');
 requireExcludes(quizSource, '`/dashboard/course/${course._id}?action=quiz`', 'ActiveQuizSession.jsx');
+requireExcludes(quizSource, ': `/dashboard/lessons?courseId=${course._id}`;', 'ActiveQuizSession.jsx');
 
 requireIncludes(coursesSource, 'quizzesReady: quizReadyTopics.length', 'convex/courses.ts');
 requireIncludes(coursesSource, 'firstTopicId: firstTopic?._id ?? null', 'convex/courses.ts');
