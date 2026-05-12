@@ -73,35 +73,43 @@ const ResumeQuizCard = ({ resumeTarget }) => {
     );
 };
 
-const CourseQuizCard = ({ course }) => (
-    <Link
-        to={`/dashboard/course/${course._id}?action=quiz`}
-        className="group rounded-2xl border border-border-subtle bg-surface p-space-5 shadow-sm transition-all hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-md"
-    >
-        <div className="mb-space-5 flex items-start justify-between gap-space-4">
-            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-primary-soft text-primary">
-                <span className="material-symbols-outlined">school</span>
+const CourseQuizCard = ({ course }) => {
+    const targetTopicId = course.firstQuizTopicId || course.firstTopicId;
+    const quizHref = targetTopicId
+        ? buildObjectiveExamRoute(targetTopicId)
+        : `/dashboard/lessons?courseId=${course._id}`;
+    const quizzesReady = Number(course.quizzesReady || 0);
+
+    return (
+        <Link
+            to={quizHref}
+            className="group rounded-2xl border border-border-subtle bg-surface p-space-5 shadow-sm transition-all hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-md"
+        >
+            <div className="mb-space-5 flex items-start justify-between gap-space-4">
+                <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-primary-soft text-primary">
+                    <span className="material-symbols-outlined">school</span>
+                </div>
+                <span className="inline-flex items-center rounded-full bg-surface-soft px-space-3 py-space-1 font-label-xs text-label-xs text-text-secondary">
+                    {quizzesReady} quiz{quizzesReady === 1 ? '' : 'zes'} ready
+                </span>
             </div>
-            <span className="inline-flex items-center rounded-full bg-surface-soft px-space-3 py-space-1 font-label-xs text-label-xs text-text-secondary">
-                {Number(course.progress || 0)}% complete
-            </span>
-        </div>
-        <h3 className="font-headline-sm text-headline-sm text-text-primary">
-            {course.title || 'Untitled course'}
-        </h3>
-        {course.description && (
-            <p className="mt-space-2 line-clamp-2 font-body-sm text-body-sm text-text-secondary">
-                {course.description}
-            </p>
-        )}
-        <div className="mt-space-5 flex items-center justify-between border-t border-border-subtle pt-space-4 font-label-md text-label-md text-primary">
-            <span>Choose topic</span>
-            <span className="material-symbols-outlined transition-transform group-hover:translate-x-1">
-                arrow_forward
-            </span>
-        </div>
-    </Link>
-);
+            <h3 className="font-headline-sm text-headline-sm text-text-primary">
+                {course.title || 'Untitled course'}
+            </h3>
+            {course.description && (
+                <p className="mt-space-2 line-clamp-2 font-body-sm text-body-sm text-text-secondary">
+                    {course.description}
+                </p>
+            )}
+            <div className="mt-space-5 flex items-center justify-between border-t border-border-subtle pt-space-4 font-label-md text-label-md text-primary">
+                <span>{targetTopicId ? 'Start quiz' : 'Open lessons'}</span>
+                <span className="material-symbols-outlined transition-transform group-hover:translate-x-1">
+                    arrow_forward
+                </span>
+            </div>
+        </Link>
+    );
+};
 
 const ActiveQuizSession = () => {
     const { quizId } = useParams();

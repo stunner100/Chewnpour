@@ -36,11 +36,24 @@ const listCoursesWithProgress = async (ctx: any, userId: string) => {
             const totalTopics = topics.length;
             const completedTopics = topics.filter((topic: any) => attemptedTopicIds.has(topic._id)).length;
             const progress = totalTopics > 0 ? Math.round((completedTopics / totalTopics) * 100) : 0;
+            const quizReadyTopics = topics.filter(
+                (topic: any) =>
+                    (topic.assessmentRoute || "topic_quiz") === "topic_quiz"
+                    && Number(topic.usableMcqCount || topic.usableObjectiveCount || 0) > 0
+            );
+            const firstTopic = topics[0] || null;
+            const firstQuizTopic = quizReadyTopics[0] || null;
 
             return {
                 ...course,
                 progress,
                 status: progress >= 100 ? "completed" : "in_progress",
+                topicCount: totalTopics,
+                quizzesReady: quizReadyTopics.length,
+                firstTopicId: firstTopic?._id ?? null,
+                firstTopicTitle: firstTopic?.title ?? "",
+                firstQuizTopicId: firstQuizTopic?._id ?? null,
+                firstQuizTopicTitle: firstQuizTopic?.title ?? "",
             };
         })
     );
