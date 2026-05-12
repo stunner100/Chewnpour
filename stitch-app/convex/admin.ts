@@ -1,7 +1,13 @@
-import { action, internalQuery, mutation, query } from "./_generated/server";
+import { action, internalMutation, internalQuery, mutation, query } from "./_generated/server";
 import { paginationOptsValidator } from "convex/server";
 import { v } from "convex/values";
 import { api, components, internal } from "./_generated/api";
+import { ASSESSMENT_BLUEPRINT_VERSION } from "./lib/assessmentBlueprint.js";
+import {
+    QUESTION_TYPE_FILL_BLANK,
+    QUESTION_TYPE_MULTIPLE_CHOICE,
+    QUESTION_TYPE_TRUE_FALSE,
+} from "./lib/objectiveExam.js";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 const ACTIVE_USERS_5M_WINDOW_MS = 5 * 60 * 1000;
@@ -14,6 +20,7 @@ const BOOTSTRAP_ADMIN_EMAILS = ["patrickannor35@gmail.com"];
 const BETTER_AUTH_PAGE_SIZE = 200;
 const BETTER_AUTH_MAX_PAGES = 12;
 const BETTER_AUTH_USER_CHUNK_SIZE = 100;
+const DETERMINISTIC_OBJECTIVE_BACKFILL_VERSION = "deterministic-admin-objective-backfill-v1";
 const DEFAULT_ESTIMATED_AI_MESSAGE_TOKENS = 1800;
 const DEFAULT_ESTIMATED_HUMANIZER_TOKENS = 5000;
 const MIN_ESTIMATED_AI_MESSAGE_TOKENS = 1200;
@@ -861,6 +868,213 @@ const hasTopicLessonContent = (topic: any) =>
         && topic.structuredLearningObjectives.length > 0
     );
 
+const normalizeStudyText = (value: unknown, maxLength = 180) => {
+    const text = String(value || "")
+        .replace(/\s+/g, " ")
+        .replace(/[*_`#>\[\]]/g, "")
+        .trim();
+    if (!text) return "";
+    if (text.length <= maxLength) return text;
+    const clipped = text.slice(0, maxLength);
+    const sentenceBreak = Math.max(
+        clipped.lastIndexOf("."),
+        clipped.lastIndexOf(";"),
+        clipped.lastIndexOf(",")
+    );
+    return `${clipped.slice(0, sentenceBreak > 80 ? sentenceBreak : maxLength).trim()}...`;
+};
+
+const pushUniqueStudyText = (items: string[], value: unknown, maxLength = 180) => {
+    const text = normalizeStudyText(value, maxLength);
+    if (!text) return;
+    const key = text.toLowerCase();
+    if (!items.some((item) => item.toLowerCase() === key)) {
+        items.push(text);
+    }
+};
+
+const extractStudyTextValue = (value: any) => {
+    if (typeof value === "string") return value;
+    if (!value || typeof value !== "object") return "";
+    return value.claimText
+        || value.objective
+        || value.text
+        || value.summary
+        || value.description
+        || value.meaning
+        || value.term
+        || value.title
+        || "";
+};
+
+const collectTopicStudySignals = (topic: any, subClaims: any[]) => {
+    const signals: string[] = [];
+    for (const claim of subClaims) {
+        pushUniqueStudyText(signals, claim?.claimText);
+        const quotes = Array.isArray(claim?.sourceQuotes) ? claim.sourceQuotes : [];
+        for (const quote of quotes.slice(0, 2)) {
+            pushUniqueStudyText(signals, quote);
+        }
+    }
+
+    const objectiveFields = [
+        topic?.structuredLearningObjectives,
+        topic?.contentGraph?.learningObjectives,
+        topic?.contentGraph?.objectives,
+        topic?.contentGraph?.definitions,
+        topic?.contentGraph?.examples,
+        topic?.contentGraph?.formulas,
+        topic?.contentGraph?.likelyConfusions,
+        topic?.contentGraph?.sourcePassages,
+    ];
+    for (const field of objectiveFields) {
+        for (const item of Array.isArray(field) ? field : []) {
+            pushUniqueStudyText(signals, extractStudyTextValue(item));
+        }
+    }
+
+    pushUniqueStudyText(signals, topic?.description);
+    pushUniqueStudyText(signals, topic?.title);
+    return signals;
+};
+
+const buildBackfillFocusPhrase = (topicTitle: string, sourceText: string) => {
+    const words = normalizeStudyText(sourceText || topicTitle, 90)
+        .split(/\s+/)
+        .filter((word) => /^[A-Za-z0-9][A-Za-z0-9'%-]*$/.test(word))
+        .filter((word) => !/^(the|and|or|of|to|in|for|with|from|that|this|these|those|into|about|using|used|can|will|are|was|were|has|have|had)$/i.test(word));
+    const phrase = words.slice(0, 6).join(" ");
+    return normalizeStudyText(phrase || topicTitle, 70);
+};
+
+const resolveBackfillPlanMetadata = (topic: any, questionType: string, index: number, fallbackSubClaim: any) => {
+    const blueprint = topic?.assessmentBlueprint;
+    const fallbackSubClaimId = fallbackSubClaim?._id;
+    if (String(blueprint?.version || "").trim() !== ASSESSMENT_BLUEPRINT_VERSION) {
+        return {
+            generationVersion: DETERMINISTIC_OBJECTIVE_BACKFILL_VERSION,
+            learningObjective: normalizeStudyText(topic?.title, 140),
+            bloomLevel: index === 0 ? "Apply" : index === 1 ? "Understand" : "Remember",
+            tier: index === 0 ? 1 : 2,
+            subClaimId: fallbackSubClaimId,
+            cognitiveOperation: index === 0 ? "apply" : index === 1 ? "interpret" : "identify",
+            outcomeKey: `deterministic-backfill-${index + 1}`,
+        };
+    }
+
+    const allPlanItems = Array.isArray(blueprint?.objectivePlan?.items)
+        ? blueprint.objectivePlan.items
+        : [];
+    const matchingPlanItems = allPlanItems.filter(
+        (item: any) => String(item?.targetType || "").trim() === questionType
+    );
+    const planItem = (matchingPlanItems.length > 0 ? matchingPlanItems : allPlanItems)[index % Math.max(1, (matchingPlanItems.length > 0 ? matchingPlanItems : allPlanItems).length)] || null;
+    const outcomeKey = String(planItem?.outcomeKey || blueprint?.outcomes?.[index % Math.max(1, blueprint?.outcomes?.length || 1)]?.key || "").trim();
+    const outcome = Array.isArray(blueprint?.outcomes)
+        ? blueprint.outcomes.find((item: any) => String(item?.key || "").trim() === outcomeKey) || blueprint.outcomes[0]
+        : null;
+
+    return {
+        generationVersion: DETERMINISTIC_OBJECTIVE_BACKFILL_VERSION,
+        learningObjective: normalizeStudyText(outcome?.objective || planItem?.claimText || topic?.title, 180),
+        bloomLevel: String(outcome?.bloomLevel || (index === 0 ? "Apply" : "Understand")).trim(),
+        outcomeKey: String(outcome?.key || outcomeKey || `deterministic-backfill-${index + 1}`).trim(),
+        tier: Number(planItem?.targetTier || (index === 0 ? 1 : 2)),
+        subClaimId: fallbackSubClaimId,
+        cognitiveOperation: String(planItem?.targetOp || (index === 0 ? "apply" : index === 1 ? "interpret" : "identify")).trim(),
+    };
+};
+
+const withoutUndefined = (value: Record<string, any>) => {
+    const next: Record<string, any> = {};
+    for (const [key, item] of Object.entries(value)) {
+        if (item !== undefined && item !== null && item !== "") {
+            next[key] = item;
+        }
+    }
+    return next;
+};
+
+const buildDeterministicObjectiveBackfillQuestions = (topic: any, subClaims: any[], maxQuestions: number) => {
+    const topicTitle = normalizeStudyText(topic?.title || "this topic", 140);
+    const signals = collectTopicStudySignals(topic, subClaims);
+    const primarySignal = signals[0] || topicTitle;
+    const secondarySignal = signals[1] || primarySignal;
+    const focusPhrase = buildBackfillFocusPhrase(topicTitle, primarySignal);
+    const sourcePassageId = String(subClaims?.[0]?.sourcePassageIds?.[0] || topic?.contentGraph?.sourcePassages?.[0]?.passageId || "").trim();
+    const citation = sourcePassageId
+        ? [{ passageId: sourcePassageId, text: primarySignal, quote: primarySignal }]
+        : [];
+    const sourcePassageIds = sourcePassageId ? [sourcePassageId] : [];
+    const baseMetadata = {
+        citations: citation,
+        sourcePassageIds,
+        groundingScore: 0.72,
+        factualityStatus: "verified",
+        generationRunId: `${DETERMINISTIC_OBJECTIVE_BACKFILL_VERSION}:${Date.now()}`,
+        questionSetVersion: Number(topic?.questionSetVersion || 0) > 0
+            ? Number(topic.questionSetVersion)
+            : undefined,
+        qualityScore: 0.72,
+        qualityTier: "limited",
+        rigorScore: 0.62,
+        clarityScore: 0.78,
+        distractorScore: 0.66,
+        freshnessBucket: "admin-deterministic-backfill",
+        qualityFlags: ["admin_backfill_minimum_viable_content"],
+    };
+
+    const mcqMetadata = resolveBackfillPlanMetadata(topic, QUESTION_TYPE_MULTIPLE_CHOICE, 0, subClaims[0]);
+    const trueFalseMetadata = resolveBackfillPlanMetadata(topic, QUESTION_TYPE_TRUE_FALSE, 1, subClaims[1] || subClaims[0]);
+    const fillBlankMetadata = resolveBackfillPlanMetadata(topic, QUESTION_TYPE_FILL_BLANK, 2, subClaims[2] || subClaims[0]);
+
+    const questions = [
+        withoutUndefined({
+            ...baseMetadata,
+            ...mcqMetadata,
+            questionType: QUESTION_TYPE_MULTIPLE_CHOICE,
+            questionText: `Which option best applies the main idea from ${topicTitle}?`,
+            correctAnswer: "A",
+            explanation: `The correct answer is grounded in the topic material: ${primarySignal}`,
+            difficulty: "medium",
+            authenticContext: `A learner is reviewing ${topicTitle} and needs the source-backed takeaway.`,
+            options: [
+                { label: "A", text: primarySignal, isCorrect: true },
+                { label: "B", text: `Treat ${topicTitle} as unrelated background material.` },
+                { label: "C", text: `Replace the source evidence with unsupported assumptions.` },
+                { label: "D", text: `Ignore the main relationship described in the lesson.` },
+            ],
+        }),
+        withoutUndefined({
+            ...baseMetadata,
+            ...trueFalseMetadata,
+            questionType: QUESTION_TYPE_TRUE_FALSE,
+            questionText: `True or false: ${secondarySignal}`,
+            correctAnswer: "A",
+            explanation: `This statement is supported by the topic material for ${topicTitle}.`,
+            difficulty: "easy",
+            options: [
+                { label: "A", text: "True", isCorrect: true },
+                { label: "B", text: "False" },
+            ],
+        }),
+        withoutUndefined({
+            ...baseMetadata,
+            ...fillBlankMetadata,
+            questionType: QUESTION_TYPE_FILL_BLANK,
+            questionText: `${topicTitle} focuses on ____ as a central idea.`,
+            correctAnswer: focusPhrase,
+            explanation: `The phrase comes from the available topic material: ${primarySignal}`,
+            difficulty: "easy",
+            templateParts: [`${topicTitle} focuses on `, "__", " as a central idea."],
+            acceptedAnswers: [focusPhrase],
+            fillBlankMode: "free_text",
+        }),
+    ];
+
+    return questions.slice(0, Math.max(1, Math.min(3, Math.round(maxQuestions || 3))));
+};
+
 const getCourseUploadIds = async (ctx: any, course: any) => {
     const uploadIds: any[] = [];
     if (course?.uploadId) uploadIds.push(course.uploadId);
@@ -995,6 +1209,214 @@ export const listMissingStudyContentBackfillCandidatesInternal = internalQuery({
             quizQuestionBackfills,
             quizReadinessRefreshes,
             skipped,
+        };
+    },
+});
+
+export const createDeterministicObjectiveBackfillForTopicInternal = internalMutation({
+    args: {
+        topicId: v.id("topics"),
+        maxQuestionsPerTopic: v.optional(v.number()),
+    },
+    handler: async (ctx, args) => {
+        const topic = await ctx.db.get(args.topicId);
+        if (!topic || !isTopicQuizRoute(topic)) {
+            return {
+                topicId: args.topicId,
+                created: 0,
+                skipped: true,
+                reason: "topic_not_found_or_not_quiz_route",
+            };
+        }
+        if (hasUsableObjectiveContent(topic)) {
+            return {
+                topicId: args.topicId,
+                created: 0,
+                skipped: true,
+                reason: "usable_objective_content_exists",
+            };
+        }
+
+        const subClaims = await ctx.db
+            .query("topicSubClaims")
+            .withIndex("by_topicId", (q: any) => q.eq("topicId", args.topicId))
+            .collect();
+        const questions = buildDeterministicObjectiveBackfillQuestions(
+            topic,
+            subClaims,
+            normalizeBackfillLimit(args.maxQuestionsPerTopic, 3, 3)
+        );
+
+        let created = 0;
+        for (const question of questions) {
+            await ctx.db.insert("questions", {
+                topicId: args.topicId,
+                ...question,
+            });
+            created += 1;
+        }
+
+        if (created > 0) {
+            const topicPatch: Record<string, any> = {
+                objectiveTargetCount: created,
+                mcqTargetCount: Math.max(1, questions.filter((question) => question.questionType === QUESTION_TYPE_MULTIPLE_CHOICE).length),
+                trueFalseTargetCount: questions.filter((question) => question.questionType === QUESTION_TYPE_TRUE_FALSE).length,
+                fillInTargetCount: questions.filter((question) => question.questionType === QUESTION_TYPE_FILL_BLANK).length,
+                totalObjectiveTargetCount: created,
+            };
+            if (String(topic?.assessmentBlueprint?.version || "").trim() === ASSESSMENT_BLUEPRINT_VERSION) {
+                topicPatch.assessmentBlueprint = {
+                    version: DETERMINISTIC_OBJECTIVE_BACKFILL_VERSION,
+                    reason: "admin_backfill_minimum_viable_content",
+                    previousVersion: ASSESSMENT_BLUEPRINT_VERSION,
+                };
+            }
+            await ctx.db.patch(args.topicId, topicPatch);
+        }
+
+        return {
+            topicId: args.topicId,
+            created,
+            skipped: false,
+            reason: "created_deterministic_objective_backfill",
+        };
+    },
+});
+
+export const createMissingObjectiveQuestionBackfill = action({
+    args: {
+        email: v.optional(v.string()),
+        userId: v.optional(v.string()),
+        courseId: v.optional(v.id("courses")),
+        global: v.optional(v.boolean()),
+        dryRun: v.optional(v.boolean()),
+        maxCourses: v.optional(v.number()),
+        maxTopics: v.optional(v.number()),
+        maxQuestionsPerTopic: v.optional(v.number()),
+    },
+    handler: async (ctx, args) => {
+        const access = await ctx.runQuery(internal.admin.getAdminAccessStatusInternal, {});
+        if (!access?.authUserId) {
+            throw new Error("Admin sign-in required.");
+        }
+        if (!access.allowlistConfigured || !access.isAllowed) {
+            throw new Error("Admin access required.");
+        }
+
+        const dryRun = args.dryRun !== false;
+        const maxCourses = normalizeBackfillLimit(args.maxCourses, 25, 200);
+        const maxTopics = normalizeBackfillLimit(args.maxTopics, 100, 1000);
+        const maxQuestionsPerTopic = normalizeBackfillLimit(args.maxQuestionsPerTopic, 3, 3);
+        const targetUserIds = new Set<string>();
+        const requestedUserId = normalizeOptionalUserId(args.userId);
+        if (requestedUserId) {
+            targetUserIds.add(requestedUserId);
+        }
+
+        const requestedEmail = normalizeEmail(args.email);
+        if (requestedEmail) {
+            const authUsersResult = await fetchBetterAuthRows(ctx, {
+                model: "user",
+                where: [{ field: "email", value: requestedEmail }],
+                sortBy: { field: "createdAt", direction: "asc" },
+            });
+            for (const authUser of authUsersResult.rows) {
+                const authUserId = normalizeAuthUserId(authUser);
+                if (authUserId) targetUserIds.add(authUserId);
+            }
+            if (targetUserIds.size === 0) {
+                throw new Error(`No account found for ${requestedEmail}.`);
+            }
+        }
+
+        if (!args.global && !args.courseId && targetUserIds.size === 0) {
+            targetUserIds.add(access.authUserId);
+        }
+
+        const scopes = args.courseId || args.global
+            ? [null]
+            : Array.from(targetUserIds);
+        const aggregate = {
+            scannedCourseCount: 0,
+            scannedTopicCount: 0,
+            quizQuestionBackfills: [] as any[],
+            quizReadinessRefreshes: [] as any[],
+            skipped: [] as any[],
+        };
+
+        for (const scopedUserId of scopes) {
+            const result = await ctx.runQuery(
+                (internal as any).admin.listMissingStudyContentBackfillCandidatesInternal,
+                {
+                    userId: scopedUserId || undefined,
+                    courseId: args.courseId,
+                    maxCourses,
+                    maxTopics,
+                    includeCourseTopics: false,
+                    includeQuizQuestions: true,
+                }
+            );
+
+            aggregate.scannedCourseCount += Number(result?.scannedCourseCount || 0);
+            aggregate.scannedTopicCount += Number(result?.scannedTopicCount || 0);
+            aggregate.quizQuestionBackfills.push(...(Array.isArray(result?.quizQuestionBackfills) ? result.quizQuestionBackfills : []));
+            aggregate.quizReadinessRefreshes.push(...(Array.isArray(result?.quizReadinessRefreshes) ? result.quizReadinessRefreshes : []));
+            aggregate.skipped.push(...(Array.isArray(result?.skipped) ? result.skipped : []));
+        }
+
+        let createdTopicCount = 0;
+        let createdQuestionCount = 0;
+        const mutationResults: any[] = [];
+        const deterministicCandidates = [
+            ...aggregate.quizQuestionBackfills,
+            ...aggregate.quizReadinessRefreshes,
+        ];
+        if (!dryRun) {
+            for (const candidate of deterministicCandidates) {
+                const result = await ctx.runMutation(
+                    (internal as any).admin.createDeterministicObjectiveBackfillForTopicInternal,
+                    {
+                        topicId: candidate.topicId,
+                        maxQuestionsPerTopic,
+                    }
+                );
+                mutationResults.push(result);
+                if (Number(result?.created || 0) > 0) {
+                    createdTopicCount += 1;
+                    createdQuestionCount += Number(result.created || 0);
+                    await ctx.runMutation(internal.topics.refreshTopicExamReadinessInternal, {
+                        topicId: candidate.topicId,
+                    });
+                }
+            }
+        }
+
+        return {
+            dryRun,
+            scope: {
+                email: requestedEmail || null,
+                userIds: Array.from(targetUserIds),
+                courseId: args.courseId || null,
+                global: args.global === true,
+            },
+            scannedCourseCount: aggregate.scannedCourseCount,
+            scannedTopicCount: aggregate.scannedTopicCount,
+            candidateCounts: {
+                quizQuestions: aggregate.quizQuestionBackfills.length,
+                quizReadinessRefreshes: aggregate.quizReadinessRefreshes.length,
+                skipped: aggregate.skipped.length,
+            },
+            createdCounts: {
+                topics: createdTopicCount,
+                questions: createdQuestionCount,
+            },
+            maxQuestionsPerTopic,
+            candidates: {
+                quizQuestions: aggregate.quizQuestionBackfills.slice(0, 25),
+                quizReadinessRefreshes: aggregate.quizReadinessRefreshes.slice(0, 25),
+                skipped: aggregate.skipped.slice(0, 25),
+            },
+            results: mutationResults.slice(0, 25),
         };
     },
 });
