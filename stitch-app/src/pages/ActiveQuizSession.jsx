@@ -134,7 +134,7 @@ const CourseQuizCard = ({ course }) => {
     const targetTopicId = course.firstQuizTopicId || course.firstTopicId;
     const quizHref = targetTopicId
         ? buildObjectiveExamRoute(targetTopicId)
-        : `/dashboard/lessons?courseId=${course._id}`;
+        : `/dashboard/quiz?courseId=${course._id}`;
     const quizzesReady = Number(course.quizzesReady || 0);
 
     return (
@@ -159,7 +159,7 @@ const CourseQuizCard = ({ course }) => {
                 </p>
             )}
             <div className="mt-space-5 flex items-center justify-between border-t border-border-subtle pt-space-4 font-label-md text-label-md text-primary">
-                <span>{targetTopicId ? 'Start quiz' : 'Open lessons'}</span>
+                <span>{targetTopicId ? 'Start quiz' : 'Choose topic'}</span>
                 <span className="material-symbols-outlined transition-transform group-hover:translate-x-1">
                     arrow_forward
                 </span>
