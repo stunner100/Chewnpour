@@ -22,6 +22,8 @@ for (const expectedSnippet of [
   'flex-1 min-h-0 flex flex-col items-center justify-start px-space-8 pt-space-8 pb-space-8 overflow-y-auto',
   'api.courses.getUserCourses',
   'api.topics.getResumeTarget',
+  'api.topics.getTopicWithQuestions',
+  'w-full aspect-[3/2] bg-surface rounded-[24px]',
 ]) {
   if (!flashcardSource.includes(expectedSnippet)) {
     throw new Error(`Expected FlashcardStudySession.jsx to include "${expectedSnippet}".`);
