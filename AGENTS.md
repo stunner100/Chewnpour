@@ -22,8 +22,11 @@
 - If you change processing navigation, topic outline/chunking, OCR extraction, or readability logic, add/update the matching regression script in `stitch-app/scripts/`.
 
 ## Convex Notes
+- ChewnPour's authoritative Convex backend is self-hosted on DigitalOcean, not Convex Cloud. Always deploy and configure staging/production against the DigitalOcean-hosted Convex runtime unless the user explicitly says otherwise for that specific task.
+- Do not deploy to, configure, or fall back to `*.convex.cloud` for staging or production. Before any Convex-related deploy or env change, verify `VITE_CONVEX_URL` and `CONVEX_URL` point at the DigitalOcean/self-hosted Convex URL.
+- Do not run Convex Cloud deployment workflows such as `npx convex deploy` for staging/production unless the user explicitly requests Convex Cloud. If codegen is needed, use the configured self-hosted/local workflow and verify the target first.
 - Convex schema/functions live in `stitch-app/convex/*.ts`.
-- If schema or API signatures change, regenerate Convex outputs through the CLI (for example `npx convex dev`) instead of hand-editing `_generated`.
+- If schema or API signatures change, regenerate Convex outputs through the configured self-hosted/local workflow instead of hand-editing `_generated`.
 
 ## docling-service Workflow
 - Setup: `cd docling-service && python -m venv .venv && source .venv/bin/activate && pip install -e ".[dev]"`.

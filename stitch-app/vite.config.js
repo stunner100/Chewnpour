@@ -22,13 +22,23 @@ const readConvexProjectConfigUrl = () => {
   }
 }
 
+const getHost = (value) => {
+  try {
+    return new URL(value).host
+  } catch {
+    return ''
+  }
+}
+
 // https://vite.dev/config/
 export default defineConfig(({ mode, command }) => {
   const env = loadEnv(mode, process.cwd(), '')
   const projectConvexUrl = readConvexProjectConfigUrl()
   // Only the local dev server may fall back to the checked-in project config.
   // Preview and production builds must provide an explicit deployment URL so a
-  // preview frontend can never silently point at production Convex.
+  // preview frontend can never silently point at production Convex. The target
+  // must be the self-hosted DigitalOcean Convex runtime unless explicitly
+  // overridden for a single task.
   const resolvedConvexUrl = String(
     command === 'serve'
       ? env.VITE_CONVEX_URL || env.CONVEX_URL || projectConvexUrl || ''
@@ -36,7 +46,17 @@ export default defineConfig(({ mode, command }) => {
   ).trim()
   if (command === 'build' && !resolvedConvexUrl) {
     throw new Error(
-      'Missing Convex URL for build. Set VITE_CONVEX_URL/CONVEX_URL in the target environment. Preview and production builds must not fall back to config/convex.public.json.'
+      'Missing Convex URL for build. Set VITE_CONVEX_URL/CONVEX_URL to the DigitalOcean-hosted Convex runtime. Preview and production builds must not fall back to config/convex.public.json.'
+    )
+  }
+  const allowConvexCloudDeploy = env.ALLOW_CONVEX_CLOUD_DEPLOY === 'true'
+  if (
+    command === 'build' &&
+    /\.convex\.cloud$/i.test(getHost(resolvedConvexUrl)) &&
+    !allowConvexCloudDeploy
+  ) {
+    throw new Error(
+      'Refusing to build against Convex Cloud. ChewnPour deploys to the DigitalOcean-hosted Convex runtime. Set VITE_CONVEX_URL/CONVEX_URL to the DigitalOcean Convex URL, or set ALLOW_CONVEX_CLOUD_DEPLOY=true only when the user explicitly requested Convex Cloud for this task.'
     )
   }
 

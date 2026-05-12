@@ -5,6 +5,7 @@ const envConvexSiteUrl = (import.meta.env.VITE_CONVEX_SITE_URL || "").trim();
 // Do not silently fall back to a hardcoded deployment URL.
 export const convexUrl = envConvexUrl;
 export const hasConvexUrl = convexUrl.length > 0;
+// Self-hosted Convex uses the configured runtime URL unless a separate site URL is set.
 export const convexSiteUrl = hasConvexUrl
-    ? envConvexSiteUrl || convexUrl.replace(".convex.cloud", ".convex.site")
+    ? envConvexSiteUrl || convexUrl
     : "";

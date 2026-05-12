@@ -24,8 +24,12 @@ if (!convexConfigSource.includes('export const hasConvexUrl = convexUrl.length >
   throw new Error('Expected convex-config to gate Convex client setup on explicit URL presence.');
 }
 
-if (!/VITE_CONVEX_SITE_URL/.test(convexConfigSource) || !/envConvexSiteUrl \|\| convexUrl\.replace/.test(convexConfigSource)) {
+if (!/VITE_CONVEX_SITE_URL/.test(convexConfigSource) || !/envConvexSiteUrl \|\| convexUrl/.test(convexConfigSource)) {
   throw new Error('Expected convex-config to honor VITE_CONVEX_SITE_URL for custom Convex site domains.');
+}
+
+if (/\.convex\.cloud|\.convex\.site/.test(convexConfigSource)) {
+  throw new Error('Expected convex-config to avoid Convex Cloud-specific domain derivation.');
 }
 
 const envExamplePath = path.join(root, '.env.example');
@@ -35,24 +39,35 @@ if (!/^VITE_CONVEX_URL=/m.test(envExampleSource)) {
   throw new Error('Expected .env.example to include VITE_CONVEX_URL for frontend Convex wiring.');
 }
 
+for (const expectedSnippet of [
+  'self-hosted Convex runtime on DigitalOcean',
+  'Do not use *.convex.cloud for staging or production.',
+  'VITE_CONVEX_SITE_URL=',
+  'CONVEX_URL=',
+  'ALLOW_CONVEX_CLOUD_DEPLOY=false',
+]) {
+  if (!envExampleSource.includes(expectedSnippet)) {
+    throw new Error(`Expected .env.example to document the DigitalOcean Convex target: ${expectedSnippet}`);
+  }
+}
+
 const convexPublicConfigSource = await fs.readFile(convexPublicConfigPath, 'utf8');
 const convexPublicConfig = JSON.parse(convexPublicConfigSource);
 const convexPublicUrl = String(convexPublicConfig?.frontendConvexUrl || '').trim();
-if (!convexPublicUrl) {
-  throw new Error('Expected config/convex.public.json to include frontendConvexUrl.');
-}
-let convexPublicHost = '';
-try {
-  convexPublicHost = new URL(convexPublicUrl).host;
-} catch {
-  throw new Error(
-    `Expected config/convex.public.json frontendConvexUrl to be a valid URL. Received "${convexPublicUrl}".`
-  );
-}
-if (!/\.convex\.cloud$/i.test(convexPublicHost)) {
-  throw new Error(
-    `Expected config/convex.public.json frontendConvexUrl to target a Convex cloud host. Received "${convexPublicHost}".`
-  );
+if (convexPublicUrl) {
+  let convexPublicHost = '';
+  try {
+    convexPublicHost = new URL(convexPublicUrl).host;
+  } catch {
+    throw new Error(
+      `Expected config/convex.public.json frontendConvexUrl to be empty or a valid URL. Received "${convexPublicUrl}".`
+    );
+  }
+  if (/\.convex\.cloud$/i.test(convexPublicHost)) {
+    throw new Error(
+      `config/convex.public.json must not fall back to Convex Cloud. Received "${convexPublicHost}".`
+    );
+  }
 }
 
 const viteConfigPath = path.join(root, 'vite.config.js');
@@ -88,8 +103,19 @@ if (!/command\s*===\s*['"]build['"]\s*&&\s*!resolvedConvexUrl/.test(viteConfigSo
   throw new Error('Expected vite config to fail builds when Convex URL is missing.');
 }
 
-if (!/Preview and production builds must not fall back to config\/convex\.public\.json/.test(viteConfigSource)) {
-  throw new Error('Expected vite config build guard to explain that preview and production must not use the local Convex fallback.');
+if (!/DigitalOcean-hosted Convex runtime/.test(viteConfigSource)) {
+  throw new Error('Expected vite config build guard to name the DigitalOcean-hosted Convex runtime.');
+}
+
+for (const expectedSnippet of [
+  'const getHost = (value) => {',
+  "const allowConvexCloudDeploy = env.ALLOW_CONVEX_CLOUD_DEPLOY === 'true'",
+  '/\\.convex\\.cloud$/i.test(getHost(resolvedConvexUrl))',
+  'Refusing to build against Convex Cloud.',
+]) {
+  if (!viteConfigSource.includes(expectedSnippet)) {
+    throw new Error(`Expected vite config to refuse Convex Cloud build targets: ${expectedSnippet}`);
+  }
 }
 
 if (!/Missing Convex URL for build/.test(viteConfigSource)) {

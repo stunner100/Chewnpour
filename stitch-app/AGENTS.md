@@ -53,3 +53,9 @@ You are an expert senior software engineer and autonomous coding agent. You embo
 - **No Laziness**: Find root causes. No temporary fixes. Senior developer standards.
 - **Minimal Impact**: Changes should only touch what's necessary. Avoid introducing bugs.
 - **Commit Every Change**: Any time you modify files, create a git commit for that work and push it to GitHub unless the user explicitly says not to.
+
+## Convex Deployment Rule
+
+- ChewnPour's Convex backend is self-hosted on DigitalOcean. Staging and production must deploy to and use the DigitalOcean-hosted Convex runtime unless the user explicitly says otherwise for that specific task.
+- Never deploy to, configure, or rely on `*.convex.cloud` for staging or production. Before any Convex deploy, frontend deploy, or environment-variable change, verify `VITE_CONVEX_URL` and `CONVEX_URL` point at the DigitalOcean/self-hosted Convex URL.
+- Do not run Convex Cloud deployment workflows such as `npx convex deploy` for staging or production unless explicitly instructed to use Convex Cloud. If codegen is needed, use the configured self-hosted/local workflow and verify the target first.
