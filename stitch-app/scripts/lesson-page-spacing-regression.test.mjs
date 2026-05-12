@@ -15,8 +15,8 @@ if (lessonSource.includes('pb-20 md:pb-0 pt-16')) {
 for (const expectedSnippet of [
   'flex-1 flex flex-col lg:flex-row relative pb-20 md:pb-0',
   'pt-space-6 pb-space-8 md:pt-space-8 md:pb-space-10 lg:pt-space-8 lg:pb-space-12',
-  'hidden lg:flex w-[320px] shrink-0 border-l border-border-subtle bg-surface-soft flex-col h-[calc(100vh-64px)] sticky top-0 self-start',
-  'placeholder="Ask a question..."',
+  'api.courses.getUserCourses',
+  'api.topics.getResumeTarget',
 ]) {
   if (!lessonSource.includes(expectedSnippet)) {
     throw new Error(`Expected LessonMemoryNeuralBasis.jsx to include "${expectedSnippet}".`);

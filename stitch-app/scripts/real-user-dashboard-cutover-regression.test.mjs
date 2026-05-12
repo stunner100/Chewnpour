@@ -23,13 +23,19 @@ const requireExcludes = (source, snippet, label) => {
 const [
   dashboardPageSource,
   materialsPageSource,
+  quizPageSource,
+  flashcardsPageSource,
   tutorPageSource,
+  lessonsPageSource,
   progressPageSource,
   settingsPageSource,
 ] = await Promise.all([
   read('src/pages/StudentDashboard.jsx'),
   read('src/pages/MyMaterialsLibrary.jsx'),
+  read('src/pages/ActiveQuizSession.jsx'),
+  read('src/pages/FlashcardStudySession.jsx'),
   read('src/pages/AIStudyTutor.jsx'),
+  read('src/pages/LessonMemoryNeuralBasis.jsx'),
   read('src/pages/StudyProgressMastery.jsx'),
   read('src/pages/AccountStudySettings.jsx'),
 ]);
@@ -63,6 +69,40 @@ for (const snippet of [
 }
 
 requireExcludes(materialsPageSource, 'Introduction to Cellular Biology', 'MyMaterialsLibrary.jsx');
+
+for (const snippet of [
+  'api.courses.getUserCourses',
+  'api.topics.getResumeTarget',
+]) {
+  requireIncludes(quizPageSource, snippet, 'ActiveQuizSession.jsx');
+  requireIncludes(flashcardsPageSource, snippet, 'FlashcardStudySession.jsx');
+  requireIncludes(lessonsPageSource, snippet, 'LessonMemoryNeuralBasis.jsx');
+}
+
+for (const snippet of [
+  'Neurobiology 101',
+  'Module 3 Review',
+  'Which part of the brain is most associated with long-term memory formation?',
+]) {
+  requireExcludes(quizPageSource, snippet, 'ActiveQuizSession.jsx');
+}
+
+for (const snippet of [
+  'Cognitive Psychology 101',
+  '12/40 cards',
+  'Neuroplasticity',
+]) {
+  requireExcludes(flashcardsPageSource, snippet, 'FlashcardStudySession.jsx');
+}
+
+for (const snippet of [
+  'Psychology 101',
+  'The Neural Basis of Memory',
+  'Memory is not stored in a single location',
+  "Explain the Hippocampus like I'm 5",
+]) {
+  requireExcludes(lessonsPageSource, snippet, 'LessonMemoryNeuralBasis.jsx');
+}
 
 for (const snippet of [
   'api.courses.getUserCourses',

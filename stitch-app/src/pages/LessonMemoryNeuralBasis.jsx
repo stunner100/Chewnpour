@@ -1,213 +1,150 @@
-import React, { useState } from 'react';
-import { Link } from 'react-router-dom';
+import React from 'react';
+import { Link, Navigate, useParams } from 'react-router-dom';
+import { useConvexAuth, useQuery } from 'convex/react';
+import { api } from '../../convex/_generated/api';
 
-const quickCheckOptions = [
-    { id: 'A', text: 'Amygdala', correct: false },
-    { id: 'B', text: 'Hippocampus', correct: true },
-    { id: 'C', text: 'Cerebellum', correct: false },
-];
+const EMPTY_LIST = [];
+
+const StudyToolSkeleton = () => (
+    <div className="flex-1 flex flex-col lg:flex-row relative pb-20 md:pb-0">
+        <article className="flex-1 mx-auto w-full max-w-5xl px-space-4 md:px-space-10 pt-space-6 pb-space-8 md:pt-space-8 md:pb-space-10 lg:pt-space-8 lg:pb-space-12">
+            <div className="animate-pulse space-y-space-6">
+                <div className="h-8 w-48 rounded-lg bg-surface-muted" />
+                <div className="h-36 rounded-2xl bg-surface" />
+                <div className="grid gap-space-4 md:grid-cols-2">
+                    <div className="h-44 rounded-2xl bg-surface" />
+                    <div className="h-44 rounded-2xl bg-surface" />
+                </div>
+            </div>
+        </article>
+    </div>
+);
+
+const EmptyLessonsState = () => (
+    <section className="rounded-2xl border border-border-subtle bg-surface p-space-8 text-center shadow-sm">
+        <div className="mx-auto mb-space-4 flex h-12 w-12 items-center justify-center rounded-full bg-primary-soft text-primary">
+            <span className="material-symbols-outlined">menu_book</span>
+        </div>
+        <h2 className="font-headline-sm text-headline-sm font-bold text-text-primary">
+            Upload material to generate lessons
+        </h2>
+        <p className="mx-auto mt-space-3 max-w-xl font-body-base text-body-base text-text-secondary">
+            Lessons are created from your own notes, slides, documents, and images. Add material to build your first real lesson.
+        </p>
+        <Link
+            to="/dashboard/upload"
+            className="mt-space-6 inline-flex items-center justify-center gap-space-2 rounded-xl bg-primary px-space-5 py-space-3 font-label-md text-label-md text-on-primary shadow-sm transition-colors hover:bg-primary-hover"
+        >
+            <span className="material-symbols-outlined text-[20px]">cloud_upload</span>
+            Upload Material
+        </Link>
+    </section>
+);
+
+const ResumeLessonCard = ({ resumeTarget }) => {
+    if (!resumeTarget?.topicId) return null;
+
+    return (
+        <section className="rounded-2xl border border-primary/20 bg-primary-soft p-space-6 shadow-sm">
+            <div className="flex flex-col gap-space-4 md:flex-row md:items-center md:justify-between">
+                <div>
+                    <p className="font-label-sm text-label-sm font-bold uppercase tracking-wider text-primary">
+                        Continue reading
+                    </p>
+                    <h2 className="mt-space-2 font-display-sm text-display-sm text-text-primary">
+                        {resumeTarget.topicTitle || 'Your latest topic'}
+                    </h2>
+                    <p className="mt-space-2 font-body-base text-body-base text-text-secondary">
+                        Jump back into the generated lesson you last studied.
+                    </p>
+                </div>
+                <Link
+                    to={`/dashboard/topic/${resumeTarget.topicId}`}
+                    className="inline-flex shrink-0 items-center justify-center gap-space-2 rounded-xl bg-primary px-space-5 py-space-3 font-label-md text-label-md text-on-primary shadow-sm transition-colors hover:bg-primary-hover"
+                >
+                    Open Lesson
+                    <span className="material-symbols-outlined text-[20px]">arrow_forward</span>
+                </Link>
+            </div>
+        </section>
+    );
+};
+
+const CourseLessonCard = ({ course }) => (
+    <Link
+        to={`/dashboard/course/${course._id}`}
+        className="group rounded-2xl border border-border-subtle bg-surface p-space-5 shadow-sm transition-all hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-md"
+    >
+        <div className="mb-space-5 flex items-start justify-between gap-space-4">
+            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-primary-soft text-primary">
+                <span className="material-symbols-outlined">auto_stories</span>
+            </div>
+            <span className="inline-flex items-center rounded-full bg-surface-soft px-space-3 py-space-1 font-label-xs text-label-xs text-text-secondary">
+                {Number(course.progress || 0)}% complete
+            </span>
+        </div>
+        <h3 className="font-headline-sm text-headline-sm text-text-primary">
+            {course.title || 'Untitled course'}
+        </h3>
+        {course.description && (
+            <p className="mt-space-2 line-clamp-2 font-body-sm text-body-sm text-text-secondary">
+                {course.description}
+            </p>
+        )}
+        <div className="mt-space-5 flex items-center justify-between border-t border-border-subtle pt-space-4 font-label-md text-label-md text-primary">
+            <span>View lessons</span>
+            <span className="material-symbols-outlined transition-transform group-hover:translate-x-1">
+                arrow_forward
+            </span>
+        </div>
+    </Link>
+);
 
 const LessonMemoryNeuralBasis = () => {
-    const [selectedAnswer, setSelectedAnswer] = useState('B');
-    const [showExplanation, setShowExplanation] = useState(false);
+    const { lessonId } = useParams();
+    const { isAuthenticated } = useConvexAuth();
+    const courses = useQuery(api.courses.getUserCourses, isAuthenticated ? {} : 'skip');
+    const resumeTarget = useQuery(api.topics.getResumeTarget, isAuthenticated ? {} : 'skip');
+
+    if (lessonId) {
+        return <Navigate to={`/dashboard/topic/${lessonId}`} replace />;
+    }
+
+    if (!isAuthenticated || courses === undefined || resumeTarget === undefined) {
+        return <StudyToolSkeleton />;
+    }
+
+    const courseList = Array.isArray(courses) ? courses : EMPTY_LIST;
 
     return (
         <div className="flex-1 flex flex-col lg:flex-row relative pb-20 md:pb-0">
-            {/* Lesson Canvas */}
-            <article className="flex-1 max-w-[800px] mx-auto w-full px-space-4 md:px-space-10 pt-space-6 pb-space-8 md:pt-space-8 md:pb-space-10 lg:pt-space-8 lg:pb-space-12">
-                {/* Breadcrumb & Meta */}
-                <div className="mb-space-6 flex flex-col gap-2">
-                    <nav className="flex items-center gap-2 text-text-muted font-body-sm text-body-sm">
-                        <Link to="/dashboard/lessons" className="hover:text-primary transition-colors">Psychology 101</Link>
-                        <span className="material-symbols-outlined text-[16px]">chevron_right</span>
-                        <Link to="/dashboard/lessons" className="hover:text-primary transition-colors">Unit 3: Cognition</Link>
-                        <span className="material-symbols-outlined text-[16px]">chevron_right</span>
-                        <span className="text-text-primary font-medium">Memory</span>
-                    </nav>
-                    <div className="flex items-center gap-3 mt-2 flex-wrap">
-                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-surface border border-border-default font-label-xs text-label-xs text-text-secondary">
-                            <span className="material-symbols-outlined text-[14px]">source</span>
-                            Source: Psychology 101 Lecture Slides
-                        </span>
-                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-success-soft text-success font-label-xs text-label-xs">
-                            <span className="material-symbols-outlined text-[14px]">check_circle</span>
-                            Mastered
-                        </span>
-                    </div>
-                </div>
-
-                {/* Title */}
-                <h1 className="font-display-lg text-display-lg text-text-primary mb-space-8">The Neural Basis of Memory</h1>
-
-                {/* Topic Summary Box */}
-                <section className="mb-space-10 bg-surface rounded-xl p-space-6 shadow-sm border border-border-subtle">
-                    <h2 className="font-headline-sm text-headline-sm text-primary mb-4 flex items-center gap-2">
-                        <span className="material-symbols-outlined text-primary">lightbulb</span>
-                        Topic Summary
-                    </h2>
-                    <p className="font-body-base text-body-base text-text-secondary leading-relaxed">
-                        Memory is not stored in a single location in the brain. Instead, it is distributed across multiple neural networks. The formation, consolidation, and retrieval of memories involve complex interactions between various brain structures, most notably the hippocampus, amygdala, and the cerebral cortex. This lesson explores how these structures collaborate to create our personal histories and learned skills.
+            <article className="flex-1 mx-auto w-full max-w-5xl px-space-4 md:px-space-10 pt-space-6 pb-space-8 md:pt-space-8 md:pb-space-10 lg:pt-space-8 lg:pb-space-12">
+                <div className="mb-space-6 flex flex-col gap-space-2">
+                    <p className="font-label-sm text-label-sm font-bold uppercase tracking-wider text-primary">
+                        Lessons
                     </p>
-                </section>
-
-                {/* Reading Content */}
-                <div className="space-y-space-8">
-                    <section>
-                        <h3 className="font-headline-sm text-headline-sm text-text-primary mb-4">1. The Hippocampus and Explicit Memory</h3>
-                        <p className="font-body-lg text-body-lg text-text-primary leading-[1.7]">
-                            The hippocampus acts as a temporary transit point for explicit memories (facts and episodes) before they are sent to other brain regions for long-term storage. Damage to this area can result in <strong className="text-primary">anterograde amnesia</strong>, the inability to form new declarative memories, while older memories often remain intact.
-                        </p>
-                        {/* Definition Callout */}
-                        <div className="my-space-6 bg-info-soft rounded-lg p-space-4 flex gap-space-4 border border-info-soft">
-                            <div className="mt-1">
-                                <span className="material-symbols-outlined text-info">menu_book</span>
-                            </div>
-                            <div>
-                                <h4 className="font-label-md text-label-md text-info mb-1 uppercase tracking-wider">Definition</h4>
-                                <p className="font-body-base text-body-base text-text-primary mb-0"><strong>Explicit Memory:</strong> Also known as declarative memory, involves conscious recollection of factual information, previous experiences, and concepts.</p>
-                            </div>
-                        </div>
-                    </section>
-
-                    <section>
-                        <h3 className="font-headline-sm text-headline-sm text-text-primary mb-4">2. The Amygdala and Emotional Memory</h3>
-                        <p className="font-body-lg text-body-lg text-text-primary leading-[1.7]">
-                            The amygdala, located near the hippocampus, is responsible for attaching emotional significance to memories. Highly emotional events, such as a severe accident or a joyous celebration, trigger the release of stress hormones that signal the amygdala to initiate a memory trace in the frontal lobes and basal ganglia.
-                        </p>
-                        {/* Important Callout */}
-                        <div className="my-space-6 bg-primary-soft rounded-lg p-space-4 flex gap-space-4 border border-warning-soft">
-                            <div className="mt-1">
-                                <span className="material-symbols-outlined text-warning">warning</span>
-                            </div>
-                            <div>
-                                <h4 className="font-label-md text-label-md text-warning mb-1 uppercase tracking-wider">Exam Tip</h4>
-                                <p className="font-body-base text-body-base text-text-primary mb-0">Be prepared to differentiate between the roles of the hippocampus (fact/event consolidation) and the amygdala (emotional tagging). A classic question often asks which structure is responsible for the intense recall of a frightening event.</p>
-                            </div>
-                        </div>
-                    </section>
-
-                    <section>
-                        <h3 className="font-headline-sm text-headline-sm text-text-primary mb-4">3. Memory Consolidation</h3>
-                        <p className="font-body-lg text-body-lg text-text-primary leading-[1.7]">
-                            Consolidation is the process by which a temporary, labile memory is transformed into a more stable, long-lasting form. This process involves structural changes at the synaptic level, often referred to as Long-Term Potentiation (LTP). Sleep plays a crucial role in memory consolidation, as the brain replays recent experiences and strengthens the associated neural connections.
-                        </p>
-                    </section>
+                    <h1 className="font-display-sm text-display-sm text-text-primary">
+                        Read lessons generated from your materials
+                    </h1>
+                    <p className="max-w-2xl font-body-base text-body-base text-text-secondary">
+                        Open a course to continue through topic lessons, summaries, Word Banks, and practice checks from your own uploads.
+                    </p>
                 </div>
 
-                {/* Divider */}
-                <hr className="my-space-10 border-t border-border-default" />
+                <div className="space-y-space-5">
+                    <ResumeLessonCard resumeTarget={resumeTarget} />
 
-                {/* Quick Check Section */}
-                <section className="mb-space-12">
-                    <h2 className="font-headline-sm text-headline-sm text-text-primary mb-space-6 flex items-center gap-2">
-                        <span className="material-symbols-outlined text-text-muted">task_alt</span>
-                        Quick Check
-                    </h2>
-                    <div className="bg-surface rounded-xl p-space-6 shadow-sm border border-border-subtle">
-                        <p className="font-body-lg text-body-lg text-text-primary mb-4">Which brain structure is primarily responsible for forming new explicit memories?</p>
-                        <div className="space-y-3">
-                            {quickCheckOptions.map((option) => {
-                                const isSelected = selectedAnswer === option.id;
-                                const isCorrect = option.correct;
-                                return (
-                                    <label
-                                        key={option.id}
-                                        onClick={() => {
-                                            setSelectedAnswer(option.id);
-                                            setShowExplanation(true);
-                                        }}
-                                        className={`flex items-center gap-3 p-3 rounded-lg border transition-colors cursor-pointer ${
-                                            isSelected && isCorrect
-                                                ? 'border-success bg-success-soft'
-                                                : isSelected && !isCorrect
-                                                ? 'border-error bg-error-soft'
-                                                : 'border-border-default hover:bg-surface-soft'
-                                        }`}
-                                    >
-                                        <input
-                                            type="radio"
-                                            name="q1"
-                                            className="text-primary focus:ring-primary h-4 w-4 border-outline"
-                                            checked={isSelected}
-                                            onChange={() => {}}
-                                        />
-                                        <span className={`font-body-base text-body-base ${isSelected && isCorrect ? 'text-text-primary font-medium' : isSelected && !isCorrect ? 'text-text-primary' : 'text-text-secondary'}`}>
-                                            {option.id}) {option.text}
-                                        </span>
-                                        {isSelected && isCorrect && (
-                                            <span className="material-symbols-outlined text-success ml-auto">check_circle</span>
-                                        )}
-                                    </label>
-                                );
-                            })}
-                        </div>
-                        {showExplanation && selectedAnswer === 'B' && (
-                            <div className="mt-4 p-4 bg-success-soft rounded-lg text-success font-body-sm text-body-sm">
-                                Correct! The hippocampus is essential for consolidating short-term declarative memories into long-term storage.
-                            </div>
-                        )}
-                    </div>
-                </section>
-
-                <div className="flex justify-between items-center pt-space-6 pb-space-12">
-                    <button className="px-4 py-2 rounded-lg border border-border-default bg-surface hover:bg-surface-soft text-text-secondary font-label-md text-label-md transition-colors flex items-center gap-2">
-                        <span className="material-symbols-outlined">arrow_back</span>
-                        Previous Lesson
-                    </button>
-                    <button className="px-6 py-2 rounded-lg bg-primary hover:bg-primary-hover text-on-primary font-label-md text-label-md transition-colors shadow-sm flex items-center gap-2">
-                        Next Lesson
-                        <span className="material-symbols-outlined">arrow_forward</span>
-                    </button>
+                    {courseList.length > 0 ? (
+                        <section className="grid gap-space-4 md:grid-cols-2">
+                            {courseList.map((course) => (
+                                <CourseLessonCard key={course._id} course={course} />
+                            ))}
+                        </section>
+                    ) : (
+                        <EmptyLessonsState />
+                    )}
                 </div>
             </article>
-
-            {/* Contextual AI Tutor Panel (Right Side) */}
-            <aside className="hidden lg:flex w-[320px] shrink-0 border-l border-border-subtle bg-surface-soft flex-col h-[calc(100vh-64px)] sticky top-0 self-start">
-                <div className="p-space-4 border-b border-border-default bg-surface flex items-center gap-3 shadow-sm">
-                    <div className="w-8 h-8 rounded-full bg-ai-soft flex items-center justify-center text-primary">
-                        <span className="material-symbols-outlined text-[20px]">smart_toy</span>
-                    </div>
-                    <div>
-                        <h3 className="font-label-md text-label-md text-text-primary">Study Assistant</h3>
-                        <p className="font-label-xs text-label-xs text-success flex items-center gap-1">
-                            <span className="w-1.5 h-1.5 rounded-full bg-success"></span>
-                            Online
-                        </p>
-                    </div>
-                </div>
-                <div className="flex-1 p-space-4 overflow-y-auto flex flex-col gap-space-4">
-                    <div className="flex gap-3">
-                        <div className="w-6 h-6 rounded-full bg-ai-soft flex-shrink-0 flex items-center justify-center text-primary mt-1">
-                            <span className="material-symbols-outlined text-[14px]">smart_toy</span>
-                        </div>
-                        <div className="bg-ai-subtle rounded-2xl rounded-tl-sm p-3 text-text-primary font-body-sm text-body-sm border border-border-subtle shadow-sm">
-                            <p>Hi! I noticed you're reading about <strong>The Neural Basis of Memory</strong>.</p>
-                            <p className="mt-2">Need help understanding the role of the Hippocampus, or would you like me to generate a quick analogy?</p>
-                        </div>
-                    </div>
-                    <div className="flex flex-wrap gap-2 ml-9">
-                        <button className="px-3 py-1.5 rounded-full border border-border-default bg-surface hover:bg-primary-soft hover:border-primary-fixed-dim text-text-secondary hover:text-primary transition-colors font-label-xs text-label-xs text-left">
-                            Explain the Hippocampus like I'm 5
-                        </button>
-                        <button className="px-3 py-1.5 rounded-full border border-border-default bg-surface hover:bg-primary-soft hover:border-primary-fixed-dim text-text-secondary hover:text-primary transition-colors font-label-xs text-label-xs text-left">
-                            What's the difference vs Amygdala?
-                        </button>
-                    </div>
-                </div>
-                <div className="p-space-4 bg-surface border-t border-border-default">
-                    <div className="relative flex items-center bg-surface-muted rounded-xl p-1 border border-border-subtle focus-within:border-primary focus-within:ring-1 focus-within:ring-primary transition-all">
-                        <input className="flex-1 bg-transparent border-none text-body-sm font-body-sm text-text-primary placeholder:text-text-muted focus:ring-0 py-2 px-3" placeholder="Ask a question..." type="text" />
-                        <button className="p-2 text-primary hover:bg-primary-soft rounded-lg transition-colors flex items-center justify-center">
-                            <span className="material-symbols-outlined text-[20px]" style={{ fontVariationSettings: "'FILL' 1" }}>send</span>
-                        </button>
-                    </div>
-                </div>
-            </aside>
-
-            {/* Mobile AI FAB */}
-            <button className="lg:hidden fixed bottom-20 right-4 w-12 h-12 bg-primary text-on-primary rounded-full shadow-lg flex items-center justify-center hover:bg-primary-hover transition-colors z-50">
-                <span className="material-symbols-outlined" style={{ fontVariationSettings: "'FILL' 1" }}>smart_toy</span>
-            </button>
         </div>
     );
 };

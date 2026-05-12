@@ -19,9 +19,9 @@ for (const forbiddenSnippet of [
 
 for (const expectedSnippet of [
   'h-[calc(100vh-64px)] overflow-hidden',
-  'flex-1 min-h-0 flex flex-col items-center justify-start px-space-8 pt-space-8 pb-space-8',
-  'Cognitive Psychology 101',
-  '12/40 cards',
+  'flex-1 min-h-0 flex flex-col items-center justify-start px-space-8 pt-space-8 pb-space-8 overflow-y-auto',
+  'api.courses.getUserCourses',
+  'api.topics.getResumeTarget',
 ]) {
   if (!flashcardSource.includes(expectedSnippet)) {
     throw new Error(`Expected FlashcardStudySession.jsx to include "${expectedSnippet}".`);
