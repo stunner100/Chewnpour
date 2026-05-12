@@ -1,23 +1,169 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { Link } from 'react-router-dom';
+import { useQuery } from 'convex/react';
+import { api } from '../../convex/_generated/api';
+import { useAuth } from '../contexts/AuthContext';
+
+const materialIconByKind = {
+    pdf: { icon: 'picture_as_pdf', color: 'bg-error-soft text-error' },
+    pptx: { icon: 'slideshow', color: 'bg-mastery-soft text-mastery' },
+    docx: { icon: 'description', color: 'bg-info-soft text-info' },
+    audio: { icon: 'graphic_eq', color: 'bg-primary-soft text-primary' },
+    image: { icon: 'image', color: 'bg-success-soft text-success' },
+    notes: { icon: 'description', color: 'bg-info-soft text-info' },
+};
+
+const resolveFileKind = (fileType = '', fileName = '') => {
+    const source = `${fileType} ${fileName}`.toLowerCase();
+    if (source.includes('pdf')) return 'pdf';
+    if (source.includes('ppt') || source.includes('presentation')) return 'pptx';
+    if (source.includes('doc')) return 'docx';
+    if (source.includes('audio') || /\.(mp3|wav|m4a|aac)\b/.test(source)) return 'audio';
+    if (source.includes('image') || /\.(png|jpe?g|webp)\b/.test(source)) return 'image';
+    return 'notes';
+};
+
+const formatRelativeTime = (timestamp) => {
+    const value = Number(timestamp || 0);
+    if (!Number.isFinite(value) || value <= 0) return 'recently';
+    const diffMs = Date.now() - value;
+    const minutes = Math.max(1, Math.round(diffMs / 60000));
+    if (minutes < 60) return `${minutes}m ago`;
+    const hours = Math.round(minutes / 60);
+    if (hours < 24) return `${hours}h ago`;
+    const days = Math.round(hours / 24);
+    if (days < 7) return `${days}d ago`;
+    return new Intl.DateTimeFormat(undefined, { month: 'short', day: 'numeric' }).format(new Date(value));
+};
+
+const buildActivityData = (courses) => {
+    const visibleCourses = courses.slice(0, 7);
+    const padded = visibleCourses.length > 0
+        ? visibleCourses
+        : [{ title: 'Start', progress: 0 }];
+    const maxProgress = Math.max(1, ...padded.map((course) => Number(course.progress || 0)));
+    return padded.map((course, index) => ({
+        day: course.title ? course.title.slice(0, 3) : `C${index + 1}`,
+        minutes: Number(course.progress || 0),
+        height: `${Math.max(Number(course.progress || 0) > 0 ? 12 : 3, Math.round((Number(course.progress || 0) / maxProgress) * 100))}%`,
+        active: Number(course.progress || 0) === maxProgress && maxProgress > 0,
+    }));
+};
+
+const DashboardSkeleton = () => (
+    <div className="flex-1 pt-space-8 px-space-8 pb-space-16 max-w-container-max mx-auto w-full animate-pulse">
+        <div className="h-20 w-full rounded-2xl bg-surface-soft mb-space-8" />
+        <div className="grid grid-cols-12 gap-space-6">
+            <div className="col-span-12 lg:col-span-8 h-64 rounded-xl bg-surface-soft" />
+            <div className="col-span-12 lg:col-span-4 h-64 rounded-xl bg-surface-soft" />
+            <div className="col-span-12 lg:col-span-8 h-72 rounded-xl bg-surface-soft" />
+            <div className="col-span-12 lg:col-span-4 h-72 rounded-xl bg-surface-soft" />
+        </div>
+    </div>
+);
+
+const EmptyDashboard = ({ displayName }) => (
+    <div className="flex-1 pt-space-8 px-space-8 pb-space-16 max-w-container-max mx-auto w-full">
+        <section className="bg-surface rounded-2xl border border-border-subtle shadow-sm p-space-8 md:p-space-10">
+            <p className="font-label-md text-label-md text-primary mb-space-3">Welcome, {displayName}.</p>
+            <h2 className="font-display-lg text-display-lg text-text-primary tracking-tight max-w-2xl">
+                Upload your first material to build a real study dashboard.
+            </h2>
+            <p className="font-body-base text-body-base text-text-secondary mt-space-3 max-w-2xl">
+                Once ChewnPour processes your notes, this page will show your courses, progress, due reviews, and weak concepts from your own study data.
+            </p>
+            <Link
+                to="/dashboard/upload"
+                className="mt-space-8 inline-flex items-center gap-space-2 bg-primary text-on-primary px-space-6 py-space-3 rounded-xl font-label-md text-label-md hover:bg-primary-hover transition-colors"
+            >
+                <span className="material-symbols-outlined text-[18px]">cloud_upload</span>
+                Upload Material
+            </Link>
+        </section>
+    </div>
+);
 
 const StudentDashboard = () => {
+    const { user, profile } = useAuth();
+    const userStats = useQuery(api.profiles.getUserStats, {});
+    const courses = useQuery(api.courses.getUserCourses, {});
+    const uploads = useQuery(api.uploads.getUserUploads, {});
+    const resumeTarget = useQuery(api.topics.getResumeTarget, {});
+    const conceptReviewQueue = useQuery(api.concepts.getConceptReviewQueue, { limit: 6 });
+
+    const loading = [userStats, courses, uploads, resumeTarget, conceptReviewQueue].some((value) => value === undefined);
+    const displayName = profile?.fullName || user?.name || user?.email?.split('@')[0] || 'Student';
+    const firstName = displayName.split(' ')[0] || 'Student';
+    const safeCourses = useMemo(() => courses || [], [courses]);
+    const safeUploads = useMemo(() => uploads || [], [uploads]);
+    const weakConcepts = conceptReviewQueue?.items?.flatMap((item) => item.concepts || []).slice(0, 6) || [];
+    const activityData = useMemo(() => buildActivityData(safeCourses), [safeCourses]);
+
+    const coursesById = useMemo(() => new Map(safeCourses.map((course) => [String(course._id), course])), [safeCourses]);
+    const resumeCourse = resumeTarget?.courseId ? coursesById.get(String(resumeTarget.courseId)) : safeCourses[0];
+    const resumeHref = resumeTarget?.topicId
+        ? `/dashboard/topic/${resumeTarget.topicId}`
+        : resumeCourse?._id
+            ? `/dashboard/course/${resumeCourse._id}`
+            : '/dashboard/upload';
+    const resumeProgress = resumeCourse?.progress || resumeTarget?.bestScore || 0;
+
+    const recentMaterials = useMemo(() => {
+        return safeUploads.slice(0, 3).map((upload) => {
+            const relatedCourse = safeCourses.find((course) => String(course.uploadId || '') === String(upload._id));
+            return {
+                uploadId: upload._id,
+                courseId: relatedCourse?._id || null,
+                title: relatedCourse?.title || upload.fileName,
+                kind: resolveFileKind(upload.fileType, upload.fileName),
+                createdAt: upload._creationTime,
+            };
+        });
+    }, [safeCourses, safeUploads]);
+
+    const recommendedAction = weakConcepts[0]
+        ? {
+            title: `Review ${weakConcepts[0].label}`,
+            description: 'This concept needs more practice based on your recent answers.',
+            href: conceptReviewQueue?.items?.[0]?.topicId ? `/dashboard/concept-intro/${conceptReviewQueue.items[0].topicId}` : '/dashboard/progress',
+            cta: 'Start Review',
+        }
+        : resumeTarget
+            ? {
+                title: `Continue ${resumeTarget.topicTitle}`,
+                description: 'Pick up from your most recent study session.',
+                href: resumeHref,
+                cta: 'Continue',
+            }
+            : {
+                title: 'Upload a material',
+                description: 'Generate lessons, quizzes, and review cards from your own notes.',
+                href: '/dashboard/upload',
+                cta: 'Upload',
+            };
+
+    if (loading) return <DashboardSkeleton />;
+    if (safeCourses.length === 0 && safeUploads.length === 0) {
+        return <EmptyDashboard displayName={firstName} />;
+    }
+
     return (
         <div className="flex-1 pt-space-8 px-space-8 pb-space-16 max-w-container-max mx-auto w-full">
-            {/* Welcome Header */}
-            <div className="flex justify-between items-end mb-space-10">
+            <div className="flex flex-col lg:flex-row lg:justify-between lg:items-end gap-space-6 mb-space-10">
                 <div>
-                    <h2 className="font-display-lg text-display-lg text-text-primary tracking-tight">Good morning, Alex.</h2>
-                    <p className="font-body-lg text-body-lg text-text-secondary mt-space-2">Ready to study? You have a 4-day streak going.</p>
+                    <h2 className="font-display-lg text-display-lg text-text-primary tracking-tight">Good morning, {firstName}.</h2>
+                    <p className="font-body-lg text-body-lg text-text-secondary mt-space-2">
+                        Ready to study? Your dashboard is based on your uploaded materials.
+                    </p>
                 </div>
-                <div className="flex gap-space-4">
+                <div className="flex flex-wrap gap-space-4">
                     <div className="bg-surface shadow-sm rounded-xl px-space-4 py-space-3 flex items-center gap-space-3 border border-border-subtle">
                         <div className="p-2 bg-warning-soft rounded-lg text-warning">
                             <span className="material-symbols-outlined" style={{ fontVariationSettings: "'FILL' 1" }}>local_fire_department</span>
                         </div>
                         <div>
                             <p className="font-label-xs text-label-xs text-text-muted uppercase tracking-wider">Streak</p>
-                            <p className="font-headline-sm text-headline-sm text-text-primary">4 Days</p>
+                            <p className="font-headline-sm text-headline-sm text-text-primary">{userStats?.streakDays || 0} Days</p>
                         </div>
                     </div>
                     <div className="bg-surface shadow-sm rounded-xl px-space-4 py-space-3 flex items-center gap-space-3 border border-border-subtle">
@@ -26,45 +172,40 @@ const StudentDashboard = () => {
                         </div>
                         <div>
                             <p className="font-label-xs text-label-xs text-text-muted uppercase tracking-wider">Due Today</p>
-                            <p className="font-headline-sm text-headline-sm text-text-primary">15 Cards</p>
+                            <p className="font-headline-sm text-headline-sm text-text-primary">{conceptReviewQueue?.dueConceptCount || 0} Cards</p>
                         </div>
                     </div>
                 </div>
             </div>
 
-            {/* Main Grid */}
             <div className="grid grid-cols-12 gap-space-6 mb-space-10">
-                {/* Continue Studying Card */}
-                <div className="col-span-12 lg:col-span-8 bg-surface rounded-xl shadow-sm border border-border-subtle overflow-hidden flex hover:shadow-md transition-shadow relative group cursor-pointer">
-                    <div className="absolute inset-0 bg-gradient-to-r from-surface via-surface/90 to-transparent z-0"></div>
-                    <div className="absolute right-0 top-0 bottom-0 w-1/2 z-[-1]">
-                        <img
-                            alt="Psychology Study"
-                            className="w-full h-full object-cover opacity-60"
-                            src="https://images.unsplash.com/photo-1456513080510-7bf3a84b82f8?w=800&auto=format&fit=crop&q=60"
-                        />
-                    </div>
+                <section className="col-span-12 lg:col-span-8 bg-surface rounded-xl shadow-sm border border-border-subtle overflow-hidden flex hover:shadow-md transition-shadow relative group">
+                    <div className="absolute inset-0 bg-gradient-to-r from-surface via-surface/95 to-surface/80 z-0" />
                     <div className="p-space-8 flex flex-col justify-between w-full z-10">
                         <div>
                             <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-primary-soft text-primary rounded-full font-label-xs text-label-xs mb-space-4">
                                 <span className="material-symbols-outlined text-[14px]">schedule</span>
-                                Last accessed 2h ago
+                                {resumeTarget?.lastStudiedAt ? `Last studied ${formatRelativeTime(resumeTarget.lastStudiedAt)}` : 'Ready when you are'}
                             </span>
-                            <h3 className="font-display-lg text-display-lg text-text-primary mb-space-2">Introduction to Psychology</h3>
-                            <p className="font-body-base text-body-base text-text-secondary max-w-md">Chapter 4: Cognitive Development and Memory Structures.</p>
+                            <h3 className="font-display-lg text-display-lg text-text-primary mb-space-2">
+                                {resumeCourse?.title || 'No course selected'}
+                            </h3>
+                            <p className="font-body-base text-body-base text-text-secondary max-w-md">
+                                {resumeTarget?.topicTitle || resumeCourse?.description || 'Upload a material to generate your first lesson.'}
+                            </p>
                         </div>
                         <div className="mt-space-8 max-w-md">
                             <div className="flex justify-between items-end mb-space-2">
                                 <span className="font-label-md text-label-md text-text-primary">Overall Progress</span>
-                                <span className="font-label-md text-label-md text-primary">65%</span>
+                                <span className="font-label-md text-label-md text-primary">{resumeProgress}%</span>
                             </div>
                             <div className="w-full bg-surface-variant rounded-full h-2 overflow-hidden">
-                                <div className="bg-primary h-2 rounded-full" style={{ width: '65%' }}></div>
+                                <div className="bg-primary h-2 rounded-full" style={{ width: `${resumeProgress}%` }} />
                             </div>
                             <div className="mt-space-4">
                                 <Link
-                                    to="/dashboard/lessons"
-                                    className="bg-primary text-on-primary px-space-6 py-space-3 rounded-xl font-label-md text-label-md hover:bg-primary-hover transition-colors flex items-center gap-space-2 inline-flex"
+                                    to={resumeHref}
+                                    className="bg-primary text-on-primary px-space-6 py-space-3 rounded-xl font-label-md text-label-md hover:bg-primary-hover transition-colors inline-flex items-center gap-space-2"
                                 >
                                     Continue Studying
                                     <span className="material-symbols-outlined text-[18px]">arrow_forward</span>
@@ -72,47 +213,35 @@ const StudentDashboard = () => {
                             </div>
                         </div>
                     </div>
-                </div>
+                </section>
 
-                {/* Upload Area */}
-                <div className="col-span-12 lg:col-span-4 bg-surface-soft rounded-xl border-2 border-dashed border-border-strong p-space-8 flex flex-col items-center justify-center text-center hover:bg-surface-muted transition-colors cursor-pointer group">
+                <Link
+                    to="/dashboard/upload"
+                    className="col-span-12 lg:col-span-4 bg-surface-soft rounded-xl border-2 border-dashed border-border-strong p-space-8 flex flex-col items-center justify-center text-center hover:bg-surface-muted transition-colors group"
+                >
                     <div className="w-16 h-16 bg-surface rounded-full flex items-center justify-center shadow-sm text-primary mb-space-4 group-hover:scale-110 transition-transform">
                         <span className="material-symbols-outlined text-[32px]">cloud_upload</span>
                     </div>
                     <h3 className="font-headline-md text-headline-md text-text-primary mb-space-2">Upload Material</h3>
-                    <p className="font-body-sm text-body-sm text-text-secondary mb-space-6">Drag & drop PDFs, docs, or images here to generate lessons and flashcards.</p>
-                    <Link
-                        to="/dashboard/upload"
-                        className="bg-surface text-text-primary border border-border-default px-space-6 py-space-2 rounded-xl font-label-md text-label-md hover:bg-surface-soft transition-colors w-full"
-                    >
+                    <p className="font-body-sm text-body-sm text-text-secondary mb-space-6">Add PDFs, docs, images, or audio to generate lessons and practice.</p>
+                    <span className="bg-surface text-text-primary border border-border-default px-space-6 py-space-2 rounded-xl font-label-md text-label-md group-hover:bg-primary group-hover:text-on-primary transition-colors w-full">
                         Browse Files
-                    </Link>
-                </div>
+                    </span>
+                </Link>
             </div>
 
-            {/* Bottom Grid */}
             <div className="grid grid-cols-12 gap-space-6">
-                {/* Left Column */}
                 <div className="col-span-12 lg:col-span-8 flex flex-col gap-space-6">
-                    {/* Performance Overview */}
-                    <div className="bg-surface rounded-xl shadow-sm border border-border-subtle p-space-6">
+                    <section className="bg-surface rounded-xl shadow-sm border border-border-subtle p-space-6">
                         <div className="flex justify-between items-center mb-space-6">
-                            <h3 className="font-headline-sm text-headline-sm text-text-primary">Performance Overview</h3>
-                            <button className="text-text-muted hover:text-primary font-label-md text-label-md flex items-center gap-1">
-                                Last 7 Days
-                                <span className="material-symbols-outlined text-[16px]">expand_more</span>
-                            </button>
+                            <h3 className="font-headline-sm text-headline-sm text-text-primary">Course Progress</h3>
+                            <Link to="/dashboard/progress" className="text-text-muted hover:text-primary font-label-md text-label-md flex items-center gap-1">
+                                View Progress
+                                <span className="material-symbols-outlined text-[16px]">arrow_forward</span>
+                            </Link>
                         </div>
                         <div className="flex items-end gap-space-4 h-48 mt-space-4">
-                            {[
-                                { day: 'Mon', height: '40%', active: false },
-                                { day: 'Tue', height: '65%', active: false },
-                                { day: 'Wed', height: '85%', active: true },
-                                { day: 'Thu', height: '50%', active: false },
-                                { day: 'Fri', height: '70%', active: false },
-                                { day: 'Sat', height: '30%', active: false },
-                                { day: 'Sun', height: '45%', active: false },
-                            ].map((bar) => (
+                            {activityData.map((bar) => (
                                 <div key={bar.day} className="flex-1 flex flex-col justify-end gap-2 group">
                                     <div
                                         className={`w-full rounded-t-md relative transition-colors ${
@@ -122,98 +251,91 @@ const StudentDashboard = () => {
                                     >
                                         {bar.active && (
                                             <div className="absolute -top-8 left-1/2 -translate-x-1/2 bg-surface shadow-md px-2 py-1 rounded text-xs font-label-xs border border-border-subtle">
-                                                85%
+                                                {bar.minutes}%
                                             </div>
                                         )}
                                     </div>
-                                    <span className={`text-center font-label-xs text-label-xs ${bar.active ? 'text-primary font-bold' : 'text-text-muted'}`}>
+                                    <span className={`text-center font-label-xs text-label-xs truncate ${bar.active ? 'text-primary font-bold' : 'text-text-muted'}`}>
                                         {bar.day}
                                     </span>
                                 </div>
                             ))}
                         </div>
-                    </div>
+                    </section>
 
-                    {/* AI Recommendation */}
-                    <div className="bg-ai-subtle rounded-xl shadow-sm border border-border-subtle p-space-6 relative overflow-hidden">
+                    <section className="bg-ai-subtle rounded-xl shadow-sm border border-border-subtle p-space-6 relative overflow-hidden">
                         <div className="absolute right-0 top-0 p-4 opacity-10">
                             <span className="material-symbols-outlined text-[100px] text-primary">smart_toy</span>
                         </div>
-                        <div className="relative z-10 flex justify-between items-center">
+                        <div className="relative z-10 flex flex-col md:flex-row md:justify-between md:items-center gap-space-5">
                             <div>
                                 <span className="font-label-xs text-label-xs text-primary uppercase tracking-wider font-bold">Recommended Action</span>
-                                <h3 className="font-headline-sm text-headline-sm text-text-primary mt-space-1 mb-space-2">Take a 5-min Quiz on Biology</h3>
+                                <h3 className="font-headline-sm text-headline-sm text-text-primary mt-space-1 mb-space-2">{recommendedAction.title}</h3>
                                 <p className="font-body-sm text-body-sm text-text-secondary max-w-md">
-                                    Our AI noticed you struggled with Cellular Respiration yesterday. A quick refresher will solidify your understanding.
+                                    {recommendedAction.description}
                                 </p>
                             </div>
                             <Link
-                                to="/dashboard/quiz"
-                                className="bg-surface text-primary border border-primary px-space-5 py-space-2 rounded-xl font-label-md text-label-md hover:bg-primary-soft transition-colors flex items-center gap-2 shrink-0"
+                                to={recommendedAction.href}
+                                className="bg-surface text-primary border border-primary px-space-5 py-space-2 rounded-xl font-label-md text-label-md hover:bg-primary-soft transition-colors inline-flex items-center gap-2 shrink-0"
                             >
-                                Start Quiz
+                                {recommendedAction.cta}
                                 <span className="material-symbols-outlined text-[16px]">play_arrow</span>
                             </Link>
                         </div>
-                    </div>
+                    </section>
                 </div>
 
-                {/* Right Column */}
                 <div className="col-span-12 lg:col-span-4 flex flex-col gap-space-6">
-                    {/* Recent Materials */}
-                    <div className="bg-surface rounded-xl shadow-sm border border-border-subtle p-space-6 flex-1">
+                    <section className="bg-surface rounded-xl shadow-sm border border-border-subtle p-space-6 flex-1">
                         <div className="flex justify-between items-center mb-space-4">
                             <h3 className="font-headline-sm text-headline-sm text-text-primary">Recent Materials</h3>
                             <Link to="/dashboard/library" className="text-text-muted hover:text-primary">
                                 <span className="material-symbols-outlined">more_horiz</span>
                             </Link>
                         </div>
-                        <ul className="flex flex-col gap-space-4">
-                            <li className="flex items-center gap-space-3 p-space-2 hover:bg-surface-soft rounded-lg cursor-pointer transition-colors -ml-space-2">
-                                <div className="w-10 h-10 bg-error-soft text-error rounded-lg flex items-center justify-center">
-                                    <span className="material-symbols-outlined">picture_as_pdf</span>
-                                </div>
-                                <div className="flex-1 min-w-0">
-                                    <p className="font-label-md text-label-md text-text-primary truncate">Neuroscience Basics</p>
-                                    <p className="font-label-xs text-label-xs text-text-muted mt-0.5">Uploaded yesterday</p>
-                                </div>
-                            </li>
-                            <li className="flex items-center gap-space-3 p-space-2 hover:bg-surface-soft rounded-lg cursor-pointer transition-colors -ml-space-2">
-                                <div className="w-10 h-10 bg-info-soft text-info rounded-lg flex items-center justify-center">
-                                    <span className="material-symbols-outlined">description</span>
-                                </div>
-                                <div className="flex-1 min-w-0">
-                                    <p className="font-label-md text-label-md text-text-primary truncate">Bio 101 Notes - Midterm</p>
-                                    <p className="font-label-xs text-label-xs text-text-muted mt-0.5">Uploaded 2 days ago</p>
-                                </div>
-                            </li>
-                            <li className="flex items-center gap-space-3 p-space-2 hover:bg-surface-soft rounded-lg cursor-pointer transition-colors -ml-space-2">
-                                <div className="w-10 h-10 bg-success-soft text-success rounded-lg flex items-center justify-center">
-                                    <span className="material-symbols-outlined">dataset</span>
-                                </div>
-                                <div className="flex-1 min-w-0">
-                                    <p className="font-label-md text-label-md text-text-primary truncate">Chemistry Formulas</p>
-                                    <p className="font-label-xs text-label-xs text-text-muted mt-0.5">Uploaded last week</p>
-                                </div>
-                            </li>
-                        </ul>
-                    </div>
+                        {recentMaterials.length > 0 ? (
+                            <ul className="flex flex-col gap-space-4">
+                                {recentMaterials.map((material) => {
+                                    const typeConfig = materialIconByKind[material.kind] || materialIconByKind.notes;
+                                    const href = material.courseId ? `/dashboard/course/${material.courseId}` : '/dashboard/library';
+                                    return (
+                                        <li key={material.uploadId}>
+                                            <Link to={href} className="flex items-center gap-space-3 p-space-2 hover:bg-surface-soft rounded-lg transition-colors -ml-space-2">
+                                                <div className={`w-10 h-10 ${typeConfig.color} rounded-lg flex items-center justify-center`}>
+                                                    <span className="material-symbols-outlined">{typeConfig.icon}</span>
+                                                </div>
+                                                <div className="flex-1 min-w-0">
+                                                    <p className="font-label-md text-label-md text-text-primary truncate">{material.title}</p>
+                                                    <p className="font-label-xs text-label-xs text-text-muted mt-0.5">Uploaded {formatRelativeTime(material.createdAt)}</p>
+                                                </div>
+                                            </Link>
+                                        </li>
+                                    );
+                                })}
+                            </ul>
+                        ) : (
+                            <p className="font-body-sm text-body-sm text-text-muted">Your uploaded materials will appear here.</p>
+                        )}
+                    </section>
 
-                    {/* Weak Topics */}
-                    <div className="bg-surface rounded-xl shadow-sm border border-border-subtle p-space-6">
-                        <h3 className="font-headline-sm text-headline-sm text-text-primary mb-space-4">Weak Topics</h3>
-                        <div className="flex flex-wrap gap-space-2">
-                            <span className="px-space-3 py-space-1 bg-surface-variant text-text-secondary rounded-full font-label-sm text-label-sm border border-border-subtle hover:border-primary hover:text-primary cursor-pointer transition-colors">
-                                Cellular Respiration
-                            </span>
-                            <span className="px-space-3 py-space-1 bg-surface-variant text-text-secondary rounded-full font-label-sm text-label-sm border border-border-subtle hover:border-primary hover:text-primary cursor-pointer transition-colors">
-                                Operant Conditioning
-                            </span>
-                            <span className="px-space-3 py-space-1 bg-surface-variant text-text-secondary rounded-full font-label-sm text-label-sm border border-border-subtle hover:border-primary hover:text-primary cursor-pointer transition-colors">
-                                Action Potentials
-                            </span>
-                        </div>
-                    </div>
+                    <section className="bg-surface rounded-xl shadow-sm border border-border-subtle p-space-6">
+                        <h3 className="font-headline-sm text-headline-sm text-text-primary mb-space-4">Weak Concepts</h3>
+                        {weakConcepts.length > 0 ? (
+                            <div className="flex flex-wrap gap-space-2">
+                                {weakConcepts.map((concept) => (
+                                    <span
+                                        key={concept.conceptKey || concept.label}
+                                        className="px-space-3 py-space-1 bg-surface-variant text-text-secondary rounded-full font-label-sm text-label-sm border border-border-subtle"
+                                    >
+                                        {concept.label}
+                                    </span>
+                                ))}
+                            </div>
+                        ) : (
+                            <p className="font-body-sm text-body-sm text-text-muted">Weak spots will appear after you complete practice.</p>
+                        )}
+                    </section>
                 </div>
             </div>
         </div>

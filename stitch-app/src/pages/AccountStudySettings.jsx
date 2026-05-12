@@ -1,4 +1,8 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
+import { Link } from 'react-router-dom';
+import { useMutation, useQuery } from 'convex/react';
+import { api } from '../../convex/_generated/api';
+import { useAuth } from '../contexts/AuthContext';
 import {
     DropdownMenu,
     DropdownMenuContent,
@@ -17,19 +21,123 @@ const SESSION_LENGTH_OPTIONS = [
     { value: '90', title: 'Extended', detail: '90m mastery session', triggerDetail: '90m', icon: 'self_improvement' },
 ];
 
+const DEFAULT_STUDY_PREFERENCES = {
+    dailyGoalMinutes: 120,
+    preferredSessionLength: '45',
+    dailyReminders: true,
+    processingAlerts: true,
+    weeklyProgressReport: false,
+};
+
+const TUTOR_STYLE_OPTIONS = [
+    { value: 'coach', icon: 'school', title: 'Coach', desc: 'Practical, exam-ready help.' },
+    { value: 'socratic', icon: 'forum', title: 'Socratic', desc: 'Guides with questions.' },
+    { value: 'patient', icon: 'child_care', title: 'Patient', desc: 'Simple, step-by-step teaching.' },
+];
+
+const formatSubscriptionDate = (timestamp) => {
+    const value = Number(timestamp || 0);
+    if (!Number.isFinite(value) || value <= 0) return '';
+    return new Intl.DateTimeFormat(undefined, {
+        month: 'short',
+        day: 'numeric',
+        year: 'numeric',
+    }).format(new Date(value));
+};
+
+const resolveSubscriptionPlanLabel = (subscription) => {
+    const plan = String(subscription?.plan || 'free').trim().toLowerCase();
+    if (plan === 'premium') return 'Premium';
+    return 'Free';
+};
+
+const buildSubscriptionSummary = (subscription) => {
+    if (subscription === undefined) return 'Loading billing status...';
+
+    const planLabel = resolveSubscriptionPlanLabel(subscription);
+    const status = String(subscription?.status || 'active').trim().toLowerCase();
+    const purchasedCredits = Math.max(0, Number(subscription?.purchasedUploadCredits || 0));
+    const consumedCredits = Math.max(0, Number(subscription?.consumedUploadCredits || 0));
+    const remainingCredits = Math.max(0, purchasedCredits - consumedCredits);
+    const expiryDate = formatSubscriptionDate(subscription?.planExpiresAt);
+    const billingDate = formatSubscriptionDate(subscription?.nextBillingDate);
+
+    if (expiryDate) return `${planLabel} ${status}; pass expires ${expiryDate}. ${remainingCredits} upload credits remaining.`;
+    if (billingDate) return `${planLabel} ${status}; next billing date is ${billingDate}.`;
+    if (planLabel === 'Premium') return `${planLabel} ${status}; ${remainingCredits} upload credits remaining.`;
+    return 'Free plan active. Upgrade when you need more upload credits.';
+};
+
 const AccountStudySettings = () => {
-    const [dailyGoal, setDailyGoal] = useState(120);
-    const [sessionLength, setSessionLength] = useState('45');
-    const [aiTone, setAiTone] = useState('socratic');
-    const [notifications, setNotifications] = useState({
-        dailyReminders: true,
-        processingAlerts: true,
-        weeklyReport: false,
-    });
+    const { user, profile, updateProfile } = useAuth();
+    const tutorProfile = useQuery(api.tutor.getTutorProfile, {});
+    const subscription = useQuery(api.subscriptions.getSubscription, {});
+    const setTutorPersona = useMutation(api.tutor.setTutorPersona);
+    const profileStudyPreferences = DEFAULT_STUDY_PREFERENCES;
+    const [draftFullName, setDraftFullName] = useState(null);
+    const [draftDailyGoal, setDraftDailyGoal] = useState(null);
+    const [draftSessionLength, setDraftSessionLength] = useState(null);
+    const [draftAiTone, setDraftAiTone] = useState(null);
+    const [draftNotifications, setDraftNotifications] = useState(null);
+    const [saving, setSaving] = useState(false);
+    const [saveMessage, setSaveMessage] = useState('');
+    const fullName = draftFullName ?? profile?.fullName ?? user?.name ?? '';
+    const dailyGoal = draftDailyGoal ?? profileStudyPreferences.dailyGoalMinutes;
+    const sessionLength = String(draftSessionLength ?? profileStudyPreferences.preferredSessionLength);
+    const notifications = draftNotifications ?? {
+        dailyReminders: Boolean(profileStudyPreferences.dailyReminders),
+        processingAlerts: Boolean(profileStudyPreferences.processingAlerts),
+        weeklyProgressReport: Boolean(profileStudyPreferences.weeklyProgressReport),
+    };
+    const aiTone = draftAiTone ?? tutorProfile?.preferredPersona ?? 'coach';
+    const subscriptionPlanLabel = resolveSubscriptionPlanLabel(subscription);
+    const subscriptionSummary = buildSubscriptionSummary(subscription);
     const selectedSessionLength = SESSION_LENGTH_OPTIONS.find((option) => option.value === sessionLength) || SESSION_LENGTH_OPTIONS[1];
+    const emailAddress = user?.email || '';
+    const initials = useMemo(() => {
+        const source = fullName || user?.name || emailAddress || 'Student';
+        return source
+            .split(/\s+/)
+            .map((part) => part[0])
+            .join('')
+            .slice(0, 2)
+            .toUpperCase() || 'S';
+    }, [emailAddress, fullName, user?.name]);
+
+    const handleTutorStyleChange = async (persona) => {
+        setDraftAiTone(persona);
+        try {
+            await setTutorPersona({ persona });
+        } catch {
+            setSaveMessage('Could not save tutor style. Try again.');
+        }
+    };
+
+    const handleSave = async (event) => {
+        event.preventDefault();
+        setSaving(true);
+        setSaveMessage('');
+        const numericDailyGoal = Math.max(1, Math.round(Number(dailyGoal) || DEFAULT_STUDY_PREFERENCES.dailyGoalMinutes));
+        const result = await updateProfile({
+            fullName: fullName.trim(),
+        });
+        setSaving(false);
+        if (result?.error) {
+            setSaveMessage(result.error.message || 'Could not save settings.');
+            return;
+        }
+        setDraftDailyGoal(numericDailyGoal);
+        setDraftSessionLength(String(sessionLength));
+        setDraftNotifications({
+            dailyReminders: Boolean(notifications.dailyReminders),
+            processingAlerts: Boolean(notifications.processingAlerts),
+            weeklyProgressReport: Boolean(notifications.weeklyProgressReport),
+        });
+        setSaveMessage('Settings saved.');
+    };
 
     return (
-        <div className="ml-0 md:ml-0 min-h-[calc(100vh-64px)]">
+        <form className="ml-0 md:ml-0 min-h-[calc(100vh-64px)]" onSubmit={handleSave}>
             <div className="max-w-[1000px] mx-auto p-space-6 md:p-space-10 lg:p-space-12 pb-32">
                 <div className="flex items-center justify-between mb-space-8">
                     <div>
@@ -51,7 +159,9 @@ const AccountStudySettings = () => {
                             <div className="flex items-center gap-space-6">
                                 <div className="relative group">
                                     <div className="w-20 h-20 rounded-full bg-surface-muted overflow-hidden border-2 border-surface shadow-sm flex items-center justify-center text-2xl font-bold text-text-muted">
-                                        AR
+                                        {profile?.avatarUrl ? (
+                                            <img src={profile.avatarUrl} alt="" className="h-full w-full object-cover" />
+                                        ) : initials}
                                     </div>
                                     <button className="absolute bottom-0 right-0 w-8 h-8 bg-surface border border-border-subtle rounded-full flex items-center justify-center text-text-secondary hover:text-primary shadow-sm group-hover:scale-105 transition-transform" type="button">
                                         <span className="material-symbols-outlined text-[16px]">edit</span>
@@ -59,12 +169,12 @@ const AccountStudySettings = () => {
                                 </div>
                                 <div className="flex-1">
                                     <label className="block font-label-md text-label-md text-text-secondary mb-space-2">Full Name</label>
-                                    <input className="w-full bg-surface-soft border border-border-default rounded-lg px-space-4 py-space-3 font-body-base text-text-primary focus:ring-2 focus:ring-primary-soft focus:border-primary outline-none transition-all" type="text" defaultValue="Alex Rivera" />
+                                    <input className="w-full bg-surface-soft border border-border-default rounded-lg px-space-4 py-space-3 font-body-base text-text-primary focus:ring-2 focus:ring-primary-soft focus:border-primary outline-none transition-all" type="text" value={fullName} onChange={(event) => setDraftFullName(event.target.value)} />
                                 </div>
                             </div>
                             <div>
                                 <label className="block font-label-md text-label-md text-text-secondary mb-space-2">Email Address</label>
-                                <input className="w-full bg-surface-soft border border-border-default rounded-lg px-space-4 py-space-3 font-body-base text-text-primary focus:ring-2 focus:ring-primary-soft focus:border-primary outline-none transition-all" type="email" defaultValue="alex.rivera@university.edu" />
+                                <input className="w-full bg-surface-soft border border-border-default rounded-lg px-space-4 py-space-3 font-body-base text-text-primary focus:ring-2 focus:ring-primary-soft focus:border-primary outline-none transition-all" type="email" value={emailAddress} readOnly />
                             </div>
                         </section>
 
@@ -78,12 +188,14 @@ const AccountStudySettings = () => {
                             <div className="relative z-10">
                                 <div className="flex items-center justify-between mb-space-2">
                                     <span className="font-body-base text-body-base text-text-secondary">Current Plan</span>
-                                    <span className="px-3 py-1 bg-success-soft text-success rounded-full font-label-xs text-label-xs font-bold uppercase tracking-wider">Pro</span>
+                                    <span className="px-3 py-1 bg-success-soft text-success rounded-full font-label-xs text-label-xs font-bold uppercase tracking-wider">
+                                        {subscriptionPlanLabel}
+                                    </span>
                                 </div>
-                                <p className="font-body-sm text-body-sm text-text-muted mb-space-6">Your next billing cycle begins on Oct 15, 2024.</p>
-                                <button className="w-full py-space-3 px-space-4 bg-surface border border-border-default rounded-xl font-label-md text-label-md text-text-primary hover:bg-surface-soft transition-colors shadow-sm" type="button">
+                                <p className="font-body-sm text-body-sm text-text-muted mb-space-6">{subscriptionSummary}</p>
+                                <Link to="/subscription" className="flex w-full items-center justify-center py-space-3 px-space-4 bg-surface border border-border-default rounded-xl font-label-md text-label-md text-text-primary hover:bg-surface-soft transition-colors shadow-sm">
                                     Manage Subscription
-                                </button>
+                                </Link>
                             </div>
                         </section>
                     </div>
@@ -100,7 +212,7 @@ const AccountStudySettings = () => {
                                 <div>
                                     <label className="block font-label-md text-label-md text-text-secondary mb-space-2">Daily Goal (Minutes)</label>
                                     <div className="relative">
-                                        <input className="w-full bg-surface-soft border border-border-default rounded-lg pl-space-4 pr-10 py-space-3 font-body-base text-text-primary focus:ring-2 focus:ring-primary-soft focus:border-primary outline-none transition-all" type="number" value={dailyGoal} onChange={(e) => setDailyGoal(e.target.value)} />
+                                        <input className="w-full bg-surface-soft border border-border-default rounded-lg pl-space-4 pr-10 py-space-3 font-body-base text-text-primary focus:ring-2 focus:ring-primary-soft focus:border-primary outline-none transition-all" type="number" min="1" value={dailyGoal} onChange={(e) => setDraftDailyGoal(e.target.value)} />
                                         <span className="absolute right-4 top-1/2 -translate-y-1/2 text-text-muted text-sm">min</span>
                                     </div>
                                 </div>
@@ -131,7 +243,7 @@ const AccountStudySettings = () => {
                                             <DropdownMenuSeparator />
                                             <DropdownMenuGroup>
                                                 <DropdownMenuLabel>Options</DropdownMenuLabel>
-                                                <DropdownMenuRadioGroup value={sessionLength} onValueChange={setSessionLength}>
+                                                <DropdownMenuRadioGroup value={sessionLength} onValueChange={setDraftSessionLength}>
                                                     {SESSION_LENGTH_OPTIONS.map((option) => (
                                                         <DropdownMenuRadioItem
                                                             key={option.value}
@@ -164,13 +276,9 @@ const AccountStudySettings = () => {
                             <div>
                                 <label className="block font-label-md text-label-md text-text-secondary mb-space-4">Teaching Style</label>
                                 <div className="grid grid-cols-1 md:grid-cols-3 gap-space-4">
-                                    {[
-                                        { value: 'academic', icon: 'school', title: 'Academic', desc: 'Formal, precise, textbook style.' },
-                                        { value: 'socratic', icon: 'forum', title: 'Socratic', desc: 'Guides with questions, makes you think.' },
-                                        { value: 'simple', icon: 'child_care', title: 'ELI5', desc: 'Explain like I\'m 5, simple terms.' },
-                                    ].map((style) => (
+                                    {TUTOR_STYLE_OPTIONS.map((style) => (
                                         <label key={style.value} className="relative flex cursor-pointer border border-border-default bg-surface p-space-4 rounded-xl hover:bg-surface-soft transition-colors focus-within:ring-2 focus-within:ring-primary-soft">
-                                            <input className="sr-only peer" name="ai_tone" type="radio" value={style.value} checked={aiTone === style.value} onChange={() => setAiTone(style.value)} />
+                                            <input className="sr-only peer" name="ai_tone" type="radio" value={style.value} checked={aiTone === style.value} onChange={() => handleTutorStyleChange(style.value)} />
                                             <div className="peer-checked:border-primary peer-checked:bg-primary-soft absolute inset-0 rounded-xl border-2 border-transparent transition-all pointer-events-none"></div>
                                             <div className="relative z-10 flex flex-col gap-2">
                                                 <span className="material-symbols-outlined text-text-muted peer-checked:text-primary">{style.icon}</span>
@@ -190,10 +298,10 @@ const AccountStudySettings = () => {
                                 <h3 className="font-headline-sm text-headline-sm text-text-primary">Notifications</h3>
                             </div>
                             <div className="flex flex-col gap-space-4">
-                                {[
-                                    { key: 'dailyReminders', title: 'Daily Study Reminders', desc: 'Get notified when it\'s time for your scheduled session.' },
-                                    { key: 'processingAlerts', title: 'Material Processing Alerts', desc: 'Notify me when my uploads are ready to review.' },
-                                    { key: 'weeklyReport', title: 'Weekly Progress Report', desc: 'Receive an email summary of your learning stats.' },
+                                    {[
+                                        { key: 'dailyReminders', title: 'Daily Study Reminders', desc: 'Get notified when it\'s time for your scheduled session.' },
+                                        { key: 'processingAlerts', title: 'Material Processing Alerts', desc: 'Notify me when my uploads are ready to review.' },
+                                        { key: 'weeklyProgressReport', title: 'Weekly Progress Report', desc: 'Receive an email summary of your learning stats.' },
                                 ].map((toggle) => (
                                     <div key={toggle.key} className="flex items-center justify-between py-space-2">
                                         <div>
@@ -201,7 +309,11 @@ const AccountStudySettings = () => {
                                             <p className="font-body-sm text-body-sm text-text-muted mt-1">{toggle.desc}</p>
                                         </div>
                                         <button
-                                            onClick={() => setNotifications(prev => ({ ...prev, [toggle.key]: !prev[toggle.key] }))}
+                                            type="button"
+                                            onClick={() => setDraftNotifications((prev) => {
+                                                const current = prev ?? notifications;
+                                                return { ...current, [toggle.key]: !current[toggle.key] };
+                                            })}
                                             className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
                                                 notifications[toggle.key] ? 'bg-primary' : 'bg-border-default'
                                             }`}
@@ -218,17 +330,20 @@ const AccountStudySettings = () => {
 
                     {/* Form Action Bar */}
                     <div className="lg:col-span-12 mt-space-6 flex items-center justify-end gap-space-4 pt-space-6 border-t border-border-subtle">
+                        {saveMessage && (
+                            <p className={`mr-auto font-body-sm text-body-sm ${saveMessage.includes('saved') ? 'text-success' : 'text-error'}`}>{saveMessage}</p>
+                        )}
                         <button className="py-space-3 px-space-6 bg-transparent text-text-secondary font-label-md text-label-md rounded-xl hover:bg-surface-soft transition-colors" type="button">
                             Cancel
                         </button>
-                        <button className="py-space-3 px-space-8 bg-primary hover:bg-primary-hover text-on-primary font-label-md text-label-md rounded-xl shadow-md transition-all flex items-center gap-2" type="submit">
+                        <button className="py-space-3 px-space-8 bg-primary hover:bg-primary-hover text-on-primary font-label-md text-label-md rounded-xl shadow-md transition-all flex items-center gap-2 disabled:opacity-60" type="submit" disabled={saving}>
                             <span className="material-symbols-outlined text-[18px]">save</span>
-                            Save Changes
+                            {saving ? 'Saving...' : 'Save Changes'}
                         </button>
                     </div>
                 </div>
             </div>
-        </div>
+        </form>
     );
 };
 

@@ -12,11 +12,15 @@ const tutorSource = await read('src/pages/AIStudyTutor.jsx');
 
 for (const expectedSnippet of [
   "from '@/components/ui/dropdown-menu';",
-  'const MATERIAL_OPTIONS = [',
+  'api.courses.getUserCourses',
+  'api.courses.getCourseWithTopics',
+  'api.topicChat.getMessages',
+  'api.ai.askTopicTutor',
+  'selectedTopicId',
   'aria-label="AI tutor material"',
   '<DropdownMenuTrigger asChild>',
-  '<DropdownMenuRadioGroup value={selectedMaterial} onValueChange={setSelectedMaterial}>',
-  'placeholder={`Ask a question about ${selectedMaterial}...`}',
+  '<DropdownMenuRadioGroup value={effectiveSelectedTopicId} onValueChange={setSelectedTopicId}>',
+  "placeholder={`Ask a question about ${selectedTopicOption?.title || 'this lesson'}...`}",
 ]) {
   if (!tutorSource.includes(expectedSnippet)) {
     throw new Error(`Expected AIStudyTutor.jsx to include "${expectedSnippet}".`);
@@ -33,8 +37,8 @@ for (const material of [
   'Introduction to Psychology',
   'Calculus I',
 ]) {
-  if (!tutorSource.includes(`value: '${material}'`)) {
-    throw new Error(`Expected AI Tutor material option "${material}".`);
+  if (tutorSource.includes(material)) {
+    throw new Error(`AI Tutor should not hardcode prototype material option "${material}".`);
   }
 }
 
