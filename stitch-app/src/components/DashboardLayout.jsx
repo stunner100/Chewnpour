@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { Component, useEffect } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import MobileBottomNav from './MobileBottomNav';
 import { WatermelonToaster } from './watermelon/WatermelonSonner';
@@ -6,6 +6,8 @@ import { watermelonToast } from './watermelon/watermelonToast';
 import { useAuth } from '../contexts/AuthContext';
 import { BlurFade } from './magicui/BlurFade';
 import CommandPalette from './CommandPalette';
+import { captureSentryException } from '../lib/sentry.js';
+import { getDashboardDataErrorMessage } from '../lib/dashboardDataErrors.js';
 
 const navItems = [
     { label: 'Dashboard', icon: 'dashboard', path: '/dashboard', exact: true },
@@ -24,6 +26,67 @@ const bottomNavItems = [
 
 const SUPPORT_EMAIL = 'info@chewnpour.com';
 const SUPPORT_MAILTO = `mailto:${SUPPORT_EMAIL}?subject=ChewnPour%20Support`;
+
+class DashboardContentErrorBoundary extends Component {
+    constructor(props) {
+        super(props);
+        this.state = { hasError: false, errorMessage: '' };
+    }
+
+    static getDerivedStateFromError(error) {
+        return {
+            hasError: true,
+            errorMessage: getDashboardDataErrorMessage(error),
+        };
+    }
+
+    componentDidCatch(error, errorInfo) {
+        if (import.meta.env.DEV) {
+            console.error('[DashboardContentErrorBoundary]', error, errorInfo);
+        }
+
+        captureSentryException(error, {
+            tags: {
+                area: 'dashboard_content_error_boundary',
+            },
+            extras: {
+                componentStack: errorInfo?.componentStack,
+            },
+        });
+    }
+
+    render() {
+        if (this.state.hasError) {
+            return (
+                <div className="min-h-[calc(100vh-4rem)] bg-background-light px-space-6 py-space-10 flex items-center justify-center">
+                    <section
+                        role="alert"
+                        className="max-w-lg rounded-2xl border border-border-subtle bg-surface p-space-8 text-center shadow-sm"
+                    >
+                        <div className="mx-auto mb-space-4 flex h-12 w-12 items-center justify-center rounded-full bg-primary-soft text-primary">
+                            <span className="material-symbols-outlined">cloud_off</span>
+                        </div>
+                        <h2 className="font-headline-sm text-headline-sm font-bold text-text-primary">
+                            Study data unavailable
+                        </h2>
+                        <p className="mt-space-3 font-body-base text-body-base text-text-secondary">
+                            {this.state.errorMessage}
+                        </p>
+                        <button
+                            type="button"
+                            onClick={() => window.location.reload()}
+                            className="mt-space-6 rounded-xl bg-primary px-space-5 py-space-3 font-label-md text-label-md text-on-primary shadow-sm transition-colors hover:bg-primary-hover"
+                        >
+                            Retry
+                        </button>
+                    </section>
+                </div>
+            );
+        }
+
+        return this.props.children;
+    }
+}
 
 const DashboardLayout = ({ children }) => {
     const routerLocation = useLocation();
@@ -205,9 +268,11 @@ const DashboardLayout = ({ children }) => {
 
                 {/* Main Content */}
                 <main id="dashboard-main" className="flex-1 overflow-y-auto overflow-x-hidden pt-16">
-                    <BlurFade key={routerLocation.pathname} duration={0.35} yOffset={8}>
-                        {children}
-                    </BlurFade>
+                    <DashboardContentErrorBoundary key={routerLocation.pathname}>
+                        <BlurFade duration={0.35} yOffset={8}>
+                            {children}
+                        </BlurFade>
+                    </DashboardContentErrorBoundary>
                 </main>
             </div>
 
