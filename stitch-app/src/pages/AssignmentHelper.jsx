@@ -1,9 +1,10 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { Link, useLocation, useNavigate } from 'react-router-dom';
+import React, { useEffect, useMemo, useReducer, useRef } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { useAction, useMutation, useQuery, useConvexAuth } from 'convex/react';
 import { api } from '../../convex/_generated/api';
 import { useAuth } from '../contexts/AuthContext';
-import Toast from '../components/Toast';
+import { WatermelonDisclosure } from '../components/watermelon/WatermelonDisclosure';
+import { watermelonToast } from '../components/watermelon/watermelonToast';
 import {
     createUploadObservation,
     reportUploadFlowCompleted,
@@ -39,18 +40,15 @@ const extractPdfTextFromFile = async (file) => {
     const loadingTask = pdfjsLib.getDocument({ data: arrayBuffer });
     const pdf = await loadingTask.promise;
     const maxPages = Math.min(pdf.numPages, 20);
-    let text = '';
-
-    for (let i = 1; i <= maxPages; i += 1) {
-        const page = await pdf.getPage(i);
+    const pageTexts = await Promise.all(Array.from({ length: maxPages }, async (_, index) => {
+        const page = await pdf.getPage(index + 1);
         const content = await page.getTextContent();
-        const pageText = content.items
+        return content.items
             .map((item) => (typeof item.str === 'string' ? item.str : ''))
             .join(' ');
-        text += `${pageText}\n`;
-    }
+    }));
 
-    return text.trim();
+    return pageTexts.join('\n').trim();
 };
 
 const MAX_FILE_SIZE_BYTES = 50 * 1024 * 1024;
@@ -96,6 +94,47 @@ const PROCESSING_STAGES = [
         detail: 'Reviewing answers and preparing your results.',
     },
 ];
+
+const THREAD_SKELETON_ROWS = [
+    'assignment-thread-skeleton-a',
+    'assignment-thread-skeleton-b',
+    'assignment-thread-skeleton-c',
+];
+
+const THINKING_DOTS = [
+    { delayMs: 0, id: 'thinking-dot-0' },
+    { delayMs: 150, id: 'thinking-dot-1' },
+    { delayMs: 300, id: 'thinking-dot-2' },
+];
+
+const getStructuredQuestionKey = (question) => {
+    const stableText = question?.questionText || question?.answer || question?.workings || 'question';
+    return `question-${question?.number || stableText.slice(0, 80)}`;
+};
+
+const buildParagraphBlocks = (content) => {
+    const seen = new Map();
+    return String(content || '').split('\n').map((text) => {
+        const baseKey = `${text.slice(0, 80)}-${text.length}`;
+        const count = seen.get(baseKey) || 0;
+        seen.set(baseKey, count + 1);
+        return {
+            id: count > 0 ? `${baseKey}-${count}` : baseKey,
+            text,
+        };
+    });
+};
+
+const resizeTextareaToContent = (textarea) => {
+    if (!textarea) return;
+    textarea.setAttribute('style', 'height: auto');
+    textarea.setAttribute('style', `height: ${Math.min(textarea.scrollHeight, 120)}px`);
+};
+
+const showAssignmentToast = (message, options) => {
+    if (!message) return;
+    watermelonToast(message, options);
+};
 
 const normalizeAssistantDisplayText = (value) => {
     return String(value || '')
@@ -218,34 +257,68 @@ const buildAiMessageLimitSubscriptionPath = () => {
     return `/subscription?${query.toString()}`;
 };
 
+const initialAssignmentState = {
+    selectedThreadId: null,
+    followUpQuestion: '',
+    busy: false,
+    sending: false,
+    error: '',
+    deletingThreadId: '',
+    processingStageIndex: 0,
+    copiedMessageId: null,
+    confirmDeleteId: null,
+    activeFollowUpQuestionNumber: null,
+    expandedQuestionIndex: 0,
+};
+
+const assignmentStateReducer = (state, action) => {
+    switch (action.type) {
+        case 'patch':
+            return { ...state, ...action.updates };
+        case 'advanceProcessingStage':
+            return {
+                ...state,
+                processingStageIndex: Math.min(
+                    state.processingStageIndex + 1,
+                    PROCESSING_STAGES.length - 1
+                ),
+            };
+        default:
+            return state;
+    }
+};
+
+// react-doctor-disable-next-line react-doctor/no-giant-component
 const AssignmentHelper = () => {
     const { user } = useAuth();
     const { isAuthenticated: isConvexAuthenticated } = useConvexAuth();
     const userId = user?.id;
-    const location = useLocation();
+    const routerLocation = useLocation();
     const navigate = useNavigate();
 
     const threads = useQuery(
         api.assignments.listThreads,
-        userId ? { userId } : 'skip'
+        isConvexAuthenticated ? {} : 'skip'
     );
     const uploadQuota = useQuery(
         api.subscriptions.getUploadQuotaStatus,
         userId && isConvexAuthenticated ? {} : 'skip'
     );
-    const [selectedThreadId, setSelectedThreadId] = useState(null);
-    const [followUpQuestion, setFollowUpQuestion] = useState('');
-    const [busy, setBusy] = useState(false);
-    const [sending, setSending] = useState(false);
-    const [error, setError] = useState('');
-    const [successMessage, setSuccessMessage] = useState('');
-    const [paywallToastMessage, setPaywallToastMessage] = useState('');
-    const [deletingThreadId, setDeletingThreadId] = useState('');
-    const [processingStageIndex, setProcessingStageIndex] = useState(0);
-    const [copiedMessageId, setCopiedMessageId] = useState(null);
-    const [confirmDeleteId, setConfirmDeleteId] = useState(null);
-    const [activeFollowUpQuestionNumber, setActiveFollowUpQuestionNumber] = useState(null);
-    const [expandedQuestionIndex, setExpandedQuestionIndex] = useState(0);
+    const [assignmentState, dispatchAssignment] = useReducer(assignmentStateReducer, initialAssignmentState);
+    const {
+        selectedThreadId,
+        followUpQuestion,
+        busy,
+        sending,
+        error,
+        deletingThreadId,
+        processingStageIndex,
+        copiedMessageId,
+        confirmDeleteId,
+        activeFollowUpQuestionNumber,
+        expandedQuestionIndex,
+    } = assignmentState;
+    const updateAssignment = (updates) => dispatchAssignment({ type: 'patch', updates });
     const uploadInputRef = useRef(null);
     const cameraInputRef = useRef(null);
     const endRef = useRef(null);
@@ -260,7 +333,7 @@ const AssignmentHelper = () => {
 
     const selectedThreadPayload = useQuery(
         api.assignments.getThreadWithMessages,
-        userId && selectedThreadId ? { userId, threadId: selectedThreadId } : 'skip'
+        isConvexAuthenticated && selectedThreadId ? { threadId: selectedThreadId } : 'skip'
     );
     const selectedThread = selectedThreadPayload?.thread || null;
     const messages = selectedThreadPayload?.messages || [];
@@ -281,7 +354,7 @@ const AssignmentHelper = () => {
 
     useEffect(() => {
         if (!sortedThreads.length) {
-            setSelectedThreadId(null);
+            dispatchAssignment({ type: 'patch', updates: { selectedThreadId: null } });
             return;
         }
         // Protect the explicitly-set thread ID from being overridden by the sorted list
@@ -290,40 +363,35 @@ const AssignmentHelper = () => {
             return;
         }
         if (!selectedThreadId || !sortedThreads.some((thread) => String(thread._id) === String(selectedThreadId))) {
-            setSelectedThreadId(sortedThreads[0]._id);
+            dispatchAssignment({
+                type: 'patch',
+                updates: { selectedThreadId: sortedThreads[0]._id },
+            });
         }
     }, [sortedThreads, selectedThreadId]);
 
     useEffect(() => {
-        if (!successMessage) return undefined;
-        const timer = window.setTimeout(() => setSuccessMessage(''), 2500);
-        return () => window.clearTimeout(timer);
-    }, [successMessage]);
-
-    useEffect(() => {
-        if (!paywallToastMessage) return undefined;
-        const timer = window.setTimeout(() => setPaywallToastMessage(''), 4200);
-        return () => window.clearTimeout(timer);
-    }, [paywallToastMessage]);
-
-    useEffect(() => {
         if (!copiedMessageId) return undefined;
-        const timer = window.setTimeout(() => setCopiedMessageId(null), 1500);
+        const timer = window.setTimeout(() => {
+            dispatchAssignment({ type: 'patch', updates: { copiedMessageId: null } });
+        }, 1500);
         return () => window.clearTimeout(timer);
     }, [copiedMessageId]);
 
     useEffect(() => {
         if (!confirmDeleteId) return undefined;
-        const timer = window.setTimeout(() => setConfirmDeleteId(null), 3000);
+        const timer = window.setTimeout(() => {
+            dispatchAssignment({ type: 'patch', updates: { confirmDeleteId: null } });
+        }, 3000);
         return () => window.clearTimeout(timer);
     }, [confirmDeleteId]);
 
     useEffect(() => {
-        const incomingToastMessage = location.state?.paywallToastMessage;
+        const incomingToastMessage = routerLocation.state?.paywallToastMessage;
         if (!incomingToastMessage) return;
-        setPaywallToastMessage(String(incomingToastMessage));
-        navigate(`${location.pathname}${location.search}`, { replace: true, state: {} });
-    }, [location.pathname, location.search, location.state, navigate]);
+        showAssignmentToast(String(incomingToastMessage), { type: 'warning', duration: 5000 });
+        navigate(`${routerLocation.pathname}${routerLocation.search}`, { replace: true, state: {} });
+    }, [routerLocation.pathname, routerLocation.search, routerLocation.state, navigate]);
 
     const redirectToUploadTopUp = () => {
         navigate(buildUploadLimitSubscriptionPath(), {
@@ -339,15 +407,12 @@ const AssignmentHelper = () => {
 
     useEffect(() => {
         if (!showProcessingExperience) {
-            setProcessingStageIndex(0);
+            dispatchAssignment({ type: 'patch', updates: { processingStageIndex: 0 } });
             return undefined;
         }
 
         const timer = window.setInterval(() => {
-            setProcessingStageIndex((current) => {
-                if (current >= PROCESSING_STAGES.length - 1) return current;
-                return current + 1;
-            });
+            dispatchAssignment({ type: 'advanceProcessingStage' });
         }, 2200);
 
         return () => window.clearInterval(timer);
@@ -369,7 +434,7 @@ const AssignmentHelper = () => {
             return;
         }
         if (!isConvexAuthenticated) {
-            setError(getUploadAuthNotReadyMessage());
+            updateAssignment({ error: getUploadAuthNotReadyMessage() });
             reportUploadValidationRejected({
                 flowType: 'assignment',
                 source: 'assignment_helper',
@@ -379,11 +444,10 @@ const AssignmentHelper = () => {
             });
             return;
         }
-        setError('');
-        setSuccessMessage('');
+        updateAssignment({ error: '' });
 
         if (!isSupportedFileType(file)) {
-            setError('Unsupported file format. Upload a PDF, DOCX, or image file.');
+            updateAssignment({ error: 'Unsupported file format. Upload a PDF, DOCX, or image file.' });
             reportUploadValidationRejected({
                 flowType: 'assignment',
                 source: 'assignment_helper',
@@ -394,7 +458,7 @@ const AssignmentHelper = () => {
             return;
         }
         if (file.size > MAX_FILE_SIZE_BYTES) {
-            setError('File is too large. Maximum supported size is 50MB.');
+            updateAssignment({ error: 'File is too large. Maximum supported size is 50MB.' });
             reportUploadValidationRejected({
                 flowType: 'assignment',
                 source: 'assignment_helper',
@@ -406,7 +470,7 @@ const AssignmentHelper = () => {
         }
 
         if (uploadQuota && Number(uploadQuota.remaining) <= 0) {
-            setError(uploadLimitMessage);
+            updateAssignment({ error: uploadLimitMessage });
             reportUploadValidationRejected({
                 flowType: 'assignment',
                 source: 'assignment_helper',
@@ -425,8 +489,10 @@ const AssignmentHelper = () => {
             file,
         });
         let currentStage = 'request_upload_url';
-        setProcessingStageIndex(0);
-        setBusy(true);
+        updateAssignment({
+            processingStageIndex: 0,
+            busy: true,
+        });
         reportUploadFlowStarted(uploadObservation);
         try {
             reportUploadStage(uploadObservation, currentStage);
@@ -496,7 +562,6 @@ const AssignmentHelper = () => {
             currentStage = 'create_assignment_thread';
             reportUploadStage(uploadObservation, currentStage);
             const { threadId } = await createThreadFromUpload({
-                userId,
                 fileName: file.name,
                 fileType: file.type,
                 fileSize: file.size,
@@ -504,7 +569,7 @@ const AssignmentHelper = () => {
             });
 
             pendingThreadIdRef.current = threadId;
-            setSelectedThreadId(threadId);
+            updateAssignment({ selectedThreadId: threadId });
 
             let extractedText = '';
             if (file.type === 'application/pdf') {
@@ -538,16 +603,16 @@ const AssignmentHelper = () => {
                 threadId,
                 extractedTextLength: extractedText.length,
             });
-            setSuccessMessage('Assignment processed. You can ask follow-up questions now.');
+            showAssignmentToast('Assignment processed. You can ask follow-up questions now.', { type: 'success' });
         } catch (uploadError) {
             if (getConvexErrorCode(uploadError) === 'UPLOAD_QUOTA_EXCEEDED') {
-                setError(
-                    resolveQuotaExceededMessage(
+                updateAssignment({
+                    error: resolveQuotaExceededMessage(
                         uploadError,
                         uploadQuota?.topUpOptions,
                         uploadQuota?.currency || 'GHS'
-                    )
-                );
+                    ),
+                });
                 reportUploadValidationRejected({
                     flowType: 'assignment',
                     source: 'assignment_helper',
@@ -569,7 +634,7 @@ const AssignmentHelper = () => {
                         errorMessage: resolveConvexActionError(uploadError, ''),
                     }
                 );
-                setError(buildAssignmentExtractionGuidance(uploadError));
+                updateAssignment({ error: buildAssignmentExtractionGuidance(uploadError) });
                 return;
             }
             if (isConvexAuthenticationError(uploadError)) {
@@ -583,18 +648,20 @@ const AssignmentHelper = () => {
                         errorMessage: resolveConvexActionError(uploadError, ''),
                     }
                 );
-                setError(getUploadAuthNotReadyMessage());
+                updateAssignment({ error: getUploadAuthNotReadyMessage() });
                 return;
             }
             console.error('Assignment upload failed:', uploadError);
             reportUploadFlowFailed(uploadObservation, uploadError, { stage: currentStage });
             if (isTransientUploadTransportError(uploadError)) {
-                setError('Upload failed due to a temporary network issue. Please check your connection and try again.');
+                updateAssignment({ error: 'Upload failed due to a temporary network issue. Please check your connection and try again.' });
             } else {
-                setError(resolveConvexActionError(uploadError, 'Could not process assignment. Please try again.'));
+                updateAssignment({
+                    error: resolveConvexActionError(uploadError, 'Could not process assignment. Please try again.'),
+                });
             }
         } finally {
-            setBusy(false);
+            updateAssignment({ busy: false });
         }
     };
 
@@ -607,22 +674,25 @@ const AssignmentHelper = () => {
     const handleDeleteThread = async (thread) => {
         if (!userId || !thread?._id) return;
 
-        setDeletingThreadId(String(thread._id));
-        setConfirmDeleteId(null);
-        setError('');
+        updateAssignment({
+            deletingThreadId: String(thread._id),
+            confirmDeleteId: null,
+            error: '',
+        });
         try {
             await deleteThread({
-                userId,
                 threadId: thread._id,
             });
             if (String(selectedThreadId) === String(thread._id)) {
-                setSelectedThreadId(null);
+                updateAssignment({ selectedThreadId: null });
             }
-            setSuccessMessage('Thread deleted.');
+            showAssignmentToast('Thread deleted.', { type: 'success' });
         } catch (deleteError) {
-            setError(resolveConvexActionError(deleteError, 'Could not delete this thread right now.'));
+            updateAssignment({
+                error: resolveConvexActionError(deleteError, 'Could not delete this thread right now.'),
+            });
         } finally {
-            setDeletingThreadId('');
+            updateAssignment({ deletingThreadId: '' });
         }
     };
 
@@ -632,8 +702,10 @@ const AssignmentHelper = () => {
         const question = followUpQuestion.trim();
         if (!question) return;
 
-        setSending(true);
-        setError('');
+        updateAssignment({
+            sending: true,
+            error: '',
+        });
         try {
             const args = {
                 threadId: selectedThreadId,
@@ -644,18 +716,18 @@ const AssignmentHelper = () => {
                 args.questionNumber = activeFollowUpQuestionNumber;
             }
             await askAssignmentFollowUp(args);
-            setFollowUpQuestion('');
-            setActiveFollowUpQuestionNumber(null);
-            if (textareaRef.current) {
-                textareaRef.current.style.height = 'auto';
-            }
+            updateAssignment({
+                followUpQuestion: '',
+                activeFollowUpQuestionNumber: null,
+            });
+            resizeTextareaToContent(textareaRef.current);
         } catch (followUpError) {
             if (getConvexErrorCode(followUpError) === 'AI_MESSAGE_QUOTA_EXCEEDED') {
                 const paywallMessage = resolveConvexActionError(
                     followUpError,
                     "You've used your free AI messages today. Upgrade to premium for unlimited AI chat."
                 );
-                setError(paywallMessage);
+                updateAssignment({ error: paywallMessage });
                 navigate(buildAiMessageLimitSubscriptionPath(), {
                     state: {
                         paywallMessage,
@@ -663,40 +735,48 @@ const AssignmentHelper = () => {
                 });
                 return;
             }
-            setError(resolveConvexActionError(followUpError, 'Could not send follow-up question.'));
+            updateAssignment({
+                error: resolveConvexActionError(followUpError, 'Could not send follow-up question.'),
+            });
         } finally {
-            setSending(false);
+            updateAssignment({ sending: false });
         }
     };
 
     const handleAskAboutQuestion = (qNum) => {
-        setActiveFollowUpQuestionNumber(qNum);
-        setFollowUpQuestion(`Regarding Question ${qNum}: `);
+        updateAssignment({
+            activeFollowUpQuestionNumber: qNum,
+            followUpQuestion: `Regarding Question ${qNum}: `,
+        });
         textareaRef.current?.focus();
     };
 
     const handleCopy = async (content, messageId) => {
         try {
             await navigator.clipboard.writeText(content);
-            setCopiedMessageId(messageId);
+            updateAssignment({ copiedMessageId: messageId });
         } catch { /* clipboard not available */ }
     };
 
     const retryProcessing = async (thread) => {
         if (!thread || !userId || busy) return;
-        setBusy(true);
-        setError('');
-        setProcessingStageIndex(0);
+        updateAssignment({
+            busy: true,
+            error: '',
+            processingStageIndex: 0,
+        });
         try {
             await processAssignmentThread({
                 threadId: thread._id,
                 userId,
             });
-            setSuccessMessage('Assignment reprocessed successfully.');
+            showAssignmentToast('Assignment reprocessed successfully.', { type: 'success' });
         } catch (retryError) {
-            setError(resolveConvexActionError(retryError, 'Retry failed. Please try uploading again.'));
+            updateAssignment({
+                error: resolveConvexActionError(retryError, 'Retry failed. Please try uploading again.'),
+            });
         } finally {
-            setBusy(false);
+            updateAssignment({ busy: false });
         }
     };
 
@@ -711,16 +791,11 @@ const AssignmentHelper = () => {
         <div className="bg-background-light dark:bg-background-dark antialiased min-h-screen flex flex-col">
             <header className="sticky top-0 z-50 w-full bg-surface-light/90 dark:bg-surface-dark/90 backdrop-blur-md border-b border-border-light dark:border-border-dark">
                 <div className="max-w-[1600px] mx-auto px-4 md:px-6 h-14 flex items-center justify-between gap-4">
-                    <div className="flex items-center gap-3">
-                        <Link to="/dashboard" aria-label="Back to dashboard" className="btn-icon w-10 h-10">
-                            <span className="material-symbols-outlined text-[20px]">arrow_back</span>
-                        </Link>
-                        <div className="flex items-center gap-2">
-                            <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center text-white">
-                                <span className="material-symbols-outlined text-[18px]">assignment</span>
-                            </div>
-                            <h1 className="text-body-base font-semibold text-text-main-light dark:text-text-main-dark">Assignment Helper</h1>
+                    <div className="flex items-center gap-2">
+                        <div className="size-8 rounded-lg bg-primary flex items-center justify-center text-white">
+                            <span className="material-symbols-outlined text-[18px]">assignment</span>
                         </div>
+                        <h1 className="text-body-base font-semibold text-text-main-light dark:text-text-main-dark">Assignment Helper</h1>
                     </div>
                     <div className="flex items-center gap-2">
                         <button
@@ -728,20 +803,19 @@ const AssignmentHelper = () => {
                             onClick={handleCameraClick}
                             disabled={busy}
                             aria-label="Take photo of assignment"
-                            className="btn-secondary inline-flex items-center gap-1.5 h-9 px-3 text-body-sm"
+                            className="btn-icon text-text-sub-light dark:text-text-sub-dark"
                         >
-                            <span className="material-symbols-outlined text-[18px]">photo_camera</span>
-                            <span className="hidden sm:inline">Camera</span>
+                            <span className="material-symbols-outlined text-[20px]">photo_camera</span>
                         </button>
                         <button
                             type="button"
                             onClick={handleUploadClick}
                             disabled={busy}
                             aria-label="Upload assignment file"
-                            className="btn-primary inline-flex items-center gap-1.5 h-9 px-3 text-body-sm"
+                            className="btn-primary inline-flex items-center gap-2 h-10 px-5 text-body-sm shadow-button"
                         >
                             <span className="material-symbols-outlined text-[18px]">{busy ? 'hourglass_empty' : 'upload_file'}</span>
-                            <span className="hidden sm:inline">{busy ? 'Processing...' : 'Upload'}</span>
+                            <span className="hidden sm:inline">{busy ? 'Processing...' : 'Upload Assignment'}</span>
                         </button>
                     </div>
                 </div>
@@ -764,18 +838,9 @@ const AssignmentHelper = () => {
             />
 
             <main className="flex-1 w-full max-w-[1600px] mx-auto px-4 py-6 md:px-6 md:py-8 pb-24 md:pb-8">
-                {(error || successMessage) && (
-                    <div className="mb-5 space-y-2">
-                        {error && (
-                            <div className="p-3 rounded-xl border border-red-200 dark:border-red-900/30 bg-red-50 dark:bg-red-900/10 text-body-sm font-medium text-red-700 dark:text-red-300">
-                                {error}
-                            </div>
-                        )}
-                        {successMessage && (
-                            <div className="p-3 rounded-xl border border-emerald-200 dark:border-emerald-900/30 bg-accent-emerald/10 text-body-sm font-medium text-accent-emerald">
-                                {successMessage}
-                            </div>
-                        )}
+                {error && (
+                    <div className="mb-5 p-3 rounded-xl border border-red-200 dark:border-red-900/30 bg-red-50 dark:bg-red-900/10 text-body-sm font-medium text-red-700 dark:text-red-300">
+                        {error}
                     </div>
                 )}
 
@@ -788,20 +853,20 @@ const AssignmentHelper = () => {
                             </div>
                             <span className="text-caption font-medium px-2 py-0.5 bg-surface-hover-light dark:bg-surface-hover-dark text-text-faint-light dark:text-text-faint-dark rounded-full">{sortedThreads.length}</span>
                         </div>
-                        <div className="flex-1 overflow-y-auto p-3 space-y-2" role="list">
+                        <div className="flex-1 overflow-y-auto p-2 space-y-1" role="list">
                             {threads === undefined ? (
-                                <div className="space-y-2">
-                                    {[0, 1, 2].map((i) => (
-                                        <div key={i} className="animate-pulse rounded-xl bg-surface-hover-light dark:bg-surface-hover-dark h-20" />
+                                <div className="space-y-2 p-2">
+                                    {THREAD_SKELETON_ROWS.map((rowId) => (
+                                        <div key={rowId} className="animate-pulse rounded-xl bg-surface-hover-light dark:bg-surface-hover-dark h-[72px]" />
                                     ))}
                                 </div>
                             ) : sortedThreads.length === 0 ? (
-                                <div className="h-full flex flex-col items-center justify-center text-center px-4 py-8">
-                                    <div className="w-14 h-14 rounded-xl bg-primary/8 flex items-center justify-center mb-3">
-                                        <span className="material-symbols-outlined text-[24px] text-primary/60">chat_add_on</span>
+                                <div className="h-full flex flex-col items-center justify-center text-center px-4 py-10">
+                                    <div className="size-16 rounded-2xl bg-primary/8 dark:bg-primary/10 flex items-center justify-center mb-4">
+                                        <span className="material-symbols-outlined text-[28px] text-primary/60">chat_add_on</span>
                                     </div>
-                                    <p className="text-body-sm font-semibold text-text-main-light dark:text-text-main-dark">No assignments yet</p>
-                                    <p className="text-caption text-text-faint-light dark:text-text-faint-dark mt-1 max-w-[200px]">Upload your first assignment to get started</p>
+                                    <p className="text-body-base font-semibold text-text-main-light dark:text-text-main-dark">No assignments yet</p>
+                                    <p className="text-caption text-text-faint-light dark:text-text-faint-dark mt-1.5 max-w-[220px]">Upload your first assignment to get started</p>
                                 </div>
                             ) : (
                                 sortedThreads.map((thread) => {
@@ -812,26 +877,25 @@ const AssignmentHelper = () => {
                                         <div
                                             key={thread._id}
                                             role="listitem"
-                                            className={`group rounded-xl p-3 transition-all relative ${isActive
-                                                ? 'bg-primary/5 dark:bg-primary/10 border-2 border-primary'
-                                                : 'border border-border-light dark:border-border-dark hover:border-primary/30'
+                                            className={`group rounded-xl transition-all relative cursor-pointer ${isActive
+                                                ? 'bg-primary/[0.04] dark:bg-primary/[0.08] border-l-[3px] border-l-primary border border-border-light dark:border-border-dark shadow-xs'
+                                                : 'bg-transparent border border-transparent hover:bg-surface-hover-light dark:hover:bg-surface-hover-dark hover:border-border-light dark:hover:border-border-dark'
                                                 } ${isDeleting ? 'opacity-50' : ''}`}
                                         >
                                             <button
                                                 type="button"
-                                                onClick={() => !isDeleting && setSelectedThreadId(thread._id)}
+                                                onClick={() => !isDeleting && updateAssignment({ selectedThreadId: thread._id })}
                                                 disabled={isDeleting}
-                                                className="w-full text-left"
+                                                className="w-full text-left p-3"
                                             >
                                                 <div className="flex items-start gap-3">
-                                                    <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 transition-colors ${isActive ? 'bg-primary text-white' : 'bg-surface-hover-light dark:bg-surface-hover-dark text-text-faint-light dark:text-text-faint-dark'}`}>
-                                                        <span className="material-symbols-outlined text-[20px]">description</span>
+                                                    <div className={`size-9 rounded-lg flex items-center justify-center shrink-0 transition-colors ${isActive ? 'bg-primary text-white' : 'bg-surface-hover-light dark:bg-surface-hover-dark text-text-faint-light dark:text-text-faint-dark'}`}>
+                                                        <span className="material-symbols-outlined text-[18px]">description</span>
                                                     </div>
-                                                    <div className="flex-1 min-w-0 pr-6">
-                                                        <h3 className={`text-body-sm font-semibold truncate ${isActive ? 'text-primary' : 'text-text-main-light dark:text-text-main-dark'}`}>
+                                                    <div className="flex-1 min-w-0 pr-7">
+                                                        <h3 className={`text-body-sm font-semibold truncate leading-tight ${isActive ? 'text-primary' : 'text-text-main-light dark:text-text-main-dark'}`}>
                                                             {thread.title}
                                                         </h3>
-                                                        <p className="text-caption text-text-faint-light dark:text-text-faint-dark truncate mt-0.5">{thread.fileName}</p>
                                                         <div className="flex items-center gap-2 mt-1.5">
                                                             <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded-full ${thread.status === 'ready'
                                                                 ? 'bg-accent-emerald/10 text-accent-emerald'
@@ -847,17 +911,17 @@ const AssignmentHelper = () => {
                                                 </div>
                                             </button>
                                             {isConfirmingDelete ? (
-                                                <div className="absolute right-2 top-2 flex items-center gap-1">
+                                                <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1">
                                                     <button
                                                         type="button"
-                                                        onClick={(e) => { e.stopPropagation(); handleDeleteThread(thread); setConfirmDeleteId(null); }}
+                                                        onClick={(e) => { e.stopPropagation(); handleDeleteThread(thread); updateAssignment({ confirmDeleteId: null }); }}
                                                         className="text-[10px] font-semibold text-white bg-red-500 hover:bg-red-600 px-2 py-1 rounded-lg transition-colors"
                                                     >
                                                         Delete
                                                     </button>
                                                     <button
                                                         type="button"
-                                                        onClick={(e) => { e.stopPropagation(); setConfirmDeleteId(null); }}
+                                                        onClick={(e) => { e.stopPropagation(); updateAssignment({ confirmDeleteId: null }); }}
                                                         className="text-[10px] font-medium text-text-faint-light dark:text-text-faint-dark hover:text-text-main-light dark:hover:text-text-main-dark px-1.5 py-1 rounded-lg transition-colors"
                                                     >
                                                         Cancel
@@ -868,13 +932,13 @@ const AssignmentHelper = () => {
                                                     type="button"
                                                     onClick={(e) => {
                                                         e.stopPropagation();
-                                                        setConfirmDeleteId(String(thread._id));
+                                                        updateAssignment({ confirmDeleteId: String(thread._id) });
                                                     }}
                                                     disabled={isDeleting}
                                                     aria-label="Delete conversation"
-                                                    className="absolute right-2 top-2 w-7 h-7 flex items-center justify-center rounded-lg text-text-faint-light dark:text-text-faint-dark hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 opacity-100 lg:opacity-0 lg:group-hover:opacity-100 transition-all"
+                                                    className="absolute right-2 top-1/2 -translate-y-1/2 size-7 flex items-center justify-center rounded-lg text-text-faint-light dark:text-text-faint-dark hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 opacity-100 lg:opacity-0 lg:group-hover:opacity-100 transition-all"
                                                 >
-                                                    <span className="material-symbols-outlined text-[18px]">
+                                                    <span className="material-symbols-outlined text-[16px]">
                                                         {isDeleting ? 'hourglass_empty' : 'close'}
                                                     </span>
                                                 </button>
@@ -888,47 +952,50 @@ const AssignmentHelper = () => {
 
                     <section className="lg:col-span-8 xl:col-span-9 card-base flex flex-col h-[calc(100svh-10rem)] lg:h-[72vh] overflow-hidden">
                         {!selectedThread ? (
-                            <div className="flex-1 flex flex-col items-center justify-center text-center px-6 py-16">
-                                <div className="mb-6">
-                                    <div className="w-20 h-20 rounded-2xl bg-primary/8 flex items-center justify-center text-primary">
-                                        <span className="material-symbols-outlined text-[36px]">assignment</span>
+                            <div className="flex-1 flex flex-col items-center justify-center text-center px-6 py-20">
+                                <div className="relative mb-8">
+                                    <div className="size-24 rounded-3xl bg-primary/[0.08] dark:bg-primary/[0.12] flex items-center justify-center text-primary">
+                                        <span className="material-symbols-outlined text-[44px]">assignment</span>
+                                    </div>
+                                    <div className="absolute -bottom-1 -right-1 size-8 rounded-full bg-accent-emerald flex items-center justify-center text-white shadow-sm">
+                                        <span className="material-symbols-outlined text-[16px]">auto_awesome</span>
                                     </div>
                                 </div>
-                                <h2 className="text-body-lg font-semibold text-text-main-light dark:text-text-main-dark mb-2">Start with an Assignment</h2>
-                                <p className="text-body-sm text-text-sub-light dark:text-text-sub-dark max-w-xs mb-8">
-                                    Upload a PDF, DOCX, or photo. Our AI will solve it and you can ask follow-up questions.
+                                <h2 className="text-display-sm font-semibold text-text-main-light dark:text-text-main-dark mb-3">Upload an Assignment</h2>
+                                <p className="text-body-base text-text-sub-light dark:text-text-sub-dark max-w-sm mb-10 leading-relaxed">
+                                    Upload a PDF, DOCX, or photo. Our AI reads it, solves every question, and you can ask follow-ups.
                                 </p>
                                 <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 w-full sm:w-auto max-w-xs sm:max-w-none">
                                     <button
                                         type="button"
                                         onClick={handleUploadClick}
                                         disabled={busy}
-                                        className="btn-primary flex-1 sm:flex-none inline-flex items-center justify-center gap-2 h-11 px-6 text-body-sm"
+                                        className="btn-primary flex-1 sm:flex-none inline-flex items-center justify-center gap-2 h-12 px-8 text-body-base shadow-button"
                                     >
-                                        <span className="material-symbols-outlined text-[18px]">{busy ? 'hourglass_empty' : 'upload_file'}</span>
+                                        <span className="material-symbols-outlined text-[20px]">{busy ? 'hourglass_empty' : 'upload_file'}</span>
                                         Upload File
                                     </button>
                                     <button
                                         type="button"
                                         onClick={handleCameraClick}
                                         disabled={busy}
-                                        className="btn-secondary flex-1 sm:flex-none inline-flex items-center justify-center gap-2 h-11 px-6 text-body-sm"
+                                        className="btn-secondary flex-1 sm:flex-none inline-flex items-center justify-center gap-2 h-12 px-6 text-body-sm"
                                     >
-                                        <span className="material-symbols-outlined text-[18px]">photo_camera</span>
+                                        <span className="material-symbols-outlined text-[20px]">photo_camera</span>
                                         Take Photo
                                     </button>
                                 </div>
-                                <div className="mt-6 flex items-center gap-4 text-caption text-text-faint-light dark:text-text-faint-dark">
-                                    <span className="flex items-center gap-1">
-                                        <span className="material-symbols-outlined text-[14px]">check_circle</span>
+                                <div className="mt-8 flex items-center gap-5 text-caption text-text-faint-light dark:text-text-faint-dark">
+                                    <span className="flex items-center gap-1.5">
+                                        <span className="material-symbols-outlined text-[16px] text-accent-emerald">check_circle</span>
                                         PDF
                                     </span>
-                                    <span className="flex items-center gap-1">
-                                        <span className="material-symbols-outlined text-[14px]">check_circle</span>
+                                    <span className="flex items-center gap-1.5">
+                                        <span className="material-symbols-outlined text-[16px] text-accent-emerald">check_circle</span>
                                         DOCX
                                     </span>
-                                    <span className="flex items-center gap-1">
-                                        <span className="material-symbols-outlined text-[14px]">check_circle</span>
+                                    <span className="flex items-center gap-1.5">
+                                        <span className="material-symbols-outlined text-[16px] text-accent-emerald">check_circle</span>
                                         Images
                                     </span>
                                 </div>
@@ -939,27 +1006,28 @@ const AssignmentHelper = () => {
                                     <div className="flex items-center gap-3">
                                         <button
                                             type="button"
-                                            onClick={() => setSelectedThreadId(null)}
-                                            className="lg:hidden btn-icon w-9 h-9"
+                                            onClick={() => updateAssignment({ selectedThreadId: null })}
+                                            className="lg:hidden btn-icon size-9"
                                             aria-label="Back to conversations"
                                         >
                                             <span className="material-symbols-outlined text-[20px]">arrow_back</span>
                                         </button>
-                                        <div className="w-9 h-9 rounded-lg bg-primary flex items-center justify-center text-white shrink-0">
-                                            <span className="material-symbols-outlined text-[18px]">description</span>
-                                        </div>
-                                        <div className="flex-1 min-w-0">
-                                            <h2 className="text-body-sm font-semibold text-text-main-light dark:text-text-main-dark truncate">{selectedThread.title}</h2>
-                                            <div className="flex items-center gap-2">
-                                                <p className="text-caption text-text-faint-light dark:text-text-faint-dark truncate">{selectedThread.fileName}</p>
-                                                <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded-full ${threadStatus === 'ready'
-                                                    ? 'bg-accent-emerald/10 text-accent-emerald'
-                                                    : threadStatus === 'error'
-                                                        ? 'bg-red-100 dark:bg-red-900/20 text-red-700 dark:text-red-400'
-                                                        : 'bg-accent-amber/10 text-accent-amber'
-                                                    }`}>
-                                                    {threadStatus === 'ready' ? 'Ready' : threadStatus === 'error' ? 'Failed' : 'Processing'}
-                                                </span>
+                                        <div className="flex-1 min-w-0 flex items-center gap-2.5">
+                                            <div className="size-8 rounded-lg bg-primary flex items-center justify-center text-white shrink-0">
+                                                <span className="material-symbols-outlined text-[16px]">description</span>
+                                            </div>
+                                            <div className="min-w-0 flex-1">
+                                                <div className="flex items-center gap-2">
+                                                    <h2 className="text-body-sm font-semibold text-text-main-light dark:text-text-main-dark truncate">{selectedThread.title}</h2>
+                                                    <span className={`shrink-0 text-[10px] font-semibold px-1.5 py-0.5 rounded-full ${threadStatus === 'ready'
+                                                        ? 'bg-accent-emerald/10 text-accent-emerald'
+                                                        : threadStatus === 'error'
+                                                            ? 'bg-red-100 dark:bg-red-900/20 text-red-700 dark:text-red-400'
+                                                            : 'bg-accent-amber/10 text-accent-amber'
+                                                        }`}>
+                                                        {threadStatus === 'ready' ? 'Ready' : threadStatus === 'error' ? 'Failed' : 'Processing'}
+                                                    </span>
+                                                </div>
                                             </div>
                                         </div>
                                     </div>
@@ -976,7 +1044,7 @@ const AssignmentHelper = () => {
                                                     id="mobile-assignment-thread-switcher"
                                                     aria-label="Switch assignment conversation"
                                                     value={selectedThreadId ? String(selectedThreadId) : ''}
-                                                    onChange={(event) => setSelectedThreadId(event.target.value || null)}
+                                                    onChange={(event) => updateAssignment({ selectedThreadId: event.target.value || null })}
                                                     className="input-field h-9 text-body-sm pl-8 pr-8"
                                                 >
                                                     {sortedThreads.map((thread) => (
@@ -993,11 +1061,11 @@ const AssignmentHelper = () => {
                                     )}
                                 </div>
 
-                                <div className="flex-1 overflow-y-auto px-4 py-4 space-y-4 bg-background-light dark:bg-background-dark">
+                                <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-background-light dark:bg-background-dark">
                                     {isThreadProcessing && (
-                                        <div className="card-base p-4 border-primary/20 dark:border-primary/20">
+                                        <div className="rounded-2xl bg-white dark:bg-surface-elevated border border-border-subtle dark:border-border-subtle-dark shadow-xs p-4">
                                             <div className="flex items-start gap-3">
-                                                <div className="relative flex h-10 w-10 items-center justify-center rounded-xl bg-primary text-white shrink-0">
+                                                <div className="relative flex size-10 items-center justify-center rounded-xl bg-primary/90 text-white shrink-0">
                                                     <span className="material-symbols-outlined text-[18px] animate-pulse">auto_awesome</span>
                                                 </div>
                                                 <div className="flex-1">
@@ -1014,7 +1082,7 @@ const AssignmentHelper = () => {
                                                     const isActive = index === processingStageIndex;
                                                     return (
                                                         <div key={stage.title} className="flex items-center gap-1.5">
-                                                            <div className={`w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold ${isDone
+                                                            <div className={`size-6 rounded-full flex items-center justify-center text-[10px] font-bold ${isDone
                                                                 ? 'bg-accent-emerald/10 text-accent-emerald'
                                                                 : isActive
                                                                     ? 'bg-primary text-white animate-pulse'
@@ -1032,9 +1100,9 @@ const AssignmentHelper = () => {
                                         </div>
                                     )}
                                     {messages.length === 0 && threadStatus === 'error' && (
-                                        <div className="rounded-xl bg-red-50 dark:bg-red-900/10 border border-red-200 dark:border-red-900/30 px-4 py-4">
+                                        <div className="rounded-xl bg-red-50 dark:bg-red-900/10 border border-red-200 dark:border-red-900/30 p-4">
                                             <div className="flex items-start gap-3">
-                                                <div className="w-10 h-10 rounded-xl bg-red-100 dark:bg-red-900/20 flex items-center justify-center shrink-0">
+                                                <div className="size-10 rounded-xl bg-red-100 dark:bg-red-900/20 flex items-center justify-center shrink-0">
                                                     <span className="material-symbols-outlined text-red-500 text-[20px]">error</span>
                                                 </div>
                                                 <div>
@@ -1057,7 +1125,7 @@ const AssignmentHelper = () => {
                                     )}
                                     {messages.length === 0 && threadStatus === 'processing' && (
                                         <div className="flex flex-col items-center justify-center py-12 text-center">
-                                            <div className="w-14 h-14 rounded-2xl bg-surface-hover-light dark:bg-surface-hover-dark flex items-center justify-center mb-3">
+                                            <div className="size-14 rounded-2xl bg-surface-hover-light dark:bg-surface-hover-dark flex items-center justify-center mb-3">
                                                 <span className="material-symbols-outlined text-[28px] text-text-faint-light dark:text-text-faint-dark animate-pulse">hourglass_empty</span>
                                             </div>
                                             <p className="text-body-sm font-medium text-text-sub-light dark:text-text-sub-dark">Assignment is being processed</p>
@@ -1077,7 +1145,7 @@ const AssignmentHelper = () => {
                                             return (
                                                 <div key={message._id} className="flex justify-start gap-2">
                                                     {showAvatar && (
-                                                        <div className="w-8 h-8 rounded-full bg-primary flex items-center justify-center text-white shrink-0 mt-1">
+                                                        <div className="size-8 rounded-full bg-primary flex items-center justify-center text-white shrink-0 mt-1">
                                                             <span className="material-symbols-outlined text-sm">smart_toy</span>
                                                         </div>
                                                     )}
@@ -1085,48 +1153,34 @@ const AssignmentHelper = () => {
                                                         {structured.questions.map((q, qi) => {
                                                             const isOpen = expandedQuestionIndex === qi;
                                                             return (
-                                                                <div
-                                                                    key={qi}
-                                                                    className="rounded-xl border border-border-light dark:border-border-dark bg-surface-light dark:bg-surface-dark overflow-hidden"
+                                                                <WatermelonDisclosure
+                                                                    key={getStructuredQuestionKey(q)}
+                                                                    title={q.questionText || `Question ${q.number || qi + 1}`}
+                                                                    open={isOpen}
+                                                                    onOpenChange={(o) => updateAssignment({ expandedQuestionIndex: o ? qi : -1 })}
+                                                                    headerClassName="!px-4 !py-3"
+                                                                    contentClassName="space-y-3"
                                                                 >
-                                                                    <button
-                                                                        type="button"
-                                                                        onClick={() => setExpandedQuestionIndex(isOpen ? -1 : qi)}
-                                                                        className="w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-surface-hover-light dark:hover:bg-surface-hover-dark transition-colors"
-                                                                    >
-                                                                        <span className="w-7 h-7 rounded-full bg-primary/10 text-primary text-caption font-bold flex items-center justify-center shrink-0">
-                                                                            {q.number || qi + 1}
-                                                                        </span>
-                                                                        <span className="flex-1 text-body-sm font-medium text-text-main-light dark:text-text-main-dark truncate">
-                                                                            {q.questionText || `Question ${q.number || qi + 1}`}
-                                                                        </span>
-                                                                        <span className={`material-symbols-outlined text-text-faint-light dark:text-text-faint-dark text-[18px] transition-transform ${isOpen ? 'rotate-180' : ''}`}>
-                                                                            expand_more
-                                                                        </span>
-                                                                    </button>
-
-                                                                    {isOpen && (
-                                                                        <div className="px-4 pb-4 space-y-3 border-t border-border-light dark:border-border-dark">
                                                                             {q.questionText && (
                                                                                 <p className="text-caption text-text-faint-light dark:text-text-faint-dark pt-3 italic">
                                                                                     {q.questionText}
                                                                                 </p>
                                                                             )}
-                                                                            <div className="rounded-lg bg-primary/5 dark:bg-primary/10 border border-primary/10 dark:border-primary/20 px-3 py-3">
+                                                                            <div className="rounded-lg bg-primary/5 dark:bg-primary/10 border border-primary/10 dark:border-primary/20 p-3">
                                                                                 <p className="text-caption font-semibold text-primary mb-1">Answer</p>
                                                                                 <div className="text-body-sm text-text-main-light dark:text-text-main-dark leading-relaxed whitespace-pre-wrap">
                                                                                     {q.answer}
                                                                                 </div>
                                                                             </div>
                                                                             {q.workings && (
-                                                                                <div className="rounded-lg bg-surface-hover-light dark:bg-surface-hover-dark border border-border-light dark:border-border-dark px-3 py-3">
+                                                                                <div className="rounded-lg bg-surface-hover-light dark:bg-surface-hover-dark border border-border-light dark:border-border-dark p-3">
                                                                                     <p className="text-caption font-semibold text-text-faint-light dark:text-text-faint-dark mb-1">Workings</p>
                                                                                     <div className="text-caption text-text-sub-light dark:text-text-sub-dark leading-relaxed whitespace-pre-wrap font-mono">
                                                                                         {q.workings}
                                                                                     </div>
                                                                                 </div>
                                                                             )}
-                                                                            <div className="flex items-center gap-2 pt-1">
+                                                                            <div className="flex items-center gap-1.5 pt-1">
                                                                                 <button
                                                                                     type="button"
                                                                                     onClick={() => handleAskAboutQuestion(q.number || qi + 1)}
@@ -1135,35 +1189,35 @@ const AssignmentHelper = () => {
                                                                                     <span className="material-symbols-outlined text-[13px]">chat</span>
                                                                                     Ask about Q{q.number || qi + 1}
                                                                                 </button>
-                                                                                <button
-                                                                                    type="button"
-                                                                                    onClick={() => navigate('/dashboard/humanizer', { state: { text: q.answer } })}
-                                                                                    className="inline-flex items-center gap-1 text-caption font-medium text-primary hover:text-primary/80 bg-primary/10 hover:bg-primary/15 px-2.5 py-1.5 rounded-lg transition-colors"
-                                                                                >
-                                                                                    <span className="material-symbols-outlined text-[13px]">auto_fix_high</span>
-                                                                                    Humanize
-                                                                                </button>
-                                                                                {(() => {
-                                                                                    const copyId = `${message._id}-q${qi}`;
-                                                                                    const isCopied = copiedMessageId === copyId;
-                                                                                    return (
-                                                                                        <button
-                                                                                            type="button"
-                                                                                            onClick={() => handleCopy(q.answer + (q.workings ? `\n\nWorkings:\n${q.workings}` : ''), copyId)}
-                                                                                            className={`inline-flex items-center gap-1 text-caption font-medium px-2.5 py-1.5 rounded-lg transition-colors ${isCopied
-                                                                                                ? 'text-accent-emerald bg-accent-emerald/10'
-                                                                                                : 'text-text-faint-light dark:text-text-faint-dark bg-surface-hover-light dark:bg-surface-hover-dark hover:text-text-main-light dark:hover:text-text-main-dark'
-                                                                                            }`}
-                                                                                        >
-                                                                                            <span className="material-symbols-outlined text-[13px]">{isCopied ? 'check' : 'content_copy'}</span>
-                                                                                            {isCopied ? 'Copied!' : 'Copy'}
-                                                                                        </button>
-                                                                                    );
-                                                                                })()}
+                                                                                <div className="flex items-center bg-surface-hover-light dark:bg-surface-hover-dark rounded-lg">
+                                                                                    <button
+                                                                                        type="button"
+                                                                                        onClick={() => navigate('/dashboard/humanizer', { state: { text: q.answer } })}
+                                                                                        aria-label="Humanize answer"
+                                                                                        className="inline-flex items-center justify-center size-8 text-text-faint-light dark:text-text-faint-dark hover:text-primary transition-colors rounded-lg"
+                                                                                    >
+                                                                                        <span className="material-symbols-outlined text-[16px]">auto_fix_high</span>
+                                                                                    </button>
+                                                                                    {(() => {
+                                                                                        const copyId = `${message._id}-q${qi}`;
+                                                                                        const isCopied = copiedMessageId === copyId;
+                                                                                        return (
+                                                                                            <button
+                                                                                                type="button"
+                                                                                                onClick={() => handleCopy(q.answer + (q.workings ? `\n\nWorkings:\n${q.workings}` : ''), copyId)}
+                                                                                                aria-label={isCopied ? 'Copied' : 'Copy answer'}
+                                                                                                className={`inline-flex items-center justify-center size-8 transition-colors rounded-lg ${isCopied
+                                                                                                    ? 'text-accent-emerald'
+                                                                                                    : 'text-text-faint-light dark:text-text-faint-dark hover:text-text-main-light dark:hover:text-text-main-dark'
+                                                                                                }`}
+                                                                                            >
+                                                                                                <span className="material-symbols-outlined text-[16px]">{isCopied ? 'check' : 'content_copy'}</span>
+                                                                                            </button>
+                                                                                        );
+                                                                                    })()}
+                                                                                </div>
                                                                             </div>
-                                                                        </div>
-                                                                    )}
-                                                                </div>
+                                                                </WatermelonDisclosure>
                                                             );
                                                         })}
                                                     </div>
@@ -1178,47 +1232,49 @@ const AssignmentHelper = () => {
                                                 className={`flex ${isAssistant ? 'justify-start' : 'justify-end'} gap-2`}
                                             >
                                                 {isAssistant && showAvatar && (
-                                                    <div className="w-8 h-8 rounded-full bg-primary flex items-center justify-center text-white shrink-0 mt-1">
+                                                    <div className="size-8 rounded-full bg-primary flex items-center justify-center text-white shrink-0 mt-1">
                                                         <span className="material-symbols-outlined text-[14px]">smart_toy</span>
                                                     </div>
                                                 )}
-                                                <div className={`max-w-[85%] md:max-w-[75%] rounded-2xl px-4 py-3 whitespace-pre-wrap text-body-sm leading-relaxed ${isAssistant
-                                                    ? 'bg-surface-light dark:bg-surface-dark border border-border-light dark:border-border-dark text-text-main-light dark:text-text-main-dark rounded-tl-sm'
-                                                    : 'bg-primary text-white rounded-tr-sm'
+                                                <div className={`max-w-[85%] md:max-w-[75%] rounded-2xl px-4 py-3.5 whitespace-pre-wrap text-body-sm leading-relaxed shadow-xs ${isAssistant
+                                                    ? 'bg-white dark:bg-surface-elevated border border-border-subtle dark:border-border-subtle-dark text-text-main-light dark:text-text-main-dark rounded-tl-sm'
+                                                    : 'bg-[#f5f5f8] dark:bg-[#24252a] border border-border-subtle dark:border-[#2f3035] text-text-main-light dark:text-text-main-dark rounded-tr-sm'
                                                     }`}>
                                                     <div className="prose prose-sm max-w-none dark:prose-invert">
-                                                        {displayContent.split('\n').map((paragraph, i) => (
-                                                            <p key={i} className={i > 0 ? 'mt-2' : ''}>
-                                                                {paragraph}
+                                                        {buildParagraphBlocks(displayContent).map((paragraph, paragraphIndex) => (
+                                                            <p key={paragraph.id} className={paragraphIndex > 0 ? 'mt-2' : ''}>
+                                                                {paragraph.text}
                                                             </p>
                                                         ))}
                                                     </div>
                                                     {isAssistant && displayContent && (
-                                                        <div className="mt-3 pt-3 border-t border-border-light dark:border-border-dark flex items-center gap-2">
-                                                            <button
-                                                                type="button"
-                                                                onClick={() => navigate('/dashboard/humanizer', { state: { text: displayContent } })}
-                                                                className="inline-flex items-center gap-1.5 text-caption font-medium text-primary hover:text-primary/80 bg-primary/10 hover:bg-primary/15 px-3 py-1.5 rounded-lg transition-colors"
-                                                            >
-                                                                <span className="material-symbols-outlined text-[14px]">auto_fix_high</span>
-                                                                Humanize
-                                                            </button>
-                                                            {(() => {
-                                                                const isCopied = copiedMessageId === message._id;
-                                                                return (
-                                                                    <button
-                                                                        type="button"
-                                                                        onClick={() => handleCopy(displayContent, message._id)}
-                                                                        className={`inline-flex items-center gap-1.5 text-caption font-medium px-3 py-1.5 rounded-lg transition-colors ${isCopied
-                                                                            ? 'text-accent-emerald bg-accent-emerald/10'
-                                                                            : 'text-text-faint-light dark:text-text-faint-dark bg-surface-hover-light dark:bg-surface-hover-dark hover:text-text-main-light dark:hover:text-text-main-dark'
-                                                                        }`}
-                                                                    >
-                                                                        <span className="material-symbols-outlined text-[14px]">{isCopied ? 'check' : 'content_copy'}</span>
-                                                                        {isCopied ? 'Copied!' : 'Copy'}
-                                                                    </button>
-                                                                );
-                                                            })()}
+                                                        <div className="mt-3 pt-3 border-t border-border-light dark:border-border-dark flex items-center gap-1.5">
+                                                            <div className="flex items-center bg-surface-hover-light dark:bg-surface-hover-dark rounded-lg">
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={() => navigate('/dashboard/humanizer', { state: { text: displayContent } })}
+                                                                    aria-label="Humanize text"
+                                                                    className="inline-flex items-center justify-center size-8 text-text-faint-light dark:text-text-faint-dark hover:text-primary transition-colors rounded-lg"
+                                                                >
+                                                                    <span className="material-symbols-outlined text-[16px]">auto_fix_high</span>
+                                                                </button>
+                                                                {(() => {
+                                                                    const isCopied = copiedMessageId === message._id;
+                                                                    return (
+                                                                        <button
+                                                                            type="button"
+                                                                            onClick={() => handleCopy(displayContent, message._id)}
+                                                                            aria-label={isCopied ? 'Copied' : 'Copy text'}
+                                                                            className={`inline-flex items-center justify-center size-8 transition-colors rounded-lg ${isCopied
+                                                                                ? 'text-accent-emerald'
+                                                                                : 'text-text-faint-light dark:text-text-faint-dark hover:text-text-main-light dark:hover:text-text-main-dark'
+                                                                            }`}
+                                                                        >
+                                                                            <span className="material-symbols-outlined text-[16px]">{isCopied ? 'check' : 'content_copy'}</span>
+                                                                        </button>
+                                                                    );
+                                                                })()}
+                                                            </div>
                                                         </div>
                                                     )}
                                                 </div>
@@ -1227,20 +1283,20 @@ const AssignmentHelper = () => {
                                     })}
                                     {sending && (
                                         <div className="flex justify-start">
-                                            <div className="max-w-[92%] md:max-w-[80%] rounded-2xl px-4 py-3 bg-surface-light dark:bg-surface-dark border border-border-light dark:border-border-dark">
-                                                <div className="flex items-center gap-2">
-                                                    <div className="w-6 h-6 rounded-full bg-primary flex items-center justify-center">
+                                            <div className="max-w-[92%] md:max-w-[80%] rounded-2xl px-4 py-3 bg-white dark:bg-surface-elevated border border-border-subtle dark:border-border-subtle-dark shadow-xs">
+                                                <div className="flex items-center gap-2.5">
+                                                    <div className="size-6 rounded-full bg-primary/90 flex items-center justify-center">
                                                         <span className="material-symbols-outlined text-white text-[12px]">smart_toy</span>
                                                     </div>
                                                     <span className="text-caption text-text-faint-light dark:text-text-faint-dark">
                                                         AI is thinking
                                                     </span>
                                                     <div className="flex items-center gap-1">
-                                                        {[0, 1, 2].map((dot) => (
+                                                        {THINKING_DOTS.map((dot) => (
                                                             <span
-                                                                key={dot}
-                                                                className="h-1 w-1 rounded-full bg-primary animate-bounce"
-                                                                style={{ animationDelay: `${dot * 150}ms` }}
+                                                                key={dot.id}
+                                                                className="size-1 rounded-full bg-primary animate-pulse"
+                                                                style={{ animationDelay: `${dot.delayMs}ms` }}
                                                             />
                                                         ))}
                                                     </div>
@@ -1251,12 +1307,12 @@ const AssignmentHelper = () => {
                                     <div ref={endRef} />
                                 </div>
 
-                                <div className="px-4 py-3 border-t border-border-light dark:border-border-dark bg-surface-light dark:bg-surface-dark">
+                                <div className="mx-4 mb-4 mt-2 rounded-2xl border border-border-light dark:border-border-dark bg-surface-light dark:bg-surface-dark shadow-lg shadow-black/[0.06] dark:shadow-black/[0.18] px-4 py-3">
                                     {threadStatus === 'processing' ? (
-                                        <div className="rounded-lg bg-surface-hover-light dark:bg-surface-hover-dark border border-border-light dark:border-border-dark px-3 py-3 flex items-center justify-center gap-2">
+                                        <div className="rounded-lg bg-surface-hover-light dark:bg-surface-hover-dark border border-border-light dark:border-border-dark p-3 flex items-center justify-center gap-2">
                                             <span className="material-symbols-outlined text-text-faint-light dark:text-text-faint-dark text-[18px] animate-spin">refresh</span>
                                             <p className="text-caption text-text-faint-light dark:text-text-faint-dark">
-                                                Processing assignment... Chat will be available soon
+                                                Processing assignment… Chat will be available soon
                                             </p>
                                         </div>
                                     ) : (
@@ -1269,7 +1325,7 @@ const AssignmentHelper = () => {
                                                     </span>
                                                     <button
                                                         type="button"
-                                                        onClick={() => { setActiveFollowUpQuestionNumber(null); setFollowUpQuestion(''); }}
+                                                        onClick={() => updateAssignment({ activeFollowUpQuestionNumber: null, followUpQuestion: '' })}
                                                         className="text-text-faint-light dark:text-text-faint-dark hover:text-text-main-light dark:hover:text-text-main-dark transition-colors"
                                                     >
                                                         <span className="material-symbols-outlined text-[14px]">close</span>
@@ -1281,16 +1337,12 @@ const AssignmentHelper = () => {
                                                 <textarea
                                                     ref={(el) => {
                                                         textareaRef.current = el;
-                                                        if (el) {
-                                                            el.style.height = 'auto';
-                                                            el.style.height = Math.min(el.scrollHeight, 120) + 'px';
-                                                        }
+                                                        resizeTextareaToContent(el);
                                                     }}
                                                     value={followUpQuestion}
                                                     onChange={(event) => {
-                                                        setFollowUpQuestion(event.target.value);
-                                                        event.target.style.height = 'auto';
-                                                        event.target.style.height = Math.min(event.target.scrollHeight, 120) + 'px';
+                                                        updateAssignment({ followUpQuestion: event.target.value });
+                                                        resizeTextareaToContent(event.target);
                                                     }}
                                                     onKeyDown={onComposerKeyDown}
                                                     placeholder={canAskFollowUp ? "Ask a follow-up question..." : "Chat disabled while processing"}
@@ -1311,7 +1363,7 @@ const AssignmentHelper = () => {
                                                 onClick={handleSendFollowUp}
                                                 disabled={!canAskFollowUp || !followUpQuestion.trim() || sending || followUpQuestion.length > FOLLOWUP_MAX_LENGTH}
                                                 aria-label="Send follow-up question"
-                                                className="btn-primary flex items-center justify-center w-11 h-11 disabled:opacity-40 disabled:cursor-not-allowed shrink-0"
+                                                className="btn-primary flex items-center justify-center size-11 disabled:opacity-40 disabled:cursor-not-allowed shrink-0"
                                             >
                                                 <span className="material-symbols-outlined text-[20px]">{sending ? 'hourglass_empty' : 'send'}</span>
                                             </button>
@@ -1324,7 +1376,6 @@ const AssignmentHelper = () => {
                     </section>
                 </div>
             </main>
-            <Toast message={paywallToastMessage} onClose={() => setPaywallToastMessage('')} />
         </div>
     );
 };

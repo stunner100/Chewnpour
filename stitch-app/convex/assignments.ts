@@ -1,9 +1,10 @@
 import { ConvexError, v } from "convex/values";
-import { mutation, query } from "./_generated/server";
+import { internalMutation, internalQuery, mutation, query } from "./_generated/server";
 import {
     consumeUploadCreditOrThrow,
     getHistoricalStoredUploadCount,
 } from "./subscriptions";
+import { requireAuthenticatedUserId } from "./lib/authz";
 
 const MAX_FILE_SIZE_BYTES = 50 * 1024 * 1024;
 const DOCX_MIME = "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
@@ -20,38 +21,6 @@ const deriveThreadTitle = (fileName: string) => {
         .replace(/\s+/g, " ")
         .trim();
     return base || "Assignment Helper";
-};
-
-const resolveAuthUserId = (identity: any) => {
-    if (!identity || typeof identity !== "object") return "";
-    const candidates = [
-        identity.subject,
-        identity.userId,
-        identity.id,
-        identity.tokenIdentifier,
-    ];
-    for (const candidate of candidates) {
-        if (typeof candidate === "string" && candidate.trim()) {
-            return candidate.trim();
-        }
-    }
-    return "";
-};
-
-const assertAuthorizedUser = (identity: any, userId: string) => {
-    const authUserId = resolveAuthUserId(identity);
-    if (!authUserId) {
-        throw new ConvexError({
-            code: "UNAUTHENTICATED",
-            message: "You must be signed in to upload assignments.",
-        });
-    }
-    if (authUserId !== userId) {
-        throw new ConvexError({
-            code: "UNAUTHORIZED",
-            message: "You do not have permission to upload for this user.",
-        });
-    }
 };
 
 const isUploadQuotaExceededError = (error: unknown) => {
@@ -71,58 +40,66 @@ const isAuthenticationError = (error: unknown) => {
 };
 
 export const listThreads = query({
-    args: {
-        userId: v.optional(v.string()),
-    },
-    handler: async (ctx, args) => {
-        if (!args.userId) return [];
+    args: {},
+    handler: async (ctx) => {
+        const userId = await requireAuthenticatedUserId(ctx);
 
         return await ctx.db
             .query("assignmentThreads")
-            .withIndex("by_userId_updatedAt", (q) => q.eq("userId", args.userId!))
+            .withIndex("by_userId_updatedAt", (q) => q.eq("userId", userId))
             .order("desc")
             .collect();
     },
 });
 
+const getThreadPayload = async (ctx: any, threadId: any, userId?: string) => {
+    const thread = await ctx.db.get(threadId);
+    if (!thread || (userId && thread.userId !== userId)) {
+        return null;
+    }
+
+    const messages = await ctx.db
+        .query("assignmentMessages")
+        .withIndex("by_threadId_createdAt", (q: any) => q.eq("threadId", threadId))
+        .order("asc")
+        .collect();
+
+    return {
+        thread,
+        messages,
+    };
+};
+
 export const getThreadWithMessages = query({
     args: {
-        userId: v.optional(v.string()),
         threadId: v.id("assignmentThreads"),
     },
     handler: async (ctx, args) => {
-        if (!args.userId) return null;
+        const userId = await requireAuthenticatedUserId(ctx);
+        return await getThreadPayload(ctx, args.threadId, userId);
+    },
+});
 
-        const thread = await ctx.db.get(args.threadId);
-        if (!thread || thread.userId !== args.userId) {
-            return null;
-        }
-
-        const messages = await ctx.db
-            .query("assignmentMessages")
-            .withIndex("by_threadId_createdAt", (q) => q.eq("threadId", args.threadId))
-            .order("asc")
-            .collect();
-
-        return {
-            thread,
-            messages,
-        };
+export const getThreadWithMessagesInternal = internalQuery({
+    args: {
+        threadId: v.id("assignmentThreads"),
+    },
+    handler: async (ctx, args) => {
+        return await getThreadPayload(ctx, args.threadId);
     },
 });
 
 export const createThreadFromUpload = mutation({
     args: {
-        userId: v.string(),
         fileName: v.string(),
         fileType: v.string(),
         fileSize: v.number(),
         storageId: v.id("_storage"),
     },
     handler: async (ctx, args) => {
-        const identity = await ctx.auth.getUserIdentity();
+        let userId = "";
         try {
-            assertAuthorizedUser(identity, args.userId);
+            userId = await requireAuthenticatedUserId(ctx);
         } catch (error) {
             if (isAuthenticationError(error)) {
                 await ctx.storage.delete(args.storageId).catch(() => undefined);
@@ -137,9 +114,9 @@ export const createThreadFromUpload = mutation({
             throw new Error("File is too large. Maximum supported size is 50MB.");
         }
 
-        const historicalStoredUploadCount = await getHistoricalStoredUploadCount(ctx, args.userId);
+        const historicalStoredUploadCount = await getHistoricalStoredUploadCount(ctx, userId);
         try {
-            await consumeUploadCreditOrThrow(ctx, args.userId, historicalStoredUploadCount);
+            await consumeUploadCreditOrThrow(ctx, userId, historicalStoredUploadCount);
         } catch (error) {
             if (isUploadQuotaExceededError(error)) {
                 await ctx.storage.delete(args.storageId).catch(() => undefined);
@@ -151,7 +128,7 @@ export const createThreadFromUpload = mutation({
         const now = Date.now();
 
         const threadData = {
-            userId: args.userId,
+            userId,
             title: deriveThreadTitle(args.fileName),
             status: "processing",
             fileName: args.fileName,
@@ -170,7 +147,7 @@ export const createThreadFromUpload = mutation({
         try {
             const profile = await ctx.db
                 .query("profiles")
-                .withIndex("by_userId", (q) => q.eq("userId", args.userId))
+                .withIndex("by_userId", (q) => q.eq("userId", userId))
                 .first();
 
             if (profile?.referredBy && !profile.referralCreditApplied) {
@@ -183,7 +160,7 @@ export const createThreadFromUpload = mutation({
                     // Grant +1 credit to referee
                     const refereeSub = await ctx.db
                         .query("subscriptions")
-                        .withIndex("by_userId", (q) => q.eq("userId", args.userId))
+                        .withIndex("by_userId", (q) => q.eq("userId", userId))
                         .first();
                     if (refereeSub) {
                         await ctx.db.patch(refereeSub._id, {
@@ -227,13 +204,13 @@ export const createThreadFromUpload = mutation({
 
 export const renameThread = mutation({
     args: {
-        userId: v.string(),
         threadId: v.id("assignmentThreads"),
         title: v.string(),
     },
     handler: async (ctx, args) => {
+        const userId = await requireAuthenticatedUserId(ctx);
         const thread = await ctx.db.get(args.threadId);
-        if (!thread || thread.userId !== args.userId) {
+        if (!thread || thread.userId !== userId) {
             throw new Error("Assignment thread not found.");
         }
 
@@ -256,12 +233,12 @@ export const renameThread = mutation({
 
 export const deleteThread = mutation({
     args: {
-        userId: v.string(),
         threadId: v.id("assignmentThreads"),
     },
     handler: async (ctx, args) => {
+        const userId = await requireAuthenticatedUserId(ctx);
         const thread = await ctx.db.get(args.threadId);
-        if (!thread || thread.userId !== args.userId) {
+        if (!thread || thread.userId !== userId) {
             throw new Error("Assignment thread not found.");
         }
 
@@ -284,6 +261,43 @@ export const deleteThread = mutation({
 });
 
 export const appendMessage = mutation({
+    args: {
+        threadId: v.id("assignmentThreads"),
+        content: v.string(),
+    },
+    handler: async (ctx, args) => {
+        const userId = await requireAuthenticatedUserId(ctx);
+        const thread = await ctx.db.get(args.threadId);
+        if (!thread || thread.userId !== userId) {
+            throw new Error("Assignment thread not found.");
+        }
+
+        const content = args.content.trim();
+        if (!content) {
+            throw new Error("Message cannot be empty.");
+        }
+        if (content.length > 20000) {
+            throw new Error("Message is too long.");
+        }
+
+        const now = Date.now();
+        const messageId = await ctx.db.insert("assignmentMessages", {
+            threadId: args.threadId,
+            userId,
+            role: "user",
+            content,
+            createdAt: now,
+        });
+
+        await ctx.db.patch(args.threadId, {
+            updatedAt: now,
+        });
+
+        return { messageId };
+    },
+});
+
+export const appendMessageInternal = internalMutation({
     args: {
         userId: v.string(),
         threadId: v.id("assignmentThreads"),
@@ -325,7 +339,7 @@ export const appendMessage = mutation({
     },
 });
 
-export const updateThreadStatus = mutation({
+export const updateThreadStatusInternal = internalMutation({
     args: {
         userId: v.string(),
         threadId: v.id("assignmentThreads"),

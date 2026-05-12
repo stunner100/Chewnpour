@@ -1,0 +1,412 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>ChewnPour - Settings</title>
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&amp;family=Plus+Jakarta+Sans:wght@600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            "colors": {
+                    "success": "#15803D",
+                    "info-soft": "#DBEAFE",
+                    "surface-muted": "#EFE8DA",
+                    "inverse-primary": "#ffb77d",
+                    "warning": "#D97706",
+                    "on-primary": "#ffffff",
+                    "text-primary": "#1F2933",
+                    "primary-subtle": "#FFFBEB",
+                    "on-error": "#ffffff",
+                    "on-tertiary": "#ffffff",
+                    "on-secondary-fixed": "#3b0900",
+                    "text-muted": "#7B8794",
+                    "border-strong": "#B8AD9A",
+                    "mastery-soft": "#EDE9FE",
+                    "on-primary-fixed": "#2f1500",
+                    "inverse-on-surface": "#ffede3",
+                    "outline": "#887364",
+                    "tertiary-container": "#007abd",
+                    "tertiary-fixed": "#cee5ff",
+                    "tertiary-fixed-dim": "#96ccff",
+                    "surface-soft": "#F5F1E8",
+                    "border-subtle": "#E7E0D3",
+                    "secondary-fixed": "#ffdbd1",
+                    "border-default": "#D8CFBF",
+                    "error-container": "#ffdad6",
+                    "text-secondary": "#52616B",
+                    "on-primary-container": "#fffbff",
+                    "success-soft": "#DCFCE7",
+                    "on-tertiary-container": "#fdfcff",
+                    "warning-soft": "#FEF3C7",
+                    "primary": "#8d4b00",
+                    "secondary-container": "#ff987b",
+                    "on-surface": "#231a13",
+                    "primary-fixed": "#ffdcc3",
+                    "surface-container-high": "#f7e5d9",
+                    "on-tertiary-fixed-variant": "#004a75",
+                    "background": "#FAF8F3",
+                    "info": "#2563EB",
+                    "on-background": "#231a13",
+                    "on-tertiary-fixed": "#001d32",
+                    "primary-fixed-dim": "#ffb77d",
+                    "mastery": "#7C3AED",
+                    "on-secondary": "#ffffff",
+                    "primary-soft": "#FEF3C7",
+                    "surface-bright": "#fff8f5",
+                    "surface-container-lowest": "#ffffff",
+                    "surface-container-low": "#fff1e9",
+                    "surface-dim": "#e9d7cb",
+                    "error-soft": "#FEE2E2",
+                    "on-error-container": "#93000a",
+                    "surface": "#FFFFFF",
+                    "on-secondary-fixed-variant": "#792f1a",
+                    "on-secondary-container": "#782e19",
+                    "primary-hover": "#B45309",
+                    "ai-subtle": "#FFF7F4",
+                    "surface-variant": "#f2dfd3",
+                    "on-surface-variant": "#554336",
+                    "secondary-fixed-dim": "#ffb5a0",
+                    "tertiary": "#006096",
+                    "surface-container": "#fdeade",
+                    "primary-container": "#b15f00",
+                    "ai-soft": "#F8E3DC",
+                    "surface-tint": "#904d00",
+                    "on-primary-fixed-variant": "#6e3900",
+                    "error": "#DC2626",
+                    "outline-variant": "#dbc2b0",
+                    "surface-container-highest": "#f2dfd3",
+                    "secondary": "#98462f",
+                    "inverse-surface": "#392e26"
+            },
+            "borderRadius": {
+                    "DEFAULT": "0.25rem",
+                    "lg": "0.5rem",
+                    "xl": "0.75rem",
+                    "full": "9999px"
+            },
+            "spacing": {
+                    "space-4": "16px",
+                    "space-1": "4px",
+                    "space-6": "24px",
+                    "sidebar-width": "260px",
+                    "container-max": "1280px",
+                    "space-12": "48px",
+                    "space-5": "20px",
+                    "space-8": "32px",
+                    "space-3": "12px",
+                    "panel-right-width": "320px",
+                    "space-2": "8px",
+                    "space-10": "40px",
+                    "space-16": "64px"
+            },
+            "fontFamily": {
+                    "headline-sm": ["Plus Jakarta Sans"],
+                    "body-base": ["Inter"],
+                    "label-md": ["Inter"],
+                    "body-lg": ["Inter"],
+                    "display-lg": ["Plus Jakarta Sans"],
+                    "display-xl": ["Plus Jakarta Sans"],
+                    "body-sm": ["Inter"],
+                    "headline-md": ["Plus Jakarta Sans"],
+                    "label-xs": ["Inter"]
+            },
+            "fontSize": {
+                    "headline-sm": ["20px", { "lineHeight": "1.4", "fontWeight": "600" }],
+                    "body-base": ["16px", { "lineHeight": "1.6", "fontWeight": "400" }],
+                    "label-md": ["14px", { "lineHeight": "1", "fontWeight": "600" }],
+                    "body-lg": ["18px", { "lineHeight": "1.6", "fontWeight": "400" }],
+                    "display-lg": ["32px", { "lineHeight": "1.2", "fontWeight": "700" }],
+                    "display-xl": ["40px", { "lineHeight": "1.2", "letterSpacing": "-0.02em", "fontWeight": "700" }],
+                    "body-sm": ["14px", { "lineHeight": "1.5", "fontWeight": "400" }],
+                    "headline-md": ["24px", { "lineHeight": "1.3", "fontWeight": "600" }],
+                    "label-xs": ["12px", { "lineHeight": "1", "fontWeight": "500" }]
+            }
+          }
+        }
+      }
+    </script>
+<style>
+        .material-symbols-outlined {
+          font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        .icon-fill {
+          font-variation-settings: 'FILL' 1;
+        }
+        
+        /* Custom Toggle Switch */
+        .toggle-checkbox:checked {
+            right: 0;
+            border-color: #8d4b00; /* primary */
+        }
+        .toggle-checkbox:checked + .toggle-label {
+            background-color: #8d4b00; /* primary */
+        }
+    </style>
+</head>
+<body class="bg-background text-text-primary font-body-base min-h-screen">
+<!-- SideNavBar -->
+<nav class="bg-background dark:bg-on-surface h-screen w-sidebar-width flex-col border-r border-border-subtle dark:border-outline-variant fixed left-0 top-0 p-space-4 flex gap-space-6 z-40 hidden md:flex">
+<!-- Header -->
+<div class="flex items-center gap-space-3 px-space-4 py-space-2">
+<div class="w-10 h-10 rounded-lg bg-primary-soft flex items-center justify-center text-primary font-bold text-lg">C</div>
+<div>
+<h1 class="font-headline-md text-headline-sm font-bold text-primary dark:text-primary-fixed-dim tracking-tight">ChewnPour</h1>
+<p class="font-label-xs text-label-xs text-text-muted">AI Study Workspace</p>
+</div>
+</div>
+<!-- Navigation Links -->
+<div class="flex flex-col gap-space-1 flex-1 mt-space-6">
+<a class="flex items-center gap-3 px-4 py-3 text-text-secondary dark:text-on-surface-variant hover:text-primary dark:hover:text-primary-fixed-dim hover:bg-surface-variant dark:hover:bg-inverse-surface transition-colors duration-200 rounded-xl group" href="#">
+<span class="material-symbols-outlined text-[20px] group-hover:icon-fill transition-all">dashboard</span>
+<span class="font-label-md text-label-md">Dashboard</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 text-text-secondary dark:text-on-surface-variant hover:text-primary dark:hover:text-primary-fixed-dim hover:bg-surface-variant dark:hover:bg-inverse-surface transition-colors duration-200 rounded-xl group" href="#">
+<span class="material-symbols-outlined text-[20px] group-hover:icon-fill transition-all">cloud_upload</span>
+<span class="font-label-md text-label-md">Upload</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 text-text-secondary dark:text-on-surface-variant hover:text-primary dark:hover:text-primary-fixed-dim hover:bg-surface-variant dark:hover:bg-inverse-surface transition-colors duration-200 rounded-xl group" href="#">
+<span class="material-symbols-outlined text-[20px] group-hover:icon-fill transition-all">folder</span>
+<span class="font-label-md text-label-md">My Materials</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 text-text-secondary dark:text-on-surface-variant hover:text-primary dark:hover:text-primary-fixed-dim hover:bg-surface-variant dark:hover:bg-inverse-surface transition-colors duration-200 rounded-xl group" href="#">
+<span class="material-symbols-outlined text-[20px] group-hover:icon-fill transition-all">menu_book</span>
+<span class="font-label-md text-label-md">Lessons</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 text-text-secondary dark:text-on-surface-variant hover:text-primary dark:hover:text-primary-fixed-dim hover:bg-surface-variant dark:hover:bg-inverse-surface transition-colors duration-200 rounded-xl group" href="#">
+<span class="material-symbols-outlined text-[20px] group-hover:icon-fill transition-all">quiz</span>
+<span class="font-label-md text-label-md">Quizzes</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 text-text-secondary dark:text-on-surface-variant hover:text-primary dark:hover:text-primary-fixed-dim hover:bg-surface-variant dark:hover:bg-inverse-surface transition-colors duration-200 rounded-xl group" href="#">
+<span class="material-symbols-outlined text-[20px] group-hover:icon-fill transition-all">style</span>
+<span class="font-label-md text-label-md">Flashcards</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 text-text-secondary dark:text-on-surface-variant hover:text-primary dark:hover:text-primary-fixed-dim hover:bg-surface-variant dark:hover:bg-inverse-surface transition-colors duration-200 rounded-xl group" href="#">
+<span class="material-symbols-outlined text-[20px] group-hover:icon-fill transition-all">smart_toy</span>
+<span class="font-label-md text-label-md">AI Tutor</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 text-text-secondary dark:text-on-surface-variant hover:text-primary dark:hover:text-primary-fixed-dim hover:bg-surface-variant dark:hover:bg-inverse-surface transition-colors duration-200 rounded-xl group" href="#">
+<span class="material-symbols-outlined text-[20px] group-hover:icon-fill transition-all">bar_chart</span>
+<span class="font-label-md text-label-md">Progress</span>
+</a>
+<div class="mt-auto pt-space-4 border-t border-border-subtle">
+<a class="flex items-center gap-3 px-4 py-3 text-primary dark:text-primary-fixed-dim font-bold bg-primary-soft dark:bg-primary-container rounded-xl" href="#">
+<span class="material-symbols-outlined text-[20px] icon-fill">settings</span>
+<span class="font-label-md text-label-md">Settings</span>
+</a>
+</div>
+</div>
+</nav>
+<!-- TopAppBar -->
+<header class="bg-surface dark:bg-surface-dim border-b border-border-subtle shadow-sm flex justify-between items-center h-16 px-space-8 ml-0 md:ml-[260px] w-full md:w-[calc(100%-260px)] fixed top-0 z-30 transition-all">
+<!-- Mobile Menu Trigger -->
+<button class="md:hidden text-text-primary p-2 -ml-2 rounded-lg hover:bg-surface-soft">
+<span class="material-symbols-outlined">menu</span>
+</button>
+<div class="flex-1 md:hidden">
+<span class="font-headline-sm text-headline-sm font-bold text-primary dark:text-primary-fixed-dim">ChewnPour</span>
+</div>
+<div class="hidden md:flex flex-1"></div>
+<div class="flex items-center gap-space-4">
+<button class="w-10 h-10 rounded-full flex items-center justify-center text-text-muted hover:text-primary hover:bg-surface-soft transition-all">
+<span class="material-symbols-outlined text-[24px]">notifications</span>
+</button>
+<button class="w-10 h-10 rounded-full flex items-center justify-center text-text-muted hover:text-primary hover:bg-surface-soft transition-all">
+<span class="material-symbols-outlined text-[24px]">help_outline</span>
+</button>
+<div class="h-8 w-px bg-border-subtle mx-space-2"></div>
+<div class="w-8 h-8 rounded-full bg-primary-soft overflow-hidden border border-border-subtle cursor-pointer shrink-0">
+<img alt="Student Profile" class="w-full h-full object-cover" data-alt="A close-up studio portrait of a young adult student looking approachable and focused. The lighting is soft and bright, creating a clean, modern light-mode aesthetic. The background is a minimalist, warm off-white, perfectly matching the UI palette." src="https://lh3.googleusercontent.com/aida-public/AB6AXuANXjDTSOqBaoS9-pgVGgwz74-la9VVYf_JpYZjVga6P5P-vcuv8--KC1aqiybqGOD_3eUc-8dO1GKhN_taVh2hDUq513j0zRMYoTStKY1NLwn0FTedBFzWenNGAtToaFSNWFYXZHWFaFwJ47B4TeKvqZshMJ-W3JbbzjpSXCascVJWJEWsyHUgZ87otlFucIxTaYY25XFg5GZPxGLY1f2uO0DfMEtmFlLN2R_N4RpwrvWxXzz_vmY9u7-dh31THI6wgWCx8tZuWfo"/>
+</div>
+</div>
+</header>
+<!-- Main Content -->
+<main class="ml-0 md:ml-[260px] pt-16 min-h-screen">
+<div class="max-w-[1000px] mx-auto p-space-6 md:p-space-10 lg:p-space-12 pb-32">
+<div class="flex items-center justify-between mb-space-8">
+<div>
+<h2 class="font-display-lg text-display-lg text-text-primary">Settings</h2>
+<p class="font-body-base text-body-base text-text-muted mt-space-1">Manage your workspace preferences and profile.</p>
+</div>
+</div>
+<!-- Settings Bento Grid -->
+<form class="grid grid-cols-1 lg:grid-cols-12 gap-space-6">
+<!-- Left Column (Profile & Account) -->
+<div class="lg:col-span-5 flex flex-col gap-space-6">
+<!-- Profile Section -->
+<section class="bg-surface rounded-2xl border border-border-subtle shadow-sm p-space-8 flex flex-col gap-space-6">
+<div class="flex items-center gap-space-3 pb-space-4 border-b border-border-subtle">
+<span class="material-symbols-outlined text-text-muted">person</span>
+<h3 class="font-headline-sm text-headline-sm text-text-primary">Profile</h3>
+</div>
+<div class="flex items-center gap-space-6">
+<div class="relative group">
+<div class="w-20 h-20 rounded-full bg-surface-muted overflow-hidden border-2 border-surface shadow-sm">
+<img alt="Profile Picture" class="w-full h-full object-cover" data-alt="A close-up studio portrait of a young adult student looking approachable and focused. The lighting is soft and bright, creating a clean, modern light-mode aesthetic. The background is a minimalist, warm off-white, perfectly matching the UI palette." src="https://lh3.googleusercontent.com/aida-public/AB6AXuC9a3Qc3k_feDtnUgIoalk_xzcMRWytaolygoeyRSx2tvgXqKqE-spK9eIrHeGe_Cbg5Nb75bwuWYABd7nvf62ZTD5RY8Ww0wi6dZQRwZZL6kKo58FTV819CzRR-thcStWigdnd69tTCOkJisYptW06DvYsK1U7nFmbQkFH5GyN4dlNLLyeSax5q-knkU5oYNJwLsJwXhVUIQUAQ90qkyhvk6eErxCWtU1jrVuFNB6d5sLrfidCmRuPHbx4GxMdwxXXF47kjSElShQ"/>
+</div>
+<button class="absolute bottom-0 right-0 w-8 h-8 bg-surface border border-border-subtle rounded-full flex items-center justify-center text-text-secondary hover:text-primary shadow-sm group-hover:scale-105 transition-transform" type="button">
+<span class="material-symbols-outlined text-[16px]">edit</span>
+</button>
+</div>
+<div class="flex-1">
+<label class="block font-label-md text-label-md text-text-secondary mb-space-2">Full Name</label>
+<input class="w-full bg-surface-soft border border-border-default rounded-lg px-space-4 py-space-3 font-body-base text-text-primary focus:ring-2 focus:ring-primary-soft focus:border-primary outline-none transition-all" type="text" value="Alex Rivera"/>
+</div>
+</div>
+<div>
+<label class="block font-label-md text-label-md text-text-secondary mb-space-2">Email Address</label>
+<input class="w-full bg-surface-soft border border-border-default rounded-lg px-space-4 py-space-3 font-body-base text-text-primary focus:ring-2 focus:ring-primary-soft focus:border-primary outline-none transition-all" type="email" value="alex.rivera@university.edu"/>
+</div>
+</section>
+<!-- Account/Subscription -->
+<section class="bg-surface rounded-2xl border border-border-subtle shadow-sm p-space-8 flex flex-col gap-space-6 relative overflow-hidden">
+<div class="absolute top-0 right-0 w-32 h-32 bg-primary-soft rounded-bl-full opacity-50 pointer-events-none"></div>
+<div class="flex items-center gap-space-3 pb-space-4 border-b border-border-subtle relative z-10">
+<span class="material-symbols-outlined text-text-muted">workspace_premium</span>
+<h3 class="font-headline-sm text-headline-sm text-text-primary">Subscription</h3>
+</div>
+<div class="relative z-10">
+<div class="flex items-center justify-between mb-space-2">
+<span class="font-body-base text-body-base text-text-secondary">Current Plan</span>
+<span class="px-3 py-1 bg-success-soft text-success rounded-full font-label-xs text-label-xs font-bold uppercase tracking-wider">Pro</span>
+</div>
+<p class="font-body-sm text-body-sm text-text-muted mb-space-6">Your next billing cycle begins on Oct 15, 2024.</p>
+<button class="w-full py-space-3 px-space-4 bg-surface border border-border-default rounded-xl font-label-md text-label-md text-text-primary hover:bg-surface-soft transition-colors shadow-sm" type="button">
+                                Manage Subscription
+                            </button>
+</div>
+</section>
+</div>
+<!-- Right Column (Preferences) -->
+<div class="lg:col-span-7 flex flex-col gap-space-6">
+<!-- Study Preferences -->
+<section class="bg-surface rounded-2xl border border-border-subtle shadow-sm p-space-8 flex flex-col gap-space-6">
+<div class="flex items-center gap-space-3 pb-space-4 border-b border-border-subtle">
+<span class="material-symbols-outlined text-text-muted">timer</span>
+<h3 class="font-headline-sm text-headline-sm text-text-primary">Study Preferences</h3>
+</div>
+<div class="grid grid-cols-1 md:grid-cols-2 gap-space-6">
+<div>
+<label class="block font-label-md text-label-md text-text-secondary mb-space-2">Daily Goal (Minutes)</label>
+<div class="relative">
+<input class="w-full bg-surface-soft border border-border-default rounded-lg pl-space-4 pr-10 py-space-3 font-body-base text-text-primary focus:ring-2 focus:ring-primary-soft focus:border-primary outline-none transition-all" type="number" value="120"/>
+<span class="absolute right-4 top-1/2 -translate-y-1/2 text-text-muted text-sm">min</span>
+</div>
+</div>
+<div>
+<label class="block font-label-md text-label-md text-text-secondary mb-space-2">Preferred Session Length</label>
+<div class="relative">
+<select class="w-full bg-surface-soft border border-border-default rounded-lg px-space-4 py-space-3 font-body-base text-text-primary focus:ring-2 focus:ring-primary-soft focus:border-primary outline-none transition-all appearance-none cursor-pointer">
+<option value="25">Pomodoro (25m)</option>
+<option selected="" value="45">Standard (45m)</option>
+<option value="60">Deep Work (60m)</option>
+<option value="90">Extended (90m)</option>
+</select>
+<span class="material-symbols-outlined absolute right-4 top-1/2 -translate-y-1/2 text-text-muted pointer-events-none">expand_more</span>
+</div>
+</div>
+</div>
+</section>
+<!-- AI Tutor Preferences -->
+<section class="bg-ai-subtle rounded-2xl border border-border-subtle shadow-sm p-space-8 flex flex-col gap-space-6">
+<div class="flex items-center gap-space-3 pb-space-4 border-b border-border-subtle">
+<span class="material-symbols-outlined text-primary">smart_toy</span>
+<h3 class="font-headline-sm text-headline-sm text-primary">AI Tutor Personality</h3>
+</div>
+<div>
+<label class="block font-label-md text-label-md text-text-secondary mb-space-4">Teaching Style</label>
+<div class="grid grid-cols-1 md:grid-cols-3 gap-space-4">
+<label class="relative flex cursor-pointer border border-border-default bg-surface p-space-4 rounded-xl hover:bg-surface-soft transition-colors focus-within:ring-2 focus-within:ring-primary-soft">
+<input class="sr-only peer" name="ai_tone" type="radio" value="academic"/>
+<div class="peer-checked:border-primary peer-checked:bg-primary-soft absolute inset-0 rounded-xl border-2 border-transparent transition-all pointer-events-none"></div>
+<div class="relative z-10 flex flex-col gap-2">
+<span class="material-symbols-outlined text-text-muted peer-checked:text-primary">school</span>
+<span class="font-label-md text-label-md text-text-primary">Academic</span>
+<span class="font-body-sm text-body-sm text-text-muted text-xs">Formal, precise, textbook style.</span>
+</div>
+</label>
+<label class="relative flex cursor-pointer border border-border-default bg-surface p-space-4 rounded-xl hover:bg-surface-soft transition-colors focus-within:ring-2 focus-within:ring-primary-soft">
+<input checked="" class="sr-only peer" name="ai_tone" type="radio" value="socratic"/>
+<div class="peer-checked:border-primary peer-checked:bg-primary-soft absolute inset-0 rounded-xl border-2 border-transparent transition-all pointer-events-none"></div>
+<div class="relative z-10 flex flex-col gap-2">
+<span class="material-symbols-outlined text-text-muted peer-checked:text-primary">forum</span>
+<span class="font-label-md text-label-md text-text-primary">Socratic</span>
+<span class="font-body-sm text-body-sm text-text-muted text-xs">Guides with questions, makes you think.</span>
+</div>
+</label>
+<label class="relative flex cursor-pointer border border-border-default bg-surface p-space-4 rounded-xl hover:bg-surface-soft transition-colors focus-within:ring-2 focus-within:ring-primary-soft">
+<input class="sr-only peer" name="ai_tone" type="radio" value="simple"/>
+<div class="peer-checked:border-primary peer-checked:bg-primary-soft absolute inset-0 rounded-xl border-2 border-transparent transition-all pointer-events-none"></div>
+<div class="relative z-10 flex flex-col gap-2">
+<span class="material-symbols-outlined text-text-muted peer-checked:text-primary">child_care</span>
+<span class="font-label-md text-label-md text-text-primary">ELI5</span>
+<span class="font-body-sm text-body-sm text-text-muted text-xs">Explain like I'm 5, simple terms.</span>
+</div>
+</label>
+</div>
+</div>
+</section>
+<!-- Notifications -->
+<section class="bg-surface rounded-2xl border border-border-subtle shadow-sm p-space-8 flex flex-col gap-space-6">
+<div class="flex items-center gap-space-3 pb-space-4 border-b border-border-subtle">
+<span class="material-symbols-outlined text-text-muted">notifications</span>
+<h3 class="font-headline-sm text-headline-sm text-text-primary">Notifications</h3>
+</div>
+<div class="flex flex-col gap-space-4">
+<!-- Toggle 1 -->
+<div class="flex items-center justify-between py-space-2">
+<div>
+<h4 class="font-label-md text-label-md text-text-primary">Daily Study Reminders</h4>
+<p class="font-body-sm text-body-sm text-text-muted mt-1">Get notified when it's time for your scheduled session.</p>
+</div>
+<div class="relative inline-block w-12 h-6 align-middle select-none transition duration-200 ease-in">
+<input checked="" class="toggle-checkbox absolute block w-6 h-6 rounded-full bg-white border-4 border-border-default appearance-none cursor-pointer transition-all duration-300 z-10" id="toggle1" name="toggle" type="checkbox"/>
+<label class="toggle-label block overflow-hidden h-6 rounded-full bg-border-subtle cursor-pointer transition-colors duration-300" for="toggle1"></label>
+</div>
+</div>
+<!-- Toggle 2 -->
+<div class="flex items-center justify-between py-space-2">
+<div>
+<h4 class="font-label-md text-label-md text-text-primary">Material Processing Alerts</h4>
+<p class="font-body-sm text-body-sm text-text-muted mt-1">Notify me when my uploads are ready to review.</p>
+</div>
+<div class="relative inline-block w-12 h-6 align-middle select-none transition duration-200 ease-in">
+<input checked="" class="toggle-checkbox absolute block w-6 h-6 rounded-full bg-white border-4 border-border-default appearance-none cursor-pointer transition-all duration-300 z-10" id="toggle2" name="toggle" type="checkbox"/>
+<label class="toggle-label block overflow-hidden h-6 rounded-full bg-border-subtle cursor-pointer transition-colors duration-300" for="toggle2"></label>
+</div>
+</div>
+<!-- Toggle 3 -->
+<div class="flex items-center justify-between py-space-2">
+<div>
+<h4 class="font-label-md text-label-md text-text-primary">Weekly Progress Report</h4>
+<p class="font-body-sm text-body-sm text-text-muted mt-1">Receive an email summary of your learning stats.</p>
+</div>
+<div class="relative inline-block w-12 h-6 align-middle select-none transition duration-200 ease-in">
+<input class="toggle-checkbox absolute block w-6 h-6 rounded-full bg-white border-4 border-border-default appearance-none cursor-pointer transition-all duration-300 z-10" id="toggle3" name="toggle" type="checkbox"/>
+<label class="toggle-label block overflow-hidden h-6 rounded-full bg-border-subtle cursor-pointer transition-colors duration-300" for="toggle3"></label>
+</div>
+</div>
+</div>
+</section>
+</div>
+<!-- Form Action Bar (Sticky Bottom) -->
+<div class="lg:col-span-12 mt-space-6 flex items-center justify-end gap-space-4 pt-space-6 border-t border-border-subtle">
+<button class="py-space-3 px-space-6 bg-transparent text-text-secondary font-label-md text-label-md rounded-xl hover:bg-surface-soft transition-colors" type="button">
+                        Cancel
+                    </button>
+<button class="py-space-3 px-space-8 bg-primary hover:bg-primary-hover text-on-primary font-label-md text-label-md rounded-xl shadow-md transition-all flex items-center gap-2" type="submit">
+<span class="material-symbols-outlined text-[18px]">save</span>
+                        Save Changes
+                    </button>
+</div>
+</form>
+</div>
+</main>
+</body></html>

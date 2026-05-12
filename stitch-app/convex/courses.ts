@@ -1,55 +1,127 @@
 import { v } from "convex/values";
-import { internalMutation, mutation, query } from "./_generated/server";
+import { internalMutation, internalQuery, mutation, query } from "./_generated/server";
 import { internal } from "./_generated/api";
 import { resolveCourseSourceStatus } from "./lib/uploadDisplayStatus.js";
+import { assertOwnerUserId, requireAuthenticatedUserId } from "./lib/authz";
 
-// Get all courses for a user
-export const getUserCourses = query({
-    args: { userId: v.optional(v.string()) },
-    handler: async (ctx, args) => {
-        if (!args.userId) return [];
+const listCoursesWithProgress = async (ctx: any, userId: string) => {
+    const courses = await ctx.db
+        .query("courses")
+        .withIndex("by_userId", (q: any) => q.eq("userId", userId))
+        .order("desc")
+        .collect();
 
-        const courses = await ctx.db
-            .query("courses")
-            .withIndex("by_userId", (q) => q.eq("userId", args.userId))
-            .order("desc")
-            .collect();
+    const examAttempts = await ctx.db
+        .query("examAttempts")
+        .withIndex("by_userId", (q: any) => q.eq("userId", userId))
+        .collect();
 
-        const examAttempts = await ctx.db
-            .query("examAttempts")
-            .withIndex("by_userId", (q) => q.eq("userId", args.userId))
-            .collect();
+    const conceptAttempts = await ctx.db
+        .query("conceptAttempts")
+        .withIndex("by_userId", (q: any) => q.eq("userId", userId))
+        .collect();
 
-        const conceptAttempts = await ctx.db
-            .query("conceptAttempts")
-            .withIndex("by_userId", (q) => q.eq("userId", args.userId))
-            .collect();
+    const attemptedTopicIds = new Set([
+        ...examAttempts.map((attempt: any) => attempt.topicId),
+        ...conceptAttempts.map((attempt: any) => attempt.topicId),
+    ]);
 
-        const attemptedTopicIds = new Set([
-            ...examAttempts.map((attempt) => attempt.topicId),
-            ...conceptAttempts.map((attempt) => attempt.topicId),
-        ]);
+    return await Promise.all(
+        courses.map(async (course: any) => {
+            const topics = await ctx.db
+                .query("topics")
+                .withIndex("by_courseId", (q: any) => q.eq("courseId", course._id))
+                .collect();
 
-        const coursesWithProgress = await Promise.all(
-            courses.map(async (course) => {
-                const topics = await ctx.db
-                    .query("topics")
-                    .withIndex("by_courseId", (q) => q.eq("courseId", course._id))
-                    .collect();
+            const totalTopics = topics.length;
+            const completedTopics = topics.filter((topic: any) => attemptedTopicIds.has(topic._id)).length;
+            const progress = totalTopics > 0 ? Math.round((completedTopics / totalTopics) * 100) : 0;
 
-                const totalTopics = topics.length;
-                const completedTopics = topics.filter((topic) => attemptedTopicIds.has(topic._id)).length;
-                const progress = totalTopics > 0 ? Math.round((completedTopics / totalTopics) * 100) : 0;
+            return {
+                ...course,
+                progress,
+                status: progress >= 100 ? "completed" : "in_progress",
+            };
+        })
+    );
+};
 
+const getCourseWithTopicsPayload = async (ctx: any, courseId: any) => {
+    const course = await ctx.db.get(courseId);
+    if (!course) return null;
+
+    const topics = await ctx.db
+        .query("topics")
+        .withIndex("by_courseId", (q: any) => q.eq("courseId", courseId))
+        .order("asc")
+        .collect();
+
+    return {
+        ...course,
+        topics,
+    };
+};
+
+const listCourseSourcesForCourse = async (ctx: any, course: any) => {
+    const links = await ctx.db
+        .query("courseUploads")
+        .withIndex("by_courseId", (q: any) => q.eq("courseId", course._id))
+        .collect();
+
+    if (links.length > 0) {
+        const sources = await Promise.all(
+            links.map(async (link: any) => {
+                const upload = await ctx.db.get(link.uploadId);
+                if (!upload) return null;
                 return {
-                    ...course,
-                    progress,
-                    status: progress >= 100 ? "completed" : "in_progress",
+                    _id: link._id,
+                    uploadId: link.uploadId,
+                    fileName: upload.fileName,
+                    fileType: upload.fileType,
+                    fileSize: upload.fileSize,
+                    status: resolveCourseSourceStatus({
+                        linkStatus: link.status,
+                        uploadStatus: upload.status,
+                        processingStep: upload.processingStep,
+                        processingProgress: upload.processingProgress,
+                    }),
+                    topicCount: link.topicCount,
+                    addedAt: link.addedAt,
                 };
             })
         );
+        return sources.filter(Boolean);
+    }
 
-        return coursesWithProgress;
+    if (course.uploadId) {
+        const upload = await ctx.db.get(course.uploadId);
+        if (upload) {
+            return [{
+                _id: null,
+                uploadId: course.uploadId,
+                fileName: upload.fileName,
+                fileType: upload.fileType,
+                fileSize: upload.fileSize,
+                status: resolveCourseSourceStatus({
+                    uploadStatus: upload.status,
+                    processingStep: upload.processingStep,
+                    processingProgress: upload.processingProgress,
+                }),
+                topicCount: null,
+                addedAt: course._creationTime,
+            }];
+        }
+    }
+
+    return [];
+};
+
+// Get all courses for a user
+export const getUserCourses = query({
+    args: {},
+    handler: async (ctx) => {
+        const userId = await requireAuthenticatedUserId(ctx);
+        return await listCoursesWithProgress(ctx, userId);
     },
 });
 
@@ -57,34 +129,38 @@ export const getUserCourses = query({
 export const getCourseWithTopics = query({
     args: { courseId: v.id("courses") },
     handler: async (ctx, args) => {
-        const course = await ctx.db.get(args.courseId);
+        const userId = await requireAuthenticatedUserId(ctx);
+        const course = await getCourseWithTopicsPayload(ctx, args.courseId);
         if (!course) return null;
+        assertOwnerUserId({ authenticatedUserId: userId, ownerUserId: course.userId });
+        return course;
+    },
+});
 
-        const topics = await ctx.db
-            .query("topics")
-            .withIndex("by_courseId", (q) => q.eq("courseId", args.courseId))
-            .order("asc")
-            .collect();
-
-        return {
-            ...course,
-            topics,
-        };
+export const getCourseWithTopicsInternal = internalQuery({
+    args: { courseId: v.id("courses") },
+    handler: async (ctx, args) => {
+        return await getCourseWithTopicsPayload(ctx, args.courseId);
     },
 });
 
 // Create a new course
 export const createCourse = mutation({
     args: {
-        userId: v.string(),
         title: v.string(),
         description: v.optional(v.string()),
         coverColor: v.optional(v.string()),
         uploadId: v.optional(v.id("uploads")),
     },
     handler: async (ctx, args) => {
+        const userId = await requireAuthenticatedUserId(ctx);
+        if (args.uploadId) {
+            const upload = await ctx.db.get(args.uploadId);
+            assertOwnerUserId({ authenticatedUserId: userId, ownerUserId: upload?.userId });
+        }
+
         const courseId = await ctx.db.insert("courses", {
-            userId: args.userId,
+            userId,
             title: args.title,
             description: args.description,
             coverColor: args.coverColor || "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
@@ -106,62 +182,21 @@ export const createCourse = mutation({
 export const getCourseSources = query({
     args: { courseId: v.id("courses") },
     handler: async (ctx, args) => {
+        const userId = await requireAuthenticatedUserId(ctx);
         const course = await ctx.db.get(args.courseId);
         if (!course) return [];
+        assertOwnerUserId({ authenticatedUserId: userId, ownerUserId: course.userId });
 
-        // Check join table first
-        const links = await ctx.db
-            .query("courseUploads")
-            .withIndex("by_courseId", (q) => q.eq("courseId", args.courseId))
-            .collect();
+        return await listCourseSourcesForCourse(ctx, course);
+    },
+});
 
-        if (links.length > 0) {
-            const sources = await Promise.all(
-                links.map(async (link) => {
-                    const upload = await ctx.db.get(link.uploadId);
-                    if (!upload) return null;
-                    return {
-                        _id: link._id,
-                        uploadId: link.uploadId,
-                        fileName: upload.fileName,
-                        fileType: upload.fileType,
-                        fileSize: upload.fileSize,
-                        status: resolveCourseSourceStatus({
-                            linkStatus: link.status,
-                            uploadStatus: upload.status,
-                            processingStep: upload.processingStep,
-                            processingProgress: upload.processingProgress,
-                        }),
-                        topicCount: link.topicCount,
-                        addedAt: link.addedAt,
-                    };
-                })
-            );
-            return sources.filter(Boolean);
-        }
-
-        // Fallback for legacy courses with single uploadId
-        if (course.uploadId) {
-            const upload = await ctx.db.get(course.uploadId);
-            if (upload) {
-                return [{
-                    _id: null,
-                    uploadId: course.uploadId,
-                    fileName: upload.fileName,
-                    fileType: upload.fileType,
-                    fileSize: upload.fileSize,
-                    status: resolveCourseSourceStatus({
-                        uploadStatus: upload.status,
-                        processingStep: upload.processingStep,
-                        processingProgress: upload.processingProgress,
-                    }),
-                    topicCount: null,
-                    addedAt: course._creationTime,
-                }];
-            }
-        }
-
-        return [];
+export const getCourseSourcesInternal = internalQuery({
+    args: { courseId: v.id("courses") },
+    handler: async (ctx, args) => {
+        const course = await ctx.db.get(args.courseId);
+        if (!course) return [];
+        return await listCourseSourcesForCourse(ctx, course);
     },
 });
 
@@ -170,15 +205,15 @@ export const addUploadToCourse = mutation({
     args: {
         courseId: v.id("courses"),
         uploadId: v.id("uploads"),
-        userId: v.string(),
     },
     handler: async (ctx, args) => {
+        const userId = await requireAuthenticatedUserId(ctx);
         const course = await ctx.db.get(args.courseId);
-        if (!course || course.userId !== args.userId) {
+        if (!course || course.userId !== userId) {
             throw new Error("Course not found or access denied.");
         }
         const upload = await ctx.db.get(args.uploadId);
-        if (!upload || upload.userId !== args.userId) {
+        if (!upload || upload.userId !== userId) {
             throw new Error("Upload not found or access denied.");
         }
 
@@ -228,11 +263,11 @@ export const removeSourceFromCourse = mutation({
     args: {
         courseId: v.id("courses"),
         uploadId: v.id("uploads"),
-        userId: v.string(),
     },
     handler: async (ctx, args) => {
+        const userId = await requireAuthenticatedUserId(ctx);
         const course = await ctx.db.get(args.courseId);
-        if (!course || course.userId !== args.userId) {
+        if (!course || course.userId !== userId) {
             throw new Error("Course not found or access denied.");
         }
 
@@ -331,6 +366,9 @@ export const updateCourseProgress = mutation({
         progress: v.number(),
     },
     handler: async (ctx, args) => {
+        const userId = await requireAuthenticatedUserId(ctx);
+        const course = await ctx.db.get(args.courseId);
+        assertOwnerUserId({ authenticatedUserId: userId, ownerUserId: course?.userId });
         await ctx.db.patch(args.courseId, {
             progress: args.progress,
             status: args.progress >= 100 ? "completed" : "in_progress",
@@ -347,8 +385,33 @@ export const updateCourse = mutation({
         coverColor: v.optional(v.string()),
     },
     handler: async (ctx, args) => {
+        const userId = await requireAuthenticatedUserId(ctx);
+        const course = await ctx.db.get(args.courseId);
+        assertOwnerUserId({ authenticatedUserId: userId, ownerUserId: course?.userId });
         const { courseId, ...updates } = args;
         // Filter out undefined values
+        const cleanUpdates: Record<string, any> = {};
+        if (updates.title !== undefined) cleanUpdates.title = updates.title;
+        if (updates.description !== undefined) cleanUpdates.description = updates.description;
+        if (updates.coverColor !== undefined) cleanUpdates.coverColor = updates.coverColor;
+
+        await ctx.db.patch(courseId, cleanUpdates);
+        void ctx.scheduler.runAfter(0, (internal as any).search.upsertSearchDocumentsForEntity, {
+            kind: "course",
+            entityId: courseId,
+        }).catch(() => undefined);
+    },
+});
+
+export const updateCourseInternal = internalMutation({
+    args: {
+        courseId: v.id("courses"),
+        title: v.optional(v.string()),
+        description: v.optional(v.string()),
+        coverColor: v.optional(v.string()),
+    },
+    handler: async (ctx, args) => {
+        const { courseId, ...updates } = args;
         const cleanUpdates: Record<string, any> = {};
         if (updates.title !== undefined) cleanUpdates.title = updates.title;
         if (updates.description !== undefined) cleanUpdates.description = updates.description;
@@ -367,15 +430,15 @@ export const updateCourse = mutation({
 export const deleteCourse = mutation({
     args: {
         courseId: v.id("courses"),
-        userId: v.string(),
     },
     handler: async (ctx, args) => {
+        const userId = await requireAuthenticatedUserId(ctx);
         const course = await ctx.db.get(args.courseId);
         if (!course) {
             return { success: true };
         }
 
-        if (course.userId !== args.userId) {
+        if (course.userId !== userId) {
             throw new Error("You do not have permission to delete this course.");
         }
 
@@ -480,7 +543,7 @@ export const deleteCourse = mutation({
         if (course.uploadId && !linkedUploadIds.includes(course.uploadId)) {
             const userCourses = await ctx.db
                 .query("courses")
-                .withIndex("by_userId", (q) => q.eq("userId", args.userId))
+                .withIndex("by_userId", (q) => q.eq("userId", userId))
                 .collect();
 
             const uploadStillReferenced = userCourses.some(

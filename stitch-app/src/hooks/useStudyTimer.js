@@ -63,7 +63,7 @@ export function useStudyTimer(userId) {
             accMinutesRef.current = 0;
             setPendingMinutesForUser(normalizedUserId, 0);
             // Fire-and-forget; don't await — avoids blocking unmount.
-            addStudyTime({ userId: normalizedUserId, minutes }).catch(() => {
+            addStudyTime({ minutes }).catch(() => {
                 // Retry failed minutes for the same user only.
                 const currentPending = getPendingMinutesForUser(normalizedUserId);
                 setPendingMinutesForUser(normalizedUserId, currentPending + minutes);

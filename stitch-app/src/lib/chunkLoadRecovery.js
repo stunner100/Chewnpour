@@ -16,7 +16,6 @@ const STALE_TOPIC_ROUTE_CALL_SIGNATURES = [
     /topicNotes:getNote/i,
     /topicChat:getMessages/i,
     /tutor:getTopicTutorSupport/i,
-    /videos:listTopicVideos/i,
     /podcasts:listTopicPodcasts/i,
     /concepts:getConceptMasteryForTopic/i,
 ];

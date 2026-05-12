@@ -7,9 +7,9 @@ const pipelinePath = resolve(rootDir, 'convex/lib/documentExtractionPipeline.ts'
 const source = readFileSync(pipelinePath, 'utf8');
 
 assert.ok(
-  source.includes('export const shouldRunDoctraFallback')
-    && source.includes('export const selectDoctraParser'),
-  'Expected the pipeline to expose explicit Doctra fallback routing helpers.'
+  source.includes('export const shouldRunDoclingFallback')
+    && source.includes('export const selectDoclingParser'),
+  'Expected the pipeline to expose explicit Docling fallback routing helpers.'
 );
 assert.ok(
   source.includes('args.metrics.scannedLikely')
@@ -21,12 +21,12 @@ assert.ok(
   source.includes('return "enhanced_pdf"')
     && source.includes('return "paddleocr_vl"')
     && source.includes('return "docx_structured"'),
-  'Expected Doctra parser routing to cover scanned PDFs, table-heavy PDFs, and DOCX fallback.'
+  'Expected Docling parser routing to cover scanned PDFs, table-heavy PDFs, and DOCX fallback.'
 );
 assert.ok(
-  source.includes('if (!isDoctraEnabled())')
-    && source.includes('backend: "doctra"'),
-  'Expected Doctra recommendations to stay gated behind runtime configuration.'
+  source.includes('if (!isDoclingEnabled())')
+    && source.includes('backend: "docling"'),
+  'Expected Docling recommendations to stay gated behind runtime configuration.'
 );
 
-console.log('extraction-doctra-fallback-regression tests passed');
+console.log('extraction-docling-fallback-regression tests passed');

@@ -13,7 +13,7 @@ const ALERT_STYLES = {
     note: "bg-blue-50 dark:bg-blue-900/20 border-blue-100 dark:border-blue-800 text-blue-900 dark:text-blue-100 icon-info",
     warning: "bg-amber-50 dark:bg-amber-900/20 border-amber-100 dark:border-amber-800 text-amber-900 dark:text-amber-100 icon-warning",
     important: "bg-rose-50 dark:bg-rose-900/20 border-rose-100 dark:border-rose-800 text-rose-900 dark:text-rose-100 icon-priority_high",
-    "key takeaway": "bg-indigo-50 dark:bg-indigo-900/20 border-indigo-100 dark:border-indigo-800 text-indigo-900 dark:text-indigo-100 icon-star"
+    "key takeaway": "bg-primary-50 dark:bg-primary-900/20 border-primary-100 dark:border-primary-800 text-primary-900 dark:text-primary-100 icon-star"
 };
 
 const getHeaderIcon = (text) => {
@@ -33,25 +33,29 @@ const parseInlineFormatting = (text, cleanInline) => {
     if (!text) return '';
     const TOKEN_RE = /(\*\*[^*]+?\*\*|\*[^*\n]+?\*|`[^`\n]+?`|\[[^\]]+?\]\([^)]+?\))/g;
     const parts = text.split(TOKEN_RE);
-    return parts.map((part, i) => {
+    const partCounts = new Map();
+    return parts.map((part) => {
         if (!part) return null;
+        const seenCount = partCounts.get(part) || 0;
+        partCounts.set(part, seenCount + 1);
+        const key = `${part}-${seenCount}`;
         if (part.startsWith('**') && part.endsWith('**')) {
             return (
-                <strong key={i} className="font-semibold text-neutral-900 dark:text-white">
+                <strong key={key} className="font-semibold text-neutral-900 dark:text-white">
                     {cleanInline(part.slice(2, -2))}
                 </strong>
             );
         }
         if (part.startsWith('*') && part.endsWith('*') && part.length > 2) {
             return (
-                <em key={i} className="italic text-neutral-700 dark:text-neutral-300">
+                <em key={key} className="italic text-neutral-700 dark:text-neutral-300">
                     {cleanInline(part.slice(1, -1))}
                 </em>
             );
         }
         if (part.startsWith('`') && part.endsWith('`') && part.length > 2) {
             return (
-                <code key={i} className="px-1.5 py-0.5 rounded-md bg-neutral-100 dark:bg-neutral-800 text-[0.9em] font-mono text-neutral-800 dark:text-neutral-200 border border-neutral-200/60 dark:border-neutral-700/60">
+                <code key={key} className="px-1.5 py-0.5 rounded-md bg-neutral-100 dark:bg-neutral-800 text-[0.9em] font-mono text-neutral-800 dark:text-neutral-200 border border-neutral-200/60 dark:border-neutral-700/60">
                     {part.slice(1, -1)}
                 </code>
             );
@@ -59,7 +63,7 @@ const parseInlineFormatting = (text, cleanInline) => {
         const linkMatch = part.match(/^\[([^\]]+)\]\(([^)]+)\)$/);
         if (linkMatch) {
             return (
-                <a key={i} href={linkMatch[2]} target="_blank" rel="noopener noreferrer" className="text-primary underline underline-offset-2 decoration-primary/30 hover:decoration-primary/70 transition-colors">
+                <a key={key} href={linkMatch[2]} target="_blank" rel="noopener noreferrer" className="text-primary underline underline-offset-2 decoration-primary/30 hover:decoration-primary/70 transition-colors">
                     {cleanInline(linkMatch[1])}
                 </a>
             );
@@ -165,8 +169,8 @@ const LessonContentRenderer = memo(function LessonContentRenderer({
                             <div className="absolute top-0 right-0 p-4 opacity-5 group-hover:opacity-10 transition-opacity">
                                 <span className="material-symbols-outlined text-6xl">menu_book</span>
                             </div>
-                            <h4 className="text-sm font-bold text-primary uppercase tracking-wider mb-2 flex items-center gap-2">
-                                <span className="w-2 h-2 rounded-full bg-primary"></span>
+                            <h4 className="text-sm font-semibold text-primary uppercase tracking-wider mb-2 flex items-center gap-2">
+                                <span className="size-2 rounded-full bg-primary"></span>
                                 {block.term}
                             </h4>
                             <div className="text-base md:text-lg text-neutral-800 dark:text-neutral-100 leading-relaxed">
@@ -178,8 +182,8 @@ const LessonContentRenderer = memo(function LessonContentRenderer({
 
                 if (block.type === 'example') {
                     return (
-                        <div key={block.key} className={`my-4 md:my-6 pl-5 pr-5 md:pl-6 md:pr-6 py-4 md:py-5 border-l-4 border-indigo-400 dark:border-indigo-600 bg-indigo-50/30 dark:bg-indigo-950/20 rounded-r-2xl ${animationClass}`} style={animationStyle}>
-                            <div className="flex items-center gap-2 text-indigo-600 dark:text-indigo-400 mb-2">
+                        <div key={block.key} className={`my-4 md:my-6 pl-5 pr-5 md:pl-6 md:pr-6 py-4 md:py-5 border-l-4 border-primary-400 dark:border-primary-600 bg-primary-50/30 dark:bg-primary-950/20 rounded-r-2xl ${animationClass}`} style={animationStyle}>
+                            <div className="flex items-center gap-2 text-primary-600 dark:text-primary-400 mb-2">
                                 <span className="material-symbols-outlined text-[20px]">lightbulb_circle</span>
                                 <span className="text-xs font-black uppercase tracking-widest">Example</span>
                             </div>
@@ -193,7 +197,7 @@ const LessonContentRenderer = memo(function LessonContentRenderer({
                 if (block.type === 'bullet') {
                     return (
                         <div key={block.key} className={`flex items-start gap-3 ml-1 mb-3 md:mb-4 group ${animationClass}`} style={animationStyle}>
-                            <div className="mt-1.5 h-5 w-5 rounded-full bg-primary/10 flex items-center justify-center shrink-0 group-hover:bg-primary/20 transition-colors">
+                            <div className="mt-1.5 size-5 rounded-full bg-primary/10 flex items-center justify-center shrink-0 group-hover:bg-primary/20 transition-colors">
                                 <span className="material-symbols-outlined text-[14px] text-primary">arrow_forward</span>
                             </div>
                             <span className="text-[15px] md:text-base leading-7 text-neutral-700 dark:text-neutral-300">{bold(block.text)}</span>
@@ -213,20 +217,22 @@ const LessonContentRenderer = memo(function LessonContentRenderer({
 
                 if (block.type === 'wordbank_widget') {
                     return (
-                        <InteractiveWordBank
-                            key={block.key}
-                            terms={wordBankTerms}
-                            topicId={topicId}
-                            starredTerms={starredTerms}
-                            onTermsStarred={onTermsStarred}
-                        />
+                        <div key={block.key} id="topic-wordbank" style={{ scrollMarginTop: 108 }}>
+                            <InteractiveWordBank
+                                key={starredTerms ? `wb-${starredTerms.length}` : 'wb-0'}
+                                terms={wordBankTerms}
+                                topicId={topicId}
+                                starredTerms={starredTerms}
+                                onTermsStarred={onTermsStarred}
+                            />
+                        </div>
                     );
                 }
 
                 if (block.type === 'numbered') {
                     return (
                         <div key={block.key} className={`flex items-start gap-4 ml-1 mb-3 md:mb-4 group ${animationClass}`} style={animationStyle}>
-                            <span className="flex items-center justify-center w-6 h-6 rounded-full bg-primary/10 text-primary text-xs font-bold shrink-0 mt-0.5">
+                            <span className="flex items-center justify-center size-6 rounded-full bg-primary/10 text-primary text-xs font-bold shrink-0 mt-0.5">
                                 {block.num}
                             </span>
                             <span className="text-[15px] md:text-base leading-7 text-neutral-700 dark:text-neutral-300">{bold(block.text)}</span>
@@ -257,7 +263,7 @@ const LessonContentRenderer = memo(function LessonContentRenderer({
                     const MISTAKE_BADGE = { 'Exam Trap': 'badge-danger', 'Common Confusion': 'badge-warning', 'Do Not Mix Up': 'badge-primary' };
                     return (
                         <div key={block.key} className={`flex items-start gap-3 ml-1 mb-4 group ${animationClass}`} style={animationStyle}>
-                            <div className="mt-1.5 h-5 w-5 rounded-full bg-red-100 dark:bg-red-900/20 flex items-center justify-center shrink-0">
+                            <div className="mt-1.5 size-5 rounded-full bg-red-100 dark:bg-red-900/20 flex items-center justify-center shrink-0">
                                 <span className="material-symbols-outlined text-[14px] text-red-500">close</span>
                             </div>
                             <div className="flex-1">

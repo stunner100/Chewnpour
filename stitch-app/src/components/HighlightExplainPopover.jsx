@@ -15,42 +15,52 @@ const HighlightExplainPopover = memo(function HighlightExplainPopover({
     onCopyToNotes,
 }) {
     const explainSelection = useAction(api.ai.explainSelection);
-    const [loading, setLoading] = useState(false);
-    const [explanation, setExplanation] = useState('');
-    const [error, setError] = useState('');
-    const [activeStyle, setActiveStyle] = useState('');
+    const [explainState, setExplainState] = useState({
+        selectionText: '',
+        loading: false,
+        explanation: '',
+        error: '',
+        activeStyle: '',
+    });
+    const selectionText = selection?.text || '';
+    const hasCurrentSelectionState = explainState.selectionText === selectionText;
+    const loading = hasCurrentSelectionState ? explainState.loading : false;
+    const explanation = hasCurrentSelectionState ? explainState.explanation : '';
+    const error = hasCurrentSelectionState ? explainState.error : '';
+    const activeStyle = hasCurrentSelectionState ? explainState.activeStyle : '';
     const popoverRef = useRef(null);
-    const prevSelectionTextRef = useRef('');
-
-    // Reset state when selection changes
-    useEffect(() => {
-        if (!selection) return;
-        if (selection.text !== prevSelectionTextRef.current) {
-            setExplanation('');
-            setError('');
-            setLoading(false);
-            setActiveStyle('');
-            prevSelectionTextRef.current = selection.text;
-        }
-    }, [selection]);
 
     const handleExplain = useCallback(async (style) => {
         if (!topicId || !selection?.text) return;
-        setActiveStyle(style);
-        setError('');
-        setLoading(true);
-        setExplanation('');
+        const selectedText = selection.text;
+        setExplainState({
+            selectionText: selectedText,
+            loading: true,
+            explanation: '',
+            error: '',
+            activeStyle: style,
+        });
         try {
             const result = await explainSelection({
                 topicId,
-                selectedText: selection.text.slice(0, 1000),
+                selectedText: selectedText.slice(0, 1000),
                 style,
             });
-            setExplanation(result?.explanation || 'No explanation generated.');
+            setExplainState({
+                selectionText: selectedText,
+                loading: false,
+                explanation: result?.explanation || 'No explanation generated.',
+                error: '',
+                activeStyle: style,
+            });
         } catch {
-            setError('Failed to generate explanation. Please try again.');
-        } finally {
-            setLoading(false);
+            setExplainState({
+                selectionText: selectedText,
+                loading: false,
+                explanation: '',
+                error: 'Failed to generate explanation. Please try again.',
+                activeStyle: style,
+            });
         }
     }, [topicId, selection, explainSelection]);
 
@@ -105,10 +115,10 @@ const HighlightExplainPopover = memo(function HighlightExplainPopover({
 
     return (
         <div ref={popoverRef} style={style} className="w-full">
-            <div className="rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xl overflow-hidden">
+            <div className="rounded-2xl bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 shadow-xl overflow-hidden">
                 {/* Selected text preview */}
-                <div className="px-3 py-2 border-b border-slate-100 dark:border-slate-800">
-                    <p className="text-xs text-slate-400 dark:text-neutral-400 italic truncate">
+                <div className="px-3 py-2 border-b border-zinc-100 dark:border-zinc-800">
+                    <p className="text-xs text-zinc-400 dark:text-neutral-400 italic truncate">
                         &ldquo;{truncatedText}&rdquo;
                     </p>
                 </div>
@@ -120,7 +130,7 @@ const HighlightExplainPopover = memo(function HighlightExplainPopover({
                             <button
                                 key={key}
                                 onClick={() => handleExplain(key)}
-                                className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold text-slate-700 dark:text-slate-200 bg-slate-50 dark:bg-slate-800 hover:bg-primary/10 hover:text-primary dark:hover:bg-primary/20 transition-colors"
+                                className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold text-zinc-700 dark:text-zinc-200 bg-zinc-50 dark:bg-zinc-800 hover:bg-primary/10 hover:text-primary dark:hover:bg-primary/20 transition-colors"
                             >
                                 <span className="material-symbols-outlined text-[16px]">{icon}</span>
                                 {label}
@@ -132,8 +142,8 @@ const HighlightExplainPopover = memo(function HighlightExplainPopover({
                 {/* Loading state */}
                 {loading && (
                     <div className="flex items-center gap-2 px-4 py-3">
-                        <span className="w-4 h-4 border-2 border-primary/30 border-t-primary rounded-full animate-spin" />
-                        <span className="text-sm text-slate-500 dark:text-slate-400">
+                        <span className="size-4 border-2 border-primary/30 border-t-primary rounded-full animate-spin" />
+                        <span className="text-sm text-zinc-500 dark:text-zinc-400">
                             {activeStyle === 'breakdown' ? 'Breaking down...' : activeStyle === 'simplify' ? 'Simplifying...' : 'Explaining...'}
                         </span>
                     </div>
@@ -152,7 +162,7 @@ const HighlightExplainPopover = memo(function HighlightExplainPopover({
                             </button>
                             <button
                                 onClick={onClose}
-                                className="text-xs font-semibold text-slate-400 hover:text-slate-600"
+                                className="text-xs font-semibold text-zinc-400 hover:text-zinc-600"
                             >
                                 Dismiss
                             </button>
@@ -163,10 +173,10 @@ const HighlightExplainPopover = memo(function HighlightExplainPopover({
                 {/* Explanation result */}
                 {explanation && !loading && (
                     <div className="px-4 py-3">
-                        <div className="max-h-48 overflow-y-auto text-sm text-slate-700 dark:text-slate-300 leading-relaxed whitespace-pre-wrap">
+                        <div className="max-h-48 overflow-y-auto text-sm text-zinc-700 dark:text-zinc-300 leading-relaxed whitespace-pre-wrap">
                             {explanation}
                         </div>
-                        <div className="flex items-center justify-between mt-3 pt-2 border-t border-slate-100 dark:border-slate-800">
+                        <div className="flex items-center justify-between mt-3 pt-2 border-t border-zinc-100 dark:border-zinc-800">
                             <div className="flex items-center gap-2">
                                 {onCopyToNotes && (
                                     <button
@@ -179,11 +189,15 @@ const HighlightExplainPopover = memo(function HighlightExplainPopover({
                                 )}
                                 <button
                                     onClick={() => {
-                                        setExplanation('');
-                                        setError('');
-                                        setActiveStyle('');
+                                        setExplainState({
+                                            selectionText,
+                                            loading: false,
+                                            explanation: '',
+                                            error: '',
+                                            activeStyle: '',
+                                        });
                                     }}
-                                    className="flex items-center gap-1 text-xs font-semibold text-slate-400 hover:text-slate-600"
+                                    className="flex items-center gap-1 text-xs font-semibold text-zinc-400 hover:text-zinc-600"
                                 >
                                     <span className="material-symbols-outlined text-[14px]">refresh</span>
                                     Try another
@@ -191,7 +205,7 @@ const HighlightExplainPopover = memo(function HighlightExplainPopover({
                             </div>
                             <button
                                 onClick={onClose}
-                                className="w-7 h-7 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-400 hover:text-primary flex items-center justify-center"
+                                className="size-7 rounded-full bg-zinc-100 dark:bg-zinc-800 text-zinc-400 hover:text-primary flex items-center justify-center"
                             >
                                 <span className="material-symbols-outlined text-[16px]">close</span>
                             </button>

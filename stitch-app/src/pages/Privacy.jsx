@@ -67,19 +67,19 @@ const Privacy = () => (
             <p>We do not sell your personal information. We may share your data with:</p>
             <ul>
                 <li>
-                    <strong>Service providers</strong> — cloud hosting, payment processing, email delivery, and
+                    <strong>Service providers</strong>, cloud hosting, payment processing, email delivery, and
                     analytics providers who help us operate the Service, bound by data protection agreements
                 </li>
                 <li>
-                    <strong>AI model providers</strong> — your content may be sent to third-party AI services for
+                    <strong>AI model providers</strong>, your content may be sent to third-party AI services for
                     processing, subject to their enterprise data processing terms which prohibit training on your data
                 </li>
                 <li>
-                    <strong>Legal obligations</strong> — when required by law, court order, or to protect the rights,
+                    <strong>Legal obligations</strong>, when required by law, court order, or to protect the rights,
                     safety, or property of ChewnPour, our users, or the public
                 </li>
                 <li>
-                    <strong>Business transfers</strong> — in the event of a merger, acquisition, or sale of assets,
+                    <strong>Business transfers</strong>, in the event of a merger, acquisition, or sale of assets,
                     your data may be transferred as part of the transaction
                 </li>
             </ul>

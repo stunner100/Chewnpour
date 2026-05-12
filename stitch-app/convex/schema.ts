@@ -45,7 +45,7 @@ export default defineSchema({
         userId: v.string(),
         fileName: v.string(),
         fileUrl: v.string(),
-        fileType: v.optional(v.string()), // 'pdf', 'pptx', 'docx'
+        fileType: v.optional(v.string()), // 'pdf', 'pptx', 'docx', or normalized audio extension
         fileSize: v.optional(v.number()),
         status: v.string(), // 'processing', 'ready', 'error'
         storageId: v.optional(v.id("_storage")),
@@ -116,6 +116,22 @@ export default defineSchema({
         .index("by_uploadId", ["uploadId"])
         .index("by_uploadId_createdAt", ["uploadId", "createdAt"]),
 
+    // Public reading materials shared in the Library tab
+    libraryMaterials: defineTable({
+        uploadedBy: v.string(),
+        title: v.string(),
+        description: v.optional(v.string()),
+        fileName: v.string(),
+        fileType: v.optional(v.string()),
+        fileSize: v.optional(v.number()),
+        storageId: v.id("_storage"),
+        createdAt: v.number(),
+        updatedAt: v.number(),
+        isHidden: v.optional(v.boolean()),
+    })
+        .index("by_createdAt", ["createdAt"])
+        .index("by_uploadedBy", ["uploadedBy"]),
+
     evidencePassages: defineTable({
         userId: v.string(),
         uploadId: v.id("uploads"),
@@ -127,6 +143,9 @@ export default defineSchema({
         endChar: v.number(),
         sectionHint: v.string(),
         flags: v.array(v.string()),
+        blockType: v.optional(v.string()),
+        headingPath: v.optional(v.array(v.string())),
+        sourceBackend: v.optional(v.string()),
         text: v.string(),
         embedding: v.optional(v.array(v.float64())),
         embeddingModel: v.optional(v.string()),
@@ -134,12 +153,7 @@ export default defineSchema({
     })
         .index("by_uploadId", ["uploadId"])
         .index("by_courseId", ["courseId"])
-        .index("by_uploadId_passageId", ["uploadId", "passageId"])
-        .vectorIndex("by_embedding", {
-            vectorField: "embedding",
-            dimensions: 1536,
-            filterFields: ["userId", "uploadId", "courseId"],
-        }),
+        .index("by_uploadId_passageId", ["uploadId", "passageId"]),
 
     questionTargetAuditRuns: defineTable({
         dryRun: v.boolean(),
@@ -799,35 +813,6 @@ export default defineSchema({
         createdAt: v.number(),
     }).index("by_postId", ["postId"])
       .index("by_userId_postId", ["userId", "postId"]),
-
-    // Seedance-generated explainer videos for a topic (staging feature).
-    topicVideos: defineTable({
-        userId: v.string(),
-        topicId: v.id("topics"),
-        status: v.string(), // 'pending' | 'running' | 'ready' | 'failed'
-        providerJobId: v.optional(v.string()),
-        pollingUrl: v.optional(v.string()),
-        providerStatus: v.optional(v.string()), // raw last-seen OpenRouter status
-        promptText: v.string(),
-        sourceSnippet: v.string(),
-        durationSeconds: v.number(),
-        width: v.number(),
-        height: v.number(),
-        aspectRatio: v.optional(v.string()),
-        videoStorageId: v.optional(v.id("_storage")),
-        providerUrl: v.optional(v.string()),
-        tokenCount: v.optional(v.number()),
-        costUsd: v.optional(v.number()),
-        errorMessage: v.optional(v.string()),
-        pollAttempts: v.optional(v.number()),
-        startedAt: v.number(),
-        createdAt: v.number(),
-        updatedAt: v.number(),
-    })
-        .index("by_userId", ["userId"])
-        .index("by_topicId", ["topicId"])
-        .index("by_userId_topicId", ["userId", "topicId"])
-        .index("by_status_startedAt", ["status", "startedAt"]),
 
     // Deepgram-generated two-speaker explainer podcasts for a topic (staging feature).
     topicPodcasts: defineTable({

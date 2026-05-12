@@ -1,0 +1,326 @@
+- main [ref=e44]:
+  - generic [ref=e45]:
+    - navigation "Breadcrumb" [ref=e46]:
+      - link "Dashboard" [ref=e47] [cursor=pointer]:
+        - /url: /dashboard
+      - generic [ref=e48]: chevron_right
+      - link "Library" [ref=e49] [cursor=pointer]:
+        - /url: /dashboard/search
+      - generic [ref=e50]: chevron_right
+      - generic [ref=e51]: Mathematical Logic for Computer Science Mordechai Ben-Ari
+    - generic [ref=e53]:
+      - generic [ref=e54]:
+        - generic [ref=e55]:
+          - generic [ref=e56]:
+            - generic [ref=e57]: auto_awesome
+            - text: AI generated course
+          - generic [ref=e58]:
+            - generic [ref=e59]: description
+            - text: PDF
+        - heading "Mathematical Logic for Computer Science Mordechai Ben-Ari" [level=1] [ref=e60]
+        - paragraph [ref=e61]:
+          - text: Generated from your uploaded PDF.
+          - generic [ref=e62]: · 15 topics ready · 36 min estimated study time
+      - generic [ref=e63]:
+        - button "play_arrow Continue learning" [ref=e64] [cursor=pointer]:
+          - generic [ref=e65]: play_arrow
+          - text: Continue learning
+        - button "graphic_eq Generate podcast" [ref=e66] [cursor=pointer]:
+          - generic [ref=e67]: graphic_eq
+          - text: Generate podcast
+    - generic [ref=e68]:
+      - generic [ref=e69]:
+        - generic [ref=e71]: auto_stories
+        - generic [ref=e72]:
+          - paragraph [ref=e73]: Topics ready
+          - paragraph [ref=e74]: 15 / 15
+          - paragraph [ref=e75]: 100% generated
+      - generic [ref=e76]:
+        - generic [ref=e78]: check_circle
+        - generic [ref=e79]:
+          - paragraph [ref=e80]: Course progress
+          - paragraph [ref=e81]: 0%
+          - paragraph [ref=e82]: 0 of 15 completed
+      - generic [ref=e83]:
+        - generic [ref=e85]: quiz
+        - generic [ref=e86]:
+          - paragraph [ref=e87]: Quizzes ready
+          - paragraph [ref=e88]: "0"
+          - paragraph [ref=e89]: Coming soon
+      - generic [ref=e90]:
+        - generic [ref=e92]: graphic_eq
+        - generic [ref=e93]:
+          - paragraph [ref=e94]: Audio lesson
+          - paragraph [ref=e95]: Not generated
+          - paragraph [ref=e96]: 36 min study time
+    - generic [ref=e97]:
+      - generic [ref=e98]:
+        - generic [ref=e100]:
+          - generic [ref=e101]:
+            - generic [ref=e102]: play_circle
+            - generic [ref=e103]: Continue learning
+          - generic [ref=e104]:
+            - generic [ref=e105]:
+              - paragraph [ref=e106]: Continue where you left off · Module 1
+              - heading "Preface and Organization of Mathematical Logic for Computer Science" [level=2] [ref=e107]
+              - paragraph [ref=e108]: This chunk contains the preface and table of contents of the textbook 'Mathematical Logic for Computer Science' by Mordechai Ben-Ari, outlining the book's audience, organization into four parts (Propositional Logic, First-Order Logic, Temporal Logic, Program Verification), and changes in the third edition.
+            - link "play_arrow Start topic" [ref=e110] [cursor=pointer]:
+              - /url: /dashboard/topic/k97ffcww4vrs7az7cd3grbr64985y9m8
+              - generic [ref=e111]: play_arrow
+              - text: Start topic
+        - generic [ref=e113]:
+          - generic [ref=e114]:
+            - generic [ref=e115]:
+              - paragraph [ref=e116]: Study this course as a podcast
+              - heading "Listen on the go" [level=3] [ref=e117]
+              - paragraph [ref=e118]: Mathematical Logic for Computer Science Mordechai Ben-Ari
+            - generic [ref=e119]:
+              - generic [ref=e120]: graphic_eq
+              - text: Not generated
+          - generic [ref=e121]:
+            - paragraph [ref=e122]: Generate an audio lesson from a topic in this course and listen anywhere.
+            - link "graphic_eq Generate podcast" [ref=e123] [cursor=pointer]:
+              - /url: /dashboard/podcasts?generate=1
+              - generic [ref=e124]: graphic_eq
+              - text: Generate podcast
+        - generic [ref=e125]:
+          - generic [ref=e127]:
+            - heading "Generated learning path" [level=2] [ref=e128]
+            - paragraph [ref=e129]: Course modules in the recommended study order.
+          - generic [ref=e130]:
+            - article [ref=e131]:
+              - link "Open Preface and Organization of Mathematical Logic for Computer Science" [ref=e132] [cursor=pointer]:
+                - /url: /dashboard/topic/k97ffcww4vrs7az7cd3grbr64985y9m8
+                - generic [ref=e133]
+              - generic [ref=e138]:
+                - generic [ref=e139]
+                - link "Preface and Organization of Mathematical Logic for Computer Science" [ref=e147] [cursor=pointer]:
+                  - /url: /dashboard/topic/k97ffcww4vrs7az7cd3grbr64985y9m8
+                - paragraph [ref=e149]: This chunk contains the preface and table of contents of the textbook 'Mathematical Logic for Computer Science' by Mordechai Ben-Ari, outlining the book's audience, organization into four parts (Propositional Logic, First-Order Logic, Temporal Logic, Program Verification), and changes in the third edition.
+                - generic [ref=e151]
+                - link "arrow_forward Start module" [ref=e154] [cursor=pointer]:
+                  - /url: /dashboard/topic/k97ffcww4vrs7az7cd3grbr64985y9m8
+            - article [ref=e156]:
+              - 'link "Open Propositional Logic: Syntax, Notation, and Semantics" [ref=e157] [cursor=pointer]':
+                - /url: /dashboard/topic/k97bb1hn2m40k45a1wcmwf8pv585y2ce
+                - generic [ref=e158]
+              - generic [ref=e161]:
+                - generic [ref=e162]
+                - 'link "Propositional Logic: Syntax, Notation, and Semantics" [ref=e168] [cursor=pointer]':
+                  - /url: /dashboard/topic/k97bb1hn2m40k45a1wcmwf8pv585y2ce
+                - paragraph [ref=e170]: This section covers syntax and semantics of propositional logic, including parentheses usage, Polish notation, structural induction, formal grammar, interpretations, and truth tables.
+                - generic [ref=e172]
+                - link "arrow_forward Start module" [ref=e175] [cursor=pointer]:
+                  - /url: /dashboard/topic/k97bb1hn2m40k45a1wcmwf8pv585y2ce
+            - article [ref=e177]:
+              - link "Open Boolean Operators, Adequate Sets, and Semantic Tableaux" [ref=e178] [cursor=pointer]:
+                - /url: /dashboard/topic/k977htkr44ev8scsd18vq6yhx185yadv
+                - generic [ref=e179]
+              - generic [ref=e182]:
+                - generic [ref=e183]
+                - link "Boolean Operators, Adequate Sets, and Semantic Tableaux" [ref=e189] [cursor=pointer]:
+                  - /url: /dashboard/topic/k977htkr44ev8scsd18vq6yhx185yadv
+                - paragraph [ref=e191]: This section covers the classification of unary and binary Boolean operators, the concept of adequate sets of operators (notably nand and nor can define all others), and introduces fundamental semantic concepts such as satisfiability, validity, and logical consequence, ending with the method of semantic tableaux as a decision procedure.
+                - generic [ref=e193]
+                - link "arrow_forward Start module" [ref=e196] [cursor=pointer]:
+                  - /url: /dashboard/topic/k977htkr44ev8scsd18vq6yhx185yadv
+            - article [ref=e198]:
+              - link "Open Gentzen System G and Hilbert System H" [ref=e199] [cursor=pointer]:
+                - /url: /dashboard/topic/k972aax6saj8vd2kc8mvs1qdpn85zzq6
+                - generic [ref=e200]
+              - generic [ref=e203]:
+                - generic [ref=e204]
+                - link "Gentzen System G and Hilbert System H" [ref=e210] [cursor=pointer]:
+                  - /url: /dashboard/topic/k972aax6saj8vd2kc8mvs1qdpn85zzq6
+                - paragraph [ref=e212]: This chunk defines the Gentzen deductive system G with its axioms and α/β inference rules, shows example proofs in G, demonstrates the correspondence between G proofs and closed semantic tableaux, and then introduces the Hilbert system H with its axioms and modus ponens rule, proving theorem A→A.
+                - generic [ref=e214]
+                - link "arrow_forward Start module" [ref=e217] [cursor=pointer]:
+                  - /url: /dashboard/topic/k972aax6saj8vd2kc8mvs1qdpn85zzq6
+            - article [ref=e219]:
+              - link "Open Derived Rules in Hilbert System H" [ref=e220] [cursor=pointer]:
+                - /url: /dashboard/topic/k972m9b7acf121ka6p6554aj2s85yjw5
+                - generic [ref=e221]
+              - generic [ref=e224]:
+                - generic [ref=e225]
+                - link "Derived Rules in Hilbert System H" [ref=e231] [cursor=pointer]:
+                  - /url: /dashboard/topic/k972m9b7acf121ka6p6554aj2s85yjw5
+                - paragraph [ref=e233]: The chunk introduces derived rules in Hilbert system H, focusing on the deduction rule and its soundness proof, along with other derived rules such as contrapositive, transitivity, exchange, double negation, and reductio ad absurdum, and extends to theorems for other logical operators, concluding with soundness and completeness of H.
+                - generic [ref=e235]
+                - link "arrow_forward Start module" [ref=e238] [cursor=pointer]:
+                  - /url: /dashboard/topic/k972m9b7acf121ka6p6554aj2s85yjw5
+            - article [ref=e240]:
+              - 'link "Open Binary Decision Diagrams: Definitions and Operations" [ref=e241] [cursor=pointer]':
+                - /url: /dashboard/topic/k9798t6h2wh43rke38t1j9pay185yxcf
+                - generic [ref=e242]
+              - generic [ref=e245]:
+                - generic [ref=e246]
+                - 'link "Binary Decision Diagrams: Definitions and Operations" [ref=e252] [cursor=pointer]':
+                  - /url: /dashboard/topic/k9798t6h2wh43rke38t1j9pay185yxcf
+                - paragraph [ref=e254]: This chunk defines Binary Decision Diagrams (BDDs), explains reduction to Reduced BDDs and Ordered BDDs, and describes algorithms for applying operators, restriction, and quantification on BDDs.
+                - generic [ref=e256]
+                - link "arrow_forward Start module" [ref=e259] [cursor=pointer]:
+                  - /url: /dashboard/topic/k9798t6h2wh43rke38t1j9pay185yxcf
+            - article [ref=e261]:
+              - link "Open SAT Solvers and Clausal Form Transformations" [ref=e262] [cursor=pointer]:
+                - /url: /dashboard/topic/k973v56crhfwrgdeadcvazvx3985z2bv
+                - generic [ref=e263]
+              - generic [ref=e266]:
+                - generic [ref=e267]
+                - link "SAT Solvers and Clausal Form Transformations" [ref=e273] [cursor=pointer]:
+                  - /url: /dashboard/topic/k973v56crhfwrgdeadcvazvx3985z2bv
+                - paragraph [ref=e275]: This chunk covers exercises on Shannon expansion and BDDs, then introduces SAT solvers and foundational clausal form transformations (pure literals, unit clauses, subsumption, renaming) leading to the Davis-Putnam and DPLL algorithms.
+                - generic [ref=e277]
+                - link "arrow_forward Start module" [ref=e280] [cursor=pointer]:
+                  - /url: /dashboard/topic/k973v56crhfwrgdeadcvazvx3985z2bv
+            - article [ref=e282]:
+              - link "Open Semantic Tableaux for First-Order Logic" [ref=e283] [cursor=pointer]:
+                - /url: /dashboard/topic/k97bbtqyh4xqq5xd90ceawmmt585zmsb
+                - generic [ref=e284]
+              - generic [ref=e287]:
+                - generic [ref=e288]
+                - link "Semantic Tableaux for First-Order Logic" [ref=e294] [cursor=pointer]:
+                  - /url: /dashboard/topic/k97bbtqyh4xqq5xd90ceawmmt585zmsb
+                - paragraph [ref=e296]: The chunk discusses semantic tableaux for first-order logic, covering instantiation rules for universal and existential quantifiers, the use of constant symbols, and cases where tableaux may not terminate, with illustrative examples.
+                - generic [ref=e298]
+                - link "arrow_forward Start module" [ref=e301] [cursor=pointer]:
+                  - /url: /dashboard/topic/k97bbtqyh4xqq5xd90ceawmmt585zmsb
+            - article [ref=e303]:
+              - 'link "Open First-Order Logic: Ground Terms, PCNF, and Skolemization" [ref=e304] [cursor=pointer]':
+                - /url: /dashboard/topic/k9789nx9s4p97a31h7xwea68th85yeyt
+                - generic [ref=e305]
+              - generic [ref=e308]:
+                - generic [ref=e309]
+                - 'link "First-Order Logic: Ground Terms, PCNF, and Skolemization" [ref=e315] [cursor=pointer]':
+                  - /url: /dashboard/topic/k9789nx9s4p97a31h7xwea68th85yeyt
+                - paragraph [ref=e317]: This chunk covers first-order logic with function symbols, including semantic tableaux modification with ground terms, proof that ground terms are countable, definition of prenex conjunctive normal form (PCNF) and clausal form, and Skolem's theorem and algorithm for transforming formulas into clausal form while preserving satisfiability.
+                - generic [ref=e319]
+                - link "arrow_forward Start module" [ref=e322] [cursor=pointer]:
+                  - /url: /dashboard/topic/k9789nx9s4p97a31h7xwea68th85yeyt
+            - article [ref=e324]:
+              - 'link "Open Prolog: Execution, Backtracking, and Practical Constructs" [ref=e325] [cursor=pointer]':
+                - /url: /dashboard/topic/k97bb5gxp1h00518jckdt3jqj585zpce
+                - generic [ref=e326]
+              - generic [ref=e329]:
+                - generic [ref=e330]
+                - 'link "Prolog: Execution, Backtracking, and Practical Constructs" [ref=e336] [cursor=pointer]':
+                  - /url: /dashboard/topic/k97bb5gxp1h00518jckdt3jqj585zpce
+                - paragraph [ref=e338]: Prolog's execution relies on careful clause order to avoid non-termination, using backtracking and forced failure. It extends pure logic programming with non-logical predicates, arithmetic, and the cut construct to control backtracking.
+                - generic [ref=e340]
+                - link "arrow_forward Start module" [ref=e343] [cursor=pointer]:
+                  - /url: /dashboard/topic/k97bb5gxp1h00518jckdt3jqj585zpce
+            - article [ref=e345]:
+              - 'link "Open LTL Semantic Tableaux: Rules and Construction" [ref=e346] [cursor=pointer]':
+                - /url: /dashboard/topic/k97bpqrgfz58yvbk1avnrvx55n85znsy
+                - generic [ref=e347]
+              - generic [ref=e350]:
+                - generic [ref=e351]
+                - 'link "LTL Semantic Tableaux: Rules and Construction" [ref=e357] [cursor=pointer]':
+                  - /url: /dashboard/topic/k97bpqrgfz58yvbk1avnrvx55n85znsy
+                - paragraph [ref=e359]: LTL semantic tableau rules for α, β, and X formulas are introduced, including the construction algorithm (Algorithm 13.36), definitions of state nodes, completed/closed tableaux, and Hintikka structures. The issue of unfulfilled future formulas is addressed, leading to finite representation of interpretations.
+                - generic [ref=e361]
+                - link "arrow_forward Start module" [ref=e364] [cursor=pointer]:
+                  - /url: /dashboard/topic/k97bpqrgfz58yvbk1avnrvx55n85znsy
+            - article [ref=e366]:
+              - link "Open Hoare Logic for Sequential Program Verification" [ref=e367] [cursor=pointer]:
+                - /url: /dashboard/topic/k9764fvwt0gxcev6x044c0bp9h85y5d9
+                - generic [ref=e368]
+              - generic [ref=e371]:
+                - generic [ref=e372]
+                - link "Hoare Logic for Sequential Program Verification" [ref=e378] [cursor=pointer]:
+                  - /url: /dashboard/topic/k9764fvwt0gxcev6x044c0bp9h85y5d9
+                - paragraph [ref=e380]: This section introduces Hoare Logic (HL) for proving partial correctness of sequential programs, defining correctness formulas (Hoare triples), the deductive system with domain axioms and rules, and the concept of loop invariants.
+                - generic [ref=e382]
+                - link "arrow_forward Start module" [ref=e385] [cursor=pointer]:
+                  - /url: /dashboard/topic/k9764fvwt0gxcev6x044c0bp9h85y5d9
+            - article [ref=e387]:
+              - link "Open Section 1" [ref=e388] [cursor=pointer]:
+                - /url: /dashboard/topic/k974sksepxhf36mnzaag0kf3e185yj15
+                - generic [ref=e389]
+              - generic [ref=e392]:
+                - generic [ref=e393]
+                - link "Section 1" [ref=e399] [cursor=pointer]:
+                  - /url: /dashboard/topic/k974sksepxhf36mnzaag0kf3e185yj15
+                - paragraph [ref=e401]: "Peterson’s Algorithm Here is Peterson’s algorithm (Peterson, 1981): boolean wantp = false, wantq = false int turn = 1 Process p Process q while (true) { while (true) { non-critical-section non-critical-section wantp = true wantq = true turn = 1 turn = 2 wait u"
+                - generic [ref=e403]
+                - link "arrow_forward Start module" [ref=e406] [cursor=pointer]:
+                  - /url: /dashboard/topic/k974sksepxhf36mnzaag0kf3e185yj15
+            - article [ref=e408]:
+              - 'link "Open Set Theory: Relations, Functions, Cardinality, and Induction" [ref=e409] [cursor=pointer]':
+                - /url: /dashboard/topic/k975vq4jyqr5nhmqebcwe79rax85zf7a
+                - generic [ref=e410]
+              - generic [ref=e413]:
+                - generic [ref=e414]
+                - 'link "Set Theory: Relations, Functions, Cardinality, and Induction" [ref=e420] [cursor=pointer]':
+                  - /url: /dashboard/topic/k975vq4jyqr5nhmqebcwe79rax85zf7a
+                - paragraph [ref=e422]: This chunk covers set theory topics including relations and functions (with definitions of injective, surjective, bijective), cardinality (finite, infinite, countable vs uncountable, Cantor's diagonalization), powersets, and methods for proving set properties such as induction.
+                - generic [ref=e424]
+                - link "arrow_forward Start module" [ref=e427] [cursor=pointer]:
+                  - /url: /dashboard/topic/k975vq4jyqr5nhmqebcwe79rax85zf7a
+            - article [ref=e429]:
+              - 'link "Open Subject Index: Mathematical Logic for Computer Science" [ref=e430] [cursor=pointer]':
+                - /url: /dashboard/topic/k978t8cg1prjmx1kp1gpct2zyx85z6da
+                - generic [ref=e431]
+              - generic [ref=e434]:
+                - generic [ref=e435]
+                - 'link "Subject Index: Mathematical Logic for Computer Science" [ref=e441] [cursor=pointer]':
+                  - /url: /dashboard/topic/k978t8cg1prjmx1kp1gpct2zyx85z6da
+                - paragraph [ref=e443]: Subject index from a textbook on mathematical logic for computer science, covering topics from logical consequence to unification, including resolution, semantic tableaux, temporal logic, and more.
+                - generic [ref=e445]
+                - link "arrow_forward Start module" [ref=e448] [cursor=pointer]:
+                  - /url: /dashboard/topic/k978t8cg1prjmx1kp1gpct2zyx85z6da
+        - generic [ref=e450]:
+          - generic [ref=e452]:
+            - heading "flash_on Concepts to review" [level=2] [ref=e453]:
+              - generic [ref=e454]: flash_on
+              - text: Concepts to review
+            - paragraph [ref=e455]: Quick spaced-repetition picks based on your recent performance.
+          - generic [ref=e456]:
+            - generic [ref=e457]: verified
+            - paragraph [ref=e458]: You're all caught up.
+            - paragraph [ref=e459]: Weak concepts will appear after quizzes or topic reviews in this course.
+      - complementary [ref=e460]:
+        - generic [ref=e461]:
+          - generic [ref=e462]:
+            - heading "analytics Course progress" [level=3] [ref=e463]:
+              - generic [ref=e464]: analytics
+              - text: Course progress
+            - generic [ref=e465]:
+              - img [ref=e466]:
+                - generic [ref=e469]: 0%
+              - generic [ref=e470]:
+                - generic [ref=e471]
+                - generic [ref=e474]
+                - generic [ref=e477]
+          - generic [ref=e480]:
+            - heading "bolt Quick actions" [level=3] [ref=e481]:
+              - generic [ref=e482]: bolt
+              - text: Quick actions
+            - generic [ref=e483]:
+              - button "play_arrow Continue learning" [ref=e484] [cursor=pointer]:
+                - generic [ref=e485]: play_arrow
+                - text: Continue learning
+              - button "graphic_eq Generate podcast" [ref=e486] [cursor=pointer]:
+                - generic [ref=e487]: graphic_eq
+                - text: Generate podcast
+              - link "trending_up View study plan" [ref=e488] [cursor=pointer]:
+                - /url: /dashboard/analysis
+                - generic [ref=e489]: trending_up
+                - text: View study plan
+        - generic [ref=e490]:
+          - generic [ref=e491]:
+            - heading "folder_open Source files" [level=3] [ref=e492]:
+              - generic [ref=e493]: folder_open
+              - text: Source files
+            - generic [ref=e494]: 1 file
+          - list [ref=e495]:
+            - listitem [ref=e496]:
+              - generic [ref=e497]: picture_as_pdf
+              - generic [ref=e498]:
+                - paragraph [ref=e499]: Mathematical Logic for Computer Science Mordechai Ben-Ari.pdf
+                - paragraph [ref=e500]: 6.0 MB · Ready
+              - generic [ref=e501]: check_circle
+              - button "Remove source" [ref=e502] [cursor=pointer]:
+                - generic [ref=e503]: close
+          - button "add Add source" [ref=e504] [cursor=pointer]:
+            - generic [ref=e505]: add
+            - text: Add source

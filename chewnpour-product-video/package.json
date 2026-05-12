@@ -1,0 +1,13 @@
+{
+  "name": "chewnpour-product-video",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "lint": "hyperframes lint",
+    "inspect": "hyperframes inspect --samples 18 --at 2.3,6.2,10.1,14.4,18.5",
+    "render": "hyperframes render --output renders/chewnpour-product-video.mp4 --quality standard --fps 30"
+  },
+  "devDependencies": {
+    "hyperframes": "0.5.3"
+  }
+}

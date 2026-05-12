@@ -8,8 +8,9 @@ const adminSource = await read('convex/admin.ts');
 for (const snippet of [
   'const collectAuthUserIdCandidates = (identity: any) => {',
   'const resolveIdentityEmail = (identity: any) => {',
-  'const resolvedAuthUsers = await fetchAuthUsersByIds(ctx, authUserIdCandidates);',
-  'const authEmail = resolveIdentityEmail(identity) || normalizeEmail(resolvedAuthUser?.email);',
+  'const identityEmail = resolveIdentityEmail(identity);',
+  'if (subjectAuthUserId && !identityEmail) {',
+  'const authEmail = identityEmail || normalizeEmail(resolvedAuthUser?.email);',
   'const allowedByUserId = authUserIdCandidates.some((candidate) => adminUserIdAllowlist.has(candidate))',
   'email: resolveIdentityEmail(identity) || null,',
 ]) {

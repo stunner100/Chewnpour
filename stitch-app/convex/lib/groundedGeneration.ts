@@ -180,11 +180,19 @@ export type GroundedConceptCandidate = {
 const formatEvidence = (evidence: RetrievedEvidence[], maxChars = 12000) => {
     const lines = evidence.map((entry, index) => {
         const trimmed = String(entry.text || "").slice(0, 900).trim();
+        const sectionHint = String(entry.sectionHint || "").trim();
+        const blockType = String(entry.blockType || "").trim();
+        const headingPath = Array.isArray(entry.headingPath)
+            ? entry.headingPath.map((heading) => String(heading || "").trim()).filter(Boolean).join(" > ")
+            : "";
         return [
             `EVIDENCE_${index + 1}:`,
             `passageId=${entry.passageId}; page=${entry.page}; start=${entry.startChar}; end=${entry.endChar}`,
+            sectionHint ? `section=${sectionHint}` : "",
+            headingPath ? `headingPath=${headingPath}` : "",
+            blockType ? `blockType=${blockType}` : "",
             `"""${trimmed}"""`,
-        ].join("\n");
+        ].filter(Boolean).join("\n");
     });
     return lines.join("\n\n").slice(0, maxChars);
 };

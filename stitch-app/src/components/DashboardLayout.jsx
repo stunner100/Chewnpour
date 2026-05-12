@@ -1,166 +1,283 @@
-import React, { useState, useEffect } from 'react';
-import { Link, useLocation } from 'react-router-dom';
+import React, { Component, useEffect } from 'react';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import MobileBottomNav from './MobileBottomNav';
+import { WatermelonToaster } from './watermelon/WatermelonSonner';
+import { watermelonToast } from './watermelon/watermelonToast';
 import { useAuth } from '../contexts/AuthContext';
+import { BlurFade } from './magicui/BlurFade';
+import CommandPalette from './CommandPalette';
+import { captureSentryException } from '../lib/sentry.js';
+import { getDashboardDataErrorMessage } from '../lib/dashboardDataErrors.js';
 
 const navItems = [
-    { label: 'Dashboard', icon: 'space_dashboard', path: '/dashboard', exact: true },
-    { label: 'Search', icon: 'search', path: '/dashboard/search' },
-    { label: 'Assignments', icon: 'edit_note', path: '/dashboard/assignment-helper' },
-    { label: 'Humanizer', icon: 'auto_fix_high', path: '/dashboard/humanizer' },
-    { label: 'Community', icon: 'forum', path: '/dashboard/community' },
+    { label: 'Dashboard', icon: 'dashboard', path: '/dashboard', exact: true },
+    { label: 'Upload', icon: 'cloud_upload', path: '/dashboard/upload' },
+    { label: 'My Materials', icon: 'folder', path: '/dashboard/library' },
+    { label: 'Lessons', icon: 'menu_book', path: '/dashboard/lessons' },
+    { label: 'Quizzes', icon: 'quiz', path: '/dashboard/quiz' },
+    { label: 'Flashcards', icon: 'style', path: '/dashboard/flashcards' },
+    { label: 'AI Tutor', icon: 'smart_toy', path: '/dashboard/ai-tutor' },
+    { label: 'Progress', icon: 'bar_chart', path: '/dashboard/progress' },
 ];
 
 const bottomNavItems = [
-    { label: 'Subscription', icon: 'workspace_premium', path: '/subscription' },
-    { label: 'Profile', icon: 'person', path: '/profile' },
+    { label: 'Settings', icon: 'settings', path: '/dashboard/settings' },
 ];
 
+const SUPPORT_EMAIL = 'info@chewnpour.com';
+const SUPPORT_MAILTO = `mailto:${SUPPORT_EMAIL}?subject=ChewnPour%20Support`;
+
+class DashboardContentErrorBoundary extends Component {
+    constructor(props) {
+        super(props);
+        this.state = { hasError: false, errorMessage: '' };
+    }
+
+    static getDerivedStateFromError(error) {
+        return {
+            hasError: true,
+            errorMessage: getDashboardDataErrorMessage(error),
+        };
+    }
+
+    componentDidCatch(error, errorInfo) {
+        if (import.meta.env.DEV) {
+            console.error('[DashboardContentErrorBoundary]', error, errorInfo);
+        }
+
+        captureSentryException(error, {
+            tags: {
+                area: 'dashboard_content_error_boundary',
+            },
+            extras: {
+                componentStack: errorInfo?.componentStack,
+            },
+        });
+    }
+
+    render() {
+        if (this.state.hasError) {
+            return (
+                <div className="min-h-[calc(100vh-4rem)] bg-background-light px-space-6 py-space-10 flex items-center justify-center">
+                    <section
+                        role="alert"
+                        className="max-w-lg rounded-2xl border border-border-subtle bg-surface p-space-8 text-center shadow-sm"
+                    >
+                        <div className="mx-auto mb-space-4 flex h-12 w-12 items-center justify-center rounded-full bg-primary-soft text-primary">
+                            <span className="material-symbols-outlined">cloud_off</span>
+                        </div>
+                        <h2 className="font-headline-sm text-headline-sm font-bold text-text-primary">
+                            Study data unavailable
+                        </h2>
+                        <p className="mt-space-3 font-body-base text-body-base text-text-secondary">
+                            {this.state.errorMessage}
+                        </p>
+                        <button
+                            type="button"
+                            onClick={() => window.location.reload()}
+                            className="mt-space-6 rounded-xl bg-primary px-space-5 py-space-3 font-label-md text-label-md text-on-primary shadow-sm transition-colors hover:bg-primary-hover"
+                        >
+                            Retry
+                        </button>
+                    </section>
+                </div>
+            );
+        }
+
+        return this.props.children;
+    }
+}
+
 const DashboardLayout = ({ children }) => {
-    const location = useLocation();
+    const routerLocation = useLocation();
+    const navigate = useNavigate();
     const { profile } = useAuth();
-    const hideMobileBottomNav = location.pathname.startsWith('/dashboard/exam');
-    const isTopicPage = location.pathname.startsWith('/dashboard/topic/');
-    const [sidebarCollapsed, setSidebarCollapsed] = useState(isTopicPage);
+    const hideMobileBottomNav = routerLocation.pathname.startsWith('/dashboard/exam');
 
     useEffect(() => {
-        if (!isTopicPage) return undefined;
+        const incomingToast = routerLocation.state?.watermelonToast;
+        if (!incomingToast?.message) return undefined;
 
-        const frameId = window.requestAnimationFrame(() => {
-            setSidebarCollapsed(true);
-        });
+        const { watermelonToast: _watermelonToast, ...nextState } = routerLocation.state ?? {};
+        const timeoutId = window.setTimeout(() => {
+            const options = { type: incomingToast.type || 'info' };
+            if (typeof incomingToast.duration === 'number') {
+                options.duration = incomingToast.duration;
+            }
+            watermelonToast(String(incomingToast.message), options);
+            navigate(`${routerLocation.pathname}${routerLocation.search}`, { replace: true, state: nextState });
+        }, 0);
 
-        return () => {
-            window.cancelAnimationFrame(frameId);
+        return () => window.clearTimeout(timeoutId);
+    }, [routerLocation.pathname, routerLocation.search, routerLocation.state, navigate]);
+
+    useEffect(() => {
+        if (!routerLocation.hash) return undefined;
+
+        const targetId = decodeURIComponent(routerLocation.hash.slice(1));
+        if (!targetId) return undefined;
+
+        let attempts = 0;
+        let timeoutId;
+
+        const scrollToHashTarget = () => {
+            const target = document.getElementById(targetId);
+            if (target) {
+                target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                return;
+            }
+
+            attempts += 1;
+            if (attempts < 8) {
+                timeoutId = window.setTimeout(scrollToHashTarget, 50);
+            }
         };
-    }, [isTopicPage]);
+
+        timeoutId = window.setTimeout(scrollToHashTarget, 0);
+        return () => window.clearTimeout(timeoutId);
+    }, [routerLocation.pathname, routerLocation.hash]);
 
     const isActive = (item) => {
-        if (item.exact) return location.pathname === item.path;
-        return location.pathname.startsWith(item.path);
+        if (item.exact) return routerLocation.pathname === item.path;
+        return routerLocation.pathname.startsWith(item.path);
     };
 
     const displayName = profile?.name || profile?.email?.split('@')[0] || 'Student';
     const initials = displayName.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase();
 
     return (
-        <div className="dashboard-shell flex h-screen bg-background-light dark:bg-background-dark overflow-hidden">
+        <div className="dashboard-shell cp-theme flex h-screen overflow-hidden">
             {/* Desktop Sidebar */}
-            <aside
-                className={`hidden md:flex flex-col flex-shrink-0 border-r border-border-subtle dark:border-border-subtle-dark bg-surface-light dark:bg-surface-dark transition-all duration-200 ease-spring ${
-                    sidebarCollapsed ? 'w-sidebar-collapsed' : 'w-sidebar'
-                }`}
-            >
-                {/* Logo & Collapse */}
-                <div className={`flex items-center h-15 border-b border-border-subtle dark:border-border-subtle-dark ${sidebarCollapsed ? 'justify-center px-2' : 'justify-between px-4 gap-2'}`}>
-                    {!sidebarCollapsed && (
-                        <Link to="/dashboard" className="flex items-center gap-2 min-w-0 overflow-hidden" aria-label="ChewnPour home">
-                            <span className="relative inline-flex items-center justify-center shrink-0" style={{ width: 40, height: 40 }}>
-                                <svg
-                                    viewBox="0 0 100 100"
-                                    className="absolute inset-0 w-full h-full text-text-main-light/85 dark:text-white/85"
-                                    fill="none"
-                                    aria-hidden="true"
-                                >
-                                    <polygon
-                                        points="50,6 90,28 90,72 50,94 10,72 10,28"
-                                        stroke="currentColor"
-                                        strokeWidth="2.5"
-                                        strokeLinejoin="round"
-                                        fill="none"
-                                    />
-                                </svg>
-                                <img
-                                    src="/logonew.jpeg"
-                                    alt=""
-                                    aria-hidden="true"
-                                    className="relative block object-contain rounded-full"
-                                    style={{ width: 28, height: 28 }}
-                                    decoding="async"
-                                />
-                            </span>
-                            <span className="font-mono font-bold tracking-tight text-text-main-light dark:text-white text-sm leading-none select-none truncate">
-                                ChewnPour
-                            </span>
-                        </Link>
-                    )}
-                    <button
-                        onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
-                        className="btn-icon flex-shrink-0"
-                        title={sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
-                    >
-                        <span className="material-symbols-outlined text-[20px]">
-                            {sidebarCollapsed ? 'menu' : 'menu_open'}
-                        </span>
-                    </button>
+            <aside className="hidden md:flex fixed left-0 top-0 h-screen w-sidebar-width flex-col border-r border-border-subtle bg-surface-soft p-space-4 gap-space-6 z-20">
+                {/* Brand Header */}
+                <div className="flex items-center gap-space-3 px-space-2 mt-space-2 mb-space-4">
+                    <div className="w-10 h-10 rounded-xl bg-primary flex items-center justify-center text-on-primary">
+                        <span className="material-symbols-outlined" style={{ fontVariationSettings: "'FILL' 1" }}>psychiatry</span>
+                    </div>
+                    <div>
+                        <h1 className="font-headline-sm text-headline-sm tracking-tight text-primary font-bold">ChewnPour</h1>
+                        <p className="font-label-xs text-label-xs text-text-muted mt-space-1">AI Study Workspace</p>
+                    </div>
                 </div>
 
+                {/* Generate Material CTA */}
+                <Link
+                    to="/dashboard/upload"
+                    className="w-full bg-primary text-on-primary font-label-md text-label-md py-space-3 rounded-xl flex items-center justify-center gap-space-2 hover:bg-primary-hover transition-colors shadow-sm"
+                >
+                    <span className="material-symbols-outlined text-[20px]">auto_awesome</span>
+                    Generate Material
+                </Link>
+
                 {/* Navigation */}
-                <nav className="flex-1 overflow-y-auto py-3 px-2.5 space-y-0.5">
+                <nav className="flex-1 flex flex-col gap-space-1 mt-space-4">
                     {navItems.map((item) => {
                         const active = isActive(item);
                         return (
                             <Link
                                 key={item.path}
                                 to={item.path}
-                                className={active ? 'sidebar-link-active' : 'sidebar-link'}
-                                title={sidebarCollapsed ? item.label : undefined}
+                                className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 ${
+                                    active
+                                        ? 'text-primary font-bold bg-primary-soft scale-[0.98]'
+                                        : 'text-text-secondary hover:text-primary hover:bg-surface-variant'
+                                }`}
                             >
                                 <span
-                                    className={`material-symbols-outlined text-[20px] ${active ? 'filled' : ''}`}
+                                    className="material-symbols-outlined text-[20px]"
                                     style={active ? { fontVariationSettings: "'FILL' 1" } : undefined}
                                 >
                                     {item.icon}
                                 </span>
-                                {!sidebarCollapsed && <span>{item.label}</span>}
+                                <span className="font-body-base text-body-base">{item.label}</span>
                             </Link>
                         );
                     })}
                 </nav>
 
                 {/* Bottom Section */}
-                <div className="border-t border-border-subtle dark:border-border-subtle-dark py-3 px-2.5 space-y-0.5">
+                <div className="mt-auto flex flex-col gap-space-1">
                     {bottomNavItems.map((item) => {
                         const active = isActive(item);
                         return (
                             <Link
                                 key={item.path}
                                 to={item.path}
-                                className={active ? 'sidebar-link-active' : 'sidebar-link'}
-                                title={sidebarCollapsed ? item.label : undefined}
+                                className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 ${
+                                    active
+                                        ? 'text-primary font-bold bg-primary-soft scale-[0.98]'
+                                        : 'text-text-secondary hover:text-primary hover:bg-surface-variant'
+                                }`}
                             >
                                 <span
-                                    className={`material-symbols-outlined text-[20px] ${active ? 'filled' : ''}`}
+                                    className="material-symbols-outlined text-[20px]"
                                     style={active ? { fontVariationSettings: "'FILL' 1" } : undefined}
                                 >
                                     {item.icon}
                                 </span>
-                                {!sidebarCollapsed && <span>{item.label}</span>}
+                                <span className="font-body-base text-body-base">{item.label}</span>
                             </Link>
                         );
                     })}
-
-                    {/* User Avatar */}
-                    {!sidebarCollapsed && (
-                        <div className="flex items-center gap-3 px-3 py-2.5 mt-1">
-                            <div className="w-8 h-8 rounded-full bg-primary-100 dark:bg-primary-900/30 flex items-center justify-center text-xs font-bold text-primary-700 dark:text-primary-300">
-                                {initials}
-                            </div>
-                            <div className="min-w-0 flex-1">
-                                <p className="text-body-sm font-medium text-text-main-light dark:text-text-main-dark truncate">
-                                    {displayName}
-                                </p>
-                            </div>
-                        </div>
-                    )}
                 </div>
             </aside>
 
-            {/* Main Content */}
-            <main id="dashboard-main" className="flex-1 overflow-y-auto overflow-x-hidden">
-                {children}
-            </main>
+            {/* Main Content Wrapper */}
+            <div className="flex-1 flex flex-col md:ml-[260px] min-h-screen">
+                {/* Top Header */}
+                <header className="fixed top-0 flex justify-between items-center h-16 px-space-8 w-full md:w-[calc(100%-260px)] bg-surface shadow-sm z-10 border-b border-border-subtle">
+                    <div className="flex-1 max-w-md relative flex items-center focus-within:ring-2 focus-within:ring-primary-soft rounded-lg transition-all">
+                        <span className="material-symbols-outlined absolute left-3 text-text-muted">search</span>
+                        <input
+                            className="w-full pl-10 pr-4 py-2 bg-background border-none rounded-lg text-body-sm font-body-sm focus:ring-0 placeholder:text-text-muted text-text-primary"
+                            placeholder="Search materials, lessons, or topics..."
+                            type="text"
+                        />
+                    </div>
+                    <div className="flex items-center gap-space-4">
+                        <a
+                            href={SUPPORT_MAILTO}
+                            aria-label={`Email support at ${SUPPORT_EMAIL}`}
+                            title={`Email support at ${SUPPORT_EMAIL}`}
+                            className="p-2 text-text-muted hover:text-text-primary hover:bg-surface-soft rounded-full transition-all"
+                        >
+                            <span className="material-symbols-outlined">help_outline</span>
+                        </a>
+                        <Link
+                            to="/dashboard/settings#notifications"
+                            aria-label="Open notification settings"
+                            title="Open notification settings"
+                            className="p-2 text-text-muted hover:text-text-primary hover:bg-surface-soft rounded-full transition-all"
+                        >
+                            <span className="material-symbols-outlined">notifications</span>
+                        </Link>
+                        <Link
+                            to="/dashboard/settings"
+                            aria-label="Open settings"
+                            title="Open settings"
+                            className="h-8 w-8 rounded-full overflow-hidden ml-space-2 border border-border-subtle cursor-pointer hover:shadow-sm transition-shadow bg-primary-soft flex items-center justify-center text-xs font-bold text-primary"
+                        >
+                            {profile?.avatar ? (
+                                <img src={profile.avatar} alt="Student Profile" className="w-full h-full object-cover" />
+                            ) : (
+                                initials
+                            )}
+                        </Link>
+                    </div>
+                </header>
 
+                {/* Main Content */}
+                <main id="dashboard-main" className="flex-1 overflow-y-auto overflow-x-hidden pt-16">
+                    <DashboardContentErrorBoundary key={routerLocation.pathname}>
+                        <BlurFade duration={0.35} yOffset={8}>
+                            {children}
+                        </BlurFade>
+                    </DashboardContentErrorBoundary>
+                </main>
+            </div>
+
+            <WatermelonToaster position="bottom-center" />
+            <CommandPalette />
             {/* Mobile Bottom Nav */}
             {!hideMobileBottomNav && <MobileBottomNav />}
         </div>

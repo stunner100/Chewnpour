@@ -2,6 +2,8 @@ export const isOpenAiProviderFailure = (message) => {
     const normalized = String(message || "").toLowerCase();
     if (!normalized) return false;
     return [
+        "deepseek api error",
+        "deepseek request timed out",
         "openai api error",
         "openai request timed out",
         "insufficient_quota",

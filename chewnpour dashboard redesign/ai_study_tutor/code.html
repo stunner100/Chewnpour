@@ -1,0 +1,386 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>AI Tutor - ChewnPour</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@600;700&amp;family=Inter:wght@400;500;600&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            "colors": {
+                    "success": "#15803D",
+                    "info-soft": "#DBEAFE",
+                    "surface-muted": "#EFE8DA",
+                    "inverse-primary": "#ffb77d",
+                    "warning": "#D97706",
+                    "on-primary": "#ffffff",
+                    "text-primary": "#1F2933",
+                    "primary-subtle": "#FFFBEB",
+                    "on-error": "#ffffff",
+                    "on-tertiary": "#ffffff",
+                    "on-secondary-fixed": "#3b0900",
+                    "text-muted": "#7B8794",
+                    "border-strong": "#B8AD9A",
+                    "mastery-soft": "#EDE9FE",
+                    "on-primary-fixed": "#2f1500",
+                    "inverse-on-surface": "#ffede3",
+                    "outline": "#887364",
+                    "tertiary-container": "#007abd",
+                    "tertiary-fixed": "#cee5ff",
+                    "tertiary-fixed-dim": "#96ccff",
+                    "surface-soft": "#F5F1E8",
+                    "border-subtle": "#E7E0D3",
+                    "secondary-fixed": "#ffdbd1",
+                    "border-default": "#D8CFBF",
+                    "error-container": "#ffdad6",
+                    "text-secondary": "#52616B",
+                    "on-primary-container": "#fffbff",
+                    "success-soft": "#DCFCE7",
+                    "on-tertiary-container": "#fdfcff",
+                    "warning-soft": "#FEF3C7",
+                    "primary": "#8d4b00",
+                    "secondary-container": "#ff987b",
+                    "on-surface": "#231a13",
+                    "primary-fixed": "#ffdcc3",
+                    "surface-container-high": "#f7e5d9",
+                    "on-tertiary-fixed-variant": "#004a75",
+                    "background": "#FAF8F3",
+                    "info": "#2563EB",
+                    "on-background": "#231a13",
+                    "on-tertiary-fixed": "#001d32",
+                    "primary-fixed-dim": "#ffb77d",
+                    "mastery": "#7C3AED",
+                    "on-secondary": "#ffffff",
+                    "primary-soft": "#FEF3C7",
+                    "surface-bright": "#fff8f5",
+                    "surface-container-lowest": "#ffffff",
+                    "surface-container-low": "#fff1e9",
+                    "surface-dim": "#e9d7cb",
+                    "error-soft": "#FEE2E2",
+                    "on-error-container": "#93000a",
+                    "surface": "#FFFFFF",
+                    "on-secondary-fixed-variant": "#792f1a",
+                    "on-secondary-container": "#782e19",
+                    "primary-hover": "#B45309",
+                    "ai-subtle": "#FFF7F4",
+                    "surface-variant": "#f2dfd3",
+                    "on-surface-variant": "#554336",
+                    "secondary-fixed-dim": "#ffb5a0",
+                    "tertiary": "#006096",
+                    "surface-container": "#fdeade",
+                    "primary-container": "#b15f00",
+                    "ai-soft": "#F8E3DC",
+                    "surface-tint": "#904d00",
+                    "on-primary-fixed-variant": "#6e3900",
+                    "error": "#DC2626",
+                    "outline-variant": "#dbc2b0",
+                    "surface-container-highest": "#f2dfd3",
+                    "secondary": "#98462f",
+                    "inverse-surface": "#392e26"
+            },
+            "borderRadius": {
+                    "DEFAULT": "0.25rem",
+                    "lg": "0.5rem",
+                    "xl": "0.75rem",
+                    "full": "9999px"
+            },
+            "spacing": {
+                    "space-4": "16px",
+                    "space-1": "4px",
+                    "space-6": "24px",
+                    "sidebar-width": "260px",
+                    "container-max": "1280px",
+                    "space-12": "48px",
+                    "space-5": "20px",
+                    "space-8": "32px",
+                    "space-3": "12px",
+                    "panel-right-width": "320px",
+                    "space-2": "8px",
+                    "space-10": "40px",
+                    "space-16": "64px"
+            },
+            "fontFamily": {
+                    "headline-sm": [
+                            "Plus Jakarta Sans"
+                    ],
+                    "body-base": [
+                            "Inter"
+                    ],
+                    "label-md": [
+                            "Inter"
+                    ],
+                    "body-lg": [
+                            "Inter"
+                    ],
+                    "display-lg": [
+                            "Plus Jakarta Sans"
+                    ],
+                    "display-xl": [
+                            "Plus Jakarta Sans"
+                    ],
+                    "body-sm": [
+                            "Inter"
+                    ],
+                    "headline-md": [
+                            "Plus Jakarta Sans"
+                    ],
+                    "label-xs": [
+                            "Inter"
+                    ]
+            },
+            "fontSize": {
+                    "headline-sm": [
+                            "20px",
+                            {
+                                    "lineHeight": "1.4",
+                                    "fontWeight": "600"
+                            }
+                    ],
+                    "body-base": [
+                            "16px",
+                            {
+                                    "lineHeight": "1.6",
+                                    "fontWeight": "400"
+                            }
+                    ],
+                    "label-md": [
+                            "14px",
+                            {
+                                    "lineHeight": "1",
+                                    "fontWeight": "600"
+                            }
+                    ],
+                    "body-lg": [
+                            "18px",
+                            {
+                                    "lineHeight": "1.6",
+                                    "fontWeight": "400"
+                            }
+                    ],
+                    "display-lg": [
+                            "32px",
+                            {
+                                    "lineHeight": "1.2",
+                                    "fontWeight": "700"
+                            }
+                    ],
+                    "display-xl": [
+                            "40px",
+                            {
+                                    "lineHeight": "1.2",
+                                    "letterSpacing": "-0.02em",
+                                    "fontWeight": "700"
+                            }
+                    ],
+                    "body-sm": [
+                            "14px",
+                            {
+                                    "lineHeight": "1.5",
+                                    "fontWeight": "400"
+                            }
+                    ],
+                    "headline-md": [
+                            "24px",
+                            {
+                                    "lineHeight": "1.3",
+                                    "fontWeight": "600"
+                            }
+                    ],
+                    "label-xs": [
+                            "12px",
+                            {
+                                    "lineHeight": "1",
+                                    "fontWeight": "500"
+                            }
+                    ]
+            }
+    },
+        },
+      }
+    </script>
+</head>
+<body class="bg-background text-text-primary min-h-screen flex">
+<!-- SideNavBar -->
+<nav class="fixed left-0 top-0 h-full w-[260px] p-space-4 flex flex-col gap-space-6 bg-surface-soft border-r border-border-subtle hidden md:flex z-50">
+<div class="flex items-center gap-3 px-2 py-4">
+<div class="w-8 h-8 rounded bg-primary flex items-center justify-center text-on-primary">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">book</span>
+</div>
+<div>
+<h1 class="font-headline-md text-headline-md font-bold text-primary">ChewnPour</h1>
+<p class="font-label-xs text-label-xs text-text-muted mt-1">AI Study Workspace</p>
+</div>
+</div>
+<button class="w-full bg-primary text-on-primary rounded-xl py-3 px-4 font-label-md text-label-md hover:bg-primary-hover transition-colors shadow-sm flex items-center justify-center gap-2">
+<span class="material-symbols-outlined">add</span> Generate Material
+        </button>
+<div class="flex-1 flex flex-col gap-1 overflow-y-auto mt-space-4">
+<a class="flex items-center gap-3 px-4 py-3 text-text-secondary hover:text-primary hover:bg-surface-variant transition-colors duration-200 rounded-xl font-body-sm text-body-sm" href="#">
+<span class="material-symbols-outlined">dashboard</span>
+                Dashboard
+            </a>
+<a class="flex items-center gap-3 px-4 py-3 text-text-secondary hover:text-primary hover:bg-surface-variant transition-colors duration-200 rounded-xl font-body-sm text-body-sm" href="#">
+<span class="material-symbols-outlined">cloud_upload</span>
+                Upload
+            </a>
+<a class="flex items-center gap-3 px-4 py-3 text-text-secondary hover:text-primary hover:bg-surface-variant transition-colors duration-200 rounded-xl font-body-sm text-body-sm" href="#">
+<span class="material-symbols-outlined">folder</span>
+                My Materials
+            </a>
+<a class="flex items-center gap-3 px-4 py-3 text-text-secondary hover:text-primary hover:bg-surface-variant transition-colors duration-200 rounded-xl font-body-sm text-body-sm" href="#">
+<span class="material-symbols-outlined">menu_book</span>
+                Lessons
+            </a>
+<a class="flex items-center gap-3 px-4 py-3 text-text-secondary hover:text-primary hover:bg-surface-variant transition-colors duration-200 rounded-xl font-body-sm text-body-sm" href="#">
+<span class="material-symbols-outlined">quiz</span>
+                Quizzes
+            </a>
+<a class="flex items-center gap-3 px-4 py-3 text-text-secondary hover:text-primary hover:bg-surface-variant transition-colors duration-200 rounded-xl font-body-sm text-body-sm" href="#">
+<span class="material-symbols-outlined">style</span>
+                Flashcards
+            </a>
+<a class="flex items-center gap-3 px-4 py-3 text-primary font-bold bg-primary-soft rounded-xl font-body-sm text-body-sm" href="#">
+<span class="material-symbols-outlined">smart_toy</span>
+                AI Tutor
+            </a>
+<a class="flex items-center gap-3 px-4 py-3 text-text-secondary hover:text-primary hover:bg-surface-variant transition-colors duration-200 rounded-xl font-body-sm text-body-sm" href="#">
+<span class="material-symbols-outlined">bar_chart</span>
+                Progress
+            </a>
+<a class="flex items-center gap-3 px-4 py-3 text-text-secondary hover:text-primary hover:bg-surface-variant transition-colors duration-200 rounded-xl font-body-sm text-body-sm mt-auto" href="#">
+<span class="material-symbols-outlined">settings</span>
+                Settings
+            </a>
+</div>
+</nav>
+<!-- Main Content Wrapper -->
+<div class="flex-1 md:ml-[260px] flex flex-col min-h-screen">
+<!-- TopAppBar -->
+<header class="flex justify-between items-center h-16 px-space-8 bg-surface border-b border-border-subtle shadow-sm sticky top-0 z-40">
+<div class="flex items-center gap-4 flex-1">
+<div class="relative w-64 focus-within:ring-2 focus-within:ring-primary-soft rounded-lg overflow-hidden hidden sm:block">
+<span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-text-muted">search</span>
+<input class="w-full pl-10 pr-4 py-2 bg-surface-soft border-none focus:ring-0 font-body-sm text-body-sm text-text-primary placeholder:text-text-muted" placeholder="Search materials..." type="text"/>
+</div>
+</div>
+<div class="flex items-center gap-space-4">
+<button class="p-2 text-text-muted hover:text-text-primary hover:bg-surface-soft transition-all rounded-full flex items-center justify-center">
+<span class="material-symbols-outlined">notifications</span>
+</button>
+<button class="p-2 text-text-muted hover:text-text-primary hover:bg-surface-soft transition-all rounded-full flex items-center justify-center">
+<span class="material-symbols-outlined">help_outline</span>
+</button>
+<div class="w-8 h-8 rounded-full bg-surface-variant overflow-hidden border border-border-subtle cursor-pointer ml-2">
+<img alt="Student Profile" class="w-full h-full object-cover" data-alt="A professional headshot of a young student with a friendly expression, soft lighting, warm neutral background, clean corporate academic style." src="https://lh3.googleusercontent.com/aida-public/AB6AXuBQC-wCgqmEzSnaJCCLok06VRogHMAwr8mHEYDc5rTh2iQHvbGZhkcvDS7wH8xbIjtKvdVk5o7fkodO1hoqHxp_SbvSevvRgmk5SJLWQiWCBxbQFIMtkls-LxdkPoR-WFRFen2gCtmDIzyBlXTm-lGUmef8P_PQelJ1rOjzIIFyMJg3LBmzh4DzaAPv3PujL7e-ZbaooxVY3Q7Vuz_eYq8m6WOwaUyA-YGBMAMou73KAzOoTEeWKzaKi9t_K4RTEGsA91xr08WXSTI"/>
+</div>
+</div>
+</header>
+<!-- Page Content -->
+<main class="flex-1 flex flex-col p-space-4 md:p-space-8 max-w-container-max mx-auto w-full">
+<!-- Context Header -->
+<div class="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-space-8 gap-4">
+<div>
+<h2 class="font-display-lg text-display-lg text-text-primary">AI Tutor</h2>
+<p class="font-body-base text-body-base text-text-secondary mt-2">Your personal academic assistant, ready to help you understand complex topics.</p>
+</div>
+<div class="relative">
+<select class="appearance-none bg-surface border border-border-default rounded-lg pl-4 pr-10 py-2.5 font-label-md text-label-md text-text-primary focus:ring-2 focus:ring-primary-soft focus:border-primary shadow-sm cursor-pointer min-w-[200px]">
+<option>Biology 101</option>
+<option>World History</option>
+<option>Introduction to Psychology</option>
+<option>Calculus I</option>
+</select>
+<span class="material-symbols-outlined absolute right-3 top-1/2 -translate-y-1/2 text-text-muted pointer-events-none">expand_more</span>
+</div>
+</div>
+<!-- Chat Interface -->
+<div class="flex-1 bg-surface rounded-2xl border border-border-subtle shadow-sm flex flex-col overflow-hidden h-[calc(100vh-220px)] min-h-[500px]">
+<!-- Chat History -->
+<div class="flex-1 overflow-y-auto p-space-6 flex flex-col gap-space-8">
+<!-- Timestamp -->
+<div class="text-center">
+<span class="font-label-xs text-label-xs text-text-muted bg-surface-soft px-3 py-1 rounded-full">Today, 10:42 AM</span>
+</div>
+<!-- User Message -->
+<div class="flex justify-end">
+<div class="max-w-[80%] md:max-w-[70%] bg-surface-muted rounded-2xl rounded-tr-sm p-space-5 shadow-sm border border-border-subtle">
+<p class="font-body-base text-body-base text-text-primary">I'm having trouble understanding the process of cellular respiration. Can you explain the main stages?</p>
+</div>
+</div>
+<!-- AI Message -->
+<div class="flex justify-start gap-4">
+<div class="w-10 h-10 rounded-full bg-primary-soft flex items-center justify-center flex-shrink-0 border border-primary-fixed-dim">
+<span class="material-symbols-outlined text-primary" style="font-variation-settings: 'FILL' 1;">smart_toy</span>
+</div>
+<div class="max-w-[85%] md:max-w-[75%] bg-ai-subtle rounded-2xl rounded-tl-sm p-space-6 shadow-sm border border-outline-variant">
+<p class="font-body-base text-body-base text-text-primary mb-4">Cellular respiration is the process by which cells convert nutrients into usable energy (ATP). It primarily occurs in three main stages. Let's break them down:</p>
+<div class="space-y-4 mb-5">
+<div class="pl-4 border-l-2 border-primary">
+<h4 class="font-label-md text-label-md text-text-primary mb-1">1. Glycolysis</h4>
+<p class="font-body-sm text-body-sm text-text-secondary">Occurs in the cytoplasm. A glucose molecule is broken down into two molecules of pyruvate, producing a small net gain of 2 ATP.</p>
+</div>
+<div class="pl-4 border-l-2 border-primary">
+<h4 class="font-label-md text-label-md text-text-primary mb-1">2. Krebs Cycle (Citric Acid Cycle)</h4>
+<p class="font-body-sm text-body-sm text-text-secondary">Occurs in the mitochondria. Pyruvate is further broken down, releasing carbon dioxide and generating electron carriers (NADH and FADH2) along with 2 more ATP.</p>
+</div>
+<div class="pl-4 border-l-2 border-primary">
+<h4 class="font-label-md text-label-md text-text-primary mb-1">3. Electron Transport Chain</h4>
+<p class="font-body-sm text-body-sm text-text-secondary">Occurs in the inner mitochondrial membrane. The electron carriers transfer electrons through a series of proteins, driving the production of roughly 32-34 ATP. Oxygen is the final electron acceptor, forming water.</p>
+</div>
+</div>
+<div class="bg-surface p-3 rounded-lg border border-border-subtle inline-flex items-center gap-2 mt-2">
+<span class="material-symbols-outlined text-info text-[18px]">menu_book</span>
+<span class="font-label-xs text-label-xs text-text-secondary">Source: Chapter 9: Cellular Respiration and Fermentation</span>
+</div>
+</div>
+</div>
+<!-- AI Typing Indicator -->
+<div class="flex justify-start gap-4">
+<div class="w-10 h-10 rounded-full bg-primary-soft flex items-center justify-center flex-shrink-0 border border-primary-fixed-dim">
+<span class="material-symbols-outlined text-primary" style="font-variation-settings: 'FILL' 1;">smart_toy</span>
+</div>
+<div class="bg-ai-subtle rounded-2xl rounded-tl-sm px-5 py-4 shadow-sm border border-outline-variant flex items-center gap-2">
+<div class="w-2 h-2 rounded-full bg-primary/60 animate-pulse"></div>
+<div class="w-2 h-2 rounded-full bg-primary/60 animate-pulse" style="animation-delay: 0.2s"></div>
+<div class="w-2 h-2 rounded-full bg-primary/60 animate-pulse" style="animation-delay: 0.4s"></div>
+</div>
+</div>
+</div>
+<!-- Input Area -->
+<div class="p-space-5 bg-surface border-t border-border-subtle flex flex-col gap-space-4">
+<!-- Suggested Prompts -->
+<div class="flex flex-wrap gap-2">
+<button class="px-4 py-2 bg-surface-soft border border-border-default rounded-full font-label-xs text-label-xs text-text-secondary hover:bg-surface-muted hover:text-text-primary transition-colors flex items-center gap-1.5">
+<span class="material-symbols-outlined text-[16px]">lightbulb</span> Explain in simple terms
+                        </button>
+<button class="px-4 py-2 bg-surface-soft border border-border-default rounded-full font-label-xs text-label-xs text-text-secondary hover:bg-surface-muted hover:text-text-primary transition-colors flex items-center gap-1.5">
+<span class="material-symbols-outlined text-[16px]">psychology</span> Give me an example
+                        </button>
+<button class="px-4 py-2 bg-surface-soft border border-border-default rounded-full font-label-xs text-label-xs text-text-secondary hover:bg-surface-muted hover:text-text-primary transition-colors flex items-center gap-1.5">
+<span class="material-symbols-outlined text-[16px]">quiz</span> Quiz me on this
+                        </button>
+</div>
+<!-- Input Field -->
+<div class="relative flex items-end gap-2 bg-surface-soft rounded-xl border border-border-strong p-2 focus-within:ring-2 focus-within:ring-primary-soft focus-within:border-primary transition-all shadow-sm">
+<button class="p-2 text-text-muted hover:text-primary transition-colors rounded-lg flex items-center justify-center self-end mb-1">
+<span class="material-symbols-outlined">attach_file</span>
+</button>
+<textarea class="flex-1 bg-transparent border-none focus:ring-0 resize-none py-3 px-2 font-body-base text-body-base text-text-primary placeholder:text-text-muted min-h-[48px] max-h-[120px]" placeholder="Ask a question about Biology 101..." rows="1" style="overflow-y: hidden;"></textarea>
+<button class="w-10 h-10 bg-primary text-on-primary rounded-lg flex items-center justify-center hover:bg-primary-hover transition-colors shadow-sm self-end mb-1 flex-shrink-0">
+<span class="material-symbols-outlined">send</span>
+</button>
+</div>
+<div class="text-center">
+<p class="font-label-xs text-label-xs text-text-muted">AI Tutor can make mistakes. Verify important academic information.</p>
+</div>
+</div>
+</div>
+</main>
+</div>
+</body></html>

@@ -1,0 +1,242 @@
+- generic [ref=e7]:
+  - complementary [ref=e8]:
+    - generic [ref=e9]:
+      - link "ChewnPour home" [ref=e10] [cursor=pointer]:
+        - /url: /dashboard
+        - generic [ref=e11]:
+          - img [ref=e12]
+          - img [ref=e14]
+        - generic [ref=e15]: ChewnPour
+      - button "menu_open" [ref=e16] [cursor=pointer]:
+        - generic [ref=e17]: menu_open
+    - navigation [ref=e18]:
+      - link "space_dashboard Dashboard" [ref=e19] [cursor=pointer]:
+        - /url: /dashboard
+        - generic [ref=e20]: space_dashboard
+        - generic [ref=e21]: Dashboard
+      - link "auto_stories Library" [ref=e22] [cursor=pointer]:
+        - /url: /dashboard/search
+        - generic [ref=e23]: auto_stories
+        - generic [ref=e24]: Library
+      - link "event_note Study Plan" [ref=e25] [cursor=pointer]:
+        - /url: /dashboard/analysis
+        - generic [ref=e26]: event_note
+        - generic [ref=e27]: Study Plan
+      - link "edit_note Assignments" [ref=e28] [cursor=pointer]:
+        - /url: /dashboard/assignment-helper
+        - generic [ref=e29]: edit_note
+        - generic [ref=e30]: Assignments
+      - link "auto_fix_high Humanizer" [ref=e31] [cursor=pointer]:
+        - /url: /dashboard/humanizer
+        - generic [ref=e32]: auto_fix_high
+        - generic [ref=e33]: Humanizer
+      - link "forum Community" [ref=e34] [cursor=pointer]:
+        - /url: /dashboard/community
+        - generic [ref=e35]: forum
+        - generic [ref=e36]: Community
+    - generic [ref=e37]:
+      - link "workspace_premium Subscription" [ref=e38] [cursor=pointer]:
+        - /url: /subscription
+        - generic [ref=e39]: workspace_premium
+        - generic [ref=e40]: Subscription
+      - link "person Profile" [ref=e41] [cursor=pointer]:
+        - /url: /profile
+        - generic [ref=e42]: person
+        - generic [ref=e43]: Profile
+      - generic [ref=e44]:
+        - generic [ref=e45]: S
+        - paragraph [ref=e47]: Student
+  - main [ref=e48]:
+    - generic [ref=e49]:
+      - generic [ref=e51]:
+        - generic [ref=e52]:
+          - generic [ref=e53]: B
+          - generic [ref=e54]:
+            - generic [ref=e55]: local_fire_department
+            - text: 1d
+        - generic [ref=e56]:
+          - heading "Browser Exam Gate" [level=1] [ref=e58]
+          - paragraph [ref=e59]: Undeclared · Student
+          - generic [ref=e60]:
+            - button "edit Edit Profile" [ref=e61] [cursor=pointer]:
+              - generic [ref=e62]: edit
+              - text: Edit Profile
+            - button "Share profile" [ref=e63] [cursor=pointer]:
+              - generic [ref=e64]: share
+      - generic [ref=e65]:
+        - button "menu_book 1 Topics" [ref=e66] [cursor=pointer]:
+          - generic [ref=e67]: menu_book
+          - paragraph [ref=e68]: "1"
+          - paragraph [ref=e69]: Topics
+        - button "check_circle 0% Accuracy" [ref=e70] [cursor=pointer]:
+          - generic [ref=e71]: check_circle
+          - paragraph [ref=e72]: 0%
+          - paragraph [ref=e73]: Accuracy
+        - button "school 1 Courses" [ref=e74] [cursor=pointer]:
+          - generic [ref=e75]: school
+          - paragraph [ref=e76]: "1"
+          - paragraph [ref=e77]: Courses
+        - button "schedule 1.4h Hours" [ref=e78] [cursor=pointer]:
+          - generic [ref=e79]: schedule
+          - paragraph [ref=e80]: 1.4h
+          - paragraph [ref=e81]: Hours
+      - generic [ref=e83]:
+        - generic [ref=e84]:
+          - generic [ref=e86]: card_membership
+          - generic [ref=e87]:
+            - paragraph [ref=e88]: Free Plan
+            - paragraph [ref=e89]: Upgrade to unlock all features
+        - link "Upgrade" [ref=e90] [cursor=pointer]:
+          - /url: /subscription
+      - generic [ref=e91]:
+        - generic [ref=e92]:
+          - heading "Refer a Friend" [level=3] [ref=e93]
+          - generic [ref=e94]: card_giftcard
+        - paragraph [ref=e95]: Share your link. When a friend signs up and uploads their first document, you both get +1 free credit.
+        - generic [ref=e96]:
+          - paragraph [ref=e98]: https://www.chewnpour.com/signup?ref=BTBCFU
+          - button "content_copy Copy" [ref=e99] [cursor=pointer]:
+            - generic [ref=e100]: content_copy
+            - text: Copy
+        - generic [ref=e101]:
+          - button "WhatsApp" [ref=e102] [cursor=pointer]:
+            - img [ref=e103]
+            - text: WhatsApp
+          - button "Telegram" [ref=e105] [cursor=pointer]:
+            - img [ref=e106]
+            - text: Telegram
+        - generic [ref=e108]:
+          - generic [ref=e109]:
+            - paragraph [ref=e110]: "0"
+            - paragraph [ref=e111]: Referrals
+          - generic [ref=e112]:
+            - paragraph [ref=e113]: "+0"
+            - paragraph [ref=e114]: Credits Earned
+      - generic [ref=e115]:
+        - heading "Quick Access" [level=3] [ref=e116]
+        - generic [ref=e117]:
+          - link "assignment Assignment Helper Get AI answers chevron_right" [ref=e118] [cursor=pointer]:
+            - /url: /dashboard/assignment-helper
+            - generic [ref=e120]: assignment
+            - generic [ref=e121]:
+              - paragraph [ref=e122]: Assignment Helper
+              - paragraph [ref=e123]: Get AI answers
+            - generic [ref=e124]: chevron_right
+          - link "auto_fix_high AI Humanizer Bypass detection chevron_right" [ref=e125] [cursor=pointer]:
+            - /url: /dashboard/humanizer
+            - generic [ref=e127]: auto_fix_high
+            - generic [ref=e128]:
+              - paragraph [ref=e129]: AI Humanizer
+              - paragraph [ref=e130]: Bypass detection
+            - generic [ref=e131]: chevron_right
+          - link "quiz Past Questions Test your knowledge chevron_right" [ref=e132] [cursor=pointer]:
+            - /url: /dashboard/exam
+            - generic [ref=e134]: quiz
+            - generic [ref=e135]:
+              - paragraph [ref=e136]: Past Questions
+              - paragraph [ref=e137]: Test your knowledge
+            - generic [ref=e138]: chevron_right
+          - link "dashboard Dashboard Go to dashboard chevron_right" [ref=e139] [cursor=pointer]:
+            - /url: /dashboard
+            - generic [ref=e141]: dashboard
+            - generic [ref=e142]:
+              - paragraph [ref=e143]: Dashboard
+              - paragraph [ref=e144]: Go to dashboard
+            - generic [ref=e145]: chevron_right
+      - generic [ref=e146]:
+        - heading "Settings" [level=3] [ref=e147]
+        - generic [ref=e148]:
+          - generic [ref=e149]:
+            - generic [ref=e150]:
+              - generic [ref=e151]: volume_up
+              - generic [ref=e152]:
+                - paragraph [ref=e153]: Voice Mode
+                - paragraph [ref=e154]: Read topics aloud
+            - button "Toggle voice mode" [ref=e155] [cursor=pointer]
+          - generic [ref=e157]:
+            - generic [ref=e158]:
+              - generic [ref=e159]: dark_mode
+              - generic [ref=e160]:
+                - paragraph [ref=e161]: Dark Mode
+                - paragraph [ref=e162]: Toggle appearance
+            - button "Toggle dark mode" [ref=e163] [cursor=pointer]
+      - generic [ref=e165]:
+        - heading "Email Notifications" [level=3] [ref=e166]
+        - generic [ref=e167]:
+          - generic [ref=e168]:
+            - generic [ref=e169]:
+              - generic [ref=e170]: local_fire_department
+              - generic [ref=e171]:
+                - paragraph [ref=e172]: Streak Reminders
+                - paragraph [ref=e173]: Get notified when your streak is at risk
+            - button "Toggle Streak Reminders" [pressed] [ref=e174] [cursor=pointer]
+          - generic [ref=e176]:
+            - generic [ref=e177]:
+              - generic [ref=e178]: heart_broken
+              - generic [ref=e179]:
+                - paragraph [ref=e180]: Streak Broken
+                - paragraph [ref=e181]: Know when your streak ends
+            - button "Toggle Streak Broken" [pressed] [ref=e182] [cursor=pointer]
+          - generic [ref=e184]:
+            - generic [ref=e185]:
+              - generic [ref=e186]: summarize
+              - generic [ref=e187]:
+                - paragraph [ref=e188]: Weekly Summary
+                - paragraph [ref=e189]: Receive a weekly study digest
+            - button "Toggle Weekly Summary" [pressed] [ref=e190] [cursor=pointer]
+      - generic [ref=e192]:
+        - heading "Support" [level=3] [ref=e193]
+        - generic [ref=e194]:
+          - link "mail Email Us Get direct support chevron_right" [ref=e195] [cursor=pointer]:
+            - /url: mailto:info@chewnpour.com
+            - generic [ref=e196]: mail
+            - generic [ref=e197]:
+              - paragraph [ref=e198]: Email Us
+              - paragraph [ref=e199]: Get direct support
+            - generic [ref=e200]: chevron_right
+          - link "forum Telegram Community Join our community chevron_right" [ref=e201] [cursor=pointer]:
+            - /url: https://t.me/+jIHi6XFYdl9kNDA0
+            - generic [ref=e202]: forum
+            - generic [ref=e203]:
+              - paragraph [ref=e204]: Telegram Community
+              - paragraph [ref=e205]: Join our community
+            - generic [ref=e206]: chevron_right
+      - generic [ref=e207]:
+        - heading "Recent Exams" [level=3] [ref=e209]
+        - generic [ref=e210]:
+          - button "quiz What Is Photosynthesis? 0% 16h ago" [active] [ref=e211] [cursor=pointer]:
+            - generic [ref=e213]: quiz
+            - generic [ref=e214]:
+              - paragraph [ref=e215]: What Is Photosynthesis?
+              - generic [ref=e218]: 0%
+            - generic [ref=e219]: 16h ago
+          - button "quiz What Is Photosynthesis? 0% 16h ago" [ref=e220] [cursor=pointer]:
+            - generic [ref=e222]: quiz
+            - generic [ref=e223]:
+              - paragraph [ref=e224]: What Is Photosynthesis?
+              - generic [ref=e227]: 0%
+            - generic [ref=e228]: 16h ago
+      - button "logout Sign Out" [ref=e230] [cursor=pointer]:
+        - generic [ref=e231]: logout
+        - text: Sign Out
+      - generic [ref=e235]:
+        - button "close" [ref=e236] [cursor=pointer]:
+          - generic [ref=e237]: close
+        - generic [ref=e238]:
+          - generic [ref=e240]: quiz
+          - heading "What Is Photosynthesis?" [level=2] [ref=e241]
+          - paragraph [ref=e242]: May 2, 2026
+        - generic [ref=e243]:
+          - paragraph [ref=e244]: Your Score
+          - generic [ref=e246]: 0%
+          - paragraph [ref=e247]: 0 / 5 correct
+          - generic [ref=e249]:
+            - generic [ref=e250]: trending_up
+            - text: Keep Practicing!
+        - generic [ref=e251]:
+          - button "visibility View Full Results" [ref=e252] [cursor=pointer]:
+            - generic [ref=e253]: visibility
+            - text: View Full Results
+          - button "replay Retry Exam" [ref=e254] [cursor=pointer]:
+            - generic [ref=e255]: replay
+            - text: Retry Exam

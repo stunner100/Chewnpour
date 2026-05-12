@@ -1,5 +1,8 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
+import CanvasCrowd from './CanvasCrowd';
+
+const FOOTER_YEAR = new Date().getFullYear();
 
 const MailIcon = ({ className }) => (
     <svg className={className} fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24" strokeLinecap="round" strokeLinejoin="round">
@@ -44,7 +47,7 @@ export function Footer({ onCtaClick = () => {} }) {
                         />
                     </Link>
                     <p className="text-sm font-medium text-muted-foreground tracking-wide">
-                        &copy; {new Date().getFullYear()} ChewnPour. All rights reserved.
+                        &copy; {FOOTER_YEAR} ChewnPour. All rights reserved.
                     </p>
                 </div>
 
@@ -78,7 +81,7 @@ export function Footer({ onCtaClick = () => {} }) {
                                     onClick={() => onCtaClick('footer_email')}
                                     className="flex items-center gap-3 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
                                 >
-                                    <MailIcon className="h-4 w-4" /> info@chewnpour.com
+                                    <MailIcon className="size-4" /> info@chewnpour.com
                                 </a>
                             </li>
                             <li>
@@ -89,24 +92,28 @@ export function Footer({ onCtaClick = () => {} }) {
                                     onClick={() => onCtaClick('footer_telegram')}
                                     className="flex items-center gap-3 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
                                 >
-                                    <TelegramIcon className="h-4 w-4" /> Telegram Community
+                                    <TelegramIcon className="size-4" /> Telegram Community
                                 </a>
                             </li>
                             <li>
                                 <Link to="/privacy" className="flex items-center gap-3 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">
-                                    <ShieldIcon className="h-4 w-4" /> Privacy Policy
+                                    <ShieldIcon className="size-4" /> Privacy Policy
                                 </Link>
                             </li>
                             <li>
                                 <Link to="/terms" className="flex items-center gap-3 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">
-                                    <FileIcon className="h-4 w-4" /> Terms of Service
+                                    <FileIcon className="size-4" /> Terms of Service
                                 </Link>
                             </li>
                         </ul>
                     </div>
                 </div>
             </div>
-            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full h-full bg-primary/5 blur-[120px] rounded-full pointer-events-none z-0" />
+            <div className="relative w-full h-[200px] sm:h-[260px] overflow-hidden border-t border-border/20 mt-16 sm:mt-24">
+                <CanvasCrowd height={260} />
+                <div className="absolute inset-0 bg-gradient-to-t from-background via-transparent to-transparent pointer-events-none" />
+            </div>
+            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 size-full bg-primary/5 blur-[120px] rounded-full pointer-events-none z-0" />
         </footer>
     );
 }

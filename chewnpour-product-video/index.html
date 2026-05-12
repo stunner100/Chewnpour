@@ -1,0 +1,517 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>ChewNPour Product Video</title>
+  </head>
+  <body>
+    <div
+      id="chewnpour-product-video"
+      data-composition-id="chewnpour-product-video"
+      data-start="0"
+      data-duration="19.5"
+      data-width="1920"
+      data-height="1080"
+    >
+      <section class="stage">
+        <img class="hero-image" src="../stitch-app/public/chewnpour/hero.png" alt="" />
+        <div class="shade"></div>
+        <div class="brand-bar">
+          <img class="wordmark" src="../stitch-app/public/chewnpourlogo.png" alt="ChewNPour" />
+          <span class="signal">AI study assistant</span>
+        </div>
+
+        <div class="scene scene-one" data-layout-allow-overflow>
+          <div class="scene-content intro-copy">
+            <p class="eyebrow">Course material in</p>
+            <h1>Exam-ready tools out.</h1>
+            <p class="subline">Turn any PDF into lessons, quizzes, and an AI tutor in 30 seconds.</p>
+          </div>
+        </div>
+
+        <div class="paper-stack">
+          <article class="paper paper-a">
+            <span>Uploaded PDF</span>
+            <strong>Lecture 07</strong>
+            <small>Dense notes, slides, textbook scans</small>
+          </article>
+          <article class="paper paper-b">
+            <span>ChewNPour reads</span>
+            <strong>Key concepts</strong>
+            <small>Definitions, examples, exam traps</small>
+          </article>
+          <article class="paper paper-c">
+            <span>Study plan</span>
+            <strong>12 topics ready</strong>
+            <small>Prioritized for revision</small>
+          </article>
+        </div>
+
+        <div class="tool-grid">
+          <article class="tool tool-summary">
+            <span class="icon">01</span>
+            <div>
+              <h2>Smart lessons</h2>
+              <p>Simple explanations from your actual course material.</p>
+            </div>
+          </article>
+          <article class="tool tool-quiz">
+            <span class="icon">02</span>
+            <div>
+              <h2>Practice quizzes</h2>
+              <p>Exam-style questions with instant feedback.</p>
+            </div>
+          </article>
+          <article class="tool tool-tutor">
+            <span class="icon">03</span>
+            <div>
+              <h2>AI tutor</h2>
+              <p>Ask follow-ups when the topic still feels fuzzy.</p>
+            </div>
+          </article>
+        </div>
+
+        <div class="phone-panel">
+          <div class="screen-top">
+            <span></span>
+            <p>Today</p>
+          </div>
+          <h2>Photosynthesis</h2>
+          <p class="meter-label">Mastery progress</p>
+          <div class="meter"><span></span></div>
+          <div class="mini-row"><b>Quiz</b><em>84%</em></div>
+          <div class="mini-row"><b>Weak concept</b><em>Light reactions</em></div>
+          <div class="chat-bubble">Explain this simply.</div>
+        </div>
+
+        <div class="closing">
+          <img src="../stitch-app/public/chewnpour.png" alt="" />
+          <p class="closing-brand">ChewNPour</p>
+          <h2>Study smarter from the material you already have.</h2>
+          <p class="closing-flow">Upload. Learn. Practice. Ask.</p>
+        </div>
+
+        <div class="orb orb-blue"></div>
+        <div class="orb orb-ink"></div>
+        <div class="scan-line" data-layout-allow-overflow></div>
+      </section>
+
+      <style>
+        #chewnpour-product-video {
+          width: 1920px;
+          height: 1080px;
+          overflow: hidden;
+          background: #05070d;
+          color: #f5f7fb;
+          font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        }
+
+        * {
+          box-sizing: border-box;
+        }
+
+        .stage {
+          position: relative;
+          width: 100%;
+          height: 100%;
+          overflow: hidden;
+          background:
+            radial-gradient(circle at 77% 36%, rgba(124, 77, 255, 0.34), transparent 34%),
+            linear-gradient(115deg, #05070d 0%, #080a12 44%, #15101e 100%);
+        }
+
+        .hero-image {
+          position: absolute;
+          inset: 0;
+          width: 100%;
+          height: 100%;
+          object-fit: cover;
+          opacity: 0.32;
+          filter: saturate(1.12) contrast(1.05);
+        }
+
+        .shade {
+          position: absolute;
+          inset: 0;
+          background: linear-gradient(90deg, rgba(5, 7, 13, 0.92), rgba(5, 7, 13, 0.52) 48%, rgba(5, 7, 13, 0.18));
+        }
+
+        .brand-bar {
+          position: absolute;
+          top: 64px;
+          left: 78px;
+          right: 78px;
+          z-index: 20;
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+        }
+
+        .wordmark {
+          width: 410px;
+          height: auto;
+          padding: 18px 22px;
+          background: rgba(245, 247, 251, 0.96);
+          border-radius: 8px;
+          box-shadow: 0 24px 90px rgba(0, 0, 0, 0.42);
+        }
+
+        .signal {
+          border: 1px solid rgba(57, 181, 244, 0.34);
+          background: rgba(20, 24, 32, 0.72);
+          color: #d7efff;
+          border-radius: 999px;
+          padding: 16px 24px;
+          font-size: 24px;
+          font-weight: 750;
+          letter-spacing: 0;
+        }
+
+        .scene,
+        .paper-stack,
+        .tool-grid,
+        .phone-panel,
+        .closing,
+        .orb,
+        .scan-line {
+          position: absolute;
+          z-index: 10;
+        }
+
+        .scene {
+          inset: 0;
+        }
+
+        .scene-content {
+          width: 100%;
+          height: 100%;
+          padding: 220px 920px 180px 86px;
+          display: flex;
+          flex-direction: column;
+          justify-content: center;
+          gap: 28px;
+        }
+
+        .eyebrow {
+          margin: 0;
+          color: #39b5f4;
+          font-size: 34px;
+          font-weight: 850;
+          text-transform: uppercase;
+          letter-spacing: 0;
+        }
+
+        h1 {
+          max-width: 860px;
+          margin: 0;
+          color: #f5f7fb;
+          font-family: "Arial Black", Inter, system-ui, sans-serif;
+          font-size: 126px;
+          line-height: 0.92;
+          letter-spacing: 0;
+        }
+
+        .subline {
+          max-width: 720px;
+          margin: 0;
+          color: rgba(245, 247, 251, 0.82);
+          font-size: 38px;
+          line-height: 1.18;
+          font-weight: 650;
+        }
+
+        .paper-stack {
+          left: 140px;
+          bottom: 135px;
+          display: grid;
+          grid-template-columns: repeat(3, 265px);
+          gap: 24px;
+          perspective: 900px;
+        }
+
+        .paper {
+          min-height: 185px;
+          padding: 24px;
+          color: #121720;
+          background: rgba(245, 247, 251, 0.92);
+          border: 1px solid rgba(245, 247, 251, 0.6);
+          border-radius: 8px;
+          box-shadow: 0 24px 80px rgba(0, 0, 0, 0.36);
+          transform: rotateX(9deg) rotateZ(-2deg);
+        }
+
+        .paper span,
+        .paper small {
+          display: block;
+          color: #4f5968;
+          font-size: 20px;
+          font-weight: 750;
+        }
+
+        .paper strong {
+          display: block;
+          margin: 14px 0 18px;
+          color: #11161d;
+          font-size: 33px;
+          line-height: 1;
+        }
+
+        .tool-grid {
+          right: 100px;
+          top: 270px;
+          width: 620px;
+          display: grid;
+          gap: 22px;
+        }
+
+        .tool {
+          display: grid;
+          grid-template-columns: 92px 1fr;
+          align-items: center;
+          gap: 22px;
+          min-height: 150px;
+          padding: 28px;
+          background: rgba(20, 24, 32, 0.82);
+          border: 1px solid rgba(245, 247, 251, 0.11);
+          border-radius: 8px;
+          box-shadow: 0 28px 90px rgba(0, 0, 0, 0.42);
+          backdrop-filter: blur(16px);
+        }
+
+        .tool-summary .icon { background: #d6a84f; }
+        .tool-quiz .icon { background: #39b5f4; color: #03131d; }
+        .tool-tutor .icon { background: #7c4dff; }
+
+        .icon {
+          display: grid;
+          place-items: center;
+          width: 80px;
+          height: 80px;
+          border-radius: 8px;
+          color: #f5f7fb;
+          font-size: 26px;
+          font-weight: 900;
+        }
+
+        .tool h2 {
+          margin: 0 0 8px;
+          font-size: 38px;
+          line-height: 1;
+        }
+
+        .tool p {
+          margin: 0;
+          color: rgba(245, 247, 251, 0.72);
+          font-size: 23px;
+          line-height: 1.25;
+          font-weight: 560;
+        }
+
+        .phone-panel {
+          left: 760px;
+          top: 205px;
+          width: 430px;
+          min-height: 655px;
+          padding: 34px;
+          background: #11141b;
+          border: 1px solid rgba(245, 247, 251, 0.16);
+          border-radius: 34px;
+          box-shadow: 0 34px 110px rgba(0, 0, 0, 0.58), 0 0 90px rgba(57, 181, 244, 0.16);
+        }
+
+        .screen-top {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          margin-bottom: 48px;
+        }
+
+        .screen-top span {
+          width: 76px;
+          height: 10px;
+          border-radius: 10px;
+          background: rgba(245, 247, 251, 0.2);
+        }
+
+        .screen-top p,
+        .meter-label {
+          margin: 0;
+          color: rgba(245, 247, 251, 0.58);
+          font-size: 18px;
+          font-weight: 740;
+        }
+
+        .phone-panel h2 {
+          margin: 0 0 24px;
+          font-size: 48px;
+          line-height: 1;
+        }
+
+        .meter {
+          width: 100%;
+          height: 18px;
+          margin: 12px 0 30px;
+          overflow: hidden;
+          border-radius: 18px;
+          background: rgba(245, 247, 251, 0.12);
+        }
+
+        .meter span {
+          display: block;
+          width: 78%;
+          height: 100%;
+          background: linear-gradient(90deg, #39b5f4, #7c4dff);
+        }
+
+        .mini-row {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          margin-top: 16px;
+          padding: 21px 20px;
+          border-radius: 8px;
+          background: rgba(245, 247, 251, 0.08);
+          font-size: 23px;
+        }
+
+        .mini-row em {
+          color: #39b5f4;
+          font-style: normal;
+          font-weight: 850;
+        }
+
+        .chat-bubble {
+          margin-top: 28px;
+          padding: 23px;
+          color: #0d1117;
+          background: #f5f7fb;
+          border-radius: 8px;
+          font-size: 24px;
+          font-weight: 800;
+        }
+
+        .closing {
+          inset: 0;
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          justify-content: center;
+          gap: 28px;
+          padding: 140px;
+          text-align: center;
+        }
+
+        .closing img {
+          width: 190px;
+          height: 190px;
+          object-fit: contain;
+          padding: 18px;
+          background: rgba(245, 247, 251, 0.94);
+          border-radius: 8px;
+        }
+
+        .closing-brand {
+          margin: -8px 0 0;
+          color: #f5f7fb;
+          font-size: 48px;
+          font-weight: 950;
+        }
+
+        .closing h2 {
+          max-width: 1180px;
+          margin: 0;
+          font-family: "Arial Black", Inter, system-ui, sans-serif;
+          font-size: 82px;
+          line-height: 1.02;
+          letter-spacing: 0;
+        }
+
+        .closing-flow {
+          margin: 0;
+          color: #39b5f4;
+          font-size: 38px;
+          font-weight: 900;
+        }
+
+        .orb {
+          width: 420px;
+          height: 420px;
+          border-radius: 50%;
+          filter: blur(80px);
+          opacity: 0.26;
+        }
+
+        .orb-blue {
+          right: 220px;
+          bottom: 28px;
+          background: #39b5f4;
+        }
+
+        .orb-ink {
+          left: 520px;
+          top: 110px;
+          background: #1c0b84;
+        }
+
+        .scan-line {
+          left: -320px;
+          top: 0;
+          width: 160px;
+          height: 100%;
+          background: linear-gradient(90deg, transparent, rgba(57, 181, 244, 0.22), transparent);
+          transform: skewX(-14deg);
+        }
+      </style>
+
+      <script src="https://cdn.jsdelivr.net/npm/gsap@3.14.2/dist/gsap.min.js"></script>
+      <script>
+        window.__timelines = window.__timelines || {};
+        const tl = gsap.timeline({ paused: true });
+
+        tl.set(".paper-stack, .tool-grid, .phone-panel, .closing", { opacity: 0 });
+        tl.set(".hero-image", { scale: 1.04 });
+        tl.set(".closing", { scale: 0.96 });
+        tl.from(".hero-image", { scale: 1.13, opacity: 0, duration: 1.2, ease: "power3.out" }, 0);
+        tl.from(".wordmark", { y: -34, opacity: 0, duration: 0.65, ease: "power3.out" }, 0.15);
+        tl.from(".signal", { y: -26, opacity: 0, duration: 0.55, ease: "power3.out" }, 0.3);
+        tl.from(".eyebrow", { y: 34, opacity: 0, duration: 0.55, ease: "power3.out" }, 0.55);
+        tl.from("h1", { y: 54, opacity: 0, duration: 0.72, ease: "power3.out" }, 0.78);
+        tl.from(".subline", { y: 42, opacity: 0, duration: 0.62, ease: "power3.out" }, 1.05);
+        tl.to(".scan-line", { x: 2580, duration: 2.2, ease: "power2.inOut" }, 1.2);
+
+        tl.to(".paper-stack", { opacity: 1, duration: 0.2 }, 3.2);
+        tl.from(".paper", { y: 90, rotationZ: -8, opacity: 0, stagger: 0.16, duration: 0.7, ease: "power3.out" }, 3.25);
+        tl.to(".intro-copy", { y: -60, opacity: 0, duration: 0.55, ease: "power2.in" }, 4.8);
+
+        tl.to(".tool-grid", { opacity: 1, duration: 0.2 }, 5.25);
+        tl.from(".tool", { x: 110, opacity: 0, stagger: 0.18, duration: 0.7, ease: "power3.out" }, 5.32);
+        tl.to(".paper", { y: -34, rotationZ: 1, stagger: 0.08, duration: 0.65, ease: "power2.inOut" }, 6.2);
+        tl.to(".paper-stack", { x: 130, scale: 0.82, opacity: 0.48, duration: 0.8, ease: "power2.inOut" }, 6.6);
+
+        tl.to(".phone-panel", { opacity: 1, duration: 0.2 }, 8.2);
+        tl.from(".phone-panel", { y: 90, scale: 0.92, duration: 0.85, ease: "power3.out" }, 8.22);
+        tl.from(".meter span", { scaleX: 0, transformOrigin: "left center", duration: 0.85, ease: "power3.out" }, 9.0);
+        tl.from(".mini-row", { y: 26, opacity: 0, stagger: 0.12, duration: 0.48, ease: "power3.out" }, 9.35);
+        tl.from(".chat-bubble", { y: 26, opacity: 0, duration: 0.5, ease: "power3.out" }, 9.8);
+        tl.to(".tool-grid", { x: 50, opacity: 0.58, duration: 0.75, ease: "power2.inOut" }, 10.35);
+
+        tl.to(".phone-panel", { x: -210, scale: 1.08, duration: 1.0, ease: "power2.inOut" }, 11.2);
+        tl.to(".hero-image", { opacity: 0.48, scale: 1.0, duration: 1.0, ease: "power2.inOut" }, 11.2);
+        tl.to(".paper-stack, .tool-grid", { opacity: 0, y: -60, duration: 0.65, ease: "power2.in" }, 13.2);
+        tl.to(".phone-panel", { opacity: 0, y: -70, duration: 0.65, ease: "power2.in" }, 13.45);
+
+        tl.to(".closing", { opacity: 1, scale: 1, duration: 0.75, ease: "power3.out" }, 14.25);
+        tl.from(".closing img", { y: 38, opacity: 0, duration: 0.6, ease: "power3.out" }, 14.35);
+        tl.from(".closing-brand", { y: 26, opacity: 0, duration: 0.54, ease: "power3.out" }, 14.5);
+        tl.from(".closing h2", { y: 54, opacity: 0, duration: 0.78, ease: "power3.out" }, 14.72);
+        tl.from(".closing-flow", { y: 34, opacity: 0, duration: 0.55, ease: "power3.out" }, 15.18);
+        tl.to(".orb-blue", { x: -130, y: -48, scale: 1.18, duration: 4.0, ease: "sine.inOut" }, 14.2);
+        tl.to(".orb-ink", { x: 120, y: 34, scale: 0.92, duration: 4.0, ease: "sine.inOut" }, 14.2);
+        tl.to(".closing", { opacity: 0, duration: 0.6, ease: "power2.in" }, 18.9);
+
+        window.__timelines["chewnpour-product-video"] = tl;
+      </script>
+    </div>
+  </body>
+</html>

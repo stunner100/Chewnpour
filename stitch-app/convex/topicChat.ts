@@ -1,5 +1,5 @@
 import { v } from "convex/values";
-import { mutation, query } from "./_generated/server";
+import { internalMutation, mutation, query } from "./_generated/server";
 import { resolveAuthUserId } from "./lib/examSecurity";
 
 const MAX_MESSAGE_LENGTH = 4000;
@@ -58,7 +58,7 @@ export const sendMessage = mutation({
     },
 });
 
-export const appendAssistantMessage = mutation({
+export const appendAssistantMessageInternal = internalMutation({
     args: {
         topicId: v.id("topics"),
         userId: v.string(),

@@ -4,7 +4,13 @@ import { useAction, useMutation, useQuery } from 'convex/react';
 import { api } from '../../convex/_generated/api';
 import { useAuth } from '../contexts/AuthContext';
 
-const formatNumber = (value) => new Intl.NumberFormat().format(Number(value) || 0);
+const NUMBER_FORMATTER = new Intl.NumberFormat();
+const DATE_TIME_FORMATTER = new Intl.DateTimeFormat(undefined, {
+    dateStyle: 'medium',
+    timeStyle: 'short',
+});
+
+const formatNumber = (value) => NUMBER_FORMATTER.format(Number(value) || 0);
 const formatPercent = (value) => {
     const parsed = Number(value);
     const safe = Number.isFinite(parsed) ? parsed : 0;
@@ -22,10 +28,7 @@ const formatRatioPercent = (value) => {
 const formatDateTime = (timestampMs) => {
     const parsed = Number(timestampMs);
     if (!Number.isFinite(parsed) || parsed <= 0) return 'N/A';
-    return new Intl.DateTimeFormat(undefined, {
-        dateStyle: 'medium',
-        timeStyle: 'short',
-    }).format(parsed);
+    return DATE_TIME_FORMATTER.format(parsed);
 };
 
 const formatRelativeHours = (value) => {
@@ -101,6 +104,7 @@ const formatFileTypeLabel = (value) => {
     if (normalized === 'pdf') return 'PDF';
     if (normalized === 'docx') return 'DOCX';
     if (normalized === 'pptx') return 'PPTX';
+    if (['mp3', 'm4a', 'mp4', 'wav', 'webm', 'ogg', 'aac', 'flac'].includes(normalized)) return 'AUDIO';
     if (normalized === 'txt') return 'TXT';
     return normalized.toUpperCase();
 };
@@ -123,6 +127,7 @@ const formatResearchChoice = (value) => {
 const TABS = [
     { key: 'overview', label: 'Overview', icon: 'dashboard' },
     { key: 'learning', label: 'Learning', icon: 'school' },
+    { key: 'features', label: 'Features', icon: 'analytics' },
     { key: 'revenue', label: 'Revenue', icon: 'payments' },
     { key: 'content', label: 'Content', icon: 'library_books' },
     { key: 'users', label: 'Users', icon: 'group' },
@@ -190,7 +195,7 @@ const StatCard = ({ label, value, sublabel, icon, color = 'primary' }) => {
                         <p className="mt-1 text-sm text-text-faint-light dark:text-text-faint-dark">{sublabel}</p>
                     ) : null}
                 </div>
-                <div className={`h-11 w-11 shrink-0 rounded-2xl flex items-center justify-center ${bgMap[color] || bgMap.primary}`}>
+                <div className={`size-11 shrink-0 rounded-2xl flex items-center justify-center ${bgMap[color] || bgMap.primary}`}>
                     <span className="material-symbols-outlined">{icon}</span>
                 </div>
             </div>
@@ -236,7 +241,7 @@ const BarChart = ({ items, maxValue }) => {
 const SectionCard = ({ title, badge, children }) => (
     <div className="card-base p-5">
         <div className="flex flex-wrap items-center justify-between gap-2 mb-4">
-            <h2 className="text-lg font-bold text-text-main-light dark:text-text-main-dark">{title}</h2>
+            <h2 className="text-lg font-semibold text-text-main-light dark:text-text-main-dark">{title}</h2>
             {badge ? (
                 <span className="text-xs text-text-faint-light dark:text-text-faint-dark">{badge}</span>
             ) : null}
@@ -261,7 +266,7 @@ const DeniedCard = ({ reason, signedInEmail, signedInUserId }) => {
             <div className="mx-auto w-full max-w-3xl card-base p-6 sm:p-8">
                 <div className="flex items-center gap-3 text-amber-600">
                     <span className="material-symbols-outlined">lock</span>
-                    <h1 className="text-xl font-bold text-text-main-light dark:text-text-main-dark">Admin access required</h1>
+                    <h1 className="text-xl font-semibold text-text-main-light dark:text-text-main-dark">Admin access required</h1>
                 </div>
                 <p className="mt-3 text-sm text-text-sub-light dark:text-text-sub-dark">{reasonMessage}</p>
                 <div className="mt-4 rounded-2xl border border-border-light dark:border-border-dark bg-surface-hover-light dark:bg-surface-hover-dark p-4 text-sm">
@@ -486,6 +491,108 @@ const LearningPanel = ({ snapshot, activeUsersDays }) => {
     );
 };
 
+const FeatureUsagePanel = ({ snapshot, activeUsersDays }) => {
+    const usage = snapshot.featureUsageAnalytics || {};
+    const features = Array.isArray(usage.features) ? usage.features : [];
+    const topFeature = features[0] || null;
+    const maxUses = Math.max(...features.map((feature) => Number(feature.totalUses) || 0), 1);
+    const recentFeatures = features.filter((feature) => Number(feature.lastWindowUses) > 0).length;
+
+    return (
+        <div className="space-y-4">
+            <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+                <StatCard
+                    label="Feature events"
+                    value={usage.totalUses}
+                    sublabel={`${formatNumber(usage.totalLastWindowUses)} in last ${activeUsersDays}d`}
+                    icon="analytics"
+                />
+                <StatCard
+                    label="Feature users"
+                    value={usage.totalUniqueUsers}
+                    sublabel="Users with at least one tracked event"
+                    icon="group"
+                    color="emerald"
+                />
+                <StatCard
+                    label="Active features"
+                    value={recentFeatures}
+                    sublabel={`Used in last ${activeUsersDays}d`}
+                    icon="bolt"
+                    color="blue"
+                />
+                <StatCard
+                    label="Most used"
+                    value={topFeature?.label || 'N/A'}
+                    sublabel={topFeature ? `${formatNumber(topFeature.totalUses)} events • ${formatPercent(topFeature.sharePercent)}` : 'No feature data yet'}
+                    icon={topFeature?.icon || 'insights'}
+                    color="amber"
+                />
+            </section>
+
+            <SectionCard title="Feature Usage" badge={`${formatNumber(features.length)} tracked features`}>
+                {features.length > 0 ? (
+                    <div className="space-y-3">
+                        {features.map((feature) => {
+                            const totalUses = Number(feature.totalUses) || 0;
+                            const width = maxUses > 0 ? Math.max((totalUses / maxUses) * 100, 2) : 2;
+                            const trend = Number(feature.trend) || 0;
+                            const trendLabel = trend > 0 ? `+${formatNumber(trend)}` : formatNumber(trend);
+                            return (
+                                <div key={feature.key} className="rounded-2xl border border-border-light dark:border-border-dark p-4">
+                                    <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+                                        <div className="flex min-w-0 items-start gap-3">
+                                            <div className="flex size-10 shrink-0 items-center justify-center rounded-2xl bg-primary/8 text-primary">
+                                                <span className="material-symbols-outlined text-[20px]">{feature.icon || 'analytics'}</span>
+                                            </div>
+                                            <div className="min-w-0">
+                                                <p className="font-bold text-text-main-light dark:text-text-main-dark">{feature.label}</p>
+                                                <p className="mt-1 text-xs text-text-faint-light dark:text-text-faint-dark">
+                                                    Last used {formatDateTime(feature.lastUsedAt)}
+                                                </p>
+                                            </div>
+                                        </div>
+                                        <div className="grid grid-cols-2 gap-3 text-right sm:grid-cols-5 lg:min-w-[560px]">
+                                            <div>
+                                                <p className="text-xs text-text-faint-light dark:text-text-faint-dark">Total</p>
+                                                <p className="font-bold text-text-main-light dark:text-text-main-dark">{formatNumber(totalUses)}</p>
+                                            </div>
+                                            <div>
+                                                <p className="text-xs text-text-faint-light dark:text-text-faint-dark">Last {activeUsersDays}d</p>
+                                                <p className="font-bold text-text-main-light dark:text-text-main-dark">{formatNumber(feature.lastWindowUses)}</p>
+                                            </div>
+                                            <div>
+                                                <p className="text-xs text-text-faint-light dark:text-text-faint-dark">Users</p>
+                                                <p className="font-bold text-text-main-light dark:text-text-main-dark">{formatNumber(feature.uniqueUsers)}</p>
+                                            </div>
+                                            <div>
+                                                <p className="text-xs text-text-faint-light dark:text-text-faint-dark">Share</p>
+                                                <p className="font-bold text-text-main-light dark:text-text-main-dark">{formatPercent(feature.sharePercent)}</p>
+                                            </div>
+                                            <div>
+                                                <p className="text-xs text-text-faint-light dark:text-text-faint-dark">Trend</p>
+                                                <p className={`font-bold ${trend >= 0 ? 'text-accent-emerald' : 'text-rose-600 dark:text-rose-400'}`}>{trendLabel}</p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div className="mt-3 h-2 overflow-hidden rounded-full bg-surface-hover-light dark:bg-surface-hover-dark">
+                                        <div
+                                            className="h-full rounded-full bg-primary transition-all"
+                                            style={{ width: `${Math.max(0, Math.min(width, 100))}%` }}
+                                        />
+                                    </div>
+                                </div>
+                            );
+                        })}
+                    </div>
+                ) : (
+                    <p className="text-sm text-text-faint-light dark:text-text-faint-dark">No feature usage has been tracked yet.</p>
+                )}
+            </SectionCard>
+        </div>
+    );
+};
+
 const RevenuePanel = ({
     snapshot,
     activeUsersDays,
@@ -614,20 +721,20 @@ const RevenuePanel = ({
                                     const isLoading = Boolean(reconcilingReferences[payment.reference]);
                                     return (
                                         <tr key={payment.reference} className="border-b border-border-light dark:border-border-dark">
-                                            <td className="px-3 py-3 text-text-main-light dark:text-text-main-dark">
+                                            <td className="p-3 text-text-main-light dark:text-text-main-dark">
                                                 <div className="font-semibold">{payment.customerEmail || 'Unknown user'}</div>
                                                 {payment.userId ? (
                                                     <div className="text-xs text-text-faint-light dark:text-text-faint-dark">{payment.userId}</div>
                                                 ) : null}
                                             </td>
-                                            <td className="px-3 py-3 text-text-sub-light dark:text-text-sub-dark">
+                                            <td className="p-3 text-text-sub-light dark:text-text-sub-dark">
                                                 <div className="max-w-[260px] truncate" title={payment.reference}>{payment.reference}</div>
                                                 {payment.verificationMessage ? (
                                                     <div className="mt-1 text-xs text-text-faint-light dark:text-text-faint-dark">{payment.verificationMessage}</div>
                                                 ) : null}
                                             </td>
-                                            <td className="px-3 py-3 text-text-sub-light dark:text-text-sub-dark">{formatCurrency(payment.amountMinor, payment.currency)}</td>
-                                            <td className="px-3 py-3">
+                                            <td className="p-3 text-text-sub-light dark:text-text-sub-dark">{formatCurrency(payment.amountMinor, payment.currency)}</td>
+                                            <td className="p-3">
                                                 <div className="flex flex-col gap-1">
                                                     <span className="inline-flex w-fit rounded-full bg-amber-100 px-2.5 py-1 text-xs font-semibold text-amber-700 dark:bg-amber-900/30 dark:text-amber-300">
                                                         {formatTokenLabel(payment.status)}
@@ -637,9 +744,9 @@ const RevenuePanel = ({
                                                     </span>
                                                 </div>
                                             </td>
-                                            <td className="px-3 py-3 text-text-sub-light dark:text-text-sub-dark">{formatRelativeHours(payment.ageHours)}</td>
-                                            <td className="px-3 py-3 text-text-sub-light dark:text-text-sub-dark">{formatDateTime(payment.lastVerifiedAt)}</td>
-                                            <td className="px-3 py-3">
+                                            <td className="p-3 text-text-sub-light dark:text-text-sub-dark">{formatRelativeHours(payment.ageHours)}</td>
+                                            <td className="p-3 text-text-sub-light dark:text-text-sub-dark">{formatDateTime(payment.lastVerifiedAt)}</td>
+                                            <td className="p-3">
                                                 <button
                                                     type="button"
                                                     onClick={() => handleReconcilePayment(payment.reference)}
@@ -676,18 +783,18 @@ const RetrievalCandidatesTable = ({ title, rows, showPenaltyColumns = false }) =
                 <table className="min-w-full text-xs">
                     <thead>
                         <tr className="border-b border-border-light dark:border-border-dark">
-                            <th className="px-2 py-2 text-left font-semibold text-text-faint-light dark:text-text-faint-dark">Passage</th>
-                            <th className="px-2 py-2 text-left font-semibold text-text-faint-light dark:text-text-faint-dark">Page</th>
-                            <th className="px-2 py-2 text-left font-semibold text-text-faint-light dark:text-text-faint-dark">Source</th>
-                            <th className="px-2 py-2 text-left font-semibold text-text-faint-light dark:text-text-faint-dark">Final</th>
-                            <th className="px-2 py-2 text-left font-semibold text-text-faint-light dark:text-text-faint-dark">Lexical</th>
-                            <th className="px-2 py-2 text-left font-semibold text-text-faint-light dark:text-text-faint-dark">Vector</th>
-                            <th className="px-2 py-2 text-left font-semibold text-text-faint-light dark:text-text-faint-dark">Numeric</th>
+                            <th className="p-2 text-left font-semibold text-text-faint-light dark:text-text-faint-dark">Passage</th>
+                            <th className="p-2 text-left font-semibold text-text-faint-light dark:text-text-faint-dark">Page</th>
+                            <th className="p-2 text-left font-semibold text-text-faint-light dark:text-text-faint-dark">Source</th>
+                            <th className="p-2 text-left font-semibold text-text-faint-light dark:text-text-faint-dark">Final</th>
+                            <th className="p-2 text-left font-semibold text-text-faint-light dark:text-text-faint-dark">Lexical</th>
+                            <th className="p-2 text-left font-semibold text-text-faint-light dark:text-text-faint-dark">Vector</th>
+                            <th className="p-2 text-left font-semibold text-text-faint-light dark:text-text-faint-dark">Numeric</th>
                             {showPenaltyColumns ? (
                                 <>
-                                    <th className="px-2 py-2 text-left font-semibold text-text-faint-light dark:text-text-faint-dark">Flag Boost</th>
-                                    <th className="px-2 py-2 text-left font-semibold text-text-faint-light dark:text-text-faint-dark">Num Penalty</th>
-                                    <th className="px-2 py-2 text-left font-semibold text-text-faint-light dark:text-text-faint-dark">Broad Penalty</th>
+                                    <th className="p-2 text-left font-semibold text-text-faint-light dark:text-text-faint-dark">Flag Boost</th>
+                                    <th className="p-2 text-left font-semibold text-text-faint-light dark:text-text-faint-dark">Num Penalty</th>
+                                    <th className="p-2 text-left font-semibold text-text-faint-light dark:text-text-faint-dark">Broad Penalty</th>
                                 </>
                             ) : null}
                         </tr>
@@ -695,21 +802,21 @@ const RetrievalCandidatesTable = ({ title, rows, showPenaltyColumns = false }) =
                     <tbody>
                         {rows.map((row) => (
                             <tr key={`${title}-${row.passageId}-${row.page}`} className="border-b border-border-light dark:border-border-dark align-top">
-                                <td className="px-2 py-2">
+                                <td className="p-2">
                                     <p className="font-semibold text-text-main-light dark:text-text-main-dark">{row.passageId}</p>
                                     <p className="mt-1 max-w-xs text-[11px] text-text-faint-light dark:text-text-faint-dark">{row.sectionHint || 'No section hint'}</p>
                                 </td>
-                                <td className="px-2 py-2 text-text-sub-light dark:text-text-sub-dark">{formatNumber(row.page)}</td>
-                                <td className="px-2 py-2 text-text-sub-light dark:text-text-sub-dark uppercase">{row.retrievalSource || 'n/a'}</td>
-                                <td className="px-2 py-2 text-text-sub-light dark:text-text-sub-dark">{formatRatioPercent(row.finalScore)}</td>
-                                <td className="px-2 py-2 text-text-sub-light dark:text-text-sub-dark">{formatRatioPercent(row.lexicalScore)}</td>
-                                <td className="px-2 py-2 text-text-sub-light dark:text-text-sub-dark">{formatRatioPercent(row.vectorScore)}</td>
-                                <td className="px-2 py-2 text-text-sub-light dark:text-text-sub-dark">{formatRatioPercent(row.numericAgreement)}</td>
+                                <td className="p-2 text-text-sub-light dark:text-text-sub-dark">{formatNumber(row.page)}</td>
+                                <td className="p-2 text-text-sub-light dark:text-text-sub-dark uppercase">{row.retrievalSource || 'n/a'}</td>
+                                <td className="p-2 text-text-sub-light dark:text-text-sub-dark">{formatRatioPercent(row.finalScore)}</td>
+                                <td className="p-2 text-text-sub-light dark:text-text-sub-dark">{formatRatioPercent(row.lexicalScore)}</td>
+                                <td className="p-2 text-text-sub-light dark:text-text-sub-dark">{formatRatioPercent(row.vectorScore)}</td>
+                                <td className="p-2 text-text-sub-light dark:text-text-sub-dark">{formatRatioPercent(row.numericAgreement)}</td>
                                 {showPenaltyColumns ? (
                                     <>
-                                        <td className="px-2 py-2 text-text-sub-light dark:text-text-sub-dark">{formatRatioPercent(row.preferFlagBoost)}</td>
-                                        <td className="px-2 py-2 text-text-sub-light dark:text-text-sub-dark">{formatRatioPercent(row.vectorOnlyMissingNumericPenalty)}</td>
-                                        <td className="px-2 py-2 text-text-sub-light dark:text-text-sub-dark">{formatRatioPercent(row.vectorOnlyBroadTopicPenalty)}</td>
+                                        <td className="p-2 text-text-sub-light dark:text-text-sub-dark">{formatRatioPercent(row.preferFlagBoost)}</td>
+                                        <td className="p-2 text-text-sub-light dark:text-text-sub-dark">{formatRatioPercent(row.vectorOnlyMissingNumericPenalty)}</td>
+                                        <td className="p-2 text-text-sub-light dark:text-text-sub-dark">{formatRatioPercent(row.vectorOnlyBroadTopicPenalty)}</td>
                                     </>
                                 ) : null}
                             </tr>
@@ -721,6 +828,7 @@ const RetrievalCandidatesTable = ({ title, rows, showPenaltyColumns = false }) =
     </div>
 );
 
+// react-doctor-disable-next-line react-doctor/no-giant-component
 const ContentPanel = ({
     snapshot,
     retrievalTopicId,
@@ -878,21 +986,21 @@ const ContentPanel = ({
                                         <tbody>
                                             {latestAuditWithRebases.rebasedTopics.map((topic) => (
                                                 <tr key={`${topic.format}-${topic.topicId}`} className="border-b border-border-light dark:border-border-dark">
-                                                    <td className="px-3 py-3">
+                                                    <td className="p-3">
                                                         <p className="font-semibold text-text-main-light dark:text-text-main-dark">{topic.topicTitle || topic.topicId}</p>
                                                         <p className="text-xs text-text-faint-light dark:text-text-faint-dark">{topic.topicId}</p>
                                                     </td>
-                                                    <td className="px-3 py-3 text-text-sub-light dark:text-text-sub-dark uppercase">{topic.format}</td>
-                                                    <td className="px-3 py-3 text-text-sub-light dark:text-text-sub-dark">
+                                                    <td className="p-3 text-text-sub-light dark:text-text-sub-dark uppercase">{topic.format}</td>
+                                                    <td className="p-3 text-text-sub-light dark:text-text-sub-dark">
                                                         {formatNumber(topic.currentTarget)} → {formatNumber(topic.recalculatedTarget)}
                                                     </td>
-                                                    <td className="px-3 py-3 text-text-sub-light dark:text-text-sub-dark">
+                                                    <td className="p-3 text-text-sub-light dark:text-text-sub-dark">
                                                         {topic.format === 'essay'
                                                             ? `${formatNumber(topic.usableEssayCount)} essay`
                                                             : `${formatNumber(topic.usableObjectiveCount ?? topic.usableMcqCount)} objective`}
                                                     </td>
-                                                    <td className="px-3 py-3 text-text-sub-light dark:text-text-sub-dark">{formatSignedPercent((Number(topic.fillRatio) || 0) * 100)}</td>
-                                                    <td className="px-3 py-3 text-text-sub-light dark:text-text-sub-dark">{topic.scheduled ? 'Yes' : 'No'}</td>
+                                                    <td className="p-3 text-text-sub-light dark:text-text-sub-dark">{formatSignedPercent((Number(topic.fillRatio) || 0) * 100)}</td>
+                                                    <td className="p-3 text-text-sub-light dark:text-text-sub-dark">{topic.scheduled ? 'Yes' : 'No'}</td>
                                                 </tr>
                                             ))}
                                         </tbody>
@@ -1104,18 +1212,18 @@ const UsersPanel = ({ signedInUsers, recentUsers, premiumUsers, flags, snapshot,
                                 </tr>
                             ) : signedInUsers.map((record) => (
                                 <tr key={record.userId} className="border-b border-border-light dark:border-border-dark">
-                                    <td className="px-3 py-3">
+                                    <td className="p-3">
                                         <p className="font-semibold text-text-main-light dark:text-text-main-dark">{record.email || record.fullName || record.userId}</p>
                                         <p className="text-xs text-text-faint-light dark:text-text-faint-dark">{record.department || ''}</p>
                                     </td>
-                                    <td className="px-3 py-3 text-text-sub-light dark:text-text-sub-dark">{record.emailVerified ? 'Yes' : 'No'}</td>
-                                    <td className="px-3 py-3 text-text-sub-light dark:text-text-sub-dark">{formatNumber(record.activeSessionCount)}</td>
-                                    <td className="px-3 py-3 text-text-sub-light dark:text-text-sub-dark">
+                                    <td className="p-3 text-text-sub-light dark:text-text-sub-dark">{record.emailVerified ? 'Yes' : 'No'}</td>
+                                    <td className="p-3 text-text-sub-light dark:text-text-sub-dark">{formatNumber(record.activeSessionCount)}</td>
+                                    <td className="p-3 text-text-sub-light dark:text-text-sub-dark">
                                         <div>{formatNumber(record.llmTokensTotal)}<span className="ml-2 text-xs text-text-faint-light dark:text-text-faint-dark">Tracked • 7d {formatNumber(record.llmTokensLastWindow)}</span></div>
                                         <div className="mt-1 text-xs text-text-faint-light dark:text-text-faint-dark">Hist. est. {formatNumber(record.estimatedHistoricalTokensTotal)} • 7d {formatNumber(record.estimatedHistoricalTokensLastWindow)}</div>
                                     </td>
-                                    <td className="px-3 py-3 text-text-sub-light dark:text-text-sub-dark">{formatDateTime(record.lastSessionAt)}</td>
-                                    <td className="px-3 py-3 text-text-sub-light dark:text-text-sub-dark">{formatDateTime(record.createdAt)}</td>
+                                    <td className="p-3 text-text-sub-light dark:text-text-sub-dark">{formatDateTime(record.lastSessionAt)}</td>
+                                    <td className="p-3 text-text-sub-light dark:text-text-sub-dark">{formatDateTime(record.createdAt)}</td>
                                 </tr>
                             ))}
                         </tbody>
@@ -1145,18 +1253,18 @@ const UsersPanel = ({ signedInUsers, recentUsers, premiumUsers, flags, snapshot,
                             </tr>
                         ) : premiumUsers.map((record) => (
                             <tr key={record.userId} className="border-b border-border-light dark:border-border-dark">
-                                <td className="px-3 py-3">
+                                <td className="p-3">
                                     <p className="font-semibold text-text-main-light dark:text-text-main-dark">{record.email || record.fullName || record.userId}</p>
                                     <p className="text-xs text-text-faint-light dark:text-text-faint-dark">{record.department || ''}</p>
                                 </td>
-                                <td className="px-3 py-3 text-text-sub-light dark:text-text-sub-dark capitalize">{record.status || 'unknown'}</td>
-                                <td className="px-3 py-3 text-text-sub-light dark:text-text-sub-dark">{formatMajorCurrency(record.amountMajor, record.currency)}</td>
-                                <td className="px-3 py-3 text-text-sub-light dark:text-text-sub-dark">
+                                <td className="p-3 text-text-sub-light dark:text-text-sub-dark capitalize">{record.status || 'unknown'}</td>
+                                <td className="p-3 text-text-sub-light dark:text-text-sub-dark">{formatMajorCurrency(record.amountMajor, record.currency)}</td>
+                                <td className="p-3 text-text-sub-light dark:text-text-sub-dark">
                                     <div>{formatNumber(record.llmTokensTotal)}<span className="ml-2 text-xs text-text-faint-light dark:text-text-faint-dark">Tracked • 7d {formatNumber(record.llmTokensLastWindow)}</span></div>
                                     <div className="mt-1 text-xs text-text-faint-light dark:text-text-faint-dark">Hist. est. {formatNumber(record.estimatedHistoricalTokensTotal)} • 7d {formatNumber(record.estimatedHistoricalTokensLastWindow)}</div>
                                 </td>
-                                <td className="px-3 py-3 text-text-sub-light dark:text-text-sub-dark">{formatDateTime(record.lastPaymentAt)}</td>
-                                <td className="px-3 py-3 text-text-sub-light dark:text-text-sub-dark">{record.nextBillingDate || 'N/A'}</td>
+                                <td className="p-3 text-text-sub-light dark:text-text-sub-dark">{formatDateTime(record.lastPaymentAt)}</td>
+                                <td className="p-3 text-text-sub-light dark:text-text-sub-dark">{record.nextBillingDate || 'N/A'}</td>
                             </tr>
                         ))}
                     </tbody>
@@ -1184,18 +1292,18 @@ const UsersPanel = ({ signedInUsers, recentUsers, premiumUsers, flags, snapshot,
                             </tr>
                         ) : recentUsers.map((record) => (
                             <tr key={record.userId || record.createdAt} className="border-b border-border-light dark:border-border-dark">
-                                <td className="px-3 py-3">
+                                <td className="p-3">
                                     <p className="font-semibold text-text-main-light dark:text-text-main-dark">{record.email || record.fullName || record.userId || 'Unknown'}</p>
                                     <p className="text-xs text-text-faint-light dark:text-text-faint-dark">{record.department || 'No dept'}{record.educationLevel ? ` • ${record.educationLevel}` : ''}</p>
                                 </td>
-                                <td className="px-3 py-3 text-text-sub-light dark:text-text-sub-dark">{formatDateTime(record.createdAt)}</td>
-                                <td className="px-3 py-3 text-text-sub-light dark:text-text-sub-dark">{formatDateTime(record.lastActiveAt)}</td>
-                                <td className="px-3 py-3 text-text-sub-light dark:text-text-sub-dark">{formatNumber(record.documentsProcessed)}</td>
-                                <td className="px-3 py-3 text-text-sub-light dark:text-text-sub-dark">
+                                <td className="p-3 text-text-sub-light dark:text-text-sub-dark">{formatDateTime(record.createdAt)}</td>
+                                <td className="p-3 text-text-sub-light dark:text-text-sub-dark">{formatDateTime(record.lastActiveAt)}</td>
+                                <td className="p-3 text-text-sub-light dark:text-text-sub-dark">{formatNumber(record.documentsProcessed)}</td>
+                                <td className="p-3 text-text-sub-light dark:text-text-sub-dark">
                                     <div>{formatNumber(record.llmTokensTotal)}<span className="ml-2 text-xs text-text-faint-light dark:text-text-faint-dark">Tracked • 7d {formatNumber(record.llmTokensLastWindow)}</span></div>
                                     <div className="mt-1 text-xs text-text-faint-light dark:text-text-faint-dark">Hist. est. {formatNumber(record.estimatedHistoricalTokensTotal)} • 7d {formatNumber(record.estimatedHistoricalTokensLastWindow)}</div>
                                 </td>
-                                <td className="px-3 py-3 text-text-sub-light dark:text-text-sub-dark">{formatNumber(record.feedbackCount)}</td>
+                                <td className="p-3 text-text-sub-light dark:text-text-sub-dark">{formatNumber(record.feedbackCount)}</td>
                             </tr>
                         ))}
                     </tbody>
@@ -1370,33 +1478,33 @@ const FeedbackPanel = ({
                                 </div>
 
                                 <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
-                                    <div className="rounded-xl bg-surface-hover-light dark:bg-surface-hover-dark px-3 py-3">
+                                    <div className="rounded-xl bg-surface-hover-light dark:bg-surface-hover-dark p-3">
                                         <p className="text-[11px] font-semibold uppercase tracking-wide text-text-faint-light dark:text-text-faint-dark">Sent</p>
                                         <p className="mt-1 text-xl font-black text-text-main-light dark:text-text-main-dark">{formatNumber(sentCount)}</p>
                                     </div>
-                                    <div className="rounded-xl bg-surface-hover-light dark:bg-surface-hover-dark px-3 py-3">
+                                    <div className="rounded-xl bg-surface-hover-light dark:bg-surface-hover-dark p-3">
                                         <p className="text-[11px] font-semibold uppercase tracking-wide text-text-faint-light dark:text-text-faint-dark">Returned</p>
                                         <p className="mt-1 text-xl font-black text-text-main-light dark:text-text-main-dark">{formatNumber(returnedCount)}</p>
                                         <p className="mt-1 text-xs text-text-faint-light dark:text-text-faint-dark">{formatRatioPercent(rates?.returned)}</p>
                                     </div>
-                                    <div className="rounded-xl bg-surface-hover-light dark:bg-surface-hover-dark px-3 py-3">
+                                    <div className="rounded-xl bg-surface-hover-light dark:bg-surface-hover-dark p-3">
                                         <p className="text-[11px] font-semibold uppercase tracking-wide text-text-faint-light dark:text-text-faint-dark">Uploaded</p>
                                         <p className="mt-1 text-xl font-black text-text-main-light dark:text-text-main-dark">{formatNumber(uploadedCount)}</p>
                                         <p className="mt-1 text-xs text-text-faint-light dark:text-text-faint-dark">{formatRatioPercent(rates?.uploaded)}</p>
                                     </div>
-                                    <div className="rounded-xl bg-surface-hover-light dark:bg-surface-hover-dark px-3 py-3">
+                                    <div className="rounded-xl bg-surface-hover-light dark:bg-surface-hover-dark p-3">
                                         <p className="text-[11px] font-semibold uppercase tracking-wide text-text-faint-light dark:text-text-faint-dark">Activated</p>
                                         <p className="mt-1 text-xl font-black text-text-main-light dark:text-text-main-dark">{formatNumber(activatedCount)}</p>
                                         <p className="mt-1 text-xs text-text-faint-light dark:text-text-faint-dark">{formatRatioPercent(rates?.activated)}</p>
                                     </div>
-                                    <div className="rounded-xl bg-surface-hover-light dark:bg-surface-hover-dark px-3 py-3">
+                                    <div className="rounded-xl bg-surface-hover-light dark:bg-surface-hover-dark p-3">
                                         <p className="text-[11px] font-semibold uppercase tracking-wide text-text-faint-light dark:text-text-faint-dark">Paid</p>
                                         <p className="mt-1 text-xl font-black text-text-main-light dark:text-text-main-dark">{formatNumber(paidCount)}</p>
                                         <p className="mt-1 text-xs text-text-faint-light dark:text-text-faint-dark">{formatRatioPercent(rates?.paid)}</p>
                                     </div>
                                 </div>
 
-                                <div className="mt-4 rounded-xl border border-indigo-100 bg-indigo-50/70 px-3 py-3 dark:border-indigo-900/40 dark:bg-indigo-950/20">
+                                <div className="mt-4 rounded-xl border border-primary-100 bg-primary-50/70 p-3 dark:border-primary-900/40 dark:bg-primary-950/20">
                                     <StatRow
                                         label="Attributed CTA landings"
                                         value={formatNumber(attributedLandingCount)}
@@ -1476,7 +1584,7 @@ const FeedbackPanel = ({
                                     </div>
                                     <div className="flex flex-wrap items-center gap-2 text-xs">
                                         {campaign ? (
-                                            <span className="rounded-full bg-indigo-50 px-2.5 py-1 font-semibold text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-200">
+                                            <span className="rounded-full bg-primary-50 px-2.5 py-1 font-semibold text-primary-700 dark:bg-primary-900/30 dark:text-primary-200">
                                                 Campaign: {campaign}
                                             </span>
                                         ) : null}
@@ -1576,7 +1684,7 @@ const SettingsPanel = ({
                 <div className="grow">
                     <p className="mt-1 text-xs text-text-faint-light dark:text-text-faint-dark">
                         Current: {paymentProviderConfig?.selectedLabel || paymentProviderConfig?.selected || 'Unknown'}
-                        {paymentProviderConfig?.updatedAt ? ` • Updated ${new Date(paymentProviderConfig.updatedAt).toLocaleString()}` : null}
+                        {paymentProviderConfig?.updatedAt ? ` • Updated ${formatDateTime(paymentProviderConfig.updatedAt)}` : null}
                     </p>
                     {!paymentProviderConfig ? (
                         <p className="mt-2 text-xs text-amber-700 dark:text-amber-300">
@@ -1649,6 +1757,43 @@ const SettingsPanel = ({
 
 // ── Main Component ──
 
+const initialAdminDashboardState = {
+    newAdminEmail: '',
+    adminActionLoading: false,
+    adminActionError: '',
+    billingActionError: '',
+    billingActionMessage: '',
+    reconcilingReferences: {},
+    paymentProviderDraft: 'paystack',
+    retrievalTopicId: '',
+    retrievalDiagnostics: null,
+    retrievalDiagnosticsLoading: false,
+    retrievalDiagnosticsError: '',
+    activeTab: 'overview',
+};
+
+const adminDashboardReducer = (state, action) => {
+    switch (action.type) {
+        case 'patch':
+            return { ...state, ...action.updates };
+        case 'reconcileStarted':
+            return {
+                ...state,
+                reconcilingReferences: {
+                    ...state.reconcilingReferences,
+                    [action.reference]: true,
+                },
+            };
+        case 'reconcileFinished': {
+            const reconcilingReferences = { ...state.reconcilingReferences };
+            delete reconcilingReferences[action.reference];
+            return { ...state, reconcilingReferences };
+        }
+        default:
+            return state;
+    }
+};
+
 const AdminDashboard = () => {
     const { user } = useAuth();
     const snapshot = useQuery(api.admin.getDashboardSnapshot, {});
@@ -1657,30 +1802,37 @@ const AdminDashboard = () => {
     const addAdminEmail = useMutation(api.admin.addAdminEmail);
     const removeAdminEmail = useMutation(api.admin.removeAdminEmail);
     const setPaymentProvider = useMutation(api.admin.setPaymentProvider);
-    const [newAdminEmail, setNewAdminEmail] = React.useState('');
-    const [adminActionLoading, setAdminActionLoading] = React.useState(false);
-    const [adminActionError, setAdminActionError] = React.useState('');
-    const [billingActionError, setBillingActionError] = React.useState('');
-    const [billingActionMessage, setBillingActionMessage] = React.useState('');
-    const [reconcilingReferences, setReconcilingReferences] = React.useState({});
-    const [paymentProviderDraft, setPaymentProviderDraft] = React.useState('paystack');
-    const [retrievalTopicId, setRetrievalTopicId] = React.useState('');
-    const [retrievalDiagnostics, setRetrievalDiagnostics] = React.useState(null);
-    const [retrievalDiagnosticsLoading, setRetrievalDiagnosticsLoading] = React.useState(false);
-    const [retrievalDiagnosticsError, setRetrievalDiagnosticsError] = React.useState('');
-    const [activeTab, setActiveTab] = React.useState('overview');
+    const [adminState, dispatchAdmin] = React.useReducer(adminDashboardReducer, initialAdminDashboardState);
+    const {
+        newAdminEmail,
+        adminActionLoading,
+        adminActionError,
+        billingActionError,
+        billingActionMessage,
+        reconcilingReferences,
+        paymentProviderDraft,
+        retrievalTopicId,
+        retrievalDiagnostics,
+        retrievalDiagnosticsLoading,
+        retrievalDiagnosticsError,
+        activeTab,
+    } = adminState;
+    const updateAdmin = (updates) => dispatchAdmin({ type: 'patch', updates });
 
     React.useEffect(() => {
         const selectedProvider = String(snapshot?.paymentProviderConfig?.selected || '').trim() || 'paystack';
-        setPaymentProviderDraft(selectedProvider);
+        dispatchAdmin({
+            type: 'patch',
+            updates: { paymentProviderDraft: selectedProvider },
+        });
     }, [snapshot?.paymentProviderConfig?.selected]);
 
     if (snapshot === undefined) {
         return (
             <div className="bg-background-light dark:bg-background-dark min-h-screen flex items-center justify-center">
                 <div className="flex flex-col items-center gap-4">
-                    <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary"></div>
-                    <p className="text-text-faint-light dark:text-text-faint-dark text-sm font-medium">Loading admin dashboard...</p>
+                    <div className="animate-spin rounded-full size-12 border-t-2 border-b-2 border-primary"></div>
+                    <p className="text-text-faint-light dark:text-text-faint-dark text-sm font-medium">Loading admin dashboard…</p>
                 </div>
             </div>
         );
@@ -1716,150 +1868,152 @@ const AdminDashboard = () => {
     const handleAddAdminEmail = async (event) => {
         event.preventDefault();
         if (!newAdminEmail.trim()) return;
-        setAdminActionError('');
-        setAdminActionLoading(true);
+        updateAdmin({
+            adminActionError: '',
+            adminActionLoading: true,
+        });
         try {
             await addAdminEmail({ email: newAdminEmail.trim() });
-            setNewAdminEmail('');
+            updateAdmin({ newAdminEmail: '' });
         } catch (error) {
-            setAdminActionError(String(error?.message || error || 'Failed to add admin email.'));
+            updateAdmin({ adminActionError: String(error?.message || error || 'Failed to add admin email.') });
         } finally {
-            setAdminActionLoading(false);
+            updateAdmin({ adminActionLoading: false });
         }
     };
 
     const handleRemoveAdminEmail = async (email) => {
-        setAdminActionError('');
-        setAdminActionLoading(true);
+        updateAdmin({
+            adminActionError: '',
+            adminActionLoading: true,
+        });
         try {
             await removeAdminEmail({ email });
         } catch (error) {
-            setAdminActionError(String(error?.message || error || 'Failed to remove admin email.'));
+            updateAdmin({ adminActionError: String(error?.message || error || 'Failed to remove admin email.') });
         } finally {
-            setAdminActionLoading(false);
+            updateAdmin({ adminActionLoading: false });
         }
     };
 
     const handleSavePaymentProvider = async (event) => {
         event.preventDefault();
         if (!paymentProviderDraft.trim()) return;
-        setAdminActionError('');
-        setAdminActionLoading(true);
+        updateAdmin({
+            adminActionError: '',
+            adminActionLoading: true,
+        });
         try {
             await setPaymentProvider({ provider: paymentProviderDraft });
         } catch (error) {
-            setAdminActionError(String(error?.message || error || 'Failed to update payment provider.'));
+            updateAdmin({ adminActionError: String(error?.message || error || 'Failed to update payment provider.') });
         } finally {
-            setAdminActionLoading(false);
+            updateAdmin({ adminActionLoading: false });
         }
     };
 
     const handleReconcilePayment = async (reference) => {
         const normalizedReference = String(reference || '').trim();
         if (!normalizedReference) return;
-        setBillingActionError('');
-        setBillingActionMessage('');
-        setReconcilingReferences((current) => ({
-            ...current,
-            [normalizedReference]: true,
-        }));
+        updateAdmin({
+            billingActionError: '',
+            billingActionMessage: '',
+        });
+        dispatchAdmin({ type: 'reconcileStarted', reference: normalizedReference });
         try {
             const result = await reconcilePaymentReference({ reference: normalizedReference });
             const baseMessage = `Reconciliation finished: ${formatTokenLabel(result?.result)}.`;
             const creditsMessage = Number(result?.grantedCredits) > 0
                 ? ` ${formatNumber(result.grantedCredits)} credit${Number(result.grantedCredits) === 1 ? '' : 's'} granted.`
                 : '';
-            setBillingActionMessage(`${baseMessage}${creditsMessage}`);
+            updateAdmin({ billingActionMessage: `${baseMessage}${creditsMessage}` });
         } catch (error) {
-            setBillingActionError(String(error?.message || error || 'Failed to reconcile payment reference.'));
+            updateAdmin({ billingActionError: String(error?.message || error || 'Failed to reconcile payment reference.') });
         } finally {
-            setReconcilingReferences((current) => {
-                const next = { ...current };
-                delete next[normalizedReference];
-                return next;
-            });
+            dispatchAdmin({ type: 'reconcileFinished', reference: normalizedReference });
         }
     };
 
     const handleDiagnoseRetrieval = async (event) => {
         event.preventDefault();
         if (!retrievalTopicId.trim()) return;
-        setRetrievalDiagnosticsError('');
-        setRetrievalDiagnosticsLoading(true);
+        updateAdmin({
+            retrievalDiagnosticsError: '',
+            retrievalDiagnosticsLoading: true,
+        });
         try {
             const diagnostics = await diagnoseRetrievalForTopic({ topicId: retrievalTopicId.trim() });
-            setRetrievalDiagnostics(diagnostics);
+            updateAdmin({ retrievalDiagnostics: diagnostics });
         } catch (error) {
-            setRetrievalDiagnostics(null);
-            setRetrievalDiagnosticsError(String(error?.message || error || 'Failed to inspect topic retrieval.'));
+            updateAdmin({
+                retrievalDiagnostics: null,
+                retrievalDiagnosticsError: String(error?.message || error || 'Failed to inspect topic retrieval.'),
+            });
         } finally {
-            setRetrievalDiagnosticsLoading(false);
+            updateAdmin({ retrievalDiagnosticsLoading: false });
         }
     };
 
-    const renderActivePanel = () => {
-        switch (activeTab) {
-            case 'overview':
-                return <OverviewPanel snapshot={snapshot} totals={totals} activeUsersDays={activeUsersDays} newUsersDays={newUsersDays} flags={flags} />;
-            case 'learning':
-                return <LearningPanel snapshot={snapshot} activeUsersDays={activeUsersDays} />;
-            case 'revenue':
-                return (
-                    <RevenuePanel
-                        snapshot={snapshot}
-                        activeUsersDays={activeUsersDays}
-                        handleReconcilePayment={handleReconcilePayment}
-                        billingActionError={billingActionError}
-                        billingActionMessage={billingActionMessage}
-                        reconcilingReferences={reconcilingReferences}
-                    />
-                );
-            case 'content':
-                return (
-                    <ContentPanel
-                        snapshot={snapshot}
-                        retrievalTopicId={retrievalTopicId}
-                        setRetrievalTopicId={setRetrievalTopicId}
-                        retrievalDiagnostics={retrievalDiagnostics}
-                        retrievalDiagnosticsError={retrievalDiagnosticsError}
-                        retrievalDiagnosticsLoading={retrievalDiagnosticsLoading}
-                        handleDiagnoseRetrieval={handleDiagnoseRetrieval}
-                    />
-                );
-            case 'users':
-                return <UsersPanel signedInUsers={signedInUsers} recentUsers={recentUsers} premiumUsers={premiumUsers} flags={flags} snapshot={snapshot} activeUsersDays={activeUsersDays} />;
-            case 'uploads':
-                return <UploadsPanel snapshot={snapshot} />;
-            case 'feedback':
-                return (
-                    <FeedbackPanel
-                        recentFeedback={recentFeedback}
-                        recentProductResearchResponses={recentProductResearchResponses}
-                        campaignPerformanceReports={campaignPerformanceReports}
-                        totals={totals}
-                        activeUsersDays={activeUsersDays}
-                    />
-                );
-            case 'settings':
-                return (
-                    <SettingsPanel
-                        adminEmails={adminEmails}
-                        handleAddAdminEmail={handleAddAdminEmail}
-                        handleRemoveAdminEmail={handleRemoveAdminEmail}
-                        newAdminEmail={newAdminEmail}
-                        setNewAdminEmail={setNewAdminEmail}
-                        adminActionLoading={adminActionLoading}
-                        adminActionError={adminActionError}
-                        paymentProviderConfig={paymentProviderConfig}
-                        paymentProviderDraft={paymentProviderDraft}
-                        setPaymentProviderDraft={setPaymentProviderDraft}
-                        handleSavePaymentProvider={handleSavePaymentProvider}
-                    />
-                );
-            default:
-                return null;
-        }
-    };
+    const activePanel = activeTab === 'overview'
+        ? <OverviewPanel snapshot={snapshot} totals={totals} activeUsersDays={activeUsersDays} newUsersDays={newUsersDays} flags={flags} />
+        : activeTab === 'learning'
+            ? <LearningPanel snapshot={snapshot} activeUsersDays={activeUsersDays} />
+            : activeTab === 'features'
+                ? <FeatureUsagePanel snapshot={snapshot} activeUsersDays={activeUsersDays} />
+                : activeTab === 'revenue'
+                    ? (
+                        <RevenuePanel
+                            snapshot={snapshot}
+                            activeUsersDays={activeUsersDays}
+                            handleReconcilePayment={handleReconcilePayment}
+                            billingActionError={billingActionError}
+                            billingActionMessage={billingActionMessage}
+                            reconcilingReferences={reconcilingReferences}
+                        />
+                    )
+                    : activeTab === 'content'
+                        ? (
+                            <ContentPanel
+                                snapshot={snapshot}
+                                retrievalTopicId={retrievalTopicId}
+                                setRetrievalTopicId={(value) => updateAdmin({ retrievalTopicId: value })}
+                                retrievalDiagnostics={retrievalDiagnostics}
+                                retrievalDiagnosticsError={retrievalDiagnosticsError}
+                                retrievalDiagnosticsLoading={retrievalDiagnosticsLoading}
+                                handleDiagnoseRetrieval={handleDiagnoseRetrieval}
+                            />
+                        )
+                        : activeTab === 'users'
+                            ? <UsersPanel signedInUsers={signedInUsers} recentUsers={recentUsers} premiumUsers={premiumUsers} flags={flags} snapshot={snapshot} activeUsersDays={activeUsersDays} />
+                            : activeTab === 'uploads'
+                                ? <UploadsPanel snapshot={snapshot} />
+                                : activeTab === 'feedback'
+                                    ? (
+                                        <FeedbackPanel
+                                            recentFeedback={recentFeedback}
+                                            recentProductResearchResponses={recentProductResearchResponses}
+                                            campaignPerformanceReports={campaignPerformanceReports}
+                                            totals={totals}
+                                            activeUsersDays={activeUsersDays}
+                                        />
+                                    )
+                                    : activeTab === 'settings'
+                                        ? (
+                                            <SettingsPanel
+                                                adminEmails={adminEmails}
+                                                handleAddAdminEmail={handleAddAdminEmail}
+                                                handleRemoveAdminEmail={handleRemoveAdminEmail}
+                                                newAdminEmail={newAdminEmail}
+                                                setNewAdminEmail={(value) => updateAdmin({ newAdminEmail: value })}
+                                                adminActionLoading={adminActionLoading}
+                                                adminActionError={adminActionError}
+                                                paymentProviderConfig={paymentProviderConfig}
+                                                paymentProviderDraft={paymentProviderDraft}
+                                                setPaymentProviderDraft={(value) => updateAdmin({ paymentProviderDraft: value })}
+                                                handleSavePaymentProvider={handleSavePaymentProvider}
+                                            />
+                                        )
+                                        : null;
 
     return (
         <div className="min-h-screen bg-background-light dark:bg-background-dark px-4 py-6 sm:px-6 lg:px-8">
@@ -1868,7 +2022,7 @@ const AdminDashboard = () => {
                     <div className="flex flex-wrap items-center justify-between gap-3">
                         <div>
                             <p className="text-xs font-semibold uppercase tracking-wider text-primary">Admin</p>
-                            <h1 className="mt-1 text-2xl font-black text-text-main-light dark:text-text-main-dark">
+                            <h1 className="mt-1 text-2xl font-semibold text-text-main-light dark:text-text-main-dark">
                                 Stitch Operations Dashboard
                             </h1>
                             <p className="mt-2 text-sm text-text-faint-light dark:text-text-faint-dark">
@@ -1885,9 +2039,9 @@ const AdminDashboard = () => {
                     </div>
                 </div>
 
-                <TabBar activeTab={activeTab} onTabChange={setActiveTab} />
+                <TabBar activeTab={activeTab} onTabChange={(value) => updateAdmin({ activeTab: value })} />
 
-                {renderActivePanel()}
+                {activePanel}
             </div>
         </div>
     );

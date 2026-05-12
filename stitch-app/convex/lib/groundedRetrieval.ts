@@ -2,6 +2,9 @@ import { internal } from "../_generated/api";
 import { embedText, isVoyageEmbeddingsConfigured } from "./voyageEmbeddings";
 import type { EvidencePassage, GroundedEvidenceIndex } from "./groundedEvidenceIndex";
 
+const GROUNDED_VECTOR_RETRIEVAL_ENABLED =
+    String(process.env.GROUNDED_VECTOR_RETRIEVAL_ENABLED || "").trim().toLowerCase() === "true";
+
 export type RetrievedEvidence = EvidencePassage & {
     score: number;
     lexicalScore?: number;
@@ -238,7 +241,12 @@ const fetchVectorCandidates = async (args: {
     query: string;
     uploadId?: any;
 }) => {
-    if (!args.ctx || !args.uploadId || !isVoyageEmbeddingsConfigured()) {
+    if (
+        !GROUNDED_VECTOR_RETRIEVAL_ENABLED
+        || !args.ctx
+        || !args.uploadId
+        || !isVoyageEmbeddingsConfigured()
+    ) {
         return [];
     }
 
@@ -281,6 +289,11 @@ const fetchVectorCandidates = async (args: {
             flags: Array.isArray(passage?.flags)
                 ? passage.flags.map((flag: any) => String(flag || "").trim()).filter(Boolean)
                 : [],
+            blockType: String(passage?.blockType || "").trim() || undefined,
+            headingPath: Array.isArray(passage?.headingPath)
+                ? passage.headingPath.map((entry: any) => String(entry || "").trim()).filter(Boolean)
+                : [],
+            sourceBackend: String(passage?.sourceBackend || "").trim() || undefined,
             score: scoreById.get(String(passage?._id || "")) || 0,
         }));
     } catch (error) {

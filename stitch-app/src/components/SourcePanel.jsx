@@ -16,13 +16,15 @@ const SourcePanel = ({ open, onClose, passages }) => {
     return (
         <>
             {/* Backdrop */}
-            <div
-                className={`fixed inset-0 z-[55] bg-black/30 md:bg-transparent md:pointer-events-none lg:hidden transition-opacity duration-200 ${isClosing ? 'opacity-0' : 'opacity-100'}`}
+            <button
+                type="button"
+                aria-label="Close sources panel"
+                className={`fixed inset-0 z-[55] border-0 bg-black/30 p-0 md:bg-transparent md:pointer-events-none lg:hidden transition-opacity duration-200 ${isClosing ? 'opacity-0' : 'opacity-100'}`}
                 onClick={handleClose}
             />
 
             {/* Panel */}
-            <div className={`fixed inset-0 z-[60] md:inset-x-auto md:right-0 md:top-0 md:bottom-0 md:w-[420px] lg:relative lg:z-auto lg:w-80
+            <div className={`fixed inset-0 z-[60] md:inset-x-auto md:right-0 md:top-0 md:bottom-0 md:w-[420px]
                 bg-surface-light dark:bg-surface-dark border-l border-border-light dark:border-border-dark
                 flex flex-col overflow-hidden
                 ${isClosing ? 'animate-panel-slide-right md:animate-panel-slide-right' : 'animate-panel-slide-up md:animate-panel-slide-left'}
@@ -33,7 +35,7 @@ const SourcePanel = ({ open, onClose, passages }) => {
                         <span className="material-symbols-outlined text-[18px] text-primary">link</span>
                         <h3 className="text-body-sm font-semibold text-text-main-light dark:text-text-main-dark">Sources</h3>
                     </div>
-                    <button onClick={handleClose} className="btn-icon w-8 h-8">
+                    <button onClick={handleClose} className="btn-icon size-8">
                         <span className="material-symbols-outlined text-[18px]">close</span>
                     </button>
                 </div>

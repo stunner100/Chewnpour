@@ -1,0 +1,38 @@
+alerts:
+  - rule: DEPLOYMENT_FAILED
+  - rule: DOMAIN_FAILED
+ingress:
+  rules:
+    - component:
+        name: docling-service
+      match:
+        path:
+          prefix: /
+name: chewnpour-docling
+region: nyc
+services:
+  - name: docling-service
+    git:
+      repo_clone_url: https://github.com/stunner100/Chewnpour.git
+      branch: codex/topic-podcast-generation
+    dockerfile_path: docling-service/Dockerfile
+    source_dir: docling-service
+    http_port: 10000
+    instance_count: 1
+    instance_size_slug: apps-s-1vcpu-2gb
+    inactivity_sleep:
+      after_seconds: 600
+    health_check:
+      http_path: /health
+      initial_delay_seconds: 120
+      period_seconds: 30
+      timeout_seconds: 10
+      success_threshold: 1
+      failure_threshold: 5
+    liveness_health_check:
+      http_path: /health
+      initial_delay_seconds: 180
+      period_seconds: 60
+      timeout_seconds: 10
+      success_threshold: 1
+      failure_threshold: 3

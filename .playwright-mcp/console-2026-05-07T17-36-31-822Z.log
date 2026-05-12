@@ -1,0 +1,30 @@
+[  149185ms] [WARNING] <meta name="apple-mobile-web-app-capable" content="yes"> is deprecated. Please include <meta name="mobile-web-app-capable" content="yes"> @ https://www.chewnpour.com/onboarding/name:0
+[  149674ms] [VERBOSE] [DOM] Input elements should have autocomplete attributes (suggested: "current-password"): (More info: https://goo.gl/9p2vKq) %o @ https://www.chewnpour.com/onboarding/name:0
+[  252904ms] [LOG] %c[CONVEX A(ai:processUploadedFile)] [INFO] color:rgb(0, 145, 255) '[Extraction] v2_completed' {
+  uploadId: 'kd7d9rxr1ytscjqcp5bmy8ky65869h4e',
+  chars: 537,
+  backend: 'docling',
+  parser: 'docx_structured',
+  qualityScore: 1,
+  coverage: 1,
+  provisional: false,
+  strictPass: true,
+  warnings: []
+} @ https://www.chewnpour.com/assets/vendor-observability-CAC4cAu7.js:16
+[  535106ms] [LOG] %c[CONVEX A(ai:synthesizeTopicVoice)] [INFO] color:rgb(0, 145, 255) '[VoiceMode] synthesizeTopicVoice_success' {
+  topicId: 'k97e4601qcf24ykvfnefg09h55869cwg',
+  provider: 'deepgram',
+  model: 'aura-2-thalia-en',
+  sourceTextLength: 310,
+  synthesizedTextLength: 310,
+  tokenExpiresAt: 1778176047109
+} @ https://www.chewnpour.com/assets/vendor-observability-CAC4cAu7.js:16
+[  535555ms] [LOG] %c[CONVEX A(ai:synthesizeTopicVoice)] [INFO] color:rgb(0, 145, 255) '[VoiceMode] synthesizeTopicVoice_success' {
+  topicId: 'k97e4601qcf24ykvfnefg09h55869cwg',
+  provider: 'deepgram',
+  model: 'aura-2-thalia-en',
+  sourceTextLength: 834,
+  synthesizedTextLength: 834,
+  tokenExpiresAt: 1778176047770
+} @ https://www.chewnpour.com/assets/vendor-observability-CAC4cAu7.js:16
+[ 1116168ms] [LOG] WebSocket reconnected at t=968.2s @ https://www.chewnpour.com/assets/vendor-observability-CAC4cAu7.js:16

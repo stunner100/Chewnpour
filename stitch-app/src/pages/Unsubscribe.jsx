@@ -18,8 +18,11 @@ const normalizeType = (value) => String(value || '').trim().toLowerCase();
 const Unsubscribe = () => {
     const [searchParams] = useSearchParams();
     const unsubscribeByToken = useMutation(api.profiles.unsubscribeByToken);
-    const [status, setStatus] = useState('loading');
-    const [message, setMessage] = useState('');
+    const [unsubscribeState, setUnsubscribeState] = useState({
+        status: 'loading',
+        message: '',
+    });
+    const { status, message } = unsubscribeState;
 
     const token = String(searchParams.get('token') || '').trim();
     const emailType = normalizeType(searchParams.get('type') || 'all');
@@ -29,25 +32,29 @@ const Unsubscribe = () => {
         let disposed = false;
 
         const run = async () => {
+            let nextState;
             if (!token) {
-                if (!disposed) {
-                    setStatus('error');
-                    setMessage('This unsubscribe link is missing a token.');
+                nextState = {
+                    status: 'error',
+                    message: 'This unsubscribe link is missing a token.',
+                };
+            } else {
+                try {
+                    await unsubscribeByToken({ token, emailType });
+                    nextState = {
+                        status: 'success',
+                        message: `You have been unsubscribed from ${label}.`,
+                    };
+                } catch (error) {
+                    nextState = {
+                        status: 'error',
+                        message: String(error?.message || error || 'We could not process this unsubscribe link.'),
+                    };
                 }
-                return;
             }
 
-            try {
-                await unsubscribeByToken({ token, emailType });
-                if (!disposed) {
-                    setStatus('success');
-                    setMessage(`You have been unsubscribed from ${label}.`);
-                }
-            } catch (error) {
-                if (!disposed) {
-                    setStatus('error');
-                    setMessage(String(error?.message || error || 'We could not process this unsubscribe link.'));
-                }
+            if (!disposed) {
+                setUnsubscribeState(nextState);
             }
         };
 
@@ -69,12 +76,12 @@ const Unsubscribe = () => {
             <div className="max-w-xl mx-auto">
                 <div className="cp-card text-center">
                     <div
-                        className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl"
+                        className="mx-auto flex size-16 items-center justify-center rounded-2xl"
                         style={{ background: iconChip.bg, color: iconChip.fg }}
                     >
                         <span className="material-symbols-outlined text-[28px]">{iconChip.icon}</span>
                     </div>
-                    <h1 className="mt-5 text-2xl font-bold">
+                    <h1 className="mt-5 text-2xl font-semibold">
                         {status === 'success' ? 'Preferences updated' : status === 'error' ? 'Unsubscribe failed' : 'Updating preferences'}
                     </h1>
                     <p className="mt-2 text-sm text-white/60">

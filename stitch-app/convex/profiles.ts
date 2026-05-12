@@ -1,6 +1,7 @@
 import { v } from "convex/values";
-import { mutation, query } from "./_generated/server";
+import { internalMutation, internalQuery, mutation, query } from "./_generated/server";
 import { collectAuthUserIdCandidates } from "./lib/examSecurity";
+import { requireAuthenticatedUserId } from "./lib/authz";
 
 const normalizeUserId = (value: unknown): string | null => {
     if (typeof value !== "string") return null;
@@ -21,7 +22,7 @@ export const getProfile = query({
         const effectiveUserId =
             (explicitUserId && authenticatedUserIds.includes(explicitUserId))
             ? explicitUserId
-            : (authenticatedUserId ?? explicitUserId);
+            : authenticatedUserId;
 
         if (!effectiveUserId) return null;
 
@@ -48,10 +49,22 @@ export const getProfile = query({
     },
 });
 
+export const getProfileByUserIdInternal = internalQuery({
+    args: { userId: v.string() },
+    handler: async (ctx, args) => {
+        const userId = normalizeUserId(args.userId);
+        if (!userId) return null;
+
+        return await ctx.db
+            .query("profiles")
+            .withIndex("by_userId", (q) => q.eq("userId", userId))
+            .first();
+    },
+});
+
 // Create or update user profile
 export const upsertProfile = mutation({
     args: {
-        userId: v.string(),
         fullName: v.optional(v.string()),
         educationLevel: v.optional(v.string()),
         department: v.optional(v.string()),
@@ -61,9 +74,10 @@ export const upsertProfile = mutation({
         onboardingCompleted: v.optional(v.boolean()),
     },
     handler: async (ctx, args) => {
+        const userId = await requireAuthenticatedUserId(ctx);
         const existing = await ctx.db
             .query("profiles")
-            .withIndex("by_userId", (q) => q.eq("userId", args.userId))
+            .withIndex("by_userId", (q) => q.eq("userId", userId))
             .first();
 
         if (existing) {
@@ -82,7 +96,7 @@ export const upsertProfile = mutation({
             return existing._id;
         } else {
             return await ctx.db.insert("profiles", {
-                userId: args.userId,
+                userId,
                 fullName: args.fullName,
                 educationLevel: args.educationLevel,
                 department: args.department,
@@ -99,19 +113,19 @@ export const upsertProfile = mutation({
 
 // Get user stats aggregated from various tables
 export const getUserStats = query({
-    args: { userId: v.optional(v.string()) },
-    handler: async (ctx, args) => {
-        if (!args.userId) return null;
+    args: {},
+    handler: async (ctx) => {
+        const userId = await requireAuthenticatedUserId(ctx);
 
         // Count completed topics from exam attempts
         const examAttempts = await ctx.db
             .query("examAttempts")
-            .withIndex("by_userId", (q) => q.eq("userId", args.userId))
+            .withIndex("by_userId", (q) => q.eq("userId", userId))
             .collect();
 
         const conceptAttempts = await ctx.db
             .query("conceptAttempts")
-            .withIndex("by_userId", (q) => q.eq("userId", args.userId))
+            .withIndex("by_userId", (q) => q.eq("userId", userId))
             .collect();
 
         // Get unique topics attempted
@@ -159,13 +173,13 @@ export const getUserStats = query({
         // Count courses
         const courses = await ctx.db
             .query("courses")
-            .withIndex("by_userId", (q) => q.eq("userId", args.userId))
+            .withIndex("by_userId", (q) => q.eq("userId", userId))
             .collect();
 
         // Get profile for study time
         const profile = await ctx.db
             .query("profiles")
-            .withIndex("by_userId", (q) => q.eq("userId", args.userId))
+            .withIndex("by_userId", (q) => q.eq("userId", userId))
             .first();
 
         return {
@@ -180,11 +194,12 @@ export const getUserStats = query({
 
 // Update streak days
 export const updateStreak = mutation({
-    args: { userId: v.string() },
-    handler: async (ctx, args) => {
+    args: {},
+    handler: async (ctx) => {
+        const userId = await requireAuthenticatedUserId(ctx);
         const profile = await ctx.db
             .query("profiles")
-            .withIndex("by_userId", (q) => q.eq("userId", args.userId))
+            .withIndex("by_userId", (q) => q.eq("userId", userId))
             .first();
 
         if (profile) {
@@ -198,13 +213,13 @@ export const updateStreak = mutation({
 // Add study time
 export const addStudyTime = mutation({
     args: {
-        userId: v.string(),
         minutes: v.number(),
     },
     handler: async (ctx, args) => {
+        const userId = await requireAuthenticatedUserId(ctx);
         const profile = await ctx.db
             .query("profiles")
-            .withIndex("by_userId", (q) => q.eq("userId", args.userId))
+            .withIndex("by_userId", (q) => q.eq("userId", userId))
             .first();
 
         if (profile) {
@@ -217,20 +232,9 @@ export const addStudyTime = mutation({
 });
 
 export const touchPresence = mutation({
-    args: { userId: v.string() },
-    handler: async (ctx, args) => {
-        const identity = await ctx.auth.getUserIdentity().catch(() => null);
-        const requestedUserId = normalizeUserId(args.userId);
-        const authenticatedUserIds = collectAuthUserIdCandidates(identity);
-        const authenticatedUserId = authenticatedUserIds[0] ?? null;
-
-        if (
-            !authenticatedUserId
-            || !requestedUserId
-            || !authenticatedUserIds.includes(requestedUserId)
-        ) {
-            throw new Error("Unauthorized presence heartbeat.");
-        }
+    args: {},
+    handler: async (ctx) => {
+        const authenticatedUserId = await requireAuthenticatedUserId(ctx);
 
         const now = Date.now();
         const existing = await ctx.db
@@ -258,7 +262,6 @@ export const touchPresence = mutation({
 // Update email notification preferences
 export const updateEmailPreferences = mutation({
     args: {
-        userId: v.string(),
         streakReminders: v.optional(v.boolean()),
         streakBroken: v.optional(v.boolean()),
         weeklySummary: v.optional(v.boolean()),
@@ -266,22 +269,11 @@ export const updateEmailPreferences = mutation({
         winbackOffers: v.optional(v.boolean()),
     },
     handler: async (ctx, args) => {
-        const identity = await ctx.auth.getUserIdentity().catch(() => null);
-        const requestedUserId = normalizeUserId(args.userId);
-        const authenticatedUserIds = collectAuthUserIdCandidates(identity);
-        const authenticatedUserId = authenticatedUserIds[0] ?? null;
-
-        if (
-            !authenticatedUserId
-            || !requestedUserId
-            || !authenticatedUserIds.includes(requestedUserId)
-        ) {
-            throw new Error("Unauthorized.");
-        }
+        const authenticatedUserId = await requireAuthenticatedUserId(ctx);
 
         const profile = await ctx.db
             .query("profiles")
-            .withIndex("by_userId", (q) => q.eq("userId", requestedUserId))
+            .withIndex("by_userId", (q) => q.eq("userId", authenticatedUserId))
             .first();
 
         if (!profile) {
@@ -387,11 +379,12 @@ const generateRandomCode = (): string => {
 
 // Ensure the current user has a referral code; returns the code.
 export const ensureReferralCode = mutation({
-    args: { userId: v.string() },
-    handler: async (ctx, args) => {
+    args: {},
+    handler: async (ctx) => {
+        const userId = await requireAuthenticatedUserId(ctx);
         const profile = await ctx.db
             .query("profiles")
-            .withIndex("by_userId", (q) => q.eq("userId", args.userId))
+            .withIndex("by_userId", (q) => q.eq("userId", userId))
             .first();
 
         if (!profile) return null;
@@ -417,8 +410,9 @@ export const ensureReferralCode = mutation({
 
 // Store the referral code on the new user's profile (called during signup)
 export const setReferredBy = mutation({
-    args: { userId: v.string(), referralCode: v.string() },
+    args: { referralCode: v.string() },
     handler: async (ctx, args) => {
+        const userId = await requireAuthenticatedUserId(ctx);
         const code = args.referralCode.trim().toUpperCase();
         if (!code || code.length !== REFERRAL_CODE_LENGTH) return { ok: false };
 
@@ -427,11 +421,11 @@ export const setReferredBy = mutation({
             .query("profiles")
             .withIndex("by_referralCode", (q) => q.eq("referralCode", code))
             .first();
-        if (!referrer || referrer.userId === args.userId) return { ok: false };
+        if (!referrer || referrer.userId === userId) return { ok: false };
 
         const profile = await ctx.db
             .query("profiles")
-            .withIndex("by_userId", (q) => q.eq("userId", args.userId))
+            .withIndex("by_userId", (q) => q.eq("userId", userId))
             .first();
         if (!profile) return { ok: false };
         // Don't overwrite if already set
@@ -444,13 +438,13 @@ export const setReferredBy = mutation({
 
 // Get referral stats for a user
 export const getReferralStats = query({
-    args: { userId: v.optional(v.string()) },
-    handler: async (ctx, args) => {
-        if (!args.userId) return null;
+    args: {},
+    handler: async (ctx) => {
+        const userId = await requireAuthenticatedUserId(ctx);
 
         const profile = await ctx.db
             .query("profiles")
-            .withIndex("by_userId", (q) => q.eq("userId", args.userId))
+            .withIndex("by_userId", (q) => q.eq("userId", userId))
             .first();
 
         if (!profile) return null;
@@ -477,11 +471,12 @@ export const getReferralStats = query({
 // Apply referral credit after a referred user's first upload.
 // Grants +1 credit to both the referrer and the referee.
 export const applyReferralCredit = mutation({
-    args: { userId: v.string() },
-    handler: async (ctx, args) => {
+    args: {},
+    handler: async (ctx) => {
+        const userId = await requireAuthenticatedUserId(ctx);
         const profile = await ctx.db
             .query("profiles")
-            .withIndex("by_userId", (q) => q.eq("userId", args.userId))
+            .withIndex("by_userId", (q) => q.eq("userId", userId))
             .first();
 
         if (!profile) return { applied: false };
@@ -499,7 +494,7 @@ export const applyReferralCredit = mutation({
         // Grant +1 credit to referee (current user)
         const refereeSub = await ctx.db
             .query("subscriptions")
-            .withIndex("by_userId", (q) => q.eq("userId", args.userId))
+            .withIndex("by_userId", (q) => q.eq("userId", userId))
             .first();
 
         if (refereeSub) {
@@ -508,7 +503,7 @@ export const applyReferralCredit = mutation({
             });
         } else {
             await ctx.db.insert("subscriptions", {
-                userId: args.userId,
+                userId,
                 plan: "free",
                 status: "active",
                 amount: 0,
@@ -548,7 +543,7 @@ export const applyReferralCredit = mutation({
 });
 
 // One-time migration: mark all existing profiles as onboarded
-export const markAllOnboarded = mutation({
+export const markAllOnboardedInternal = internalMutation({
     args: {},
     handler: async (ctx) => {
         const profiles = await ctx.db.query("profiles").collect();

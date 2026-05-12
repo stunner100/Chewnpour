@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useReducer, useRef, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { useQuery, useAction, useConvexAuth } from 'convex/react';
 import { api } from '../../convex/_generated/api';
@@ -8,6 +8,8 @@ import {
     normalizeQuestionType,
 } from '../lib/objectiveExam';
 import NextStepsGuidance from '../components/NextStepsGuidance';
+import { WatermelonWidget, WatermelonWidgetsGrid } from '../components/watermelon/WatermelonWidgets';
+import { Confetti } from '../components/magicui/Confetti';
 
 // ─── Post-exam upgrade prompt ────────────────────────────────────────────────
 
@@ -105,7 +107,7 @@ const PostQuizSharePrompt = ({ percentage, topicTitle, profile }) => {
                             onClick={handleShareWhatsApp}
                             className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-[#25D366] text-white text-body-sm font-semibold hover:brightness-110 transition-all"
                         >
-                            <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z"/><path d="M12 0C5.373 0 0 5.373 0 12c0 2.625.846 5.059 2.284 7.034L.789 23.492a.5.5 0 00.611.611l4.458-1.495A11.952 11.952 0 0012 24c6.627 0 12-5.373 12-12S18.627 0 12 0zm0 22c-2.291 0-4.42-.658-6.237-1.794l-.435-.27-2.642.886.886-2.642-.27-.435A9.956 9.956 0 012 12C2 6.486 6.486 2 12 2s10 4.486 10 10-4.486 10-10 10z"/></svg>
+                            <svg className="size-4" viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z"/><path d="M12 0C5.373 0 0 5.373 0 12c0 2.625.846 5.059 2.284 7.034L.789 23.492a.5.5 0 00.611.611l4.458-1.495A11.952 11.952 0 0012 24c6.627 0 12-5.373 12-12S18.627 0 12 0zm0 22c-2.291 0-4.42-.658-6.237-1.794l-.435-.27-2.642.886.886-2.642-.27-.435A9.956 9.956 0 012 12C2 6.486 6.486 2 12 2s10 4.486 10 10-4.486 10-10 10z"/></svg>
                             Share on WhatsApp
                         </button>
                         <button
@@ -113,7 +115,7 @@ const PostQuizSharePrompt = ({ percentage, topicTitle, profile }) => {
                             onClick={handleShareTelegram}
                             className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-[#0088cc] text-white text-body-sm font-semibold hover:brightness-110 transition-all"
                         >
-                            <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor"><path d="M11.944 0A12 12 0 000 12a12 12 0 0012 12 12 12 0 0012-12A12 12 0 0012 0zm4.962 7.224c.1-.002.321.023.465.14a.506.506 0 01.171.325c.016.093.036.306.02.472-.18 1.898-.962 6.502-1.36 8.627-.168.9-.499 1.201-.82 1.23-.696.065-1.225-.46-1.9-.902-1.056-.693-1.653-1.124-2.678-1.8-1.185-.78-.417-1.21.258-1.91.177-.184 3.247-2.977 3.307-3.23.007-.032.014-.15-.056-.212s-.174-.041-.249-.024c-.106.024-1.793 1.14-5.061 3.345-.479.33-.913.49-1.302.48-.428-.008-1.252-.241-1.865-.44-.752-.245-1.349-.374-1.297-.789.027-.216.325-.437.893-.663 3.498-1.524 5.83-2.529 6.998-3.014 3.332-1.386 4.025-1.627 4.476-1.635z"/></svg>
+                            <svg className="size-4" viewBox="0 0 24 24" fill="currentColor"><path d="M11.944 0A12 12 0 000 12a12 12 0 0012 12 12 12 0 0012-12A12 12 0 0012 0zm4.962 7.224c.1-.002.321.023.465.14a.506.506 0 01.171.325c.016.093.036.306.02.472-.18 1.898-.962 6.502-1.36 8.627-.168.9-.499 1.201-.82 1.23-.696.065-1.225-.46-1.9-.902-1.056-.693-1.653-1.124-2.678-1.8-1.185-.78-.417-1.21.258-1.91.177-.184 3.247-2.977 3.307-3.23.007-.032.014-.15-.056-.212s-.174-.041-.249-.024c-.106.024-1.793 1.14-5.061 3.345-.479.33-.913.49-1.302.48-.428-.008-1.252-.241-1.865-.44-.752-.245-1.349-.374-1.297-.789.027-.216.325-.437.893-.663 3.498-1.524 5.83-2.529 6.998-3.014 3.332-1.386 4.025-1.627 4.476-1.635z"/></svg>
                             Share on Telegram
                         </button>
                     </div>
@@ -225,8 +227,8 @@ const StrengthsAndFocus = ({ answers }) => {
                         <span className="text-overline text-accent-emerald">Your Strengths</span>
                     </div>
                     <ul className="space-y-2">
-                        {strengths.map((a, i) => (
-                            <li key={i} className="text-caption text-text-sub-light dark:text-text-sub-dark leading-snug">
+                        {strengths.map((a) => (
+                            <li key={a.questionId || a.questionText} className="text-caption text-text-sub-light dark:text-text-sub-dark leading-snug">
                                 {truncate(a.questionText)}
                             </li>
                         ))}
@@ -240,8 +242,8 @@ const StrengthsAndFocus = ({ answers }) => {
                         <span className="text-overline text-accent-amber">Focus Areas</span>
                     </div>
                     <ul className="space-y-2">
-                        {focusAreas.map((a, i) => (
-                            <li key={i} className="text-caption text-text-sub-light dark:text-text-sub-dark leading-snug">
+                        {focusAreas.map((a) => (
+                            <li key={a.questionId || a.questionText} className="text-caption text-text-sub-light dark:text-text-sub-dark leading-snug">
                                 {truncate(a.questionText)}
                             </li>
                         ))}
@@ -298,14 +300,38 @@ const extractReadinessLabel = (text) => {
 // #3 — track in-flight generation to prevent duplicate calls
 const feedbackInFlight = new Set();
 
+const tutorFeedbackReducer = (state, action) => {
+    switch (action.type) {
+        case 'loaded':
+            return {
+                generatedFeedback: action.feedback,
+                error: false,
+                loading: false,
+            };
+        case 'failed':
+            return {
+                ...state,
+                error: true,
+                loading: false,
+            };
+        default:
+            return state;
+    }
+};
+
 const TutorReport = ({ attemptId, storedFeedback }) => {
     const generateFeedback = useAction(api.ai.generateExamFeedback);
     const normalizedStoredFeedback = typeof storedFeedback === 'string'
         ? storedFeedback.trim()
         : '';
-    const [generatedFeedback, setGeneratedFeedback] = useState(null);
-    const [error, setError] = useState(false);
-    const [loading, setLoading] = useState(() => Boolean(attemptId && !normalizedStoredFeedback));
+    const [{ generatedFeedback, error, loading }, dispatchTutorFeedback] = useReducer(
+        tutorFeedbackReducer,
+        {
+            generatedFeedback: null,
+            error: false,
+            loading: Boolean(attemptId && !normalizedStoredFeedback),
+        },
+    );
     const feedback = normalizedStoredFeedback || generatedFeedback;
 
     useEffect(() => {
@@ -320,8 +346,7 @@ const TutorReport = ({ attemptId, storedFeedback }) => {
                 feedbackInFlight.delete(attemptId);
                 if (cancelled) return;
                 const normalized = String(text || '').trim();
-                if (normalized) setGeneratedFeedback(normalized);
-                setLoading(false);
+                dispatchTutorFeedback({ type: 'loaded', feedback: normalized || null });
             })
             .catch((err) => {
                 // #5 — log error instead of silently swallowing
@@ -331,8 +356,7 @@ const TutorReport = ({ attemptId, storedFeedback }) => {
                 if (isPermanent) feedbackInFlight.delete(attemptId);
                 // Transient failure — keep the Set entry so rapid re-mount won't re-trigger
                 if (!cancelled) {
-                    setError(true);
-                    setLoading(false);
+                    dispatchTutorFeedback({ type: 'failed' });
                 }
             });
         return () => {
@@ -356,7 +380,7 @@ const TutorReport = ({ attemptId, storedFeedback }) => {
                     </span>
                 )}
             </div>
-            <div className="px-5 py-5">
+            <div className="p-5">
                 {loading && (
                     <div className="space-y-4 animate-pulse">
                         <div className="space-y-2">
@@ -386,6 +410,7 @@ const TutorReport = ({ attemptId, storedFeedback }) => {
 
 // ─── Main component ───────────────────────────────────────────────────────────
 
+// react-doctor-disable-next-line react-doctor/no-giant-component
 const DashboardResults = () => {
     const { attemptId } = useParams();
     const { isAuthenticated: isConvexAuthenticated } = useConvexAuth();
@@ -394,12 +419,37 @@ const DashboardResults = () => {
         attemptId ? { attemptId } : 'skip'
     );
     const profile = useQuery(api.profiles.getProfile, isConvexAuthenticated ? {} : 'skip');
+    const [showConfetti, setShowConfetti] = useState(false);
+    const confettiTriggeredRef = useRef(false);
+
+    // Compute percentage early for confetti hook (must be before any early return)
+    const rawPercentage = attempt && typeof attempt === 'object'
+        ? (typeof attempt.percentage === 'number'
+            ? attempt.percentage
+            : ((attempt.answers?.length || attempt.totalQuestions || 0) > 0
+                ? Math.round(((attempt.score || 0) / (attempt.answers?.length || attempt.totalQuestions || 0)) * 100)
+                : 0))
+        : 0;
+
+    // Trigger confetti on good scores (≥70%) once per page load
+    useEffect(() => {
+        if (!confettiTriggeredRef.current && rawPercentage >= 70) {
+            confettiTriggeredRef.current = true;
+            const timer = window.setTimeout(() => setShowConfetti(true), 400);
+            const clearTimer = window.setTimeout(() => setShowConfetti(false), 6000);
+            return () => {
+                window.clearTimeout(timer);
+                window.clearTimeout(clearTimer);
+            };
+        }
+        return undefined;
+    }, [rawPercentage]);
 
     if (!attemptId) {
         return (
             <div className="bg-background-light dark:bg-background-dark min-h-screen flex items-center justify-center">
                 <div className="text-center max-w-md px-6">
-                    <div className="w-14 h-14 rounded-2xl bg-surface-light dark:bg-surface-dark border border-border-light dark:border-border-dark flex items-center justify-center mx-auto mb-4">
+                    <div className="size-14 rounded-2xl bg-surface-light dark:bg-surface-dark border border-border-light dark:border-border-dark flex items-center justify-center mx-auto mb-4">
                         <span className="material-symbols-outlined text-2xl text-text-faint-light dark:text-text-faint-dark">quiz</span>
                     </div>
                     <h2 className="text-body-lg font-semibold text-text-main-light dark:text-text-main-dark mb-2">No exam selected</h2>
@@ -416,8 +466,8 @@ const DashboardResults = () => {
         return (
             <div className="bg-background-light dark:bg-background-dark min-h-screen flex items-center justify-center">
                 <div className="text-center">
-                    <div className="animate-spin rounded-full h-10 w-10 border-2 border-border-light dark:border-border-dark border-t-primary mx-auto mb-4"></div>
-                    <p className="text-body-sm text-text-sub-light dark:text-text-sub-dark">Loading exam results...</p>
+                    <div className="animate-spin rounded-full size-10 border-2 border-border-light dark:border-border-dark border-t-primary mx-auto mb-4"></div>
+                    <p className="text-body-sm text-text-sub-light dark:text-text-sub-dark">Loading exam results…</p>
                 </div>
             </div>
         );
@@ -427,7 +477,7 @@ const DashboardResults = () => {
         return (
             <div className="bg-background-light dark:bg-background-dark min-h-screen flex items-center justify-center">
                 <div className="text-center max-w-md px-6">
-                    <div className="w-14 h-14 rounded-2xl bg-surface-light dark:bg-surface-dark border border-border-light dark:border-border-dark flex items-center justify-center mx-auto mb-4">
+                    <div className="size-14 rounded-2xl bg-surface-light dark:bg-surface-dark border border-border-light dark:border-border-dark flex items-center justify-center mx-auto mb-4">
                         <span className="material-symbols-outlined text-2xl text-text-faint-light dark:text-text-faint-dark">search_off</span>
                     </div>
                     <h2 className="text-body-lg font-semibold text-text-main-light dark:text-text-main-dark mb-2">Results not found</h2>
@@ -477,10 +527,11 @@ const DashboardResults = () => {
 
     return (
         <div className="bg-background-light dark:bg-background-dark min-h-screen flex flex-col">
+            <Confetti active={showConfetti} />
             <header className="w-full bg-surface-light dark:bg-surface-dark border-b border-border-light dark:border-border-dark sticky top-0 z-30">
                 <div className="max-w-5xl mx-auto flex items-center justify-between px-4 md:px-8 py-3">
                     <div className="flex items-center gap-3">
-                        <Link to="/dashboard" className="btn-icon w-9 h-9">
+                        <Link to="/dashboard" className="btn-icon size-9">
                             <span className="material-symbols-outlined text-lg">arrow_back</span>
                         </Link>
                         <div>
@@ -488,7 +539,7 @@ const DashboardResults = () => {
                             <span className="text-caption text-text-faint-light dark:text-text-faint-dark">{attempt.topicTitle || 'ChewnPour Mode'}</span>
                         </div>
                     </div>
-                    <Link to="/dashboard" aria-label="Close" className="btn-icon w-9 h-9">
+                    <Link to="/dashboard" aria-label="Close" className="btn-icon size-9">
                         <span className="material-symbols-outlined text-lg">close</span>
                     </Link>
                 </div>
@@ -526,6 +577,52 @@ const DashboardResults = () => {
                         {answers.length > 0 && <DifficultyPills answers={answers} />}
                         {answers.length > 0 && <BloomBreakdown answers={answers} />}
                     </div>
+                </section>
+
+                {/* Score Breakdown Widgets */}
+                <section className="w-full max-w-2xl">
+                    <WatermelonWidgetsGrid cols={isEssay ? 2 : 4}>
+                        <WatermelonWidget
+                            title="Score"
+                            value={`${percentage}%`}
+                            icon="percent"
+                            accent={percentage >= 70 ? 'emerald' : percentage >= 50 ? 'amber' : 'rose'}
+                        />
+                        {!isEssay && (
+                            <WatermelonWidget
+                                title="Correct"
+                                value={correctCount}
+                                subtitle={`of ${totalQuestions}`}
+                                icon="check_circle"
+                                accent="emerald"
+                            />
+                        )}
+                        {!isEssay && incorrectCount > 0 && (
+                            <WatermelonWidget
+                                title="Incorrect"
+                                value={incorrectCount}
+                                icon="cancel"
+                                accent="rose"
+                            />
+                        )}
+                        {!isEssay && skippedCount > 0 && (
+                            <WatermelonWidget
+                                title="Skipped"
+                                value={skippedCount}
+                                icon="skip_next"
+                                accent="amber"
+                            />
+                        )}
+                        {isEssay && (
+                            <WatermelonWidget
+                                title="Questions"
+                                value={totalQuestions}
+                                subtitle="essay format"
+                                icon="edit_note"
+                                accent="primary"
+                            />
+                        )}
+                    </WatermelonWidgetsGrid>
                 </section>
 
                 {/* Share prompt for high scores */}
@@ -578,7 +675,7 @@ const DashboardResults = () => {
                                 const isCorrect = Boolean(answer.isCorrect);
                                 const hasEssayFeedback = isEssay && Boolean(answer.feedback);
                                 return (
-                                    <div key={`${answer.questionId}-${index}`} className="card-base p-5">
+                                    <div key={answer.questionId || answer.questionText} className="card-base p-5">
                                         <div className="flex justify-between items-center mb-3">
                                             <div className="flex items-center gap-2 flex-wrap">
                                                 <span className="text-overline text-text-faint-light dark:text-text-faint-dark">Question {index + 1}</span>
@@ -631,7 +728,7 @@ const DashboardResults = () => {
                                                         </div>
                                                         {answer.criteriaFeedback.map((cf, cfIdx) => (
                                                             <div key={cfIdx} className="flex items-start gap-3 pl-1">
-                                                                <span className={`flex-shrink-0 w-7 h-7 rounded-lg text-caption font-bold flex items-center justify-center ${
+                                                                <span className={`flex-shrink-0 size-7 rounded-lg text-caption font-bold flex items-center justify-center ${
                                                                     cf.score >= 4 ? 'bg-accent-emerald/15 text-accent-emerald'
                                                                         : cf.score >= 3 ? 'bg-amber-500/15 text-amber-600 dark:text-amber-400'
                                                                         : 'bg-red-500/15 text-red-600 dark:text-red-400'

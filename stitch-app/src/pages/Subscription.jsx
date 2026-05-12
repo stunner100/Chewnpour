@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { useAction, useConvexAuth, useQuery } from 'convex/react';
 import { api } from '../../convex/_generated/api';
@@ -8,6 +8,10 @@ import {
     formatPlanPrice,
     normalizeTopUpOptions,
 } from '../lib/pricingCurrency';
+import { ShimmerButton } from '../components/magicui/ShimmerButton';
+import { WatermelonWidget, WatermelonWidgetsGrid } from '../components/watermelon/WatermelonWidgets';
+import { WatermelonDisclosure } from '../components/watermelon/WatermelonDisclosure';
+import { watermelonToast } from '../components/watermelon/watermelonToast';
 
 const sanitizeReturnPath = (value) => {
     const fallback = '/dashboard';
@@ -63,13 +67,13 @@ const DEFAULT_TOP_UP_OPTIONS = [
 ];
 
 const Subscription = () => {
-    const location = useLocation();
+    const routerLocation = useLocation();
     const { user } = useAuth();
     const { isAuthenticated: isConvexAuthenticated } = useConvexAuth();
     const userId = user?.id;
 
     const [loading, setLoading] = useState(false);
-    const [error, setError] = useState('');
+    const [checkoutError, setCheckoutError] = useState('');
     const [providerHint, setProviderHint] = useState('');
     const [selectedPlanId, setSelectedPlanId] = useState(DEFAULT_TOP_UP_OPTIONS[0].id);
 
@@ -79,11 +83,14 @@ const Subscription = () => {
     );
     const initializeCheckout = useAction(api.subscriptions.initializePaystackTopUpCheckout);
 
-    const searchParams = useMemo(() => new URLSearchParams(location.search), [location.search]);
+    const searchParams = useMemo(() => new URLSearchParams(routerLocation.search), [routerLocation.search]);
     const returnPath = useMemo(
         () => sanitizeReturnPath(searchParams.get('from') || '/dashboard'),
         [searchParams]
     );
+    const paywallStateMessage = typeof routerLocation.state?.paywallMessage === 'string'
+        ? routerLocation.state.paywallMessage.trim()
+        : '';
 
     const safeQuota = quota || {
         freeLimit: 3,
@@ -112,34 +119,21 @@ const Subscription = () => {
         () => buildUploadLimitMessageFromOptions(topUpOptions, currency),
         [topUpOptions, currency]
     );
-
-    useEffect(() => {
-        if (!selectedTopUpPlan) return;
-        if (selectedTopUpPlan.id === selectedPlanId) return;
-        setSelectedPlanId(selectedTopUpPlan.id);
-    }, [selectedPlanId, selectedTopUpPlan]);
-
-    useEffect(() => {
+    const routeError = useMemo(() => {
         const reason = String(searchParams.get('reason') || '').trim();
-        const stateMessage = typeof location.state?.paywallMessage === 'string'
-            ? location.state.paywallMessage.trim()
-            : '';
         if (!reason) {
-            setError(remaining <= 0 ? stateMessage : '');
-            return;
+            return remaining <= 0 ? paywallStateMessage : '';
         }
 
         if (reason === 'upload_limit') {
-            setError(remaining <= 0 ? (stateMessage || uploadLimitMessage) : '');
-            return;
+            return remaining <= 0 ? (paywallStateMessage || uploadLimitMessage) : '';
         }
 
         if (reason === 'ai_message_limit') {
-            setError(
-                stateMessage
+            return (
+                paywallStateMessage
                 || "You've used your free AI messages today. Upgrade to premium for unlimited AI chat."
             );
-            return;
         }
 
         const reasonMessages = {
@@ -151,18 +145,26 @@ const Subscription = () => {
             missing_reference: 'Missing payment reference. Start checkout again.',
         };
 
-        setError(reasonMessages[reason] || 'Could not complete payment. Please try again.');
-    }, [location.state, searchParams, uploadLimitMessage, remaining]);
+        return reasonMessages[reason] || 'Could not complete payment. Please try again.';
+    }, [paywallStateMessage, remaining, searchParams, uploadLimitMessage]);
+    const error = loading ? checkoutError : (checkoutError || routeError);
+
+    const handlePlanSelect = (planId) => {
+        setSelectedPlanId(planId);
+        setCheckoutError('');
+    };
 
     const handleCheckout = async (event) => {
         event.preventDefault();
         if (!selectedTopUpPlan) {
-            setError('No top-up plan is available right now. Please refresh and try again.');
+            const message = 'No top-up plan is available right now. Please refresh and try again.';
+            setCheckoutError(message);
+            watermelonToast(message, { type: 'warning', duration: 4500 });
             return;
         }
 
         setLoading(true);
-        setError('');
+        setCheckoutError('');
 
         try {
             const result = await initializeCheckout({
@@ -175,8 +177,10 @@ const Subscription = () => {
                 throw new Error('Could not start checkout right now.');
             }
             window.location.assign(authorizationUrl);
-        } catch (checkoutError) {
-            setError(resolveConvexActionError(checkoutError, 'Could not initialize checkout.'));
+        } catch (err) {
+            const message = resolveConvexActionError(err, 'Could not initialize checkout.');
+            setCheckoutError(message);
+            watermelonToast(message, { type: 'warning', duration: 4500 });
             setLoading(false);
         }
     };
@@ -217,22 +221,29 @@ const Subscription = () => {
             )}
 
             {/* Usage Stats */}
-            <div className="grid grid-cols-3 gap-3">
-                <div className="card-base p-4">
-                    <p className="text-overline text-text-faint-light dark:text-text-faint-dark">Used</p>
-                    <p className="text-display-sm text-text-main-light dark:text-text-main-dark mt-1">{consumed}</p>
-                </div>
-                <div className="card-base p-4">
-                    <p className="text-overline text-text-faint-light dark:text-text-faint-dark">Total</p>
-                    <p className="text-display-sm text-text-main-light dark:text-text-main-dark mt-1">{totalAllowed}</p>
-                </div>
-                <div className="card-base p-4">
-                    <p className="text-overline text-text-faint-light dark:text-text-faint-dark">Remaining</p>
-                    <p className={`text-display-sm mt-1 ${remaining === 0 ? 'text-red-500' : 'text-accent-emerald'}`}>
-                        {remaining}
-                    </p>
-                </div>
-            </div>
+            <WatermelonWidgetsGrid cols={3}>
+                <WatermelonWidget
+                    title="Used"
+                    value={consumed}
+                    subtitle="uploads consumed"
+                    icon="upload_file"
+                    accent="primary"
+                />
+                <WatermelonWidget
+                    title="Total"
+                    value={totalAllowed}
+                    subtitle="upload allowance"
+                    icon="inventory_2"
+                    accent="indigo"
+                />
+                <WatermelonWidget
+                    title="Remaining"
+                    value={remaining}
+                    subtitle={remaining === 0 ? 'top up to keep going' : 'available to use'}
+                    icon={remaining === 0 ? 'warning' : 'bolt'}
+                    accent={remaining === 0 ? 'rose' : 'emerald'}
+                />
+            </WatermelonWidgetsGrid>
 
             {/* Top-Up Plans */}
             <div className="card-base p-5 space-y-4">
@@ -246,7 +257,7 @@ const Subscription = () => {
                             <button
                                 key={plan.id}
                                 type="button"
-                                onClick={() => setSelectedPlanId(plan.id)}
+                                onClick={() => handlePlanSelect(plan.id)}
                                 className={`relative rounded-xl border px-4 py-3 text-left transition-colors ${
                                     active
                                         ? isSemester
@@ -308,11 +319,11 @@ const Subscription = () => {
             </div>
 
             {/* Checkout Button */}
-            <button
-                type="button"
+            <ShimmerButton
                 onClick={handleCheckout}
                 disabled={loading || quota === undefined || !selectedTopUpPlan}
                 className="w-full btn-primary text-body-base py-3 flex items-center justify-center gap-2"
+                shimmerColor="#914bf1"
             >
                 {loading ? (
                     <>
@@ -320,7 +331,37 @@ const Subscription = () => {
                         Redirecting to {providerHint || 'checkout'}...
                     </>
                 ) : `Pay ${formatPlanPrice(selectedTopUpPlan?.amountMajor || 0, selectedTopUpPlan?.currency || currency)} and get +${selectedTopUpPlan?.credits || 0} uploads`}
-            </button>
+            </ShimmerButton>
+
+            {/* FAQ */}
+            <div className="space-y-2">
+                <h3 className="text-overline text-text-faint-light dark:text-text-faint-dark mb-3">Frequently Asked Questions</h3>
+                <WatermelonDisclosure title="What does an upload credit cover?">
+                    <p className="text-body-sm text-text-sub-light dark:text-text-sub-dark leading-relaxed">
+                        One upload credit lets you process a single document (PDF, DOCX, PPTX, or image). ChewnPour will turn it into a structured course with lessons, quizzes, podcasts, and a revision plan.
+                    </p>
+                </WatermelonDisclosure>
+                <WatermelonDisclosure title="Do credits expire?">
+                    <p className="text-body-sm text-text-sub-light dark:text-text-sub-dark leading-relaxed">
+                        Top-up credits never expire as long as your account is active. The Semester Pass is valid for 4 months and includes unlimited AI chat during that period.
+                    </p>
+                </WatermelonDisclosure>
+                <WatermelonDisclosure title="What happens after I run out of credits?">
+                    <p className="text-body-sm text-text-sub-light dark:text-text-sub-dark leading-relaxed">
+                        You can keep studying with all the courses you&apos;ve already uploaded. To process new documents, top up anytime, credits are added instantly after a successful payment.
+                    </p>
+                </WatermelonDisclosure>
+                <WatermelonDisclosure title="Is my payment secure?">
+                    <p className="text-body-sm text-text-sub-light dark:text-text-sub-dark leading-relaxed">
+                        Yes. All payments are processed by Paystack with bank-grade encryption. ChewnPour never stores your card details.
+                    </p>
+                </WatermelonDisclosure>
+                <WatermelonDisclosure title="Can I get a refund?">
+                    <p className="text-body-sm text-text-sub-light dark:text-text-sub-dark leading-relaxed">
+                        Unused credits are refundable within 7 days of purchase. Reach out at info@chewnpour.com and we&apos;ll sort it for you.
+                    </p>
+                </WatermelonDisclosure>
+            </div>
         </div>
     );
 };

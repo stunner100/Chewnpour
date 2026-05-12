@@ -513,14 +513,10 @@ export const useVoicePlayback = ({
                     : null;
 
                 const streamUrl = payload.streamUrl;
-                const sourceUrl = isMobileBrowser
-                    ? await fetchRemoteAudioBlobUrl(streamUrl)
-                    : streamUrl;
+                const sourceUrl = await fetchRemoteAudioBlobUrl(streamUrl);
 
                 clearActiveAudio();
-                if (isMobileBrowser) {
-                    activeAudioObjectUrlRef.current = sourceUrl;
-                }
+                activeAudioObjectUrlRef.current = sourceUrl;
                 let audio = null;
                 if (isMobileBrowser && warmupAudioRef.current) {
                     audio = warmupAudioRef.current;

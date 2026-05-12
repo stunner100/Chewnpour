@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useReducer, useRef } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { useAction, useMutation, useQuery } from 'convex/react';
 import { api } from '../../convex/_generated/api';
@@ -24,6 +24,178 @@ const shuffleQuestions = (questions) => {
     return next;
 };
 
+const SentenceRenderer = ({
+    answers,
+    isReview,
+    onAnswerChange,
+    onRegisterInput,
+    qIdx,
+    question,
+    results,
+    submitted,
+}) => {
+    const parts = question.sentence.split('___');
+    const elements = [];
+    let sentenceOffset = 0;
+
+    for (let i = 0; i < parts.length; i += 1) {
+        const part = parts[i];
+        if (part) {
+            elements.push(
+                <span key={`text-${qIdx}-${sentenceOffset}-${part.length}`} className="text-text-sub-light dark:text-text-sub-dark">
+                    {part}
+                </span>
+            );
+        }
+        sentenceOffset += part.length + 3;
+        if (i < question.blanks.length) {
+            const bIdx = i;
+            const answerKey = `q${qIdx}-b${bIdx}`;
+            const userAnswer = String(answers[answerKey] || '');
+            const blank = question.blanks[bIdx];
+
+            if (isReview && results) {
+                const detail = results.details[qIdx]?.blankResults[bIdx];
+                const isCorrect = detail?.isCorrect;
+                elements.push(
+                    <span
+                        key={`blank-${answerKey}`}
+                        className={`inline-flex items-center gap-1 px-2.5 py-1 mx-1 rounded-lg font-semibold text-body-sm ${
+                            isCorrect
+                                ? 'bg-accent-emerald/10 text-accent-emerald border border-accent-emerald/30'
+                                : 'bg-red-50 dark:bg-red-900/10 text-red-600 dark:text-red-400 border border-red-300 dark:border-red-800'
+                        }`}
+                    >
+                        {userAnswer || '—'}
+                        {!isCorrect && (
+                            <span className="text-caption text-text-faint-light dark:text-text-faint-dark ml-1">
+                                → {blank.answer}
+                            </span>
+                        )}
+                    </span>
+                );
+            } else {
+                elements.push(
+                    <input
+                        key={`input-${answerKey}`}
+                        ref={(el) => { onRegisterInput(answerKey, el); }}
+                        type="text"
+                        value={userAnswer}
+                        onChange={(event) => onAnswerChange(qIdx, bIdx, event.target.value)}
+                        disabled={submitted}
+                        placeholder="type answer"
+                        autoComplete="off"
+                        autoCapitalize="off"
+                        spellCheck="false"
+                        className="inline-block w-32 sm:w-40 mx-1 px-3 py-1.5 rounded-lg border-2 border-dashed border-border-light dark:border-border-dark bg-surface-hover-light dark:bg-surface-hover-dark text-body-sm text-text-main-light dark:text-text-main-dark font-semibold text-center placeholder:text-text-faint-light dark:placeholder:text-text-faint-dark placeholder:font-normal focus:border-primary focus:border-solid focus:outline-none focus:ring-1 focus:ring-primary/30 transition-all disabled:opacity-50"
+                    />
+                );
+            }
+        }
+    }
+
+    return <>{elements}</>;
+};
+
+const initialFillInState = {
+    questions: null,
+    loading: false,
+    loadError: '',
+    answers: {},
+    submitted: false,
+    results: null,
+    saving: false,
+    saveError: '',
+    startedAt: null,
+    currentIdx: 0,
+};
+
+const fillInReducer = (state, action) => {
+    switch (action.type) {
+        case 'loadStarted':
+            return {
+                ...state,
+                loading: true,
+                loadError: '',
+                saveError: '',
+                submitted: false,
+                results: null,
+                answers: {},
+                currentIdx: 0,
+            };
+        case 'loadSucceeded':
+            return {
+                ...state,
+                questions: action.questions,
+                startedAt: action.startedAt,
+                loading: false,
+                loadError: '',
+            };
+        case 'loadFailed':
+            return {
+                ...state,
+                questions: action.questions,
+                startedAt: action.startedAt,
+                loadError: action.loadError,
+                loading: false,
+            };
+        case 'answerChanged':
+            return {
+                ...state,
+                answers: {
+                    ...state.answers,
+                    [action.key]: action.value,
+                },
+            };
+        case 'submitStarted':
+            return {
+                ...state,
+                saving: true,
+                saveError: '',
+            };
+        case 'submitSucceeded':
+            return {
+                ...state,
+                results: action.results,
+                submitted: true,
+                saving: false,
+            };
+        case 'submitFailed':
+            return {
+                ...state,
+                saveError: 'Failed to save your result. Please try again.',
+                saving: false,
+            };
+        case 'retake':
+            return {
+                ...state,
+                answers: {},
+                submitted: false,
+                results: null,
+                saveError: '',
+                currentIdx: 0,
+                startedAt: action.startedAt,
+            };
+        case 'newSetRequested':
+            return {
+                ...state,
+                questions: null,
+                answers: {},
+                submitted: false,
+                results: null,
+                loadError: '',
+            };
+        case 'goToQuestion':
+            return {
+                ...state,
+                currentIdx: action.index,
+            };
+        default:
+            return state;
+    }
+};
+
+// react-doctor-disable-next-line react-doctor/no-giant-component
 const FillInExercise = () => {
     const { topicId: topicIdParam } = useParams();
     const routeTopicId = typeof topicIdParam === 'string' ? topicIdParam.trim() : '';
@@ -53,16 +225,18 @@ const FillInExercise = () => {
     const generateFillInBatch = useAction(api.ai.generateFillInBatch);
     const createConceptAttempt = useMutation(api.concepts.createConceptAttempt);
 
-    const [questions, setQuestions] = useState(null); // array of { sentence, blanks }
-    const [loading, setLoading] = useState(false);
-    const [loadError, setLoadError] = useState('');
-    const [answers, setAnswers] = useState({}); // { "q0-b0": "typed text", ... }
-    const [submitted, setSubmitted] = useState(false);
-    const [results, setResults] = useState(null); // { score, total, details[] }
-    const [saving, setSaving] = useState(false);
-    const [saveError, setSaveError] = useState('');
-    const [startedAt, setStartedAt] = useState(null);
-    const [currentIdx, setCurrentIdx] = useState(0);
+    const [{
+        questions,
+        loading,
+        loadError,
+        answers,
+        submitted,
+        results,
+        saving,
+        saveError,
+        startedAt,
+        currentIdx,
+    }, dispatchFillIn] = useReducer(fillInReducer, initialFillInState);
     const inputRefs = useRef({});
 
     const topicTitle = topic?.title || 'Fill-ins';
@@ -72,13 +246,7 @@ const FillInExercise = () => {
     const loadExercise = useCallback(async (options = {}) => {
         if (!topicId || !userId) return;
         const fallbackQuestions = previousQuestionsRef.current;
-        setLoading(true);
-        setLoadError('');
-        setSaveError('');
-        setSubmitted(false);
-        setResults(null);
-        setAnswers({});
-        setCurrentIdx(0);
+        dispatchFillIn({ type: 'loadStarted' });
         try {
             const excludeSentences = Array.isArray(options?.excludeSentences)
                 ? options.excludeSentences.filter(Boolean)
@@ -87,38 +255,45 @@ const FillInExercise = () => {
             let qs = Array.isArray(response?.questions) ? response.questions : [];
             if (qs.length === 0) throw new Error('No questions generated.');
             const previousSetKey = excludeSentences
-                .map((sentence) => normalize(sentence))
-                .filter(Boolean)
+                .flatMap((sentence) => {
+                    const normalized = normalize(sentence);
+                    return normalized ? [normalized] : [];
+                })
                 .sort()
                 .join('|');
             const nextSetKey = qs
-                .map((question) => normalize(question?.sentence))
-                .filter(Boolean)
+                .flatMap((question) => {
+                    const normalized = normalize(question?.sentence);
+                    return normalized ? [normalized] : [];
+                })
                 .sort()
                 .join('|');
             if (previousSetKey && previousSetKey === nextSetKey && qs.length > 1) {
                 qs = shuffleQuestions(qs);
             }
             previousQuestionsRef.current = qs;
-            setQuestions(qs);
-            setStartedAt(Date.now());
+            dispatchFillIn({ type: 'loadSucceeded', questions: qs, startedAt: Date.now() });
         } catch (error) {
             console.error('Fill-in generation failed:', error);
             // If we have previous questions, recycle them in shuffled order
             if (fallbackQuestions && fallbackQuestions.length > 0) {
                 const shuffled = shuffleQuestions(fallbackQuestions);
-                setQuestions(shuffled);
-                setStartedAt(Date.now());
+                dispatchFillIn({
+                    type: 'loadFailed',
+                    questions: shuffled,
+                    startedAt: Date.now(),
+                    loadError: '',
+                });
             } else {
-                setLoadError(
-                    String(error?.message || '').includes('INSUFFICIENT_EVIDENCE')
+                dispatchFillIn({
+                    type: 'loadFailed',
+                    questions: null,
+                    startedAt: null,
+                    loadError: String(error?.message || '').includes('INSUFFICIENT_EVIDENCE')
                         ? 'Not enough content to generate fill-ins. Try a topic with more material.'
-                        : 'Failed to generate fill-in exercises. Please try again.'
-                );
-                setQuestions(null);
+                        : 'Failed to generate fill-in exercises. Please try again.',
+                });
             }
-        } finally {
-            setLoading(false);
         }
     }, [generateFillInBatch, topicId, userId]);
 
@@ -143,13 +318,16 @@ const FillInExercise = () => {
 
     const handleAnswerChange = useCallback((questionIdx, blankIdx, value) => {
         const key = `q${questionIdx}-b${blankIdx}`;
-        setAnswers((prev) => ({ ...prev, [key]: value }));
+        dispatchFillIn({ type: 'answerChanged', key, value });
+    }, []);
+
+    const registerInput = useCallback((key, element) => {
+        inputRefs.current[key] = element;
     }, []);
 
     const handleSubmit = useCallback(async () => {
         if (!questions || !topicId || !userId || !allFilled) return;
-        setSaving(true);
-        setSaveError('');
+        dispatchFillIn({ type: 'submitStarted' });
         try {
             let correctCount = 0;
             const details = questions.map((q, qIdx) => {
@@ -176,22 +354,28 @@ const FillInExercise = () => {
                 questionText: `Fill-ins: ${questions.length} questions, ${totalBlanks} blanks`,
             });
 
-            setResults({ score: correctCount, total: totalBlanks, details });
-            setSubmitted(true);
+            dispatchFillIn({
+                type: 'submitSucceeded',
+                results: { score: correctCount, total: totalBlanks, details },
+            });
         } catch (error) {
             console.error('Failed to save fill-in attempt:', error);
-            setSaveError('Failed to save your result. Please try again.');
-        } finally {
-            setSaving(false);
+            dispatchFillIn({ type: 'submitFailed' });
         }
     }, [questions, answers, topicId, userId, allFilled, totalBlanks, startedAt, createConceptAttempt]);
 
+    const handleRetake = useCallback(() => {
+        dispatchFillIn({ type: 'retake', startedAt: Date.now() });
+    }, []);
+
     // Focus first input of current question
     useEffect(() => {
-        if (!questions || submitted) return;
+        if (!questions || submitted) return undefined;
         const firstKey = `q${currentIdx}-b0`;
         const el = inputRefs.current[firstKey];
-        if (el) setTimeout(() => el.focus(), 100);
+        if (!el) return undefined;
+        const timer = setTimeout(() => el.focus(), 100);
+        return () => clearTimeout(timer);
     }, [currentIdx, questions, submitted]);
 
     /* ── guard states ──────────────────────────────────────────── */
@@ -199,7 +383,7 @@ const FillInExercise = () => {
         return (
             <div className="min-h-screen bg-background-light dark:bg-background-dark flex items-center justify-center px-4">
                 <div className="text-center max-w-md">
-                    <div className="w-14 h-14 rounded-2xl bg-primary/8 flex items-center justify-center mx-auto mb-4">
+                    <div className="size-14 rounded-2xl bg-primary/8 flex items-center justify-center mx-auto mb-4">
                         <span className="material-symbols-outlined text-primary text-[24px]">edit_note</span>
                     </div>
                     <h2 className="text-body-lg font-semibold text-text-main-light dark:text-text-main-dark mb-2">Select a Topic</h2>
@@ -214,7 +398,7 @@ const FillInExercise = () => {
         return (
             <div className="min-h-screen bg-background-light dark:bg-background-dark flex items-center justify-center px-4">
                 <div className="text-center max-w-md">
-                    <div className="w-14 h-14 rounded-2xl bg-red-500/10 flex items-center justify-center mx-auto mb-4">
+                    <div className="size-14 rounded-2xl bg-red-500/10 flex items-center justify-center mx-auto mb-4">
                         <span className="material-symbols-outlined text-red-500 text-[24px]">error</span>
                     </div>
                     <h2 className="text-body-lg font-semibold text-text-main-light dark:text-text-main-dark mb-2">This link is stale</h2>
@@ -255,67 +439,6 @@ const FillInExercise = () => {
     const isLast = currentIdx === questions.length - 1;
     const isFirst = currentIdx === 0;
 
-    /* ── render sentence with inline inputs ────────────────────── */
-    const renderSentence = (question, qIdx, isReview) => {
-        const parts = question.sentence.split('___');
-        const elements = [];
-
-        for (let i = 0; i < parts.length; i++) {
-            if (parts[i]) {
-                elements.push(
-                    <span key={`text-${qIdx}-${i}`} className="text-text-sub-light dark:text-text-sub-dark">
-                        {parts[i]}
-                    </span>
-                );
-            }
-            if (i < question.blanks.length) {
-                const bIdx = i;
-                const key = `q${qIdx}-b${bIdx}`;
-                const userAnswer = String(answers[key] || '');
-                const blank = question.blanks[bIdx];
-
-                if (isReview && results) {
-                    const detail = results.details[qIdx]?.blankResults[bIdx];
-                    const isCorrect = detail?.isCorrect;
-                    elements.push(
-                        <span
-                            key={`blank-${key}`}
-                            className={`inline-flex items-center gap-1 px-2.5 py-1 mx-1 rounded-lg font-semibold text-body-sm ${
-                                isCorrect
-                                    ? 'bg-accent-emerald/10 text-accent-emerald border border-accent-emerald/30'
-                                    : 'bg-red-50 dark:bg-red-900/10 text-red-600 dark:text-red-400 border border-red-300 dark:border-red-800'
-                            }`}
-                        >
-                            {userAnswer || '—'}
-                            {!isCorrect && (
-                                <span className="text-caption text-text-faint-light dark:text-text-faint-dark ml-1">
-                                    → {blank.answer}
-                                </span>
-                            )}
-                        </span>
-                    );
-                } else {
-                    elements.push(
-                        <input
-                            key={`input-${key}`}
-                            ref={(el) => { inputRefs.current[key] = el; }}
-                            type="text"
-                            value={userAnswer}
-                            onChange={(e) => handleAnswerChange(qIdx, bIdx, e.target.value)}
-                            disabled={submitted}
-                            placeholder="type answer"
-                            autoComplete="off"
-                            autoCapitalize="off"
-                            spellCheck="false"
-                            className="inline-block w-32 sm:w-40 mx-1 px-3 py-1.5 rounded-lg border-2 border-dashed border-border-light dark:border-border-dark bg-surface-hover-light dark:bg-surface-hover-dark text-body-sm text-text-main-light dark:text-text-main-dark font-semibold text-center placeholder:text-text-faint-light dark:placeholder:text-text-faint-dark placeholder:font-normal focus:border-primary focus:border-solid focus:outline-none focus:ring-1 focus:ring-primary/30 transition-all disabled:opacity-50"
-                        />
-                    );
-                }
-            }
-        }
-        return elements;
-    };
-
     /* ── main render ───────────────────────────────────────────── */
     return (
         <div className="min-h-screen bg-background-light dark:bg-background-dark">
@@ -323,7 +446,7 @@ const FillInExercise = () => {
             <header className="sticky top-0 z-40 bg-surface-light/90 dark:bg-surface-dark/90 backdrop-blur-md border-b border-border-light dark:border-border-dark">
                 <div className="max-w-4xl mx-auto px-4 py-3 flex items-center justify-between">
                     <div className="flex items-center gap-3">
-                        <Link to={topicId ? `/dashboard/topic/${topicId}` : '/dashboard'} className="btn-icon w-10 h-10">
+                        <Link to={topicId ? `/dashboard/topic/${topicId}` : '/dashboard'} className="btn-icon size-10">
                             <span className="material-symbols-outlined text-[20px]">arrow_back</span>
                         </Link>
                         <div>
@@ -358,24 +481,33 @@ const FillInExercise = () => {
 
                         <div className="card-base p-6 md:p-8 mb-4">
                             <div className="flex flex-wrap items-baseline gap-1 text-body-lg md:text-display-sm leading-relaxed">
-                                {renderSentence(currentQ, currentIdx, false)}
+                                <SentenceRenderer
+                                    answers={answers}
+                                    isReview={false}
+                                    onAnswerChange={handleAnswerChange}
+                                    onRegisterInput={registerInput}
+                                    qIdx={currentIdx}
+                                    question={currentQ}
+                                    results={results}
+                                    submitted={submitted}
+                                />
                             </div>
                         </div>
 
                         {/* Question dots */}
                         <div className="flex items-center justify-center gap-2 my-6">
-                            {questions.map((_, idx) => {
-                                const qBlanks = questions[idx].blanks || [];
+                            {questions.map((question, idx) => {
+                                const qBlanks = question.blanks || [];
                                 const allQFilled = qBlanks.every((_, bIdx) => {
                                     const v = answers[`q${idx}-b${bIdx}`];
                                     return String(v || '').trim().length > 0;
                                 });
                                 return (
                                     <button
-                                        key={idx}
+                                        key={question.sentence}
                                         type="button"
-                                        onClick={() => setCurrentIdx(idx)}
-                                        className={`w-3 h-3 rounded-full transition-all ${
+                                        onClick={() => dispatchFillIn({ type: 'goToQuestion', index: idx })}
+                                        className={`size-3 rounded-full transition-all ${
                                             idx === currentIdx
                                                 ? 'bg-primary scale-125'
                                                 : allQFilled
@@ -427,7 +559,7 @@ const FillInExercise = () => {
                                         reloadDocument
                                         className="flex items-center gap-3 p-3 rounded-xl border transition-colors cursor-pointer bg-surface-hover-light dark:bg-surface-hover-dark border-border-light dark:border-border-dark hover:border-primary/30"
                                     >
-                                        <div className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0 bg-surface-hover-light dark:bg-surface-hover-dark">
+                                        <div className="size-9 rounded-xl flex items-center justify-center shrink-0 bg-surface-hover-light dark:bg-surface-hover-dark">
                                             <span className="material-symbols-outlined text-[18px] text-text-sub-light dark:text-text-sub-dark">quiz</span>
                                         </div>
                                         <div className="flex-1 min-w-0">
@@ -441,7 +573,7 @@ const FillInExercise = () => {
                                         reloadDocument
                                         className="flex items-center gap-3 p-3 rounded-xl border transition-colors cursor-pointer bg-surface-hover-light dark:bg-surface-hover-dark border-border-light dark:border-border-dark hover:border-primary/30"
                                     >
-                                        <div className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0 bg-surface-hover-light dark:bg-surface-hover-dark">
+                                        <div className="size-9 rounded-xl flex items-center justify-center shrink-0 bg-surface-hover-light dark:bg-surface-hover-dark">
                                             <span className="material-symbols-outlined text-[18px] text-text-sub-light dark:text-text-sub-dark">edit_note</span>
                                         </div>
                                         <div className="flex-1 min-w-0">
@@ -456,12 +588,21 @@ const FillInExercise = () => {
 
                         <div className="space-y-4">
                             {questions.map((q, qIdx) => (
-                                <div key={qIdx} className="card-base p-5">
+                                <div key={q.sentence} className="card-base p-5">
                                     <p className="text-caption font-semibold text-text-faint-light dark:text-text-faint-dark mb-3">
                                         Question {qIdx + 1}
                                     </p>
                                     <div className="flex flex-wrap items-baseline gap-1 text-body-base leading-relaxed">
-                                        {renderSentence(q, qIdx, true)}
+                                        <SentenceRenderer
+                                            answers={answers}
+                                            isReview
+                                            onAnswerChange={handleAnswerChange}
+                                            onRegisterInput={registerInput}
+                                            qIdx={qIdx}
+                                            question={q}
+                                            results={results}
+                                            submitted={submitted}
+                                        />
                                     </div>
                                 </div>
                             ))}
@@ -482,14 +623,7 @@ const FillInExercise = () => {
                     {submitted ? (
                         <>
                             <button
-                                onClick={() => {
-                                    setAnswers({});
-                                    setSubmitted(false);
-                                    setResults(null);
-                                    setSaveError('');
-                                    setCurrentIdx(0);
-                                    setStartedAt(Date.now());
-                                }}
+                                onClick={handleRetake}
                                 className="btn-secondary flex-1 py-3 text-body-sm flex items-center justify-center gap-2"
                             >
                                 <span className="material-symbols-outlined text-[18px]">replay</span>
@@ -497,14 +631,10 @@ const FillInExercise = () => {
                             </button>
                             <button
                                 onClick={() => {
-                                    setQuestions(null);
-                                    setAnswers({});
-                                    setSubmitted(false);
-                                    setResults(null);
-                                    setLoadError('');
+                                    dispatchFillIn({ type: 'newSetRequested' });
                                     loadExercise({
                                         excludeSentences: Array.isArray(questions)
-                                            ? questions.map((question) => question?.sentence).filter(Boolean)
+                                            ? questions.flatMap((question) => (question?.sentence ? [question.sentence] : []))
                                             : [],
                                     });
                                 }}
@@ -524,7 +654,10 @@ const FillInExercise = () => {
                         <>
                             {!isFirst && (
                                 <button
-                                    onClick={() => setCurrentIdx((prev) => Math.max(0, prev - 1))}
+                                    onClick={() => dispatchFillIn({
+                                        type: 'goToQuestion',
+                                        index: Math.max(0, currentIdx - 1),
+                                    })}
                                     className="btn-secondary px-4 py-3 flex items-center justify-center"
                                 >
                                     <span className="material-symbols-outlined text-[18px]">chevron_left</span>
@@ -541,7 +674,10 @@ const FillInExercise = () => {
                                 </button>
                             ) : (
                                 <button
-                                    onClick={() => setCurrentIdx((prev) => Math.min(questions.length - 1, prev + 1))}
+                                    onClick={() => dispatchFillIn({
+                                        type: 'goToQuestion',
+                                        index: Math.min(questions.length - 1, currentIdx + 1),
+                                    })}
                                     className="btn-primary flex-1 py-3 text-body-sm flex items-center justify-center gap-2"
                                 >
                                     <span>Next</span>

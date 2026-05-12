@@ -1,0 +1,208 @@
+- generic [ref=e7]:
+  - complementary [ref=e8]:
+    - generic [ref=e9]:
+      - link "ChewnPour home" [ref=e10] [cursor=pointer]:
+        - /url: /dashboard
+        - generic [ref=e11]:
+          - img [ref=e12]
+          - img [ref=e14]
+        - generic [ref=e15]: ChewnPour
+      - button "menu_open" [ref=e16] [cursor=pointer]:
+        - generic [ref=e17]: menu_open
+    - navigation [ref=e18]:
+      - link "space_dashboard Dashboard" [ref=e19] [cursor=pointer]:
+        - /url: /dashboard
+        - generic [ref=e20]: space_dashboard
+        - generic [ref=e21]: Dashboard
+      - link "auto_stories Library" [ref=e22] [cursor=pointer]:
+        - /url: /dashboard/search
+        - generic [ref=e23]: auto_stories
+        - generic [ref=e24]: Library
+      - link "event_note Study Plan" [ref=e25] [cursor=pointer]:
+        - /url: /dashboard/analysis
+        - generic [ref=e26]: event_note
+        - generic [ref=e27]: Study Plan
+      - link "edit_note Assignments" [ref=e28] [cursor=pointer]:
+        - /url: /dashboard/assignment-helper
+        - generic [ref=e29]: edit_note
+        - generic [ref=e30]: Assignments
+      - link "auto_fix_high Humanizer" [ref=e31] [cursor=pointer]:
+        - /url: /dashboard/humanizer
+        - generic [ref=e32]: auto_fix_high
+        - generic [ref=e33]: Humanizer
+      - link "forum Community" [ref=e34] [cursor=pointer]:
+        - /url: /dashboard/community
+        - generic [ref=e35]: forum
+        - generic [ref=e36]: Community
+    - generic [ref=e37]:
+      - link "workspace_premium Subscription" [ref=e38] [cursor=pointer]:
+        - /url: /subscription
+        - generic [ref=e39]: workspace_premium
+        - generic [ref=e40]: Subscription
+      - link "person Profile" [ref=e41] [cursor=pointer]:
+        - /url: /profile
+        - generic [ref=e42]: person
+        - generic [ref=e43]: Profile
+      - generic [ref=e44]:
+        - generic [ref=e45]: S
+        - paragraph [ref=e47]: Student
+  - main [ref=e48]:
+    - generic [ref=e382]:
+      - navigation "Breadcrumb" [ref=e383]:
+        - link "Dashboard" [ref=e384] [cursor=pointer]:
+          - /url: /dashboard
+        - generic [ref=e385]: chevron_right
+        - link "Library" [ref=e386] [cursor=pointer]:
+          - /url: /dashboard/search
+        - generic [ref=e387]: chevron_right
+        - generic [ref=e388]: "Photosynthesis: How Plants Convert Sunlight Into Energy"
+      - generic [ref=e390]:
+        - generic [ref=e391]:
+          - generic [ref=e392]:
+            - generic [ref=e393]:
+              - generic [ref=e394]: auto_awesome
+              - text: AI generated course
+            - generic [ref=e395]:
+              - generic [ref=e396]: description
+              - text: DOCX
+          - 'heading "Photosynthesis: How Plants Convert Sunlight Into Energy" [level=1] [ref=e397]'
+          - paragraph [ref=e398]:
+            - text: Generated from your uploaded document.
+            - generic [ref=e399]: · 6 topics ready · 18 min estimated study time
+          - paragraph [ref=e400]:
+            - generic [ref=e401]: schedule
+            - text: Last studied 10h ago
+        - generic [ref=e402]:
+          - button "play_arrow Continue learning" [ref=e403] [cursor=pointer]:
+            - generic [ref=e404]: play_arrow
+            - text: Continue learning
+          - button "graphic_eq Generate podcast" [ref=e405] [cursor=pointer]:
+            - generic [ref=e406]: graphic_eq
+            - text: Generate podcast
+      - generic [ref=e407]:
+        - generic [ref=e408]:
+          - generic [ref=e410]: auto_stories
+          - generic [ref=e411]:
+            - paragraph [ref=e412]: Topics ready
+            - paragraph [ref=e413]: 6 / 6
+            - paragraph [ref=e414]: 100% generated
+        - generic [ref=e415]:
+          - generic [ref=e417]: check_circle
+          - generic [ref=e418]:
+            - paragraph [ref=e419]: Course progress
+            - paragraph [ref=e420]: 0%
+            - paragraph [ref=e421]: 0 of 6 completed
+        - generic [ref=e422]:
+          - generic [ref=e424]: quiz
+          - generic [ref=e425]:
+            - paragraph [ref=e426]: Quizzes ready
+            - paragraph [ref=e427]: "0"
+            - paragraph [ref=e428]: Coming soon
+        - generic [ref=e429]:
+          - generic [ref=e431]: graphic_eq
+          - generic [ref=e432]:
+            - paragraph [ref=e433]: Audio lesson
+            - paragraph [ref=e434]: Not generated
+            - paragraph [ref=e435]: 18 min study time
+      - generic [ref=e436]:
+        - generic [ref=e437]:
+          - generic [ref=e439]:
+            - generic [ref=e440]:
+              - generic [ref=e441]: play_circle
+              - generic [ref=e442]: Continue learning
+            - generic [ref=e443]:
+              - generic [ref=e444]:
+                - paragraph [ref=e445]: Continue where you left off · Module 1
+                - heading "What Is Photosynthesis?" [level=2] [ref=e446]
+                - paragraph [ref=e447]: An overview of photosynthesis as the process that converts light energy into chemical energy stored in glucose.
+              - link "play_arrow Start topic" [ref=e449] [cursor=pointer]:
+                - /url: /dashboard/topic/k979wk61td20xzzq5bp19bza4d85ygy1
+                - generic [ref=e450]: play_arrow
+                - text: Start topic
+          - generic [ref=e452]:
+            - generic [ref=e453]:
+              - generic [ref=e454]:
+                - paragraph [ref=e455]: Study this course as a podcast
+                - heading "Listen on the go" [level=3] [ref=e456]
+                - paragraph [ref=e457]: "Photosynthesis: How Plants Convert Sunlight Into Energy"
+              - generic [ref=e458]:
+                - generic [ref=e459]: graphic_eq
+                - text: Not generated
+            - generic [ref=e460]:
+              - paragraph [ref=e461]: Generate an audio lesson from a topic in this course and listen anywhere.
+              - link "graphic_eq Generate podcast" [ref=e462] [cursor=pointer]:
+                - /url: /dashboard/podcasts?generate=1
+                - generic [ref=e463]: graphic_eq
+                - text: Generate podcast
+          - generic [ref=e464]:
+            - generic [ref=e466]:
+              - heading "Generated learning path" [level=2] [ref=e467]
+              - paragraph [ref=e468]: Course modules in the recommended study order.
+            - generic [ref=e469]:
+              - article [ref=e470]:
+                - link "Open What Is Photosynthesis?" [ref=e471] [cursor=pointer]:
+                  - /url: /dashboard/topic/k979wk61td20xzzq5bp19bza4d85ygy1
+                - generic [ref=e477]
+              - article [ref=e495]:
+                - 'link "Open Chlorophyll and Chloroplasts: The Solar Panels" [ref=e496] [cursor=pointer]':
+                  - /url: /dashboard/topic/k97dnwzpagjyq6bk0qkrgsa9n585z59h
+                - generic [ref=e500]
+              - article [ref=e516]:
+                - 'link "Open Light-Dependent Reactions: Making Energy and Oxygen" [ref=e517] [cursor=pointer]':
+                  - /url: /dashboard/topic/k97cd1nyawbytyxg9q01hdpby185zf8d
+                - generic [ref=e521]
+              - article [ref=e537]:
+                - 'link "Open The Calvin Cycle: Building Glucose" [ref=e538] [cursor=pointer]':
+                  - /url: /dashboard/topic/k97d0t42zwzgbycf28zfq0hbp185zh3y
+                - generic [ref=e542]
+              - article [ref=e558]:
+                - 'link "Open Stomata: The Lungs of the Leaf" [ref=e559] [cursor=pointer]':
+                  - /url: /dashboard/topic/k97f6t7zdgg9yyj58xn62xfgb185zanj
+                - generic [ref=e563]
+              - article [ref=e579]:
+                - link "Open Factors That Affect Photosynthesis Rate" [ref=e580] [cursor=pointer]:
+                  - /url: /dashboard/topic/k970v3y6dnbkz7dbfxqj6dprx585yk3s
+                - generic [ref=e584]
+          - generic [ref=e600]:
+            - generic [ref=e602]:
+              - heading "flash_on Concepts to review" [level=2] [ref=e603]:
+                - generic [ref=e604]: flash_on
+                - text: Concepts to review
+              - paragraph [ref=e605]: Quick spaced-repetition picks based on your recent performance.
+            - generic [ref=e606]:
+              - generic [ref=e607]: verified
+              - paragraph [ref=e608]: You're all caught up.
+              - paragraph [ref=e609]: Weak concepts will appear after quizzes or topic reviews in this course.
+        - complementary [ref=e610]:
+          - generic [ref=e611]:
+            - generic [ref=e612]:
+              - heading "analytics Course progress" [level=3] [ref=e613]:
+                - generic [ref=e614]: analytics
+                - text: Course progress
+              - generic [ref=e615]:
+                - img [ref=e616]
+                - generic [ref=e620]
+            - generic [ref=e630]:
+              - heading "bolt Quick actions" [level=3] [ref=e631]:
+                - generic [ref=e632]: bolt
+                - text: Quick actions
+              - generic [ref=e633]:
+                - button "play_arrow Continue learning" [ref=e634] [cursor=pointer]
+                - button "graphic_eq Generate podcast" [ref=e636] [cursor=pointer]
+                - link "trending_up View study plan" [ref=e638] [cursor=pointer]:
+                  - /url: /dashboard/analysis
+          - generic [ref=e640]:
+            - generic [ref=e641]:
+              - heading "folder_open Source files" [level=3] [ref=e642]:
+                - generic [ref=e643]: folder_open
+                - text: Source files
+              - generic [ref=e644]: 1 file
+            - list [ref=e645]:
+              - listitem [ref=e646]:
+                - generic [ref=e647]: description
+                - generic [ref=e648]
+                - generic [ref=e651]: check_circle
+                - button "Remove source" [ref=e652] [cursor=pointer]
+            - button "add Add source" [ref=e654] [cursor=pointer]:
+              - generic [ref=e655]: add
+              - text: Add source

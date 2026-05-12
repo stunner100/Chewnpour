@@ -1,6 +1,8 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 
+const EMPTY_ARRAY = [];
+
 const gradients = [
     '#7c3aed',
     '#f43f5e',
@@ -11,7 +13,7 @@ const gradients = [
 const CourseCard = ({
     course,
     index = 0,
-    folders = [],
+    folders = EMPTY_ARRAY,
     currentFolderId = null,
     deletingCourseId,
     confirmDeleteId,
@@ -21,22 +23,23 @@ const CourseCard = ({
     onConfirmDelete,
     onMoveToFolder,
 }) => {
-    const [menuOpen, setMenuOpen] = useState(false);
-    const [moveSubmenuOpen, setMoveSubmenuOpen] = useState(false);
+    const [menuState, setMenuState] = useState({
+        menuOpen: false,
+        moveSubmenuOpen: false,
+    });
+    const { menuOpen, moveSubmenuOpen } = menuState;
     const menuRef = useRef(null);
 
     useEffect(() => {
         if (!menuOpen) return;
         const handleClickOutside = (event) => {
             if (menuRef.current && !menuRef.current.contains(event.target)) {
-                setMenuOpen(false);
-                setMoveSubmenuOpen(false);
+                setMenuState({ menuOpen: false, moveSubmenuOpen: false });
             }
         };
         const handleKey = (event) => {
             if (event.key === 'Escape') {
-                setMenuOpen(false);
-                setMoveSubmenuOpen(false);
+                setMenuState({ menuOpen: false, moveSubmenuOpen: false });
             }
         };
         document.addEventListener('mousedown', handleClickOutside);
@@ -61,8 +64,7 @@ const CourseCard = ({
     };
 
     const closeMenu = () => {
-        setMenuOpen(false);
-        setMoveSubmenuOpen(false);
+        setMenuState({ menuOpen: false, moveSubmenuOpen: false });
     };
 
     const handleMove = async (folderId) => {
@@ -79,6 +81,11 @@ const CourseCard = ({
                 {isConfirmingDelete ? (
                     <div
                         onClick={stopCardNav}
+                        onKeyDown={(event) => {
+                            if (event.key === 'Enter' || event.key === ' ') stopCardNav(event);
+                        }}
+                        role="group"
+                        aria-label={`Confirm deleting ${course.title}`}
                         className="absolute top-2 right-2 z-20 flex items-center gap-1.5 bg-surface-light dark:bg-surface-dark border border-border-light dark:border-border-dark rounded-lg px-2.5 py-1.5 shadow-card"
                     >
                         <span className="text-caption text-red-600 dark:text-red-400">Delete?</span>
@@ -86,23 +93,34 @@ const CourseCard = ({
                             onClick={(e) => { stopCardNav(e); onConfirmDelete && onConfirmDelete(course); }}
                             disabled={isDeleting}
                             className="text-caption font-semibold text-red-600 hover:text-red-700 px-1.5 py-0.5 rounded hover:bg-red-50 dark:hover:bg-red-900/30 transition-colors disabled:opacity-60"
-                        >Yes</button>
+                        >Delete course</button>
                         <button
                             onClick={(e) => { stopCardNav(e); onCancelDelete && onCancelDelete(); }}
                             className="text-caption text-text-sub-light px-1.5 py-0.5 rounded hover:bg-surface-hover transition-colors"
-                        >No</button>
+                        >Keep course</button>
                     </div>
                 ) : (
                     <div
                         ref={menuRef}
                         onClick={stopCardNav}
+                        onKeyDown={(event) => {
+                            if (event.key === 'Enter' || event.key === ' ') stopCardNav(event);
+                        }}
+                        role="group"
+                        aria-label={`Actions for ${course.title}`}
                         className="absolute top-2 right-2 z-20"
                     >
                         <button
                             type="button"
-                            onClick={(e) => { stopCardNav(e); setMenuOpen((v) => !v); setMoveSubmenuOpen(false); }}
+                            onClick={(e) => {
+                                stopCardNav(e);
+                                setMenuState((state) => ({
+                                    menuOpen: !state.menuOpen,
+                                    moveSubmenuOpen: false,
+                                }));
+                            }}
                             disabled={isDeleting || isMoving}
-                            className="btn-icon w-7 h-7 bg-surface-light/90 dark:bg-surface-dark/90 border border-border-subtle dark:border-border-subtle-dark opacity-0 group-hover:opacity-100 focus:opacity-100 data-[open=true]:opacity-100 transition-all"
+                            className="btn-icon size-7 bg-surface-light/90 dark:bg-surface-dark/90 border border-border-subtle dark:border-border-subtle-dark opacity-0 group-hover:opacity-100 focus:opacity-100 data-[open=true]:opacity-100 transition-all"
                             data-open={menuOpen}
                             title="Course actions"
                             aria-label={`Actions for ${course.title}`}
@@ -120,7 +138,13 @@ const CourseCard = ({
                             >
                                 <button
                                     type="button"
-                                    onClick={(e) => { stopCardNav(e); setMoveSubmenuOpen((v) => !v); }}
+                                    onClick={(e) => {
+                                        stopCardNav(e);
+                                        setMenuState((state) => ({
+                                            ...state,
+                                            moveSubmenuOpen: !state.moveSubmenuOpen,
+                                        }));
+                                    }}
                                     className="w-full flex items-center justify-between gap-2 px-3 py-2 text-body-sm text-left text-text-main-light dark:text-text-main-dark hover:bg-surface-hover dark:hover:bg-surface-hover-dark"
                                     aria-haspopup="menu"
                                     aria-expanded={moveSubmenuOpen}
@@ -181,7 +205,7 @@ const CourseCard = ({
                     </div>
                 )}
                 <div
-                    className="w-full h-full flex items-center justify-center transition-transform duration-300 group-hover:scale-[1.03]"
+                    className="size-full flex items-center justify-center transition-transform duration-300 group-hover:scale-[1.03]"
                     style={{ background: course.coverColor || gradients[index % gradients.length] }}
                 >
                     <span className="material-symbols-outlined text-white/90 text-3xl" style={{ fontVariationSettings: "'FILL' 1" }}>menu_book</span>

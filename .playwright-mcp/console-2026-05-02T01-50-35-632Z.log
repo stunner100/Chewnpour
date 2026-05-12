@@ -1,0 +1,10 @@
+[     628ms] [WARNING] <meta name="apple-mobile-web-app-capable" content="yes"> is deprecated. Please include <meta name="mobile-web-app-capable" content="yes"> @ https://www.chewnpour.com/dashboard/exam/k979wk61td20xzzq5bp19bza4d85ygy1?autostart=mcq:0
+[     980ms] [WARNING] <meta name="apple-mobile-web-app-capable" content="yes"> is deprecated. Please include <meta name="mobile-web-app-capable" content="yes"> @ https://www.chewnpour.com/dashboard/exam/k979wk61td20xzzq5bp19bza4d85ygy1?autostart=mcq:0
+[ 2715348ms] [LOG] %c[CONVEX A(ai:generateExamFeedback)] [WARN] color:rgb(0, 145, 255) '[LLM] primary_provider_failed_using_fallback' {
+  feature: 'exam_feedback',
+  primaryProvider: 'deepseek',
+  fallbackProvider: 'bedrock',
+  primaryModel: 'deepseek-v4-flash',
+  fallbackModel: 'moonshotai.kimi-k2.5',
+  message: 'deepseek API error: empty response.'
+} @ https://www.chewnpour.com/assets/vendor-observability-CAC4cAu7.js:16

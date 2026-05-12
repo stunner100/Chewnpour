@@ -1,15 +1,18 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useReducer, useRef } from 'react';
 import { Link, useLocation, useNavigate, useParams } from 'react-router-dom';
 import { useQuery, useMutation, useAction } from 'convex/react';
+import { ConvexHttpClient } from 'convex/browser';
 import { api } from '../../convex/_generated/api';
 import { useAuth } from '../contexts/AuthContext';
-import { getSession } from '../lib/auth-client';
+import { authBaseUrl, getSession } from '../lib/auth-client';
 import { useStudyTimer } from '../hooks/useStudyTimer';
 import { useExamTimer } from '../hooks/useExamTimer';
 import { useRouteResolvedTopic } from '../hooks/useRouteResolvedTopic';
 import { addSentryBreadcrumb, captureSentryException, captureSentryMessage } from '../lib/sentry';
 import ExamQuestionCard from '../components/ExamQuestionCard';
 import ExamPreparationLoader from '../components/ExamPreparationLoader';
+import { WatermelonTabs, WatermelonTabsList, WatermelonTabsTrigger } from '../components/watermelon/WatermelonTabs';
+import { convexUrl } from '../lib/convex-config';
 
 // ── Pure option-parsing helpers (hoisted out of the component) ──
 
@@ -207,7 +210,10 @@ const buildFallbackOptionsFromRaw = (rawOptions) => {
 
 const resolveQuestionOptions = (rawOptions) => {
     const options = coerceOptions(rawOptions);
-    const renderOptions = options.map((o, i) => normalizeOption(o, i)).filter(Boolean);
+    const renderOptions = options.flatMap((option, index) => {
+        const normalized = normalizeOption(option, index);
+        return normalized ? [normalized] : [];
+    });
     const hasRawArtifacts = renderOptions.some((o) => {
         if (typeof o.text !== 'string') return false;
         return (
@@ -238,6 +244,96 @@ const TRANSIENT_TRANSPORT_ERROR_PATTERNS = [
 ];
 const EXAM_DURATION_SECONDS = 45 * 60;
 const MIN_ESSAY_SUBMIT_CHAR_COUNT = 20;
+const createInitialExamState = (search) => ({
+    attemptId: null,
+    attemptQualityTier: '',
+    attemptQuestions: null,
+    currentQuestion: 0,
+    examFormat: resolveAutostartExamFormat(search),
+    examStarted: false,
+    gradingEssay: false,
+    routingBootstrapPending: false,
+    selectedAnswers: {},
+    startExamError: '',
+    startingExamAttempt: false,
+    submitError: '',
+});
+
+const examModeReducer = (state, action) => {
+    switch (action.type) {
+        case 'answerSelected':
+            return {
+                ...state,
+                selectedAnswers: {
+                    ...state.selectedAnswers,
+                    [action.questionId]: action.answer,
+                },
+                submitError: '',
+            };
+        case 'beginPreparation':
+            return {
+                ...state,
+                attemptId: null,
+                attemptQualityTier: '',
+                attemptQuestions: null,
+                examStarted: false,
+                startExamError: '',
+                startingExamAttempt: true,
+                submitError: '',
+            };
+        case 'chooseFormat':
+            return {
+                ...state,
+                examFormat: action.examFormat,
+                startExamError: '',
+            };
+        case 'clearStartAndFormat':
+            return {
+                ...state,
+                examFormat: null,
+                startExamError: '',
+            };
+        case 'finishPreparation':
+            return {
+                ...state,
+                startingExamAttempt: false,
+            };
+        case 'moveQuestion':
+            return {
+                ...state,
+                currentQuestion: Math.min(Math.max(action.index, 0), Math.max(action.maxIndex, 0)),
+            };
+        case 'patch':
+            return {
+                ...state,
+                ...action.patch,
+            };
+        case 'preparationFailed':
+            return {
+                ...state,
+                attemptId: null,
+                attemptQuestions: null,
+                examStarted: false,
+                startExamError: action.message,
+            };
+        case 'preparationSucceeded':
+            return {
+                ...state,
+                attemptId: action.attemptId,
+                attemptQualityTier: action.qualityTier,
+                attemptQuestions: action.questions,
+                currentQuestion: 0,
+                examStarted: true,
+                selectedAnswers: {},
+                startExamError: '',
+            };
+        case 'resetForRoute':
+            return createInitialExamState(action.search);
+        default:
+            return state;
+    }
+};
+
 const resolveAutostartExamFormat = (search) => {
     const params = new URLSearchParams(String(search || ''));
     const raw = String(params.get('autostart') || '').trim().toLowerCase();
@@ -347,6 +443,69 @@ const getExamTransientStartRetryMessage = () =>
 const getExamTransientSubmitRetryMessage = () =>
     'Connection dropped while submitting your exam. Please retry once your connection is stable.';
 
+const waitForDuration = (durationMs) =>
+    new Promise((resolve) => {
+        setTimeout(resolve, durationMs);
+    });
+
+const readCachedConvexBrowserToken = () => {
+    if (typeof window === 'undefined') return '';
+    try {
+        const raw = window.localStorage.getItem('better-auth_cookie');
+        if (!raw) return '';
+        const parsed = JSON.parse(raw);
+        const cachedToken = parsed?.['better-auth.convex_jwt'];
+        const token = typeof cachedToken?.value === 'string' ? cachedToken.value.trim() : '';
+        if (!token) return '';
+        const expiresAt = Date.parse(String(cachedToken?.expires || ''));
+        if (Number.isFinite(expiresAt) && expiresAt <= Date.now()) {
+            return '';
+        }
+        return token;
+    } catch {
+        return '';
+    }
+};
+
+const fetchConvexBrowserToken = async () => {
+    const cachedToken = readCachedConvexBrowserToken();
+    if (cachedToken) {
+        return cachedToken;
+    }
+
+    const requestToken = async (attempt = 0) => {
+        try {
+            await getSession().catch(() => null);
+            const refreshedCachedToken = readCachedConvexBrowserToken();
+            if (refreshedCachedToken) {
+                return refreshedCachedToken;
+            }
+            const response = await fetch(`${authBaseUrl}/api/auth/convex/token`, {
+                credentials: 'include',
+            });
+            if (!response.ok) {
+                throw new Error(`Failed to fetch Convex auth token (${response.status})`);
+            }
+            const payload = await response.json().catch(() => null);
+            const token = typeof payload?.token === 'string' ? payload.token.trim() : '';
+            if (!token) {
+                throw new Error('Session is still syncing.');
+            }
+            return token;
+        } catch (error) {
+            if (attempt >= 5) {
+                throw error instanceof Error
+                    ? error
+                    : new Error('Session is still syncing.');
+            }
+            await waitForDuration(500 * (attempt + 1));
+            return requestToken(attempt + 1);
+        }
+    };
+
+    return requestToken();
+};
+
 const isRecoverableExamSubmitError = ({ error, message }) => {
     if (isUserCorrectableEssaySubmitError(message)) return true;
     if (isConvexAuthenticationError(error)) return true;
@@ -369,25 +528,32 @@ const isUserCorrectableEssaySubmitError = (message) => {
 
 // ── Component ──
 
+// react-doctor-disable-next-line react-doctor/no-giant-component
 const ExamMode = () => {
     const { topicId: topicIdParam } = useParams();
     const routeTopicId = typeof topicIdParam === 'string' ? topicIdParam.trim() : '';
-    const location = useLocation();
+    const routerLocation = useLocation();
     const navigate = useNavigate();
-    const { user } = useAuth();
-    const [currentQuestion, setCurrentQuestion] = useState(0);
-    const [selectedAnswers, setSelectedAnswers] = useState({});
-    const [examStarted, setExamStarted] = useState(false);
-    const [attemptId, setAttemptId] = useState(null);
-    const [attemptQuestions, setAttemptQuestions] = useState(null);
-    const [attemptQualityTier, setAttemptQualityTier] = useState('');
-    const [startingExamAttempt, setStartingExamAttempt] = useState(false);
-    const [startExamError, setStartExamError] = useState('');
-
-    // Essay exam state
-    const [examFormat, setExamFormat] = useState(() => resolveAutostartExamFormat(location.search)); // null = not chosen, 'mcq' | 'essay'
-    const [gradingEssay, setGradingEssay] = useState(false);
-    const [submitError, setSubmitError] = useState('');
+    const { user, loading: authLoading } = useAuth();
+    const [examState, dispatchExamState] = useReducer(
+        examModeReducer,
+        routerLocation.search,
+        createInitialExamState,
+    );
+    const {
+        attemptId,
+        attemptQualityTier,
+        attemptQuestions,
+        currentQuestion,
+        examFormat,
+        examStarted,
+        gradingEssay,
+        routingBootstrapPending,
+        selectedAnswers,
+        startExamError,
+        startingExamAttempt,
+        submitError,
+    } = examState;
     const invalidRouteReportedRef = useRef('');
 
 
@@ -422,13 +588,24 @@ const ExamMode = () => {
             ? { courseId: topic.courseId, sourceUploadId: topic.sourceUploadId }
             : 'skip'
     );
-    const startExamAttempt = useAction(api.exams.startExamAttempt);
     const ensureAssessmentRoutingForTopic = useAction(api.ai.ensureAssessmentRoutingForTopic);
     const submitExam = useMutation(api.exams.submitExamAttempt);
     const submitEssayExam = useAction(api.exams.submitEssayExam);
+    const startExamAttemptHttp = useCallback(async ({ topicId: nextTopicId, examFormat: nextExamFormat }) => {
+        if (!convexUrl) {
+            throw new Error('Convex is not configured for this deployment.');
+        }
+        const token = await fetchConvexBrowserToken();
+        const client = new ConvexHttpClient(convexUrl);
+        client.setAuth(token);
+        return await client.action(api.exams.startExamAttempt, {
+            topicId: nextTopicId,
+            examFormat: nextExamFormat,
+        });
+    }, []);
 
-    const START_EXAM_ATTEMPT_TIMEOUT_MS = 120_000;
-    const EXAM_LOADING_STALL_TIMEOUT_MS = 150_000;
+    const START_EXAM_ATTEMPT_TIMEOUT_MS = 240_000;
+    const EXAM_LOADING_STALL_TIMEOUT_MS = 270_000;
 
     const loadingExamTypeLabel = examFormat === 'essay' ? 'essay' : 'objective';
     const activePreparationMessage = `Generating your ${loadingExamTypeLabel} exam from this topic.`;
@@ -446,7 +623,6 @@ const ExamMode = () => {
     const handleSubmitRef = useRef(() => { });
     const submittingRef = useRef(false);
     const routingBootstrapKeyRef = useRef('');
-    const [routingBootstrapPending, setRoutingBootstrapPending] = useState(false);
     // Optimized timer: only re-renders when the displayed second changes
     const {
         timeRemaining,
@@ -472,22 +648,11 @@ const ExamMode = () => {
         examFlowStartTimeRef.current = Date.now();
         attemptStartTimeRef.current = null;
         loadingStallReportedRef.current = false;
-        setCurrentQuestion(0);
-        setSelectedAnswers({});
-        setExamStarted(false);
-        setAttemptId(null);
-        setAttemptQuestions(null);
-        setAttemptQualityTier('');
-        setStartingExamAttempt(false);
-        setStartExamError('');
-        setExamFormat(resolveAutostartExamFormat(location.search));
-        setGradingEssay(false);
-        setSubmitError('');
         routingBootstrapKeyRef.current = '';
-        setRoutingBootstrapPending(false);
+        dispatchExamState({ type: 'resetForRoute', search: routerLocation.search });
     }, [
         routeTopicId,
-        location.search,
+        routerLocation.search,
     ]);
 
     useEffect(() => {
@@ -514,14 +679,14 @@ const ExamMode = () => {
         }
 
         routingBootstrapKeyRef.current = bootstrapKey;
-        setRoutingBootstrapPending(true);
+        dispatchExamState({ type: 'patch', patch: { routingBootstrapPending: true } });
 
         ensureAssessmentRoutingForTopic({ topicId })
             .catch((error) => {
                 console.warn('Failed to bootstrap assessment routing for exam topic', error);
             })
             .finally(() => {
-                setRoutingBootstrapPending(false);
+                dispatchExamState({ type: 'patch', patch: { routingBootstrapPending: false } });
             });
     }, [
         hasFinalAssessmentRoutingContext,
@@ -549,11 +714,11 @@ const ExamMode = () => {
                 routeTopicId,
                 rawTopicId,
                 hasMismatchedCachedTopic,
-                pathname: location.pathname,
+                pathname: routerLocation.pathname,
                 referrer: typeof document !== 'undefined' ? document.referrer || '' : '',
             },
         });
-    }, [hasMismatchedCachedTopic, isMissingRouteTopic, location.pathname, rawTopicId, routeTopicId]);
+    }, [hasMismatchedCachedTopic, isMissingRouteTopic, routerLocation.pathname, rawTopicId, routeTopicId]);
 
     const shouldRedirectToFinalExam = (
         topic?.topicKind !== 'document_final_exam'
@@ -565,8 +730,8 @@ const ExamMode = () => {
         if (!shouldRedirectToFinalExam) return;
         if (!routedFinalAssessmentTopic?._id) return;
         if (routedFinalAssessmentTopic._id === topicId) return;
-        navigate(`/dashboard/exam/${routedFinalAssessmentTopic._id}${location.search || ''}`, { replace: true });
-    }, [location.search, navigate, routedFinalAssessmentTopic?._id, shouldRedirectToFinalExam, topicId]);
+        navigate(`/dashboard/exam/${routedFinalAssessmentTopic._id}${routerLocation.search || ''}`, { replace: true });
+    }, [routerLocation.search, navigate, routedFinalAssessmentTopic?._id, shouldRedirectToFinalExam, topicId]);
 
     const withTimeout = useCallback((promise, timeoutMs, timeoutMessage) => {
         let timeoutHandle;
@@ -586,13 +751,7 @@ const ExamMode = () => {
     const beginExamAttempt = useCallback(async () => {
         if (!topicId || !examFormat || attemptStartTimeRef.current) return;
 
-        setStartExamError('');
-        setSubmitError('');
-        setStartingExamAttempt(true);
-        setAttemptId(null);
-        setAttemptQuestions(null);
-        setAttemptQualityTier('');
-        setExamStarted(false);
+        dispatchExamState({ type: 'beginPreparation' });
         attemptStartTimeRef.current = Date.now();
         examFlowStartTimeRef.current = Date.now();
         loadingStallReportedRef.current = false;
@@ -607,20 +766,19 @@ const ExamMode = () => {
         });
         try {
             const result = await withTimeout(
-                startExamAttempt({ topicId, examFormat }),
+                startExamAttemptHttp({ topicId, examFormat }),
                 START_EXAM_ATTEMPT_TIMEOUT_MS,
                 'Exam preparation initialization timed out.'
             );
             const selectedQuestions = Array.isArray(result?.questions) ? result.questions : [];
             if (result?.attemptId && selectedQuestions.length > 0) {
-                setStartExamError('');
-                setAttemptId(result.attemptId);
-                setAttemptQuestions(selectedQuestions);
-                setAttemptQualityTier(typeof result?.qualityTier === 'string' ? result.qualityTier : '');
-                setCurrentQuestion(0);
-                setSelectedAnswers({});
+                dispatchExamState({
+                    type: 'preparationSucceeded',
+                    attemptId: result.attemptId,
+                    questions: selectedQuestions,
+                    qualityTier: typeof result?.qualityTier === 'string' ? result.qualityTier : '',
+                });
                 setTimeRemaining(EXAM_DURATION_SECONDS);
-                setExamStarted(true);
                 const elapsedMs = Date.now() - attemptStartTimeRef.current;
                 addSentryBreadcrumb({
                     category: 'exam',
@@ -635,11 +793,12 @@ const ExamMode = () => {
                 return;
             }
 
-            setStartExamError(
-                typeof result?.message === 'string' && result.message.trim()
+            dispatchExamState({
+                type: 'preparationFailed',
+                message: typeof result?.message === 'string' && result.message.trim()
                     ? result.message.trim()
-                    : 'We could not finish preparing your exam. Please try again.'
-            );
+                    : 'We could not finish preparing your exam. Please try again.',
+            });
         } catch (error) {
             const errorCode = getConvexErrorCode(error);
             const message = resolveConvexActionError(error, 'Unable to start the exam. Please try again.');
@@ -649,28 +808,27 @@ const ExamMode = () => {
             const elapsedMs = attemptStartTimeRef.current
                 ? Date.now() - attemptStartTimeRef.current
                 : null;
+            let nextStartExamError = 'Unable to start the exam. Please try again.';
             if (authError) {
                 const { refreshed, expired } = await refreshAuthSessionQuietly();
                 if (expired) {
-                    setStartExamError(getExamSessionExpiredMessage());
+                    nextStartExamError = getExamSessionExpiredMessage();
                 } else {
-                    setStartExamError(getExamAuthNotReadyMessage(refreshed));
+                    nextStartExamError = getExamAuthNotReadyMessage(refreshed);
                 }
             } else if (transientTransportError) {
-                setStartExamError(getExamTransientStartRetryMessage());
+                nextStartExamError = getExamTransientStartRetryMessage();
             } else if (timedOut) {
-                setStartExamError('Exam setup is taking longer than expected. Tap Retry.');
+                nextStartExamError = 'Exam setup is taking longer than expected. Tap Retry.';
             } else if (isLikelyPostDisconnectAuthError(error)) {
                 const { refreshed, expired } = await refreshAuthSessionQuietly();
                 if (expired) {
-                    setStartExamError(getExamSessionExpiredMessage());
+                    nextStartExamError = getExamSessionExpiredMessage();
                 } else if (refreshed) {
-                    setStartExamError(getExamAuthNotReadyMessage(true));
+                    nextStartExamError = getExamAuthNotReadyMessage(true);
                 } else {
-                    setStartExamError('Something went wrong. Please wait a moment and tap Retry.');
+                    nextStartExamError = 'Something went wrong. Please wait a moment and tap Retry.';
                 }
-            } else {
-                setStartExamError('Unable to start the exam. Please try again.');
             }
             const likelyPostDisconnect = isLikelyPostDisconnectAuthError(error);
             const recoverableError = timedOut || authError || transientTransportError || likelyPostDisconnect;
@@ -714,14 +872,12 @@ const ExamMode = () => {
                     },
                 });
             }
-            setAttemptId(null);
-            setAttemptQuestions(null);
-            setExamStarted(false);
+            dispatchExamState({ type: 'preparationFailed', message: nextStartExamError });
         } finally {
             attemptStartTimeRef.current = null;
-            setStartingExamAttempt(false);
+            dispatchExamState({ type: 'finishPreparation' });
         }
-    }, [examFormat, startExamAttempt, topicId, userId, withTimeout, START_EXAM_ATTEMPT_TIMEOUT_MS, setTimeRemaining]);
+    }, [examFormat, startExamAttemptHttp, topicId, userId, withTimeout, START_EXAM_ATTEMPT_TIMEOUT_MS, setTimeRemaining]);
 
     const handleRetryStart = useCallback(async () => {
         await beginExamAttempt();
@@ -788,6 +944,8 @@ const ExamMode = () => {
         if (
             topicId &&
             examFormat &&
+            userId &&
+            !authLoading &&
             !examStarted &&
             !startingExamAttempt &&
             !hasAttemptQuestions &&
@@ -798,6 +956,8 @@ const ExamMode = () => {
     }, [
         topicId,
         examFormat,
+        userId,
+        authLoading,
         examStarted,
         startingExamAttempt,
         hasAttemptQuestions,
@@ -808,26 +968,22 @@ const ExamMode = () => {
     // Timer managed by useExamTimer hook above
 
     const handleAnswerSelect = useCallback((questionId, answer) => {
-        setSubmitError((prev) => (prev ? '' : prev));
-        setSelectedAnswers((prev) => ({
-            ...prev,
-            [questionId]: answer,
-        }));
+        dispatchExamState({ type: 'answerSelected', questionId, answer });
     }, []);
 
     const handleNext = useCallback(() => {
-        setCurrentQuestion((prev) => Math.min(prev + 1, questions.length - 1));
-    }, [questions.length]);
+        dispatchExamState({ type: 'moveQuestion', index: currentQuestion + 1, maxIndex: questions.length - 1 });
+    }, [currentQuestion, questions.length]);
 
     const handlePrevious = useCallback(() => {
-        setCurrentQuestion((prev) => Math.max(prev - 1, 0));
-    }, []);
+        dispatchExamState({ type: 'moveQuestion', index: currentQuestion - 1, maxIndex: questions.length - 1 });
+    }, [currentQuestion, questions.length]);
 
     const handleSubmit = useCallback(async () => {
         if (submittingRef.current) return;
         if (!attemptId) return;
         submittingRef.current = true;
-        setSubmitError('');
+        dispatchExamState({ type: 'patch', patch: { submitError: '' } });
 
         if (examFormat === 'essay') {
             const answeredEssayQuestions = questions.filter((question) => {
@@ -835,12 +991,12 @@ const ExamMode = () => {
                 return String(value ?? '').trim().length >= MIN_ESSAY_SUBMIT_CHAR_COUNT;
             }).length;
             if (answeredEssayQuestions < questions.length) {
-                setSubmitError('Please answer all essay questions before submitting.');
+                dispatchExamState({ type: 'patch', patch: { submitError: 'Please answer all essay questions before submitting.' } });
                 submittingRef.current = false;
                 return;
             }
 
-            setGradingEssay(true);
+            dispatchExamState({ type: 'patch', patch: { gradingEssay: true } });
             try {
                 const answers = questions.map((question) => ({
                     questionId: question._id,
@@ -863,15 +1019,18 @@ const ExamMode = () => {
                 const transientTransportError = isTransientExamTransportError(error, message);
                 if (authError) {
                     const { refreshed, expired } = await refreshAuthSessionQuietly();
-                    setSubmitError(
-                        expired
-                            ? getExamSessionExpiredMessage()
-                            : getExamAuthNotReadyMessage(refreshed)
-                    );
+                    dispatchExamState({
+                        type: 'patch',
+                        patch: {
+                            submitError: expired
+                                ? getExamSessionExpiredMessage()
+                                : getExamAuthNotReadyMessage(refreshed),
+                        },
+                    });
                 } else if (transientTransportError) {
-                    setSubmitError(getExamTransientSubmitRetryMessage());
+                    dispatchExamState({ type: 'patch', patch: { submitError: getExamTransientSubmitRetryMessage() } });
                 } else {
-                    setSubmitError(message);
+                    dispatchExamState({ type: 'patch', patch: { submitError: message } });
                 }
                 const recoverableError = isRecoverableExamSubmitError({ error, message });
                 if (recoverableError) {
@@ -894,7 +1053,7 @@ const ExamMode = () => {
                     });
                 }
             } finally {
-                setGradingEssay(false);
+                dispatchExamState({ type: 'patch', patch: { gradingEssay: false } });
                 submittingRef.current = false;
             }
             return;
@@ -920,15 +1079,18 @@ const ExamMode = () => {
             const transientTransportError = isTransientExamTransportError(error, message);
             if (authError) {
                 const { refreshed, expired } = await refreshAuthSessionQuietly();
-                setSubmitError(
-                    expired
-                        ? getExamSessionExpiredMessage()
-                        : getExamAuthNotReadyMessage(refreshed)
-                );
+                dispatchExamState({
+                    type: 'patch',
+                    patch: {
+                        submitError: expired
+                            ? getExamSessionExpiredMessage()
+                            : getExamAuthNotReadyMessage(refreshed),
+                    },
+                });
             } else if (transientTransportError) {
-                setSubmitError(getExamTransientSubmitRetryMessage());
+                dispatchExamState({ type: 'patch', patch: { submitError: getExamTransientSubmitRetryMessage() } });
             } else {
-                setSubmitError(message);
+                dispatchExamState({ type: 'patch', patch: { submitError: message } });
             }
             if (authError || transientTransportError) {
                 captureSentryMessage('Exam submission requires retry', {
@@ -969,15 +1131,15 @@ const ExamMode = () => {
     handleSubmitRef.current = handleSubmit;
 
     const currentQ = questions[currentQuestion];
-    const progress = questions.length > 0
-        ? ((currentQuestion + 1) / questions.length) * 100
-        : 0;
     const answeredQuestionCount = examFormat === 'essay'
         ? questions.filter((question) => {
             const value = selectedAnswers[question._id];
             return String(value ?? '').trim().length >= MIN_ESSAY_SUBMIT_CHAR_COUNT;
         }).length
         : questions.filter((question) => Boolean(selectedAnswers[question._id])).length;
+    const progress = questions.length > 0
+        ? (answeredQuestionCount / questions.length) * 100
+        : 0;
     const isEssaySubmitBlocked = examFormat === 'essay' && answeredQuestionCount < questions.length;
     const examQualityTier = attemptQualityTier;
 
@@ -1002,7 +1164,7 @@ const ExamMode = () => {
         return (
             <div className="bg-background-light dark:bg-background-dark min-h-screen flex items-center justify-center">
                 <div className="text-center max-w-md px-6">
-                    <div className="w-14 h-14 rounded-2xl bg-surface-light dark:bg-surface-dark border border-border-light dark:border-border-dark flex items-center justify-center mx-auto mb-4">
+                    <div className="size-14 rounded-2xl bg-surface-light dark:bg-surface-dark border border-border-light dark:border-border-dark flex items-center justify-center mx-auto mb-4">
                         <span className="material-symbols-outlined text-2xl text-text-faint-light dark:text-text-faint-dark">quiz</span>
                     </div>
                     <h2 className="text-body-lg font-semibold text-text-main-light dark:text-text-main-dark mb-2">Select a topic to start an exam</h2>
@@ -1020,8 +1182,8 @@ const ExamMode = () => {
         return (
             <div className="bg-background-light dark:bg-background-dark min-h-screen flex items-center justify-center">
                 <div className="text-center">
-                    <div className="animate-spin rounded-full h-10 w-10 border-2 border-border-light dark:border-border-dark border-t-primary mx-auto mb-4"></div>
-                    <p className="text-body-sm text-text-sub-light dark:text-text-sub-dark">Preparing your exam environment...</p>
+                    <div className="animate-spin rounded-full size-10 border-2 border-border-light dark:border-border-dark border-t-primary mx-auto mb-4"></div>
+                    <p className="text-body-sm text-text-sub-light dark:text-text-sub-dark">Preparing your exam environment…</p>
                 </div>
             </div>
         );
@@ -1031,7 +1193,7 @@ const ExamMode = () => {
         return (
             <div className="bg-background-light dark:bg-background-dark min-h-screen flex items-center justify-center">
                 <div className="text-center max-w-md px-6">
-                    <div className="w-14 h-14 rounded-2xl bg-surface-light dark:bg-surface-dark border border-border-light dark:border-border-dark flex items-center justify-center mx-auto mb-4">
+                    <div className="size-14 rounded-2xl bg-surface-light dark:bg-surface-dark border border-border-light dark:border-border-dark flex items-center justify-center mx-auto mb-4">
                         <span className="material-symbols-outlined text-2xl text-text-faint-light dark:text-text-faint-dark">search_off</span>
                     </div>
                     <h2 className="text-body-lg font-semibold text-text-main-light dark:text-text-main-dark mb-2">This exam link is stale</h2>
@@ -1048,8 +1210,8 @@ const ExamMode = () => {
         return (
             <div className="bg-background-light dark:bg-background-dark min-h-screen flex items-center justify-center">
                 <div className="text-center">
-                    <div className="animate-spin rounded-full h-10 w-10 border-2 border-border-light dark:border-border-dark border-t-primary mx-auto mb-4"></div>
-                    <p className="text-body-sm text-text-sub-light dark:text-text-sub-dark">Preparing your final exam...</p>
+                    <div className="animate-spin rounded-full size-10 border-2 border-border-light dark:border-border-dark border-t-primary mx-auto mb-4"></div>
+                    <p className="text-body-sm text-text-sub-light dark:text-text-sub-dark">Preparing your final exam…</p>
                 </div>
             </div>
         );
@@ -1059,8 +1221,8 @@ const ExamMode = () => {
         return (
             <div className="bg-background-light dark:bg-background-dark min-h-screen flex items-center justify-center">
                 <div className="text-center">
-                    <div className="animate-spin rounded-full h-10 w-10 border-2 border-border-light dark:border-border-dark border-t-primary mx-auto mb-4"></div>
-                    <p className="text-body-sm text-text-sub-light dark:text-text-sub-dark">Preparing the best assessment route for this topic...</p>
+                    <div className="animate-spin rounded-full size-10 border-2 border-border-light dark:border-border-dark border-t-primary mx-auto mb-4"></div>
+                    <p className="text-body-sm text-text-sub-light dark:text-text-sub-dark">Preparing the best assessment route for this topic…</p>
                 </div>
             </div>
         );
@@ -1070,8 +1232,8 @@ const ExamMode = () => {
         return (
             <div className="bg-background-light dark:bg-background-dark min-h-screen flex items-center justify-center">
                 <div className="text-center">
-                    <div className="animate-spin rounded-full h-10 w-10 border-2 border-border-light dark:border-border-dark border-t-primary mx-auto mb-4"></div>
-                    <p className="text-body-sm text-text-sub-light dark:text-text-sub-dark">Redirecting to your final exam...</p>
+                    <div className="animate-spin rounded-full size-10 border-2 border-border-light dark:border-border-dark border-t-primary mx-auto mb-4"></div>
+                    <p className="text-body-sm text-text-sub-light dark:text-text-sub-dark">Redirecting to your final exam…</p>
                 </div>
             </div>
         );
@@ -1081,7 +1243,7 @@ const ExamMode = () => {
         return (
             <div className="bg-background-light dark:bg-background-dark min-h-screen flex items-center justify-center">
                 <div className="text-center max-w-md px-6">
-                    <div className="w-14 h-14 rounded-2xl bg-surface-light dark:bg-surface-dark border border-border-light dark:border-border-dark flex items-center justify-center mx-auto mb-4">
+                    <div className="size-14 rounded-2xl bg-surface-light dark:bg-surface-dark border border-border-light dark:border-border-dark flex items-center justify-center mx-auto mb-4">
                         <span className="material-symbols-outlined text-2xl text-text-faint-light dark:text-text-faint-dark">hourglass_top</span>
                     </div>
                     <h2 className="text-body-lg font-semibold text-text-main-light dark:text-text-main-dark mb-2">This topic is covered in the final exam</h2>
@@ -1099,7 +1261,7 @@ const ExamMode = () => {
             <div className="min-h-screen bg-background-light dark:bg-background-dark flex items-center justify-center p-4">
                 <div className="w-full max-w-md">
                     <div className="card-base p-8 text-center">
-                        <div className="w-16 h-16 mx-auto mb-6 rounded-2xl bg-primary/10 flex items-center justify-center">
+                        <div className="size-16 mx-auto mb-6 rounded-2xl bg-primary/10 flex items-center justify-center">
                             <span className="material-symbols-outlined text-3xl text-primary">quiz</span>
                         </div>
                         <h2 className="text-display-sm text-text-main-light dark:text-text-main-dark mb-2">Choose Exam Format</h2>
@@ -1108,12 +1270,11 @@ const ExamMode = () => {
                         <div className="space-y-3">
                             <button
                                 onClick={() => {
-                                    setStartExamError('');
-                                    setExamFormat('mcq');
+                                    dispatchExamState({ type: 'chooseFormat', examFormat: 'mcq' });
                                 }}
                                 className="w-full flex items-center gap-4 p-4 rounded-xl border border-border-light dark:border-border-dark hover:border-primary hover:bg-primary/5 transition-all text-left group"
                             >
-                                <div className="w-11 h-11 rounded-xl bg-primary/10 flex items-center justify-center group-hover:bg-primary/15 transition-colors">
+                                <div className="size-11 rounded-xl bg-primary/10 flex items-center justify-center group-hover:bg-primary/15 transition-colors">
                                     <span className="material-symbols-outlined text-primary">radio_button_checked</span>
                                 </div>
                                 <div>
@@ -1124,12 +1285,11 @@ const ExamMode = () => {
 
                             <button
                                 onClick={() => {
-                                    setStartExamError('');
-                                    setExamFormat('essay');
+                                    dispatchExamState({ type: 'chooseFormat', examFormat: 'essay' });
                                 }}
                                 className="w-full flex items-center gap-4 p-4 rounded-xl border border-border-light dark:border-border-dark hover:border-accent-emerald hover:bg-accent-emerald/5 transition-all text-left group"
                             >
-                                <div className="w-11 h-11 rounded-xl bg-accent-emerald/10 flex items-center justify-center group-hover:bg-accent-emerald/15 transition-colors">
+                                <div className="size-11 rounded-xl bg-accent-emerald/10 flex items-center justify-center group-hover:bg-accent-emerald/15 transition-colors">
                                     <span className="material-symbols-outlined text-accent-emerald">edit_note</span>
                                 </div>
                                 <div>
@@ -1152,7 +1312,7 @@ const ExamMode = () => {
                 failed={Boolean(startExamError)}
                 errorMsg={startExamError}
                 onRetry={handleRetryStart}
-                onBack={() => { setStartExamError(''); setExamFormat(null); }}
+                onBack={() => dispatchExamState({ type: 'clearStartAndFormat' })}
                 isSessionExpired={startExamError === getExamSessionExpiredMessage()}
             />
         );
@@ -1164,11 +1324,11 @@ const ExamMode = () => {
             {gradingEssay && (
                 <div className="fixed inset-0 z-50 bg-background-light/80 dark:bg-background-dark/80 backdrop-blur-sm flex items-center justify-center p-4">
                     <div className="card-base p-8 text-center max-w-sm w-full">
-                        <div className="w-16 h-16 mx-auto mb-6 rounded-2xl bg-primary/10 flex items-center justify-center animate-pulse">
+                        <div className="size-16 mx-auto mb-6 rounded-2xl bg-primary/10 flex items-center justify-center animate-pulse">
                             <span className="material-symbols-outlined text-3xl text-primary">psychology</span>
                         </div>
                         <h3 className="text-body-lg font-semibold text-text-main-light dark:text-text-main-dark mb-2">Grading Your Answers</h3>
-                        <p className="text-body-sm text-text-sub-light dark:text-text-sub-dark">Our AI is reading and evaluating each of your responses. This may take a moment...</p>
+                        <p className="text-body-sm text-text-sub-light dark:text-text-sub-dark">Our AI is reading and evaluating each of your responses. This may take a moment…</p>
                         <div className="mt-6 w-full h-1 bg-border-light dark:bg-border-dark rounded-full overflow-hidden">
                             <div className="h-full bg-primary rounded-full animate-[pulse_1.5s_ease-in-out_infinite]" style={{ width: '70%' }}></div>
                         </div>
@@ -1181,7 +1341,7 @@ const ExamMode = () => {
                 <header className="sticky top-0 z-40 bg-surface-light/90 dark:bg-surface-dark/90 backdrop-blur-md border-b border-border-light dark:border-border-dark">
                     <div className="max-w-4xl mx-auto px-4 py-3 flex items-center justify-between">
                         <div className="flex items-center gap-3">
-                            <Link to={topicId ? `/dashboard/topic/${topicId}` : '/dashboard'} className="btn-icon w-9 h-9">
+                            <Link to={topicId ? `/dashboard/topic/${topicId}` : '/dashboard'} className="btn-icon size-9">
                                 <span className="material-symbols-outlined text-lg">close</span>
                             </Link>
                             <div>
@@ -1251,28 +1411,28 @@ const ExamMode = () => {
                             <span className="text-body-sm text-text-sub-light dark:text-text-sub-dark">Question Navigator</span>
                             <span className="text-caption text-text-faint-light dark:text-text-faint-dark">{answeredQuestionCount} of {questions.length} answered</span>
                         </div>
-                        <div className="grid grid-cols-8 gap-1.5">
-                            {questions.map((q, index) => {
-                                const isAnswered = examFormat === 'essay'
-                                    ? String(selectedAnswers[q._id] ?? '').trim().length >= MIN_ESSAY_SUBMIT_CHAR_COUNT
-                                    : Boolean(selectedAnswers[q._id]);
-                                const isCurrent = index === currentQuestion;
-                                return (
-                                    <button
-                                        key={q._id}
-                                        onClick={() => setCurrentQuestion(index)}
-                                        className={`aspect-square rounded-lg font-semibold text-caption flex items-center justify-center transition-all ${isCurrent
-                                            ? 'bg-primary text-white'
-                                            : isAnswered
-                                                ? 'bg-surface-hover-light dark:bg-surface-hover-dark text-text-sub-light dark:text-text-sub-dark'
-                                                : 'border border-border-light dark:border-border-dark text-text-faint-light dark:text-text-faint-dark'
-                                            }`}
-                                    >
-                                        {index + 1}
-                                    </button>
-                                );
-                            })}
-                        </div>
+                        <WatermelonTabs
+                            defaultValue={String(currentQuestion)}
+                            value={String(currentQuestion)}
+                            onValueChange={(v) => dispatchExamState({ type: 'moveQuestion', index: Number(v), maxIndex: questions.length - 1 })}
+                        >
+                            <WatermelonTabsList className="flex-wrap gap-1">
+                                {questions.map((q, index) => {
+                                    const isAnswered = examFormat === 'essay'
+                                        ? String(selectedAnswers[q._id] ?? '').trim().length >= MIN_ESSAY_SUBMIT_CHAR_COUNT
+                                        : Boolean(selectedAnswers[q._id]);
+                                    return (
+                                        <WatermelonTabsTrigger
+                                            key={q._id}
+                                            value={String(index)}
+                                            className={`size-9 !flex-none !px-0 !py-0 text-center ${isAnswered ? '!text-emerald-600 dark:!text-emerald-400' : ''}`}
+                                        >
+                                            {index + 1}
+                                        </WatermelonTabsTrigger>
+                                    );
+                                })}
+                            </WatermelonTabsList>
+                        </WatermelonTabs>
                     </div>
                 </div>
 
@@ -1333,7 +1493,7 @@ const ExamMode = () => {
                     {/* Progress */}
                     <div className="mb-5">
                         <div className="flex justify-between items-center mb-2">
-                            <span className="text-body-sm text-text-sub-light dark:text-text-sub-dark">Progress</span>
+                            <span className="text-body-sm text-text-sub-light dark:text-text-sub-dark">Answered</span>
                             <span className="text-body-sm font-semibold text-primary">{Math.round(progress)}%</span>
                         </div>
                         <div className="w-full bg-border-light dark:bg-border-dark rounded-full h-1.5">
@@ -1341,31 +1501,31 @@ const ExamMode = () => {
                         </div>
                     </div>
 
-                    {/* Question Grid */}
+                    {/* Question Navigation Tabs */}
                     <div className="mb-5">
                         <span className="text-overline text-text-faint-light dark:text-text-faint-dark block mb-3">Questions</span>
-                        <div className="grid grid-cols-5 gap-1.5">
-                            {questions.map((q, index) => {
-                                const isAnswered = examFormat === 'essay'
-                                    ? String(selectedAnswers[q._id] ?? '').trim().length >= MIN_ESSAY_SUBMIT_CHAR_COUNT
-                                    : Boolean(selectedAnswers[q._id]);
-                                const isCurrent = index === currentQuestion;
-                                return (
-                                    <button
-                                        key={q._id}
-                                        onClick={() => setCurrentQuestion(index)}
-                                        className={`aspect-square rounded-lg font-semibold text-caption flex items-center justify-center transition-all ${isCurrent
-                                            ? 'bg-primary text-white'
-                                            : isAnswered
-                                                ? 'bg-surface-hover-light dark:bg-surface-hover-dark text-text-sub-light dark:text-text-sub-dark'
-                                                : 'border border-border-light dark:border-border-dark text-text-faint-light dark:text-text-faint-dark hover:border-text-faint-light'
-                                            }`}
-                                    >
-                                        {index + 1}
-                                    </button>
-                                );
-                            })}
-                        </div>
+                        <WatermelonTabs
+                            defaultValue={String(currentQuestion)}
+                            value={String(currentQuestion)}
+                            onValueChange={(v) => dispatchExamState({ type: 'moveQuestion', index: Number(v), maxIndex: questions.length - 1 })}
+                        >
+                            <WatermelonTabsList className="flex-wrap gap-1">
+                                {questions.map((q, index) => {
+                                    const isAnswered = examFormat === 'essay'
+                                        ? String(selectedAnswers[q._id] ?? '').trim().length >= MIN_ESSAY_SUBMIT_CHAR_COUNT
+                                        : Boolean(selectedAnswers[q._id]);
+                                    return (
+                                        <WatermelonTabsTrigger
+                                            key={q._id}
+                                            value={String(index)}
+                                            className={`size-9 !flex-none !px-0 !py-0 text-center ${isAnswered ? '!text-emerald-600 dark:!text-emerald-400' : ''}`}
+                                        >
+                                            {index + 1}
+                                        </WatermelonTabsTrigger>
+                                    );
+                                })}
+                            </WatermelonTabsList>
+                        </WatermelonTabs>
                     </div>
                 </div>
 

@@ -1,0 +1,257 @@
+- generic [ref=e7]:
+  - complementary [ref=e8]:
+    - button "menu" [ref=e656] [cursor=pointer]:
+      - generic [ref=e17]: menu
+    - navigation [ref=e18]:
+      - link "space_dashboard" [ref=e657] [cursor=pointer]:
+        - /url: /dashboard
+        - generic [ref=e20]: space_dashboard
+      - link "auto_stories" [ref=e658] [cursor=pointer]:
+        - /url: /dashboard/search
+        - generic [ref=e23]: auto_stories
+      - link "event_note" [ref=e659] [cursor=pointer]:
+        - /url: /dashboard/analysis
+        - generic [ref=e26]: event_note
+      - link "edit_note" [ref=e660] [cursor=pointer]:
+        - /url: /dashboard/assignment-helper
+        - generic [ref=e29]: edit_note
+      - link "auto_fix_high" [ref=e661] [cursor=pointer]:
+        - /url: /dashboard/humanizer
+        - generic [ref=e32]: auto_fix_high
+      - link "forum" [ref=e662] [cursor=pointer]:
+        - /url: /dashboard/community
+        - generic [ref=e35]: forum
+    - generic [ref=e37]:
+      - link "workspace_premium" [ref=e663] [cursor=pointer]:
+        - /url: /subscription
+        - generic [ref=e39]: workspace_premium
+      - link "person" [ref=e664] [cursor=pointer]:
+        - /url: /profile
+        - generic [ref=e42]: person
+  - main [ref=e48]:
+    - generic [ref=e665]:
+      - generic [ref=e698]:
+        - generic [ref=e699]:
+          - navigation "Breadcrumb" [ref=e700]:
+            - link "Back to course" [ref=e701] [cursor=pointer]:
+              - /url: /dashboard/course/jh7djvkyp5gc0rd174kfw0gveh85y5t3
+              - generic [ref=e702]: arrow_back
+              - generic [ref=e703]: Back
+            - generic [ref=e704]: ·
+            - link "Course" [ref=e705] [cursor=pointer]:
+              - /url: /dashboard/course/jh7djvkyp5gc0rd174kfw0gveh85y5t3
+            - generic [ref=e706]: /
+            - generic [ref=e707]: What Is Photosynthesis?
+          - generic [ref=e708]:
+            - button "lightbulb Re-explain" [ref=e709] [cursor=pointer]:
+              - generic [ref=e710]: lightbulb
+              - text: Re-explain
+            - button "Lesson settings" [ref=e711] [cursor=pointer]:
+              - generic [ref=e712]: settings
+        - generic [ref=e713]:
+          - generic [ref=e714]:
+            - heading "What Is Photosynthesis?" [level=1] [ref=e715]
+            - generic [ref=e716]:
+              - generic [ref=e717]:
+                - generic [ref=e718]: schedule
+                - text: 3 min read
+              - generic [ref=e719]: ·
+              - generic [ref=e720]:
+                - generic [ref=e721]: schedule
+                - text: Not started
+          - link "quiz Start Objective Quiz" [ref=e723] [cursor=pointer]:
+            - /url: /dashboard/exam/k979wk61td20xzzq5bp19bza4d85ygy1?autostart=mcq
+            - generic [ref=e724]: quiz
+            - text: Start Objective Quiz
+      - generic [ref=e727]:
+        - generic [ref=e728]:
+          - generic [ref=e729]: 0%
+          - generic [ref=e730]: ·
+          - generic [ref=e731]: What Is Photosynthesis?
+        - generic [ref=e732]:
+          - generic [ref=e733]: check_circle
+          - text: Quiz ready
+      - generic [ref=e734]:
+        - navigation "Lesson contents" [ref=e736]:
+          - paragraph [ref=e737]: In this lesson
+          - list [ref=e738]:
+            - listitem [ref=e739]:
+              - link "What Is Photosynthesis?" [ref=e740] [cursor=pointer]:
+                - /url: "#what-is-photosynthesis"
+                - generic [ref=e742]: What Is Photosynthesis?
+            - listitem [ref=e743]:
+              - link "Big Idea" [ref=e744] [cursor=pointer]:
+                - /url: "#big-idea-1"
+                - generic [ref=e746]: Big Idea
+            - listitem [ref=e747]:
+              - link "Key Ideas" [ref=e748] [cursor=pointer]:
+                - /url: "#key-ideas-2"
+                - generic [ref=e750]: Key Ideas
+            - listitem [ref=e751]:
+              - link "Step-by-Step Breakdown" [ref=e752] [cursor=pointer]:
+                - /url: "#step-by-step-breakdown-3"
+                - generic [ref=e754]: Step-by-Step Breakdown
+            - listitem [ref=e755]:
+              - link "Worked Example" [ref=e756] [cursor=pointer]:
+                - /url: "#worked-example-4"
+                - generic [ref=e758]: Worked Example
+            - listitem [ref=e759]:
+              - link "Common Confusions" [ref=e760] [cursor=pointer]:
+                - /url: "#common-confusions-5"
+                - generic [ref=e762]: Common Confusions
+            - listitem [ref=e763]:
+              - link "Summary" [ref=e764] [cursor=pointer]:
+                - /url: "#summary-6"
+                - generic [ref=e766]: Summary
+            - listitem [ref=e767]:
+              - link "Quick Check" [ref=e768] [cursor=pointer]:
+                - /url: "#quick-check-7"
+                - generic [ref=e770]: Quick Check
+        - main [ref=e771]:
+          - img "What Is Photosynthesis? illustration" [ref=e773]
+          - generic [ref=e774]:
+            - generic [ref=e775]:
+              - generic [ref=e777]: graphic_eq
+              - paragraph [ref=e779]: Read this lesson aloud
+            - button "volume_up Play" [ref=e781] [cursor=pointer]:
+              - generic [ref=e782]: volume_up
+              - text: Play
+          - article [ref=e783]:
+            - generic [ref=e784]:
+              - generic [ref=e785]:
+                - generic [ref=e786]: Quick Check
+                - button "link" [ref=e787] [cursor=pointer]
+              - generic [ref=e789]:
+                - generic [ref=e790]: "1"
+                - generic [ref=e791]: "Q: What does the source say about Photosynthesis converts light energy into chemical energy stored?"
+              - paragraph [ref=e793]: "A: Photosynthesis converts light energy into chemical energy stored in glucose."
+              - generic [ref=e794]:
+                - generic [ref=e795]: "2"
+                - generic [ref=e796]: "Q: Why is Chlorophyll inside chloroplasts absorbs sunlight and powers reactions important in What Is Photosynthesis??"
+              - paragraph [ref=e798]: "A: Chlorophyll inside chloroplasts absorbs sunlight and powers reactions that split water molecules."
+              - generic [ref=e799]:
+                - generic [ref=e800]: "3"
+                - generic [ref=e801]: "Q: Which exact source example could you cite for What Is Photosynthesis??"
+              - paragraph [ref=e803]: "A: The process takes place in plant cells."
+          - generic [ref=e804]:
+            - generic [ref=e805]:
+              - generic [ref=e807]: rocket_launch
+              - generic [ref=e808]:
+                - heading "Ready to test your understanding?" [level=3] [ref=e809]
+                - paragraph [ref=e810]: Pick how you want to practice this lesson.
+            - link "quiz Start Quiz" [ref=e812] [cursor=pointer]:
+              - /url: /dashboard/exam/k979wk61td20xzzq5bp19bza4d85ygy1?autostart=mcq
+              - generic [ref=e813]: quiz
+              - text: Start Quiz
+            - generic [ref=e814]:
+              - link "edit_note Start Essay" [ref=e815] [cursor=pointer]:
+                - /url: /dashboard/exam/k979wk61td20xzzq5bp19bza4d85ygy1?autostart=essay
+                - generic [ref=e816]: edit_note
+                - text: Start Essay
+              - link "spellcheck Concept Fill-ins" [ref=e817] [cursor=pointer]:
+                - /url: /dashboard/concept-intro/k979wk61td20xzzq5bp19bza4d85ygy1
+                - generic [ref=e818]: spellcheck
+                - text: Concept Fill-ins
+              - button "smart_toy Ask AI Tutor" [ref=e819] [cursor=pointer]:
+                - generic [ref=e820]: smart_toy
+                - text: Ask AI Tutor
+              - button "podcasts Generate Podcast" [ref=e821] [cursor=pointer]:
+                - generic [ref=e822]: podcasts
+                - text: Generate Podcast
+            - button "check_circle Mark Complete" [ref=e824] [cursor=pointer]:
+              - generic [ref=e825]: check_circle
+              - text: Mark Complete
+          - group [ref=e826]:
+            - generic "route Guided study path A section-by-section walkthrough of this lesson. expand_more" [ref=e827] [cursor=pointer]:
+              - generic [ref=e829]: route
+              - generic [ref=e830]:
+                - generic [ref=e831]: Guided study path
+                - generic [ref=e832]: A section-by-section walkthrough of this lesson.
+              - generic [ref=e833]: expand_more
+          - generic [ref=e835]:
+            - generic [ref=e836]:
+              - generic [ref=e837]: signpost
+              - heading "What should I do next?" [level=3] [ref=e838]
+            - generic [ref=e839]:
+              - link "quiz Start the objective quiz Choose objective, essay, or concept practice for this topic. chevron_right" [ref=e840] [cursor=pointer]:
+                - /url: /dashboard/exam/k979wk61td20xzzq5bp19bza4d85ygy1?autostart=mcq
+                - generic [ref=e842]: quiz
+                - generic [ref=e843]
+                - generic [ref=e846]: chevron_right
+              - link "edit_note Start the essay Answer a written-response version for the same topic. chevron_right" [ref=e847] [cursor=pointer]:
+                - /url: /dashboard/exam/k979wk61td20xzzq5bp19bza4d85ygy1?autostart=essay
+                - generic [ref=e849]: edit_note
+                - generic [ref=e850]
+                - generic [ref=e853]: chevron_right
+              - link "edit_note Practice fill-ins Test yourself by filling in the blanks for this topic. chevron_right" [ref=e854] [cursor=pointer]:
+                - /url: /dashboard/concept-intro/k979wk61td20xzzq5bp19bza4d85ygy1
+                - generic [ref=e856]: edit_note
+                - generic [ref=e857]
+                - generic [ref=e860]: chevron_right
+              - button "smart_toy Ask the tutor Get help with anything you don't understand. chevron_right" [ref=e861] [cursor=pointer]:
+                - generic [ref=e863]: smart_toy
+                - generic [ref=e864]
+                - generic [ref=e867]: chevron_right
+        - complementary [ref=e869]:
+          - generic [ref=e870]:
+            - generic [ref=e871]:
+              - generic [ref=e872]:
+                - img [ref=e873]
+                - generic [ref=e876]: 0%
+              - generic [ref=e877]:
+                - paragraph [ref=e878]: Lesson progress
+                - paragraph [ref=e879]: Just started
+            - link "quiz Start Objective Quiz arrow_forward" [ref=e880] [cursor=pointer]:
+              - /url: /dashboard/exam/k979wk61td20xzzq5bp19bza4d85ygy1?autostart=mcq
+              - generic [ref=e881]: quiz
+              - generic [ref=e883]: Start Objective Quiz
+              - generic [ref=e884]: arrow_forward
+          - generic [ref=e885]:
+            - paragraph [ref=e886]: Study tools
+            - button "smart_toy Ask AI Tutor Get help on this lesson arrow_forward" [ref=e887] [cursor=pointer]:
+              - generic [ref=e888]: smart_toy
+              - generic [ref=e889]:
+                - generic [ref=e890]: Ask AI Tutor
+                - generic [ref=e891]: Get help on this lesson
+              - generic [ref=e892]: arrow_forward
+            - button "podcasts Listen as Podcast Audio lesson for this topic arrow_forward" [ref=e893] [cursor=pointer]:
+              - generic [ref=e894]: podcasts
+              - generic [ref=e895]:
+                - generic [ref=e896]: Listen as Podcast
+                - generic [ref=e897]: Audio lesson for this topic
+              - generic [ref=e898]: arrow_forward
+            - link "edit_note Take Essay Start Essay arrow_forward" [ref=e899] [cursor=pointer]:
+              - /url: /dashboard/exam/k979wk61td20xzzq5bp19bza4d85ygy1?autostart=essay
+              - generic [ref=e900]: edit_note
+              - generic [ref=e901]:
+                - generic [ref=e902]: Take Essay
+                - generic [ref=e903]: Start Essay
+              - generic [ref=e904]: arrow_forward
+            - link "spellcheck Concept Fill-ins Recall on key terms arrow_forward" [ref=e905] [cursor=pointer]:
+              - /url: /dashboard/concept-intro/k979wk61td20xzzq5bp19bza4d85ygy1
+              - generic [ref=e906]: spellcheck
+              - generic [ref=e907]:
+                - generic [ref=e908]: Concept Fill-ins
+                - generic [ref=e909]: Recall on key terms
+              - generic [ref=e910]: arrow_forward
+          - generic [ref=e911]:
+            - button "lightbulb Re-explain differently arrow_forward" [ref=e912] [cursor=pointer]:
+              - generic [ref=e913]: lightbulb
+              - generic [ref=e915]: Re-explain differently
+              - generic [ref=e916]: arrow_forward
+            - button "edit_note Open notes arrow_forward" [ref=e917] [cursor=pointer]:
+              - generic [ref=e918]: edit_note
+              - generic [ref=e920]: Open notes
+              - generic [ref=e921]: arrow_forward
+            - button "menu_book View source passages arrow_forward" [ref=e922] [cursor=pointer]:
+              - generic [ref=e923]: menu_book
+              - generic [ref=e925]: View source passages
+              - generic [ref=e926]: arrow_forward
+          - generic [ref=e927]:
+            - paragraph [ref=e928]: From the course
+            - link "menu_book Continue this course Back to course" [ref=e929] [cursor=pointer]:
+              - /url: /dashboard/course/jh7djvkyp5gc0rd174kfw0gveh85y5t3
+              - generic [ref=e931]: menu_book
+              - generic [ref=e932]:
+                - generic [ref=e933]: Continue this course
+                - generic [ref=e934]: Back to course

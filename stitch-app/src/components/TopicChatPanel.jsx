@@ -1,4 +1,4 @@
-import React, { memo, useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import React, { memo, useReducer, useState, useEffect, useEffectEvent, useRef, useCallback, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { useQuery, useAction, useMutation, useConvexAuth } from 'convex/react';
 import { api } from '../../convex/_generated/api';
@@ -25,6 +25,17 @@ const isAiMessageQuotaExceededError = (error) => {
 
 const EXIT_ANIMATION_MS = 250;
 
+const inputReducer = (state, action) => {
+    switch (action.type) {
+        case 'set':
+            return String(action.value || '');
+        case 'clear':
+            return '';
+        default:
+            return state;
+    }
+};
+
 const TopicChatPanel = memo(function TopicChatPanel({ topicId, topicTitle, open, onClose, initialPrompt }) {
     const { isAuthenticated: isConvexAuthenticated } = useConvexAuth();
     const messages = useQuery(api.topicChat.getMessages, topicId ? { topicId } : 'skip');
@@ -40,7 +51,7 @@ const TopicChatPanel = memo(function TopicChatPanel({ topicId, topicTitle, open,
     const clearChat = useMutation(api.topicChat.clearChat);
     const setTutorPersona = useMutation(api.tutor.setTutorPersona);
 
-    const [input, setInput] = useState('');
+    const [input, dispatchInput] = useReducer(inputReducer, '');
     const [sending, setSending] = useState(false);
     const [error, setError] = useState('');
     const [isClosing, setIsClosing] = useState(false);
@@ -69,8 +80,10 @@ const TopicChatPanel = memo(function TopicChatPanel({ topicId, topicTitle, open,
     }, [topicId]);
 
     const textareaRef = useRef(null);
-    const endRef = useRef(null);
     const messagesContainerRef = useRef(null);
+    const applyInitialPrompt = useEffectEvent((prompt) => {
+        dispatchInput({ type: 'set', value: prompt });
+    });
 
     useEffect(() => {
         if (!tutorSupport?.persona) return;
@@ -104,16 +117,20 @@ const TopicChatPanel = memo(function TopicChatPanel({ topicId, topicTitle, open,
 
     // Auto-scroll to bottom when messages change or sending state changes
     useEffect(() => {
-        if (open && endRef.current) {
-            endRef.current.scrollIntoView({ behavior: 'smooth' });
+        const messagesContainer = messagesContainerRef.current;
+        if (open && messagesContainer) {
+            messagesContainer.scrollTo({
+                top: messagesContainer.scrollHeight,
+                behavior: 'smooth',
+            });
         }
     }, [open, messages, sending]);
 
     // Focus textarea when panel opens
     useEffect(() => {
-        if (open && textareaRef.current) {
-            setTimeout(() => textareaRef.current?.focus(), 200);
-        }
+        if (!open || !textareaRef.current) return undefined;
+        const timer = setTimeout(() => textareaRef.current?.focus(), 200);
+        return () => clearTimeout(timer);
     }, [open]);
 
     // Handle close with exit animation
@@ -135,14 +152,16 @@ const TopicChatPanel = memo(function TopicChatPanel({ topicId, topicTitle, open,
 
     // Reset closing state when panel reopens
     useEffect(() => {
-        if (open) setIsClosing(false);
+        if (!open) return undefined;
+        setIsClosing(false);
+        return undefined;
     }, [open]);
 
     // Pre-fill input from initialPrompt (tutor entry points)
     useEffect(() => {
-        if (open && initialPrompt) {
-            setInput(initialPrompt);
-        }
+        if (!open || !initialPrompt) return undefined;
+        applyInitialPrompt(initialPrompt);
+        return undefined;
     }, [open, initialPrompt]);
 
     // Escape to close
@@ -170,7 +189,7 @@ const TopicChatPanel = memo(function TopicChatPanel({ topicId, topicTitle, open,
         }
         setSending(true);
         setError('');
-        setInput('');
+        dispatchInput({ type: 'clear' });
         if (textareaRef.current) textareaRef.current.style.height = 'auto';
         try {
             await askTutor({ topicId, question, persona: selectedPersona });
@@ -203,9 +222,8 @@ const TopicChatPanel = memo(function TopicChatPanel({ topicId, topicTitle, open,
     }, [handleSend]);
 
     const handleTextareaChange = useCallback((e) => {
-        setInput(e.target.value);
+        dispatchInput({ type: 'set', value: e.target.value });
         // Auto-expand textarea
-        e.target.style.height = 'auto';
         e.target.style.height = Math.min(e.target.scrollHeight, 120) + 'px';
     }, []);
 
@@ -229,13 +247,15 @@ const TopicChatPanel = memo(function TopicChatPanel({ topicId, topicTitle, open,
     return (
         <>
             {/* Backdrop (mobile/medium only) */}
-            <div
-                className={`fixed inset-0 z-[55] bg-black/20 md:bg-transparent md:pointer-events-none lg:hidden transition-opacity ${isClosing ? 'opacity-0' : 'opacity-100'}`}
+            <button
+                type="button"
+                aria-label="Close AI tutor panel"
+                className={`fixed inset-0 z-[55] border-0 bg-black/20 p-0 md:bg-transparent md:pointer-events-none lg:hidden transition-opacity ${isClosing ? 'opacity-0' : 'opacity-100'}`}
                 onClick={handleClose}
             />
 
             {/* Panel */}
-            <div className={`fixed inset-0 z-[60] md:inset-x-auto md:right-0 md:top-0 md:bottom-0 md:w-[420px] lg:relative lg:z-auto lg:w-[420px] lg:shrink-0 lg:h-full flex flex-col bg-surface-light dark:bg-surface-dark border-t md:border-t-0 md:border-l border-border-light dark:border-border-dark shadow-lg lg:shadow-none ${panelAnimClass} pb-[env(safe-area-inset-bottom)] md:pb-0`}>
+            <div className={`fixed inset-0 z-[60] md:inset-x-auto md:right-0 md:top-0 md:bottom-0 md:w-[420px] flex flex-col bg-surface-light dark:bg-surface-dark border-t md:border-t-0 md:border-l border-border-light dark:border-border-dark shadow-lg ${panelAnimClass} pb-[env(safe-area-inset-bottom)] md:pb-0`}>
                 {/* Header */}
                 <div className="flex items-center justify-between px-4 h-14 lg:h-16 border-b border-border-light dark:border-border-dark">
                     <div className="flex items-center gap-2.5 min-w-0">
@@ -253,7 +273,7 @@ const TopicChatPanel = memo(function TopicChatPanel({ topicId, topicTitle, open,
                         {messageList.length > 0 && (
                             <button
                                 onClick={handleClearChat}
-                                className="btn-icon w-8 h-8 text-text-faint-light dark:text-text-faint-dark hover:text-red-500"
+                                className="btn-icon size-8 text-text-faint-light dark:text-text-faint-dark hover:text-red-500"
                                 title="Clear chat"
                                 aria-label="Clear chat"
                             >
@@ -262,7 +282,7 @@ const TopicChatPanel = memo(function TopicChatPanel({ topicId, topicTitle, open,
                         )}
                         <button
                             onClick={handleClose}
-                            className="btn-icon w-8 h-8"
+                            className="btn-icon size-8"
                             aria-label="Close chat panel"
                         >
                             <span className="material-symbols-outlined text-[16px]">close</span>
@@ -353,7 +373,7 @@ const TopicChatPanel = memo(function TopicChatPanel({ topicId, topicTitle, open,
                     {messageList.length === 0 && !sending && (
                         <div className="space-y-4">
                             <div className="flex gap-2.5 items-start">
-                                <div className="w-7 h-7 shrink-0 rounded-lg bg-primary/10 flex items-center justify-center mt-0.5">
+                                <div className="size-7 shrink-0 rounded-lg bg-primary/10 flex items-center justify-center mt-0.5">
                                     <span className="material-symbols-outlined text-primary text-[14px]">smart_toy</span>
                                 </div>
                                 <div className="rounded-xl rounded-tl-sm bg-background-light dark:bg-background-dark border border-border-light dark:border-border-dark px-3 py-2.5 text-body-sm text-text-main-light dark:text-text-main-dark max-w-[85%]">
@@ -385,7 +405,7 @@ const TopicChatPanel = memo(function TopicChatPanel({ topicId, topicTitle, open,
                             return (
                                 <div key={msg._id} className="flex gap-2.5 items-start">
                                     {showAvatar ? (
-                                        <div className="w-7 h-7 shrink-0 rounded-lg bg-primary/10 flex items-center justify-center mt-0.5">
+                                        <div className="size-7 shrink-0 rounded-lg bg-primary/10 flex items-center justify-center mt-0.5">
                                             <span className="material-symbols-outlined text-primary text-[14px]">smart_toy</span>
                                         </div>
                                     ) : (
@@ -409,23 +429,21 @@ const TopicChatPanel = memo(function TopicChatPanel({ topicId, topicTitle, open,
 
                     {sending && (
                         <div className="flex gap-2.5 items-start">
-                            <div className="w-7 h-7 shrink-0 rounded-lg bg-primary/10 flex items-center justify-center mt-0.5">
+                            <div className="size-7 shrink-0 rounded-lg bg-primary/10 flex items-center justify-center mt-0.5">
                                 <span className="material-symbols-outlined text-primary text-[14px]">smart_toy</span>
                             </div>
                             <div className="rounded-xl rounded-tl-sm bg-background-light dark:bg-background-dark border border-border-light dark:border-border-dark px-3 py-2.5 text-body-sm text-text-faint-light dark:text-text-faint-dark max-w-[85%]">
                                 <span className="inline-flex items-center gap-1">
                                     Thinking
                                     <span className="inline-flex gap-0.5">
-                                        <span className="w-1 h-1 rounded-full bg-text-faint-light dark:bg-text-faint-dark animate-bounce" style={{ animationDelay: '0ms' }} />
-                                        <span className="w-1 h-1 rounded-full bg-text-faint-light dark:bg-text-faint-dark animate-bounce" style={{ animationDelay: '150ms' }} />
-                                        <span className="w-1 h-1 rounded-full bg-text-faint-light dark:bg-text-faint-dark animate-bounce" style={{ animationDelay: '300ms' }} />
+                                        <span className="size-1 rounded-full bg-text-faint-light dark:bg-text-faint-dark animate-pulse" style={{ animationDelay: '0ms' }} />
+                                        <span className="size-1 rounded-full bg-text-faint-light dark:bg-text-faint-dark animate-pulse" style={{ animationDelay: '150ms' }} />
+                                        <span className="size-1 rounded-full bg-text-faint-light dark:bg-text-faint-dark animate-pulse" style={{ animationDelay: '300ms' }} />
                                     </span>
                                 </span>
                             </div>
                         </div>
                     )}
-
-                    <div ref={endRef} />
                 </div>
 
                 {/* Error */}
@@ -461,7 +479,7 @@ const TopicChatPanel = memo(function TopicChatPanel({ topicId, topicTitle, open,
                         <button
                             onClick={() => handleSend()}
                             disabled={sending || !input.trim() || isFreeQuotaExhausted}
-                            className="w-9 h-9 shrink-0 rounded-xl bg-primary text-white flex items-center justify-center shadow-sm hover:bg-primary-hover hover:shadow-md active:scale-95 transition-all disabled:opacity-40 disabled:cursor-not-allowed disabled:shadow-none disabled:active:scale-100"
+                            className="size-9 shrink-0 rounded-xl bg-primary text-white flex items-center justify-center shadow-sm hover:bg-primary-hover hover:shadow-md active:scale-95 transition-all disabled:opacity-40 disabled:cursor-not-allowed disabled:shadow-none disabled:active:scale-100"
                             aria-label="Send message"
                         >
                             <span className="material-symbols-outlined text-[18px]">send</span>

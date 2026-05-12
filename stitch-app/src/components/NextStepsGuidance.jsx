@@ -128,7 +128,7 @@ const NextStepsGuidance = ({
                 icon: 'style',
                 label: 'Study flashcards',
                 description: 'Lock in key terms with the Word Bank.',
-                to: topicId ? `/dashboard/topic/${topicId}` : null,
+                to: topicId ? `/dashboard/topic/${topicId}?panel=wordbank` : null,
                 priority: 'low',
             });
         }

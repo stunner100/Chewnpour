@@ -14,10 +14,10 @@ const TopicSidebar = memo(function TopicSidebar({
     useEffect(() => {
         if (!toc || toc.length === 0) return;
 
-        const ids = toc.map((item) => item.id);
-        const elements = ids
-            .map((id) => document.getElementById(id))
-            .filter(Boolean);
+        const elements = toc.flatMap((item) => {
+            const element = document.getElementById(item.id);
+            return element ? [element] : [];
+        });
 
         if (elements.length === 0) return;
 
@@ -52,7 +52,7 @@ const TopicSidebar = memo(function TopicSidebar({
 
     // Mobile-only: render just the sticky dropdown
     const mobileToc = toc?.length > 0 && (
-        <div className="lg:hidden sticky top-14 z-30 bg-surface-light/95 dark:bg-surface-dark/95 backdrop-blur-sm border-b border-border-light dark:border-border-dark px-4 py-2.5">
+        <div className="lg:hidden sticky top-[100px] z-20 bg-surface-light/95 dark:bg-surface-dark/95 backdrop-blur-sm border border-border-subtle dark:border-border-subtle-dark rounded-2xl px-3.5 py-2 shadow-soft mb-2">
             <button
                 onClick={() => setMobileOpen(v => !v)}
                 className="flex items-center gap-2 w-full text-body-sm text-text-sub-light dark:text-text-sub-dark"
@@ -70,25 +70,29 @@ const TopicSidebar = memo(function TopicSidebar({
                     {toc.map((item) => {
                         const isActive = activeSection === item.id;
                         return (
-                            <a
+                            <button
+                                type="button"
                                 key={item.id}
-                                href={`#${item.id}`}
-                                onClick={(e) => {
-                                    e.preventDefault();
+                                onClick={() => {
                                     setMobileOpen(false);
                                     const el = document.getElementById(item.id);
                                     if (!el) return;
-                                    const top = el.getBoundingClientRect().top + window.scrollY - 96;
-                                    window.scrollTo({ top, behavior: 'smooth' });
+                                    el.scrollIntoView({
+                                        behavior: 'smooth',
+                                        block: 'start',
+                                    });
+                                    if (typeof window !== 'undefined' && window.history?.replaceState) {
+                                        window.history.replaceState(null, '', `#${item.id}`);
+                                    }
                                 }}
-                                className={`block py-1.5 text-body-sm transition-colors ${getIndent(item.level)} ${
+                                className={`block w-full py-1.5 text-left text-body-sm transition-colors ${getIndent(item.level)} ${
                                     isActive
                                         ? 'text-primary font-semibold'
                                         : 'text-text-sub-light dark:text-text-sub-dark hover:text-text-main-light dark:hover:text-text-main-dark'
                                 }`}
                             >
                                 {item.text}
-                            </a>
+                            </button>
                         );
                     })}
                 </nav>
@@ -124,25 +128,27 @@ const TopicSidebar = memo(function TopicSidebar({
                             {toc.map((item) => {
                                 const isActive = activeSection === item.id;
                                 return (
-                                    <a
+                                    <button
+                                        type="button"
                                         key={item.id}
-                                        href={`#${item.id}`}
-                                        onClick={(e) => {
-                                            e.preventDefault();
+                                        onClick={() => {
                                             const el = document.getElementById(item.id);
                                             if (!el) return;
                                             const offset = 80;
                                             const top = el.getBoundingClientRect().top + window.scrollY - offset;
                                             window.scrollTo({ top, behavior: 'smooth' });
+                                            if (typeof window !== 'undefined' && window.history?.replaceState) {
+                                                window.history.replaceState(null, '', `#${item.id}`);
+                                            }
                                         }}
-                                        className={`block py-1.5 text-body-sm transition-colors ${getIndent(item.level)} ${
+                                        className={`block w-full py-1.5 text-left text-body-sm transition-colors ${getIndent(item.level)} ${
                                             isActive
                                                 ? 'text-primary font-semibold'
                                                 : 'text-text-sub-light dark:text-text-sub-dark hover:text-text-main-light dark:hover:text-text-main-dark'
                                         }`}
                                     >
                                         {item.text}
-                                    </a>
+                                    </button>
                                 );
                             })}
                         </nav>
@@ -155,12 +161,12 @@ const TopicSidebar = memo(function TopicSidebar({
                     <ul className="space-y-2">
                         {(contentLines && contentLines.length > 0 ? contentLines : [
                             cleanLine(topic?.description || 'Lesson summary loading...')
-                        ]).slice(0, 3).map((line, idx) => {
+                        ]).slice(0, 3).map((line) => {
                             if (!line || typeof line !== 'string') return null;
                             const summaryLine = cleanLine(line);
                             if (!summaryLine) return null;
                             return (
-                                <li key={idx} className="flex items-start gap-2">
+                                <li key={summaryLine} className="flex items-start gap-2">
                                     <span className="material-symbols-outlined text-primary text-[14px] mt-0.5 shrink-0">check</span>
                                     <span className="text-caption text-text-sub-light dark:text-text-sub-dark line-clamp-2">{summaryLine}</span>
                                 </li>

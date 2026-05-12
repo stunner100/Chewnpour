@@ -1,13 +1,88 @@
-import React, { memo, useState, useEffect, useRef, useCallback } from 'react';
+import React, { memo, useReducer, useEffect, useRef, useCallback } from 'react';
 import { useQuery, useMutation } from 'convex/react';
 import { api } from '../../convex/_generated/api';
 
 const SAVE_DEBOUNCE_MS = 1500;
 const EXIT_ANIMATION_MS = 250;
 
-const formatTimeSince = (timestamp) => {
+const notesInitialState = {
+    draft: '',
+    saving: false,
+    lastSavedAt: null,
+    statusNow: Date.now(),
+    isClosing: false,
+};
+
+const notesReducer = (state, action) => {
+    switch (action.type) {
+        case 'topicChanged':
+            return {
+                ...state,
+                draft: '',
+                saving: false,
+                lastSavedAt: null,
+                statusNow: Date.now(),
+            };
+        case 'noteLoaded':
+            return {
+                ...state,
+                draft: action.content,
+                lastSavedAt: action.updatedAt,
+                statusNow: Date.now(),
+            };
+        case 'appendText': {
+            const separator = state.draft.trim() ? '\n\n---\n\n' : '';
+            return {
+                ...state,
+                draft: state.draft + separator + action.text,
+            };
+        }
+        case 'draftChanged':
+            return {
+                ...state,
+                draft: action.value,
+            };
+        case 'saveStarted':
+            return {
+                ...state,
+                saving: true,
+            };
+        case 'saveSucceeded':
+            return {
+                ...state,
+                saving: false,
+                lastSavedAt: action.savedAt,
+                statusNow: action.savedAt,
+            };
+        case 'saveFinished':
+            return {
+                ...state,
+                saving: false,
+            };
+        case 'statusTick':
+            return {
+                ...state,
+                statusNow: action.now,
+            };
+        case 'startClosing':
+            return {
+                ...state,
+                isClosing: true,
+            };
+        case 'finishClosing':
+        case 'reopen':
+            return {
+                ...state,
+                isClosing: false,
+            };
+        default:
+            return state;
+    }
+};
+
+const formatTimeSince = (timestamp, now = Date.now()) => {
     if (!timestamp) return '';
-    const seconds = Math.round((Date.now() - timestamp) / 1000);
+    const seconds = Math.round((now - timestamp) / 1000);
     if (seconds < 10) return 'Saved just now';
     if (seconds < 60) return `Saved ${seconds}s ago`;
     const minutes = Math.round(seconds / 60);
@@ -18,11 +93,10 @@ const formatTimeSince = (timestamp) => {
 const TopicNotesPanel = memo(function TopicNotesPanel({ topicId, open, onClose, appendText }) {
     const note = useQuery(api.topicNotes.getNote, topicId ? { topicId } : 'skip');
     const saveNote = useMutation(api.topicNotes.saveNote);
-    const [draft, setDraft] = useState('');
-    const [saving, setSaving] = useState(false);
-    const [lastSavedAt, setLastSavedAt] = useState(null);
-    const [statusText, setStatusText] = useState('');
-    const [isClosing, setIsClosing] = useState(false);
+    const [{ draft, saving, lastSavedAt, statusNow, isClosing }, dispatchNotes] = useReducer(
+        notesReducer,
+        notesInitialState,
+    );
     const saveTimerRef = useRef(null);
     const textareaRef = useRef(null);
     const initializedRef = useRef(false);
@@ -31,8 +105,11 @@ const TopicNotesPanel = memo(function TopicNotesPanel({ topicId, open, onClose, 
     // Initialize draft from DB on first load
     useEffect(() => {
         if (note && !initializedRef.current) {
-            setDraft(note.content || '');
-            setLastSavedAt(note.updatedAt || null);
+            dispatchNotes({
+                type: 'noteLoaded',
+                content: note.content || '',
+                updatedAt: note.updatedAt || null,
+            });
             initializedRef.current = true;
         }
         if (note === null && !initializedRef.current) {
@@ -43,18 +120,13 @@ const TopicNotesPanel = memo(function TopicNotesPanel({ topicId, open, onClose, 
     // Reset initialization when topic changes
     useEffect(() => {
         initializedRef.current = false;
-        setDraft('');
-        setLastSavedAt(null);
-        setStatusText('');
+        dispatchNotes({ type: 'topicChanged' });
     }, [topicId]);
 
     // Handle appendText from "Copy to notes"
     useEffect(() => {
         if (!appendText || !open) return;
-        setDraft((prev) => {
-            const separator = prev.trim() ? '\n\n---\n\n' : '';
-            return prev + separator + appendText;
-        });
+        dispatchNotes({ type: 'appendText', text: appendText });
     }, [appendText, open]);
 
     // Auto-save with debounce
@@ -62,54 +134,47 @@ const TopicNotesPanel = memo(function TopicNotesPanel({ topicId, open, onClose, 
         if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
         saveTimerRef.current = setTimeout(async () => {
             if (!topicId) return;
-            setSaving(true);
+            dispatchNotes({ type: 'saveStarted' });
             try {
                 await saveNote({ topicId, content });
-                setLastSavedAt(Date.now());
+                dispatchNotes({ type: 'saveSucceeded', savedAt: Date.now() });
             } catch {
                 // Silent — user sees stale "last saved" timestamp
             } finally {
-                setSaving(false);
+                dispatchNotes({ type: 'saveFinished' });
             }
         }, SAVE_DEBOUNCE_MS);
     }, [topicId, saveNote]);
 
-    const handleChange = (e) => {
+    const handleDraftChange = (e) => {
         const value = e.target.value;
-        setDraft(value);
+        dispatchNotes({ type: 'draftChanged', value });
         debouncedSave(value);
     };
 
     // Update status text periodically
     useEffect(() => {
-        if (!open) return;
-        const update = () => {
-            if (saving) {
-                setStatusText('Saving...');
-            } else if (lastSavedAt) {
-                setStatusText(formatTimeSince(lastSavedAt));
-            } else {
-                setStatusText('');
-            }
-        };
-        update();
-        const interval = setInterval(update, 5000);
+        if (!open || saving || !lastSavedAt) return undefined;
+        dispatchNotes({ type: 'statusTick', now: Date.now() });
+        const interval = setInterval(() => {
+            dispatchNotes({ type: 'statusTick', now: Date.now() });
+        }, 5000);
         return () => clearInterval(interval);
     }, [open, saving, lastSavedAt]);
 
     // Focus textarea when panel opens
     useEffect(() => {
-        if (open && textareaRef.current) {
-            setTimeout(() => textareaRef.current?.focus(), 200);
-        }
+        if (!open || !textareaRef.current) return undefined;
+        const timer = setTimeout(() => textareaRef.current?.focus(), 200);
+        return () => clearTimeout(timer);
     }, [open]);
 
     // Handle close with exit animation
     const handleClose = useCallback(() => {
         if (isClosing) return;
-        setIsClosing(true);
+        dispatchNotes({ type: 'startClosing' });
         closingTimerRef.current = setTimeout(() => {
-            setIsClosing(false);
+            dispatchNotes({ type: 'finishClosing' });
             onClose();
         }, EXIT_ANIMATION_MS);
     }, [isClosing, onClose]);
@@ -120,11 +185,6 @@ const TopicNotesPanel = memo(function TopicNotesPanel({ topicId, open, onClose, 
             if (closingTimerRef.current) clearTimeout(closingTimerRef.current);
         };
     }, []);
-
-    // Reset closing state when panel reopens
-    useEffect(() => {
-        if (open) setIsClosing(false);
-    }, [open]);
 
     // Escape to close
     useEffect(() => {
@@ -141,26 +201,29 @@ const TopicNotesPanel = memo(function TopicNotesPanel({ topicId, open, onClose, 
     const panelAnimClass = isClosing
         ? 'animate-panel-slide-down md:animate-panel-slide-right'
         : 'animate-panel-slide-up md:animate-panel-slide-left';
+    const statusText = saving ? 'Saving…' : formatTimeSince(lastSavedAt, statusNow);
 
     return (
         <>
             {/* Backdrop (mobile/medium only) */}
-            <div
-                className={`fixed inset-0 z-[55] bg-black/30 md:bg-transparent md:pointer-events-none lg:hidden transition-opacity ${isClosing ? 'opacity-0' : 'opacity-100'}`}
+            <button
+                type="button"
+                aria-label="Close notes panel"
+                className={`fixed inset-0 z-[55] border-0 bg-black/30 p-0 md:bg-transparent md:pointer-events-none lg:hidden transition-opacity ${isClosing ? 'opacity-0' : 'opacity-100'}`}
                 onClick={handleClose}
             />
 
             {/* Panel */}
-            <div className={`fixed inset-0 z-[60] md:inset-x-auto md:right-0 md:top-0 md:bottom-0 md:w-[420px] lg:relative lg:z-auto lg:w-[420px] lg:shrink-0 lg:h-full flex flex-col bg-white dark:bg-slate-900 border-t md:border-t-0 md:border-l border-slate-200 dark:border-slate-800 shadow-xl lg:shadow-none ${panelAnimClass} pb-[env(safe-area-inset-bottom)] md:pb-0`}>
+            <div className={`fixed inset-0 z-[60] md:inset-x-auto md:right-0 md:top-0 md:bottom-0 md:w-[420px] flex flex-col bg-white dark:bg-zinc-900 border-t md:border-t-0 md:border-l border-zinc-200 dark:border-zinc-800 shadow-xl ${panelAnimClass} pb-[env(safe-area-inset-bottom)] md:pb-0`}>
                 {/* Header */}
-                <div className="flex items-center justify-between px-4 py-3 border-b border-slate-100 dark:border-slate-800">
+                <div className="flex items-center justify-between px-4 py-3 border-b border-zinc-100 dark:border-zinc-800">
                     <div className="flex items-center gap-2">
                         <span className="material-symbols-outlined text-amber-500 text-xl">edit_note</span>
-                        <h3 className="text-base font-bold text-slate-900 dark:text-white">My Notes</h3>
+                        <h3 className="text-base font-semibold text-zinc-900 dark:text-white">My Notes</h3>
                     </div>
                     <button
                         onClick={handleClose}
-                        className="w-10 h-10 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-500 hover:text-primary flex items-center justify-center"
+                        className="size-10 rounded-full bg-zinc-100 dark:bg-zinc-800 text-zinc-500 hover:text-primary flex items-center justify-center"
                         aria-label="Close notes panel"
                     >
                         <span className="material-symbols-outlined text-[18px]">close</span>
@@ -172,24 +235,24 @@ const TopicNotesPanel = memo(function TopicNotesPanel({ topicId, open, onClose, 
                     <textarea
                         ref={textareaRef}
                         value={draft}
-                        onChange={handleChange}
+                        onChange={handleDraftChange}
                         placeholder="Jot down insights as you study..."
-                        className="w-full h-full min-h-[200px] md:min-h-0 resize-none rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 px-4 py-3 text-sm text-slate-800 dark:text-slate-200 placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary/50"
+                        className="size-full min-h-[200px] md:min-h-0 resize-none rounded-2xl border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800/50 px-4 py-3 text-sm text-zinc-800 dark:text-zinc-200 placeholder:text-zinc-400 dark:placeholder:text-zinc-500 focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary/50"
                     />
                 </div>
 
                 {/* Footer */}
-                <div className="px-4 py-2 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between">
-                    <span className="text-xs text-slate-400 dark:text-neutral-400">
+                <div className="px-4 py-2 border-t border-zinc-100 dark:border-zinc-800 flex items-center justify-between">
+                    <span className="text-xs text-zinc-400 dark:text-neutral-400">
                         {saving && (
                             <span className="inline-flex items-center gap-1">
-                                <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" />
-                                Saving...
+                                <span className="size-1.5 rounded-full bg-amber-400 animate-pulse" />
+                                Saving…
                             </span>
                         )}
                         {!saving && statusText && statusText}
                     </span>
-                    <span className="text-xs text-slate-400 dark:text-neutral-400">
+                    <span className="text-xs text-zinc-400 dark:text-neutral-400">
                         {draft.length > 0 && `${draft.length} chars`}
                     </span>
                 </div>

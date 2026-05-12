@@ -1,4 +1,4 @@
-import React, { useRef, useState, useEffect, useCallback } from 'react';
+import React, { useRef, useState, useEffect, useCallback, useEffectEvent } from 'react';
 import { useQuery } from 'convex/react';
 import { api } from '../../convex/_generated/api';
 
@@ -16,6 +16,30 @@ const triggerHaptic = (type = 'light') => {
     }
 };
 
+const lockBodyScroll = () => {
+    const scrollY = window.scrollY;
+    const previousStyle = {
+        height: document.body.style.height,
+        overflow: document.body.style.overflow,
+        position: document.body.style.position,
+        touchAction: document.body.style.touchAction,
+        width: document.body.style.width,
+    };
+
+    Object.assign(document.body.style, {
+        height: '100%',
+        overflow: 'hidden',
+        position: 'fixed',
+        touchAction: 'none',
+        width: '100%',
+    });
+
+    return () => {
+        Object.assign(document.body.style, previousStyle);
+        window.scrollTo(0, scrollY);
+    };
+};
+
 const StatsDetailModal = ({ isOpen, onClose, type, userId }) => {
     const modalRef = useRef(null);
     const [translateY, setTranslateY] = useState(0);
@@ -30,12 +54,16 @@ const StatsDetailModal = ({ isOpen, onClose, type, userId }) => {
         currentTranslateY.current = 0;
         onClose();
     }, [onClose]);
+
+    const closeOnEscape = useEffectEvent(() => {
+        if (isOpen) closeModal();
+    });
     
     // Always call hooks first - pass 'skip' when modal is closed or no userId
     const shouldFetchCourses = isOpen && userId && type === 'courses';
     const courses = useQuery(
         shouldFetchCourses ? api.courses.getUserCourses : 'skip',
-        shouldFetchCourses ? { userId } : 'skip'
+        shouldFetchCourses ? {} : 'skip'
     );
 
     const shouldFetchAttempts = isOpen && userId && (type === 'topics' || type === 'accuracy');
@@ -91,40 +119,19 @@ const StatsDetailModal = ({ isOpen, onClose, type, userId }) => {
 
     // Lock body scroll when modal is open
     useEffect(() => {
-        if (!isOpen) return;
-        
-        // Always ensure scroll is locked when modal is open
-        document.body.style.overflow = 'hidden';
-        document.body.style.touchAction = 'none';
-        document.body.style.position = 'fixed';
-        document.body.style.width = '100%';
-        document.body.style.height = '100%';
-        
-        // Save scroll position
-        const scrollY = window.scrollY;
-        
-        return () => {
-            // Restore scroll
-            document.body.style.overflow = '';
-            document.body.style.touchAction = '';
-            document.body.style.position = '';
-            document.body.style.width = '';
-            document.body.style.height = '';
-            window.scrollTo(0, scrollY);
-        };
+        if (!isOpen) return undefined;
+        return lockBodyScroll();
     }, [isOpen, type]); // Add type to re-run when switching modals
 
     // Add keyboard escape handler
     useEffect(() => {
         const handleKeyDown = (e) => {
-            if (e.key === 'Escape' && isOpen) {
-                closeModal();
-            }
+            if (e.key === 'Escape') closeOnEscape();
         };
         
         window.addEventListener('keydown', handleKeyDown);
         return () => window.removeEventListener('keydown', handleKeyDown);
-    }, [closeModal, isOpen]);
+    }, []);
 
     // Return null after all hooks are called
     if (!isOpen || !userId) return null;
@@ -134,36 +141,33 @@ const StatsDetailModal = ({ isOpen, onClose, type, userId }) => {
         closeModal();
     };
 
-    const renderContent = () => {
-        switch (type) {
-            case 'topics':
-                return <TopicsContent examAttempts={examAttempts} />;
-            case 'accuracy':
-                return <AccuracyContent examAttempts={examAttempts} />;
-            case 'courses':
-                return <CoursesContent courses={courses} />;
-            case 'hours':
-                return <HoursContent profile={profile} />;
-            default:
-                return null;
-        }
-    };
+    const content = type === 'topics'
+        ? <TopicsContent examAttempts={examAttempts} />
+        : type === 'accuracy'
+            ? <AccuracyContent examAttempts={examAttempts} />
+            : type === 'courses'
+                ? <CoursesContent courses={courses} />
+                : type === 'hours'
+                    ? <HoursContent profile={profile} />
+                    : null;
 
-    const getTitle = () => {
-        switch (type) {
-            case 'topics': return 'Completed Topics';
-            case 'accuracy': return 'Accuracy Breakdown';
-            case 'courses': return 'Your Courses';
-            case 'hours': return 'Study Time';
-            default: return '';
-        }
-    };
+    const title = type === 'topics'
+        ? 'Completed Topics'
+        : type === 'accuracy'
+            ? 'Accuracy Breakdown'
+            : type === 'courses'
+                ? 'Your Courses'
+                : type === 'hours'
+                    ? 'Study Time'
+                    : '';
 
     return (
         <div className="fixed inset-0 z-50 flex items-end md:items-center justify-center">
             {/* Backdrop */}
-            <div 
-                className="modal-backdrop absolute inset-0 bg-black/50 backdrop-blur-sm transition-opacity"
+            <button
+                type="button"
+                aria-label="Close stat details"
+                className="modal-backdrop absolute inset-0 border-0 bg-black/50 p-0 backdrop-blur-sm transition-opacity"
                 onClick={handleCloseClick}
                 onTouchStart={handleTouchStart}
                 onTouchMove={handleTouchMove}
@@ -187,22 +191,22 @@ const StatsDetailModal = ({ isOpen, onClose, type, userId }) => {
                     onTouchMove={handleTouchMove}
                     onTouchEnd={handleTouchEnd}
                 >
-                    <div className="w-12 h-1.5 bg-slate-300 dark:bg-slate-600 rounded-full pointer-events-none"></div>
+                    <div className="w-12 h-1.5 bg-zinc-300 dark:bg-zinc-600 rounded-full pointer-events-none"></div>
                 </div>
                 
                 {/* Header */}
                 <div 
-                    className="modal-header flex items-center justify-between p-4 border-b border-slate-200 dark:border-slate-700 cursor-grab active:cursor-grabbing"
+                    className="modal-header flex items-center justify-between p-4 border-b border-zinc-200 dark:border-zinc-700 cursor-grab active:cursor-grabbing"
                     onTouchStart={handleTouchStart}
                     onTouchMove={handleTouchMove}
                     onTouchEnd={handleTouchEnd}
                 >
-                    <h2 className="text-lg font-bold text-slate-900 dark:text-white">{getTitle()}</h2>
+                    <h2 className="text-lg font-semibold text-zinc-900 dark:text-white">{title}</h2>
                     <button 
                         onClick={handleCloseClick}
-                        className="w-10 h-10 rounded-full flex items-center justify-center hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors active:scale-95"
+                        className="size-10 rounded-full flex items-center justify-center hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors active:scale-95"
                     >
-                        <span className="material-symbols-outlined text-slate-500">close</span>
+                        <span className="material-symbols-outlined text-zinc-500">close</span>
                     </button>
                 </div>
 
@@ -212,7 +216,7 @@ const StatsDetailModal = ({ isOpen, onClose, type, userId }) => {
                     style={{ overscrollBehavior: 'contain' }}
                     onTouchStart={handleContentTouch}
                 >
-                    {renderContent()}
+                    {content}
                 </div>
             </div>
         </div>
@@ -248,23 +252,22 @@ const TopicsContent = ({ examAttempts }) => {
 
     return (
         <div className="space-y-3">
-            <p className="text-sm text-slate-500 dark:text-slate-400 mb-4">
+            <p className="text-sm text-zinc-500 dark:text-zinc-400 mb-4">
                 Completed {topics.length} topics
             </p>
             {topics.map((topic, index) => (
                 <div 
                     key={topic.topicId} 
-                    className="flex items-center gap-4 p-4 bg-slate-50 dark:bg-slate-800/50 rounded-2xl active:scale-[0.98] transition-transform"
-                    onClick={() => triggerHaptic('light')}
+                    className="flex items-center gap-4 p-4 bg-zinc-50 dark:bg-zinc-800/50 rounded-2xl active:scale-[0.98] transition-transform"
                 >
-                    <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-500 to-indigo-600 text-white flex items-center justify-center font-bold">
+                    <div className="size-10 rounded-xl bg-gradient-to-br from-blue-500 to-primary-600 text-white flex items-center justify-center font-bold">
                         {index + 1}
                     </div>
                     <div className="flex-1 min-w-0">
-                        <p className="font-bold text-slate-900 dark:text-white truncate">
+                        <p className="font-bold text-zinc-900 dark:text-white truncate">
                             {topic.title}
                         </p>
-                        <p className="text-xs text-slate-500">
+                        <p className="text-xs text-zinc-500">
                             {topic.attempts} attempt{topic.attempts !== 1 ? 's' : ''}
                         </p>
                     </div>
@@ -319,24 +322,23 @@ const AccuracyContent = ({ examAttempts }) => {
         <div className="space-y-6">
             {/* Overall Accuracy */}
             <div className="text-center p-6 bg-gradient-to-br from-green-50 to-emerald-50 dark:from-green-900/20 dark:to-emerald-900/20 rounded-2xl">
-                <p className="text-sm text-slate-500 dark:text-slate-400 mb-1">Overall Accuracy</p>
+                <p className="text-sm text-zinc-500 dark:text-zinc-400 mb-1">Overall Accuracy</p>
                 <p className="text-5xl font-bold text-green-600">{overallAccuracy}%</p>
             </div>
 
             {/* Breakdown by Topic */}
             <div>
-                <p className="text-sm font-bold text-slate-700 dark:text-slate-300 mb-3">
+                <p className="text-sm font-bold text-zinc-700 dark:text-zinc-300 mb-3">
                     By Topic
                 </p>
                 <div className="space-y-3">
                     {topics.map((topic) => (
                         <div 
                             key={topic.topicId} 
-                            className="p-4 bg-slate-50 dark:bg-slate-800/50 rounded-2xl active:scale-[0.98] transition-transform"
-                            onClick={() => triggerHaptic('light')}
+                            className="p-4 bg-zinc-50 dark:bg-zinc-800/50 rounded-2xl active:scale-[0.98] transition-transform"
                         >
                             <div className="flex items-center justify-between mb-2">
-                                <p className="font-bold text-slate-900 dark:text-white truncate flex-1 mr-4">
+                                <p className="font-bold text-zinc-900 dark:text-white truncate flex-1 mr-4">
                                     {topic.title}
                                 </p>
                                 <span className={`text-sm font-bold ${
@@ -346,7 +348,7 @@ const AccuracyContent = ({ examAttempts }) => {
                                     {topic.accuracy}%
                                 </span>
                             </div>
-                            <div className="h-2 bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden">
+                            <div className="h-2 bg-zinc-200 dark:bg-zinc-700 rounded-full overflow-hidden">
                                 <div 
                                     className={`h-full rounded-full ${
                                         topic.accuracy >= 80 ? 'bg-green-500' :
@@ -375,33 +377,32 @@ const CoursesContent = ({ courses }) => {
 
     return (
         <div className="space-y-3">
-            <p className="text-sm text-slate-500 dark:text-slate-400 mb-4">
+            <p className="text-sm text-zinc-500 dark:text-zinc-400 mb-4">
                 {courses.length} course{courses.length !== 1 ? 's' : ''}
             </p>
             {courses.map((course) => (
                 <div 
                     key={course._id} 
-                    className="flex items-center gap-4 p-4 bg-slate-50 dark:bg-slate-800/50 rounded-2xl active:scale-[0.98] transition-transform"
-                    onClick={() => triggerHaptic('light')}
+                    className="flex items-center gap-4 p-4 bg-zinc-50 dark:bg-zinc-800/50 rounded-2xl active:scale-[0.98] transition-transform"
                 >
                     <div 
-                        className="w-12 h-12 rounded-xl flex items-center justify-center text-white"
+                        className="size-12 rounded-xl flex items-center justify-center text-white"
                         style={{ background: course.coverColor || 'linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%)' }}
                     >
                         <span className="material-symbols-outlined filled">school</span>
                     </div>
                     <div className="flex-1 min-w-0">
-                        <p className="font-bold text-slate-900 dark:text-white truncate">
+                        <p className="font-bold text-zinc-900 dark:text-white truncate">
                             {course.title}
                         </p>
                         <div className="flex items-center gap-2 mt-1">
-                            <div className="flex-1 h-1.5 bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden max-w-[100px]">
+                            <div className="flex-1 h-1.5 bg-zinc-200 dark:bg-zinc-700 rounded-full overflow-hidden max-w-[100px]">
                                 <div 
                                     className="h-full bg-primary rounded-full"
                                     style={{ width: `${course.progress}%` }}
                                 />
                             </div>
-                            <span className="text-xs font-bold text-slate-500">
+                            <span className="text-xs font-bold text-zinc-500">
                                 {course.progress}%
                             </span>
                         </div>
@@ -446,25 +447,24 @@ const HoursContent = ({ profile }) => {
                 {stats.map((stat) => (
                     <div 
                         key={stat.label}
-                        className="p-4 bg-slate-50 dark:bg-slate-800/50 rounded-2xl text-center active:scale-[0.98] transition-transform"
-                        onClick={() => triggerHaptic('light')}
+                        className="p-4 bg-zinc-50 dark:bg-zinc-800/50 rounded-2xl text-center active:scale-[0.98] transition-transform"
                     >
-                        <div className={`w-10 h-10 ${stat.color} rounded-xl flex items-center justify-center text-white mx-auto mb-2`}>
+                        <div className={`size-10 ${stat.color} rounded-xl flex items-center justify-center text-white mx-auto mb-2`}>
                             <span className="material-symbols-outlined filled">{stat.icon}</span>
                         </div>
-                        <p className="text-2xl font-bold text-slate-900 dark:text-white">{stat.value}</p>
-                        <p className="text-xs text-slate-500">{stat.label}</p>
+                        <p className="text-2xl font-bold text-zinc-900 dark:text-white">{stat.value}</p>
+                        <p className="text-xs text-zinc-500">{stat.label}</p>
                     </div>
                 ))}
             </div>
 
             {/* Study Tips */}
-            <div className="p-4 bg-gradient-to-br from-indigo-50 to-purple-50 dark:from-indigo-900/20 dark:to-purple-900/20 rounded-2xl">
+            <div className="p-4 bg-gradient-to-br from-primary-50 to-purple-50 dark:from-primary-900/20 dark:to-purple-900/20 rounded-2xl">
                 <div className="flex items-center gap-2 mb-2">
                     <span className="material-symbols-outlined text-primary">lightbulb</span>
-                    <p className="font-bold text-slate-900 dark:text-white">Study Tip</p>
+                    <p className="font-bold text-zinc-900 dark:text-white">Study Tip</p>
                 </div>
-                <p className="text-sm text-slate-600 dark:text-slate-300">
+                <p className="text-sm text-zinc-600 dark:text-zinc-300">
                     Consistency is key! Studying for shorter periods regularly is more effective than long cramming sessions.
                 </p>
             </div>
@@ -475,12 +475,12 @@ const HoursContent = ({ profile }) => {
 // Loading State
 const LoadingState = () => (
     <div className="space-y-4 animate-pulse">
-        {[1, 2, 3].map((i) => (
-            <div key={i} className="flex items-center gap-4 p-4">
-                <div className="w-12 h-12 bg-slate-200 dark:bg-slate-700 rounded-xl"></div>
+        {[1, 2, 3].map((slot) => (
+            <div key={`loading-${slot}`} className="flex items-center gap-4 p-4">
+                <div className="size-12 bg-zinc-200 dark:bg-zinc-700 rounded-xl"></div>
                 <div className="flex-1 space-y-2">
-                    <div className="h-4 bg-slate-200 dark:bg-slate-700 rounded w-3/4"></div>
-                    <div className="h-3 bg-slate-200 dark:bg-slate-700 rounded w-1/2"></div>
+                    <div className="h-4 bg-zinc-200 dark:bg-zinc-700 rounded w-3/4"></div>
+                    <div className="h-3 bg-zinc-200 dark:bg-zinc-700 rounded w-1/2"></div>
                 </div>
             </div>
         ))}
@@ -490,10 +490,10 @@ const LoadingState = () => (
 // Empty State
 const EmptyState = ({ message, icon }) => (
     <div className="text-center py-12">
-        <div className="w-16 h-16 bg-slate-100 dark:bg-slate-800 rounded-full flex items-center justify-center mx-auto mb-4">
-            <span className="material-symbols-outlined text-3xl text-slate-400">{icon}</span>
+        <div className="size-16 bg-zinc-100 dark:bg-zinc-800 rounded-full flex items-center justify-center mx-auto mb-4">
+            <span className="material-symbols-outlined text-3xl text-zinc-400">{icon}</span>
         </div>
-        <p className="text-slate-500 dark:text-slate-400">{message}</p>
+        <p className="text-zinc-500 dark:text-zinc-400">{message}</p>
     </div>
 );
 

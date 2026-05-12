@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
-import { useAction, useQuery } from 'convex/react';
+import { useAction, useConvexAuth, useQuery } from 'convex/react';
 import { api } from '../../convex/_generated/api';
 import { useAuth } from '../contexts/AuthContext';
 import { addSentryBreadcrumb, captureSentryMessage } from '../lib/sentry';
@@ -8,6 +8,8 @@ import {
     shouldAutoNavigateFromProcessing,
     shouldShowProcessingConfirmation,
 } from '../lib/processingNavigation';
+import { AnimatedCircularProgressBar } from '../components/magicui/AnimatedCircularProgressBar';
+import { BorderBeam } from '../components/magicui/BorderBeam';
 
 // Processing steps configuration
 const PROCESSING_STEPS = [
@@ -21,10 +23,12 @@ const PROCESSING_STEPS = [
     { key: 'ready', label: 'Ready', icon: 'check_circle', description: 'Your course is ready!' },
 ];
 
+// react-doctor-disable-next-line react-doctor/no-giant-component
 const DashboardProcessing = () => {
     const { courseId } = useParams();
     const { user } = useAuth();
     const userId = user?.id;
+    const { isAuthenticated: isConvexAuthenticated } = useConvexAuth();
     const navigate = useNavigate();
     const processUploadedFile = useAction(api.ai.processUploadedFile);
     const [showConfirmation, setShowConfirmation] = useState(false);
@@ -40,7 +44,7 @@ const DashboardProcessing = () => {
     );
 
     // Only fetch all user courses when no specific courseId is provided
-    const allCourses = useQuery(api.courses.getUserCourses, !courseId && userId ? { userId } : 'skip');
+    const allCourses = useQuery(api.courses.getUserCourses, !courseId && isConvexAuthenticated ? {} : 'skip');
     const latestCourse = courseId ? null : allCourses?.[0];
     const course = courseData || (latestCourse ? { ...latestCourse, topics: [] } : null);
 
@@ -283,7 +287,7 @@ const DashboardProcessing = () => {
                         <span className="material-symbols-outlined text-[16px]">local_fire_department</span>
                         <span className="text-caption font-semibold">Processing</span>
                     </div>
-                    <Link to="/profile" className="btn-icon w-9 h-9 rounded-full bg-primary/8 text-primary text-caption font-bold">
+                    <Link to="/profile" className="btn-icon size-9 rounded-full bg-primary/8 text-primary text-caption font-bold">
                         {user?.name?.[0]?.toUpperCase() || 'S'}
                     </Link>
                 </div>
@@ -292,13 +296,14 @@ const DashboardProcessing = () => {
             <main className="w-full max-w-3xl mx-auto flex-1 px-4 py-8 flex flex-col items-center justify-center">
                 {!showConfirmation ? (
                     <div className="w-full flex flex-col items-center text-center">
-                        <div className="w-full card-base p-8 md:p-12">
+                        <div className="relative w-full card-base p-8 md:p-12 overflow-hidden">
+                            <BorderBeam size={220} duration={9} colorFrom="#914bf1" colorTo="#FE8BBB" />
                             {/* Header */}
                             <div className="mb-8">
                                 <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-primary/8 mb-6">
-                                    <span className="relative flex h-2 w-2">
-                                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75"></span>
-                                        <span className="relative inline-flex rounded-full h-2 w-2 bg-primary"></span>
+                                    <span className="relative flex size-2">
+                                        <span className="animate-ping absolute inline-flex size-full rounded-full bg-primary opacity-75"></span>
+                                        <span className="relative inline-flex rounded-full size-2 bg-primary"></span>
                                     </span>
                                     <span className="text-primary text-caption font-semibold">Processing</span>
                                 </div>
@@ -311,42 +316,28 @@ const DashboardProcessing = () => {
                                 </p>
                             </div>
 
-                            {/* Current Step Visual */}
-                            <div className="mb-8">
-                                <div className="relative w-20 h-20 mx-auto mb-6">
-                                    <div className="absolute inset-0 rounded-full border-2 border-border-light dark:border-border-dark"></div>
-                                    <div
-                                        className="absolute inset-0 rounded-full border-2 border-primary border-t-transparent animate-spin"
-                                        style={{ animationDuration: '2s' }}
-                                    ></div>
-                                    <div className="absolute inset-2 rounded-full bg-primary flex items-center justify-center text-white">
-                                        <span className="material-symbols-outlined text-[28px]">{currentStepInfo.icon}</span>
+                            {/* Current Step Visual + Progress */}
+                            <div className="mb-8 flex flex-col items-center">
+                                <div className="relative mb-6">
+                                    <AnimatedCircularProgressBar
+                                        value={progress}
+                                        size={140}
+                                        strokeWidth={9}
+                                        gaugePrimaryColor="#914bf1"
+                                        gaugeSecondaryColor="rgba(145, 75, 241, 0.12)"
+                                    />
+                                    <div className="absolute -bottom-2 left-1/2 -translate-x-1/2 size-9 rounded-full bg-primary flex items-center justify-center text-white shadow-lg shadow-primary/30">
+                                        <span className="material-symbols-outlined text-[20px]">{currentStepInfo.icon}</span>
                                     </div>
                                 </div>
 
-                                <div className="space-y-1" aria-live="polite">
+                                <div className="space-y-1 mt-2" aria-live="polite">
                                     <h2 className="text-body-lg font-semibold text-text-main-light dark:text-text-main-dark">
                                         {currentStepInfo.label}
                                     </h2>
                                     <p className="text-body-sm text-text-sub-light dark:text-text-sub-dark max-w-md mx-auto">
                                         {currentStepInfo.description}
                                     </p>
-                                </div>
-                            </div>
-
-                            {/* Progress Display */}
-                            <div className="mb-8">
-                                <div className="flex items-center justify-between mb-2">
-                                    <span className="text-caption font-medium text-text-faint-light dark:text-text-faint-dark">Progress</span>
-                                    <span className="text-display-sm text-text-main-light dark:text-text-main-dark">{progress}%</span>
-                                </div>
-                                <div className="h-2 bg-surface-hover-light dark:bg-surface-hover-dark rounded-full overflow-hidden">
-                                    <div
-                                        className="h-full bg-primary rounded-full transition-all duration-700 ease-out relative"
-                                        style={{ width: `${progress}%` }}
-                                    >
-                                        <div className="absolute inset-0 bg-white/20 animate-pulse"></div>
-                                    </div>
                                 </div>
                             </div>
 
@@ -359,7 +350,7 @@ const DashboardProcessing = () => {
                                     return (
                                         <div key={step.key} className="flex items-center">
                                             <div
-                                                className={`w-7 h-7 rounded-full flex items-center justify-center text-caption font-bold transition-all duration-300 ${
+                                                className={`size-7 rounded-full flex items-center justify-center text-caption font-bold transition-all duration-300 ${
                                                     isCompleted
                                                         ? 'bg-accent-emerald/10 text-accent-emerald'
                                                         : isCurrent
@@ -384,21 +375,6 @@ const DashboardProcessing = () => {
                                 })}
                             </div>
 
-                            {/* Extraction Warnings */}
-                            {upload?.extractionWarnings?.length > 0 && !hasError && (
-                                <div className="mt-6 p-3 rounded-xl bg-amber-50 dark:bg-amber-900/10 border border-amber-200 dark:border-amber-900/30">
-                                    <div className="flex items-start gap-2.5">
-                                        <span className="material-symbols-outlined text-amber-500 text-[18px] shrink-0 mt-0.5">info</span>
-                                        <div className="text-left">
-                                            <p className="text-body-sm font-semibold text-amber-800 dark:text-amber-300">Heads up</p>
-                                            {upload.extractionWarnings.map((w, i) => (
-                                                <p key={i} className="text-caption text-amber-700 dark:text-amber-400 mt-1">{w}</p>
-                                            ))}
-                                        </div>
-                                    </div>
-                                </div>
-                            )}
-
                             {/* Error State */}
                             {hasError && (
                                 <div className="mt-6 p-3 rounded-xl bg-amber-50 dark:bg-amber-900/10 border border-amber-200 dark:border-amber-900/30">
@@ -409,7 +385,7 @@ const DashboardProcessing = () => {
                                                 Processing encountered an issue
                                             </p>
                                             <p className="text-caption text-amber-700 dark:text-amber-400 mt-1">
-                                                Redirecting to available content...
+                                                Redirecting to available content…
                                             </p>
                                         </div>
                                     </div>
@@ -429,9 +405,9 @@ const DashboardProcessing = () => {
                     <div className="w-full flex flex-col items-center text-center">
                         <div className="w-full card-base p-8 md:p-12">
                             {/* Success Icon */}
-                            <div className="relative w-16 h-16 mx-auto mb-5">
+                            <div className="relative size-16 mx-auto mb-5">
                                 <div className="absolute inset-0 rounded-full bg-accent-emerald/10 animate-ping opacity-50"></div>
-                                <div className="relative w-full h-full rounded-full bg-accent-emerald flex items-center justify-center text-white">
+                                <div className="relative size-full rounded-full bg-accent-emerald flex items-center justify-center text-white">
                                     <span className="material-symbols-outlined text-[28px]">check</span>
                                 </div>
                             </div>
@@ -451,7 +427,7 @@ const DashboardProcessing = () => {
                             {/* Stats */}
                             <div className="flex items-center justify-center gap-3 mb-8">
                                 <div className="flex items-center gap-3 card-base px-4 py-3">
-                                    <div className="w-9 h-9 rounded-lg bg-primary/8 flex items-center justify-center">
+                                    <div className="size-9 rounded-lg bg-primary/8 flex items-center justify-center">
                                         <span className="material-symbols-outlined text-primary text-[18px]">menu_book</span>
                                     </div>
                                     <div className="text-left">
@@ -460,7 +436,7 @@ const DashboardProcessing = () => {
                                     </div>
                                 </div>
                                 <div className="flex items-center gap-3 card-base px-4 py-3">
-                                    <div className="w-9 h-9 rounded-lg bg-primary/8 flex items-center justify-center">
+                                    <div className="size-9 rounded-lg bg-primary/8 flex items-center justify-center">
                                         <span className="material-symbols-outlined text-primary text-[18px]">quiz</span>
                                     </div>
                                     <div className="text-left">
@@ -482,7 +458,7 @@ const DashboardProcessing = () => {
                                                 key={topic._id}
                                                 className="flex items-center gap-3 bg-surface-hover-light dark:bg-surface-hover-dark p-3 rounded-xl text-left"
                                             >
-                                                <div className={`w-7 h-7 rounded-lg flex items-center justify-center text-white text-caption font-bold ${
+                                                <div className={`size-7 rounded-lg flex items-center justify-center text-white text-caption font-bold ${
                                                     index === 0
                                                         ? 'bg-primary'
                                                         : 'bg-text-faint-light dark:bg-text-faint-dark'

@@ -5,13 +5,23 @@ const root = process.cwd();
 const topicDetailSource = await fs.readFile(path.join(root, 'src/pages/TopicDetail.jsx'), 'utf8');
 
 for (const snippet of [
-  "import TopicPodcastPanel from '../components/TopicPodcastPanel';",
   "import.meta.env.VITE_PODCAST_GEN_ENABLED === 'true' && topicId",
-  '<TopicPodcastPanel topicId={topicId} />',
+  "podcastEnabled && {\n            id: 'podcast-rail'",
+  "podcastEnabled && { id: 'p-podcast'",
+  "topicProgress?.completedAt\n            ? podcastEnabled && { id: 'm-podcast'",
+  '<LessonPodcastCard topicId={topicId} />',
 ]) {
   if (!topicDetailSource.includes(snippet)) {
     throw new Error(`Regression detected: podcast surface missing snippet: ${snippet}`);
   }
+}
+
+if (/"id: 'podcast-rail'/.test(topicDetailSource) && !/podcastEnabled && \{\s*id: 'podcast-rail'/s.test(topicDetailSource)) {
+  throw new Error('Regression detected: podcast rail action must be hidden when the production podcast panel is disabled.');
+}
+
+if (/"id: 'p-podcast'/.test(topicDetailSource) && !/podcastEnabled && \{ id: 'p-podcast'/s.test(topicDetailSource)) {
+  throw new Error('Regression detected: practice podcast action must be hidden when the production podcast panel is disabled.');
 }
 
 for (const forbiddenSnippet of [

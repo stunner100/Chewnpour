@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, useMemo, useRef } from 'react';
+import React, { createContext, use, useState, useEffect, useMemo, useRef } from 'react';
 import {
     authBaseUrl,
     authClient,
@@ -98,6 +98,23 @@ const readCachedSessionUser = () => {
 
 const SOCIAL_SIGN_IN_MAX_RETRIES = 2;
 const SOCIAL_SIGN_IN_RETRY_BASE_DELAY_MS = 400;
+
+const syncAuthAnalyticsUser = (sessionUser) => {
+    const activeUserId = sessionUser?.id;
+    if (!activeUserId) {
+        setSentryUser(null);
+        resetPostHogUser();
+        return;
+    }
+
+    const userPayload = {
+        id: activeUserId,
+        email: sessionUser?.email,
+        username: sessionUser?.name,
+    };
+    setSentryUser(userPayload);
+    setPostHogUser(userPayload);
+};
 
 const normalizeErrorForSentry = (error, fallbackMessage = 'Authentication request failed') => {
     if (error instanceof Error) return error;
@@ -212,9 +229,7 @@ const captureAuthFailure = ({
 };
 
 const verifyOttTokenWithRetry = async (token, maxRetries = 1) => {
-    let attempt = 0;
-
-    while (attempt <= maxRetries) {
+    const verifyAttempt = async (attempt) => {
         try {
             const result = await authClient.crossDomain.oneTimeToken.verify({ token });
 
@@ -231,15 +246,18 @@ const verifyOttTokenWithRetry = async (token, maxRetries = 1) => {
                 throw error;
             }
 
-            attempt += 1;
-            await wait(250 * attempt);
+            const nextAttempt = attempt + 1;
+            await wait(250 * nextAttempt);
+            return verifyAttempt(nextAttempt);
         }
-    }
+    };
+
+    return verifyAttempt(0);
 };
 
 // eslint-disable-next-line react-refresh/only-export-components
 export const useAuth = () => {
-    const context = useContext(AuthContext);
+    const context = use(AuthContext);
     if (!context) {
         throw new Error('useAuth must be used within an AuthProvider');
     }
@@ -267,6 +285,7 @@ const AuthProviderFallback = ({ children }) => {
     );
 };
 
+// react-doctor-disable-next-line react-doctor/no-giant-component
 const AuthProviderConvex = ({ children }) => {
     const { isAuthenticated: isConvexAuthenticated, isLoading: isConvexAuthLoading } = useConvexAuth();
     const { data: session, isPending, refetch, error: sessionError } = useSession();
@@ -396,27 +415,12 @@ const AuthProviderConvex = ({ children }) => {
         try { pendingRef = sessionStorage.getItem('pending_referral_code'); } catch { return; }
         if (!pendingRef) return;
         try { sessionStorage.removeItem('pending_referral_code'); } catch { void 0; }
-        setReferredByMutation({ userId: sessionUser.id, referralCode: pendingRef }).catch(() => {});
+        setReferredByMutation({ referralCode: pendingRef }).catch(() => {});
     }, [sessionUser?.id, profileData, setReferredByMutation]);
 
     useEffect(() => {
-        const activeUserId = sessionUser?.id;
-        if (!activeUserId) {
-            setSentryUser(null);
-            resetPostHogUser();
-            return;
-        }
-        setSentryUser({
-            id: activeUserId,
-            email: sessionUser?.email,
-            username: sessionUser?.name,
-        });
-        setPostHogUser({
-            id: activeUserId,
-            email: sessionUser?.email,
-            username: sessionUser?.name,
-        });
-    }, [sessionUser?.id, sessionUser?.email, sessionUser?.name]);
+        syncAuthAnalyticsUser(sessionUser);
+    }, [sessionUser]);
 
     useEffect(() => {
         const activeUserId = sessionUser?.id;
@@ -442,7 +446,7 @@ const AuthProviderConvex = ({ children }) => {
 
             lastPresenceHeartbeatAtRef.current = now;
             try {
-                await touchPresence({ userId: activeUserId });
+                await touchPresence({});
             } catch (error) {
                 console.warn('[AuthContext] Failed to send presence heartbeat', getErrorMessage(error, 'unknown'));
             }
@@ -474,20 +478,17 @@ const AuthProviderConvex = ({ children }) => {
     }, [isConvexAuthenticated, sessionUser?.id, touchPresence]);
 
     const signUp = async (email, password, fullName) => {
-        const callbackURL = absoluteUrl('/dashboard');
         try {
             const result = await betterSignUp.email({
                 email,
                 password,
                 name: fullName,
-                callbackURL,
             });
             if (result.error) {
                 if (isTransientSessionError(result.error)) {
                     captureAuthFailure({
                         error: result.error,
                         operation: 'sign_up',
-                        callbackURL,
                         extras: {
                             phase: 'result_error',
                         },
@@ -502,7 +503,6 @@ const AuthProviderConvex = ({ children }) => {
             if (userId) {
                 try {
                     await upsertProfile({
-                        userId,
                         fullName,
                         onboardingCompleted: true,
                     });
@@ -517,7 +517,6 @@ const AuthProviderConvex = ({ children }) => {
             captureAuthFailure({
                 error,
                 operation: 'sign_up',
-                callbackURL,
                 extras: {
                     phase: 'exception',
                     transient,
@@ -529,19 +528,16 @@ const AuthProviderConvex = ({ children }) => {
     };
 
     const signIn = async (email, password) => {
-        const callbackURL = absoluteUrl('/dashboard');
         try {
             const result = await betterSignIn.email({
                 email,
                 password,
-                callbackURL,
             });
             if (result.error) {
                 if (isTransientSessionError(result.error)) {
                     captureAuthFailure({
                         error: result.error,
                         operation: 'sign_in',
-                        callbackURL,
                         extras: {
                             phase: 'result_error',
                         },
@@ -556,7 +552,6 @@ const AuthProviderConvex = ({ children }) => {
             captureAuthFailure({
                 error,
                 operation: 'sign_in',
-                callbackURL,
                 extras: {
                     phase: 'exception',
                     transient,
@@ -574,9 +569,8 @@ const AuthProviderConvex = ({ children }) => {
                 : '/dashboard';
         const callbackURL = absoluteUrl(normalizedCallbackPath);
         const provider = 'google';
-        let attempt = 0;
 
-        while (attempt <= SOCIAL_SIGN_IN_MAX_RETRIES) {
+        const runGoogleSignInAttempt = async (attempt) => {
             try {
                 const result = await betterSignIn.social({
                     provider,
@@ -586,9 +580,9 @@ const AuthProviderConvex = ({ children }) => {
                 if (result.error) {
                     const transient = isTransientSessionError(result.error);
                     if (transient && attempt < SOCIAL_SIGN_IN_MAX_RETRIES) {
-                        attempt += 1;
-                        await wait(SOCIAL_SIGN_IN_RETRY_BASE_DELAY_MS * attempt);
-                        continue;
+                        const nextAttempt = attempt + 1;
+                        await wait(SOCIAL_SIGN_IN_RETRY_BASE_DELAY_MS * nextAttempt);
+                        return runGoogleSignInAttempt(nextAttempt);
                     }
 
                     if (transient) {
@@ -614,9 +608,9 @@ const AuthProviderConvex = ({ children }) => {
             } catch (error) {
                 const transient = isTransientSessionError(error);
                 if (transient && attempt < SOCIAL_SIGN_IN_MAX_RETRIES) {
-                    attempt += 1;
-                    await wait(SOCIAL_SIGN_IN_RETRY_BASE_DELAY_MS * attempt);
-                    continue;
+                    const nextAttempt = attempt + 1;
+                    await wait(SOCIAL_SIGN_IN_RETRY_BASE_DELAY_MS * nextAttempt);
+                    return runGoogleSignInAttempt(nextAttempt);
                 }
 
                 captureAuthFailure({
@@ -634,9 +628,9 @@ const AuthProviderConvex = ({ children }) => {
                 });
                 return { data: null, error };
             }
-        }
+        };
 
-        return { data: null, error: { message: 'Unable to reach authentication right now. Please try again.' } };
+        return runGoogleSignInAttempt(0);
     };
 
     const signOut = async () => {
@@ -645,13 +639,14 @@ const AuthProviderConvex = ({ children }) => {
             setLastKnownUser(null);
             return { error: null };
         } catch (error) {
+            const transient = isTransientSessionError(error);
             captureAuthFailure({
                 error,
                 operation: 'sign_out',
                 extras: {
                     phase: 'exception',
                 },
-                level: 'error',
+                level: transient ? 'warning' : 'error',
             });
             return { error };
         }
@@ -660,7 +655,7 @@ const AuthProviderConvex = ({ children }) => {
     const updateProfile = async (updates) => {
         if (!user) return { error: { message: 'No user logged in' } };
         try {
-            await upsertProfile({ userId: user.id, ...updates });
+            await upsertProfile({ ...updates });
             setProfileOverride((current) => ({
                 ...(current || {}),
                 ...updates,

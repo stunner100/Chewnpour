@@ -277,7 +277,7 @@ if (!aiSource.includes("const sourceUploadId = topic?.sourceUploadId;")) {
     throw new Error("Expected grounded upload resolution to prefer topic.sourceUploadId when available.");
 }
 
-if (!aiSource.includes("const sources = await ctx.runQuery(api.courses.getCourseSources, { courseId });")) {
+if (!aiSource.includes("const sources = await ctx.runQuery(internal.courses.getCourseSourcesInternal, { courseId });")) {
     throw new Error("Expected grounded upload resolution to fall back to course source links when course.uploadId is absent.");
 }
 

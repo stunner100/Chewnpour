@@ -1,0 +1,351 @@
+<!DOCTYPE html>
+
+<html lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>ChewnPour - Upload Materials</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700&amp;family=Inter:wght@400;500;600&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        .material-symbols-outlined.fill {
+            font-variation-settings: 'FILL' 1;
+        }
+    </style>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "success": "#15803D",
+                        "info-soft": "#DBEAFE",
+                        "surface-muted": "#EFE8DA",
+                        "inverse-primary": "#ffb77d",
+                        "warning": "#D97706",
+                        "on-primary": "#ffffff",
+                        "text-primary": "#1F2933",
+                        "primary-subtle": "#FFFBEB",
+                        "on-error": "#ffffff",
+                        "on-tertiary": "#ffffff",
+                        "on-secondary-fixed": "#3b0900",
+                        "text-muted": "#7B8794",
+                        "border-strong": "#B8AD9A",
+                        "mastery-soft": "#EDE9FE",
+                        "on-primary-fixed": "#2f1500",
+                        "inverse-on-surface": "#ffede3",
+                        "outline": "#887364",
+                        "tertiary-container": "#007abd",
+                        "tertiary-fixed": "#cee5ff",
+                        "tertiary-fixed-dim": "#96ccff",
+                        "surface-soft": "#F5F1E8",
+                        "border-subtle": "#E7E0D3",
+                        "secondary-fixed": "#ffdbd1",
+                        "border-default": "#D8CFBF",
+                        "error-container": "#ffdad6",
+                        "text-secondary": "#52616B",
+                        "on-primary-container": "#fffbff",
+                        "success-soft": "#DCFCE7",
+                        "on-tertiary-container": "#fdfcff",
+                        "warning-soft": "#FEF3C7",
+                        "primary": "#8d4b00",
+                        "secondary-container": "#ff987b",
+                        "on-surface": "#231a13",
+                        "primary-fixed": "#ffdcc3",
+                        "surface-container-high": "#f7e5d9",
+                        "on-tertiary-fixed-variant": "#004a75",
+                        "background": "#FAF8F3",
+                        "info": "#2563EB",
+                        "on-background": "#231a13",
+                        "on-tertiary-fixed": "#001d32",
+                        "primary-fixed-dim": "#ffb77d",
+                        "mastery": "#7C3AED",
+                        "on-secondary": "#ffffff",
+                        "primary-soft": "#FEF3C7",
+                        "surface-bright": "#fff8f5",
+                        "surface-container-lowest": "#ffffff",
+                        "surface-container-low": "#fff1e9",
+                        "surface-dim": "#e9d7cb",
+                        "error-soft": "#FEE2E2",
+                        "on-error-container": "#93000a",
+                        "surface": "#FFFFFF",
+                        "on-secondary-fixed-variant": "#792f1a",
+                        "on-secondary-container": "#782e19",
+                        "primary-hover": "#B45309",
+                        "ai-subtle": "#FFF7F4",
+                        "surface-variant": "#f2dfd3",
+                        "on-surface-variant": "#554336",
+                        "secondary-fixed-dim": "#ffb5a0",
+                        "tertiary": "#006096",
+                        "surface-container": "#fdeade",
+                        "primary-container": "#b15f00",
+                        "ai-soft": "#F8E3DC",
+                        "surface-tint": "#904d00",
+                        "on-primary-fixed-variant": "#6e3900",
+                        "error": "#DC2626",
+                        "outline-variant": "#dbc2b0",
+                        "surface-container-highest": "#f2dfd3",
+                        "secondary": "#98462f",
+                        "inverse-surface": "#392e26"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px"
+                    },
+                    "spacing": {
+                        "space-4": "16px",
+                        "space-1": "4px",
+                        "space-6": "24px",
+                        "sidebar-width": "260px",
+                        "container-max": "1280px",
+                        "space-12": "48px",
+                        "space-5": "20px",
+                        "space-8": "32px",
+                        "space-3": "12px",
+                        "panel-right-width": "320px",
+                        "space-2": "8px",
+                        "space-10": "40px",
+                        "space-16": "64px"
+                    },
+                    "fontFamily": {
+                        "headline-sm": ["Plus Jakarta Sans"],
+                        "body-base": ["Inter"],
+                        "label-md": ["Inter"],
+                        "body-lg": ["Inter"],
+                        "display-lg": ["Plus Jakarta Sans"],
+                        "display-xl": ["Plus Jakarta Sans"],
+                        "body-sm": ["Inter"],
+                        "headline-md": ["Plus Jakarta Sans"],
+                        "label-xs": ["Inter"]
+                    },
+                    "fontSize": {
+                        "headline-sm": ["20px", { "lineHeight": "1.4", "fontWeight": "600" }],
+                        "body-base": ["16px", { "lineHeight": "1.6", "fontWeight": "400" }],
+                        "label-md": ["14px", { "lineHeight": "1", "fontWeight": "600" }],
+                        "body-lg": ["18px", { "lineHeight": "1.6", "fontWeight": "400" }],
+                        "display-lg": ["32px", { "lineHeight": "1.2", "fontWeight": "700" }],
+                        "display-xl": ["40px", { "lineHeight": "1.2", "letterSpacing": "-0.02em", "fontWeight": "700" }],
+                        "body-sm": ["14px", { "lineHeight": "1.5", "fontWeight": "400" }],
+                        "headline-md": ["24px", { "lineHeight": "1.3", "fontWeight": "600" }],
+                        "label-xs": ["12px", { "lineHeight": "1", "fontWeight": "500" }]
+                    }
+                }
+            }
+        }
+    </script>
+</head>
+<body class="bg-background text-text-primary font-body-base flex h-screen overflow-hidden selection:bg-primary-soft selection:text-primary">
+<!-- SideNavBar -->
+<nav class="fixed left-0 top-0 h-full w-[260px] p-space-4 flex flex-col gap-space-6 bg-surface-soft border-r border-border-subtle z-20 hidden md:flex">
+<div class="px-space-4 py-space-2 flex items-center gap-space-3">
+<div class="w-8 h-8 bg-primary rounded-lg flex items-center justify-center text-on-primary">
+<span class="material-symbols-outlined fill text-[20px]">local_library</span>
+</div>
+<div>
+<h1 class="font-headline-sm text-headline-sm tracking-tight font-bold text-primary">ChewnPour</h1>
+<p class="font-label-xs text-label-xs text-text-muted mt-0.5">AI Study Workspace</p>
+</div>
+</div>
+<ul class="flex flex-col gap-space-1 flex-1">
+<li>
+<a class="flex items-center gap-3 px-4 py-3 text-text-secondary hover:text-primary hover:bg-surface-variant transition-colors duration-200 rounded-xl" href="#">
+<span class="material-symbols-outlined text-[20px]">dashboard</span>
+<span class="font-label-md text-label-md">Dashboard</span>
+</a>
+</li>
+<li>
+<a class="flex items-center gap-3 px-4 py-3 text-primary font-bold bg-primary-soft rounded-xl scale-[0.98] transition-transform" href="#">
+<span class="material-symbols-outlined text-[20px] fill">cloud_upload</span>
+<span class="font-label-md text-label-md">Upload</span>
+</a>
+</li>
+<li>
+<a class="flex items-center gap-3 px-4 py-3 text-text-secondary hover:text-primary hover:bg-surface-variant transition-colors duration-200 rounded-xl" href="#">
+<span class="material-symbols-outlined text-[20px]">folder</span>
+<span class="font-label-md text-label-md">My Materials</span>
+</a>
+</li>
+<li>
+<a class="flex items-center gap-3 px-4 py-3 text-text-secondary hover:text-primary hover:bg-surface-variant transition-colors duration-200 rounded-xl" href="#">
+<span class="material-symbols-outlined text-[20px]">menu_book</span>
+<span class="font-label-md text-label-md">Lessons</span>
+</a>
+</li>
+<li>
+<a class="flex items-center gap-3 px-4 py-3 text-text-secondary hover:text-primary hover:bg-surface-variant transition-colors duration-200 rounded-xl" href="#">
+<span class="material-symbols-outlined text-[20px]">quiz</span>
+<span class="font-label-md text-label-md">Quizzes</span>
+</a>
+</li>
+<li>
+<a class="flex items-center gap-3 px-4 py-3 text-text-secondary hover:text-primary hover:bg-surface-variant transition-colors duration-200 rounded-xl" href="#">
+<span class="material-symbols-outlined text-[20px]">style</span>
+<span class="font-label-md text-label-md">Flashcards</span>
+</a>
+</li>
+<li>
+<a class="flex items-center gap-3 px-4 py-3 text-text-secondary hover:text-primary hover:bg-surface-variant transition-colors duration-200 rounded-xl" href="#">
+<span class="material-symbols-outlined text-[20px]">smart_toy</span>
+<span class="font-label-md text-label-md">AI Tutor</span>
+</a>
+</li>
+<li>
+<a class="flex items-center gap-3 px-4 py-3 text-text-secondary hover:text-primary hover:bg-surface-variant transition-colors duration-200 rounded-xl" href="#">
+<span class="material-symbols-outlined text-[20px]">bar_chart</span>
+<span class="font-label-md text-label-md">Progress</span>
+</a>
+</li>
+<li class="mt-auto">
+<a class="flex items-center gap-3 px-4 py-3 text-text-secondary hover:text-primary hover:bg-surface-variant transition-colors duration-200 rounded-xl" href="#">
+<span class="material-symbols-outlined text-[20px]">settings</span>
+<span class="font-label-md text-label-md">Settings</span>
+</a>
+</li>
+</ul>
+<button class="w-full bg-surface text-text-primary border border-border-default rounded-xl py-space-3 font-label-md text-label-md hover:bg-surface-soft transition-colors flex items-center justify-center gap-2 shadow-sm">
+<span class="material-symbols-outlined text-[18px]">add</span>
+            Generate Material
+        </button>
+</nav>
+<!-- Bottom Nav for Mobile (Fallback) -->
+<nav class="md:hidden fixed bottom-0 w-full bg-surface border-t border-border-subtle flex justify-around items-center h-16 z-20 pb-safe">
+<a class="flex flex-col items-center gap-1 text-text-muted hover:text-primary p-2" href="#">
+<span class="material-symbols-outlined">dashboard</span>
+</a>
+<a class="flex flex-col items-center gap-1 text-primary p-2" href="#">
+<span class="material-symbols-outlined fill">cloud_upload</span>
+</a>
+<a class="flex flex-col items-center gap-1 text-text-muted hover:text-primary p-2" href="#">
+<span class="material-symbols-outlined">folder</span>
+</a>
+<a class="flex flex-col items-center gap-1 text-text-muted hover:text-primary p-2" href="#">
+<span class="material-symbols-outlined">smart_toy</span>
+</a>
+</nav>
+<!-- Main Content Wrapper -->
+<div class="flex-1 flex flex-col md:ml-[260px] h-full overflow-hidden">
+<!-- TopAppBar -->
+<header class="flex justify-between items-center h-16 px-space-8 bg-surface border-b border-border-subtle shadow-sm z-10 shrink-0">
+<div class="flex items-center gap-space-4 flex-1">
+<h2 class="font-headline-sm text-headline-sm font-bold text-primary hidden md:block">Upload Materials</h2>
+<h2 class="font-headline-sm text-headline-sm font-bold text-primary md:hidden">ChewnPour</h2>
+</div>
+<div class="flex items-center gap-space-6">
+<div class="flex items-center gap-space-3">
+<button class="text-text-muted hover:text-primary transition-colors p-2 rounded-full hover:bg-surface-soft">
+<span class="material-symbols-outlined text-[24px]">notifications</span>
+</button>
+<button class="text-text-muted hover:text-primary transition-colors p-2 rounded-full hover:bg-surface-soft">
+<span class="material-symbols-outlined text-[24px]">help_outline</span>
+</button>
+</div>
+<div class="w-8 h-8 rounded-full bg-primary-soft border border-primary-fixed-dim overflow-hidden cursor-pointer">
+<img alt="Student Profile" class="w-full h-full object-cover" src="https://lh3.googleusercontent.com/aida-public/AB6AXuC5BoF7eYTgcRdtciuFFpm9RlVZKyGGkN9oxB5IRFFtaSZZYLLx9RFYoslG9rjNkduM0JNY8zMDh1ZHlZPCETarpoWjeZzhuZDNFTznJeLqjt_vAmQdDLapN1Qd4zUhWTuEDyU_jP3qU_0sc_bPoiqrkOjv2SMsRv0VvKwzUfqdOHArw6axICPP4_D4lJ9Hcnu65wm9aEi3tF5F1GK01vLMCKSbYuvp22vg_frWF3vCJRysM8c3Hw5LEPfL3WfcN4ZNoZDvFVLg4N0"/>
+</div>
+</div>
+</header>
+<!-- Scrollable Canvas -->
+<main class="flex-1 overflow-y-auto p-space-4 md:p-space-10 pb-32 md:pb-space-10">
+<div class="max-w-[1000px] mx-auto">
+<!-- Page Header -->
+<div class="mb-space-8">
+<h1 class="font-display-lg text-display-lg text-text-primary mb-space-2">Add to your workspace</h1>
+<p class="font-body-lg text-body-lg text-text-secondary">Upload your course materials to generate instant study guides, flashcards, and quizzes.</p>
+</div>
+<!-- Upload Area (Drag & Drop) -->
+<div class="border-2 border-dashed border-border-strong bg-surface-soft hover:bg-surface-muted transition-colors duration-300 rounded-[24px] p-space-12 flex flex-col items-center justify-center text-center cursor-pointer group relative overflow-hidden">
+<!-- Decorative subtle background elements -->
+<div class="absolute -top-10 -left-10 w-40 h-40 bg-white opacity-40 rounded-full blur-2xl"></div>
+<div class="absolute -bottom-10 -right-10 w-40 h-40 bg-primary-soft opacity-40 rounded-full blur-2xl"></div>
+<div class="w-24 h-24 bg-white rounded-full shadow-sm flex items-center justify-center mb-space-6 group-hover:scale-105 transition-transform duration-300 z-10">
+<img alt="Upload Illustration" class="w-14 h-14 object-cover rounded-xl opacity-80 mix-blend-multiply" data-alt="A clean, minimalist 3D rendering of a stylized document folder or piece of paper floating gently. The object is rendered in a soft, matte white material with very subtle warm lighting, casting a soft shadow on a plain, light beige background. The overall aesthetic is academic, modern, and uncluttered, fitting a premium light-mode interface." src="https://lh3.googleusercontent.com/aida-public/AB6AXuCssEXmcNp_F_aUTqat9AWUDJ-MFbw1uoU2yj3KN2uDCyifxanCRO1fgcjM-ZoijnAlVdgsxVn9GmAnP3w1_nsxCn5XGmNo_-NW3X_mP7_n_WE6UQjL9uEBIwFD8jrn40bspzQ4XxgpD-PH9R4LqOrhz37zyfP0YrhFoSBiSP1zKULNrK9HXrixOdM1usYK29tfoiqyXI5n5m-7STGLt8N1NqJrhGxYLo5-peen0S8_GYRdy4eYFMYvpiA7jkM0_aTpSCYrJ3JYt8U"/>
+</div>
+<h3 class="font-headline-md text-headline-md text-text-primary mb-space-2 z-10">Drop your PDFs, slides, or notes here</h3>
+<p class="font-body-base text-body-base text-text-secondary mb-space-8 z-10 max-w-md">Our AI will automatically process your files, extract key concepts, and prepare them for study generation.</p>
+<button class="bg-primary text-on-primary rounded-xl px-space-6 py-space-3 font-label-md text-label-md hover:bg-primary-hover transition-colors shadow-sm flex items-center gap-2 z-10">
+<span class="material-symbols-outlined text-[18px]">add_circle</span>
+                        Upload Material
+                    </button>
+<div class="mt-space-6 flex items-center gap-space-4 font-label-xs text-label-xs text-text-muted z-10">
+<span class="flex items-center gap-1 bg-white px-3 py-1.5 rounded-full shadow-sm border border-border-subtle"><span class="material-symbols-outlined text-[14px]">picture_as_pdf</span> PDF</span>
+<span class="flex items-center gap-1 bg-white px-3 py-1.5 rounded-full shadow-sm border border-border-subtle"><span class="material-symbols-outlined text-[14px]">slideshow</span> PPTX</span>
+<span class="flex items-center gap-1 bg-white px-3 py-1.5 rounded-full shadow-sm border border-border-subtle"><span class="material-symbols-outlined text-[14px]">description</span> DOCX</span>
+<span class="flex items-center gap-1 bg-white px-3 py-1.5 rounded-full shadow-sm border border-border-subtle"><span class="material-symbols-outlined text-[14px]">textsms</span> TXT</span>
+</div>
+</div>
+<!-- Recent Uploads Section -->
+<div class="mt-space-16">
+<div class="flex justify-between items-end mb-space-6">
+<h4 class="font-headline-sm text-headline-sm text-text-primary">Recent Uploads</h4>
+<a class="font-label-md text-label-md text-primary hover:text-primary-hover transition-colors" href="#">View all</a>
+</div>
+<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-space-5">
+<!-- Card 1 (Ready) -->
+<div class="bg-surface rounded-xl shadow-sm border border-border-subtle p-space-5 hover:shadow-md transition-shadow cursor-pointer group flex flex-col h-full">
+<div class="flex justify-between items-start mb-space-4">
+<div class="w-10 h-10 rounded-lg bg-error-soft text-error flex items-center justify-center">
+<span class="material-symbols-outlined">picture_as_pdf</span>
+</div>
+<span class="bg-success-soft text-success px-2 py-1 rounded-md font-label-xs text-label-xs flex items-center gap-1">
+<span class="material-symbols-outlined text-[12px]">check_circle</span> Ready
+                                </span>
+</div>
+<h5 class="font-label-md text-label-md text-text-primary mb-1 line-clamp-1 group-hover:text-primary transition-colors">Biology 101 - Cell Structure.pdf</h5>
+<p class="font-body-sm text-body-sm text-text-secondary mb-space-4">Uploaded 2 hours ago • 2.4 MB</p>
+<div class="mt-auto pt-space-4 border-t border-border-subtle flex gap-2">
+<button class="flex-1 bg-surface-soft text-text-primary rounded-lg py-2 font-label-xs text-label-xs hover:bg-surface-variant transition-colors">Generate</button>
+<button class="w-8 h-8 flex items-center justify-center rounded-lg text-text-muted hover:bg-surface-soft hover:text-text-primary transition-colors">
+<span class="material-symbols-outlined text-[18px]">more_vert</span>
+</button>
+</div>
+</div>
+<!-- Card 2 (Processing) -->
+<div class="bg-surface rounded-xl shadow-sm border border-border-subtle p-space-5 hover:shadow-md transition-shadow cursor-pointer group flex flex-col h-full">
+<div class="flex justify-between items-start mb-space-4">
+<div class="w-10 h-10 rounded-lg bg-warning-soft text-warning flex items-center justify-center">
+<span class="material-symbols-outlined">slideshow</span>
+</div>
+<span class="bg-info-soft text-info px-2 py-1 rounded-md font-label-xs text-label-xs flex items-center gap-1">
+<span class="material-symbols-outlined text-[12px] animate-spin">sync</span> Processing
+                                </span>
+</div>
+<h5 class="font-label-md text-label-md text-text-primary mb-1 line-clamp-1 group-hover:text-primary transition-colors">Marketing Strategy Q3 Deck.pptx</h5>
+<p class="font-body-sm text-body-sm text-text-secondary mb-space-4">Uploaded just now • 5.1 MB</p>
+<div class="mt-auto pt-space-4 border-t border-border-subtle">
+<div class="w-full bg-surface-muted rounded-full h-1.5 mb-1">
+<div class="bg-info h-1.5 rounded-full w-[45%]"></div>
+</div>
+<p class="font-label-xs text-label-xs text-text-muted text-right">Extracting text...</p>
+</div>
+</div>
+<!-- Card 3 (Ready) -->
+<div class="bg-surface rounded-xl shadow-sm border border-border-subtle p-space-5 hover:shadow-md transition-shadow cursor-pointer group flex flex-col h-full">
+<div class="flex justify-between items-start mb-space-4">
+<div class="w-10 h-10 rounded-lg bg-info-soft text-info flex items-center justify-center">
+<span class="material-symbols-outlined">description</span>
+</div>
+<span class="bg-success-soft text-success px-2 py-1 rounded-md font-label-xs text-label-xs flex items-center gap-1">
+<span class="material-symbols-outlined text-[12px]">check_circle</span> Ready
+                                </span>
+</div>
+<h5 class="font-label-md text-label-md text-text-primary mb-1 line-clamp-1 group-hover:text-primary transition-colors">Lecture Notes - History 204.docx</h5>
+<p class="font-body-sm text-body-sm text-text-secondary mb-space-4">Uploaded yesterday • 1.1 MB</p>
+<div class="mt-auto pt-space-4 border-t border-border-subtle flex gap-2">
+<button class="flex-1 bg-surface-soft text-text-primary rounded-lg py-2 font-label-xs text-label-xs hover:bg-surface-variant transition-colors">Generate</button>
+<button class="w-8 h-8 flex items-center justify-center rounded-lg text-text-muted hover:bg-surface-soft hover:text-text-primary transition-colors">
+<span class="material-symbols-outlined text-[18px]">more_vert</span>
+</button>
+</div>
+</div>
+</div>
+</div>
+</div>
+</main>
+</div>
+</body></html>

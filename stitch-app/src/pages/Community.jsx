@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { useMutation, useQuery } from 'convex/react';
 import { api } from '../../convex/_generated/api';
 import { useAuth } from '../contexts/AuthContext';
+import { AnimatedList } from '../components/magicui/AnimatedList';
 
 // ── Relative time formatter ──────────────────────────────────────────────────
 
@@ -24,6 +25,32 @@ function formatRelativeTime(timestamp) {
         day: 'numeric',
     });
 }
+
+const GENERIC_PROCESSING_DESCRIPTION = 'Processing your study materials...';
+
+const normalizeChannelKey = (channel) =>
+    String(channel?.title || '')
+        .trim()
+        .toLowerCase()
+        .replace(/\s+/g, ' ');
+
+const sanitizeGeneratedChannel = (channel) => {
+    const title = String(channel?.title || '').trim();
+    const isSeeded = Boolean(channel?.isSeeded);
+    const description = String(channel?.description || '').trim();
+    const isProcessingDescription = description === GENERIC_PROCESSING_DESCRIPTION;
+
+    if (isSeeded) return channel;
+
+    return {
+        ...channel,
+        title: title || 'Study material discussion',
+        description: isProcessingDescription || !description
+            ? 'Course discussion is being prepared. You can still join now.'
+            : description,
+        statusLabel: isProcessingDescription ? 'Preparing' : '',
+    };
+};
 
 // ── Skeleton card for loading state ──────────────────────────────────────────
 
@@ -49,7 +76,7 @@ const ChannelCard = ({ channel, isMember }) => {
             <div className="flex items-start justify-between gap-2 mb-2">
                 <div className="flex items-center gap-2.5 min-w-0">
                     {channel.icon && (
-                        <div className="w-9 h-9 shrink-0 rounded-lg bg-primary/8 dark:bg-primary/15 flex items-center justify-center">
+                        <div className="size-9 shrink-0 rounded-lg bg-primary/8 dark:bg-primary/15 flex items-center justify-center">
                             <span className="material-symbols-outlined text-[18px] text-primary">{channel.icon}</span>
                         </div>
                     )}
@@ -63,6 +90,13 @@ const ChannelCard = ({ channel, isMember }) => {
                     </span>
                 )}
             </div>
+
+            {channel.statusLabel && (
+                <span className="mb-2 inline-flex w-fit items-center gap-1 rounded-full bg-amber-50 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-amber-700 dark:bg-amber-900/20 dark:text-amber-300">
+                    <span className="material-symbols-outlined text-[12px] animate-spin">sync</span>
+                    {channel.statusLabel}
+                </span>
+            )}
 
             {channel.description && (
                 <p className="text-caption text-text-sub-light dark:text-text-sub-dark line-clamp-2 mb-3">
@@ -106,23 +140,26 @@ const Community = () => {
     const { user } = useAuth();
     const userId = user?.id;
     const [searchQuery, setSearchQuery] = useState('');
-    const hasRequestedDefaultChannels = useRef(false);
+    const hasJoinedSeededChannels = useRef(false);
 
-    const seedDefaultChannels = useMutation(api.community.seedDefaultChannels);
+    const joinSeededChannels = useMutation(api.community.joinSeededChannels);
     const allChannels = useQuery(api.community.listChannels, {});
     const userChannels = useQuery(
         api.community.getUserChannels,
-        userId ? { userId } : 'skip'
+        userId ? {} : 'skip'
     );
 
+    // First visit per session: enroll the user into the default seeded channels
+    // (General, Exam Prep, Science, Math, Humanities) so the directory shows
+    // a populated "Your Channels" section instead of an empty page. Idempotent
+    // server-side — safe to fire once per mount.
     useEffect(() => {
-        if (!userId || hasRequestedDefaultChannels.current) return;
-        hasRequestedDefaultChannels.current = true;
-
-        void seedDefaultChannels({}).catch(() => {
-            hasRequestedDefaultChannels.current = false;
+        if (!userId || hasJoinedSeededChannels.current) return;
+        hasJoinedSeededChannels.current = true;
+        void joinSeededChannels({}).catch(() => {
+            hasJoinedSeededChannels.current = false;
         });
-    }, [seedDefaultChannels, userId]);
+    }, [joinSeededChannels, userId]);
 
     const isLoading = allChannels === undefined || (userId ? userChannels === undefined : false);
 
@@ -134,13 +171,17 @@ const Community = () => {
     const combinedChannels = useMemo(() => {
         const deduped = new Map();
         for (const channel of userChannels ?? []) {
-            deduped.set(channel._id, channel);
+            const key = normalizeChannelKey(channel) || String(channel._id);
+            deduped.set(key, sanitizeGeneratedChannel(channel));
         }
         for (const channel of allChannels ?? []) {
-            deduped.set(channel._id, { ...deduped.get(channel._id), ...channel });
+            const key = normalizeChannelKey(channel) || String(channel._id);
+            const previous = deduped.get(key);
+            const preferred = previous && userChannelIds.has(previous._id) ? previous : channel;
+            deduped.set(key, sanitizeGeneratedChannel({ ...previous, ...preferred }));
         }
         return Array.from(deduped.values()).sort((a, b) => b.lastActivityAt - a.lastActivityAt);
-    }, [allChannels, userChannels]);
+    }, [allChannels, userChannels, userChannelIds]);
 
     const filteredChannels = useMemo(() => {
         if (!combinedChannels.length) return [];
@@ -192,7 +233,7 @@ const Community = () => {
                 {searchQuery && (
                     <button
                         onClick={() => setSearchQuery('')}
-                        className="absolute right-3 top-1/2 -translate-y-1/2 btn-icon w-6 h-6"
+                        className="absolute right-3 top-1/2 -translate-y-1/2 btn-icon size-6"
                         aria-label="Clear search"
                     >
                         <span className="material-symbols-outlined text-[16px]">close</span>
@@ -212,7 +253,7 @@ const Community = () => {
             {/* Empty */}
             {hasNoChannels && (
                 <div className="text-center py-16">
-                    <div className="w-14 h-14 rounded-2xl bg-surface-light dark:bg-surface-dark border border-border-light dark:border-border-dark flex items-center justify-center mx-auto mb-4">
+                    <div className="size-14 rounded-2xl bg-surface-light dark:bg-surface-dark border border-border-light dark:border-border-dark flex items-center justify-center mx-auto mb-4">
                         <span className="material-symbols-outlined text-2xl text-text-faint-light dark:text-text-faint-dark">forum</span>
                     </div>
                     <h3 className="text-body-lg font-semibold text-text-main-light dark:text-text-main-dark mb-1">No community channels yet</h3>
@@ -232,33 +273,33 @@ const Community = () => {
                     {myChannels.length > 0 && (
                         <section>
                             <h2 className="text-overline text-text-faint-light dark:text-text-faint-dark mb-3">Your Channels</h2>
-                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                            <AnimatedList className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
                                 {myChannels.map((channel) => (
                                     <ChannelCard key={channel._id} channel={channel} isMember />
                                 ))}
-                            </div>
+                            </AnimatedList>
                         </section>
                     )}
 
                     {everyoneChannels.length > 0 && (
                         <section>
                             <h2 className="text-overline text-text-faint-light dark:text-text-faint-dark mb-3">Available to Everyone</h2>
-                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                            <AnimatedList className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
                                 {everyoneChannels.map((channel) => (
                                     <ChannelCard key={channel._id} channel={channel} isMember={false} />
                                 ))}
-                            </div>
+                            </AnimatedList>
                         </section>
                     )}
 
                     {discoverChannels.length > 0 && (
                         <section>
                             <h2 className="text-overline text-text-faint-light dark:text-text-faint-dark mb-3">Discover</h2>
-                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                            <AnimatedList className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
                                 {discoverChannels.map((channel) => (
                                     <ChannelCard key={channel._id} channel={channel} isMember={false} />
                                 ))}
-                            </div>
+                            </AnimatedList>
                         </section>
                     )}
 

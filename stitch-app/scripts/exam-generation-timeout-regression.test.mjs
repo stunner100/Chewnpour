@@ -11,16 +11,16 @@ const [examModeSource, aiSource] = await Promise.all([
   fs.readFile(aiPath, 'utf8'),
 ]);
 
-if (!/START_EXAM_ATTEMPT_TIMEOUT_MS\s*=\s*120_000/.test(examModeSource)) {
-  throw new Error('Expected ExamMode to enforce a start-preparation timeout.');
+if (!/START_EXAM_ATTEMPT_TIMEOUT_MS\s*=\s*240_000/.test(examModeSource)) {
+  throw new Error('Expected ExamMode to give fresh exam startup enough time before surfacing retry UI.');
 }
 
-if (!/EXAM_LOADING_STALL_TIMEOUT_MS\s*=\s*150_000/.test(examModeSource)) {
+if (!/EXAM_LOADING_STALL_TIMEOUT_MS\s*=\s*270_000/.test(examModeSource)) {
   throw new Error('Expected ExamMode to monitor long-running exam preparation stalls.');
 }
 
-if (!/withTimeout\(\s*startExamPreparation\(\{\s*topicId,\s*examFormat\s*\}\)/s.test(examModeSource)) {
-  throw new Error('Expected ExamMode startExamPreparation calls to be wrapped with a timeout.');
+if (!/withTimeout\(\s*startExamAttemptHttp\(\{ topicId, examFormat \}\)/s.test(examModeSource)) {
+  throw new Error('Expected ExamMode startExamAttempt calls to be wrapped with a timeout.');
 }
 
 if (!/startingExamAttempt \|\| isPreparationRunning/.test(examModeSource)) {

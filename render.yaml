@@ -1,0 +1,12 @@
+services:
+  - type: web
+    name: chewnpour-docling-service
+    runtime: docker
+    dockerContext: ./docling-service
+    dockerfilePath: ./docling-service/Dockerfile
+    healthCheckPath: /health
+    plan: starter
+    autoDeploy: true
+    envVars:
+      - key: DOCLING_SHARED_SECRET
+        sync: false

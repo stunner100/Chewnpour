@@ -20,8 +20,11 @@ const SubscriptionCallback = () => {
     const reference = useMemo(() => String(searchParams.get('reference') || '').trim(), [searchParams]);
     const returnPath = useMemo(() => sanitizeReturnPath(searchParams.get('from') || '/dashboard'), [searchParams]);
 
-    const [status, setStatus] = useState('verifying');
-    const [errorMessage, setErrorMessage] = useState('');
+    const [verificationState, setVerificationState] = useState({
+        status: 'verifying',
+        errorMessage: '',
+    });
+    const { status, errorMessage } = verificationState;
 
     useEffect(() => {
         let cancelled = false;
@@ -46,7 +49,6 @@ const SubscriptionCallback = () => {
                     const grantedCredits = Number.isFinite(Number(result?.grantedCredits))
                         ? Math.max(0, Math.floor(Number(result.grantedCredits)))
                         : 0;
-                    setStatus('success');
                     navigate(redirectTo, {
                         replace: true,
                         state: {
@@ -58,7 +60,6 @@ const SubscriptionCallback = () => {
                     return;
                 }
 
-                setStatus('failed');
                 const failureRedirect = String(result?.redirectTo || '').trim();
                 if (failureRedirect.startsWith('/')) {
                     navigate(failureRedirect, { replace: true });
@@ -69,8 +70,10 @@ const SubscriptionCallback = () => {
                 }
             } catch (error) {
                 if (cancelled) return;
-                setStatus('failed');
-                setErrorMessage(error instanceof Error ? error.message : 'Could not verify payment.');
+                setVerificationState({
+                    status: 'failed',
+                    errorMessage: error instanceof Error ? error.message : 'Could not verify payment.',
+                });
                 navigate(`/subscription?from=${encodeURIComponent(returnPath)}&reason=verification_failed`, {
                     replace: true,
                 });
@@ -87,7 +90,7 @@ const SubscriptionCallback = () => {
     return (
         <div className="min-h-screen bg-background-light dark:bg-background-dark flex items-center justify-center px-4">
             <div className="w-full max-w-md card-base p-8 text-center">
-                <div className={`mx-auto w-14 h-14 rounded-2xl flex items-center justify-center mb-4 ${
+                <div className={`mx-auto size-14 rounded-2xl flex items-center justify-center mb-4 ${
                     status === 'failed'
                         ? 'bg-red-500/10 text-red-600 dark:text-red-400'
                         : 'bg-primary/8 text-primary'
@@ -105,7 +108,7 @@ const SubscriptionCallback = () => {
                         : 'Please wait while we confirm your payment and unlock uploads.'}
                 </p>
                 <div className="mt-6 flex justify-center">
-                    <div className="animate-spin rounded-full h-8 w-8 border-2 border-border-light dark:border-border-dark border-t-primary"></div>
+                    <div className="animate-spin rounded-full size-8 border-2 border-border-light dark:border-border-dark border-t-primary"></div>
                 </div>
             </div>
         </div>

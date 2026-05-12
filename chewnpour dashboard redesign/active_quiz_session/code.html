@@ -1,0 +1,306 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>ChewnPour - Quizzes</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700&amp;family=Inter:wght@400;500;600&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+          darkMode: "class",
+          theme: {
+            extend: {
+              "colors": {
+                      "success": "#15803D",
+                      "info-soft": "#DBEAFE",
+                      "surface-muted": "#EFE8DA",
+                      "inverse-primary": "#ffb77d",
+                      "warning": "#D97706",
+                      "on-primary": "#ffffff",
+                      "text-primary": "#1F2933",
+                      "primary-subtle": "#FFFBEB",
+                      "on-error": "#ffffff",
+                      "on-tertiary": "#ffffff",
+                      "on-secondary-fixed": "#3b0900",
+                      "text-muted": "#7B8794",
+                      "border-strong": "#B8AD9A",
+                      "mastery-soft": "#EDE9FE",
+                      "on-primary-fixed": "#2f1500",
+                      "inverse-on-surface": "#ffede3",
+                      "outline": "#887364",
+                      "tertiary-container": "#007abd",
+                      "tertiary-fixed": "#cee5ff",
+                      "tertiary-fixed-dim": "#96ccff",
+                      "surface-soft": "#F5F1E8",
+                      "border-subtle": "#E7E0D3",
+                      "secondary-fixed": "#ffdbd1",
+                      "border-default": "#D8CFBF",
+                      "error-container": "#ffdad6",
+                      "text-secondary": "#52616B",
+                      "on-primary-container": "#fffbff",
+                      "success-soft": "#DCFCE7",
+                      "on-tertiary-container": "#fdfcff",
+                      "warning-soft": "#FEF3C7",
+                      "primary": "#8d4b00",
+                      "secondary-container": "#ff987b",
+                      "on-surface": "#231a13",
+                      "primary-fixed": "#ffdcc3",
+                      "surface-container-high": "#f7e5d9",
+                      "on-tertiary-fixed-variant": "#004a75",
+                      "background": "#FAF8F3",
+                      "info": "#2563EB",
+                      "on-background": "#231a13",
+                      "on-tertiary-fixed": "#001d32",
+                      "primary-fixed-dim": "#ffb77d",
+                      "mastery": "#7C3AED",
+                      "on-secondary": "#ffffff",
+                      "primary-soft": "#FEF3C7",
+                      "surface-bright": "#fff8f5",
+                      "surface-container-lowest": "#ffffff",
+                      "surface-container-low": "#fff1e9",
+                      "surface-dim": "#e9d7cb",
+                      "error-soft": "#FEE2E2",
+                      "on-error-container": "#93000a",
+                      "surface": "#FFFFFF",
+                      "on-secondary-fixed-variant": "#792f1a",
+                      "on-secondary-container": "#782e19",
+                      "primary-hover": "#B45309",
+                      "ai-subtle": "#FFF7F4",
+                      "surface-variant": "#f2dfd3",
+                      "on-surface-variant": "#554336",
+                      "secondary-fixed-dim": "#ffb5a0",
+                      "tertiary": "#006096",
+                      "surface-container": "#fdeade",
+                      "primary-container": "#b15f00",
+                      "ai-soft": "#F8E3DC",
+                      "surface-tint": "#904d00",
+                      "on-primary-fixed-variant": "#6e3900",
+                      "error": "#DC2626",
+                      "outline-variant": "#dbc2b0",
+                      "surface-container-highest": "#f2dfd3",
+                      "secondary": "#98462f",
+                      "inverse-surface": "#392e26"
+              },
+              "borderRadius": {
+                      "DEFAULT": "0.25rem",
+                      "lg": "0.5rem",
+                      "xl": "0.75rem",
+                      "full": "9999px"
+              },
+              "spacing": {
+                      "space-4": "16px",
+                      "space-1": "4px",
+                      "space-6": "24px",
+                      "sidebar-width": "260px",
+                      "container-max": "1280px",
+                      "space-12": "48px",
+                      "space-5": "20px",
+                      "space-8": "32px",
+                      "space-3": "12px",
+                      "panel-right-width": "320px",
+                      "space-2": "8px",
+                      "space-10": "40px",
+                      "space-16": "64px"
+              },
+              "fontFamily": {
+                      "headline-sm": ["Plus Jakarta Sans"],
+                      "body-base": ["Inter"],
+                      "label-md": ["Inter"],
+                      "body-lg": ["Inter"],
+                      "display-lg": ["Plus Jakarta Sans"],
+                      "display-xl": ["Plus Jakarta Sans"],
+                      "body-sm": ["Inter"],
+                      "headline-md": ["Plus Jakarta Sans"],
+                      "label-xs": ["Inter"]
+              },
+              "fontSize": {
+                      "headline-sm": ["20px", { "lineHeight": "1.4", "fontWeight": "600" }],
+                      "body-base": ["16px", { "lineHeight": "1.6", "fontWeight": "400" }],
+                      "label-md": ["14px", { "lineHeight": "1", "fontWeight": "600" }],
+                      "body-lg": ["18px", { "lineHeight": "1.6", "fontWeight": "400" }],
+                      "display-lg": ["32px", { "lineHeight": "1.2", "fontWeight": "700" }],
+                      "display-xl": ["40px", { "lineHeight": "1.2", "letterSpacing": "-0.02em", "fontWeight": "700" }],
+                      "body-sm": ["14px", { "lineHeight": "1.5", "fontWeight": "400" }],
+                      "headline-md": ["24px", { "lineHeight": "1.3", "fontWeight": "600" }],
+                      "label-xs": ["12px", { "lineHeight": "1", "fontWeight": "500" }]
+              }
+            }
+          }
+        }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+    </style>
+</head>
+<body class="bg-background text-text-primary flex min-h-screen font-body-base">
+<!-- SideNavBar (Shared Component) -->
+<nav class="fixed left-0 top-0 h-full w-[260px] p-space-4 flex flex-col gap-space-6 bg-background border-r border-border-subtle z-50">
+<!-- Brand Header -->
+<div class="flex items-center gap-space-3 px-space-2 mt-space-2 mb-space-4">
+<div class="w-8 h-8 rounded bg-primary flex items-center justify-center">
+<span class="material-symbols-outlined text-on-primary" style="font-variation-settings: 'FILL' 1;">book_2</span>
+</div>
+<div>
+<h1 class="font-headline-sm text-headline-sm font-bold text-primary tracking-tight">ChewnPour</h1>
+<p class="font-label-xs text-label-xs text-text-muted mt-1">AI Study Workspace</p>
+</div>
+</div>
+<!-- Navigation Links -->
+<div class="flex flex-col gap-space-1 flex-1">
+<a class="flex items-center gap-3 px-4 py-3 text-text-secondary hover:text-primary hover:bg-surface-variant transition-colors duration-200 rounded-xl" href="#">
+<span class="material-symbols-outlined">dashboard</span>
+<span class="font-label-md text-label-md">Dashboard</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 text-text-secondary hover:text-primary hover:bg-surface-variant transition-colors duration-200 rounded-xl" href="#">
+<span class="material-symbols-outlined">cloud_upload</span>
+<span class="font-label-md text-label-md">Upload</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 text-text-secondary hover:text-primary hover:bg-surface-variant transition-colors duration-200 rounded-xl" href="#">
+<span class="material-symbols-outlined">folder</span>
+<span class="font-label-md text-label-md">My Materials</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 text-text-secondary hover:text-primary hover:bg-surface-variant transition-colors duration-200 rounded-xl" href="#">
+<span class="material-symbols-outlined">menu_book</span>
+<span class="font-label-md text-label-md">Lessons</span>
+</a>
+<!-- Active Tab -->
+<a class="flex items-center gap-3 px-4 py-3 text-primary font-bold bg-primary-soft rounded-xl transition-transform scale-[0.98]" href="#">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">quiz</span>
+<span class="font-label-md text-label-md">Quizzes</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 text-text-secondary hover:text-primary hover:bg-surface-variant transition-colors duration-200 rounded-xl" href="#">
+<span class="material-symbols-outlined">style</span>
+<span class="font-label-md text-label-md">Flashcards</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 text-text-secondary hover:text-primary hover:bg-surface-variant transition-colors duration-200 rounded-xl" href="#">
+<span class="material-symbols-outlined">smart_toy</span>
+<span class="font-label-md text-label-md">AI Tutor</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 text-text-secondary hover:text-primary hover:bg-surface-variant transition-colors duration-200 rounded-xl" href="#">
+<span class="material-symbols-outlined">bar_chart</span>
+<span class="font-label-md text-label-md">Progress</span>
+</a>
+</div>
+<div class="mt-auto flex flex-col gap-space-4">
+<a class="flex items-center gap-3 px-4 py-3 text-text-secondary hover:text-primary hover:bg-surface-variant transition-colors duration-200 rounded-xl" href="#">
+<span class="material-symbols-outlined">settings</span>
+<span class="font-label-md text-label-md">Settings</span>
+</a>
+<button class="w-full py-space-3 bg-primary text-on-primary rounded-xl font-label-md text-label-md hover:bg-primary-hover transition-colors shadow-sm">
+                Generate Material
+            </button>
+</div>
+</nav>
+<!-- Main Content Canvas -->
+<div class="flex-1 flex flex-col ml-[260px] w-[calc(100%-260px)] min-h-screen">
+<!-- TopAppBar (Shared Component) -->
+<header class="flex justify-between items-center h-16 px-space-8 bg-surface border-b border-border-subtle shadow-sm sticky top-0 z-40">
+<div class="flex-1 flex items-center">
+<!-- Search Bar Placeholder left aligned -->
+<div class="relative w-64 flex items-center text-text-muted focus-within:text-primary transition-colors">
+<span class="material-symbols-outlined absolute left-3 pointer-events-none">search</span>
+<input class="w-full bg-surface-soft border-transparent rounded-full py-2 pl-10 pr-4 font-body-sm text-body-sm focus:border-primary focus:ring-2 focus:ring-primary-soft transition-all outline-none" placeholder="Search materials..." type="text"/>
+</div>
+</div>
+<div class="flex items-center gap-space-4 text-text-muted">
+<button class="p-2 hover:bg-surface-soft hover:text-primary rounded-full transition-all flex items-center justify-center">
+<span class="material-symbols-outlined">notifications</span>
+</button>
+<button class="p-2 hover:bg-surface-soft hover:text-primary rounded-full transition-all flex items-center justify-center">
+<span class="material-symbols-outlined">help_outline</span>
+</button>
+<div class="w-8 h-8 rounded-full bg-gradient-to-tr from-primary-fixed to-secondary-container border border-border-subtle ml-space-2 cursor-pointer"></div>
+</div>
+</header>
+<!-- Quiz Canvas Area -->
+<main class="flex-1 p-space-10 flex flex-col items-center justify-start overflow-y-auto">
+<!-- Centered Quiz Container for Focus -->
+<div class="w-full max-w-[800px] flex flex-col gap-space-8 mt-space-8">
+<!-- Progress & Meta Header -->
+<div class="flex flex-col gap-space-4 w-full">
+<div class="flex justify-between items-end">
+<div>
+<p class="font-label-md text-label-md text-text-secondary uppercase tracking-wider mb-space-1">Neurobiology 101</p>
+<h2 class="font-headline-sm text-headline-sm text-text-primary">Module 3 Review</h2>
+</div>
+<span class="px-space-3 py-space-1 bg-warning-soft text-warning rounded-full font-label-xs text-label-xs font-bold border border-warning/20">
+                            Medium Difficulty
+                        </span>
+</div>
+<!-- Progress Bar -->
+<div class="w-full flex items-center gap-space-4">
+<div class="flex-1 h-2 bg-surface-muted rounded-full overflow-hidden">
+<div class="h-full bg-primary rounded-full w-[30%] transition-all duration-500"></div>
+</div>
+<span class="font-label-md text-label-md text-text-secondary whitespace-nowrap">Question 3 of 10</span>
+</div>
+</div>
+<!-- The Question Area -->
+<div class="mt-space-4">
+<h1 class="font-display-lg text-display-lg text-text-primary leading-tight">
+                        Which part of the brain is most associated with long-term memory formation?
+                    </h1>
+</div>
+<!-- Answer Options (Bento-style list) -->
+<div class="flex flex-col gap-space-3 w-full mt-space-2">
+<!-- Option A (Incorrect/Unselected) -->
+<div class="group relative flex items-center p-space-4 bg-surface border border-border-default rounded-xl hover:shadow-md hover:border-border-strong cursor-pointer transition-all duration-200">
+<div class="w-8 h-8 rounded-full bg-surface-soft border border-border-subtle flex items-center justify-center mr-space-4 font-label-md text-text-secondary group-hover:bg-surface-muted transition-colors">
+                            A
+                        </div>
+<span class="font-body-lg text-body-lg text-text-primary flex-1">The Amygdala</span>
+</div>
+<!-- Option B (Selected - Correct Feedback State) -->
+<div class="relative flex items-center p-space-4 bg-success-soft border-2 border-success rounded-xl shadow-sm z-10">
+<div class="w-8 h-8 rounded-full bg-success text-on-primary flex items-center justify-center mr-space-4 shadow-sm">
+<span class="material-symbols-outlined" style="font-variation-settings: 'wght' 600;">check</span>
+</div>
+<span class="font-body-lg text-body-lg text-text-primary font-medium flex-1">The Hippocampus</span>
+</div>
+<!-- Correct Answer Explanation Card (Connected to Option B visually) -->
+<div class="relative bg-surface border border-success/30 rounded-b-xl rounded-tr-xl p-space-6 shadow-sm -mt-space-4 pt-space-8 ml-space-6 z-0">
+<div class="flex items-start gap-space-3">
+<span class="material-symbols-outlined text-success mt-1" style="font-variation-settings: 'FILL' 1;">lightbulb</span>
+<div>
+<h3 class="font-headline-sm text-headline-sm text-success mb-space-2">Correct!</h3>
+<p class="font-body-base text-body-base text-text-secondary leading-relaxed">
+                                    The hippocampus, located in the inner region of the temporal lobe, plays a major role in learning and memory. It is specifically critical for the consolidation of information from short-term memory to long-term memory, as well as spatial memory that enables navigation.
+                                </p>
+</div>
+</div>
+</div>
+<!-- Option C (Incorrect/Unselected) -->
+<div class="group relative flex items-center p-space-4 bg-surface border border-border-default rounded-xl hover:shadow-md hover:border-border-strong cursor-pointer transition-all duration-200 mt-space-2">
+<div class="w-8 h-8 rounded-full bg-surface-soft border border-border-subtle flex items-center justify-center mr-space-4 font-label-md text-text-secondary group-hover:bg-surface-muted transition-colors">
+                            C
+                        </div>
+<span class="font-body-lg text-body-lg text-text-primary flex-1">The Cerebellum</span>
+</div>
+<!-- Option D (Incorrect/Unselected) -->
+<div class="group relative flex items-center p-space-4 bg-surface border border-border-default rounded-xl hover:shadow-md hover:border-border-strong cursor-pointer transition-all duration-200">
+<div class="w-8 h-8 rounded-full bg-surface-soft border border-border-subtle flex items-center justify-center mr-space-4 font-label-md text-text-secondary group-hover:bg-surface-muted transition-colors">
+                            D
+                        </div>
+<span class="font-body-lg text-body-lg text-text-primary flex-1">The Prefrontal Cortex</span>
+</div>
+</div>
+<!-- Action Footer -->
+<div class="flex justify-between items-center w-full mt-space-8 pt-space-6 border-t border-border-subtle">
+<button class="px-space-4 py-space-2 text-text-muted hover:text-text-primary font-label-md text-label-md transition-colors flex items-center gap-space-2 rounded-lg hover:bg-surface-soft">
+<span class="material-symbols-outlined text-sm">flag</span>
+                        Flag for review
+                    </button>
+<button class="bg-primary text-on-primary px-space-8 py-space-3 rounded-xl font-label-md text-label-md hover:bg-primary-hover hover:shadow-md transition-all flex items-center gap-space-2">
+                        Next Question
+                        <span class="material-symbols-outlined">arrow_forward</span>
+</button>
+</div>
+</div>
+</main>
+</div>
+</body></html>

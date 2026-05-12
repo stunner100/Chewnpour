@@ -1,0 +1,84 @@
+- generic [ref=e7]:
+  - complementary [ref=e8]:
+    - generic [ref=e9]:
+      - link "ChewnPour home" [ref=e10] [cursor=pointer]:
+        - /url: /dashboard
+        - generic [ref=e11]:
+          - img [ref=e12]
+          - img [ref=e14]
+        - generic [ref=e15]: ChewnPour
+      - button "menu_open" [ref=e16] [cursor=pointer]:
+        - generic [ref=e17]: menu_open
+    - navigation [ref=e18]:
+      - link "space_dashboard Dashboard" [ref=e19] [cursor=pointer]:
+        - /url: /dashboard
+        - generic [ref=e20]: space_dashboard
+        - generic [ref=e21]: Dashboard
+      - link "auto_stories Library" [ref=e22] [cursor=pointer]:
+        - /url: /dashboard/search
+        - generic [ref=e23]: auto_stories
+        - generic [ref=e24]: Library
+      - link "event_note Study Plan" [ref=e25] [cursor=pointer]:
+        - /url: /dashboard/analysis
+        - generic [ref=e26]: event_note
+        - generic [ref=e27]: Study Plan
+      - link "edit_note Assignments" [ref=e28] [cursor=pointer]:
+        - /url: /dashboard/assignment-helper
+        - generic [ref=e29]: edit_note
+        - generic [ref=e30]: Assignments
+      - link "auto_fix_high Humanizer" [ref=e31] [cursor=pointer]:
+        - /url: /dashboard/humanizer
+        - generic [ref=e32]: auto_fix_high
+        - generic [ref=e33]: Humanizer
+      - link "forum Community" [ref=e34] [cursor=pointer]:
+        - /url: /dashboard/community
+        - generic [ref=e35]: forum
+        - generic [ref=e36]: Community
+    - generic [ref=e37]:
+      - link "workspace_premium Subscription" [ref=e38] [cursor=pointer]:
+        - /url: /subscription
+        - generic [ref=e39]: workspace_premium
+        - generic [ref=e40]: Subscription
+      - link "person Profile" [ref=e41] [cursor=pointer]:
+        - /url: /profile
+        - generic [ref=e42]: person
+        - generic [ref=e43]: Profile
+      - generic [ref=e44]:
+        - generic [ref=e45]: S
+        - paragraph [ref=e47]: Student
+  - main [ref=e48]:
+    - generic [ref=e184]:
+      - generic [ref=e185]:
+        - generic [ref=e186]:
+          - img [ref=e187]
+          - generic [ref=e191]: architecture
+        - heading "Preparing Your Exam" [level=2] [ref=e192]
+        - paragraph [ref=e193]: Generating your objective exam from this topic.
+      - generic [ref=e194]:
+        - generic [ref=e195]:
+          - generic [ref=e196]:
+            - generic [ref=e197]: Step 2 of 5
+            - generic [ref=e198]: 0:07
+          - paragraph [ref=e202]: ~23s remaining
+        - generic [ref=e203]:
+          - generic [ref=e204]:
+            - generic [ref=e206]: check_circle
+            - paragraph [ref=e208]: Reviewing your history
+            - generic [ref=e209]: Done
+          - generic [ref=e210]:
+            - generic [ref=e212]: architecture
+            - paragraph [ref=e214]: Building the blueprint
+          - generic [ref=e217]:
+            - generic [ref=e219]: radio_button_unchecked
+            - paragraph [ref=e221]: Crafting questions
+          - generic [ref=e222]:
+            - generic [ref=e224]: radio_button_unchecked
+            - paragraph [ref=e226]: Quality check
+          - generic [ref=e227]:
+            - generic [ref=e229]: radio_button_unchecked
+            - paragraph [ref=e231]: Locking in your questions
+      - generic [ref=e232]:
+        - paragraph [ref=e233]: Mapping out the perfect challenge for you
+        - generic [ref=e234]:
+          - generic [ref=e235]: lightbulb
+          - paragraph [ref=e236]: Even getting an answer wrong helps you remember the right one later.

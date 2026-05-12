@@ -1,6 +1,7 @@
 import React, { Suspense, lazy, useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, useLocation } from 'react-router-dom';
 import { useMutation } from 'convex/react';
+import { LazyMotion, domAnimation } from 'motion/react';
 import { api } from '../convex/_generated/api';
 import { useAuth } from './contexts/AuthContext';
 import { hasConvexUrl } from './lib/convex-config';
@@ -20,12 +21,12 @@ import PublicShell, { ArrowBadge } from './components/PublicShell';
 import { addSentryBreadcrumb } from './lib/sentry';
 import { attemptChunkRecoveryReload, isChunkLoadError } from './lib/chunkLoadRecovery';
 
-const LAZY_ROUTE_IMPORT_TIMEOUT_MS = 12000;
-
-const ChunkRecoveryFallback = ({ componentName }) => (
+const ChunkRecoveryFallback = ({ componentName, reloadRequested = false }) => (
   <div className="bg-background-light dark:bg-background-dark min-h-screen flex items-center justify-center px-6">
     <div className="w-full max-w-md card-base p-6 text-center">
-      <h2 className="text-body-lg font-bold text-text-main-light dark:text-text-main-dark">Refreshing app files</h2>
+      <h2 className="text-body-lg font-semibold text-text-main-light dark:text-text-main-dark">
+        {reloadRequested ? 'Refreshing app files' : 'Reload needed'}
+      </h2>
       <p className="mt-2 text-body-sm font-medium text-text-faint-light dark:text-text-faint-dark">
         We hit a stale app bundle while opening {componentName}. Please reload once.
       </p>
@@ -40,32 +41,17 @@ const ChunkRecoveryFallback = ({ componentName }) => (
   </div>
 );
 
-const createLazyRouteImportTimeoutError = (routeName) => {
-  const error = new Error(`Dynamic import timed out while opening ${routeName}.`);
-  error.name = 'LazyRouteImportTimeoutError';
-  return error;
-};
-
-const withLazyRouteTimeout = (importer, routeName) =>
-  Promise.race([
-    importer(),
-    new Promise((_, reject) => {
-      window.setTimeout(() => {
-        reject(createLazyRouteImportTimeoutError(routeName));
-      }, LAZY_ROUTE_IMPORT_TIMEOUT_MS);
-    }),
-  ]);
-
-const isLazyRouteTimeoutError = (error) =>
-  error?.name === 'LazyRouteImportTimeoutError'
-  || String(error?.message || '').toLowerCase().includes('dynamic import timed out');
-
 const resolveLazyRouteModule = (mod, { componentName, namedExport } = {}) => {
   if (mod?.default) return mod;
 
-  const exportCandidates = [namedExport, componentName]
-    .filter(Boolean)
-    .filter((candidate, index, array) => array.indexOf(candidate) === index);
+  const exportCandidates = [];
+  const seenExportCandidates = new Set();
+  for (const candidate of [namedExport, componentName]) {
+    if (candidate && !seenExportCandidates.has(candidate)) {
+      seenExportCandidates.add(candidate);
+      exportCandidates.push(candidate);
+    }
+  }
 
   for (const candidate of exportCandidates) {
     if (mod?.[candidate]) {
@@ -85,7 +71,7 @@ const resolveLazyRouteModule = (mod, { componentName, namedExport } = {}) => {
 };
 
 const lazyRoute = (importer, { componentName, namedExport } = {}) => lazy(() =>
-  withLazyRouteTimeout(importer, componentName || namedExport || 'route')
+  importer()
     .then((mod) => {
       const resolvedModule = resolveLazyRouteModule(mod, { componentName, namedExport });
       if (resolvedModule) {
@@ -93,18 +79,19 @@ const lazyRoute = (importer, { componentName, namedExport } = {}) => lazy(() =>
       }
 
       const routeName = componentName || namedExport || 'route';
-      attemptChunkRecoveryReload(routeName);
-
-      return {
-        default: () => <ChunkRecoveryFallback componentName={routeName} />,
-      };
+      throw new Error(`Lazy route "${routeName}" did not export a React component.`);
     })
     .catch((error) => {
       const routeName = componentName || namedExport || 'route';
-      if (isChunkLoadError(error) || isLazyRouteTimeoutError(error)) {
-        attemptChunkRecoveryReload(routeName);
+      if (isChunkLoadError(error)) {
+        const reloadRequested = attemptChunkRecoveryReload(routeName);
         return {
-          default: () => <ChunkRecoveryFallback componentName={routeName} />,
+          default: () => (
+            <ChunkRecoveryFallback
+              componentName={routeName}
+              reloadRequested={reloadRequested}
+            />
+          ),
         };
       }
       throw error;
@@ -113,6 +100,15 @@ const lazyRoute = (importer, { componentName, namedExport } = {}) => lazy(() =>
 
 const SignUpPage = lazyRoute(() => import('./pages/SignUp'), { componentName: 'SignUp' });
 const DashboardAnalysisPage = lazyRoute(() => import('./pages/DashboardAnalysis'), { componentName: 'DashboardAnalysis' });
+const StudentDashboard = lazyRoute(() => import('./pages/StudentDashboard'), { componentName: 'StudentDashboard' });
+const MyMaterialsLibrary = lazyRoute(() => import('./pages/MyMaterialsLibrary'), { componentName: 'MyMaterialsLibrary' });
+const UploadMaterials = lazyRoute(() => import('./pages/UploadMaterials'), { componentName: 'UploadMaterials' });
+const ActiveQuizSession = lazyRoute(() => import('./pages/ActiveQuizSession'), { componentName: 'ActiveQuizSession' });
+const FlashcardStudySession = lazyRoute(() => import('./pages/FlashcardStudySession'), { componentName: 'FlashcardStudySession' });
+const AIStudyTutor = lazyRoute(() => import('./pages/AIStudyTutor'), { componentName: 'AIStudyTutor' });
+const StudyProgressMastery = lazyRoute(() => import('./pages/StudyProgressMastery'), { componentName: 'StudyProgressMastery' });
+const AccountStudySettings = lazyRoute(() => import('./pages/AccountStudySettings'), { componentName: 'AccountStudySettings' });
+const LessonMemoryNeuralBasis = lazyRoute(() => import('./pages/LessonMemoryNeuralBasis'), { componentName: 'LessonMemoryNeuralBasis' });
 const LandingPage = lazyRoute(() => import('./pages/LandingPage'), { componentName: 'LandingPage' });
 const Login = lazyRoute(() => import('./pages/Login'), { componentName: 'Login' });
 const ResetPassword = lazyRoute(() => import('./pages/ResetPassword'), { componentName: 'ResetPassword' });
@@ -141,6 +137,7 @@ const TopicDetail = lazyRoute(() => import('./pages/TopicDetail'), {
 const ExamMode = lazyRoute(() => import('./pages/ExamMode'), { componentName: 'ExamMode' });
 const DashboardResults = lazyRoute(() => import('./pages/DashboardResults'), { componentName: 'DashboardResults' });
 const DashboardFullAnalysis = lazyRoute(() => import('./pages/DashboardFullAnalysis'), { componentName: 'DashboardFullAnalysis' });
+const DashboardPodcasts = lazyRoute(() => import('./pages/DashboardPodcasts'), { componentName: 'DashboardPodcasts' });
 const Profile = lazyRoute(() => import('./pages/Profile'), { componentName: 'Profile' });
 const EditProfile = lazyRoute(() => import('./pages/EditProfile'), { componentName: 'EditProfile' });
 const PastQuestionsComingSoon = lazyRoute(() => import('./pages/PastQuestionsComingSoon'), { componentName: 'PastQuestionsComingSoon' });
@@ -156,40 +153,40 @@ const CommunityChannel = lazyRoute(() => import('./pages/CommunityChannel'), { c
 const AdminDashboard = lazyRoute(() => import('./pages/AdminDashboard'), { componentName: 'AdminDashboard' });
 
 function RouteChangeTracker() {
-  const location = useLocation();
+  const routerLocation = useLocation();
 
   useEffect(() => {
     addSentryBreadcrumb({
       category: 'navigation',
       message: 'Route changed',
       data: {
-        pathname: location.pathname,
-        search: location.search,
-        hash: location.hash,
+        pathname: routerLocation.pathname,
+        search: routerLocation.search,
+        hash: routerLocation.hash,
       },
     });
     capturePostHogPageView({
-      pathname: location.pathname,
-      search: location.search || '',
-      hash: location.hash || '',
+      pathname: routerLocation.pathname,
+      search: routerLocation.search || '',
+      hash: routerLocation.hash || '',
       title: typeof document !== 'undefined' ? document.title : undefined,
     });
-  }, [location.pathname, location.search, location.hash]);
+  }, [routerLocation.pathname, routerLocation.search, routerLocation.hash]);
 
   return null;
 }
 
 function CampaignAttributionTracker() {
-  const location = useLocation();
+  const routerLocation = useLocation();
   const { user } = useAuth();
   const recordCampaignLanding = useMutation(api.campaignAttribution.recordCampaignLanding);
 
   useEffect(() => {
-    const attributionFromUrl = readCampaignAttributionFromSearch(location.search, location.pathname);
+    const attributionFromUrl = readCampaignAttributionFromSearch(routerLocation.search, routerLocation.pathname);
     if (attributionFromUrl) {
       stashPendingCampaignAttribution(attributionFromUrl);
     }
-  }, [location.pathname, location.search]);
+  }, [routerLocation.pathname, routerLocation.search]);
 
   useEffect(() => {
     if (!user?.id) return undefined;
@@ -214,8 +211,8 @@ function CampaignAttributionTracker() {
       source: pendingAttribution.source,
       medium: pendingAttribution.medium,
       content: pendingAttribution.content,
-      landingPath: pendingAttribution.landingPath || location.pathname,
-      landingSearch: pendingAttribution.landingSearch || location.search || '',
+      landingPath: pendingAttribution.landingPath || routerLocation.pathname,
+      landingSearch: pendingAttribution.landingSearch || routerLocation.search || '',
     })
       .then(() => {
         if (cancelled) return;
@@ -224,8 +221,8 @@ function CampaignAttributionTracker() {
           campaignSource: pendingAttribution.source,
           campaignMedium: pendingAttribution.medium,
           campaignContent: pendingAttribution.content,
-          landingPath: pendingAttribution.landingPath || location.pathname,
-          landingSearch: pendingAttribution.landingSearch || location.search || '',
+          landingPath: pendingAttribution.landingPath || routerLocation.pathname,
+          landingSearch: pendingAttribution.landingSearch || routerLocation.search || '',
           userId: String(user.id),
         });
         markRecordedCampaignAttribution(deliveryKey);
@@ -238,7 +235,7 @@ function CampaignAttributionTracker() {
     return () => {
       cancelled = true;
     };
-  }, [location.pathname, location.search, recordCampaignLanding, user?.id]);
+  }, [routerLocation.pathname, routerLocation.search, recordCampaignLanding, user?.id]);
 
   return null;
 }
@@ -249,7 +246,7 @@ const NotFound = () => (
       <div className="inline-flex items-center gap-3 text-xs font-bold uppercase tracking-[0.2em] text-[#E8651B] justify-center mb-6">
         <span className="inline-block w-8 h-[2px] bg-[#E8651B]" /> 404
       </div>
-      <h1 className="text-5xl sm:text-6xl font-bold leading-[1.05] tracking-tight mb-6">
+      <h1 className="text-5xl sm:text-6xl font-semibold leading-[1.05] tracking-tight mb-6">
         Page <span className="text-[#F3C64A]">not</span>
         <br />
         <span className="inline-flex items-center gap-3">
@@ -270,8 +267,8 @@ const NotFound = () => (
 const RouteLoader = () => (
   <div className="bg-background-light dark:bg-background-dark min-h-screen flex items-center justify-center">
     <div className="flex flex-col items-center gap-4">
-      <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary"></div>
-      <p className="text-text-faint-light dark:text-text-faint-dark text-body-sm font-medium">Loading...</p>
+      <div className="animate-spin rounded-full size-12 border-t-2 border-b-2 border-primary"></div>
+      <p className="text-text-faint-light dark:text-text-faint-dark text-body-sm font-medium">Loading…</p>
     </div>
   </div>
 );
@@ -284,10 +281,11 @@ const withSuspense = (element) => (
 
 function App() {
   return (
-    <Router>
-      <RouteChangeTracker />
-      {hasConvexUrl ? <CampaignAttributionTracker /> : null}
-      <Routes>
+    <LazyMotion features={domAnimation}>
+      <Router>
+        <RouteChangeTracker />
+        {hasConvexUrl ? <CampaignAttributionTracker /> : null}
+        <Routes>
         {/* Public Routes */}
         <Route path="/" element={withSuspense(<LandingPage />)} />
         <Route path="/login" element={withSuspense(<Login />)} />
@@ -304,7 +302,19 @@ function App() {
         <Route path="/onboarding/department" element={withSuspense(<ProtectedRoute><OnboardingDepartment /></ProtectedRoute>)} />
 
         {/* Protected Dashboard Routes — wrapped in DashboardLayout for mobile nav */}
-        <Route path="/dashboard" element={withSuspense(<ProtectedRoute><DashboardLayout><DashboardAnalysisPage /></DashboardLayout></ProtectedRoute>)} />
+        <Route path="/dashboard" element={withSuspense(<ProtectedRoute><DashboardLayout><StudentDashboard /></DashboardLayout></ProtectedRoute>)} />
+        <Route path="/dashboard/library" element={withSuspense(<ProtectedRoute><DashboardLayout><MyMaterialsLibrary /></DashboardLayout></ProtectedRoute>)} />
+        <Route path="/dashboard/upload" element={withSuspense(<ProtectedRoute><DashboardLayout><UploadMaterials /></DashboardLayout></ProtectedRoute>)} />
+        <Route path="/dashboard/quiz" element={withSuspense(<ProtectedRoute><DashboardLayout><ActiveQuizSession /></DashboardLayout></ProtectedRoute>)} />
+        <Route path="/dashboard/quiz/:quizId" element={withSuspense(<ProtectedRoute><DashboardLayout><ActiveQuizSession /></DashboardLayout></ProtectedRoute>)} />
+        <Route path="/dashboard/flashcards" element={withSuspense(<ProtectedRoute><DashboardLayout><FlashcardStudySession /></DashboardLayout></ProtectedRoute>)} />
+        <Route path="/dashboard/flashcards/:deckId" element={withSuspense(<ProtectedRoute><DashboardLayout><FlashcardStudySession /></DashboardLayout></ProtectedRoute>)} />
+        <Route path="/dashboard/ai-tutor" element={withSuspense(<ProtectedRoute><DashboardLayout><AIStudyTutor /></DashboardLayout></ProtectedRoute>)} />
+        <Route path="/dashboard/progress" element={withSuspense(<ProtectedRoute><DashboardLayout><StudyProgressMastery /></DashboardLayout></ProtectedRoute>)} />
+        <Route path="/dashboard/settings" element={withSuspense(<ProtectedRoute><DashboardLayout><AccountStudySettings /></DashboardLayout></ProtectedRoute>)} />
+        <Route path="/dashboard/lessons" element={withSuspense(<ProtectedRoute><DashboardLayout><LessonMemoryNeuralBasis /></DashboardLayout></ProtectedRoute>)} />
+        <Route path="/dashboard/lessons/:lessonId" element={withSuspense(<ProtectedRoute><DashboardLayout><LessonMemoryNeuralBasis /></DashboardLayout></ProtectedRoute>)} />
+        {/* Legacy dashboard routes preserved for backward compatibility */}
         <Route path="/dashboard/search" element={withSuspense(<ProtectedRoute><DashboardLayout><DashboardSearch /></DashboardLayout></ProtectedRoute>)} />
         <Route path="/dashboard/processing" element={withSuspense(<ProtectedRoute><DashboardLayout><DashboardProcessing /></DashboardLayout></ProtectedRoute>)} />
         <Route path="/dashboard/processing/:courseId" element={withSuspense(<ProtectedRoute><DashboardLayout><DashboardProcessing /></DashboardLayout></ProtectedRoute>)} />
@@ -315,6 +325,7 @@ function App() {
         <Route path="/dashboard/results" element={withSuspense(<ProtectedRoute><DashboardLayout><DashboardResults /></DashboardLayout></ProtectedRoute>)} />
         <Route path="/dashboard/results/:attemptId" element={withSuspense(<ProtectedRoute><DashboardLayout><DashboardResults /></DashboardLayout></ProtectedRoute>)} />
         <Route path="/dashboard/analysis" element={withSuspense(<ProtectedRoute><DashboardLayout><DashboardFullAnalysis /></DashboardLayout></ProtectedRoute>)} />
+        <Route path="/dashboard/podcasts" element={withSuspense(<ProtectedRoute><DashboardLayout><DashboardPodcasts /></DashboardLayout></ProtectedRoute>)} />
         <Route path="/dashboard/assignment-helper" element={withSuspense(<ProtectedRoute><DashboardLayout><AssignmentHelper /></DashboardLayout></ProtectedRoute>)} />
         <Route path="/dashboard/humanizer" element={withSuspense(<ProtectedRoute><DashboardLayout><AIHumanizer /></DashboardLayout></ProtectedRoute>)} />
 
@@ -341,8 +352,9 @@ function App() {
 
         {/* 404 Catch-all */}
         <Route path="*" element={<NotFound />} />
-      </Routes>
-    </Router>
+        </Routes>
+      </Router>
+    </LazyMotion>
   );
 }
 

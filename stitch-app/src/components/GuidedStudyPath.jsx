@@ -13,10 +13,19 @@ const isGenericSection = (value) =>
     GENERIC_SECTION_PATTERNS.some((pattern) => pattern.test(String(value || '')));
 
 const buildGuidedSteps = (topicTitle, blocks) => {
-    const headerBlocks = (Array.isArray(blocks) ? blocks : [])
-        .filter((block) => block?.type === 'header' && block?.id && block?.text)
-        .filter((block) => Number(block.level || 0) >= 2 && !isGenericSection(block.text))
-        .slice(0, 4);
+    const headerBlocks = [];
+    for (const block of Array.isArray(blocks) ? blocks : []) {
+        if (
+            block?.type === 'header'
+            && block?.id
+            && block?.text
+            && Number(block.level || 0) >= 2
+            && !isGenericSection(block.text)
+        ) {
+            headerBlocks.push(block);
+            if (headerBlocks.length === 4) break;
+        }
+    }
 
     if (headerBlocks.length > 0) {
         return headerBlocks.map((block, index) => ({
@@ -72,7 +81,7 @@ const GuidedStudyPath = ({ topicTitle, blocks, onAskTutor }) => {
                         className="rounded-2xl border border-border-light dark:border-border-dark bg-background-light dark:bg-background-dark p-4"
                     >
                         <div className="flex items-start gap-3">
-                            <div className="w-8 h-8 rounded-full bg-primary/10 text-primary flex items-center justify-center shrink-0 text-body-sm font-semibold">
+                            <div className="size-8 rounded-full bg-primary/10 text-primary flex items-center justify-center shrink-0 text-body-sm font-semibold">
                                 {step.step}
                             </div>
                             <div className="flex-1 min-w-0">

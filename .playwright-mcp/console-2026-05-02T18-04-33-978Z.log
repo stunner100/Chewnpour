@@ -1,0 +1,27 @@
+[    1297ms] [INFO] %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold @ http://127.0.0.1:5174/node_modules/.vite/deps/react-dom_client.js?v=d97f4518:20102
+[    1455ms] [WARNING] <meta name="apple-mobile-web-app-capable" content="yes"> is deprecated. Please include <meta name="mobile-web-app-capable" content="yes"> @ http://127.0.0.1:5174/profile:0
+[    1485ms] [LOG] You're now in debug mode. All calls to PostHog will be logged in your console.
+You can disable this with `posthog.debug(false)`. @ http://127.0.0.1:5174/node_modules/.vite/deps/posthog-js.js?v=d97f4518:4849
+[    1486ms] [LOG] [PostHog.js] set_config {config: Object, oldConfig: Object, newConfig: Object} @ http://127.0.0.1:5174/node_modules/.vite/deps/posthog-js.js?v=d97f4518:552
+[    1487ms] [LOG] [PostHog.js] [Surveys] Disabled. Not loading surveys. @ http://127.0.0.1:5174/node_modules/.vite/deps/posthog-js.js?v=d97f4518:552
+[    1487ms] [WARNING] [PostHog.js] [ExternalScriptsLoader] https://us-assets.i.posthog.com/array/phc_304AHicO4kxAiEd9vHd7tt863oNkqxZKP3x9931E9mC/config.js was requested but loading of external scripts is disabled. @ http://127.0.0.1:5174/node_modules/.vite/deps/posthog-js.js?v=d97f4518:552
+[    1487ms] [LOG] [PostHog.js] [RemoteConfig] No config found after loading remote JS config. Falling back to JSON. @ http://127.0.0.1:5174/node_modules/.vite/deps/posthog-js.js?v=d97f4518:552
+[    1512ms] [LOG] [PostHog.js] [SessionId] new session ID generated {sessionId: 019de9dd-1d22-7615-8371-e2ba0f287cad, windowId: 019de9dd-1d22-7615-8371-e2bb475ba2de, changeReason: Object} @ http://127.0.0.1:5174/node_modules/.vite/deps/posthog-js.js?v=d97f4518:552
+[    1513ms] [LOG] [PostHog.js] send "$pageview" {uuid: 019de9dd-1d0c-749a-80d7-a1a086a3d542, event: $pageview, properties: Object, timestamp: Sat May 02 2026 18:04:35 GMT+0000 (Greenwich Mean Time)} @ http://127.0.0.1:5174/node_modules/.vite/deps/posthog-js.js?v=d97f4518:552
+[    1514ms] [LOG] [PostHog.js] reset @ http://127.0.0.1:5174/node_modules/.vite/deps/posthog-js.js?v=d97f4518:552
+[    1515ms] [LOG] [PostHog.js] [SessionId] new session ID generated {sessionId: 019de9dd-1d24-7f91-aa5f-bada263aea0a, windowId: 019de9dd-1d24-7f91-aa5f-badbad38b428, changeReason: Object} @ http://127.0.0.1:5174/node_modules/.vite/deps/posthog-js.js?v=d97f4518:552
+[    1515ms] [LOG] [PostHog.js] send "$pageview" {uuid: 019de9dd-1d24-7f91-aa5f-bad997425c76, event: $pageview, properties: Object, timestamp: Sat May 02 2026 18:04:35 GMT+0000 (Greenwich Mean Time)} @ http://127.0.0.1:5174/node_modules/.vite/deps/posthog-js.js?v=d97f4518:552
+[    1515ms] [LOG] [PostHog.js] reset @ http://127.0.0.1:5174/node_modules/.vite/deps/posthog-js.js?v=d97f4518:552
+[    1670ms] [ERROR] Access to fetch at 'https://patient-anteater-364.convex.site/api/auth/get-session' from origin 'http://127.0.0.1:5174' has been blocked by CORS policy: Response to preflight request doesn't pass access control check: No 'Access-Control-Allow-Origin' header is present on the requested resource. @ http://127.0.0.1:5174/profile:0
+[    1670ms] [ERROR] Failed to load resource: net::ERR_FAILED @ https://patient-anteater-364.convex.site/api/auth/get-session:0
+[    1695ms] [LOG] [PostHog.js] [SessionId] new session ID generated {sessionId: 019de9dd-1dd9-7cfb-9ce2-7de56a197174, windowId: 019de9dd-1dd9-7cfb-9ce2-7de699e42d68, changeReason: Object} @ http://127.0.0.1:5174/node_modules/.vite/deps/posthog-js.js?v=d97f4518:552
+[    1696ms] [LOG] [PostHog.js] send "$pageview" {uuid: 019de9dd-1dd8-7b1a-b409-552600a7f924, event: $pageview, properties: Object, timestamp: Sat May 02 2026 18:04:35 GMT+0000 (Greenwich Mean Time)} @ http://127.0.0.1:5174/node_modules/.vite/deps/posthog-js.js?v=d97f4518:552
+[    1777ms] [LOG] [PostHog.js] [RemoteConfig] __preview_remote_config is disabled. Logging config instead {analytics: Object, autocaptureExceptions: false, autocapture_opt_out: false, captureDeadClicks: false, capturePerformance: Object} @ http://127.0.0.1:5174/node_modules/.vite/deps/posthog-js.js?v=d97f4518:552
+[    1796ms] [VERBOSE] [DOM] Input elements should have autocomplete attributes (suggested: "current-password"): (More info: https://goo.gl/9p2vKq) %o @ http://127.0.0.1:5174/login:0
+[    2193ms] [LOG] [PostHog.js] Persistence loaded sessionStorage {$referrer: $direct, $referring_domain: $direct} @ http://127.0.0.1:5174/node_modules/.vite/deps/posthog-js.js?v=d97f4518:552
+[    2193ms] [LOG] [PostHog.js] set_config {config: Object, oldConfig: Object, newConfig: Object} @ http://127.0.0.1:5174/node_modules/.vite/deps/posthog-js.js?v=d97f4518:552
+[    2193ms] [LOG] [PostHog.js] [Surveys] Disabled. Not loading surveys. @ http://127.0.0.1:5174/node_modules/.vite/deps/posthog-js.js?v=d97f4518:552
+[    2194ms] [LOG] [PostHog.js] [Web Vitals] enabled, starting... @ http://127.0.0.1:5174/node_modules/.vite/deps/posthog-js.js?v=d97f4518:552
+[    2194ms] [WARNING] [PostHog.js] [ExternalScriptsLoader] https://us-assets.i.posthog.com/static/web-vitals.js?v=1.347.2 was requested but loading of external scripts is disabled. @ http://127.0.0.1:5174/node_modules/.vite/deps/posthog-js.js?v=d97f4518:552
+[    2194ms] [ERROR] [PostHog.js] [Web Vitals] failed to load script Loading of external scripts is disabled @ http://127.0.0.1:5174/node_modules/.vite/deps/posthog-js.js?v=d97f4518:552
+[   21504ms] [LOG] [vite] server connection lost. Polling for restart... @ http://127.0.0.1:5174/@vite/client:864

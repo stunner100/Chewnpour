@@ -142,15 +142,16 @@ import {
     normalizeTutorPersona,
 } from "./lib/tutorSupport";
 
-// Text generation routes by feature and uses OpenAI -> Bedrock -> Inception fallback for generation.
-const OPENAI_BASE_URL = (() => {
-    const raw = String(process.env.OPENAI_BASE_URL || "https://api.openai.com/v1/").trim();
-    if (!raw) return "https://api.openai.com/v1/";
+// Text generation routes by feature and uses DeepSeek -> Bedrock -> Inception fallback for generation.
+const DEEPSEEK_BASE_URL = (() => {
+    const raw = String(process.env.DEEPSEEK_BASE_URL || "https://api.deepseek.com/v1/").trim();
+    if (!raw) return "https://api.deepseek.com/v1/";
     return raw.endsWith("/") ? raw : `${raw}/`;
 })();
-const OPENAI_BASE_URL_IS_PLACEHOLDER = /your_resource_name/i.test(OPENAI_BASE_URL);
-const OPENAI_MODEL = String(process.env.OPENAI_MODEL || "gpt-5.4-mini").trim() || "gpt-5.4-mini";
-const OPENAI_PIPELINE_MODEL = String(process.env.OPENAI_PIPELINE_MODEL || "gpt-5.4-mini").trim() || "gpt-5.4-mini";
+const DEEPSEEK_BASE_URL_IS_PLACEHOLDER = /your_resource_name/i.test(DEEPSEEK_BASE_URL);
+const DEEPSEEK_DOCUMENT_FLASH_MODEL = String(process.env.DEEPSEEK_DOCUMENT_FLASH_MODEL || "deepseek-v4-flash").trim() || "deepseek-v4-flash";
+const DEEPSEEK_DOCUMENT_PRO_MODEL = String(process.env.DEEPSEEK_DOCUMENT_PRO_MODEL || "deepseek-v4-pro").trim() || "deepseek-v4-pro";
+const DEEPSEEK_DOCUMENT_PRO_MIN_MAX_TOKENS = Number(process.env.DEEPSEEK_DOCUMENT_PRO_MIN_MAX_TOKENS || 8192);
 const BEDROCK_BASE_URL = (() => {
     const raw = String(process.env.BEDROCK_BASE_URL || "https://bedrock-runtime.us-east-1.amazonaws.com/openai/v1/").trim();
     if (!raw) return "https://bedrock-runtime.us-east-1.amazonaws.com/openai/v1/";
@@ -159,8 +160,8 @@ const BEDROCK_BASE_URL = (() => {
 const BEDROCK_MODEL = String(process.env.BEDROCK_MODEL || "moonshotai.kimi-k2.5").trim() || "moonshotai.kimi-k2.5";
 const INCEPTION_BASE_URL = process.env.INCEPTION_BASE_URL || "https://api.inceptionlabs.ai/v1";
 const INCEPTION_MODEL = process.env.INCEPTION_MODEL || "mercury-2";
-const DEFAULT_MODEL = OPENAI_MODEL;
-const DEFAULT_TIMEOUT_MS = Number(process.env.OPENAI_TIMEOUT_MS || 60000);
+const DEFAULT_MODEL = DEEPSEEK_DOCUMENT_FLASH_MODEL;
+const DEFAULT_TIMEOUT_MS = Number(process.env.DEEPSEEK_TIMEOUT_MS || 60000);
 const BEDROCK_TIMEOUT_MS = Number(process.env.BEDROCK_TIMEOUT_MS || DEFAULT_TIMEOUT_MS);
 const INCEPTION_TIMEOUT_MS = Number(process.env.INCEPTION_TIMEOUT_MS || DEFAULT_TIMEOUT_MS);
 const INCEPTION_MAX_RETRIES = (() => {
@@ -377,21 +378,19 @@ type LlmUsageContext = {
     userId: string;
     feature: string;
 };
-type TextProvider = "openai" | "inception";
+type TextProvider = "deepseek" | "inception";
 
 const llmUsageContextStorage = new AsyncLocalStorage<LlmUsageContext>();
 const INCEPTION_PRIMARY_FEATURES = new Set([
     "assignment_follow_up",
     "topic_tutor",
 ]);
-const OPENAI_PRIMARY_FEATURES = new Set([
+const DEEPSEEK_DOCUMENT_PIPELINE_FEATURES = new Set([
     "course_generation",
     "mcq_generation",
     "essay_generation",
 ]);
-const HARD_CUTOVER_OPENAI_FEATURES = new Set([
-    "course_generation",
-    "mcq_generation",
+const COMPLEX_DOCUMENT_PIPELINE_FEATURES = new Set([
     "essay_generation",
 ]);
 
@@ -599,29 +598,42 @@ const resolvePreferredTextProvider = (): TextProvider => {
     if (INCEPTION_PRIMARY_FEATURES.has(feature)) {
         return "inception";
     }
-    if (OPENAI_PRIMARY_FEATURES.has(feature)) {
-        return "openai";
+    if (DEEPSEEK_DOCUMENT_PIPELINE_FEATURES.has(feature)) {
+        return "deepseek";
     }
-    return "openai";
+    return "deepseek";
 };
 
-const featureRequiresOpenAiHardCutover = (feature: string) =>
-    HARD_CUTOVER_OPENAI_FEATURES.has(String(feature || "").trim());
+const featureUsesDeepSeekDocumentPipeline = (feature: string) =>
+    DEEPSEEK_DOCUMENT_PIPELINE_FEATURES.has(String(feature || "").trim());
+
+const featureAllowsDocumentPipelineProviderFallback = (feature: string) =>
+    ["mcq_generation", "essay_generation"].includes(String(feature || "").trim());
+
+const resolveDeepSeekDocumentPipelineModel = (feature: string) =>
+    COMPLEX_DOCUMENT_PIPELINE_FEATURES.has(String(feature || "").trim())
+        ? DEEPSEEK_DOCUMENT_PRO_MODEL
+        : DEEPSEEK_DOCUMENT_FLASH_MODEL;
 
 async function callInception(
     messages: Message[],
     model: string = DEFAULT_MODEL,
     options?: { temperature?: number; maxTokens?: number; timeoutMs?: number; responseFormat?: "json_object" }
 ): Promise<string> {
-    const openAiApiKey = String(process.env.OPENAI_API_KEY || "").trim();
+    const openAiApiKey = String(process.env.DEEPSEEK_API_KEY || "").trim();
     const bedrockApiKey = String(process.env.BEDROCK_API_KEY || "").trim();
     const inceptionApiKey = String(process.env.INCEPTION_API_KEY || "").trim();
     const timeoutMs = options?.timeoutMs ?? DEFAULT_TIMEOUT_MS;
     const llmFeature = String(llmUsageContextStorage.getStore()?.feature || "unknown").trim() || "unknown";
     const preferredProvider = resolvePreferredTextProvider();
-    const pipelineOpenAiRequired = featureRequiresOpenAiHardCutover(llmFeature);
-    const openAiModel = pipelineOpenAiRequired ? OPENAI_PIPELINE_MODEL : model;
-    const openAiAvailable = Boolean(openAiApiKey) && !OPENAI_BASE_URL_IS_PLACEHOLDER;
+    const pipelineOpenAiRequired = featureUsesDeepSeekDocumentPipeline(llmFeature);
+    const pipelineProviderFallbackAllowed = featureAllowsDocumentPipelineProviderFallback(llmFeature);
+    const openAiModel = pipelineOpenAiRequired ? resolveDeepSeekDocumentPipelineModel(llmFeature) : model;
+    const requestedOpenAiMaxTokens = options?.maxTokens ?? 2048;
+    const openAiMaxTokens = openAiModel === DEEPSEEK_DOCUMENT_PRO_MODEL
+        ? Math.max(requestedOpenAiMaxTokens, DEEPSEEK_DOCUMENT_PRO_MIN_MAX_TOKENS)
+        : requestedOpenAiMaxTokens;
+    const openAiAvailable = Boolean(openAiApiKey) && !DEEPSEEK_BASE_URL_IS_PLACEHOLDER;
     const bedrockAvailable = Boolean(bedrockApiKey);
     const openAiOrBedrockAvailable = openAiAvailable || bedrockAvailable;
 
@@ -651,8 +663,8 @@ async function callInception(
         const labels = Array.from(new Set([parsed.code, parsed.type, parsed.param].filter(Boolean))).join(", ");
         const detail = parsed.message || String(raw || "").trim() || "Unknown provider error.";
         return labels
-            ? `openai API error: ${status} (${labels}) - ${detail}`
-            : `openai API error: ${status} - ${detail}`;
+            ? `deepseek API error: ${status} (${labels}) - ${detail}`
+            : `deepseek API error: ${status} - ${detail}`;
     };
 
     const formatBedrockApiError = (status: number, raw: string) => {
@@ -697,10 +709,10 @@ async function callInception(
 
     const callOpenAiText = async () => {
         if (!openAiApiKey) {
-            throw new Error("OPENAI_API_KEY environment variable not set.");
+            throw new Error("DEEPSEEK_API_KEY environment variable not set.");
         }
-        if (OPENAI_BASE_URL_IS_PLACEHOLDER) {
-            throw new Error("OPENAI_BASE_URL environment variable not configured.");
+        if (DEEPSEEK_BASE_URL_IS_PLACEHOLDER) {
+            throw new Error("DEEPSEEK_BASE_URL environment variable not configured.");
         }
 
         const controller = new AbortController();
@@ -710,22 +722,21 @@ async function callInception(
             const timeoutPromise = new Promise<never>((_, reject) => {
                 timeoutId = setTimeout(() => {
                     controller.abort();
-                    reject(new Error(`openai request timed out after ${timeoutMs}ms`));
+                    reject(new Error(`deepseek request timed out after ${timeoutMs}ms`));
                 }, timeoutMs);
             });
 
-            const requestPromise = fetch(new URL("chat/completions", OPENAI_BASE_URL).toString(), {
+            const requestPromise = fetch(new URL("chat/completions", DEEPSEEK_BASE_URL).toString(), {
                 method: "POST",
                 headers: {
                     "Content-Type": "application/json",
                     Authorization: `Bearer ${openAiApiKey}`,
-                    "api-key": openAiApiKey,
                 },
                 body: JSON.stringify({
                     model: openAiModel,
                     messages,
                     temperature: options?.temperature ?? 0.3,
-                    max_completion_tokens: options?.maxTokens ?? 2048,
+                    max_tokens: openAiMaxTokens,
                     response_format: options?.responseFormat ? { type: options.responseFormat } : undefined,
                 }),
                 signal: controller.signal,
@@ -745,11 +756,11 @@ async function callInception(
             const data: ChatCompletionResponse = await response.json();
             const responseText = String(data?.choices?.[0]?.message?.content || "").trim();
             if (!responseText) {
-                throw new Error("openai API error: empty response.");
+                throw new Error("deepseek API error: empty response.");
             }
 
             await recordLlmUsage({
-                provider: "openai",
+                provider: "deepseek",
                 model: openAiModel,
                 promptTokens: data?.usage?.prompt_tokens,
                 completionTokens: data?.usage?.completion_tokens,
@@ -765,10 +776,10 @@ async function callInception(
             const errorMessage = error instanceof Error ? error.message : String(error);
             const lowerError = errorMessage.toLowerCase();
             if (lowerError.includes("timed out") || lowerError.includes("aborted")) {
-                throw new Error(`openai request timed out after ${timeoutMs}ms`);
+                throw new Error(`deepseek request timed out after ${timeoutMs}ms`);
             }
             if (lowerError.includes("network") || lowerError.includes("failed to fetch")) {
-                throw new Error(`openai API error: network - ${errorMessage}`);
+                throw new Error(`deepseek API error: network - ${errorMessage}`);
             }
             throw error;
         }
@@ -942,7 +953,7 @@ async function callInception(
     };
 
     const callBedrockWithOptionalInceptionFallback = async (args: {
-        sourceProvider: "openai" | "inception";
+        sourceProvider: "deepseek" | "inception";
         sourceModel: string;
         sourceMessage: string;
         allowInceptionFallback: boolean;
@@ -972,85 +983,85 @@ async function callInception(
     const callOpenAiWithFallbackText = async (args: { allowInceptionFallback: boolean }) => {
         if (!openAiApiKey) {
             if (pipelineOpenAiRequired) {
-                throw new Error("OPENAI_API_KEY environment variable not set for the GPT-5.4 mini pipeline.");
+                throw new Error("DEEPSEEK_API_KEY environment variable not set for the DeepSeek document pipeline.");
             }
             if (bedrockAvailable) {
                 console.warn("[LLM] primary_provider_unavailable_using_fallback", {
                     feature: llmFeature,
-                    primaryProvider: "openai",
+                    primaryProvider: "deepseek",
                     fallbackProvider: "bedrock",
-                    reason: "missing_openai_api_key",
+                    reason: "missing_deepseek_api_key",
                     fallbackModel: BEDROCK_MODEL,
                 });
                 return callBedrockWithOptionalInceptionFallback({
-                    sourceProvider: "openai",
+                    sourceProvider: "deepseek",
                     sourceModel: openAiModel,
-                    sourceMessage: "OPENAI_API_KEY environment variable not set.",
+                    sourceMessage: "DEEPSEEK_API_KEY environment variable not set.",
                     allowInceptionFallback: args.allowInceptionFallback,
                 });
             }
             if (args.allowInceptionFallback && inceptionApiKey) {
                 console.warn("[LLM] primary_provider_unavailable_using_fallback", {
                     feature: llmFeature,
-                    primaryProvider: "openai",
+                    primaryProvider: "deepseek",
                     fallbackProvider: "inception",
-                    reason: "missing_openai_api_key",
+                    reason: "missing_deepseek_api_key",
                     fallbackModel: INCEPTION_MODEL,
                 });
                 return callInceptionText();
             }
-            throw new Error("OPENAI_API_KEY environment variable not set.");
+            throw new Error("DEEPSEEK_API_KEY environment variable not set.");
         }
-        if (OPENAI_BASE_URL_IS_PLACEHOLDER) {
+        if (DEEPSEEK_BASE_URL_IS_PLACEHOLDER) {
             if (pipelineOpenAiRequired) {
-                throw new Error("OPENAI_BASE_URL environment variable not configured for the GPT-5.4 mini pipeline.");
+                throw new Error("DEEPSEEK_BASE_URL environment variable not configured for the DeepSeek document pipeline.");
             }
             if (bedrockAvailable) {
                 console.warn("[LLM] primary_provider_unavailable_using_fallback", {
                     feature: llmFeature,
-                    primaryProvider: "openai",
+                    primaryProvider: "deepseek",
                     fallbackProvider: "bedrock",
-                    reason: "invalid_openai_base_url",
+                    reason: "invalid_deepseek_base_url",
                     fallbackModel: BEDROCK_MODEL,
                 });
                 return callBedrockWithOptionalInceptionFallback({
-                    sourceProvider: "openai",
+                    sourceProvider: "deepseek",
                     sourceModel: openAiModel,
-                    sourceMessage: "OPENAI_BASE_URL environment variable not configured.",
+                    sourceMessage: "DEEPSEEK_BASE_URL environment variable not configured.",
                     allowInceptionFallback: args.allowInceptionFallback,
                 });
             }
             if (args.allowInceptionFallback && inceptionApiKey) {
                 console.warn("[LLM] primary_provider_unavailable_using_fallback", {
                     feature: llmFeature,
-                    primaryProvider: "openai",
+                    primaryProvider: "deepseek",
                     fallbackProvider: "inception",
-                    reason: "invalid_openai_base_url",
+                    reason: "invalid_deepseek_base_url",
                     fallbackModel: INCEPTION_MODEL,
                 });
                 return callInceptionText();
             }
-            throw new Error("OPENAI_BASE_URL environment variable not configured.");
+            throw new Error("DEEPSEEK_BASE_URL environment variable not configured.");
         }
 
         try {
             return await callOpenAiText();
         } catch (error) {
             const errorMessage = error instanceof Error ? error.message : String(error);
-            if (pipelineOpenAiRequired) {
+            if (pipelineOpenAiRequired && !pipelineProviderFallbackAllowed) {
                 throw error;
             }
             if (shouldFallbackToBedrockText({ errorMessage, bedrockAvailable })) {
                 console.warn("[LLM] primary_provider_failed_using_fallback", {
                     feature: llmFeature,
-                    primaryProvider: "openai",
+                    primaryProvider: "deepseek",
                     fallbackProvider: "bedrock",
                     primaryModel: openAiModel,
                     fallbackModel: BEDROCK_MODEL,
                     message: errorMessage,
                 });
                 return callBedrockWithOptionalInceptionFallback({
-                    sourceProvider: "openai",
+                    sourceProvider: "deepseek",
                     sourceModel: openAiModel,
                     sourceMessage: errorMessage,
                     allowInceptionFallback: args.allowInceptionFallback,
@@ -1059,7 +1070,7 @@ async function callInception(
             if (args.allowInceptionFallback && shouldFallbackToInceptionText({ errorMessage, inceptionApiKey })) {
                 console.warn("[LLM] primary_provider_failed_using_fallback", {
                     feature: llmFeature,
-                    primaryProvider: "openai",
+                    primaryProvider: "deepseek",
                     fallbackProvider: "inception",
                     primaryModel: openAiModel,
                     fallbackModel: INCEPTION_MODEL,
@@ -1077,7 +1088,7 @@ async function callInception(
                 console.warn("[LLM] primary_provider_unavailable_using_fallback", {
                     feature: llmFeature,
                     primaryProvider: "inception",
-                    fallbackProvider: openAiAvailable ? "openai" : "bedrock",
+                    fallbackProvider: openAiAvailable ? "deepseek" : "bedrock",
                     reason: "missing_inception_api_key",
                     fallbackModel: openAiAvailable ? openAiModel : BEDROCK_MODEL,
                 });
@@ -1094,7 +1105,7 @@ async function callInception(
                 console.warn("[LLM] primary_provider_failed_using_fallback", {
                     feature: llmFeature,
                     primaryProvider: "inception",
-                    fallbackProvider: openAiAvailable ? "openai" : "bedrock",
+                    fallbackProvider: openAiAvailable ? "deepseek" : "bedrock",
                     primaryModel: INCEPTION_MODEL,
                     fallbackModel: openAiAvailable ? openAiModel : BEDROCK_MODEL,
                     message: errorMessage,
@@ -2141,6 +2152,7 @@ const isProviderThrottleMessage = (value: any) => {
     return normalized.includes("429")
         && (
             normalized.includes("openai api error")
+            || normalized.includes("deepseek api error")
             || normalized.includes("bedrock api error")
             || normalized.includes("inception api error")
             || normalized.includes("too many requests")
@@ -2543,6 +2555,7 @@ const ensureAssessmentBlueprintForTopic = async (args: {
     deadlineMs?: number;
     repairTimeoutMs?: number;
     forceRegenerate?: boolean;
+    skipSubClaimGeneration?: boolean;
 }): Promise<AssessmentBlueprint> => {
     const buildFallbackAssessmentBlueprint = () => {
         const topicTitle = String(args.topic?.title || "this topic").trim() || "this topic";
@@ -2607,13 +2620,22 @@ const ensureAssessmentBlueprintForTopic = async (args: {
         }
     }
 
-    const subClaims = await ensureTopicSubClaimsForExamGeneration({
-        ctx: args.ctx,
-        topic: args.topic,
-        evidence: args.evidence,
-        deadlineMs: args.deadlineMs,
-        forceRegenerate: args.forceRegenerate,
-    });
+    let subClaims: any[] = [];
+    if (!args.forceRegenerate) {
+        const existingClaims = await args.ctx.runQuery(internal.topics.getSubClaimsByTopicInternal, {
+            topicId,
+        });
+        subClaims = Array.isArray(existingClaims) ? existingClaims : [];
+    }
+    if (subClaims.length === 0 && !args.skipSubClaimGeneration) {
+        subClaims = await ensureTopicSubClaimsForExamGeneration({
+            ctx: args.ctx,
+            topic: args.topic,
+            evidence: args.evidence,
+            deadlineMs: args.deadlineMs,
+            forceRegenerate: args.forceRegenerate,
+        });
+    }
     const distractors = Array.isArray(subClaims) && subClaims.length > 0
         ? await args.ctx.runQuery(internal.topics.getDistractorsByTopicInternal, { topicId })
         : [];
@@ -2948,95 +2970,6 @@ const buildObjectiveSubtypeGenerationDeficits = (args: {
         : args.objectiveSubtypeMixPolicy.deficits;
 };
 
-const splitEvidenceStatements = (text: string) => {
-    return String(text || "")
-        .replace(/\s+/g, " ")
-        .split(/(?<=[.!?])\s+/)
-        .map((statement) => statement.trim())
-        .filter((statement) => statement.length >= 32);
-};
-
-const buildDeterministicTrueFalseFallbackCandidate = (args: {
-    evidence: RetrievedEvidence[];
-    assessmentBlueprint: AssessmentBlueprint | null | undefined;
-    existingQuestions: any[];
-}) => {
-    const plan = getAssessmentPlanForQuestionType(args.assessmentBlueprint, QUESTION_TYPE_TRUE_FALSE);
-    const preferredOutcomeKeys = new Set(
-        (Array.isArray(plan?.targetOutcomeKeys) ? plan.targetOutcomeKeys : [])
-            .map((value) => normalizeOutcomeKey(value))
-            .filter(Boolean)
-    );
-    const outcomes = Array.isArray(args.assessmentBlueprint?.outcomes)
-        ? args.assessmentBlueprint.outcomes
-        : [];
-    const usedQuestionKeys = new Set(
-        (Array.isArray(args.existingQuestions) ? args.existingQuestions : [])
-            .map((question: any) => normalizeQuestionKey(question?.questionText || ""))
-            .filter(Boolean)
-    );
-
-    for (const passage of Array.isArray(args.evidence) ? args.evidence : []) {
-        const rawText = String(passage?.text || "").trim();
-        if (!rawText) continue;
-
-        const statements = splitEvidenceStatements(rawText);
-        for (const statement of statements) {
-            const normalizedStatementKey = normalizeQuestionKey(statement);
-            if (!normalizedStatementKey || usedQuestionKeys.has(normalizedStatementKey)) {
-                continue;
-            }
-
-            const normalizedStatement = statement.toLowerCase();
-            const matchingOutcome =
-                outcomes.find((outcome: any) => {
-                    const outcomeKey = normalizeOutcomeKey(outcome?.key);
-                    if (preferredOutcomeKeys.size > 0 && outcomeKey && !preferredOutcomeKeys.has(outcomeKey)) {
-                        return false;
-                    }
-                    const evidenceFocus = String(outcome?.evidenceFocus || "").toLowerCase();
-                    return evidenceFocus && (
-                        normalizedStatement.includes(evidenceFocus)
-                        || evidenceFocus.includes(normalizedStatement)
-                    );
-                })
-                || outcomes.find((outcome: any) => {
-                    const outcomeKey = normalizeOutcomeKey(outcome?.key);
-                    return preferredOutcomeKeys.size === 0 || (outcomeKey && preferredOutcomeKeys.has(outcomeKey));
-                })
-                || outcomes[0]
-                || null;
-
-            const startChar = Math.max(0, rawText.indexOf(statement));
-            const endChar = startChar + statement.length;
-            return {
-                questionText: statement,
-                questionType: QUESTION_TYPE_TRUE_FALSE,
-                options: [
-                    { label: "A", text: "True", isCorrect: true },
-                    { label: "B", text: "False", isCorrect: false },
-                ],
-                correctAnswer: "A",
-                explanation: `The source explicitly states: ${statement}`,
-                difficulty: normalizeDifficultyLabel(matchingOutcome?.difficultyBand || "easy"),
-                learningObjective: String(matchingOutcome?.objective || "").trim() || undefined,
-                bloomLevel: String(matchingOutcome?.bloomLevel || "").trim() || undefined,
-                outcomeKey: String(matchingOutcome?.key || "").trim() || undefined,
-                citations: [{
-                    passageId: String(passage?.passageId || "").trim(),
-                    page: Number(passage?.page || 0),
-                    startChar,
-                    endChar,
-                    quote: statement,
-                }].filter((citation) => citation.passageId),
-                qualityFlags: ["deterministic_true_false_fallback"],
-            };
-        }
-    }
-
-    return null;
-};
-
 const buildQuestionTypeCoverageTargets = (args: {
     questionType: string;
     coveragePolicy: ReturnType<typeof resolveAssessmentGenerationPolicy>;
@@ -3168,7 +3101,7 @@ const loadStructuredCourseMapForUpload = async (
     uploadId: any
 ): Promise<DataLabStructuredCourseMap | null> => {
     if (!uploadId) return null;
-    const upload = await ctx.runQuery(api.uploads.getUpload, { uploadId });
+    const upload = await ctx.runQuery(internal.uploads.getUploadInternal, { uploadId });
     if (!upload?.extractionArtifactStorageId) return null;
     const artifact = await fetchJsonFromStorageId(ctx, upload.extractionArtifactStorageId);
     const structuredCourseMap = artifact?.metadata?.structuredCourseMap;
@@ -3781,12 +3714,29 @@ const hasCurrentGroundedEvidenceIndex = (upload: any, index: any) => {
     return !uploadVersion || uploadVersion === GROUNDED_EVIDENCE_INDEX_VERSION;
 };
 
+const POST_PROCESSING_EVIDENCE_INDEX_DELAY_MS = 5_000;
+
+const scheduleEvidenceIndexAfterProcessing = (ctx: any, args: {
+    uploadId: any;
+    artifactStorageId?: any;
+}) => {
+    if (!args.uploadId) return;
+    void ctx.scheduler.runAfter(
+        POST_PROCESSING_EVIDENCE_INDEX_DELAY_MS,
+        (internal as any).grounded.buildEvidenceIndex,
+        {
+            uploadId: args.uploadId,
+            artifactStorageId: args.artifactStorageId,
+        },
+    ).catch(() => { });
+};
+
 const loadGroundedEvidenceIndexForUpload = async (ctx: any, uploadId: any): Promise<{
     index: GroundedEvidenceIndex | null;
     upload: any | null;
 }> => {
     if (!uploadId) return { index: null, upload: null };
-    const upload = await ctx.runQuery(api.uploads.getUpload, { uploadId });
+    const upload = await ctx.runQuery(internal.uploads.getUploadInternal, { uploadId });
     if (!upload) return { index: null, upload: null };
 
     let index: GroundedEvidenceIndex | null = null;
@@ -3808,11 +3758,6 @@ const loadGroundedEvidenceIndexForUpload = async (ctx: any, uploadId: any): Prom
                 artifact,
                 uploadId: String(upload._id || ""),
             });
-            // Best effort async persistence of freshly built or upgraded index.
-            void ctx.scheduler.runAfter(0, (internal as any).grounded.buildEvidenceIndex, {
-                uploadId: upload._id,
-                artifactStorageId: upload.extractionArtifactStorageId,
-            }).catch(() => { });
         }
     }
 
@@ -3822,10 +3767,10 @@ const loadGroundedEvidenceIndexForUpload = async (ctx: any, uploadId: any): Prom
 const resolveUploadForTopic = async (ctx: any, topic: any) => {
     const courseId = topic?.courseId;
     if (!courseId) return null;
-    const coursePayload = await ctx.runQuery(api.courses.getCourseWithTopics, { courseId });
+    const coursePayload = await ctx.runQuery(internal.courses.getCourseWithTopicsInternal, { courseId });
     const uploadId = coursePayload?.uploadId;
     if (!uploadId) return null;
-    return await ctx.runQuery(api.uploads.getUpload, { uploadId });
+    return await ctx.runQuery(internal.uploads.getUploadInternal, { uploadId });
 };
 
 const loadStructuredExamTopicProfileForTopic = async (
@@ -4266,6 +4211,64 @@ const fillOptionLabels = (options: any[]) =>
         text: option.text,
         isCorrect: option.isCorrect,
     }));
+
+const stripOptionLabelPrefix = (value: string) =>
+    String(value || "").replace(/^\s*[A-D][\)\.\-:\s]+/i, "").trim();
+
+const collectFreshCorrectAnswerCandidates = (candidate: any) => {
+    const values = [
+        candidate?.correctAnswer,
+        candidate?.answer,
+        candidate?.correctOption,
+        candidate?.correct_option,
+        candidate?.correct,
+    ];
+
+    return values
+        .map((value) => String(value || "").trim())
+        .filter(Boolean);
+};
+
+const resolveFreshCorrectOptionIndex = (options: any[], candidate: any) => {
+    const firstMarked = options.findIndex((option) => option.isCorrect);
+    if (firstMarked >= 0) return firstMarked;
+
+    const answers = collectFreshCorrectAnswerCandidates(candidate);
+    for (const answer of answers) {
+        const labelMatch = answer.match(/^\s*([A-D])(?:[\)\.\-:\s]|$)/i);
+        if (labelMatch) {
+            const answerLabel = labelMatch[1].toUpperCase();
+            const labelIndex = options.findIndex((option, index) => {
+                const optionLabel = String(option?.label || String.fromCharCode(65 + index)).trim().toUpperCase();
+                return optionLabel === answerLabel;
+            });
+            if (labelIndex >= 0) return labelIndex;
+        }
+
+        const answerKey = normalizeOptionComparisonKey(stripOptionLabelPrefix(answer));
+        if (!answerKey) continue;
+        const textIndex = options.findIndex((option) => {
+            const optionKey = normalizeOptionComparisonKey(option?.text || "");
+            return optionKey && (
+                optionKey === answerKey
+                || optionKey.includes(answerKey)
+                || answerKey.includes(optionKey)
+            );
+        });
+        if (textIndex >= 0) return textIndex;
+    }
+
+    console.warn("[FreshExam] no correct option marker or answer match; defaulting to option A");
+    return 0;
+};
+
+const markFreshCorrectOption = (options: any[], candidate: any) => {
+    const correctIndex = resolveFreshCorrectOptionIndex(options, candidate);
+    return options.map((option, index) => ({
+        ...option,
+        isCorrect: index === correctIndex,
+    }));
+};
 
 const TOPIC_STOP_WORDS = new Set([
     "the",
@@ -5641,10 +5644,10 @@ const normalizeAssignmentProcessingErrorMessage = (error: unknown) => {
         return message;
     }
     if (
-        /openai_api_key environment variable not set/i.test(message)
-        || /openai_base_url environment variable not configured/i.test(message)
-        || /openai request timed out/i.test(message)
-        || /openai api error/i.test(message)
+        /deepseek_api_key environment variable not set/i.test(message)
+        || /deepseek_base_url environment variable not configured/i.test(message)
+        || /deepseek request timed out/i.test(message)
+        || /deepseek api error/i.test(message)
         || /inception_api_key environment variable not set/i.test(message)
         || /inception request timed out/i.test(message)
         || /inception api error/i.test(message)
@@ -7920,7 +7923,7 @@ const buildPreparedTopics = (courseOutline: any, extractedText: string, fileName
 };
 
 const getCourseTopicsSorted = async (ctx: any, courseId: any) => {
-    const courseWithTopics = await ctx.runQuery(api.courses.getCourseWithTopics, { courseId });
+    const courseWithTopics = await ctx.runQuery(internal.courses.getCourseWithTopicsInternal, { courseId });
     return Array.isArray(courseWithTopics?.topics)
         ? [...courseWithTopics.topics].sort((a: any, b: any) => a.orderIndex - b.orderIndex)
         : [];
@@ -7949,21 +7952,99 @@ const scheduleRoutingSyncRetry = async (ctx: any, args: {
     });
 };
 
+const countDistinctValues = (values: unknown[]) =>
+    new Set(values.map((value) => String(value || "").trim()).filter(Boolean)).size;
+
+const scoreTopicForDirectAssessment = (topic: any) => {
+    const sourcePassageCount = Array.isArray(topic?.sourcePassageIds)
+        ? topic.sourcePassageIds.length
+        : 0;
+    const sourcePageCount = Array.isArray(topic?.structuredSourcePages)
+        ? countDistinctValues(topic.structuredSourcePages)
+        : 0;
+    const learningObjectiveCount = Array.isArray(topic?.structuredLearningObjectives)
+        ? topic.structuredLearningObjectives.length
+        : 0;
+    const contentWords = countWords(String(topic?.content || ""));
+
+    const evidenceVolumeScore = Math.min(1, (sourcePassageCount + learningObjectiveCount) / 8);
+    const evidenceDiversityScore = Math.min(1, Math.max(sourcePageCount, 1) / 3);
+    const questionVarietyScore = Math.min(1, Math.max(learningObjectiveCount, 1) / 4);
+    const assessmentReadinessScore = Math.max(
+        0,
+        Math.min(
+            1,
+            (evidenceVolumeScore * 0.45)
+                + (evidenceDiversityScore * 0.25)
+                + (questionVarietyScore * 0.2)
+                + (Math.min(1, contentWords / 350) * 0.1)
+        )
+    );
+
+    return {
+        evidenceVolumeScore,
+        evidenceDiversityScore,
+        questionVarietyScore,
+        assessmentReadinessScore,
+        classification: assessmentReadinessScore >= 0.72
+            ? "strong"
+            : assessmentReadinessScore >= 0.45
+                ? "standard"
+                : "limited",
+    };
+};
+
+const syncAssessmentRoutingForUpload = async (ctx: any, args: {
+    courseId: Id<"courses">;
+    uploadId: Id<"uploads">;
+}) => {
+    const topics = await getCourseTopicsSorted(ctx, args.courseId);
+    const lessonTopics = topics.filter((topic: any) =>
+        topic?.sourceUploadId === args.uploadId
+        && String(topic?.topicKind || "").trim() !== "document_final_exam"
+    );
+
+    for (const topic of lessonTopics) {
+        const score = scoreTopicForDirectAssessment(topic);
+        await ctx.runMutation((internal as any).topics.updateAssessmentRoutingInternal, {
+            topicId: topic._id,
+            topicKind: "lesson",
+            assessmentClassification: score.classification,
+            assessmentRoute: "topic_quiz",
+            assessmentRouteReason: "direct_topic_assessment",
+            assessmentReadinessScore: score.assessmentReadinessScore,
+            evidenceVolumeScore: score.evidenceVolumeScore,
+            evidenceDiversityScore: score.evidenceDiversityScore,
+            distinctivenessScore: 1,
+            questionVarietyScore: score.questionVarietyScore,
+            redundancyRiskScore: 0,
+            strongestNeighborOverlap: 0,
+            supportedQuestionTypes: ["multiple_choice", "essay"],
+        });
+    }
+
+    return {
+        success: true,
+        lessonTopicCount: lessonTopics.length,
+        finalAssessmentTopicId: null,
+    };
+};
+
 const reconcileUploadStatusAfterRoutingSync = async (ctx: any, args: {
     courseId: Id<"courses">;
     uploadId: Id<"uploads">;
 }) => {
-    const upload = await ctx.runQuery(api.uploads.getUpload, { uploadId: args.uploadId });
+    const upload = await ctx.runQuery(internal.uploads.getUploadInternal, { uploadId: args.uploadId });
     if (!upload) return null;
 
-    const coursePayload = await ctx.runQuery(api.courses.getCourseWithTopics, { courseId: args.courseId });
+    const coursePayload = await ctx.runQuery(internal.courses.getCourseWithTopicsInternal, { courseId: args.courseId });
     const lessonTopics = Array.isArray(coursePayload?.topics)
         ? coursePayload.topics.filter((topic: any) => topic?.sourceUploadId === args.uploadId)
         : [];
 
     const generatedTopicCount = lessonTopics.length;
     if (generatedTopicCount <= 0) {
-        await ctx.runMutation(api.uploads.updateUploadStatus, {
+        await ctx.runMutation(internal.uploads.updateUploadStatusInternal, {
             uploadId: args.uploadId,
             errorMessage: "",
         });
@@ -8001,7 +8082,7 @@ const reconcileUploadStatusAfterRoutingSync = async (ctx: any, args: {
                 }),
             };
 
-    await ctx.runMutation(api.uploads.updateUploadStatus, {
+    await ctx.runMutation(internal.uploads.updateUploadStatusInternal, {
         uploadId: args.uploadId,
         ...uploadPatch,
         plannedTopicCount,
@@ -8236,7 +8317,7 @@ const generateTopicContentForIndex = async (args: {
 
     let educationLevel = "undergrad";
     try {
-        const profile = await ctx.runQuery(api.profiles.getProfile, { userId });
+        const profile = await ctx.runQuery(internal.profiles.getProfileByUserIdInternal, { userId });
         if (profile?.educationLevel) {
             educationLevel = profile.educationLevel;
         }
@@ -8287,7 +8368,7 @@ ${index === totalTopics - 1 ? "This is the final topic — summarize and connect
         structuredLessonMap,
         contentGraph: topicContentGraph,
     });
-    const topicId = await ctx.runMutation(api.topics.createTopic, {
+    const topicId = await ctx.runMutation(internal.topics.createTopicInternal, {
         courseId,
         sourceUploadId: uploadId,
         title: safeTopicTitle,
@@ -8324,7 +8405,7 @@ ${index === totalTopics - 1 ? "This is the final topic — summarize and connect
             topicId,
             message: getErrorMessage(error),
         });
-        await ctx.runMutation(api.uploads.updateUploadStatus, {
+        await ctx.runMutation(internal.uploads.updateUploadStatusInternal, {
             uploadId,
             errorMessage,
         });
@@ -8412,7 +8493,7 @@ export const generateTopicIllustration = internalAction({
             const storageId = await ctx.storage.store(imageBlob);
             const illustrationUrl = await ctx.storage.getUrl(storageId);
 
-            await ctx.runMutation(api.topics.updateTopicIllustration, {
+            await ctx.runMutation(internal.topics.updateTopicIllustrationInternal, {
                 topicId: args.topicId,
                 illustrationStorageId: storageId,
                 illustrationUrl: illustrationUrl || undefined,
@@ -8455,11 +8536,12 @@ export const generateCourseFromText = action({
                     }
                 };
 
-                await ctx.runMutation(api.uploads.updateUploadStatus, {
+                await ctx.runMutation(internal.uploads.updateUploadStatusInternal, {
                     uploadId,
                     status: "processing",
                     processingStep: "generating_topics",
                     processingProgress: 40,
+                    errorMessage: "",
                 });
 
                 checkTimeout();
@@ -8477,7 +8559,7 @@ export const generateCourseFromText = action({
                     topicCount: Array.isArray(courseOutline?.topics) ? courseOutline.topics.length : 0,
                 });
 
-                await ctx.runMutation(api.courses.updateCourse, {
+                await ctx.runMutation(internal.courses.updateCourseInternal, {
                     courseId,
                     title: courseOutline.courseTitle || fileName.replace(/\.(pdf|pptx|docx)$/i, ""),
                     description: courseOutline.courseDescription || "AI-generated course from your study materials",
@@ -8488,7 +8570,7 @@ export const generateCourseFromText = action({
                 const totalTopics = preparedTopics.length;
                 const plannedTopicTitles = preparedTopics.map((topic) => topic.title);
 
-                await ctx.runMutation(api.uploads.updateUploadStatus, {
+                await ctx.runMutation(internal.uploads.updateUploadStatusInternal, {
                     uploadId,
                     status: "processing",
                     processingStep: "generating_first_topic",
@@ -8496,6 +8578,7 @@ export const generateCourseFromText = action({
                     plannedTopicCount: totalTopics,
                     generatedTopicCount: 0,
                     plannedTopicTitles,
+                    errorMessage: "",
                 });
 
                 checkTimeout();
@@ -8516,7 +8599,7 @@ export const generateCourseFromText = action({
                     totalTopics,
                 });
 
-                await ctx.runMutation(api.uploads.updateUploadStatus, {
+                await ctx.runMutation(internal.uploads.updateUploadStatusInternal, {
                     uploadId,
                     status: "processing",
                     processingStep: "first_topic_ready",
@@ -8524,6 +8607,7 @@ export const generateCourseFromText = action({
                     plannedTopicCount: totalTopics,
                     generatedTopicCount,
                     plannedTopicTitles,
+                    errorMessage: "",
                 });
 
                 console.info("[CourseGeneration] first_topic_ready", {
@@ -8550,7 +8634,7 @@ export const generateCourseFromText = action({
                 console.error("AI processing failed:", error);
                 const errorMessage = getErrorMessage(error);
 
-                await ctx.runMutation(api.uploads.updateUploadStatus, {
+                await ctx.runMutation(internal.uploads.updateUploadStatusInternal, {
                     uploadId,
                     status: "error",
                     errorMessage,
@@ -8585,7 +8669,7 @@ export const generateRemainingTopicsInBackground = internalAction({
             try {
                 let generatedTopicCount = await safeGeneratedCount();
                 if (totalTopics > 1 && generatedTopicCount < totalTopics) {
-                    await ctx.runMutation(api.uploads.updateUploadStatus, {
+                    await ctx.runMutation(internal.uploads.updateUploadStatusInternal, {
                         uploadId,
                         status: "processing",
                         processingStep: "generating_remaining_topics",
@@ -8614,7 +8698,7 @@ export const generateRemainingTopicsInBackground = internalAction({
                     });
 
                     generatedTopicCount = await safeGeneratedCount();
-                    await ctx.runMutation(api.uploads.updateUploadStatus, {
+                    await ctx.runMutation(internal.uploads.updateUploadStatusInternal, {
                         uploadId,
                         status: "processing",
                         processingStep: "generating_remaining_topics",
@@ -8629,7 +8713,7 @@ export const generateRemainingTopicsInBackground = internalAction({
                 }
 
                 generatedTopicCount = await safeGeneratedCount();
-                await ctx.runMutation(api.uploads.updateUploadStatus, {
+                await ctx.runMutation(internal.uploads.updateUploadStatusInternal, {
                     uploadId,
                     status: "processing",
                     processingStep: "generating_question_bank",
@@ -8656,7 +8740,7 @@ export const generateRemainingTopicsInBackground = internalAction({
                         phase: "background_generation_finalize",
                         message: getErrorMessage(error),
                     });
-                    await ctx.runMutation(api.uploads.updateUploadStatus, {
+                    await ctx.runMutation(internal.uploads.updateUploadStatusInternal, {
                         uploadId,
                         status: "processing",
                         processingStep: "generating_question_bank",
@@ -8677,7 +8761,7 @@ export const generateRemainingTopicsInBackground = internalAction({
                     totalTopics,
                 });
 
-                await ctx.runMutation(api.uploads.updateUploadStatus, {
+                await ctx.runMutation(internal.uploads.updateUploadStatusInternal, {
                     uploadId,
                     status: "ready",
                     processingStep: "ready",
@@ -8686,6 +8770,12 @@ export const generateRemainingTopicsInBackground = internalAction({
                     generatedTopicCount: finalGeneratedCount,
                     plannedTopicTitles,
                     errorMessage: routingSyncErrorMessage,
+                });
+
+                const finalizedUpload = await ctx.runQuery(internal.uploads.getUploadInternal, { uploadId });
+                scheduleEvidenceIndexAfterProcessing(ctx, {
+                    uploadId,
+                    artifactStorageId: finalizedUpload?.extractionArtifactStorageId,
                 });
 
                 return {
@@ -8706,7 +8796,7 @@ export const generateRemainingTopicsInBackground = internalAction({
                     ? "generating_question_bank"
                     : "generating_remaining_topics";
 
-                await ctx.runMutation(api.uploads.updateUploadStatus, {
+                await ctx.runMutation(internal.uploads.updateUploadStatusInternal, {
                     uploadId,
                     status: "error",
                     processingStep: statusStep,
@@ -8770,7 +8860,7 @@ export const retryAssessmentRoutingForUpload = internalAction({
                 message: getErrorMessage(error),
             });
 
-            await ctx.runMutation(api.uploads.updateUploadStatus, {
+            await ctx.runMutation(internal.uploads.updateUploadStatusInternal, {
                 uploadId: args.uploadId,
                 errorMessage,
             });
@@ -8811,25 +8901,27 @@ export const processUploadedFile = action({
                 }
             };
             // Get the upload record
-            const upload = await ctx.runQuery(api.uploads.getUpload, { uploadId });
+            const upload = await ctx.runQuery(internal.uploads.getUploadInternal, { uploadId });
             if (!upload) {
                 throw new Error("Upload not found");
             }
 
             // Update status to extracting with 5% progress
-            await ctx.runMutation(api.uploads.updateUploadStatus, {
+            await ctx.runMutation(internal.uploads.updateUploadStatusInternal, {
                 uploadId,
                 status: "processing",
                 processingStep: "extracting",
                 processingProgress: 5,
+                errorMessage: "",
             });
 
             // Update to analyzing phase
-            await ctx.runMutation(api.uploads.updateUploadStatus, {
+            await ctx.runMutation(internal.uploads.updateUploadStatusInternal, {
                 uploadId,
                 status: "processing",
                 processingStep: "analyzing",
                 processingProgress: 20,
+                errorMessage: "",
             });
 
             checkTimeout();
@@ -8877,13 +8969,45 @@ export const processUploadedFile = action({
         } catch (error) {
             console.error("File processing failed:", error);
             const errorMessage = getErrorMessage(error);
+            let latestUpload: any = null;
+            try {
+                latestUpload = await ctx.runQuery(internal.uploads.getUploadInternal, { uploadId });
+            } catch (lookupError) {
+                console.warn("[Extraction] failed_status_lookup_unavailable", {
+                    uploadId: String(uploadId),
+                    message: getErrorMessage(lookupError),
+                });
+            }
 
-            await ctx.runMutation(api.uploads.updateUploadStatus, {
+            const extractionStatus = String(latestUpload?.extractionStatus || "");
+            const hasUsableExtraction = Boolean(latestUpload?.extractionArtifactStorageId)
+                || extractionStatus === "complete"
+                || extractionStatus === "provisional";
+            const hasBackgroundCourseProgress = String(latestUpload?.status || "") === "processing"
+                && Number(latestUpload?.generatedTopicCount || 0) > 0;
+            const isAlreadyReady = String(latestUpload?.status || "") === "ready";
+            const updatePayload: {
+                uploadId: typeof uploadId;
+                status?: string;
+                extractionStatus?: string;
+                errorMessage?: string;
+            } = {
                 uploadId,
-                status: "error",
-                extractionStatus: "failed",
-                errorMessage,
-            });
+            };
+
+            if (!isAlreadyReady && !hasBackgroundCourseProgress) {
+                updatePayload.status = "error";
+                updatePayload.errorMessage = errorMessage;
+            }
+
+            if (!hasUsableExtraction) {
+                updatePayload.extractionStatus = "failed";
+                updatePayload.errorMessage = errorMessage;
+            }
+
+            if (updatePayload.status || updatePayload.extractionStatus || updatePayload.errorMessage) {
+                await ctx.runMutation(internal.uploads.updateUploadStatusInternal, updatePayload);
+            }
 
             throw error;
         }
@@ -8909,11 +9033,11 @@ export const addSourceToCourse = action({
                     }
                 };
 
-                const upload = await ctx.runQuery(api.uploads.getUpload, { uploadId });
+                const upload = await ctx.runQuery(internal.uploads.getUploadInternal, { uploadId });
                 if (!upload) throw new Error("Upload not found");
 
                 // Run extraction
-                await ctx.runMutation(api.uploads.updateUploadStatus, {
+                await ctx.runMutation(internal.uploads.updateUploadStatusInternal, {
                     uploadId,
                     status: "processing",
                     processingStep: "extracting",
@@ -8929,11 +9053,12 @@ export const addSourceToCourse = action({
                 if (!extractedText) throw new Error("Extraction returned no content.");
 
                 // Generate outline from the new file
-                await ctx.runMutation(api.uploads.updateUploadStatus, {
+                await ctx.runMutation(internal.uploads.updateUploadStatusInternal, {
                     uploadId,
                     status: "processing",
                     processingStep: "generating_topics",
                     processingProgress: 40,
+                    errorMessage: "",
                 });
 
                 checkTimeout();
@@ -8962,7 +9087,7 @@ export const addSourceToCourse = action({
 
                 if (newPreparedTopics.length === 0) {
                     // No new topics to add — mark as ready
-                    await ctx.runMutation(api.uploads.updateUploadStatus, {
+                    await ctx.runMutation(internal.uploads.updateUploadStatusInternal, {
                         uploadId,
                         status: "ready",
                         processingStep: "ready",
@@ -8982,7 +9107,7 @@ export const addSourceToCourse = action({
                 const totalNewTopics = newPreparedTopics.length;
                 const plannedTopicTitles = newPreparedTopics.map((t) => t.title);
 
-                await ctx.runMutation(api.uploads.updateUploadStatus, {
+                await ctx.runMutation(internal.uploads.updateUploadStatusInternal, {
                     uploadId,
                     status: "processing",
                     processingStep: "generating_first_topic",
@@ -9013,7 +9138,7 @@ export const addSourceToCourse = action({
                     generatedCount++;
 
                     const progressPct = i === 0 ? 60 : Math.round(60 + (30 * generatedCount / totalNewTopics));
-                    await ctx.runMutation(api.uploads.updateUploadStatus, {
+                    await ctx.runMutation(internal.uploads.updateUploadStatusInternal, {
                         uploadId,
                         status: "processing",
                         processingStep: i === 0 ? "first_topic_ready" : "generating_remaining_topics",
@@ -9027,7 +9152,7 @@ export const addSourceToCourse = action({
                 // Question bank pre-build removed — exams are now generated on-demand.
 
                 // Mark upload and courseUpload as ready
-                await ctx.runMutation(api.uploads.updateUploadStatus, {
+                await ctx.runMutation(internal.uploads.updateUploadStatusInternal, {
                     uploadId,
                     status: "ready",
                     processingStep: "ready",
@@ -9052,7 +9177,7 @@ export const addSourceToCourse = action({
             } catch (error) {
                 console.error("[AddSourceToCourse] failed:", error);
                 const errorMessage = getErrorMessage(error);
-                await ctx.runMutation(api.uploads.updateUploadStatus, {
+                await ctx.runMutation(internal.uploads.updateUploadStatusInternal, {
                     uploadId,
                     status: "error",
                     errorMessage,
@@ -9083,7 +9208,7 @@ export const ensureAssessmentRoutingForTopic = action({
         }
 
         const course = topic.courseId
-            ? await ctx.runQuery(api.courses.getCourseWithTopics, { courseId: topic.courseId })
+            ? await ctx.runQuery(internal.courses.getCourseWithTopicsInternal, { courseId: topic.courseId })
             : null;
         if (!course) {
             throw new Error("Course not found.");
@@ -9129,7 +9254,7 @@ export const processAssignmentThread = action({
     handler: async (ctx, args) => {
         const failThread = async (message: string): Promise<never> => {
             try {
-                await ctx.runMutation(api.assignments.updateThreadStatus, {
+                await ctx.runMutation(internal.assignments.updateThreadStatusInternal, {
                     userId: args.userId,
                     threadId: args.threadId,
                     status: "error",
@@ -9143,7 +9268,7 @@ export const processAssignmentThread = action({
 
         return await runWithLlmUsageContext(ctx, args.userId, "assignment_processing", async () => {
             try {
-                const threadPayload = await ctx.runQuery(api.assignments.getThreadWithMessages, {
+                const threadPayload = await ctx.runQuery(internal.assignments.getThreadWithMessagesInternal, {
                     userId: args.userId,
                     threadId: args.threadId,
                 });
@@ -9170,7 +9295,7 @@ export const processAssignmentThread = action({
                     return { success: true, alreadyProcessed: true };
                 }
 
-                await ctx.runMutation(api.assignments.updateThreadStatus, {
+                await ctx.runMutation(internal.assignments.updateThreadStatusInternal, {
                     userId: args.userId,
                     threadId: args.threadId,
                     status: "processing",
@@ -9280,14 +9405,14 @@ ${assignmentContext}
                     console.info("[Assignment] prose_mode", { threadId: args.threadId, subject: subjectCategory });
                 }
 
-                await ctx.runMutation(api.assignments.appendMessage, {
+                await ctx.runMutation(internal.assignments.appendMessageInternal, {
                     userId: args.userId,
                     threadId: args.threadId,
                     role: "assistant",
                     content: assistantAnswer,
                 });
 
-                await ctx.runMutation(api.assignments.updateThreadStatus, {
+                await ctx.runMutation(internal.assignments.updateThreadStatusInternal, {
                     userId: args.userId,
                     threadId: args.threadId,
                     status: "ready",
@@ -9332,7 +9457,7 @@ export const askAssignmentFollowUp = action({
         }
 
         return await runWithLlmUsageContext(ctx, userId, "assignment_follow_up", async () => {
-            const threadPayload = await ctx.runQuery(api.assignments.getThreadWithMessages, {
+            const threadPayload = await ctx.runQuery(internal.assignments.getThreadWithMessagesInternal, {
                 userId,
                 threadId: args.threadId,
             });
@@ -9353,11 +9478,11 @@ export const askAssignmentFollowUp = action({
                 throw new Error("Assignment text is unavailable. Re-upload this assignment to continue.");
             }
 
-            await ctx.runMutation(api.subscriptions.consumeAiMessageCreditOrThrow, {
+            await ctx.runMutation(internal.subscriptions.consumeAiMessageCreditOrThrowInternal, {
                 userId,
             });
 
-            await ctx.runMutation(api.assignments.appendMessage, {
+            await ctx.runMutation(internal.assignments.appendMessageInternal, {
                 userId,
                 threadId: args.threadId,
                 role: "user",
@@ -9411,7 +9536,7 @@ ${scopedQuestion}`,
                 stripMarkdownLikeFormatting(String(followUpResponse || "").trim()) ||
                 "I could not generate a reliable answer yet. Please rephrase your follow-up question.";
 
-            await ctx.runMutation(api.assignments.appendMessage, {
+            await ctx.runMutation(internal.assignments.appendMessageInternal, {
                 userId,
                 threadId: args.threadId,
                 role: "assistant",
@@ -9449,7 +9574,7 @@ export const askTopicTutor = action({
             });
             if (!topic) throw new Error("Topic not found.");
 
-            await ctx.runMutation(api.subscriptions.consumeAiMessageCreditOrThrow, {
+            await ctx.runMutation(internal.subscriptions.consumeAiMessageCreditOrThrowInternal, {
                 userId,
             });
 
@@ -9536,7 +9661,7 @@ export const askTopicTutor = action({
                 stripMarkdownLikeFormatting(String(tutorResponse || "").trim()) ||
                 "I could not generate an answer. Please try rephrasing your question.";
 
-            await ctx.runMutation(api.topicChat.appendAssistantMessage, {
+            await ctx.runMutation(internal.topicChat.appendAssistantMessageInternal, {
                 topicId: args.topicId,
                 userId,
                 content: assistantAnswer,
@@ -9876,7 +10001,7 @@ export const synthesizeTopicVoice = action({
             });
 
             if (args.consumeQuota !== false) {
-                await ctx.runMutation(api.subscriptions.consumeVoiceGenerationCreditOrThrow, {
+                await ctx.runMutation(internal.subscriptions.consumeVoiceGenerationCreditOrThrowInternal, {
                     userId: authUserId,
                 });
             }
@@ -10106,7 +10231,7 @@ const generateQuestionCandidatesBatch = async (args: {
             },
             { role: "user", content: prompt },
         ], DEFAULT_MODEL, {
-            maxTokens: 2400,
+            maxTokens: 5200,
             responseFormat: "json_object",
             timeoutMs,
         });
@@ -10175,7 +10300,7 @@ const generateTrueFalseQuestionCandidatesBatch = async (args: {
             },
             { role: "user", content: prompt },
         ], DEFAULT_MODEL, {
-            maxTokens: 1800,
+            maxTokens: 2600,
             responseFormat: "json_object",
             timeoutMs,
         });
@@ -10244,7 +10369,7 @@ const generateFillBlankQuestionCandidatesBatch = async (args: {
             },
             { role: "user", content: prompt },
         ], DEFAULT_MODEL, {
-            maxTokens: 2000,
+            maxTokens: 3000,
             responseFormat: "json_object",
             timeoutMs,
         });
@@ -10843,6 +10968,13 @@ const generateQuestionBankForTopic = async (
         const key = resolveObjectivePlanItemKey(resolved);
         return key ? objectivePlanItemByKey.get(key) || resolved : resolved;
     };
+    const validSubClaimIds = new Set(
+        subClaims.map((claim: any) => String(claim?._id || "").trim()).filter(Boolean)
+    );
+    const normalizePersistedSubClaimId = (value: unknown) => {
+        const normalized = String(value || "").trim();
+        return normalized && validSubClaimIds.has(normalized) ? normalized : undefined;
+    };
     const topicContent = String(topicWithQuestions.content || "");
     const rawExistingQuestions = filterQuestionsForActiveAssessment({
         topic: effectiveTopic,
@@ -11304,11 +11436,7 @@ const generateQuestionBankForTopic = async (
             questionText: finalQuestionText,
             options,
         });
-        const isDeterministicTrueFalseFallback =
-            normalizedQuestionType === QUESTION_TYPE_TRUE_FALSE
-            && Array.isArray(questionRecord?.qualityFlags)
-            && questionRecord.qualityFlags.includes("deterministic_true_false_fallback");
-        if (!objectiveQualityGate.passes && !isDeterministicTrueFalseFallback) {
+        if (!objectiveQualityGate.passes) {
             recordObjectivePlanItemFailure(resolvedObjectivePlanItem, {
                 failReason: classifyPlanItemFailReason([objectiveQualityGate.reason], normalizedQuestionType),
                 failDetails: `Objective quality gate rejected candidate: ${String(objectiveQualityGate.reason || "unknown")}`,
@@ -11319,27 +11447,15 @@ const generateQuestionBankForTopic = async (
         }
         questionRecord = {
             ...questionRecord,
-            qualityTier: isDeterministicTrueFalseFallback
-                ? QUALITY_TIER_LIMITED
-                : objectiveQualityGate.quality.qualityTier,
-            qualityScore: isDeterministicTrueFalseFallback
-                ? Number(questionRecord?.groundingScore || 0.7)
-                : Number(objectiveQualityGate.quality.qualitySignals.qualityScore || 0),
-            rigorScore: isDeterministicTrueFalseFallback
-                ? 0.6
-                : Number(objectiveQualityGate.quality.qualitySignals.rigorScore || 0),
-            clarityScore: isDeterministicTrueFalseFallback
-                ? 0.8
-                : Number(objectiveQualityGate.quality.qualitySignals.clarityScore || 0),
-            diversityCluster: isDeterministicTrueFalseFallback
-                ? "true_false::deterministic_fallback"
-                : String(objectiveQualityGate.quality.qualitySignals.diversityCluster || ""),
-            distractorScore: isDeterministicTrueFalseFallback
-                ? undefined
-                : objectiveQualityGate.quality.qualitySignals.distractorScore,
+            qualityTier: objectiveQualityGate.quality.qualityTier,
+            qualityScore: Number(objectiveQualityGate.quality.qualitySignals.qualityScore || 0),
+            rigorScore: Number(objectiveQualityGate.quality.qualitySignals.rigorScore || 0),
+            clarityScore: Number(objectiveQualityGate.quality.qualitySignals.clarityScore || 0),
+            diversityCluster: String(objectiveQualityGate.quality.qualitySignals.diversityCluster || ""),
+            distractorScore: objectiveQualityGate.quality.qualitySignals.distractorScore,
             qualityFlags: normalizeQualityFlags([
                 ...(Array.isArray(questionRecord?.qualityFlags) ? questionRecord.qualityFlags : []),
-                ...(isDeterministicTrueFalseFallback ? ["quality_gate_bypassed_for_grounded_fallback"] : objectiveQualityGate.quality.qualityWarnings),
+                ...objectiveQualityGate.quality.qualityWarnings,
             ]),
         };
         const signature = buildQuestionPromptSignature(finalQuestionText);
@@ -11414,7 +11530,7 @@ const generateQuestionBankForTopic = async (
             bloomLevel: String(questionRecord?.bloomLevel || resolvedOutcome?.bloomLevel || "").trim() || undefined,
             outcomeKey: String(questionRecord?.outcomeKey || resolvedOutcome?.key || "").trim() || undefined,
             tier: normalizeGeneratedTier(questionRecord?.tier ?? resolvedObjectivePlanItem?.targetTier),
-            subClaimId: String(questionRecord?.subClaimId || resolvedObjectivePlanItem?.subClaimId || "").trim() || undefined,
+            subClaimId: normalizePersistedSubClaimId(questionRecord?.subClaimId || resolvedObjectivePlanItem?.subClaimId),
             cognitiveOperation: normalizeGeneratedCognitiveOperation(
                 questionRecord?.cognitiveOperation || resolvedObjectivePlanItem?.targetOp
             ),
@@ -11484,7 +11600,7 @@ const generateQuestionBankForTopic = async (
             bloomLevel: String(questionRecord?.bloomLevel || resolvedOutcome?.bloomLevel || "").trim() || undefined,
             outcomeKey: String(questionRecord?.outcomeKey || resolvedOutcome?.key || "").trim() || undefined,
             tier: normalizeGeneratedTier(questionRecord?.tier ?? resolvedObjectivePlanItem?.targetTier),
-            subClaimId: String(questionRecord?.subClaimId || resolvedObjectivePlanItem?.subClaimId || "").trim() || undefined,
+            subClaimId: normalizePersistedSubClaimId(questionRecord?.subClaimId || resolvedObjectivePlanItem?.subClaimId),
             cognitiveOperation: normalizeGeneratedCognitiveOperation(
                 questionRecord?.cognitiveOperation || resolvedObjectivePlanItem?.targetOp
             ),
@@ -11813,81 +11929,6 @@ const generateQuestionBankForTopic = async (
             countBreakdown.repairAttempts += acceptanceMetrics.repairAttempts;
             countBreakdown.repairSuccesses += acceptanceMetrics.repairSuccesses;
             groundingRejects += acceptance.rejected.length;
-        }
-        if (!providerThrottleDetectedInRound && roundAdded === 0 && getUniqueQuestionCount() < targetCount) {
-            const deterministicTrueFalseFallback = buildDeterministicTrueFalseFallbackCandidate({
-                evidence: groundedPack.evidence,
-                assessmentBlueprint: assessmentBlueprint as AssessmentBlueprint,
-                existingQuestions: coverageQuestions,
-            });
-            if (deterministicTrueFalseFallback) {
-                const acceptanceMetrics = createGroundedAcceptanceMetrics();
-                const acceptanceStartedAt = Date.now();
-                const { acceptance, persistedCount } = await acceptAndPersistQuestionCandidates({
-                    type: "true_false",
-                    requestedCount: 1,
-                    evidenceIndex,
-                    assessmentBlueprint,
-                    topicTitle: effectiveTopic.title,
-                    topicDescription: effectiveTopic.description,
-                    structuredTopicContext: groundedPack.structuredTopicContext,
-                    evidence: groundedPack.evidence,
-                    deadlineMs,
-                    forceLimited: groundedPack.usedIndexFallback === true,
-                    candidates: [deterministicTrueFalseFallback],
-                    maxRepairCandidates: 0,
-                    maxLlmVerifications: 1,
-                    llmVerify: async (candidate) =>
-                        verifyGroundedCandidateWithLlm({
-                            type: "true_false",
-                            candidate,
-                            evidenceSnippet,
-                            timeoutMs: runMode === "interactive" ? 5000 : 7000,
-                        }),
-                    metrics: acceptanceMetrics,
-                    persistCandidate: async (question) => {
-                        const saved = await persistObjectiveCandidate(question, QUESTION_TYPE_TRUE_FALSE);
-                        if (saved) {
-                            roundAdded += 1;
-                        }
-                        return saved;
-                    },
-                });
-                timingBreakdown.acceptanceMs += normalizeTimingMs(Date.now() - acceptanceStartedAt);
-                timingBreakdown.deterministicMs += normalizeTimingMs(acceptanceMetrics.deterministicMs);
-                timingBreakdown.llmVerificationMs += normalizeTimingMs(acceptanceMetrics.llmVerificationMs);
-                timingBreakdown.repairMs += normalizeTimingMs(acceptanceMetrics.repairMs);
-                countBreakdown.acceptedCandidateCount += acceptance.accepted.length;
-                countBreakdown.rejectedCandidateCount += acceptance.rejected.length;
-                countBreakdown.deterministicChecks += acceptanceMetrics.deterministicChecks;
-                countBreakdown.llmVerificationCount += acceptanceMetrics.llmVerifications;
-                countBreakdown.llmVerificationErrorCount += acceptanceMetrics.llmVerificationErrors;
-                countBreakdown.llmRejectedCount += acceptanceMetrics.llmRejected;
-                groundingRejects += acceptance.rejected.length;
-                for (const rejectedCandidate of acceptance.rejected) {
-                    const failedPlanItem = resolveObjectivePlanItemFromCandidate(
-                        rejectedCandidate?.candidate,
-                        QUESTION_TYPE_TRUE_FALSE,
-                    );
-                    recordObjectivePlanItemFailure(failedPlanItem, {
-                        failReason: classifyPlanItemFailReason(rejectedCandidate?.reasons, QUESTION_TYPE_TRUE_FALSE),
-                        failDetails: Array.isArray(rejectedCandidate?.reasons)
-                            ? rejectedCandidate.reasons.join("; ")
-                            : "Deterministic true/false fallback was rejected.",
-                        strategy: failedPlanItem?.retryStrategy || "initial",
-                        candidateSnapshot: buildCandidateSnapshot(rejectedCandidate?.candidate),
-                    });
-                }
-                if (persistedCount > 0) {
-                    console.info("[QuestionBank] deterministic_true_false_fallback_saved", {
-                        topicId,
-                        topicTitle: topicWithQuestions.title,
-                        round,
-                        totalCount: getUniqueQuestionCount(),
-                        targetCount,
-                    });
-                }
-            }
         }
         coveragePolicy = computeQuestionCoverageGaps({
             assessmentBlueprint,
@@ -13755,6 +13796,7 @@ export const generateEssayQuestionsForTopic = action({
 
 const FRESH_CONTEXT_EXAM_PROMPT_VERSION = "fresh_context_v1";
 const FRESH_CONTEXT_OBJECTIVE_DEFAULT_COUNT = 10;
+const FRESH_CONTEXT_OBJECTIVE_INTERACTIVE_MAX_COUNT = 5;
 const FRESH_CONTEXT_ESSAY_DEFAULT_COUNT = 1;
 const FRESH_CONTEXT_BLUEPRINT_TIMEOUT_MS = Math.max(
     5000,
@@ -13764,9 +13806,19 @@ const FRESH_CONTEXT_AUTHORING_TIMEOUT_MS = Math.max(
     5000,
     Math.min(DEFAULT_TIMEOUT_MS, Number(process.env.FRESH_CONTEXT_AUTHORING_TIMEOUT_MS || 45000)),
 );
+const FRESH_CONTEXT_INTERACTIVE_BUDGET_MS = Math.max(
+    30000,
+    Number(process.env.FRESH_CONTEXT_INTERACTIVE_BUDGET_MS || 95000),
+);
 
 const resolveFreshRequestedExamFormat = (value: unknown) =>
     String(value || "").trim().toLowerCase() === "essay" ? "essay" : "mcq";
+
+const getFreshExamRemainingMs = (deadlineMs: number, reserveMs = 0) =>
+    Math.max(0, Math.round(Number(deadlineMs || 0) - Date.now() - Math.max(0, reserveMs)));
+
+const isFreshExamDeadlineExceeded = (deadlineMs: number, reserveMs = 0) =>
+    getFreshExamRemainingMs(deadlineMs, reserveMs) <= 0;
 
 const resolveFreshConfiguredTargetCount = (value: unknown, fallback: number) => {
     const numeric = Number(value);
@@ -13859,15 +13911,24 @@ const resolveFreshExamTargetCount = (
     return buildFreshObjectiveCountCandidates(topic, evidence, configuredTarget)[0] || 1;
 };
 
-const formatRetrievedEvidenceForPrompt = (evidence: RetrievedEvidence[], maxChars = 14000) =>
+const formatRetrievedEvidenceForPrompt = (evidence: RetrievedEvidence[], maxChars = 3500) =>
     evidence
+        .slice(0, 6)
         .map((entry, index) => {
-            const trimmed = String(entry.text || "").slice(0, 900).trim();
+            const trimmed = String(entry.text || "").slice(0, 420).trim();
+            const sectionHint = String(entry.sectionHint || "").trim();
+            const blockType = String(entry.blockType || "").trim();
+            const headingPath = Array.isArray(entry.headingPath)
+                ? entry.headingPath.map((heading: any) => String(heading || "").trim()).filter(Boolean).join(" > ")
+                : "";
             return [
                 `EVIDENCE_${index + 1}:`,
                 `passageId=${entry.passageId}; page=${entry.page}; start=${entry.startChar}; end=${entry.endChar}`,
+                sectionHint ? `section=${sectionHint}` : "",
+                headingPath ? `headingPath=${headingPath}` : "",
+                blockType ? `blockType=${blockType}` : "",
                 `"""${trimmed}"""`,
-            ].join("\n");
+            ].filter(Boolean).join("\n");
         })
         .join("\n\n")
         .slice(0, maxChars);
@@ -13901,8 +13962,29 @@ const buildFreshLessonContext = (topic: any) => {
         structuredSubtopics.length > 0
             ? `SUBTOPICS:\n${structuredSubtopics.map((item: string) => `- ${item}`).join("\n")}`
             : "",
-        `LESSON CONTENT:\n"""\n${String(topic?.content || "").slice(0, 12000)}\n"""`,
+        `LESSON CONTENT:\n"""\n${String(topic?.content || "").slice(0, 2500)}\n"""`,
     ].filter(Boolean).join("\n\n");
+};
+
+const formatFreshAssessmentBlueprintForPrompt = (blueprint: AssessmentBlueprint) => {
+    const targetKeys = Array.isArray(blueprint?.mcqPlan?.targetOutcomeKeys)
+        ? blueprint.mcqPlan.targetOutcomeKeys.map((key: any) => String(key || "").trim()).filter(Boolean)
+        : [];
+    const outcomes = Array.isArray(blueprint?.outcomes)
+        ? blueprint.outcomes
+            .map((outcome: any) => ({
+                key: String(outcome?.key || "").trim(),
+                objective: String(outcome?.objective || "").replace(/\s+/g, " ").trim(),
+                bloomLevel: String(outcome?.bloomLevel || "").trim(),
+            }))
+            .filter((outcome) => outcome.key && (!targetKeys.length || targetKeys.includes(outcome.key)))
+            .slice(0, 5)
+        : [];
+
+    return JSON.stringify({
+        targetOutcomeKeys: targetKeys.slice(0, 5),
+        outcomes,
+    });
 };
 
 const buildFreshObjectiveTypeMix = (requestedCount: number) => {
@@ -13944,7 +14026,7 @@ GROUNDED EVIDENCE:
 ${formatRetrievedEvidenceForPrompt(args.evidence)}
 
 ASSESSMENT BLUEPRINT:
-${JSON.stringify(args.assessmentBlueprint, null, 2)}
+${formatFreshAssessmentBlueprintForPrompt(args.assessmentBlueprint)}
 ${feedbackBlock}
 Rules:
 ${generationRule}
@@ -13953,6 +14035,7 @@ ${generationRule}
 - bloomLevel must exactly match the selected outcome's bloomLevel.
 - Every question must include citations with exact evidence quotes and passage metadata.
 - Every question must include explanation, difficulty, learningObjective, bloomLevel, and outcomeKey.
+- Keep output compact: explanation <= 16 words, learningObjective <= 12 words, each option <= 16 words, each citation quote <= 120 characters.
 - For multiple_choice:
   - include exactly 4 options
   - set correctAnswer to the correct option label only
@@ -13964,7 +14047,7 @@ ${generationRule}
   - set correctAnswer to the canonical answer text
   - include acceptedAnswers with 1-4 acceptable answer strings
 - Avoid duplicates and avoid repeatedly testing the same fact.
-- Return JSON only.
+- Return compact JSON only.
 
 Return JSON only:
 {
@@ -14156,6 +14239,26 @@ const validateFreshFillBlankSupport = (candidate: any, evidenceIndex: GroundedEv
     });
 };
 
+const describeFreshObjectiveStructureIssue = (question: any) => {
+    const questionType = String(question?.questionType || "").trim();
+    const options = Array.isArray(question?.options) ? question.options : [];
+    if (questionType === "multiple_choice" && !hasUsableQuestionOptions(options)) {
+        const optionSummary = options
+            .slice(0, 4)
+            .map((option: any) => `${String(option?.label || "?")}:${String(option?.text || "").slice(0, 60)}`)
+            .join(" | ");
+        return `unusable multiple_choice options (${options.length}): ${optionSummary}`;
+    }
+    if (questionType === "true_false") {
+        const optionTexts = options.map((option: any) => String(option?.text || "").trim()).join(" | ");
+        return `unusable true_false options (${options.length}): ${optionTexts}`;
+    }
+    if (questionType === "fill_blank") {
+        return `unusable fill_blank acceptedAnswers=${Array.isArray(question?.acceptedAnswers) ? question.acceptedAnswers.length : 0}`;
+    }
+    return `unusable question type or quality gate: ${questionType || "missing"}`;
+};
+
 const normalizeFreshObjectiveQuestion = (candidate: any, index: number, blueprint: AssessmentBlueprint) => {
     const questionType = normalizeFreshObjectiveQuestionType(candidate?.questionType);
     const normalizedBase = normalizeGeneratedAssessmentCandidate({
@@ -14193,7 +14296,10 @@ const normalizeFreshObjectiveQuestion = (candidate: any, index: number, blueprin
         };
     }
 
-    const normalizedOptions = fillOptionLabels(ensureSingleCorrect(sanitizeQuestionOptions(normalizeOptions(candidate?.options))));
+    const normalizedOptions = markFreshCorrectOption(
+        fillOptionLabels(sanitizeQuestionOptions(normalizeOptions(candidate?.options))),
+        candidate
+    );
     const validOptions = questionType === "true_false"
         ? normalizedOptions
             .map((option, optionIndex) => ({
@@ -14283,7 +14389,7 @@ const validateFreshObjectiveExamSet = (args: {
         mix[String(question?.questionType || "multiple_choice") as keyof typeof mix] += 1;
 
         if (!isUsableExamQuestion(question, { allowEssay: false })) {
-            errors.push(`Invalid objective question structure: "${String(question?.questionText || "").slice(0, 80)}"`);
+            errors.push(`Invalid objective question structure (${describeFreshObjectiveStructureIssue(question)}): "${String(question?.questionText || "").slice(0, 80)}"`);
             continue;
         }
         if (!Array.isArray(question?.citations) || question.citations.length === 0 || !Array.isArray(question?.sourcePassageIds) || question.sourcePassageIds.length === 0) {
@@ -14535,197 +14641,6 @@ const buildFreshExamSnapshot = (args: {
     };
 };
 
-const normalizeFreshFallbackText = (value: unknown, maxLength = 220) =>
-    String(value || "")
-        .replace(/\s+/g, " ")
-        .trim()
-        .slice(0, maxLength)
-        .trim();
-
-const buildFreshFallbackCitation = (evidence: RetrievedEvidence) => {
-    const passageText = String(evidence?.text || "").replace(/\s+/g, " ").trim();
-    const sentenceMatch = passageText.match(/^.{40,220}?(?:[.!?](?:\s|$)|$)/);
-    const quote = normalizeFreshFallbackText(
-        sentenceMatch?.[0] || passageText.slice(0, 220),
-        220,
-    ) || "The cited passage contains the supporting evidence.";
-    const sourceText = String(evidence?.text || "");
-    const localStart = sourceText.indexOf(quote);
-    const startChar = localStart >= 0 ? localStart : Math.max(0, Math.round(Number(evidence?.startChar || 0)));
-
-    return {
-        passageId: String(evidence?.passageId || "fallback-passage"),
-        page: Math.max(0, Math.round(Number(evidence?.page || 0))),
-        startChar,
-        endChar: startChar + quote.length,
-        quote,
-    };
-};
-
-const selectFreshFallbackOutcome = (
-    assessmentBlueprint: AssessmentBlueprint,
-    requestedOutcomeKey: string | undefined,
-) => {
-    const normalizedOutcomeKey = normalizeOutcomeKey(requestedOutcomeKey || "");
-    return (
-        findAssessmentOutcome(assessmentBlueprint, normalizedOutcomeKey)
-        || (Array.isArray(assessmentBlueprint?.outcomes) ? assessmentBlueprint.outcomes[0] : null)
-        || null
-    );
-};
-
-const buildDeterministicFreshObjectiveQuestions = (args: {
-    topic: any;
-    evidence: RetrievedEvidence[];
-    requestedCount: number;
-    assessmentBlueprint: AssessmentBlueprint;
-}) => {
-    const topicTitle = normalizeFreshFallbackText(args.topic?.title, 80) || "this topic";
-    const sourceEvidence = args.evidence.length > 0 ? args.evidence : [{ text: topicTitle, passageId: "fallback-passage", page: 0, startChar: 0, endChar: topicTitle.length } as RetrievedEvidence];
-    const requestedCount = Math.max(1, Math.round(Number(args.requestedCount || 1)));
-    const objectivePlanItems = Array.isArray(args.assessmentBlueprint?.objectivePlan?.items)
-        ? args.assessmentBlueprint.objectivePlan.items.filter((item: any) =>
-            normalizeQuestionType(item?.targetType || item?.questionType) === QUESTION_TYPE_MULTIPLE_CHOICE
-        )
-        : [];
-
-    return Array.from({ length: requestedCount }).map((_, index) => {
-        const evidence = sourceEvidence[index % sourceEvidence.length];
-        const citation = buildFreshFallbackCitation(evidence);
-        const planItem = objectivePlanItems.length > 0 ? objectivePlanItems[index % objectivePlanItems.length] : null;
-        const outcome = selectFreshFallbackOutcome(args.assessmentBlueprint, planItem?.outcomeKey);
-        const outcomeKey = normalizeOutcomeKey(outcome?.key || planItem?.outcomeKey || "core-understanding") || "core-understanding";
-        const bloomLevel = normalizeBloomLevel(outcome?.bloomLevel || "Understand") || "Understand";
-        const learningObjective = normalizeFreshFallbackText(
-            outcome?.objective || `Identify evidence-supported ideas in ${topicTitle}.`,
-            180,
-        );
-        const quotedStatement = normalizeFreshFallbackText(citation.quote, 220);
-
-        return {
-            _id: `fresh-deterministic-objective-${index + 1}`,
-            questionType: "multiple_choice",
-            questionText: `Which statement is directly supported by Evidence ${index + 1} for ${topicTitle}?`,
-            options: [
-                { label: "A", text: quotedStatement, isCorrect: true },
-                { label: "B", text: `The cited evidence says ${topicTitle} cannot be assessed from the lesson material.`, isCorrect: false },
-                { label: "C", text: "The cited evidence is unrelated to the current lesson topic.", isCorrect: false },
-                { label: "D", text: "The cited evidence gives no useful information for answering the question.", isCorrect: false },
-            ],
-            correctAnswer: "A",
-            explanation: `Option A restates the cited evidence: "${quotedStatement}"`,
-            difficulty: "medium",
-            citations: [citation],
-            sourcePassageIds: [citation.passageId],
-            learningObjective,
-            bloomLevel,
-            outcomeKey,
-            subClaimId: String(planItem?.subClaimId || "").trim() || undefined,
-            cognitiveOperation: normalizeGeneratedCognitiveOperation(planItem?.targetOp || "recognition"),
-            tier: normalizeGeneratedTier(planItem?.targetTier || 1),
-            qualityTier: QUALITY_TIER_LIMITED,
-        };
-    });
-};
-
-const buildDeterministicFreshEssayQuestions = (args: {
-    topic: any;
-    evidence: RetrievedEvidence[];
-    requestedCount: number;
-    assessmentBlueprint: AssessmentBlueprint;
-}) => {
-    const topicTitle = normalizeFreshFallbackText(args.topic?.title, 80) || "this topic";
-    const sourceEvidence = args.evidence.length > 0 ? args.evidence : [{ text: topicTitle, passageId: "fallback-passage", page: 0, startChar: 0, endChar: topicTitle.length } as RetrievedEvidence];
-    const requestedCount = Math.max(1, Math.round(Number(args.requestedCount || 1)));
-    const essayPlanItems = Array.isArray((args.assessmentBlueprint as any)?.essayPlan?.items)
-        ? (args.assessmentBlueprint as any).essayPlan.items
-        : [];
-
-    return Array.from({ length: requestedCount }).map((_, index) => {
-        const evidence = sourceEvidence[index % sourceEvidence.length];
-        const citation = buildFreshFallbackCitation(evidence);
-        const planItem = essayPlanItems.length > 0 ? essayPlanItems[index % essayPlanItems.length] : null;
-        const sourceOutcomeKey = Array.isArray(planItem?.sourceOutcomeKeys) ? planItem.sourceOutcomeKeys[0] : undefined;
-        const outcome = selectFreshFallbackOutcome(args.assessmentBlueprint, sourceOutcomeKey);
-        const outcomeKey = normalizeOutcomeKey(outcome?.key || sourceOutcomeKey || "evidence-analysis") || "evidence-analysis";
-        const bloomLevel = normalizeBloomLevel(planItem?.targetBloomLevel || outcome?.bloomLevel || "Analyze") || "Analyze";
-        const learningObjective = normalizeFreshFallbackText(
-            outcome?.objective || `Analyze how evidence supports the main ideas in ${topicTitle}.`,
-            180,
-        );
-        const quotedStatement = normalizeFreshFallbackText(citation.quote, 220);
-
-        return {
-            _id: `fresh-deterministic-essay-${index + 1}`,
-            questionType: "essay",
-            questionText: `Using the cited evidence, explain the main idea in Evidence ${index + 1} and how it connects to ${topicTitle}.`,
-            correctAnswer: `A strong answer explains that the cited evidence states "${quotedStatement}" and connects that point to the lesson's main ideas about ${topicTitle}.`,
-            explanation: `This prompt is grounded in the cited passage and should be answered by interpreting that evidence in context.`,
-            difficulty: "medium",
-            citations: [citation],
-            sourcePassageIds: [citation.passageId],
-            learningObjective,
-            bloomLevel,
-            outcomeKey,
-            authenticContext: undefined,
-            rubricPoints: [
-                "Accurately restates the cited evidence.",
-                `Explains how the evidence connects to ${topicTitle}.`,
-                "Uses clear reasoning without adding unsupported claims.",
-            ],
-            sourceSubClaimIds: Array.isArray(planItem?.sourceSubClaimIds)
-                ? planItem.sourceSubClaimIds.map((item: any) => String(item || "").trim()).filter(Boolean)
-                : undefined,
-            essayPlanItemKey: planItem ? resolveEssayPlanItemKey(planItem) : undefined,
-            qualityTier: QUALITY_TIER_LIMITED,
-        };
-    });
-};
-
-const buildDeterministicFreshExamFallbackSnapshot = (args: {
-    topic: any;
-    examFormat: "mcq" | "essay";
-    requestedCount: number;
-    evidence: RetrievedEvidence[];
-    assessmentBlueprint: AssessmentBlueprint;
-    reason: string;
-}) => {
-    const questions = args.examFormat === "essay"
-        ? buildDeterministicFreshEssayQuestions(args)
-        : buildDeterministicFreshObjectiveQuestions(args);
-    const snapshot = buildFreshExamSnapshot({
-        topic: args.topic,
-        examFormat: args.examFormat,
-        questions,
-        evidence: args.evidence,
-        questionMix: args.examFormat === "essay"
-            ? { essay: questions.length }
-            : { multiple_choice: questions.length, true_false: 0, fill_blank: 0 },
-        qualityTier: "unverified",
-    });
-
-    return {
-        ...snapshot,
-        qualityWarnings: [
-            "deterministic-fresh-exam-fallback",
-            args.reason,
-        ],
-    };
-};
-
-const isFreshExamAuthoringFallbackEligibleError = (error: any) => {
-    const code = String(error?.data?.code || error?.code || "").toLowerCase();
-    const message = String(error?.message || error?.data?.message || error || "").toLowerCase();
-    return (
-        code.includes("timeout")
-        || message.includes("timed out")
-        || message.includes("timeout")
-        || message.includes("deadline")
-        || message.includes("network")
-        || message.includes("connection")
-    );
-};
-
 // ── Topic podcast script generation ────────────────────────────────────────
 // Generates a grounded two-speaker explainer podcast transcript suitable for
 // direct synthesis with a TTS provider.
@@ -14922,6 +14837,8 @@ export const generateFreshExamSnapshotInternal = internalAction({
                     });
                 }
 
+                const interactiveDeadlineMs = Date.now() + FRESH_CONTEXT_INTERACTIVE_BUDGET_MS;
+
                 const configuredTarget = resolveFreshConfiguredTargetCount(
                     examFormat === "essay" ? topic?.essayTargetCount : topic?.mcqTargetCount,
                     examFormat === "essay" ? FRESH_CONTEXT_ESSAY_DEFAULT_COUNT : FRESH_CONTEXT_OBJECTIVE_DEFAULT_COUNT,
@@ -14931,22 +14848,30 @@ export const generateFreshExamSnapshotInternal = internalAction({
                     : [];
                 const requestedCount = examFormat === "essay"
                     ? (essayCountCandidates[0] || configuredTarget)
-                    : resolveFreshExamTargetCount(topic, examFormat, effectiveEvidence);
-                const objectiveCountCandidates = examFormat === "essay"
-                    ? []
-                    : buildFreshObjectiveCountCandidates(topic, effectiveEvidence, configuredTarget);
-
+                    : Math.min(
+                        FRESH_CONTEXT_OBJECTIVE_INTERACTIVE_MAX_COUNT,
+                        resolveFreshExamTargetCount(topic, examFormat, effectiveEvidence),
+                    );
                 const assessmentBlueprint = await ensureAssessmentBlueprintForTopic({
                     ctx,
                     topic,
                     evidence: effectiveEvidence,
                     deadlineMs: Date.now() + FRESH_CONTEXT_BLUEPRINT_TIMEOUT_MS,
                     repairTimeoutMs: FRESH_CONTEXT_BLUEPRINT_TIMEOUT_MS,
+                    skipSubClaimGeneration: true,
                 });
 
                 try {
                     let validationFeedback: string[] = [];
-                    for (let attempt = 0; attempt < 2; attempt += 1) {
+                    const authoringAttempts = examFormat === "essay" ? 2 : 1;
+                    for (let attempt = 0; attempt < authoringAttempts; attempt += 1) {
+                        if (isFreshExamDeadlineExceeded(interactiveDeadlineMs, 5000)) {
+                            throw new ConvexError({
+                                code: "EXAM_GENERATION_TIMEOUT",
+                                message: "Fresh exam generation ran out of interactive budget.",
+                            });
+                        }
+
                         const prompt = examFormat === "essay"
                             ? buildFreshEssayExamPrompt({
                                 topic,
@@ -14961,6 +14886,7 @@ export const generateFreshExamSnapshotInternal = internalAction({
                                 evidence: effectiveEvidence,
                                 assessmentBlueprint,
                                 validationFeedback,
+                                forceQuestionType: "multiple_choice",
                             });
 
                         const response = await callInception([
@@ -14974,14 +14900,31 @@ export const generateFreshExamSnapshotInternal = internalAction({
                         ], DEFAULT_MODEL, {
                             maxTokens: examFormat === "essay" ? 3200 : 5200,
                             responseFormat: "json_object",
-                            timeoutMs: FRESH_CONTEXT_AUTHORING_TIMEOUT_MS,
+                            timeoutMs: Math.max(
+                                5000,
+                                Math.min(
+                                    examFormat === "essay"
+                                        ? FRESH_CONTEXT_AUTHORING_TIMEOUT_MS
+                                        : 30000,
+                                    getFreshExamRemainingMs(interactiveDeadlineMs, 3000),
+                                ),
+                            ),
                             temperature: 0.2,
                         });
 
                         const parsed = await parseFreshExamQuestionsWithRepair(
                             response,
                             examFormat === "essay" ? "essay" : "objective",
-                            { repairTimeoutMs: FRESH_CONTEXT_AUTHORING_TIMEOUT_MS }
+                            {
+                                deadlineMs: interactiveDeadlineMs,
+                                repairTimeoutMs: Math.max(
+                                    1500,
+                                    Math.min(
+                                        FRESH_CONTEXT_AUTHORING_TIMEOUT_MS,
+                                        getFreshExamRemainingMs(interactiveDeadlineMs, 2000),
+                                    ),
+                                ),
+                            }
                         );
                         const rawQuestions = Array.isArray(parsed?.questions) ? parsed.questions : [];
                         const normalizedQuestions = examFormat === "essay"
@@ -14999,6 +14942,7 @@ export const generateFreshExamSnapshotInternal = internalAction({
                                 requestedCount,
                                 evidenceIndex: effectiveIndex,
                                 assessmentBlueprint,
+                                enforceMix: false,
                             });
 
                         if (validation.valid) {
@@ -15020,79 +14964,19 @@ export const generateFreshExamSnapshotInternal = internalAction({
                         }
 
                         validationFeedback = validation.errors.slice(0, 8);
-                    }
-
-                    if (examFormat === "mcq") {
-                        const fallbackCounts = objectiveCountCandidates.length > 0
-                            ? objectiveCountCandidates
-                            : [requestedCount];
-
-                        for (const fallbackCount of fallbackCounts) {
-                            const fallbackPrompt = buildFreshObjectiveExamPrompt({
-                                topic,
-                                requestedCount: fallbackCount,
-                                evidence: effectiveEvidence,
-                                assessmentBlueprint,
-                                validationFeedback: [
-                                    ...validationFeedback,
-                                    fallbackCount === requestedCount
-                                        ? "Fallback mode: generate only multiple_choice questions while keeping exact count and citations."
-                                        : `Fallback mode: generate only multiple_choice questions. Reduce the count to ${fallbackCount} so the set stays valid and well grounded.`,
-                                ],
-                                forceQuestionType: "multiple_choice",
+                        console.warn("[FreshExam] validation_failed", {
+                            topicId: String(topic?._id || ""),
+                            examFormat,
+                            attempt,
+                            requestedCount,
+                            errors: validation.errors.slice(0, 5),
+                            warnings: validation.warnings.slice(0, 5),
+                        });
+                        if (attempt === 0 && isFreshExamDeadlineExceeded(interactiveDeadlineMs, 18000)) {
+                            throw new ConvexError({
+                                code: "EXAM_GENERATION_TIMEOUT",
+                                message: "Fresh exam validation exhausted the interactive budget.",
                             });
-
-                            const fallbackResponse = await callInception([
-                                {
-                                    role: "system",
-                                    content: "You are an expert exam author. Return valid JSON only.",
-                                },
-                                { role: "user", content: fallbackPrompt },
-                            ], DEFAULT_MODEL, {
-                                maxTokens: 5200,
-                                responseFormat: "json_object",
-                                timeoutMs: FRESH_CONTEXT_AUTHORING_TIMEOUT_MS,
-                                temperature: 0.2,
-                            });
-
-                            const fallbackParsed = await parseFreshExamQuestionsWithRepair(
-                                fallbackResponse,
-                                "objective",
-                                { repairTimeoutMs: FRESH_CONTEXT_AUTHORING_TIMEOUT_MS }
-                            );
-                            const fallbackRawQuestions = Array.isArray(fallbackParsed?.questions) ? fallbackParsed.questions : [];
-                            const fallbackQuestions = fallbackRawQuestions.map((question, index) =>
-                                normalizeFreshObjectiveQuestion(question, index, assessmentBlueprint)
-                            );
-                            const fallbackValidation = validateFreshObjectiveExamSet({
-                                questions: fallbackQuestions,
-                                requestedCount: fallbackCount,
-                                evidenceIndex: effectiveIndex,
-                                assessmentBlueprint,
-                                enforceMix: false,
-                            });
-
-                            if (fallbackValidation.valid) {
-                                const snapshot = buildFreshExamSnapshot({
-                                    topic,
-                                    examFormat,
-                                    questions: fallbackQuestions,
-                                    evidence: effectiveEvidence,
-                                    questionMix: fallbackValidation.questionMix,
-                                    qualityTier: snapshotQualityTier,
-                                });
-                                return {
-                                    ...snapshot,
-                                    qualityWarnings: [
-                                        ...(Array.isArray(fallbackValidation.warnings) ? fallbackValidation.warnings : []),
-                                        "objective-fallback-mcq-only",
-                                        ...(fallbackCount < requestedCount ? [`objective-fallback-reduced-count:${fallbackCount}`] : []),
-                                        ...(snapshotQualityTier === "unverified" ? ["unverified-synthetic-evidence"] : []),
-                                    ],
-                                };
-                            }
-
-                            validationFeedback = fallbackValidation.errors.slice(0, 8);
                         }
                     }
 
@@ -15102,6 +14986,13 @@ export const generateFreshExamSnapshotInternal = internalAction({
                             : [];
 
                         for (const fallbackCount of essayFallbackCounts) {
+                            if (isFreshExamDeadlineExceeded(interactiveDeadlineMs, 8000)) {
+                                throw new ConvexError({
+                                    code: "EXAM_GENERATION_TIMEOUT",
+                                    message: "Fresh essay fallback authoring ran out of interactive budget.",
+                                });
+                            }
+
                             const fallbackPrompt = buildFreshEssayExamPrompt({
                                 topic,
                                 requestedCount: fallbackCount,
@@ -15122,14 +15013,29 @@ export const generateFreshExamSnapshotInternal = internalAction({
                             ], DEFAULT_MODEL, {
                                 maxTokens: 3200,
                                 responseFormat: "json_object",
-                                timeoutMs: FRESH_CONTEXT_AUTHORING_TIMEOUT_MS,
+                                timeoutMs: Math.max(
+                                    5000,
+                                    Math.min(
+                                        FRESH_CONTEXT_AUTHORING_TIMEOUT_MS,
+                                        getFreshExamRemainingMs(interactiveDeadlineMs, 3000),
+                                    ),
+                                ),
                                 temperature: 0.2,
                             });
 
                             const fallbackParsed = await parseFreshExamQuestionsWithRepair(
                                 fallbackResponse,
                                 "essay",
-                                { repairTimeoutMs: FRESH_CONTEXT_AUTHORING_TIMEOUT_MS }
+                                {
+                                    deadlineMs: interactiveDeadlineMs,
+                                    repairTimeoutMs: Math.max(
+                                        1500,
+                                        Math.min(
+                                            FRESH_CONTEXT_AUTHORING_TIMEOUT_MS,
+                                            getFreshExamRemainingMs(interactiveDeadlineMs, 2000),
+                                        ),
+                                    ),
+                                }
                             );
                             const fallbackRawQuestions = Array.isArray(fallbackParsed?.questions) ? fallbackParsed.questions : [];
                             const fallbackQuestions = fallbackRawQuestions.map((question, index) =>
@@ -15172,21 +15078,16 @@ export const generateFreshExamSnapshotInternal = internalAction({
                             : "We couldn't generate a valid objective exam from this topic right now. Please try again.",
                     });
                 } catch (error) {
-                    if (!isFreshExamAuthoringFallbackEligibleError(error)) {
-                        throw error;
-                    }
-                    console.warn("[FreshExam] deterministic_fallback_after_authoring_failure", {
+                    console.warn("[FreshExam] authoring_failed_without_deterministic_fallback", {
                         topicId: String(topic?._id || ""),
                         examFormat,
                         reason: String((error as any)?.message || error || "").slice(0, 220),
                     });
-                    return buildDeterministicFreshExamFallbackSnapshot({
-                        topic,
-                        examFormat,
-                        requestedCount,
-                        evidence: effectiveEvidence,
-                        assessmentBlueprint,
-                        reason: "authoring-timeout",
+                    throw new ConvexError({
+                        code: "EXAM_GENERATION_FAILED",
+                        message: examFormat === "essay"
+                            ? "We couldn't generate a valid essay exam from this topic right now. Please try again."
+                            : "We couldn't generate a valid objective exam from this topic right now. Please try again.",
                     });
                 }
             }
@@ -16016,7 +15917,7 @@ export const generateExamFeedback = action({
 
         const userId = authUserId || attempt.userId;
         return await runWithLlmUsageContext(ctx, userId, "exam_feedback", async () => {
-            const profile: any = await ctx.runQuery(api.profiles.getProfile, { userId });
+            const profile: any = await ctx.runQuery(internal.profiles.getProfileByUserIdInternal, { userId });
 
             const userName: string = profile?.fullName || "Student";
             const educationLevel: string = profile?.educationLevel || "";
@@ -16342,7 +16243,7 @@ export const reExplainTopic = action({
         const userId = resolveAuthUserId(identity);
         if (!userId) throw new Error("Not authenticated");
         return await runWithLlmUsageContext(ctx, userId, "re_explain", async () => {
-            await ctx.runMutation(api.subscriptions.consumeReExplainCreditOrThrow, { userId });
+            await ctx.runMutation(internal.subscriptions.consumeReExplainCreditOrThrowInternal, { userId });
 
             let performanceContext = "";
             try {
@@ -16732,7 +16633,7 @@ export const explainSelection = action({
         let educationLevel = "undergrad";
         if (userId) {
             try {
-                const profile: any = await ctx.runQuery(api.profiles.getProfileByUserId, { userId });
+                const profile: any = await ctx.runQuery(internal.profiles.getProfileByUserIdInternal, { userId });
                 if (profile?.educationLevel) {
                     educationLevel = profile.educationLevel;
                 }
@@ -16853,7 +16754,7 @@ export const humanizeText = action({
                 throw new ConvexError("Text is too long. Maximum 50,000 characters.");
             }
 
-            await ctx.runMutation(api.subscriptions.consumeHumanizerCreditOrThrow, { userId: authUserId });
+            await ctx.runMutation(internal.subscriptions.consumeHumanizerCreditOrThrowInternal, { userId: authUserId });
 
             const inputText = args.text.trim();
             const style = args.style || DEFAULT_HUMANIZE_STYLE;
@@ -16902,7 +16803,7 @@ export const humanizeWithVerification = action({
                 throw new ConvexError("Text is too long. Maximum 50,000 characters.");
             }
 
-            await ctx.runMutation(api.subscriptions.consumeHumanizerCreditOrThrow, { userId: authUserId });
+            await ctx.runMutation(internal.subscriptions.consumeHumanizerCreditOrThrowInternal, { userId: authUserId });
 
             const style = args.style || DEFAULT_HUMANIZE_STYLE;
             const strength = resolveStrength(args.strength);

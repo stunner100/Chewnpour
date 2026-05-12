@@ -3,7 +3,7 @@
 ## Repo Layout
 - This repository contains two active projects:
 - `stitch-app/`: React + Vite frontend with Convex functions.
-- `doctra-service/`: Python package plus FastAPI extraction service (`render_api`).
+- `docling-service/`: Python package plus FastAPI Docling extraction service (`render_api`).
 
 ## Global Rules
 - Bugs: add a regression test when it fits.
@@ -11,6 +11,7 @@
 - Do not commit secrets; use environment variables from `stitch-app/.env.example`.
 - Do not manually edit generated Convex files in `stitch-app/convex/_generated/`.
 - Use a hard cutover approach and never implement backward compatibility.
+- Do not assume hosting, deployment targets, or runtime infrastructure from partial config or prior context. If the target is unclear, verify it from the repo, provider dashboards/CLIs, or the user before deploying or describing production state.
 - Any time you make a change, create a git commit for that work and push it to GitHub unless the user explicitly says not to.
 
 ## stitch-app Workflow
@@ -24,8 +25,8 @@
 - Convex schema/functions live in `stitch-app/convex/*.ts`.
 - If schema or API signatures change, regenerate Convex outputs through the CLI (for example `npx convex dev`) instead of hand-editing `_generated`.
 
-## doctra-service Workflow
-- Setup: `cd doctra-service && python -m venv .venv && source .venv/bin/activate && pip install -e ".[dev]"`.
+## docling-service Workflow
+- Setup: `cd docling-service && python -m venv .venv && source .venv/bin/activate && pip install -e ".[dev]"`.
 - Test: `pytest` (or targeted `pytest tests/test_render_api_utils.py`).
 - Run API locally: `uvicorn render_api.app:app --reload --port 10000`.
 - System dependencies for full PDF extraction: Poppler and Tesseract (`poppler-utils`, `tesseract-ocr`).

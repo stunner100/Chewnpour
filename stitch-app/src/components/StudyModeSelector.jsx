@@ -72,14 +72,14 @@ const StudyModeSelector = ({ topicTitle, onSelect, onSkip, onStartExam }) => {
                         onClick={onSkip}
                         className="btn-ghost text-caption text-text-faint-light dark:text-text-faint-dark"
                     >
-                        Skip — view full lesson
+                        Skip, view full lesson
                     </button>
                 </div>
 
                 {typeof onStartExam === 'function' && (
                     <div className="mt-4 rounded-2xl border border-border-light dark:border-border-dark bg-surface-soft-light/80 dark:bg-surface-soft-dark/60 p-4">
                         <div className="flex items-start gap-3">
-                            <div className="w-10 h-10 rounded-xl bg-primary/10 text-primary flex items-center justify-center shrink-0">
+                            <div className="size-10 rounded-xl bg-primary/10 text-primary flex items-center justify-center shrink-0">
                                 <span className="material-symbols-outlined text-[20px]">quiz</span>
                             </div>
                             <div className="min-w-0 flex-1">

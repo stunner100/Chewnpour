@@ -1,0 +1,167 @@
+- generic [ref=e7]:
+  - complementary [ref=e8]:
+    - generic [ref=e9]:
+      - link "ChewnPour home" [ref=e10] [cursor=pointer]:
+        - /url: /dashboard
+        - generic [ref=e11]:
+          - img [ref=e12]
+          - img [ref=e14]
+        - generic [ref=e15]: ChewnPour
+      - button "menu_open" [ref=e16] [cursor=pointer]:
+        - generic [ref=e17]: menu_open
+    - navigation [ref=e18]:
+      - link "space_dashboard Dashboard" [ref=e19] [cursor=pointer]:
+        - /url: /dashboard
+        - generic [ref=e20]: space_dashboard
+        - generic [ref=e21]: Dashboard
+      - link "auto_stories Library" [ref=e22] [cursor=pointer]:
+        - /url: /dashboard/search
+        - generic [ref=e23]: auto_stories
+        - generic [ref=e24]: Library
+      - link "event_note Study Plan" [ref=e25] [cursor=pointer]:
+        - /url: /dashboard/analysis
+        - generic [ref=e26]: event_note
+        - generic [ref=e27]: Study Plan
+      - link "edit_note Assignments" [ref=e28] [cursor=pointer]:
+        - /url: /dashboard/assignment-helper
+        - generic [ref=e29]: edit_note
+        - generic [ref=e30]: Assignments
+      - link "auto_fix_high Humanizer" [ref=e31] [cursor=pointer]:
+        - /url: /dashboard/humanizer
+        - generic [ref=e32]: auto_fix_high
+        - generic [ref=e33]: Humanizer
+      - link "forum Community" [ref=e34] [cursor=pointer]:
+        - /url: /dashboard/community
+        - generic [ref=e35]: forum
+        - generic [ref=e36]: Community
+    - generic [ref=e37]:
+      - link "workspace_premium Subscription" [ref=e38] [cursor=pointer]:
+        - /url: /subscription
+        - generic [ref=e39]: workspace_premium
+        - generic [ref=e40]: Subscription
+      - link "person Profile" [ref=e41] [cursor=pointer]:
+        - /url: /profile
+        - generic [ref=e42]: person
+        - generic [ref=e43]: Profile
+      - generic [ref=e44]:
+        - generic [ref=e45]: S
+        - paragraph [ref=e47]: Student
+  - main [ref=e48]:
+    - generic [ref=e49]:
+      - generic [ref=e50]:
+        - generic [ref=e51]:
+          - generic [ref=e52]:
+            - generic [ref=e53]: Welcome back
+            - heading "Browser Exam Gate" [level=1] [ref=e54]
+          - generic [ref=e55]: Free
+        - generic [ref=e56]:
+          - generic [ref=e57]:
+            - generic [ref=e58]: search
+            - textbox "Search courses, topics, podcasts…" [ref=e59]
+          - generic [ref=e60]:
+            - generic [ref=e61]: local_fire_department
+            - generic [ref=e62]: 1d
+          - button "Switch to focus (dark) mode" [ref=e63] [cursor=pointer]:
+            - generic [ref=e64]: dark_mode
+          - link "Profile" [ref=e65] [cursor=pointer]:
+            - /url: /profile
+            - generic [ref=e66]: BE
+      - generic [ref=e68]:
+        - generic [ref=e70]:
+          - generic [ref=e71]:
+            - generic [ref=e72]
+            - heading "Turn your documents into a personal study system" [level=1] [ref=e74]
+            - paragraph [ref=e75]: Upload PDFs, slides, or Word docs. ChewnPour creates lessons, summaries, quizzes, flashcards, podcasts, and weak-concept reviews automatically.
+            - generic [ref=e76]
+            - generic [ref=e81]
+          - generic [ref=e89]:
+            - generic [ref=e90]: auto_stories
+            - paragraph [ref=e91]: Drop a file, get a course
+            - paragraph [ref=e92]: Lessons · Quizzes · Flashcards · Podcasts
+            - generic [ref=e93]
+        - generic [ref=e100]:
+          - generic [ref=e101]:
+            - generic [ref=e103]: rocket_launch
+            - generic [ref=e104]
+          - link "Upgrade" [ref=e107] [cursor=pointer]:
+            - /url: /subscription
+        - generic [ref=e108]:
+          - generic [ref=e109]:
+            - generic [ref=e110]
+            - generic [ref=e113]
+          - list [ref=e115]:
+            - listitem [ref=e116]
+            - listitem [ref=e130]
+            - listitem [ref=e144]
+        - generic [ref=e159]:
+          - generic [ref=e160]:
+            - generic [ref=e161]: menu_book
+            - generic [ref=e162]
+          - generic [ref=e164]:
+            - generic [ref=e165]
+            - generic [ref=e170]
+            - generic [ref=e176]
+        - generic [ref=e183]:
+          - generic [ref=e185]:
+            - heading "Study podcasts" [level=2] [ref=e186]
+            - paragraph [ref=e187]: Turn your slides into an audio lesson and revise on the go.
+          - generic [ref=e188]:
+            - generic [ref=e190]
+            - generic [ref=e197]
+        - generic [ref=e204]:
+          - generic [ref=e206]: check_circle
+          - generic [ref=e207]:
+            - heading "You're all caught up" [level=3] [ref=e208]
+            - paragraph [ref=e209]: New weak concepts will appear after you complete quizzes or lessons.
+        - generic [ref=e210]:
+          - heading "Quick actions" [level=2] [ref=e211]
+          - generic [ref=e212]:
+            - link "quiz Generate Quiz Make a quiz from any uploaded material. arrow_forward" [ref=e213] [cursor=pointer]:
+              - /url: /dashboard/course/jh7djvkyp5gc0rd174kfw0gveh85y5t3?action=quiz
+            - link "style Study Word Bank Review key terms inside any topic lesson. arrow_forward" [ref=e223] [cursor=pointer]:
+              - /url: /dashboard/course/jh7djvkyp5gc0rd174kfw0gveh85y5t3?action=flashcards
+            - link "podcasts Generate Podcast Turn a topic into an audio lesson. arrow_forward" [ref=e233] [cursor=pointer]:
+              - /url: /dashboard/podcasts?generate=1
+            - link "auto_fix_high Humanize Notes New Polish AI text to sound natural. arrow_forward" [ref=e243] [cursor=pointer]:
+              - /url: /dashboard/humanizer
+            - link "forum Join Community Study alongside peers in your courses. arrow_forward" [ref=e254] [cursor=pointer]:
+              - /url: /dashboard/community
+        - generic [ref=e264]:
+          - generic [ref=e266]:
+            - heading "Your courses" [level=2] [ref=e267]
+            - paragraph [ref=e268]: Tap any course to keep learning.
+          - generic [ref=e269]:
+            - 'link "Actions for Photosynthesis: How Plants Convert Sunlight into Energy menu_book In Progress 17% Photosynthesis: How Plants Convert Sunlight into Energy Learn the basics of photosynthesis, including the key processes and factors that affect how plants make food from sunlight." [ref=e270] [cursor=pointer]':
+              - /url: /dashboard/course/jh7djvkyp5gc0rd174kfw0gveh85y5t3
+            - button "add Add Course PDF, PPTX, DOCX" [ref=e285] [cursor=pointer]
+        - generic [ref=e290]:
+          - generic [ref=e291]:
+            - heading "Folders" [level=2] [ref=e292]
+            - button "create_new_folder New folder" [ref=e293] [cursor=pointer]
+          - generic [ref=e295]:
+            - generic [ref=e297]: folder
+            - paragraph [ref=e298]: No folders yet. Create one to organize your courses.
+        - generic [ref=e299]:
+          - generic [ref=e301]:
+            - heading "Progress snapshot" [level=2] [ref=e302]
+            - paragraph [ref=e303]: Your mastery across all uploaded materials.
+          - generic [ref=e304]:
+            - generic [ref=e305]
+            - generic [ref=e317]
+          - generic [ref=e351]:
+            - generic [ref=e352]
+            - list [ref=e355]
+        - generic [ref=e360]:
+          - generic [ref=e361]:
+            - generic [ref=e363]: rate_review
+            - generic [ref=e364]
+          - generic [ref=e367]:
+            - button "Rate 1 star" [ref=e368] [cursor=pointer]
+            - button "Rate 2 stars" [ref=e370] [cursor=pointer]
+            - button "Rate 3 stars" [ref=e372] [cursor=pointer]
+            - button "Rate 4 stars" [ref=e374] [cursor=pointer]
+            - button "Rate 5 stars" [ref=e376] [cursor=pointer]
+          - textbox "What can we do better? Any features you'd love to see?" [ref=e378]
+          - button "send Send Feedback" [disabled] [ref=e380]:
+            - generic [ref=e381]: send
+            - text: Send Feedback

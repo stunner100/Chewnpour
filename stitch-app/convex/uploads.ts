@@ -1,43 +1,12 @@
 import { ConvexError, v } from "convex/values";
-import { mutation, query } from "./_generated/server";
+import { internalMutation, internalQuery, mutation, query } from "./_generated/server";
 import type { Id } from "./_generated/dataModel";
 import {
     consumeUploadCreditOrThrow,
     getHistoricalStoredUploadCount,
 } from "./subscriptions";
 import { GROUNDED_EVIDENCE_INDEX_VERSION } from "./lib/groundedEvidenceIndex";
-
-const resolveAuthUserId = (identity: any) => {
-    if (!identity || typeof identity !== "object") return "";
-    const candidates = [
-        identity.subject,
-        identity.userId,
-        identity.id,
-        identity.tokenIdentifier,
-    ];
-    for (const candidate of candidates) {
-        if (typeof candidate === "string" && candidate.trim()) {
-            return candidate.trim();
-        }
-    }
-    return "";
-};
-
-const assertAuthorizedUser = (identity: any, userId: string) => {
-    const authUserId = resolveAuthUserId(identity);
-    if (!authUserId) {
-        throw new ConvexError({
-            code: "UNAUTHENTICATED",
-            message: "You must be signed in to upload files.",
-        });
-    }
-    if (authUserId !== userId) {
-        throw new ConvexError({
-            code: "UNAUTHORIZED",
-            message: "You do not have permission to upload for this user.",
-        });
-    }
-};
+import { assertOwnerUserId, requireAuthenticatedUserId } from "./lib/authz";
 
 const isUploadQuotaExceededError = (error: unknown) => {
     return error instanceof ConvexError
@@ -60,14 +29,7 @@ const isAuthenticationError = (error: unknown) => {
 export const generateUploadUrl = mutation({
     args: {},
     handler: async (ctx) => {
-        const identity = await ctx.auth.getUserIdentity();
-        const authUserId = resolveAuthUserId(identity);
-        if (!authUserId) {
-            throw new ConvexError({
-                code: "UNAUTHENTICATED",
-                message: "You must be signed in to upload files.",
-            });
-        }
+        await requireAuthenticatedUserId(ctx);
         return await ctx.storage.generateUploadUrl();
     },
 });
@@ -75,16 +37,15 @@ export const generateUploadUrl = mutation({
 // Create upload record after file is stored
 export const createUpload = mutation({
     args: {
-        userId: v.string(),
         fileName: v.string(),
         fileType: v.optional(v.string()),
         fileSize: v.optional(v.number()),
         storageId: v.id("_storage"),
     },
     handler: async (ctx, args) => {
-        const identity = await ctx.auth.getUserIdentity();
+        let userId = "";
         try {
-            assertAuthorizedUser(identity, args.userId);
+            userId = await requireAuthenticatedUserId(ctx);
         } catch (error) {
             if (isAuthenticationError(error)) {
                 await ctx.storage.delete(args.storageId).catch(() => undefined);
@@ -92,10 +53,10 @@ export const createUpload = mutation({
             throw error;
         }
 
-        const historicalStoredUploadCount = await getHistoricalStoredUploadCount(ctx, args.userId);
+        const historicalStoredUploadCount = await getHistoricalStoredUploadCount(ctx, userId);
 
         try {
-            await consumeUploadCreditOrThrow(ctx, args.userId, historicalStoredUploadCount);
+            await consumeUploadCreditOrThrow(ctx, userId, historicalStoredUploadCount);
         } catch (error) {
             if (isUploadQuotaExceededError(error)) {
                 await ctx.storage.delete(args.storageId).catch(() => undefined);
@@ -107,7 +68,7 @@ export const createUpload = mutation({
         const fileUrl = await ctx.storage.getUrl(args.storageId);
 
         const uploadId = await ctx.db.insert("uploads", {
-            userId: args.userId,
+            userId,
             fileName: args.fileName,
             fileUrl: fileUrl || "",
             fileType: args.fileType,
@@ -131,7 +92,7 @@ export const createUpload = mutation({
         try {
             const profile = await ctx.db
                 .query("profiles")
-                .withIndex("by_userId", (q) => q.eq("userId", args.userId))
+                .withIndex("by_userId", (q) => q.eq("userId", userId))
                 .first();
 
             if (profile?.referredBy && !profile.referralCreditApplied) {
@@ -145,7 +106,7 @@ export const createUpload = mutation({
                     // Grant +1 credit to referee
                     const refereeSub = await ctx.db
                         .query("subscriptions")
-                        .withIndex("by_userId", (q) => q.eq("userId", args.userId))
+                        .withIndex("by_userId", (q) => q.eq("userId", userId))
                         .first();
                     if (refereeSub) {
                         await ctx.db.patch(refereeSub._id, {
@@ -189,10 +150,9 @@ export const createUpload = mutation({
 
 // Get all uploads for a user
 export const getUserUploads = query({
-    args: { userId: v.optional(v.string()) },
-    handler: async (ctx, args) => {
-        const userId = args.userId;
-        if (!userId) return [];
+    args: {},
+    handler: async (ctx) => {
+        const userId = await requireAuthenticatedUserId(ctx);
 
         const uploads = await ctx.db
             .query("uploads")
@@ -208,12 +168,23 @@ export const getUserUploads = query({
 export const getUpload = query({
     args: { uploadId: v.id("uploads") },
     handler: async (ctx, args) => {
+        const userId = await requireAuthenticatedUserId(ctx);
+        const upload = await ctx.db.get(args.uploadId);
+        if (!upload) return null;
+        assertOwnerUserId({ authenticatedUserId: userId, ownerUserId: upload.userId });
+        return upload;
+    },
+});
+
+export const getUploadInternal = internalQuery({
+    args: { uploadId: v.id("uploads") },
+    handler: async (ctx, args) => {
         return await ctx.db.get(args.uploadId);
     },
 });
 
 // Update upload status
-export const updateUploadStatus = mutation({
+export const updateUploadStatusInternal = internalMutation({
     args: {
         uploadId: v.id("uploads"),
         status: v.optional(v.string()),
@@ -351,7 +322,9 @@ export const updateUploadStatus = mutation({
 export const deleteUpload = mutation({
     args: { uploadId: v.id("uploads") },
     handler: async (ctx, args) => {
+        const userId = await requireAuthenticatedUserId(ctx);
         const upload = await ctx.db.get(args.uploadId);
+        assertOwnerUserId({ authenticatedUserId: userId, ownerUserId: upload?.userId });
         if (upload && upload.storageId) {
             await ctx.storage.delete(upload.storageId);
         }

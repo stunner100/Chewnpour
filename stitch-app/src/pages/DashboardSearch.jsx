@@ -1,228 +1,552 @@
 import React from 'react';
-import { Link, useSearchParams } from 'react-router-dom';
-import { useQuery } from 'convex/react';
+import { useMutation, useQuery } from 'convex/react';
 import { api } from '../../convex/_generated/api';
+import { useAuth } from '../contexts/AuthContext';
+import { uploadToStorageWithRetry } from '../lib/uploadNetworkResilience';
+import { MagicCard } from '../components/magicui/MagicCard';
+import { OrbitingCircles } from '../components/magicui/OrbitingCircles';
+import { WatermelonChoiceChips } from '../components/watermelon/WatermelonChoiceChips';
+import { WatermelonFilterBar, WatermelonFilterGroup } from '../components/watermelon/WatermelonFilters';
+import { WatermelonSkeleton, WatermelonSkeletonCard } from '../components/watermelon/WatermelonSkeleton';
 
-const RESULT_GROUPS = [
-    { key: 'courses', label: 'Courses', icon: 'local_library', badge: 'Course' },
-    { key: 'topics', label: 'Topics', icon: 'menu_book', badge: 'Topic' },
-    { key: 'notes', label: 'Notes', icon: 'sticky_note_2', badge: 'Note' },
+const ACCEPTED_LIBRARY_TYPES = [
+    'application/pdf',
+    'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    'application/msword',
+    'application/epub+zip',
+    'text/plain',
 ];
 
-const escapeRegExp = (value) => String(value || '').replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+const ACCEPTED_EXTENSIONS = ['.pdf', '.doc', '.docx', '.epub', '.txt'];
 
-const getHighlightPattern = (query) => {
-    const tokens = Array.from(
-        new Set(
-            String(query || '')
-                .trim()
-                .split(/[^a-zA-Z0-9]+/)
-                .map((token) => token.trim())
-                .filter((token) => token.length >= 2)
-        )
-    );
-    if (tokens.length === 0) return null;
-    return new RegExp(`(${tokens.map(escapeRegExp).join('|')})`, 'ig');
+const initialLibraryState = {
+    searchQuery: '',
+    selectedFile: null,
+    title: '',
+    description: '',
+    uploadError: '',
+    uploadSuccess: '',
+    isUploading: false,
+    isDragOver: false,
+    selectedTypes: [],
 };
 
-const renderHighlightedText = (text, query) => {
-    const safeText = String(text || '');
-    const pattern = getHighlightPattern(query);
-    if (!pattern) return safeText;
+const libraryReducer = (state, action) => {
+    switch (action.type) {
+        case 'fieldChanged':
+            return {
+                ...state,
+                [action.field]: action.value,
+            };
+        case 'fileSelected':
+            return {
+                ...state,
+                selectedFile: action.file,
+                title: action.title,
+                uploadError: '',
+                uploadSuccess: '',
+            };
+        case 'dragChanged':
+            return {
+                ...state,
+                isDragOver: action.isDragOver,
+            };
+        case 'uploadStarted':
+            return {
+                ...state,
+                uploadError: '',
+                uploadSuccess: '',
+                isUploading: true,
+            };
+        case 'uploadFailed':
+            return {
+                ...state,
+                uploadError: action.error,
+                isUploading: false,
+            };
+        case 'uploadSucceeded':
+            return {
+                ...state,
+                selectedFile: null,
+                title: '',
+                description: '',
+                uploadSuccess: 'Material added to the shared library.',
+                isUploading: false,
+            };
+        case 'clearFilters':
+            return {
+                ...state,
+                selectedTypes: [],
+                searchQuery: '',
+            };
+        default:
+            return state;
+    }
+};
+const MATERIAL_DATE_FORMATTER = new Intl.DateTimeFormat(undefined, {
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric',
+});
 
-    return safeText.split(pattern).map((part, index) => {
-        if (!part) return null;
-        return index % 2 === 1
-            ? (
-                <mark
-                    key={`${part}-${index}`}
-                    className="bg-primary/15 text-primary px-0.5 rounded-sm"
-                >
-                    {part}
-                </mark>
-            )
-            : <React.Fragment key={`${part}-${index}`}>{part}</React.Fragment>;
-    });
+const formatFileSize = (size) => {
+    const bytes = Number(size || 0);
+    if (!bytes) return 'Unknown size';
+    if (bytes < 1024 * 1024) return `${Math.max(1, Math.round(bytes / 1024))} KB`;
+    return `${(bytes / (1024 * 1024)).toFixed(bytes >= 10 * 1024 * 1024 ? 0 : 1)} MB`;
 };
 
+const toTimestamp = (value) => {
+    if (typeof value === 'number') return value;
+    const numeric = Number(value);
+    if (Number.isFinite(numeric)) return numeric;
+    const parsed = Date.parse(String(value || ''));
+    return Number.isFinite(parsed) ? parsed : null;
+};
+
+const formatMaterialDate = (value) => {
+    const timestamp = toTimestamp(value);
+    return timestamp ? MATERIAL_DATE_FORMATTER.format(timestamp) : 'Unknown date';
+};
+
+const inferTitleFromFile = (fileName) =>
+    String(fileName || '')
+        .replace(/\.(pdf|docx?|epub|txt)$/i, '')
+        .replace(/[-_]+/g, ' ')
+        .replace(/\s+/g, ' ')
+        .trim();
+
+const getFileTypeLabel = (material) => {
+    const name = String(material?.fileName || '').toLowerCase();
+    if (name.endsWith('.pdf')) return 'PDF';
+    if (name.endsWith('.doc') || name.endsWith('.docx')) return 'Word';
+    if (name.endsWith('.epub')) return 'EPUB';
+    if (name.endsWith('.txt')) return 'Text';
+    return material?.fileType?.split('/').pop()?.toUpperCase() || 'File';
+};
+
+const LibraryMaterialCard = ({ material }) => (
+    <MagicCard className="rounded-2xl">
+        <article className="card-base p-4 md:p-5 flex flex-col gap-4">
+        <div className="flex items-start gap-3">
+            <div className="size-11 rounded-xl bg-primary/8 dark:bg-primary/15 flex items-center justify-center shrink-0">
+                <span className="material-symbols-outlined text-[22px] text-primary">menu_book</span>
+            </div>
+            <div className="min-w-0 flex-1">
+                <div className="flex items-start justify-between gap-3">
+                    <h2 className="text-body-base font-semibold text-text-main-light dark:text-text-main-dark leading-snug line-clamp-2">
+                        {material.title}
+                    </h2>
+                    <span className="badge badge-primary shrink-0">{getFileTypeLabel(material)}</span>
+                </div>
+                <p className="text-caption text-text-faint-light dark:text-text-faint-dark mt-1">
+                    Shared by {material.uploaderName} · {formatMaterialDate(material.createdAt)} · {formatFileSize(material.fileSize)}
+                </p>
+            </div>
+        </div>
+
+        {material.description && (
+            <p className="text-body-sm text-text-sub-light dark:text-text-sub-dark line-clamp-3">
+                {material.description}
+            </p>
+        )}
+
+        <div className="flex items-center gap-2 mt-auto">
+            <a
+                href={material.fileUrl || '#'}
+                target="_blank"
+                rel="noreferrer"
+                className="btn-primary text-body-sm px-4 py-2 inline-flex items-center gap-2"
+                aria-disabled={!material.fileUrl}
+            >
+                <span className="material-symbols-outlined text-[16px]">open_in_new</span>
+                Read
+            </a>
+            <span className="text-caption text-text-faint-light dark:text-text-faint-dark truncate">
+                {material.fileName}
+            </span>
+        </div>
+        </article>
+    </MagicCard>
+);
+
+// react-doctor-disable-next-line react-doctor/no-giant-component
 const DashboardSearch = () => {
-    const [searchParams, setSearchParams] = useSearchParams();
-    const query = searchParams.get('q') || '';
-    const [localQuery, setLocalQuery] = React.useState(query);
+    const { user } = useAuth();
+    const userId = user?.id;
+    const generateUploadUrl = useMutation(api.library.generateMaterialUploadUrl);
+    const createMaterial = useMutation(api.library.createMaterial);
 
-    React.useEffect(() => {
-        setLocalQuery(query);
-    }, [query]);
+    const [{
+        searchQuery,
+        selectedFile,
+        title,
+        description,
+        uploadError,
+        uploadSuccess,
+        isUploading,
+        isDragOver,
+        selectedTypes,
+    }, dispatchLibrary] = React.useReducer(libraryReducer, initialLibraryState);
+    const fileInputRef = React.useRef(null);
 
-    const normalizedQuery = query.trim();
-    const searchResults = useQuery(
-        api.search.searchDashboardContent,
-        normalizedQuery ? { query: normalizedQuery, limit: 8 } : 'skip'
-    );
+    const materials = useQuery(api.library.listMaterials, {
+        query: searchQuery.trim() || undefined,
+        limit: 60,
+    });
 
-    const groupedResults = RESULT_GROUPS.map((group) => ({
-        ...group,
-        items: Array.isArray(searchResults?.[group.key]) ? searchResults[group.key] : [],
-    }));
-
-    const handleSearchKeyDown = (event) => {
-        if (event.key !== 'Enter') return;
-
-        const trimmed = localQuery.trim();
-        if (trimmed) {
-            setSearchParams({ q: trimmed });
-            return;
-        }
-        setSearchParams({});
+    const handleFileChange = (file) => {
+        dispatchLibrary({
+            type: 'fileSelected',
+            file,
+            title: file && !title.trim() ? inferTitleFromFile(file.name) : title,
+        });
     };
 
-    const totalCount = Number(searchResults?.totalCount || 0);
-    const hasAnyResults = groupedResults.some((group) => group.items.length > 0);
+    const onInputChange = (event) => {
+        const file = event.target.files?.[0] || null;
+        if (file) handleFileChange(file);
+    };
+
+    const onDropzoneClick = () => {
+        fileInputRef.current?.click();
+    };
+
+    const onDragOver = (event) => {
+        event.preventDefault();
+        dispatchLibrary({ type: 'dragChanged', isDragOver: true });
+    };
+
+    const onDragLeave = (event) => {
+        event.preventDefault();
+        dispatchLibrary({ type: 'dragChanged', isDragOver: false });
+    };
+
+    const onDrop = (event) => {
+        event.preventDefault();
+        dispatchLibrary({ type: 'dragChanged', isDragOver: false });
+        const file = event.dataTransfer.files?.[0] || null;
+        if (file) handleFileChange(file);
+    };
+
+    const handleSubmit = async (event) => {
+        event.preventDefault();
+
+        if (!userId) {
+            dispatchLibrary({ type: 'uploadFailed', error: 'Please sign in to upload library materials.' });
+            return;
+        }
+        if (!selectedFile) {
+            dispatchLibrary({ type: 'uploadFailed', error: 'Choose a book or reading material to upload.' });
+            return;
+        }
+        if (!title.trim()) {
+            dispatchLibrary({ type: 'uploadFailed', error: 'Add a title so other students know what this is.' });
+            return;
+        }
+        if (selectedFile.type && !ACCEPTED_LIBRARY_TYPES.includes(selectedFile.type)) {
+            dispatchLibrary({ type: 'uploadFailed', error: 'Upload a PDF, Word document, EPUB, or text file.' });
+            return;
+        }
+
+        dispatchLibrary({ type: 'uploadStarted' });
+        try {
+            const uploadUrl = await generateUploadUrl();
+            const storageId = await uploadToStorageWithRetry({
+                uploadUrl,
+                file: selectedFile,
+                contentType: selectedFile.type || 'application/octet-stream',
+                maxAttempts: 3,
+            });
+
+            await createMaterial({
+                userId,
+                title: title.trim(),
+                description: description.trim() || undefined,
+                fileName: selectedFile.name,
+                fileType: selectedFile.type || undefined,
+                fileSize: selectedFile.size,
+                storageId,
+            });
+
+            dispatchLibrary({ type: 'uploadSucceeded' });
+            if (fileInputRef.current) fileInputRef.current.value = '';
+        } catch (error) {
+            dispatchLibrary({
+                type: 'uploadFailed',
+                error: error?.data?.message || error?.message || 'Could not upload this material.',
+            });
+        }
+    };
+
+    const isLoading = materials === undefined;
+    const hasMaterials = Array.isArray(materials) && materials.length > 0;
+
+    const typeCounts = React.useMemo(() => {
+        if (!materials) return { pdf: 0, docx: 0, epub: 0, txt: 0 };
+        return {
+            pdf: materials.filter(m => (m.fileName || '').toLowerCase().endsWith('.pdf')).length,
+            docx: materials.filter(m => { const n = (m.fileName || '').toLowerCase(); return n.endsWith('.doc') || n.endsWith('.docx'); }).length,
+            epub: materials.filter(m => (m.fileName || '').toLowerCase().endsWith('.epub')).length,
+            txt: materials.filter(m => (m.fileName || '').toLowerCase().endsWith('.txt')).length,
+        };
+    }, [materials]);
+
+    const filteredMaterials = React.useMemo(() => {
+        if (!materials) return [];
+        let result = materials;
+        if (searchQuery.trim()) {
+            const q = searchQuery.toLowerCase();
+            result = result.filter(m =>
+                (m.title || '').toLowerCase().includes(q) ||
+                (m.fileName || '').toLowerCase().includes(q)
+            );
+        }
+        if (selectedTypes.length > 0) {
+            result = result.filter(m => {
+                const name = (m.fileName || '').toLowerCase();
+                return selectedTypes.some(type => {
+                    if (type === 'pdf') return name.endsWith('.pdf');
+                    if (type === 'docx') return name.endsWith('.doc') || name.endsWith('.docx');
+                    if (type === 'epub') return name.endsWith('.epub');
+                    if (type === 'txt') return name.endsWith('.txt');
+                    return false;
+                });
+            });
+        }
+        return result;
+    }, [materials, searchQuery, selectedTypes]);
 
     return (
-        <div className="w-full max-w-4xl mx-auto px-4 md:px-8 py-8 pb-24 md:pb-12">
-            {/* Search input */}
-            <div className="mb-8">
-                <div className="relative">
-                    <span className="absolute left-4 top-1/2 -translate-y-1/2 material-symbols-outlined text-text-faint-light dark:text-text-faint-dark text-[20px]">
-                        search
-                    </span>
-                    <input
-                        className="input-lg pl-12 pr-4"
-                        placeholder="Search courses, topics, or notes..."
-                        type="text"
-                        value={localQuery}
-                        onChange={(event) => setLocalQuery(event.target.value)}
-                        onKeyDown={handleSearchKeyDown}
-                        autoFocus
-                    />
-                </div>
+        <div className="w-full max-w-6xl mx-auto px-4 md:px-8 py-8 pb-24 md:pb-12 space-y-8">
+            <div>
+                <h1 className="text-display-sm text-text-main-light dark:text-text-main-dark">Library</h1>
+                <p className="text-body-sm text-text-sub-light dark:text-text-sub-dark mt-1">
+                    Upload books and reading materials for everyone to read.
+                </p>
             </div>
 
-            {/* Results header */}
-            {normalizedQuery && (
-                <div className="mb-6">
-                    <h1 className="text-display-sm text-text-main-light dark:text-text-main-dark">
-                        Results for &ldquo;{normalizedQuery}&rdquo;
-                    </h1>
-                    {searchResults && (
-                        <p className="text-body-sm text-text-sub-light dark:text-text-sub-dark mt-1">
-                            {totalCount} result{totalCount === 1 ? '' : 's'} found
-                        </p>
-                    )}
-                </div>
-            )}
-
-            {/* Empty / no query state */}
-            {!normalizedQuery ? (
-                <div className="flex flex-col items-center justify-center py-20 text-center">
-                    <div className="w-16 h-16 rounded-2xl bg-surface-light dark:bg-surface-dark border border-border-light dark:border-border-dark flex items-center justify-center mb-5">
-                        <span className="material-symbols-outlined text-[28px] text-text-faint-light dark:text-text-faint-dark">search</span>
+            <form onSubmit={handleSubmit} className="card-base shadow-card p-5 md:p-6 space-y-5 border-l-[3px] border-l-primary/40 dark:border-l-primary/30">
+                <div className="flex items-center gap-3">
+                    <div className="size-10 rounded-xl bg-accent-emerald/10 flex items-center justify-center">
+                        <span className="material-symbols-outlined text-[20px] text-accent-emerald">upload_file</span>
                     </div>
-                    <h3 className="text-body-lg font-semibold text-text-main-light dark:text-text-main-dark mb-1">
-                        Search your study space
-                    </h3>
-                    <p className="text-body-sm text-text-sub-light dark:text-text-sub-dark max-w-sm">
-                        Find courses, topics, and notes across all your materials.
+                    <div>
+                        <h2 className="text-body-base font-semibold text-text-main-light dark:text-text-main-dark">
+                            Add reading material
+                        </h2>
+                        <p className="text-caption text-text-faint-light dark:text-text-faint-dark">
+                            PDF, Word, EPUB, and text files are visible to everyone in the library.
+                        </p>
+                    </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <label className="block">
+                        <span className="text-caption font-semibold text-text-sub-light dark:text-text-sub-dark">Title</span>
+                        <input
+                            type="text"
+                            value={title}
+                            onChange={(event) => dispatchLibrary({
+                                type: 'fieldChanged',
+                                field: 'title',
+                                value: event.target.value,
+                            })}
+                            className="input-field mt-1.5 text-body-sm"
+                            placeholder="e.g. Introduction to Economics"
+                            maxLength={160}
+                        />
+                    </label>
+                    <label className="block">
+                        <span className="text-caption font-semibold text-text-sub-light dark:text-text-sub-dark">Description</span>
+                        <input
+                            type="text"
+                            value={description}
+                            onChange={(event) => dispatchLibrary({
+                                type: 'fieldChanged',
+                                field: 'description',
+                                value: event.target.value,
+                            })}
+                            className="input-field mt-1.5 text-body-sm"
+                            placeholder="Short note about course, level, or why it is useful"
+                            maxLength={500}
+                        />
+                    </label>
+                </div>
+
+                <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept={ACCEPTED_EXTENSIONS.join(',') + ',application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/epub+zip,text/plain'}
+                    onChange={onInputChange}
+                    className="hidden"
+                    aria-hidden="true"
+                />
+
+                <button
+                    type="button"
+                    onClick={onDropzoneClick}
+                    onDragOver={onDragOver}
+                    onDragLeave={onDragLeave}
+                    onDrop={onDrop}
+                    className={[
+                        'group relative w-full rounded-2xl border-2 border-dashed transition-all duration-200 flex flex-col items-center justify-center gap-3 py-10 px-4 text-center',
+                        isDragOver
+                            ? 'border-primary bg-primary/5 dark:bg-primary/10'
+                            : 'border-border-light dark:border-border-dark hover:border-primary/40 dark:hover:border-primary/40 bg-surface-light dark:bg-surface-dark',
+                    ].join(' ')}
+                >
+                    <div className={[
+                        'size-12 rounded-2xl flex items-center justify-center transition-colors duration-200',
+                        isDragOver
+                            ? 'bg-primary/10 dark:bg-primary/20'
+                            : 'bg-surface-hover dark:bg-surface-hover-dark group-hover:bg-primary/8 dark:group-hover:bg-primary/15',
+                    ].join(' ')}>
+                        <span className={[
+                            'material-symbols-outlined text-[26px] transition-colors duration-200',
+                            isDragOver ? 'text-primary' : 'text-text-faint-light dark:text-text-faint-dark',
+                        ].join(' ')}>
+                            {selectedFile ? 'check_circle' : 'cloud_upload'}
+                        </span>
+                    </div>
+                    <div>
+                        <p className="text-body-sm font-medium text-text-main-light dark:text-text-main-dark">
+                            {selectedFile ? selectedFile.name : isDragOver ? 'Drop file to upload' : 'Click or drag file to upload'}
+                        </p>
+                        <p className="text-caption text-text-faint-light dark:text-text-faint-dark mt-0.5">
+                            {selectedFile
+                                ? `${formatFileSize(selectedFile.size)} · Click to change`
+                                : 'PDF, Word, EPUB, or plain text · Max 20 MB'}
+                        </p>
+                    </div>
+                </button>
+
+                {uploadError && (
+                    <p className="text-body-sm font-semibold text-red-600 dark:text-red-400">{uploadError}</p>
+                )}
+                {uploadSuccess && (
+                    <p className="text-body-sm font-semibold text-accent-emerald">{uploadSuccess}</p>
+                )}
+
+                <div className="flex items-center justify-between gap-4 pt-1">
+                    <p className="text-caption text-text-faint-light dark:text-text-faint-dark hidden md:block">
+                        Everyone in the community will be able to read this.
                     </p>
+                    <button
+                        type="submit"
+                        disabled={isUploading}
+                        className="btn-primary text-body-sm px-5 py-2.5 inline-flex items-center gap-2 disabled:opacity-60 disabled:cursor-not-allowed ml-auto"
+                    >
+                        <span className="material-symbols-outlined text-[17px]">{isUploading ? 'hourglass_empty' : 'library_add'}</span>
+                        {isUploading ? 'Uploading...' : 'Share to Library'}
+                    </button>
+                </div>
+            </form>
+
+            <div className="space-y-4">
+                <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
+                    <h2 className="text-body-base font-semibold text-text-main-light dark:text-text-main-dark">
+                        Shared Materials
+                    </h2>
+                    <div className="relative w-full md:w-72">
+                        <span className="material-symbols-outlined absolute left-3.5 top-1/2 -translate-y-1/2 text-[18px] text-text-faint-light dark:text-text-faint-dark">search</span>
+                        <input
+                            type="text"
+                            value={searchQuery}
+                            onChange={(event) => dispatchLibrary({
+                                type: 'fieldChanged',
+                                field: 'searchQuery',
+                                value: event.target.value,
+                            })}
+                            placeholder="Search shared materials..."
+                            className="input-field pl-10 text-body-sm"
+                            aria-label="Search shared library materials"
+                        />
+                    </div>
                 </div>
 
-            ) : !searchResults ? (
-                /* Loading skeleton */
-                <div className="space-y-8">
-                    {RESULT_GROUPS.map((group) => (
-                        <section key={group.key}>
-                            <div className="flex items-center gap-2 mb-3">
-                                <span className="material-symbols-outlined text-[18px] text-text-faint-light dark:text-text-faint-dark">{group.icon}</span>
-                                <h2 className="text-body-sm font-semibold text-text-sub-light dark:text-text-sub-dark uppercase tracking-wider">
-                                    {group.label}
-                                </h2>
-                            </div>
-                            <div className="space-y-2">
-                                {[1, 2].map((i) => (
-                                    <div key={`${group.key}-${i}`} className="animate-pulse h-20 rounded-xl bg-surface-light dark:bg-surface-dark border border-border-light dark:border-border-dark" />
-                                ))}
-                            </div>
-                        </section>
-                    ))}
-                </div>
+                <WatermelonFilterBar
+                    hasActive={selectedTypes.length > 0 || searchQuery.trim().length > 0}
+                    onClear={() => dispatchLibrary({ type: 'clearFilters' })}
+                >
+                    <WatermelonFilterGroup
+                        label="File Type"
+                        options={[
+                            { label: 'PDF', value: 'pdf', count: typeCounts.pdf },
+                            { label: 'Word', value: 'docx', count: typeCounts.docx },
+                            { label: 'EPUB', value: 'epub', count: typeCounts.epub },
+                            { label: 'Text', value: 'txt', count: typeCounts.txt },
+                        ]}
+                        value={selectedTypes}
+                        onChange={(value) => dispatchLibrary({
+                            type: 'fieldChanged',
+                            field: 'selectedTypes',
+                            value,
+                        })}
+                        multiple
+                    />
+                </WatermelonFilterBar>
 
-            ) : hasAnyResults ? (
-                /* Results list */
-                <div className="space-y-8">
-                    {groupedResults.map((group) => (
-                        <section key={group.key}>
-                            <div className="flex items-center justify-between mb-3">
-                                <div className="flex items-center gap-2">
-                                    <span className="material-symbols-outlined text-[18px] text-text-faint-light dark:text-text-faint-dark">{group.icon}</span>
-                                    <h2 className="text-body-sm font-semibold text-text-sub-light dark:text-text-sub-dark uppercase tracking-wider">
-                                        {group.label}
-                                    </h2>
+                {isLoading ? (
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                        {Array.from({ length: 4 }).map((_, index) => (
+                            <WatermelonSkeletonCard key={index} style={{ height: 160 }}>
+                                <div className="flex items-start gap-3 h-full">
+                                    <WatermelonSkeleton width={48} height={48} rounded={12} />
+                                    <div className="flex-1 flex flex-col gap-2">
+                                        <WatermelonSkeleton width="70%" height={14} />
+                                        <WatermelonSkeleton width="55%" height={11} />
+                                        <div className="mt-auto flex gap-2">
+                                            <WatermelonSkeleton width={60} height={20} rounded={10} />
+                                            <WatermelonSkeleton width={48} height={20} rounded={10} />
+                                        </div>
+                                    </div>
                                 </div>
-                                <span className="text-caption text-text-faint-light dark:text-text-faint-dark">
-                                    {group.items.length}
+                            </WatermelonSkeletonCard>
+                        ))}
+                    </div>
+                ) : hasMaterials ? (
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                        {filteredMaterials.map((material) => (
+                            <LibraryMaterialCard key={material._id} material={material} />
+                        ))}
+                    </div>
+                ) : (
+                    <div className="text-center py-12 md:py-20">
+                        <div className="relative size-64 mx-auto mb-6 flex items-center justify-center">
+                            <div className="relative z-10 size-20 rounded-3xl bg-primary/10 dark:bg-primary/20 flex items-center justify-center shadow-soft">
+                                <span className="material-symbols-outlined text-[32px] text-primary">
+                                    local_library
                                 </span>
                             </div>
-
-                            {group.items.length > 0 ? (
-                                <div className="space-y-1">
-                                    {group.items.map((item) => (
-                                        <Link
-                                            key={`${group.key}-${item.entityId}`}
-                                            to={item.path}
-                                            className="group flex items-start gap-4 p-4 rounded-xl hover:bg-surface-hover-light dark:hover:bg-surface-hover-dark transition-colors"
-                                        >
-                                            <div className="shrink-0 w-9 h-9 rounded-lg bg-primary/8 dark:bg-primary/15 flex items-center justify-center mt-0.5">
-                                                <span className="material-symbols-outlined text-[18px] text-primary">{group.icon}</span>
-                                            </div>
-                                            <div className="flex-1 min-w-0">
-                                                <div className="flex items-center gap-2 mb-0.5">
-                                                    <h3 className="text-body-base font-semibold text-text-main-light dark:text-text-main-dark group-hover:text-primary transition-colors truncate">
-                                                        {renderHighlightedText(item.title, normalizedQuery)}
-                                                    </h3>
-                                                    <span className="shrink-0 text-caption text-text-faint-light dark:text-text-faint-dark">
-                                                        {new Date(item.updatedAt || Date.now()).toLocaleDateString()}
-                                                    </span>
-                                                </div>
-                                                <p className="text-body-sm text-text-sub-light dark:text-text-sub-dark line-clamp-2">
-                                                    {renderHighlightedText(item.snippet, normalizedQuery)}
-                                                </p>
-                                            </div>
-                                            <span className="material-symbols-outlined text-[18px] text-text-faint-light dark:text-text-faint-dark opacity-0 group-hover:opacity-100 transition-opacity mt-1">
-                                                arrow_forward
-                                            </span>
-                                        </Link>
-                                    ))}
-                                </div>
-                            ) : (
-                                <div className="rounded-xl border border-dashed border-border-light dark:border-border-dark px-5 py-6 text-body-sm text-text-faint-light dark:text-text-faint-dark text-center">
-                                    No matching {group.label.toLowerCase()}.
-                                </div>
-                            )}
-                        </section>
-                    ))}
-                </div>
-
-            ) : (
-                /* No results */
-                <div className="flex flex-col items-center justify-center py-20 text-center">
-                    <div className="w-16 h-16 rounded-2xl bg-surface-light dark:bg-surface-dark border border-border-light dark:border-border-dark flex items-center justify-center mb-5">
-                        <span className="material-symbols-outlined text-[28px] text-text-faint-light dark:text-text-faint-dark">search_off</span>
+                            <OrbitingCircles iconSize={36} radius={70} duration={20} delay={0}>
+                                <span className="material-symbols-outlined text-[18px] text-primary">picture_as_pdf</span>
+                            </OrbitingCircles>
+                            <OrbitingCircles iconSize={36} radius={70} duration={20} delay={5}>
+                                <span className="material-symbols-outlined text-[18px] text-primary">description</span>
+                            </OrbitingCircles>
+                            <OrbitingCircles iconSize={36} radius={70} duration={20} delay={10}>
+                                <span className="material-symbols-outlined text-[18px] text-primary">menu_book</span>
+                            </OrbitingCircles>
+                            <OrbitingCircles iconSize={36} radius={70} duration={20} delay={15}>
+                                <span className="material-symbols-outlined text-[18px] text-primary">slideshow</span>
+                            </OrbitingCircles>
+                            <OrbitingCircles iconSize={28} radius={108} duration={28} delay={3} reverse path={false}>
+                                <span className="material-symbols-outlined text-[14px] text-primary/80">school</span>
+                            </OrbitingCircles>
+                            <OrbitingCircles iconSize={28} radius={108} duration={28} delay={17} reverse path={false}>
+                                <span className="material-symbols-outlined text-[14px] text-primary/80">auto_stories</span>
+                            </OrbitingCircles>
+                        </div>
+                        <h2 className="text-body-lg font-semibold text-text-main-light dark:text-text-main-dark mb-1.5">
+                            No shared materials yet
+                        </h2>
+                        <p className="text-body-sm text-text-sub-light dark:text-text-sub-dark max-w-sm mx-auto leading-relaxed">
+                            Add the first book, handout, or reading pack so other students can open it here.
+                        </p>
                     </div>
-                    <h3 className="text-body-lg font-semibold text-text-main-light dark:text-text-main-dark mb-1">
-                        No results found
-                    </h3>
-                    <p className="text-body-sm text-text-sub-light dark:text-text-sub-dark max-w-sm">
-                        Nothing matched &ldquo;{normalizedQuery}&rdquo;. Try a different keyword.
-                    </p>
-                    <Link
-                        to="/dashboard"
-                        className="mt-6 btn-secondary text-body-sm px-5 py-2"
-                    >
-                        Back to Dashboard
-                    </Link>
-                </div>
-            )}
+                )}
+            </div>
         </div>
     );
 };

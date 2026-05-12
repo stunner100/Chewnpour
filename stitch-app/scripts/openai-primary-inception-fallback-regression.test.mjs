@@ -9,8 +9,8 @@ const read = async (relativePath) => {
 const aiSource = await read("convex/ai.ts");
 const envExample = await read(".env.example");
 
-if (!aiSource.includes("const DEFAULT_MODEL = OPENAI_MODEL;")) {
-    throw new Error("Expected DEFAULT_MODEL to use OPENAI_MODEL.");
+if (!aiSource.includes("const DEFAULT_MODEL = DEEPSEEK_DOCUMENT_FLASH_MODEL;")) {
+    throw new Error("Expected DEFAULT_MODEL to use the DeepSeek Flash document model.");
 }
 
 if (!aiSource.includes("const BEDROCK_BASE_URL = (() => {")) {
@@ -29,12 +29,12 @@ if (!aiSource.includes('"assignment_follow_up"') || !aiSource.includes('"topic_t
     throw new Error("Expected assignment and topic chat features to route to Inception.");
 }
 
-if (!aiSource.includes('const OPENAI_PRIMARY_FEATURES = new Set([')) {
-    throw new Error("Expected an explicit OpenAI feature-routing set.");
+if (!aiSource.includes('const DEEPSEEK_DOCUMENT_PIPELINE_FEATURES = new Set([')) {
+    throw new Error("Expected an explicit DeepSeek document feature-routing set.");
 }
 
-if (!aiSource.includes('"course_generation"') || !aiSource.includes('"objective_generation"') || !aiSource.includes('"essay_generation"')) {
-    throw new Error("Expected course, objective, and essay generation features to route to OpenAI.");
+if (!aiSource.includes('"course_generation"') || !aiSource.includes('"mcq_generation"') || !aiSource.includes('"essay_generation"')) {
+    throw new Error("Expected course, MCQ, and essay generation features to route to DeepSeek.");
 }
 
 if (!aiSource.includes("const preferredProvider = resolvePreferredTextProvider();")) {
@@ -49,20 +49,20 @@ if (!aiSource.includes('if (preferredProvider === "inception")')) {
     throw new Error("Expected a dedicated Inception-primary branch for chat features.");
 }
 
-if (!aiSource.includes("OPENAI_API_KEY environment variable not set.")) {
-    throw new Error("Expected primary OpenAI API key validation error.");
+if (!aiSource.includes("DEEPSEEK_API_KEY environment variable not set.")) {
+    throw new Error("Expected primary DeepSeek API key validation error.");
 }
 
-if (!aiSource.includes("OPENAI_BASE_URL environment variable not configured.")) {
-    throw new Error("Expected explicit OpenAI base URL validation error.");
+if (!aiSource.includes("DEEPSEEK_BASE_URL environment variable not configured.")) {
+    throw new Error("Expected explicit DeepSeek base URL validation error.");
 }
 
 if (!aiSource.includes("BEDROCK_API_KEY environment variable not set.")) {
     throw new Error("Expected explicit Bedrock API key validation error.");
 }
 
-if (!aiSource.includes("max_completion_tokens: options?.maxTokens ?? 2048")) {
-    throw new Error("Expected OpenAI-compatible clients to use max_completion_tokens.");
+if (!aiSource.includes("max_tokens: options?.maxTokens ?? 2048")) {
+    throw new Error("Expected DeepSeek chat completions to use max_tokens.");
 }
 
 if (!aiSource.includes("const retryableStatuses = new Set([429, 500, 503]);")) {
@@ -73,16 +73,12 @@ if (!aiSource.includes('primary_provider_failed_using_fallback')) {
     throw new Error("Expected explicit primary-provider fallback logging.");
 }
 
-if (!aiSource.includes('invalid_openai_base_url')) {
-    throw new Error("Expected explicit invalid_openai_base_url fallback reason.");
+if (!aiSource.includes('invalid_deepseek_base_url')) {
+    throw new Error("Expected explicit invalid_deepseek_base_url fallback reason.");
 }
 
 if (!aiSource.includes("shouldFallbackToBedrockText({ errorMessage, bedrockAvailable })")) {
-    throw new Error("Expected OpenAI failures to route into Bedrock before Inception.");
-}
-
-if (!aiSource.includes('"api-key": openAiApiKey')) {
-    throw new Error("Expected Azure-compatible api-key header for the primary provider.");
+    throw new Error("Expected DeepSeek failures to route into Bedrock before Inception.");
 }
 
 if (!aiSource.includes("Authorization: `Bearer ${openAiApiKey}`")) {
@@ -102,11 +98,11 @@ if (!aiSource.includes("return callInceptionText();")) {
 }
 
 if (!aiSource.includes("return callOpenAiWithFallbackText({ allowInceptionFallback: false });")) {
-    throw new Error("Expected chat-side fallback path to route into the OpenAI-led fallback chain.");
+    throw new Error("Expected chat-side fallback path to route into the DeepSeek-led fallback chain.");
 }
 
-if (!envExample.includes("OPENAI_API_KEY=") || !envExample.includes("OPENAI_BASE_URL=") || !envExample.includes("OPENAI_MODEL=")) {
-    throw new Error(".env.example must include OpenAI primary provider variables.");
+if (!envExample.includes("DEEPSEEK_API_KEY=") || !envExample.includes("DEEPSEEK_BASE_URL=") || !envExample.includes("DEEPSEEK_DOCUMENT_FLASH_MODEL=") || !envExample.includes("DEEPSEEK_DOCUMENT_PRO_MODEL=")) {
+    throw new Error(".env.example must include DeepSeek primary provider variables.");
 }
 
 if (!envExample.includes("BEDROCK_API_KEY=") || !envExample.includes("BEDROCK_BASE_URL=") || !envExample.includes("BEDROCK_MODEL=")) {

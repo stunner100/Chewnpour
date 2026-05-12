@@ -5,6 +5,7 @@ import { v } from "convex/values";
 import { api, internal } from "./_generated/api";
 import { internalAction } from "./_generated/server";
 import type { Id } from "./_generated/dataModel";
+import { strToU8, zipSync } from "fflate";
 import {
     type ExtractionBackendId,
     runDocumentExtractionPipeline,
@@ -41,6 +42,9 @@ const sanitizeText = (value: string) =>
         .replace(/\r\n/g, "\n")
         .replace(/\n{3,}/g, "\n\n")
         .trim();
+
+const toArrayBuffer = (value: Uint8Array): ArrayBuffer =>
+    value.buffer.slice(value.byteOffset, value.byteOffset + value.byteLength);
 
 const topicKeywords = (value: string) =>
     Array.from(
@@ -271,7 +275,7 @@ const markUploadExtraction = async (ctx: any, args: {
     artifactStorageId?: Id<"_storage">;
     warnings?: string[];
 }) => {
-    await ctx.runMutation((api as any).uploads.updateUploadStatus, {
+    await ctx.runMutation((internal as any).uploads.updateUploadStatusInternal, {
         uploadId: args.uploadId,
         status: args.uploadStatus || (args.status === "failed" ? "error" : "processing"),
         extractionStatus: args.status,
@@ -365,15 +369,6 @@ export const runForegroundExtraction = internalAction({
                 warnings: result.warnings,
             });
 
-            // Schedule evidence index build non-blocking — it isn't needed
-            // until retrieval during topic generation, and ai.ts has a
-            // fallback that rebuilds from the artifact if the index isn't
-            // ready yet.
-            ctx.scheduler.runAfter(0, (internal as any).grounded.buildEvidenceIndex, {
-                uploadId: args.uploadId,
-                artifactStorageId,
-            });
-
             return {
                 text: result.text,
                 qualityScore: result.qualityScore,
@@ -432,7 +427,7 @@ export const benchmarkUploadExtraction = internalAction({
     args: {
         uploadId: v.id("uploads"),
         mode: v.optional(v.union(v.literal("foreground"), v.literal("background"))),
-        backend: v.optional(v.union(v.literal("datalab"), v.literal("azure"), v.literal("doctra"), v.literal("llamaparse"))),
+        backend: v.optional(v.union(v.literal("datalab"), v.literal("azure"), v.literal("docling"), v.literal("llamaparse"))),
         parser: v.optional(v.string()),
     },
     handler: async (ctx, args) => {
@@ -491,7 +486,7 @@ export const applyExtractionUpgrade = internalAction({
             uploadId: args.uploadId,
         });
         const stableUploadStatus = upload?.status === "ready" ? "ready" : "processing";
-        const coursePayload = await ctx.runQuery(api.courses.getCourseWithTopics, {
+        const coursePayload = await ctx.runQuery(internal.courses.getCourseWithTopicsInternal, {
             courseId: args.courseId,
         });
 
@@ -548,7 +543,7 @@ export const applyExtractionUpgrade = internalAction({
             });
         }
 
-        await ctx.runMutation(api.uploads.updateUploadStatus, {
+        await ctx.runMutation(internal.uploads.updateUploadStatusInternal, {
             uploadId: args.uploadId,
             status: stableUploadStatus,
             extractionStatus: "complete",
@@ -572,7 +567,7 @@ export const runBackgroundReprocess = internalAction({
     args: {
         uploadId: v.id("uploads"),
         courseId: v.id("courses"),
-        backend: v.optional(v.union(v.literal("datalab"), v.literal("azure"), v.literal("doctra"), v.literal("llamaparse"))),
+        backend: v.optional(v.union(v.literal("datalab"), v.literal("azure"), v.literal("docling"), v.literal("llamaparse"))),
         parser: v.optional(v.string()),
     },
     handler: async (ctx, args) => {
@@ -732,6 +727,64 @@ export const getExtractionDiagnostics = internalAction({
         return {
             upload,
             entries,
+        };
+    },
+});
+
+export const smokeDoclingExtractionInternal = internalAction({
+    args: {},
+    handler: async () => {
+        const docxBytes = zipSync({
+            "[Content_Types].xml": strToU8(
+                `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">
+  <Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>
+  <Default Extension="xml" ContentType="application/xml"/>
+  <Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/>
+</Types>`
+            ),
+            "_rels/.rels": strToU8(
+                `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+  <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/>
+</Relationships>`
+            ),
+            "word/document.xml": strToU8(
+                `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">
+  <w:body>
+    <w:p><w:r><w:t>Docling staging smoke test</w:t></w:r></w:p>
+    <w:p><w:r><w:t>This verifies that the Convex deployment can reach the configured Docling extract service.</w:t></w:r></w:p>
+    <w:p><w:r><w:t>Expected outcome: non-empty extracted text and a docling backend result.</w:t></w:r></w:p>
+    <w:sectPr>
+      <w:pgSz w:w="12240" w:h="15840"/>
+      <w:pgMar w:top="1440" w:right="1440" w:bottom="1440" w:left="1440" w:header="708" w:footer="708" w:gutter="0"/>
+    </w:sectPr>
+  </w:body>
+</w:document>`
+            ),
+        }, { level: 0 });
+        const result = await runDocumentExtractionPipeline({
+            uploadId: "docling_smoke_test",
+            fileName: "docling-smoke.docx",
+            fileType: "docx",
+            fileBuffer: toArrayBuffer(docxBytes),
+            mode: "foreground",
+            maxDurationMs: FOREGROUND_MAX_DURATION_MS,
+            backend: "docling",
+            parser: "docx_structured",
+        });
+
+        return {
+            backend: result.backend,
+            parser: result.parser,
+            qualityScore: result.qualityScore,
+            coverage: result.coverage,
+            pageCount: result.pageCount,
+            charCount: result.text.length,
+            preview: result.text.slice(0, 400),
+            warnings: result.warnings,
+            providerTrace: result.providerTrace,
         };
     },
 });

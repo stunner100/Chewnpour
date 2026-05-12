@@ -1,0 +1,87 @@
+- generic [ref=e43]:
+  - complementary [ref=e44]:
+    - generic [ref=e45]:
+      - link "ChewnPour home" [ref=e46] [cursor=pointer]:
+        - /url: /dashboard
+        - generic [ref=e47]:
+          - img [ref=e48]
+          - img [ref=e50]
+        - generic [ref=e51]: ChewnPour
+      - button "menu_open" [ref=e52] [cursor=pointer]:
+        - generic [ref=e53]: menu_open
+    - navigation [ref=e54]:
+      - link "space_dashboard Dashboard" [ref=e55] [cursor=pointer]:
+        - /url: /dashboard
+        - generic [ref=e56]: space_dashboard
+        - generic [ref=e57]: Dashboard
+      - link "auto_stories Library" [ref=e58] [cursor=pointer]:
+        - /url: /dashboard/search
+        - generic [ref=e59]: auto_stories
+        - generic [ref=e60]: Library
+      - link "event_note Study Plan" [ref=e61] [cursor=pointer]:
+        - /url: /dashboard/analysis
+        - generic [ref=e62]: event_note
+        - generic [ref=e63]: Study Plan
+      - link "edit_note Assignments" [ref=e64] [cursor=pointer]:
+        - /url: /dashboard/assignment-helper
+        - generic [ref=e65]: edit_note
+        - generic [ref=e66]: Assignments
+      - link "auto_fix_high Humanizer" [ref=e67] [cursor=pointer]:
+        - /url: /dashboard/humanizer
+        - generic [ref=e68]: auto_fix_high
+        - generic [ref=e69]: Humanizer
+      - link "forum Community" [ref=e70] [cursor=pointer]:
+        - /url: /dashboard/community
+        - generic [ref=e71]: forum
+        - generic [ref=e72]: Community
+    - generic [ref=e73]:
+      - link "workspace_premium Subscription" [ref=e74] [cursor=pointer]:
+        - /url: /subscription
+        - generic [ref=e75]: workspace_premium
+        - generic [ref=e76]: Subscription
+      - link "person Profile" [ref=e77] [cursor=pointer]:
+        - /url: /profile
+        - generic [ref=e78]: person
+        - generic [ref=e79]: Profile
+      - generic [ref=e80]:
+        - generic [ref=e81]: S
+        - paragraph [ref=e83]: Student
+  - main [ref=e84]:
+    - generic [ref=e320]:
+      - generic [ref=e322]:
+        - link "Go back to dashboard" [ref=e323] [cursor=pointer]:
+          - /url: /dashboard
+          - generic [ref=e324]: arrow_back
+          - generic [ref=e325]: Dashboard
+        - generic [ref=e326]:
+          - generic [ref=e327]: local_fire_department
+          - generic [ref=e328]: Processing
+        - link "B" [ref=e329] [cursor=pointer]:
+          - /url: /profile
+      - main [ref=e330]:
+        - generic [ref=e331]:
+          - generic [ref=e332]:
+            - generic [ref=e333]:
+              - generic [ref=e338]: Processing
+              - heading "Creating Your Course" [level=1] [ref=e339]
+              - paragraph [ref=e340]: Our AI is analyzing your materials and building your personalized learning experience
+            - generic [ref=e341]:
+              - generic [ref=e346]: psychology
+              - generic [ref=e347]:
+                - heading "Analyzing" [level=2] [ref=e348]
+                - paragraph [ref=e349]: AI is analyzing your materials...
+            - generic [ref=e351]:
+              - generic [ref=e352]: Progress
+              - generic [ref=e353]: 20%
+            - generic [ref=e357]:
+              - generic "Uploading" [ref=e359]:
+                - generic [ref=e360]: check
+              - generic "Extracting" [ref=e363]:
+                - generic [ref=e364]: check
+              - generic "Analyzing" [ref=e367]: "3"
+              - generic "Outline" [ref=e370]: "4"
+              - generic "Topic 1" [ref=e373]: "5"
+              - generic "First Topic Ready" [ref=e376]: "6"
+          - generic [ref=e377]:
+            - generic [ref=e378]: lightbulb
+            - paragraph [ref=e379]: "Tip: You can leave this page. We'll notify you when your course is ready."

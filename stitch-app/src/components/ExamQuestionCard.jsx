@@ -75,13 +75,13 @@ const ExamQuestionCard = memo(function ExamQuestionCard({
                         />
                     </div>
                 ) : (
-                    finalOptions.map((option, index) => {
+                    finalOptions.map((option) => {
                         const { label, value, text } = option;
                         const isSelected = selectedAnswer === value;
 
                         return (
                             <button
-                                key={index}
+                                key={`${value}-${label}-${text}`}
                                 onClick={() => onAnswerSelect(question._id, value)}
                                 className={`w-full text-left p-4 rounded-xl border transition-all duration-200 flex items-center gap-3 ${isSelected
                                     ? 'border-primary bg-primary/5 dark:bg-primary/10'
