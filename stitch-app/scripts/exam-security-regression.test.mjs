@@ -30,6 +30,27 @@ const tests = [
         assert.equal(authUserId, "user_123", "Expected subject to resolve as authenticated user id");
     },
     () => {
+        const authUserId = resolveAuthUserId({
+            subject: "https://site.chewnpour.com|k57fd92y4vfdcv9w7stnmttvfs80t46z",
+        });
+        assert.equal(
+            authUserId,
+            "k57fd92y4vfdcv9w7stnmttvfs80t46z",
+            "Expected segmented Better Auth subject to resolve to the canonical user id"
+        );
+    },
+    () => {
+        const authUserId = resolveAuthUserId({
+            subject: "https://site.chewnpour.com",
+            tokenIdentifier: "better-auth:k57fd92y4vfdcv9w7stnmttvfs80t46z",
+        });
+        assert.equal(
+            authUserId,
+            "k57fd92y4vfdcv9w7stnmttvfs80t46z",
+            "Expected segmented token identifier to resolve to the canonical user id"
+        );
+    },
+    () => {
         try {
             assertAuthorizedUser({ authUserId: "", requestedUserId: "user_1" });
             assert.fail("Expected unauthenticated access to throw");

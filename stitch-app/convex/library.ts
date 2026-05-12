@@ -1,32 +1,18 @@
 import { ConvexError, v } from "convex/values";
 import { mutation, query } from "./_generated/server";
-
-const resolveAuthUserId = (identity: any) => {
-    if (!identity || typeof identity !== "object") return "";
-    const candidates = [
-        identity.subject,
-        identity.userId,
-        identity.id,
-        identity.tokenIdentifier,
-    ];
-    for (const candidate of candidates) {
-        if (typeof candidate === "string" && candidate.trim()) {
-            return candidate.trim();
-        }
-    }
-    return "";
-};
+import { collectAuthUserIdCandidates, resolveAuthUserId } from "./lib/examSecurity";
 
 const requireAuthorizedUser = async (ctx: any, userId: string) => {
     const identity = await ctx.auth.getUserIdentity();
     const authUserId = resolveAuthUserId(identity);
+    const authUserIds = collectAuthUserIdCandidates(identity);
     if (!authUserId) {
         throw new ConvexError({
             code: "UNAUTHENTICATED",
             message: "You must be signed in to upload library materials.",
         });
     }
-    if (authUserId !== userId) {
+    if (!authUserIds.includes(userId)) {
         throw new ConvexError({
             code: "UNAUTHORIZED",
             message: "You do not have permission to upload for this user.",

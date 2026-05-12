@@ -32,6 +32,7 @@ for (const snippet of [
   "export const assertOwnerUserId",
   "export const getAuthenticatedUserIdOrNull",
   "collectAuthUserIdCandidates",
+  "authenticatedUserIds",
 ]) {
   assert.ok(authzSource.includes(snippet), `authz helper missing ${snippet}`);
 }

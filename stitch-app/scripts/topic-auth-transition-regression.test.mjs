@@ -64,7 +64,7 @@ for (const snippet of [
 for (const snippet of [
   "import { collectAuthUserIdCandidates } from \"./lib/examSecurity\";",
   "const authenticatedUserIds = collectAuthUserIdCandidates(identity);",
-  "!authenticatedUserIds.includes(requestedUserId)",
+  "!authenticatedUserIds.includes(explicitUserId)",
 ]) {
   if (!profilesSource.includes(snippet)) {
     throw new Error(`Regression detected: profiles auth candidate handling missing snippet: ${snippet}`);
@@ -72,8 +72,8 @@ for (const snippet of [
 }
 
 for (const snippet of [
-  "import { collectAuthUserIdCandidates } from \"./lib/examSecurity\";",
-  "return collectAuthUserIdCandidates(identity)[0] || \"\";",
+  "resolveAuthUserId as resolveCanonicalAuthUserId",
+  "return resolveCanonicalAuthUserId(identity);",
 ]) {
   if (!subscriptionsSource.includes(snippet)) {
     throw new Error(`Regression detected: subscriptions auth candidate handling missing snippet: ${snippet}`);
@@ -81,7 +81,7 @@ for (const snippet of [
 }
 
 for (const snippet of [
-  'if (loading) {',
+  'if (loading && !user) {',
   "type: 'loading',",
   'if (!user) {',
   'if (profileReady) {',
