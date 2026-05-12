@@ -21,8 +21,8 @@ for (const forbiddenSnippet of [
 for (const expectedSnippet of [
   'h-[calc(100vh-64px)] overflow-hidden',
   'flex-1 min-h-0 p-space-4 md:px-space-10 md:py-space-8 flex flex-col items-center justify-start overflow-y-auto',
-  'Question {quizData.currentQuestion} of {quizData.totalQuestions}',
-  'Which part of the brain is most associated with long-term memory formation?',
+  'api.courses.getUserCourses',
+  'api.topics.getResumeTarget',
 ]) {
   if (!quizSource.includes(expectedSnippet)) {
     throw new Error(`Expected ActiveQuizSession.jsx to include "${expectedSnippet}".`);

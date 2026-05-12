@@ -1,133 +1,152 @@
-import React, { useState } from 'react';
+import React from 'react';
+import { Link, Navigate, useParams } from 'react-router-dom';
+import { useConvexAuth, useQuery } from 'convex/react';
+import { api } from '../../convex/_generated/api';
 
-const quizData = {
-    title: 'Neurobiology 101',
-    module: 'Module 3 Review',
-    difficulty: 'Medium',
-    totalQuestions: 10,
-    currentQuestion: 3,
-    question: 'Which part of the brain is most associated with long-term memory formation?',
-    options: [
-        { id: 'A', text: 'The Amygdala', correct: false },
-        { id: 'B', text: 'The Hippocampus', correct: true },
-        { id: 'C', text: 'The Cerebellum', correct: false },
-        { id: 'D', text: 'The Prefrontal Cortex', correct: false },
-    ],
-    explanation: 'The hippocampus, located in the inner region of the temporal lobe, plays a major role in learning and memory. It is specifically critical for the consolidation of information from short-term memory to long-term memory, as well as spatial memory that enables navigation.',
+const EMPTY_LIST = [];
+
+const buildObjectiveExamRoute = (topicId) =>
+    topicId ? `/dashboard/exam/${topicId}?autostart=mcq` : '/dashboard';
+
+const StudyToolSkeleton = () => (
+    <div className="flex-1 flex flex-col ml-0 h-[calc(100vh-64px)] overflow-hidden">
+        <main className="flex-1 min-h-0 p-space-4 md:px-space-10 md:py-space-8 flex flex-col items-center justify-start overflow-y-auto">
+            <div className="w-full max-w-5xl animate-pulse space-y-space-6">
+                <div className="h-8 w-44 rounded-lg bg-surface-muted" />
+                <div className="h-36 rounded-2xl bg-surface" />
+                <div className="grid gap-space-4 md:grid-cols-2">
+                    <div className="h-40 rounded-2xl bg-surface" />
+                    <div className="h-40 rounded-2xl bg-surface" />
+                </div>
+            </div>
+        </main>
+    </div>
+);
+
+const EmptyStudyToolState = () => (
+    <section className="w-full rounded-2xl border border-border-subtle bg-surface p-space-8 text-center shadow-sm">
+        <div className="mx-auto mb-space-4 flex h-12 w-12 items-center justify-center rounded-full bg-primary-soft text-primary">
+            <span className="material-symbols-outlined">quiz</span>
+        </div>
+        <h2 className="font-headline-sm text-headline-sm font-bold text-text-primary">
+            Upload material to generate quizzes
+        </h2>
+        <p className="mx-auto mt-space-3 max-w-xl font-body-base text-body-base text-text-secondary">
+            Quizzes are generated from your own course topics. Add a PDF, slide deck, document, or image to start practicing from real study material.
+        </p>
+        <Link
+            to="/dashboard/upload"
+            className="mt-space-6 inline-flex items-center justify-center gap-space-2 rounded-xl bg-primary px-space-5 py-space-3 font-label-md text-label-md text-on-primary shadow-sm transition-colors hover:bg-primary-hover"
+        >
+            <span className="material-symbols-outlined text-[20px]">cloud_upload</span>
+            Upload Material
+        </Link>
+    </section>
+);
+
+const ResumeQuizCard = ({ resumeTarget }) => {
+    if (!resumeTarget?.topicId) return null;
+
+    return (
+        <section className="rounded-2xl border border-primary/20 bg-primary-soft p-space-6 shadow-sm">
+            <div className="flex flex-col gap-space-4 md:flex-row md:items-center md:justify-between">
+                <div>
+                    <p className="font-label-sm text-label-sm font-bold uppercase tracking-wider text-primary">
+                        Continue practice
+                    </p>
+                    <h2 className="mt-space-2 font-display-sm text-display-sm text-text-primary">
+                        {resumeTarget.topicTitle || 'Your latest topic'}
+                    </h2>
+                    <p className="mt-space-2 font-body-base text-body-base text-text-secondary">
+                        Start an objective quiz from the topic you last studied.
+                    </p>
+                </div>
+                <Link
+                    to={buildObjectiveExamRoute(resumeTarget.topicId)}
+                    className="inline-flex shrink-0 items-center justify-center gap-space-2 rounded-xl bg-primary px-space-5 py-space-3 font-label-md text-label-md text-on-primary shadow-sm transition-colors hover:bg-primary-hover"
+                >
+                    Start Quiz
+                    <span className="material-symbols-outlined text-[20px]">arrow_forward</span>
+                </Link>
+            </div>
+        </section>
+    );
 };
 
-const ActiveQuizSession = () => {
-    const [selectedOption, setSelectedOption] = useState('B');
-    const [showExplanation, setShowExplanation] = useState(true);
+const CourseQuizCard = ({ course }) => (
+    <Link
+        to={`/dashboard/course/${course._id}?action=quiz`}
+        className="group rounded-2xl border border-border-subtle bg-surface p-space-5 shadow-sm transition-all hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-md"
+    >
+        <div className="mb-space-5 flex items-start justify-between gap-space-4">
+            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-primary-soft text-primary">
+                <span className="material-symbols-outlined">school</span>
+            </div>
+            <span className="inline-flex items-center rounded-full bg-surface-soft px-space-3 py-space-1 font-label-xs text-label-xs text-text-secondary">
+                {Number(course.progress || 0)}% complete
+            </span>
+        </div>
+        <h3 className="font-headline-sm text-headline-sm text-text-primary">
+            {course.title || 'Untitled course'}
+        </h3>
+        {course.description && (
+            <p className="mt-space-2 line-clamp-2 font-body-sm text-body-sm text-text-secondary">
+                {course.description}
+            </p>
+        )}
+        <div className="mt-space-5 flex items-center justify-between border-t border-border-subtle pt-space-4 font-label-md text-label-md text-primary">
+            <span>Choose topic</span>
+            <span className="material-symbols-outlined transition-transform group-hover:translate-x-1">
+                arrow_forward
+            </span>
+        </div>
+    </Link>
+);
 
-    const progress = (quizData.currentQuestion / quizData.totalQuestions) * 100;
+const ActiveQuizSession = () => {
+    const { quizId } = useParams();
+    const { isAuthenticated } = useConvexAuth();
+    const courses = useQuery(api.courses.getUserCourses, isAuthenticated ? {} : 'skip');
+    const resumeTarget = useQuery(api.topics.getResumeTarget, isAuthenticated ? {} : 'skip');
+
+    if (quizId) {
+        return <Navigate to={buildObjectiveExamRoute(quizId)} replace />;
+    }
+
+    if (!isAuthenticated || courses === undefined || resumeTarget === undefined) {
+        return <StudyToolSkeleton />;
+    }
+
+    const courseList = Array.isArray(courses) ? courses : EMPTY_LIST;
 
     return (
         <div className="flex-1 flex flex-col ml-0 h-[calc(100vh-64px)] overflow-hidden">
             <main className="flex-1 min-h-0 p-space-4 md:px-space-10 md:py-space-8 flex flex-col items-center justify-start overflow-y-auto">
-                <div className="w-full max-w-[800px] flex flex-col gap-space-8">
-                    {/* Progress & Meta Header */}
-                    <div className="flex flex-col gap-space-4 w-full">
-                        <div className="flex justify-between items-end">
-                            <div>
-                                <p className="font-label-md text-label-md text-text-secondary uppercase tracking-wider mb-space-1">
-                                    {quizData.title}
-                                </p>
-                                <h2 className="font-headline-sm text-headline-sm text-text-primary">{quizData.module}</h2>
-                            </div>
-                            <span className="px-space-3 py-space-1 bg-warning-soft text-warning rounded-full font-label-xs text-label-xs font-bold border border-warning/20">
-                                {quizData.difficulty} Difficulty
-                            </span>
-                        </div>
-                        {/* Progress Bar */}
-                        <div className="w-full flex items-center gap-space-4">
-                            <div className="flex-1 h-2 bg-surface-muted rounded-full overflow-hidden">
-                                <div
-                                    className="h-full bg-primary rounded-full transition-all duration-500"
-                                    style={{ width: `${progress}%` }}
-                                ></div>
-                            </div>
-                            <span className="font-label-md text-label-md text-text-secondary whitespace-nowrap">
-                                Question {quizData.currentQuestion} of {quizData.totalQuestions}
-                            </span>
-                        </div>
-                    </div>
-
-                    {/* Question */}
-                    <div className="mt-space-4">
-                        <h1 className="font-display-lg text-display-lg text-text-primary leading-tight">
-                            {quizData.question}
+                <div className="w-full max-w-5xl">
+                    <div className="mb-space-6 flex flex-col gap-space-2">
+                        <p className="font-label-sm text-label-sm font-bold uppercase tracking-wider text-primary">
+                            Quizzes
+                        </p>
+                        <h1 className="font-display-sm text-display-sm text-text-primary">
+                            Practice from your generated topics
                         </h1>
+                        <p className="max-w-2xl font-body-base text-body-base text-text-secondary">
+                            Pick a real course or continue your latest topic to start objective questions from your own study material.
+                        </p>
                     </div>
 
-                    {/* Answer Options */}
-                    <div className="flex flex-col gap-space-3 w-full mt-space-2">
-                        {quizData.options.map((option) => {
-                            const isSelected = selectedOption === option.id;
-                            const isCorrect = option.correct;
-                            const showResult = showExplanation && isSelected;
+                    <div className="space-y-space-5">
+                        <ResumeQuizCard resumeTarget={resumeTarget} />
 
-                            let optionClasses = 'group relative flex items-center p-space-4 bg-surface border border-border-default rounded-xl hover:shadow-md hover:border-border-strong cursor-pointer transition-all duration-200';
-                            if (showResult && isCorrect) {
-                                optionClasses = 'relative flex items-center p-space-4 bg-success-soft border-2 border-success rounded-xl shadow-sm z-10';
-                            } else if (showResult && !isCorrect) {
-                                optionClasses = 'relative flex items-center p-space-4 bg-error-soft border-2 border-error rounded-xl shadow-sm z-10';
-                            }
-
-                            return (
-                                <div key={option.id}>
-                                    <button
-                                        onClick={() => {
-                                            setSelectedOption(option.id);
-                                            setShowExplanation(true);
-                                        }}
-                                        className={optionClasses}
-                                    >
-                                        {showResult && isCorrect ? (
-                                            <div className="w-8 h-8 rounded-full bg-success text-on-primary flex items-center justify-center mr-space-4 shadow-sm">
-                                                <span className="material-symbols-outlined" style={{ fontVariationSettings: "'wght' 600" }}>check</span>
-                                            </div>
-                                        ) : showResult && !isCorrect ? (
-                                            <div className="w-8 h-8 rounded-full bg-error text-on-primary flex items-center justify-center mr-space-4 shadow-sm">
-                                                <span className="material-symbols-outlined" style={{ fontVariationSettings: "'wght' 600" }}>close</span>
-                                            </div>
-                                        ) : (
-                                            <div className="w-8 h-8 rounded-full bg-surface-soft border border-border-subtle flex items-center justify-center mr-space-4 font-label-md text-text-secondary group-hover:bg-surface-muted transition-colors">
-                                                {option.id}
-                                            </div>
-                                        )}
-                                        <span className={`font-body-lg text-body-lg flex-1 ${showResult && isCorrect ? 'text-text-primary font-medium' : showResult && !isCorrect ? 'text-text-primary' : 'text-text-primary'}`}>
-                                            {option.text}
-                                        </span>
-                                    </button>
-                                    {showResult && isCorrect && (
-                                        <div className="relative bg-surface border border-success/30 rounded-b-xl rounded-tr-xl p-space-6 shadow-sm -mt-space-4 pt-space-8 ml-space-6 z-0">
-                                            <div className="flex items-start gap-space-3">
-                                                <span className="material-symbols-outlined text-success mt-1" style={{ fontVariationSettings: "'FILL' 1" }}>lightbulb</span>
-                                                <div>
-                                                    <h3 className="font-headline-sm text-headline-sm text-success mb-space-2">Correct!</h3>
-                                                    <p className="font-body-base text-body-base text-text-secondary leading-relaxed">
-                                                        {quizData.explanation}
-                                                    </p>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    )}
-                                </div>
-                            );
-                        })}
-                    </div>
-
-                    {/* Action Footer */}
-                    <div className="flex justify-between items-center w-full mt-space-8 pt-space-6 border-t border-border-subtle">
-                        <button className="px-space-4 py-space-2 text-text-muted hover:text-text-primary font-label-md text-label-md transition-colors flex items-center gap-space-2 rounded-lg hover:bg-surface-soft">
-                            <span className="material-symbols-outlined text-sm">flag</span>
-                            Flag for review
-                        </button>
-                        <button className="bg-primary text-on-primary px-space-8 py-space-3 rounded-xl font-label-md text-label-md hover:bg-primary-hover hover:shadow-md transition-all flex items-center gap-space-2">
-                            Next Question
-                            <span className="material-symbols-outlined">arrow_forward</span>
-                        </button>
+                        {courseList.length > 0 ? (
+                            <section className="grid gap-space-4 md:grid-cols-2">
+                                {courseList.map((course) => (
+                                    <CourseQuizCard key={course._id} course={course} />
+                                ))}
+                            </section>
+                        ) : (
+                            <EmptyStudyToolState />
+                        )}
                     </div>
                 </div>
             </main>
