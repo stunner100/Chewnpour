@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { useMutation, useQuery } from 'convex/react';
 import { api } from '../../convex/_generated/api';
 import { useAuth } from '../contexts/AuthContext';
@@ -69,7 +69,8 @@ const buildSubscriptionSummary = (subscription) => {
 };
 
 const AccountStudySettings = () => {
-    const { user, profile, updateProfile } = useAuth();
+    const { user, profile, updateProfile, signOut } = useAuth();
+    const navigate = useNavigate();
     const tutorProfile = useQuery(api.tutor.getTutorProfile, {});
     const subscription = useQuery(api.subscriptions.getSubscription, {});
     const setTutorPersona = useMutation(api.tutor.setTutorPersona);
@@ -136,6 +137,11 @@ const AccountStudySettings = () => {
         setSaveMessage('Settings saved.');
     };
 
+    const handleSignOut = async () => {
+        await signOut();
+        navigate('/login', { replace: true });
+    };
+
     return (
         <form className="ml-0 md:ml-0 min-h-[calc(100vh-64px)]" onSubmit={handleSave}>
             <div className="max-w-[1000px] mx-auto p-space-6 md:p-space-10 lg:p-space-12 pb-32">
@@ -197,6 +203,28 @@ const AccountStudySettings = () => {
                                     Manage Subscription
                                 </Link>
                             </div>
+                        </section>
+
+                        {/* Account Access */}
+                        <section className="bg-surface rounded-2xl border border-border-subtle shadow-sm p-space-8 flex flex-col gap-space-5">
+                            <div className="flex items-center gap-space-3 pb-space-4 border-b border-border-subtle">
+                                <span className="material-symbols-outlined text-text-muted">admin_panel_settings</span>
+                                <h3 className="font-headline-sm text-headline-sm text-text-primary">Account Access</h3>
+                            </div>
+                            <div>
+                                <h4 className="font-label-md text-label-md text-text-primary">Sign out of this device</h4>
+                                <p className="mt-space-1 font-body-sm text-body-sm text-text-muted">
+                                    End your current ChewnPour session and return to the login page.
+                                </p>
+                            </div>
+                            <button
+                                type="button"
+                                onClick={handleSignOut}
+                                className="flex w-full items-center justify-center gap-space-2 rounded-xl border border-error/30 bg-surface px-space-4 py-space-3 font-label-md text-label-md text-error transition-colors hover:bg-error-soft"
+                            >
+                                <span className="material-symbols-outlined text-[18px]">logout</span>
+                                Sign Out
+                            </button>
                         </section>
                     </div>
 
