@@ -29,6 +29,7 @@ const [
   lessonsPageSource,
   progressPageSource,
   settingsPageSource,
+  profilePageSource,
 ] = await Promise.all([
   read('src/pages/StudentDashboard.jsx'),
   read('src/pages/MyMaterialsLibrary.jsx'),
@@ -38,6 +39,7 @@ const [
   read('src/pages/LessonMemoryNeuralBasis.jsx'),
   read('src/pages/StudyProgressMastery.jsx'),
   read('src/pages/AccountStudySettings.jsx'),
+  read('src/pages/Profile.jsx'),
 ]);
 
 for (const snippet of [
@@ -140,10 +142,14 @@ for (const snippet of [
   'api.subscriptions.getSubscription',
   'buildSubscriptionSummary',
   '<Link to="/subscription"',
+  'signOut',
+  "navigate('/login'",
+  'Sign Out',
 ]) {
   requireIncludes(settingsPageSource, snippet, 'AccountStudySettings.jsx');
 }
 
 requireExcludes(settingsPageSource, 'Oct 15, 2024', 'AccountStudySettings.jsx');
+requireExcludes(profilePageSource, 'Sign Out', 'Profile.jsx');
 
 console.log('real-user-dashboard-cutover-regression.test.mjs passed');

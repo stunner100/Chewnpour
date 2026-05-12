@@ -60,7 +60,7 @@ const profileUiReducer = (state, action) => {
 
 // react-doctor-disable-next-line react-doctor/no-giant-component
 const Profile = () => {
-    const { user, signOut, updateProfile, loading: authLoading } = useAuth();
+    const { user, updateProfile, loading: authLoading } = useAuth();
     const navigate = useNavigate();
     const { shareProfile, toastMessage, hideToast } = useShare();
     const [{
@@ -101,11 +101,6 @@ const Profile = () => {
         hideToast();
         return undefined;
     }, [toastMessage, hideToast]);
-
-    const handleLogout = async () => {
-        await signOut();
-        navigate('/login', { replace: true });
-    };
 
     const getLevelLabel = (level) => {
         const levels = {
@@ -635,17 +630,6 @@ const Profile = () => {
                         <Link to="/dashboard" className="text-caption font-semibold text-primary hover:text-primary-hover transition-colors mt-1 inline-block">Start learning</Link>
                     </div>
                 )}
-            </div>
-
-            {/* Sign Out */}
-            <div className="pt-2">
-                <button
-                    onClick={handleLogout}
-                    className="w-full flex items-center justify-center gap-2 h-11 rounded-xl border border-border-light dark:border-border-dark text-red-600 dark:text-red-400 text-body-sm font-semibold hover:bg-red-50 dark:hover:bg-red-900/10 transition-colors"
-                >
-                    <span className="material-symbols-outlined text-[18px]">logout</span>
-                    Sign Out
-                </button>
             </div>
 
             {/* Modals */}
