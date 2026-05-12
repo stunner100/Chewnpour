@@ -102,7 +102,7 @@ const StudentDashboard = () => {
     const coursesById = useMemo(() => new Map(safeCourses.map((course) => [String(course._id), course])), [safeCourses]);
     const resumeCourse = resumeTarget?.courseId ? coursesById.get(String(resumeTarget.courseId)) : safeCourses[0];
     const resumeHref = resumeTarget?.topicId
-        ? `/dashboard/lessons/${resumeTarget.topicId}`
+        ? `/dashboard/topic/${resumeTarget.topicId}`
         : resumeCourse?._id
             ? `/dashboard/lessons?courseId=${resumeCourse._id}`
             : '/dashboard/upload';

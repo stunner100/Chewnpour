@@ -72,7 +72,7 @@ const StudyProgressMastery = () => {
     const recommendedHref = conceptReviewQueue?.items?.[0]?.topicId
         ? `/dashboard/flashcards/${conceptReviewQueue.items[0].topicId}`
         : resumeTarget?.topicId
-            ? `/dashboard/lessons/${resumeTarget.topicId}`
+            ? `/dashboard/topic/${resumeTarget.topicId}`
             : '/dashboard/upload';
     const loading = [userStats, performanceInsights, conceptReviewQueue, courses, resumeTarget].some((value) => value === undefined);
 

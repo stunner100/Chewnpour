@@ -108,6 +108,7 @@ const AIStudyTutor = lazyRoute(() => import('./pages/AIStudyTutor'), { component
 const StudyProgressMastery = lazyRoute(() => import('./pages/StudyProgressMastery'), { componentName: 'StudyProgressMastery' });
 const AccountStudySettings = lazyRoute(() => import('./pages/AccountStudySettings'), { componentName: 'AccountStudySettings' });
 const LessonMemoryNeuralBasis = lazyRoute(() => import('./pages/LessonMemoryNeuralBasis'), { componentName: 'LessonMemoryNeuralBasis' });
+const TopicDetail = lazyRoute(() => import('./pages/TopicDetail'), { componentName: 'TopicDetail', namedExport: 'TopicDetail' });
 const DashboardPodcasts = lazyRoute(() => import('./pages/DashboardPodcasts'), { componentName: 'DashboardPodcasts' });
 const LandingPage = lazyRoute(() => import('./pages/LandingPage'), { componentName: 'LandingPage' });
 const Login = lazyRoute(() => import('./pages/Login'), { componentName: 'Login' });
@@ -249,9 +250,9 @@ const withSuspense = (element) => (
   </Suspense>
 );
 
-const RedirectLegacyLessonRoute = () => {
-  const { topicId } = useParams();
-  return <Navigate to={topicId ? `/dashboard/lessons/${topicId}` : '/dashboard/lessons'} replace />;
+const RedirectLegacyLessonDetailRoute = () => {
+  const { lessonId } = useParams();
+  return <Navigate to={lessonId ? `/dashboard/topic/${lessonId}` : '/dashboard/lessons'} replace />;
 };
 
 const RedirectLegacyQuizRoute = () => {
@@ -298,14 +299,14 @@ function App() {
         <Route path="/dashboard/progress" element={withSuspense(<ProtectedRoute><DashboardLayout><StudyProgressMastery /></DashboardLayout></ProtectedRoute>)} />
         <Route path="/dashboard/settings" element={withSuspense(<ProtectedRoute><DashboardLayout><AccountStudySettings /></DashboardLayout></ProtectedRoute>)} />
         <Route path="/dashboard/lessons" element={withSuspense(<ProtectedRoute><DashboardLayout><LessonMemoryNeuralBasis /></DashboardLayout></ProtectedRoute>)} />
-        <Route path="/dashboard/lessons/:lessonId" element={withSuspense(<ProtectedRoute><DashboardLayout><LessonMemoryNeuralBasis /></DashboardLayout></ProtectedRoute>)} />
+        <Route path="/dashboard/lessons/:lessonId" element={<RedirectLegacyLessonDetailRoute />} />
         <Route path="/dashboard/podcasts" element={withSuspense(<ProtectedRoute><DashboardLayout><DashboardPodcasts /></DashboardLayout></ProtectedRoute>)} />
         {/* Redirect old dashboard surfaces to the new dashboard screens */}
         <Route path="/dashboard/search" element={<Navigate to="/dashboard/library" replace />} />
         <Route path="/dashboard/processing" element={<Navigate to="/dashboard/library" replace />} />
         <Route path="/dashboard/processing/:courseId" element={<Navigate to="/dashboard/library" replace />} />
         <Route path="/dashboard/course/:courseId" element={<Navigate to="/dashboard/lessons" replace />} />
-        <Route path="/dashboard/topic/:topicId" element={<RedirectLegacyLessonRoute />} />
+        <Route path="/dashboard/topic/:topicId" element={withSuspense(<ProtectedRoute><DashboardLayout><TopicDetail /></DashboardLayout></ProtectedRoute>)} />
         <Route path="/dashboard/exam" element={<Navigate to="/dashboard/quiz" replace />} />
         <Route path="/dashboard/exam/:topicId" element={<RedirectLegacyQuizRoute />} />
         <Route path="/dashboard/results" element={<Navigate to="/dashboard/progress" replace />} />

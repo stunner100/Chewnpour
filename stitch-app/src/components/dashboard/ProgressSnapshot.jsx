@@ -161,7 +161,7 @@ const ProgressSnapshot = ({ insights, userStats, podcastCount = 0, uploadQuota }
                                 {insights.needsWork.slice(0, 4).map((t) => (
                                     <li key={t.topicId} className="flex items-center justify-between gap-2">
                                         <span className="text-body-sm text-text-main-light dark:text-text-main-dark truncate">{t.title}</span>
-                                        <Link to={`/dashboard/lessons/${t.topicId}`} className="text-caption font-semibold text-primary hover:text-primary-hover transition-colors shrink-0">
+                                        <Link to={`/dashboard/topic/${t.topicId}`} className="text-caption font-semibold text-primary hover:text-primary-hover transition-colors shrink-0">
                                             Study
                                         </Link>
                                     </li>

@@ -30,7 +30,6 @@ for (const removedRoute of [
   'DashboardAnalysisPage',
   'DashboardFullAnalysis',
   'DashboardCourse',
-  'TopicDetail',
   'ExamMode',
   'DashboardResults',
 ]) {
@@ -49,6 +48,10 @@ if (!/path=\"\/dashboard\"\s+element=\{withSuspense\(<ProtectedRoute><DashboardL
 
 if (!appSource.includes('<Route path="/dashboard/analysis" element={<Navigate to="/dashboard/progress" replace />} />')) {
   throw new Error('Expected /dashboard/analysis to redirect to the new progress screen.');
+}
+
+if (!/const\s+TopicDetail\s*=\s*lazyRoute\(\(\)\s*=>\s*import\('\.\/pages\/TopicDetail'\),\s*\{\s*componentName:\s*'TopicDetail',\s*namedExport:\s*'TopicDetail'\s*\}\);/.test(appSource)) {
+  throw new Error('Expected TopicDetail lazy route to configure componentName and namedExport fallback.');
 }
 
 console.log('lazy-route-export-resilience-regression.test.mjs passed');

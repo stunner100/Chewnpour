@@ -131,7 +131,7 @@ const ResumeLessonCard = ({ resumeTarget }) => {
                     </p>
                 </div>
                 <Link
-                    to={`/dashboard/lessons/${resumeTarget.topicId}`}
+                    to={`/dashboard/topic/${resumeTarget.topicId}`}
                     className="inline-flex shrink-0 items-center justify-center gap-space-2 rounded-xl bg-primary px-space-5 py-space-3 font-label-md text-label-md text-on-primary shadow-sm transition-colors hover:bg-primary-hover"
                 >
                     Open Lesson
@@ -176,7 +176,7 @@ const CourseLessonCard = ({ course, selected = false }) => (
 
 const TopicLessonCard = ({ topic }) => (
     <Link
-        to={`/dashboard/lessons/${topic._id}`}
+        to={`/dashboard/topic/${topic._id}`}
         className="group rounded-2xl border border-border-subtle bg-surface p-space-5 shadow-sm transition-all hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-md"
     >
         <div className="mb-space-4 flex items-start justify-between gap-space-4">

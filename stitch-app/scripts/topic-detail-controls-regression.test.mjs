@@ -52,7 +52,7 @@ if (!topicDetailSource.includes('const scrollHashTargetIntoView = ({ behavior = 
   throw new Error('TopicDetail must use a shared helper for scrolling the current hash target into view.');
 }
 
-if (!/useState\(\(\) => getCurrentHashTargetId\(\) \? 'full' : null\)/.test(topicDetailSource)) {
+if (!/value:\s*getCurrentHashTargetId\(\) \? 'full' : null/.test(topicDetailSource)) {
   throw new Error('TopicDetail must bypass the study-mode chooser when the URL already points at a lesson section hash.');
 }
 
