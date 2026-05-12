@@ -11,6 +11,7 @@ const NAV_OPTIONS = [
     { label: 'Assignments', value: '/dashboard/assignment-helper', icon: 'edit_note', keywords: ['homework', 'tasks', 'helper'] },
     { label: 'Humanizer', value: '/dashboard/humanizer', icon: 'auto_fix_high', keywords: ['ai', 'rewrite', 'humanize'] },
     { label: 'Community', value: '/dashboard/community', icon: 'forum', keywords: ['chat', 'discuss'] },
+    { label: 'Podcasts', value: '/dashboard/podcasts', icon: 'podcasts', keywords: ['audio', 'listen', 'revision'] },
     { label: 'Subscription', value: '/subscription', icon: 'workspace_premium', keywords: ['premium', 'pay', 'upgrade'] },
     { label: 'Profile', value: '/profile', icon: 'person', keywords: ['account', 'settings'] },
     { label: 'Past Questions', value: '/dashboard/exam', icon: 'quiz', keywords: ['test', 'exam', 'assessment'] },
