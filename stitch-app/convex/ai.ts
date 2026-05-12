@@ -1233,12 +1233,101 @@ const generateTopicIllustrationWithGemini = async (prompt: string) => {
     return null;
 };
 
-const sanitizeJson = (raw: string) =>
-    raw
-        .replace(/^[\s\S]*?(\{)/, "$1")
-        .replace(/(\})[\s\S]*$/, "$1")
+const sanitizeJson = (raw: string) => {
+    let normalized = String(raw || "");
+    const firstBraceIndex = normalized.indexOf("{");
+    if (firstBraceIndex >= 0) {
+        normalized = normalized.slice(firstBraceIndex);
+    }
+    const lastBraceIndex = normalized.lastIndexOf("}");
+    if (lastBraceIndex >= 0) {
+        normalized = normalized.slice(0, lastBraceIndex + 1);
+    }
+    return normalized
         .replace(/,\s*([}\]])/g, "$1")
         .replace(/[\u0000-\u001F]+/g, "");
+};
+
+const getPartialEnvelopeKeyForLabel = (label: string) => {
+    const normalized = String(label || "").toLowerCase();
+    if (normalized.includes("question")) return "questions";
+    if (normalized.includes("sub_claim")) return "claims";
+    return null;
+};
+
+const findJsonArrayStart = (raw: string, key: string) => {
+    const pattern = new RegExp(`"${key}"\\s*:\\s*\\[`, "i");
+    const match = pattern.exec(raw);
+    if (!match || match.index < 0) return -1;
+    return match.index + match[0].lastIndexOf("[");
+};
+
+const parseCompleteJsonObjectsFromArray = (raw: string, arrayStartIndex: number) => {
+    const parsedItems: any[] = [];
+    let inString = false;
+    let escaped = false;
+    let depth = 0;
+    let objectStart = -1;
+
+    for (let index = arrayStartIndex + 1; index < raw.length; index += 1) {
+        const char = raw[index];
+
+        if (inString) {
+            if (escaped) {
+                escaped = false;
+            } else if (char === "\\") {
+                escaped = true;
+            } else if (char === "\"") {
+                inString = false;
+            }
+            continue;
+        }
+
+        if (char === "\"") {
+            inString = true;
+            continue;
+        }
+
+        if (char === "{") {
+            if (depth === 0) {
+                objectStart = index;
+            }
+            depth += 1;
+            continue;
+        }
+
+        if (char === "}") {
+            if (depth <= 0) continue;
+            depth -= 1;
+            if (depth === 0 && objectStart >= 0) {
+                const candidate = raw.slice(objectStart, index + 1);
+                try {
+                    parsedItems.push(JSON.parse(sanitizeJson(candidate)));
+                } catch {
+                    // Keep salvaging later complete objects if one item is malformed.
+                }
+                objectStart = -1;
+            }
+            continue;
+        }
+
+        if (char === "]" && depth === 0) {
+            break;
+        }
+    }
+
+    return parsedItems;
+};
+
+const parsePartialJsonEnvelope = (raw: string, label: string) => {
+    const key = getPartialEnvelopeKeyForLabel(label);
+    if (!key) return null;
+    const arrayStartIndex = findJsonArrayStart(raw, key);
+    if (arrayStartIndex < 0) return null;
+    const items = parseCompleteJsonObjectsFromArray(raw, arrayStartIndex);
+    if (items.length === 0) return null;
+    return { [key]: items };
+};
 
 const parseJsonFromResponse = (raw: string, label: string) => {
     try {
@@ -1251,6 +1340,16 @@ const parseJsonFromResponse = (raw: string, label: string) => {
             }
             return JSON.parse(sanitizeJson(jsonMatch[0]));
         } catch (error) {
+            const partialEnvelope = parsePartialJsonEnvelope(raw, label);
+            if (partialEnvelope) {
+                console.warn(`[JSONRepair] salvaged partial ${label}`, {
+                    key: Object.keys(partialEnvelope)[0],
+                    count: Array.isArray(Object.values(partialEnvelope)[0])
+                        ? (Object.values(partialEnvelope)[0] as any[]).length
+                        : 0,
+                });
+                return partialEnvelope;
+            }
             console.error(`Failed to parse ${label}:`, raw);
             throw error;
         }
