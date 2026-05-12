@@ -3,8 +3,8 @@
 This project uses:
 
 - Local development: `vite` + a non-production Convex deployment from `.env.local`
-- Staging: the Vercel `Preview` deployment for the `staging` Git branch + a non-production Convex deployment
-- Production: Vercel `Production` + the production Convex deployment
+- Staging: the Vercel `Preview` deployment for the `staging` Git branch + the staging DigitalOcean-hosted Convex deployment
+- Production: Vercel `Production` + the production DigitalOcean-hosted Convex deployment
 
 ## Rule
 
@@ -13,9 +13,17 @@ Never point a preview deployment at the production Convex URL.
 If a preview frontend talks to production Convex, you are no longer testing in
 staging. You are testing against live data and live side effects.
 
+ChewnPour's Convex backend is self-hosted on DigitalOcean. Do not deploy to,
+configure, or fall back to `*.convex.cloud` for staging or production unless the
+user explicitly requests Convex Cloud for that specific task.
+
+The Vite production build refuses `*.convex.cloud` targets by default. The
+`ALLOW_CONVEX_CLOUD_DEPLOY=true` override exists only for a one-off task where
+the user explicitly asks to use Convex Cloud.
+
 ## Repo Guardrail
 
-[vite.config.js](/Users/patrickannor/Desktop/stitch_onboarding_name/stitch-app/vite.config.js)
+[vite.config.js](../vite.config.js)
 only allows the checked-in `config/convex.public.json` fallback during local
 `vite` serve. Real builds must get `VITE_CONVEX_URL` or `CONVEX_URL` from the
 environment.
@@ -31,18 +39,18 @@ That means:
 Configure Vercel environments like this:
 
 - `Production`
-  - `VITE_CONVEX_URL` = production Convex deployment URL
-  - `CONVEX_URL` = production Convex deployment URL when serverless functions need it
+  - `VITE_CONVEX_URL` = production DigitalOcean-hosted Convex URL
+  - `CONVEX_URL` = production DigitalOcean-hosted Convex URL when serverless functions need it
 
 - `Preview (staging branch)`
   - git branch = `staging`
-  - `VITE_CONVEX_URL` = staging Convex deployment URL
-  - `CONVEX_URL` = staging Convex deployment URL for serverless functions
+  - `VITE_CONVEX_URL` = staging DigitalOcean-hosted Convex URL
+  - `CONVEX_URL` = staging DigitalOcean-hosted Convex URL for serverless functions
   - `VITE_SENTRY_ENVIRONMENT=staging`
 
 ## Convex Mapping
 
-Use a non-production Convex deployment for staging.
+Use a non-production DigitalOcean-hosted Convex deployment for staging.
 
 Recommended:
 
@@ -84,15 +92,16 @@ npx vercel env pull .vercel/.env.preview.staging.local --environment=preview --g
 Set the `staging` branch Preview deployment to a staging Convex deployment:
 
 ```bash
-npx vercel env add VITE_CONVEX_URL preview staging --force --value "https://<staging-deployment>.convex.cloud" --yes
-npx vercel env add CONVEX_URL preview staging --force --value "https://<staging-deployment>.convex.cloud" --yes
+npx vercel env add VITE_CONVEX_URL preview staging --force --value "https://<staging-digitalocean-convex-host>" --yes
+npx vercel env add CONVEX_URL preview staging --force --value "https://<staging-digitalocean-convex-host>" --yes
 npx vercel env add VITE_SENTRY_ENVIRONMENT preview staging --force --value "staging" --yes
 ```
 
 Set Production to the live Convex deployment:
 
 ```bash
-npx vercel env add VITE_CONVEX_URL production --force --value "https://<prod-deployment>.convex.cloud" --yes
+npx vercel env add VITE_CONVEX_URL production --force --value "https://<production-digitalocean-convex-host>" --yes
+npx vercel env add CONVEX_URL production --force --value "https://<production-digitalocean-convex-host>" --yes
 ```
 
 ## Stable Staging URL

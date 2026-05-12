@@ -4,6 +4,7 @@ import process from 'node:process';
 
 const staleConvexHosts = [
   'patient-anteater-364.convex.cloud',
+  'whimsical-pelican-356.convex.cloud',
 ];
 const root = process.cwd();
 const convexPublicConfigPath = path.join(root, 'config', 'convex.public.json');
@@ -59,6 +60,12 @@ if (!deployUrl) {
 }
 
 const expectedConvexHost = await resolveExpectedConvexHost();
+if (/\.convex\.cloud$/i.test(expectedConvexHost)) {
+  throw new Error(
+    `Deploy target must use the DigitalOcean-hosted Convex runtime, not Convex Cloud (${expectedConvexHost}).`
+  );
+}
+
 const indexHtml = await fetchText(deployUrl);
 const assetScripts = findAssetScripts(indexHtml);
 if (assetScripts.length === 0) {
