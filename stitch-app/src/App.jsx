@@ -1,5 +1,5 @@
 import React, { Suspense, lazy, useEffect } from 'react';
-import { BrowserRouter as Router, Routes, Route, useLocation } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Navigate, useLocation, useParams } from 'react-router-dom';
 import { useMutation } from 'convex/react';
 import { LazyMotion, domAnimation } from 'motion/react';
 import { api } from '../convex/_generated/api';
@@ -129,10 +129,6 @@ const DashboardProcessing = lazyRoute(() => import('./pages/DashboardProcessing'
 const DashboardCourse = lazyRoute(() => import('./pages/DashboardCourse'), {
   componentName: 'DashboardCourse',
   namedExport: 'DashboardCourse',
-});
-const TopicDetail = lazyRoute(() => import('./pages/TopicDetail'), {
-  componentName: 'TopicDetail',
-  namedExport: 'TopicDetail',
 });
 const ExamMode = lazyRoute(() => import('./pages/ExamMode'), { componentName: 'ExamMode' });
 const DashboardResults = lazyRoute(() => import('./pages/DashboardResults'), { componentName: 'DashboardResults' });
@@ -279,6 +275,11 @@ const withSuspense = (element) => (
   </Suspense>
 );
 
+const RedirectLegacyLessonRoute = () => {
+  const { topicId } = useParams();
+  return <Navigate to={topicId ? `/dashboard/lessons/${topicId}` : '/dashboard/lessons'} replace />;
+};
+
 function App() {
   return (
     <LazyMotion features={domAnimation}>
@@ -319,7 +320,7 @@ function App() {
         <Route path="/dashboard/processing" element={withSuspense(<ProtectedRoute><DashboardLayout><DashboardProcessing /></DashboardLayout></ProtectedRoute>)} />
         <Route path="/dashboard/processing/:courseId" element={withSuspense(<ProtectedRoute><DashboardLayout><DashboardProcessing /></DashboardLayout></ProtectedRoute>)} />
         <Route path="/dashboard/course/:courseId" element={withSuspense(<ProtectedRoute><DashboardLayout><DashboardCourse /></DashboardLayout></ProtectedRoute>)} />
-        <Route path="/dashboard/topic/:topicId" element={withSuspense(<ProtectedRoute><DashboardLayout><TopicDetail /></DashboardLayout></ProtectedRoute>)} />
+        <Route path="/dashboard/topic/:topicId" element={<RedirectLegacyLessonRoute />} />
         <Route path="/dashboard/exam" element={withSuspense(<ProtectedRoute><DashboardLayout><PastQuestionsComingSoon /></DashboardLayout></ProtectedRoute>)} />
         <Route path="/dashboard/exam/:topicId" element={withSuspense(<ProtectedRoute><DashboardLayout><ExamMode /></DashboardLayout></ProtectedRoute>)} />
         <Route path="/dashboard/results" element={withSuspense(<ProtectedRoute><DashboardLayout><DashboardResults /></DashboardLayout></ProtectedRoute>)} />
