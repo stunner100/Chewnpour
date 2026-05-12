@@ -149,9 +149,9 @@ const DashboardLayout = ({ children }) => {
     return (
         <div className="dashboard-shell cp-theme flex h-screen overflow-hidden">
             {/* Desktop Sidebar */}
-            <aside className="hidden md:flex fixed left-0 top-0 h-screen w-sidebar-width flex-col border-r border-border-subtle bg-surface-soft p-space-4 gap-space-6 z-20">
+            <aside className="hidden md:flex fixed left-0 top-0 h-screen w-sidebar-width flex-col border-r border-border-subtle bg-surface-soft p-space-4 gap-space-4 z-20">
                 {/* Brand Header */}
-                <div className="flex items-center gap-space-3 px-space-2 mt-space-2 mb-space-4">
+                <div className="flex items-center gap-space-3 px-space-2 mt-space-2 mb-space-2">
                     <div className="w-10 h-10 rounded-xl bg-primary flex items-center justify-center text-on-primary">
                         <span className="material-symbols-outlined" style={{ fontVariationSettings: "'FILL' 1" }}>psychiatry</span>
                     </div>
@@ -164,33 +164,33 @@ const DashboardLayout = ({ children }) => {
                 {/* Generate Material CTA */}
                 <Link
                     to="/dashboard/upload"
-                    className="w-full bg-primary text-on-primary font-label-md text-label-md py-space-3 rounded-xl flex items-center justify-center gap-space-2 hover:bg-primary-hover transition-colors shadow-sm"
+                    className="w-full bg-primary text-on-primary font-label-sm text-label-sm py-2.5 rounded-xl flex items-center justify-center gap-space-2 hover:bg-primary-hover transition-colors shadow-sm"
                 >
-                    <span className="material-symbols-outlined text-[20px]">auto_awesome</span>
+                    <span className="material-symbols-outlined text-[18px]">auto_awesome</span>
                     Generate Material
                 </Link>
 
                 {/* Navigation */}
-                <nav className="flex-1 flex flex-col gap-space-1 mt-space-4">
+                <nav className="flex-1 flex flex-col gap-space-1 mt-space-2">
                     {navItems.map((item) => {
                         const active = isActive(item);
                         return (
                             <Link
                                 key={item.path}
                                 to={item.path}
-                                className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 ${
+                                className={`flex items-center gap-2.5 px-3 py-2.5 rounded-xl transition-all duration-200 ${
                                     active
                                         ? 'text-primary font-bold bg-primary-soft scale-[0.98]'
                                         : 'text-text-secondary hover:text-primary hover:bg-surface-variant'
                                 }`}
                             >
                                 <span
-                                    className="material-symbols-outlined text-[20px]"
+                                    className="material-symbols-outlined text-[18px]"
                                     style={active ? { fontVariationSettings: "'FILL' 1" } : undefined}
                                 >
                                     {item.icon}
                                 </span>
-                                <span className="font-body-base text-body-base">{item.label}</span>
+                                <span className="font-body-sm text-body-sm">{item.label}</span>
                             </Link>
                         );
                     })}
@@ -204,19 +204,19 @@ const DashboardLayout = ({ children }) => {
                             <Link
                                 key={item.path}
                                 to={item.path}
-                                className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 ${
+                                className={`flex items-center gap-2.5 px-3 py-2.5 rounded-xl transition-all duration-200 ${
                                     active
                                         ? 'text-primary font-bold bg-primary-soft scale-[0.98]'
                                         : 'text-text-secondary hover:text-primary hover:bg-surface-variant'
                                 }`}
                             >
                                 <span
-                                    className="material-symbols-outlined text-[20px]"
+                                    className="material-symbols-outlined text-[18px]"
                                     style={active ? { fontVariationSettings: "'FILL' 1" } : undefined}
                                 >
                                     {item.icon}
                                 </span>
-                                <span className="font-body-base text-body-base">{item.label}</span>
+                                <span className="font-body-sm text-body-sm">{item.label}</span>
                             </Link>
                         );
                     })}
