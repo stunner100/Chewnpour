@@ -195,9 +195,9 @@ const FlashcardStudySession = () => {
                                     ))}
                                 </div>
                             </section>
-                        ) : (
+                        ) : !resumeTarget?.topicId && reviewItems.length === 0 ? (
                             <EmptyFlashcardState />
-                        )}
+                        ) : null}
                     </div>
                 </div>
             </main>
