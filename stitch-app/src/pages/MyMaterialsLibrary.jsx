@@ -45,7 +45,7 @@ const formatUploadedAt = (timestamp) => {
 };
 
 const MaterialsSkeleton = () => (
-    <div className="md:ml-0 pt-16 min-h-screen flex flex-col gap-space-8 p-space-6 md:p-space-10 pb-24 md:pb-space-10 animate-pulse">
+    <div className="md:ml-0 pt-16 min-h-screen flex flex-col gap-space-6 p-space-6 md:p-space-8 pb-24 md:pb-space-8 animate-pulse">
         <div className="h-20 rounded-2xl bg-surface-soft" />
         <div className="h-12 rounded-xl bg-surface-soft max-w-xl" />
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-space-6">
@@ -101,11 +101,11 @@ const MyMaterialsLibrary = () => {
     if (uploads === undefined || courses === undefined) return <MaterialsSkeleton />;
 
     return (
-        <div className="md:ml-0 pt-16 min-h-screen flex flex-col gap-space-8 p-space-6 md:p-space-10 pb-24 md:pb-space-10">
+        <div className="md:ml-0 pt-16 min-h-screen flex flex-col gap-space-6 p-space-6 md:p-space-8 pb-24 md:pb-space-8">
             <div className="flex flex-col md:flex-row md:items-end justify-between gap-space-4">
                 <div>
-                    <h2 className="font-display-lg text-display-lg text-text-primary mb-2">My Materials</h2>
-                    <p className="font-body-base text-body-base text-text-secondary">Manage and study your uploaded files and generated content.</p>
+                    <h2 className="font-display-md text-display-md text-text-primary mb-1">My Materials</h2>
+                    <p className="font-body-sm text-body-sm text-text-secondary">Manage and study your uploaded files and generated content.</p>
                 </div>
                 <div className="flex flex-col sm:flex-row gap-space-3 items-center">
                     <div className="flex items-center gap-2 bg-surface px-4 py-2.5 rounded-xl border border-border-default shadow-sm w-full sm:w-64 focus-within:ring-2 focus-within:ring-primary-soft transition-all">
@@ -127,7 +127,7 @@ const MyMaterialsLibrary = () => {
                         key={tab.value}
                         type="button"
                         onClick={() => setActiveFilter(tab.value)}
-                        className={`whitespace-nowrap px-4 py-2 rounded-lg font-label-md text-label-md shadow-sm transition-all ${
+                        className={`whitespace-nowrap px-3.5 py-2 rounded-lg font-label-sm text-label-sm shadow-sm transition-all ${
                             activeFilter === tab.value
                                 ? 'bg-text-primary text-on-primary'
                                 : 'bg-surface border border-border-default text-text-secondary hover:bg-surface-soft'
@@ -146,13 +146,13 @@ const MyMaterialsLibrary = () => {
                     return (
                         <article
                             key={material.uploadId}
-                            className={`bg-surface border border-border-subtle rounded-xl p-space-5 shadow-sm flex flex-col h-full group relative overflow-hidden ${
+                            className={`bg-surface border border-border-subtle rounded-xl p-space-4 shadow-sm flex flex-col h-full group relative overflow-hidden ${
                                 ready ? 'hover:shadow-md transition-shadow duration-300' : 'opacity-90'
                             }`}
                         >
-                            <div className="flex justify-between items-start mb-4">
-                                <div className={`w-10 h-10 rounded-lg ${typeConfig.color} flex items-center justify-center`}>
-                                    <span className="material-symbols-outlined">{typeConfig.icon}</span>
+                            <div className="flex justify-between items-start mb-3">
+                                <div className={`w-9 h-9 rounded-lg ${typeConfig.color} flex items-center justify-center`}>
+                                    <span className="material-symbols-outlined text-[20px]">{typeConfig.icon}</span>
                                 </div>
                                 {ready ? (
                                     <span className="bg-success-soft text-success px-2.5 py-1 rounded-md font-label-xs text-label-xs font-semibold flex items-center gap-1">
@@ -171,12 +171,12 @@ const MyMaterialsLibrary = () => {
                                     </span>
                                 )}
                             </div>
-                            <h3 className="font-headline-sm text-headline-sm text-text-primary mb-1 line-clamp-2">{material.title}</h3>
-                            <p className="font-body-sm text-body-sm text-text-muted mb-6">Uploaded {formatUploadedAt(material.createdAt)}</p>
+                            <h3 className="font-body-base text-body-base font-bold text-text-primary mb-1 line-clamp-2">{material.title}</h3>
+                            <p className="text-caption font-medium text-text-muted mb-5">Uploaded {formatUploadedAt(material.createdAt)}</p>
                             <div className="mt-auto">
                                 {ready ? (
                                     <>
-                                        <div className="flex gap-4 mb-5 border-t border-border-subtle pt-4">
+                                        <div className="flex gap-3 mb-4 border-t border-border-subtle pt-3">
                                             <div className="flex flex-col">
                                                 <span className="font-label-md text-label-md text-text-primary">{material.lessons}</span>
                                                 <span className="font-label-xs text-label-xs text-text-muted">Lessons</span>
@@ -194,10 +194,10 @@ const MyMaterialsLibrary = () => {
                                         </div>
                                         <Link
                                             to={studyHref}
-                                            className="w-full bg-primary text-on-primary py-2.5 rounded-lg font-label-md text-label-md hover:bg-primary-hover transition-colors shadow-sm flex items-center justify-center gap-2"
+                                            className="w-full bg-primary text-on-primary py-2.5 rounded-lg font-label-sm text-label-sm hover:bg-primary-hover transition-colors shadow-sm flex items-center justify-center gap-2"
                                         >
                                             Continue Study
-                                            <span className="material-symbols-outlined text-[18px]">arrow_forward</span>
+                                            <span className="material-symbols-outlined text-[16px]">arrow_forward</span>
                                         </Link>
                                     </>
                                 ) : (

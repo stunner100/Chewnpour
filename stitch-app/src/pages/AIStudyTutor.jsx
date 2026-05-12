@@ -32,13 +32,13 @@ const TutorSkeleton = () => (
 
 const EmptyTutorState = () => (
     <div className="flex-1 flex flex-col md:ml-0 h-[calc(100vh-64px)] overflow-hidden">
-        <main className="flex-1 min-h-0 flex flex-col p-space-4 md:p-space-8 max-w-container-max mx-auto w-full">
-            <section className="bg-surface rounded-2xl border border-border-subtle shadow-sm p-space-8 md:p-space-10 text-center">
-                <div className="w-16 h-16 bg-primary-soft text-primary rounded-2xl flex items-center justify-center mx-auto mb-space-5">
-                    <span className="material-symbols-outlined text-[32px]">smart_toy</span>
+        <main className="flex-1 min-h-0 flex flex-col p-space-4 md:p-space-6 max-w-container-max mx-auto w-full">
+            <section className="bg-surface rounded-2xl border border-border-subtle shadow-sm p-space-6 md:p-space-8 text-center">
+                <div className="w-14 h-14 bg-primary-soft text-primary rounded-2xl flex items-center justify-center mx-auto mb-space-4">
+                    <span className="material-symbols-outlined text-[28px]">smart_toy</span>
                 </div>
-                <h2 className="font-display-lg text-display-lg text-text-primary">AI Tutor needs a lesson first</h2>
-                <p className="font-body-base text-body-base text-text-secondary mt-space-3 max-w-xl mx-auto">
+                <h2 className="font-display-md text-display-md text-text-primary">AI Tutor needs a lesson first</h2>
+                <p className="font-body-sm text-body-sm text-text-secondary mt-space-3 max-w-xl mx-auto">
                     Upload material and generate topics so the tutor can answer from your real course content.
                 </p>
                 <Link
@@ -133,11 +133,11 @@ const AIStudyTutor = () => {
 
     return (
         <div className="flex-1 flex flex-col md:ml-0 h-[calc(100vh-64px)] overflow-hidden">
-            <main className="flex-1 min-h-0 flex flex-col p-space-4 md:p-space-8 max-w-container-max mx-auto w-full">
-                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-space-8 gap-4">
+            <main className="flex-1 min-h-0 flex flex-col p-space-4 md:p-space-6 max-w-container-max mx-auto w-full">
+                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-space-6 gap-4">
                     <div>
-                        <h2 className="font-display-lg text-display-lg text-text-primary">AI Tutor</h2>
-                        <p className="font-body-base text-body-base text-text-secondary mt-2">
+                        <h2 className="font-display-md text-display-md text-text-primary">AI Tutor</h2>
+                        <p className="font-body-sm text-body-sm text-text-secondary mt-1 max-w-xl">
                             Ask questions grounded in your generated lessons and source material.
                         </p>
                     </div>
@@ -219,7 +219,7 @@ const AIStudyTutor = () => {
                 </div>
 
                 <div className="flex-1 min-h-0 bg-surface rounded-2xl border border-border-subtle shadow-sm flex flex-col overflow-hidden">
-                    <div className="flex-1 min-h-0 overflow-y-auto p-space-6 flex flex-col gap-space-8">
+                    <div className="flex-1 min-h-0 overflow-y-auto p-space-5 flex flex-col gap-space-6">
                         <div className="text-center">
                             <span className="font-label-xs text-label-xs text-text-muted bg-surface-soft px-3 py-1 rounded-full">
                                 {selectedTopicOption?.courseTitle}
@@ -233,11 +233,11 @@ const AIStudyTutor = () => {
                             </div>
                         ) : messages.length === 0 ? (
                             <div className="flex justify-start gap-4">
-                                <div className="w-10 h-10 rounded-full bg-primary-soft flex items-center justify-center flex-shrink-0 border border-primary-fixed-dim">
+                                <div className="w-9 h-9 rounded-full bg-primary-soft flex items-center justify-center flex-shrink-0 border border-primary-fixed-dim">
                                     <span className="material-symbols-outlined text-primary" style={{ fontVariationSettings: "'FILL' 1" }}>smart_toy</span>
                                 </div>
-                                <div className="max-w-[85%] md:max-w-[75%] bg-ai-subtle rounded-2xl rounded-tl-sm p-space-6 shadow-sm border border-outline-variant">
-                                    <p className="font-body-base text-body-base text-text-primary">
+                                <div className="max-w-[85%] md:max-w-[75%] bg-ai-subtle rounded-2xl rounded-tl-sm p-space-4 shadow-sm border border-outline-variant">
+                                    <p className="font-body-sm text-body-sm text-text-primary">
                                         I can help with {selectedTopicOption?.title}. Ask about a confusing idea, request examples, or start a quick review.
                                     </p>
                                     {selectedTopicOption?.description && (
@@ -251,12 +251,12 @@ const AIStudyTutor = () => {
                                 return (
                                     <div key={message._id} className={`flex ${isUser ? 'justify-end' : 'justify-start gap-4'}`}>
                                         {!isUser && (
-                                            <div className="w-10 h-10 rounded-full bg-primary-soft flex items-center justify-center flex-shrink-0 border border-primary-fixed-dim">
+                                            <div className="w-9 h-9 rounded-full bg-primary-soft flex items-center justify-center flex-shrink-0 border border-primary-fixed-dim">
                                                 <span className="material-symbols-outlined text-primary" style={{ fontVariationSettings: "'FILL' 1" }}>smart_toy</span>
                                             </div>
                                         )}
-                                        <div className={`${isUser ? 'max-w-[80%] md:max-w-[70%] bg-surface-muted rounded-tr-sm' : 'max-w-[85%] md:max-w-[75%] bg-ai-subtle rounded-tl-sm border-outline-variant'} rounded-2xl p-space-5 shadow-sm border border-border-subtle`}>
-                                            <p className="font-body-base text-body-base text-text-primary whitespace-pre-wrap">{message.content}</p>
+                                        <div className={`${isUser ? 'max-w-[80%] md:max-w-[70%] bg-surface-muted rounded-tr-sm' : 'max-w-[85%] md:max-w-[75%] bg-ai-subtle rounded-tl-sm border-outline-variant'} rounded-2xl p-space-4 shadow-sm border border-border-subtle`}>
+                                            <p className="font-body-sm text-body-sm text-text-primary whitespace-pre-wrap">{message.content}</p>
                                         </div>
                                     </div>
                                 );
@@ -265,7 +265,7 @@ const AIStudyTutor = () => {
 
                         {sending && (
                             <div className="flex justify-start gap-4">
-                                <div className="w-10 h-10 rounded-full bg-primary-soft flex items-center justify-center flex-shrink-0 border border-primary-fixed-dim">
+                                <div className="w-9 h-9 rounded-full bg-primary-soft flex items-center justify-center flex-shrink-0 border border-primary-fixed-dim">
                                     <span className="material-symbols-outlined text-primary" style={{ fontVariationSettings: "'FILL' 1" }}>smart_toy</span>
                                 </div>
                                 <div className="bg-ai-subtle rounded-2xl rounded-tl-sm px-5 py-4 shadow-sm border border-outline-variant flex items-center gap-2">
@@ -277,7 +277,7 @@ const AIStudyTutor = () => {
                         )}
                     </div>
 
-                    <div className="p-space-5 bg-surface border-t border-border-subtle flex flex-col gap-space-4">
+                    <div className="p-space-4 bg-surface border-t border-border-subtle flex flex-col gap-space-3">
                         <div className="flex flex-wrap gap-2">
                             {suggestedPrompts.map((prompt) => (
                                 <button
@@ -297,7 +297,7 @@ const AIStudyTutor = () => {
                         )}
                         <div className="relative flex items-end gap-2 bg-surface-soft rounded-xl border border-border-strong p-2 focus-within:ring-2 focus-within:ring-primary-soft focus-within:border-primary transition-all shadow-sm">
                             <textarea
-                                className="flex-1 bg-transparent border-none focus:ring-0 resize-none py-3 px-2 font-body-base text-body-base text-text-primary placeholder:text-text-muted min-h-[48px] max-h-[120px]"
+                                className="flex-1 bg-transparent border-none focus:ring-0 resize-none py-2.5 px-2 font-body-sm text-body-sm text-text-primary placeholder:text-text-muted min-h-[44px] max-h-[120px]"
                                 placeholder={`Ask a question about ${selectedTopicOption?.title || 'this lesson'}...`}
                                 rows={1}
                                 value={inputValue}
