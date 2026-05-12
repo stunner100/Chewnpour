@@ -29,6 +29,16 @@ requireIncludes(
 );
 requireIncludes(
   adminSource,
+  'export const createMissingObjectiveQuestionBackfill = action({',
+  'admin.ts',
+);
+requireIncludes(
+  adminSource,
+  'export const createDeterministicObjectiveBackfillForTopicInternal = internalMutation({',
+  'admin.ts',
+);
+requireIncludes(
+  adminSource,
   'const dryRun = args.dryRun !== false;',
   'admin.ts',
 );
@@ -55,6 +65,21 @@ requireIncludes(
 requireIncludes(
   adminSource,
   'reason: "admin_missing_study_content_backfill"',
+  'admin.ts',
+);
+requireIncludes(
+  adminSource,
+  'buildDeterministicObjectiveBackfillQuestions(',
+  'admin.ts',
+);
+requireIncludes(
+  adminSource,
+  'collectTopicStudySignals(topic, subClaims)',
+  'admin.ts',
+);
+requireIncludes(
+  adminSource,
+  'DETERMINISTIC_OBJECTIVE_BACKFILL_VERSION',
   'admin.ts',
 );
 requireExcludes(
