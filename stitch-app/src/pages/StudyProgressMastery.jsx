@@ -198,7 +198,7 @@ const StudyProgressMastery = () => {
                     </div>
                 </section>
 
-                <section className="bg-surface shadow-sm rounded-xl p-space-6 border border-border-subtle md:col-span-1 flex flex-col">
+                <section id="topic-breakdown" className="scroll-mt-20 bg-surface shadow-sm rounded-xl p-space-6 border border-border-subtle md:col-span-1 flex flex-col">
                     <h3 className="font-headline-sm text-headline-sm text-text-primary mb-6">Topic Breakdown</h3>
                     {topicBreakdown.length > 0 ? (
                         <div className="flex flex-col gap-space-4 flex-1">
@@ -218,8 +218,8 @@ const StudyProgressMastery = () => {
                     ) : (
                         <p className="font-body-sm text-body-sm text-text-muted">Course progress will appear after your first generated lesson.</p>
                     )}
-                    <Link to="/dashboard/analysis" className="mt-6 w-full text-center font-label-md text-label-md text-primary hover:text-primary-hover transition-colors">
-                        View Full Report
+                    <Link to="/dashboard/progress#topic-breakdown" className="mt-6 w-full text-center font-label-md text-label-md text-primary hover:text-primary-hover transition-colors">
+                        View Topic Breakdown
                     </Link>
                 </section>
             </div>

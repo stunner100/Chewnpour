@@ -4,34 +4,36 @@ import process from "node:process";
 
 const root = process.cwd();
 
-const [libraryPageSource, libraryConvexSource, schemaSource, dashboardLayoutSource] = await Promise.all([
-  fs.readFile(path.join(root, "src", "pages", "DashboardSearch.jsx"), "utf8"),
+const [libraryPageSource, libraryConvexSource, schemaSource, dashboardLayoutSource, appSource, commandPaletteSource] = await Promise.all([
+  fs.readFile(path.join(root, "src", "pages", "MyMaterialsLibrary.jsx"), "utf8"),
   fs.readFile(path.join(root, "convex", "library.ts"), "utf8"),
   fs.readFile(path.join(root, "convex", "schema.ts"), "utf8"),
   fs.readFile(path.join(root, "src", "components", "DashboardLayout.jsx"), "utf8"),
+  fs.readFile(path.join(root, "src", "App.jsx"), "utf8"),
+  fs.readFile(path.join(root, "src", "components", "CommandPalette.jsx"), "utf8"),
 ]);
 
 for (const requiredPattern of [
-  "api.library.generateMaterialUploadUrl",
-  "api.library.createMaterial",
-  "api.library.listMaterials",
-  "Upload books and reading materials for everyone to read.",
-  "Share to Library",
-  "Read",
-  "uploadToStorageWithRetry",
+  "api.uploads.getUserUploads",
+  "api.courses.getUserCourses",
+  "filteredMaterials",
+  "material.courseId",
 ]) {
   if (!libraryPageSource.includes(requiredPattern)) {
-    throw new Error(`Expected DashboardSearch.jsx to include "${requiredPattern}" for shared library behavior.`);
+    throw new Error(`Expected MyMaterialsLibrary.jsx to include "${requiredPattern}" for real materials behavior.`);
   }
 }
 
 for (const removedPattern of [
+  "api.library.generateMaterialUploadUrl",
+  "api.library.createMaterial",
+  "Share to Library",
   "api.search.searchDashboardContent",
   "Results for",
   "Search courses, topics, or notes...",
 ]) {
   if (libraryPageSource.includes(removedPattern)) {
-    throw new Error(`DashboardSearch.jsx should not include old search behavior "${removedPattern}".`);
+    throw new Error(`MyMaterialsLibrary.jsx should not include old library/search behavior "${removedPattern}".`);
   }
 }
 
@@ -58,8 +60,16 @@ for (const requiredPattern of [
   }
 }
 
-if (!dashboardLayoutSource.includes("{ label: 'Library', icon: 'auto_stories', path: '/dashboard/search' }")) {
-  throw new Error("Dashboard navigation should keep the Library tab at /dashboard/search.");
+if (!dashboardLayoutSource.includes("{ label: 'My Materials', icon: 'folder', path: '/dashboard/library' }")) {
+  throw new Error("Dashboard navigation should route materials to /dashboard/library.");
+}
+
+if (!commandPaletteSource.includes("value: '/dashboard/library'")) {
+  throw new Error("Command palette should route Library to /dashboard/library.");
+}
+
+if (!appSource.includes('<Route path="/dashboard/search" element={<Navigate to="/dashboard/library" replace />} />')) {
+  throw new Error("Old /dashboard/search route should redirect to /dashboard/library.");
 }
 
 console.log("dashboard-library-regression.test.mjs passed");

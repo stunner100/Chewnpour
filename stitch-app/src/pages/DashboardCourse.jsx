@@ -424,7 +424,7 @@ const DashboardCourse = () => {
                     chevron_right
                 </span>
                 <Link
-                    to="/dashboard/search"
+                    to="/dashboard/library"
                     className="text-text-faint-light dark:text-text-faint-dark hover:text-primary transition-colors"
                 >
                     Library

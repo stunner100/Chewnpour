@@ -1,5 +1,5 @@
 import React, { Suspense, lazy, useEffect } from 'react';
-import { BrowserRouter as Router, Routes, Route, useLocation } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { useMutation } from 'convex/react';
 import { LazyMotion, domAnimation } from 'motion/react';
 import { api } from '../convex/_generated/api';
@@ -99,7 +99,6 @@ const lazyRoute = (importer, { componentName, namedExport } = {}) => lazy(() =>
 );
 
 const SignUpPage = lazyRoute(() => import('./pages/SignUp'), { componentName: 'SignUp' });
-const DashboardAnalysisPage = lazyRoute(() => import('./pages/DashboardAnalysis'), { componentName: 'DashboardAnalysis' });
 const StudentDashboard = lazyRoute(() => import('./pages/StudentDashboard'), { componentName: 'StudentDashboard' });
 const MyMaterialsLibrary = lazyRoute(() => import('./pages/MyMaterialsLibrary'), { componentName: 'MyMaterialsLibrary' });
 const UploadMaterials = lazyRoute(() => import('./pages/UploadMaterials'), { componentName: 'UploadMaterials' });
@@ -119,9 +118,7 @@ const Privacy = lazyRoute(() => import('./pages/Privacy'), { componentName: 'Pri
 const OnboardingName = lazyRoute(() => import('./pages/OnboardingName'), { componentName: 'OnboardingName' });
 const OnboardingLevel = lazyRoute(() => import('./pages/OnboardingLevel'), { componentName: 'OnboardingLevel' });
 const OnboardingDepartment = lazyRoute(() => import('./pages/OnboardingDepartment'), { componentName: 'OnboardingDepartment' });
-const Subscription = lazyRoute(() => import('./pages/Subscription'), { componentName: 'Subscription' });
 const SubscriptionCallback = lazyRoute(() => import('./pages/SubscriptionCallback'), { componentName: 'SubscriptionCallback' });
-const DashboardSearch = lazyRoute(() => import('./pages/DashboardSearch'), { componentName: 'DashboardSearch' });
 const DashboardProcessing = lazyRoute(() => import('./pages/DashboardProcessing'), {
   componentName: 'DashboardProcessing',
   namedExport: 'DashboardProcessing',
@@ -136,11 +133,7 @@ const TopicDetail = lazyRoute(() => import('./pages/TopicDetail'), {
 });
 const ExamMode = lazyRoute(() => import('./pages/ExamMode'), { componentName: 'ExamMode' });
 const DashboardResults = lazyRoute(() => import('./pages/DashboardResults'), { componentName: 'DashboardResults' });
-const DashboardFullAnalysis = lazyRoute(() => import('./pages/DashboardFullAnalysis'), { componentName: 'DashboardFullAnalysis' });
 const DashboardPodcasts = lazyRoute(() => import('./pages/DashboardPodcasts'), { componentName: 'DashboardPodcasts' });
-const Profile = lazyRoute(() => import('./pages/Profile'), { componentName: 'Profile' });
-const EditProfile = lazyRoute(() => import('./pages/EditProfile'), { componentName: 'EditProfile' });
-const PastQuestionsComingSoon = lazyRoute(() => import('./pages/PastQuestionsComingSoon'), { componentName: 'PastQuestionsComingSoon' });
 const ConceptIntro = lazyRoute(() => import('./pages/ConceptIntro'), { componentName: 'ConceptIntro' });
 const FillInExercise = lazyRoute(() => import('./pages/FillInExercise'), { componentName: 'FillInExercise' });
 const AssignmentHelper = lazyRoute(() => import('./pages/AssignmentHelper'), { componentName: 'AssignmentHelper' });
@@ -314,17 +307,17 @@ function App() {
         <Route path="/dashboard/settings" element={withSuspense(<ProtectedRoute><DashboardLayout><AccountStudySettings /></DashboardLayout></ProtectedRoute>)} />
         <Route path="/dashboard/lessons" element={withSuspense(<ProtectedRoute><DashboardLayout><LessonMemoryNeuralBasis /></DashboardLayout></ProtectedRoute>)} />
         <Route path="/dashboard/lessons/:lessonId" element={withSuspense(<ProtectedRoute><DashboardLayout><LessonMemoryNeuralBasis /></DashboardLayout></ProtectedRoute>)} />
-        {/* Legacy dashboard routes preserved for backward compatibility */}
-        <Route path="/dashboard/search" element={withSuspense(<ProtectedRoute><DashboardLayout><DashboardSearch /></DashboardLayout></ProtectedRoute>)} />
+        {/* Redirect old dashboard surfaces to the new dashboard screens */}
+        <Route path="/dashboard/search" element={<Navigate to="/dashboard/library" replace />} />
         <Route path="/dashboard/processing" element={withSuspense(<ProtectedRoute><DashboardLayout><DashboardProcessing /></DashboardLayout></ProtectedRoute>)} />
         <Route path="/dashboard/processing/:courseId" element={withSuspense(<ProtectedRoute><DashboardLayout><DashboardProcessing /></DashboardLayout></ProtectedRoute>)} />
         <Route path="/dashboard/course/:courseId" element={withSuspense(<ProtectedRoute><DashboardLayout><DashboardCourse /></DashboardLayout></ProtectedRoute>)} />
         <Route path="/dashboard/topic/:topicId" element={withSuspense(<ProtectedRoute><DashboardLayout><TopicDetail /></DashboardLayout></ProtectedRoute>)} />
-        <Route path="/dashboard/exam" element={withSuspense(<ProtectedRoute><DashboardLayout><PastQuestionsComingSoon /></DashboardLayout></ProtectedRoute>)} />
+        <Route path="/dashboard/exam" element={<Navigate to="/dashboard/quiz" replace />} />
         <Route path="/dashboard/exam/:topicId" element={withSuspense(<ProtectedRoute><DashboardLayout><ExamMode /></DashboardLayout></ProtectedRoute>)} />
         <Route path="/dashboard/results" element={withSuspense(<ProtectedRoute><DashboardLayout><DashboardResults /></DashboardLayout></ProtectedRoute>)} />
         <Route path="/dashboard/results/:attemptId" element={withSuspense(<ProtectedRoute><DashboardLayout><DashboardResults /></DashboardLayout></ProtectedRoute>)} />
-        <Route path="/dashboard/analysis" element={withSuspense(<ProtectedRoute><DashboardLayout><DashboardFullAnalysis /></DashboardLayout></ProtectedRoute>)} />
+        <Route path="/dashboard/analysis" element={<Navigate to="/dashboard/progress" replace />} />
         <Route path="/dashboard/podcasts" element={withSuspense(<ProtectedRoute><DashboardLayout><DashboardPodcasts /></DashboardLayout></ProtectedRoute>)} />
         <Route path="/dashboard/assignment-helper" element={withSuspense(<ProtectedRoute><DashboardLayout><AssignmentHelper /></DashboardLayout></ProtectedRoute>)} />
         <Route path="/dashboard/humanizer" element={withSuspense(<ProtectedRoute><DashboardLayout><AIHumanizer /></DashboardLayout></ProtectedRoute>)} />
@@ -340,12 +333,12 @@ function App() {
         <Route path="/dashboard/concept/:topicId" element={withSuspense(<ProtectedRoute><DashboardLayout><FillInExercise /></DashboardLayout></ProtectedRoute>)} />
 
         {/* Subscription Route */}
-        <Route path="/subscription" element={withSuspense(<ProtectedRoute><DashboardLayout><Subscription /></DashboardLayout></ProtectedRoute>)} />
+        <Route path="/subscription" element={<Navigate to="/dashboard/settings#subscription" replace />} />
         <Route path="/subscription/callback" element={withSuspense(<ProtectedRoute><SubscriptionCallback /></ProtectedRoute>)} />
 
         {/* Profile Routes */}
-        <Route path="/profile" element={withSuspense(<ProtectedRoute><DashboardLayout><Profile /></DashboardLayout></ProtectedRoute>)} />
-        <Route path="/profile/edit" element={withSuspense(<ProtectedRoute><DashboardLayout><EditProfile /></DashboardLayout></ProtectedRoute>)} />
+        <Route path="/profile" element={<Navigate to="/dashboard/settings#profile" replace />} />
+        <Route path="/profile/edit" element={<Navigate to="/dashboard/settings#profile" replace />} />
 
         {/* Admin Route */}
         <Route path="/admin" element={withSuspense(<ProtectedRoute><AdminDashboard /></ProtectedRoute>)} />

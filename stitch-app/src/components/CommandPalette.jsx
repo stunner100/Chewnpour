@@ -6,14 +6,14 @@ import { signOut } from '../lib/auth-client';
 
 const NAV_OPTIONS = [
     { label: 'Dashboard', value: '/dashboard', icon: 'space_dashboard', keywords: ['home', 'main'] },
-    { label: 'Library', value: '/dashboard/search', icon: 'auto_stories', keywords: ['books', 'materials', 'upload'] },
-    { label: 'Study Plan', value: '/dashboard/analysis', icon: 'event_note', keywords: ['schedule', 'plan', 'analysis'] },
+    { label: 'Library', value: '/dashboard/library', icon: 'auto_stories', keywords: ['books', 'materials', 'upload'] },
+    { label: 'Study Plan', value: '/dashboard/progress', icon: 'event_note', keywords: ['schedule', 'plan', 'analysis'] },
     { label: 'Assignments', value: '/dashboard/assignment-helper', icon: 'edit_note', keywords: ['homework', 'tasks', 'helper'] },
     { label: 'Humanizer', value: '/dashboard/humanizer', icon: 'auto_fix_high', keywords: ['ai', 'rewrite', 'humanize'] },
     { label: 'Community', value: '/dashboard/community', icon: 'forum', keywords: ['chat', 'discuss'] },
-    { label: 'Subscription', value: '/subscription', icon: 'workspace_premium', keywords: ['premium', 'pay', 'upgrade'] },
-    { label: 'Profile', value: '/profile', icon: 'person', keywords: ['account', 'settings'] },
-    { label: 'Past Questions', value: '/dashboard/exam', icon: 'quiz', keywords: ['test', 'exam', 'assessment'] },
+    { label: 'Subscription', value: '/dashboard/settings#subscription', icon: 'workspace_premium', keywords: ['premium', 'pay', 'upgrade'] },
+    { label: 'Profile', value: '/dashboard/settings#profile', icon: 'person', keywords: ['account', 'settings'] },
+    { label: 'Quizzes', value: '/dashboard/quiz', icon: 'quiz', keywords: ['test', 'exam', 'assessment'] },
     { label: 'Sign Out', value: '__signout', icon: 'logout', keywords: ['sign out', 'log out', 'exit'] },
 ];
 

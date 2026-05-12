@@ -129,7 +129,7 @@ const CourseProgressSidebar = ({
                         {podcastStatus === 'ready' ? 'Open podcast' : 'Generate podcast'}
                     </button>
                     <Link
-                        to="/dashboard/analysis"
+                        to="/dashboard/progress"
                         className="btn-ghost w-full justify-center text-body-sm h-10"
                     >
                         <span className="material-symbols-outlined text-[16px]">trending_up</span>
