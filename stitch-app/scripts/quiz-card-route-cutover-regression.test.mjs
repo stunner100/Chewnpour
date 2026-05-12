@@ -24,13 +24,15 @@ const requireExcludes = (source, snippet, label) => {
 
 requireIncludes(quizSource, 'const hasQuizContent = (course) =>', 'ActiveQuizSession.jsx');
 requireIncludes(quizSource, 'const targetTopicId = course.firstQuizTopicId;', 'ActiveQuizSession.jsx');
-requireIncludes(quizSource, 'if (!targetTopicId || quizzesReady <= 0) return null;', 'ActiveQuizSession.jsx');
-requireIncludes(quizSource, 'to={buildObjectiveExamRoute(targetTopicId)}', 'ActiveQuizSession.jsx');
+requireIncludes(quizSource, 'if (metadataKnown && !targetTopicId && quizzesReady <= 0) return null;', 'ActiveQuizSession.jsx');
+requireIncludes(quizSource, 'const targetHref = targetTopicId ? buildObjectiveExamRoute(targetTopicId) : `/dashboard/quiz?courseId=${course._id}`;', 'ActiveQuizSession.jsx');
+requireIncludes(quizSource, 'to={targetHref}', 'ActiveQuizSession.jsx');
 requireIncludes(quizSource, 'const quizReadyCourses = useMemo(() => courseList.filter(hasQuizContent), [courseList]);', 'ActiveQuizSession.jsx');
-requireIncludes(quizSource, 'quizReadyCourses.slice(0, 4).map((course)', 'ActiveQuizSession.jsx');
+requireIncludes(quizSource, 'const visibleQuizCourses = useMemo(() => courseList.filter(shouldShowQuizCourse), [courseList]);', 'ActiveQuizSession.jsx');
+requireIncludes(quizSource, 'visibleQuizCourses.slice(0, 4).map((course)', 'ActiveQuizSession.jsx');
 requireExcludes(quizSource, '`/dashboard/course/${course._id}?action=quiz`', 'ActiveQuizSession.jsx');
 requireExcludes(quizSource, ': `/dashboard/lessons?courseId=${course._id}`;', 'ActiveQuizSession.jsx');
-requireExcludes(quizSource, ': `/dashboard/quiz?courseId=${course._id}`;', 'ActiveQuizSession.jsx');
+requireExcludes(quizSource, 'course.firstTopicId', 'ActiveQuizSession.jsx');
 
 requireIncludes(coursesSource, 'quizzesReady: quizReadyTopics.length', 'convex/courses.ts');
 requireIncludes(coursesSource, 'firstTopicId: firstTopic?._id ?? null', 'convex/courses.ts');

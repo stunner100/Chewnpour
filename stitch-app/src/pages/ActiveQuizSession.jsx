@@ -85,12 +85,25 @@ const resolveQuestionOptions = (question) => {
 const isObjectiveQuestion = (question) =>
     question && String(question.questionType || '').toLowerCase() !== 'essay';
 
-const hasQuizContent = (course) =>
-    Boolean(course?.firstQuizTopicId) && Number(course?.quizzesReady || 0) > 0;
+const hasOwn = (object, key) => Object.prototype.hasOwnProperty.call(Object(object), key);
 
-const isQuizReadyTopic = (topic) =>
-    (topic?.assessmentRoute || 'topic_quiz') === 'topic_quiz'
-    && Number(topic?.usableMcqCount || topic?.usableObjectiveCount || 0) > 0;
+const hasQuizReadinessMetadata = (course) =>
+    hasOwn(course, 'quizzesReady') || hasOwn(course, 'firstQuizTopicId');
+
+const hasQuizContent = (course) =>
+    Boolean(course?.firstQuizTopicId) || Number(course?.quizzesReady || 0) > 0;
+
+const shouldShowQuizCourse = (course) =>
+    hasQuizContent(course) || !hasQuizReadinessMetadata(course);
+
+const hasTopicQuizReadinessMetadata = (topic) =>
+    hasOwn(topic, 'usableMcqCount') || hasOwn(topic, 'usableObjectiveCount');
+
+const isQuizReadyTopic = (topic) => {
+    if ((topic?.assessmentRoute || 'topic_quiz') !== 'topic_quiz') return false;
+    if (!hasTopicQuizReadinessMetadata(topic)) return true;
+    return Number(topic?.usableMcqCount || topic?.usableObjectiveCount || 0) > 0;
+};
 
 const pickPreviewQuestion = (questions) => {
     const objectiveQuestions = Array.isArray(questions)
@@ -140,11 +153,16 @@ const EmptyStudyToolState = () => (
 const CourseQuizCard = ({ course }) => {
     const targetTopicId = course.firstQuizTopicId;
     const quizzesReady = Number(course.quizzesReady || 0);
-    if (!targetTopicId || quizzesReady <= 0) return null;
+    const metadataKnown = hasQuizReadinessMetadata(course);
+    if (metadataKnown && !targetTopicId && quizzesReady <= 0) return null;
+    const targetHref = targetTopicId ? buildObjectiveExamRoute(targetTopicId) : `/dashboard/quiz?courseId=${course._id}`;
+    const statusLabel = quizzesReady > 0
+        ? `${quizzesReady} quiz${quizzesReady === 1 ? '' : 'zes'} ready`
+        : targetTopicId ? 'Quiz ready' : 'Open topics';
 
     return (
         <Link
-            to={buildObjectiveExamRoute(targetTopicId)}
+            to={targetHref}
             className="group rounded-2xl border border-border-subtle bg-surface p-space-5 shadow-sm transition-all hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-md"
         >
             <div className="mb-space-5 flex items-start justify-between gap-space-4">
@@ -152,7 +170,7 @@ const CourseQuizCard = ({ course }) => {
                     <span className="material-symbols-outlined">school</span>
                 </div>
                 <span className="inline-flex items-center rounded-full bg-surface-soft px-space-3 py-space-1 font-label-xs text-label-xs text-text-secondary">
-                    {quizzesReady} quiz{quizzesReady === 1 ? '' : 'zes'} ready
+                    {statusLabel}
                 </span>
             </div>
             <h3 className="font-headline-sm text-headline-sm text-text-primary">
@@ -164,7 +182,7 @@ const CourseQuizCard = ({ course }) => {
                 </p>
             )}
             <div className="mt-space-5 flex items-center justify-between border-t border-border-subtle pt-space-4 font-label-md text-label-md text-primary">
-                <span>Start quiz</span>
+                <span>{targetTopicId ? 'Start quiz' : 'Review topics'}</span>
                 <span className="material-symbols-outlined transition-transform group-hover:translate-x-1">
                     arrow_forward
                 </span>
@@ -303,11 +321,13 @@ const ActiveQuizSession = () => {
     const resumeTarget = useQuery(api.topics.getResumeTarget, isAuthenticated ? {} : 'skip');
     const courseList = Array.isArray(courses) ? courses : EMPTY_LIST;
     const quizReadyCourses = useMemo(() => courseList.filter(hasQuizContent), [courseList]);
-    const requestedCourse = quizReadyCourses.find((course) => String(course._id) === String(requestedCourseId));
+    const visibleQuizCourses = useMemo(() => courseList.filter(shouldShowQuizCourse), [courseList]);
+    const selectionCourseList = quizReadyCourses.length > 0 ? quizReadyCourses : visibleQuizCourses;
+    const requestedCourse = selectionCourseList.find((course) => String(course._id) === String(requestedCourseId));
     const resumeCourse = resumeTarget?.courseId
-        ? quizReadyCourses.find((course) => String(course._id) === String(resumeTarget.courseId))
+        ? selectionCourseList.find((course) => String(course._id) === String(resumeTarget.courseId))
         : null;
-    const selectedCourseId = routeTopicId ? '' : requestedCourse?._id || resumeCourse?._id || quizReadyCourses[0]?._id || '';
+    const selectedCourseId = routeTopicId ? '' : requestedCourse?._id || resumeCourse?._id || selectionCourseList[0]?._id || courseList[0]?._id || '';
     const courseWithTopics = useQuery(
         api.courses.getCourseWithTopics,
         isAuthenticated && selectedCourseId ? { courseId: selectedCourseId } : 'skip',
@@ -327,12 +347,12 @@ const ActiveQuizSession = () => {
     );
     const selectedCourse = useMemo(() => {
         const topicCourseId = topicPreview?.courseId;
-        return quizReadyCourses.find((course) => String(course._id) === String(topicCourseId))
-            || quizReadyCourses.find((course) => String(course._id) === String(selectedCourseId))
+        return selectionCourseList.find((course) => String(course._id) === String(topicCourseId))
+            || selectionCourseList.find((course) => String(course._id) === String(selectedCourseId))
             || courseList.find((course) => String(course._id) === String(topicCourseId))
-            || quizReadyCourses[0]
+            || selectionCourseList[0]
             || null;
-    }, [courseList, quizReadyCourses, selectedCourseId, topicPreview?.courseId]);
+    }, [courseList, selectionCourseList, selectedCourseId, topicPreview?.courseId]);
     const previewQuestions = Array.isArray(topicPreview?.questions)
         ? topicPreview.questions.filter(isObjectiveQuestion)
         : EMPTY_LIST;
@@ -357,7 +377,7 @@ const ActiveQuizSession = () => {
     }
 
     if (
-        (!routeTopicId && (quizReadyCourses.length === 0 || quizReadyTopicList.length === 0))
+        (!routeTopicId && (visibleQuizCourses.length === 0 || quizReadyTopicList.length === 0))
         || !topicPreview
         || !previewQuestion
     ) {
@@ -386,9 +406,9 @@ const ActiveQuizSession = () => {
                         onSelectAnswer={(value) => setSelectedAnswer({ questionId: previewQuestionId, value })}
                     />
 
-                    {quizReadyCourses.length > 1 && (
+                    {visibleQuizCourses.length > 1 && (
                         <section className="mt-space-6 grid gap-space-4 md:grid-cols-2">
-                            {quizReadyCourses.slice(0, 4).map((course) => (
+                            {visibleQuizCourses.slice(0, 4).map((course) => (
                                 <CourseQuizCard key={course._id} course={course} />
                             ))}
                         </section>
