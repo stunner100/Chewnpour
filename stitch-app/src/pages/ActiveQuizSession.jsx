@@ -144,9 +144,9 @@ const ActiveQuizSession = () => {
                                     <CourseQuizCard key={course._id} course={course} />
                                 ))}
                             </section>
-                        ) : (
+                        ) : !resumeTarget?.topicId ? (
                             <EmptyStudyToolState />
-                        )}
+                        ) : null}
                     </div>
                 </div>
             </main>

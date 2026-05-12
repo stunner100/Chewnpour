@@ -134,15 +134,15 @@ const LessonMemoryNeuralBasis = () => {
                 <div className="space-y-space-5">
                     <ResumeLessonCard resumeTarget={resumeTarget} />
 
-                    {courseList.length > 0 ? (
-                        <section className="grid gap-space-4 md:grid-cols-2">
-                            {courseList.map((course) => (
-                                <CourseLessonCard key={course._id} course={course} />
-                            ))}
-                        </section>
-                    ) : (
-                        <EmptyLessonsState />
-                    )}
+                        {courseList.length > 0 ? (
+                            <section className="grid gap-space-4 md:grid-cols-2">
+                                {courseList.map((course) => (
+                                    <CourseLessonCard key={course._id} course={course} />
+                                ))}
+                            </section>
+                        ) : !resumeTarget?.topicId ? (
+                            <EmptyLessonsState />
+                        ) : null}
                 </div>
             </article>
         </div>
