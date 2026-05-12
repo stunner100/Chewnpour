@@ -85,6 +85,13 @@ const resolveQuestionOptions = (question) => {
 const isObjectiveQuestion = (question) =>
     question && String(question.questionType || '').toLowerCase() !== 'essay';
 
+const hasQuizContent = (course) =>
+    Boolean(course?.firstQuizTopicId) && Number(course?.quizzesReady || 0) > 0;
+
+const isQuizReadyTopic = (topic) =>
+    (topic?.assessmentRoute || 'topic_quiz') === 'topic_quiz'
+    && Number(topic?.usableMcqCount || topic?.usableObjectiveCount || 0) > 0;
+
 const pickPreviewQuestion = (questions) => {
     const objectiveQuestions = Array.isArray(questions)
         ? questions.filter(isObjectiveQuestion)
@@ -131,15 +138,13 @@ const EmptyStudyToolState = () => (
 );
 
 const CourseQuizCard = ({ course }) => {
-    const targetTopicId = course.firstQuizTopicId || course.firstTopicId;
-    const quizHref = targetTopicId
-        ? buildObjectiveExamRoute(targetTopicId)
-        : `/dashboard/quiz?courseId=${course._id}`;
+    const targetTopicId = course.firstQuizTopicId;
     const quizzesReady = Number(course.quizzesReady || 0);
+    if (!targetTopicId || quizzesReady <= 0) return null;
 
     return (
         <Link
-            to={quizHref}
+            to={buildObjectiveExamRoute(targetTopicId)}
             className="group rounded-2xl border border-border-subtle bg-surface p-space-5 shadow-sm transition-all hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-md"
         >
             <div className="mb-space-5 flex items-start justify-between gap-space-4">
@@ -159,7 +164,7 @@ const CourseQuizCard = ({ course }) => {
                 </p>
             )}
             <div className="mt-space-5 flex items-center justify-between border-t border-border-subtle pt-space-4 font-label-md text-label-md text-primary">
-                <span>{targetTopicId ? 'Start quiz' : 'Choose topic'}</span>
+                <span>Start quiz</span>
                 <span className="material-symbols-outlined transition-transform group-hover:translate-x-1">
                     arrow_forward
                 </span>
@@ -297,30 +302,37 @@ const ActiveQuizSession = () => {
     const courses = useQuery(api.courses.getUserCourses, isAuthenticated ? {} : 'skip');
     const resumeTarget = useQuery(api.topics.getResumeTarget, isAuthenticated ? {} : 'skip');
     const courseList = Array.isArray(courses) ? courses : EMPTY_LIST;
-    const selectedCourseId = routeTopicId ? '' : requestedCourseId || resumeTarget?.courseId || courseList[0]?._id || '';
+    const quizReadyCourses = useMemo(() => courseList.filter(hasQuizContent), [courseList]);
+    const requestedCourse = quizReadyCourses.find((course) => String(course._id) === String(requestedCourseId));
+    const resumeCourse = resumeTarget?.courseId
+        ? quizReadyCourses.find((course) => String(course._id) === String(resumeTarget.courseId))
+        : null;
+    const selectedCourseId = routeTopicId ? '' : requestedCourse?._id || resumeCourse?._id || quizReadyCourses[0]?._id || '';
     const courseWithTopics = useQuery(
         api.courses.getCourseWithTopics,
         isAuthenticated && selectedCourseId ? { courseId: selectedCourseId } : 'skip',
     );
     const topicList = Array.isArray(courseWithTopics?.topics) ? courseWithTopics.topics : EMPTY_LIST;
-    const selectedTopicId = useMemo(() => {
+    const quizReadyTopicList = useMemo(() => topicList.filter(isQuizReadyTopic), [topicList]);
+    const selectedTopicId = (() => {
         if (routeTopicId) return routeTopicId;
-        if (resumeTarget?.topicId && topicList.some((topic) => String(topic._id) === String(resumeTarget.topicId))) {
+        if (resumeTarget?.topicId && quizReadyTopicList.some((topic) => String(topic._id) === String(resumeTarget.topicId))) {
             return resumeTarget.topicId;
         }
-        return topicList[0]?._id || '';
-    }, [resumeTarget?.topicId, routeTopicId, topicList]);
+        return requestedCourse?.firstQuizTopicId || resumeCourse?.firstQuizTopicId || quizReadyCourses[0]?.firstQuizTopicId || quizReadyTopicList[0]?._id || '';
+    })();
     const topicPreview = useQuery(
         api.topics.getTopicWithQuestions,
         isAuthenticated && selectedTopicId ? { topicId: String(selectedTopicId) } : 'skip',
     );
     const selectedCourse = useMemo(() => {
         const topicCourseId = topicPreview?.courseId;
-        return courseList.find((course) => String(course._id) === String(topicCourseId))
-            || courseList.find((course) => String(course._id) === String(selectedCourseId))
-            || courseList[0]
+        return quizReadyCourses.find((course) => String(course._id) === String(topicCourseId))
+            || quizReadyCourses.find((course) => String(course._id) === String(selectedCourseId))
+            || courseList.find((course) => String(course._id) === String(topicCourseId))
+            || quizReadyCourses[0]
             || null;
-    }, [courseList, selectedCourseId, topicPreview?.courseId]);
+    }, [courseList, quizReadyCourses, selectedCourseId, topicPreview?.courseId]);
     const previewQuestions = Array.isArray(topicPreview?.questions)
         ? topicPreview.questions.filter(isObjectiveQuestion)
         : EMPTY_LIST;
@@ -345,7 +357,7 @@ const ActiveQuizSession = () => {
     }
 
     if (
-        (!routeTopicId && (courseList.length === 0 || topicList.length === 0))
+        (!routeTopicId && (quizReadyCourses.length === 0 || quizReadyTopicList.length === 0))
         || !topicPreview
         || !previewQuestion
     ) {
@@ -374,9 +386,9 @@ const ActiveQuizSession = () => {
                         onSelectAnswer={(value) => setSelectedAnswer({ questionId: previewQuestionId, value })}
                     />
 
-                    {courseList.length > 1 && (
+                    {quizReadyCourses.length > 1 && (
                         <section className="mt-space-6 grid gap-space-4 md:grid-cols-2">
-                            {courseList.slice(0, 4).map((course) => (
+                            {quizReadyCourses.slice(0, 4).map((course) => (
                                 <CourseQuizCard key={course._id} course={course} />
                             ))}
                         </section>
