@@ -23,14 +23,17 @@ const requireExcludes = (source, snippet, label) => {
 };
 
 requireIncludes(lessonSource, 'const hasLessonContent = (course) =>', 'LessonMemoryNeuralBasis.jsx');
-requireIncludes(lessonSource, 'const lessonCourseList = useMemo(() => courseList.filter(hasLessonContent), [courseList]);', 'LessonMemoryNeuralBasis.jsx');
-requireIncludes(lessonSource, 'lessonCourseList.map((course)', 'LessonMemoryNeuralBasis.jsx');
+requireIncludes(lessonSource, 'const shouldShowLessonCourse = (course) =>', 'LessonMemoryNeuralBasis.jsx');
+requireIncludes(lessonSource, 'const visibleLessonCourses = useMemo(() => courseList.filter(shouldShowLessonCourse), [courseList]);', 'LessonMemoryNeuralBasis.jsx');
+requireIncludes(lessonSource, 'visibleLessonCourses.map((course)', 'LessonMemoryNeuralBasis.jsx');
 requireIncludes(lessonSource, 'Lessons are still preparing', 'LessonMemoryNeuralBasis.jsx');
 requireExcludes(lessonSource, 'courseList.map((course) => (', 'LessonMemoryNeuralBasis.jsx');
 
 requireIncludes(quizSource, 'const hasQuizContent = (course) =>', 'ActiveQuizSession.jsx');
+requireIncludes(quizSource, 'const shouldShowQuizCourse = (course) =>', 'ActiveQuizSession.jsx');
 requireIncludes(quizSource, 'const quizReadyCourses = useMemo(() => courseList.filter(hasQuizContent), [courseList]);', 'ActiveQuizSession.jsx');
-requireIncludes(quizSource, 'quizReadyCourses.map((course)', 'ActiveQuizSession.jsx');
+requireIncludes(quizSource, 'const visibleQuizCourses = useMemo(() => courseList.filter(shouldShowQuizCourse), [courseList]);', 'ActiveQuizSession.jsx');
+requireIncludes(quizSource, 'visibleQuizCourses.map((course)', 'ActiveQuizSession.jsx');
 requireIncludes(quizSource, 'resumeQuizReady ? resumeTarget : null', 'ActiveQuizSession.jsx');
 requireExcludes(quizSource, 'courseList.map((course)', 'ActiveQuizSession.jsx');
 requireExcludes(quizSource, 'const targetTopicId = course.firstQuizTopicId || course.firstTopicId;', 'ActiveQuizSession.jsx');

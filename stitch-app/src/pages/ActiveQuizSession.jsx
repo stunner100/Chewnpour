@@ -8,8 +8,16 @@ const EMPTY_LIST = [];
 const buildObjectiveExamRoute = (topicId) =>
     topicId ? `/dashboard/exam/${topicId}?autostart=mcq` : '/dashboard';
 
+const hasOwn = (object, key) => Object.prototype.hasOwnProperty.call(Object(object), key);
+
+const hasQuizReadinessMetadata = (course) =>
+    hasOwn(course, 'quizzesReady') || hasOwn(course, 'firstQuizTopicId');
+
 const hasQuizContent = (course) =>
-    Boolean(course?.firstQuizTopicId) && Number(course?.quizzesReady || 0) > 0;
+    Boolean(course?.firstQuizTopicId) || Number(course?.quizzesReady || 0) > 0;
+
+const shouldShowQuizCourse = (course) =>
+    hasQuizContent(course) || !hasQuizReadinessMetadata(course);
 
 const StudyToolSkeleton = () => (
     <div className="flex-1 flex flex-col ml-0 h-[calc(100vh-64px)] overflow-hidden">
@@ -79,11 +87,16 @@ const ResumeQuizCard = ({ resumeTarget }) => {
 const CourseQuizCard = ({ course }) => {
     const targetTopicId = course.firstQuizTopicId;
     const quizzesReady = Number(course.quizzesReady || 0);
-    if (!targetTopicId || quizzesReady <= 0) return null;
+    const metadataKnown = hasQuizReadinessMetadata(course);
+    if (metadataKnown && !targetTopicId && quizzesReady <= 0) return null;
+    const targetHref = targetTopicId ? buildObjectiveExamRoute(targetTopicId) : `/dashboard/quiz?courseId=${course._id}`;
+    const statusLabel = quizzesReady > 0
+        ? `${quizzesReady} quiz${quizzesReady === 1 ? '' : 'zes'} ready`
+        : targetTopicId ? 'Quiz ready' : 'Open topics';
 
     return (
         <Link
-            to={buildObjectiveExamRoute(targetTopicId)}
+            to={targetHref}
             className="group rounded-2xl border border-border-subtle bg-surface p-space-5 shadow-sm transition-all hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-md"
         >
             <div className="mb-space-5 flex items-start justify-between gap-space-4">
@@ -91,7 +104,7 @@ const CourseQuizCard = ({ course }) => {
                     <span className="material-symbols-outlined">school</span>
                 </div>
                 <span className="inline-flex items-center rounded-full bg-surface-soft px-space-3 py-space-1 font-label-xs text-label-xs text-text-secondary">
-                    {quizzesReady} quiz{quizzesReady === 1 ? '' : 'zes'} ready
+                    {statusLabel}
                 </span>
             </div>
             <h3 className="font-headline-sm text-headline-sm text-text-primary">
@@ -103,7 +116,7 @@ const CourseQuizCard = ({ course }) => {
                 </p>
             )}
             <div className="mt-space-5 flex items-center justify-between border-t border-border-subtle pt-space-4 font-label-md text-label-md text-primary">
-                <span>Start quiz</span>
+                <span>{targetTopicId ? 'Start quiz' : 'Review topics'}</span>
                 <span className="material-symbols-outlined transition-transform group-hover:translate-x-1">
                     arrow_forward
                 </span>
@@ -119,10 +132,13 @@ const ActiveQuizSession = () => {
     const resumeTarget = useQuery(api.topics.getResumeTarget, isAuthenticated ? {} : 'skip');
     const courseList = Array.isArray(courses) ? courses : EMPTY_LIST;
     const quizReadyCourses = useMemo(() => courseList.filter(hasQuizContent), [courseList]);
+    const visibleQuizCourses = useMemo(() => courseList.filter(shouldShowQuizCourse), [courseList]);
+    const resumeQuizCandidates = quizReadyCourses.length > 0 ? quizReadyCourses : visibleQuizCourses;
     const resumeQuizReady = Boolean(resumeTarget?.topicId)
-        && quizReadyCourses.some((course) =>
+        && resumeQuizCandidates.some((course) =>
             String(course._id) === String(resumeTarget?.courseId)
             || String(course.firstQuizTopicId) === String(resumeTarget?.topicId)
+            || !hasQuizReadinessMetadata(course)
         );
 
     if (quizId) {
@@ -152,9 +168,9 @@ const ActiveQuizSession = () => {
                     <div className="space-y-space-5">
                         <ResumeQuizCard resumeTarget={resumeQuizReady ? resumeTarget : null} />
 
-                        {quizReadyCourses.length > 0 ? (
+                        {visibleQuizCourses.length > 0 ? (
                             <section className="grid gap-space-4 md:grid-cols-2">
-                                {quizReadyCourses.map((course) => (
+                                {visibleQuizCourses.map((course) => (
                                     <CourseQuizCard key={course._id} course={course} />
                                 ))}
                             </section>
