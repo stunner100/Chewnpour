@@ -27,6 +27,8 @@ for (const forbiddenSnippet of [
   'Practice from your generated topics',
   'Continue practice',
   'Start an objective quiz from the topic you last studied.',
+  '/dashboard/exam',
+  '<Navigate',
 ]) {
   if (quizSource.includes(forbiddenSnippet)) {
     throw new Error(`Quiz page reintroduced list/resume copy instead of the mockup format (${forbiddenSnippet}).`);

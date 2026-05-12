@@ -176,7 +176,7 @@ const ConceptReviewCard = ({ item }) => (
 
 const CourseFlashcardsCard = ({ course }) => (
     <Link
-        to={`/dashboard/course/${course._id}?action=flashcards`}
+        to="/dashboard/flashcards"
         className="group rounded-2xl border border-border-subtle bg-surface p-space-5 shadow-sm transition-all hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-md"
     >
         <div className="mb-space-5 flex items-start justify-between gap-space-4">

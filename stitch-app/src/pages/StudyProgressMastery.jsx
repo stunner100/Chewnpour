@@ -70,9 +70,9 @@ const StudyProgressMastery = () => {
     const averageAccuracy = performanceInsights?.overallPreparedness ?? userStats?.accuracy ?? 0;
     const readiness = readinessLabel(averageAccuracy);
     const recommendedHref = conceptReviewQueue?.items?.[0]?.topicId
-        ? `/dashboard/concept-intro/${conceptReviewQueue.items[0].topicId}`
+        ? `/dashboard/flashcards/${conceptReviewQueue.items[0].topicId}`
         : resumeTarget?.topicId
-            ? `/dashboard/topic/${resumeTarget.topicId}`
+            ? `/dashboard/lessons/${resumeTarget.topicId}`
             : '/dashboard/upload';
     const loading = [userStats, performanceInsights, conceptReviewQueue, courses, resumeTarget].some((value) => value === undefined);
 

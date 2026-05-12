@@ -102,9 +102,9 @@ const StudentDashboard = () => {
     const coursesById = useMemo(() => new Map(safeCourses.map((course) => [String(course._id), course])), [safeCourses]);
     const resumeCourse = resumeTarget?.courseId ? coursesById.get(String(resumeTarget.courseId)) : safeCourses[0];
     const resumeHref = resumeTarget?.topicId
-        ? `/dashboard/topic/${resumeTarget.topicId}`
+        ? `/dashboard/lessons/${resumeTarget.topicId}`
         : resumeCourse?._id
-            ? `/dashboard/course/${resumeCourse._id}`
+            ? `/dashboard/lessons?courseId=${resumeCourse._id}`
             : '/dashboard/upload';
     const resumeProgress = resumeCourse?.progress || resumeTarget?.bestScore || 0;
 
@@ -125,7 +125,7 @@ const StudentDashboard = () => {
         ? {
             title: `Review ${weakConcepts[0].label}`,
             description: 'This concept needs more practice based on your recent answers.',
-            href: conceptReviewQueue?.items?.[0]?.topicId ? `/dashboard/concept-intro/${conceptReviewQueue.items[0].topicId}` : '/dashboard/progress',
+            href: conceptReviewQueue?.items?.[0]?.topicId ? `/dashboard/flashcards/${conceptReviewQueue.items[0].topicId}` : '/dashboard/progress',
             cta: 'Start Review',
         }
         : resumeTarget
@@ -298,7 +298,7 @@ const StudentDashboard = () => {
                             <ul className="flex flex-col gap-space-4">
                                 {recentMaterials.map((material) => {
                                     const typeConfig = materialIconByKind[material.kind] || materialIconByKind.notes;
-                                    const href = material.courseId ? `/dashboard/course/${material.courseId}` : '/dashboard/library';
+                                    const href = material.courseId ? `/dashboard/lessons?courseId=${material.courseId}` : '/dashboard/library';
                                     return (
                                         <li key={material.uploadId}>
                                             <Link to={href} className="flex items-center gap-space-3 p-space-2 hover:bg-surface-soft rounded-lg transition-colors -ml-space-2">

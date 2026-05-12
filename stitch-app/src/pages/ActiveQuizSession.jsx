@@ -1,12 +1,12 @@
 import React, { useMemo, useState } from 'react';
-import { Link, Navigate, useParams } from 'react-router-dom';
+import { Link, useParams, useSearchParams } from 'react-router-dom';
 import { useConvexAuth, useQuery } from 'convex/react';
 import { api } from '../../convex/_generated/api';
 
 const EMPTY_LIST = [];
 
 const buildObjectiveExamRoute = (topicId) =>
-    topicId ? `/dashboard/exam/${topicId}?autostart=mcq` : '/dashboard';
+    topicId ? `/dashboard/quiz/${topicId}` : '/dashboard/quiz';
 
 const normalizeText = (value) => String(value || '').replace(/\s+/g, ' ').trim();
 
@@ -132,7 +132,7 @@ const EmptyStudyToolState = () => (
 
 const CourseQuizCard = ({ course }) => (
     <Link
-        to={`/dashboard/course/${course._id}?action=quiz`}
+        to={`/dashboard/quiz?courseId=${course._id}`}
         className="group rounded-2xl border border-border-subtle bg-surface p-space-5 shadow-sm transition-all hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-md"
     >
         <div className="mb-space-5 flex items-start justify-between gap-space-4">
@@ -266,14 +266,12 @@ const QuizMockupPanel = ({
                             Start Quiz
                             <span className="material-symbols-outlined text-[20px]">arrow_forward</span>
                         </Link>
-                        {course?._id && (
-                            <Link
-                                to={`/dashboard/course/${course._id}?action=quiz`}
-                                className="mt-space-3 inline-flex w-full items-center justify-center rounded-xl border border-border-default bg-surface px-space-5 py-space-3 font-label-md text-label-md text-text-primary transition-colors hover:bg-surface-soft"
-                            >
-                                View Topics
-                            </Link>
-                        )}
+                        <Link
+                            to={course?._id ? `/dashboard/quiz?courseId=${course._id}` : '/dashboard/quiz'}
+                            className="mt-space-3 inline-flex w-full items-center justify-center rounded-xl border border-border-default bg-surface px-space-5 py-space-3 font-label-md text-label-md text-text-primary transition-colors hover:bg-surface-soft"
+                        >
+                            View Topics
+                        </Link>
                     </aside>
                 </div>
             </div>
@@ -283,28 +281,38 @@ const QuizMockupPanel = ({
 
 const ActiveQuizSession = () => {
     const { quizId } = useParams();
+    const [searchParams] = useSearchParams();
+    const routeTopicId = typeof quizId === 'string' ? quizId.trim() : '';
+    const requestedCourseId = searchParams.get('courseId') || '';
     const { isAuthenticated } = useConvexAuth();
     const [selectedAnswer, setSelectedAnswer] = useState({ questionId: '', value: '' });
     const courses = useQuery(api.courses.getUserCourses, isAuthenticated ? {} : 'skip');
     const resumeTarget = useQuery(api.topics.getResumeTarget, isAuthenticated ? {} : 'skip');
     const courseList = Array.isArray(courses) ? courses : EMPTY_LIST;
-    const selectedCourseId = resumeTarget?.courseId || courseList[0]?._id || '';
-    const selectedCourse = courseList.find((course) => String(course._id) === String(selectedCourseId)) || courseList[0] || null;
+    const selectedCourseId = routeTopicId ? '' : requestedCourseId || resumeTarget?.courseId || courseList[0]?._id || '';
     const courseWithTopics = useQuery(
         api.courses.getCourseWithTopics,
         isAuthenticated && selectedCourseId ? { courseId: selectedCourseId } : 'skip',
     );
     const topicList = Array.isArray(courseWithTopics?.topics) ? courseWithTopics.topics : EMPTY_LIST;
     const selectedTopicId = useMemo(() => {
+        if (routeTopicId) return routeTopicId;
         if (resumeTarget?.topicId && topicList.some((topic) => String(topic._id) === String(resumeTarget.topicId))) {
             return resumeTarget.topicId;
         }
         return topicList[0]?._id || '';
-    }, [resumeTarget?.topicId, topicList]);
+    }, [resumeTarget?.topicId, routeTopicId, topicList]);
     const topicPreview = useQuery(
         api.topics.getTopicWithQuestions,
         isAuthenticated && selectedTopicId ? { topicId: String(selectedTopicId) } : 'skip',
     );
+    const selectedCourse = useMemo(() => {
+        const topicCourseId = topicPreview?.courseId;
+        return courseList.find((course) => String(course._id) === String(topicCourseId))
+            || courseList.find((course) => String(course._id) === String(selectedCourseId))
+            || courseList[0]
+            || null;
+    }, [courseList, selectedCourseId, topicPreview?.courseId]);
     const previewQuestions = Array.isArray(topicPreview?.questions)
         ? topicPreview.questions.filter(isObjectiveQuestion)
         : EMPTY_LIST;
@@ -318,21 +326,21 @@ const ActiveQuizSession = () => {
         ? selectedAnswer.value
         : '';
 
-    if (quizId) {
-        return <Navigate to={buildObjectiveExamRoute(quizId)} replace />;
-    }
-
     if (
         !isAuthenticated
         || courses === undefined
         || resumeTarget === undefined
-        || (selectedCourseId && courseWithTopics === undefined)
+        || (!routeTopicId && selectedCourseId && courseWithTopics === undefined)
         || (selectedTopicId && topicPreview === undefined)
     ) {
         return <StudyToolSkeleton />;
     }
 
-    if (courseList.length === 0 || topicList.length === 0 || !topicPreview || !previewQuestion) {
+    if (
+        (!routeTopicId && (courseList.length === 0 || topicList.length === 0))
+        || !topicPreview
+        || !previewQuestion
+    ) {
         return (
             <div className="flex-1 flex flex-col ml-0 h-[calc(100vh-64px)] overflow-hidden">
                 <main className="flex-1 min-h-0 p-space-4 md:px-space-10 md:py-space-8 flex flex-col items-center justify-start overflow-y-auto">

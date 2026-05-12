@@ -142,7 +142,7 @@ const MyMaterialsLibrary = () => {
                 {filteredMaterials.map((material) => {
                     const typeConfig = typeIcons[material.kind] || typeIcons.notes;
                     const ready = material.status === 'ready';
-                    const studyHref = material.courseId ? `/dashboard/course/${material.courseId}` : '/dashboard/upload';
+                    const studyHref = material.courseId ? `/dashboard/lessons?courseId=${material.courseId}` : '/dashboard/upload';
                     return (
                         <article
                             key={material.uploadId}

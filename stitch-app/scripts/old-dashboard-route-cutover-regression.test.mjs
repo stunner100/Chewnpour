@@ -12,13 +12,33 @@ const appSource = await read('src/App.jsx');
 const settingsSource = await read('src/pages/AccountStudySettings.jsx');
 const progressSource = await read('src/pages/StudyProgressMastery.jsx');
 const progressSnapshotSource = await read('src/components/dashboard/ProgressSnapshot.jsx');
-const courseSidebarSource = await read('src/components/course/CourseProgressSidebar.jsx');
-const dashboardCourseSource = await read('src/pages/DashboardCourse.jsx');
+const studentDashboardSource = await read('src/pages/StudentDashboard.jsx');
+const materialsSource = await read('src/pages/MyMaterialsLibrary.jsx');
+const lessonsSource = await read('src/pages/LessonMemoryNeuralBasis.jsx');
+const quizSource = await read('src/pages/ActiveQuizSession.jsx');
+const flashcardsSource = await read('src/pages/FlashcardStudySession.jsx');
+const commandPaletteSource = await read('src/components/CommandPalette.jsx');
 
 for (const snippet of [
   '<Route path="/dashboard/search" element={<Navigate to="/dashboard/library" replace />} />',
+  '<Route path="/dashboard/processing" element={<Navigate to="/dashboard/library" replace />} />',
+  '<Route path="/dashboard/processing/:courseId" element={<Navigate to="/dashboard/library" replace />} />',
+  '<Route path="/dashboard/course/:courseId" element={<Navigate to="/dashboard/lessons" replace />} />',
+  '<Route path="/dashboard/topic/:topicId" element={<RedirectLegacyLessonRoute />} />',
   '<Route path="/dashboard/exam" element={<Navigate to="/dashboard/quiz" replace />} />',
+  '<Route path="/dashboard/exam/:topicId" element={<RedirectLegacyQuizRoute />} />',
+  '<Route path="/dashboard/results" element={<Navigate to="/dashboard/progress" replace />} />',
+  '<Route path="/dashboard/results/:attemptId" element={<Navigate to="/dashboard/progress" replace />} />',
   '<Route path="/dashboard/analysis" element={<Navigate to="/dashboard/progress" replace />} />',
+  '<Route path="/dashboard/podcasts" element={<Navigate to="/dashboard/lessons" replace />} />',
+  '<Route path="/dashboard/assignment-helper" element={<Navigate to="/dashboard/ai-tutor" replace />} />',
+  '<Route path="/dashboard/humanizer" element={<Navigate to="/dashboard/ai-tutor" replace />} />',
+  '<Route path="/dashboard/community" element={<Navigate to="/dashboard" replace />} />',
+  '<Route path="/dashboard/community/:channelId" element={<Navigate to="/dashboard" replace />} />',
+  '<Route path="/dashboard/concept-intro" element={<Navigate to="/dashboard/flashcards" replace />} />',
+  '<Route path="/dashboard/concept-intro/:topicId" element={<RedirectLegacyFlashcardsRoute />} />',
+  '<Route path="/dashboard/concept" element={<Navigate to="/dashboard/flashcards" replace />} />',
+  '<Route path="/dashboard/concept/:topicId" element={<RedirectLegacyFlashcardsRoute />} />',
   '<Route path="/subscription" element={<Navigate to="/dashboard/settings#subscription" replace />} />',
   '<Route path="/profile" element={<Navigate to="/dashboard/settings#profile" replace />} />',
   '<Route path="/profile/edit" element={<Navigate to="/dashboard/settings#profile" replace />} />',
@@ -36,6 +56,18 @@ for (const forbiddenSnippet of [
   "const Profile = lazyRoute",
   "const EditProfile = lazyRoute",
   "const Subscription = lazyRoute",
+  "const DashboardProcessing = lazyRoute",
+  "const DashboardCourse = lazyRoute",
+  "const TopicDetail = lazyRoute",
+  "const ExamMode = lazyRoute",
+  "const DashboardResults = lazyRoute",
+  "const DashboardPodcasts = lazyRoute",
+  "const ConceptIntro = lazyRoute",
+  "const FillInExercise = lazyRoute",
+  "const AssignmentHelper = lazyRoute",
+  "const AIHumanizer = lazyRoute",
+  "const Community = lazyRoute",
+  "const CommunityChannel = lazyRoute",
   "Legacy dashboard routes preserved for backward compatibility",
 ]) {
   if (appSource.includes(forbiddenSnippet)) {
@@ -47,10 +79,39 @@ for (const [source, label] of [
   [settingsSource, 'AccountStudySettings.jsx'],
   [progressSource, 'StudyProgressMastery.jsx'],
   [progressSnapshotSource, 'ProgressSnapshot.jsx'],
-  [courseSidebarSource, 'CourseProgressSidebar.jsx'],
-  [dashboardCourseSource, 'DashboardCourse.jsx'],
+  [studentDashboardSource, 'StudentDashboard.jsx'],
+  [materialsSource, 'MyMaterialsLibrary.jsx'],
+  [lessonsSource, 'LessonMemoryNeuralBasis.jsx'],
+  [quizSource, 'ActiveQuizSession.jsx'],
+  [flashcardsSource, 'FlashcardStudySession.jsx'],
+  [commandPaletteSource, 'CommandPalette.jsx'],
 ]) {
-  if (source.includes('to="/dashboard/analysis"') || source.includes('to="/dashboard/search"') || source.includes('to="/subscription"')) {
+  const oldDestinations = [
+    '/dashboard/analysis',
+    '/dashboard/search',
+    '/dashboard/processing',
+    '/dashboard/course',
+    '/dashboard/topic',
+    '/dashboard/exam',
+    '/dashboard/results',
+    '/dashboard/podcasts',
+    '/dashboard/assignment-helper',
+    '/dashboard/humanizer',
+    '/dashboard/community',
+    '/dashboard/concept',
+    '/subscription',
+  ];
+  const oldDestination = oldDestinations.find((destination) => source.includes(destination));
+  if (oldDestination) {
+    throw new Error(`${label} should not link users into old dashboard screens: ${oldDestination}`);
+  }
+}
+
+for (const [source, label] of [
+  [lessonsSource, 'LessonMemoryNeuralBasis.jsx'],
+  [quizSource, 'ActiveQuizSession.jsx'],
+]) {
+  if (source.includes('<Navigate')) {
     throw new Error(`${label} should not link users into old dashboard screens.`);
   }
 }
