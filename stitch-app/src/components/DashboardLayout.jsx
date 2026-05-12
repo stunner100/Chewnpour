@@ -16,6 +16,7 @@ const navItems = [
     { label: 'Lessons', icon: 'menu_book', path: '/dashboard/lessons' },
     { label: 'Quizzes', icon: 'quiz', path: '/dashboard/quiz' },
     { label: 'Flashcards', icon: 'style', path: '/dashboard/flashcards' },
+    { label: 'Podcasts', icon: 'podcasts', path: '/dashboard/podcasts' },
     { label: 'AI Tutor', icon: 'smart_toy', path: '/dashboard/ai-tutor' },
     { label: 'Progress', icon: 'bar_chart', path: '/dashboard/progress' },
 ];

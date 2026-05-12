@@ -6,6 +6,7 @@ const tabs = [
     { label: 'Upload', icon: 'cloud_upload', path: '/dashboard/upload', matchPaths: ['/dashboard/upload'] },
     { label: 'Materials', icon: 'folder', path: '/dashboard/library', matchPaths: ['/dashboard/library'] },
     { label: 'Lessons', icon: 'menu_book', path: '/dashboard/lessons', matchPaths: ['/dashboard/lessons'] },
+    { label: 'Podcasts', icon: 'podcasts', path: '/dashboard/podcasts', matchPaths: ['/dashboard/podcasts'] },
 ];
 
 const MobileBottomNav = () => {

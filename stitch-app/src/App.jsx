@@ -108,6 +108,7 @@ const AIStudyTutor = lazyRoute(() => import('./pages/AIStudyTutor'), { component
 const StudyProgressMastery = lazyRoute(() => import('./pages/StudyProgressMastery'), { componentName: 'StudyProgressMastery' });
 const AccountStudySettings = lazyRoute(() => import('./pages/AccountStudySettings'), { componentName: 'AccountStudySettings' });
 const LessonMemoryNeuralBasis = lazyRoute(() => import('./pages/LessonMemoryNeuralBasis'), { componentName: 'LessonMemoryNeuralBasis' });
+const DashboardPodcasts = lazyRoute(() => import('./pages/DashboardPodcasts'), { componentName: 'DashboardPodcasts' });
 const LandingPage = lazyRoute(() => import('./pages/LandingPage'), { componentName: 'LandingPage' });
 const Login = lazyRoute(() => import('./pages/Login'), { componentName: 'Login' });
 const ResetPassword = lazyRoute(() => import('./pages/ResetPassword'), { componentName: 'ResetPassword' });
@@ -298,6 +299,7 @@ function App() {
         <Route path="/dashboard/settings" element={withSuspense(<ProtectedRoute><DashboardLayout><AccountStudySettings /></DashboardLayout></ProtectedRoute>)} />
         <Route path="/dashboard/lessons" element={withSuspense(<ProtectedRoute><DashboardLayout><LessonMemoryNeuralBasis /></DashboardLayout></ProtectedRoute>)} />
         <Route path="/dashboard/lessons/:lessonId" element={withSuspense(<ProtectedRoute><DashboardLayout><LessonMemoryNeuralBasis /></DashboardLayout></ProtectedRoute>)} />
+        <Route path="/dashboard/podcasts" element={withSuspense(<ProtectedRoute><DashboardLayout><DashboardPodcasts /></DashboardLayout></ProtectedRoute>)} />
         {/* Redirect old dashboard surfaces to the new dashboard screens */}
         <Route path="/dashboard/search" element={<Navigate to="/dashboard/library" replace />} />
         <Route path="/dashboard/processing" element={<Navigate to="/dashboard/library" replace />} />
@@ -309,7 +311,6 @@ function App() {
         <Route path="/dashboard/results" element={<Navigate to="/dashboard/progress" replace />} />
         <Route path="/dashboard/results/:attemptId" element={<Navigate to="/dashboard/progress" replace />} />
         <Route path="/dashboard/analysis" element={<Navigate to="/dashboard/progress" replace />} />
-        <Route path="/dashboard/podcasts" element={<Navigate to="/dashboard/lessons" replace />} />
         <Route path="/dashboard/assignment-helper" element={<Navigate to="/dashboard/ai-tutor" replace />} />
         <Route path="/dashboard/humanizer" element={<Navigate to="/dashboard/ai-tutor" replace />} />
         <Route path="/dashboard/community" element={<Navigate to="/dashboard" replace />} />
