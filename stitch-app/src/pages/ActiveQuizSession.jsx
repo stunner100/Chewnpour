@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { Link, Navigate, useParams } from 'react-router-dom';
 import { useConvexAuth, useQuery } from 'convex/react';
 import { api } from '../../convex/_generated/api';
@@ -7,6 +7,9 @@ const EMPTY_LIST = [];
 
 const buildObjectiveExamRoute = (topicId) =>
     topicId ? `/dashboard/exam/${topicId}?autostart=mcq` : '/dashboard';
+
+const hasQuizContent = (course) =>
+    Boolean(course?.firstQuizTopicId) && Number(course?.quizzesReady || 0) > 0;
 
 const StudyToolSkeleton = () => (
     <div className="flex-1 flex flex-col ml-0 h-[calc(100vh-64px)] overflow-hidden">
@@ -74,15 +77,13 @@ const ResumeQuizCard = ({ resumeTarget }) => {
 };
 
 const CourseQuizCard = ({ course }) => {
-    const targetTopicId = course.firstQuizTopicId || course.firstTopicId;
-    const quizHref = targetTopicId
-        ? buildObjectiveExamRoute(targetTopicId)
-        : `/dashboard/quiz?courseId=${course._id}`;
+    const targetTopicId = course.firstQuizTopicId;
     const quizzesReady = Number(course.quizzesReady || 0);
+    if (!targetTopicId || quizzesReady <= 0) return null;
 
     return (
         <Link
-            to={quizHref}
+            to={buildObjectiveExamRoute(targetTopicId)}
             className="group rounded-2xl border border-border-subtle bg-surface p-space-5 shadow-sm transition-all hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-md"
         >
             <div className="mb-space-5 flex items-start justify-between gap-space-4">
@@ -102,7 +103,7 @@ const CourseQuizCard = ({ course }) => {
                 </p>
             )}
             <div className="mt-space-5 flex items-center justify-between border-t border-border-subtle pt-space-4 font-label-md text-label-md text-primary">
-                <span>{targetTopicId ? 'Start quiz' : 'Choose topic'}</span>
+                <span>Start quiz</span>
                 <span className="material-symbols-outlined transition-transform group-hover:translate-x-1">
                     arrow_forward
                 </span>
@@ -116,6 +117,13 @@ const ActiveQuizSession = () => {
     const { isAuthenticated } = useConvexAuth();
     const courses = useQuery(api.courses.getUserCourses, isAuthenticated ? {} : 'skip');
     const resumeTarget = useQuery(api.topics.getResumeTarget, isAuthenticated ? {} : 'skip');
+    const courseList = Array.isArray(courses) ? courses : EMPTY_LIST;
+    const quizReadyCourses = useMemo(() => courseList.filter(hasQuizContent), [courseList]);
+    const resumeQuizReady = Boolean(resumeTarget?.topicId)
+        && quizReadyCourses.some((course) =>
+            String(course._id) === String(resumeTarget?.courseId)
+            || String(course.firstQuizTopicId) === String(resumeTarget?.topicId)
+        );
 
     if (quizId) {
         return <Navigate to={buildObjectiveExamRoute(quizId)} replace />;
@@ -124,8 +132,6 @@ const ActiveQuizSession = () => {
     if (!isAuthenticated || courses === undefined || resumeTarget === undefined) {
         return <StudyToolSkeleton />;
     }
-
-    const courseList = Array.isArray(courses) ? courses : EMPTY_LIST;
 
     return (
         <div className="flex-1 flex flex-col ml-0 h-[calc(100vh-64px)] overflow-hidden">
@@ -144,15 +150,15 @@ const ActiveQuizSession = () => {
                     </div>
 
                     <div className="space-y-space-5">
-                        <ResumeQuizCard resumeTarget={resumeTarget} />
+                        <ResumeQuizCard resumeTarget={resumeQuizReady ? resumeTarget : null} />
 
-                        {courseList.length > 0 ? (
+                        {quizReadyCourses.length > 0 ? (
                             <section className="grid gap-space-4 md:grid-cols-2">
-                                {courseList.map((course) => (
+                                {quizReadyCourses.map((course) => (
                                     <CourseQuizCard key={course._id} course={course} />
                                 ))}
                             </section>
-                        ) : !resumeTarget?.topicId ? (
+                        ) : !resumeQuizReady ? (
                             <EmptyStudyToolState />
                         ) : null}
                     </div>

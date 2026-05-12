@@ -66,6 +66,9 @@ const resolveConfusions = (topic) => {
     return confusions.map((confusion) => stripMarkdown(confusion?.confusion || confusion?.text || confusion)).filter(Boolean).slice(0, 3);
 };
 
+const hasLessonContent = (course) =>
+    Boolean(course?.firstTopicId) || Number(course?.topicCount || 0) > 0;
+
 const StudyToolSkeleton = () => (
     <div className="flex-1 flex flex-col lg:flex-row relative pb-20 md:pb-0">
         <article className="flex-1 mx-auto w-full max-w-5xl px-space-4 md:px-space-10 pt-space-6 pb-space-8 md:pt-space-8 md:pb-space-10 lg:pt-space-8 lg:pb-space-12">
@@ -345,9 +348,14 @@ const LessonMemoryNeuralBasis = () => {
     const courses = useQuery(api.courses.getUserCourses, isAuthenticated && !routeTopicId ? {} : 'skip');
     const resumeTarget = useQuery(api.topics.getResumeTarget, isAuthenticated && !routeTopicId ? {} : 'skip');
     const courseList = Array.isArray(courses) ? courses : EMPTY_LIST;
+    const lessonCourseList = useMemo(() => courseList.filter(hasLessonContent), [courseList]);
     const requestedCourseId = searchParams.get('courseId') || '';
+    const requestedCourse = lessonCourseList.find((course) => String(course._id) === String(requestedCourseId));
+    const resumeCourse = resumeTarget?.courseId
+        ? lessonCourseList.find((course) => String(course._id) === String(resumeTarget.courseId))
+        : null;
     const selectedCourseId = !routeTopicId
-        ? requestedCourseId || resumeTarget?.courseId || courseList[0]?._id || ''
+        ? requestedCourse?._id || resumeCourse?._id || lessonCourseList[0]?._id || ''
         : '';
     const courseWithTopics = useQuery(
         api.courses.getCourseWithTopics,
@@ -388,8 +396,9 @@ const LessonMemoryNeuralBasis = () => {
         return <StudyToolSkeleton />;
     }
 
-    const selectedCourse = courseList.find((course) => String(course._id) === String(selectedCourseId)) || null;
+    const selectedCourse = lessonCourseList.find((course) => String(course._id) === String(selectedCourseId)) || null;
     const topicList = Array.isArray(courseWithTopics?.topics) ? courseWithTopics.topics : EMPTY_LIST;
+    const hasPendingCourses = courseList.length > 0 && lessonCourseList.length === 0;
 
     return (
         <div className="flex-1 flex flex-col lg:flex-row relative pb-20 md:pb-0">
@@ -409,9 +418,9 @@ const LessonMemoryNeuralBasis = () => {
                 <div className="space-y-space-5">
                     <ResumeLessonCard resumeTarget={resumeTarget} />
 
-                    {courseList.length > 0 ? (
+                    {lessonCourseList.length > 0 ? (
                         <section className="grid gap-space-4 md:grid-cols-2">
-                            {courseList.map((course) => (
+                            {lessonCourseList.map((course) => (
                                 <CourseLessonCard
                                     key={course._id}
                                     course={course}
@@ -420,7 +429,12 @@ const LessonMemoryNeuralBasis = () => {
                             ))}
                         </section>
                     ) : !resumeTarget?.topicId ? (
-                        <EmptyLessonsState />
+                        <EmptyLessonsState
+                            title={hasPendingCourses ? 'Lessons are still preparing' : undefined}
+                            description={hasPendingCourses
+                                ? 'Your materials are uploaded, but no generated lesson topics are ready yet. When processing finishes, the lesson cards will appear here.'
+                                : undefined}
+                        />
                     ) : null}
 
                     {selectedCourse && (
