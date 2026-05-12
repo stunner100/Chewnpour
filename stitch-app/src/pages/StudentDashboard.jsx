@@ -148,11 +148,11 @@ const StudentDashboard = () => {
     }
 
     return (
-        <div className="flex-1 pt-space-8 px-space-8 pb-space-16 max-w-container-max mx-auto w-full">
-            <div className="flex flex-col lg:flex-row lg:justify-between lg:items-end gap-space-6 mb-space-10">
+        <div className="flex-1 pt-space-6 px-space-8 pb-space-16 max-w-container-max mx-auto w-full">
+            <div className="flex flex-col lg:flex-row lg:justify-between lg:items-end gap-space-5 mb-space-8">
                 <div>
-                    <h2 className="font-display-lg text-display-lg text-text-primary tracking-tight">Good morning, {firstName}.</h2>
-                    <p className="font-body-lg text-body-lg text-text-secondary mt-space-2">
+                    <h2 className="font-display-md text-display-md text-text-primary tracking-tight">Good morning, {firstName}.</h2>
+                    <p className="font-body-base text-body-base text-text-secondary mt-space-1">
                         Ready to study? Your dashboard is based on your uploaded materials.
                     </p>
                 </div>
@@ -178,23 +178,23 @@ const StudentDashboard = () => {
                 </div>
             </div>
 
-            <div className="grid grid-cols-12 gap-space-6 mb-space-10">
+            <div className="grid grid-cols-12 gap-space-6 mb-space-8">
                 <section className="col-span-12 lg:col-span-8 bg-surface rounded-xl shadow-sm border border-border-subtle overflow-hidden flex hover:shadow-md transition-shadow relative group">
                     <div className="absolute inset-0 bg-gradient-to-r from-surface via-surface/95 to-surface/80 z-0" />
-                    <div className="p-space-8 flex flex-col justify-between w-full z-10">
+                    <div className="p-space-6 flex flex-col justify-between w-full z-10">
                         <div>
-                            <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-primary-soft text-primary rounded-full font-label-xs text-label-xs mb-space-4">
+                            <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-primary-soft text-primary rounded-full font-label-xs text-label-xs mb-space-3">
                                 <span className="material-symbols-outlined text-[14px]">schedule</span>
                                 {resumeTarget?.lastStudiedAt ? `Last studied ${formatRelativeTime(resumeTarget.lastStudiedAt)}` : 'Ready when you are'}
                             </span>
-                            <h3 className="font-display-md text-display-md text-text-primary mb-space-2 leading-tight line-clamp-2 [overflow-wrap:anywhere]">
+                            <h3 className="font-display-sm text-display-sm text-text-primary mb-space-2 leading-tight line-clamp-2 [overflow-wrap:anywhere]">
                                 {resumeCourse?.title || 'No course selected'}
                             </h3>
-                            <p className="font-body-base text-body-base text-text-secondary max-w-md">
+                            <p className="font-body-sm text-body-sm text-text-secondary max-w-md line-clamp-2">
                                 {resumeTarget?.topicTitle || resumeCourse?.description || 'Upload a material to generate your first lesson.'}
                             </p>
                         </div>
-                        <div className="mt-space-8 max-w-md">
+                        <div className="mt-space-6 max-w-md">
                             <div className="flex justify-between items-end mb-space-2">
                                 <span className="font-label-md text-label-md text-text-primary">Overall Progress</span>
                                 <span className="font-label-md text-label-md text-primary">{resumeProgress}%</span>
@@ -205,7 +205,7 @@ const StudentDashboard = () => {
                             <div className="mt-space-4">
                                 <Link
                                     to={resumeHref}
-                                    className="bg-primary text-on-primary px-space-6 py-space-3 rounded-xl font-label-md text-label-md hover:bg-primary-hover transition-colors inline-flex items-center gap-space-2"
+                                    className="bg-primary text-on-primary px-space-5 py-2.5 rounded-xl font-label-md text-label-md hover:bg-primary-hover transition-colors inline-flex items-center gap-space-2"
                                 >
                                     Continue Studying
                                     <span className="material-symbols-outlined text-[18px]">arrow_forward</span>
@@ -217,12 +217,12 @@ const StudentDashboard = () => {
 
                 <Link
                     to="/dashboard/upload"
-                    className="col-span-12 lg:col-span-4 bg-surface-soft rounded-xl border-2 border-dashed border-border-strong p-space-8 flex flex-col items-center justify-center text-center hover:bg-surface-muted transition-colors group"
+                    className="col-span-12 lg:col-span-4 bg-surface-soft rounded-xl border-2 border-dashed border-border-strong p-space-6 flex flex-col items-center justify-center text-center hover:bg-surface-muted transition-colors group"
                 >
-                    <div className="w-16 h-16 bg-surface rounded-full flex items-center justify-center shadow-sm text-primary mb-space-4 group-hover:scale-110 transition-transform">
-                        <span className="material-symbols-outlined text-[32px]">cloud_upload</span>
+                    <div className="w-14 h-14 bg-surface rounded-full flex items-center justify-center shadow-sm text-primary mb-space-4 group-hover:scale-110 transition-transform">
+                        <span className="material-symbols-outlined text-[28px]">cloud_upload</span>
                     </div>
-                    <h3 className="font-headline-md text-headline-md text-text-primary mb-space-2">Upload Material</h3>
+                    <h3 className="font-headline-sm text-headline-sm text-text-primary mb-space-2">Upload Material</h3>
                     <p className="font-body-sm text-body-sm text-text-secondary mb-space-6">Add PDFs, docs, images, or audio to generate lessons and practice.</p>
                     <span className="bg-surface text-text-primary border border-border-default px-space-6 py-space-2 rounded-xl font-label-md text-label-md group-hover:bg-primary group-hover:text-on-primary transition-colors w-full">
                         Browse Files
@@ -234,7 +234,7 @@ const StudentDashboard = () => {
                 <div className="col-span-12 lg:col-span-8 flex flex-col gap-space-6">
                     <section className="bg-surface rounded-xl shadow-sm border border-border-subtle p-space-6">
                         <div className="flex justify-between items-center mb-space-6">
-                            <h3 className="font-headline-sm text-headline-sm text-text-primary">Course Progress</h3>
+                            <h3 className="font-body-base text-body-base font-bold text-text-primary">Course Progress</h3>
                             <Link to="/dashboard/progress" className="text-text-muted hover:text-primary font-label-md text-label-md flex items-center gap-1">
                                 View Progress
                                 <span className="material-symbols-outlined text-[16px]">arrow_forward</span>
@@ -270,7 +270,7 @@ const StudentDashboard = () => {
                         <div className="relative z-10 flex flex-col md:flex-row md:justify-between md:items-center gap-space-5">
                             <div>
                                 <span className="font-label-xs text-label-xs text-primary uppercase tracking-wider font-bold">Recommended Action</span>
-                                <h3 className="font-headline-sm text-headline-sm text-text-primary mt-space-1 mb-space-2">{recommendedAction.title}</h3>
+                            <h3 className="font-body-base text-body-base font-bold text-text-primary mt-space-1 mb-space-2">{recommendedAction.title}</h3>
                                 <p className="font-body-sm text-body-sm text-text-secondary max-w-md">
                                     {recommendedAction.description}
                                 </p>
@@ -289,7 +289,7 @@ const StudentDashboard = () => {
                 <div className="col-span-12 lg:col-span-4 flex flex-col gap-space-6">
                     <section className="bg-surface rounded-xl shadow-sm border border-border-subtle p-space-6 flex-1">
                         <div className="flex justify-between items-center mb-space-4">
-                            <h3 className="font-headline-sm text-headline-sm text-text-primary">Recent Materials</h3>
+                            <h3 className="font-body-base text-body-base font-bold text-text-primary">Recent Materials</h3>
                             <Link to="/dashboard/library" className="text-text-muted hover:text-primary">
                                 <span className="material-symbols-outlined">more_horiz</span>
                             </Link>
@@ -320,7 +320,7 @@ const StudentDashboard = () => {
                     </section>
 
                     <section className="bg-surface rounded-xl shadow-sm border border-border-subtle p-space-6">
-                        <h3 className="font-headline-sm text-headline-sm text-text-primary mb-space-4">Weak Concepts</h3>
+                        <h3 className="font-body-base text-body-base font-bold text-text-primary mb-space-4">Weak Concepts</h3>
                         {weakConcepts.length > 0 ? (
                             <div className="flex flex-wrap gap-space-2">
                                 {weakConcepts.map((concept) => (
