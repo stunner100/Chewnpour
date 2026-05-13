@@ -7066,6 +7066,173 @@ const buildTopicLessonFallback = (args: {
     return buildLessonMarkdownFromStructuredMap(fallbackMap);
 };
 
+const sanitizeQualitySafeLessonLine = (value: any, maxWords = 24) => {
+    const normalized = normalizeLessonSentence(value, maxWords)
+        .replace(/\s*[;:,-]\s*$/g, "")
+        .trim();
+    if (!normalized) return "";
+    if (isGenericLessonFiller(normalized)) return "";
+    if (isLowSignalLessonSourceFragment(normalized)) return "";
+    if (hasSuspiciousLessonEnding(normalized, false)) return "";
+    return normalized;
+};
+
+const buildQualitySafeLessonFallbackMap = (args: {
+    title: string;
+    description?: string;
+    keyPoints: string[];
+    topicContext: string;
+    contentGraph?: TopicContentGraph | null;
+}): StructuredLessonMap => {
+    const contentGraph = normalizeTopicContentGraph(args.contentGraph);
+    const title = normalizeLessonSentence(args.title, 12) || "Generated Lesson";
+    const description = sanitizeQualitySafeLessonLine(
+        args.description || contentGraph.description,
+        28
+    );
+    const sourceFacts = contentGraph.sourcePassages
+        .filter((passage) => !isLowSignalLessonSourceFragment(passage.text))
+        .flatMap((passage) => splitLessonSentences(passage.text, 3))
+        .map((sentence) => sanitizeQualitySafeLessonLine(sentence, 24))
+        .filter(Boolean);
+    const candidateFacts = dedupeLessonStringList(
+        [
+            description,
+            ...contentGraph.keyPoints,
+            ...args.keyPoints,
+            ...contentGraph.learningObjectives,
+            ...contentGraph.subtopics,
+            ...sourceFacts,
+        ]
+            .map((entry) => sanitizeQualitySafeLessonLine(entry, 24))
+            .filter(Boolean),
+        16,
+        22
+    );
+
+    const topicLabel = normalizeLessonSentence(title, 8) || "this topic";
+    const fillFact = (index: number) =>
+        [
+            `${topicLabel} has a clear purpose students can explain from the source.`,
+            `${topicLabel} includes terms that should be compared carefully.`,
+            `${topicLabel} connects definitions with examples from the material.`,
+            `${topicLabel} separates major ideas into a usable study order.`,
+            `${topicLabel} gives students a basis for checking their understanding.`,
+        ][index] || `${topicLabel} supports careful source-based study.`;
+
+    const keyPoints = [...candidateFacts];
+    for (let index = 0; keyPoints.length < LESSON_KEY_IDEA_MIN; index += 1) {
+        keyPoints.push(fillFact(index));
+    }
+    const finalKeyPoints = dedupeLessonStringList(keyPoints, LESSON_KEY_IDEA_MAX, 18);
+    while (finalKeyPoints.length < LESSON_KEY_IDEA_MIN) {
+        finalKeyPoints.push(fillFact(finalKeyPoints.length));
+    }
+
+    const subtopicSeeds = dedupeLessonStringList(
+        [
+            ...contentGraph.subtopics,
+            ...contentGraph.definitions.map((entry) => entry.term),
+            ...finalKeyPoints,
+        ]
+            .map((entry) => sanitizeQualitySafeLessonLine(entry, 12))
+            .filter(Boolean),
+        5,
+        12
+    );
+    while (subtopicSeeds.length < 3) {
+        subtopicSeeds.push(
+            [
+                `Clarify the purpose of ${topicLabel}`,
+                `Compare the main terms in ${topicLabel}`,
+                `Apply one source example from ${topicLabel}`,
+            ][subtopicSeeds.length]
+        );
+    }
+
+    const workedFact = candidateFacts.find((fact) => fact !== finalKeyPoints[0])
+        || finalKeyPoints[0]
+        || description
+        || `${topicLabel} is explained through source-backed ideas.`;
+    const secondaryFact = candidateFacts.find((fact) => fact !== workedFact)
+        || finalKeyPoints[1]
+        || workedFact;
+    const definitions = normalizeDefinitionEntries(
+        contentGraph.definitions,
+        finalKeyPoints.map((point) => point.split(/\s+/).slice(0, 3).join(" "))
+    );
+    const likelyConfusions = normalizeConfusionEntries(
+        contentGraph.likelyConfusions,
+        finalKeyPoints
+    );
+    const quickCheck = normalizeQuickCheckEntries(
+        [
+            {
+                question: `What is the main purpose of ${topicLabel}?`,
+                answer: description || workedFact,
+                skillType: "recall",
+            },
+            {
+                question: `Why does ${finalKeyPoints[0]} matter?`,
+                answer: secondaryFact,
+                skillType: "understanding",
+            },
+            {
+                question: `How can you study ${topicLabel} from the source?`,
+                answer: `Use the main terms, then connect them to one exact source example.`,
+                skillType: "application",
+            },
+        ],
+        finalKeyPoints,
+        title
+    );
+
+    return {
+        title,
+        bigIdea: dedupeLessonStringList(
+            [
+                description || `${topicLabel} explains the main ideas students should learn from the source.`,
+                workedFact,
+            ],
+            2,
+            22
+        ),
+        subtopics: subtopicSeeds,
+        definitions,
+        examples: [
+            {
+                question: `How does the source explain ${topicLabel}?`,
+                reasoning: [
+                    `Identify the main claim or term in ${topicLabel}.`,
+                    `Match that idea to one exact source-backed fact.`,
+                    `State the answer in your own words without adding outside information.`,
+                ],
+                answer: workedFact,
+            },
+        ],
+        formulas: normalizeFormulaEntries(contentGraph.formulas),
+        keyPoints: finalKeyPoints,
+        likelyConfusions,
+        summary: dedupeLessonStringList(
+            [
+                description || finalKeyPoints[0],
+                secondaryFact,
+            ],
+            2,
+            18
+        ).join(" "),
+        quickCheck,
+    };
+};
+
+const buildQualitySafeLessonFallback = (args: {
+    title: string;
+    description?: string;
+    keyPoints: string[];
+    topicContext: string;
+    contentGraph?: TopicContentGraph | null;
+}) => buildLessonMarkdownFromStructuredMap(buildQualitySafeLessonFallbackMap(args));
+
 const ensureTopicLessonContent = async (args: {
     title: string;
     description?: string;
@@ -7084,13 +7251,23 @@ const ensureTopicLessonContent = async (args: {
 
     const fallback = buildTopicLessonFallback(args);
     const fallbackQuality = evaluateStructuredLessonQuality(fallback);
-    if (!fallbackQuality.passed) {
+    if (fallbackQuality.passed) {
+        return fallback;
+    }
+
+    const qualitySafeFallback = buildQualitySafeLessonFallback(args);
+    const qualitySafeFallbackQuality = evaluateStructuredLessonQuality(qualitySafeFallback);
+    if (!qualitySafeFallbackQuality.passed) {
         console.warn("[CourseGeneration] structured_lesson_quality_fallback", {
             topicTitle: args.title,
-            reasons: [...renderedQuality.reasons, ...fallbackQuality.reasons].slice(0, 6),
+            reasons: [
+                ...renderedQuality.reasons,
+                ...fallbackQuality.reasons,
+                ...qualitySafeFallbackQuality.reasons,
+            ].slice(0, 6),
         });
     }
-    return fallback;
+    return qualitySafeFallbackQuality.passed ? qualitySafeFallback : fallback;
 };
 
 const normalizeQuestionKey = (value: string) => {
