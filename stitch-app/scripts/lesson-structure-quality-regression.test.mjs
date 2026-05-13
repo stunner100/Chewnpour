@@ -62,4 +62,11 @@ assert.ok(
   'Expected lesson cleanup to preserve standalone bold worked-example labels.'
 );
 
+assert.ok(
+  aiSource.includes('const hasWorkedQuestion = /(?:\\*\\*)?Question:\\*{0,2}/.test(workedJoined);')
+    && aiSource.includes('Read the source purpose for ${topicLabel}')
+    && aiSource.includes('Connect the terms to one source example'),
+  'Expected the fallback quality gate to accept stable worked-example labels and use non-repeating safe steps.'
+);
+
 console.log('lesson-structure-quality-regression tests passed');
