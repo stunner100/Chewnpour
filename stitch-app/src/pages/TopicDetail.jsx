@@ -123,11 +123,13 @@ const useTopicDetailController = () => {
     const [sourceOpen, setSourceOpen] = useState(false);
     const [studyModeState, setStudyModeState] = useState(() => ({
         routeTopicId,
-        value: getCurrentHashTargetId() ? 'full' : null,
+        // Default to full lesson so direct links (e.g. lesson cards) open readable content
+        // instead of the study-mode picker. Hash targets still imply full navigation context.
+        value: 'full',
     }));
     const studyMode = studyModeState.routeTopicId === routeTopicId
         ? studyModeState.value
-        : getCurrentHashTargetId() ? 'full' : null;
+        : 'full';
     const setStudyMode = useCallback((value) => {
         setStudyModeState({ routeTopicId, value });
     }, [routeTopicId]);
