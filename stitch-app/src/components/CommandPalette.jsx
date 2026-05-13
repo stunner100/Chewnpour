@@ -77,6 +77,12 @@ export const CommandPalette = () => {
     }, []);
 
     useEffect(() => {
+        const handleOpenRequest = () => dispatchPalette({ type: 'toggleShortcut' });
+        window.addEventListener('cp:open-command-palette', handleOpenRequest);
+        return () => window.removeEventListener('cp:open-command-palette', handleOpenRequest);
+    }, []);
+
+    useEffect(() => {
         if (!open) return undefined;
         const frameId = requestAnimationFrame(() => inputRef.current?.focus());
         return () => cancelAnimationFrame(frameId);

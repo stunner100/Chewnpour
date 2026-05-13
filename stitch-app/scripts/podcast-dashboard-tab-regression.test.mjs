@@ -40,7 +40,12 @@ requireIncludes(
 );
 requireIncludes(
   mobileBottomNavSource,
-  "{ label: 'Podcasts', icon: 'podcasts', path: '/dashboard/podcasts', matchPaths: ['/dashboard/podcasts'] }",
+  "'/dashboard/podcasts'",
+  'MobileBottomNav.jsx',
+);
+requireIncludes(
+  mobileBottomNavSource,
+  "Podcasts",
   'MobileBottomNav.jsx',
 );
 requireIncludes(

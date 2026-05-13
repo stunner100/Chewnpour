@@ -36,6 +36,14 @@ const formatRelativeTime = (timestamp) => {
     return new Intl.DateTimeFormat(undefined, { month: 'short', day: 'numeric' }).format(new Date(value));
 };
 
+const greetingForHour = (hour) => {
+    if (hour < 5) return 'Studying late';
+    if (hour < 12) return 'Good morning';
+    if (hour < 17) return 'Good afternoon';
+    if (hour < 22) return 'Good evening';
+    return 'Studying late';
+};
+
 const buildActivityData = (courses) => {
     const visibleCourses = courses.slice(0, 7);
     const padded = visibleCourses.length > 0
@@ -106,7 +114,7 @@ const StudentDashboard = () => {
         : resumeCourse?._id
             ? `/dashboard/lessons?courseId=${resumeCourse._id}`
             : '/dashboard/upload';
-    const resumeProgress = resumeCourse?.progress || resumeTarget?.bestScore || 0;
+    const resumeProgress = Number(resumeCourse?.progress || 0);
 
     const recentMaterials = useMemo(() => {
         return safeUploads.slice(0, 3).map((upload) => {
@@ -151,7 +159,7 @@ const StudentDashboard = () => {
         <div className="flex-1 pt-space-6 px-space-8 pb-space-16 max-w-container-max mx-auto w-full">
             <div className="flex flex-col lg:flex-row lg:justify-between lg:items-end gap-space-5 mb-space-8">
                 <div>
-                    <h2 className="font-display-md text-display-md text-text-primary tracking-tight">Good morning, {firstName}.</h2>
+                    <h2 className="font-display-md text-display-md text-text-primary tracking-tight">{greetingForHour(new Date().getHours())}, {firstName}.</h2>
                     <p className="font-body-base text-body-base text-text-secondary mt-space-1">
                         Ready to study? Your dashboard is based on your uploaded materials.
                     </p>
