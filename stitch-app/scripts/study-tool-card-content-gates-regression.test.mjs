@@ -27,6 +27,8 @@ requireIncludes(lessonSource, 'const shouldShowLessonCourse = (course) =>', 'Les
 requireIncludes(lessonSource, 'const visibleLessonCourses = useMemo(() => courseList.filter(shouldShowLessonCourse), [courseList]);', 'LessonMemoryNeuralBasis.jsx');
 requireIncludes(lessonSource, 'visibleLessonCourses.map((course)', 'LessonMemoryNeuralBasis.jsx');
 requireIncludes(lessonSource, 'Lessons are still preparing', 'LessonMemoryNeuralBasis.jsx');
+requireIncludes(lessonSource, '/dashboard/topic/${course.firstTopicId}', 'LessonMemoryNeuralBasis.jsx');
+requireIncludes(lessonSource, 'const href = course.firstTopicId', 'LessonMemoryNeuralBasis.jsx');
 requireExcludes(lessonSource, 'courseList.map((course) => (', 'LessonMemoryNeuralBasis.jsx');
 
 requireIncludes(quizSource, 'const hasQuizContent = (course) =>', 'ActiveQuizSession.jsx');
