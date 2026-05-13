@@ -56,4 +56,10 @@ assert.ok(
   'Expected the structured lesson renderer to emit the required lesson sections.'
 );
 
+assert.ok(
+  aiSource.includes('if (!/^\\*\\*[^*]+\\*\\*$/.test(l.trim()))')
+    && aiSource.includes('`**Reasoning:**`'),
+  'Expected lesson cleanup to preserve standalone bold worked-example labels.'
+);
+
 console.log('lesson-structure-quality-regression tests passed');
