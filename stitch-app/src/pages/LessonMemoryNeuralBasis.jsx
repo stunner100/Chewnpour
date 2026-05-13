@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef } from 'react';
-import { Link, useSearchParams } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useConvexAuth, useQuery } from 'convex/react';
 import { api } from '../../convex/_generated/api';
 
@@ -83,37 +83,62 @@ const ResumeLessonCard = ({ resumeTarget }) => {
     );
 };
 
-const CourseLessonCard = ({ course, selected = false }) => (
-    <Link
-        to={`/dashboard/lessons?courseId=${course._id}#lessons-course-topics`}
-        className={`group rounded-2xl border bg-surface p-space-5 shadow-sm transition-all hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-md ${
-            selected ? 'border-primary/50 ring-2 ring-primary-soft' : 'border-border-subtle'
-        }`}
-    >
-        <div className="mb-space-5 flex items-start justify-between gap-space-4">
-            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-primary-soft text-primary">
-                <span className="material-symbols-outlined">auto_stories</span>
+const LESSONS_TOPICS_HASH = 'lessons-course-topics';
+
+const buildLessonsTopicsLocation = (courseId) => {
+    const id = typeof courseId === 'string' && courseId.trim() ? courseId.trim() : String(courseId ?? '').trim();
+    return {
+        pathname: '/dashboard/lessons',
+        ...(id ? { search: `?courseId=${encodeURIComponent(id)}` } : {}),
+        hash: LESSONS_TOPICS_HASH,
+    };
+};
+
+const CourseLessonCard = ({ course, selected = false }) => {
+    const navigate = useNavigate();
+    const topicsLocation = buildLessonsTopicsLocation(course?._id);
+
+    const handleTopicsNavClick = (event) => {
+        if (event.defaultPrevented) return;
+        if (event.button !== 0) return;
+        if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+        event.preventDefault();
+        navigate(topicsLocation);
+    };
+
+    return (
+        <Link
+            to={topicsLocation}
+            onClick={handleTopicsNavClick}
+            className={`group rounded-2xl border bg-surface p-space-5 shadow-sm transition-all hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-md ${
+                selected ? 'border-primary/50 ring-2 ring-primary-soft' : 'border-border-subtle'
+            }`}
+        >
+            <div className="mb-space-5 flex items-start justify-between gap-space-4">
+                <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-primary-soft text-primary">
+                    <span className="material-symbols-outlined">auto_stories</span>
+                </div>
+                <span className="inline-flex items-center rounded-full bg-surface-soft px-space-3 py-space-1 font-label-xs text-label-xs text-text-secondary">
+                    {Number(course.progress || 0)}% complete
+                </span>
             </div>
-            <span className="inline-flex items-center rounded-full bg-surface-soft px-space-3 py-space-1 font-label-xs text-label-xs text-text-secondary">
-                {Number(course.progress || 0)}% complete
-            </span>
-        </div>
-        <h3 className="font-headline-sm text-headline-sm text-text-primary">
-            {course.title || 'Untitled course'}
-        </h3>
-        {course.description && (
-            <p className="mt-space-2 line-clamp-2 font-body-sm text-body-sm text-text-secondary">
-                {course.description}
-            </p>
-        )}
-        <div className="mt-space-5 flex items-center justify-between border-t border-border-subtle pt-space-4 font-label-md text-label-md text-primary">
-            <span>View lessons</span>
-            <span className="material-symbols-outlined transition-transform group-hover:translate-x-1">
-                arrow_forward
-            </span>
-        </div>
-    </Link>
-);
+            <h3 className="font-headline-sm text-headline-sm text-text-primary">
+                {course.title || 'Untitled course'}
+            </h3>
+            {course.description && (
+                <p className="mt-space-2 line-clamp-2 font-body-sm text-body-sm text-text-secondary">
+                    {course.description}
+                </p>
+            )}
+            <div className="mt-space-5 flex items-center justify-between border-t border-border-subtle pt-space-4 font-label-md text-label-md text-primary">
+                <span>View lessons</span>
+                <span className="material-symbols-outlined transition-transform group-hover:translate-x-1">
+                    arrow_forward
+                </span>
+            </div>
+        </Link>
+    );
+};
 
 const TopicLessonCard = ({ topic }) => (
     <Link
