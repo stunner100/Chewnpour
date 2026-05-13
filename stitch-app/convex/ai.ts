@@ -5992,8 +5992,11 @@ const cleanLessonMarkdown = (value: string) => {
             l = l.replace(/\*\*([^*]+)$/g, '$1');
             // Strip orphaned closing ** (no opening **)
             l = l.replace(/^([^*]*)\*\*$/g, '$1');
-            // Strip trailing asterisks
-            l = l.replace(/\s*\*\s*$/g, '');
+            // Strip trailing orphan asterisks without breaking standalone labels
+            // like `**Reasoning:**`, which the lesson quality gate expects.
+            if (!/^\*\*[^*]+\*\*$/.test(l.trim())) {
+                l = l.replace(/\s*\*\s*$/g, '');
+            }
             return l;
         })
         .join("\n");
