@@ -1,9 +1,11 @@
-import React, { useMemo } from 'react';
+import React, { useEffect, useMemo, useRef } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { useConvexAuth, useQuery } from 'convex/react';
 import { api } from '../../convex/_generated/api';
 
 const EMPTY_LIST = [];
+
+const matchCourseId = (course, rawId) => String(course?._id) === String(rawId);
 
 const hasOwn = (object, key) => Object.prototype.hasOwnProperty.call(Object(object), key);
 
@@ -145,21 +147,37 @@ const TopicLessonCard = ({ topic }) => (
 
 const LessonMemoryNeuralBasis = () => {
     const [searchParams] = useSearchParams();
+    const topicsSectionRef = useRef(null);
+    const lastScrolledCourseIdRef = useRef('');
     const { isAuthenticated } = useConvexAuth();
     const courses = useQuery(api.courses.getUserCourses, isAuthenticated ? {} : 'skip');
     const resumeTarget = useQuery(api.topics.getResumeTarget, isAuthenticated ? {} : 'skip');
     const courseList = Array.isArray(courses) ? courses : EMPTY_LIST;
     const visibleLessonCourses = useMemo(() => courseList.filter(shouldShowLessonCourse), [courseList]);
     const requestedCourseId = searchParams.get('courseId') || '';
-    const requestedCourse = visibleLessonCourses.find((course) => String(course._id) === String(requestedCourseId));
+    const requestedCourse = visibleLessonCourses.find((course) => matchCourseId(course, requestedCourseId))
+        || courseList.find((course) => matchCourseId(course, requestedCourseId));
     const resumeCourse = resumeTarget?.courseId
-        ? visibleLessonCourses.find((course) => String(course._id) === String(resumeTarget.courseId))
+        ? (visibleLessonCourses.find((course) => matchCourseId(course, resumeTarget.courseId))
+            || courseList.find((course) => matchCourseId(course, resumeTarget.courseId)))
         : null;
     const selectedCourseId = requestedCourse?._id || resumeCourse?._id || visibleLessonCourses[0]?._id || courseList[0]?._id || '';
     const courseWithTopics = useQuery(
         api.courses.getCourseWithTopics,
         isAuthenticated && selectedCourseId ? { courseId: selectedCourseId } : 'skip',
     );
+
+    useEffect(() => {
+        if (!requestedCourseId) return;
+        if (!courseWithTopics?._id) return;
+        if (String(courseWithTopics._id) !== String(requestedCourseId)) return;
+        if (lastScrolledCourseIdRef.current === requestedCourseId) return;
+        lastScrolledCourseIdRef.current = requestedCourseId;
+        const frame = requestAnimationFrame(() => {
+            topicsSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        });
+        return () => cancelAnimationFrame(frame);
+    }, [requestedCourseId, courseWithTopics?._id]);
 
     if (
         !isAuthenticated
@@ -170,8 +188,8 @@ const LessonMemoryNeuralBasis = () => {
         return <StudyToolSkeleton />;
     }
 
-    const selectedCourse = visibleLessonCourses.find((course) => String(course._id) === String(selectedCourseId))
-        || courseList.find((course) => String(course._id) === String(selectedCourseId))
+    const selectedCourse = visibleLessonCourses.find((course) => matchCourseId(course, selectedCourseId))
+        || courseList.find((course) => matchCourseId(course, selectedCourseId))
         || null;
     const topicList = Array.isArray(courseWithTopics?.topics) ? courseWithTopics.topics : EMPTY_LIST;
     const hasPendingCourses = courseList.length > 0 && visibleLessonCourses.length === 0;
@@ -200,7 +218,7 @@ const LessonMemoryNeuralBasis = () => {
                                 <CourseLessonCard
                                     key={course._id}
                                     course={course}
-                                    selected={String(course._id) === String(selectedCourseId)}
+                                    selected={matchCourseId(course, selectedCourseId)}
                                 />
                             ))}
                         </section>
@@ -214,7 +232,11 @@ const LessonMemoryNeuralBasis = () => {
                     ) : null}
 
                     {selectedCourse && (
-                        <section className="rounded-2xl border border-border-subtle bg-surface-soft p-space-5">
+                        <section
+                            ref={topicsSectionRef}
+                            id="lessons-course-topics"
+                            className="rounded-2xl border border-border-subtle bg-surface-soft p-space-5 scroll-mt-24"
+                        >
                             <div className="mb-space-4 flex flex-col gap-space-1">
                                 <p className="font-label-sm text-label-sm font-bold uppercase tracking-wider text-primary">
                                     Topics

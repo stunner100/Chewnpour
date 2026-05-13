@@ -265,6 +265,14 @@ const RedirectLegacyFlashcardsRoute = () => {
   return <Navigate to={topicId ? `/dashboard/flashcards/${topicId}` : '/dashboard/flashcards'} replace />;
 };
 
+const RedirectCourseToLessonsRoute = () => {
+  const { courseId } = useParams();
+  const to = courseId
+    ? `/dashboard/lessons?courseId=${encodeURIComponent(courseId)}`
+    : '/dashboard/lessons';
+  return <Navigate to={to} replace />;
+};
+
 const TopicDetailRoute = () => {
   const { topicId } = useParams();
   return (
@@ -316,7 +324,7 @@ function App() {
         <Route path="/dashboard/search" element={<Navigate to="/dashboard/library" replace />} />
         <Route path="/dashboard/processing" element={<Navigate to="/dashboard/library" replace />} />
         <Route path="/dashboard/processing/:courseId" element={<Navigate to="/dashboard/library" replace />} />
-        <Route path="/dashboard/course/:courseId" element={<Navigate to="/dashboard/lessons" replace />} />
+        <Route path="/dashboard/course/:courseId" element={<RedirectCourseToLessonsRoute />} />
         <Route path="/dashboard/topic/:topicId" element={withSuspense(<TopicDetailRoute />)} />
         <Route path="/dashboard/exam" element={<Navigate to="/dashboard/quiz" replace />} />
         <Route path="/dashboard/exam/:topicId" element={<RedirectLegacyQuizRoute />} />

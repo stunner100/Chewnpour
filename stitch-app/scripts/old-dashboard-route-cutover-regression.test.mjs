@@ -23,7 +23,7 @@ for (const snippet of [
   '<Route path="/dashboard/search" element={<Navigate to="/dashboard/library" replace />} />',
   '<Route path="/dashboard/processing" element={<Navigate to="/dashboard/library" replace />} />',
   '<Route path="/dashboard/processing/:courseId" element={<Navigate to="/dashboard/library" replace />} />',
-  '<Route path="/dashboard/course/:courseId" element={<Navigate to="/dashboard/lessons" replace />} />',
+  '<Route path="/dashboard/course/:courseId" element={<RedirectCourseToLessonsRoute />} />',
   "const TopicDetail = lazyRoute(() => import('./pages/TopicDetail'), { componentName: 'TopicDetail', namedExport: 'TopicDetail' });",
   'const TopicDetailRoute = () => {',
   '<Route path="/dashboard/topic/:topicId" element={withSuspense(<TopicDetailRoute />)} />',
