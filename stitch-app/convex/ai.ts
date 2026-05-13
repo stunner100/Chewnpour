@@ -7025,7 +7025,10 @@ const evaluateStructuredLessonQuality = (content: string) => {
         reasons.push("Step-by-Step Breakdown must use numbered steps only.");
     }
     const workedJoined = workedExampleLines.join("\n");
-    if (!/\*\*Question:\*\*/.test(workedJoined) || !/\*\*Reasoning:\*\*/.test(workedJoined) || !/\*\*Answer:\*\*/.test(workedJoined)) {
+    const hasWorkedQuestion = /(?:\*\*)?Question:\*{0,2}/.test(workedJoined);
+    const hasWorkedReasoning = /(?:\*\*)?Reasoning:\*{0,2}/.test(workedJoined);
+    const hasWorkedAnswer = /(?:\*\*)?Answer:\*{0,2}/.test(workedJoined);
+    if (!hasWorkedQuestion || !hasWorkedReasoning || !hasWorkedAnswer) {
         reasons.push("Worked Example must include question, reasoning, and answer.");
     }
     const summaryWordCount = countWords(stripMarkdownLikeFormatting(summaryLines.join(" ")));
@@ -7132,14 +7135,25 @@ const buildQualitySafeLessonFallbackMap = (args: {
         finalKeyPoints.push(fillFact(finalKeyPoints.length));
     }
 
-    const subtopicSeeds = dedupeLessonStringList(
+    const sourceSubtopics = dedupeLessonStringList(
         [
             ...contentGraph.subtopics,
             ...contentGraph.definitions.map((entry) => entry.term),
-            ...finalKeyPoints,
         ]
             .map((entry) => sanitizeQualitySafeLessonLine(entry, 12))
             .filter(Boolean),
+        3,
+        12
+    );
+    const subtopicSeeds = dedupeLessonStringList(
+        [
+            `Read the source purpose for ${topicLabel}`,
+            `Define the core terms in ${topicLabel}`,
+            `Connect the terms to one source example`,
+            `Compare the major parts of the material`,
+            `Use the quick check to test understanding`,
+            ...sourceSubtopics,
+        ],
         5,
         12
     );
