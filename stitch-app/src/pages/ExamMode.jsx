@@ -730,7 +730,7 @@ const ExamMode = () => {
         if (!shouldRedirectToFinalExam) return;
         if (!routedFinalAssessmentTopic?._id) return;
         if (routedFinalAssessmentTopic._id === topicId) return;
-        navigate(`/dashboard/exam/${routedFinalAssessmentTopic._id}${routerLocation.search || ''}`, { replace: true });
+        navigate(`/dashboard/quiz/${routedFinalAssessmentTopic._id}${routerLocation.search || ''}`, { replace: true });
     }, [routerLocation.search, navigate, routedFinalAssessmentTopic?._id, shouldRedirectToFinalExam, topicId]);
 
     const withTimeout = useCallback((promise, timeoutMs, timeoutMessage) => {
