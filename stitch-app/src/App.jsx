@@ -103,6 +103,7 @@ const StudentDashboard = lazyRoute(() => import('./pages/StudentDashboard'), { c
 const MyMaterialsLibrary = lazyRoute(() => import('./pages/MyMaterialsLibrary'), { componentName: 'MyMaterialsLibrary' });
 const UploadMaterials = lazyRoute(() => import('./pages/UploadMaterials'), { componentName: 'UploadMaterials' });
 const ActiveQuizSession = lazyRoute(() => import('./pages/ActiveQuizSession'), { componentName: 'ActiveQuizSession' });
+const QuizPlayer = lazyRoute(() => import('./pages/ExamMode'), { componentName: 'QuizPlayer' });
 const FlashcardStudySession = lazyRoute(() => import('./pages/FlashcardStudySession'), { componentName: 'FlashcardStudySession' });
 const AIStudyTutor = lazyRoute(() => import('./pages/AIStudyTutor'), { componentName: 'AIStudyTutor' });
 const StudyProgressMastery = lazyRoute(() => import('./pages/StudyProgressMastery'), { componentName: 'StudyProgressMastery' });
@@ -257,7 +258,14 @@ const RedirectLegacyLessonDetailRoute = () => {
 
 const RedirectLegacyQuizRoute = () => {
   const { topicId } = useParams();
-  return <Navigate to={topicId ? `/dashboard/quiz/${topicId}` : '/dashboard/quiz'} replace />;
+  const location = useLocation();
+  const search = location?.search || '';
+  return (
+    <Navigate
+      to={topicId ? `/dashboard/quiz/${topicId}${search}` : `/dashboard/quiz${search}`}
+      replace
+    />
+  );
 };
 
 const RedirectLegacyFlashcardsRoute = () => {
@@ -311,7 +319,7 @@ function App() {
         <Route path="/dashboard/library" element={withSuspense(<ProtectedRoute><DashboardLayout><MyMaterialsLibrary /></DashboardLayout></ProtectedRoute>)} />
         <Route path="/dashboard/upload" element={withSuspense(<ProtectedRoute><DashboardLayout><UploadMaterials /></DashboardLayout></ProtectedRoute>)} />
         <Route path="/dashboard/quiz" element={withSuspense(<ProtectedRoute><DashboardLayout><ActiveQuizSession /></DashboardLayout></ProtectedRoute>)} />
-        <Route path="/dashboard/quiz/:quizId" element={withSuspense(<ProtectedRoute><DashboardLayout><ActiveQuizSession /></DashboardLayout></ProtectedRoute>)} />
+        <Route path="/dashboard/quiz/:topicId" element={withSuspense(<ProtectedRoute><DashboardLayout><QuizPlayer /></DashboardLayout></ProtectedRoute>)} />
         <Route path="/dashboard/flashcards" element={withSuspense(<ProtectedRoute><DashboardLayout><FlashcardStudySession /></DashboardLayout></ProtectedRoute>)} />
         <Route path="/dashboard/flashcards/:deckId" element={withSuspense(<ProtectedRoute><DashboardLayout><FlashcardStudySession /></DashboardLayout></ProtectedRoute>)} />
         <Route path="/dashboard/ai-tutor" element={withSuspense(<ProtectedRoute><DashboardLayout><AIStudyTutor /></DashboardLayout></ProtectedRoute>)} />

@@ -6,14 +6,14 @@ import { api } from '../../convex/_generated/api';
 const EMPTY_LIST = [];
 
 const buildObjectiveExamRoute = (topicId) =>
-    topicId ? `/dashboard/quiz/${topicId}` : '/dashboard/quiz';
+    topicId ? `/dashboard/quiz/${topicId}?autostart=mcq` : '/dashboard/quiz';
 
 const normalizeText = (value) => String(value || '').replace(/\s+/g, ' ').trim();
 
 const formatDifficulty = (value) => {
     const normalized = normalizeText(value).toLowerCase();
-    if (!normalized) return 'Mixed Difficulty';
-    return `${normalized.charAt(0).toUpperCase()}${normalized.slice(1)} Difficulty`;
+    if (!normalized) return '';
+    return `${normalized.charAt(0).toUpperCase()}${normalized.slice(1)} difficulty`;
 };
 
 const formatCourseLabel = (course) => normalizeText(course?.title || 'Generated Course').toUpperCase();
@@ -195,17 +195,15 @@ const QuizMockupPanel = ({
     course,
     topic,
     previewQuestion,
-    previewQuestionIndex,
     totalQuestions,
     selectedAnswer,
     onSelectAnswer,
 }) => {
     const options = resolveQuestionOptions(previewQuestion);
-    const progress = totalQuestions > 0
-        ? Math.round(((previewQuestionIndex + 1) / totalQuestions) * 100)
-        : 0;
     const topicTitle = normalizeText(topic?.title || 'Generated Review');
     const startHref = buildObjectiveExamRoute(topic?._id);
+    const difficultyLabel = formatDifficulty(previewQuestion?.difficulty);
+    const topicHref = topic?._id ? `/dashboard/topic/${topic._id}` : '/dashboard/lessons';
 
     return (
         <section className="w-full rounded-[28px] border border-border-subtle bg-surface p-space-5 md:p-space-8 shadow-sm">
@@ -218,31 +216,38 @@ const QuizMockupPanel = ({
                         <h1 className="mt-space-1 max-w-2xl font-display-sm text-display-sm text-text-primary">
                             {topicTitle}
                         </h1>
+                        <p className="mt-space-2 font-body-sm text-body-sm text-text-secondary">
+                            Preview the first question, then start to begin a timed attempt.
+                        </p>
                     </div>
                     <div className="flex shrink-0 flex-col items-start gap-space-2 md:items-end">
-                        <span className="inline-flex items-center rounded-full bg-warning-soft px-space-3 py-space-1 font-label-xs text-label-xs text-warning">
-                            {formatDifficulty(previewQuestion?.difficulty)}
-                        </span>
-                        <span className="font-label-sm text-label-sm text-text-secondary">
-                            Question {previewQuestionIndex + 1} of {Math.max(totalQuestions, 1)}
-                        </span>
+                        {difficultyLabel ? (
+                            <span className="inline-flex items-center rounded-full bg-warning-soft px-space-3 py-space-1 font-label-xs text-label-xs text-warning">
+                                {difficultyLabel}
+                            </span>
+                        ) : null}
+                        {totalQuestions > 0 ? (
+                            <span className="font-label-sm text-label-sm text-text-secondary">
+                                {totalQuestions} question{totalQuestions === 1 ? '' : 's'} ready
+                            </span>
+                        ) : null}
                     </div>
-                </div>
-
-                <div className="h-2 w-full rounded-full bg-surface-soft">
-                    <div
-                        className="h-full rounded-full bg-primary transition-all duration-300"
-                        style={{ width: `${Math.max(8, progress)}%` }}
-                    />
                 </div>
 
                 <div className="grid gap-space-8 lg:grid-cols-[minmax(0,1fr)_280px]">
                     <div>
-                        <h2 className="max-w-3xl font-display-sm text-display-sm text-text-primary leading-tight">
+                        <span className="inline-flex items-center rounded-full bg-primary-subtle px-space-3 py-space-1 font-label-xs text-label-xs text-primary">
+                            Sample question
+                        </span>
+                        <h2 className="mt-space-3 max-w-3xl font-display-sm text-display-sm text-text-primary leading-tight">
                             {previewQuestion?.questionText || 'Open a generated topic to start an objective quiz.'}
                         </h2>
 
-                        <div className="mt-space-8 flex flex-col gap-space-3">
+                        <div
+                            className="mt-space-8 flex flex-col gap-space-3"
+                            role="radiogroup"
+                            aria-label="Sample question options"
+                        >
                             {options.length > 0 ? (
                                 options.slice(0, 4).map((option) => {
                                     const isSelected = selectedAnswer === option.value;
@@ -250,17 +255,19 @@ const QuizMockupPanel = ({
                                         <button
                                             key={`${option.value}-${option.text}`}
                                             type="button"
+                                            role="radio"
+                                            aria-checked={isSelected}
                                             onClick={() => onSelectAnswer(option.value)}
                                             className={`w-full max-w-md rounded-2xl border px-space-4 py-space-4 text-left transition-all ${
                                                 isSelected
-                                                    ? 'border-success bg-success-soft text-text-primary shadow-sm'
-                                                    : 'border-border-subtle bg-surface-soft text-text-secondary hover:border-primary/50 hover:bg-primary-soft/50'
+                                                    ? 'border-primary bg-primary-subtle text-text-primary shadow-sm'
+                                                    : 'border-border-subtle bg-surface-soft text-text-secondary hover:border-primary/50 hover:bg-primary-subtle'
                                             }`}
                                         >
                                             <span className="flex items-center gap-space-3">
                                                 <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full font-label-md text-label-md ${
                                                     isSelected
-                                                        ? 'bg-success text-on-primary'
+                                                        ? 'bg-primary text-on-primary'
                                                         : 'bg-surface text-text-secondary'
                                                 }`}>
                                                     {option.label}
@@ -278,14 +285,17 @@ const QuizMockupPanel = ({
                                 </div>
                             )}
                         </div>
+                        <p className="mt-space-3 max-w-md font-label-xs text-label-xs text-text-muted">
+                            Answers are scored once you start the quiz.
+                        </p>
                     </div>
 
-                    <aside className="rounded-2xl border border-border-subtle bg-background-light p-space-5">
+                    <aside className="rounded-2xl border border-border-subtle bg-surface-soft p-space-5">
                         <p className="font-label-xs text-label-xs font-bold uppercase tracking-wider text-text-muted">
-                            Quiz Mode
+                            Quiz mode
                         </p>
                         <p className="mt-space-2 font-headline-sm text-headline-sm text-text-primary">
-                            Objective Review
+                            Objective review
                         </p>
                         <p className="mt-space-2 font-body-sm text-body-sm text-text-secondary">
                             {totalQuestions} generated question{totalQuestions === 1 ? '' : 's'} ready from this topic.
@@ -294,14 +304,14 @@ const QuizMockupPanel = ({
                             to={startHref}
                             className="mt-space-5 inline-flex w-full items-center justify-center gap-space-2 rounded-xl bg-primary px-space-5 py-space-3 font-label-md text-label-md text-on-primary shadow-sm transition-colors hover:bg-primary-hover"
                         >
-                            Start Quiz
+                            Start quiz
                             <span className="material-symbols-outlined text-[20px]">arrow_forward</span>
                         </Link>
                         <Link
-                            to={course?._id ? `/dashboard/quiz?courseId=${course._id}` : '/dashboard/quiz'}
+                            to={topicHref}
                             className="mt-space-3 inline-flex w-full items-center justify-center rounded-xl border border-border-default bg-surface px-space-5 py-space-3 font-label-md text-label-md text-text-primary transition-colors hover:bg-surface-soft"
                         >
-                            View Topics
+                            Review lesson first
                         </Link>
                     </aside>
                 </div>
@@ -357,10 +367,6 @@ const ActiveQuizSession = () => {
         ? topicPreview.questions.filter(isObjectiveQuestion)
         : EMPTY_LIST;
     const previewQuestion = useMemo(() => pickPreviewQuestion(previewQuestions), [previewQuestions]);
-    const previewQuestionIndex = Math.max(
-        0,
-        previewQuestions.findIndex((question) => String(question._id) === String(previewQuestion?._id)),
-    );
     const previewQuestionId = String(previewQuestion?._id || '');
     const previewSelectedAnswer = selectedAnswer.questionId === previewQuestionId
         ? selectedAnswer.value
@@ -400,17 +406,26 @@ const ActiveQuizSession = () => {
                         course={selectedCourse}
                         topic={topicPreview}
                         previewQuestion={previewQuestion}
-                        previewQuestionIndex={previewQuestionIndex}
                         totalQuestions={previewQuestions.length}
                         selectedAnswer={previewSelectedAnswer}
                         onSelectAnswer={(value) => setSelectedAnswer({ questionId: previewQuestionId, value })}
                     />
 
                     {visibleQuizCourses.length > 1 && (
-                        <section className="mt-space-6 grid gap-space-4 md:grid-cols-2">
-                            {visibleQuizCourses.slice(0, 4).map((course) => (
-                                <CourseQuizCard key={course._id} course={course} />
-                            ))}
+                        <section className="mt-space-8">
+                            <div className="mb-space-4 flex items-end justify-between gap-space-3">
+                                <div>
+                                    <h2 className="font-headline-sm text-headline-sm text-text-primary">More quizzes</h2>
+                                    <p className="mt-space-1 font-body-sm text-body-sm text-text-secondary">
+                                        Pick another course to practice from.
+                                    </p>
+                                </div>
+                            </div>
+                            <div className="grid gap-space-4 md:grid-cols-2">
+                                {visibleQuizCourses.slice(0, 4).map((course) => (
+                                    <CourseQuizCard key={course._id} course={course} />
+                                ))}
+                            </div>
                         </section>
                     )}
                 </div>
