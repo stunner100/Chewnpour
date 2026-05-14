@@ -1316,7 +1316,7 @@ const TopicLessonMainColumn = ({ controller }) => {
                 />
             )}
 
-            <article className="bg-surface-light dark:bg-surface-dark rounded-3xl border border-border-subtle dark:border-border-subtle-dark shadow-soft px-5 py-6 md:p-8" ref={contentRef}>
+            <article className="bg-white rounded-3xl border border-border-subtle shadow-soft px-5 py-6 md:p-8" ref={contentRef}>
                 {normalizedContent ? (
                     <LessonContentRenderer
                         blocks={displayBlocks}
@@ -1332,11 +1332,11 @@ const TopicLessonMainColumn = ({ controller }) => {
                     />
                 ) : (
                     <div className="flex flex-col items-center justify-center py-20 text-center">
-                        <div className="size-14 rounded-2xl bg-primary-50 dark:bg-primary-900/20 flex items-center justify-center mb-4 animate-pulse">
+                        <div className="size-14 rounded-2xl bg-primary-soft flex items-center justify-center mb-4 animate-pulse">
                             <span className="material-symbols-outlined text-primary text-[26px]">auto_stories</span>
                         </div>
-                        <h3 className="text-body-lg font-semibold text-text-main-light dark:text-text-main-dark">Preparing your lesson</h3>
-                        <p className="text-body-sm text-text-sub-light dark:text-text-sub-dark mt-1 max-w-xs">
+                        <h3 className="text-body-lg font-semibold text-text-primary">Preparing your lesson</h3>
+                        <p className="text-body-sm text-text-secondary mt-1 max-w-xs">
                             ChewnPour is organizing this topic into key ideas, examples, checks, and study tools.
                         </p>
                     </div>
@@ -1353,16 +1353,16 @@ const TopicLessonMainColumn = ({ controller }) => {
                 bestScore={topicProgress?.bestScore ?? null}
             />
 
-            <details className="group bg-surface-light dark:bg-surface-dark rounded-3xl border border-border-subtle dark:border-border-subtle-dark px-5 md:px-6">
+            <details className="group bg-white rounded-3xl border border-border-subtle px-5 md:px-6">
                 <summary className="flex items-center gap-3 py-4 cursor-pointer list-none [&::-webkit-details-marker]:hidden">
-                    <span className="size-9 rounded-xl bg-primary-50 dark:bg-primary-900/25 flex items-center justify-center shrink-0">
+                    <span className="size-9 rounded-xl bg-primary-soft flex items-center justify-center shrink-0">
                         <span className="material-symbols-outlined text-primary text-[18px]" style={{ fontVariationSettings: "'FILL' 1" }}>route</span>
                     </span>
                     <span className="flex-1 min-w-0">
-                        <span className="block text-body-md font-semibold text-text-main-light dark:text-text-main-dark leading-tight">Guided study path</span>
-                        <span className="block text-caption text-text-faint-light dark:text-text-faint-dark mt-0.5">A section-by-section walkthrough of this lesson.</span>
+                        <span className="block text-body-md font-semibold text-text-primary leading-tight">Guided study path</span>
+                        <span className="block text-caption text-text-muted mt-0.5">A section-by-section walkthrough of this lesson.</span>
                     </span>
-                    <span className="material-symbols-outlined text-[20px] text-text-faint-light dark:text-text-faint-dark transition-transform group-open:rotate-180">expand_more</span>
+                    <span className="material-symbols-outlined text-[20px] text-text-muted transition-transform group-open:rotate-180">expand_more</span>
                 </summary>
                 <div className="pb-5 pt-1">
                     <GuidedStudyPath
@@ -1374,7 +1374,7 @@ const TopicLessonMainColumn = ({ controller }) => {
             </details>
 
             {topicProgress?.completedAt && (
-                <div className="bg-surface-light dark:bg-surface-dark rounded-3xl border border-border-subtle dark:border-border-subtle-dark p-5 md:p-6">
+                <div className="bg-white rounded-3xl border border-border-subtle p-5 md:p-6">
                     <NextStepsGuidance
                         topicId={topicId}
                         examTopicId={examTopicId}
@@ -1707,6 +1707,16 @@ const TopicLessonShell = ({ controller }) => {
         topicProgress,
     } = controller;
 
+    useEffect(() => {
+        if (typeof document === 'undefined') return undefined;
+        const root = document.documentElement;
+        const hadDark = root.classList.contains('dark');
+        if (hadDark) root.classList.remove('dark');
+        return () => {
+            if (hadDark) root.classList.add('dark');
+        };
+    }, []);
+
     const courseQueryResult = useQuery(
         api.courses.getCourseWithTopics,
         topic?.courseId ? { courseId: topic.courseId } : 'skip',
@@ -1721,7 +1731,7 @@ const TopicLessonShell = ({ controller }) => {
     const sourceLabel = courseTitle;
 
     return (
-        <div className="bg-background font-body text-text-primary min-h-screen">
+        <div className="cp-theme bg-[#FAF8F3] font-body text-[#1F2933] min-h-screen">
             <div className="mx-auto grid w-full max-w-[1280px] grid-cols-1 gap-space-6 px-space-4 py-space-6 md:px-space-6 lg:grid-cols-[minmax(0,1fr)_320px] lg:gap-space-8 lg:px-space-8 lg:py-space-8">
                 <div className="min-w-0 space-y-space-6">
                     <TopicLessonBreadcrumbs
