@@ -555,7 +555,7 @@ const FillInExercise = () => {
                                 </div>
                                 <div className="space-y-2">
                                     <Link
-                                        to={`/dashboard/exam/${topicId}?autostart=mcq`}
+                                        to={`/dashboard/quiz/${topicId}?autostart=mcq`}
                                         reloadDocument
                                         className="flex items-center gap-3 p-3 rounded-xl border transition-colors cursor-pointer bg-surface-hover-light dark:bg-surface-hover-dark border-border-light dark:border-border-dark hover:border-primary/30"
                                     >
@@ -569,7 +569,7 @@ const FillInExercise = () => {
                                         <span className="material-symbols-outlined text-[16px] text-text-faint-light dark:text-text-faint-dark shrink-0">chevron_right</span>
                                     </Link>
                                     <Link
-                                        to={`/dashboard/exam/${topicId}?autostart=essay`}
+                                        to={`/dashboard/quiz/${topicId}?autostart=essay`}
                                         reloadDocument
                                         className="flex items-center gap-3 p-3 rounded-xl border transition-colors cursor-pointer bg-surface-hover-light dark:bg-surface-hover-dark border-border-light dark:border-border-dark hover:border-primary/30"
                                     >

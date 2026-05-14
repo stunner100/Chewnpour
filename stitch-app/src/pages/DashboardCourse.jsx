@@ -39,7 +39,7 @@ const PODCAST_STATUS_LABEL = {
 };
 
 const buildObjectiveExamRoute = (topicId) =>
-    topicId ? `/dashboard/exam/${topicId}?autostart=mcq` : '/dashboard';
+    topicId ? `/dashboard/quiz/${topicId}?autostart=mcq` : '/dashboard';
 
 const estimateReadingMinutes = (content) => {
     if (!content) return null;

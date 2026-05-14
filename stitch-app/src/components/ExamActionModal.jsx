@@ -138,7 +138,7 @@ const ExamActionModal = ({ isOpen, onClose, attempt }) => {
     const handleRetryExam = () => {
         triggerHaptic('medium');
         closeModal();
-        navigate(`/dashboard/exam/${attempt.topicId}`);
+        navigate(`/dashboard/quiz/${attempt.topicId}`);
     };
 
     const handleCloseClick = () => {

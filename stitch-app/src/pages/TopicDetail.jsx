@@ -74,9 +74,9 @@ const COMMON_MISTAKE_SECTION_PATTERN = /\b(common mistake|misconception)\b/;
 const STEP_TERM_PATTERN = /step/i;
 
 const buildObjectiveExamRoute = (examTopicId) =>
-    examTopicId ? `/dashboard/exam/${examTopicId}?autostart=mcq` : '/dashboard';
+    examTopicId ? `/dashboard/quiz/${examTopicId}?autostart=mcq` : '/dashboard';
 const buildEssayExamRoute = (examTopicId) =>
-    examTopicId ? `/dashboard/exam/${examTopicId}?autostart=essay` : '/dashboard';
+    examTopicId ? `/dashboard/quiz/${examTopicId}?autostart=essay` : '/dashboard';
 
 const getCurrentHashTargetId = () => {
     if (typeof window === 'undefined') return '';

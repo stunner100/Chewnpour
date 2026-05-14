@@ -2,9 +2,9 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 
 const buildObjectiveExamRoute = (examTopicId) =>
-    examTopicId ? `/dashboard/exam/${examTopicId}?autostart=mcq` : null;
+    examTopicId ? `/dashboard/quiz/${examTopicId}?autostart=mcq` : null;
 const buildEssayExamRoute = (examTopicId) =>
-    examTopicId ? `/dashboard/exam/${examTopicId}?autostart=essay` : null;
+    examTopicId ? `/dashboard/quiz/${examTopicId}?autostart=essay` : null;
 
 /**
  * Ranked "What should I do next?" guidance shown after lessons or exams.
