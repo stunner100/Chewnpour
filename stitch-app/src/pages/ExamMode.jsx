@@ -1009,7 +1009,7 @@ const ExamMode = () => {
                     answers,
                     timeTakenSeconds: timeTaken,
                 });
-                navigate(`/dashboard/results/${attemptId}`);
+                navigate(`/dashboard/quiz/results/${attemptId}`);
             } catch (error) {
                 const message = resolveConvexActionError(
                     error,
@@ -1072,7 +1072,7 @@ const ExamMode = () => {
                 answers,
                 timeTakenSeconds: timeTaken,
             });
-            navigate(`/dashboard/results/${attemptId}`);
+            navigate(`/dashboard/quiz/results/${attemptId}`);
         } catch (error) {
             const message = resolveConvexActionError(error, 'Failed to submit exam. Please try again.');
             const authError = isConvexAuthenticationError(error) || isLikelyPostDisconnectAuthError(error);
