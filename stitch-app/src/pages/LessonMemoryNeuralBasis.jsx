@@ -96,20 +96,29 @@ const buildLessonsTopicsLocation = (courseId) => {
 
 const CourseLessonCard = ({ course, selected = false }) => {
     const navigate = useNavigate();
+    const firstTopicId = course?.firstTopicId ? String(course.firstTopicId) : '';
+    const firstTopicLocation = firstTopicId ? `/dashboard/topic/${firstTopicId}` : '';
     const topicsLocation = buildLessonsTopicsLocation(course?._id);
+    const targetLocation = firstTopicLocation || topicsLocation;
 
-    const handleTopicsNavClick = (event) => {
+    const handleCardClick = (event) => {
         if (event.defaultPrevented) return;
         if (event.button !== 0) return;
         if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
         event.preventDefault();
+        if (firstTopicLocation) {
+            navigate(firstTopicLocation);
+            return;
+        }
         navigate(topicsLocation);
     };
 
+    const ctaLabel = firstTopicId ? 'Open first lesson' : 'View topics';
+
     return (
         <Link
-            to={topicsLocation}
-            onClick={handleTopicsNavClick}
+            to={targetLocation}
+            onClick={handleCardClick}
             className={`group rounded-2xl border bg-surface p-space-5 shadow-sm transition-all hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-md ${
                 selected ? 'border-primary/50 ring-2 ring-primary-soft' : 'border-border-subtle'
             }`}
@@ -131,7 +140,7 @@ const CourseLessonCard = ({ course, selected = false }) => {
                 </p>
             )}
             <div className="mt-space-5 flex items-center justify-between border-t border-border-subtle pt-space-4 font-label-md text-label-md text-primary">
-                <span>View lessons</span>
+                <span>{ctaLabel}</span>
                 <span className="material-symbols-outlined transition-transform group-hover:translate-x-1">
                     arrow_forward
                 </span>
