@@ -140,11 +140,77 @@ const buildPasswordResetEmail = (params: { name: string; url: string }) => {
     };
 };
 
+const buildSignupWelcomeEmail = (params: { name: string }) => {
+    const safeName = escapeHtml(params.name || "there");
+    const dashboardUrl = `${frontendUrl}/dashboard`;
+    const safeDashboardUrl = escapeHtml(dashboardUrl);
+
+    return {
+        html: `<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Welcome to ChewnPour</title>
+</head>
+<body style="margin:0;padding:0;background:#f4f4f7;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;">
+  <div style="max-width:560px;margin:24px auto;background:#ffffff;border-radius:12px;overflow:hidden;border:1px solid #e5e7eb;">
+    <div style="padding:28px 24px;background:#111827;color:#ffffff;">
+      <h1 style="margin:0;font-size:22px;line-height:1.2;">Welcome to ChewnPour</h1>
+    </div>
+    <div style="padding:28px 24px;color:#1f2937;font-size:15px;line-height:1.6;">
+      <p>Hi ${safeName},</p>
+      <p>Your ChewnPour workspace is ready. Upload your study material to generate lessons, quizzes, flashcards, podcasts, and tutor help from your own files.</p>
+      <p style="margin:28px 0;">
+        <a href="${safeDashboardUrl}" style="display:inline-block;background:#d97706;color:#ffffff;text-decoration:none;padding:12px 22px;border-radius:8px;font-weight:700;">Open your workspace</a>
+      </p>
+      <p>If you did not create this account, you can ignore this email.</p>
+    </div>
+  </div>
+</body>
+</html>`,
+        text: [
+            `Hi ${params.name || "there"},`,
+            "",
+            "Your ChewnPour workspace is ready.",
+            "Upload your study material to generate lessons, quizzes, flashcards, podcasts, and tutor help from your own files.",
+            "",
+            `Open your workspace: ${dashboardUrl}`,
+            "",
+            "If you did not create this account, you can ignore this email.",
+        ].join("\n"),
+    };
+};
+
 // Create the Better Auth instance for request handling
 export const createAuth = (ctx: any) =>
     betterAuth({
         database: authComponent.adapter(ctx),
         secret: process.env.BETTER_AUTH_SECRET,
+        databaseHooks: {
+            user: {
+                create: {
+                    async after(user) {
+                        const email = String(user?.email || "").trim();
+                        if (!email) return;
+                        const name = String(user?.name || email.split("@")[0] || "there").trim();
+                        const { html, text } = buildSignupWelcomeEmail({ name });
+                        const sent = await sendEmail({
+                            to: email,
+                            subject: "Welcome to ChewnPour",
+                            html,
+                            text,
+                            context: "authSignupWelcome",
+                        });
+                        if (!sent) {
+                            console.warn("[authSignupWelcome] failed or skipped welcome email", {
+                                userId: String(user?.id || ""),
+                            });
+                        }
+                    },
+                },
+            },
+        },
         emailAndPassword: {
             enabled: true,
             autoSignIn: true,
