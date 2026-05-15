@@ -112,28 +112,34 @@ const clearLegacyPwaRuntime = () => {
   if (!canRunLegacyPwaCleanup()) return;
 
   const unregisterServiceWorkers = async () => {
-    if (!('serviceWorker' in navigator)) return;
+    if (!('serviceWorker' in navigator)) return false;
     try {
       const registrations = await navigator.serviceWorker.getRegistrations();
+      const hadRegistrations = registrations.length > 0;
       await Promise.allSettled(registrations.map((registration) => registration.unregister()));
+      return hadRegistrations;
     } catch {
       // Ignore cleanup failures so the app can continue booting.
+      return false;
     }
   };
 
   const clearBrowserCaches = async () => {
-    if (!('caches' in window)) return;
+    if (!('caches' in window)) return false;
     try {
       const cacheKeys = await window.caches.keys();
+      const hadCaches = cacheKeys.length > 0;
       await Promise.allSettled(cacheKeys.map((key) => window.caches.delete(key)));
+      return hadCaches;
     } catch {
       // Ignore cleanup failures so the app can continue booting.
+      return false;
     }
   };
 
-  void Promise.allSettled([unregisterServiceWorkers(), clearBrowserCaches()]).then(() => {
-    const currentPath = window.location.pathname || '';
-    if (currentPath.startsWith('/dashboard/')) {
+  void Promise.allSettled([unregisterServiceWorkers(), clearBrowserCaches()]).then((results) => {
+    const clearedStaleRuntime = results.some((result) => result.status === 'fulfilled' && result.value === true);
+    if (clearedStaleRuntime) {
       window.setTimeout(() => {
         window.location.replace(window.location.href);
       }, 120);

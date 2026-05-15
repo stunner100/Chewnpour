@@ -5,6 +5,12 @@ self.addEventListener('install', () => {
 self.addEventListener('activate', (event) => {
   event.waitUntil((async () => {
     try {
+      await self.clients.claim();
+    } catch {
+      // Ignore claim failures during the PWA cutover.
+    }
+
+    try {
       const cacheKeys = await caches.keys();
       await Promise.allSettled(cacheKeys.map((key) => caches.delete(key)));
     } catch {
