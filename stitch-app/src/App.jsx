@@ -244,10 +244,20 @@ const RouteLoader = () => (
   </div>
 );
 
+const RouteSuspense = ({ children }) => {
+  const routerLocation = useLocation();
+
+  return (
+    <Suspense key={routerLocation.pathname} fallback={<RouteLoader />}>
+      {children}
+    </Suspense>
+  );
+};
+
 const withSuspense = (element) => (
-  <Suspense fallback={<RouteLoader />}>
+  <RouteSuspense>
     {element}
-  </Suspense>
+  </RouteSuspense>
 );
 
 const RedirectLegacyLessonDetailRoute = () => {
