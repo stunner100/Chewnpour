@@ -535,6 +535,15 @@ const ExamMode = () => {
     const routerLocation = useLocation();
     const navigate = useNavigate();
     const { user, loading: authLoading } = useAuth();
+
+    useEffect(() => {
+        if (typeof document === 'undefined') return undefined;
+        const root = document.documentElement;
+        const hadDark = root.classList.contains('dark');
+        if (hadDark) root.classList.remove('dark');
+        return () => { if (hadDark) root.classList.add('dark'); };
+    }, []);
+
     const [examState, dispatchExamState] = useReducer(
         examModeReducer,
         routerLocation.search,
@@ -1162,7 +1171,7 @@ const ExamMode = () => {
 
     if (!routeTopicId) {
         return (
-            <div className="bg-background-light dark:bg-background-dark min-h-screen flex items-center justify-center">
+            <div className="cp-theme bg-[#FAF8F3] min-h-screen flex items-center justify-center">
                 <div className="text-center max-w-md px-6">
                     <div className="size-14 rounded-2xl bg-surface-light dark:bg-surface-dark border border-border-light dark:border-border-dark flex items-center justify-center mx-auto mb-4">
                         <span className="material-symbols-outlined text-2xl text-text-faint-light dark:text-text-faint-dark">quiz</span>
@@ -1180,7 +1189,7 @@ const ExamMode = () => {
     // Loading state
     if (isLoadingRouteTopic) {
         return (
-            <div className="bg-background-light dark:bg-background-dark min-h-screen flex items-center justify-center">
+            <div className="cp-theme bg-[#FAF8F3] min-h-screen flex items-center justify-center">
                 <div className="text-center">
                     <div className="animate-spin rounded-full size-10 border-2 border-border-light dark:border-border-dark border-t-primary mx-auto mb-4"></div>
                     <p className="text-body-sm text-text-sub-light dark:text-text-sub-dark">Preparing your exam environment…</p>
@@ -1191,7 +1200,7 @@ const ExamMode = () => {
 
     if (isMissingRouteTopic) {
         return (
-            <div className="bg-background-light dark:bg-background-dark min-h-screen flex items-center justify-center">
+            <div className="cp-theme bg-[#FAF8F3] min-h-screen flex items-center justify-center">
                 <div className="text-center max-w-md px-6">
                     <div className="size-14 rounded-2xl bg-surface-light dark:bg-surface-dark border border-border-light dark:border-border-dark flex items-center justify-center mx-auto mb-4">
                         <span className="material-symbols-outlined text-2xl text-text-faint-light dark:text-text-faint-dark">search_off</span>
@@ -1208,7 +1217,7 @@ const ExamMode = () => {
 
     if (shouldRedirectToFinalExam && routedFinalAssessmentTopic === undefined) {
         return (
-            <div className="bg-background-light dark:bg-background-dark min-h-screen flex items-center justify-center">
+            <div className="cp-theme bg-[#FAF8F3] min-h-screen flex items-center justify-center">
                 <div className="text-center">
                     <div className="animate-spin rounded-full size-10 border-2 border-border-light dark:border-border-dark border-t-primary mx-auto mb-4"></div>
                     <p className="text-body-sm text-text-sub-light dark:text-text-sub-dark">Preparing your final exam…</p>
@@ -1219,7 +1228,7 @@ const ExamMode = () => {
 
     if (routingBootstrapPending) {
         return (
-            <div className="bg-background-light dark:bg-background-dark min-h-screen flex items-center justify-center">
+            <div className="cp-theme bg-[#FAF8F3] min-h-screen flex items-center justify-center">
                 <div className="text-center">
                     <div className="animate-spin rounded-full size-10 border-2 border-border-light dark:border-border-dark border-t-primary mx-auto mb-4"></div>
                     <p className="text-body-sm text-text-sub-light dark:text-text-sub-dark">Preparing the best assessment route for this topic…</p>
@@ -1230,7 +1239,7 @@ const ExamMode = () => {
 
     if (shouldRedirectToFinalExam && routedFinalAssessmentTopic?._id && routedFinalAssessmentTopic._id !== topicId) {
         return (
-            <div className="bg-background-light dark:bg-background-dark min-h-screen flex items-center justify-center">
+            <div className="cp-theme bg-[#FAF8F3] min-h-screen flex items-center justify-center">
                 <div className="text-center">
                     <div className="animate-spin rounded-full size-10 border-2 border-border-light dark:border-border-dark border-t-primary mx-auto mb-4"></div>
                     <p className="text-body-sm text-text-sub-light dark:text-text-sub-dark">Redirecting to your final exam…</p>
@@ -1241,7 +1250,7 @@ const ExamMode = () => {
 
     if (shouldRedirectToFinalExam && !routedFinalAssessmentTopic?._id) {
         return (
-            <div className="bg-background-light dark:bg-background-dark min-h-screen flex items-center justify-center">
+            <div className="cp-theme bg-[#FAF8F3] min-h-screen flex items-center justify-center">
                 <div className="text-center max-w-md px-6">
                     <div className="size-14 rounded-2xl bg-surface-light dark:bg-surface-dark border border-border-light dark:border-border-dark flex items-center justify-center mx-auto mb-4">
                         <span className="material-symbols-outlined text-2xl text-text-faint-light dark:text-text-faint-dark">hourglass_top</span>
@@ -1258,7 +1267,7 @@ const ExamMode = () => {
 
     if (!examFormat && !examStarted && !startingExamAttempt && !hasAttemptQuestions) {
         return (
-            <div className="min-h-screen bg-background-light dark:bg-background-dark flex items-center justify-center p-4">
+            <div className="min-h-screen cp-theme bg-[#FAF8F3] flex items-center justify-center p-4">
                 <div className="w-full max-w-md">
                     <div className="card-base p-8 text-center">
                         <div className="size-16 mx-auto mb-6 rounded-2xl bg-primary/10 flex items-center justify-center">
@@ -1319,7 +1328,7 @@ const ExamMode = () => {
     }
 
     return (
-        <div className="min-h-screen bg-background-light dark:bg-background-dark flex flex-col md:flex-row">
+        <div className="min-h-screen cp-theme bg-[#FAF8F3] flex flex-col md:flex-row">
             {/* Essay grading overlay */}
             {gradingEssay && (
                 <div className="fixed inset-0 z-50 bg-background-light/80 dark:bg-background-dark/80 backdrop-blur-sm flex items-center justify-center p-4">

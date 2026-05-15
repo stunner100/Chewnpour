@@ -94,7 +94,7 @@ const DashboardLayout = ({ children }) => {
     const navigate = useNavigate();
     const { profile } = useAuth();
     const hideMobileBottomNav = routerLocation.pathname.startsWith('/dashboard/exam')
-        || /^\/dashboard\/quiz\/[^/]+/.test(routerLocation.pathname);
+        || /^\/dashboard\/quiz\/(?!results\/)[^/]+/.test(routerLocation.pathname);
 
     useEffect(() => {
         const incomingToast = routerLocation.state?.watermelonToast;
