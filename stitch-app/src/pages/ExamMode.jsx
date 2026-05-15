@@ -948,6 +948,14 @@ const ExamMode = () => {
         userId,
     ]);
 
+    // Warn before leaving mid-quiz
+    useEffect(() => {
+        if (!examStarted || !attemptId || Object.keys(selectedAnswers).length === 0) return;
+        const handler = (e) => { e.preventDefault(); e.returnValue = ''; };
+        window.addEventListener('beforeunload', handler);
+        return () => window.removeEventListener('beforeunload', handler);
+    }, [examStarted, attemptId, selectedAnswers]);
+
     // Start exam only after the user chooses a format.
     useEffect(() => {
         if (

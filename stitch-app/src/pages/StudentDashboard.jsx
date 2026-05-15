@@ -323,7 +323,14 @@ const StudentDashboard = () => {
                                 })}
                             </ul>
                         ) : (
-                            <p className="font-body-sm text-body-sm text-text-muted">Your uploaded materials will appear here.</p>
+                            <div className="text-center py-space-4">
+                                <h4 className="font-body-sm text-body-sm font-semibold text-text-primary mb-1">No materials yet</h4>
+                                <p className="font-body-sm text-body-sm text-text-muted mb-3">Upload PDFs, docs, or slides to generate lessons and practice.</p>
+                                <Link to="/dashboard/upload" className="btn-primary text-body-sm px-4 py-2 inline-flex items-center gap-1.5">
+                                    <span className="material-symbols-outlined text-[16px]">upload</span>
+                                    Upload Material
+                                </Link>
+                            </div>
                         )}
                     </section>
 
@@ -341,7 +348,14 @@ const StudentDashboard = () => {
                                 ))}
                             </div>
                         ) : (
-                            <p className="font-body-sm text-body-sm text-text-muted">Weak spots will appear after you complete practice.</p>
+                            <div className="text-center py-space-4">
+                                <h4 className="font-body-sm text-body-sm font-semibold text-text-primary mb-1">No weak concepts yet</h4>
+                                <p className="font-body-sm text-body-sm text-text-muted mb-3">Complete practice quizzes to identify areas that need review.</p>
+                                <Link to="/dashboard/quiz" className="btn-secondary text-body-sm px-4 py-2 inline-flex items-center gap-1.5">
+                                    <span className="material-symbols-outlined text-[16px]">quiz</span>
+                                    Take a Quiz
+                                </Link>
+                            </div>
                         )}
                     </section>
                 </div>

@@ -39,7 +39,7 @@ const ExamQuestionCard = memo(function ExamQuestionCard({
             </div>
 
             {/* Options / Essay Textarea */}
-            <div className="space-y-2">
+            <div className="space-y-2" role={examFormat !== 'essay' && finalOptions.length > 0 ? 'radiogroup' : undefined} aria-label={examFormat !== 'essay' && finalOptions.length > 0 ? 'Answer choices' : undefined}>
                 {examFormat === 'essay' ? (
                     <div>
                         <textarea
@@ -52,6 +52,7 @@ const ExamQuestionCard = memo(function ExamQuestionCard({
                             rows={6}
                             className="input-field resize-y text-body-sm"
                             style={{ minHeight: '120px', fontSize: '16px' }}
+                            aria-label="Essay answer"
                         />
                         <div className="flex justify-end mt-1">
                             <span className={`text-caption ${(selectedAnswer || '').length >= 1400
@@ -72,6 +73,7 @@ const ExamQuestionCard = memo(function ExamQuestionCard({
                             className="input-field text-body-sm w-full"
                             style={{ fontSize: '16px' }}
                             autoComplete="off"
+                            aria-label="Type your answer"
                         />
                     </div>
                 ) : (
@@ -83,6 +85,8 @@ const ExamQuestionCard = memo(function ExamQuestionCard({
                             <button
                                 key={`${value}-${label}-${text}`}
                                 onClick={() => onAnswerSelect(question._id, value)}
+                                role="radio"
+                                aria-checked={isSelected}
                                 className={`w-full text-left p-4 rounded-xl border transition-all duration-200 flex items-center gap-3 ${isSelected
                                     ? 'border-primary bg-primary/5 dark:bg-primary/10'
                                     : 'border-border-light dark:border-border-dark hover:border-primary/30 hover:bg-surface-hover-light dark:hover:bg-surface-hover-dark'
@@ -112,6 +116,7 @@ const ExamQuestionCard = memo(function ExamQuestionCard({
                     onClick={onPrevious}
                     disabled={isFirstQuestion}
                     className="btn-ghost px-5 py-2.5 flex items-center gap-2 disabled:opacity-30"
+                    aria-label="Previous question"
                 >
                     <span className="material-symbols-outlined text-[18px]">arrow_back</span>
                     <span className="text-body-sm">Previous</span>
@@ -122,6 +127,7 @@ const ExamQuestionCard = memo(function ExamQuestionCard({
                         onClick={onSubmit}
                         disabled={!attemptId || isEssaySubmitBlocked}
                         className="btn-primary px-6 py-2.5 flex items-center gap-2 disabled:opacity-60"
+                        aria-label="Submit quiz"
                     >
                         <span>Submit Quiz</span>
                         <span className="material-symbols-outlined text-[18px]">check</span>
@@ -133,6 +139,7 @@ const ExamQuestionCard = memo(function ExamQuestionCard({
                             ? 'btn-primary'
                             : 'bg-surface-hover-light dark:bg-surface-hover-dark text-text-faint-light dark:text-text-faint-dark'
                             }`}
+                        aria-label="Next question"
                     >
                         <span>Next</span>
                         <span className="material-symbols-outlined text-[18px]">arrow_forward</span>

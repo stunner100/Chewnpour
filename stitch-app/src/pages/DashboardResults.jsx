@@ -665,6 +665,26 @@ const DashboardResults = () => {
                     </div>
                 </section>
 
+                {/* Post-quiz action buttons */}
+                <section className="w-full max-w-2xl">
+                    <div className="flex flex-col sm:flex-row gap-3">
+                        <Link
+                            to={`/dashboard/topic/${attempt.topicId}`}
+                            className="btn-primary px-5 py-2.5 inline-flex items-center justify-center gap-2 text-body-sm flex-1"
+                        >
+                            <span className="material-symbols-outlined text-[18px]">menu_book</span>
+                            <span>Review weak topics</span>
+                        </Link>
+                        <Link
+                            to={`/dashboard/quiz/${attempt.topicId}?autostart=mcq`}
+                            className="btn-secondary px-5 py-2.5 inline-flex items-center justify-center gap-2 text-body-sm flex-1"
+                        >
+                            <span className="material-symbols-outlined text-[18px]">refresh</span>
+                            <span>Generate another quiz</span>
+                        </Link>
+                    </div>
+                </section>
+
                 {/* Question Review */}
                 <section className="w-full max-w-4xl">
                     <h3 className="text-overline text-text-faint-light dark:text-text-faint-dark mb-3">Question Review</h3>
