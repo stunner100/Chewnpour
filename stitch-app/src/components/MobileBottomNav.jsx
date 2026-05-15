@@ -63,8 +63,8 @@ const MobileBottomNav = () => {
                     {primaryTabs.map((tab) => {
                         const active = isActive(tab);
                         const className = `flex flex-col items-center justify-center gap-0.5 flex-1 min-w-0
-                            transition-colors duration-150
-                            ${active ? 'text-primary' : 'text-text-muted'}`;
+                            transition-colors duration-150 rounded-lg
+                            ${active ? 'text-primary bg-primary-soft' : 'text-text-muted'}`;
 
                         const content = (
                             <span

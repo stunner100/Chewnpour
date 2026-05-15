@@ -93,8 +93,7 @@ const DashboardLayout = ({ children }) => {
     const routerLocation = useLocation();
     const navigate = useNavigate();
     const { profile } = useAuth();
-    const hideMobileBottomNav = routerLocation.pathname.startsWith('/dashboard/exam')
-        || /^\/dashboard\/quiz\/(?!results\/)[^/]+/.test(routerLocation.pathname);
+    const hideMobileBottomNav = /^\/dashboard\/quiz\/(?!results\/)[^/]+/.test(routerLocation.pathname);
 
     useEffect(() => {
         const incomingToast = routerLocation.state?.watermelonToast;
@@ -181,7 +180,7 @@ const DashboardLayout = ({ children }) => {
                                 to={item.path}
                                 className={`flex items-center gap-2.5 px-3 py-2.5 rounded-xl transition-all duration-200 ${
                                     active
-                                        ? 'text-primary font-bold bg-primary-soft scale-[0.98]'
+                                        ? 'text-primary font-bold bg-primary-soft'
                                         : 'text-text-secondary hover:text-primary hover:bg-surface-variant'
                                 }`}
                             >
@@ -207,7 +206,7 @@ const DashboardLayout = ({ children }) => {
                                 to={item.path}
                                 className={`flex items-center gap-2.5 px-3 py-2.5 rounded-xl transition-all duration-200 ${
                                     active
-                                        ? 'text-primary font-bold bg-primary-soft scale-[0.98]'
+                                        ? 'text-primary font-bold bg-primary-soft'
                                         : 'text-text-secondary hover:text-primary hover:bg-surface-variant'
                                 }`}
                             >

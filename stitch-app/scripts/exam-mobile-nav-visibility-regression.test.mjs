@@ -11,7 +11,7 @@ const read = async (relativePath) => {
 const dashboardLayoutSource = await read('src/components/DashboardLayout.jsx');
 for (const pattern of [
   "useLocation",
-  "startsWith('/dashboard/exam')",
+  "(?!results",
   '!hideMobileBottomNav && <MobileBottomNav />',
 ]) {
   if (!dashboardLayoutSource.includes(pattern)) {

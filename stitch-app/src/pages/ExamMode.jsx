@@ -421,7 +421,7 @@ const isTransientExamTransportError = (error, resolvedMessage = '') => {
 
 const getExamAuthNotReadyMessage = (sessionRefreshed = false) =>
     sessionRefreshed
-        ? 'Your session has been refreshed. Tap Retry to start the exam.'
+        ? 'Your session has been refreshed. Tap Retry to start the quiz.'
         : 'Your session is still syncing. Please wait a few seconds and tap Retry.';
 
 const getExamSessionExpiredMessage = () =>
@@ -438,10 +438,10 @@ const refreshAuthSessionQuietly = async () => {
 };
 
 const getExamTransientStartRetryMessage = () =>
-    'Connection dropped while starting the exam. Check your internet and tap Retry.';
+    'Connection dropped while starting the quiz. Check your internet and tap Retry.';
 
 const getExamTransientSubmitRetryMessage = () =>
-    'Connection dropped while submitting your exam. Please retry once your connection is stable.';
+    'Connection dropped while submitting your quiz. Please retry once your connection is stable.';
 
 const waitForDuration = (durationMs) =>
     new Promise((resolve) => {
@@ -517,7 +517,7 @@ const isUserCorrectableEssaySubmitError = (message) => {
     const normalized = String(message || '').toLowerCase();
     if (!normalized) return false;
     return (
-        normalized.includes('restart the exam') ||
+        normalized.includes('restart the quiz') ||
         normalized.includes('essay mode') ||
         normalized.includes('could not grade your essay right now') ||
         normalized.includes('duplicate questions') ||
@@ -617,7 +617,7 @@ const ExamMode = () => {
     const EXAM_LOADING_STALL_TIMEOUT_MS = 270_000;
 
     const loadingExamTypeLabel = examFormat === 'essay' ? 'essay' : 'objective';
-    const activePreparationMessage = `Generating your ${loadingExamTypeLabel} exam from this topic.`;
+    const activePreparationMessage = `Generating your ${loadingExamTypeLabel} quiz from this topic.`;
     const preparationStatus = startExamError ? 'failed' : startingExamAttempt ? 'preparing' : '';
     const preparationStage = startingExamAttempt ? 'generating_candidates' : 'queued';
     const isPreparationRunning = startingExamAttempt;
@@ -777,7 +777,7 @@ const ExamMode = () => {
             const result = await withTimeout(
                 startExamAttemptHttp({ topicId, examFormat }),
                 START_EXAM_ATTEMPT_TIMEOUT_MS,
-                'Exam preparation initialization timed out.'
+                'Quiz preparation initialization timed out.'
             );
             const selectedQuestions = Array.isArray(result?.questions) ? result.questions : [];
             if (result?.attemptId && selectedQuestions.length > 0) {
@@ -806,18 +806,18 @@ const ExamMode = () => {
                 type: 'preparationFailed',
                 message: typeof result?.message === 'string' && result.message.trim()
                     ? result.message.trim()
-                    : 'We could not finish preparing your exam. Please try again.',
+                    : 'We could not finish preparing your quiz. Please try again.',
             });
         } catch (error) {
             const errorCode = getConvexErrorCode(error);
-            const message = resolveConvexActionError(error, 'Unable to start the exam. Please try again.');
+            const message = resolveConvexActionError(error, 'Unable to start the quiz. Please try again.');
             const authError = isConvexAuthenticationError(error);
             const transientTransportError = isTransientExamTransportError(error, message);
             const timedOut = /timed out/i.test(message);
             const elapsedMs = attemptStartTimeRef.current
                 ? Date.now() - attemptStartTimeRef.current
                 : null;
-            let nextStartExamError = 'Unable to start the exam. Please try again.';
+            let nextStartExamError = 'Unable to start the quiz. Please try again.';
             if (authError) {
                 const { refreshed, expired } = await refreshAuthSessionQuietly();
                 if (expired) {
@@ -828,7 +828,7 @@ const ExamMode = () => {
             } else if (transientTransportError) {
                 nextStartExamError = getExamTransientStartRetryMessage();
             } else if (timedOut) {
-                nextStartExamError = 'Exam setup is taking longer than expected. Tap Retry.';
+                nextStartExamError = 'Quiz setup is taking longer than expected. Tap Retry.';
             } else if (isLikelyPostDisconnectAuthError(error)) {
                 const { refreshed, expired } = await refreshAuthSessionQuietly();
                 if (expired) {
@@ -1022,7 +1022,7 @@ const ExamMode = () => {
             } catch (error) {
                 const message = resolveConvexActionError(
                     error,
-                    'Could not submit essay exam. Please try again.'
+                    'Could not submit essay quiz. Please try again.'
                 );
                 const authError = isConvexAuthenticationError(error) || isLikelyPostDisconnectAuthError(error);
                 const transientTransportError = isTransientExamTransportError(error, message);
@@ -1083,7 +1083,7 @@ const ExamMode = () => {
             });
             navigate(`/dashboard/quiz/results/${attemptId}`);
         } catch (error) {
-            const message = resolveConvexActionError(error, 'Failed to submit exam. Please try again.');
+            const message = resolveConvexActionError(error, 'Failed to submit quiz. Please try again.');
             const authError = isConvexAuthenticationError(error) || isLikelyPostDisconnectAuthError(error);
             const transientTransportError = isTransientExamTransportError(error, message);
             if (authError) {
@@ -1176,7 +1176,7 @@ const ExamMode = () => {
                     <div className="size-14 rounded-2xl bg-surface-light dark:bg-surface-dark border border-border-light dark:border-border-dark flex items-center justify-center mx-auto mb-4">
                         <span className="material-symbols-outlined text-2xl text-text-faint-light dark:text-text-faint-dark">quiz</span>
                     </div>
-                    <h2 className="text-body-lg font-semibold text-text-main-light dark:text-text-main-dark mb-2">Select a topic to start an exam</h2>
+                    <h2 className="text-body-lg font-semibold text-text-main-light dark:text-text-main-dark mb-2">Select a topic to start a quiz</h2>
                     <p className="text-body-sm text-text-sub-light dark:text-text-sub-dark mb-6">Go back to your dashboard and choose a topic to begin.</p>
                     <Link to="/dashboard" className="btn-primary text-body-sm px-5 py-2.5 inline-flex items-center gap-2">
                         Back to Dashboard
@@ -1192,7 +1192,7 @@ const ExamMode = () => {
             <div className="cp-theme bg-[#FAF8F3] min-h-screen flex items-center justify-center">
                 <div className="text-center">
                     <div className="animate-spin rounded-full size-10 border-2 border-border-light dark:border-border-dark border-t-primary mx-auto mb-4"></div>
-                    <p className="text-body-sm text-text-sub-light dark:text-text-sub-dark">Preparing your exam environment…</p>
+                    <p className="text-body-sm text-text-sub-light dark:text-text-sub-dark">Preparing your quiz environment…</p>
                 </div>
             </div>
         );
@@ -1205,8 +1205,8 @@ const ExamMode = () => {
                     <div className="size-14 rounded-2xl bg-surface-light dark:bg-surface-dark border border-border-light dark:border-border-dark flex items-center justify-center mx-auto mb-4">
                         <span className="material-symbols-outlined text-2xl text-text-faint-light dark:text-text-faint-dark">search_off</span>
                     </div>
-                    <h2 className="text-body-lg font-semibold text-text-main-light dark:text-text-main-dark mb-2">This exam link is stale</h2>
-                    <p className="text-body-sm text-text-sub-light dark:text-text-sub-dark mb-6">Reload the dashboard, reopen the topic, and start the exam from there.</p>
+                    <h2 className="text-body-lg font-semibold text-text-main-light dark:text-text-main-dark mb-2">This quiz link is stale</h2>
+                    <p className="text-body-sm text-text-sub-light dark:text-text-sub-dark mb-6">Reload the dashboard, reopen the topic, and start the quiz from there.</p>
                     <button type="button" onClick={reloadDashboard} className="btn-primary text-body-sm px-5 py-2.5 inline-flex items-center gap-2">
                         Reload Dashboard
                     </button>
@@ -1220,7 +1220,7 @@ const ExamMode = () => {
             <div className="cp-theme bg-[#FAF8F3] min-h-screen flex items-center justify-center">
                 <div className="text-center">
                     <div className="animate-spin rounded-full size-10 border-2 border-border-light dark:border-border-dark border-t-primary mx-auto mb-4"></div>
-                    <p className="text-body-sm text-text-sub-light dark:text-text-sub-dark">Preparing your final exam…</p>
+                    <p className="text-body-sm text-text-sub-light dark:text-text-sub-dark">Preparing your final quiz…</p>
                 </div>
             </div>
         );
@@ -1242,7 +1242,7 @@ const ExamMode = () => {
             <div className="cp-theme bg-[#FAF8F3] min-h-screen flex items-center justify-center">
                 <div className="text-center">
                     <div className="animate-spin rounded-full size-10 border-2 border-border-light dark:border-border-dark border-t-primary mx-auto mb-4"></div>
-                    <p className="text-body-sm text-text-sub-light dark:text-text-sub-dark">Redirecting to your final exam…</p>
+                    <p className="text-body-sm text-text-sub-light dark:text-text-sub-dark">Redirecting to your final quiz…</p>
                 </div>
             </div>
         );
@@ -1255,8 +1255,8 @@ const ExamMode = () => {
                     <div className="size-14 rounded-2xl bg-surface-light dark:bg-surface-dark border border-border-light dark:border-border-dark flex items-center justify-center mx-auto mb-4">
                         <span className="material-symbols-outlined text-2xl text-text-faint-light dark:text-text-faint-dark">hourglass_top</span>
                     </div>
-                    <h2 className="text-body-lg font-semibold text-text-main-light dark:text-text-main-dark mb-2">This topic is covered in the final exam</h2>
-                    <p className="text-body-sm text-text-sub-light dark:text-text-sub-dark mb-6">The final exam is still being prepared. Return to the course and try again in a moment.</p>
+                    <h2 className="text-body-lg font-semibold text-text-main-light dark:text-text-main-dark mb-2">This topic is covered in the final quiz</h2>
+                    <p className="text-body-sm text-text-sub-light dark:text-text-sub-dark mb-6">The final quiz is still being prepared. Return to the course and try again in a moment.</p>
                     <Link to={`/dashboard/topic/${topicId}`} className="btn-primary text-body-sm px-5 py-2.5 inline-flex items-center gap-2">
                         Back to Topic
                     </Link>
@@ -1273,7 +1273,7 @@ const ExamMode = () => {
                         <div className="size-16 mx-auto mb-6 rounded-2xl bg-primary/10 flex items-center justify-center">
                             <span className="material-symbols-outlined text-3xl text-primary">quiz</span>
                         </div>
-                        <h2 className="text-display-sm text-text-main-light dark:text-text-main-dark mb-2">Choose Exam Format</h2>
+                        <h2 className="text-display-sm text-text-main-light dark:text-text-main-dark mb-2">Choose Quiz Format</h2>
                         <p className="text-body-sm text-text-sub-light dark:text-text-sub-dark mb-8">How would you like to be tested?</p>
 
                         <div className="space-y-3">
@@ -1296,10 +1296,10 @@ const ExamMode = () => {
                                 onClick={() => {
                                     dispatchExamState({ type: 'chooseFormat', examFormat: 'essay' });
                                 }}
-                                className="w-full flex items-center gap-4 p-4 rounded-xl border border-border-light dark:border-border-dark hover:border-accent-emerald hover:bg-accent-emerald/5 transition-all text-left group"
+                                className="w-full flex items-center gap-4 p-4 rounded-xl border border-border-light dark:border-border-dark hover:border-[#B75E45] hover:bg-[#B75E45]/5 transition-all text-left group"
                             >
-                                <div className="size-11 rounded-xl bg-accent-emerald/10 flex items-center justify-center group-hover:bg-accent-emerald/15 transition-colors">
-                                    <span className="material-symbols-outlined text-accent-emerald">edit_note</span>
+                                <div className="size-11 rounded-xl bg-[#B75E45]/10 flex items-center justify-center group-hover:bg-[#B75E45]/15 transition-colors">
+                                    <span className="material-symbols-outlined text-[#B75E45]">edit_note</span>
                                 </div>
                                 <div>
                                     <p className="text-body-sm font-semibold text-text-main-light dark:text-text-main-dark">Essay / Theory</p>
@@ -1354,7 +1354,7 @@ const ExamMode = () => {
                                 <span className="material-symbols-outlined text-lg">close</span>
                             </Link>
                             <div>
-                                <h1 className="text-body-sm font-semibold text-text-main-light dark:text-text-main-dark">Exam</h1>
+                                <h1 className="text-body-sm font-semibold text-text-main-light dark:text-text-main-dark">Quiz</h1>
                                 <p className="text-caption text-text-faint-light dark:text-text-faint-dark truncate max-w-[120px] sm:max-w-xs">{topic?.title}</p>
                             </div>
                         </div>
@@ -1392,8 +1392,8 @@ const ExamMode = () => {
                         </div>
                     )}
                     {examQualityTier === 'premium' && (
-                        <div className="mb-4 p-3 rounded-xl bg-emerald-50 dark:bg-emerald-900/10 border border-emerald-200 dark:border-emerald-900/30">
-                            <p className="text-body-sm text-emerald-800 dark:text-emerald-300">Premium exam ready. This set met the higher university-level quality targets.</p>
+                        <div className="mb-4 p-3 rounded-xl bg-blue-50 dark:bg-blue-900/10 border border-blue-200 dark:border-blue-900/30">
+                            <p className="text-body-sm text-blue-800 dark:text-blue-300">Premium quiz ready. This set met the higher university-level quality targets.</p>
                         </div>
                     )}
                     <ExamQuestionCard
@@ -1434,7 +1434,7 @@ const ExamMode = () => {
                                         <WatermelonTabsTrigger
                                             key={q._id}
                                             value={String(index)}
-                                            className={`size-9 !flex-none !px-0 !py-0 text-center ${isAnswered ? '!text-emerald-600 dark:!text-emerald-400' : ''}`}
+                                            className={`size-9 !flex-none !px-0 !py-0 text-center ${isAnswered ? '!text-purple-600 dark:!text-purple-400' : ''}`}
                                         >
                                             {index + 1}
                                         </WatermelonTabsTrigger>
@@ -1467,7 +1467,7 @@ const ExamMode = () => {
                             <button
                                 onClick={handleSubmit}
                                 disabled={!attemptId || isEssaySubmitBlocked}
-                                className="px-6 py-2.5 rounded-xl bg-accent-emerald text-white text-body-sm font-semibold hover:brightness-110 transition-all flex items-center gap-1 disabled:opacity-60"
+                                className="btn-primary px-6 py-2.5 flex items-center gap-1 disabled:opacity-60"
                             >
                                 <span>Submit</span>
                                 <span className="material-symbols-outlined text-[18px]">check</span>
@@ -1527,7 +1527,7 @@ const ExamMode = () => {
                                         <WatermelonTabsTrigger
                                             key={q._id}
                                             value={String(index)}
-                                            className={`size-9 !flex-none !px-0 !py-0 text-center ${isAnswered ? '!text-emerald-600 dark:!text-emerald-400' : ''}`}
+                                            className={`size-9 !flex-none !px-0 !py-0 text-center ${isAnswered ? '!text-purple-600 dark:!text-purple-400' : ''}`}
                                         >
                                             {index + 1}
                                         </WatermelonTabsTrigger>
@@ -1545,7 +1545,7 @@ const ExamMode = () => {
                         disabled={!attemptId || isEssaySubmitBlocked}
                         className="w-full btn-primary py-3 disabled:opacity-60"
                     >
-                        Submit Exam
+                        Submit Quiz
                     </button>
                 </div>
             </aside>

@@ -260,7 +260,7 @@ const READINESS_BADGE = {
     'Not Ready': 'bg-red-500/10 text-red-600 dark:text-red-400 border-red-500/20',
     'Almost Ready': 'bg-accent-amber/10 text-accent-amber border-accent-amber/20',
     Ready: 'bg-primary/10 text-primary border-primary/20',
-    'Exam Ready': 'bg-accent-emerald/10 text-accent-emerald border-accent-emerald/20',
+    'Exam Ready': 'bg-purple-100 text-purple-700 border-purple-200',
 };
 
 // #6 — use regex word boundaries for robust readiness label extraction
@@ -461,8 +461,8 @@ const DashboardResults = () => {
                     <div className="size-14 rounded-2xl bg-surface-light dark:bg-surface-dark border border-border-light dark:border-border-dark flex items-center justify-center mx-auto mb-4">
                         <span className="material-symbols-outlined text-2xl text-text-faint-light dark:text-text-faint-dark">quiz</span>
                     </div>
-                    <h2 className="text-body-lg font-semibold text-text-main-light dark:text-text-main-dark mb-2">No exam selected</h2>
-                    <p className="text-body-sm text-text-sub-light dark:text-text-sub-dark mb-6">Return to your dashboard and open a completed exam.</p>
+                    <h2 className="text-body-lg font-semibold text-text-main-light dark:text-text-main-dark mb-2">No quiz selected</h2>
+                    <p className="text-body-sm text-text-sub-light dark:text-text-sub-dark mb-6">Return to your dashboard and open a completed quiz.</p>
                     <Link to="/dashboard" className="btn-primary text-body-sm px-5 py-2.5 inline-flex items-center gap-2">
                         Back to Dashboard
                     </Link>
@@ -476,7 +476,7 @@ const DashboardResults = () => {
             <div className="cp-theme bg-[#FAF8F3] min-h-screen flex items-center justify-center">
                 <div className="text-center">
                     <div className="animate-spin rounded-full size-10 border-2 border-border-light dark:border-border-dark border-t-primary mx-auto mb-4"></div>
-                    <p className="text-body-sm text-text-sub-light dark:text-text-sub-dark">Loading exam results…</p>
+                    <p className="text-body-sm text-text-sub-light dark:text-text-sub-dark">Loading quiz results…</p>
                 </div>
             </div>
         );
@@ -490,7 +490,7 @@ const DashboardResults = () => {
                         <span className="material-symbols-outlined text-2xl text-text-faint-light dark:text-text-faint-dark">search_off</span>
                     </div>
                     <h2 className="text-body-lg font-semibold text-text-main-light dark:text-text-main-dark mb-2">Results not found</h2>
-                    <p className="text-body-sm text-text-sub-light dark:text-text-sub-dark mb-6">We couldn't find that exam attempt.</p>
+                    <p className="text-body-sm text-text-sub-light dark:text-text-sub-dark mb-6">We couldn't find that quiz attempt.</p>
                     <Link to="/dashboard" className="btn-primary text-body-sm px-5 py-2.5 inline-flex items-center gap-2">
                         Back to Dashboard
                     </Link>
@@ -544,7 +544,7 @@ const DashboardResults = () => {
                             <span className="material-symbols-outlined text-lg">arrow_back</span>
                         </Link>
                         <div>
-                            <h1 className="text-body-base font-semibold text-text-main-light dark:text-text-main-dark leading-tight">Exam Results</h1>
+                            <h1 className="text-body-base font-semibold text-text-main-light dark:text-text-main-dark leading-tight">Quiz Results</h1>
                             <span className="text-caption text-text-faint-light dark:text-text-faint-dark">{attempt.topicTitle || 'ChewnPour Mode'}</span>
                         </div>
                     </div>

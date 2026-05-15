@@ -121,9 +121,9 @@ const ExamQuestionCard = memo(function ExamQuestionCard({
                     <button
                         onClick={onSubmit}
                         disabled={!attemptId || isEssaySubmitBlocked}
-                        className="px-6 py-2.5 rounded-xl bg-accent-emerald text-white text-body-sm font-semibold hover:brightness-110 transition-all flex items-center gap-2 disabled:opacity-60"
+                        className="btn-primary px-6 py-2.5 flex items-center gap-2 disabled:opacity-60"
                     >
-                        <span>Submit Exam</span>
+                        <span>Submit Quiz</span>
                         <span className="material-symbols-outlined text-[18px]">check</span>
                     </button>
                 ) : (
