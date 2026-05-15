@@ -1341,11 +1341,15 @@ const ExamMode = () => {
                 <header className="sticky top-0 z-40 bg-surface-light/90 dark:bg-surface-dark/90 backdrop-blur-md border-b border-border-light dark:border-border-dark">
                     <div className="max-w-4xl mx-auto px-4 py-3 flex items-center justify-between">
                         <div className="flex items-center gap-3">
-                            <Link to={topicId ? `/dashboard/topic/${topicId}` : '/dashboard'} className="btn-icon size-9">
+                            <Link
+                                to={topicId ? `/dashboard/topic/${topicId}` : '/dashboard'}
+                                className="btn-icon size-9"
+                                aria-label="Close quiz and return to topic"
+                            >
                                 <span className="material-symbols-outlined text-lg">close</span>
                             </Link>
                             <div>
-                                <h1 className="text-body-sm font-semibold text-text-main-light dark:text-text-main-dark">Exam</h1>
+                                <h1 className="text-body-base font-semibold text-text-main-light dark:text-text-main-dark">Exam</h1>
                                 <p className="text-caption text-text-faint-light dark:text-text-faint-dark truncate max-w-[120px] sm:max-w-xs">{topic?.title}</p>
                             </div>
                         </div>
@@ -1353,14 +1357,27 @@ const ExamMode = () => {
                             <span className="text-body-sm text-text-sub-light dark:text-text-sub-dark">
                                 {currentQuestion + 1} <span className="text-text-faint-light dark:text-text-faint-dark">/ {questions.length}</span>
                             </span>
-                            <div className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg font-mono font-semibold text-body-sm ${isLowTime ? 'bg-red-500/10 text-red-600 dark:text-red-400' : 'bg-surface-hover-light dark:bg-surface-hover-dark text-text-main-light dark:text-text-main-dark'}`}>
+                            <div
+                                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg font-mono font-semibold text-body-sm ${isLowTime ? 'bg-error-soft dark:bg-red-950/30 text-error dark:text-red-400' : 'bg-surface-hover-light dark:bg-surface-hover-dark text-text-main-light dark:text-text-main-dark'}`}
+                                role="status"
+                                aria-live="polite"
+                                aria-label={`Time remaining, ${formattedTime}`}
+                            >
                                 <span className="material-symbols-outlined text-[16px]">timer</span>
                                 {formattedTime}
                             </div>
                         </div>
                     </div>
                     {/* Progress bar */}
-                    <div className="h-0.5 bg-border-light dark:bg-border-dark">
+                    <div
+                        className="h-1.5 bg-border-light dark:bg-border-dark"
+                        role="progressbar"
+                        aria-valuenow={Math.round(progress)}
+                        aria-valuemin={0}
+                        aria-valuemax={100}
+                        aria-valuetext={`${answeredQuestionCount} of ${questions.length} questions answered`}
+                        aria-label="Quiz progress"
+                    >
                         <div className="h-full bg-primary transition-all duration-300" style={{ width: `${progress}%` }}></div>
                     </div>
                 </header>
@@ -1373,8 +1390,8 @@ const ExamMode = () => {
                         </div>
                     )}
                     {submitError && (
-                        <div className="mb-4 p-3 rounded-xl bg-red-50 dark:bg-red-900/10 border border-red-200 dark:border-red-900/30">
-                            <p className="text-body-sm text-red-800 dark:text-red-300">
+                        <div className="mb-4 p-3 rounded-xl bg-error-soft dark:bg-red-950/25 border border-error/20 dark:border-red-900/35">
+                            <p className="text-body-sm text-error dark:text-red-300">
                                 {submitError}
                                 {submitError === getExamSessionExpiredMessage() && (
                                     <Link to="/login" className="ml-2 font-semibold underline">Sign in</Link>
@@ -1425,7 +1442,7 @@ const ExamMode = () => {
                                         <WatermelonTabsTrigger
                                             key={q._id}
                                             value={String(index)}
-                                            className={`size-9 !flex-none !px-0 !py-0 text-center ${isAnswered ? '!text-emerald-600 dark:!text-emerald-400' : ''}`}
+                                            className={`size-9 !flex-none !px-0 !py-0 text-center ${isAnswered ? '!text-success dark:!text-emerald-400' : ''}`}
                                         >
                                             {index + 1}
                                         </WatermelonTabsTrigger>
@@ -1482,11 +1499,16 @@ const ExamMode = () => {
                     {/* Timer */}
                     <div className="card-base p-5 text-center mb-5">
                         <span className="text-overline text-text-faint-light dark:text-text-faint-dark block mb-2">Time Remaining</span>
-                        <div className={`text-display-lg font-mono tabular-nums ${isLowTime ? 'text-red-500' : 'text-text-main-light dark:text-text-main-dark'}`}>
+                        <div
+                            className={`text-display-lg font-mono tabular-nums ${isLowTime ? 'text-error' : 'text-text-main-light dark:text-text-main-dark'}`}
+                            role="status"
+                            aria-live="polite"
+                            aria-label={`Time remaining, ${formattedTime}`}
+                        >
                             {formattedTime}
                         </div>
                         {isLowTime && (
-                            <p className="text-caption text-red-500 mt-1">Less than 5 minutes!</p>
+                            <p className="text-caption text-error mt-1">Less than 5 minutes!</p>
                         )}
                     </div>
 
@@ -1496,7 +1518,15 @@ const ExamMode = () => {
                             <span className="text-body-sm text-text-sub-light dark:text-text-sub-dark">Answered</span>
                             <span className="text-body-sm font-semibold text-primary">{Math.round(progress)}%</span>
                         </div>
-                        <div className="w-full bg-border-light dark:bg-border-dark rounded-full h-1.5">
+                        <div
+                            className="w-full bg-border-light dark:bg-border-dark rounded-full h-1.5"
+                            role="progressbar"
+                            aria-valuenow={Math.round(progress)}
+                            aria-valuemin={0}
+                            aria-valuemax={100}
+                            aria-valuetext={`${answeredQuestionCount} of ${questions.length} questions answered`}
+                            aria-label="Answered progress"
+                        >
                             <div className="bg-primary h-full rounded-full transition-all duration-300" style={{ width: `${progress}%` }}></div>
                         </div>
                     </div>
@@ -1518,7 +1548,7 @@ const ExamMode = () => {
                                         <WatermelonTabsTrigger
                                             key={q._id}
                                             value={String(index)}
-                                            className={`size-9 !flex-none !px-0 !py-0 text-center ${isAnswered ? '!text-emerald-600 dark:!text-emerald-400' : ''}`}
+                                            className={`size-9 !flex-none !px-0 !py-0 text-center ${isAnswered ? '!text-success dark:!text-emerald-400' : ''}`}
                                         >
                                             {index + 1}
                                         </WatermelonTabsTrigger>
