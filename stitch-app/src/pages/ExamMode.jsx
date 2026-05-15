@@ -1358,7 +1358,7 @@ const ExamMode = () => {
                                 <span className="material-symbols-outlined text-lg">close</span>
                             </Link>
                             <div>
-                                <h1 className="text-body-base font-semibold text-text-main-light dark:text-text-main-dark">Quiz</h1>
+                                <h1 className="text-body-base font-semibold text-text-main-light dark:text-text-main-dark">Exam</h1>
                                 <p className="text-caption text-text-faint-light dark:text-text-faint-dark truncate max-w-[120px] sm:max-w-xs">{topic?.title}</p>
                             </div>
                         </div>
