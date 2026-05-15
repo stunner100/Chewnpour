@@ -20,6 +20,9 @@ for (const snippet of [
   'navigator.serviceWorker.getRegistrations()',
   'registration.unregister()',
   'window.caches.keys()',
+  'const clearedStaleRuntime = results.some',
+  "result.value === true",
+  'window.location.replace(window.location.href);',
   'removeManifestLink()',
 ]) {
   if (!mainSource.includes(snippet)) {
@@ -35,6 +38,7 @@ for (const snippet of [
   "self.addEventListener('install'",
   'self.skipWaiting()',
   "self.addEventListener('activate'",
+  'self.clients.claim()',
   'self.registration.unregister()',
   'clients.matchAll',
   'client.navigate(client.url)',
@@ -47,6 +51,8 @@ for (const snippet of [
 for (const snippet of [
   '"source": "/sw.js"',
   '"value": "no-store, no-cache, must-revalidate"',
+  '"key": "Clear-Site-Data"',
+  '"value": "\\"cache\\", \\"storage\\""',
 ]) {
   if (!vercelSource.includes(snippet)) {
     throw new Error(`Regression detected: vercel.json missing stale-PWA cutover header: ${snippet}`);
