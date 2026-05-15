@@ -8,13 +8,55 @@ const HEADER_SIZES = {
     3: "text-lg md:text-xl font-bold text-neutral-800 dark:text-neutral-200 mt-6 md:mt-8 mb-2 md:mb-3 flex items-center gap-2"
 };
 
-const ALERT_STYLES = {
-    tip: "bg-emerald-50 dark:bg-emerald-900/20 border-emerald-100 dark:border-emerald-800 text-emerald-900 dark:text-emerald-100 icon-lightbulb",
-    note: "bg-blue-50 dark:bg-blue-900/20 border-blue-100 dark:border-blue-800 text-blue-900 dark:text-blue-100 icon-info",
-    warning: "bg-amber-50 dark:bg-amber-900/20 border-amber-100 dark:border-amber-800 text-amber-900 dark:text-amber-100 icon-warning",
-    important: "bg-rose-50 dark:bg-rose-900/20 border-rose-100 dark:border-rose-800 text-rose-900 dark:text-rose-100 icon-priority_high",
-    "key takeaway": "bg-primary-50 dark:bg-primary-900/20 border-primary-100 dark:border-primary-800 text-primary-900 dark:text-primary-100 icon-star"
+// Design tokens + dark mode; tip / warning / important stay visually distinct.
+const ALERT_VARIANTS = {
+    tip: {
+        className:
+            'bg-success-soft dark:bg-emerald-950/35 border-success/20 dark:border-emerald-700/45 text-success dark:text-emerald-300',
+        icon: 'lightbulb',
+    },
+    note: {
+        className:
+            'bg-info-soft dark:bg-sky-950/40 border-info/20 dark:border-sky-700/45 text-info dark:text-sky-300',
+        icon: 'info',
+    },
+    warning: {
+        className:
+            'bg-warning-soft dark:bg-amber-950/40 border-warning/30 dark:border-amber-700/50 text-warning dark:text-amber-200',
+        icon: 'warning',
+    },
+    important: {
+        className:
+            'bg-error-soft dark:bg-red-950/35 border-error/25 dark:border-red-800/50 text-error dark:text-red-300',
+        icon: 'priority_high',
+    },
+    'key takeaway': {
+        className:
+            'bg-mastery-soft dark:bg-violet-950/35 border-mastery/25 dark:border-violet-700/50 text-mastery dark:text-violet-300',
+        icon: 'star',
+    },
+    definition: {
+        className:
+            'bg-info-soft dark:bg-sky-950/40 border-info/20 dark:border-sky-700/45 text-info dark:text-sky-300',
+        icon: 'menu_book',
+    },
+    example: {
+        className:
+            'bg-surface-soft dark:bg-neutral-900/50 border-border-default dark:border-neutral-600 text-text-secondary dark:text-neutral-300',
+        icon: 'code',
+    },
+    'exam tip': {
+        className:
+            'bg-mastery-soft dark:bg-violet-950/35 border-mastery/25 dark:border-violet-700/50 text-mastery dark:text-violet-300',
+        icon: 'school',
+    },
+    'ai explanation': {
+        className:
+            'bg-ai-subtle dark:bg-orange-950/30 border-ai-soft dark:border-orange-900/40 text-on-secondary-container dark:text-orange-200',
+        icon: 'psychology',
+    },
 };
+const DEFAULT_ALERT_VARIANT = ALERT_VARIANTS.note;
 
 const getHeaderIcon = (text) => {
     const lowText = text.toLowerCase();
@@ -115,19 +157,22 @@ const LessonContentRenderer = memo(function LessonContentRenderer({
                         <React.Fragment key={block.key}>
                             <div
                                 id={block.id}
-                                className={`${HEADER_SIZES[block.level] || HEADER_SIZES[3]} scroll-mt-20 md:scroll-mt-32 ${animationClass}`}
+                                className={`group ${HEADER_SIZES[block.level] || HEADER_SIZES[3]} scroll-mt-20 md:scroll-mt-32 ${animationClass}`}
                                 style={animationStyle}
                             >
                                 {icon && <span className="material-symbols-outlined text-primary/70">{icon}</span>}
                                 <span className="flex-1">{block.text}</span>
                                 {onViewSource && (
                                     <button
+                                        type="button"
                                         onClick={() => onViewSource(block.id)}
-                                        className="ml-auto text-caption text-text-faint-light dark:text-text-faint-dark hover:text-primary flex items-center gap-1 opacity-0 group-hover:opacity-100 hover:opacity-100 focus:opacity-100 transition-opacity shrink-0"
-                                        style={{ opacity: undefined }}
+                                        className="ml-auto text-caption text-text-faint-light dark:text-text-faint-dark hover:text-primary flex items-center gap-1 opacity-0 group-hover:opacity-100 hover:opacity-100 focus-visible:opacity-100 transition-opacity shrink-0"
                                         title="View source"
+                                        aria-label="View source for this section"
                                     >
-                                        <span className="material-symbols-outlined text-[14px]">link</span>
+                                        <span className="material-symbols-outlined text-[14px]" aria-hidden="true">
+                                            link
+                                        </span>
                                     </button>
                                 )}
                             </div>
@@ -136,6 +181,7 @@ const LessonContentRenderer = memo(function LessonContentRenderer({
                                     {TUTOR_PROMPTS.map((tp) => (
                                         <button
                                             key={tp.label}
+                                            type="button"
                                             onClick={() => onAskTutor(`${tp.prompt} "${block.text}"`)}
                                             className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-caption text-text-faint-light dark:text-text-faint-dark hover:text-primary hover:bg-primary/5 border border-transparent hover:border-primary/20 transition-all"
                                         >
@@ -150,11 +196,14 @@ const LessonContentRenderer = memo(function LessonContentRenderer({
                 }
 
                 if (block.type === 'alert') {
-                    const currentStyle = ALERT_STYLES[block.alertType] || ALERT_STYLES.note;
-                    const iconName = currentStyle.split('icon-')[1];
+                    const variant = ALERT_VARIANTS[block.alertType] || DEFAULT_ALERT_VARIANT;
                     return (
-                        <div key={block.key} className={`my-4 md:my-6 p-4 md:p-5 rounded-2xl border flex gap-3 md:gap-4 ${currentStyle.split('icon-')[0]} ${animationClass}`} style={animationStyle}>
-                            <span className="material-symbols-outlined shrink-0 text-current opacity-70">{iconName}</span>
+                        <div
+                            key={block.key}
+                            className={`my-4 md:my-6 p-4 md:p-5 rounded-2xl border flex gap-3 md:gap-4 ${variant.className} ${animationClass}`}
+                            style={animationStyle}
+                        >
+                            <span className="material-symbols-outlined shrink-0 text-current opacity-70">{variant.icon}</span>
                             <div className="flex flex-col gap-1">
                                 <span className="text-[10px] font-black uppercase tracking-widest opacity-60">{block.alertType}</span>
                                 <div className="text-[15px] md:text-base font-medium leading-relaxed">{bold(block.text)}</div>

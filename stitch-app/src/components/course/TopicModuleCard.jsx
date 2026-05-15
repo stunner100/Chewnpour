@@ -3,17 +3,17 @@ import { Link } from 'react-router-dom';
 import StatusBadge from './StatusBadge';
 import MasteryBadge from './MasteryBadge';
 
-// Light gradient palette for module thumbnails. Picked deterministically by
-// topic index so each module feels distinct without bespoke artwork.
+// Warm gradient palette for module thumbnails using DESIGN.md semantic colors.
+// Picked deterministically by topic index for visual variety.
 const GRADIENT_PALETTE = [
-    'linear-gradient(135deg, #6c2bd9 0%, #4338ca 100%)',
-    'linear-gradient(135deg, #0ea5e9 0%, #6366f1 100%)',
-    'linear-gradient(135deg, #f59e0b 0%, #db2777 100%)',
-    'linear-gradient(135deg, #10b981 0%, #0d9488 100%)',
-    'linear-gradient(135deg, #ec4899 0%, #6366f1 100%)',
-    'linear-gradient(135deg, #f97316 0%, #b91c1c 100%)',
-    'linear-gradient(135deg, #06b6d4 0%, #2563eb 100%)',
-    'linear-gradient(135deg, #84cc16 0%, #16a34a 100%)',
+    'linear-gradient(135deg, #B45309 0%, #D97706 100%)',
+    'linear-gradient(135deg, #2563EB 0%, #3B82F6 100%)',
+    'linear-gradient(135deg, #D97706 0%, #B75E45 100%)',
+    'linear-gradient(135deg, #15803D 0%, #059669 100%)',
+    'linear-gradient(135deg, #B75E45 0%, #9F3A2E 100%)',
+    'linear-gradient(135deg, #F59E0B 0%, #D97706 100%)',
+    'linear-gradient(135deg, #2563EB 0%, #7C3AED 100%)',
+    'linear-gradient(135deg, #7C3AED 0%, #6D28D9 100%)',
 ];
 
 const initialsFromTitle = (title) => {
@@ -171,10 +171,10 @@ const TopicModuleCard = ({
                         <span
                             className={`inline-flex items-center gap-1 font-semibold ${
                                 progress.bestScore >= 80
-                                    ? 'text-emerald-600 dark:text-emerald-400'
+                                    ? 'text-success'
                                     : progress.bestScore >= 60
-                                        ? 'text-amber-600 dark:text-amber-400'
-                                        : 'text-rose-600 dark:text-rose-400'
+                                        ? 'text-warning'
+                                        : 'text-error'
                             }`}
                         >
                             <span className="material-symbols-outlined text-[14px]">military_tech</span>
@@ -184,14 +184,22 @@ const TopicModuleCard = ({
                 </div>
 
                 {progress?.bestScore != null && (
-                    <div className="h-1 bg-border-subtle dark:bg-border-subtle-dark rounded-full overflow-hidden">
+                    <div
+                        className="h-1 bg-border-subtle dark:bg-border-subtle-dark rounded-full overflow-hidden"
+                        role="progressbar"
+                        aria-valuenow={Math.round(progress.bestScore)}
+                        aria-valuemin={0}
+                        aria-valuemax={100}
+                        aria-valuetext={`Best score ${progress.bestScore}%`}
+                        aria-label="Best quiz score"
+                    >
                         <div
                             className={`h-full rounded-full transition-all duration-500 ${
                                 progress.bestScore >= 80
-                                    ? 'bg-emerald-500'
+                                    ? 'bg-success'
                                     : progress.bestScore >= 60
-                                        ? 'bg-amber-500'
-                                        : 'bg-rose-500'
+                                        ? 'bg-warning'
+                                        : 'bg-error'
                             }`}
                             style={{ width: `${progress.bestScore}%` }}
                         />

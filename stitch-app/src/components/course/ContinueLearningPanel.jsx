@@ -26,7 +26,7 @@ const ContinueLearningPanel = ({
                     className="relative md:h-full h-28 flex items-center justify-center"
                     style={{
                         background:
-                            'linear-gradient(135deg, #6c2bd9 0%, #4338ca 50%, #1d4ed8 100%)',
+                            'linear-gradient(135deg, #B45309 0%, #D97706 50%, #F59E0B 100%)',
                     }}
                 >
                     <span
@@ -67,9 +67,17 @@ const ContinueLearningPanel = ({
                                     {timeLabel}
                                 </span>
                             </div>
-                            <div className="w-full h-1.5 bg-border-subtle dark:bg-border-subtle-dark rounded-full overflow-hidden">
+                            <div
+                                className="w-full h-1.5 bg-border-subtle dark:bg-border-subtle-dark rounded-full overflow-hidden"
+                                role="progressbar"
+                                aria-valuenow={Math.round(progressPercent)}
+                                aria-valuemin={0}
+                                aria-valuemax={100}
+                                aria-valuetext={`${progressPercent}% complete`}
+                                aria-label="Module progress"
+                            >
                                 <div
-                                    className="h-full rounded-full bg-gradient-to-r from-primary to-violet-500 transition-[width] duration-500"
+                                    className="h-full rounded-full bg-primary transition-[width] duration-500"
                                     style={{ width: `${progressPercent}%` }}
                                 />
                             </div>
@@ -105,7 +113,7 @@ const ContinueLearningPanel = ({
                         ) : (
                             <span className="text-body-sm text-text-sub-light dark:text-text-sub-dark inline-flex items-center gap-1.5">
                                 <span
-                                    className="material-symbols-outlined text-emerald-500 text-[18px]"
+                                    className="material-symbols-outlined text-success text-[18px]"
                                     style={{ fontVariationSettings: "'FILL' 1" }}
                                 >
                                     check_circle
