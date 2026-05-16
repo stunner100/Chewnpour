@@ -147,6 +147,7 @@ for (const snippet of [
   'Recommended Action',
   'while it is due',
   'Start Review',
+  'View Topic Breakdown',
 ]) {
   requireExcludes(progressPageSource, snippet, 'StudyProgressMastery.jsx');
 }
@@ -155,7 +156,10 @@ for (const snippet of [
   'Quiz Performance',
   'Your average score across completed practice.',
   'Next up',
+  'Review flashcards from',
   'Open Deck',
+  'buildCourseProgressItems',
+  'aria-label={`${course.title} progress`}',
 ]) {
   requireIncludes(progressPageSource, snippet, 'StudyProgressMastery.jsx');
 }
