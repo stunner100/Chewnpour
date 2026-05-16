@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
-import { useConvexAuth, useMutation, useQuery } from 'convex/react';
+import { useAction, useConvexAuth, useMutation, useQuery } from 'convex/react';
 import { api } from '../../convex/_generated/api';
 
 const EMPTY_LIST = [];
@@ -101,7 +101,16 @@ const StudyToolSkeleton = () => (
     </div>
 );
 
-const EmptyFlashcardState = ({ title = 'Upload material to generate flashcards', description }) => (
+const EmptyFlashcardState = ({
+    title = 'Upload material to generate flashcards',
+    description,
+    actionLabel = 'Upload Material',
+    actionIcon = 'cloud_upload',
+    actionTo = '/dashboard/upload',
+    onAction,
+    isActionLoading = false,
+    errorMessage,
+}) => (
     <section className="w-full rounded-2xl border border-border-subtle bg-surface p-space-8 text-center shadow-sm">
         <div className="mx-auto mb-space-4 flex h-12 w-12 items-center justify-center rounded-full bg-primary-soft text-primary">
             <span className="material-symbols-outlined">style</span>
@@ -112,13 +121,32 @@ const EmptyFlashcardState = ({ title = 'Upload material to generate flashcards',
         <p className="mx-auto mt-space-3 max-w-xl font-body-base text-body-base text-text-secondary">
             {description || 'Flashcards are created from each topic Word Bank. Upload material or regenerate missing topic content to create a real term-definition deck.'}
         </p>
-        <Link
-            to="/dashboard/upload"
-            className="mt-space-6 inline-flex items-center justify-center gap-space-2 rounded-xl bg-primary px-space-5 py-space-3 font-label-md text-label-md text-on-primary shadow-sm transition-colors hover:bg-primary-hover"
-        >
-            <span className="material-symbols-outlined text-[20px]">cloud_upload</span>
-            Upload Material
-        </Link>
+        {onAction ? (
+            <button
+                type="button"
+                onClick={onAction}
+                disabled={isActionLoading}
+                className="mt-space-6 inline-flex items-center justify-center gap-space-2 rounded-xl bg-primary px-space-5 py-space-3 font-label-md text-label-md text-on-primary shadow-sm transition-colors hover:bg-primary-hover disabled:cursor-not-allowed disabled:opacity-70"
+            >
+                <span className="material-symbols-outlined text-[20px]">
+                    {isActionLoading ? 'progress_activity' : actionIcon}
+                </span>
+                {isActionLoading ? 'Regenerating…' : actionLabel}
+            </button>
+        ) : (
+            <Link
+                to={actionTo}
+                className="mt-space-6 inline-flex items-center justify-center gap-space-2 rounded-xl bg-primary px-space-5 py-space-3 font-label-md text-label-md text-on-primary shadow-sm transition-colors hover:bg-primary-hover"
+            >
+                <span className="material-symbols-outlined text-[20px]">{actionIcon}</span>
+                {actionLabel}
+            </Link>
+        )}
+        {errorMessage && (
+            <p className="mx-auto mt-space-3 max-w-lg font-body-sm text-body-sm text-error" role="alert">
+                {errorMessage}
+            </p>
+        )}
     </section>
 );
 
@@ -204,7 +232,16 @@ const CourseFlashcardsCard = ({ course }) => (
     </Link>
 );
 
-const FlashcardStudyDeck = ({ topic, terms, starredTerms, onTermsStarred, onCardReviewed }) => {
+const FlashcardStudyDeck = ({
+    topic,
+    terms,
+    starredTerms,
+    onTermsStarred,
+    onCardReviewed,
+    onRegenerate,
+    isRegenerating,
+    regenerateError,
+}) => {
     const [index, setIndex] = useState(0);
     const [flipped, setFlipped] = useState(false);
     const [masteredCount, setMasteredCount] = useState(0);
@@ -284,6 +321,11 @@ const FlashcardStudyDeck = ({ topic, terms, starredTerms, onTermsStarred, onCard
             <EmptyFlashcardState
                 title="No Word Bank terms yet"
                 description="This topic is missing its generated Word Bank. Regenerate the topic so ChewnPour can create term-definition flashcards."
+                actionLabel="Regenerate Topic"
+                actionIcon="refresh"
+                onAction={onRegenerate}
+                isActionLoading={isRegenerating}
+                errorMessage={regenerateError}
             />
         );
     }
@@ -489,6 +531,9 @@ const FlashcardStudySession = () => {
     );
     const upsertProgress = useMutation(api.topics.upsertTopicProgress);
     const recordConceptReview = useMutation(api.concepts.createConceptSessionAttempt);
+    const regenerateLessonContent = useAction(api.ai.regenerateLessonContent);
+    const [isRegenerating, setIsRegenerating] = useState(false);
+    const [regenerateError, setRegenerateError] = useState('');
 
     const handleTermsStarred = useCallback((starred) => {
         if (!activeTopicId) return;
@@ -501,6 +546,23 @@ const FlashcardStudySession = () => {
 
     const reviewItems = Array.isArray(reviewQueue?.items) ? reviewQueue.items : EMPTY_LIST;
     const terms = useMemo(() => getTopicTerms(topic), [topic]);
+
+    const handleRegenerateTopic = useCallback(async () => {
+        if (!activeTopicId || isRegenerating) return;
+        setIsRegenerating(true);
+        setRegenerateError('');
+        try {
+            await regenerateLessonContent({
+                topicId: activeTopicId,
+                dryRun: false,
+                maxTopics: 1,
+            });
+        } catch (error) {
+            setRegenerateError(error instanceof Error ? error.message : 'Could not regenerate this topic. Try again.');
+        } finally {
+            setIsRegenerating(false);
+        }
+    }, [activeTopicId, isRegenerating, regenerateLessonContent]);
 
     const handleCardReviewed = useCallback(({ term, rating, mastered }) => {
         if (!activeTopicId || !term) return;
@@ -547,6 +609,9 @@ const FlashcardStudySession = () => {
                         starredTerms={topicProgress?.termsStarred}
                         onTermsStarred={handleTermsStarred}
                         onCardReviewed={handleCardReviewed}
+                        onRegenerate={handleRegenerateTopic}
+                        isRegenerating={isRegenerating}
+                        regenerateError={regenerateError}
                     />
                 ) : (
                     <FlashcardsIndex

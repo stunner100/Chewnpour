@@ -74,6 +74,13 @@ requireIncludes(
   'const recordConceptReview = useMutation(api.concepts.createConceptSessionAttempt);',
   'concept review persistence mutation',
 );
+requireIncludes(
+  'const regenerateLessonContent = useAction(api.ai.regenerateLessonContent);',
+  'topic Word Bank regeneration action',
+);
+requireIncludes('actionLabel="Regenerate Topic"', 'missing Word Bank regeneration CTA');
+requireIncludes('onRegenerate={handleRegenerateTopic}', 'regenerate handler passed to the active deck');
+requireIncludes('await regenerateLessonContent({', 'regenerate action invocation');
 requireIncludes('recordConceptReview({', 'rating buttons persisting review attempts');
 requireIncludes('correctAnswers: [term]', 'flashcard ratings recording the reviewed concept');
 
