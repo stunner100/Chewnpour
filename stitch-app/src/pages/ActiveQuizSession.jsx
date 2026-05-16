@@ -4,6 +4,7 @@ import { useConvexAuth, useQuery } from 'convex/react';
 import { api } from '../../convex/_generated/api';
 
 const EMPTY_LIST = [];
+const FRESH_OBJECTIVE_QUIZ_DISPLAY_COUNT = 5;
 
 const buildObjectiveExamRoute = (topicId) =>
     topicId ? `/dashboard/quiz/${topicId}?autostart=mcq` : '/dashboard/quiz';
@@ -105,6 +106,18 @@ const isQuizReadyTopic = (topic) => {
     return Number(topic?.usableMcqCount || topic?.usableObjectiveCount || 0) > 0;
 };
 
+const resolveObjectiveAttemptQuestionCount = (topic, previewQuestions) => {
+    const rawConfiguredTarget = Number(topic?.mcqTargetCount || topic?.totalObjectiveTargetCount || 0);
+    const configuredTarget = Number.isFinite(rawConfiguredTarget) ? rawConfiguredTarget : 0;
+    const availablePreviewCount = Array.isArray(previewQuestions) ? previewQuestions.length : 0;
+    const target = Math.max(
+        FRESH_OBJECTIVE_QUIZ_DISPLAY_COUNT,
+        configuredTarget,
+        availablePreviewCount,
+    );
+    return Math.max(1, Math.min(FRESH_OBJECTIVE_QUIZ_DISPLAY_COUNT, Math.round(target)));
+};
+
 const pickPreviewQuestion = (questions) => {
     const objectiveQuestions = Array.isArray(questions)
         ? questions.filter(isObjectiveQuestion)
@@ -157,7 +170,7 @@ const CourseQuizCard = ({ course }) => {
     if (metadataKnown && !targetTopicId && quizzesReady <= 0) return null;
     const targetHref = targetTopicId ? buildObjectiveExamRoute(targetTopicId) : `/dashboard/quiz?courseId=${course._id}`;
     const statusLabel = quizzesReady > 0
-        ? `${quizzesReady} quiz${quizzesReady === 1 ? '' : 'zes'} ready`
+        ? `${quizzesReady} topic${quizzesReady === 1 ? '' : 's'} ready`
         : targetTopicId ? 'Quiz ready' : 'Open topics';
 
     return (
@@ -195,7 +208,7 @@ const QuizMockupPanel = ({
     course,
     topic,
     previewQuestion,
-    totalQuestions,
+    attemptQuestionCount,
     selectedAnswer,
     onSelectAnswer,
 }) => {
@@ -226,11 +239,9 @@ const QuizMockupPanel = ({
                                 {difficultyLabel}
                             </span>
                         ) : null}
-                        {totalQuestions > 0 ? (
-                            <span className="font-label-sm text-label-sm text-text-secondary">
-                                {totalQuestions} question{totalQuestions === 1 ? '' : 's'} ready
-                            </span>
-                        ) : null}
+                        <span className="font-label-sm text-label-sm text-text-secondary">
+                            Fresh {attemptQuestionCount}-question quiz
+                        </span>
                     </div>
                 </div>
 
@@ -298,7 +309,7 @@ const QuizMockupPanel = ({
                             Objective review
                         </p>
                         <p className="mt-space-2 font-body-sm text-body-sm text-text-secondary">
-                            {totalQuestions} generated question{totalQuestions === 1 ? '' : 's'} ready from this topic.
+                            Starts a fresh {attemptQuestionCount}-question attempt from this topic.
                         </p>
                         <Link
                             to={startHref}
@@ -366,6 +377,7 @@ const ActiveQuizSession = () => {
     const previewQuestions = Array.isArray(topicPreview?.questions)
         ? topicPreview.questions.filter(isObjectiveQuestion)
         : EMPTY_LIST;
+    const attemptQuestionCount = resolveObjectiveAttemptQuestionCount(topicPreview, previewQuestions);
     const previewQuestion = useMemo(() => pickPreviewQuestion(previewQuestions), [previewQuestions]);
     const previewQuestionId = String(previewQuestion?._id || '');
     const previewSelectedAnswer = selectedAnswer.questionId === previewQuestionId
@@ -406,7 +418,7 @@ const ActiveQuizSession = () => {
                         course={selectedCourse}
                         topic={topicPreview}
                         previewQuestion={previewQuestion}
-                        totalQuestions={previewQuestions.length}
+                        attemptQuestionCount={attemptQuestionCount}
                         selectedAnswer={previewSelectedAnswer}
                         onSelectAnswer={(value) => setSelectedAnswer({ questionId: previewQuestionId, value })}
                     />

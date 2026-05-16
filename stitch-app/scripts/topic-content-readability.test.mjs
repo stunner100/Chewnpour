@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import {
     cleanDisplayLine,
     isArtifactLine,
+    isLowSignalLessonLine,
     normalizeLessonContent,
 } from '../src/lib/topicContentFormatting.js';
 
@@ -77,6 +78,10 @@ const tests = [
         assert.equal(cleaned, 'Performance Report', 'Expected spaced OCR heading artifacts to be normalized');
     },
     () => {
+        const cleaned = cleanDisplayLine('P E R F O R M A N C E R E P');
+        assert.equal(cleaned, 'Performance Report', 'Expected clipped spaced OCR heading artifacts to be normalized');
+    },
+    () => {
         const raw = '## Worked Example\nP E R F O R M A N C E R E P O R T April business review metrics';
         const normalized = normalizeLessonContent(raw);
         assert.equal(
@@ -84,6 +89,36 @@ const tests = [
             true,
             'Expected lesson normalization to collapse spaced OCR phrases before rendering'
         );
+    },
+    () => {
+        assert.equal(
+            isLowSignalLessonLine('**Question:** According to the source, what is reported for P E R F O R M A N C E R?'),
+            true,
+            'Expected generic OCR-derived worked-example prompts to be low signal'
+        );
+        assert.equal(
+            isLowSignalLessonLine('**Answer:** The correct answer comes from following the steps in order and checking the result against the topic rules.'),
+            true,
+            'Expected generic worked-example answers to be low signal'
+        );
+    },
+    () => {
+        const raw = `## Worked Example
+**Question:** According to the source, what is reported for P E R F O R M A N C E R?
+
+**Reasoning:**
+1. Read the table.
+2. The correct answer comes from following the steps in order and checking the result against the topic rules.
+
+**Answer:** The correct answer comes from following the steps in order and checking the result against the topic rules.
+
+## Quick Check
+1. **Q:** What does the source say about P E R F O R M A?
+   **A:** The correct answer comes from following the steps in order.`;
+        const normalized = normalizeLessonContent(raw);
+        assert.equal(/P E R F/i.test(normalized), false, 'Expected unresolved spaced OCR artifacts to be removed');
+        assert.equal(/According to the source/i.test(normalized), false, 'Expected generic source prompts to be removed');
+        assert.equal(/correct answer comes from following the steps/i.test(normalized), false, 'Expected generic answers to be removed');
     },
 ];
 

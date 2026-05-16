@@ -17,6 +17,11 @@ for (const expectedSnippet of [
   'Sample question',
   'Objective review',
   'Start quiz',
+  'FRESH_OBJECTIVE_QUIZ_DISPLAY_COUNT',
+  'resolveObjectiveAttemptQuestionCount',
+  'Fresh {attemptQuestionCount}-question quiz',
+  'Starts a fresh {attemptQuestionCount}-question attempt from this topic.',
+  "topic${quizzesReady === 1 ? '' : 's'} ready",
 ]) {
   if (!quizSource.includes(expectedSnippet)) {
     throw new Error(`Expected quiz page to keep mockup-style real-data format (${expectedSnippet}).`);
@@ -29,6 +34,8 @@ for (const forbiddenSnippet of [
   'Start an objective quiz from the topic you last studied.',
   '/dashboard/exam',
   '<Navigate',
+  '{totalQuestions} generated question',
+  "quiz${quizzesReady === 1 ? '' : 'zes'} ready",
 ]) {
   if (quizSource.includes(forbiddenSnippet)) {
     throw new Error(`Quiz page reintroduced list/resume copy instead of the mockup format (${forbiddenSnippet}).`);

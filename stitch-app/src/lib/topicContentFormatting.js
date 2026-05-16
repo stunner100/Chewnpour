@@ -35,6 +35,7 @@ export const SECTION_TITLE_PATTERN = LESSON_SECTION_TITLES.map(escapeRegex).join
 const SECTION_TITLE_REGEX = new RegExp(`([.!?])\\s+(${SECTION_TITLE_PATTERN})\\b`, 'gi');
 const INLINE_SECTION_REGEX = new RegExp(`([a-z])(${SECTION_TITLE_PATTERN})`, 'g');
 const SPACED_CAPS_OCR_SEQUENCE_REGEX = /\b(?:[A-Z]\s+){5,}[A-Z]\b/g;
+const SPACED_CAPS_OCR_TEST_REGEX = /\b(?:[A-Z]\s+){5,}[A-Z]\b/;
 const OCR_PHRASE_WORDS = [
     'PERFORMANCE',
     'REPORT',
@@ -82,9 +83,41 @@ const normalizeSpacedCapsOcrPhrase = (value) => {
     let remaining = compact;
     while (remaining) {
         const next = OCR_PHRASE_WORDS.find((candidate) => remaining.startsWith(candidate));
-        if (!next) return value;
-        words.push(next);
-        remaining = remaining.slice(next.length);
+        if (next) {
+            words.push(next);
+            remaining = remaining.slice(next.length);
+            continue;
+        }
+
+        const partial = OCR_PHRASE_WORDS.find(
+            (candidate) =>
+                candidate.startsWith(remaining)
+                && remaining.length >= Math.min(5, candidate.length - 1)
+        );
+        if (partial) {
+            words.push(partial);
+            remaining = '';
+            continue;
+        }
+
+        const partialFollowingWord = OCR_PHRASE_WORDS.find(
+            (candidate) =>
+                words.length > 0
+                && candidate.startsWith(remaining)
+                && remaining.length >= 3
+        );
+        if (partialFollowingWord) {
+            words.push(partialFollowingWord);
+            remaining = '';
+            continue;
+        }
+
+        if (words.length > 0 && remaining.length <= 2) {
+            remaining = '';
+            continue;
+        }
+
+        return value;
     }
 
     return toTitleCase(words.join(' '));
@@ -209,6 +242,34 @@ export const cleanDisplayLine = (text) =>
         .replace(/\s{2,}/g, ' ')
         .trim();
 
+const LOW_SIGNAL_LESSON_LINE_PATTERNS = [
+    /\bthe correct answer comes from following the steps in order\b/i,
+    /\baccording to the source,\s*what is reported for\b/i,
+    /\bwhat is reported for\b/i,
+    /\bwhat does the source say about\b/i,
+    /\bthe answer can be found by checking the source\b/i,
+    /\bfollowing the topic rules\b/i,
+];
+
+export const isLowSignalLessonLine = (text) => {
+    const raw = String(text || '').trim();
+    if (!raw) return true;
+
+    const cleaned = cleanDisplayLine(raw);
+    if (!cleaned) return true;
+
+    const comparable = `${raw} ${cleaned}`.replace(/\s+/g, ' ').trim();
+    if (LOW_SIGNAL_LESSON_LINE_PATTERNS.some((pattern) => pattern.test(comparable))) {
+        return true;
+    }
+
+    if (SPACED_CAPS_OCR_TEST_REGEX.test(raw) && SPACED_CAPS_OCR_TEST_REGEX.test(cleaned)) {
+        return true;
+    }
+
+    return false;
+};
+
 export const slugifyText = (text, suffix = '') =>
     cleanDisplayLine(text)
         .toLowerCase()
@@ -268,6 +329,7 @@ export const normalizeLessonContent = (text) => {
 
         // Drop marker-only leftovers from malformed markdown that create fake empty blocks.
         if (isArtifactLine(line)) continue;
+        if (isLowSignalLessonLine(line)) continue;
 
         if (/^(dr|mr|mrs|ms|prof)\.?$/i.test(line)) continue;
         if (/@/.test(line) && line.length < 140) continue;

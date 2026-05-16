@@ -33,6 +33,7 @@ import {
     cleanDisplayLine,
     cleanInlineText,
     isArtifactLine,
+    isLowSignalLessonLine,
     normalizeLessonContent,
     slugifyText,
 } from '../lib/topicContentFormatting';
@@ -511,7 +512,7 @@ const useTopicDetailController = () => {
             const cleanedRaw = cleanLine(raw);
 
             // Skip malformed marker-only lines that should not render as content blocks.
-            if (isArtifactLine(raw) || !cleanedRaw) {
+            if (isArtifactLine(raw) || !cleanedRaw || isLowSignalLessonLine(raw)) {
                 continue;
             }
 
@@ -674,14 +675,20 @@ const useTopicDetailController = () => {
                     const nextText = typeof next?.text === 'string' ? next.text : '';
                     const aMatch = nextText.match(/^\*\*A:\*\*\s*(.+)/);
                     if (aMatch) {
-                        const pair = {
-                            questionText: qMatch[1].trim(),
-                            answerText: aMatch[1].trim(),
-                            key: `qc-${b}`,
-                        };
-                        quickCheckPairs.push(pair);
+                        const questionText = qMatch[1].trim();
+                        const answerText = aMatch[1].trim();
                         block.type = 'quickcheck_hidden';
                         next.type = 'quickcheck_hidden';
+                        if (
+                            !isLowSignalLessonLine(questionText)
+                            && !isLowSignalLessonLine(answerText)
+                        ) {
+                            quickCheckPairs.push({
+                                questionText,
+                                answerText,
+                                key: `qc-${b}`,
+                            });
+                        }
                         b += 1; // skip answer line
                     }
                 }
