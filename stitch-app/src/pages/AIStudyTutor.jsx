@@ -1,4 +1,4 @@
-import React, { useCallback, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useAction, useQuery } from 'convex/react';
 import { api } from '../../convex/_generated/api';
@@ -23,10 +23,31 @@ const EMPTY_LIST = [];
 
 const TutorSkeleton = () => (
     <div className="flex-1 flex flex-col md:ml-0 h-[calc(100vh-64px)] overflow-hidden">
-        <main className="flex-1 min-h-0 flex flex-col p-space-4 md:p-space-8 max-w-container-max mx-auto w-full animate-pulse">
+        <main className="flex-1 min-h-0 flex flex-col p-space-4 md:p-space-8 max-w-container-max mx-auto w-full animate-pulse" role="status" aria-live="polite">
             <div className="h-20 rounded-2xl bg-surface-soft mb-space-8" />
-            <div className="flex-1 rounded-2xl bg-surface-soft" />
+            <div className="flex-1 rounded-2xl bg-surface-soft flex items-center justify-center">
+                <p className="font-body-sm text-body-sm text-text-muted">Loading AI Tutor...</p>
+            </div>
         </main>
+    </div>
+);
+
+const TutorContextLoading = ({ topicTitle }) => (
+    <div className="flex justify-start gap-4" role="status" aria-live="polite">
+        <div className="w-9 h-9 rounded-full bg-primary-soft flex items-center justify-center flex-shrink-0 border border-primary-fixed-dim">
+            <span className="material-symbols-outlined text-primary" style={{ fontVariationSettings: "'FILL' 1" }}>smart_toy</span>
+        </div>
+        <div className="max-w-[85%] md:max-w-[75%] bg-ai-subtle rounded-2xl rounded-tl-sm p-space-4 shadow-sm border border-outline-variant">
+            <p className="font-label-md text-label-md text-text-primary">Loading tutor context...</p>
+            <p className="font-body-sm text-body-sm text-text-secondary mt-1">
+                Getting the latest chat for {topicTitle || 'this lesson'}.
+            </p>
+            <div className="mt-space-3 flex gap-1.5" aria-hidden="true">
+                <span className="h-2 w-2 rounded-full bg-primary/60 animate-pulse" />
+                <span className="h-2 w-2 rounded-full bg-primary/60 animate-pulse" style={{ animationDelay: '0.15s' }} />
+                <span className="h-2 w-2 rounded-full bg-primary/60 animate-pulse" style={{ animationDelay: '0.3s' }} />
+            </div>
+        </div>
     </div>
 );
 
@@ -88,6 +109,7 @@ const AIStudyTutor = () => {
     const [selectedTopicId, setSelectedTopicId] = useState('');
     const [sending, setSending] = useState(false);
     const [error, setError] = useState('');
+    const messagesContainerRef = useRef(null);
     const askTopicTutor = useAction(api.ai.askTopicTutor);
 
     const effectiveSelectedTopicId = topicOptions.some((option) => String(option.topicId) === String(selectedTopicId))
@@ -127,6 +149,20 @@ const AIStudyTutor = () => {
             handleSend();
         }
     }, [handleSend]);
+
+    useEffect(() => {
+        const messagesContainer = messagesContainerRef.current;
+        if (!messagesContainer) return undefined;
+
+        const frame = requestAnimationFrame(() => {
+            messagesContainer.scrollTo({
+                top: messagesContainer.scrollHeight,
+                behavior: 'smooth',
+            });
+        });
+
+        return () => cancelAnimationFrame(frame);
+    }, [effectiveSelectedTopicId, messages, sending]);
 
     if (courses === undefined || (effectiveCourseId && selectedCourse === undefined)) return <TutorSkeleton />;
     if (topicOptions.length === 0) return <EmptyTutorState />;
@@ -219,7 +255,7 @@ const AIStudyTutor = () => {
                 </div>
 
                 <div className="flex-1 min-h-0 bg-surface rounded-2xl border border-border-subtle shadow-sm flex flex-col overflow-hidden">
-                    <div className="flex-1 min-h-0 overflow-y-auto p-space-5 flex flex-col gap-space-6">
+                    <div ref={messagesContainerRef} className="flex-1 min-h-0 overflow-y-auto p-space-5 flex flex-col gap-space-6" aria-label="AI Tutor conversation">
                         <div className="text-center">
                             <span className="font-label-xs text-label-xs text-text-muted bg-surface-soft px-3 py-1 rounded-full">
                                 {selectedTopicOption?.courseTitle}
@@ -227,10 +263,7 @@ const AIStudyTutor = () => {
                         </div>
 
                         {messages === undefined ? (
-                            <div className="space-y-4 animate-pulse">
-                                <div className="h-16 rounded-2xl bg-surface-soft ml-auto w-2/3" />
-                                <div className="h-28 rounded-2xl bg-ai-subtle w-3/4" />
-                            </div>
+                            <TutorContextLoading topicTitle={selectedTopicOption?.title} />
                         ) : messages.length === 0 ? (
                             <div className="flex justify-start gap-4">
                                 <div className="w-9 h-9 rounded-full bg-primary-soft flex items-center justify-center flex-shrink-0 border border-primary-fixed-dim">
@@ -297,6 +330,7 @@ const AIStudyTutor = () => {
                         )}
                         <div className="relative flex items-end gap-2 bg-surface-soft rounded-xl border border-border-strong p-2 focus-within:ring-2 focus-within:ring-primary-soft focus-within:border-primary transition-all shadow-sm">
                             <textarea
+                                aria-label={`Ask AI Tutor a question about ${selectedTopicOption?.title || 'this lesson'}`}
                                 className="flex-1 bg-transparent border-none focus:ring-0 resize-none py-2.5 px-2 font-body-sm text-body-sm text-text-primary placeholder:text-text-muted min-h-[44px] max-h-[120px]"
                                 placeholder={`Ask a question about ${selectedTopicOption?.title || 'this lesson'}...`}
                                 rows={1}
@@ -307,6 +341,7 @@ const AIStudyTutor = () => {
                             />
                             <button
                                 type="button"
+                                aria-label="Send message to AI Tutor"
                                 onClick={() => handleSend()}
                                 disabled={sending || !inputValue.trim()}
                                 className="w-10 h-10 bg-primary text-on-primary rounded-lg flex items-center justify-center hover:bg-primary-hover transition-colors shadow-sm self-end mb-1 flex-shrink-0 disabled:opacity-50 disabled:hover:bg-primary"
