@@ -7035,6 +7035,16 @@ const parseWordBankDefinitionLine = (line: string) => {
     };
 };
 
+const extractWordBankDefinitionsFromLessonContent = (content: string) => {
+    const normalized = parseLessonContentCandidate(content);
+    return extractSectionLines(normalized, /word bank/i)
+        .map((line) => parseWordBankDefinitionLine(line))
+        .filter((entry): entry is { term: string; meaning: string } =>
+            Boolean(entry) && isUsableWordBankDefinition(entry.term, entry.meaning)
+        )
+        .slice(0, LESSON_WORD_BANK_MAX);
+};
+
 const evaluateStructuredLessonQuality = (content: string) => {
     const normalized = parseLessonContentCandidate(content);
     const bigIdeaLines = extractSectionLines(normalized, /big idea/i);
@@ -16684,6 +16694,7 @@ const rebuildStoredTopicLessonContent = async (ctx: any, topic: any) => {
     });
     return {
         content,
+        structuredDefinitions: extractWordBankDefinitionsFromLessonContent(content),
         quality: evaluateStructuredLessonQuality(content),
     };
 };
@@ -16726,6 +16737,7 @@ export const regenerateLessonContent = action({
                 await ctx.runMutation((internal as any).topics.patchTopicLessonContentInternal, {
                     topicId: topic._id,
                     content: rebuilt.content,
+                    structuredDefinitions: rebuilt.structuredDefinitions,
                 });
             }
             results.push({

@@ -41,6 +41,7 @@ requireIncludes(
   'const terms = useMemo(() => getTopicTerms(topic), [topic]);',
   'Word Bank-only topic term selection',
 );
+requireIncludes('if (dbTerms.length >= 6) return dbTerms;', 'valid structured definition minimum before using stored deck');
 requireIncludes(
   'Flashcards are built from generated topic Word Banks and definitions tied to your account.',
   'Word Bank-only flashcard source copy',
@@ -60,6 +61,12 @@ if (!/Word Bank must include at least 6 entries\./.test(aiSource)) {
 }
 if (!aiSource.includes('structuredDefinitions: groundedTopicData.definitions')) {
   throw new Error('Expected grounded topic data definitions to be saved as structuredDefinitions.');
+}
+if (!aiSource.includes('extractWordBankDefinitionsFromLessonContent(content)')) {
+  throw new Error('Expected lesson regeneration to extract fresh structuredDefinitions from the rebuilt Word Bank.');
+}
+if (!aiSource.includes('structuredDefinitions: rebuilt.structuredDefinitions')) {
+  throw new Error('Expected lesson regeneration to patch stored structuredDefinitions.');
 }
 
 const courseCard = extractComponent('CourseFlashcardsCard');

@@ -804,12 +804,28 @@ export const patchTopicLessonContentInternal = internalMutation({
     args: {
         topicId: v.id("topics"),
         content: v.string(),
+        structuredDefinitions: v.optional(v.array(v.object({
+            term: v.string(),
+            meaning: v.string(),
+        }))),
     },
     handler: async (ctx, args) => {
-        await ctx.db.patch(args.topicId, {
+        const topic = await ctx.db.get(args.topicId);
+        if (!topic) throw new Error("Topic not found");
+        const patch: any = {
             content: args.content,
             groundingVersion: "grounded-lesson-regeneration-v2",
-        });
+        };
+        if (args.structuredDefinitions) {
+            patch.structuredDefinitions = args.structuredDefinitions;
+            if (topic.contentGraph) {
+                patch.contentGraph = {
+                    ...topic.contentGraph,
+                    definitions: args.structuredDefinitions,
+                };
+            }
+        }
+        await ctx.db.patch(args.topicId, patch);
         void ctx.scheduler.runAfter(0, (internal as any).search.upsertSearchDocumentsForEntity, {
             kind: "topic",
             entityId: args.topicId,

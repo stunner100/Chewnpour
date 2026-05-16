@@ -98,13 +98,14 @@ const parseMarkdownWordBank = (content) => {
 const getTopicTerms = (topic) => {
     const dbDefinitions = topic?.structuredDefinitions ?? topic?.contentGraph?.definitions;
     if (Array.isArray(dbDefinitions) && dbDefinitions.length > 0) {
-        return dedupeTerms(
+        const dbTerms = dedupeTerms(
             dbDefinitions.map((definition, index) => ({
                 term: definition.term,
                 definition: definition.meaning,
                 key: `db-${index}`,
             })),
         );
+        if (dbTerms.length >= 6) return dbTerms;
     }
 
     return parseMarkdownWordBank(topic?.content);
