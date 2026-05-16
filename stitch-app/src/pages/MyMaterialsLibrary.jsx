@@ -144,12 +144,13 @@ const MyMaterialsLibrary = () => {
                 {filteredMaterials.map((material) => {
                     const typeConfig = typeIcons[material.kind] || typeIcons.notes;
                     const ready = material.status === 'ready';
-                    const studyHref = material.courseId ? `/dashboard/lessons?courseId=${material.courseId}` : '/dashboard/upload';
+                    const hasGeneratedContent = ready && material.courseId && material.topicCount > 0;
+                    const studyHref = hasGeneratedContent ? `/dashboard/lessons?courseId=${material.courseId}` : '';
                     return (
                         <article
                             key={material.uploadId}
                             className={`bg-surface border border-border-subtle rounded-xl p-space-4 shadow-sm flex flex-col h-full group relative overflow-hidden ${
-                                ready ? 'hover:shadow-md transition-shadow duration-300' : 'opacity-90'
+                                hasGeneratedContent ? 'hover:shadow-md transition-shadow duration-300' : 'opacity-90'
                             }`}
                         >
                             <div className="flex justify-between items-start mb-3">
@@ -176,7 +177,7 @@ const MyMaterialsLibrary = () => {
                             <h3 className="font-body-base text-body-base font-bold text-text-primary mb-1 line-clamp-2">{material.title}</h3>
                             <p className="text-caption font-medium text-text-muted mb-5">Uploaded {formatUploadedAt(material.createdAt)}</p>
                             <div className="mt-auto">
-                                {ready ? (
+                                {hasGeneratedContent ? (
                                     <>
                                         <div className="flex gap-3 mb-4 border-t border-border-subtle pt-3">
                                             <div className="flex flex-col">
@@ -196,6 +197,24 @@ const MyMaterialsLibrary = () => {
                                             Continue Study
                                             <span className="material-symbols-outlined text-[16px]">arrow_forward</span>
                                         </Link>
+                                    </>
+                                ) : ready ? (
+                                    <>
+                                        <div className="flex gap-3 mb-4 border-t border-border-subtle pt-3">
+                                            <div className="flex flex-col">
+                                                <span className="font-label-md text-label-md text-text-primary">{material.topicCount}</span>
+                                                <span className="font-label-xs text-label-xs text-text-muted">Topics</span>
+                                            </div>
+                                            <div className="w-px h-full bg-border-subtle" />
+                                            <div className="flex flex-col">
+                                                <span className="font-label-md text-label-md text-text-primary">{material.quizzes}</span>
+                                                <span className="font-label-xs text-label-xs text-text-muted">Quizzes</span>
+                                            </div>
+                                        </div>
+                                        <div className="rounded-lg border border-warning/20 bg-warning-soft px-3 py-2.5 text-center">
+                                            <p className="font-label-sm text-label-sm text-warning">Content not generated</p>
+                                            <p className="mt-1 font-label-xs text-label-xs text-text-muted">Upload is ready, but there are no lessons to open yet.</p>
+                                        </div>
                                     </>
                                 ) : (
                                     <>

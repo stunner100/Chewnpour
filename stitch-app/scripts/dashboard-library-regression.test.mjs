@@ -18,10 +18,16 @@ for (const requiredPattern of [
   "api.courses.getUserCourses",
   "filteredMaterials",
   "material.courseId",
+  "const hasGeneratedContent = ready && material.courseId && material.topicCount > 0",
+  "Content not generated",
 ]) {
   if (!libraryPageSource.includes(requiredPattern)) {
     throw new Error(`Expected MyMaterialsLibrary.jsx to include "${requiredPattern}" for real materials behavior.`);
   }
+}
+
+if (libraryPageSource.includes("const studyHref = material.courseId ? `/dashboard/lessons?courseId=${material.courseId}` : '/dashboard/upload';")) {
+  throw new Error("Ready materials with zero generated topics should not route to lessons or upload as Continue Study.");
 }
 
 for (const removedPattern of [
