@@ -1,6 +1,6 @@
 import React, { useMemo } from 'react';
 import { Link } from 'react-router-dom';
-import { useQuery } from 'convex/react';
+import { useConvexAuth, useQuery } from 'convex/react';
 import { api } from '../../convex/_generated/api';
 
 const EMPTY_LIST = [];
@@ -35,11 +35,12 @@ const ProgressSkeleton = () => (
 );
 
 const StudyProgressMastery = () => {
-    const userStats = useQuery(api.profiles.getUserStats, {});
-    const performanceInsights = useQuery(api.exams.getUserPerformanceInsights, {});
-    const conceptReviewQueue = useQuery(api.concepts.getConceptReviewQueue, { limit: 6 });
-    const courses = useQuery(api.courses.getUserCourses, {});
-    const resumeTarget = useQuery(api.topics.getResumeTarget, {});
+    const { isAuthenticated, isLoading: authLoading } = useConvexAuth();
+    const userStats = useQuery(api.profiles.getUserStats, isAuthenticated ? {} : 'skip');
+    const performanceInsights = useQuery(api.exams.getUserPerformanceInsights, isAuthenticated ? {} : 'skip');
+    const conceptReviewQueue = useQuery(api.concepts.getConceptReviewQueue, isAuthenticated ? { limit: 6 } : 'skip');
+    const courses = useQuery(api.courses.getUserCourses, isAuthenticated ? {} : 'skip');
+    const resumeTarget = useQuery(api.topics.getResumeTarget, isAuthenticated ? {} : 'skip');
     const safeCourses = courses || EMPTY_LIST;
     const activityData = useMemo(() => buildCourseBars(safeCourses), [safeCourses]);
     const topicBreakdown = useMemo(() => {
@@ -67,7 +68,7 @@ const StudyProgressMastery = () => {
         : resumeTarget?.topicId
             ? `/dashboard/topic/${resumeTarget.topicId}`
             : '/dashboard/upload';
-    const loading = [userStats, performanceInsights, conceptReviewQueue, courses, resumeTarget].some((value) => value === undefined);
+    const loading = authLoading || !isAuthenticated || [userStats, performanceInsights, conceptReviewQueue, courses, resumeTarget].some((value) => value === undefined);
 
     if (loading) return <ProgressSkeleton />;
 

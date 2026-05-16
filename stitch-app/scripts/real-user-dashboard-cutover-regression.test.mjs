@@ -124,10 +124,13 @@ for (const snippet of [
 }
 
 for (const snippet of [
+  'useConvexAuth',
   'api.profiles.getUserStats',
   'api.exams.getUserPerformanceInsights',
   'api.concepts.getConceptReviewQueue',
   'api.courses.getUserCourses',
+  "isAuthenticated ? {} : 'skip'",
+  "isAuthenticated ? { limit: 6 } : 'skip'",
 ]) {
   requireIncludes(progressPageSource, snippet, 'StudyProgressMastery.jsx');
 }
