@@ -329,9 +329,9 @@ function App() {
         <Route path="/dashboard" element={withSuspense(<ProtectedRoute><DashboardLayout><StudentDashboard /></DashboardLayout></ProtectedRoute>)} />
         <Route path="/dashboard/library" element={withSuspense(<ProtectedRoute><DashboardLayout><MyMaterialsLibrary /></DashboardLayout></ProtectedRoute>)} />
         <Route path="/dashboard/upload" element={withSuspense(<ProtectedRoute><DashboardLayout><UploadMaterials /></DashboardLayout></ProtectedRoute>)} />
-        <Route path="/dashboard/quiz" element={withSuspense(<ProtectedRoute><DashboardLayout><ActiveQuizSession /></DashboardLayout></ProtectedRoute>)} />
         <Route path="/dashboard/quiz/results/:attemptId" element={withSuspense(<ProtectedRoute><DashboardLayout><QuizResults /></DashboardLayout></ProtectedRoute>)} />
         <Route path="/dashboard/quiz/:topicId" element={withSuspense(<ProtectedRoute><DashboardLayout><QuizPlayer /></DashboardLayout></ProtectedRoute>)} />
+        <Route path="/dashboard/quiz" element={withSuspense(<ProtectedRoute><DashboardLayout><ActiveQuizSession /></DashboardLayout></ProtectedRoute>)} />
         <Route path="/dashboard/flashcards" element={withSuspense(<ProtectedRoute><DashboardLayout><FlashcardStudySession /></DashboardLayout></ProtectedRoute>)} />
         <Route path="/dashboard/flashcards/:deckId" element={withSuspense(<ProtectedRoute><DashboardLayout><FlashcardStudySession /></DashboardLayout></ProtectedRoute>)} />
         <Route path="/dashboard/ai-tutor" element={withSuspense(<ProtectedRoute><DashboardLayout><AIStudyTutor /></DashboardLayout></ProtectedRoute>)} />
