@@ -81,9 +81,23 @@ assert.ok(
 assert.ok(
   aiSource.includes('const LESSON_WORD_BANK_MIN = 6;')
     && aiSource.includes('const LESSON_WORD_BANK_MAX = 8;')
-    && aiSource.includes('buildLessonDefinitionFallbackTerms(')
+    && aiSource.includes('isUsableWordBankDefinition(')
     && aiSource.includes('Definitions must include 6 to 8 Word Bank entries.'),
   'Expected standard topic generation to always normalize enough Word Bank definitions for flashcards.'
+);
+
+assert.ok(
+  aiSource.includes('Word Bank entries must be concrete terms with specific definitions.')
+    && aiSource.includes('isGenericDefinitionMeaning(')
+    && aiSource.includes('isLearningObjectiveFragmentTerm('),
+  'Expected lesson generation to reject generic or learning-objective fragment Word Bank entries.'
+);
+
+assert.ok(
+  aiSource.includes('Could not generate a valid Word Bank for this topic.')
+    && !aiSource.includes('`${fallbackTerm} is one of the important ideas used in this topic.`')
+    && !aiSource.includes('`${item} explained in clear words.`'),
+  'Expected lesson generation to avoid generic placeholder Word Bank definitions.'
 );
 
 console.log('lesson-structure-quality-regression tests passed');

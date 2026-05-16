@@ -12,6 +12,34 @@ const normalizeTerm = (value) => String(value || '').replace(/\*\*/g, '').trim()
 
 const normalizeDefinition = (value) => String(value || '').replace(/\*\*/g, '').trim();
 
+const GENERIC_DEFINITION_PATTERNS = [
+    /important ideas? used in this topic/i,
+    /important ideas? in this topic/i,
+    /one of the important/i,
+    /used in this topic/i,
+    /explained in clear words/i,
+];
+
+const LEARNING_OBJECTIVE_FRAGMENT_TERM_PATTERN =
+    /^(?:analy[sz]e|address(?:ing)?|apply|compare|concerns?|connect|define|describe|discuss|evaluate|explain|identify|learn|read|review|summari[sz]e|understand|use)\b/i;
+
+const isValidFlashcardTerm = (term) => {
+    const normalized = normalizeTerm(term);
+    if (!normalized) return false;
+    if (LEARNING_OBJECTIVE_FRAGMENT_TERM_PATTERN.test(normalized)) return false;
+    if (/\b(?:to|and|or|for|from|with|about|into|through|by)$/i.test(normalized)) return false;
+    const wordCount = normalized.split(/\s+/).filter(Boolean).length;
+    return wordCount >= 1 && wordCount <= 5;
+};
+
+const isValidFlashcardDefinition = (definition) => {
+    const normalized = normalizeDefinition(definition);
+    if (!normalized) return false;
+    if (GENERIC_DEFINITION_PATTERNS.some((pattern) => pattern.test(normalized))) return false;
+    const wordCount = normalized.split(/\s+/).filter(Boolean).length;
+    return wordCount >= 4 && wordCount <= 32;
+};
+
 const dedupeTerms = (terms) => {
     const seen = new Set();
     const deduped = [];
@@ -19,6 +47,7 @@ const dedupeTerms = (terms) => {
         const term = normalizeTerm(item?.term);
         const definition = normalizeDefinition(item?.definition ?? item?.meaning);
         if (!term || !definition) continue;
+        if (!isValidFlashcardTerm(term) || !isValidFlashcardDefinition(definition)) continue;
         const key = term.toLowerCase();
         if (seen.has(key)) continue;
         seen.add(key);
@@ -316,12 +345,12 @@ const FlashcardStudyDeck = ({
         return () => window.removeEventListener('keydown', handleKeyDown);
     }, [nextCard, previousCard]);
 
-    if (!current) {
+    if (!current || terms.length < 6) {
         return (
             <EmptyFlashcardState
-                title="No Word Bank terms yet"
-                description="This topic is missing its generated Word Bank. Regenerate the topic so ChewnPour can create term-definition flashcards."
-                actionLabel="Regenerate Topic"
+                title="Word Bank needs regeneration"
+                description="This topic does not have enough valid term-definition entries yet. Regenerate the Word Bank so every flashcard has a real definition."
+                actionLabel="Regenerate Word Bank"
                 actionIcon="refresh"
                 onAction={onRegenerate}
                 isActionLoading={isRegenerating}
@@ -346,18 +375,36 @@ const FlashcardStudyDeck = ({
                         {topic?.title || 'Generated flashcards'}
                     </h2>
                 </div>
-                <div className="flex items-center gap-3 bg-surface-soft px-4 py-2 rounded-full border border-border-subtle">
-                    <div className="w-28 h-1.5 bg-border-subtle rounded-full overflow-hidden">
-                        <div
-                            className="h-full bg-primary rounded-full transition-all duration-300"
-                            style={{ width: `${progress}%` }}
-                        />
+                <div className="flex flex-wrap items-center gap-space-3">
+                    <button
+                        type="button"
+                        onClick={onRegenerate}
+                        disabled={isRegenerating}
+                        className="inline-flex items-center justify-center gap-space-2 rounded-full border border-border-subtle bg-surface px-space-4 py-space-2 font-label-sm text-label-sm text-text-secondary shadow-sm transition-colors hover:border-primary/40 hover:text-primary disabled:cursor-not-allowed disabled:opacity-70"
+                    >
+                        <span className="material-symbols-outlined text-[18px]">
+                            {isRegenerating ? 'progress_activity' : 'refresh'}
+                        </span>
+                        {isRegenerating ? 'Regenerating' : 'Regenerate Word Bank'}
+                    </button>
+                    <div className="flex items-center gap-3 bg-surface-soft px-4 py-2 rounded-full border border-border-subtle">
+                        <div className="w-28 h-1.5 bg-border-subtle rounded-full overflow-hidden">
+                            <div
+                                className="h-full bg-primary rounded-full transition-all duration-300"
+                                style={{ width: `${progress}%` }}
+                            />
+                        </div>
+                        <span className="font-label-md text-label-md text-text-secondary whitespace-nowrap">
+                            {safeIndex + 1}/{terms.length} cards
+                        </span>
                     </div>
-                    <span className="font-label-md text-label-md text-text-secondary whitespace-nowrap">
-                        {safeIndex + 1}/{terms.length} cards
-                    </span>
                 </div>
             </div>
+            {regenerateError && (
+                <div className="mx-space-4 mb-space-6 rounded-xl border border-error-soft bg-error-soft px-space-4 py-space-3 font-body-sm text-body-sm text-error">
+                    {regenerateError}
+                </div>
+            )}
 
             <div className="relative w-full max-w-3xl mx-auto mb-space-10">
                 <button

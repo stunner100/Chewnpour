@@ -6476,40 +6476,48 @@ const buildGroundedQuickCheckFallbacks = (args: {
     ];
 };
 
-const buildLessonDefinitionFallbackTerms = (
-    rawTerms: string[],
-    topicTitle: string
-) => {
-    const topicLabel = normalizeLessonSentence(topicTitle, 4) || "Topic";
-    const defaults = [
-        `${topicLabel} purpose`,
-        `${topicLabel} term`,
-        `${topicLabel} example`,
-        `${topicLabel} evidence`,
-        `${topicLabel} step`,
-        `${topicLabel} check`,
-    ];
-    const terms = dedupeLessonStringList(
-        [
-            ...rawTerms,
-            ...defaults,
-        ]
-            .map((term) => String(term || "").split(/\s+/).slice(0, 4).join(" "))
-            .filter(Boolean),
-        LESSON_WORD_BANK_MAX,
-        4
-    );
+const GENERIC_DEFINITION_MEANING_PATTERNS = [
+    /important ideas? used in this topic/i,
+    /important ideas? in this topic/i,
+    /explained in clear words/i,
+    /one of the important/i,
+    /used in this topic/i,
+];
 
-    let defaultIndex = 0;
-    while (terms.length < LESSON_WORD_BANK_MIN) {
-        terms.push(defaults[defaultIndex % defaults.length]);
-        defaultIndex += 1;
-    }
+const LEARNING_OBJECTIVE_FRAGMENT_TERM_PATTERN =
+    /^(?:analy[sz]e|address(?:ing)?|apply|compare|concerns?|connect|define|describe|discuss|evaluate|explain|identify|learn|read|review|summari[sz]e|understand|use)\b/i;
 
-    return terms.slice(0, LESSON_WORD_BANK_MAX);
+const isLearningObjectiveFragmentTerm = (term: string) => {
+    const normalized = String(term || "").trim();
+    if (!normalized) return true;
+    if (LEARNING_OBJECTIVE_FRAGMENT_TERM_PATTERN.test(normalized)) return true;
+    if (/\b(?:to|and|or|for|from|with|about|into|through|by)$/i.test(normalized)) return true;
+    return endsWithWeakTrailingToken(normalized);
 };
 
-const normalizeDefinitionEntries = (rawDefinitions: any, fallbackTerms: string[]) => {
+const isGenericDefinitionMeaning = (meaning: string) => {
+    const normalized = String(meaning || "").replace(/\s+/g, " ").trim();
+    if (!normalized) return true;
+    return GENERIC_DEFINITION_MEANING_PATTERNS.some((pattern) => pattern.test(normalized));
+};
+
+const isUsableWordBankDefinition = (termRaw: any, meaningRaw: any) => {
+    const term = normalizeLessonSentence(termRaw, 5)
+        .replace(/[^A-Za-z0-9\s\-/]/g, "")
+        .trim();
+    const meaning = normalizeLessonSentence(meaningRaw, 22);
+    if (!term || !meaning) return false;
+    const termWordCount = countWords(term);
+    const meaningWordCount = countWords(meaning);
+    if (termWordCount < 1 || termWordCount > 5) return false;
+    if (meaningWordCount < 4 || meaningWordCount > 28) return false;
+    if (isLearningObjectiveFragmentTerm(term)) return false;
+    if (isGenericDefinitionMeaning(meaning)) return false;
+    if (hasWeakLessonContentPattern(`${term} ${meaning}`)) return false;
+    return true;
+};
+
+const normalizeDefinitionEntries = (rawDefinitions: any) => {
     const definitions = Array.isArray(rawDefinitions) ? rawDefinitions : [];
     const normalized: Array<{ term: string; meaning: string }> = [];
     const seen = new Set<string>();
@@ -6520,29 +6528,21 @@ const normalizeDefinitionEntries = (rawDefinitions: any, fallbackTerms: string[]
             .trim();
         const meaning = normalizeLessonSentence(meaningRaw, 22);
         const key = term.toLowerCase();
-        if (!term || !meaning || seen.has(key)) return;
+        if (!isUsableWordBankDefinition(term, meaning) || seen.has(key)) return;
         seen.add(key);
         normalized.push({ term, meaning });
     };
 
     for (const item of definitions) {
         if (typeof item === "string") {
-            const [term, meaning] = item.split(/\s[:\-–]\s/, 2);
-            pushDefinition(term, meaning || `${item} explained in clear words.`);
+            const [term, meaning] = item.split(/\s[:—–-]\s/, 2);
+            pushDefinition(term, meaning);
             continue;
         }
         if (!item || typeof item !== "object") continue;
         pushDefinition(
             item.term ?? item.word ?? item.name,
             item.meaning ?? item.definition ?? item.explanation
-        );
-    }
-
-    for (const fallbackTerm of fallbackTerms) {
-        if (normalized.length >= LESSON_WORD_BANK_MAX) break;
-        pushDefinition(
-            fallbackTerm,
-            `${fallbackTerm} is one of the important ideas used in this topic.`
         );
     }
 
@@ -6747,12 +6747,7 @@ const buildStructuredLessonFallbackMap = (args: {
         6,
         14
     );
-    const fallbackTerms = buildLessonDefinitionFallbackTerms(dedupeLessonStringList(
-        [...keyPoints, ...subtopics].map((item) => String(item).split(/\s+/).slice(0, 3).join(" ")),
-        8,
-        4
-    ), args.title);
-    const definitions = normalizeDefinitionEntries(contentGraph.definitions, fallbackTerms);
+    const definitions = normalizeDefinitionEntries(contentGraph.definitions);
     const workedExampleFallback = buildGroundedWorkedExampleFallback({
         title: args.title,
         contentGraph,
@@ -6889,6 +6884,8 @@ Rules:
 - Key points must be 5 to 8 items.
 - Subtopics must form a logical teaching order.
 - Definitions must include 6 to 8 Word Bank entries. These terms are the source for flashcards.
+- Definition terms must be concrete nouns or named concepts from the source, not commands, learning objectives, or sentence fragments.
+- Definition meanings must explain what the term means in the source. Never use generic wording like "important idea used in this topic."
 - Prefer the topic content graph over the structured source map, and prefer the structured source map over inferring missing structure from loose prose.
 - Worked examples must include a question, reasoning steps, and an answer.
 - Summary must be concise and should wrap up the lesson instead of repeating all key points.
@@ -6940,12 +6937,7 @@ const normalizeStructuredLessonMap = (rawMap: any, args: {
         6,
         14
     );
-    const fallbackTerms = buildLessonDefinitionFallbackTerms(dedupeLessonStringList(
-        [...keyPoints, ...subtopics].map((item) => String(item).split(/\s+/).slice(0, 3).join(" ")),
-        8,
-        4
-    ), args.title);
-    const definitions = normalizeDefinitionEntries(rawMap?.definitions, fallbackTerms);
+    const definitions = normalizeDefinitionEntries(rawMap?.definitions);
     const examples = normalizeWorkedExamples(
         rawMap?.examples,
         fallback.examples[0]?.question || `How do you solve a simple problem involving ${args.title}?`,
@@ -6986,7 +6978,9 @@ const buildLessonMarkdownFromStructuredMap = (map: StructuredLessonMap) => {
     const keyIdeas = map.keyPoints.slice(0, LESSON_KEY_IDEA_MAX);
     const orderedSubtopics = map.subtopics.slice(0, 6);
     const workedExample = map.examples[0];
-    const wordBank = map.definitions.slice(0, 8);
+    const wordBank = map.definitions
+        .filter((entry) => isUsableWordBankDefinition(entry.term, entry.meaning))
+        .slice(0, LESSON_WORD_BANK_MAX);
     const confusions = map.likelyConfusions.slice(0, 4);
     const quickCheck = map.quickCheck.slice(0, 3);
     const summarySentences = splitLessonSentences(map.summary, 3);
@@ -7026,6 +7020,19 @@ ${summarySentences.join(" ")}
 ## Quick Check
 ${quickCheck.map((entry, index) => `${index + 1}. **Q:** ${entry.question}\n   **A:** ${entry.answer}`).join("\n")}
     `);
+};
+
+const parseWordBankDefinitionLine = (line: string) => {
+    const bullet = String(line || "")
+        .trim()
+        .replace(/^(?:[-*]|\d+\.)\s+/, "")
+        .trim();
+    const match = bullet.match(/^(.+?)\s+(?:[—–-]|:)\s+(.+)$/);
+    if (!match) return null;
+    return {
+        term: match[1].trim(),
+        meaning: match[2].trim(),
+    };
 };
 
 const evaluateStructuredLessonQuality = (content: string) => {
@@ -7068,10 +7075,15 @@ const evaluateStructuredLessonQuality = (content: string) => {
     if (!hasWorkedQuestion || !hasWorkedReasoning || !hasWorkedAnswer) {
         reasons.push("Worked Example must include question, reasoning, and answer.");
     }
-    const wordBankEntries = wordBankLines.filter((line) =>
-        /^(?:[-*]|\d+\.)\s+/.test(line)
-        && /\s[—–-]\s+|:\s+/.test(line)
+    const parsedWordBankEntries = wordBankLines
+        .map((line) => parseWordBankDefinitionLine(line))
+        .filter(Boolean) as Array<{ term: string; meaning: string }>;
+    const wordBankEntries = parsedWordBankEntries.filter((entry) =>
+        isUsableWordBankDefinition(entry.term, entry.meaning)
     ).length;
+    if (parsedWordBankEntries.length !== wordBankEntries) {
+        reasons.push("Word Bank entries must be concrete terms with specific definitions.");
+    }
     if (wordBankEntries < LESSON_WORD_BANK_MIN || wordBankEntries > LESSON_WORD_BANK_MAX) {
         reasons.push("Word Bank must include 6-8 term-definition entries.");
     }
@@ -7218,16 +7230,7 @@ const buildQualitySafeLessonFallbackMap = (args: {
     const secondaryFact = candidateFacts.find((fact) => fact !== workedFact)
         || finalKeyPoints[1]
         || workedFact;
-    const definitions = normalizeDefinitionEntries(
-        contentGraph.definitions,
-        buildLessonDefinitionFallbackTerms(
-            [
-                ...finalKeyPoints,
-                ...subtopicSeeds,
-            ],
-            title
-        )
-    );
+    const definitions = normalizeDefinitionEntries(contentGraph.definitions);
     const likelyConfusions = normalizeConfusionEntries(
         contentGraph.likelyConfusions,
         finalKeyPoints
@@ -7324,14 +7327,20 @@ const ensureTopicLessonContent = async (args: {
 
     const qualitySafeFallback = buildQualitySafeLessonFallback(args);
     const qualitySafeFallbackQuality = evaluateStructuredLessonQuality(qualitySafeFallback);
+    const qualityReasons = [
+        ...renderedQuality.reasons,
+        ...fallbackQuality.reasons,
+        ...qualitySafeFallbackQuality.reasons,
+    ];
+    if (qualityReasons.some((reason) => /^Word Bank/i.test(reason))) {
+        throw new Error(
+            `Could not generate a valid Word Bank for this topic. ${Array.from(new Set(qualityReasons)).slice(0, 3).join(" ")}`
+        );
+    }
     if (!qualitySafeFallbackQuality.passed) {
         console.warn("[CourseGeneration] structured_lesson_quality_fallback", {
             topicTitle: args.title,
-            reasons: [
-                ...renderedQuality.reasons,
-                ...fallbackQuality.reasons,
-                ...qualitySafeFallbackQuality.reasons,
-            ].slice(0, 6),
+            reasons: qualityReasons.slice(0, 6),
         });
     }
     return qualitySafeFallbackQuality.passed ? qualitySafeFallback : fallback;

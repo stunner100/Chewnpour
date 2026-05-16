@@ -78,9 +78,14 @@ requireIncludes(
   'const regenerateLessonContent = useAction(api.ai.regenerateLessonContent);',
   'topic Word Bank regeneration action',
 );
-requireIncludes('actionLabel="Regenerate Topic"', 'missing Word Bank regeneration CTA');
+requireIncludes('terms.length < 6', 'minimum valid Word Bank gate');
+requireIncludes('Word Bank needs regeneration', 'invalid Word Bank regeneration state');
+requireIncludes('actionLabel="Regenerate Word Bank"', 'missing Word Bank regeneration CTA');
+requireIncludes('Regenerate Word Bank', 'existing deck regeneration CTA');
 requireIncludes('onRegenerate={handleRegenerateTopic}', 'regenerate handler passed to the active deck');
 requireIncludes('await regenerateLessonContent({', 'regenerate action invocation');
+requireIncludes('GENERIC_DEFINITION_PATTERNS', 'client-side generic definition rejection');
+requireIncludes('LEARNING_OBJECTIVE_FRAGMENT_TERM_PATTERN', 'client-side fragment term rejection');
 requireIncludes('recordConceptReview({', 'rating buttons persisting review attempts');
 requireIncludes('correctAnswers: [term]', 'flashcard ratings recording the reviewed concept');
 
