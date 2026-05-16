@@ -95,5 +95,7 @@ requireIncludes('GENERIC_DEFINITION_PATTERNS', 'client-side generic definition r
 requireIncludes('LEARNING_OBJECTIVE_FRAGMENT_TERM_PATTERN', 'client-side fragment term rejection');
 requireIncludes('recordConceptReview({', 'rating buttons persisting review attempts');
 requireIncludes('correctAnswers: [term]', 'flashcard ratings recording the reviewed concept');
+requireExcludes('mastered this session', 'local mastered-session counter in flashcard controls');
+requireIncludes('Card {safeIndex + 1} of {terms.length}', 'card position indicator in flashcard controls');
 
 console.log('flashcard-entrypoints-regression.test.mjs passed');

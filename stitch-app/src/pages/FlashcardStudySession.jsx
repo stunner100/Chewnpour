@@ -274,7 +274,6 @@ const FlashcardStudyDeck = ({
 }) => {
     const [index, setIndex] = useState(0);
     const [flipped, setFlipped] = useState(false);
-    const [masteredCount, setMasteredCount] = useState(0);
     const starred = useMemo(() => new Set(starredTerms || []), [starredTerms]);
     const safeIndex = Math.min(index, terms.length - 1);
     const current = terms[safeIndex];
@@ -310,11 +309,8 @@ const FlashcardStudyDeck = ({
                 mastered,
             });
         }
-        if (mastered) {
-            setMasteredCount((value) => Math.min(value + 1, terms.length));
-        }
         nextCard();
-    }, [current, nextCard, onCardReviewed, terms.length]);
+    }, [current, nextCard, onCardReviewed]);
 
     const toggleStar = useCallback(() => {
         if (!current) return;
@@ -455,7 +451,7 @@ const FlashcardStudyDeck = ({
                 </button>
             </div>
 
-            <div className="flex items-center justify-center gap-space-3 mb-space-6">
+            <div className="mb-space-6 flex items-center justify-center gap-space-4">
                 <button
                     type="button"
                     onClick={previousCard}
@@ -464,8 +460,11 @@ const FlashcardStudyDeck = ({
                 >
                     <span className="material-symbols-outlined text-[20px]">arrow_back</span>
                 </button>
-                <p className="font-label-sm text-label-sm text-text-muted">
-                    {masteredCount} mastered this session
+                <p
+                    className="inline-flex min-w-[8rem] items-center justify-center rounded-full border border-border-subtle bg-surface-soft px-space-4 py-space-2 font-label-sm text-label-sm text-text-secondary"
+                    aria-live="polite"
+                >
+                    Card {safeIndex + 1} of {terms.length}
                 </p>
                 <button
                     type="button"
