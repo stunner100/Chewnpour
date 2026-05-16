@@ -36,6 +36,14 @@ const formatRelativeTime = (timestamp) => {
     return new Intl.DateTimeFormat(undefined, { month: 'short', day: 'numeric' }).format(new Date(value));
 };
 
+const greetingForHour = (hour) => {
+    if (hour < 5) return 'Studying late';
+    if (hour < 12) return 'Good morning';
+    if (hour < 17) return 'Good afternoon';
+    if (hour < 22) return 'Good evening';
+    return 'Studying late';
+};
+
 const buildActivityData = (courses) => {
     const visibleCourses = courses.slice(0, 7);
     const padded = visibleCourses.length > 0
@@ -104,9 +112,9 @@ const StudentDashboard = () => {
     const resumeHref = resumeTarget?.topicId
         ? `/dashboard/topic/${resumeTarget.topicId}`
         : resumeCourse?._id
-            ? `/dashboard/course/${resumeCourse._id}`
+            ? `/dashboard/lessons?courseId=${resumeCourse._id}`
             : '/dashboard/upload';
-    const resumeProgress = resumeCourse?.progress || resumeTarget?.bestScore || 0;
+    const resumeProgress = Number(resumeCourse?.progress || 0);
 
     const recentMaterials = useMemo(() => {
         return safeUploads.slice(0, 3).map((upload) => {
@@ -125,7 +133,7 @@ const StudentDashboard = () => {
         ? {
             title: `Review ${weakConcepts[0].label}`,
             description: 'This concept needs more practice based on your recent answers.',
-            href: conceptReviewQueue?.items?.[0]?.topicId ? `/dashboard/concept-intro/${conceptReviewQueue.items[0].topicId}` : '/dashboard/progress',
+            href: conceptReviewQueue?.items?.[0]?.topicId ? `/dashboard/flashcards/${conceptReviewQueue.items[0].topicId}` : '/dashboard/progress',
             cta: 'Start Review',
         }
         : resumeTarget
@@ -151,7 +159,7 @@ const StudentDashboard = () => {
         <div className="flex-1 pt-space-6 px-space-8 pb-space-16 max-w-container-max mx-auto w-full">
             <div className="flex flex-col lg:flex-row lg:justify-between lg:items-end gap-space-5 mb-space-8">
                 <div>
-                    <h2 className="font-display-md text-display-md text-text-primary tracking-tight">Good morning, {firstName}.</h2>
+                    <h2 className="font-display-md text-display-md text-text-primary tracking-tight">{greetingForHour(new Date().getHours())}, {firstName}.</h2>
                     <p className="font-body-base text-body-base text-text-secondary mt-space-1">
                         Ready to study? Your dashboard is based on your uploaded materials.
                     </p>
@@ -298,7 +306,7 @@ const StudentDashboard = () => {
                             <ul className="flex flex-col gap-space-4">
                                 {recentMaterials.map((material) => {
                                     const typeConfig = materialIconByKind[material.kind] || materialIconByKind.notes;
-                                    const href = material.courseId ? `/dashboard/course/${material.courseId}` : '/dashboard/library';
+                                    const href = material.courseId ? `/dashboard/lessons?courseId=${material.courseId}` : '/dashboard/library';
                                     return (
                                         <li key={material.uploadId}>
                                             <Link to={href} className="flex items-center gap-space-3 p-space-2 hover:bg-surface-soft rounded-lg transition-colors -ml-space-2">
@@ -315,7 +323,14 @@ const StudentDashboard = () => {
                                 })}
                             </ul>
                         ) : (
-                            <p className="font-body-sm text-body-sm text-text-muted">Your uploaded materials will appear here.</p>
+                            <div className="text-center py-space-4">
+                                <h4 className="font-body-sm text-body-sm font-semibold text-text-primary mb-1">No materials yet</h4>
+                                <p className="font-body-sm text-body-sm text-text-muted mb-3">Upload PDFs, docs, or slides to generate lessons and practice.</p>
+                                <Link to="/dashboard/upload" className="btn-primary text-body-sm px-4 py-2 inline-flex items-center gap-1.5">
+                                    <span className="material-symbols-outlined text-[16px]">upload</span>
+                                    Upload Material
+                                </Link>
+                            </div>
                         )}
                     </section>
 
@@ -333,7 +348,14 @@ const StudentDashboard = () => {
                                 ))}
                             </div>
                         ) : (
-                            <p className="font-body-sm text-body-sm text-text-muted">Weak spots will appear after you complete practice.</p>
+                            <div className="text-center py-space-4">
+                                <h4 className="font-body-sm text-body-sm font-semibold text-text-primary mb-1">No weak concepts yet</h4>
+                                <p className="font-body-sm text-body-sm text-text-muted mb-3">Complete practice quizzes to identify areas that need review.</p>
+                                <Link to="/dashboard/quiz" className="btn-secondary text-body-sm px-4 py-2 inline-flex items-center gap-1.5">
+                                    <span className="material-symbols-outlined text-[16px]">quiz</span>
+                                    Take a Quiz
+                                </Link>
+                            </div>
                         )}
                     </section>
                 </div>

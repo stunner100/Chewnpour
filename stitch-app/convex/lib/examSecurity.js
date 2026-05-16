@@ -26,19 +26,14 @@ export const collectAuthUserIdCandidates = (identity) => {
         deduped.push(normalizedCandidate);
     };
 
-    pushCandidate(identity.subject);
-    pushCandidate(identity.userId);
-    pushCandidate(identity.id);
-
-    const tokenIdentifier =
-        typeof identity.tokenIdentifier === "string"
-            ? identity.tokenIdentifier.trim()
-            : "";
-    if (tokenIdentifier) {
-        pushCandidate(tokenIdentifier);
+    const pushCandidateWithSegments = (candidate) => {
+        if (typeof candidate !== "string") return;
+        const normalizedCandidate = candidate.trim();
+        if (!normalizedCandidate) return;
+        pushCandidate(normalizedCandidate);
 
         for (const separator of ["|", ":"]) {
-            const segments = tokenIdentifier
+            const segments = normalizedCandidate
                 .split(separator)
                 .map((segment) => segment.trim())
                 .filter(Boolean);
@@ -46,13 +41,34 @@ export const collectAuthUserIdCandidates = (identity) => {
                 pushCandidate(segments[segments.length - 1]);
             }
         }
+    };
+
+    pushCandidateWithSegments(identity.subject);
+    pushCandidateWithSegments(identity.userId);
+    pushCandidateWithSegments(identity.id);
+
+    const tokenIdentifier =
+        typeof identity.tokenIdentifier === "string"
+            ? identity.tokenIdentifier.trim()
+            : "";
+    if (tokenIdentifier) {
+        pushCandidateWithSegments(tokenIdentifier);
     }
     return deduped;
 };
 
+const isLikelyCanonicalAuthUserId = (candidate) => {
+    if (typeof candidate !== "string") return false;
+    const normalizedCandidate = candidate.trim();
+    if (!normalizedCandidate) return false;
+    if (/[|:/]/.test(normalizedCandidate)) return false;
+    if (/^https?:\/\//i.test(normalizedCandidate)) return false;
+    return /^[a-z0-9]+$/i.test(normalizedCandidate);
+};
+
 export const resolveAuthUserId = (identity) => {
     const candidates = collectAuthUserIdCandidates(identity);
-    return candidates[0] || "";
+    return candidates.find(isLikelyCanonicalAuthUserId) || candidates[0] || "";
 };
 
 export const assertAuthorizedUser = ({
@@ -106,7 +122,7 @@ export const assertAuthorizedUser = ({
             message: "You do not have permission to access this exam attempt.",
         });
     }
-    return normalizedAuthUserId;
+    return normalizedAuthUserIds.find(isLikelyCanonicalAuthUserId) || normalizedAuthUserId;
 };
 
 const CORRECTNESS_HINT_FIELDS = new Set([

@@ -101,7 +101,7 @@ const ContinueLearningPanel = ({
                                 </Link>
                                 {quizReady && (
                                     <Link
-                                        to={`/dashboard/exam/${topic._id}?autostart=mcq`}
+                                        to={`/dashboard/quiz/${topic._id}?autostart=mcq`}
                                         reloadDocument
                                         className="btn-secondary text-body-sm h-10 px-4"
                                     >

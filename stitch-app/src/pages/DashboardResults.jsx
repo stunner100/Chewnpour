@@ -260,7 +260,7 @@ const READINESS_BADGE = {
     'Not Ready': 'bg-red-500/10 text-red-600 dark:text-red-400 border-red-500/20',
     'Almost Ready': 'bg-accent-amber/10 text-accent-amber border-accent-amber/20',
     Ready: 'bg-primary/10 text-primary border-primary/20',
-    'Exam Ready': 'bg-accent-emerald/10 text-accent-emerald border-accent-emerald/20',
+    'Exam Ready': 'bg-purple-100 text-purple-700 border-purple-200',
 };
 
 // #6 — use regex word boundaries for robust readiness label extraction
@@ -414,6 +414,15 @@ const TutorReport = ({ attemptId, storedFeedback }) => {
 const DashboardResults = () => {
     const { attemptId } = useParams();
     const { isAuthenticated: isConvexAuthenticated } = useConvexAuth();
+
+    useEffect(() => {
+        if (typeof document === 'undefined') return undefined;
+        const root = document.documentElement;
+        const hadDark = root.classList.contains('dark');
+        if (hadDark) root.classList.remove('dark');
+        return () => { if (hadDark) root.classList.add('dark'); };
+    }, []);
+
     const attempt = useQuery(
         api.exams.getExamAttempt,
         attemptId ? { attemptId } : 'skip'
@@ -447,13 +456,13 @@ const DashboardResults = () => {
 
     if (!attemptId) {
         return (
-            <div className="bg-background-light dark:bg-background-dark min-h-screen flex items-center justify-center">
+            <div className="cp-theme bg-[#FAF8F3] min-h-screen flex items-center justify-center">
                 <div className="text-center max-w-md px-6">
                     <div className="size-14 rounded-2xl bg-surface-light dark:bg-surface-dark border border-border-light dark:border-border-dark flex items-center justify-center mx-auto mb-4">
                         <span className="material-symbols-outlined text-2xl text-text-faint-light dark:text-text-faint-dark">quiz</span>
                     </div>
-                    <h2 className="text-body-lg font-semibold text-text-main-light dark:text-text-main-dark mb-2">No exam selected</h2>
-                    <p className="text-body-sm text-text-sub-light dark:text-text-sub-dark mb-6">Return to your dashboard and open a completed exam.</p>
+                    <h2 className="text-body-lg font-semibold text-text-main-light dark:text-text-main-dark mb-2">No quiz selected</h2>
+                    <p className="text-body-sm text-text-sub-light dark:text-text-sub-dark mb-6">Return to your dashboard and open a completed quiz.</p>
                     <Link to="/dashboard" className="btn-primary text-body-sm px-5 py-2.5 inline-flex items-center gap-2">
                         Back to Dashboard
                     </Link>
@@ -464,10 +473,10 @@ const DashboardResults = () => {
 
     if (attempt === undefined) {
         return (
-            <div className="bg-background-light dark:bg-background-dark min-h-screen flex items-center justify-center">
+            <div className="cp-theme bg-[#FAF8F3] min-h-screen flex items-center justify-center">
                 <div className="text-center">
                     <div className="animate-spin rounded-full size-10 border-2 border-border-light dark:border-border-dark border-t-primary mx-auto mb-4"></div>
-                    <p className="text-body-sm text-text-sub-light dark:text-text-sub-dark">Loading exam results…</p>
+                    <p className="text-body-sm text-text-sub-light dark:text-text-sub-dark">Loading quiz results…</p>
                 </div>
             </div>
         );
@@ -475,13 +484,13 @@ const DashboardResults = () => {
 
     if (attempt === null) {
         return (
-            <div className="bg-background-light dark:bg-background-dark min-h-screen flex items-center justify-center">
+            <div className="cp-theme bg-[#FAF8F3] min-h-screen flex items-center justify-center">
                 <div className="text-center max-w-md px-6">
                     <div className="size-14 rounded-2xl bg-surface-light dark:bg-surface-dark border border-border-light dark:border-border-dark flex items-center justify-center mx-auto mb-4">
                         <span className="material-symbols-outlined text-2xl text-text-faint-light dark:text-text-faint-dark">search_off</span>
                     </div>
                     <h2 className="text-body-lg font-semibold text-text-main-light dark:text-text-main-dark mb-2">Results not found</h2>
-                    <p className="text-body-sm text-text-sub-light dark:text-text-sub-dark mb-6">We couldn't find that exam attempt.</p>
+                    <p className="text-body-sm text-text-sub-light dark:text-text-sub-dark mb-6">We couldn't find that quiz attempt.</p>
                     <Link to="/dashboard" className="btn-primary text-body-sm px-5 py-2.5 inline-flex items-center gap-2">
                         Back to Dashboard
                     </Link>
@@ -526,7 +535,7 @@ const DashboardResults = () => {
     };
 
     return (
-        <div className="bg-background-light dark:bg-background-dark min-h-screen flex flex-col">
+        <div className="cp-theme bg-[#FAF8F3] min-h-screen flex flex-col">
             <Confetti active={showConfetti} />
             <header className="w-full bg-surface-light dark:bg-surface-dark border-b border-border-light dark:border-border-dark sticky top-0 z-30">
                 <div className="max-w-5xl mx-auto flex items-center justify-between px-4 md:px-8 py-3">
@@ -535,7 +544,7 @@ const DashboardResults = () => {
                             <span className="material-symbols-outlined text-lg">arrow_back</span>
                         </Link>
                         <div>
-                            <h1 className="text-body-base font-semibold text-text-main-light dark:text-text-main-dark leading-tight">Exam Results</h1>
+                            <h1 className="text-body-base font-semibold text-text-main-light dark:text-text-main-dark leading-tight">Quiz Results</h1>
                             <span className="text-caption text-text-faint-light dark:text-text-faint-dark">{attempt.topicTitle || 'ChewnPour Mode'}</span>
                         </div>
                     </div>
@@ -653,6 +662,26 @@ const DashboardResults = () => {
                             onOpenChat={null}
                             variant="exam"
                         />
+                    </div>
+                </section>
+
+                {/* Post-quiz action buttons */}
+                <section className="w-full max-w-2xl">
+                    <div className="flex flex-col sm:flex-row gap-3">
+                        <Link
+                            to={`/dashboard/topic/${attempt.topicId}`}
+                            className="btn-primary px-5 py-2.5 inline-flex items-center justify-center gap-2 text-body-sm flex-1"
+                        >
+                            <span className="material-symbols-outlined text-[18px]">menu_book</span>
+                            <span>Review weak topics</span>
+                        </Link>
+                        <Link
+                            to={`/dashboard/quiz/${attempt.topicId}?autostart=mcq`}
+                            className="btn-secondary px-5 py-2.5 inline-flex items-center justify-center gap-2 text-body-sm flex-1"
+                        >
+                            <span className="material-symbols-outlined text-[18px]">refresh</span>
+                            <span>Generate another quiz</span>
+                        </Link>
                     </div>
                 </section>
 

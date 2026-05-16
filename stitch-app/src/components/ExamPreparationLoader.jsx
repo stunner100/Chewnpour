@@ -21,7 +21,7 @@ const EXAM_STAGES = [
     { key: 'blueprint', label: 'Building the blueprint', icon: 'architecture', durationMs: 6_000, encouragement: 'Mapping out the perfect challenge for you' },
     { key: 'generate', label: 'Crafting questions', icon: 'edit_note', durationMs: 12_000, encouragement: 'Our AI is writing questions tailored to your level' },
     { key: 'quality', label: 'Quality check', icon: 'verified', durationMs: 8_000, encouragement: 'Making sure every question is fair and clear' },
-    { key: 'finalize', label: 'Locking in your questions', icon: 'lock', durationMs: null, encouragement: 'Almost there — finalizing your exam' },
+    { key: 'finalize', label: 'Locking in your questions', icon: 'lock', durationMs: null, encouragement: 'Almost there — finalizing your quiz' },
 ];
 
 const FILL_IN_STAGES = [
@@ -35,11 +35,11 @@ const EXAM_ETA_SEC = 30;
 const FILL_IN_ETA_SEC = 15;
 
 const EXAM_FUN_FACTS = [
-    'Students who take practice exams score 20-30% higher on average.',
+    'Students who take practice quizzes score 20-30% higher on average.',
     'Spaced repetition can boost retention by up to 200%.',
     'The testing effect: retrieving information strengthens memory more than re-reading.',
     'Your brain forms stronger connections when actively challenged.',
-    'AI-generated exams adapt to your weak spots for maximum learning.',
+    'AI-generated quizzes adapt to your weak spots for maximum learning.',
     'Even getting an answer wrong helps you remember the right one later.',
 ];
 
@@ -94,11 +94,11 @@ const ExamPreparationLoader = memo(function ExamPreparationLoader({
     const startTime = useRef(0);
     const rafRef = useRef(null);
 
-    const resolvedTitle = title || (mode === 'fill_in' ? 'Preparing Fill-ins' : 'Preparing Your Exam');
+    const resolvedTitle = title || (mode === 'fill_in' ? 'Preparing Fill-ins' : 'Preparing Your Quiz');
     const resolvedSubtitle = subtitle || (mode === 'fill_in'
         ? 'Generating fill-in exercises from your notes'
-        : `Generating your ${examFormat === 'essay' ? 'essay' : 'objective'} exam from this topic`);
-    const failedTitle = mode === 'fill_in' ? 'Fill-in Generation Failed' : 'Exam Preparation Failed';
+        : `Generating your ${examFormat === 'essay' ? 'essay' : 'objective'} quiz from this topic`);
+    const failedTitle = mode === 'fill_in' ? 'Fill-in Generation Failed' : 'Quiz Preparation Failed';
 
     // Main animation loop
     useEffect(() => {
@@ -284,8 +284,8 @@ const ExamPreparationLoader = memo(function ExamPreparationLoader({
                                     key={stage.key}
                                     className={`flex items-center gap-3 py-2 px-3 rounded-xl transition-all duration-300 ${isActive ? 'bg-primary/[0.06]' : ''}`}
                                 >
-                                    <div className={`size-7 rounded-lg flex items-center justify-center shrink-0 transition-all duration-300 ${isDone ? 'bg-accent-emerald/15' : isActive ? 'bg-primary/15' : 'bg-transparent'}`}>
-                                        <span className={`material-symbols-outlined text-[18px] transition-all duration-300 ${isDone ? 'text-accent-emerald' : isActive ? 'text-primary' : 'text-text-faint-light dark:text-text-faint-dark opacity-40'}`}>
+                                    <div className={`size-7 rounded-lg flex items-center justify-center shrink-0 transition-all duration-300 ${isDone ? 'bg-primary/15' : isActive ? 'bg-primary/15' : 'bg-transparent'}`}>
+                                        <span className={`material-symbols-outlined text-[18px] transition-all duration-300 ${isDone ? 'text-primary' : isActive ? 'text-primary' : 'text-text-faint-light dark:text-text-faint-dark opacity-40'}`}>
                                             {isDone ? 'check_circle' : isActive ? stage.icon : 'radio_button_unchecked'}
                                         </span>
                                     </div>
@@ -300,7 +300,7 @@ const ExamPreparationLoader = memo(function ExamPreparationLoader({
                                         )}
                                     </div>
                                     {isDone && (
-                                        <span className="text-[10px] font-semibold text-accent-emerald uppercase tracking-wider">Done</span>
+                                        <span className="text-[10px] font-semibold text-primary uppercase tracking-wider">Done</span>
                                     )}
                                 </div>
                             );

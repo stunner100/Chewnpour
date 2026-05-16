@@ -176,7 +176,7 @@ const ConceptReviewCard = ({ item }) => (
 
 const CourseFlashcardsCard = ({ course }) => (
     <Link
-        to={`/dashboard/course/${course._id}?action=flashcards`}
+        to="/dashboard/flashcards"
         className="group rounded-2xl border border-border-subtle bg-surface p-space-5 shadow-sm transition-all hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-md"
     >
         <div className="mb-space-5 flex items-start justify-between gap-space-4">
@@ -384,34 +384,30 @@ const FlashcardStudyDeck = ({ topic, terms, starredTerms, onTermsStarred }) => {
                 <button
                     type="button"
                     onClick={() => markDifficulty(false)}
-                    className="flex-1 flex flex-col items-center justify-center gap-1 bg-surface hover:bg-error-soft border border-border-subtle hover:border-error-soft py-space-3 rounded-xl transition-all shadow-sm group"
+                    className="flex-1 flex items-center justify-center gap-2 bg-surface hover:bg-error-soft border border-border-subtle hover:border-error-soft py-space-3 rounded-xl transition-all shadow-sm group"
                 >
                     <span className="font-label-md text-label-md text-text-primary group-hover:text-error transition-colors">Again</span>
-                    <span className="font-label-xs text-label-xs text-text-muted">&lt; 1m</span>
                 </button>
                 <button
                     type="button"
                     onClick={() => markDifficulty(false)}
-                    className="flex-1 flex flex-col items-center justify-center gap-1 bg-surface hover:bg-warning-soft border border-border-subtle hover:border-warning-soft py-space-3 rounded-xl transition-all shadow-sm group"
+                    className="flex-1 flex items-center justify-center gap-2 bg-surface hover:bg-warning-soft border border-border-subtle hover:border-warning-soft py-space-3 rounded-xl transition-all shadow-sm group"
                 >
                     <span className="font-label-md text-label-md text-text-primary group-hover:text-warning transition-colors">Hard</span>
-                    <span className="font-label-xs text-label-xs text-text-muted">6m</span>
                 </button>
                 <button
                     type="button"
                     onClick={() => markDifficulty(true)}
-                    className="flex-1 flex flex-col items-center justify-center gap-1 bg-surface hover:bg-primary-soft border border-border-subtle hover:border-primary-soft py-space-3 rounded-xl transition-all shadow-sm group"
+                    className="flex-1 flex items-center justify-center gap-2 bg-surface hover:bg-primary-soft border border-border-subtle hover:border-primary-soft py-space-3 rounded-xl transition-all shadow-sm group"
                 >
                     <span className="font-label-md text-label-md text-text-primary group-hover:text-primary-hover transition-colors">Good</span>
-                    <span className="font-label-xs text-label-xs text-text-muted">10m</span>
                 </button>
                 <button
                     type="button"
                     onClick={() => markDifficulty(true)}
-                    className="flex-1 flex flex-col items-center justify-center gap-1 bg-surface hover:bg-success-soft border border-border-subtle hover:border-success-soft py-space-3 rounded-xl transition-all shadow-sm group"
+                    className="flex-1 flex items-center justify-center gap-2 bg-surface hover:bg-success-soft border border-border-subtle hover:border-success-soft py-space-3 rounded-xl transition-all shadow-sm group"
                 >
                     <span className="font-label-md text-label-md text-text-primary group-hover:text-success transition-colors">Easy</span>
-                    <span className="font-label-xs text-label-xs text-text-muted">4d</span>
                 </button>
             </div>
         </div>

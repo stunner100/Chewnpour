@@ -11,65 +11,29 @@ const appSource = await read('src/App.jsx');
 for (const pattern of [
   "import('./pages/Community')",
   "import('./pages/CommunityChannel')",
-  'path="/dashboard/community"',
-  'path="/dashboard/community/:channelId"',
+]) {
+  if (appSource.includes(pattern)) {
+    throw new Error(`Community screen should not be mounted by App.jsx after the new-screen cutover: ${pattern}`);
+  }
+}
+
+for (const pattern of [
+  '<Route path="/dashboard/community" element={<Navigate to="/dashboard" replace />} />',
+  '<Route path="/dashboard/community/:channelId" element={<Navigate to="/dashboard" replace />} />',
 ]) {
   if (!appSource.includes(pattern)) {
-    throw new Error(`Expected App.jsx to include "${pattern}".`);
+    throw new Error(`Expected legacy community route redirect: ${pattern}`);
   }
+}
+
+const commandPaletteSource = await read('src/components/CommandPalette.jsx');
+if (commandPaletteSource.includes('/dashboard/community')) {
+  throw new Error('Command palette should not route users into the old community screen.');
 }
 
 const navSource = await read('src/components/MobileBottomNav.jsx');
-for (const pattern of [
-  "label: 'Community'",
-  "path: '/dashboard/community'",
-]) {
-  if (!navSource.includes(pattern)) {
-    throw new Error(`Expected MobileBottomNav.jsx to include "${pattern}".`);
-  }
-}
-
-const dashboardSource = await read('src/pages/DashboardAnalysis.jsx');
-const dashboardPlanSource = await read('src/lib/dashboardPlan.js');
-if (!dashboardPlanSource.includes("to: '/dashboard/community'")) {
-  throw new Error('Expected dashboard quick actions to link to /dashboard/community.');
-}
-for (const removedPattern of [
-  'autoJoinCommunity',
-  'api.community.autoJoinOnUpload',
-]) {
-  if (dashboardSource.includes(removedPattern)) {
-    throw new Error(`DashboardAnalysis.jsx should not include removed upload auto-channel pattern "${removedPattern}".`);
-  }
-}
-
-const communityPageSource = await read('src/pages/Community.jsx');
-for (const pattern of [
-  'api.community.listChannels',
-  'api.community.getUserChannels',
-  'api.community.joinSeededChannels',
-  'joinSeededChannels({})',
-  'Available to Everyone',
-  'to="/dashboard"',
-  'Go to Dashboard',
-  '/dashboard/community/${channel._id}',
-]) {
-  if (!communityPageSource.includes(pattern)) {
-    throw new Error(`Expected Community.jsx to include "${pattern}".`);
-  }
-}
-
-const communityChannelSource = await read('src/pages/CommunityChannel.jsx');
-for (const pattern of [
-  'api.community.getChannel',
-  'api.community.listPosts',
-  'api.community.joinChannel',
-  'api.community.createPost',
-  'api.community.getWeeklyLeaderboard',
-]) {
-  if (!communityChannelSource.includes(pattern)) {
-    throw new Error(`Expected CommunityChannel.jsx to include "${pattern}".`);
-  }
+if (navSource.includes('/dashboard/community')) {
+  throw new Error('Mobile nav should not route users into the old community screen.');
 }
 
 const schemaSource = await read('convex/schema.ts');
@@ -78,40 +42,10 @@ for (const pattern of [
   'communityMembers: defineTable({',
   'communityPosts: defineTable({',
   'communityFlags: defineTable({',
-  '.index("by_courseId", ["courseId"])',
-  '.index("by_channelId_userId", ["channelId", "userId"])',
-  '.index("by_channelId_createdAt", ["channelId", "createdAt"])',
-  '.index("by_userId_postId", ["userId", "postId"])',
 ]) {
   if (!schemaSource.includes(pattern)) {
-    throw new Error(`Expected schema.ts to include "${pattern}".`);
+    throw new Error(`Expected community backend data to remain available: ${pattern}`);
   }
-}
-
-const communityConvexSource = await read('convex/community.ts');
-for (const pattern of [
-  'export const listChannels = query({',
-  'export const getUserChannels = query({',
-  'export const getWeeklyLeaderboard = query({',
-  '.filter((channel) => channel.isSeeded)',
-  'if (!channel?.isSeeded) return null;',
-  'c !== null && Boolean(c.isSeeded)',
-  'const DEFAULT_CHANNELS = [',
-  'export const seedDefaultChannelsInternal = internalMutation({',
-  'export const joinSeededChannels = mutation({',
-  'export const joinChannel = mutation({',
-  'export const createPost = mutation({',
-  'export const autoJoinOnUploadInternal = internalMutation({',
-  'Number(channel.memberCount || 0) + 1',
-]) {
-  if (!communityConvexSource.includes(pattern)) {
-    throw new Error(`Expected community.ts to include "${pattern}".`);
-  }
-}
-
-const apiSource = await read('convex/_generated/api.d.ts');
-if (!apiSource.includes('community: typeof community;')) {
-  throw new Error('Expected generated Convex API bindings to include the community module.');
 }
 
 console.log('community-feature-regression.test.mjs passed');

@@ -92,8 +92,8 @@ const ProgressSnapshot = ({ insights, userStats, podcastCount = 0, uploadQuota }
                                 {masteredCount} mastered · {progressingCount} progressing · {needsWorkCount} needs work
                             </p>
                             <div className="flex flex-wrap gap-2 mt-3">
-                                <Link to="/dashboard/analysis" className="text-caption font-semibold text-primary hover:text-primary-hover transition-colors inline-flex items-center gap-1">
-                                    View full analysis
+                                <Link to="/dashboard/progress" className="text-caption font-semibold text-primary hover:text-primary-hover transition-colors inline-flex items-center gap-1">
+                                    View progress
                                     <span className="material-symbols-outlined text-[14px]">arrow_forward</span>
                                 </Link>
                             </div>

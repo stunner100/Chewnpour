@@ -1,9 +1,11 @@
-import React, { useMemo } from 'react';
-import { Link, useSearchParams } from 'react-router-dom';
+import React, { useEffect, useMemo, useRef } from 'react';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useConvexAuth, useQuery } from 'convex/react';
 import { api } from '../../convex/_generated/api';
 
 const EMPTY_LIST = [];
+
+const matchCourseId = (course, rawId) => String(course?._id) === String(rawId);
 
 const hasOwn = (object, key) => Object.prototype.hasOwnProperty.call(Object(object), key);
 
@@ -81,37 +83,71 @@ const ResumeLessonCard = ({ resumeTarget }) => {
     );
 };
 
-const CourseLessonCard = ({ course, selected = false }) => (
-    <Link
-        to={`/dashboard/lessons?courseId=${course._id}`}
-        className={`group rounded-2xl border bg-surface p-space-5 shadow-sm transition-all hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-md ${
-            selected ? 'border-primary/50 ring-2 ring-primary-soft' : 'border-border-subtle'
-        }`}
-    >
-        <div className="mb-space-5 flex items-start justify-between gap-space-4">
-            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-primary-soft text-primary">
-                <span className="material-symbols-outlined">auto_stories</span>
+const LESSONS_TOPICS_HASH = 'lessons-course-topics';
+
+const buildLessonsTopicsLocation = (courseId) => {
+    const id = typeof courseId === 'string' && courseId.trim() ? courseId.trim() : String(courseId ?? '').trim();
+    return {
+        pathname: '/dashboard/lessons',
+        ...(id ? { search: `?courseId=${encodeURIComponent(id)}` } : {}),
+        hash: LESSONS_TOPICS_HASH,
+    };
+};
+
+const CourseLessonCard = ({ course, selected = false }) => {
+    const navigate = useNavigate();
+    const firstTopicId = course?.firstTopicId ? String(course.firstTopicId) : '';
+    const firstTopicLocation = firstTopicId ? `/dashboard/topic/${firstTopicId}` : '';
+    const topicsLocation = buildLessonsTopicsLocation(course?._id);
+    const targetLocation = firstTopicLocation || topicsLocation;
+
+    const handleCardClick = (event) => {
+        if (event.defaultPrevented) return;
+        if (event.button !== 0) return;
+        if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+        event.preventDefault();
+        if (firstTopicLocation) {
+            navigate(firstTopicLocation);
+            return;
+        }
+        navigate(topicsLocation);
+    };
+
+    const ctaLabel = firstTopicId ? 'Open first lesson' : 'View topics';
+
+    return (
+        <Link
+            to={targetLocation}
+            onClick={handleCardClick}
+            className={`group rounded-2xl border bg-surface p-space-5 shadow-sm transition-all hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-md ${
+                selected ? 'border-primary/50 ring-2 ring-primary-soft' : 'border-border-subtle'
+            }`}
+        >
+            <div className="mb-space-5 flex items-start justify-between gap-space-4">
+                <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-primary-soft text-primary">
+                    <span className="material-symbols-outlined">auto_stories</span>
+                </div>
+                <span className="inline-flex items-center rounded-full bg-surface-soft px-space-3 py-space-1 font-label-xs text-label-xs text-text-secondary">
+                    {Number(course.progress || 0)}% complete
+                </span>
             </div>
-            <span className="inline-flex items-center rounded-full bg-surface-soft px-space-3 py-space-1 font-label-xs text-label-xs text-text-secondary">
-                {Number(course.progress || 0)}% complete
-            </span>
-        </div>
-        <h3 className="font-headline-sm text-headline-sm text-text-primary">
-            {course.title || 'Untitled course'}
-        </h3>
-        {course.description && (
-            <p className="mt-space-2 line-clamp-2 font-body-sm text-body-sm text-text-secondary">
-                {course.description}
-            </p>
-        )}
-        <div className="mt-space-5 flex items-center justify-between border-t border-border-subtle pt-space-4 font-label-md text-label-md text-primary">
-            <span>View lessons</span>
-            <span className="material-symbols-outlined transition-transform group-hover:translate-x-1">
-                arrow_forward
-            </span>
-        </div>
-    </Link>
-);
+            <h3 className="font-headline-sm text-headline-sm text-text-primary">
+                {course.title || 'Untitled course'}
+            </h3>
+            {course.description && (
+                <p className="mt-space-2 line-clamp-2 font-body-sm text-body-sm text-text-secondary">
+                    {course.description}
+                </p>
+            )}
+            <div className="mt-space-5 flex items-center justify-between border-t border-border-subtle pt-space-4 font-label-md text-label-md text-primary">
+                <span>{ctaLabel}</span>
+                <span className="material-symbols-outlined transition-transform group-hover:translate-x-1">
+                    arrow_forward
+                </span>
+            </div>
+        </Link>
+    );
+};
 
 const TopicLessonCard = ({ topic }) => (
     <Link
@@ -145,21 +181,37 @@ const TopicLessonCard = ({ topic }) => (
 
 const LessonMemoryNeuralBasis = () => {
     const [searchParams] = useSearchParams();
+    const topicsSectionRef = useRef(null);
+    const lastScrolledCourseIdRef = useRef('');
     const { isAuthenticated } = useConvexAuth();
     const courses = useQuery(api.courses.getUserCourses, isAuthenticated ? {} : 'skip');
     const resumeTarget = useQuery(api.topics.getResumeTarget, isAuthenticated ? {} : 'skip');
     const courseList = Array.isArray(courses) ? courses : EMPTY_LIST;
     const visibleLessonCourses = useMemo(() => courseList.filter(shouldShowLessonCourse), [courseList]);
     const requestedCourseId = searchParams.get('courseId') || '';
-    const requestedCourse = visibleLessonCourses.find((course) => String(course._id) === String(requestedCourseId));
+    const requestedCourse = visibleLessonCourses.find((course) => matchCourseId(course, requestedCourseId))
+        || courseList.find((course) => matchCourseId(course, requestedCourseId));
     const resumeCourse = resumeTarget?.courseId
-        ? visibleLessonCourses.find((course) => String(course._id) === String(resumeTarget.courseId))
+        ? (visibleLessonCourses.find((course) => matchCourseId(course, resumeTarget.courseId))
+            || courseList.find((course) => matchCourseId(course, resumeTarget.courseId)))
         : null;
     const selectedCourseId = requestedCourse?._id || resumeCourse?._id || visibleLessonCourses[0]?._id || courseList[0]?._id || '';
     const courseWithTopics = useQuery(
         api.courses.getCourseWithTopics,
         isAuthenticated && selectedCourseId ? { courseId: selectedCourseId } : 'skip',
     );
+
+    useEffect(() => {
+        if (!requestedCourseId) return;
+        if (!courseWithTopics?._id) return;
+        if (String(courseWithTopics._id) !== String(requestedCourseId)) return;
+        if (lastScrolledCourseIdRef.current === requestedCourseId) return;
+        lastScrolledCourseIdRef.current = requestedCourseId;
+        const frame = requestAnimationFrame(() => {
+            topicsSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        });
+        return () => cancelAnimationFrame(frame);
+    }, [requestedCourseId, courseWithTopics?._id]);
 
     if (
         !isAuthenticated
@@ -170,8 +222,8 @@ const LessonMemoryNeuralBasis = () => {
         return <StudyToolSkeleton />;
     }
 
-    const selectedCourse = visibleLessonCourses.find((course) => String(course._id) === String(selectedCourseId))
-        || courseList.find((course) => String(course._id) === String(selectedCourseId))
+    const selectedCourse = visibleLessonCourses.find((course) => matchCourseId(course, selectedCourseId))
+        || courseList.find((course) => matchCourseId(course, selectedCourseId))
         || null;
     const topicList = Array.isArray(courseWithTopics?.topics) ? courseWithTopics.topics : EMPTY_LIST;
     const hasPendingCourses = courseList.length > 0 && visibleLessonCourses.length === 0;
@@ -200,7 +252,7 @@ const LessonMemoryNeuralBasis = () => {
                                 <CourseLessonCard
                                     key={course._id}
                                     course={course}
-                                    selected={String(course._id) === String(selectedCourseId)}
+                                    selected={matchCourseId(course, selectedCourseId)}
                                 />
                             ))}
                         </section>
@@ -214,7 +266,11 @@ const LessonMemoryNeuralBasis = () => {
                     ) : null}
 
                     {selectedCourse && (
-                        <section className="rounded-2xl border border-border-subtle bg-surface-soft p-space-5">
+                        <section
+                            ref={topicsSectionRef}
+                            id="lessons-course-topics"
+                            className="rounded-2xl border border-border-subtle bg-surface-soft p-space-5 scroll-mt-24"
+                        >
                             <div className="mb-space-4 flex flex-col gap-space-1">
                                 <p className="font-label-sm text-label-sm font-bold uppercase tracking-wider text-primary">
                                     Topics

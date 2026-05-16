@@ -10,7 +10,6 @@ const assert = (condition, message) => {
 };
 
 const commandPalette = read('src/components/CommandPalette.jsx');
-const assignmentHelper = read('src/pages/AssignmentHelper.jsx');
 
 assert(
     commandPalette.includes('const isEditableTarget = (target)'),
@@ -34,21 +33,22 @@ assert(
 );
 
 assert(
-    commandPalette.includes("label: 'Past Questions'") &&
-        !commandPalette.includes("label: 'Start Exam'"),
-    'Bare /dashboard/exam command palette entry should be labeled Past Questions, not Start Exam.'
+    commandPalette.includes("value: '/dashboard/lessons'") &&
+        commandPalette.includes("value: '/dashboard/flashcards'") &&
+        commandPalette.includes("value: '/dashboard/ai-tutor'"),
+    'Command palette should expose the new study screens.'
 );
 
-assert(
-    assignmentHelper.includes('watermelonToast(successMessage') &&
-        assignmentHelper.includes('watermelonToast(paywallToastMessage'),
-    'Assignment helper toast effects must own success and paywall toast emission.'
-);
-
-assert(
-    !assignmentHelper.includes("watermelonToast('Thread deleted.'") &&
-        !assignmentHelper.includes("watermelonToast('Assignment reprocessed successfully.'"),
-    'Assignment helper must not emit duplicate direct success toasts for delete or retry flows.'
-);
+for (const oldRoute of [
+    '/dashboard/exam',
+    '/dashboard/assignment-helper',
+    '/dashboard/humanizer',
+    '/dashboard/community',
+]) {
+    assert(
+        !commandPalette.includes(oldRoute),
+        `Command palette should not route users into the old screen ${oldRoute}.`
+    );
+}
 
 console.log('command-palette-assignment-toast-regression passed');

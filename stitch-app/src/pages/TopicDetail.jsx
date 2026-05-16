@@ -74,9 +74,9 @@ const COMMON_MISTAKE_SECTION_PATTERN = /\b(common mistake|misconception)\b/;
 const STEP_TERM_PATTERN = /step/i;
 
 const buildObjectiveExamRoute = (examTopicId) =>
-    examTopicId ? `/dashboard/exam/${examTopicId}?autostart=mcq` : '/dashboard';
+    examTopicId ? `/dashboard/quiz/${examTopicId}?autostart=mcq` : '/dashboard';
 const buildEssayExamRoute = (examTopicId) =>
-    examTopicId ? `/dashboard/exam/${examTopicId}?autostart=essay` : '/dashboard';
+    examTopicId ? `/dashboard/quiz/${examTopicId}?autostart=essay` : '/dashboard';
 
 const getCurrentHashTargetId = () => {
     if (typeof window === 'undefined') return '';
@@ -123,11 +123,13 @@ const useTopicDetailController = () => {
     const [sourceOpen, setSourceOpen] = useState(false);
     const [studyModeState, setStudyModeState] = useState(() => ({
         routeTopicId,
-        value: getCurrentHashTargetId() ? 'full' : null,
+        // Default to full lesson so direct links (e.g. lesson cards) open readable content
+        // instead of the study-mode picker. Hash targets still imply full navigation context.
+        value: 'full',
     }));
     const studyMode = studyModeState.routeTopicId === routeTopicId
         ? studyModeState.value
-        : getCurrentHashTargetId() ? 'full' : null;
+        : 'full';
     const setStudyMode = useCallback((value) => {
         setStudyModeState({ routeTopicId, value });
     }, [routeTopicId]);
@@ -1314,7 +1316,7 @@ const TopicLessonMainColumn = ({ controller }) => {
                 />
             )}
 
-            <article className="bg-surface-light dark:bg-surface-dark rounded-3xl border border-border-subtle dark:border-border-subtle-dark shadow-soft px-5 py-6 md:p-8" ref={contentRef}>
+            <article className="bg-white rounded-3xl border border-border-subtle shadow-soft px-5 py-6 md:p-8" ref={contentRef}>
                 {normalizedContent ? (
                     <LessonContentRenderer
                         blocks={displayBlocks}
@@ -1330,11 +1332,11 @@ const TopicLessonMainColumn = ({ controller }) => {
                     />
                 ) : (
                     <div className="flex flex-col items-center justify-center py-20 text-center">
-                        <div className="size-14 rounded-2xl bg-primary-50 dark:bg-primary-900/20 flex items-center justify-center mb-4 animate-pulse">
+                        <div className="size-14 rounded-2xl bg-primary-soft flex items-center justify-center mb-4 animate-pulse">
                             <span className="material-symbols-outlined text-primary text-[26px]">auto_stories</span>
                         </div>
-                        <h3 className="text-body-lg font-semibold text-text-main-light dark:text-text-main-dark">Preparing your lesson</h3>
-                        <p className="text-body-sm text-text-sub-light dark:text-text-sub-dark mt-1 max-w-xs">
+                        <h3 className="text-body-lg font-semibold text-text-primary">Preparing your lesson</h3>
+                        <p className="text-body-sm text-text-secondary mt-1 max-w-xs">
                             ChewnPour is organizing this topic into key ideas, examples, checks, and study tools.
                         </p>
                     </div>
@@ -1351,16 +1353,16 @@ const TopicLessonMainColumn = ({ controller }) => {
                 bestScore={topicProgress?.bestScore ?? null}
             />
 
-            <details className="group bg-surface-light dark:bg-surface-dark rounded-3xl border border-border-subtle dark:border-border-subtle-dark px-5 md:px-6">
+            <details className="group bg-white rounded-3xl border border-border-subtle px-5 md:px-6">
                 <summary className="flex items-center gap-3 py-4 cursor-pointer list-none [&::-webkit-details-marker]:hidden">
-                    <span className="size-9 rounded-xl bg-primary-50 dark:bg-primary-900/25 flex items-center justify-center shrink-0">
+                    <span className="size-9 rounded-xl bg-primary-soft flex items-center justify-center shrink-0">
                         <span className="material-symbols-outlined text-primary text-[18px]" style={{ fontVariationSettings: "'FILL' 1" }}>route</span>
                     </span>
                     <span className="flex-1 min-w-0">
-                        <span className="block text-body-md font-semibold text-text-main-light dark:text-text-main-dark leading-tight">Guided study path</span>
-                        <span className="block text-caption text-text-faint-light dark:text-text-faint-dark mt-0.5">A section-by-section walkthrough of this lesson.</span>
+                        <span className="block text-body-md font-semibold text-text-primary leading-tight">Guided study path</span>
+                        <span className="block text-caption text-text-muted mt-0.5">A section-by-section walkthrough of this lesson.</span>
                     </span>
-                    <span className="material-symbols-outlined text-[20px] text-text-faint-light dark:text-text-faint-dark transition-transform group-open:rotate-180">expand_more</span>
+                    <span className="material-symbols-outlined text-[20px] text-text-muted transition-transform group-open:rotate-180">expand_more</span>
                 </summary>
                 <div className="pb-5 pt-1">
                     <GuidedStudyPath
@@ -1372,7 +1374,7 @@ const TopicLessonMainColumn = ({ controller }) => {
             </details>
 
             {topicProgress?.completedAt && (
-                <div className="bg-surface-light dark:bg-surface-dark rounded-3xl border border-border-subtle dark:border-border-subtle-dark p-5 md:p-6">
+                <div className="bg-white rounded-3xl border border-border-subtle p-5 md:p-6">
                     <NextStepsGuidance
                         topicId={topicId}
                         examTopicId={examTopicId}
@@ -1520,64 +1522,242 @@ const TopicLessonPanels = ({ controller }) => {
     );
 };
 
+const TopicLessonBreadcrumbs = ({ courseTitle, courseHref, topicTitle }) => (
+    <nav aria-label="Breadcrumb" className="font-body-sm text-body-sm text-text-secondary">
+        <ol className="flex flex-wrap items-center gap-x-2 gap-y-1">
+            <li>
+                <Link to="/dashboard/lessons" className="hover:text-text-primary transition-colors">Lessons</Link>
+            </li>
+            <li aria-hidden="true" className="text-text-muted">/</li>
+            <li>
+                <Link to={courseHref || '/dashboard/lessons'} className="hover:text-text-primary transition-colors">
+                    {courseTitle || 'Course'}
+                </Link>
+            </li>
+            <li aria-hidden="true" className="text-text-muted">/</li>
+            <li className="font-medium text-text-primary line-clamp-1">{topicTitle}</li>
+        </ol>
+    </nav>
+);
+
+const TopicMetaBadges = ({ sourceLabel, topicProgress }) => {
+    const completed = Boolean(topicProgress?.completedAt);
+    const bestScore = Number(topicProgress?.bestScore ?? 0);
+    let masteryLabel = 'In progress';
+    let masteryClass = 'bg-surface-soft text-text-secondary border-border-subtle';
+    let masteryIcon = 'auto_stories';
+    if (completed && bestScore >= 80) {
+        masteryLabel = 'Mastered';
+        masteryClass = 'bg-success-soft text-success border-success/30';
+        masteryIcon = 'check_circle';
+    } else if (completed) {
+        masteryLabel = 'Reviewing';
+        masteryClass = 'bg-warning-soft text-warning border-warning/30';
+        masteryIcon = 'event_repeat';
+    }
+    return (
+        <div className="flex flex-wrap items-center gap-space-2">
+            {sourceLabel ? (
+                <span className="inline-flex items-center gap-space-2 rounded-full border border-border-subtle bg-surface px-space-3 py-space-1 font-label-xs text-label-xs text-text-secondary">
+                    <span className="material-symbols-outlined text-[16px] text-text-muted">description</span>
+                    <span>Source: {sourceLabel}</span>
+                </span>
+            ) : null}
+            <span className={`inline-flex items-center gap-space-2 rounded-full border px-space-3 py-space-1 font-label-xs text-label-xs ${masteryClass}`}>
+                <span className="material-symbols-outlined text-[16px]">{masteryIcon}</span>
+                <span>{masteryLabel}</span>
+            </span>
+        </div>
+    );
+};
+
+const TopicSummaryCard = ({ description }) => {
+    if (!description) return null;
+    return (
+        <section className="rounded-2xl border border-primary/15 bg-primary-subtle p-space-5">
+            <div className="mb-space-2 flex items-center gap-space-2 text-primary">
+                <span className="material-symbols-outlined text-[20px]" style={{ fontVariationSettings: "'FILL' 1" }}>lightbulb</span>
+                <h2 className="font-label-md text-label-md font-semibold">Topic Summary</h2>
+            </div>
+            <p className="font-body-md text-body-md leading-relaxed text-text-primary">{description}</p>
+        </section>
+    );
+};
+
+const TopicLessonNav = ({ prevTopic, nextTopic, examTopicId }) => {
+    const navigate = useNavigate();
+    if (!prevTopic && !nextTopic && !examTopicId) return null;
+    const goTo = (topicId) => () => navigate(`/dashboard/topic/${topicId}`);
+    return (
+        <div className="flex items-center justify-between gap-space-4 border-t border-border-subtle pt-space-6">
+            {prevTopic ? (
+                <button
+                    type="button"
+                    onClick={goTo(prevTopic._id)}
+                    className="inline-flex items-center gap-space-2 rounded-xl border border-border-default bg-surface px-space-4 py-space-3 font-label-md text-label-md text-text-primary transition-colors hover:bg-surface-soft"
+                >
+                    <span className="material-symbols-outlined text-[18px]">arrow_back</span>
+                    <span className="line-clamp-1 text-left">Previous Lesson</span>
+                </button>
+            ) : (
+                <span aria-hidden="true" />
+            )}
+            {nextTopic ? (
+                <button
+                    type="button"
+                    onClick={goTo(nextTopic._id)}
+                    className="inline-flex items-center gap-space-2 rounded-xl bg-primary px-space-4 py-space-3 font-label-md text-label-md text-surface transition-colors hover:bg-primary-hover"
+                >
+                    <span className="line-clamp-1">Next Lesson</span>
+                    <span className="material-symbols-outlined text-[18px]">arrow_forward</span>
+                </button>
+            ) : examTopicId ? (
+                <Link
+                    to={buildObjectiveExamRoute(examTopicId)}
+                    className="inline-flex items-center gap-space-2 rounded-xl bg-primary px-space-4 py-space-3 font-label-md text-label-md text-surface transition-colors hover:bg-primary-hover"
+                >
+                    <span>Take the quiz</span>
+                    <span className="material-symbols-outlined text-[18px]">arrow_forward</span>
+                </Link>
+            ) : (
+                <span aria-hidden="true" />
+            )}
+        </div>
+    );
+};
+
+const STUDY_ASSISTANT_PROMPTS = [
+    'Explain this lesson in simpler terms',
+    'Give me a real-world example',
+    'Quiz me on this topic',
+];
+
+const TopicStudyAssistantCard = ({ topicTitle, onAsk, onOpen }) => {
+    const [draft, setDraft] = useState('');
+    const handleSubmit = (event) => {
+        event.preventDefault();
+        const trimmed = draft.trim();
+        if (!trimmed) {
+            onOpen();
+            return;
+        }
+        onAsk(trimmed);
+        setDraft('');
+    };
+    return (
+        <aside className="sticky top-space-6 flex h-fit flex-col gap-space-4 rounded-2xl border border-border-subtle bg-surface p-space-5 shadow-sm">
+            <header className="flex items-center justify-between">
+                <div className="flex items-center gap-space-2">
+                    <span className="flex h-9 w-9 items-center justify-center rounded-full bg-ai-soft text-ai">
+                        <span className="material-symbols-outlined text-[20px]">smart_toy</span>
+                    </span>
+                    <div>
+                        <p className="font-label-md text-label-md font-semibold text-text-primary">Study Assistant</p>
+                        <p className="flex items-center gap-space-1 font-label-xs text-label-xs text-success">
+                            <span className="inline-block h-1.5 w-1.5 rounded-full bg-success" /> Online
+                        </p>
+                    </div>
+                </div>
+            </header>
+            <div className="rounded-xl bg-ai-subtle p-space-4 font-body-sm text-body-sm leading-relaxed text-text-primary">
+                {`Hi! I noticed you're reading about ${topicTitle || 'this lesson'}. Ask me anything — I'll use your uploaded material to help you understand it.`}
+            </div>
+            <div className="flex flex-col gap-space-2">
+                {STUDY_ASSISTANT_PROMPTS.map((prompt) => (
+                    <button
+                        key={prompt}
+                        type="button"
+                        onClick={() => onAsk(prompt)}
+                        className="rounded-full border border-border-subtle bg-surface px-space-3 py-space-2 text-left font-label-sm text-label-sm text-text-primary transition-colors hover:border-ai/40 hover:bg-ai-subtle"
+                    >
+                        {prompt}
+                    </button>
+                ))}
+            </div>
+            <form onSubmit={handleSubmit} className="flex items-center gap-space-2 rounded-full border border-border-subtle bg-surface-soft px-space-3 py-space-2 focus-within:border-primary">
+                <input
+                    type="text"
+                    value={draft}
+                    onChange={(event) => setDraft(event.target.value)}
+                    placeholder="Ask a question..."
+                    className="flex-1 bg-transparent font-body-sm text-body-sm text-text-primary placeholder:text-text-muted focus:outline-none"
+                />
+                <button
+                    type="submit"
+                    aria-label="Send"
+                    className="flex h-8 w-8 items-center justify-center rounded-full bg-primary text-surface transition-colors hover:bg-primary-hover"
+                >
+                    <span className="material-symbols-outlined text-[18px]">send</span>
+                </button>
+            </form>
+        </aside>
+    );
+};
+
 const TopicLessonShell = ({ controller }) => {
     const {
-        activeSectionId,
-        activeSectionLabel,
         cleanedDescription,
         courseHref,
-        courseId,
         examTopicId,
-        headerPrimaryAction,
-        headerSecondaryActions,
-        lessonStatusBadge,
-        parsed,
-        readingProgress,
+        handleAskTutor,
+        openChat,
         resolvedTopicTitle,
-        setReExplainOpen,
-        setSettingsOpen,
-        studyToolActions,
-        studyToolSecondary,
+        topic,
+        topicId,
         topicProgress,
     } = controller;
 
+    useEffect(() => {
+        if (typeof document === 'undefined') return undefined;
+        const root = document.documentElement;
+        const hadDark = root.classList.contains('dark');
+        if (hadDark) root.classList.remove('dark');
+        return () => {
+            if (hadDark) root.classList.add('dark');
+        };
+    }, []);
+
+    const courseQueryResult = useQuery(
+        api.courses.getCourseWithTopics,
+        topic?.courseId ? { courseId: topic.courseId } : 'skip',
+    );
+    const courseTitle = courseQueryResult?.title || '';
+    const courseTopics = Array.isArray(courseQueryResult?.topics) ? courseQueryResult.topics : [];
+    const currentIndex = courseTopics.findIndex((entry) => String(entry._id) === String(topicId));
+    const prevTopic = currentIndex > 0 ? courseTopics[currentIndex - 1] : null;
+    const nextTopic = currentIndex >= 0 && currentIndex < courseTopics.length - 1
+        ? courseTopics[currentIndex + 1]
+        : null;
+    const sourceLabel = courseTitle;
+
     return (
-        <div className="bg-background-light dark:bg-background-dark font-body antialiased text-text-main-light dark:text-text-main-dark min-h-screen flex flex-col overflow-x-hidden">
-            <LessonHeader
-                courseTitle="Course"
-                courseHref={courseHref}
-                title={resolvedTopicTitle}
-                description={cleanedDescription}
-                readingMinutes={parsed.readingMinutes}
-                statusBadge={lessonStatusBadge}
-                bestScore={topicProgress?.bestScore ?? null}
-                primaryAction={headerPrimaryAction}
-                secondaryActions={headerSecondaryActions}
-                onOpenSettings={() => setSettingsOpen(true)}
-                onOpenReExplain={() => setReExplainOpen(true)}
-            />
-
-            <LessonProgressBar
-                progress={readingProgress}
-                activeSection={activeSectionLabel}
-                quizReady={Boolean(examTopicId)}
-            />
-
-            <div className="flex-1 max-w-[1400px] w-full mx-auto px-4 md:px-6 lg:px-8 py-5 lg:py-8 grid grid-cols-1 lg:grid-cols-[220px_minmax(0,1fr)_300px] gap-4 lg:gap-8">
-                <div className="hidden lg:block">
-                    <LessonTOC toc={parsed.toc} activeId={activeSectionId} />
+        <div className="cp-theme bg-[#FAF8F3] font-body text-[#1F2933] min-h-screen">
+            <div className="mx-auto grid w-full max-w-[1280px] grid-cols-1 gap-space-6 px-space-4 py-space-6 md:px-space-6 lg:grid-cols-[minmax(0,1fr)_320px] lg:gap-space-8 lg:px-space-8 lg:py-space-8">
+                <div className="min-w-0 space-y-space-6">
+                    <TopicLessonBreadcrumbs
+                        courseTitle={courseTitle}
+                        courseHref={courseHref}
+                        topicTitle={resolvedTopicTitle}
+                    />
+                    <header className="space-y-space-3">
+                        <TopicMetaBadges sourceLabel={sourceLabel} topicProgress={topicProgress} />
+                        <h1 className="font-display-md text-display-md font-bold tracking-tight text-text-primary md:text-display-lg">
+                            {resolvedTopicTitle}
+                        </h1>
+                    </header>
+                    <TopicSummaryCard description={cleanedDescription} />
+                    <TopicLessonMainColumn controller={controller} />
+                    <TopicLessonNav
+                        prevTopic={prevTopic}
+                        nextTopic={nextTopic}
+                        examTopicId={examTopicId}
+                    />
                 </div>
-
-                <TopicLessonMainColumn controller={controller} />
-
                 <div className="hidden lg:block">
-                    <StudyActionsPanel
-                        progress={readingProgress}
-                        completed={Boolean(topicProgress?.completedAt)}
-                        primaryAction={headerPrimaryAction}
-                        actions={studyToolActions}
-                        secondaryActions={studyToolSecondary}
-                        relatedCourse={courseId ? { title: 'Continue this course', href: courseHref } : null}
+                    <TopicStudyAssistantCard
+                        topicTitle={resolvedTopicTitle}
+                        onAsk={handleAskTutor}
+                        onOpen={openChat}
                     />
                 </div>
             </div>

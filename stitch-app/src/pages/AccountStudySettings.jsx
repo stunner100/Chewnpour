@@ -157,7 +157,7 @@ const AccountStudySettings = () => {
                     {/* Left Column (Profile & Account) */}
                     <div className="lg:col-span-5 flex flex-col gap-space-6">
                         {/* Profile Section */}
-                        <section className="bg-surface rounded-2xl border border-border-subtle shadow-sm p-space-8 flex flex-col gap-space-6">
+                        <section id="profile" className="scroll-mt-20 bg-surface rounded-2xl border border-border-subtle shadow-sm p-space-8 flex flex-col gap-space-6">
                             <div className="flex items-center gap-space-3 pb-space-4 border-b border-border-subtle">
                                 <span className="material-symbols-outlined text-text-muted">person</span>
                                 <h3 className="font-headline-sm text-headline-sm text-text-primary">Profile</h3>
@@ -185,7 +185,7 @@ const AccountStudySettings = () => {
                         </section>
 
                         {/* Account/Subscription */}
-                        <section className="bg-surface rounded-2xl border border-border-subtle shadow-sm p-space-8 flex flex-col gap-space-6 relative overflow-hidden">
+                        <section id="subscription" className="scroll-mt-20 bg-surface rounded-2xl border border-border-subtle shadow-sm p-space-8 flex flex-col gap-space-6 relative overflow-hidden">
                             <div className="absolute top-0 right-0 w-32 h-32 bg-primary-soft rounded-bl-full opacity-50 pointer-events-none"></div>
                             <div className="flex items-center gap-space-3 pb-space-4 border-b border-border-subtle relative z-10">
                                 <span className="material-symbols-outlined text-text-muted">workspace_premium</span>
@@ -199,7 +199,7 @@ const AccountStudySettings = () => {
                                     </span>
                                 </div>
                                 <p className="font-body-sm text-body-sm text-text-muted mb-space-6">{subscriptionSummary}</p>
-                                <Link to="/subscription" className="flex w-full items-center justify-center py-space-3 px-space-4 bg-surface border border-border-default rounded-xl font-label-md text-label-md text-text-primary hover:bg-surface-soft transition-colors shadow-sm">
+                                <Link to="/dashboard/settings#subscription" className="flex w-full items-center justify-center py-space-3 px-space-4 bg-surface border border-border-default rounded-xl font-label-md text-label-md text-text-primary hover:bg-surface-soft transition-colors shadow-sm">
                                     Manage Subscription
                                 </Link>
                             </div>

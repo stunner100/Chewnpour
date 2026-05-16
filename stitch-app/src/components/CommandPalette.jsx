@@ -6,15 +6,16 @@ import { signOut } from '../lib/auth-client';
 
 const NAV_OPTIONS = [
     { label: 'Dashboard', value: '/dashboard', icon: 'space_dashboard', keywords: ['home', 'main'] },
-    { label: 'Library', value: '/dashboard/search', icon: 'auto_stories', keywords: ['books', 'materials', 'upload'] },
-    { label: 'Study Plan', value: '/dashboard/analysis', icon: 'event_note', keywords: ['schedule', 'plan', 'analysis'] },
-    { label: 'Assignments', value: '/dashboard/assignment-helper', icon: 'edit_note', keywords: ['homework', 'tasks', 'helper'] },
-    { label: 'Humanizer', value: '/dashboard/humanizer', icon: 'auto_fix_high', keywords: ['ai', 'rewrite', 'humanize'] },
-    { label: 'Community', value: '/dashboard/community', icon: 'forum', keywords: ['chat', 'discuss'] },
+    { label: 'Library', value: '/dashboard/library', icon: 'auto_stories', keywords: ['books', 'materials', 'upload'] },
+    { label: 'Upload', value: '/dashboard/upload', icon: 'cloud_upload', keywords: ['file', 'pdf', 'material'] },
+    { label: 'Lessons', value: '/dashboard/lessons', icon: 'menu_book', keywords: ['read', 'course', 'topic'] },
+    { label: 'Quizzes', value: '/dashboard/quiz', icon: 'quiz', keywords: ['test', 'exam', 'assessment'] },
+    { label: 'Flashcards', value: '/dashboard/flashcards', icon: 'style', keywords: ['cards', 'review', 'concept'] },
     { label: 'Podcasts', value: '/dashboard/podcasts', icon: 'podcasts', keywords: ['audio', 'listen', 'revision'] },
-    { label: 'Subscription', value: '/subscription', icon: 'workspace_premium', keywords: ['premium', 'pay', 'upgrade'] },
-    { label: 'Profile', value: '/profile', icon: 'person', keywords: ['account', 'settings'] },
-    { label: 'Past Questions', value: '/dashboard/exam', icon: 'quiz', keywords: ['test', 'exam', 'assessment'] },
+    { label: 'AI Tutor', value: '/dashboard/ai-tutor', icon: 'smart_toy', keywords: ['chat', 'help', 'explain'] },
+    { label: 'Study Plan', value: '/dashboard/progress', icon: 'event_note', keywords: ['schedule', 'plan', 'analysis'] },
+    { label: 'Subscription', value: '/dashboard/settings#subscription', icon: 'workspace_premium', keywords: ['premium', 'pay', 'upgrade'] },
+    { label: 'Profile', value: '/dashboard/settings#profile', icon: 'person', keywords: ['account', 'settings'] },
     { label: 'Sign Out', value: '__signout', icon: 'logout', keywords: ['sign out', 'log out', 'exit'] },
 ];
 
@@ -73,6 +74,12 @@ export const CommandPalette = () => {
     useEffect(() => {
         document.addEventListener('keydown', handleGlobalKeyDown);
         return () => document.removeEventListener('keydown', handleGlobalKeyDown);
+    }, []);
+
+    useEffect(() => {
+        const handleOpenRequest = () => dispatchPalette({ type: 'toggleShortcut' });
+        window.addEventListener('cp:open-command-palette', handleOpenRequest);
+        return () => window.removeEventListener('cp:open-command-palette', handleOpenRequest);
     }, []);
 
     useEffect(() => {
@@ -146,6 +153,8 @@ export const CommandPalette = () => {
                         exit={{ opacity: 0, scale: 0.95, y: -10 }}
                         transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
                         className="fixed z-[201] top-[20%] left-1/2 -translate-x-1/2 w-[90vw] max-w-lg"
+                        role="dialog"
+                        aria-label="Command palette"
                     >
                         <div className="rounded-2xl border border-border-subtle dark:border-border-subtle-dark bg-surface-light dark:bg-surface-dark shadow-elevated overflow-hidden">
                             <div className="flex items-center gap-3 px-4 border-b border-border-subtle dark:border-border-subtle-dark">
@@ -158,12 +167,16 @@ export const CommandPalette = () => {
                                     onKeyDown={handleKeyDown}
                                     placeholder="Search pages, actions..."
                                     className="flex-1 py-4 text-sm bg-transparent text-text-main-light dark:text-text-main-dark placeholder:text-text-faint-light dark:placeholder:text-text-faint-dark focus:outline-none"
+                                    role="combobox"
+                                    aria-expanded={open}
+                                    aria-controls="command-palette-list"
+                                    aria-activedescendant={filtered[activeIndex] ? `palette-option-${activeIndex}` : undefined}
                                 />
-                                <kbd className="hidden sm:inline-flex items-center gap-0.5 rounded-md border border-border-light dark:border-border-dark bg-surface-hover-light dark:bg-surface-hover-dark px-2 py-0.5 text-[10px] font-mono text-text-faint-light dark:text-text-faint-dark">
+                                <kbd className="hidden sm:inline-flex items-center gap-0.5 rounded-md border border-border-light dark:border-border-dark bg-surface-hover-light dark:bg-surface-hover-dark px-2 py-0.5 text-[10px] font-mono text-text-faint-light dark:text-text-faint-dark" aria-hidden="true">
                                     ESC
                                 </kbd>
                             </div>
-                            <div ref={listRef} className="max-h-[320px] overflow-y-auto py-1.5">
+                            <div ref={listRef} id="command-palette-list" role="listbox" className="max-h-[320px] overflow-y-auto py-1.5">
                                 {filtered.length === 0 ? (
                                     <p className="px-4 py-6 text-sm text-text-faint-light dark:text-text-faint-dark text-center">
                                         No results found.
@@ -175,6 +188,9 @@ export const CommandPalette = () => {
                                             type="button"
                                             onClick={() => handleSelect(option.value)}
                                             onMouseEnter={() => dispatchPalette({ type: 'activate', index })}
+                                            id={`palette-option-${index}`}
+                                            role="option"
+                                            aria-selected={index === activeIndex}
                                             className={cn(
                                                 'w-full flex items-center gap-3 px-4 py-3 text-left text-sm transition-colors',
                                                 index === activeIndex

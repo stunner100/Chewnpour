@@ -528,7 +528,7 @@ const ConceptSessionSummaryView = ({
                     </span>
                 </button>
                 <Link
-                    to={`/dashboard/exam/${topicId}`}
+                    to={`/dashboard/quiz/${topicId}`}
                     className="btn-secondary flex-1 py-3 text-body-sm flex items-center justify-center gap-2"
                 >
                     <span className="material-symbols-outlined text-[18px]">quiz</span>

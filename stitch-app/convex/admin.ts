@@ -121,35 +121,47 @@ const collectAuthUserIdCandidates = (identity: any) => {
     if (!identity || typeof identity !== "object") return [] as string[];
 
     const candidates: string[] = [];
-    pushUnique(candidates, identity.subject);
-    pushUnique(candidates, identity.userId);
-    pushUnique(candidates, identity.id);
+    const pushCandidateWithSegments = (candidate: unknown) => {
+        const normalized = normalizeUserIdCandidate(candidate);
+        if (!normalized) return;
+        pushUnique(candidates, normalized);
+
+        // Some auth providers encode a stable user id in tokenIdentifier/subject segments.
+        for (const separator of ["|", ":"]) {
+            const segments = normalized
+                .split(separator)
+                .map((segment: string) => segment.trim())
+                .filter(Boolean);
+            if (segments.length > 1) {
+                pushUnique(candidates, segments[segments.length - 1]);
+            }
+        }
+    };
+
+    pushCandidateWithSegments(identity.subject);
+    pushCandidateWithSegments(identity.userId);
+    pushCandidateWithSegments(identity.id);
 
     const tokenIdentifier = normalizeUserIdCandidate(identity.tokenIdentifier);
     if (tokenIdentifier) {
-        pushUnique(candidates, tokenIdentifier);
-
-        // Some auth providers encode a stable user id in tokenIdentifier segments.
-        const pipeSegments = tokenIdentifier
-            .split("|")
-            .map((segment: string) => segment.trim())
-            .filter(Boolean);
-        if (pipeSegments.length > 1) {
-            pushUnique(candidates, pipeSegments[pipeSegments.length - 1]);
-        }
-        const colonSegments = tokenIdentifier
-            .split(":")
-            .map((segment: string) => segment.trim())
-            .filter(Boolean);
-        if (colonSegments.length > 1) {
-            pushUnique(candidates, colonSegments[colonSegments.length - 1]);
-        }
+        pushCandidateWithSegments(tokenIdentifier);
     }
 
     return candidates;
 };
 
-const resolveAuthUserId = (identity: any) => collectAuthUserIdCandidates(identity)[0] || "";
+const isLikelyCanonicalAuthUserId = (candidate: unknown) => {
+    const normalized = normalizeUserIdCandidate(candidate);
+    if (!normalized) return false;
+    if (/[|:/]/.test(normalized)) return false;
+    if (/^https?:\/\//i.test(normalized)) return false;
+    return /^[a-z0-9]+$/i.test(normalized);
+};
+
+const resolveAuthUserId = (identity: any) => {
+    const candidates = collectAuthUserIdCandidates(identity);
+    return candidates.find(isLikelyCanonicalAuthUserId) || candidates[0] || "";
+};
 
 const normalizeEmail = (value: unknown) =>
     typeof value === "string" && value.trim()

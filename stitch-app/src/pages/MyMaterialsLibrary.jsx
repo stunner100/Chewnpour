@@ -66,6 +66,8 @@ const MyMaterialsLibrary = () => {
     const materials = useMemo(() => {
         return safeUploads.map((upload) => {
             const course = safeCourses.find((item) => String(item.uploadId || '') === String(upload._id));
+            const topicCount = Number(course?.topicCount || 0);
+            const quizzesReady = Number(course?.quizzesReady || 0);
             return {
                 uploadId: upload._id,
                 courseId: course?._id || null,
@@ -77,9 +79,9 @@ const MyMaterialsLibrary = () => {
                 processingStep: upload.processingStep || '',
                 errorMessage: upload.errorMessage || '',
                 createdAt: upload._creationTime,
-                lessons: course?.progress >= 0 ? Math.max(0, Math.round((course.progress || 0) / 25)) : 0,
-                quizzes: 0,
-                topicCount: 0,
+                lessons: topicCount,
+                quizzes: quizzesReady,
+                topicCount,
             };
         });
     }, [safeCourses, safeUploads]);
@@ -142,7 +144,7 @@ const MyMaterialsLibrary = () => {
                 {filteredMaterials.map((material) => {
                     const typeConfig = typeIcons[material.kind] || typeIcons.notes;
                     const ready = material.status === 'ready';
-                    const studyHref = material.courseId ? `/dashboard/course/${material.courseId}` : '/dashboard/upload';
+                    const studyHref = material.courseId ? `/dashboard/lessons?courseId=${material.courseId}` : '/dashboard/upload';
                     return (
                         <article
                             key={material.uploadId}
@@ -178,18 +180,13 @@ const MyMaterialsLibrary = () => {
                                     <>
                                         <div className="flex gap-3 mb-4 border-t border-border-subtle pt-3">
                                             <div className="flex flex-col">
-                                                <span className="font-label-md text-label-md text-text-primary">{material.lessons}</span>
-                                                <span className="font-label-xs text-label-xs text-text-muted">Lessons</span>
+                                                <span className="font-label-md text-label-md text-text-primary">{material.topicCount}</span>
+                                                <span className="font-label-xs text-label-xs text-text-muted">Topics</span>
                                             </div>
                                             <div className="w-px h-full bg-border-subtle" />
                                             <div className="flex flex-col">
                                                 <span className="font-label-md text-label-md text-text-primary">{material.quizzes}</span>
-                                                <span className="font-label-xs text-label-xs text-text-muted">Questions</span>
-                                            </div>
-                                            <div className="w-px h-full bg-border-subtle" />
-                                            <div className="flex flex-col">
-                                                <span className="font-label-md text-label-md text-text-primary">{material.topicCount}</span>
-                                                <span className="font-label-xs text-label-xs text-text-muted">Topics</span>
+                                                <span className="font-label-xs text-label-xs text-text-muted">Quizzes</span>
                                             </div>
                                         </div>
                                         <Link

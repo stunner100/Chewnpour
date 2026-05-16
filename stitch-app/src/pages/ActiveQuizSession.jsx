@@ -1,12 +1,89 @@
-import React, { useMemo } from 'react';
-import { Link, Navigate, useParams } from 'react-router-dom';
+import React, { useMemo, useState } from 'react';
+import { Link, useParams, useSearchParams } from 'react-router-dom';
 import { useConvexAuth, useQuery } from 'convex/react';
 import { api } from '../../convex/_generated/api';
 
 const EMPTY_LIST = [];
 
 const buildObjectiveExamRoute = (topicId) =>
-    topicId ? `/dashboard/exam/${topicId}?autostart=mcq` : '/dashboard';
+    topicId ? `/dashboard/quiz/${topicId}?autostart=mcq` : '/dashboard/quiz';
+
+const normalizeText = (value) => String(value || '').replace(/\s+/g, ' ').trim();
+
+const formatDifficulty = (value) => {
+    const normalized = normalizeText(value).toLowerCase();
+    if (!normalized) return '';
+    return `${normalized.charAt(0).toUpperCase()}${normalized.slice(1)} difficulty`;
+};
+
+const formatCourseLabel = (course) => normalizeText(course?.title || 'Generated Course').toUpperCase();
+
+const parseOptionJson = (value) => {
+    if (typeof value !== 'string') return null;
+    const trimmed = value.trim();
+    if (!trimmed.startsWith('{') && !trimmed.startsWith('[')) return null;
+    try {
+        return JSON.parse(trimmed);
+    } catch {
+        return null;
+    }
+};
+
+const coerceQuestionOptions = (rawOptions) => {
+    if (!rawOptions) return EMPTY_LIST;
+
+    let options = rawOptions;
+    const parsedOptions = parseOptionJson(options);
+    if (parsedOptions) options = parsedOptions;
+
+    if (options && !Array.isArray(options) && typeof options === 'object') {
+        if (Array.isArray(options.options)) {
+            options = options.options;
+        } else if (Array.isArray(options.choices)) {
+            options = options.choices;
+        } else {
+            options = [options];
+        }
+    }
+
+    if (!Array.isArray(options)) options = [options];
+
+    return options.flatMap((option) => {
+        const parsedOption = parseOptionJson(option);
+        if (Array.isArray(parsedOption)) return parsedOption;
+        return parsedOption ? [parsedOption] : [option];
+    });
+};
+
+const normalizeQuestionOption = (option, index) => {
+    if (option && typeof option === 'object') {
+        const label = normalizeText(option.label ?? option.id) || String.fromCharCode(65 + index);
+        const text = normalizeText(option.text ?? option.value ?? option.answer ?? option.choiceText);
+        return text ? { label, value: String(label), text } : null;
+    }
+
+    let label = String.fromCharCode(65 + index);
+    let text = normalizeText(option);
+    const labelMatch = text.match(/^\s*([A-D])[).\-:\s]+(.+)$/i);
+    if (labelMatch) {
+        label = labelMatch[1].toUpperCase();
+        text = normalizeText(labelMatch[2]);
+    }
+    return text
+        ? { label, value: label, text }
+        : null;
+};
+
+const resolveQuestionOptions = (question) => {
+    const source = coerceQuestionOptions(question?.options);
+    return source.flatMap((option, index) => {
+        const normalized = normalizeQuestionOption(option, index);
+        return normalized ? [normalized] : [];
+    });
+};
+
+const isObjectiveQuestion = (question) =>
+    question && String(question.questionType || '').toLowerCase() !== 'essay';
 
 const hasOwn = (object, key) => Object.prototype.hasOwnProperty.call(Object(object), key);
 
@@ -18,6 +95,24 @@ const hasQuizContent = (course) =>
 
 const shouldShowQuizCourse = (course) =>
     hasQuizContent(course) || !hasQuizReadinessMetadata(course);
+
+const hasTopicQuizReadinessMetadata = (topic) =>
+    hasOwn(topic, 'usableMcqCount') || hasOwn(topic, 'usableObjectiveCount');
+
+const isQuizReadyTopic = (topic) => {
+    if ((topic?.assessmentRoute || 'topic_quiz') !== 'topic_quiz') return false;
+    if (!hasTopicQuizReadinessMetadata(topic)) return true;
+    return Number(topic?.usableMcqCount || topic?.usableObjectiveCount || 0) > 0;
+};
+
+const pickPreviewQuestion = (questions) => {
+    const objectiveQuestions = Array.isArray(questions)
+        ? questions.filter(isObjectiveQuestion)
+        : EMPTY_LIST;
+    return objectiveQuestions.find((question) => resolveQuestionOptions(question).length > 0)
+        || objectiveQuestions[0]
+        || null;
+};
 
 const StudyToolSkeleton = () => (
     <div className="flex-1 flex flex-col ml-0 h-[calc(100vh-64px)] overflow-hidden">
@@ -54,35 +149,6 @@ const EmptyStudyToolState = () => (
         </Link>
     </section>
 );
-
-const ResumeQuizCard = ({ resumeTarget }) => {
-    if (!resumeTarget?.topicId) return null;
-
-    return (
-        <section className="rounded-2xl border border-primary/20 bg-primary-soft p-space-6 shadow-sm">
-            <div className="flex flex-col gap-space-4 md:flex-row md:items-center md:justify-between">
-                <div>
-                    <p className="font-label-sm text-label-sm font-bold uppercase tracking-wider text-primary">
-                        Continue practice
-                    </p>
-                    <h2 className="mt-space-2 font-display-sm text-display-sm text-text-primary">
-                        {resumeTarget.topicTitle || 'Your latest topic'}
-                    </h2>
-                    <p className="mt-space-2 font-body-base text-body-base text-text-secondary">
-                        Start an objective quiz from the topic you last studied.
-                    </p>
-                </div>
-                <Link
-                    to={buildObjectiveExamRoute(resumeTarget.topicId)}
-                    className="inline-flex shrink-0 items-center justify-center gap-space-2 rounded-xl bg-primary px-space-5 py-space-3 font-label-md text-label-md text-on-primary shadow-sm transition-colors hover:bg-primary-hover"
-                >
-                    Start Quiz
-                    <span className="material-symbols-outlined text-[20px]">arrow_forward</span>
-                </Link>
-            </div>
-        </section>
-    );
-};
 
 const CourseQuizCard = ({ course }) => {
     const targetTopicId = course.firstQuizTopicId;
@@ -125,59 +191,243 @@ const CourseQuizCard = ({ course }) => {
     );
 };
 
+const QuizMockupPanel = ({
+    course,
+    topic,
+    previewQuestion,
+    totalQuestions,
+    selectedAnswer,
+    onSelectAnswer,
+}) => {
+    const options = resolveQuestionOptions(previewQuestion);
+    const topicTitle = normalizeText(topic?.title || 'Generated Review');
+    const startHref = buildObjectiveExamRoute(topic?._id);
+    const difficultyLabel = formatDifficulty(previewQuestion?.difficulty);
+    const topicHref = topic?._id ? `/dashboard/topic/${topic._id}` : '/dashboard/lessons';
+
+    return (
+        <section className="w-full rounded-[28px] border border-border-subtle bg-surface p-space-5 md:p-space-8 shadow-sm">
+            <div className="flex flex-col gap-space-5">
+                <div className="flex flex-col gap-space-4 md:flex-row md:items-start md:justify-between">
+                    <div>
+                        <p className="font-label-sm text-label-sm font-bold uppercase tracking-wider text-text-secondary">
+                            {formatCourseLabel(course)}
+                        </p>
+                        <h1 className="mt-space-1 max-w-2xl font-display-sm text-display-sm text-text-primary">
+                            {topicTitle}
+                        </h1>
+                        <p className="mt-space-2 font-body-sm text-body-sm text-text-secondary">
+                            Preview the first question, then start to begin a timed attempt.
+                        </p>
+                    </div>
+                    <div className="flex shrink-0 flex-col items-start gap-space-2 md:items-end">
+                        {difficultyLabel ? (
+                            <span className="inline-flex items-center rounded-full bg-warning-soft px-space-3 py-space-1 font-label-xs text-label-xs text-warning">
+                                {difficultyLabel}
+                            </span>
+                        ) : null}
+                        {totalQuestions > 0 ? (
+                            <span className="font-label-sm text-label-sm text-text-secondary">
+                                {totalQuestions} question{totalQuestions === 1 ? '' : 's'} ready
+                            </span>
+                        ) : null}
+                    </div>
+                </div>
+
+                <div className="grid gap-space-8 lg:grid-cols-[minmax(0,1fr)_280px]">
+                    <div>
+                        <span className="inline-flex items-center rounded-full bg-primary-subtle px-space-3 py-space-1 font-label-xs text-label-xs text-primary">
+                            Sample question
+                        </span>
+                        <h2 className="mt-space-3 max-w-3xl font-display-sm text-display-sm text-text-primary leading-tight">
+                            {previewQuestion?.questionText || 'Open a generated topic to start an objective quiz.'}
+                        </h2>
+
+                        <div
+                            className="mt-space-8 flex flex-col gap-space-3"
+                            role="radiogroup"
+                            aria-label="Sample question options"
+                        >
+                            {options.length > 0 ? (
+                                options.slice(0, 4).map((option) => {
+                                    const isSelected = selectedAnswer === option.value;
+                                    return (
+                                        <button
+                                            key={`${option.value}-${option.text}`}
+                                            type="button"
+                                            role="radio"
+                                            aria-checked={isSelected}
+                                            onClick={() => onSelectAnswer(option.value)}
+                                            className={`w-full max-w-md rounded-2xl border px-space-4 py-space-4 text-left transition-all ${
+                                                isSelected
+                                                    ? 'border-primary bg-primary-subtle text-text-primary shadow-sm'
+                                                    : 'border-border-subtle bg-surface-soft text-text-secondary hover:border-primary/50 hover:bg-primary-subtle'
+                                            }`}
+                                        >
+                                            <span className="flex items-center gap-space-3">
+                                                <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full font-label-md text-label-md ${
+                                                    isSelected
+                                                        ? 'bg-primary text-on-primary'
+                                                        : 'bg-surface text-text-secondary'
+                                                }`}>
+                                                    {option.label}
+                                                </span>
+                                                <span className="font-label-md text-label-md">{option.text}</span>
+                                            </span>
+                                        </button>
+                                    );
+                                })
+                            ) : (
+                                <div className="max-w-md rounded-2xl border border-dashed border-border-strong bg-surface-soft p-space-5">
+                                    <p className="font-body-sm text-body-sm text-text-secondary">
+                                        This topic is still preparing objective options.
+                                    </p>
+                                </div>
+                            )}
+                        </div>
+                        <p className="mt-space-3 max-w-md font-label-xs text-label-xs text-text-muted">
+                            Answers are scored once you start the quiz.
+                        </p>
+                    </div>
+
+                    <aside className="rounded-2xl border border-border-subtle bg-surface-soft p-space-5">
+                        <p className="font-label-xs text-label-xs font-bold uppercase tracking-wider text-text-muted">
+                            Quiz mode
+                        </p>
+                        <p className="mt-space-2 font-headline-sm text-headline-sm text-text-primary">
+                            Objective review
+                        </p>
+                        <p className="mt-space-2 font-body-sm text-body-sm text-text-secondary">
+                            {totalQuestions} generated question{totalQuestions === 1 ? '' : 's'} ready from this topic.
+                        </p>
+                        <Link
+                            to={startHref}
+                            className="mt-space-5 inline-flex w-full items-center justify-center gap-space-2 rounded-xl bg-primary px-space-5 py-space-3 font-label-md text-label-md text-on-primary shadow-sm transition-colors hover:bg-primary-hover"
+                        >
+                            Start quiz
+                            <span className="material-symbols-outlined text-[20px]">arrow_forward</span>
+                        </Link>
+                        <Link
+                            to={topicHref}
+                            className="mt-space-3 inline-flex w-full items-center justify-center rounded-xl border border-border-default bg-surface px-space-5 py-space-3 font-label-md text-label-md text-text-primary transition-colors hover:bg-surface-soft"
+                        >
+                            Review lesson first
+                        </Link>
+                    </aside>
+                </div>
+            </div>
+        </section>
+    );
+};
+
 const ActiveQuizSession = () => {
     const { quizId } = useParams();
+    const [searchParams] = useSearchParams();
+    const routeTopicId = typeof quizId === 'string' ? quizId.trim() : '';
+    const requestedCourseId = searchParams.get('courseId') || '';
     const { isAuthenticated } = useConvexAuth();
+    const [selectedAnswer, setSelectedAnswer] = useState({ questionId: '', value: '' });
     const courses = useQuery(api.courses.getUserCourses, isAuthenticated ? {} : 'skip');
     const resumeTarget = useQuery(api.topics.getResumeTarget, isAuthenticated ? {} : 'skip');
     const courseList = Array.isArray(courses) ? courses : EMPTY_LIST;
     const quizReadyCourses = useMemo(() => courseList.filter(hasQuizContent), [courseList]);
     const visibleQuizCourses = useMemo(() => courseList.filter(shouldShowQuizCourse), [courseList]);
-    const resumeQuizCandidates = quizReadyCourses.length > 0 ? quizReadyCourses : visibleQuizCourses;
-    const resumeQuizReady = Boolean(resumeTarget?.topicId)
-        && resumeQuizCandidates.some((course) =>
-            String(course._id) === String(resumeTarget?.courseId)
-            || String(course.firstQuizTopicId) === String(resumeTarget?.topicId)
-            || !hasQuizReadinessMetadata(course)
-        );
+    const selectionCourseList = quizReadyCourses.length > 0 ? quizReadyCourses : visibleQuizCourses;
+    const requestedCourse = selectionCourseList.find((course) => String(course._id) === String(requestedCourseId));
+    const resumeCourse = resumeTarget?.courseId
+        ? selectionCourseList.find((course) => String(course._id) === String(resumeTarget.courseId))
+        : null;
+    const selectedCourseId = routeTopicId ? '' : requestedCourse?._id || resumeCourse?._id || selectionCourseList[0]?._id || courseList[0]?._id || '';
+    const courseWithTopics = useQuery(
+        api.courses.getCourseWithTopics,
+        isAuthenticated && selectedCourseId ? { courseId: selectedCourseId } : 'skip',
+    );
+    const topicList = Array.isArray(courseWithTopics?.topics) ? courseWithTopics.topics : EMPTY_LIST;
+    const quizReadyTopicList = useMemo(() => topicList.filter(isQuizReadyTopic), [topicList]);
+    const selectedTopicId = (() => {
+        if (routeTopicId) return routeTopicId;
+        if (resumeTarget?.topicId && quizReadyTopicList.some((topic) => String(topic._id) === String(resumeTarget.topicId))) {
+            return resumeTarget.topicId;
+        }
+        return requestedCourse?.firstQuizTopicId || resumeCourse?.firstQuizTopicId || quizReadyCourses[0]?.firstQuizTopicId || quizReadyTopicList[0]?._id || '';
+    })();
+    const topicPreview = useQuery(
+        api.topics.getTopicWithQuestions,
+        isAuthenticated && selectedTopicId ? { topicId: String(selectedTopicId) } : 'skip',
+    );
+    const selectedCourse = useMemo(() => {
+        const topicCourseId = topicPreview?.courseId;
+        return selectionCourseList.find((course) => String(course._id) === String(topicCourseId))
+            || selectionCourseList.find((course) => String(course._id) === String(selectedCourseId))
+            || courseList.find((course) => String(course._id) === String(topicCourseId))
+            || selectionCourseList[0]
+            || null;
+    }, [courseList, selectionCourseList, selectedCourseId, topicPreview?.courseId]);
+    const previewQuestions = Array.isArray(topicPreview?.questions)
+        ? topicPreview.questions.filter(isObjectiveQuestion)
+        : EMPTY_LIST;
+    const previewQuestion = useMemo(() => pickPreviewQuestion(previewQuestions), [previewQuestions]);
+    const previewQuestionId = String(previewQuestion?._id || '');
+    const previewSelectedAnswer = selectedAnswer.questionId === previewQuestionId
+        ? selectedAnswer.value
+        : '';
 
-    if (quizId) {
-        return <Navigate to={buildObjectiveExamRoute(quizId)} replace />;
+    if (
+        !isAuthenticated
+        || courses === undefined
+        || resumeTarget === undefined
+        || (!routeTopicId && selectedCourseId && courseWithTopics === undefined)
+        || (selectedTopicId && topicPreview === undefined)
+    ) {
+        return <StudyToolSkeleton />;
     }
 
-    if (!isAuthenticated || courses === undefined || resumeTarget === undefined) {
-        return <StudyToolSkeleton />;
+    if (
+        (!routeTopicId && (visibleQuizCourses.length === 0 || quizReadyTopicList.length === 0))
+        || !topicPreview
+        || !previewQuestion
+    ) {
+        return (
+            <div className="flex-1 flex flex-col ml-0 h-[calc(100vh-64px)] overflow-hidden">
+                <main className="flex-1 min-h-0 p-space-4 md:px-space-10 md:py-space-8 flex flex-col items-center justify-start overflow-y-auto">
+                    <div className="w-full max-w-5xl">
+                        <EmptyStudyToolState />
+                    </div>
+                </main>
+            </div>
+        );
     }
 
     return (
         <div className="flex-1 flex flex-col ml-0 h-[calc(100vh-64px)] overflow-hidden">
             <main className="flex-1 min-h-0 p-space-4 md:px-space-10 md:py-space-8 flex flex-col items-center justify-start overflow-y-auto">
                 <div className="w-full max-w-5xl">
-                    <div className="mb-space-6 flex flex-col gap-space-2">
-                        <p className="font-label-sm text-label-sm font-bold uppercase tracking-wider text-primary">
-                            Quizzes
-                        </p>
-                        <h1 className="font-display-sm text-display-sm text-text-primary">
-                            Practice from your generated topics
-                        </h1>
-                        <p className="max-w-2xl font-body-base text-body-base text-text-secondary">
-                            Pick a real course or continue your latest topic to start objective questions from your own study material.
-                        </p>
-                    </div>
+                    <QuizMockupPanel
+                        course={selectedCourse}
+                        topic={topicPreview}
+                        previewQuestion={previewQuestion}
+                        totalQuestions={previewQuestions.length}
+                        selectedAnswer={previewSelectedAnswer}
+                        onSelectAnswer={(value) => setSelectedAnswer({ questionId: previewQuestionId, value })}
+                    />
 
-                    <div className="space-y-space-5">
-                        <ResumeQuizCard resumeTarget={resumeQuizReady ? resumeTarget : null} />
-
-                        {visibleQuizCourses.length > 0 ? (
-                            <section className="grid gap-space-4 md:grid-cols-2">
-                                {visibleQuizCourses.map((course) => (
+                    {visibleQuizCourses.length > 1 && (
+                        <section className="mt-space-8">
+                            <div className="mb-space-4 flex items-end justify-between gap-space-3">
+                                <div>
+                                    <h2 className="font-headline-sm text-headline-sm text-text-primary">More quizzes</h2>
+                                    <p className="mt-space-1 font-body-sm text-body-sm text-text-secondary">
+                                        Pick another course to practice from.
+                                    </p>
+                                </div>
+                            </div>
+                            <div className="grid gap-space-4 md:grid-cols-2">
+                                {visibleQuizCourses.slice(0, 4).map((course) => (
                                     <CourseQuizCard key={course._id} course={course} />
                                 ))}
-                            </section>
-                        ) : !resumeQuizReady ? (
-                            <EmptyStudyToolState />
-                        ) : null}
-                    </div>
+                            </div>
+                        </section>
+                    )}
                 </div>
             </main>
         </div>

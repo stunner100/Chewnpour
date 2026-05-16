@@ -307,7 +307,7 @@ export const AIHumanizer = () => {
                     {error}
                     {error.includes('Upgrade to premium') && (
                         <Link
-                            to="/subscription"
+                            to="/dashboard/settings#subscription"
                             className="ml-2 underline font-bold hover:text-red-800 dark:hover:text-red-200"
                         >
                             Upgrade now

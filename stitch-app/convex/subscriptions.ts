@@ -8,7 +8,7 @@ import {
     query,
 } from "./_generated/server";
 import { internal } from "./_generated/api";
-import { collectAuthUserIdCandidates } from "./lib/examSecurity";
+import { resolveAuthUserId as resolveCanonicalAuthUserId } from "./lib/examSecurity";
 import { sendEmail } from "./lib/emailSender";
 
 export const FREE_UPLOAD_LIMIT = 3;
@@ -251,7 +251,7 @@ const resolveTopUpPlanByPayment = (amountMinor: number, currency: string) => {
 };
 
 const resolveAuthUserId = (identity: any) => {
-    return collectAuthUserIdCandidates(identity)[0] || "";
+    return resolveCanonicalAuthUserId(identity);
 };
 
 const assertAuthenticatedUserId = (identity: any) => {

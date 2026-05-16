@@ -93,7 +93,7 @@ const DashboardLayout = ({ children }) => {
     const routerLocation = useLocation();
     const navigate = useNavigate();
     const { profile } = useAuth();
-    const hideMobileBottomNav = routerLocation.pathname.startsWith('/dashboard/exam');
+    const hideMobileBottomNav = /^\/dashboard\/quiz\/(?!results\/)[^/]+/.test(routerLocation.pathname);
 
     useEffect(() => {
         const incomingToast = routerLocation.state?.watermelonToast;
@@ -147,7 +147,7 @@ const DashboardLayout = ({ children }) => {
     const initials = displayName.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase();
 
     return (
-        <div className="dashboard-shell cp-theme flex h-screen overflow-hidden">
+        <div className="dashboard-shell cp-theme flex h-screen overflow-hidden bg-[#FAF8F3] text-[#1F2933]">
             {/* Desktop Sidebar */}
             <aside className="hidden md:flex fixed left-0 top-0 h-screen w-sidebar-width flex-col border-r border-border-subtle bg-surface-soft p-space-4 gap-space-4 z-20">
                 {/* Brand Header */}
@@ -180,7 +180,7 @@ const DashboardLayout = ({ children }) => {
                                 to={item.path}
                                 className={`flex items-center gap-2.5 px-3 py-2.5 rounded-xl transition-all duration-200 ${
                                     active
-                                        ? 'text-primary font-bold bg-primary-soft scale-[0.98]'
+                                        ? 'text-primary font-bold bg-primary-soft'
                                         : 'text-text-secondary hover:text-primary hover:bg-surface-variant'
                                 }`}
                             >
@@ -206,7 +206,7 @@ const DashboardLayout = ({ children }) => {
                                 to={item.path}
                                 className={`flex items-center gap-2.5 px-3 py-2.5 rounded-xl transition-all duration-200 ${
                                     active
-                                        ? 'text-primary font-bold bg-primary-soft scale-[0.98]'
+                                        ? 'text-primary font-bold bg-primary-soft'
                                         : 'text-text-secondary hover:text-primary hover:bg-surface-variant'
                                 }`}
                             >
@@ -227,14 +227,18 @@ const DashboardLayout = ({ children }) => {
             <div className="flex-1 flex flex-col md:ml-[260px] min-h-screen">
                 {/* Top Header */}
                 <header className="fixed top-0 flex justify-between items-center h-16 px-space-8 w-full md:w-[calc(100%-260px)] bg-surface shadow-sm z-10 border-b border-border-subtle">
-                    <div className="flex-1 max-w-md relative flex items-center focus-within:ring-2 focus-within:ring-primary-soft rounded-lg transition-all">
+                    <button
+                        type="button"
+                        onClick={() => window.dispatchEvent(new CustomEvent('cp:open-command-palette'))}
+                        aria-label="Open command palette to search pages and actions"
+                        className="flex-1 max-w-md relative flex items-center gap-2 pl-10 pr-3 py-2 bg-background rounded-lg text-body-sm font-body-sm text-text-muted hover:text-text-primary hover:bg-surface-soft focus:outline-none focus:ring-2 focus:ring-primary-soft transition-all text-left"
+                    >
                         <span className="material-symbols-outlined absolute left-3 text-text-muted">search</span>
-                        <input
-                            className="w-full pl-10 pr-4 py-2 bg-background border-none rounded-lg text-body-sm font-body-sm focus:ring-0 placeholder:text-text-muted text-text-primary"
-                            placeholder="Search materials, lessons, or topics..."
-                            type="text"
-                        />
-                    </div>
+                        <span className="truncate">Search materials, lessons, or topics...</span>
+                        <kbd className="ml-auto hidden sm:inline-flex items-center gap-0.5 rounded-md border border-border-default bg-surface px-2 py-0.5 text-[10px] font-mono text-text-muted">
+                            ⌘K
+                        </kbd>
+                    </button>
                     <div className="flex items-center gap-space-4">
                         <a
                             href={SUPPORT_MAILTO}

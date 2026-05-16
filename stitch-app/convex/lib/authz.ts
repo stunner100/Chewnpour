@@ -25,11 +25,22 @@ export const getAuthenticatedUserIdCandidates = async (ctx: any): Promise<string
 
 export const assertOwnerUserId = (args: {
     authenticatedUserId: string;
+    authenticatedUserIds?: string[];
     ownerUserId?: string | null;
     message?: string;
 }) => {
     const ownerUserId = String(args.ownerUserId || "").trim();
-    if (!ownerUserId || ownerUserId !== args.authenticatedUserId) {
+    const authenticatedUserIds = Array.from(
+        new Set(
+            [
+                args.authenticatedUserId,
+                ...(Array.isArray(args.authenticatedUserIds) ? args.authenticatedUserIds : []),
+            ]
+                .map((candidate) => String(candidate || "").trim())
+                .filter(Boolean)
+        )
+    );
+    if (!ownerUserId || !authenticatedUserIds.includes(ownerUserId)) {
         throw new ConvexError({
             code: "UNAUTHORIZED",
             message: args.message || "You do not have permission to access this resource.",

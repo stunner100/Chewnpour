@@ -103,6 +103,8 @@ const StudentDashboard = lazyRoute(() => import('./pages/StudentDashboard'), { c
 const MyMaterialsLibrary = lazyRoute(() => import('./pages/MyMaterialsLibrary'), { componentName: 'MyMaterialsLibrary' });
 const UploadMaterials = lazyRoute(() => import('./pages/UploadMaterials'), { componentName: 'UploadMaterials' });
 const ActiveQuizSession = lazyRoute(() => import('./pages/ActiveQuizSession'), { componentName: 'ActiveQuizSession' });
+const QuizPlayer = lazyRoute(() => import('./pages/ExamMode'), { componentName: 'QuizPlayer' });
+const QuizResults = lazyRoute(() => import('./pages/DashboardResults'), { componentName: 'QuizResults' });
 const FlashcardStudySession = lazyRoute(() => import('./pages/FlashcardStudySession'), { componentName: 'FlashcardStudySession' });
 const AIStudyTutor = lazyRoute(() => import('./pages/AIStudyTutor'), { componentName: 'AIStudyTutor' });
 const StudyProgressMastery = lazyRoute(() => import('./pages/StudyProgressMastery'), { componentName: 'StudyProgressMastery' });
@@ -267,12 +269,27 @@ const RedirectLegacyLessonDetailRoute = () => {
 
 const RedirectLegacyQuizRoute = () => {
   const { topicId } = useParams();
-  return <Navigate to={topicId ? `/dashboard/quiz/${topicId}` : '/dashboard/quiz'} replace />;
+  const location = useLocation();
+  const search = location?.search || '';
+  return (
+    <Navigate
+      to={topicId ? `/dashboard/quiz/${topicId}${search}` : `/dashboard/quiz${search}`}
+      replace
+    />
+  );
 };
 
 const RedirectLegacyFlashcardsRoute = () => {
   const { topicId } = useParams();
   return <Navigate to={topicId ? `/dashboard/flashcards/${topicId}` : '/dashboard/flashcards'} replace />;
+};
+
+const RedirectCourseToLessonsRoute = () => {
+  const { courseId } = useParams();
+  const to = courseId
+    ? `/dashboard/lessons?courseId=${encodeURIComponent(courseId)}`
+    : '/dashboard/lessons';
+  return <Navigate to={to} replace />;
 };
 
 const TopicDetailRoute = () => {
@@ -313,7 +330,8 @@ function App() {
         <Route path="/dashboard/library" element={withSuspense(<ProtectedRoute><DashboardLayout><MyMaterialsLibrary /></DashboardLayout></ProtectedRoute>)} />
         <Route path="/dashboard/upload" element={withSuspense(<ProtectedRoute><DashboardLayout><UploadMaterials /></DashboardLayout></ProtectedRoute>)} />
         <Route path="/dashboard/quiz" element={withSuspense(<ProtectedRoute><DashboardLayout><ActiveQuizSession /></DashboardLayout></ProtectedRoute>)} />
-        <Route path="/dashboard/quiz/:quizId" element={withSuspense(<ProtectedRoute><DashboardLayout><ActiveQuizSession /></DashboardLayout></ProtectedRoute>)} />
+        <Route path="/dashboard/quiz/results/:attemptId" element={withSuspense(<ProtectedRoute><DashboardLayout><QuizResults /></DashboardLayout></ProtectedRoute>)} />
+        <Route path="/dashboard/quiz/:topicId" element={withSuspense(<ProtectedRoute><DashboardLayout><QuizPlayer /></DashboardLayout></ProtectedRoute>)} />
         <Route path="/dashboard/flashcards" element={withSuspense(<ProtectedRoute><DashboardLayout><FlashcardStudySession /></DashboardLayout></ProtectedRoute>)} />
         <Route path="/dashboard/flashcards/:deckId" element={withSuspense(<ProtectedRoute><DashboardLayout><FlashcardStudySession /></DashboardLayout></ProtectedRoute>)} />
         <Route path="/dashboard/ai-tutor" element={withSuspense(<ProtectedRoute><DashboardLayout><AIStudyTutor /></DashboardLayout></ProtectedRoute>)} />
@@ -326,7 +344,7 @@ function App() {
         <Route path="/dashboard/search" element={<Navigate to="/dashboard/library" replace />} />
         <Route path="/dashboard/processing" element={<Navigate to="/dashboard/library" replace />} />
         <Route path="/dashboard/processing/:courseId" element={<Navigate to="/dashboard/library" replace />} />
-        <Route path="/dashboard/course/:courseId" element={<Navigate to="/dashboard/lessons" replace />} />
+        <Route path="/dashboard/course/:courseId" element={<RedirectCourseToLessonsRoute />} />
         <Route path="/dashboard/topic/:topicId" element={withSuspense(<TopicDetailRoute />)} />
         <Route path="/dashboard/exam" element={<Navigate to="/dashboard/quiz" replace />} />
         <Route path="/dashboard/exam/:topicId" element={<RedirectLegacyQuizRoute />} />
