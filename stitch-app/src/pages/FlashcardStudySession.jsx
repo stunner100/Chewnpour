@@ -26,6 +26,8 @@ const dedupeTerms = (terms) => {
             term,
             definition,
             key: item?.key || key,
+            source: item?.source,
+            definitionLabel: item?.definitionLabel,
         });
     }
     return deduped.slice(0, 40);
@@ -91,13 +93,14 @@ const conceptsToTerms = (concepts) => {
                 ? `${Number(concept.accuracy)}% accuracy`
                 : 'needs review';
             const status = String(concept?.status || '').trim();
-            const detail = status
-                ? `${status} concept from your recent practice, ${accuracy}.`
-                : `Concept from your recent practice, ${accuracy}.`;
+            const statusPhrase = status ? `${status} concept` : 'concept';
+            const detail = `Explain this ${statusPhrase} in your own words, then rate how well you remembered it. It came from recent practice with ${accuracy}.`;
 
             return {
                 term: label,
                 definition: detail,
+                source: 'concept-review',
+                definitionLabel: 'Review cue',
                 key: concept?.conceptKey || `review-${index}`,
             };
         }),
@@ -236,6 +239,7 @@ const FlashcardStudyDeck = ({ topic, terms, starredTerms, onTermsStarred, onCard
     const current = terms[safeIndex];
     const progress = terms.length > 0 ? ((safeIndex + 1) / terms.length) * 100 : 0;
     const isStarred = current ? starred.has(current.term) : false;
+    const backLabel = current?.definitionLabel || 'Definition';
 
     const goTo = useCallback((nextIndex) => {
         setIndex(nextIndex);
@@ -350,7 +354,7 @@ const FlashcardStudyDeck = ({ topic, terms, starredTerms, onTermsStarred, onCard
                     <div className="absolute inset-0 bg-gradient-to-b from-transparent to-surface-soft/30 rounded-[24px] pointer-events-none" />
                     <div className="absolute top-space-5 left-space-5 flex items-center gap-space-2">
                         <span className="rounded-full bg-surface-soft px-space-3 py-space-1 font-label-xs text-label-xs uppercase tracking-wider text-text-muted">
-                            {flipped ? 'Definition' : 'Term'}
+                            {flipped ? backLabel : current.source === 'concept-review' ? 'Concept' : 'Term'}
                         </span>
                     </div>
                     <div className="relative z-10 px-space-8 sm:px-space-12 text-center max-h-[78%] overflow-y-auto">

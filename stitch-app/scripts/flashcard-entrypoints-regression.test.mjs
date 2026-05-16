@@ -38,6 +38,12 @@ requireExcludes(
 
 requireIncludes('const conceptsToTerms =', 'concept review fallback term builder');
 requireIncludes('conceptReviewTerms', 'concept review terms merged into the active deck');
+requireIncludes("definitionLabel: 'Review cue'", 'human review cue label for concept fallback cards');
+requireIncludes("current.source === 'concept-review' ? 'Concept' : 'Term'", 'concept fallback front label');
+requireExcludes(
+  "`${status} concept from your recent practice, ${accuracy}.`",
+  'raw concept status as a flashcard definition',
+);
 
 const courseCard = extractComponent('CourseFlashcardsCard');
 if (courseCard.includes('to="/dashboard/flashcards"')) {
