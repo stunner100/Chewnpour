@@ -99,7 +99,13 @@ requireExcludes('mastered this session', 'local mastered-session counter in flas
 requireIncludes('Card {safeIndex + 1} of {terms.length}', 'card position indicator in flashcard controls');
 requireExcludes('Due for review', 'backend-sounding due review section title');
 requireExcludes('need reinforcement', 'backend-sounding reinforcement copy');
-requireIncludes('Practice next', 'student-facing flashcard review section title');
-requireIncludes('Start review', 'student-facing flashcard review CTA');
+requireExcludes('need more practice', 'backend-sounding weak concept copy');
+requireExcludes('terms due', 'backend-sounding due count copy');
+requireExcludes('item.dueCount', 'review-card due count rendering');
+requireExcludes('item.weakCount', 'review-card weak count rendering');
+requireExcludes('Practice next', 'recommendation-style review section title');
+requireExcludes('Start review', 'review-status CTA copy');
+requireIncludes('Study decks', 'neutral flashcard deck section title');
+requireIncludes('Open deck', 'neutral flashcard deck CTA');
 
 console.log('flashcard-entrypoints-regression.test.mjs passed');

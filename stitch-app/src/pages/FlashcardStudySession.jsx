@@ -220,12 +220,8 @@ const ConceptReviewCard = ({ item }) => (
         <h3 className="font-headline-sm text-headline-sm text-text-primary">
             {item.topicTitle || 'Review topic'}
         </h3>
-        <p className="mt-space-2 font-body-sm text-body-sm text-text-secondary">
-            Review {Number(item.dueCount || 0)} flashcards from this topic.
-            {Number(item.weakCount || 0) > 0 ? ` Focus on ${Number(item.weakCount || 0)} that need more practice.` : ''}
-        </p>
         <div className="mt-space-5 flex items-center justify-between border-t border-border-subtle pt-space-4 font-label-md text-label-md text-primary">
-            <span>Start review</span>
+            <span>Open deck</span>
             <span className="material-symbols-outlined transition-transform group-hover:translate-x-1">
                 arrow_forward
             </span>
@@ -531,7 +527,7 @@ const FlashcardsIndex = ({ resumeTarget, reviewItems, courseList }) => (
             {reviewItems.length > 0 && (
                 <section>
                     <h2 className="mb-space-3 font-headline-xs text-headline-xs text-text-primary">
-                        Practice next
+                        Study decks
                     </h2>
                     <div className="grid gap-space-4 md:grid-cols-2">
                         {reviewItems.map((item) => (
