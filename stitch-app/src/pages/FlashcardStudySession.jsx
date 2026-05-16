@@ -212,19 +212,20 @@ const ResumeFlashcardsCard = ({ resumeTarget }) => {
 const ConceptReviewCard = ({ item }) => (
     <Link
         to={buildFlashcardRoute(item.topicId)}
-        className="group rounded-2xl border border-warning/20 bg-warning-soft/40 p-space-5 shadow-sm transition-all hover:-translate-y-0.5 hover:border-warning/40 hover:shadow-md"
+        className="group rounded-2xl border border-border-subtle bg-surface p-space-5 shadow-sm transition-all hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-md"
     >
-        <div className="mb-space-4 flex h-11 w-11 items-center justify-center rounded-xl bg-warning-soft text-warning">
-            <span className="material-symbols-outlined">psychology</span>
+        <div className="mb-space-4 flex h-11 w-11 items-center justify-center rounded-xl bg-primary-soft text-primary">
+            <span className="material-symbols-outlined">style</span>
         </div>
         <h3 className="font-headline-sm text-headline-sm text-text-primary">
             {item.topicTitle || 'Review topic'}
         </h3>
         <p className="mt-space-2 font-body-sm text-body-sm text-text-secondary">
-            {Number(item.dueCount || 0)} terms due, {Number(item.weakCount || 0)} need reinforcement.
+            Review {Number(item.dueCount || 0)} flashcards from this topic.
+            {Number(item.weakCount || 0) > 0 ? ` Focus on ${Number(item.weakCount || 0)} that need more practice.` : ''}
         </p>
         <div className="mt-space-5 flex items-center justify-between border-t border-border-subtle pt-space-4 font-label-md text-label-md text-primary">
-            <span>Study deck</span>
+            <span>Start review</span>
             <span className="material-symbols-outlined transition-transform group-hover:translate-x-1">
                 arrow_forward
             </span>
@@ -530,7 +531,7 @@ const FlashcardsIndex = ({ resumeTarget, reviewItems, courseList }) => (
             {reviewItems.length > 0 && (
                 <section>
                     <h2 className="mb-space-3 font-headline-xs text-headline-xs text-text-primary">
-                        Due for review
+                        Practice next
                     </h2>
                     <div className="grid gap-space-4 md:grid-cols-2">
                         {reviewItems.map((item) => (

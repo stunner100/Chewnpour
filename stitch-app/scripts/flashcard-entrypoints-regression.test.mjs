@@ -97,5 +97,9 @@ requireIncludes('recordConceptReview({', 'rating buttons persisting review attem
 requireIncludes('correctAnswers: [term]', 'flashcard ratings recording the reviewed concept');
 requireExcludes('mastered this session', 'local mastered-session counter in flashcard controls');
 requireIncludes('Card {safeIndex + 1} of {terms.length}', 'card position indicator in flashcard controls');
+requireExcludes('Due for review', 'backend-sounding due review section title');
+requireExcludes('need reinforcement', 'backend-sounding reinforcement copy');
+requireIncludes('Practice next', 'student-facing flashcard review section title');
+requireIncludes('Start review', 'student-facing flashcard review CTA');
 
 console.log('flashcard-entrypoints-regression.test.mjs passed');
