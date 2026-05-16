@@ -81,6 +81,29 @@ const getTopicTerms = (topic) => {
     return parseMarkdownWordBank(topic?.content);
 };
 
+const conceptsToTerms = (concepts) => {
+    if (!Array.isArray(concepts) || concepts.length === 0) return EMPTY_LIST;
+
+    return dedupeTerms(
+        concepts.map((concept, index) => {
+            const label = concept?.label || concept?.conceptLabel || concept?.displayText || concept?.conceptKey;
+            const accuracy = Number.isFinite(Number(concept?.accuracy))
+                ? `${Number(concept.accuracy)}% accuracy`
+                : 'needs review';
+            const status = String(concept?.status || '').trim();
+            const detail = status
+                ? `${status} concept from your recent practice, ${accuracy}.`
+                : `Concept from your recent practice, ${accuracy}.`;
+
+            return {
+                term: label,
+                definition: detail,
+                key: concept?.conceptKey || `review-${index}`,
+            };
+        }),
+    );
+};
+
 const StudyToolSkeleton = () => (
     <div className="flex-1 flex flex-col md:ml-0 h-[calc(100vh-64px)] overflow-hidden">
         <main className="flex-1 min-h-0 flex flex-col items-center justify-start px-space-8 pt-space-8 pb-space-8 overflow-y-auto">
@@ -176,7 +199,7 @@ const ConceptReviewCard = ({ item }) => (
 
 const CourseFlashcardsCard = ({ course }) => (
     <Link
-        to="/dashboard/flashcards"
+        to={course.firstTopicId ? buildFlashcardRoute(course.firstTopicId) : `/dashboard/lessons?courseId=${course._id}`}
         className="group rounded-2xl border border-border-subtle bg-surface p-space-5 shadow-sm transition-all hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-md"
     >
         <div className="mb-space-5 flex items-start justify-between gap-space-4">
@@ -196,7 +219,7 @@ const CourseFlashcardsCard = ({ course }) => (
             </p>
         )}
         <div className="mt-space-5 flex items-center justify-between border-t border-border-subtle pt-space-4 font-label-md text-label-md text-primary">
-            <span>Choose topic</span>
+            <span>{course.firstTopicId ? 'Study first topic' : 'Choose topic'}</span>
             <span className="material-symbols-outlined transition-transform group-hover:translate-x-1">
                 arrow_forward
             </span>
@@ -204,7 +227,7 @@ const CourseFlashcardsCard = ({ course }) => (
     </Link>
 );
 
-const FlashcardStudyDeck = ({ topic, terms, starredTerms, onTermsStarred }) => {
+const FlashcardStudyDeck = ({ topic, terms, starredTerms, onTermsStarred, onCardReviewed }) => {
     const [index, setIndex] = useState(0);
     const [flipped, setFlipped] = useState(false);
     const [masteredCount, setMasteredCount] = useState(0);
@@ -235,12 +258,19 @@ const FlashcardStudyDeck = ({ topic, terms, starredTerms, onTermsStarred }) => {
         goTo((safeIndex - 1 + terms.length) % terms.length);
     }, [goTo, safeIndex, terms.length]);
 
-    const markDifficulty = useCallback((mastered) => {
+    const markDifficulty = useCallback((rating, mastered) => {
+        if (current && onCardReviewed) {
+            onCardReviewed({
+                term: current.term,
+                rating,
+                mastered,
+            });
+        }
         if (mastered) {
             setMasteredCount((value) => Math.min(value + 1, terms.length));
         }
         nextCard();
-    }, [nextCard, terms.length]);
+    }, [current, nextCard, onCardReviewed, terms.length]);
 
     const toggleStar = useCallback(() => {
         if (!current) return;
@@ -380,32 +410,32 @@ const FlashcardStudyDeck = ({ topic, terms, starredTerms, onTermsStarred }) => {
                 </button>
             </div>
 
-            <div className="flex gap-space-4 justify-center w-full max-w-2xl mx-auto">
+            <div className="flex flex-wrap gap-space-4 justify-center w-full max-w-2xl mx-auto">
                 <button
                     type="button"
-                    onClick={() => markDifficulty(false)}
-                    className="flex-1 flex items-center justify-center gap-2 bg-surface hover:bg-error-soft border border-border-subtle hover:border-error-soft py-space-3 rounded-xl transition-all shadow-sm group"
+                    onClick={() => markDifficulty('again', false)}
+                    className="min-w-[7rem] flex-1 flex items-center justify-center gap-2 bg-surface hover:bg-error-soft border border-border-subtle hover:border-error-soft py-space-3 rounded-xl transition-all shadow-sm group"
                 >
                     <span className="font-label-md text-label-md text-text-primary group-hover:text-error transition-colors">Again</span>
                 </button>
                 <button
                     type="button"
-                    onClick={() => markDifficulty(false)}
-                    className="flex-1 flex items-center justify-center gap-2 bg-surface hover:bg-warning-soft border border-border-subtle hover:border-warning-soft py-space-3 rounded-xl transition-all shadow-sm group"
+                    onClick={() => markDifficulty('hard', false)}
+                    className="min-w-[7rem] flex-1 flex items-center justify-center gap-2 bg-surface hover:bg-warning-soft border border-border-subtle hover:border-warning-soft py-space-3 rounded-xl transition-all shadow-sm group"
                 >
                     <span className="font-label-md text-label-md text-text-primary group-hover:text-warning transition-colors">Hard</span>
                 </button>
                 <button
                     type="button"
-                    onClick={() => markDifficulty(true)}
-                    className="flex-1 flex items-center justify-center gap-2 bg-surface hover:bg-primary-soft border border-border-subtle hover:border-primary-soft py-space-3 rounded-xl transition-all shadow-sm group"
+                    onClick={() => markDifficulty('good', true)}
+                    className="min-w-[7rem] flex-1 flex items-center justify-center gap-2 bg-surface hover:bg-primary-soft border border-border-subtle hover:border-primary-soft py-space-3 rounded-xl transition-all shadow-sm group"
                 >
                     <span className="font-label-md text-label-md text-text-primary group-hover:text-primary-hover transition-colors">Good</span>
                 </button>
                 <button
                     type="button"
-                    onClick={() => markDifficulty(true)}
-                    className="flex-1 flex items-center justify-center gap-2 bg-surface hover:bg-success-soft border border-border-subtle hover:border-success-soft py-space-3 rounded-xl transition-all shadow-sm group"
+                    onClick={() => markDifficulty('easy', true)}
+                    className="min-w-[7rem] flex-1 flex items-center justify-center gap-2 bg-surface hover:bg-success-soft border border-border-subtle hover:border-success-soft py-space-3 rounded-xl transition-all shadow-sm group"
                 >
                     <span className="font-label-md text-label-md text-text-primary group-hover:text-success transition-colors">Easy</span>
                 </button>
@@ -469,9 +499,9 @@ const FlashcardStudySession = () => {
     const resumeTarget = useQuery(api.topics.getResumeTarget, isAuthenticated ? {} : 'skip');
     const reviewQueue = useQuery(
         api.concepts.getConceptReviewQueue,
-        isAuthenticated ? { limit: 4 } : 'skip',
+        isAuthenticated ? { limit: 12 } : 'skip',
     );
-    const activeTopicId = deckId || resumeTarget?.topicId || '';
+    const activeTopicId = deckId ? String(deckId) : '';
     const topic = useQuery(
         api.topics.getTopicWithQuestions,
         isAuthenticated && activeTopicId ? { topicId: String(activeTopicId) } : 'skip',
@@ -481,6 +511,7 @@ const FlashcardStudySession = () => {
         isAuthenticated && activeTopicId ? { topicId: String(activeTopicId) } : 'skip',
     );
     const upsertProgress = useMutation(api.topics.upsertTopicProgress);
+    const recordConceptReview = useMutation(api.concepts.createConceptSessionAttempt);
 
     const handleTermsStarred = useCallback((starred) => {
         if (!activeTopicId) return;
@@ -491,7 +522,41 @@ const FlashcardStudySession = () => {
         }).catch(() => {});
     }, [activeTopicId, upsertProgress]);
 
-    const terms = useMemo(() => getTopicTerms(topic), [topic]);
+    const reviewItems = Array.isArray(reviewQueue?.items) ? reviewQueue.items : EMPTY_LIST;
+    const activeReviewItem = useMemo(
+        () => reviewItems.find((item) => String(item?.topicId || '') === activeTopicId) || null,
+        [activeTopicId, reviewItems],
+    );
+    const conceptReviewTerms = useMemo(
+        () => conceptsToTerms(activeReviewItem?.concepts),
+        [activeReviewItem],
+    );
+    const terms = useMemo(() => {
+        const topicTerms = getTopicTerms(topic);
+        return topicTerms.length > 0 ? topicTerms : conceptReviewTerms;
+    }, [conceptReviewTerms, topic]);
+
+    const handleCardReviewed = useCallback(({ term, rating, mastered }) => {
+        if (!activeTopicId || !term) return;
+        const reviewedAt = Date.now();
+        recordConceptReview({
+            topicId: String(activeTopicId),
+            score: mastered ? 1 : 0,
+            totalQuestions: 1,
+            timeTakenSeconds: 0,
+            questionText: `Flashcard review: ${term}`,
+            answers: {
+                source: 'flashcards',
+                rating,
+                correctAnswers: [term],
+                userAnswers: [mastered ? term : `${term} (${rating})`],
+            },
+        }).catch(() => {});
+        upsertProgress({
+            topicId: String(activeTopicId),
+            lastStudiedAt: reviewedAt,
+        }).catch(() => {});
+    }, [activeTopicId, recordConceptReview, upsertProgress]);
 
     if (
         !isAuthenticated
@@ -504,7 +569,6 @@ const FlashcardStudySession = () => {
     }
 
     const courseList = Array.isArray(courses) ? courses : EMPTY_LIST;
-    const reviewItems = Array.isArray(reviewQueue?.items) ? reviewQueue.items : EMPTY_LIST;
 
     return (
         <div className="flex-1 flex flex-col md:ml-0 h-[calc(100vh-64px)] overflow-hidden">
@@ -516,6 +580,7 @@ const FlashcardStudySession = () => {
                         terms={terms}
                         starredTerms={topicProgress?.termsStarred}
                         onTermsStarred={handleTermsStarred}
+                        onCardReviewed={handleCardReviewed}
                     />
                 ) : (
                     <FlashcardsIndex
