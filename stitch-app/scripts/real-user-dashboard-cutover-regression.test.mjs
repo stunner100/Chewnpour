@@ -135,6 +135,29 @@ for (const snippet of [
 requireExcludes(progressPageSource, "You're making solid progress. Keep up the momentum!", 'StudyProgressMastery.jsx');
 
 for (const snippet of [
+  'readinessLabel',
+  'Exam Readiness',
+  'Mastery Level:',
+  'Needs Work',
+  'Developing',
+  'Proficient',
+  'Recommended Action',
+  'while it is due',
+  'Start Review',
+]) {
+  requireExcludes(progressPageSource, snippet, 'StudyProgressMastery.jsx');
+}
+
+for (const snippet of [
+  'Quiz Performance',
+  'Your average score across completed practice.',
+  'Next up',
+  'Open Deck',
+]) {
+  requireIncludes(progressPageSource, snippet, 'StudyProgressMastery.jsx');
+}
+
+for (const snippet of [
   'useAuth()',
   'updateProfile({',
   'api.tutor.getTutorProfile',

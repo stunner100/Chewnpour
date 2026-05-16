@@ -11,12 +11,6 @@ const scoreStyle = (score) => {
     return { color: 'bg-error', softColor: 'bg-error-soft', textColor: 'text-error' };
 };
 
-const readinessLabel = (accuracy) => {
-    if (accuracy >= 80) return 'Strong';
-    if (accuracy >= 50) return 'Developing';
-    return 'Needs Work';
-};
-
 const buildCourseBars = (courses) => {
     const visible = courses.slice(0, 7);
     const items = visible.length > 0 ? visible : [{ title: 'Start', progress: 0 }];
@@ -68,7 +62,6 @@ const StudyProgressMastery = () => {
 
     const weakConcepts = conceptReviewQueue?.items?.flatMap((item) => item.concepts || []).slice(0, 6) || EMPTY_LIST;
     const averageAccuracy = performanceInsights?.overallPreparedness ?? userStats?.accuracy ?? 0;
-    const readiness = readinessLabel(averageAccuracy);
     const recommendedHref = conceptReviewQueue?.items?.[0]?.topicId
         ? `/dashboard/flashcards/${conceptReviewQueue.items[0].topicId}`
         : resumeTarget?.topicId
@@ -81,9 +74,9 @@ const StudyProgressMastery = () => {
     return (
         <div className="flex-1 pt-[88px] md:ml-0 p-space-4 md:p-space-8 max-w-container-max mx-auto flex flex-col gap-space-10 pb-20">
             <header className="flex flex-col gap-space-2">
-                <h2 className="font-display-lg text-display-lg text-text-primary">Your Learning Journey</h2>
+                <h2 className="font-display-lg text-display-lg text-text-primary">Progress</h2>
                 <p className="font-body-lg text-body-lg text-text-secondary max-w-2xl">
-                    Progress here is calculated from your generated lessons, practice attempts, and study activity.
+                    A quick view of your lessons, quizzes, and study activity.
                 </p>
             </header>
 
@@ -131,11 +124,8 @@ const StudyProgressMastery = () => {
                     <div className="absolute right-0 top-0 w-64 h-64 bg-mastery-soft rounded-full blur-3xl opacity-30 -mr-20 -mt-20 pointer-events-none" />
                     <div className="flex flex-col md:flex-row md:items-end justify-between mb-8 relative z-10 gap-4">
                         <div>
-                            <h3 className="font-headline-md text-headline-md text-text-primary mb-1">Exam Readiness</h3>
-                            <p className="font-body-sm text-body-sm text-text-secondary">Based on submitted quizzes and essay attempts.</p>
-                        </div>
-                        <div className="text-right">
-                            <span className="inline-block px-3 py-1 rounded-full bg-mastery-soft text-mastery font-label-md text-label-md mb-2">Mastery Level: {readiness}</span>
+                            <h3 className="font-headline-md text-headline-md text-text-primary mb-1">Quiz Performance</h3>
+                            <p className="font-body-sm text-body-sm text-text-secondary">Your average score across completed practice.</p>
                         </div>
                     </div>
                     <div className="relative w-full h-8 bg-surface-muted rounded-full overflow-hidden z-10">
@@ -145,10 +135,11 @@ const StudyProgressMastery = () => {
                         <div className="absolute top-0 left-3/4 h-full w-[2px] bg-surface opacity-30" />
                     </div>
                     <div className="flex justify-between mt-2 font-label-xs text-label-xs text-text-muted z-10">
-                        <span>Needs Work</span>
-                        <span>Developing</span>
-                        <span>Proficient</span>
-                        <span className="text-mastery font-bold">Strong</span>
+                        <span>0%</span>
+                        <span>25%</span>
+                        <span>50%</span>
+                        <span>75%</span>
+                        <span>100%</span>
                     </div>
                 </section>
 
@@ -156,11 +147,11 @@ const StudyProgressMastery = () => {
                     <div>
                         <div className="flex items-center gap-2 mb-4">
                             <span className="material-symbols-outlined text-primary">lightbulb</span>
-                            <h3 className="font-headline-sm text-headline-sm text-text-primary">Recommended Action</h3>
+                            <h3 className="font-headline-sm text-headline-sm text-text-primary">Next up</h3>
                         </div>
                         <p className="font-body-base text-body-base text-text-secondary mb-6">
                             {weakConcepts[0]
-                                ? <>Review <strong>{weakConcepts[0].label}</strong> while it is due.</>
+                                ? <>Open the flashcard deck for <strong>{weakConcepts[0].label}</strong>.</>
                                 : resumeTarget
                                     ? <>Continue <strong>{resumeTarget.topicTitle}</strong> from your latest course.</>
                                     : 'Upload a material to start building your progress history.'}
@@ -170,7 +161,7 @@ const StudyProgressMastery = () => {
                         to={recommendedHref}
                         className="w-full bg-primary text-on-primary font-label-md text-label-md py-3 px-4 rounded-xl shadow-md hover:bg-primary-hover transition-colors flex justify-center items-center gap-2"
                     >
-                        {weakConcepts[0] ? 'Start Review' : resumeTarget ? 'Continue Studying' : 'Upload Material'}
+                        {weakConcepts[0] ? 'Open Deck' : resumeTarget ? 'Continue Studying' : 'Upload Material'}
                         <span className="material-symbols-outlined text-[18px]">arrow_forward</span>
                     </Link>
                 </section>
