@@ -36,18 +36,19 @@ if (!source.includes("autostart=essay")) {
 }
 
 for (const expectedLabel of [
-  'Practice Concepts',
   'Start Essay',
   'Retry Objective Quiz',
   'Start Objective Quiz',
+  'Start Quiz',
+  'Concept Fill-ins',
 ]) {
   if (!source.includes(expectedLabel)) {
     throw new Error(`Expected TopicDetail CTA set to include ${expectedLabel}.`);
   }
 }
 
-if (!source.includes('reloadDocument')) {
-  throw new Error('Expected TopicDetail Start Exam CTA to use hard document navigation.');
+if (source.includes('reloadDocument')) {
+  throw new Error('Regression detected: TopicDetail Start Exam CTA must use SPA navigation, not hard document navigation.');
 }
 
 console.log('topic-detail-exam-start-nonblocking-regression.test.mjs passed');

@@ -40,6 +40,13 @@ assert.ok(
 );
 
 assert.ok(
+  aiSource.includes('According to the source,\\s*what is reported for')
+    && aiSource.includes('How should a learner interpret ${topicLabel} from the source evidence?')
+    && aiSource.includes('Do not use generic worked-example questions like "According to the source, what is reported for ..."'),
+  'Expected lesson generation to reject generic "reported for" worked-example prompts and replace them with interpretation prompts.'
+);
+
+assert.ok(
   aiSource.includes('export const regenerateLessonContent = action({')
     && aiSource.includes('patchTopicLessonContentInternal')
     && aiSource.includes('dryRun: v.optional(v.boolean())'),

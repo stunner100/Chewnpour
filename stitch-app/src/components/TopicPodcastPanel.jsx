@@ -1,4 +1,4 @@
-import React, { Component, memo, useMemo, useState } from 'react';
+import React, { Component, memo, useEffect, useMemo, useState } from 'react';
 import { useQuery, useMutation } from 'convex/react';
 import { api } from '../../convex/_generated/api';
 import PodcastWaveformPlayer from './podcast/PodcastWaveformPlayer';
@@ -9,6 +9,8 @@ const STATUS_COPY = {
     ready: 'Your podcast is ready.',
     failed: 'Podcast generation failed.',
 };
+
+const PODCAST_STALE_AFTER_MS = 15 * 60 * 1000;
 
 const resolveErrorMessage = (error, fallback) => {
     const dataMessage = typeof error?.data === 'string'
@@ -22,13 +24,23 @@ const resolveErrorMessage = (error, fallback) => {
     return resolved || fallback;
 };
 
-const formatElapsed = (startedAt) => {
+const formatElapsed = (startedAt, now = Date.now()) => {
     if (!startedAt) return '';
-    const seconds = Math.max(0, Math.round((Date.now() - startedAt) / 1000));
+    const seconds = Math.max(0, Math.round((now - startedAt) / 1000));
     if (seconds < 60) return `${seconds}s elapsed`;
     const minutes = Math.floor(seconds / 60);
     const rem = seconds % 60;
     return `${minutes}m ${rem}s elapsed`;
+};
+
+const useLiveNow = (enabled) => {
+    const [now, setNow] = useState(() => Date.now());
+    useEffect(() => {
+        if (!enabled) return undefined;
+        const interval = window.setInterval(() => setNow(Date.now()), 1000);
+        return () => window.clearInterval(interval);
+    }, [enabled]);
+    return now;
 };
 
 const formatDuration = (durationSeconds) => {
@@ -77,14 +89,25 @@ const TopicPodcastPanelInner = memo(function TopicPodcastPanelInner({ topicId })
         [podcasts],
     );
     const loading = podcasts === undefined;
-    const inFlight = latest?.status === 'pending' || latest?.status === 'running';
+    const latestIsInFlight = latest?.status === 'pending' || latest?.status === 'running';
+    const now = useLiveNow(latestIsInFlight);
+    const latestActivityAt = Number(latest?.startedAt || latest?.updatedAt || latest?.createdAt || 0);
+    const latestIsStale = latestIsInFlight
+        && latestActivityAt > 0
+        && now - latestActivityAt > PODCAST_STALE_AFTER_MS;
+    const inFlight = latestIsInFlight && !latestIsStale;
+    const canRetryStale = latestIsInFlight && latestIsStale && Boolean(latest?._id);
 
     const handleGenerate = async () => {
-        if (submitting || inFlight) return;
+        if (submitting || inFlight || loading) return;
         setSubmitError('');
         setSubmitting(true);
         try {
-            await requestPodcast({ topicId });
+            if (canRetryStale && latest?._id) {
+                await retryPodcast({ podcastId: latest._id });
+            } else {
+                await requestPodcast({ topicId });
+            }
         } catch (error) {
             setSubmitError(resolveErrorMessage(error, 'Could not start podcast generation.'));
         } finally {
@@ -130,9 +153,9 @@ const TopicPodcastPanelInner = memo(function TopicPodcastPanelInner({ topicId })
                     className="btn-primary px-4 py-2 text-body-sm gap-2 shrink-0 disabled:opacity-60 disabled:cursor-not-allowed"
                 >
                     <span className="material-symbols-outlined text-[18px]">
-                        {inFlight ? 'hourglass_top' : 'graphic_eq'}
+                        {inFlight ? 'hourglass_top' : canRetryStale ? 'refresh' : 'graphic_eq'}
                     </span>
-                    {inFlight ? 'Generating…' : 'Generate podcast'}
+                    {inFlight ? 'Generating…' : canRetryStale ? 'Retry podcast' : 'Generate podcast'}
                 </button>
             </div>
 
@@ -145,9 +168,9 @@ const TopicPodcastPanelInner = memo(function TopicPodcastPanelInner({ topicId })
             {latest && (
                 <div className="mt-4">
                     <div className="text-caption text-text-sub-light dark:text-text-sub-dark mb-2">
-                        {STATUS_COPY[latest.status] ?? latest.status}
-                        {inFlight && (
-                            <span className="ml-2 opacity-70">{formatElapsed(latest.createdAt)}</span>
+                        {latestIsStale ? 'Podcast generation took too long.' : (STATUS_COPY[latest.status] ?? latest.status)}
+                        {latestIsInFlight && (
+                            <span className="ml-2 opacity-70">{formatElapsed(latestActivityAt, now)}</span>
                         )}
                         {latest.status === 'ready' && latest.durationSeconds ? (
                             <span className="ml-2 opacity-70">{formatDuration(latest.durationSeconds)}</span>
@@ -178,6 +201,14 @@ const TopicPodcastPanelInner = memo(function TopicPodcastPanelInner({ topicId })
                                 <span className="material-symbols-outlined text-[16px]">refresh</span>
                                 Retry
                             </button>
+                        </div>
+                    )}
+
+                    {latestIsStale && (
+                        <div className="space-y-2">
+                            <div className="rounded-lg border border-amber-200 dark:border-amber-500/30 bg-amber-50 dark:bg-amber-500/10 text-amber-800 dark:text-amber-200 text-body-sm px-3 py-2">
+                                This generation stopped updating. Retry to start a fresh podcast.
+                            </div>
                         </div>
                     )}
 

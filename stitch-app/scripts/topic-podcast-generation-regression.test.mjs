@@ -49,6 +49,12 @@ if (!/internal\.subscriptions\.consumeVoiceGenerationCreditOrThrowInternal/.test
 if (!/const assertPodcastCapacityAvailable = async/.test(podcastsSource)) {
     throw new Error('Expected podcasts.ts to share capacity checks between request and retry.');
 }
+if (!/const isStuckPodcastJob =/.test(podcastsSource)) {
+    throw new Error('Expected podcasts.ts to classify stale pending/running podcast jobs.');
+}
+if (!/const markStuckPodcastJobsFailed = async/.test(podcastsSource)) {
+    throw new Error('Expected podcasts.ts to fail stale podcast jobs before blocking new requests.');
+}
 if (!/const consumePodcastGenerationCredit = async/.test(podcastsSource)) {
     throw new Error('Expected podcasts.ts to share voice quota checks between request and retry.');
 }
@@ -64,8 +70,14 @@ if (!/export const sweepStuckPodcastsInternal = internalMutation/.test(podcastsS
 if (!/export const retryTopicPodcast = mutation/.test(podcastsSource)) {
     throw new Error('Expected podcasts.ts to expose retryTopicPodcast for failed jobs.');
 }
+if (!/startedAt:\s*row\.startedAt \?\? null/.test(podcastsSource)) {
+    throw new Error('Expected podcast queries to expose startedAt so the UI can detect stale generation.');
+}
 if (!/retryTopicPodcast[\s\S]*await assertPodcastCapacityAvailable\(ctx\);[\s\S]*await consumePodcastGenerationCredit\(ctx, userId\);/.test(podcastsSource)) {
     throw new Error('Expected retryTopicPodcast to enforce capacity and voice quota before requeueing.');
+}
+if (!/retryTopicPodcast[\s\S]*isStuckPodcastJob\(row, now\)[\s\S]*markStuckPodcastJobsFailed\(ctx, \[row\], now\)/.test(podcastsSource)) {
+    throw new Error('Expected retryTopicPodcast to allow stale in-flight rows to be retried.');
 }
 if (!/expectedStartedAt:\s*v\.number\(\)/.test(podcastsSource)) {
     throw new Error('Expected podcast state transitions to guard on the active attempt timestamp.');
@@ -166,6 +178,18 @@ if (!/PodcastWaveformPlayer/.test(panelSource) || !/<audio\b/.test(waveformPlaye
 }
 if (!/api\.podcasts\.retryTopicPodcast/.test(panelSource)) {
     throw new Error('Expected TopicPodcastPanel to expose a retry path for failed podcasts.');
+}
+for (const snippet of [
+    'const PODCAST_STALE_AFTER_MS = 15 * 60 * 1000;',
+    'const useLiveNow = (enabled) => {',
+    'const latestIsStale = latestIsInFlight',
+    'const canRetryStale = latestIsInFlight && latestIsStale',
+    'Retry podcast',
+    'Podcast generation took too long.',
+]) {
+    if (!panelSource.includes(snippet)) {
+        throw new Error(`Expected TopicPodcastPanel stale-generation recovery to include "${snippet}".`);
+    }
 }
 if (!/class TopicPodcastPanelBoundary extends Component/.test(panelSource)) {
     throw new Error('Expected TopicPodcastPanel to isolate podcast query failures from the topic page.');

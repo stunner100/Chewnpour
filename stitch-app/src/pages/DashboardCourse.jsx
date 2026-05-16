@@ -568,7 +568,6 @@ const DashboardCourse = () => {
                                                     </p>
                                                     <Link
                                                         to={buildObjectiveExamRoute(topic._id)}
-                                                        reloadDocument
                                                         className="btn-primary w-full py-2 text-body-sm justify-center gap-1.5"
                                                     >
                                                         <span className="material-symbols-outlined text-[16px]">

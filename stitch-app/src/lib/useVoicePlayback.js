@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { convexSiteUrl } from "./convex-config";
 
 const normalizeForSpeech = (text) =>
     text
@@ -142,10 +143,12 @@ const isVoiceQuotaExceededMessage = (message) => {
 };
 
 const resolveConvexHttpBaseUrl = () => {
+    const explicitSiteUrl = String(convexSiteUrl || import.meta.env?.VITE_CONVEX_SITE_URL || "").trim();
     const rawConvexUrl = String(import.meta.env?.VITE_CONVEX_URL || "").trim();
-    if (!rawConvexUrl) return "";
+    const rawUrl = explicitSiteUrl || rawConvexUrl;
+    if (!rawUrl) return "";
     try {
-        const parsed = new URL(rawConvexUrl);
+        const parsed = new URL(rawUrl);
         if (parsed.hostname.endsWith(".convex.cloud")) {
             parsed.hostname = parsed.hostname.replace(/\.convex\.cloud$/, ".convex.site");
         }

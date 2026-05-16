@@ -933,7 +933,7 @@ const useTopicDetailController = () => {
     const cleanedDescription = cleanLine(topic?.description || '');
 
     const headerPrimaryAction = examTopicId
-        ? { id: 'start-quiz', icon: 'quiz', label: objectiveExamActionLabel, href: objectiveExamRoute, reloadDocument: true }
+        ? { id: 'start-quiz', icon: 'quiz', label: objectiveExamActionLabel, href: objectiveExamRoute }
         : { id: 'start-quiz', icon: 'hourglass_top', label: objectiveExamActionLabel, disabled: true };
 
     // Header keeps only the primary CTA so the title always has room.
@@ -966,7 +966,6 @@ const useTopicDetailController = () => {
             label: 'Take Essay',
             description: essayExamActionLabel,
             href: essayExamRoute,
-            reloadDocument: true,
         },
         topicId && {
             id: 'fillins-rail',
@@ -999,11 +998,11 @@ const useTopicDetailController = () => {
     ];
 
     const practicePrimary = examTopicId
-        ? [{ id: 'p-start-quiz', icon: 'quiz', label: 'Start Quiz', href: objectiveExamRoute, reloadDocument: true }]
+        ? [{ id: 'p-start-quiz', icon: 'quiz', label: 'Start Quiz', href: objectiveExamRoute }]
         : [{ id: 'p-quiz-pending', icon: 'hourglass_top', label: 'Quiz preparing', disabled: true }];
 
     const practiceSecondary = [
-        examTopicId && { id: 'p-essay', icon: 'edit_note', label: essayExamActionLabel, href: essayExamRoute, reloadDocument: true },
+        examTopicId && { id: 'p-essay', icon: 'edit_note', label: essayExamActionLabel, href: essayExamRoute },
         topicId && { id: 'p-fillins', icon: 'spellcheck', label: 'Concept Fill-ins', href: `/dashboard/concept-intro/${topicId}` },
         { id: 'p-tutor', icon: 'smart_toy', label: 'Ask AI Tutor', onClick: openChat },
         podcastEnabled && { id: 'p-podcast', icon: 'podcasts', label: 'Generate Podcast', onClick: () => {
@@ -1023,7 +1022,7 @@ const useTopicDetailController = () => {
 
     const mobileActionItems = [
         examTopicId
-            ? { id: 'm-quiz', icon: 'quiz', label: 'Quiz', href: objectiveExamRoute, reloadDocument: true, primary: true }
+            ? { id: 'm-quiz', icon: 'quiz', label: 'Quiz', href: objectiveExamRoute, primary: true }
             : { id: 'm-quiz', icon: 'hourglass_top', label: 'Quiz', disabled: true },
         { id: 'm-tutor', icon: 'smart_toy', label: 'Tutor', onClick: openChat },
         { id: 'm-notes', icon: 'edit_note', label: 'Notes', onClick: openNotes },

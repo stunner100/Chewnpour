@@ -72,6 +72,19 @@ const tests = [
         assert.equal(normalized.includes('3. **Automated Systems for Information Processing and Presentation**'), true, 'Expected third list item to render on one line');
         assert.equal(normalized.includes('4. **Database Technology**'), true, 'Expected fourth list item to render on one line');
     },
+    () => {
+        const cleaned = cleanDisplayLine('P E R F O R M A N C E R E P O R T');
+        assert.equal(cleaned, 'Performance Report', 'Expected spaced OCR heading artifacts to be normalized');
+    },
+    () => {
+        const raw = '## Worked Example\nP E R F O R M A N C E R E P O R T April business review metrics';
+        const normalized = normalizeLessonContent(raw);
+        assert.equal(
+            normalized.includes('Performance Report April business review metrics'),
+            true,
+            'Expected lesson normalization to collapse spaced OCR phrases before rendering'
+        );
+    },
 ];
 
 for (const run of tests) {

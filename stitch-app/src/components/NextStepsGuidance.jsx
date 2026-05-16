@@ -66,7 +66,6 @@ const NextStepsGuidance = ({
             label: 'Retry objective quiz',
             description: 'Retake the MCQ version once you feel ready.',
             to: objectiveExamRoute,
-            reloadDocument: true,
             priority: 'medium',
         });
         actions.push({
@@ -75,7 +74,6 @@ const NextStepsGuidance = ({
             label: 'Try the essay',
             description: 'Switch formats and answer the written version for this topic.',
             to: essayExamRoute,
-            reloadDocument: true,
             priority: 'medium',
         });
     } else if (isMid) {
@@ -93,7 +91,6 @@ const NextStepsGuidance = ({
             label: 'Retry objective quiz',
             description: 'Push for a higher score on the MCQ version.',
             to: objectiveExamRoute,
-            reloadDocument: true,
             priority: 'medium',
         });
         actions.push({
@@ -102,7 +99,6 @@ const NextStepsGuidance = ({
             label: 'Try the essay',
             description: 'Check the same topic with a written-response format.',
             to: essayExamRoute,
-            reloadDocument: true,
             priority: 'medium',
         });
         actions.push({
@@ -138,7 +134,6 @@ const NextStepsGuidance = ({
             label: 'Try the essay',
             description: 'Challenge yourself with the written format for the same topic.',
             to: essayExamRoute,
-            reloadDocument: true,
             priority: 'low',
         });
         actions.push({
@@ -157,7 +152,6 @@ const NextStepsGuidance = ({
             label: examLabel,
             description: examDescription,
             to: objectiveExamRoute,
-            reloadDocument: true,
             priority: 'high',
         });
         actions.push({
@@ -166,7 +160,6 @@ const NextStepsGuidance = ({
             label: 'Start the essay',
             description: 'Answer a written-response version for the same topic.',
             to: essayExamRoute,
-            reloadDocument: true,
             priority: 'medium',
         });
         actions.push({
@@ -236,7 +229,6 @@ const NextStepsGuidance = ({
                             <Link
                                 key={action.key}
                                 to={action.to}
-                                {...(action.reloadDocument ? { reloadDocument: true } : {})}
                                 className={className}
                             >
                                 {inner}

@@ -39,6 +39,38 @@ const resolveVoiceModelDescriptor = () => {
 const isPodcastInFlight = (row: { status?: string }) =>
     row.status === "pending" || row.status === "running";
 
+const getPodcastActivityTimestamp = (row: {
+    startedAt?: number;
+    updatedAt?: number;
+    createdAt?: number;
+}) => Number(row.startedAt || row.updatedAt || row.createdAt || 0);
+
+const isStuckPodcastJob = (row: {
+    status?: string;
+    startedAt?: number;
+    updatedAt?: number;
+    createdAt?: number;
+}, now = Date.now()) =>
+    isPodcastInFlight(row) && getPodcastActivityTimestamp(row) <= now - STUCK_JOB_MS;
+
+const markStuckPodcastJobsFailed = async <T extends {
+    _id: any;
+    status?: string;
+    startedAt?: number;
+    updatedAt?: number;
+    createdAt?: number;
+}>(ctx: MutationCtx, rows: T[], now = Date.now()) => {
+    const staleRows = rows.filter((row) => isStuckPodcastJob(row, now));
+    for (const row of staleRows) {
+        await ctx.db.patch(row._id, {
+            status: "failed",
+            errorMessage: `Generation stopped updating for more than ${Math.round(STUCK_JOB_MS / 60000)} minutes. Please retry.`,
+            updatedAt: now,
+        });
+    }
+    return staleRows;
+};
+
 const assertPodcastCapacityAvailable = async (ctx: MutationCtx) => {
     const [pendingRows, runningRows] = await Promise.all([
         ctx.db
@@ -50,7 +82,10 @@ const assertPodcastCapacityAvailable = async (ctx: MutationCtx) => {
             .withIndex("by_status_startedAt", (q) => q.eq("status", "running"))
             .collect(),
     ]);
-    if (pendingRows.length + runningRows.length >= MAX_CONCURRENT_PODCAST_JOBS) {
+    const now = Date.now();
+    await markStuckPodcastJobsFailed(ctx, [...pendingRows, ...runningRows], now);
+    const activeRows = [...pendingRows, ...runningRows].filter((row) => !isStuckPodcastJob(row, now));
+    if (activeRows.length >= MAX_CONCURRENT_PODCAST_JOBS) {
         throw new ConvexError({
             code: "PODCAST_CAPACITY_EXCEEDED",
             message: "Too many podcasts are generating right now. Try again shortly.",
@@ -204,7 +239,9 @@ export const requestTopicPodcast = mutation({
                 q.eq("userId", userId).eq("topicId", args.topicId),
             )
             .collect();
-        const active = userTopicRows.find(isPodcastInFlight);
+        const checkedAt = Date.now();
+        await markStuckPodcastJobsFailed(ctx, userTopicRows, checkedAt);
+        const active = userTopicRows.find((row) => isPodcastInFlight(row) && !isStuckPodcastJob(row, checkedAt));
         if (active) {
             throw new ConvexError({
                 code: "PODCAST_IN_FLIGHT",
@@ -245,6 +282,7 @@ export const requestTopicPodcast = mutation({
 const serializeRow = async (ctx: any, row: any) => ({
     _id: row._id,
     status: row.status as PodcastStatus,
+    startedAt: row.startedAt ?? null,
     createdAt: row.createdAt,
     updatedAt: row.updatedAt,
     durationSeconds: row.durationSeconds ?? null,
@@ -348,9 +386,14 @@ export const retryTopicPodcast = mutation({
         if (!userId) {
             throw new ConvexError({ code: "UNAUTHENTICATED", message: "You must be signed in." });
         }
-        const row = await ctx.db.get(args.podcastId);
+        let row = await ctx.db.get(args.podcastId);
         if (!row || row.userId !== userId) {
             throw new ConvexError({ code: "PODCAST_NOT_FOUND", message: "Podcast not found." });
+        }
+        const now = Date.now();
+        if (isStuckPodcastJob(row, now)) {
+            await markStuckPodcastJobsFailed(ctx, [row], now);
+            row = { ...row, status: "failed", errorMessage: "Generation stopped updating. Please retry." };
         }
         if (row.status !== "failed") {
             return { success: false, status: row.status };
@@ -362,7 +405,12 @@ export const retryTopicPodcast = mutation({
                 q.eq("userId", userId).eq("topicId", row.topicId),
             )
             .collect();
-        const active = userTopicRows.find(isPodcastInFlight);
+        await markStuckPodcastJobsFailed(ctx, userTopicRows, now);
+        const active = userTopicRows.find((candidate) =>
+            candidate._id !== args.podcastId
+            && isPodcastInFlight(candidate)
+            && !isStuckPodcastJob(candidate, now)
+        );
         if (active) {
             throw new ConvexError({
                 code: "PODCAST_IN_FLIGHT",
@@ -373,12 +421,12 @@ export const retryTopicPodcast = mutation({
         await assertPodcastCapacityAvailable(ctx);
         await consumePodcastGenerationCredit(ctx, userId);
 
-        const now = Date.now();
+        const retryStartedAt = Date.now();
         await ctx.db.patch(args.podcastId, {
             status: "pending",
             errorMessage: undefined,
-            startedAt: now,
-            updatedAt: now,
+            startedAt: retryStartedAt,
+            updatedAt: retryStartedAt,
         });
         await ctx.scheduler.runAfter(0, internal.podcastsActions.kickoff, {
             podcastId: args.podcastId,

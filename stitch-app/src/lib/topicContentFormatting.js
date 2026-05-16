@@ -34,6 +34,61 @@ const escapeRegex = (value) =>
 export const SECTION_TITLE_PATTERN = LESSON_SECTION_TITLES.map(escapeRegex).join('|');
 const SECTION_TITLE_REGEX = new RegExp(`([.!?])\\s+(${SECTION_TITLE_PATTERN})\\b`, 'gi');
 const INLINE_SECTION_REGEX = new RegExp(`([a-z])(${SECTION_TITLE_PATTERN})`, 'g');
+const SPACED_CAPS_OCR_SEQUENCE_REGEX = /\b(?:[A-Z]\s+){5,}[A-Z]\b/g;
+const OCR_PHRASE_WORDS = [
+    'PERFORMANCE',
+    'REPORT',
+    'MONTHLY',
+    'BUSINESS',
+    'REVIEW',
+    'METRICS',
+    'GMV',
+    'VENDOR',
+    'DELIVERED',
+    'TOTAL',
+    'ORDERS',
+    'CANCELLATION',
+    'RATE',
+    'MARKET',
+    'SEGMENTATION',
+    'REVENUE',
+    'EXPENSES',
+    'SURPLUS',
+    'PAYMENT',
+    'PAYMENTS',
+    'OPERATIONS',
+    'SUMMARY',
+    'KEY',
+    'IDEAS',
+].sort((a, b) => b.length - a.length);
+
+const OCR_ACRONYMS = new Set(['AI', 'AIR', 'API', 'GMV', 'KPI', 'KPIS', 'OCR', 'PDF']);
+
+const toTitleCase = (value) =>
+    String(value || '')
+        .split(/\s+/)
+        .map((word) => {
+            const normalized = word.toUpperCase();
+            if (OCR_ACRONYMS.has(normalized)) return normalized === 'KPIS' ? 'KPIs' : normalized;
+            return word.toLowerCase().replace(/\b[a-z]/g, (letter) => letter.toUpperCase());
+        })
+        .join(' ');
+
+const normalizeSpacedCapsOcrPhrase = (value) => {
+    const compact = String(value || '').replace(/\s+/g, '');
+    if (compact.length < 8) return value;
+
+    const words = [];
+    let remaining = compact;
+    while (remaining) {
+        const next = OCR_PHRASE_WORDS.find((candidate) => remaining.startsWith(candidate));
+        if (!next) return value;
+        words.push(next);
+        remaining = remaining.slice(next.length);
+    }
+
+    return toTitleCase(words.join(' '));
+};
 
 const isStructuredLine = (line) =>
     /^(#{1,6}\s+|[-*•]\s+|\d+[.)](?:\s+|$)|>\s+)/.test(String(line || '').trim());
@@ -118,12 +173,15 @@ export const cleanInlineText = (text) => {
     if (!text) return '';
     return stripOrphanBrackets(
         String(text)
+            .replace(SPACED_CAPS_OCR_SEQUENCE_REGEX, normalizeSpacedCapsOcrPhrase)
             .replace(/\\r\\n/g, ' ')
             .replace(/\\n/g, ' ')
             .replace(/\r?\n/g, ' ')
             .replace(/\\"/g, '"')
             .replace(/\\([#*_[\]()`>~-])/g, '$1')
             .replace(/\\+/g, ' ')
+            .replace(/\*\*([^*\n]+)\*\*/g, '$1')
+            .replace(/__([^_\n]+)__/g, '$1')
             .replace(/(^|[\s(])\*([^*\n]+)\*([\s).,!?]|$)/g, '$1$2$3')
             .replace(/(^|[\s(])_([^_\n]+)_([\s).,!?]|$)/g, '$1$2$3')
             .replace(/\[(.*?)\]\((.*?)\)/g, '$1')
@@ -171,6 +229,7 @@ export const normalizeLessonContent = (text) => {
         .replace(/\r\n?/g, '\n')
         .replace(/\t/g, ' ')
         .replace(/\\"/g, '"')
+        .replace(SPACED_CAPS_OCR_SEQUENCE_REGEX, normalizeSpacedCapsOcrPhrase)
         .replace(/\\\\([#*_[\]()`>~-])/g, '$1')
         .replace(/\\(?=\s)/g, '')
         .replace(/"\s*>\s*"/g, '\n')

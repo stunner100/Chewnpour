@@ -6191,6 +6191,7 @@ const hasWeakLessonContentPattern = (value: string) => {
     const normalized = String(value || "");
     if (!normalized.trim()) return true;
     if (/The correct answer comes from following the steps in order/i.test(normalized)) return true;
+    if (/According to the source,\s*what is reported for/i.test(normalized)) return true;
     if (/What is reported for[^?\n]*(?:DOI\s+10\.|Springer-Verlag|©)/i.test(normalized)) return true;
     return LESSON_LOW_SIGNAL_SOURCE_PATTERNS.some((pattern) => pattern.test(normalized));
 };
@@ -6408,7 +6409,7 @@ const buildGroundedWorkedExampleFallback = (args: {
             : wereMatch
             ? `According to the source, what were ${topicLabel} in ${wereMatch[3]}?`
             : answerValue
-                ? `According to the source, what is reported for ${topicLabel}?`
+                ? `How should a learner interpret ${topicLabel} from the source evidence?`
             : `What does the source show about ${args.title}?`,
         reasoning: [
             `Find the exact source evidence tied to ${topicLabel}.`,
@@ -6850,6 +6851,7 @@ Rules:
 - Use concise, accurate wording.
 - Treat the topic content graph as the canonical handoff structure from extraction into lesson generation.
 - Preserve source-grounded numbers, examples, formulas, table findings, figure captions, and terminology from the topic content graph.
+- Do not use generic worked-example questions like "According to the source, what is reported for ..."; ask the learner to interpret a concrete metric, step, or source finding instead.
 - Big idea must explain the topic purpose simply.
 - Key points must be 5 to 8 items.
 - Subtopics must form a logical teaching order.
