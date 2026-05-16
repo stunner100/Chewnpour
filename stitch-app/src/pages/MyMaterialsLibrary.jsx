@@ -252,7 +252,7 @@ const MyMaterialsLibrary = () => {
                     </h3>
                     <p className="font-body-base text-body-base text-text-secondary mb-8 max-w-md">
                         {materials.length === 0
-                            ? 'Upload a file to generate real lessons, quizzes, and review cards.'
+                            ? 'Upload a file to generate real lessons, quizzes, and flashcards.'
                             : 'Try adjusting your search or filter to find a material.'}
                     </p>
                     <div className="flex gap-4">

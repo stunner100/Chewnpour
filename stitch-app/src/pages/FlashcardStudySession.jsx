@@ -26,8 +26,6 @@ const dedupeTerms = (terms) => {
             term,
             definition,
             key: item?.key || key,
-            source: item?.source,
-            definitionLabel: item?.definitionLabel,
         });
     }
     return deduped.slice(0, 40);
@@ -83,30 +81,6 @@ const getTopicTerms = (topic) => {
     return parseMarkdownWordBank(topic?.content);
 };
 
-const conceptsToTerms = (concepts) => {
-    if (!Array.isArray(concepts) || concepts.length === 0) return EMPTY_LIST;
-
-    return dedupeTerms(
-        concepts.map((concept, index) => {
-            const label = concept?.label || concept?.conceptLabel || concept?.displayText || concept?.conceptKey;
-            const accuracy = Number.isFinite(Number(concept?.accuracy))
-                ? `${Number(concept.accuracy)}% accuracy`
-                : 'needs review';
-            const status = String(concept?.status || '').trim();
-            const statusPhrase = status ? `${status} concept` : 'concept';
-            const detail = `Explain this ${statusPhrase} in your own words, then rate how well you remembered it. It came from recent practice with ${accuracy}.`;
-
-            return {
-                term: label,
-                definition: detail,
-                source: 'concept-review',
-                definitionLabel: 'Review cue',
-                key: concept?.conceptKey || `review-${index}`,
-            };
-        }),
-    );
-};
-
 const StudyToolSkeleton = () => (
     <div className="flex-1 flex flex-col md:ml-0 h-[calc(100vh-64px)] overflow-hidden">
         <main className="flex-1 min-h-0 flex flex-col items-center justify-start px-space-8 pt-space-8 pb-space-8 overflow-y-auto">
@@ -136,7 +110,7 @@ const EmptyFlashcardState = ({ title = 'Upload material to generate flashcards',
             {title}
         </h2>
         <p className="mx-auto mt-space-3 max-w-xl font-body-base text-body-base text-text-secondary">
-            {description || 'Word Banks and review cards come from terms found in your own lessons. Add study material to create a real deck.'}
+            {description || 'Flashcards are created from each topic Word Bank. Upload material or regenerate missing topic content to create a real term-definition deck.'}
         </p>
         <Link
             to="/dashboard/upload"
@@ -239,7 +213,6 @@ const FlashcardStudyDeck = ({ topic, terms, starredTerms, onTermsStarred, onCard
     const current = terms[safeIndex];
     const progress = terms.length > 0 ? ((safeIndex + 1) / terms.length) * 100 : 0;
     const isStarred = current ? starred.has(current.term) : false;
-    const backLabel = current?.definitionLabel || 'Definition';
 
     const goTo = useCallback((nextIndex) => {
         setIndex(nextIndex);
@@ -310,7 +283,7 @@ const FlashcardStudyDeck = ({ topic, terms, starredTerms, onTermsStarred, onCard
         return (
             <EmptyFlashcardState
                 title="No Word Bank terms yet"
-                description="This topic does not have generated Word Bank terms. Open the lesson or upload another source to generate flashcards."
+                description="This topic is missing its generated Word Bank. Regenerate the topic so ChewnPour can create term-definition flashcards."
             />
         );
     }
@@ -354,7 +327,7 @@ const FlashcardStudyDeck = ({ topic, terms, starredTerms, onTermsStarred, onCard
                     <div className="absolute inset-0 bg-gradient-to-b from-transparent to-surface-soft/30 rounded-[24px] pointer-events-none" />
                     <div className="absolute top-space-5 left-space-5 flex items-center gap-space-2">
                         <span className="rounded-full bg-surface-soft px-space-3 py-space-1 font-label-xs text-label-xs uppercase tracking-wider text-text-muted">
-                            {flipped ? backLabel : current.source === 'concept-review' ? 'Concept' : 'Term'}
+                            {flipped ? 'Definition' : 'Term'}
                         </span>
                     </div>
                     <div className="relative z-10 px-space-8 sm:px-space-12 text-center max-h-[78%] overflow-y-auto">
@@ -458,7 +431,7 @@ const FlashcardsIndex = ({ resumeTarget, reviewItems, courseList }) => (
                 Review terms from your lessons
             </h1>
             <p className="max-w-2xl font-body-base text-body-base text-text-secondary">
-                Flashcards are built from generated topic Word Banks and concept review history tied to your account.
+                Flashcards are built from generated topic Word Banks and definitions tied to your account.
             </p>
         </div>
 
@@ -527,18 +500,7 @@ const FlashcardStudySession = () => {
     }, [activeTopicId, upsertProgress]);
 
     const reviewItems = Array.isArray(reviewQueue?.items) ? reviewQueue.items : EMPTY_LIST;
-    const activeReviewItem = useMemo(
-        () => reviewItems.find((item) => String(item?.topicId || '') === activeTopicId) || null,
-        [activeTopicId, reviewItems],
-    );
-    const conceptReviewTerms = useMemo(
-        () => conceptsToTerms(activeReviewItem?.concepts),
-        [activeReviewItem],
-    );
-    const terms = useMemo(() => {
-        const topicTerms = getTopicTerms(topic);
-        return topicTerms.length > 0 ? topicTerms : conceptReviewTerms;
-    }, [conceptReviewTerms, topic]);
+    const terms = useMemo(() => getTopicTerms(topic), [topic]);
 
     const handleCardReviewed = useCallback(({ term, rating, mastered }) => {
         if (!activeTopicId || !term) return;

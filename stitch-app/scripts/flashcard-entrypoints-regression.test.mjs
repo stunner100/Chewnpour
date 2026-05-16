@@ -7,6 +7,7 @@ const source = await fs.readFile(
   path.join(root, 'src', 'pages', 'FlashcardStudySession.jsx'),
   'utf8',
 );
+const aiSource = await fs.readFile(path.join(root, 'convex', 'ai.ts'), 'utf8');
 
 const requireIncludes = (snippet, label) => {
   if (!source.includes(snippet)) {
@@ -36,14 +37,30 @@ requireExcludes(
   'resume-target auto-open on the flashcards index',
 );
 
-requireIncludes('const conceptsToTerms =', 'concept review fallback term builder');
-requireIncludes('conceptReviewTerms', 'concept review terms merged into the active deck');
-requireIncludes("definitionLabel: 'Review cue'", 'human review cue label for concept fallback cards');
-requireIncludes("current.source === 'concept-review' ? 'Concept' : 'Term'", 'concept fallback front label');
+requireIncludes(
+  'const terms = useMemo(() => getTopicTerms(topic), [topic]);',
+  'Word Bank-only topic term selection',
+);
+requireIncludes(
+  'Flashcards are built from generated topic Word Banks and definitions tied to your account.',
+  'Word Bank-only flashcard source copy',
+);
+requireExcludes('const conceptsToTerms =', 'concept review fallback term builder');
+requireExcludes('conceptReviewTerms', 'concept review terms merged into the active deck');
+requireExcludes("source: 'concept-review'", 'concept review flashcard source marker');
+requireExcludes("definitionLabel: 'Review cue'", 'human review cue label for concept fallback cards');
+requireExcludes("current.source === 'concept-review' ? 'Concept' : 'Term'", 'concept fallback front label');
 requireExcludes(
   "`${status} concept from your recent practice, ${accuracy}.`",
   'raw concept status as a flashcard definition',
 );
+
+if (!/Word Bank must include at least 6 entries\./.test(aiSource)) {
+  throw new Error('Expected AI lesson generation to reject topics without at least 6 Word Bank entries.');
+}
+if (!aiSource.includes('structuredDefinitions: groundedTopicData.definitions')) {
+  throw new Error('Expected grounded topic data definitions to be saved as structuredDefinitions.');
+}
 
 const courseCard = extractComponent('CourseFlashcardsCard');
 if (courseCard.includes('to="/dashboard/flashcards"')) {

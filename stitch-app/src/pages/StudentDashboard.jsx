@@ -145,7 +145,7 @@ const StudentDashboard = () => {
             }
             : {
                 title: 'Upload a material',
-                description: 'Generate lessons, quizzes, and review cards from your own notes.',
+                description: 'Generate lessons, quizzes, and flashcards from your own notes.',
                 href: '/dashboard/upload',
                 cta: 'Upload',
             };

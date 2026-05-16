@@ -48,8 +48,8 @@ for (const requiredField of [
 }
 
 assert.ok(
-  aiSource.includes("structuredDefinitions: topicData.definitions")
-    && aiSource.includes("structuredLearningObjectives: topicData.learningObjectives")
+  aiSource.includes("structuredDefinitions: groundedTopicData.definitions")
+    && aiSource.includes("structuredLearningObjectives: groundedTopicData.learningObjectives")
     && aiSource.includes("contentGraph: topicContentGraph")
     && aiSource.includes("sourceUploadId: uploadId"),
   "Expected newly created topics to persist the topic content graph and structured Datalab fields for downstream exam generation."

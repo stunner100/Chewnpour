@@ -6038,6 +6038,8 @@ type StructuredLessonMap = {
 
 const LESSON_KEY_IDEA_MIN = 5;
 const LESSON_KEY_IDEA_MAX = 8;
+const LESSON_WORD_BANK_MIN = 6;
+const LESSON_WORD_BANK_MAX = 8;
 const LESSON_WEAK_TRAILING_TOKENS = new Set([
     "and", "or", "of", "to", "in", "on", "for", "with", "including", "plus", "less", "only",
     "than", "from", "other", "foreign", "reductions", "recognized", "compared", "is", "are",
@@ -6474,6 +6476,39 @@ const buildGroundedQuickCheckFallbacks = (args: {
     ];
 };
 
+const buildLessonDefinitionFallbackTerms = (
+    rawTerms: string[],
+    topicTitle: string
+) => {
+    const topicLabel = normalizeLessonSentence(topicTitle, 4) || "Topic";
+    const defaults = [
+        `${topicLabel} purpose`,
+        `${topicLabel} term`,
+        `${topicLabel} example`,
+        `${topicLabel} evidence`,
+        `${topicLabel} step`,
+        `${topicLabel} check`,
+    ];
+    const terms = dedupeLessonStringList(
+        [
+            ...rawTerms,
+            ...defaults,
+        ]
+            .map((term) => String(term || "").split(/\s+/).slice(0, 4).join(" "))
+            .filter(Boolean),
+        LESSON_WORD_BANK_MAX,
+        4
+    );
+
+    let defaultIndex = 0;
+    while (terms.length < LESSON_WORD_BANK_MIN) {
+        terms.push(defaults[defaultIndex % defaults.length]);
+        defaultIndex += 1;
+    }
+
+    return terms.slice(0, LESSON_WORD_BANK_MAX);
+};
+
 const normalizeDefinitionEntries = (rawDefinitions: any, fallbackTerms: string[]) => {
     const definitions = Array.isArray(rawDefinitions) ? rawDefinitions : [];
     const normalized: Array<{ term: string; meaning: string }> = [];
@@ -6504,14 +6539,14 @@ const normalizeDefinitionEntries = (rawDefinitions: any, fallbackTerms: string[]
     }
 
     for (const fallbackTerm of fallbackTerms) {
-        if (normalized.length >= 8) break;
+        if (normalized.length >= LESSON_WORD_BANK_MAX) break;
         pushDefinition(
             fallbackTerm,
             `${fallbackTerm} is one of the important ideas used in this topic.`
         );
     }
 
-    return normalized.slice(0, 8);
+    return normalized.slice(0, LESSON_WORD_BANK_MAX);
 };
 
 const normalizeWorkedExamples = (
@@ -6712,14 +6747,12 @@ const buildStructuredLessonFallbackMap = (args: {
         6,
         14
     );
-    const fallbackTerms = dedupeLessonStringList(
+    const fallbackTerms = buildLessonDefinitionFallbackTerms(dedupeLessonStringList(
         [...keyPoints, ...subtopics].map((item) => String(item).split(/\s+/).slice(0, 3).join(" ")),
         8,
         4
-    );
-    const definitions = contentGraph.definitions.length > 0
-        ? normalizeDefinitionEntries(contentGraph.definitions, [])
-        : [];
+    ), args.title);
+    const definitions = normalizeDefinitionEntries(contentGraph.definitions, fallbackTerms);
     const workedExampleFallback = buildGroundedWorkedExampleFallback({
         title: args.title,
         contentGraph,
@@ -6855,6 +6888,7 @@ Rules:
 - Big idea must explain the topic purpose simply.
 - Key points must be 5 to 8 items.
 - Subtopics must form a logical teaching order.
+- Definitions must include 6 to 8 Word Bank entries. These terms are the source for flashcards.
 - Prefer the topic content graph over the structured source map, and prefer the structured source map over inferring missing structure from loose prose.
 - Worked examples must include a question, reasoning steps, and an answer.
 - Summary must be concise and should wrap up the lesson instead of repeating all key points.
@@ -6906,11 +6940,11 @@ const normalizeStructuredLessonMap = (rawMap: any, args: {
         6,
         14
     );
-    const fallbackTerms = dedupeLessonStringList(
+    const fallbackTerms = buildLessonDefinitionFallbackTerms(dedupeLessonStringList(
         [...keyPoints, ...subtopics].map((item) => String(item).split(/\s+/).slice(0, 3).join(" ")),
         8,
         4
-    );
+    ), args.title);
     const definitions = normalizeDefinitionEntries(rawMap?.definitions, fallbackTerms);
     const examples = normalizeWorkedExamples(
         rawMap?.examples,
@@ -7000,6 +7034,7 @@ const evaluateStructuredLessonQuality = (content: string) => {
     const keyIdeaLines = extractSectionLines(normalized, /key ideas?/i).filter((line) => /^[-*]\s+/.test(line));
     const stepLines = extractSectionLines(normalized, /step-by-step breakdown/i);
     const workedExampleLines = extractSectionLines(normalized, /worked example/i);
+    const wordBankLines = extractSectionLines(normalized, /word bank/i);
     const summaryLines = extractSectionLines(normalized, /summary/i);
     const quickCheckPairs = countQuickCheckPairs(normalized);
 
@@ -7032,6 +7067,13 @@ const evaluateStructuredLessonQuality = (content: string) => {
     const hasWorkedAnswer = /(?:\*\*)?Answer:\*{0,2}/.test(workedJoined);
     if (!hasWorkedQuestion || !hasWorkedReasoning || !hasWorkedAnswer) {
         reasons.push("Worked Example must include question, reasoning, and answer.");
+    }
+    const wordBankEntries = wordBankLines.filter((line) =>
+        /^(?:[-*]|\d+\.)\s+/.test(line)
+        && /\s[—–-]\s+|:\s+/.test(line)
+    ).length;
+    if (wordBankEntries < LESSON_WORD_BANK_MIN || wordBankEntries > LESSON_WORD_BANK_MAX) {
+        reasons.push("Word Bank must include 6-8 term-definition entries.");
     }
     const summaryWordCount = countWords(stripMarkdownLikeFormatting(summaryLines.join(" ")));
     if (summaryWordCount > 80 || summaryLines.length > 3) {
@@ -7178,7 +7220,13 @@ const buildQualitySafeLessonFallbackMap = (args: {
         || workedFact;
     const definitions = normalizeDefinitionEntries(
         contentGraph.definitions,
-        finalKeyPoints.map((point) => point.split(/\s+/).slice(0, 3).join(" "))
+        buildLessonDefinitionFallbackTerms(
+            [
+                ...finalKeyPoints,
+                ...subtopicSeeds,
+            ],
+            title
+        )
     );
     const likelyConfusions = normalizeConfusionEntries(
         contentGraph.likelyConfusions,

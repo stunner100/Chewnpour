@@ -23,6 +23,7 @@ assert.ok(
     && aiSource.includes('Key Ideas must contain 5-8 atomic bullets.')
     && aiSource.includes('Step-by-Step Breakdown must use numbered steps only.')
     && aiSource.includes('Worked Example must include question, reasoning, and answer.')
+    && aiSource.includes('Word Bank must include 6-8 term-definition entries.')
     && aiSource.includes('Summary must stay concise and avoid bloated repetition.')
     && aiSource.includes('Lesson must not include generic worked-example filler or low-signal source fragments.'),
   'Expected ai.ts to enforce section-level lesson quality rules in code.'
@@ -58,6 +59,7 @@ assert.ok(
     && aiSource.includes('## Key Ideas')
     && aiSource.includes('## Step-by-Step Breakdown')
     && aiSource.includes('## Worked Example')
+    && aiSource.includes('## Word Bank')
     && aiSource.includes('## Summary')
     && aiSource.includes('## Quick Check'),
   'Expected the structured lesson renderer to emit the required lesson sections.'
@@ -74,6 +76,14 @@ assert.ok(
     && aiSource.includes('Read the source purpose for ${topicLabel}')
     && aiSource.includes('Connect the terms to one source example'),
   'Expected the fallback quality gate to accept stable worked-example labels and use non-repeating safe steps.'
+);
+
+assert.ok(
+  aiSource.includes('const LESSON_WORD_BANK_MIN = 6;')
+    && aiSource.includes('const LESSON_WORD_BANK_MAX = 8;')
+    && aiSource.includes('buildLessonDefinitionFallbackTerms(')
+    && aiSource.includes('Definitions must include 6 to 8 Word Bank entries.'),
+  'Expected standard topic generation to always normalize enough Word Bank definitions for flashcards.'
 );
 
 console.log('lesson-structure-quality-regression tests passed');
