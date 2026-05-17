@@ -18,9 +18,15 @@ const requireExcludes = (snippet, label) => {
 };
 
 requireIncludes('const messagesContainerRef = useRef(null);', 'message container ref');
-requireIncludes('messagesContainer.scrollTo({', 'auto-scroll call');
-requireIncludes('top: messagesContainer.scrollHeight', 'auto-scroll target');
-requireIncludes('}, [effectiveSelectedTopicId, messages, sending]);', 'auto-scroll dependencies');
+requireIncludes('const responseAnchorRef = useRef(null);', 'response anchor ref');
+requireIncludes('const [pendingExchange, setPendingExchange] = useState(null);', 'optimistic pending exchange state');
+requireIncludes('const displayMessages = useMemo(() => {', 'derived display messages');
+requireIncludes("role: 'user',", 'optimistic user message role');
+requireIncludes("role: 'assistant',", 'pending assistant message role');
+requireIncludes('scrollIntoView({', 'response-start scroll anchor');
+requireIncludes("block: 'start'", 'response starts at top of viewport');
+requireExcludes('top: messagesContainer.scrollHeight', 'bottom-anchored response scrolling');
+requireExcludes('}, [effectiveSelectedTopicId, messages, sending]);', 'sending-driven bottom auto-scroll');
 requireIncludes('aria-label="AI Tutor conversation"', 'conversation region label');
 
 requireIncludes('const TutorContextLoading = ({ topicTitle }) => (', 'named context loading state');

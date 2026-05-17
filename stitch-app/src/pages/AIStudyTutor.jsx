@@ -109,7 +109,11 @@ const AIStudyTutor = () => {
     const [selectedTopicId, setSelectedTopicId] = useState('');
     const [sending, setSending] = useState(false);
     const [error, setError] = useState('');
+    const [pendingExchange, setPendingExchange] = useState(null);
     const messagesContainerRef = useRef(null);
+    const questionAnchorRef = useRef(null);
+    const responseAnchorRef = useRef(null);
+    const lastScrollAnchorKeyRef = useRef('');
     const askTopicTutor = useAction(api.ai.askTopicTutor);
 
     const effectiveSelectedTopicId = topicOptions.some((option) => String(option.topicId) === String(selectedTopicId))
@@ -124,10 +128,93 @@ const AIStudyTutor = () => {
         api.topicChat.getMessages,
         selectedTopicOption?.topicId ? { topicId: selectedTopicOption.topicId } : 'skip'
     );
+    const messageList = Array.isArray(messages) ? messages : EMPTY_LIST;
+    const pendingExchangeForTopic = pendingExchange && selectedTopicOption?.topicId && String(pendingExchange.topicId) === String(selectedTopicOption.topicId)
+        ? pendingExchange
+        : null;
+    const pendingServerState = useMemo(() => {
+        if (!pendingExchangeForTopic) {
+            return {
+                hasQuestion: false,
+                hasAssistant: false,
+                questionMessageId: '',
+                assistantMessageId: '',
+            };
+        }
+
+        let matchingQuestionCount = 0;
+        let questionIndex = -1;
+        let questionMessageId = '';
+        for (let index = 0; index < messageList.length; index += 1) {
+            const message = messageList[index];
+            if (message.role !== 'user') continue;
+            if (String(message.content || '').trim() !== pendingExchangeForTopic.question) continue;
+            matchingQuestionCount += 1;
+            if (matchingQuestionCount > pendingExchangeForTopic.baselineQuestionCount) {
+                questionIndex = index;
+                questionMessageId = String(message._id || '');
+            }
+        }
+
+        const assistantMessage = questionIndex >= 0
+            ? messageList.slice(questionIndex + 1).find((message) => message.role === 'assistant')
+            : null;
+
+        return {
+            hasQuestion: questionIndex >= 0,
+            hasAssistant: Boolean(assistantMessage),
+            questionMessageId,
+            assistantMessageId: String(assistantMessage?._id || ''),
+        };
+    }, [messageList, pendingExchangeForTopic]);
+    const displayMessages = useMemo(() => {
+        const nextMessages = [...messageList];
+        if (!pendingExchangeForTopic || messages === undefined) return nextMessages;
+
+        if (!pendingServerState.hasQuestion) {
+            nextMessages.push({
+                _id: `pending-user-${pendingExchangeForTopic.clientId}`,
+                role: 'user',
+                content: pendingExchangeForTopic.question,
+                optimistic: true,
+            });
+        }
+
+        if (!pendingServerState.hasAssistant) {
+            nextMessages.push({
+                _id: `pending-assistant-${pendingExchangeForTopic.clientId}`,
+                role: 'assistant',
+                content: '',
+                pending: true,
+            });
+        }
+
+        return nextMessages;
+    }, [messageList, messages, pendingExchangeForTopic, pendingServerState]);
+    const questionAnchorKey = pendingExchangeForTopic && !pendingServerState.hasAssistant
+        ? pendingServerState.questionMessageId || `pending-user-${pendingExchangeForTopic.clientId}`
+        : '';
+    const responseAnchorKey = pendingServerState.assistantMessageId || (
+        pendingExchangeForTopic && !pendingServerState.hasAssistant
+            ? `pending-assistant-${pendingExchangeForTopic.clientId}`
+            : ''
+    );
+    const activeScrollAnchorKey = pendingServerState.assistantMessageId
+        ? responseAnchorKey
+        : questionAnchorKey || responseAnchorKey;
 
     const handleSend = useCallback(async (overridePrompt) => {
         const question = String(overridePrompt || inputValue || '').trim();
         if (!question || !selectedTopicOption?.topicId || sending) return;
+        const baselineQuestionCount = messageList.filter((message) =>
+            message.role === 'user' && String(message.content || '').trim() === question
+        ).length;
+        setPendingExchange({
+            clientId: `${Date.now()}-${Math.random().toString(36).slice(2)}`,
+            topicId: selectedTopicOption.topicId,
+            question,
+            baselineQuestionCount,
+        });
         setSending(true);
         setError('');
         setInputValue('');
@@ -137,11 +224,13 @@ const AIStudyTutor = () => {
                 question,
             });
         } catch (err) {
+            setPendingExchange(null);
+            setInputValue(question);
             setError(resolveConvexErrorMessage(err, 'Could not get a tutor response. Please try again.'));
         } finally {
             setSending(false);
         }
-    }, [askTopicTutor, inputValue, selectedTopicOption?.topicId, sending]);
+    }, [askTopicTutor, inputValue, messageList, selectedTopicOption?.topicId, sending]);
 
     const handleKeyDown = useCallback((event) => {
         if (event.key === 'Enter' && !event.shiftKey) {
@@ -151,18 +240,35 @@ const AIStudyTutor = () => {
     }, [handleSend]);
 
     useEffect(() => {
+        setPendingExchange(null);
+        lastScrollAnchorKeyRef.current = '';
         const messagesContainer = messagesContainerRef.current;
         if (!messagesContainer) return undefined;
 
         const frame = requestAnimationFrame(() => {
-            messagesContainer.scrollTo({
-                top: messagesContainer.scrollHeight,
-                behavior: 'smooth',
-            });
+            messagesContainer.scrollTo({ top: 0 });
         });
 
         return () => cancelAnimationFrame(frame);
-    }, [effectiveSelectedTopicId, messages, sending]);
+    }, [effectiveSelectedTopicId]);
+
+    useEffect(() => {
+        if (!activeScrollAnchorKey || lastScrollAnchorKeyRef.current === activeScrollAnchorKey) return undefined;
+
+        const frame = requestAnimationFrame(() => {
+            const target = pendingServerState.assistantMessageId
+                ? responseAnchorRef.current
+                : questionAnchorRef.current || responseAnchorRef.current;
+            if (!target) return;
+            target.scrollIntoView({
+                block: 'start',
+                behavior: 'smooth',
+            });
+            lastScrollAnchorKeyRef.current = activeScrollAnchorKey;
+        });
+
+        return () => cancelAnimationFrame(frame);
+    }, [activeScrollAnchorKey, displayMessages.length, pendingServerState.assistantMessageId]);
 
     if (courses === undefined || (effectiveCourseId && selectedCourse === undefined)) return <TutorSkeleton />;
     if (topicOptions.length === 0) return <EmptyTutorState />;
@@ -264,7 +370,7 @@ const AIStudyTutor = () => {
 
                         {messages === undefined ? (
                             <TutorContextLoading topicTitle={selectedTopicOption?.title} />
-                        ) : messages.length === 0 ? (
+                        ) : displayMessages.length === 0 ? (
                             <div className="flex justify-start gap-4">
                                 <div className="w-9 h-9 rounded-full bg-primary-soft flex items-center justify-center flex-shrink-0 border border-primary-fixed-dim">
                                     <span className="material-symbols-outlined text-primary" style={{ fontVariationSettings: "'FILL' 1" }}>smart_toy</span>
@@ -279,34 +385,38 @@ const AIStudyTutor = () => {
                                 </div>
                             </div>
                         ) : (
-                            messages.map((message) => {
+                            displayMessages.map((message) => {
                                 const isUser = message.role === 'user';
+                                const isQuestionAnchor = questionAnchorKey && String(message._id) === String(questionAnchorKey);
+                                const isResponseAnchor = responseAnchorKey && String(message._id) === String(responseAnchorKey);
                                 return (
-                                    <div key={message._id} className={`flex ${isUser ? 'justify-end' : 'justify-start gap-4'}`}>
+                                    <div
+                                        key={message._id}
+                                        ref={isResponseAnchor ? responseAnchorRef : isQuestionAnchor ? questionAnchorRef : null}
+                                        className={`flex ${isUser ? 'justify-end' : 'justify-start gap-4'}`}
+                                    >
                                         {!isUser && (
                                             <div className="w-9 h-9 rounded-full bg-primary-soft flex items-center justify-center flex-shrink-0 border border-primary-fixed-dim">
                                                 <span className="material-symbols-outlined text-primary" style={{ fontVariationSettings: "'FILL' 1" }}>smart_toy</span>
                                             </div>
                                         )}
                                         <div className={`${isUser ? 'max-w-[80%] md:max-w-[70%] bg-surface-muted rounded-tr-sm' : 'max-w-[85%] md:max-w-[75%] bg-ai-subtle rounded-tl-sm border-outline-variant'} rounded-2xl p-space-4 shadow-sm border border-border-subtle`}>
-                                            <p className="font-body-sm text-body-sm text-text-primary whitespace-pre-wrap">{message.content}</p>
+                                            {message.pending ? (
+                                                <div className="flex items-center gap-3" role="status" aria-live="polite">
+                                                    <span className="font-label-xs text-label-xs text-text-secondary">Tutor is preparing an answer</span>
+                                                    <span className="flex items-center gap-1.5" aria-hidden="true">
+                                                        <span className="h-2 w-2 rounded-full bg-primary/60 animate-pulse" />
+                                                        <span className="h-2 w-2 rounded-full bg-primary/60 animate-pulse" style={{ animationDelay: '0.2s' }} />
+                                                        <span className="h-2 w-2 rounded-full bg-primary/60 animate-pulse" style={{ animationDelay: '0.4s' }} />
+                                                    </span>
+                                                </div>
+                                            ) : (
+                                                <p className="font-body-sm text-body-sm text-text-primary whitespace-pre-wrap">{message.content}</p>
+                                            )}
                                         </div>
                                     </div>
                                 );
                             })
-                        )}
-
-                        {sending && (
-                            <div className="flex justify-start gap-4">
-                                <div className="w-9 h-9 rounded-full bg-primary-soft flex items-center justify-center flex-shrink-0 border border-primary-fixed-dim">
-                                    <span className="material-symbols-outlined text-primary" style={{ fontVariationSettings: "'FILL' 1" }}>smart_toy</span>
-                                </div>
-                                <div className="bg-ai-subtle rounded-2xl rounded-tl-sm px-5 py-4 shadow-sm border border-outline-variant flex items-center gap-2">
-                                    <div className="w-2 h-2 rounded-full bg-primary/60 animate-pulse" />
-                                    <div className="w-2 h-2 rounded-full bg-primary/60 animate-pulse" style={{ animationDelay: '0.2s' }} />
-                                    <div className="w-2 h-2 rounded-full bg-primary/60 animate-pulse" style={{ animationDelay: '0.4s' }} />
-                                </div>
-                            </div>
                         )}
                     </div>
 

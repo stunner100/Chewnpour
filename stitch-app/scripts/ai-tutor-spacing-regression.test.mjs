@@ -23,8 +23,8 @@ for (const expectedSnippet of [
   'h-[calc(100vh-64px)] overflow-hidden',
   'flex-1 min-h-0 flex flex-col p-space-4 md:p-space-8 max-w-container-max mx-auto w-full',
   'flex-1 min-h-0 bg-surface rounded-2xl border border-border-subtle shadow-sm flex flex-col overflow-hidden',
-  'flex-1 min-h-0 overflow-y-auto p-space-6 flex flex-col gap-space-8',
-  'Your personal academic assistant, ready to help you understand complex topics.',
+  'flex-1 min-h-0 overflow-y-auto p-space-5 flex flex-col gap-space-6',
+  'Ask questions grounded in your generated lessons and source material.',
 ]) {
   if (!tutorSource.includes(expectedSnippet)) {
     throw new Error(`Expected AIStudyTutor.jsx to include "${expectedSnippet}".`);
