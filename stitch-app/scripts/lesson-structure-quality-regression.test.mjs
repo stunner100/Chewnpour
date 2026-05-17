@@ -12,6 +12,15 @@ assert.ok(
 );
 
 assert.ok(
+  aiSource.includes('const buildStructuredLessonRepairPrompt = (args: {')
+    && aiSource.includes('QUALITY ERROR TO FIX:')
+    && aiSource.includes('PREVIOUS MAP THAT FAILED VALIDATION:')
+    && aiSource.includes('structured_lesson_map_repair_attempt')
+    && aiSource.includes('structured_lesson_map_repair_failed'),
+  'Expected topic generation to make one strict structured-map repair pass when Word Bank or section quality validation fails.'
+);
+
+assert.ok(
   aiSource.includes('const normalizeStructuredLessonMap = (rawMap: any, args: {')
     && aiSource.includes('const buildLessonMarkdownFromStructuredMap = (map: StructuredLessonMap) => {'),
   'Expected ai.ts to normalize a structured lesson schema and render markdown from that schema.'

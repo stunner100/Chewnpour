@@ -6919,6 +6919,82 @@ Return JSON only in this shape:
   ]
 }`;
 
+const buildStructuredLessonRepairPrompt = (args: {
+    title: string;
+    description?: string;
+    keyPoints: string[];
+    topicContext: string;
+    contentGraphContext?: string;
+    structuredSourceMap?: string;
+    previousMap?: any;
+    qualityError: string;
+    educationDirective: string;
+}) => `Repair this structured lesson map as STRICT JSON ONLY.
+
+TOPIC: ${args.title}
+DESCRIPTION: ${args.description || "Educational topic"}
+KEY POINTS: ${(args.keyPoints || []).join(", ") || "Core concepts"}
+QUALITY ERROR TO FIX:
+${args.qualityError}
+
+${args.contentGraphContext ? `TOPIC_CONTENT_GRAPH:\n"""\n${args.contentGraphContext}\n"""\n` : ""}
+${args.structuredSourceMap ? `STRUCTURED SOURCE MAP:\n"""\n${args.structuredSourceMap}\n"""\n` : ""}
+
+SOURCE CONTEXT:
+"""
+${args.topicContext}
+"""
+
+PREVIOUS MAP THAT FAILED VALIDATION:
+"""
+${JSON.stringify(args.previousMap || {}, null, 2).slice(0, 6000)}
+"""
+
+${args.educationDirective}
+
+Rules:
+- Return only valid JSON in the requested shape.
+- Do not return markdown.
+- Keep the lesson grounded in the source context.
+- Fix every quality error listed above.
+- Key points must be 5 to 8 concise, non-overlapping, atomic bullets.
+- Definitions must include 6 to 8 Word Bank entries. These entries are used directly as flashcards.
+- Definition terms must be concrete source terms, named metrics, named concepts, or proper nouns from the source.
+- Definition meanings must explain what the term means in this source material.
+- Never use generic meanings like "important idea used in this topic" or "explained in clear words."
+- Do not use learning objectives, commands, or fragments as definition terms.
+- Avoid repeating the same semantic point across keyPoints, subtopics, summary, and worked example.
+- Worked examples must include a concrete question, 2 to 4 reasoning steps, and a direct answer.
+- Quick check must include 3 question/answer pairs.
+
+Return JSON only in this shape:
+{
+  "title": "string",
+  "bigIdea": ["paragraph 1", "optional paragraph 2"],
+  "subtopics": ["step-ready subtopic", "next subtopic"],
+  "definitions": [
+    { "term": "string", "meaning": "string" }
+  ],
+  "examples": [
+    {
+      "question": "string",
+      "reasoning": ["step 1", "step 2", "step 3"],
+      "answer": "string"
+    }
+  ],
+  "formulas": [
+    { "name": "string", "expression": "string", "explanation": "string" }
+  ],
+  "keyPoints": ["atomic point"],
+  "likelyConfusions": [
+    { "confusion": "string", "correction": "string" }
+  ],
+  "summary": "string",
+  "quickCheck": [
+    { "question": "string?", "answer": "string", "skillType": "recall|understanding|application|analysis" }
+  ]
+}`;
+
 const normalizeStructuredLessonMap = (rawMap: any, args: {
     title: string;
     description?: string;
@@ -8772,14 +8848,65 @@ ${index === totalTopics - 1 ? "This is the final topic — summarize and connect
             message: lessonError instanceof Error ? lessonError.message : String(lessonError),
         });
     }
-    const content = await ensureTopicLessonContent({
-        title: safeTopicTitle,
-        description: groundedTopicData.description,
-        keyPoints: groundedTopicData.keyPoints,
-        topicContext,
-        structuredLessonMap,
-        contentGraph: topicContentGraph,
-    });
+    let content: string;
+    try {
+        content = await ensureTopicLessonContent({
+            title: safeTopicTitle,
+            description: groundedTopicData.description,
+            keyPoints: groundedTopicData.keyPoints,
+            topicContext,
+            structuredLessonMap,
+            contentGraph: topicContentGraph,
+        });
+    } catch (contentError) {
+        const qualityError = getErrorMessage(contentError);
+        console.warn("[CourseGeneration] structured_lesson_map_repair_attempt", {
+            courseId,
+            uploadId,
+            topicIndex: index,
+            topicTitle: safeTopicTitle,
+            message: qualityError,
+        });
+
+        try {
+            const repairResponse = await callInception([
+                { role: "system", content: tone.systemMessage },
+                {
+                    role: "user",
+                    content: buildStructuredLessonRepairPrompt({
+                        title: safeTopicTitle,
+                        description: groundedTopicData.description,
+                        keyPoints: groundedTopicData.keyPoints,
+                        topicContext,
+                        contentGraphContext: topicContentGraphContext,
+                        structuredSourceMap: groundedStructuredSourceMap,
+                        previousMap: structuredLessonMap,
+                        qualityError,
+                        educationDirective: `${tone.style}\nTarget lesson length after rendering: ${TOPIC_DETAIL_WORD_TARGET} words.`,
+                    }),
+                },
+            ], DEFAULT_MODEL, { maxTokens: 6000, responseFormat: "json_object" });
+            structuredLessonMap = parseJsonFromResponse(repairResponse, "structured lesson repair map");
+            content = await ensureTopicLessonContent({
+                title: safeTopicTitle,
+                description: groundedTopicData.description,
+                keyPoints: groundedTopicData.keyPoints,
+                topicContext,
+                structuredLessonMap,
+                contentGraph: topicContentGraph,
+            });
+        } catch (repairError) {
+            console.warn("[CourseGeneration] structured_lesson_map_repair_failed", {
+                courseId,
+                uploadId,
+                topicIndex: index,
+                topicTitle: safeTopicTitle,
+                originalMessage: qualityError,
+                repairMessage: getErrorMessage(repairError),
+            });
+            throw repairError instanceof Error ? repairError : contentError;
+        }
+    }
     const topicId = await ctx.runMutation(internal.topics.createTopicInternal, {
         courseId,
         sourceUploadId: uploadId,
