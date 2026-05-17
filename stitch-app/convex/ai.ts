@@ -6714,6 +6714,10 @@ const buildStructuredLessonFallbackMap = (args: {
     contentGraph?: TopicContentGraph | null;
 }): StructuredLessonMap => {
     const contentGraph = normalizeTopicContentGraph(args.contentGraph);
+    const sourceDefinitions = extractSourceWordBankDefinitions(
+        args.topicContext,
+        buildTopicContentGraphContext(contentGraph)
+    );
     const groundedFacts = buildGroundedLessonFactCandidates(contentGraph, args.title);
     const narrativeFacts = buildNarrativeFinanceFactsFromGraph(contentGraph);
     const tableFacts = buildTableFinanceFactsFromGraph(contentGraph);
@@ -6747,7 +6751,10 @@ const buildStructuredLessonFallbackMap = (args: {
         6,
         14
     );
-    const definitions = normalizeDefinitionEntries(contentGraph.definitions);
+    const definitions = normalizeDefinitionEntries([
+        ...contentGraph.definitions,
+        ...sourceDefinitions,
+    ]);
     const workedExampleFallback = buildGroundedWorkedExampleFallback({
         title: args.title,
         contentGraph,
@@ -7003,6 +7010,10 @@ const normalizeStructuredLessonMap = (rawMap: any, args: {
     contentGraph?: TopicContentGraph | null;
 }): StructuredLessonMap => {
     const fallback = buildStructuredLessonFallbackMap(args);
+    const sourceDefinitions = extractSourceWordBankDefinitions(
+        args.topicContext,
+        buildTopicContentGraphContext(args.contentGraph)
+    );
     const keyPoints = dedupeLessonStringList(
         Array.isArray(rawMap?.keyPoints) ? rawMap.keyPoints : fallback.keyPoints,
         LESSON_KEY_IDEA_MAX,
@@ -7013,7 +7024,10 @@ const normalizeStructuredLessonMap = (rawMap: any, args: {
         6,
         14
     );
-    const definitions = normalizeDefinitionEntries(rawMap?.definitions);
+    const definitions = normalizeDefinitionEntries([
+        ...(Array.isArray(rawMap?.definitions) ? rawMap.definitions : []),
+        ...sourceDefinitions,
+    ]);
     const examples = normalizeWorkedExamples(
         rawMap?.examples,
         fallback.examples[0]?.question || `How do you solve a simple problem involving ${args.title}?`,
@@ -7103,12 +7117,81 @@ const parseWordBankDefinitionLine = (line: string) => {
         .trim()
         .replace(/^(?:[-*]|\d+\.)\s+/, "")
         .trim();
-    const match = bullet.match(/^(.+?)\s+(?:[—–-]|:)\s+(.+)$/);
+    const match = bullet.match(/^(.+?)\s*(?:[—–-]|:)\s+(.+)$/);
     if (!match) return null;
     return {
         term: match[1].trim(),
         meaning: match[2].trim(),
     };
+};
+
+const SOURCE_WORD_BANK_STOP_HEADINGS = [
+    /^big idea$/i,
+    /^key ideas?$/i,
+    /^step-by-step breakdown$/i,
+    /^worked example$/i,
+    /^common confusions$/i,
+    /^summary$/i,
+    /^quick check$/i,
+    /^formula guide$/i,
+];
+
+const isSourceWordBankStopHeading = (line: string) => {
+    const normalized = String(line || "").replace(/^#{1,6}\s+/, "").trim();
+    if (!normalized || normalized.length > 48) return false;
+    return SOURCE_WORD_BANK_STOP_HEADINGS.some((pattern) => pattern.test(normalized));
+};
+
+const extractSourceWordBankDefinitions = (...sources: any[]) => {
+    const entries: Array<{ term: string; meaning: string }> = [];
+
+    for (const source of sources) {
+        const normalized = parseLessonContentCandidate(String(source || ""));
+        if (!normalized) continue;
+
+        const lines = normalized.split("\n");
+        let inWordBank = false;
+        let currentDefinitionLine = "";
+
+        const flushCurrent = () => {
+            const parsed = parseWordBankDefinitionLine(currentDefinitionLine);
+            if (parsed) entries.push(parsed);
+            currentDefinitionLine = "";
+        };
+
+        for (const rawLine of lines) {
+            const line = String(rawLine || "").trim();
+            if (!line) continue;
+
+            const headingMatch = line.match(/^#{1,6}\s+(.+)$/);
+            const headingText = headingMatch ? headingMatch[1].trim() : line;
+            if (!inWordBank) {
+                if (/^(?:word bank|glossary|definitions)$/i.test(headingText)) {
+                    inWordBank = true;
+                }
+                continue;
+            }
+
+            if (headingMatch || isSourceWordBankStopHeading(line)) {
+                flushCurrent();
+                break;
+            }
+
+            if (/^(?:[-*]|\d+\.)\s+/.test(line)) {
+                flushCurrent();
+                currentDefinitionLine = line;
+                continue;
+            }
+
+            if (currentDefinitionLine) {
+                currentDefinitionLine = `${currentDefinitionLine} ${line}`.trim();
+            }
+        }
+
+        flushCurrent();
+    }
+
+    return normalizeDefinitionEntries(entries);
 };
 
 const extractWordBankDefinitionsFromLessonContent = (content: string) => {
@@ -7238,6 +7321,10 @@ const buildQualitySafeLessonFallbackMap = (args: {
         args.description || contentGraph.description,
         28
     );
+    const sourceDefinitions = extractSourceWordBankDefinitions(
+        args.topicContext,
+        buildTopicContentGraphContext(contentGraph)
+    );
     const sourceFacts = contentGraph.sourcePassages
         .filter((passage) => !isLowSignalLessonSourceFragment(passage.text))
         .flatMap((passage) => splitLessonSentences(passage.text, 3))
@@ -7316,7 +7403,10 @@ const buildQualitySafeLessonFallbackMap = (args: {
     const secondaryFact = candidateFacts.find((fact) => fact !== workedFact)
         || finalKeyPoints[1]
         || workedFact;
-    const definitions = normalizeDefinitionEntries(contentGraph.definitions);
+    const definitions = normalizeDefinitionEntries([
+        ...contentGraph.definitions,
+        ...sourceDefinitions,
+    ]);
     const likelyConfusions = normalizeConfusionEntries(
         contentGraph.likelyConfusions,
         finalKeyPoints

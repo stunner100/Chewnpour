@@ -96,6 +96,14 @@ assert.ok(
 );
 
 assert.ok(
+  aiSource.includes('const extractSourceWordBankDefinitions = (...sources: any[]) => {')
+    && aiSource.includes('parseWordBankDefinitionLine(currentDefinitionLine)')
+    && aiSource.includes('sourceDefinitions')
+    && aiSource.includes('...sourceDefinitions'),
+  'Expected lesson generation to extract source-provided Word Bank entries, including colon-separated source lines, before failing the Word Bank gate.'
+);
+
+assert.ok(
   aiSource.includes('Word Bank entries must be concrete terms with specific definitions.')
     && aiSource.includes('isGenericDefinitionMeaning(')
     && aiSource.includes('isLearningObjectiveFragmentTerm('),
