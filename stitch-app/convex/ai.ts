@@ -608,7 +608,7 @@ const featureUsesDeepSeekDocumentPipeline = (feature: string) =>
     DEEPSEEK_DOCUMENT_PIPELINE_FEATURES.has(String(feature || "").trim());
 
 const featureAllowsDocumentPipelineProviderFallback = (feature: string) =>
-    ["mcq_generation", "essay_generation"].includes(String(feature || "").trim());
+    ["course_generation", "mcq_generation", "essay_generation"].includes(String(feature || "").trim());
 
 const resolveDeepSeekDocumentPipelineModel = (feature: string) =>
     COMPLEX_DOCUMENT_PIPELINE_FEATURES.has(String(feature || "").trim())

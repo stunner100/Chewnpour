@@ -6,8 +6,12 @@ if (!/featureAllowsDocumentPipelineProviderFallback/.test(source)) {
   throw new Error("Expected exam generation to declare document-pipeline provider fallback support.");
 }
 
-if (!/\"mcq_generation\",\s*\"essay_generation\"/.test(source)) {
-  throw new Error("Expected MCQ and essay generation to allow provider fallback when DeepSeek fails.");
+const providerFallbackAllowlist = source.match(
+  /const featureAllowsDocumentPipelineProviderFallback = \(feature: string\) =>\s*\[([\s\S]*?)\]\.includes/
+)?.[1] || "";
+
+if (!/"course_generation"[\s\S]*"mcq_generation"[\s\S]*"essay_generation"/.test(providerFallbackAllowlist)) {
+  throw new Error("Expected course, MCQ, and essay generation to allow provider fallback when DeepSeek fails.");
 }
 
 if (!/pipelineOpenAiRequired && !pipelineProviderFallbackAllowed/.test(source)) {
