@@ -312,6 +312,17 @@ export const startExamAttempt = action({
             authUserId,
             resourceOwnerUserId: accessContext.courseUserId,
         });
+        const availability = await ctx.runQuery(internal.topics.getTopicStudyAvailabilityInternal, {
+            topicId: args.topicId,
+        });
+        if (!availability?.available) {
+            throw new ConvexError({
+                code: "STUDY_CONTENT_UNAVAILABLE",
+                message:
+                    "This study content is unavailable because its source material did not pass processing quality checks.",
+                reason: availability?.reason || "unavailable",
+            });
+        }
 
         const reusableAttempt: any = await ctx.runMutation(internal.exams.ensurePreparedExamAttemptInternal, {
             userId: effectiveUserId,

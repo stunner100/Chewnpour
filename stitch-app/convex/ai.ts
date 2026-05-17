@@ -10202,6 +10202,7 @@ export const askTopicTutor = action({
                 topicId: args.topicId,
             });
             if (!topic) throw new Error("Topic not found.");
+            await assertTopicStudyContentAvailable(ctx, args.topicId);
 
             await ctx.runMutation(internal.subscriptions.consumeAiMessageCreditOrThrowInternal, {
                 userId,
@@ -10590,8 +10591,23 @@ const assertTopicQuestionGenerationAccess = async (ctx: any, topicId: any) => {
         authUserId,
         resourceOwnerUserId: topicOwner.userId,
     });
+    await assertTopicStudyContentAvailable(ctx, topicId);
 
     return authUserId;
+};
+
+const assertTopicStudyContentAvailable = async (ctx: any, topicId: any) => {
+    const availability = await ctx.runQuery(internal.topics.getTopicStudyAvailabilityInternal, {
+        topicId,
+    });
+    if (availability?.available) return availability;
+
+    throw new ConvexError({
+        code: "STUDY_CONTENT_UNAVAILABLE",
+        message:
+            "This study content is unavailable because its source material did not pass processing quality checks.",
+        reason: availability?.reason || "unavailable",
+    });
 };
 
 export const synthesizeTopicVoice = action({

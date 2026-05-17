@@ -2,6 +2,7 @@ import { v } from "convex/values";
 import { action, internalMutation, internalQuery, mutation, query } from "./_generated/server";
 import { internal } from "./_generated/api";
 import { assertAuthorizedUser, resolveAuthUserId } from "./lib/examSecurity";
+import { isTopicStudyAvailable } from "./lib/studyAvailability.js";
 
 const DEFAULT_REVIEW_QUEUE_LIMIT = 6;
 const DEFAULT_CONCEPT_SESSION_SIZE = 1;
@@ -288,6 +289,8 @@ export const getConceptReviewQueue = query({
             const canonicalAttempt = topicAttempts[0];
             const topic = await ctx.db.get(canonicalAttempt.topicId);
             if (!topic) continue;
+            const availability = await isTopicStudyAvailable(ctx, topic);
+            if (!availability.available) continue;
             const course = await ctx.db.get(topic.courseId);
             if (!course || course.userId !== userId) continue;
             const summary = summarizeConceptAttempts(topicAttempts);
@@ -376,6 +379,12 @@ export const getConceptSessionForTopic = action({
         });
         if (!topic) {
             throw new Error("Topic not found");
+        }
+        const availability = await ctx.runQuery(internal.topics.getTopicStudyAvailabilityInternal, {
+            topicId: args.topicId,
+        });
+        if (!availability?.available) {
+            throw new Error("Study content is unavailable for this topic.");
         }
 
         const owner = await ctx.runQuery(internal.topics.getTopicOwnerUserIdInternal, {

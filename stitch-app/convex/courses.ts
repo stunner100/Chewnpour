@@ -3,6 +3,7 @@ import { internalMutation, internalQuery, mutation, query } from "./_generated/s
 import { internal } from "./_generated/api";
 import { resolveCourseSourceStatus } from "./lib/uploadDisplayStatus.js";
 import { assertOwnerUserId, requireAuthenticatedUserId } from "./lib/authz";
+import { filterStudyAvailableTopics } from "./lib/studyAvailability.js";
 
 const listCoursesWithProgress = async (ctx: any, userId: string) => {
     const courses = await ctx.db
@@ -26,12 +27,17 @@ const listCoursesWithProgress = async (ctx: any, userId: string) => {
         ...conceptAttempts.map((attempt: any) => attempt.topicId),
     ]);
 
-    return await Promise.all(
+    const coursePayloads = await Promise.all(
         courses.map(async (course: any) => {
-            const topics = await ctx.db
+            const allTopics = await ctx.db
                 .query("topics")
                 .withIndex("by_courseId", (q: any) => q.eq("courseId", course._id))
                 .collect();
+            const topics = await filterStudyAvailableTopics(ctx, allTopics);
+
+            if (topics.length === 0) {
+                return null;
+            }
 
             const totalTopics = topics.length;
             const completedTopics = topics.filter((topic: any) => attemptedTopicIds.has(topic._id)).length;
@@ -57,6 +63,8 @@ const listCoursesWithProgress = async (ctx: any, userId: string) => {
             };
         })
     );
+
+    return coursePayloads.filter(Boolean);
 };
 
 const getCourseWithTopicsPayload = async (ctx: any, courseId: any) => {
@@ -71,7 +79,7 @@ const getCourseWithTopicsPayload = async (ctx: any, courseId: any) => {
 
     return {
         ...course,
-        topics,
+        topics: await filterStudyAvailableTopics(ctx, topics),
     };
 };
 

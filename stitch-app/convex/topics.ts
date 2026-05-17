@@ -23,6 +23,11 @@ import { resolveIllustrationUrl } from "./lib/illustrationUrl";
 import { areMcqQuestionsNearDuplicate, buildMcqUniquenessSignature } from "./lib/mcqUniqueness";
 import { areQuestionPromptsNearDuplicate, buildQuestionPromptSignature } from "./lib/questionPromptSimilarity";
 import { assertOwnerUserId, requireAuthenticatedUserId } from "./lib/authz";
+import {
+    assertTopicStudyAvailableOrThrow,
+    filterStudyAvailableTopics,
+    isTopicStudyAvailable,
+} from "./lib/studyAvailability.js";
 
 const DEFAULT_TOPIC_ILLUSTRATION_URL =
     String(process.env.TOPIC_PLACEHOLDER_ILLUSTRATION_URL || "/topic-placeholder.svg").trim()
@@ -295,7 +300,11 @@ const dedupeTopicQuestions = (questions: any[]) => {
     return deduped;
 };
 
-const getTopicWithQuestionsPayload = async (ctx: any, topicId: any) => {
+const getTopicWithQuestionsPayload = async (
+    ctx: any,
+    topicId: any,
+    options: { requireStudyAvailable?: boolean } = {},
+) => {
     const safeGetDocument = async (id: any) => {
         if (!id) return null;
         try {
@@ -309,6 +318,10 @@ const getTopicWithQuestionsPayload = async (ctx: any, topicId: any) => {
     if (!topic) return null;
     const course = await safeGetDocument(topic.courseId);
     if (!course) return null;
+    if (options.requireStudyAvailable) {
+        const availability = await isTopicStudyAvailable(ctx, topic);
+        if (!availability.available) return null;
+    }
 
     let freshIllustrationUrl: string | undefined =
         topic.illustrationUrl || resolveDefaultTopicIllustrationUrl();
@@ -395,8 +408,9 @@ export const getTopicsByCourse = query({
             .order("asc")
             .collect();
 
+        const studyTopics = await filterStudyAvailableTopics(ctx, topics);
         const topicsWithIllustrations = await Promise.all(
-            topics.map(async (topic) => {
+            studyTopics.map(async (topic) => {
                 let freshIllustrationUrl: string | undefined =
                     topic.illustrationUrl || resolveDefaultTopicIllustrationUrl();
 
@@ -434,7 +448,7 @@ export const getTopicWithQuestions = query({
         const topicId = resolveTopicIdFromRoute(ctx, args.topicId);
         if (!topicId) return null;
 
-        const payload = await getTopicWithQuestionsPayload(ctx, topicId);
+        const payload = await getTopicWithQuestionsPayload(ctx, topicId, { requireStudyAvailable: true });
         if (!payload) return null;
 
         try {
@@ -484,6 +498,14 @@ export const getTopicWithQuestionsInternal = internalQuery({
     },
 });
 
+export const getTopicStudyAvailabilityInternal = internalQuery({
+    args: { topicId: v.id("topics") },
+    handler: async (ctx, args) => {
+        const topic = await ctx.db.get(args.topicId);
+        return await isTopicStudyAvailable(ctx, topic);
+    },
+});
+
 export const getFinalAssessmentTopicByCourseAndUpload = query({
     args: {
         courseId: v.id("courses"),
@@ -513,8 +535,10 @@ export const getFinalAssessmentTopicByCourseAndUpload = query({
             .withIndex("by_courseId", (q) => q.eq("courseId", args.courseId))
             .collect();
 
+        const studyTopics = await filterStudyAvailableTopics(ctx, topics);
+
         return (
-            topics.find((topic) =>
+            studyTopics.find((topic) =>
                 topic.sourceUploadId === args.sourceUploadId
                 && String(topic.topicKind || "").trim() === "document_final_exam"
             ) || null
@@ -547,6 +571,7 @@ export const getQuestionsByTopic = query({
         if (!topic) return [];
         const ownerUserId = await getTopicOwnerUserId(ctx, topic);
         assertOwnerUserId({ authenticatedUserId: userId, ownerUserId });
+        await assertTopicStudyAvailableOrThrow(ctx, topic);
         const questions = await ctx.db
             .query("questions")
             .withIndex("by_topicId", (q) => q.eq("topicId", args.topicId))
@@ -1549,6 +1574,7 @@ export const upsertTopicProgress = mutation({
         if (!topic) throw new Error("Topic not found");
         const ownerUserId = await getTopicOwnerUserId(ctx, topic);
         assertOwnerUserId({ authenticatedUserId: authUserId, ownerUserId });
+        await assertTopicStudyAvailableOrThrow(ctx, topic);
 
         const existing = await ctx.db
             .query("userTopicProgress")
@@ -1602,6 +1628,8 @@ export const getUserTopicProgress = query({
         if (!topic) return null;
         const ownerUserId = await getTopicOwnerUserId(ctx, topic);
         assertOwnerUserId({ authenticatedUserId: authUserId, ownerUserId });
+        const availability = await isTopicStudyAvailable(ctx, topic);
+        if (!availability.available) return null;
 
         return await ctx.db
             .query("userTopicProgress")
@@ -1642,27 +1670,31 @@ export const getResumeTarget = query({
         const authUserId = resolveAuthUserId(identity);
         if (!authUserId) return null;
 
-        const row = await ctx.db
+        const rows = await ctx.db
             .query("userTopicProgress")
             .withIndex("by_userId_lastStudied", (q) =>
                 q.eq("userId", authUserId)
             )
             .order("desc")
-            .first();
+            .take(25);
 
-        if (!row) return null;
+        for (const row of rows) {
+            const topic = await ctx.db.get(row.topicId);
+            if (!topic) continue;
+            const availability = await isTopicStudyAvailable(ctx, topic);
+            if (!availability.available) continue;
 
-        const topic = await ctx.db.get(row.topicId);
-        if (!topic) return null;
+            return {
+                topicId: row.topicId,
+                topicTitle: topic.title,
+                courseId: row.courseId,
+                lastStudiedAt: row.lastStudiedAt,
+                bestScore: row.bestScore,
+                completedAt: row.completedAt,
+            };
+        }
 
-        return {
-            topicId: row.topicId,
-            topicTitle: topic.title,
-            courseId: row.courseId,
-            lastStudiedAt: row.lastStudiedAt,
-            bestScore: row.bestScore,
-            completedAt: row.completedAt,
-        };
+        return null;
     },
 });
 
@@ -1678,6 +1710,8 @@ export const getTopicSourcePassages = query({
         if (!topic || !topic.sourceUploadId) return [];
         const ownerUserId = await getTopicOwnerUserId(ctx, topic);
         assertOwnerUserId({ authenticatedUserId: authUserId, ownerUserId });
+        const availability = await isTopicStudyAvailable(ctx, topic);
+        if (!availability.available) return [];
 
         const passageIds = topic.sourcePassageIds ?? [];
         if (passageIds.length === 0) return [];

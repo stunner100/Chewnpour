@@ -645,7 +645,17 @@ const FlashcardStudySession = () => {
     return (
         <div className="flex-1 flex flex-col md:ml-0 h-[calc(100vh-64px)] overflow-hidden">
             <main className="flex-1 min-h-0 flex flex-col items-center justify-start px-space-8 pt-space-8 pb-space-8 overflow-y-auto">
-                {activeTopicId ? (
+                {activeTopicId && topic === null ? (
+                    <div className="w-full max-w-4xl">
+                        <EmptyFlashcardState
+                            title="Study content unavailable"
+                            description="This source material did not pass processing quality checks, so ChewnPour will not show flashcards for it."
+                            actionLabel="Back to Materials"
+                            actionIcon="folder"
+                            actionTo="/dashboard/materials"
+                        />
+                    </div>
+                ) : activeTopicId ? (
                     <FlashcardStudyDeck
                         key={String(activeTopicId)}
                         topic={topic}

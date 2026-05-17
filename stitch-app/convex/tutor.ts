@@ -2,6 +2,7 @@ import { v } from "convex/values";
 import { internalMutation, internalQuery, mutation, query } from "./_generated/server";
 import { resolveAuthUserId } from "./lib/examSecurity";
 import { DEFAULT_TUTOR_PERSONA, TUTOR_PERSONAS, normalizeTutorPersona } from "./lib/tutorSupport";
+import { isTopicStudyAvailable } from "./lib/studyAvailability.js";
 
 const resolveTopicId = (ctx: any, rawTopicId: string) => {
     const normalized = String(rawTopicId || "").trim();
@@ -27,6 +28,8 @@ const computeAttemptPercentage = (attempt: any) => {
 const getTutorContextSnapshot = async (ctx: any, args: { userId: string; topicId: any }) => {
     const topic = await ctx.db.get(args.topicId);
     if (!topic) return null;
+    const availability = await isTopicStudyAvailable(ctx, topic);
+    if (!availability.available) return null;
 
     const profile = await ctx.db
         .query("userTutorProfiles")

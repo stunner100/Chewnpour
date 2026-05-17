@@ -3,6 +3,7 @@ import { internalMutation, internalQuery, mutation, query } from "./_generated/s
 import type { MutationCtx } from "./_generated/server";
 import { api, internal } from "./_generated/api";
 import { resolveAuthUserId } from "./lib/examSecurity";
+import { assertTopicStudyAvailableOrThrow, isTopicStudyAvailable } from "./lib/studyAvailability.js";
 
 const DEFAULT_TARGET_WORD_COUNT = 1200;
 const DEFAULT_HOST_VOICE_MODEL = "aura-2-apollo-en";
@@ -231,6 +232,7 @@ export const requestTopicPodcast = mutation({
         if (!course || course.userId !== userId) {
             throw new ConvexError({ code: "UNAUTHORIZED", message: "You do not have access to this topic." });
         }
+        await assertTopicStudyAvailableOrThrow(ctx, topic);
 
         // One in-flight job per user+topic.
         const userTopicRows = await ctx.db
@@ -308,6 +310,9 @@ export const listTopicPodcasts = query({
                 q.eq("userId", userId).eq("topicId", args.topicId),
             )
             .collect();
+        const topic = await ctx.db.get(args.topicId);
+        const availability = await isTopicStudyAvailable(ctx, topic);
+        if (!availability.available) return [];
 
         rows.sort((a, b) => b.createdAt - a.createdAt);
 
@@ -333,7 +338,14 @@ export const listRecentUserPodcasts = query({
             .collect();
 
         rows.sort((a, b) => b.createdAt - a.createdAt);
-        const recent = rows.slice(0, limit);
+        const recent = [];
+        for (const row of rows) {
+            const topic = await ctx.db.get(row.topicId);
+            const availability = await isTopicStudyAvailable(ctx, topic);
+            if (!availability.available) continue;
+            recent.push(row);
+            if (recent.length >= limit) break;
+        }
 
         return await Promise.all(
             recent.map(async (row) => {
@@ -367,6 +379,9 @@ export const getTopicPodcast = query({
         if (!userId) return null;
         const row = await ctx.db.get(args.podcastId);
         if (!row || row.userId !== userId) return null;
+        const topic = await ctx.db.get(row.topicId);
+        const availability = await isTopicStudyAvailable(ctx, topic);
+        if (!availability.available) return null;
         return await serializeRow(ctx, row);
     },
 });
@@ -398,6 +413,8 @@ export const retryTopicPodcast = mutation({
         if (row.status !== "failed") {
             return { success: false, status: row.status };
         }
+        const topic = await ctx.db.get(row.topicId);
+        await assertTopicStudyAvailableOrThrow(ctx, topic);
 
         const userTopicRows = await ctx.db
             .query("topicPodcasts")

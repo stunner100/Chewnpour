@@ -1,6 +1,7 @@
 import { v } from "convex/values";
 import { internalMutation, mutation, query } from "./_generated/server";
 import { resolveAuthUserId } from "./lib/examSecurity";
+import { assertTopicStudyAvailableOrThrow, isTopicStudyAvailable } from "./lib/studyAvailability.js";
 
 const MAX_MESSAGE_LENGTH = 4000;
 
@@ -10,6 +11,9 @@ export const getMessages = query({
         const identity = await ctx.auth.getUserIdentity();
         const userId = resolveAuthUserId(identity);
         if (!userId) return [];
+        const topic = await ctx.db.get(args.topicId);
+        const availability = await isTopicStudyAvailable(ctx, topic);
+        if (!availability.available) return [];
 
         const messages = await ctx.db
             .query("topicChatMessages")
@@ -45,6 +49,8 @@ export const sendMessage = mutation({
         if (content.length > MAX_MESSAGE_LENGTH) {
             throw new Error(`Message is too long (max ${MAX_MESSAGE_LENGTH} characters).`);
         }
+        const topic = await ctx.db.get(args.topicId);
+        await assertTopicStudyAvailableOrThrow(ctx, topic);
 
         const messageId = await ctx.db.insert("topicChatMessages", {
             userId,
@@ -86,6 +92,8 @@ export const clearChat = mutation({
         const identity = await ctx.auth.getUserIdentity();
         const userId = resolveAuthUserId(identity);
         if (!userId) throw new Error("Not authenticated");
+        const topic = await ctx.db.get(args.topicId);
+        await assertTopicStudyAvailableOrThrow(ctx, topic);
 
         const messages = await ctx.db
             .query("topicChatMessages")
