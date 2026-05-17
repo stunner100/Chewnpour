@@ -28,6 +28,23 @@ const bottomNavItems = [
 const SUPPORT_EMAIL = 'info@chewnpour.com';
 const SUPPORT_MAILTO = `mailto:${SUPPORT_EMAIL}?subject=ChewnPour%20Support`;
 
+const scrollDashboardTargetIntoView = (targetId, options = {}) => {
+    if (typeof document === 'undefined') return false;
+
+    const target = document.getElementById(targetId);
+    if (!target) return false;
+
+    if ((options.behavior || 'smooth') === 'smooth' && (options.block || 'start') === 'start') {
+        target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    } else {
+        target.scrollIntoView({
+            behavior: options.behavior || 'smooth',
+            block: options.block || 'start',
+        });
+    }
+    return true;
+};
+
 class DashboardContentErrorBoundary extends Component {
     constructor(props) {
         super(props);
@@ -65,7 +82,7 @@ class DashboardContentErrorBoundary extends Component {
                         className="max-w-lg rounded-2xl border border-border-subtle bg-surface p-space-8 text-center shadow-sm"
                     >
                         <div className="mx-auto mb-space-4 flex h-12 w-12 items-center justify-center rounded-full bg-primary-soft text-primary">
-                            <span className="material-symbols-outlined">cloud_off</span>
+                            <span aria-hidden="true" className="material-symbols-outlined">cloud_off</span>
                         </div>
                         <h2 className="font-headline-sm text-headline-sm font-bold text-text-primary">
                             Study data unavailable
@@ -128,9 +145,7 @@ const DashboardLayout = ({ children }) => {
         let timeoutId;
 
         const scrollToHashTarget = () => {
-            const target = document.getElementById(targetId);
-            if (target) {
-                target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            if (scrollDashboardTargetIntoView(targetId, { behavior: 'smooth' })) {
                 return;
             }
 
@@ -149,6 +164,13 @@ const DashboardLayout = ({ children }) => {
         return routerLocation.pathname.startsWith(item.path);
     };
 
+    const handleNotificationSettingsClick = (event) => {
+        if (routerLocation.pathname === '/dashboard/settings' && routerLocation.hash === '#notifications') {
+            event.preventDefault();
+            scrollDashboardTargetIntoView('notifications', { behavior: 'smooth' });
+        }
+    };
+
     const displayName = profile?.name || profile?.email?.split('@')[0] || 'Student';
     const initials = displayName.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase();
 
@@ -159,7 +181,7 @@ const DashboardLayout = ({ children }) => {
                 {/* Brand Header */}
                 <div className="flex items-center gap-space-3 px-space-2 mt-space-2 mb-space-2">
                     <div className="w-10 h-10 rounded-xl bg-primary flex items-center justify-center text-on-primary">
-                        <span className="material-symbols-outlined" style={{ fontVariationSettings: "'FILL' 1" }}>psychiatry</span>
+                        <span aria-hidden="true" className="material-symbols-outlined" style={{ fontVariationSettings: "'FILL' 1" }}>psychiatry</span>
                     </div>
                     <div>
                         <h1 className="font-headline-sm text-headline-sm tracking-tight text-primary font-bold">ChewnPour</h1>
@@ -172,7 +194,7 @@ const DashboardLayout = ({ children }) => {
                     to="/dashboard/upload"
                     className="w-full bg-primary text-on-primary font-label-sm text-label-sm py-2.5 rounded-xl flex items-center justify-center gap-space-2 hover:bg-primary-hover transition-colors shadow-sm"
                 >
-                    <span className="material-symbols-outlined text-[18px]">auto_awesome</span>
+                    <span aria-hidden="true" className="material-symbols-outlined text-[18px]">auto_awesome</span>
                     Generate Material
                 </Link>
 
@@ -191,6 +213,7 @@ const DashboardLayout = ({ children }) => {
                                 }`}
                             >
                                 <span
+                                    aria-hidden="true"
                                     className="material-symbols-outlined text-[18px]"
                                     style={active ? { fontVariationSettings: "'FILL' 1" } : undefined}
                                 >
@@ -217,6 +240,7 @@ const DashboardLayout = ({ children }) => {
                                 }`}
                             >
                                 <span
+                                    aria-hidden="true"
                                     className="material-symbols-outlined text-[18px]"
                                     style={active ? { fontVariationSettings: "'FILL' 1" } : undefined}
                                 >
@@ -239,7 +263,7 @@ const DashboardLayout = ({ children }) => {
                         aria-label="Open command palette to search pages and actions"
                         className="flex-1 min-w-0 md:max-w-md relative flex items-center gap-2 pl-10 pr-3 py-2 bg-background rounded-lg text-body-sm font-body-sm text-text-muted hover:text-text-primary hover:bg-surface-soft focus:outline-none focus:ring-2 focus:ring-primary-soft transition-all text-left"
                     >
-                        <span className="material-symbols-outlined absolute left-3 text-text-muted">search</span>
+                        <span aria-hidden="true" className="material-symbols-outlined absolute left-3 text-text-muted">search</span>
                         <span className="truncate">Search materials, lessons, or topics...</span>
                         <kbd className="ml-auto hidden sm:inline-flex items-center gap-0.5 rounded-md border border-border-default bg-surface px-2 py-0.5 text-[10px] font-mono text-text-muted">
                             ⌘K
@@ -252,15 +276,16 @@ const DashboardLayout = ({ children }) => {
                             title={`Email support at ${SUPPORT_EMAIL}`}
                             className="p-1.5 md:p-2 text-text-muted hover:text-text-primary hover:bg-surface-soft rounded-full transition-all"
                         >
-                            <span className="material-symbols-outlined">help_outline</span>
+                            <span aria-hidden="true" className="material-symbols-outlined">help_outline</span>
                         </a>
                         <Link
                             to="/dashboard/settings#notifications"
+                            onClick={handleNotificationSettingsClick}
                             aria-label="Open notification settings"
                             title="Open notification settings"
                             className="p-1.5 md:p-2 text-text-muted hover:text-text-primary hover:bg-surface-soft rounded-full transition-all"
                         >
-                            <span className="material-symbols-outlined">notifications</span>
+                            <span aria-hidden="true" className="material-symbols-outlined">notifications</span>
                         </Link>
                         <Link
                             to="/dashboard/settings"
@@ -269,7 +294,7 @@ const DashboardLayout = ({ children }) => {
                             className="h-8 w-8 shrink-0 rounded-full overflow-hidden md:ml-space-2 border border-border-subtle cursor-pointer hover:shadow-sm transition-shadow bg-primary-soft flex items-center justify-center text-xs font-bold text-primary"
                         >
                             {profile?.avatar ? (
-                                <img src={profile.avatar} alt="Student Profile" className="w-full h-full object-cover" />
+                                <img src={profile.avatar} alt="" className="w-full h-full object-cover" />
                             ) : (
                                 initials
                             )}

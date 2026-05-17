@@ -72,6 +72,13 @@ export const upsertProfile = mutation({
         avatarGradient: v.optional(v.number()),
         voiceModeEnabled: v.optional(v.boolean()),
         onboardingCompleted: v.optional(v.boolean()),
+        studyPreferences: v.optional(v.object({
+            dailyGoalMinutes: v.number(),
+            preferredSessionLength: v.string(),
+            dailyReminders: v.boolean(),
+            processingAlerts: v.boolean(),
+            weeklyProgressReport: v.boolean(),
+        })),
     },
     handler: async (ctx, args) => {
         const userId = await requireAuthenticatedUserId(ctx);
@@ -89,6 +96,7 @@ export const upsertProfile = mutation({
             if (args.avatarGradient !== undefined) updates.avatarGradient = args.avatarGradient;
             if (args.voiceModeEnabled !== undefined) updates.voiceModeEnabled = args.voiceModeEnabled;
             if (args.onboardingCompleted !== undefined) updates.onboardingCompleted = args.onboardingCompleted;
+            if (args.studyPreferences !== undefined) updates.studyPreferences = args.studyPreferences;
 
             if (Object.keys(updates).length > 0) {
                 await ctx.db.patch(existing._id, updates);
@@ -104,6 +112,7 @@ export const upsertProfile = mutation({
                 avatarGradient: args.avatarGradient,
                 voiceModeEnabled: args.voiceModeEnabled ?? false,
                 onboardingCompleted: args.onboardingCompleted ?? false,
+                studyPreferences: args.studyPreferences,
                 streakDays: 0,
                 totalStudyHours: 0,
             });

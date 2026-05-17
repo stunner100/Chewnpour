@@ -12,6 +12,13 @@ export default defineSchema({
         avatarGradient: v.optional(v.number()),
         voiceModeEnabled: v.optional(v.boolean()),
         onboardingCompleted: v.optional(v.boolean()),
+        studyPreferences: v.optional(v.object({
+            dailyGoalMinutes: v.number(),
+            preferredSessionLength: v.string(),
+            dailyReminders: v.boolean(),
+            processingAlerts: v.boolean(),
+            weeklyProgressReport: v.boolean(),
+        })),
         streakDays: v.optional(v.number()),
         totalStudyHours: v.optional(v.number()),
         // Email notification preferences (all default to true / opted-in)

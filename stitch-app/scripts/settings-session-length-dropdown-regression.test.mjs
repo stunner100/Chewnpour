@@ -20,7 +20,7 @@ for (const expectedSnippet of [
   "const SESSION_LENGTH_OPTIONS = [",
   'aria-label="Preferred session length"',
   '<DropdownMenuTrigger asChild>',
-  '<DropdownMenuRadioGroup value={sessionLength} onValueChange={setSessionLength}>',
+  '<DropdownMenuRadioGroup value={sessionLength} onValueChange={setDraftSessionLength}>',
 ]) {
   if (!settingsSource.includes(expectedSnippet)) {
     throw new Error(`Expected AccountStudySettings.jsx to include "${expectedSnippet}".`);

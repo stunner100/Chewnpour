@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { useMutation, useQuery } from 'convex/react';
 import { api } from '../../convex/_generated/api';
 import { useAuth } from '../contexts/AuthContext';
@@ -21,6 +21,14 @@ const SESSION_LENGTH_OPTIONS = [
     { value: '90', title: 'Extended', detail: '90m mastery session', triggerDetail: '90m', icon: 'self_improvement' },
 ];
 
+const NOTIFICATION_OPTIONS = [
+    { key: 'dailyReminders', title: 'Daily Study Reminders', desc: 'Get notified when it\'s time for your scheduled session.' },
+    { key: 'processingAlerts', title: 'Material Processing Alerts', desc: 'Notify me when my uploads are ready to review.' },
+    { key: 'weeklyProgressReport', title: 'Weekly Progress Report', desc: 'Receive an email summary of your learning stats.' },
+];
+
+const BILLING_SUPPORT_MAILTO = 'mailto:info@chewnpour.com?subject=ChewnPour%20Billing%20Support';
+
 const DEFAULT_STUDY_PREFERENCES = {
     dailyGoalMinutes: 120,
     preferredSessionLength: '45',
@@ -28,6 +36,31 @@ const DEFAULT_STUDY_PREFERENCES = {
     processingAlerts: true,
     weeklyProgressReport: false,
 };
+
+const normalizeStudyPreferences = (value = {}) => ({
+    dailyGoalMinutes: Math.max(
+        1,
+        Math.round(Number(value?.dailyGoalMinutes ?? DEFAULT_STUDY_PREFERENCES.dailyGoalMinutes) || DEFAULT_STUDY_PREFERENCES.dailyGoalMinutes),
+    ),
+    preferredSessionLength: SESSION_LENGTH_OPTIONS.some((option) => option.value === String(value?.preferredSessionLength))
+        ? String(value.preferredSessionLength)
+        : DEFAULT_STUDY_PREFERENCES.preferredSessionLength,
+    dailyReminders: typeof value?.dailyReminders === 'boolean'
+        ? value.dailyReminders
+        : DEFAULT_STUDY_PREFERENCES.dailyReminders,
+    processingAlerts: typeof value?.processingAlerts === 'boolean'
+        ? value.processingAlerts
+        : DEFAULT_STUDY_PREFERENCES.processingAlerts,
+    weeklyProgressReport: typeof value?.weeklyProgressReport === 'boolean'
+        ? value.weeklyProgressReport
+        : DEFAULT_STUDY_PREFERENCES.weeklyProgressReport,
+});
+
+const MaterialIcon = ({ children, className = '', style }) => (
+    <span aria-hidden="true" className={`material-symbols-outlined ${className}`.trim()} style={style}>
+        {children}
+    </span>
+);
 
 const TUTOR_STYLE_OPTIONS = [
     { value: 'coach', icon: 'school', title: 'Coach', desc: 'Practical, exam-ready help.' },
@@ -74,7 +107,10 @@ const AccountStudySettings = () => {
     const tutorProfile = useQuery(api.tutor.getTutorProfile, {});
     const subscription = useQuery(api.subscriptions.getSubscription, {});
     const setTutorPersona = useMutation(api.tutor.setTutorPersona);
-    const profileStudyPreferences = DEFAULT_STUDY_PREFERENCES;
+    const profileStudyPreferences = useMemo(
+        () => normalizeStudyPreferences(profile?.studyPreferences),
+        [profile?.studyPreferences],
+    );
     const [draftFullName, setDraftFullName] = useState(null);
     const [draftDailyGoal, setDraftDailyGoal] = useState(null);
     const [draftSessionLength, setDraftSessionLength] = useState(null);
@@ -105,13 +141,9 @@ const AccountStudySettings = () => {
             .toUpperCase() || 'S';
     }, [emailAddress, fullName, user?.name]);
 
-    const handleTutorStyleChange = async (persona) => {
+    const handleTutorStyleChange = (persona) => {
         setDraftAiTone(persona);
-        try {
-            await setTutorPersona({ persona });
-        } catch {
-            setSaveMessage('Could not save tutor style. Try again.');
-        }
+        setSaveMessage('');
     };
 
     const handleSave = async (event) => {
@@ -119,22 +151,53 @@ const AccountStudySettings = () => {
         setSaving(true);
         setSaveMessage('');
         const numericDailyGoal = Math.max(1, Math.round(Number(dailyGoal) || DEFAULT_STUDY_PREFERENCES.dailyGoalMinutes));
-        const result = await updateProfile({
-            fullName: fullName.trim(),
-        });
-        setSaving(false);
-        if (result?.error) {
-            setSaveMessage(result.error.message || 'Could not save settings.');
-            return;
-        }
-        setDraftDailyGoal(numericDailyGoal);
-        setDraftSessionLength(String(sessionLength));
-        setDraftNotifications({
+        const normalizedSessionLength = SESSION_LENGTH_OPTIONS.some((option) => option.value === String(sessionLength))
+            ? String(sessionLength)
+            : DEFAULT_STUDY_PREFERENCES.preferredSessionLength;
+        const normalizedNotifications = {
             dailyReminders: Boolean(notifications.dailyReminders),
             processingAlerts: Boolean(notifications.processingAlerts),
             weeklyProgressReport: Boolean(notifications.weeklyProgressReport),
-        });
-        setSaveMessage('Settings saved.');
+        };
+        const normalizedAiTone = TUTOR_STYLE_OPTIONS.some((option) => option.value === aiTone)
+            ? aiTone
+            : TUTOR_STYLE_OPTIONS[0].value;
+
+        try {
+            const result = await updateProfile({
+                fullName: fullName.trim(),
+                studyPreferences: {
+                    dailyGoalMinutes: numericDailyGoal,
+                    preferredSessionLength: normalizedSessionLength,
+                    ...normalizedNotifications,
+                },
+            });
+            if (result?.error) {
+                setSaveMessage(result.error.message || 'Could not save settings.');
+                return;
+            }
+
+            await setTutorPersona({ persona: normalizedAiTone });
+            setDraftFullName(null);
+            setDraftDailyGoal(null);
+            setDraftSessionLength(null);
+            setDraftNotifications(null);
+            setDraftAiTone(null);
+            setSaveMessage('Settings saved.');
+        } catch (error) {
+            setSaveMessage(error?.message || 'Could not save settings.');
+        } finally {
+            setSaving(false);
+        }
+    };
+
+    const handleCancel = () => {
+        setDraftFullName(null);
+        setDraftDailyGoal(null);
+        setDraftSessionLength(null);
+        setDraftAiTone(null);
+        setDraftNotifications(null);
+        setSaveMessage('');
     };
 
     const handleSignOut = async () => {
@@ -159,7 +222,7 @@ const AccountStudySettings = () => {
                         {/* Profile Section */}
                         <section id="profile" className="scroll-mt-20 bg-surface rounded-2xl border border-border-subtle shadow-sm p-space-8 flex flex-col gap-space-6">
                             <div className="flex items-center gap-space-3 pb-space-4 border-b border-border-subtle">
-                                <span className="material-symbols-outlined text-text-muted">person</span>
+                                <MaterialIcon className="text-text-muted">person</MaterialIcon>
                                 <h3 className="font-headline-sm text-headline-sm text-text-primary">Profile</h3>
                             </div>
                             <div className="flex items-center gap-space-6">
@@ -170,7 +233,7 @@ const AccountStudySettings = () => {
                                         ) : initials}
                                     </div>
                                     <button className="absolute bottom-0 right-0 w-8 h-8 bg-surface border border-border-subtle rounded-full flex items-center justify-center text-text-secondary hover:text-primary shadow-sm group-hover:scale-105 transition-transform" type="button">
-                                        <span className="material-symbols-outlined text-[16px]">edit</span>
+                                        <MaterialIcon className="text-[16px]">edit</MaterialIcon>
                                     </button>
                                 </div>
                                 <div className="flex-1">
@@ -188,7 +251,7 @@ const AccountStudySettings = () => {
                         <section id="subscription" className="scroll-mt-20 bg-surface rounded-2xl border border-border-subtle shadow-sm p-space-8 flex flex-col gap-space-6 relative overflow-hidden">
                             <div className="absolute top-0 right-0 w-32 h-32 bg-primary-soft rounded-bl-full opacity-50 pointer-events-none"></div>
                             <div className="flex items-center gap-space-3 pb-space-4 border-b border-border-subtle relative z-10">
-                                <span className="material-symbols-outlined text-text-muted">workspace_premium</span>
+                                <MaterialIcon className="text-text-muted">workspace_premium</MaterialIcon>
                                 <h3 className="font-headline-sm text-headline-sm text-text-primary">Subscription</h3>
                             </div>
                             <div className="relative z-10">
@@ -199,16 +262,16 @@ const AccountStudySettings = () => {
                                     </span>
                                 </div>
                                 <p className="font-body-sm text-body-sm text-text-muted mb-space-6">{subscriptionSummary}</p>
-                                <Link to="/dashboard/settings#subscription" className="flex w-full items-center justify-center py-space-3 px-space-4 bg-surface border border-border-default rounded-xl font-label-md text-label-md text-text-primary hover:bg-surface-soft transition-colors shadow-sm">
-                                    Manage Subscription
-                                </Link>
+                                <a href={BILLING_SUPPORT_MAILTO} className="flex w-full items-center justify-center py-space-3 px-space-4 bg-surface border border-border-default rounded-xl font-label-md text-label-md text-text-primary hover:bg-surface-soft transition-colors shadow-sm">
+                                    Contact Billing Support
+                                </a>
                             </div>
                         </section>
 
                         {/* Account Access */}
                         <section className="bg-surface rounded-2xl border border-border-subtle shadow-sm p-space-8 flex flex-col gap-space-5">
                             <div className="flex items-center gap-space-3 pb-space-4 border-b border-border-subtle">
-                                <span className="material-symbols-outlined text-text-muted">admin_panel_settings</span>
+                                <MaterialIcon className="text-text-muted">admin_panel_settings</MaterialIcon>
                                 <h3 className="font-headline-sm text-headline-sm text-text-primary">Account Access</h3>
                             </div>
                             <div>
@@ -222,7 +285,7 @@ const AccountStudySettings = () => {
                                 onClick={handleSignOut}
                                 className="flex w-full items-center justify-center gap-space-2 rounded-xl border border-error/30 bg-surface px-space-4 py-space-3 font-label-md text-label-md text-error transition-colors hover:bg-error-soft"
                             >
-                                <span className="material-symbols-outlined text-[18px]">logout</span>
+                                <MaterialIcon className="text-[18px]">logout</MaterialIcon>
                                 Sign Out
                             </button>
                         </section>
@@ -233,7 +296,7 @@ const AccountStudySettings = () => {
                         {/* Study Preferences */}
                         <section className="bg-surface rounded-2xl border border-border-subtle shadow-sm p-space-8 flex flex-col gap-space-6">
                             <div className="flex items-center gap-space-3 pb-space-4 border-b border-border-subtle">
-                                <span className="material-symbols-outlined text-text-muted">timer</span>
+                                <MaterialIcon className="text-text-muted">timer</MaterialIcon>
                                 <h3 className="font-headline-sm text-headline-sm text-text-primary">Study Preferences</h3>
                             </div>
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-space-6">
@@ -253,14 +316,14 @@ const AccountStudySettings = () => {
                                                 aria-label="Preferred session length"
                                                 className="flex w-full items-center gap-space-3 rounded-lg border border-border-default bg-surface-soft px-space-3 py-space-2 text-left font-body-base text-text-primary outline-none transition-all hover:bg-surface-muted focus:border-primary focus:ring-2 focus:ring-primary-soft"
                                             >
-                                                <span className="material-symbols-outlined flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-primary-soft text-[18px] text-primary">
+                                                <MaterialIcon className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-primary-soft text-[18px] text-primary">
                                                     {selectedSessionLength.icon}
-                                                </span>
+                                                </MaterialIcon>
                                                 <span className="flex min-w-0 flex-1 flex-col leading-tight">
                                                     <span className="truncate font-label-md text-label-md text-text-primary">{selectedSessionLength.title}</span>
                                                     <span className="truncate font-body-sm text-body-sm text-text-muted">{selectedSessionLength.triggerDetail}</span>
                                                 </span>
-                                                <span className="material-symbols-outlined text-[20px] text-text-muted">unfold_more</span>
+                                                <MaterialIcon className="text-[20px] text-text-muted">unfold_more</MaterialIcon>
                                             </button>
                                         </DropdownMenuTrigger>
                                         <DropdownMenuContent align="end" className="w-[var(--radix-dropdown-menu-trigger-width)] min-w-[240px] p-space-2">
@@ -278,9 +341,9 @@ const AccountStudySettings = () => {
                                                             value={option.value}
                                                             className="items-start gap-space-3 rounded-lg px-space-2 py-space-2 pr-space-8"
                                                         >
-                                                            <span className="material-symbols-outlined mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-primary-subtle text-[18px] text-primary">
+                                                            <MaterialIcon className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-primary-subtle text-[18px] text-primary">
                                                                 {option.icon}
-                                                            </span>
+                                                            </MaterialIcon>
                                                             <span className="flex min-w-0 flex-col gap-1">
                                                                 <span className="font-label-md text-label-md text-text-primary">{option.title}</span>
                                                                 <span className="font-body-sm text-body-sm text-text-muted">{option.detail}</span>
@@ -298,7 +361,7 @@ const AccountStudySettings = () => {
                         {/* AI Tutor Preferences */}
                         <section className="bg-ai-subtle rounded-2xl border border-border-subtle shadow-sm p-space-8 flex flex-col gap-space-6">
                             <div className="flex items-center gap-space-3 pb-space-4 border-b border-border-subtle">
-                                <span className="material-symbols-outlined text-primary">smart_toy</span>
+                                <MaterialIcon className="text-primary">smart_toy</MaterialIcon>
                                 <h3 className="font-headline-sm text-headline-sm text-primary">AI Tutor Personality</h3>
                             </div>
                             <div>
@@ -309,7 +372,7 @@ const AccountStudySettings = () => {
                                             <input className="sr-only peer" name="ai_tone" type="radio" value={style.value} checked={aiTone === style.value} onChange={() => handleTutorStyleChange(style.value)} />
                                             <div className="peer-checked:border-primary peer-checked:bg-primary-soft absolute inset-0 rounded-xl border-2 border-transparent transition-all pointer-events-none"></div>
                                             <div className="relative z-10 flex flex-col gap-2">
-                                                <span className="material-symbols-outlined text-text-muted peer-checked:text-primary">{style.icon}</span>
+                                                <MaterialIcon className="text-text-muted peer-checked:text-primary">{style.icon}</MaterialIcon>
                                                 <span className="font-label-md text-label-md text-text-primary">{style.title}</span>
                                                 <span className="font-body-sm text-body-sm text-text-muted text-xs">{style.desc}</span>
                                             </div>
@@ -322,31 +385,30 @@ const AccountStudySettings = () => {
                         {/* Notifications */}
                         <section id="notifications" className="scroll-mt-20 bg-surface rounded-2xl border border-border-subtle shadow-sm p-space-8 flex flex-col gap-space-6">
                             <div className="flex items-center gap-space-3 pb-space-4 border-b border-border-subtle">
-                                <span className="material-symbols-outlined text-text-muted">notifications</span>
+                                <MaterialIcon className="text-text-muted">notifications</MaterialIcon>
                                 <h3 className="font-headline-sm text-headline-sm text-text-primary">Notifications</h3>
                             </div>
                             <div className="flex flex-col gap-space-4">
-                                    {[
-                                        { key: 'dailyReminders', title: 'Daily Study Reminders', desc: 'Get notified when it\'s time for your scheduled session.' },
-                                        { key: 'processingAlerts', title: 'Material Processing Alerts', desc: 'Notify me when my uploads are ready to review.' },
-                                        { key: 'weeklyProgressReport', title: 'Weekly Progress Report', desc: 'Receive an email summary of your learning stats.' },
-                                ].map((toggle) => (
-                                    <div key={toggle.key} className="flex items-center justify-between py-space-2">
+                                {NOTIFICATION_OPTIONS.map((toggle) => (
+                                    <div key={toggle.key} className="flex items-center justify-between gap-space-4 py-space-2">
                                         <div>
                                             <h4 className="font-label-md text-label-md text-text-primary">{toggle.title}</h4>
                                             <p className="font-body-sm text-body-sm text-text-muted mt-1">{toggle.desc}</p>
                                         </div>
                                         <button
                                             type="button"
+                                            role="switch"
+                                            aria-checked={Boolean(notifications[toggle.key])}
+                                            aria-label={`${toggle.title}: ${notifications[toggle.key] ? 'on' : 'off'}`}
                                             onClick={() => setDraftNotifications((prev) => {
                                                 const current = prev ?? notifications;
                                                 return { ...current, [toggle.key]: !current[toggle.key] };
                                             })}
-                                            className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                                            className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors ${
                                                 notifications[toggle.key] ? 'bg-primary' : 'bg-border-default'
                                             }`}
                                         >
-                                            <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                                            <span aria-hidden="true" className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
                                                 notifications[toggle.key] ? 'translate-x-6' : 'translate-x-1'
                                             }`} />
                                         </button>
@@ -361,11 +423,11 @@ const AccountStudySettings = () => {
                         {saveMessage && (
                             <p className={`mr-auto font-body-sm text-body-sm ${saveMessage.includes('saved') ? 'text-success' : 'text-error'}`}>{saveMessage}</p>
                         )}
-                        <button className="py-space-3 px-space-6 bg-transparent text-text-secondary font-label-md text-label-md rounded-xl hover:bg-surface-soft transition-colors" type="button">
+                        <button className="py-space-3 px-space-6 bg-transparent text-text-secondary font-label-md text-label-md rounded-xl hover:bg-surface-soft transition-colors" type="button" onClick={handleCancel}>
                             Cancel
                         </button>
                         <button className="py-space-3 px-space-8 bg-primary hover:bg-primary-hover text-on-primary font-label-md text-label-md rounded-xl shadow-md transition-all flex items-center gap-2 disabled:opacity-60" type="submit" disabled={saving}>
-                            <span className="material-symbols-outlined text-[18px]">save</span>
+                            <MaterialIcon className="text-[18px]">save</MaterialIcon>
                             {saving ? 'Saving...' : 'Save Changes'}
                         </button>
                     </div>
