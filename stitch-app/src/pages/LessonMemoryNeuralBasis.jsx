@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef } from 'react';
+import React, { useMemo } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useConvexAuth, useQuery } from 'convex/react';
 import { api } from '../../convex/_generated/api';
@@ -181,8 +181,6 @@ const TopicLessonCard = ({ topic }) => (
 
 const LessonMemoryNeuralBasis = () => {
     const [searchParams] = useSearchParams();
-    const topicsSectionRef = useRef(null);
-    const lastScrolledCourseIdRef = useRef('');
     const { isAuthenticated } = useConvexAuth();
     const courses = useQuery(api.courses.getUserCourses, isAuthenticated ? {} : 'skip');
     const resumeTarget = useQuery(api.topics.getResumeTarget, isAuthenticated ? {} : 'skip');
@@ -200,18 +198,6 @@ const LessonMemoryNeuralBasis = () => {
         api.courses.getCourseWithTopics,
         isAuthenticated && selectedCourseId ? { courseId: selectedCourseId } : 'skip',
     );
-
-    useEffect(() => {
-        if (!requestedCourseId) return;
-        if (!courseWithTopics?._id) return;
-        if (String(courseWithTopics._id) !== String(requestedCourseId)) return;
-        if (lastScrolledCourseIdRef.current === requestedCourseId) return;
-        lastScrolledCourseIdRef.current = requestedCourseId;
-        const frame = requestAnimationFrame(() => {
-            topicsSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-        });
-        return () => cancelAnimationFrame(frame);
-    }, [requestedCourseId, courseWithTopics?._id]);
 
     if (
         !isAuthenticated
@@ -267,7 +253,6 @@ const LessonMemoryNeuralBasis = () => {
 
                     {selectedCourse && (
                         <section
-                            ref={topicsSectionRef}
                             id="lessons-course-topics"
                             className="rounded-2xl border border-border-subtle bg-surface-soft p-space-5 scroll-mt-24"
                         >

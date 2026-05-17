@@ -1,4 +1,4 @@
-import React, { Component, useEffect } from 'react';
+import React, { Component, useEffect, useLayoutEffect } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import MobileBottomNav from './MobileBottomNav';
 import { WatermelonToaster } from './watermelon/WatermelonSonner';
@@ -112,6 +112,12 @@ const DashboardLayout = ({ children }) => {
         return () => window.clearTimeout(timeoutId);
     }, [routerLocation.pathname, routerLocation.search, routerLocation.state, navigate]);
 
+    useLayoutEffect(() => {
+        const main = document.getElementById('dashboard-main');
+        if (main) main.scrollTo({ top: 0, left: 0, behavior: 'auto' });
+        window.scrollTo({ top: 0, left: 0, behavior: 'auto' });
+    }, [routerLocation.pathname, routerLocation.search]);
+
     useEffect(() => {
         if (!routerLocation.hash) return undefined;
 
@@ -224,14 +230,14 @@ const DashboardLayout = ({ children }) => {
             </aside>
 
             {/* Main Content Wrapper */}
-            <div className="flex-1 flex flex-col md:ml-[260px] min-h-screen">
+            <div className="flex-1 min-w-0 flex flex-col md:ml-[260px] min-h-screen">
                 {/* Top Header */}
-                <header className="fixed top-0 flex justify-between items-center h-16 px-space-8 w-full md:w-[calc(100%-260px)] bg-surface shadow-sm z-10 border-b border-border-subtle">
+                <header className="fixed top-0 flex justify-between items-center gap-2 h-16 px-3 md:px-space-8 w-full md:w-[calc(100%-260px)] bg-surface shadow-sm z-10 border-b border-border-subtle">
                     <button
                         type="button"
                         onClick={() => window.dispatchEvent(new CustomEvent('cp:open-command-palette'))}
                         aria-label="Open command palette to search pages and actions"
-                        className="flex-1 max-w-md relative flex items-center gap-2 pl-10 pr-3 py-2 bg-background rounded-lg text-body-sm font-body-sm text-text-muted hover:text-text-primary hover:bg-surface-soft focus:outline-none focus:ring-2 focus:ring-primary-soft transition-all text-left"
+                        className="flex-1 min-w-0 md:max-w-md relative flex items-center gap-2 pl-10 pr-3 py-2 bg-background rounded-lg text-body-sm font-body-sm text-text-muted hover:text-text-primary hover:bg-surface-soft focus:outline-none focus:ring-2 focus:ring-primary-soft transition-all text-left"
                     >
                         <span className="material-symbols-outlined absolute left-3 text-text-muted">search</span>
                         <span className="truncate">Search materials, lessons, or topics...</span>
@@ -239,12 +245,12 @@ const DashboardLayout = ({ children }) => {
                             ⌘K
                         </kbd>
                     </button>
-                    <div className="flex items-center gap-space-4">
+                    <div className="shrink-0 flex items-center gap-1.5 md:gap-space-4">
                         <a
                             href={SUPPORT_MAILTO}
                             aria-label={`Email support at ${SUPPORT_EMAIL}`}
                             title={`Email support at ${SUPPORT_EMAIL}`}
-                            className="p-2 text-text-muted hover:text-text-primary hover:bg-surface-soft rounded-full transition-all"
+                            className="p-1.5 md:p-2 text-text-muted hover:text-text-primary hover:bg-surface-soft rounded-full transition-all"
                         >
                             <span className="material-symbols-outlined">help_outline</span>
                         </a>
@@ -252,7 +258,7 @@ const DashboardLayout = ({ children }) => {
                             to="/dashboard/settings#notifications"
                             aria-label="Open notification settings"
                             title="Open notification settings"
-                            className="p-2 text-text-muted hover:text-text-primary hover:bg-surface-soft rounded-full transition-all"
+                            className="p-1.5 md:p-2 text-text-muted hover:text-text-primary hover:bg-surface-soft rounded-full transition-all"
                         >
                             <span className="material-symbols-outlined">notifications</span>
                         </Link>
@@ -260,7 +266,7 @@ const DashboardLayout = ({ children }) => {
                             to="/dashboard/settings"
                             aria-label="Open settings"
                             title="Open settings"
-                            className="h-8 w-8 rounded-full overflow-hidden ml-space-2 border border-border-subtle cursor-pointer hover:shadow-sm transition-shadow bg-primary-soft flex items-center justify-center text-xs font-bold text-primary"
+                            className="h-8 w-8 shrink-0 rounded-full overflow-hidden md:ml-space-2 border border-border-subtle cursor-pointer hover:shadow-sm transition-shadow bg-primary-soft flex items-center justify-center text-xs font-bold text-primary"
                         >
                             {profile?.avatar ? (
                                 <img src={profile.avatar} alt="Student Profile" className="w-full h-full object-cover" />

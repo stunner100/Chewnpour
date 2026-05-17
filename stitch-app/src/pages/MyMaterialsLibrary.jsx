@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { useQuery } from 'convex/react';
+import { useConvexAuth, useQuery } from 'convex/react';
 import { api } from '../../convex/_generated/api';
 
 const filterTabs = [
@@ -59,8 +59,10 @@ const MaterialsSkeleton = () => (
 const MyMaterialsLibrary = () => {
     const [activeFilter, setActiveFilter] = useState('all');
     const [searchTerm, setSearchTerm] = useState('');
-    const uploads = useQuery(api.uploads.getUserUploads, {});
-    const courses = useQuery(api.courses.getUserCourses, {});
+    const { isAuthenticated, isLoading: authLoading } = useConvexAuth();
+    const shouldLoadMaterials = isAuthenticated && !authLoading;
+    const uploads = useQuery(api.uploads.getUserUploads, shouldLoadMaterials ? {} : 'skip');
+    const courses = useQuery(api.courses.getUserCourses, shouldLoadMaterials ? {} : 'skip');
     const safeUploads = uploads || EMPTY_LIST;
     const safeCourses = courses || EMPTY_LIST;
     const materials = useMemo(() => {
@@ -100,7 +102,7 @@ const MyMaterialsLibrary = () => {
         });
     }, [activeFilter, materials, searchTerm]);
 
-    if (uploads === undefined || courses === undefined) return <MaterialsSkeleton />;
+    if (!shouldLoadMaterials || uploads === undefined || courses === undefined) return <MaterialsSkeleton />;
 
     return (
         <div className="md:ml-0 pt-16 min-h-screen flex flex-col gap-space-6 p-space-6 md:p-space-8 pb-24 md:pb-space-8">

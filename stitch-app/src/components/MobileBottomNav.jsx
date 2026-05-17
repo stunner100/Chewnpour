@@ -20,7 +20,10 @@ const moreItems = [
 ];
 
 const isPathActive = (pathname, matchPaths) =>
-    matchPaths.some((p) => pathname === p || pathname.startsWith(p + '/'));
+    matchPaths.some((p) => {
+        if (p === '/dashboard') return pathname === '/dashboard';
+        return pathname === p || pathname.startsWith(p + '/');
+    });
 
 const MobileBottomNav = () => {
     const location = useLocation();
