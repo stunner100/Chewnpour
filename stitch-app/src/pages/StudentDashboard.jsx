@@ -1,8 +1,10 @@
 import React, { useMemo } from 'react';
 import { Link } from 'react-router-dom';
-import { useQuery } from 'convex/react';
+import { useConvexAuth, useQuery } from 'convex/react';
 import { api } from '../../convex/_generated/api';
 import { useAuth } from '../contexts/AuthContext';
+
+const EMPTY_LIST = [];
 
 const materialIconByKind = {
     pdf: { icon: 'picture_as_pdf', color: 'bg-error-soft text-error' },
@@ -44,6 +46,45 @@ const greetingForHour = (hour) => {
     return 'Studying late';
 };
 
+const labelStopWords = new Set([
+    'a',
+    'an',
+    'and',
+    'for',
+    'from',
+    'of',
+    'the',
+    'to',
+    'with',
+]);
+
+const formatActivityLabel = (title, index) => {
+    const normalizedTitle = String(title || '').replace(/\s+/g, ' ').trim();
+    if (!normalizedTitle) return `Course ${index + 1}`;
+
+    const meaningfulWords = normalizedTitle
+        .split(' ')
+        .map((word) => word.replace(/^[^\w]+|[^\w]+$/g, ''))
+        .filter((word) => word && !labelStopWords.has(word.toLowerCase()));
+
+    const label = meaningfulWords.slice(0, 2).join(' ') || normalizedTitle;
+    return label.length > 18 ? `${label.slice(0, 17)}...` : label;
+};
+
+const isDashboardProbeTitle = (title = '') => {
+    const normalizedTitle = String(title || '').trim().toLowerCase();
+    return /\b(?:prod(?:uction)?\s+)?objective\s+probe\b/.test(normalizedTitle)
+        || /\bprobe\s+\d{6,}\b/.test(normalizedTitle)
+        || /\bqa[-\s]?probe\b/.test(normalizedTitle)
+        || /(?:^|[-_\s])qa(?:$|[-_\s])/.test(normalizedTitle);
+};
+
+const formatDashboardTitle = (title, fallback) => {
+    const normalizedTitle = String(title || '').replace(/\s+/g, ' ').trim();
+    if (!normalizedTitle || isDashboardProbeTitle(normalizedTitle)) return fallback;
+    return normalizedTitle;
+};
+
 const buildActivityData = (courses) => {
     const visibleCourses = courses.slice(0, 7);
     const padded = visibleCourses.length > 0
@@ -51,7 +92,9 @@ const buildActivityData = (courses) => {
         : [{ title: 'Start', progress: 0 }];
     const maxProgress = Math.max(1, ...padded.map((course) => Number(course.progress || 0)));
     return padded.map((course, index) => ({
-        day: course.title ? course.title.slice(0, 3) : `C${index + 1}`,
+        key: String(course._id || `${index}-${course.title || 'course'}`),
+        label: formatActivityLabel(formatDashboardTitle(course.title, ''), index),
+        title: formatDashboardTitle(course.title, `Course ${index + 1}`),
         minutes: Number(course.progress || 0),
         height: `${Math.max(Number(course.progress || 0) > 0 ? 12 : 3, Math.round((Number(course.progress || 0) / maxProgress) * 100))}%`,
         active: Number(course.progress || 0) === maxProgress && maxProgress > 0,
@@ -93,17 +136,20 @@ const EmptyDashboard = ({ displayName }) => (
 
 const StudentDashboard = () => {
     const { user, profile } = useAuth();
-    const userStats = useQuery(api.profiles.getUserStats, {});
-    const courses = useQuery(api.courses.getUserCourses, {});
-    const uploads = useQuery(api.uploads.getUserUploads, {});
-    const resumeTarget = useQuery(api.topics.getResumeTarget, {});
-    const conceptReviewQueue = useQuery(api.concepts.getConceptReviewQueue, { limit: 6 });
+    const { isAuthenticated, isLoading: authLoading } = useConvexAuth();
+    const shouldLoadDashboardData = isAuthenticated && !authLoading;
+    const userStats = useQuery(api.profiles.getUserStats, shouldLoadDashboardData ? {} : 'skip');
+    const courses = useQuery(api.courses.getUserCourses, shouldLoadDashboardData ? {} : 'skip');
+    const uploads = useQuery(api.uploads.getUserUploads, shouldLoadDashboardData ? {} : 'skip');
+    const resumeTarget = useQuery(api.topics.getResumeTarget, shouldLoadDashboardData ? {} : 'skip');
+    const conceptReviewQueue = useQuery(api.concepts.getConceptReviewQueue, shouldLoadDashboardData ? { limit: 6 } : 'skip');
 
-    const loading = [userStats, courses, uploads, resumeTarget, conceptReviewQueue].some((value) => value === undefined);
+    const loading = !shouldLoadDashboardData
+        || [userStats, courses, uploads, resumeTarget, conceptReviewQueue].some((value) => value === undefined);
     const displayName = profile?.fullName || user?.name || user?.email?.split('@')[0] || 'Student';
     const firstName = displayName.split(' ')[0] || 'Student';
-    const safeCourses = useMemo(() => courses || [], [courses]);
-    const safeUploads = useMemo(() => uploads || [], [uploads]);
+    const safeCourses = useMemo(() => courses || EMPTY_LIST, [courses]);
+    const safeUploads = useMemo(() => uploads || EMPTY_LIST, [uploads]);
     const weakConcepts = conceptReviewQueue?.items?.flatMap((item) => item.concepts || []).slice(0, 6) || [];
     const activityData = useMemo(() => buildActivityData(safeCourses), [safeCourses]);
 
@@ -115,14 +161,23 @@ const StudentDashboard = () => {
             ? `/dashboard/lessons?courseId=${resumeCourse._id}`
             : '/dashboard/upload';
     const resumeProgress = Number(resumeCourse?.progress || 0);
+    const displayResumeTitle = formatDashboardTitle(
+        resumeCourse?.title,
+        formatDashboardTitle(resumeTarget?.topicTitle, 'Continue your latest lesson'),
+    );
+    const displayResumeDescription = formatDashboardTitle(
+        resumeTarget?.topicTitle,
+        resumeCourse?.description || 'Pick up where you left off.',
+    );
 
     const recentMaterials = useMemo(() => {
         return safeUploads.slice(0, 3).map((upload) => {
             const relatedCourse = safeCourses.find((course) => String(course.uploadId || '') === String(upload._id));
+            const uploadTitle = formatDashboardTitle(upload.fileName, 'Recent material');
             return {
                 uploadId: upload._id,
                 courseId: relatedCourse?._id || null,
-                title: relatedCourse?.title || upload.fileName,
+                title: formatDashboardTitle(relatedCourse?.title, uploadTitle),
                 kind: resolveFileKind(upload.fileType, upload.fileName),
                 createdAt: upload._creationTime,
             };
@@ -196,10 +251,10 @@ const StudentDashboard = () => {
                                 {resumeTarget?.lastStudiedAt ? `Last studied ${formatRelativeTime(resumeTarget.lastStudiedAt)}` : 'Ready when you are'}
                             </span>
                             <h3 className="font-display-sm text-display-sm text-text-primary mb-space-2 leading-tight line-clamp-2 [overflow-wrap:anywhere]">
-                                {resumeCourse?.title || 'No course selected'}
+                                {displayResumeTitle}
                             </h3>
                             <p className="font-body-sm text-body-sm text-text-secondary max-w-md line-clamp-2">
-                                {resumeTarget?.topicTitle || resumeCourse?.description || 'Upload a material to generate your first lesson.'}
+                                {displayResumeDescription}
                             </p>
                         </div>
                         <div className="mt-space-6 max-w-md">
@@ -250,7 +305,7 @@ const StudentDashboard = () => {
                         </div>
                         <div className="flex items-end gap-space-4 h-48 mt-space-4">
                             {activityData.map((bar) => (
-                                <div key={bar.day} className="flex-1 flex flex-col justify-end gap-2 group">
+                                <div key={bar.key} className="flex-1 flex flex-col justify-end gap-2 group">
                                     <div
                                         className={`w-full rounded-t-md relative transition-colors ${
                                             bar.active ? 'bg-primary' : 'bg-surface-variant group-hover:bg-primary-soft'
@@ -263,8 +318,11 @@ const StudentDashboard = () => {
                                             </div>
                                         )}
                                     </div>
-                                    <span className={`text-center font-label-xs text-label-xs truncate ${bar.active ? 'text-primary font-bold' : 'text-text-muted'}`}>
-                                        {bar.day}
+                                    <span
+                                        title={bar.title}
+                                        className={`text-center font-label-xs text-label-xs truncate ${bar.active ? 'text-primary font-bold' : 'text-text-muted'}`}
+                                    >
+                                        {bar.label}
                                     </span>
                                 </div>
                             ))}
