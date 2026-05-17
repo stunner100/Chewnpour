@@ -20,11 +20,13 @@ const requireExcludes = (snippet) => {
 };
 
 requireIncludes('useQuery(api.uploads.getUserUploads, {})');
-requireIncludes('const recentUploads = useMemo(() => (uploads || []).slice(0, 3), [uploads]);');
+requireIncludes('const isInternalQaUpload = (upload) => {');
+requireIncludes("() => (uploads || []).filter((upload) => !isInternalQaUpload(upload)).slice(0, 3),");
 requireIncludes("{upload.fileName || 'Untitled material'}");
 requireIncludes('Uploaded {formatRelativeTime(upload._creationTime)} &bull; {formatFileSize(upload.fileSize)}');
 
 [
+  'ai-tutor-commerce-kpi-qa.pdf',
   'Biology 101 - Cell Structure.pdf',
   'Marketing Strategy Q3 Deck.pptx',
   'Lecture Notes - History 204.docx',

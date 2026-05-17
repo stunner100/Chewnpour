@@ -44,6 +44,7 @@ const SUPPORTED_STUDY_EXTENSIONS = new Set([
 ]);
 
 const ACCEPTED_FILE_TYPES = '.pdf,.pptx,.docx,.mp3,.m4a,.mp4,.wav,.webm,.ogg,.aac,.flac,audio/*';
+const ACCEPTED_FILE_TYPE_COPY = 'PDF, PPTX, DOCX, MP3, M4A, MP4, WAV, WEBM, OGG, AAC, FLAC';
 const MAX_FILE_SIZE_BYTES = 50 * 1024 * 1024;
 
 const resolveStudyUploadFileType = (file) => {
@@ -126,12 +127,27 @@ const stripExtension = (fileName) =>
         '',
     );
 
+const isInternalQaUpload = (upload) => {
+    const normalized = `${upload?.fileName || ''} ${upload?.title || ''}`
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, ' ')
+        .trim();
+
+    return /\b(?:prod(?:uction)?\s+)?objective\s+probe\b/.test(normalized)
+        || /\bprobe\s+\d{6,}\b/.test(normalized)
+        || /\bqa\s+probe\b/.test(normalized)
+        || /\bqa\b/.test(normalized);
+};
+
 const UploadMaterials = () => {
     const navigate = useNavigate();
     const { user } = useAuth();
     const { isAuthenticated: isConvexAuthenticated } = useConvexAuth();
     const uploads = useQuery(api.uploads.getUserUploads, {});
-    const recentUploads = useMemo(() => (uploads || []).slice(0, 3), [uploads]);
+    const recentUploads = useMemo(
+        () => (uploads || []).filter((upload) => !isInternalQaUpload(upload)).slice(0, 3),
+        [uploads],
+    );
     const isLoading = uploads === undefined;
 
     const generateUploadUrl = useMutation(api.uploads.generateUploadUrl);
@@ -161,7 +177,7 @@ const UploadMaterials = () => {
 
         const uploadFileType = resolveStudyUploadFileType(file);
         if (!uploadFileType) {
-            setUploadError('Please upload a PDF, PPTX, DOCX, or audio recording file.');
+            setUploadError(`Please upload one of these supported file types: ${ACCEPTED_FILE_TYPE_COPY}.`);
             return;
         }
         if (file.size > MAX_FILE_SIZE_BYTES) {
@@ -257,12 +273,12 @@ const UploadMaterials = () => {
 
     return (
         <div className="flex-1 flex flex-col md:ml-0 h-full overflow-hidden">
-            <main className="flex-1 overflow-y-auto p-space-4 md:p-space-10 pb-32 md:pb-space-10 pt-16">
+            <main className="flex-1 overflow-y-auto px-space-4 py-space-5 md:p-space-10 pb-28 md:pb-space-10 pt-16">
                 <div className="max-w-[1000px] mx-auto">
-                    <div className="mb-space-8">
-                        <h1 className="font-display-lg text-display-lg text-text-primary mb-space-2">Add to your workspace</h1>
-                        <p className="font-body-lg text-body-lg text-text-secondary">
-                            Upload your course materials to generate instant study guides, flashcards, and quizzes.
+                    <div className="mb-space-5 md:mb-space-8">
+                        <h1 className="font-display-lg text-display-md md:text-display-lg text-text-primary mb-space-2">Add to your workspace</h1>
+                        <p className="font-body-lg text-body-md md:text-body-lg text-text-secondary">
+                            Upload PDFs, slides, Word docs, or recordings to generate study guides, flashcards, and quizzes.
                         </p>
                     </div>
 
@@ -276,7 +292,7 @@ const UploadMaterials = () => {
                         onDragOver={handleDragOver}
                         onDragEnter={handleDragOver}
                         onDragLeave={handleDragLeave}
-                        className={`border-2 border-dashed rounded-[24px] p-space-12 flex flex-col items-center justify-center text-center cursor-pointer group relative overflow-hidden transition-colors duration-300 outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background ${
+                        className={`border-2 border-dashed rounded-[24px] px-space-5 py-space-6 md:p-space-12 flex flex-col items-center justify-center text-center cursor-pointer group relative overflow-hidden transition-colors duration-300 outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background ${
                             isDragging
                                 ? 'border-primary bg-primary-soft'
                                 : 'border-border-strong bg-surface-soft hover:bg-surface-muted'
@@ -290,37 +306,37 @@ const UploadMaterials = () => {
                             className="hidden"
                             disabled={isUploading}
                         />
-                        <div className="absolute -top-10 -left-10 w-40 h-40 bg-white opacity-40 rounded-full blur-2xl"></div>
-                        <div className="absolute -bottom-10 -right-10 w-40 h-40 bg-primary-soft opacity-40 rounded-full blur-2xl"></div>
-                        <div className="w-24 h-24 bg-white rounded-full shadow-sm flex items-center justify-center mb-space-6 group-hover:scale-105 transition-transform duration-300 z-10">
-                            <span className={`material-symbols-outlined text-[48px] text-primary ${isUploading ? 'animate-spin' : ''}`}>
+                        <div className="absolute -top-10 -left-10 h-28 w-28 md:w-40 md:h-40 bg-white opacity-40 rounded-full blur-2xl"></div>
+                        <div className="absolute -bottom-10 -right-10 h-28 w-28 md:w-40 md:h-40 bg-primary-soft opacity-40 rounded-full blur-2xl"></div>
+                        <div className="w-14 h-14 md:w-24 md:h-24 bg-white rounded-full shadow-sm flex items-center justify-center mb-space-4 md:mb-space-6 group-hover:scale-105 transition-transform duration-300 z-10">
+                            <span className={`material-symbols-outlined text-[30px] md:text-[48px] text-primary ${isUploading ? 'animate-spin' : ''}`}>
                                 {isUploading ? 'sync' : 'cloud_upload'}
                             </span>
                         </div>
-                        <h3 className="font-headline-md text-headline-md text-text-primary mb-space-2 z-10">
+                        <h3 className="font-headline-md text-display-sm md:text-headline-md text-text-primary mb-space-2 z-10">
                             {isUploading
                                 ? 'Uploading your material...'
                                 : isDragging
                                     ? 'Drop to upload'
-                                    : 'Drop your PDFs, slides, or notes here'}
+                                    : 'Drop PDFs, slides, docs, or audio here'}
                         </h3>
-                        <p className="font-body-base text-body-base text-text-secondary mb-space-8 z-10 max-w-md">
+                        <p className="font-body-base text-body-sm md:text-body-base text-text-secondary mb-space-5 md:mb-space-8 z-10 max-w-md">
                             {isUploading
                                 ? 'Hold tight while we prepare your material for processing.'
-                                : 'Our AI will automatically process your files, extract key concepts, and prepare them for study generation.'}
+                                : `Supported formats: ${ACCEPTED_FILE_TYPE_COPY}. Max 50MB.`}
                         </p>
                         <button
                             type="button"
                             onClick={(event) => { event.stopPropagation(); openFilePicker(); }}
                             disabled={isUploading}
-                            className="bg-primary text-on-primary rounded-xl px-space-6 py-space-3 font-label-md text-label-md hover:bg-primary-hover transition-colors shadow-sm flex items-center gap-2 z-10 disabled:cursor-not-allowed disabled:opacity-70"
+                            className="bg-primary text-on-primary rounded-xl px-space-5 md:px-space-6 py-space-3 font-label-md text-label-md hover:bg-primary-hover transition-colors shadow-sm flex items-center gap-2 z-10 disabled:cursor-not-allowed disabled:opacity-70"
                         >
                             <span className="material-symbols-outlined text-[18px]">
                                 {isUploading ? 'sync' : 'add_circle'}
                             </span>
                             {isUploading ? 'Uploading…' : 'Upload Material'}
                         </button>
-                        <div className="mt-space-6 flex items-center gap-space-4 font-label-xs text-label-xs text-text-muted z-10 flex-wrap justify-center">
+                        <div className="mt-space-4 md:mt-space-6 flex items-center gap-space-2 md:gap-space-4 font-label-xs text-label-xs text-text-muted z-10 flex-wrap justify-center">
                             <span className="flex items-center gap-1 bg-white px-3 py-1.5 rounded-full shadow-sm border border-border-subtle">
                                 <span className="material-symbols-outlined text-[14px]">picture_as_pdf</span> PDF
                             </span>
@@ -346,7 +362,7 @@ const UploadMaterials = () => {
                         </div>
                     )}
 
-                    <div className="mt-space-16">
+                    <div className="mt-space-8 md:mt-space-16">
                         <div className="flex justify-between items-end mb-space-6">
                             <h4 className="font-headline-sm text-headline-sm text-text-primary">Recent Uploads</h4>
                             <Link className="font-label-md text-label-md text-primary hover:text-primary-hover transition-colors" to="/dashboard/library">
