@@ -16,6 +16,7 @@ const ACTIVE_USER_WINDOW_DAYS = 7;
 const RECENT_USERS_LIMIT = 20;
 const RECENT_FEEDBACK_LIMIT = 100;
 const RECENT_RESEARCH_RESPONSES_LIMIT = 100;
+const ADMIN_DASHBOARD_ANALYTICS_ROW_LIMIT = 500;
 const BOOTSTRAP_ADMIN_EMAILS = ["patrickannor35@gmail.com"];
 const BETTER_AUTH_PAGE_SIZE = 200;
 const BETTER_AUTH_MAX_PAGES = 12;
@@ -464,6 +465,12 @@ const normalizeSessionUserId = (session: any) =>
 const normalizeAuthUserId = (user: any) =>
     String(user?._id || "").trim();
 
+const normalizeAuthUserLookupIds = (user: any) =>
+    [
+        String(user?._id || "").trim(),
+        String(user?.userId || "").trim(),
+    ].filter(Boolean);
+
 const buildCampaignUserKey = (campaignId: string, userId: string) =>
     `${campaignId}::${userId}`;
 
@@ -535,11 +542,16 @@ const fetchAuthUsersByIds = async (ctx: any, userIds: string[]) => {
 
     const usersById = new Map<string, any>();
     const idChunks = chunkArray(normalizedIds, BETTER_AUTH_USER_CHUNK_SIZE);
+    const rememberAuthUser = (authUser: any) => {
+        for (const authUserId of normalizeAuthUserLookupIds(authUser)) {
+            usersById.set(authUserId, authUser);
+        }
+    };
 
     for (const idChunk of idChunks) {
         const result = await ctx.runQuery(components.betterAuth.adapter.findMany, {
             model: "user",
-            where: [{ field: "_id", operator: "in", value: idChunk }],
+            where: [{ field: "userId", operator: "in", value: idChunk }],
             paginationOpts: {
                 cursor: null,
                 numItems: idChunk.length,
@@ -548,9 +560,29 @@ const fetchAuthUsersByIds = async (ctx: any, userIds: string[]) => {
 
         const pageRows = Array.isArray(result?.page) ? result.page : [];
         for (const authUser of pageRows) {
-            const authUserId = normalizeAuthUserId(authUser);
-            if (!authUserId) continue;
-            usersById.set(authUserId, authUser);
+            rememberAuthUser(authUser);
+        }
+    }
+
+    const unresolvedIds = normalizedIds.filter((userId) => !usersById.has(userId));
+    for (const unresolvedId of unresolvedIds) {
+        try {
+            const result = await ctx.runQuery(components.betterAuth.adapter.findMany, {
+                model: "user",
+                where: [{ field: "_id", operator: "in", value: [unresolvedId] }],
+                paginationOpts: {
+                    cursor: null,
+                    numItems: 1,
+                },
+            });
+
+            const pageRows = Array.isArray(result?.page) ? result.page : [];
+            for (const authUser of pageRows) {
+                rememberAuthUser(authUser);
+            }
+        } catch {
+            // Some app records store Better Auth's public userId rather than the
+            // Convex document _id. Invalid _id lookups should not crash admin.
         }
     }
 
@@ -842,6 +874,16 @@ const collectRowsByIndex = async (
         .query(tableName)
         .withIndex(indexName, (q: any) => q.eq(fieldName, value))
         .collect();
+
+const collectRecentRows = async (
+    ctx: any,
+    tableName: string,
+    limit = ADMIN_DASHBOARD_ANALYTICS_ROW_LIMIT
+) =>
+    await (ctx.db as any)
+        .query(tableName)
+        .order("desc")
+        .take(limit);
 
 const normalizeBackfillLimit = (value: unknown, fallback: number, max: number) => {
     const parsed = Math.floor(Number(value) || fallback);
@@ -2391,41 +2433,44 @@ export const getDashboardSnapshot = query({
         const [profiles, uploads, assignmentThreads, assignmentMessages, examAttempts, conceptAttempts, feedbackEntries, productResearchResponses, activeSessionsResult, subscriptions, paymentTransactions, courses, humanizerUsage, aiMessageUsage, llmUsageDaily, topicNotes, topicChatMessages, communityPosts, libraryMaterials, topicPodcasts, userPresenceLast5Minutes, allUserPresence, questionTargetAuditRuns, campaignCreditGrants, campaignLandingEvents] =
             await Promise.all([
                 ctx.db.query("profiles").collect(),
-                ctx.db.query("uploads").collect(),
-                ctx.db.query("assignmentThreads").collect(),
-                ctx.db.query("assignmentMessages").collect(),
-                ctx.db.query("examAttempts").collect(),
-                ctx.db.query("conceptAttempts").collect(),
-                ctx.db.query("feedback").collect(),
-                ctx.db.query("productResearchResponses").collect(),
-                fetchBetterAuthRows(ctx, {
-                    model: "session",
-                    where: [{ field: "expiresAt", operator: "gt", value: Date.now() }],
-                    sortBy: { field: "updatedAt", direction: "desc" },
-                }),
-                ctx.db.query("subscriptions").collect(),
-                ctx.db.query("paymentTransactions").collect(),
-                ctx.db.query("courses").collect(),
-                ctx.db.query("humanizerUsage").collect(),
-                ctx.db.query("aiMessageUsage").collect(),
-                ctx.db.query("llmUsageDaily").collect(),
-                ctx.db.query("topicNotes").collect(),
-                ctx.db.query("topicChatMessages").collect(),
-                ctx.db.query("communityPosts").collect(),
-                ctx.db.query("libraryMaterials").collect(),
-                ctx.db.query("topicPodcasts").collect(),
+                collectRecentRows(ctx, "uploads"),
+                collectRecentRows(ctx, "assignmentThreads"),
+                collectRecentRows(ctx, "assignmentMessages"),
+                collectRecentRows(ctx, "examAttempts"),
+                collectRecentRows(ctx, "conceptAttempts"),
+                collectRecentRows(ctx, "feedback"),
+                ctx.db
+                    .query("productResearchResponses")
+                    .withIndex("by_createdAt")
+                    .order("desc")
+                    .take(ADMIN_DASHBOARD_ANALYTICS_ROW_LIMIT),
+                Promise.resolve({ rows: [], truncated: false }),
+                collectRecentRows(ctx, "subscriptions"),
+                collectRecentRows(ctx, "paymentTransactions"),
+                collectRecentRows(ctx, "courses"),
+                collectRecentRows(ctx, "humanizerUsage"),
+                collectRecentRows(ctx, "aiMessageUsage"),
+                collectRecentRows(ctx, "llmUsageDaily"),
+                collectRecentRows(ctx, "topicNotes"),
+                collectRecentRows(ctx, "topicChatMessages"),
+                collectRecentRows(ctx, "communityPosts"),
+                collectRecentRows(ctx, "libraryMaterials"),
+                collectRecentRows(ctx, "topicPodcasts"),
                 ctx.db
                     .query("userPresence")
                     .withIndex("by_lastSeenAt", (q) => q.gte("lastSeenAt", fiveMinutesAgo))
                     .collect(),
-                ctx.db.query("userPresence").collect(),
+                ctx.db
+                    .query("userPresence")
+                    .withIndex("by_lastSeenAt", (q) => q.gte("lastSeenAt", fourteenDaysAgo))
+                    .collect(),
                 ctx.db
                     .query("questionTargetAuditRuns")
                     .withIndex("by_finishedAt")
                     .order("desc")
                     .take(10),
-                ctx.db.query("campaignCreditGrants").collect(),
-                ctx.db.query("campaignLandingEvents").collect(),
+                collectRecentRows(ctx, "campaignCreditGrants"),
+                collectRecentRows(ctx, "campaignLandingEvents"),
             ]);
         // Topics can contain very large generated content, so avoid full-table
         // scans here and derive admin content metrics from lightweight records.
@@ -3457,22 +3502,9 @@ export const getDashboardSnapshot = query({
                     estimatedHistoricalTokensLastWindow: historicalEstimate.estimatedTokensLastWindow,
                 };
             });
-        const recentUserIds = Array.from(
-            new Set(
-                recentUsersBase
-                    .map((entry) => String(entry.userId || "").trim())
-                    .filter(Boolean)
-            )
-        );
-        const recentUserAuthUsers = await fetchAuthUsersByIds(ctx, recentUserIds);
-        const recentUserAuthUsersById = new Map(
-            recentUserAuthUsers
-                .map((authUser) => [normalizeAuthUserId(authUser), authUser] as const)
-                .filter(([userId]) => Boolean(userId))
-        );
         const recentUsers = recentUsersBase.map((entry) => ({
             ...entry,
-            email: normalizeEmail(recentUserAuthUsersById.get(entry.userId)?.email) || null,
+            email: null,
         }));
 
         const premiumUsersBase = latestSubscriptions
@@ -3510,22 +3542,9 @@ export const getDashboardSnapshot = query({
                 if (statusDiff !== 0) return statusDiff;
                 return (right.lastPaymentAt || 0) - (left.lastPaymentAt || 0);
             });
-        const premiumUserIds = Array.from(
-            new Set(
-                premiumUsersBase
-                    .map((entry) => String(entry.userId || "").trim())
-                    .filter(Boolean)
-            )
-        );
-        const premiumAuthUsers = await fetchAuthUsersByIds(ctx, premiumUserIds);
-        const premiumAuthUsersById = new Map(
-            premiumAuthUsers
-                .map((authUser) => [normalizeAuthUserId(authUser), authUser] as const)
-                .filter(([userId]) => Boolean(userId))
-        );
         const premiumUsers = premiumUsersBase.map((entry) => ({
             ...entry,
-            email: normalizeEmail(premiumAuthUsersById.get(entry.userId)?.email) || null,
+            email: null,
         }));
 
         const recentFeedbackBase = [...feedbackEntries]
@@ -3548,25 +3567,11 @@ export const getDashboardSnapshot = query({
                     department: profile?.department || null,
                 };
             });
-        const recentFeedbackUserIds = Array.from(
-            new Set(
-                recentFeedbackBase
-                    .map((entry) => String(entry.userId || "").trim())
-                    .filter(Boolean)
-            )
-        );
-        const recentFeedbackAuthUsers = await fetchAuthUsersByIds(ctx, recentFeedbackUserIds);
-        const recentFeedbackAuthUsersById = new Map(
-            recentFeedbackAuthUsers
-                .map((authUser) => [normalizeAuthUserId(authUser), authUser] as const)
-                .filter(([userId]) => Boolean(userId))
-        );
         const recentFeedback = recentFeedbackBase.map((entry) => {
-            const authUser = recentFeedbackAuthUsersById.get(entry.userId);
             const message = normalizeFeedbackMessage(entry.message);
             return {
                 ...entry,
-                email: normalizeEmail(authUser?.email) || null,
+                email: null,
                 hasMessage: Boolean(message),
                 message,
             };
@@ -3597,25 +3602,11 @@ export const getDashboardSnapshot = query({
                     department: profile?.department || null,
                 };
             });
-        const recentProductResearchUserIds = Array.from(
-            new Set(
-                recentProductResearchResponsesBase
-                    .map((entry) => String(entry.userId || "").trim())
-                    .filter(Boolean)
-            )
-        );
-        const recentProductResearchAuthUsers = await fetchAuthUsersByIds(ctx, recentProductResearchUserIds);
-        const recentProductResearchAuthUsersById = new Map(
-            recentProductResearchAuthUsers
-                .map((authUser) => [normalizeAuthUserId(authUser), authUser] as const)
-                .filter(([userId]) => Boolean(userId))
-        );
         const recentProductResearchResponses = recentProductResearchResponsesBase.map((entry) => {
-            const authUser = recentProductResearchAuthUsersById.get(entry.userId);
             const additionalNotes = normalizeFeedbackMessage(entry.additionalNotes);
             return {
                 ...entry,
-                email: normalizeEmail(authUser?.email) || entry.email || null,
+                email: entry.email || null,
                 hasAdditionalNotes: Boolean(additionalNotes),
                 additionalNotes,
             };
@@ -3787,12 +3778,7 @@ export const getDashboardSnapshot = query({
         }
 
         const activeSessionUserIds = Array.from(sessionStatsByUser.keys());
-        const authUsers = await fetchAuthUsersByIds(ctx, activeSessionUserIds);
-        const authUsersById = new Map(
-            authUsers
-                .map((authUser) => [normalizeAuthUserId(authUser), authUser] as const)
-                .filter(([userId]) => Boolean(userId))
-        );
+        const authUsersById = new Map<string, any>();
 
         const signedInUsers = activeSessionUserIds
             .map((userId) => {
@@ -3890,22 +3876,9 @@ export const getDashboardSnapshot = query({
                 return left.userId.localeCompare(right.userId);
             })
             .slice(0, 10);
-        const topUploadUserIds = Array.from(
-            new Set(
-                topUploadUsersBase
-                    .map((entry) => String(entry.userId || "").trim())
-                    .filter(Boolean)
-            )
-        );
-        const topUploadAuthUsers = await fetchAuthUsersByIds(ctx, topUploadUserIds);
-        const topUploadAuthUsersById = new Map(
-            topUploadAuthUsers
-                .map((authUser) => [normalizeAuthUserId(authUser), authUser] as const)
-                .filter(([userId]) => Boolean(userId))
-        );
         const topUploadUsers = topUploadUsersBase.map((entry) => ({
             ...entry,
-            email: normalizeEmail(topUploadAuthUsersById.get(entry.userId)?.email) || null,
+            email: null,
         }));
 
         const latestQuestionTargetAuditRun = questionTargetAuditRuns[0] || null;

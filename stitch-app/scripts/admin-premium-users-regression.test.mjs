@@ -23,7 +23,7 @@ const dashboardSource = await read('src/pages/AdminDashboard.jsx');
 for (const snippet of [
   'label="Premium users"',
   'value={totals.premiumUsersActive}',
-  'const UsersPanel = ({ signedInUsers, recentUsers, premiumUsers, flags }) => (',
+  'const UsersPanel = ({ signedInUsers, recentUsers, premiumUsers, flags, snapshot, activeUsersDays }) =>',
   'SectionCard title="Premium Users"',
   'const premiumUsers = Array.isArray(snapshot.premiumUsers) ? snapshot.premiumUsers : [];',
   'premiumUsers={premiumUsers}',

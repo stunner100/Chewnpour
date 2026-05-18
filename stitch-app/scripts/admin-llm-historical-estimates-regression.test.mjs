@@ -11,7 +11,7 @@ const [adminSource, dashboardSource] = await Promise.all([
 ]);
 
 for (const snippet of [
-  'ctx.db.query("aiMessageUsage").collect()',
+  'collectRecentRows(ctx, "aiMessageUsage")',
   'const historicalLlmEstimateByUser = new Map<string, {',
   'historicalLlmEstimateAnalytics: {',
   'estimatedAiMessageTokensPerRequest:',

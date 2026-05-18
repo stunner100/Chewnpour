@@ -44,7 +44,7 @@ for (const snippet of [
 }
 
 for (const snippet of [
-  'ctx.db.query("llmUsageDaily").collect()',
+  'collectRecentRows(ctx, "llmUsageDaily")',
   'const llmUsageByUser = new Map<string, {',
   'llmTokensTotal',
   'llmTokensLastWindow',
