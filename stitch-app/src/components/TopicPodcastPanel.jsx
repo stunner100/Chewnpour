@@ -7,22 +7,10 @@ const STATUS_COPY = {
     pending: 'Queued — writing your script…',
     running: 'Synthesizing audio…',
     ready: 'Your podcast is ready.',
-    failed: 'Podcast generation failed.',
+    failed: 'Podcast not ready yet.',
 };
 
 const PODCAST_STALE_AFTER_MS = 15 * 60 * 1000;
-
-const resolveErrorMessage = (error, fallback) => {
-    const dataMessage = typeof error?.data === 'string'
-        ? error.data
-        : typeof error?.data?.message === 'string'
-            ? error.data.message
-            : '';
-    const resolved = String(dataMessage || error?.message || fallback || '')
-        .replace(/^Uncaught (ConvexError|Error):\s*/i, '')
-        .trim();
-    return resolved || fallback;
-};
 
 const formatElapsed = (startedAt, now = Date.now()) => {
     if (!startedAt) return '';
@@ -109,7 +97,8 @@ const TopicPodcastPanelInner = memo(function TopicPodcastPanelInner({ topicId })
                 await requestPodcast({ topicId });
             }
         } catch (error) {
-            setSubmitError(resolveErrorMessage(error, 'Could not start podcast generation.'));
+            console.warn('Podcast preparation did not start', error);
+            setSubmitError('Podcast is still getting ready. Try again shortly.');
         } finally {
             setSubmitting(false);
         }
@@ -122,7 +111,8 @@ const TopicPodcastPanelInner = memo(function TopicPodcastPanelInner({ topicId })
         try {
             await retryPodcast({ podcastId: latest._id });
         } catch (error) {
-            setSubmitError(resolveErrorMessage(error, 'Could not retry podcast generation.'));
+            console.warn('Podcast preparation did not restart', error);
+            setSubmitError('Podcast is still getting ready. Try again shortly.');
         } finally {
             setSubmitting(false);
         }
@@ -160,7 +150,7 @@ const TopicPodcastPanelInner = memo(function TopicPodcastPanelInner({ topicId })
             </div>
 
             {submitError && (
-                <div className="mt-3 rounded-lg border border-red-200 dark:border-red-500/30 bg-red-50 dark:bg-red-500/10 text-red-700 dark:text-red-300 text-body-sm px-3 py-2">
+                <div className="mt-3 rounded-lg border border-amber-200 dark:border-amber-500/30 bg-amber-50 dark:bg-amber-500/10 text-amber-800 dark:text-amber-200 text-body-sm px-3 py-2">
                     {submitError}
                 </div>
             )}
@@ -168,7 +158,7 @@ const TopicPodcastPanelInner = memo(function TopicPodcastPanelInner({ topicId })
             {latest && (
                 <div className="mt-4">
                     <div className="text-caption text-text-sub-light dark:text-text-sub-dark mb-2">
-                        {latestIsStale ? 'Podcast generation took too long.' : (STATUS_COPY[latest.status] ?? latest.status)}
+                        {latestIsStale ? 'Podcast is still preparing.' : (STATUS_COPY[latest.status] ?? latest.status)}
                         {latestIsInFlight && (
                             <span className="ml-2 opacity-70">{formatElapsed(latestActivityAt, now)}</span>
                         )}
@@ -189,8 +179,8 @@ const TopicPodcastPanelInner = memo(function TopicPodcastPanelInner({ topicId })
 
                     {latest.status === 'failed' && (
                         <div className="space-y-2">
-                            <div className="rounded-lg border border-red-200 dark:border-red-500/30 bg-red-50 dark:bg-red-500/10 text-red-700 dark:text-red-300 text-body-sm px-3 py-2">
-                                {latest.errorMessage || 'Unknown error. Try again.'}
+                            <div className="rounded-lg border border-amber-200 dark:border-amber-500/30 bg-amber-50 dark:bg-amber-500/10 text-amber-800 dark:text-amber-200 text-body-sm px-3 py-2">
+                                Podcast is not ready yet.
                             </div>
                             <button
                                 type="button"
@@ -199,7 +189,7 @@ const TopicPodcastPanelInner = memo(function TopicPodcastPanelInner({ topicId })
                                 className="btn-secondary px-3 py-1.5 text-body-sm gap-2 disabled:opacity-60"
                             >
                                 <span className="material-symbols-outlined text-[16px]">refresh</span>
-                                Retry
+                                Prepare podcast
                             </button>
                         </div>
                     )}
@@ -207,7 +197,7 @@ const TopicPodcastPanelInner = memo(function TopicPodcastPanelInner({ topicId })
                     {latestIsStale && (
                         <div className="space-y-2">
                             <div className="rounded-lg border border-amber-200 dark:border-amber-500/30 bg-amber-50 dark:bg-amber-500/10 text-amber-800 dark:text-amber-200 text-body-sm px-3 py-2">
-                                This generation stopped updating. Retry to start a fresh podcast.
+                                Podcast is still preparing. Refresh it when you are ready.
                             </div>
                         </div>
                     )}

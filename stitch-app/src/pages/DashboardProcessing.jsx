@@ -375,17 +375,17 @@ const DashboardProcessing = () => {
                                 })}
                             </div>
 
-                            {/* Error State */}
+                            {/* Status handoff */}
                             {hasError && (
-                                <div className="mt-6 p-3 rounded-xl bg-amber-50 dark:bg-amber-900/10 border border-amber-200 dark:border-amber-900/30">
+                                <div className="mt-6 p-3 rounded-xl bg-surface-hover-light dark:bg-surface-hover-dark border border-border-light dark:border-border-dark">
                                     <div className="flex items-start gap-2.5">
-                                        <span className="material-symbols-outlined text-amber-500 text-[18px] mt-0.5">warning</span>
+                                        <span className="material-symbols-outlined text-primary text-[18px] mt-0.5">sync</span>
                                         <div className="text-left">
-                                            <p className="text-body-sm font-semibold text-amber-800 dark:text-amber-300">
-                                                Processing encountered an issue
+                                            <p className="text-body-sm font-semibold text-text-main-light dark:text-text-main-dark">
+                                                Checking available content
                                             </p>
-                                            <p className="text-caption text-amber-700 dark:text-amber-400 mt-1">
-                                                Redirecting to available content…
+                                            <p className="text-caption text-text-sub-light dark:text-text-sub-dark mt-1">
+                                                Taking you back to your study space…
                                             </p>
                                         </div>
                                     </div>

@@ -22,19 +22,6 @@ const formatDate = (timestamp) => {
     });
 };
 
-const resolveErrorMessage = (error, fallback) => {
-    const dataMessage =
-        typeof error?.data === 'string'
-            ? error.data
-            : typeof error?.data?.message === 'string'
-                ? error.data.message
-                : '';
-    const resolved = String(dataMessage || error?.message || fallback || '')
-        .replace(/^Uncaught (ConvexError|Error):\s*/i, '')
-        .trim();
-    return resolved || fallback;
-};
-
 const PodcastListItem = ({ podcast }) => {
     const isInFlight = podcast.status === 'pending' || podcast.status === 'running';
     return (
@@ -83,8 +70,8 @@ const PodcastListItem = ({ podcast }) => {
             )}
 
             {podcast.status === 'failed' && (
-                <div className="mt-4 rounded-lg border border-red-200 dark:border-red-500/30 bg-red-50 dark:bg-red-500/10 text-red-700 dark:text-red-300 text-body-sm px-3 py-2">
-                    {podcast.errorMessage || 'Podcast generation failed. Try again.'}
+                <div className="mt-4 rounded-lg border border-amber-200 dark:border-amber-500/30 bg-amber-50 dark:bg-amber-500/10 text-amber-800 dark:text-amber-200 text-body-sm px-3 py-2">
+                    Podcast is not ready yet.
                 </div>
             )}
         </div>
@@ -228,7 +215,7 @@ const TopicPickerModal = ({ open, onClose, courses, onSelectTopic, generatingTop
 
                 {error && (
                     <div className="px-5 py-3 border-t border-border-subtle dark:border-border-subtle-dark">
-                        <div className="rounded-lg border border-red-200 dark:border-red-500/30 bg-red-50 dark:bg-red-500/10 text-red-700 dark:text-red-300 text-body-sm px-3 py-2">
+                        <div className="rounded-lg border border-amber-200 dark:border-amber-500/30 bg-amber-50 dark:bg-amber-500/10 text-amber-800 dark:text-amber-200 text-body-sm px-3 py-2">
                             {error}
                         </div>
                     </div>
@@ -289,9 +276,8 @@ const DashboardPodcasts = () => {
                     setSearchParams(next, { replace: true });
                 }
             } catch (error) {
-                setGenerateError(
-                    resolveErrorMessage(error, 'Could not start podcast generation.'),
-                );
+                console.warn('Podcast preparation did not start', error);
+                setGenerateError('Podcast is still getting ready. Try again shortly.');
             } finally {
                 setGeneratingTopicId('');
             }

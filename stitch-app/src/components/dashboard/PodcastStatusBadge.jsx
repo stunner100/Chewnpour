@@ -17,9 +17,9 @@ const STATUS_CONFIG = {
         className: 'bg-primary-50 text-primary-700 border-primary-200/60 dark:bg-primary-900/25 dark:text-primary-300 dark:border-primary-800/40',
     },
     failed: {
-        label: 'Failed',
-        icon: 'error',
-        className: 'bg-rose-50 text-rose-700 border-rose-200/60 dark:bg-rose-900/20 dark:text-rose-300 dark:border-rose-800/40',
+        label: 'Not ready',
+        icon: 'schedule',
+        className: 'bg-zinc-100 text-zinc-700 border-zinc-200 dark:bg-zinc-800/40 dark:text-zinc-300 dark:border-zinc-700/40',
     },
     not_generated: {
         label: 'Not generated',

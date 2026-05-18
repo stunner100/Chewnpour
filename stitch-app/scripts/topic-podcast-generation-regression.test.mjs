@@ -185,7 +185,7 @@ for (const snippet of [
     'const latestIsStale = latestIsInFlight',
     'const canRetryStale = latestIsInFlight && latestIsStale',
     'Retry podcast',
-    'Podcast generation took too long.',
+    'Podcast is still preparing.',
 ]) {
     if (!panelSource.includes(snippet)) {
         throw new Error(`Expected TopicPodcastPanel stale-generation recovery to include "${snippet}".`);

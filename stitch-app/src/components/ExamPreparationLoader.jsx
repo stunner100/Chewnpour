@@ -77,7 +77,6 @@ const ExamPreparationLoader = memo(function ExamPreparationLoader({
     title,
     subtitle,
     failed = false,
-    errorMsg = '',
     onRetry,
     onBack,
     isSessionExpired = false,
@@ -98,7 +97,14 @@ const ExamPreparationLoader = memo(function ExamPreparationLoader({
     const resolvedSubtitle = subtitle || (mode === 'fill_in'
         ? 'Generating fill-in exercises from your notes'
         : `Generating your ${examFormat === 'essay' ? 'essay' : 'objective'} quiz from this topic`);
-    const failedTitle = mode === 'fill_in' ? 'Fill-in Generation Failed' : 'Quiz Preparation Failed';
+    const waitingTitle = isSessionExpired
+        ? 'Sign in to continue'
+        : mode === 'fill_in'
+            ? 'Fill-ins are still preparing'
+            : 'Quiz is still preparing';
+    const waitingMessage = isSessionExpired
+        ? 'Your session needs to be refreshed before you continue.'
+        : 'This study activity needs another moment. Try again shortly.';
 
     // Main animation loop
     useEffect(() => {
@@ -166,20 +172,20 @@ const ExamPreparationLoader = memo(function ExamPreparationLoader({
 
     const currentStageData = stages[activeStage] || stages[stages.length - 1];
 
-    /* ── failed state ──────────────────────────────────────────── */
+    /* ── waiting state ──────────────────────────────────────────── */
     if (failed) {
         return (
             <div className="min-h-screen bg-background-light dark:bg-background-dark flex items-center justify-center p-4">
                 <div className="w-full max-w-md">
                     <div className="card-base p-8 text-center">
                         <div className="size-16 rounded-2xl bg-accent-amber/10 flex items-center justify-center mx-auto mb-4">
-                            <span className="material-symbols-outlined text-2xl text-accent-amber">warning</span>
+                            <span className="material-symbols-outlined text-2xl text-accent-amber">hourglass_top</span>
                         </div>
                         <h2 className="text-body-lg font-semibold text-text-main-light dark:text-text-main-dark mb-2">
-                            {failedTitle}
+                            {waitingTitle}
                         </h2>
                         <p className="text-body-sm text-text-sub-light dark:text-text-sub-dark mb-6">
-                            {errorMsg || 'Something went wrong. Please try again.'}
+                            {waitingMessage}
                         </p>
                         <div className="flex gap-3">
                             {isSessionExpired ? (

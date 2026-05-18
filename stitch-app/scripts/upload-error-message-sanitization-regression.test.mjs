@@ -45,23 +45,37 @@ const librarySource = await fs.readFile(
 );
 
 assert.ok(
-  librarySource.includes('getUserFacingUploadErrorMessage(upload.errorMessage)'),
-  'MyMaterialsLibrary.jsx should sanitize upload.errorMessage before rendering material cards.',
-);
-
-assert.ok(
   !librarySource.includes('errorMessage: upload.errorMessage ||'),
   'MyMaterialsLibrary.jsx must not map raw upload.errorMessage into user-facing material state.',
 );
 
 assert.ok(
-  !librarySource.includes("{material.errorMessage || material.processingStep || 'Preparing your study material...'}"),
-  'MyMaterialsLibrary.jsx should not render long upload error text in tight material cards.',
+  !librarySource.includes('getUserFacingUploadErrorMessage'),
+  'MyMaterialsLibrary.jsx must not render generated-content failure copy, even sanitized copy.',
 );
 
 assert.ok(
-  librarySource.includes("material.status === 'error'"),
-  'MyMaterialsLibrary.jsx should render a dedicated compact failed-upload state.',
+  !librarySource.includes('material.errorMessage'),
+  'MyMaterialsLibrary.jsx must not keep upload error text in user-facing material state.',
+);
+
+for (const forbidden of [
+  'Processing failed',
+  'Study Unavailable',
+  'No study content',
+  'Content not generated',
+  'Could not generate',
+  'Word Bank must include',
+]) {
+  assert.ok(
+    !librarySource.includes(forbidden),
+    `MyMaterialsLibrary.jsx must not render generated-content failure copy: ${forbidden}`,
+  );
+}
+
+assert.ok(
+  librarySource.includes('Open when ready'),
+  'MyMaterialsLibrary.jsx should use neutral unavailable copy for generated-content cards.',
 );
 
 assert.ok(

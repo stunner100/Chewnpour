@@ -244,12 +244,12 @@ export const useVoicePlayback = ({
     const formatRemotePlaybackError = useCallback((sourceError) => {
         const normalized = normalizeRemotePlaybackErrorMessage(sourceError);
         if (!normalized) {
-            return "AI voice generation failed.";
+            return "Voice is not ready yet.";
         }
         if (normalized === GENERIC_REMOTE_PLAYBACK_ERROR_MESSAGE) {
             return normalized;
         }
-        return `AI voice failed: ${normalized}`;
+        return "Voice is not ready yet.";
     }, []);
 
     const clearActiveAudio = useCallback(() => {
@@ -584,7 +584,7 @@ export const useVoicePlayback = ({
                 };
                 audio.onerror = () => {
                     if (playbackIdRef.current !== playbackId) return;
-                    setError("Voice playback failed. Please try again.");
+                    setError("Voice is not ready yet.");
                     setStatus("error");
                 };
 
@@ -770,7 +770,7 @@ export const useVoicePlayback = ({
                 if (import.meta.env.DEV) {
                     console.warn("[VoiceMode] Failed to resume AI voice playback", resumeError);
                 }
-                setError("Voice playback failed. Please try again.");
+                setError("Voice is not ready yet.");
                 setStatus("error");
             });
         return true;

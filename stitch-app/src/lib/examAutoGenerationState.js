@@ -1,9 +1,9 @@
 export const AUTO_GENERATION_TIMEOUT_MESSAGE =
-    "Question generation timed out. Tap Generate Questions to retry.";
+    "Questions are still preparing. Tap Generate Questions to retry.";
 export const AUTO_GENERATION_EXHAUSTED_MESSAGE =
-    "Question generation is taking too long. Tap Generate Questions to retry.";
+    "Questions are taking longer than expected. Tap Generate Questions to retry.";
 export const AUTO_GENERATION_ERROR_RETRY_MESSAGE =
-    "Failed to generate questions. Retrying automatically...";
+    "Questions are still preparing. Retrying automatically...";
 
 const toNonNegativeNumber = (value) => {
     const parsed = Number(value);

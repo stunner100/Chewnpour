@@ -39,12 +39,12 @@ requireExcludes(
 
 requireIncludes(
   'const terms = useMemo(() => getTopicTerms(topic), [topic]);',
-  'Word Bank-only topic term selection',
+  'lesson term selection',
 );
 requireIncludes('if (dbTerms.length >= 6) return dbTerms;', 'valid structured definition minimum before using stored deck');
 requireIncludes(
-  'Flashcards are built from generated topic Word Banks and definitions tied to your account.',
-  'Word Bank-only flashcard source copy',
+  'Flashcards are built from lesson terms and definitions tied to your account.',
+  'neutral flashcard source copy',
 );
 requireExcludes('const conceptsToTerms =', 'concept review fallback term builder');
 requireExcludes('conceptReviewTerms', 'concept review terms merged into the active deck');
@@ -83,14 +83,17 @@ requireIncludes(
 );
 requireIncludes(
   'const regenerateLessonContent = useAction(api.ai.regenerateLessonContent);',
-  'topic Word Bank regeneration action',
+  'topic deck preparation action',
 );
-requireIncludes('terms.length < 6', 'minimum valid Word Bank gate');
-requireIncludes('Word Bank needs regeneration', 'invalid Word Bank regeneration state');
+requireIncludes('terms.length < 6', 'minimum usable term-definition gate');
+requireIncludes('Deck is being prepared', 'neutral invalid deck state');
 requireIncludes('resumeFlashcardReady', 'latest flashcard entrypoint readiness gate');
-requireIncludes('This topic needs a valid Word Bank before it can become a study deck.', 'invalid latest topic flashcard entrypoint copy');
-requireIncludes('actionLabel="Regenerate Word Bank"', 'missing Word Bank regeneration CTA');
-requireIncludes('Regenerate Word Bank', 'existing deck regeneration CTA');
+requireIncludes('This deck is still being prepared from your lesson terms.', 'neutral latest topic flashcard entrypoint copy');
+requireIncludes('actionLabel="Prepare deck"', 'neutral deck preparation CTA');
+requireIncludes('Refresh deck', 'existing deck refresh CTA');
+requireExcludes('Word Bank needs regeneration', 'generated-content failure copy');
+requireExcludes('Regenerate Word Bank', 'generated-content regeneration copy');
+requireExcludes('This topic needs a valid Word Bank before it can become a study deck.', 'generated-content failure explanation');
 requireIncludes('onRegenerate={handleRegenerateTopic}', 'regenerate handler passed to the active deck');
 requireIncludes('onRegenerateResumeTopic={handleRegenerateResumeTopic}', 'regenerate handler passed to the latest topic card');
 requireIncludes('await regenerateLessonContent({', 'regenerate action invocation');

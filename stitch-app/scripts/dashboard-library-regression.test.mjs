@@ -18,12 +18,16 @@ for (const requiredPattern of [
   "api.courses.getUserCourses",
   "filteredMaterials",
   "material.courseId",
-  "const hasGeneratedContent = ready && material.courseId && material.topicCount > 0",
-  "No study content",
+  "const hasGeneratedContent = material.status === 'ready' && material.courseId && material.topicCount > 0",
+  "Open when ready",
 ]) {
   if (!libraryPageSource.includes(requiredPattern)) {
     throw new Error(`Expected MyMaterialsLibrary.jsx to include "${requiredPattern}" for real materials behavior.`);
   }
+}
+
+if (libraryPageSource.includes("No study content")) {
+  throw new Error("MyMaterialsLibrary.jsx should not expose no-content fallback copy on material cards.");
 }
 
 if (libraryPageSource.includes("const studyHref = material.courseId ? `/dashboard/lessons?courseId=${material.courseId}` : '/dashboard/upload';")) {

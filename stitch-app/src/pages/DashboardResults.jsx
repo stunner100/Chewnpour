@@ -350,7 +350,7 @@ const TutorReport = ({ attemptId, storedFeedback }) => {
             })
             .catch((err) => {
                 // #5 — log error instead of silently swallowing
-                console.error('[TutorReport] Failed to generate feedback:', err);
+                console.error('[TutorReport] Tutor feedback preparation did not complete:', err);
                 // Permanent failure (4xx-class) — clear guard so retry is possible on next mount
                 const isPermanent = err?.data?.code === 'INVALID_ARGUMENT' || err?.data?.code === 'NOT_FOUND';
                 if (isPermanent) feedbackInFlight.delete(attemptId);
@@ -398,7 +398,7 @@ const TutorReport = ({ attemptId, storedFeedback }) => {
                     <p className="text-body-sm text-text-sub-light dark:text-text-sub-dark leading-relaxed whitespace-pre-line break-words overflow-hidden">{feedback}</p>
                 )}
                 {!loading && !feedback && error && (
-                    <p className="text-body-sm text-accent-amber">Could not generate tutor feedback. Please try refreshing the page.</p>
+                    <p className="text-body-sm text-accent-amber">Tutor feedback is still getting ready. Please refresh the page.</p>
                 )}
                 {!loading && !feedback && !error && (
                     <p className="text-body-sm text-text-faint-light dark:text-text-faint-dark">Tutor feedback unavailable for this attempt.</p>

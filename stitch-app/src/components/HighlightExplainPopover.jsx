@@ -58,7 +58,7 @@ const HighlightExplainPopover = memo(function HighlightExplainPopover({
                 selectionText: selectedText,
                 loading: false,
                 explanation: '',
-                error: 'Failed to generate explanation. Please try again.',
+                error: 'Explanation is still getting ready. Please try again.',
                 activeStyle: style,
             });
         }

@@ -2,7 +2,6 @@ import React, { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useConvexAuth, useQuery } from 'convex/react';
 import { api } from '../../convex/_generated/api';
-import { getUserFacingUploadErrorMessage } from '../lib/uploadErrorMessages';
 
 const filterTabs = [
     { label: 'All Files', value: 'all' },
@@ -80,7 +79,6 @@ const MyMaterialsLibrary = () => {
                 status: upload.status,
                 processingProgress: upload.processingProgress || 0,
                 processingStep: upload.processingStep || '',
-                errorMessage: getUserFacingUploadErrorMessage(upload.errorMessage),
                 createdAt: upload._creationTime,
                 lessons: topicCount,
                 quizzes: quizzesReady,
@@ -146,8 +144,8 @@ const MyMaterialsLibrary = () => {
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-space-6">
                 {filteredMaterials.map((material) => {
                     const typeConfig = typeIcons[material.kind] || typeIcons.notes;
-                    const ready = material.status === 'ready';
-                    const hasGeneratedContent = ready && material.courseId && material.topicCount > 0;
+                    const isProcessing = material.status === 'processing';
+                    const hasGeneratedContent = material.status === 'ready' && material.courseId && material.topicCount > 0;
                     const studyHref = hasGeneratedContent ? `/dashboard/lessons?courseId=${material.courseId}` : '';
                     return (
                         <article
@@ -160,20 +158,20 @@ const MyMaterialsLibrary = () => {
                                 <div className={`w-9 h-9 rounded-lg ${typeConfig.color} flex items-center justify-center`}>
                                     <span className="material-symbols-outlined text-[20px]">{typeConfig.icon}</span>
                                 </div>
-                                {ready ? (
+                                {hasGeneratedContent ? (
                                     <span className="bg-success-soft text-success px-2.5 py-1 rounded-md font-label-xs text-label-xs font-semibold flex items-center gap-1">
                                         <span className="w-1.5 h-1.5 rounded-full bg-success" />
                                         Ready
                                     </span>
-                                ) : material.status === 'error' ? (
-                                    <span className="bg-error-soft text-error px-2.5 py-1 rounded-md font-label-xs text-label-xs font-semibold flex items-center gap-1">
-                                        <span className="material-symbols-outlined text-[14px]">error</span>
-                                        Error
-                                    </span>
-                                ) : (
+                                ) : isProcessing ? (
                                     <span className="bg-warning-soft text-warning px-2.5 py-1 rounded-md font-label-xs text-label-xs font-semibold flex items-center gap-1">
                                         <span className="material-symbols-outlined text-[14px] animate-spin">sync</span>
                                         Processing
+                                    </span>
+                                ) : (
+                                    <span className="bg-surface-soft text-text-muted px-2.5 py-1 rounded-md font-label-xs text-label-xs font-semibold flex items-center gap-1">
+                                        <span className="material-symbols-outlined text-[14px]">schedule</span>
+                                        Not ready
                                     </span>
                                 )}
                             </div>
@@ -201,7 +199,7 @@ const MyMaterialsLibrary = () => {
                                             <span className="material-symbols-outlined text-[16px]">arrow_forward</span>
                                         </Link>
                                     </>
-                                ) : ready ? (
+                                ) : (
                                     <>
                                         <div className="flex gap-3 mb-4 border-t border-border-subtle pt-3">
                                             <div className="flex flex-col">
@@ -214,46 +212,20 @@ const MyMaterialsLibrary = () => {
                                                 <span className="font-label-xs text-label-xs text-text-muted">Quizzes</span>
                                             </div>
                                         </div>
-                                        <span className="w-full bg-surface-soft text-text-muted border border-border-default py-2.5 rounded-lg font-label-sm text-label-sm flex items-center justify-center">
-                                            No study content
-                                        </span>
-                                    </>
-                                ) : material.status === 'error' ? (
-                                    <>
-                                        <div className="w-full bg-surface-muted rounded-full h-1.5 mb-5 mt-4">
-                                            <div
-                                                className="bg-warning h-1.5 rounded-full"
-                                                style={{ width: `${Math.max(8, material.processingProgress || 20)}%` }}
-                                            />
-                                        </div>
-                                        <div className="rounded-lg border border-warning/20 bg-warning-soft px-3 py-2.5 text-center mb-3">
-                                            <p className="font-label-sm text-label-sm text-warning">Processing failed</p>
-                                        </div>
+                                        {!hasGeneratedContent && (
+                                            <div className="w-full bg-surface-muted rounded-full h-1.5 mb-5">
+                                                <div
+                                                    className={`bg-warning h-1.5 rounded-full ${isProcessing ? 'animate-pulse' : ''}`}
+                                                    style={{ width: `${Math.max(8, material.processingProgress || 20)}%` }}
+                                                />
+                                            </div>
+                                        )}
                                         <button
                                             className="w-full bg-surface-soft text-text-muted border border-border-default py-2.5 rounded-lg font-label-sm text-label-sm cursor-not-allowed flex items-center justify-center"
                                             disabled
                                             type="button"
                                         >
-                                            Study Unavailable
-                                        </button>
-                                    </>
-                                ) : (
-                                    <>
-                                        <div className="w-full bg-surface-muted rounded-full h-1.5 mb-5 mt-4">
-                                            <div
-                                                className="bg-warning h-1.5 rounded-full animate-pulse"
-                                                style={{ width: `${Math.max(8, material.processingProgress || 20)}%` }}
-                                            />
-                                        </div>
-                                        <p className="font-label-xs text-label-xs text-warning text-center mb-5">
-                                            {material.processingStep || 'Preparing your study material...'}
-                                        </p>
-                                        <button
-                                            className="w-full bg-surface-soft text-text-muted border border-border-default py-2.5 rounded-lg font-label-md text-label-md cursor-not-allowed flex items-center justify-center"
-                                            disabled
-                                            type="button"
-                                        >
-                                            Study Unavailable
+                                            Open when ready
                                         </button>
                                     </>
                                 )}

@@ -139,7 +139,6 @@ const EmptyFlashcardState = ({
     actionTo = '/dashboard/upload',
     onAction,
     isActionLoading = false,
-    errorMessage,
 }) => (
     <section className="w-full rounded-2xl border border-border-subtle bg-surface p-space-8 text-center shadow-sm">
         <div className="mx-auto mb-space-4 flex h-12 w-12 items-center justify-center rounded-full bg-primary-soft text-primary">
@@ -149,7 +148,7 @@ const EmptyFlashcardState = ({
             {title}
         </h2>
         <p className="mx-auto mt-space-3 max-w-xl font-body-base text-body-base text-text-secondary">
-            {description || 'Flashcards are created from each topic Word Bank. Upload material or regenerate missing topic content to create a real term-definition deck.'}
+            {description || 'Flashcards are created from lesson key terms. Upload material or open a prepared lesson to start reviewing.'}
         </p>
         {onAction ? (
             <button
@@ -161,7 +160,7 @@ const EmptyFlashcardState = ({
                 <span className="material-symbols-outlined text-[20px]">
                     {isActionLoading ? 'progress_activity' : actionIcon}
                 </span>
-                {isActionLoading ? 'Regenerating…' : actionLabel}
+                {isActionLoading ? 'Preparing…' : actionLabel}
             </button>
         ) : (
             <Link
@@ -172,11 +171,6 @@ const EmptyFlashcardState = ({
                 {actionLabel}
             </Link>
         )}
-        {errorMessage && (
-            <p className="mx-auto mt-space-3 max-w-lg font-body-sm text-body-sm text-error" role="alert">
-                {errorMessage}
-            </p>
-        )}
     </section>
 );
 
@@ -185,29 +179,23 @@ const ResumeFlashcardsCard = ({
     isReady,
     onRegenerate,
     isRegenerating,
-    errorMessage,
 }) => {
     if (!resumeTarget?.topicId) return null;
 
     if (!isReady) {
         return (
-            <section className="rounded-2xl border border-warning/30 bg-warning-soft/70 p-space-6 shadow-sm">
+            <section className="rounded-2xl border border-border-subtle bg-surface p-space-6 shadow-sm">
                 <div className="flex flex-col gap-space-4 md:flex-row md:items-center md:justify-between">
                     <div>
-                        <p className="font-label-sm text-label-sm font-bold uppercase tracking-wider text-warning">
+                        <p className="font-label-sm text-label-sm font-bold uppercase tracking-wider text-text-muted">
                             Latest topic
                         </p>
                         <h2 className="mt-space-2 font-display-sm text-display-sm text-text-primary">
                             {resumeTarget.topicTitle || 'Your latest topic'}
                         </h2>
                         <p className="mt-space-2 max-w-2xl font-body-base text-body-base text-text-secondary">
-                            This topic needs a valid Word Bank before it can become a study deck.
+                            This deck is still being prepared from your lesson terms.
                         </p>
-                        {errorMessage && (
-                            <p className="mt-space-3 max-w-2xl font-body-sm text-body-sm text-error" role="alert">
-                                {errorMessage}
-                            </p>
-                        )}
                     </div>
                     <button
                         type="button"
@@ -218,7 +206,7 @@ const ResumeFlashcardsCard = ({
                         <span className="material-symbols-outlined text-[20px]">
                             {isRegenerating ? 'progress_activity' : 'refresh'}
                         </span>
-                        {isRegenerating ? 'Regenerating…' : 'Regenerate Word Bank'}
+                        {isRegenerating ? 'Preparing…' : 'Prepare deck'}
                     </button>
                 </div>
             </section>
@@ -309,7 +297,6 @@ const FlashcardStudyDeck = ({
     onCardReviewed,
     onRegenerate,
     isRegenerating,
-    regenerateError,
 }) => {
     const [index, setIndex] = useState(0);
     const [flipped, setFlipped] = useState(false);
@@ -384,13 +371,12 @@ const FlashcardStudyDeck = ({
     if (!current || terms.length < 6) {
         return (
             <EmptyFlashcardState
-                title="Word Bank needs regeneration"
-                description="This topic does not have enough valid term-definition entries yet. Regenerate the Word Bank so every flashcard has a real definition."
-                actionLabel="Regenerate Word Bank"
+                title="Deck is being prepared"
+                description="This deck is still being prepared from your lesson terms."
+                actionLabel="Prepare deck"
                 actionIcon="refresh"
                 onAction={onRegenerate}
                 isActionLoading={isRegenerating}
-                errorMessage={regenerateError}
             />
         );
     }
@@ -421,7 +407,7 @@ const FlashcardStudyDeck = ({
                         <span className="material-symbols-outlined text-[18px]">
                             {isRegenerating ? 'progress_activity' : 'refresh'}
                         </span>
-                        {isRegenerating ? 'Regenerating' : 'Regenerate Word Bank'}
+                        {isRegenerating ? 'Refreshing' : 'Refresh deck'}
                     </button>
                     <div className="flex items-center gap-3 bg-surface-soft px-4 py-2 rounded-full border border-border-subtle">
                         <div className="w-28 h-1.5 bg-border-subtle rounded-full overflow-hidden">
@@ -436,12 +422,6 @@ const FlashcardStudyDeck = ({
                     </div>
                 </div>
             </div>
-            {regenerateError && (
-                <div className="mx-space-4 mb-space-6 rounded-xl border border-error-soft bg-error-soft px-space-4 py-space-3 font-body-sm text-body-sm text-error">
-                    {regenerateError}
-                </div>
-            )}
-
             <div className="relative w-full max-w-3xl mx-auto mb-space-10">
                 <button
                     type="button"
@@ -554,7 +534,6 @@ const FlashcardsIndex = ({
     resumeFlashcardReady,
     onRegenerateResumeTopic,
     isRegenerating,
-    regenerateError,
     reviewItems,
     courseList,
 }) => (
@@ -567,7 +546,7 @@ const FlashcardsIndex = ({
                 Review terms from your lessons
             </h1>
             <p className="max-w-2xl font-body-base text-body-base text-text-secondary">
-                Flashcards are built from generated topic Word Banks and definitions tied to your account.
+                Flashcards are built from lesson terms and definitions tied to your account.
             </p>
         </div>
 
@@ -577,7 +556,6 @@ const FlashcardsIndex = ({
                 isReady={resumeFlashcardReady}
                 onRegenerate={onRegenerateResumeTopic}
                 isRegenerating={isRegenerating}
-                errorMessage={regenerateError}
             />
 
             {reviewItems.length > 0 && (
@@ -640,7 +618,6 @@ const FlashcardStudySession = () => {
     const recordConceptReview = useMutation(api.concepts.createConceptSessionAttempt);
     const regenerateLessonContent = useAction(api.ai.regenerateLessonContent);
     const [isRegenerating, setIsRegenerating] = useState(false);
-    const [regenerateError, setRegenerateError] = useState('');
 
     const handleTermsStarred = useCallback((starred) => {
         if (!activeTopicId) return;
@@ -658,7 +635,6 @@ const FlashcardStudySession = () => {
     const regenerateTopicById = useCallback(async (topicId) => {
         if (!topicId || isRegenerating) return;
         setIsRegenerating(true);
-        setRegenerateError('');
         try {
             await regenerateLessonContent({
                 topicId: String(topicId),
@@ -666,7 +642,7 @@ const FlashcardStudySession = () => {
                 maxTopics: 1,
             });
         } catch (error) {
-            setRegenerateError(error instanceof Error ? error.message : 'Could not regenerate this topic. Try again.');
+            console.warn('Flashcard deck preparation did not complete', error);
         } finally {
             setIsRegenerating(false);
         }
@@ -723,8 +699,8 @@ const FlashcardStudySession = () => {
                 {activeTopicId && topic === null ? (
                     <div className="w-full max-w-4xl">
                         <EmptyFlashcardState
-                            title="Study content unavailable"
-                            description="This source material did not pass processing quality checks, so ChewnPour will not show flashcards for it."
+                            title="Study deck not ready"
+                            description="This deck is still being prepared from your lesson terms."
                             actionLabel="Back to Materials"
                             actionIcon="folder"
                             actionTo="/dashboard/materials"
@@ -740,7 +716,6 @@ const FlashcardStudySession = () => {
                         onCardReviewed={handleCardReviewed}
                         onRegenerate={handleRegenerateTopic}
                         isRegenerating={isRegenerating}
-                        regenerateError={regenerateError}
                     />
                 ) : (
                     <FlashcardsIndex
@@ -748,7 +723,6 @@ const FlashcardStudySession = () => {
                         resumeFlashcardReady={resumeFlashcardReady}
                         onRegenerateResumeTopic={handleRegenerateResumeTopic}
                         isRegenerating={isRegenerating}
-                        regenerateError={regenerateError}
                         reviewItems={reviewItems}
                         courseList={courseList}
                     />

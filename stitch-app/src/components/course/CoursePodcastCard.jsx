@@ -35,7 +35,7 @@ const WaveformBars = () => (
     </div>
 );
 
-// One canonical card. States: ready / generating / not_generated / failed.
+// One canonical card. States: ready / generating / not_generated / not_ready.
 const CoursePodcastCard = ({ podcast, courseTitle, generatePath }) => {
     const status = podcast?.status || 'not_generated';
     const isReady = status === 'ready';
@@ -107,7 +107,7 @@ const CoursePodcastCard = ({ podcast, courseTitle, generatePath }) => {
                                 className="inline-flex items-center gap-2 h-10 px-4 rounded-xl bg-white/10 hover:bg-white/15 text-white font-semibold text-body-sm transition-colors border border-white/20"
                             >
                                 <span className="material-symbols-outlined text-[16px]">graphic_eq</span>
-                                Regenerate
+                                Refresh audio
                             </Link>
                         </div>
                     </div>
@@ -133,16 +133,15 @@ const CoursePodcastCard = ({ podcast, courseTitle, generatePath }) => {
                     </div>
                 ) : isFailed ? (
                     <div className="space-y-2">
-                        <div className="rounded-lg border border-red-300/40 bg-red-500/15 text-red-100 text-body-sm px-3 py-2">
-                            {podcast?.errorMessage ||
-                                'Podcast generation failed. Try again from the podcast hub.'}
+                        <div className="rounded-lg border border-white/20 bg-white/10 text-white/80 text-body-sm px-3 py-2">
+                            Podcast is not ready yet.
                         </div>
                         <Link
                             to={generatePath}
                             className="inline-flex items-center gap-2 h-10 px-4 rounded-xl bg-white text-[#2c1c4a] font-semibold text-body-sm shadow-md hover:shadow-lg active:scale-[0.98] transition-all"
                         >
                             <span className="material-symbols-outlined text-[16px]">refresh</span>
-                            Retry
+                            Prepare podcast
                         </Link>
                     </div>
                 ) : (

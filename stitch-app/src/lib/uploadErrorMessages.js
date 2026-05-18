@@ -1,5 +1,5 @@
 export const STUDY_MATERIAL_PROCESSING_ERROR_MESSAGE =
-    "We couldn't finish turning this upload into study material. Try uploading a clearer source file.";
+    'This study material is not ready yet.';
 
 const INTERNAL_STUDY_MATERIAL_ERROR_PATTERNS = [
     /could not generate a valid word bank/i,

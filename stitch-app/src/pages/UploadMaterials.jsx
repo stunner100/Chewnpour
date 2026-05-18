@@ -101,9 +101,9 @@ const getStatusConfig = (status) => {
     }
     if (normalized === 'error') {
         return {
-            label: 'Failed',
-            icon: 'error',
-            className: 'bg-error-soft text-error',
+            label: 'Not ready',
+            icon: 'schedule',
+            className: 'bg-surface-soft text-text-muted',
             isProcessing: false,
         };
     }

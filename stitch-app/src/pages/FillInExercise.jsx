@@ -274,7 +274,7 @@ const FillInExercise = () => {
             previousQuestionsRef.current = qs;
             dispatchFillIn({ type: 'loadSucceeded', questions: qs, startedAt: Date.now() });
         } catch (error) {
-            console.error('Fill-in generation failed:', error);
+            console.error('Fill-in preparation did not complete:', error);
             // If we have previous questions, recycle them in shuffled order
             if (fallbackQuestions && fallbackQuestions.length > 0) {
                 const shuffled = shuffleQuestions(fallbackQuestions);
@@ -290,8 +290,8 @@ const FillInExercise = () => {
                     questions: null,
                     startedAt: null,
                     loadError: String(error?.message || '').includes('INSUFFICIENT_EVIDENCE')
-                        ? 'Not enough content to generate fill-ins. Try a topic with more material.'
-                        : 'Failed to generate fill-in exercises. Please try again.',
+                        ? 'Fill-ins are still getting ready. Try a topic with more material.'
+                        : 'Fill-ins are still getting ready. Please try again.',
                 });
             }
         }
